@@ -1,0 +1,190 @@
+/**
+ * routes/index.tsx
+ * Central route configuration
+ * All application routes are defined here
+ */
+
+import { ComponentType, ReactNode } from "react";
+import Dashboard from "../Screens/Dashboard";
+import Clients from "../Screens/Clients";
+import Dossiers from "../Screens/Dossiers";
+import Tasks from "../Screens/Tasks";
+import Cases from "../Screens/Cases";
+import Sessions from "../Screens/Sessions";
+import Courses from "../Screens/Courses";
+import Officers from "../Screens/Officers";
+import Accounting from "../Screens/Accounting";
+import ChatBot from "../Screens/ChatBot";
+import Profile from "../Screens/Profile";
+import Settings from "../Screens/Settings";
+import NotFound from "../Screens/NotFound";
+import Login from "../Screens/Auth/Login";
+import SignUp from "../Screens/Auth/SignUp";
+import ForgotPassword from "../Screens/Auth/ForgetPassword";
+import Notifications from "../Screens/Notifications";
+import DetailView from "../components/DetailView/DetailView";
+
+/**
+ * Route configuration type
+ */
+export interface RouteConfig {
+  path: string;
+  component: ComponentType<any> | (() => ReactNode);
+  name: string;
+  icon: string;
+  label?: string;
+}
+
+/**
+ * Route configuration array
+ * Each route contains: path, component, name, icon
+ */
+export const routes: RouteConfig[] = [
+  {
+    path: "/dashboard",
+    component: Dashboard,
+    name: "Dashboard",
+    icon: "fas fa-th-large",
+    label: "Dashboard",
+  },
+  {
+    path: "/clients",
+    component: Clients,
+    name: "Clients",
+    icon: "fas fa-users",
+    label: "Clients",
+  },
+  {
+    path: "/clients/:id",
+    component: () => <DetailView entityType="client" />,
+    name: "ClientDetail",
+    icon: "fas fa-user",
+    label: "Détails Client",
+  },
+  {
+    path: "/dossiers",
+    component: Dossiers,
+    name: "Dossiers",
+    icon: "fas fa-folder-open",
+    label: "Dossiers",
+  },
+  {
+    path: "/dossiers/:id",
+    component: () => <DetailView entityType="dossier" />,
+    name: "DossierDetail",
+    icon: "fas fa-folder",
+    label: "Détails Dossier",
+  },
+  {
+    path: "/tasks",
+    component: Tasks,
+    name: "Tasks",
+    icon: "fas fa-tasks",
+    label: "Tâches",
+  },
+  {
+    path: "/cases",
+    component: Cases,
+    name: "Cases",
+    icon: "fas fa-gavel",
+    label: "Procès",
+  },
+  {
+    path: "/sessions",
+    component: Sessions,
+    name: "Sessions",
+    icon: "fas fa-calendar",
+    label: "Séances Juridiques",
+  },
+  {
+    path: "/courses",
+    component: Courses,
+    name: "Courses",
+    icon: "fas fa-graduation-cap",
+    label: "Formations",
+  },
+  {
+    path: "/officers",
+    component: Officers,
+    name: "Officers",
+    icon: "fas fa-user-tie",
+    label: "Huissier",
+  },
+  {
+    path: "/accounting",
+    component: Accounting,
+    name: "Accounting",
+    icon: "fas fa-calculator",
+    label: "Comptabilité",
+  },
+  {
+    path: "/chatbot",
+    component: ChatBot,
+    name: "ChatBot",
+    icon: "fas fa-robot",
+    label: "ChatBot",
+  },
+  {
+    path: "/profile",
+    component: Profile,
+    name: "Profile",
+    icon: "fas fa-user",
+    label: "Profile",
+  },
+  {
+    path: "/settings",
+    component: Settings,
+    name: "Settings",
+    icon: "fas fa-cog",
+    label: "Settings",
+  },
+  {
+    path: "/login",
+    component: Login,
+    name: "Login",
+    icon: "fas fa-sign-in-alt",
+  },
+  {
+    path: "/signup",
+    component: SignUp,
+    name: "SignUp",
+    icon: "fas fa-user-plus",
+  },
+  {
+    path: "/forgot-password",
+    component: ForgotPassword,
+    name: "ForgotPassword",
+    icon: "fas fa-unlock-alt",
+  },
+  {
+    path: "/notifications",
+    component: Notifications,
+    name: "Notifications",
+    icon: "fas fa-bell",
+  },
+  {
+    path: "*",
+    component: NotFound,
+    name: "NotFound",
+    icon: "fas fa-exclamation-triangle",
+  },
+];
+
+/**
+ * Get route by path
+ */
+export const getRouteByPath = (path: string): RouteConfig | undefined => {
+  return routes.find((route) => route.path === path);
+};
+
+/**
+ * Get all route paths
+ */
+export const getRoutePaths = (): string[] => {
+  return routes.map((route) => route.path);
+};
+
+/**
+ * Default redirect route
+ */
+export const DEFAULT_ROUTE = "/dashboard";

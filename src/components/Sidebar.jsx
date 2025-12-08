@@ -39,7 +39,7 @@ export default function Sidebar() {
           <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-slate-100 dark:bg-slate-700">
             <i className="fas fa-scale-balanced"></i>
           </div>
-          {!isCollapsed && <span className="font-semibold text-lg">LawFirm</span>}
+          {!isCollapsed && <span className="font-semibold text-lg">Organia</span>}
         </div>
       </div>
 
@@ -93,7 +93,7 @@ export default function Sidebar() {
         </div>
 
         <p className={`px-4 py-3 text-xs text-slate-400 dark:text-slate-500 ${isCollapsed ? "text-center" : ""}`}>
-          © 2025 LawFirm
+          © 2025 Organia
         </p>
       </div>
     </aside>

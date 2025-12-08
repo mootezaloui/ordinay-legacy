@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from "react";
+import { useTheme } from "../contexts/ThemeProvider";
 import NotificationDropDown from "./notifications/notificationdropdown";
+import GlobalSearch from "./Search/GlobalSearch";
 import { Link } from "react-router-dom";
 import { useSidebar } from "../contexts/SidebarContext";
 
@@ -7,6 +9,7 @@ export default function HeaderBar() {
   const [isDropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef();
   const { isCollapsed } = useSidebar();
+  const { theme, toggleTheme } = useTheme();
 
   const toggleDropdown = () => setDropdownOpen(!isDropdownOpen);
 
@@ -22,7 +25,9 @@ export default function HeaderBar() {
   }, []);
 
   return (
-    <header className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-lg w-full transition-all duration-300 sticky top-0 z-30 border-b border-slate-200 dark:border-slate-800">
+    // ⭐ FIXED: Header now changes color based on theme
+    // Light mode: bg-white | Dark mode: bg-slate-900
+    <header className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-lg w-full transition-all duration-300 sticky top-0 z-30 border-b border-slate-200 dark:border-slate-700">
       <div className="w-full px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 gap-4">
           {/* Logo - Hidden when sidebar is expanded, visible when collapsed */}
@@ -37,31 +42,53 @@ export default function HeaderBar() {
             </Link>
           </div>
 
-          {/* Search */}
-          <div className="flex-1 max-w-2xl mx-4 hidden md:block relative">
-            <input
-              type="text"
-              placeholder="Search..."
-              className="w-full pl-10 pr-4 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 border border-slate-300 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
-            />
-            <span className="absolute left-3 top-2.5 text-slate-500 dark:text-slate-400">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1111.293 3.707l4 4a1 1 0 01-1.414 1.414l-4-4A6 6 0 012 8z"
-                  clipRule="evenodd"
-                />
-              </svg>
-            </span>
+          {/* Global Search */}
+          <div className="flex-1 max-w-2xl mx-4 hidden md:block">
+            <GlobalSearch />
           </div>
 
           {/* Icons & Profile */}
           <div className="flex items-center gap-4 ml-auto">
+            {/* Dark Mode Toggle */}
+            <button
+              onClick={toggleTheme}
+              className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
+              title={theme === "dark" ? "Mode clair" : "Mode sombre"}
+            >
+              {theme === "dark" ? (
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-6 w-6 text-amber-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"
+                  />
+                </svg>
+              ) : (
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-6 w-6 text-slate-600"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"
+                  />
+                </svg>
+              )}
+            </button>
+
+            {/* Notification Dropdown */}
             <NotificationDropDown />
 
             <div ref={dropdownRef} className="relative flex items-center gap-2">
@@ -103,10 +130,10 @@ export default function HeaderBar() {
 
               {isDropdownOpen && (
                 <div className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-slate-800 rounded-lg shadow-xl py-2 border border-slate-200 dark:border-slate-700 z-50">
-                  <Link to="#" className="block px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700">
+                  <Link to="/settings" className="block px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700">
                     Settings
                   </Link>
-                  <Link to="#" className="block px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700">
+                  <Link to="/login" className="block px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700">
                     Logout
                   </Link>
                 </div>

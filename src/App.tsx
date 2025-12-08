@@ -1,8 +1,7 @@
-import React from "react";
-import Dashboard from "./screens/Dashboard";
+import AppRouter from "./routes/AppRouter";
 
 function App() {
-  return <Dashboard />;
+  return <AppRouter />;
 }
 
 export default App;
