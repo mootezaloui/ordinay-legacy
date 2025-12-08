@@ -1,73 +1,151 @@
-# React + TypeScript + Vite
+# Organia — Case & Workflow Management SaaS
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Organia is a modern, Tunisian-born SaaS platform designed to help professionals manage cases, clients, tasks, documents, financial tracking, and daily operations — all in one clean and intuitive dashboard.  
+Built with a scalable architecture, Organia can adapt beyond legal workflows to any business needing structured management.
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## 🚀 Features
 
-## React Compiler
+### 🌙 Full Dark Mode  
+Global dark/light theme system powered by Tailwind + Context Providers.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### 📁 Modular Sidebar Navigation  
+Fully collapsible, responsive sidebar with FontAwesome icons:
+- Dashboard  
+- Clients  
+- Dossiers  
+- Tasks  
+- Cases  
+- Sessions  
+- Courses  
+- Officers  
+- Accounting  
+- ChatBot  
 
-## Expanding the ESLint configuration
+### 📄 Individual Screens  
+Each module has its own screen located in:  
+`src/Screens/...`
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### 📊 Reusable Table Components  
+Reusable table system under:  
+`src/components/table/`
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+Includes:
+- Table  
+- TableHeader  
+- TableRow  
+- TableCell  
+- TableBody  
+- Pagination  
+- TableActions  
+- EmptyState  
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+This ensures consistent UI/UX across all screens.
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+### 🧩 Shared UI Components  
+Using ShadCN UI + custom extensions:
+- Cards  
+- Inputs  
+- Buttons  
+- Dialogs  
+- Dropdowns  
+- Sheets  
+
+### 🔔 Notification System  
+Minimal and extendable notification dropdown integrated in the header.
+
+---
+
+## 🏛️ Project Structure
+
+```
+src/
+ ├─ Screens/           → All page screens  
+ ├─ components/
+ │   ├─ layout/        → Page header + layout wrappers  
+ │   ├─ table/         → Reusable table components  
+ │   ├─ ui/            → ShadCN-based UI components  
+ │   ├─ Sidebar.jsx  
+ │   ├─ Header.jsx  
+ ├─ contexts/
+ │   ├─ ThemeProvider.jsx  
+ │   ├─ SidebarContext.jsx  
+ ├─ utils/
+ │   └─ mockData.js  
+ ├─ App.tsx  
+ ├─ main.tsx  
+ └─ index.css          → Tailwind setup + theme variables  
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+---
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## 🛠️ Tech Stack
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+- **React + TypeScript**  
+- **Vite**  
+- **TailwindCSS**  
+- **ShadCN UI**  
+- **PostCSS**  
+- **React Router**  
+- **FontAwesome**  
+
+---
+
+## 🌐 Setup & Installation
+
+### 1. Clone the repository
+```bash
+git clone https://github.com/mootez/lawyer-app.git
+cd lawyer-app
 ```
+
+### 2. Install dependencies
+```bash
+npm install
+```
+
+### 3. Run development server
+```bash
+npm run dev
+```
+
+---
+
+## 📦 Build for Production
+
+```bash
+npm run build
+```
+
+---
+
+## 🎯 Vision
+
+Organia aims to become the go-to management workspace for professionals in Tunisia and across the region.  
+A unified dashboard that handles:
+- Client records  
+- Document & dossier management  
+- Legal cases & sessions  
+- Tasks & workflows  
+- Accountability & financial tracking  
+
+Fast, organized, and beautifully designed.
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome!  
+Organia’s modular architecture makes it easy to add:
+- New screens  
+- New components  
+- Additional business modules  
+
+Open a pull request with your contribution.
+
+---
+
+## 📄 License
+
+MIT License
