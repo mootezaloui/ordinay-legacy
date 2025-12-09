@@ -40,9 +40,9 @@ export const menuItems = [
     route: "/sessions",
   },
   {
-    icon: "fas fa-graduation-cap",
-    label: "Formations",
-    route: "/courses",
+    icon: "fas fa-sticky-note",
+    label: "Tâches Personnelles",
+    route: "/personal-tasks",
   },
   {
     icon: "fas fa-user-tie",
@@ -59,7 +59,6 @@ export const menuItems = [
     label: "ChatBot",
     route: "/chatbot",
   },
-  
 ];
 
 /**

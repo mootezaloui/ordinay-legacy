@@ -11,7 +11,7 @@ import Dossiers from "../Screens/Dossiers";
 import Tasks from "../Screens/Tasks";
 import Cases from "../Screens/Cases";
 import Sessions from "../Screens/Sessions";
-import Courses from "../Screens/Courses";
+import PersonalTasks from "../Screens/PersonalTasks";
 import Officers from "../Screens/Officers";
 import Accounting from "../Screens/Accounting";
 import ChatBot from "../Screens/ChatBot";
@@ -21,7 +21,8 @@ import NotFound from "../Screens/NotFound";
 import Login from "../Screens/Auth/Login";
 import SignUp from "../Screens/Auth/SignUp";
 import ForgotPassword from "../Screens/Auth/ForgetPassword";
-import Notifications from "../Screens/Notifications";
+// UPDATED: Import NotificationCenter instead of Notifications
+import NotificationCenter from "../components/notifications/NotificationCenter";
 import DetailView from "../components/DetailView/DetailView";
 
 /**
@@ -83,11 +84,39 @@ export const routes: RouteConfig[] = [
     label: "Tâches",
   },
   {
+    path: "/tasks/:id",
+    component: () => <DetailView entityType="task" />,
+    name: "TaskDetail",
+    icon: "fas fa-tasks",
+    label: "Détails Tâche",
+  },
+  {
+    path: "/personal-tasks",
+    component: PersonalTasks,
+    name: "PersonalTasks",
+    icon: "fas fa-sticky-note",
+    label: "Tâches Personnelles",
+  },
+  {
+    path: "/personal-tasks/:id",
+    component: () => <DetailView entityType="personalTask" />,
+    name: "PersonalTaskDetail",
+    icon: "fas fa-sticky-note",
+    label: "Détails Tâche Personnelle",
+  },
+  {
     path: "/cases",
     component: Cases,
     name: "Cases",
     icon: "fas fa-gavel",
     label: "Procès",
+  },
+  {
+    path: "/cases/:id",
+    component: () => <DetailView entityType="case" />,
+    name: "CaseDetail",
+    icon: "fas fa-gavel",
+    label: "Détails Procès",
   },
   {
     path: "/sessions",
@@ -97,12 +126,13 @@ export const routes: RouteConfig[] = [
     label: "Séances Juridiques",
   },
   {
-    path: "/courses",
-    component: Courses,
-    name: "Courses",
-    icon: "fas fa-graduation-cap",
-    label: "Formations",
+    path: "/sessions/:id",
+    component: () => <DetailView entityType="session" />,
+    name: "SessionDetail",
+    icon: "fas fa-calendar",
+    label: "Détails Séance",
   },
+
   {
     path: "/officers",
     component: Officers,
@@ -111,11 +141,25 @@ export const routes: RouteConfig[] = [
     label: "Huissier",
   },
   {
+    path: "/officers/:id",
+    component: () => <DetailView entityType="officer" />,
+    name: "OfficerDetail",
+    icon: "fas fa-user-tie",
+    label: "Détails Huissier",
+  },
+  {
     path: "/accounting",
     component: Accounting,
     name: "Accounting",
     icon: "fas fa-calculator",
     label: "Comptabilité",
+  },
+  {
+    path: "/invoices/:id",
+    component: () => <DetailView entityType="invoice" />,
+    name: "InvoiceDetail",
+    icon: "fas fa-file-invoice-dollar",
+    label: "Détails Facture",
   },
   {
     path: "/chatbot",
@@ -156,12 +200,15 @@ export const routes: RouteConfig[] = [
     name: "ForgotPassword",
     icon: "fas fa-unlock-alt",
   },
+  // UPDATED: Use NotificationCenter component
   {
     path: "/notifications",
-    component: Notifications,
+    component: NotificationCenter,
     name: "Notifications",
     icon: "fas fa-bell",
+    label: "Centre de Notifications",
   },
+
   {
     path: "*",
     component: NotFound,

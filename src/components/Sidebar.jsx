@@ -13,7 +13,7 @@ export default function Sidebar() {
     { icon: "fas fa-tasks", label: "Tâches", route: "/tasks" },
     { icon: "fas fa-gavel", label: "Procès", route: "/cases" },
     { icon: "fas fa-calendar", label: "Séances Juridiques", route: "/sessions" },
-    { icon: "fas fa-graduation-cap", label: "Formations", route: "/courses" },
+    { icon: "fas fa-sticky-note", label: "Corvées", route: "/personal-tasks" },
     { icon: "fas fa-user-tie", label: "Huissier", route: "/officers" },
     { icon: "fas fa-calculator", label: "Comptabilité", route: "/accounting" },
     { icon: "fas fa-robot", label: "ChatBot", route: "/chatbot" },
@@ -21,9 +21,8 @@ export default function Sidebar() {
 
   return (
     <aside
-      className={`fixed left-0 top-0 h-screen flex flex-col justify-between transition-all duration-300 border-r z-40 ${
-        isCollapsed ? "w-20" : "w-64"
-      } bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 border-slate-200 dark:border-slate-800`}
+      className={`fixed left-0 top-0 h-screen flex flex-col justify-between transition-all duration-300 border-r z-40 ${isCollapsed ? "w-20" : "w-64"
+        } bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 border-slate-200 dark:border-slate-800`}
     >
       {/* Toggle */}
       <button
@@ -50,9 +49,8 @@ export default function Sidebar() {
             <li key={index}>
               <Link
                 to={item.route}
-                className={`flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800 ${
-                  isCollapsed ? "justify-center" : "justify-start"
-                }`}
+                className={`flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800 ${isCollapsed ? "justify-center" : "justify-start"
+                  }`}
               >
                 <span className="flex-shrink-0">
                   <i className={item.icon}></i>
@@ -69,9 +67,8 @@ export default function Sidebar() {
         <div className="p-4 space-y-3">
           <button
             onClick={toggleTheme}
-            className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800 ${
-              isCollapsed ? "justify-center" : "justify-start"
-            }`}
+            className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800 ${isCollapsed ? "justify-center" : "justify-start"
+              }`}
           >
             <span className="flex-shrink-0">
               <i className={isDark ? "fas fa-sun" : "fas fa-moon"}></i>
@@ -81,9 +78,8 @@ export default function Sidebar() {
 
           <button
             onClick={() => console.log("Logout clicked")}
-            className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800 ${
-              isCollapsed ? "justify-center" : "justify-start"
-            }`}
+            className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800 ${isCollapsed ? "justify-center" : "justify-start"
+              }`}
           >
             <span className="flex-shrink-0">
               <i className="fas fa-sign-out-alt text-red-500"></i>

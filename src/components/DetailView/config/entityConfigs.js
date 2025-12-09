@@ -1,5 +1,11 @@
 import { clientConfig } from "./clientConfig.jsx";
 import { dossierConfig } from "./dossierConfig.jsx";
+import { taskConfig } from "./taskConfig.jsx";
+import { sessionConfig } from "./sessionConfig.jsx";
+import { caseConfig } from "./caseConfig.jsx";
+import { officerConfig } from "./officerConfig.jsx";
+import { invoiceConfig } from "./invoiceConfig.jsx";
+import { personalTaskConfig } from "./personalTaskConfig.jsx";
 
 /**
  * Central registry for all entity configurations
@@ -8,11 +14,12 @@ import { dossierConfig } from "./dossierConfig.jsx";
 const entityConfigs = {
   client: clientConfig,
   dossier: dossierConfig,
-  // Add more as needed:
-  // task: taskConfig,
-  // session: sessionConfig,
-  // case: caseConfig,
-  // officer: officerConfig,
+  task: taskConfig,
+  session: sessionConfig,
+  case: caseConfig,
+  officer: officerConfig,
+  invoice: invoiceConfig,
+  personalTask: personalTaskConfig,
 };
 
 /**
@@ -22,11 +29,11 @@ const entityConfigs = {
  */
 export function getEntityConfig(entityType) {
   const config = entityConfigs[entityType];
-  
+
   if (!config) {
     throw new Error(`No configuration found for entity type: ${entityType}`);
   }
-  
+
   return config;
 }
 

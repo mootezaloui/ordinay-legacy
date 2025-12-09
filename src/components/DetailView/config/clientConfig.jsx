@@ -1,10 +1,12 @@
 import { Link } from "react-router-dom";
 import ContentSection from "../../layout/ContentSection";
 import { mockClientsExtended, getStatusColor } from "../../../utils/mockData";
+// ⭐ Import existing form configs
+import { dossierFormFields } from "../../FormModal/formConfigs";
 
 /**
  * Client Entity Configuration
- * Defines how to display and interact with client data
+ * Uses existing FormModal and formConfigs - NO DUPLICATION!
  */
 export const clientConfig = {
   // Basic info
@@ -21,19 +23,17 @@ export const clientConfig = {
   allowDelete: true,
   allowEdit: true,
   
-  // Data fetching (replace with real API calls)
+  // Data fetching
   fetchData: async (id) => {
-    // TODO: Replace with actual API call
     return mockClientsExtended[id] || null;
   },
   
   updateData: async (id, data) => {
-    // TODO: Replace with actual API call
     console.log("Updating client:", id, data);
+    await new Promise(resolve => setTimeout(resolve, 500));
   },
   
   deleteData: async (id) => {
-    // TODO: Replace with actual API call
     console.log("Deleting client:", id);
   },
   
@@ -135,7 +135,8 @@ export const clientConfig = {
       icon: "fas fa-folder-open",
       component: "relatedItems",
       getCount: (data) => data.relatedDossiers?.length || 0,
-      // Configuration for related items
+      
+      // Related items configuration
       itemsKey: "relatedDossiers",
       itemRoute: "/dossiers",
       emptyMessage: "Aucun dossier associé",
@@ -144,6 +145,13 @@ export const clientConfig = {
         subtitle: item.title,
         status: item.status,
       }),
+      
+      // ⭐ ADD functionality - Uses existing dossierFormFields!
+      allowAdd: true,
+      allowDelete: true,
+      entityName: "un dossier",
+      addSubtitle: "Créer un nouveau dossier pour ce client",
+      formFields: dossierFormFields.filter(field => field.name !== 'clientId'), // Remove client selector since we're in client context
     },
     {
       id: "documents",
@@ -158,6 +166,7 @@ export const clientConfig = {
       icon: "fas fa-file-invoice",
       component: "relatedItems",
       getCount: (data) => data.invoices?.length || 0,
+      
       itemsKey: "invoices",
       emptyMessage: "Aucune facture",
       renderItem: (item) => ({
@@ -166,6 +175,58 @@ export const clientConfig = {
         status: item.status,
         extra: item.amount,
       }),
+      
+      // ⭐ Invoice form - defined inline (simple form)
+      allowAdd: true,
+      allowDelete: true,
+      entityName: "une facture",
+      formFields: [
+        {
+          name: "number",
+          label: "Numéro de facture",
+          type: "text",
+          required: true,
+          placeholder: "FAC-2024-XXX"
+        },
+        {
+          name: "amount",
+          label: "Montant",
+          type: "text",
+          required: true,
+          placeholder: "Ex: 1500 TND"
+        },
+        {
+          name: "date",
+          label: "Date",
+          type: "date",
+          required: true,
+        },
+        {
+          name: "dueDate",
+          label: "Date d'échéance",
+          type: "date",
+          required: true,
+        },
+        {
+          name: "status",
+          label: "Statut",
+          type: "select",
+          required: true,
+          defaultValue: "En attente",
+          options: [
+            { value: "Payée", label: "Payée" },
+            { value: "En attente", label: "En attente" },
+            { value: "En retard", label: "En retard" },
+          ]
+        },
+        {
+          name: "description",
+          label: "Description",
+          type: "textarea",
+          rows: 2,
+          placeholder: "Détails de la facture..."
+        },
+      ],
     },
     {
       id: "timeline",
@@ -180,18 +241,119 @@ export const clientConfig = {
     {
       title: "Informations Personnelles",
       fields: [
-        { label: "CIN", value: (data) => data.cin, icon: "fas fa-id-card" },
-        { label: "Date de naissance", value: (data) => data.dateOfBirth, icon: "fas fa-birthday-cake" },
-        { label: "Profession", value: (data) => data.profession, icon: "fas fa-briefcase" },
-        { label: "Entreprise", value: (data) => data.company, icon: "fas fa-building" },
-        { label: "Matricule Fiscal", value: (data) => data.taxId, icon: "fas fa-file-alt" },
-        { label: "Téléphone alternatif", value: (data) => data.alternatePhone, icon: "fas fa-phone-alt" },
+        { 
+          key: "cin",
+          label: "CIN", 
+          value: (data) => data.cin, 
+          icon: "fas fa-id-card",
+          type: "text",
+          editable: true
+        },
+        { 
+          key: "dateOfBirth",
+          label: "Date de naissance", 
+          value: (data) => data.dateOfBirth, 
+          icon: "fas fa-birthday-cake",
+          type: "date",
+          editable: true
+        },
+        { 
+          key: "profession",
+          label: "Profession", 
+          value: (data) => data.profession, 
+          icon: "fas fa-briefcase",
+          type: "text",
+          editable: true
+        },
+        { 
+          key: "company",
+          label: "Entreprise", 
+          value: (data) => data.company, 
+          icon: "fas fa-building",
+          type: "text",
+          editable: true
+        },
+        { 
+          key: "taxId",
+          label: "Matricule Fiscal", 
+          value: (data) => data.taxId, 
+          icon: "fas fa-file-alt",
+          type: "text",
+          editable: true
+        },
+        { 
+          key: "alternatePhone",
+          label: "Téléphone alternatif", 
+          value: (data) => data.alternatePhone, 
+          icon: "fas fa-phone-alt",
+          type: "tel",
+          editable: true
+        },
+      ],
+    },
+    {
+      title: "Coordonnées",
+      fields: [
+        {
+          key: "email",
+          label: "Email",
+          value: (data) => data.email,
+          icon: "fas fa-envelope",
+          type: "email",
+          editable: true,
+          required: true
+        },
+        {
+          key: "phone",
+          label: "Téléphone",
+          value: (data) => data.phone,
+          icon: "fas fa-phone",
+          type: "tel",
+          editable: true,
+          required: true
+        },
+        {
+          key: "address",
+          label: "Adresse",
+          value: (data) => data.address,
+          icon: "fas fa-map-marker-alt",
+          type: "textarea",
+          editable: true,
+          rows: 2
+        },
+      ],
+    },
+    {
+      title: "Statut",
+      fields: [
+        {
+          key: "status",
+          label: "Statut du client",
+          value: (data) => data.status,
+          icon: "fas fa-flag",
+          type: "select",
+          editable: true,
+          options: [
+            { value: "Active", label: "Actif" },
+            { value: "Inactive", label: "Inactif" },
+            { value: "Prospect", label: "Prospect" },
+          ]
+        },
+        {
+          key: "joinDate",
+          label: "Date d'inscription",
+          value: (data) => data.joinDate,
+          icon: "fas fa-calendar",
+          type: "date",
+          editable: true
+        },
       ],
     },
     {
       title: "Notes",
       type: "notes",
-      content: (data) => data.notes,
+      fieldKey: "notes",
+      content: (data) => data.notes || "Aucune note",
     },
   ],
 };

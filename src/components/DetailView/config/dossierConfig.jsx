@@ -1,10 +1,12 @@
 import { Link } from "react-router-dom";
 import ContentSection from "../../layout/ContentSection";
 import { mockDossiersExtended, getStatusColor } from "../../../utils/mockData";
+// ⭐ Import existing form configs
+import { taskFormFields } from "../../FormModal/formConfigs";
 
 /**
  * Dossier Entity Configuration
- * Defines how to display and interact with dossier data
+ * Uses existing FormModal and formConfigs - NO DUPLICATION!
  */
 export const dossierConfig = {
   // Basic info
@@ -21,7 +23,7 @@ export const dossierConfig = {
   allowDelete: true,
   allowEdit: true,
   
-  // Data fetching (replace with real API calls)
+  // Data fetching
   fetchData: async (id) => {
     return mockDossiersExtended[id] || null;
   },
@@ -136,6 +138,7 @@ export const dossierConfig = {
       icon: "fas fa-tasks",
       component: "relatedItems",
       getCount: (data) => data.tasks?.length || 0,
+      
       itemsKey: "tasks",
       emptyMessage: "Aucune tâche",
       renderItem: (item) => ({
@@ -143,6 +146,13 @@ export const dossierConfig = {
         subtitle: `Échéance: ${item.dueDate} | Assigné à: ${item.assignee}`,
         status: item.status,
       }),
+      
+      // ⭐ ADD functionality - Uses existing taskFormFields!
+      allowAdd: true,
+      allowDelete: true,
+      entityName: "une tâche",
+      addSubtitle: "Créer une nouvelle tâche pour ce dossier",
+      formFields: taskFormFields.filter(field => field.name !== 'dossierId'), // Remove dossier selector since we're in dossier context
     },
     {
       id: "proceedings",
@@ -150,6 +160,7 @@ export const dossierConfig = {
       icon: "fas fa-gavel",
       component: "relatedItems",
       getCount: (data) => data.proceedings?.length || 0,
+      
       itemsKey: "proceedings",
       emptyMessage: "Aucune procédure",
       renderItem: (item) => ({
@@ -157,6 +168,74 @@ export const dossierConfig = {
         subtitle: `${item.title} - Prochaine audience: ${item.nextHearing}`,
         status: item.status,
       }),
+      
+      // ⭐ Procedure form - defined inline (not in formConfigs yet)
+      allowAdd: true,
+      allowDelete: true,
+      entityName: "une procédure",
+      addSubtitle: "Créer une nouvelle procédure pour ce dossier",
+      formFields: [
+        {
+          name: "caseNumber",
+          label: "Numéro de procédure",
+          type: "text",
+          required: true,
+          placeholder: "PROC-2024-XXX"
+        },
+        {
+          name: "title",
+          label: "Titre",
+          type: "text",
+          required: true,
+          fullWidth: true,
+          placeholder: "Ex: Audience préliminaire"
+        },
+        {
+          name: "court",
+          label: "Tribunal",
+          type: "select",
+          required: true,
+          options: [
+            { value: "Tribunal de première instance", label: "Tribunal de première instance" },
+            { value: "Cour d'appel", label: "Cour d'appel" },
+            { value: "Cour de cassation", label: "Cour de cassation" },
+            { value: "Tribunal administratif", label: "Tribunal administratif" },
+          ]
+        },
+        {
+          name: "nextHearing",
+          label: "Prochaine audience",
+          type: "date",
+          required: true,
+        },
+        {
+          name: "judge",
+          label: "Juge",
+          type: "text",
+          placeholder: "Nom du juge"
+        },
+        {
+          name: "status",
+          label: "Statut",
+          type: "select",
+          required: true,
+          defaultValue: "En cours",
+          options: [
+            { value: "En cours", label: "En cours" },
+            { value: "En attente", label: "En attente" },
+            { value: "Terminée", label: "Terminée" },
+            { value: "Suspendue", label: "Suspendue" },
+          ]
+        },
+        {
+          name: "notes",
+          label: "Notes",
+          type: "textarea",
+          fullWidth: true,
+          rows: 3,
+          placeholder: "Notes sur la procédure..."
+        },
+      ],
     },
     {
       id: "notes",
@@ -184,20 +263,49 @@ export const dossierConfig = {
     {
       title: "Description du dossier",
       type: "description",
+      fieldKey: "description",
       content: (data) => data.description,
     },
     {
       title: "Partie Adverse",
       fields: [
-        { label: "Nom", value: (data) => data.adversaryParty, icon: "fas fa-user" },
-        { label: "Avocat", value: (data) => data.adversaryLawyer, icon: "fas fa-gavel" },
+        { 
+          key: "adversaryParty",
+          label: "Nom", 
+          value: (data) => data.adversaryParty, 
+          icon: "fas fa-user",
+          type: "text",
+          editable: true
+        },
+        { 
+          key: "adversaryLawyer",
+          label: "Avocat", 
+          value: (data) => data.adversaryLawyer, 
+          icon: "fas fa-gavel",
+          type: "text",
+          editable: true
+        },
       ],
     },
     {
       title: "Informations Juridiques",
       fields: [
-        { label: "Référence tribunal", value: (data) => data.courtReference, icon: "fas fa-balance-scale" },
-        { label: "Valeur estimée", value: (data) => data.estimatedValue, icon: "fas fa-money-bill-wave" },
+        { 
+          key: "courtReference",
+          label: "Référence tribunal", 
+          value: (data) => data.courtReference, 
+          icon: "fas fa-balance-scale",
+          type: "text",
+          editable: true
+        },
+        { 
+          key: "estimatedValue",
+          label: "Valeur estimée", 
+          value: (data) => data.estimatedValue, 
+          icon: "fas fa-money-bill-wave",
+          type: "text",
+          editable: true
+        },
       ],
     },
   ],

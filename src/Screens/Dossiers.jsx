@@ -1,14 +1,16 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAdvancedTable } from "../hooks/useAdvancedTable";
 import PageLayout from "../components/layout/PageLayout";
 import PageHeader from "../components/layout/PageHeader";
 import ContentSection from "../components/layout/ContentSection";
 import Table from "../components/table/Table";
-import TableHeader from "../components/table/TableHeader";
+import AdvancedTableHeader from "../components/table/AdvancedTableHeader";
 import TableBody from "../components/table/TableBody";
 import TableRow from "../components/table/TableRow";
 import TableCell from "../components/table/TableCell";
 import TableActions, { IconButton } from "../components/table/TableActions";
+import TableToolbar from "../components/table/TableToolbar";
 import Pagination from "../components/table/Pagination";
 import FormModal from "../components/FormModal/FormModal";
 import { dossierFormFields, getFormTitle } from "../components/FormModal/formConfigs";
@@ -17,11 +19,121 @@ import { mockDossiers, mockClients, getStatusColor } from "../utils/mockData";
 export default function Dossiers() {
   const navigate = useNavigate();
   
-  // Store dossiers in state
   const [dossiers, setDossiers] = useState(mockDossiers);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingDossier, setEditingDossier] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Priority colors
+  const priorityColor = {
+    "Haute": "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+    "Moyenne": "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
+    "Basse": "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+  };
+
+  // Define table columns
+  const columns = [
+    {
+      id: "caseNumber",
+      label: "Numéro",
+      sortable: true,
+      locked: true,
+      render: (dossier) => (
+        <span className="font-mono font-semibold text-blue-600 dark:text-blue-400">
+          {dossier.caseNumber}
+        </span>
+      ),
+    },
+    {
+      id: "title",
+      label: "Titre",
+      sortable: true,
+      render: (dossier) => <span className="font-medium">{dossier.title}</span>,
+    },
+    {
+      id: "client",
+      label: "Client",
+      sortable: true,
+      render: (dossier) => dossier.client,
+    },
+    {
+      id: "category",
+      label: "Catégorie",
+      sortable: true,
+      render: (dossier) => dossier.category,
+    },
+    {
+      id: "status",
+      label: "Statut",
+      sortable: true,
+      render: (dossier) => (
+        <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(dossier.status)}`}>
+          {dossier.status}
+        </span>
+      ),
+    },
+    {
+      id: "openDate",
+      label: "Date d'ouverture",
+      sortable: true,
+      render: (dossier) => dossier.openDate,
+    },
+    {
+      id: "priority",
+      label: "Priorité",
+      sortable: true,
+      render: (dossier) => (
+        <span className={`px-3 py-1 rounded-full text-xs font-medium ${priorityColor[dossier.priority]}`}>
+          {dossier.priority}
+        </span>
+      ),
+    },
+    {
+      id: "actions",
+      label: "Actions",
+      sortable: false,
+      locked: true,
+      render: (dossier) => (
+        <TableActions>
+          <IconButton 
+            icon="view" 
+            variant="view" 
+            title="Voir détails"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleView(dossier.id);
+            }}
+          />
+          <IconButton 
+            icon="edit" 
+            variant="edit" 
+            title="Modifier"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleEdit(dossier);
+            }}
+          />
+          <IconButton 
+            icon="delete" 
+            variant="delete" 
+            title="Supprimer"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleDelete(dossier.id);
+            }}
+          />
+        </TableActions>
+      ),
+    },
+  ];
+
+  // Initialize advanced table
+  const table = useAdvancedTable(dossiers, columns, {
+    initialSortBy: "openDate",
+    initialSortDirection: "desc",
+    initialItemsPerPage: 10,
+    searchableFields: ["caseNumber", "title", "client", "category", "status"],
+  });
 
   const handleView = (id) => {
     navigate(`/dossiers/${id}`);
@@ -35,7 +147,6 @@ export default function Dossiers() {
   const handleDelete = (id) => {
     if (window.confirm("Êtes-vous sûr de vouloir supprimer ce dossier ?")) {
       setDossiers(dossiers.filter(d => d.id !== id));
-      console.log("Delete dossier:", id);
     }
   };
 
@@ -48,13 +159,9 @@ export default function Dossiers() {
     setIsLoading(true);
     
     try {
-      console.log("Submitting dossier data:", formData);
-      
-      // Simulate API call
       await new Promise((resolve) => setTimeout(resolve, 500));
       
       if (editingDossier) {
-        // UPDATE
         setDossiers(dossiers.map(d => 
           d.id === editingDossier.id 
             ? { ...formData, id: editingDossier.id }
@@ -62,15 +169,12 @@ export default function Dossiers() {
         ));
         alert("Dossier modifié avec succès!");
       } else {
-        // ADD - Find client name from clientId
         const client = mockClients.find(c => c.id === parseInt(formData.clientId));
-        
         const newDossier = {
           ...formData,
           id: Date.now(),
           client: client ? client.name : "Client inconnu",
         };
-        
         setDossiers([newDossier, ...dossiers]);
         alert("Dossier ajouté avec succès!");
       }
@@ -85,14 +189,33 @@ export default function Dossiers() {
     }
   };
 
-  // Priority colors
-  const priorityColor = {
-    "Haute": "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
-    "Moyenne": "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
-    "Basse": "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+  const handleExport = () => {
+    const headers = table.columns
+      .filter(col => col.id !== "actions")
+      .map(col => col.label)
+      .join(",");
+    
+    const rows = table.allData.map(dossier => 
+      table.columns
+        .filter(col => col.id !== "actions")
+        .map(col => {
+          const value = dossier[col.id] || "";
+          return `"${value}"`;
+        })
+        .join(",")
+    );
+    
+    const csv = [headers, ...rows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `dossiers-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
   };
 
-  // Populate client options for the form
+  // Populate client options
   const dossierFields = dossierFormFields.map(field => {
     if (field.name === "clientId") {
       return {
@@ -110,7 +233,7 @@ export default function Dossiers() {
     <PageLayout>
       <PageHeader
         title="Dossiers"
-        subtitle={`${dossiers.length} dossiers au total`}
+        subtitle={`${table.originalTotalItems} dossiers au total${table.isFiltering ? ` • ${table.totalItems} affichés` : ""}`}
         icon="fas fa-folder-open"
         actions={
           <button
@@ -124,79 +247,55 @@ export default function Dossiers() {
       />
 
       <ContentSection>
+        <TableToolbar
+          searchQuery={table.searchQuery}
+          onSearchChange={table.setSearchQuery}
+          columns={table.allColumns}
+          visibleColumns={table.visibleColumns}
+          onToggleColumn={table.toggleColumnVisibility}
+          onResetColumns={table.resetColumns}
+          onExport={handleExport}
+          totalItems={table.originalTotalItems}
+          filteredItems={table.totalItems}
+          isFiltering={table.isFiltering}
+        />
+
         <Table>
-          <TableHeader columns={["Numéro", "Titre", "Client", "Statut", "Date d'ouverture", "Priorité", "Actions"]} />
-          <TableBody isEmpty={dossiers.length === 0} emptyMessage="Aucun dossier trouvé">
-            {dossiers.map((dossier) => (
+          <AdvancedTableHeader
+            columns={table.columns}
+            sortBy={table.sortBy}
+            sortDirection={table.sortDirection}
+            onSort={table.handleSort}
+            onReorder={table.reorderColumns}
+            enableReorder={true}
+          />
+          <TableBody isEmpty={table.data.length === 0} emptyMessage={table.isFiltering ? "Aucun résultat trouvé" : "Aucun dossier trouvé"}>
+            {table.data.map((dossier) => (
               <TableRow 
                 key={dossier.id}
                 onClick={() => handleView(dossier.id)}
                 className="cursor-pointer"
               >
-                <TableCell>
-                  <span className="font-mono font-semibold text-blue-600 dark:text-blue-400">
-                    {dossier.caseNumber}
-                  </span>
-                </TableCell>
-                <TableCell>
-                  <span className="font-medium">{dossier.title}</span>
-                </TableCell>
-                <TableCell>{dossier.client}</TableCell>
-                <TableCell>
-                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(dossier.status)}`}>
-                    {dossier.status}
-                  </span>
-                </TableCell>
-                <TableCell>{dossier.openDate}</TableCell>
-                <TableCell>
-                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${priorityColor[dossier.priority]}`}>
-                    {dossier.priority}
-                  </span>
-                </TableCell>
-                <TableCell>
-                  <TableActions>
-                    <IconButton 
-                      icon="view" 
-                      variant="view" 
-                      title="Voir détails"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleView(dossier.id);
-                      }}
-                    />
-                    <IconButton 
-                      icon="edit" 
-                      variant="edit" 
-                      title="Modifier"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleEdit(dossier);
-                      }}
-                    />
-                    <IconButton 
-                      icon="delete" 
-                      variant="delete" 
-                      title="Supprimer"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDelete(dossier.id);
-                      }}
-                    />
-                  </TableActions>
-                </TableCell>
+                {table.columns.map((column) => (
+                  <TableCell key={column.id}>
+                    {column.render ? column.render(dossier) : dossier[column.id]}
+                  </TableCell>
+                ))}
               </TableRow>
             ))}
           </TableBody>
         </Table>
+
         <Pagination
-          currentPage={1}
-          totalPages={Math.ceil(dossiers.length / 10)}
-          totalItems={dossiers.length}
-          itemsPerPage={10}
+          currentPage={table.currentPage}
+          totalPages={table.totalPages}
+          totalItems={table.totalItems}
+          itemsPerPage={table.itemsPerPage}
+          onPageChange={table.handlePageChange}
+          onItemsPerPageChange={table.handleItemsPerPageChange}
         />
       </ContentSection>
 
-      {/* Add/Edit Modal */}
       <FormModal
         isOpen={isModalOpen}
         onClose={() => {

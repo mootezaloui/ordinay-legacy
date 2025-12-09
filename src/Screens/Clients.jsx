@@ -1,14 +1,16 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAdvancedTable } from "../hooks/useAdvancedTable";
 import PageLayout from "../components/layout/PageLayout";
 import PageHeader from "../components/layout/PageHeader";
 import ContentSection from "../components/layout/ContentSection";
 import Table from "../components/table/Table";
-import TableHeader from "../components/table/TableHeader";
+import AdvancedTableHeader from "../components/table/AdvancedTableHeader";
 import TableBody from "../components/table/TableBody";
 import TableRow from "../components/table/TableRow";
 import TableCell from "../components/table/TableCell";
 import TableActions, { IconButton } from "../components/table/TableActions";
+import TableToolbar from "../components/table/TableToolbar";
 import Pagination from "../components/table/Pagination";
 import FormModal from "../components/FormModal/FormModal";
 import { clientFormFields, getFormTitle } from "../components/FormModal/formConfigs";
@@ -17,11 +19,104 @@ import { mockClients, getStatusColor } from "../utils/mockData";
 export default function Clients() {
   const navigate = useNavigate();
   
-  // ⭐ IMPORTANT: Store clients in state, initialize with mockClients
+  // Store clients in state
   const [clients, setClients] = useState(mockClients);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClient, setEditingClient] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Define table columns
+  const columns = [
+    {
+      id: "name",
+      label: "Nom",
+      sortable: true,
+      locked: true, // Can't be hidden
+      render: (client) => (
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
+            <span className="text-blue-600 dark:text-blue-400 font-semibold">
+              {client.name.charAt(0)}
+            </span>
+          </div>
+          <span className="font-medium">{client.name}</span>
+        </div>
+      ),
+    },
+    {
+      id: "email",
+      label: "Email",
+      sortable: true,
+      render: (client) => client.email,
+    },
+    {
+      id: "phone",
+      label: "Téléphone",
+      sortable: true,
+      render: (client) => client.phone,
+    },
+    {
+      id: "status",
+      label: "Statut",
+      sortable: true,
+      render: (client) => (
+        <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(client.status)}`}>
+          {client.status}
+        </span>
+      ),
+    },
+    {
+      id: "joinDate",
+      label: "Date d'inscription",
+      sortable: true,
+      render: (client) => client.joinDate,
+    },
+    {
+      id: "actions",
+      label: "Actions",
+      sortable: false,
+      locked: true, // Can't be hidden
+      render: (client) => (
+        <TableActions>
+          <IconButton 
+            icon="view" 
+            variant="view" 
+            title="Voir détails"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleView(client.id);
+            }}
+          />
+          <IconButton 
+            icon="edit" 
+            variant="edit" 
+            title="Modifier"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleEdit(client);
+            }}
+          />
+          <IconButton 
+            icon="delete" 
+            variant="delete" 
+            title="Supprimer"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleDelete(client.id);
+            }}
+          />
+        </TableActions>
+      ),
+    },
+  ];
+
+  // Initialize advanced table
+  const table = useAdvancedTable(clients, columns, {
+    initialSortBy: "name",
+    initialSortDirection: "asc",
+    initialItemsPerPage: 10,
+    searchableFields: ["name", "email", "phone", "status"],
+  });
 
   // Navigate to client detail
   const handleView = (id) => {
@@ -35,11 +130,7 @@ export default function Clients() {
 
   const handleDelete = (id) => {
     if (window.confirm("Êtes-vous sûr de vouloir supprimer ce client ?")) {
-      // ⭐ Remove from state
       setClients(clients.filter(c => c.id !== id));
-      
-      // TODO: API call to delete
-      console.log("Delete client:", id);
     }
   };
 
@@ -52,14 +143,10 @@ export default function Clients() {
     setIsLoading(true);
     
     try {
-      // TODO: Replace with actual API call
-      console.log("Submitting client data:", formData);
-      
-      // Simulate API call
       await new Promise((resolve) => setTimeout(resolve, 500));
       
       if (editingClient) {
-        // ⭐ UPDATE: Update existing client in state
+        // UPDATE
         setClients(clients.map(c => 
           c.id === editingClient.id 
             ? { ...formData, id: editingClient.id }
@@ -67,28 +154,19 @@ export default function Clients() {
         ));
         alert("Client modifié avec succès!");
       } else {
-        // ⭐ ADD: Add new client to state with generated ID
+        // ADD
         const newClient = {
           ...formData,
-          id: Date.now(), // Generate unique ID
-          joinDate: new Date().toISOString().split('T')[0], // Add today's date
+          id: Date.now(),
+          joinDate: new Date().toISOString().split('T')[0],
         };
         
-        setClients([newClient, ...clients]); // Add to beginning of array
+        setClients([newClient, ...clients]);
         alert("Client ajouté avec succès!");
       }
       
       setIsModalOpen(false);
       setEditingClient(null);
-      
-      // TODO: When you connect to backend, replace above with:
-      // const response = await fetch('/api/clients', {
-      //   method: editingClient ? 'PUT' : 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(formData)
-      // });
-      // const savedClient = await response.json();
-      // Then refresh the list from API
     } catch (error) {
       console.error("Error submitting client:", error);
       alert("Erreur lors de l'enregistrement");
@@ -97,11 +175,38 @@ export default function Clients() {
     }
   };
 
+  // Export to CSV
+  const handleExport = () => {
+    const headers = table.columns
+      .filter(col => col.id !== "actions")
+      .map(col => col.label)
+      .join(",");
+    
+    const rows = table.allData.map(client => 
+      table.columns
+        .filter(col => col.id !== "actions")
+        .map(col => {
+          const value = client[col.id] || "";
+          return `"${value}"`;
+        })
+        .join(",")
+    );
+    
+    const csv = [headers, ...rows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `clients-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
+
   return (
     <PageLayout>
       <PageHeader
         title="Clients"
-        subtitle={`${clients.length} clients au total`}
+        subtitle={`${table.originalTotalItems} clients au total${table.isFiltering ? ` • ${table.totalItems} affichés` : ""}`}
         icon="fas fa-users"
         actions={
           <button
@@ -115,74 +220,55 @@ export default function Clients() {
       />
 
       <ContentSection>
+        {/* Table Toolbar */}
+        <TableToolbar
+          searchQuery={table.searchQuery}
+          onSearchChange={table.setSearchQuery}
+          columns={table.allColumns}
+          visibleColumns={table.visibleColumns}
+          onToggleColumn={table.toggleColumnVisibility}
+          onResetColumns={table.resetColumns}
+          onExport={handleExport}
+          totalItems={table.originalTotalItems}
+          filteredItems={table.totalItems}
+          isFiltering={table.isFiltering}
+        />
+
+        {/* Table */}
         <Table>
-          <TableHeader columns={["Nom", "Email", "Téléphone", "Statut", "Date d'inscription", "Actions"]} />
-          <TableBody isEmpty={clients.length === 0} emptyMessage="Aucun client trouvé">
-            {/* ⭐ IMPORTANT: Map over clients state, not mockClients */}
-            {clients.map((client) => (
+          <AdvancedTableHeader
+            columns={table.columns}
+            sortBy={table.sortBy}
+            sortDirection={table.sortDirection}
+            onSort={table.handleSort}
+            onReorder={table.reorderColumns}
+            enableReorder={true}
+          />
+          <TableBody isEmpty={table.data.length === 0} emptyMessage={table.isFiltering ? "Aucun résultat trouvé" : "Aucun client trouvé"}>
+            {table.data.map((client) => (
               <TableRow 
                 key={client.id}
                 onClick={() => handleView(client.id)}
                 className="cursor-pointer"
               >
-                <TableCell>
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-                      <span className="text-blue-600 dark:text-blue-400 font-semibold">
-                        {client.name.charAt(0)}
-                      </span>
-                    </div>
-                    <span className="font-medium">{client.name}</span>
-                  </div>
-                </TableCell>
-                <TableCell>{client.email}</TableCell>
-                <TableCell>{client.phone}</TableCell>
-                <TableCell>
-                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(client.status)}`}>
-                    {client.status}
-                  </span>
-                </TableCell>
-                <TableCell>{client.joinDate}</TableCell>
-                <TableCell>
-                  <TableActions>
-                    <IconButton 
-                      icon="view" 
-                      variant="view" 
-                      title="Voir détails"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleView(client.id);
-                      }}
-                    />
-                    <IconButton 
-                      icon="edit" 
-                      variant="edit" 
-                      title="Modifier"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleEdit(client);
-                      }}
-                    />
-                    <IconButton 
-                      icon="delete" 
-                      variant="delete" 
-                      title="Supprimer"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDelete(client.id);
-                      }}
-                    />
-                  </TableActions>
-                </TableCell>
+                {table.columns.map((column) => (
+                  <TableCell key={column.id}>
+                    {column.render ? column.render(client) : client[column.id]}
+                  </TableCell>
+                ))}
               </TableRow>
             ))}
           </TableBody>
         </Table>
+
+        {/* Pagination */}
         <Pagination
-          currentPage={1}
-          totalPages={Math.ceil(clients.length / 10)}
-          totalItems={clients.length}
-          itemsPerPage={10}
+          currentPage={table.currentPage}
+          totalPages={table.totalPages}
+          totalItems={table.totalItems}
+          itemsPerPage={table.itemsPerPage}
+          onPageChange={table.handlePageChange}
+          onItemsPerPageChange={table.handleItemsPerPageChange}
         />
       </ContentSection>
 
