@@ -5,8 +5,8 @@
  */
 
 import { useSidebar } from "../../contexts/SidebarContext";
-import HeaderBar from "../Header";
-import Sidebar from "../Sidebar";
+import HeaderBar from "../ui/Header";
+import Sidebar from "../ui/Sidebar";
 
 export default function PageLayout({ children }) {
   const { isCollapsed } = useSidebar();
@@ -17,10 +17,9 @@ export default function PageLayout({ children }) {
       <Sidebar />
 
       {/* Main content with dynamic left margin based on sidebar state */}
-      <div 
-        className={`transition-all duration-300 ${
-          isCollapsed ? "ml-20" : "ml-64"
-        }`}
+      <div
+        className={`transition-all duration-300 ${isCollapsed ? "ml-20" : "ml-64"
+          }`}
       >
         {/* Header */}
         <HeaderBar />

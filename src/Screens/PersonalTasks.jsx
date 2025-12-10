@@ -13,6 +13,7 @@ import TableActions, { IconButton } from "../components/table/TableActions";
 import TableToolbar from "../components/table/TableToolbar";
 import Pagination from "../components/table/Pagination";
 import FormModal from "../components/FormModal/FormModal";
+import StatCard from "../components/dashboard/StatCard";
 import { getStatusColor } from "../utils/mockData";
 
 /**
@@ -72,7 +73,7 @@ const mockPersonalTasks = [
 
 export default function PersonalTasks() {
   const navigate = useNavigate();
-  
+
   const [tasks, setTasks] = useState(mockPersonalTasks);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
@@ -147,13 +148,12 @@ export default function PersonalTasks() {
         const dueDate = new Date(task.dueDate);
         const isOverdue = dueDate < today && task.status !== "Terminée";
         const isDueSoon = (dueDate - today) / (1000 * 60 * 60 * 24) <= 3 && dueDate >= today;
-        
+
         return (
-          <span className={`text-sm font-medium ${
-            isOverdue ? "text-red-600 dark:text-red-400" : 
-            isDueSoon ? "text-amber-600 dark:text-amber-400" : 
-            "text-slate-900 dark:text-white"
-          }`}>
+          <span className={`text-sm font-medium ${isOverdue ? "text-red-600 dark:text-red-400" :
+              isDueSoon ? "text-amber-600 dark:text-amber-400" :
+                "text-slate-900 dark:text-white"
+            }`}>
             {task.dueDate}
           </span>
         );
@@ -190,27 +190,27 @@ export default function PersonalTasks() {
       locked: true,
       render: (task) => (
         <TableActions>
-          <IconButton 
-            icon="view" 
-            variant="view" 
+          <IconButton
+            icon="view"
+            variant="view"
             title="Voir détails"
             onClick={(e) => {
               e.stopPropagation();
               handleView(task.id);
             }}
           />
-          <IconButton 
-            icon="edit" 
-            variant="edit" 
+          <IconButton
+            icon="edit"
+            variant="edit"
             title="Modifier"
             onClick={(e) => {
               e.stopPropagation();
               handleEdit(task);
             }}
           />
-          <IconButton 
-            icon="delete" 
-            variant="delete" 
+          <IconButton
+            icon="delete"
+            variant="delete"
             title="Supprimer"
             onClick={(e) => {
               e.stopPropagation();
@@ -246,8 +246,8 @@ export default function PersonalTasks() {
   };
 
   const handleToggleComplete = (id) => {
-    setTasks(tasks.map(t => 
-      t.id === id 
+    setTasks(tasks.map(t =>
+      t.id === id
         ? { ...t, status: t.status === "Terminée" ? "En attente" : "Terminée" }
         : t
     ));
@@ -260,13 +260,13 @@ export default function PersonalTasks() {
 
   const handleSubmit = async (formData) => {
     setIsLoading(true);
-    
+
     try {
       await new Promise((resolve) => setTimeout(resolve, 500));
-      
+
       if (editingTask) {
-        setTasks(tasks.map(t => 
-          t.id === editingTask.id 
+        setTasks(tasks.map(t =>
+          t.id === editingTask.id
             ? { ...formData, id: editingTask.id }
             : t
         ));
@@ -279,7 +279,7 @@ export default function PersonalTasks() {
         setTasks([newTask, ...tasks]);
         alert("Tâche ajoutée avec succès!");
       }
-      
+
       setIsModalOpen(false);
       setEditingTask(null);
     } catch (error) {
@@ -295,8 +295,8 @@ export default function PersonalTasks() {
       .filter(col => col.id !== "actions")
       .map(col => col.label)
       .join(",");
-    
-    const rows = table.allData.map(task => 
+
+    const rows = table.allData.map(task =>
       table.columns
         .filter(col => col.id !== "actions")
         .map(col => {
@@ -305,7 +305,7 @@ export default function PersonalTasks() {
         })
         .join(",")
     );
-    
+
     const csv = [headers, ...rows].join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = window.URL.createObjectURL(blob);
@@ -486,7 +486,7 @@ export default function PersonalTasks() {
           />
           <TableBody isEmpty={table.data.length === 0} emptyMessage={table.isFiltering ? "Aucun résultat trouvé" : "Aucune tâche personnelle"}>
             {table.data.map((task) => (
-              <TableRow 
+              <TableRow
                 key={task.id}
                 onClick={() => handleView(task.id)}
                 className="cursor-pointer"

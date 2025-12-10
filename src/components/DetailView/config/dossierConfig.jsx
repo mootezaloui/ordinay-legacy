@@ -1,12 +1,13 @@
 import { Link } from "react-router-dom";
 import ContentSection from "../../layout/ContentSection";
 import { mockDossiersExtended, getStatusColor } from "../../../utils/mockData";
-// ⭐ Import existing form configs
-import { taskFormFields } from "../../FormModal/formConfigs";
+// Import existing form configs
+import { taskFormFields, caseFormFields } from "../../FormModal/formConfigs";
 
 /**
- * Dossier Entity Configuration
- * Uses existing FormModal and formConfigs - NO DUPLICATION!
+ * Dossier Entity Configuration - FIXED
+ * - Fixed character encoding (Tâches, Procédures)
+ * - Proceedings now properly create Cases (Procès)
  */
 export const dossierConfig = {
   // Basic info
@@ -14,32 +15,32 @@ export const dossierConfig = {
   entityName: "Dossier",
   icon: "fas fa-folder-open",
   listRoute: "/dossiers",
-  
+
   // Messages
   notFoundMessage: "Dossier non trouvé",
   deleteConfirmMessage: "Êtes-vous sûr de vouloir supprimer ce dossier ?",
-  
+
   // Permissions
   allowDelete: true,
   allowEdit: true,
-  
+
   // Data fetching
   fetchData: async (id) => {
     return mockDossiersExtended[id] || null;
   },
-  
+
   updateData: async (id, data) => {
     console.log("Updating dossier:", id, data);
   },
-  
+
   deleteData: async (id) => {
     console.log("Deleting dossier:", id);
   },
-  
+
   // Header display
   getTitle: (data) => data.caseNumber,
   getSubtitle: (data) => data.title,
-  
+
   // Custom header rendering
   renderHeader: (data) => {
     const priorityColor = {
@@ -84,7 +85,7 @@ export const dossierConfig = {
       </ContentSection>
     );
   },
-  
+
   // Stats cards
   getStats: (data) => [
     {
@@ -113,10 +114,10 @@ export const dossierConfig = {
       iconColor: "text-green-600 dark:text-green-400",
       bgColor: "bg-green-100 dark:bg-green-900/20",
       value: data.proceedings?.length || 0,
-      label: "Procédures"
+      label: "Procès"
     },
   ],
-  
+
   // Tabs configuration
   tabs: [
     {
@@ -134,108 +135,49 @@ export const dossierConfig = {
     },
     {
       id: "tasks",
-      label: "Tâches",
+      label: "Tâches", // ✅ FIXED encoding
       icon: "fas fa-tasks",
       component: "relatedItems",
       getCount: (data) => data.tasks?.length || 0,
-      
+
       itemsKey: "tasks",
+      itemRoute: "/tasks", // ✅ Can click to view task detail
       emptyMessage: "Aucune tâche",
       renderItem: (item) => ({
         title: item.title,
-        subtitle: `Échéance: ${item.dueDate} | Assigné à: ${item.assignee}`,
+        subtitle: `Échéance: ${item.dueDate} | Assigné à: ${item.assignedTo}`,
         status: item.status,
       }),
-      
-      // ⭐ ADD functionality - Uses existing taskFormFields!
+
+      // ADD functionality - Uses existing taskFormFields
       allowAdd: true,
       allowDelete: true,
       entityName: "une tâche",
       addSubtitle: "Créer une nouvelle tâche pour ce dossier",
-      formFields: taskFormFields.filter(field => field.name !== 'dossierId'), // Remove dossier selector since we're in dossier context
+      formFields: taskFormFields.filter(field => field.name !== 'dossierId'), // Remove dossier selector
     },
     {
       id: "proceedings",
-      label: "Procédures",
+      label: "Procès", // ✅ FIXED encoding (was "Procédures")
       icon: "fas fa-gavel",
       component: "relatedItems",
       getCount: (data) => data.proceedings?.length || 0,
-      
+
       itemsKey: "proceedings",
-      emptyMessage: "Aucune procédure",
+      itemRoute: "/cases", // ✅ Links to /cases (Procès screen)
+      emptyMessage: "Aucun procès",
       renderItem: (item) => ({
         title: item.caseNumber,
-        subtitle: `${item.title} - Prochaine audience: ${item.nextHearing}`,
+        subtitle: `${item.title} - Prochaine Audience: ${item.nextHearing}`,
         status: item.status,
       }),
-      
-      // ⭐ Procedure form - defined inline (not in formConfigs yet)
+
+      // ✅ FIXED: Now uses caseFormFields (Procès form)
       allowAdd: true,
       allowDelete: true,
-      entityName: "une procédure",
-      addSubtitle: "Créer une nouvelle procédure pour ce dossier",
-      formFields: [
-        {
-          name: "caseNumber",
-          label: "Numéro de procédure",
-          type: "text",
-          required: true,
-          placeholder: "PROC-2024-XXX"
-        },
-        {
-          name: "title",
-          label: "Titre",
-          type: "text",
-          required: true,
-          fullWidth: true,
-          placeholder: "Ex: Audience préliminaire"
-        },
-        {
-          name: "court",
-          label: "Tribunal",
-          type: "select",
-          required: true,
-          options: [
-            { value: "Tribunal de première instance", label: "Tribunal de première instance" },
-            { value: "Cour d'appel", label: "Cour d'appel" },
-            { value: "Cour de cassation", label: "Cour de cassation" },
-            { value: "Tribunal administratif", label: "Tribunal administratif" },
-          ]
-        },
-        {
-          name: "nextHearing",
-          label: "Prochaine audience",
-          type: "date",
-          required: true,
-        },
-        {
-          name: "judge",
-          label: "Juge",
-          type: "text",
-          placeholder: "Nom du juge"
-        },
-        {
-          name: "status",
-          label: "Statut",
-          type: "select",
-          required: true,
-          defaultValue: "En cours",
-          options: [
-            { value: "En cours", label: "En cours" },
-            { value: "En attente", label: "En attente" },
-            { value: "Terminée", label: "Terminée" },
-            { value: "Suspendue", label: "Suspendue" },
-          ]
-        },
-        {
-          name: "notes",
-          label: "Notes",
-          type: "textarea",
-          fullWidth: true,
-          rows: 3,
-          placeholder: "Notes sur la procédure..."
-        },
-      ],
+      entityName: "un procès",
+      addSubtitle: "Créer un nouveau procès pour ce dossier",
+      formFields: caseFormFields.filter(field => field.name !== 'dossierId'), // Remove dossier selector since we're in dossier context
     },
     {
       id: "notes",
@@ -257,7 +199,7 @@ export const dossierConfig = {
       component: "financials",
     },
   ],
-  
+
   // Overview tab sections
   overviewSections: [
     {
@@ -269,18 +211,18 @@ export const dossierConfig = {
     {
       title: "Partie Adverse",
       fields: [
-        { 
+        {
           key: "adversaryParty",
-          label: "Nom", 
-          value: (data) => data.adversaryParty, 
+          label: "Nom",
+          value: (data) => data.adversaryParty,
           icon: "fas fa-user",
           type: "text",
           editable: true
         },
-        { 
+        {
           key: "adversaryLawyer",
-          label: "Avocat", 
-          value: (data) => data.adversaryLawyer, 
+          label: "Avocat",
+          value: (data) => data.adversaryLawyer,
           icon: "fas fa-gavel",
           type: "text",
           editable: true
@@ -290,18 +232,18 @@ export const dossierConfig = {
     {
       title: "Informations Juridiques",
       fields: [
-        { 
+        {
           key: "courtReference",
-          label: "Référence tribunal", 
-          value: (data) => data.courtReference, 
+          label: "Référence tribunal",
+          value: (data) => data.courtReference,
           icon: "fas fa-balance-scale",
           type: "text",
           editable: true
         },
-        { 
+        {
           key: "estimatedValue",
-          label: "Valeur estimée", 
-          value: (data) => data.estimatedValue, 
+          label: "Valeur estimée",
+          value: (data) => data.estimatedValue,
           icon: "fas fa-money-bill-wave",
           type: "text",
           editable: true
@@ -309,7 +251,7 @@ export const dossierConfig = {
       ],
     },
   ],
-  
+
   // Financial data
   getFinancials: (data) => data.financials,
 };
@@ -322,7 +264,7 @@ function InfoCard({ icon, label, value, color }) {
     green: "bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400",
     amber: "bg-amber-100 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400",
   };
-  
+
   return (
     <div className="flex items-center gap-3">
       <div className={`p-2 rounded-lg ${colors[color]}`}>

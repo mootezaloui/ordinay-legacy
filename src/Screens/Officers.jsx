@@ -13,11 +13,12 @@ import TableActions, { IconButton } from "../components/table/TableActions";
 import TableToolbar from "../components/table/TableToolbar";
 import Pagination from "../components/table/Pagination";
 import FormModal from "../components/FormModal/FormModal";
+import StatCard from "../components/dashboard/StatCard";
 import { mockOfficers, getStatusColor } from "../utils/mockData";
 
 export default function Officers() {
   const navigate = useNavigate();
-  
+
   const [officers, setOfficers] = useState(mockOfficers);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingOfficer, setEditingOfficer] = useState(null);
@@ -99,27 +100,27 @@ export default function Officers() {
       locked: true,
       render: (officer) => (
         <TableActions>
-          <IconButton 
-            icon="view" 
-            variant="view" 
+          <IconButton
+            icon="view"
+            variant="view"
             title="Voir détails"
             onClick={(e) => {
               e.stopPropagation();
               handleView(officer.id);
             }}
           />
-          <IconButton 
-            icon="edit" 
-            variant="edit" 
+          <IconButton
+            icon="edit"
+            variant="edit"
             title="Modifier"
             onClick={(e) => {
               e.stopPropagation();
               handleEdit(officer);
             }}
           />
-          <IconButton 
-            icon="delete" 
-            variant="delete" 
+          <IconButton
+            icon="delete"
+            variant="delete"
             title="Supprimer"
             onClick={(e) => {
               e.stopPropagation();
@@ -130,6 +131,14 @@ export default function Officers() {
       ),
     },
   ];
+
+  // Calculate stats
+  const stats = {
+    total: officers.length,
+    available: officers.filter(o => o.status === "Disponible").length,
+    busy: officers.filter(o => o.status === "Occupé").length,
+    inactive: officers.filter(o => o.status === "Inactif").length,
+  };
 
   // Initialize advanced table
   const table = useAdvancedTable(officers, columns, {
@@ -161,13 +170,13 @@ export default function Officers() {
 
   const handleSubmit = async (formData) => {
     setIsLoading(true);
-    
+
     try {
       await new Promise((resolve) => setTimeout(resolve, 500));
-      
+
       if (editingOfficer) {
-        setOfficers(officers.map(o => 
-          o.id === editingOfficer.id 
+        setOfficers(officers.map(o =>
+          o.id === editingOfficer.id
             ? { ...formData, id: editingOfficer.id }
             : o
         ));
@@ -180,7 +189,7 @@ export default function Officers() {
         setOfficers([newOfficer, ...officers]);
         alert("Huissier ajouté avec succès!");
       }
-      
+
       setIsModalOpen(false);
       setEditingOfficer(null);
     } catch (error) {
@@ -196,8 +205,8 @@ export default function Officers() {
       .filter(col => col.id !== "actions")
       .map(col => col.label)
       .join(",");
-    
-    const rows = table.allData.map(officer => 
+
+    const rows = table.allData.map(officer =>
       table.columns
         .filter(col => col.id !== "actions")
         .map(col => {
@@ -206,7 +215,7 @@ export default function Officers() {
         })
         .join(",")
     );
-    
+
     const csv = [headers, ...rows].join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = window.URL.createObjectURL(blob);
@@ -217,14 +226,15 @@ export default function Officers() {
     window.URL.revokeObjectURL(url);
   };
 
-  // Form fields for officers
+  // ✅ ENHANCED: Form fields for officers with additional professional details
   const officerFormFields = [
     {
       name: "name",
       label: "Nom complet",
       type: "text",
       required: true,
-      placeholder: "Ex: Me. Ahmed Ben Salem"
+      placeholder: "Ex: Me. Ahmed Ben Salem",
+      fullWidth: false,
     },
     {
       name: "specialization",
@@ -239,11 +249,41 @@ export default function Officers() {
       ]
     },
     {
+      name: "registrationNumber",
+      label: "Numéro d'inscription",
+      type: "text",
+      required: false,
+      placeholder: "Ex: HJ-2020-123",
+      helpText: "Numéro d'inscription au tableau de l'ordre",
+    },
+    {
+      name: "office",
+      label: "Étude",
+      type: "text",
+      required: false,
+      placeholder: "Ex: Étude Ben Salem",
+      helpText: "Nom de l'étude d'huissier",
+    },
+    {
+      name: "yearsOfExperience",
+      label: "Années d'expérience",
+      type: "number",
+      required: false,
+      placeholder: "Ex: 10",
+    },
+    {
       name: "phone",
       label: "Téléphone",
       type: "tel",
       required: true,
       placeholder: "+216 98 123 456"
+    },
+    {
+      name: "alternatePhone",
+      label: "Téléphone alternatif",
+      type: "tel",
+      required: false,
+      placeholder: "+216 71 234 567"
     },
     {
       name: "email",
@@ -260,6 +300,15 @@ export default function Officers() {
       placeholder: "Ex: Tunis"
     },
     {
+      name: "address",
+      label: "Adresse complète",
+      type: "textarea",
+      required: false,
+      placeholder: "Adresse du cabinet/étude",
+      fullWidth: true,
+      rows: 2,
+    },
+    {
       name: "status",
       label: "Statut",
       type: "select",
@@ -270,6 +319,15 @@ export default function Officers() {
         { value: "Occupé", label: "Occupé" },
         { value: "Inactif", label: "Inactif" },
       ]
+    },
+    {
+      name: "notes",
+      label: "Notes",
+      type: "textarea",
+      required: false,
+      placeholder: "Notes sur cet huissier...",
+      fullWidth: true,
+      rows: 3,
     },
   ];
 
@@ -289,6 +347,34 @@ export default function Officers() {
           </button>
         }
       />
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <StatCard
+          label="Total Huissiers"
+          value={stats.total}
+          icon="fas fa-user-tie"
+          color="blue"
+        />
+        <StatCard
+          label="Disponibles"
+          value={stats.available}
+          icon="fas fa-check-circle"
+          color="green"
+        />
+        <StatCard
+          label="Occupés"
+          value={stats.busy}
+          icon="fas fa-business-time"
+          color="amber"
+        />
+        <StatCard
+          label="Inactifs"
+          value={stats.inactive}
+          icon="fas fa-pause-circle"
+          color="red"
+        />
+      </div>
 
       <ContentSection>
         <TableToolbar
@@ -315,7 +401,7 @@ export default function Officers() {
           />
           <TableBody isEmpty={table.data.length === 0} emptyMessage={table.isFiltering ? "Aucun résultat trouvé" : "Aucun huissier trouvé"}>
             {table.data.map((officer) => (
-              <TableRow 
+              <TableRow
                 key={officer.id}
                 onClick={() => handleView(officer.id)}
                 className="cursor-pointer"
@@ -348,7 +434,7 @@ export default function Officers() {
         }}
         onSubmit={handleSubmit}
         title={editingOfficer ? "Modifier Huissier" : "Nouveau Huissier"}
-        subtitle={editingOfficer ? "Modifier les informations de l'huissier" : "Ajouter un nouvel huissier"}
+        subtitle={editingOfficer ? "Modifier les informations de l'huissier" : "Ajouter un nouvel huissier de justice"}
         fields={officerFormFields}
         initialData={editingOfficer}
         isLoading={isLoading}

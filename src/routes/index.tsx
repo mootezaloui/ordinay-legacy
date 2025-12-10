@@ -123,7 +123,7 @@ export const routes: RouteConfig[] = [
     component: Sessions,
     name: "Sessions",
     icon: "fas fa-calendar",
-    label: "Séances Juridiques",
+    label: "Audience ",
   },
   {
     path: "/sessions/:id",

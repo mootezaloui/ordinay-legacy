@@ -13,12 +13,13 @@ import TableActions, { IconButton } from "../components/table/TableActions";
 import TableToolbar from "../components/table/TableToolbar";
 import Pagination from "../components/table/Pagination";
 import FormModal from "../components/FormModal/FormModal";
+import StatCard from "../components/dashboard/StatCard";
 import { sessionFormFields, getFormTitle } from "../components/FormModal/formConfigs";
-import { mockSessions, getStatusColor } from "../utils/mockData";
+import { mockSessions, mockCases, getStatusColor } from "../utils/mockData";
 
 export default function Sessions() {
   const navigate = useNavigate();
-  
+
   const [sessions, setSessions] = useState(mockSessions);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSession, setEditingSession] = useState(null);
@@ -30,6 +31,20 @@ export default function Sessions() {
     "Expertise": "fas fa-microscope",
     "Médiation": "fas fa-handshake",
     "Téléphone": "fas fa-phone",
+  };
+
+  // Calculate stats
+  const stats = {
+    total: sessions.length,
+    today: sessions.filter(s => s.date === new Date().toISOString().split('T')[0]).length,
+    thisWeek: sessions.filter(s => {
+      const sessionDate = new Date(s.date);
+      const now = new Date();
+      const weekStart = new Date(now.setDate(now.getDate() - now.getDay()));
+      const weekEnd = new Date(now.setDate(weekStart.getDate() + 7));
+      return sessionDate >= weekStart && sessionDate <= weekEnd;
+    }).length,
+    completed: sessions.filter(s => s.status === "Terminée").length,
   };
 
   // Define table columns
@@ -98,27 +113,27 @@ export default function Sessions() {
       locked: true,
       render: (session) => (
         <TableActions>
-          <IconButton 
-            icon="view" 
-            variant="view" 
+          <IconButton
+            icon="view"
+            variant="view"
             title="Voir détails"
             onClick={(e) => {
               e.stopPropagation();
               handleView(session.id);
             }}
           />
-          <IconButton 
-            icon="edit" 
-            variant="edit" 
+          <IconButton
+            icon="edit"
+            variant="edit"
             title="Modifier"
             onClick={(e) => {
               e.stopPropagation();
               handleEdit(session);
             }}
           />
-          <IconButton 
-            icon="delete" 
-            variant="delete" 
+          <IconButton
+            icon="delete"
+            variant="delete"
             title="Supprimer"
             onClick={(e) => {
               e.stopPropagation();
@@ -160,13 +175,13 @@ export default function Sessions() {
 
   const handleSubmit = async (formData) => {
     setIsLoading(true);
-    
+
     try {
       await new Promise((resolve) => setTimeout(resolve, 500));
-      
+
       if (editingSession) {
-        setSessions(sessions.map(s => 
-          s.id === editingSession.id 
+        setSessions(sessions.map(s =>
+          s.id === editingSession.id
             ? { ...formData, id: editingSession.id }
             : s
         ));
@@ -179,7 +194,7 @@ export default function Sessions() {
         setSessions([newSession, ...sessions]);
         alert("Séance ajoutée avec succès!");
       }
-      
+
       setIsModalOpen(false);
       setEditingSession(null);
     } catch (error) {
@@ -195,8 +210,8 @@ export default function Sessions() {
       .filter(col => col.id !== "actions")
       .map(col => col.label)
       .join(",");
-    
-    const rows = table.allData.map(session => 
+
+    const rows = table.allData.map(session =>
       table.columns
         .filter(col => col.id !== "actions")
         .map(col => {
@@ -205,7 +220,7 @@ export default function Sessions() {
         })
         .join(",")
     );
-    
+
     const csv = [headers, ...rows].join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = window.URL.createObjectURL(blob);
@@ -216,10 +231,27 @@ export default function Sessions() {
     window.URL.revokeObjectURL(url);
   };
 
+  // ✅ Populate case options in the form fields
+  const populatedSessionFormFields = sessionFormFields.map(field => {
+    if (field.name === "caseId") {
+      return {
+        ...field,
+        options: [
+          { value: "", label: "Aucun (consultation)" },
+          ...mockCases.map(c => ({
+            value: c.id,
+            label: `${c.caseNumber} - ${c.title}`
+          }))
+        ]
+      };
+    }
+    return field;
+  });
+
   return (
     <PageLayout>
       <PageHeader
-        title="Séances Juridiques"
+        title="Audiences"
         subtitle={`${table.originalTotalItems} séances au total${table.isFiltering ? ` • ${table.totalItems} affichées` : ""}`}
         icon="fas fa-calendar"
         actions={
@@ -232,7 +264,33 @@ export default function Sessions() {
           </button>
         }
       />
-
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <StatCard
+          label="Total Séances"
+          value={stats.total}
+          icon="fas fa-calendar"
+          color="blue"
+        />
+        <StatCard
+          label="Aujourd'hui"
+          value={stats.today}
+          icon="fas fa-calendar-day"
+          color="purple"
+        />
+        <StatCard
+          label="Cette semaine"
+          value={stats.thisWeek}
+          icon="fas fa-calendar-week"
+          color="amber"
+        />
+        <StatCard
+          label="Terminées"
+          value={stats.completed}
+          icon="fas fa-check-circle"
+          color="green"
+        />
+      </div>
       <ContentSection>
         <TableToolbar
           searchQuery={table.searchQuery}
@@ -258,7 +316,7 @@ export default function Sessions() {
           />
           <TableBody isEmpty={table.data.length === 0} emptyMessage={table.isFiltering ? "Aucun résultat trouvé" : "Aucune séance trouvée"}>
             {table.data.map((session) => (
-              <TableRow 
+              <TableRow
                 key={session.id}
                 onClick={() => handleView(session.id)}
                 className="cursor-pointer"
@@ -292,7 +350,7 @@ export default function Sessions() {
         onSubmit={handleSubmit}
         title={getFormTitle("session", !!editingSession)}
         subtitle={editingSession ? "Modifier la séance" : "Ajouter une nouvelle séance"}
-        fields={sessionFormFields}
+        fields={populatedSessionFormFields}
         initialData={editingSession}
         isLoading={isLoading}
       />

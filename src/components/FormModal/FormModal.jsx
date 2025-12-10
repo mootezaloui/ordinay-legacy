@@ -1,18 +1,10 @@
 import { useState, useEffect } from "react";
 
 /**
- * FormModal - Reusable modal for adding/editing any entity
- * Works with configuration objects to generate forms dynamically
- * 
- * Usage:
- * <FormModal
- *   isOpen={isOpen}
- *   onClose={() => setIsOpen(false)}
- *   onSubmit={handleSubmit}
- *   title="Nouveau Client"
- *   fields={clientFields}
- *   initialData={editData}
- * />
+ * FormModal - Enhanced with searchable-select support
+ * ✅ FIXED: Infinite loop issue resolved
+ * ✅ UPDATED: Supports searchable-select field type
+ * ✅ UPDATED: Handles external formData for dynamic field updates
  */
 export default function FormModal({
   isOpen,
@@ -25,43 +17,70 @@ export default function FormModal({
   submitText = "Enregistrer",
   cancelText = "Annuler",
   isLoading = false,
+  // ✅ Optional external formData control
+  formData: externalFormData,
+  onFormDataChange: externalOnFormDataChange,
 }) {
-  const [formData, setFormData] = useState({});
+  const [internalFormData, setInternalFormData] = useState({});
   const [errors, setErrors] = useState({});
+  const [initialized, setInitialized] = useState(false);
 
-  // Initialize form data
+  // Use external formData if provided, otherwise use internal
+  const formData = externalFormData !== undefined ? externalFormData : internalFormData;
+  const setFormData = externalOnFormDataChange || setInternalFormData;
+
+  // Initialize form data only once when modal opens
   useEffect(() => {
-    if (initialData) {
-      setFormData(initialData);
-    } else {
-      // Set default values from fields
-      const defaults = {};
-      fields.forEach((field) => {
-        defaults[field.name] = field.defaultValue || "";
-      });
-      setFormData(defaults);
+    if (isOpen && !initialized) {
+      if (initialData) {
+        setFormData(initialData);
+      } else {
+        // Set default values from fields
+        const defaults = {};
+        fields.forEach((field) => {
+          defaults[field.name] = field.defaultValue || "";
+        });
+        setFormData(defaults);
+      }
+      setInitialized(true);
     }
-  }, [initialData, fields, isOpen]);
 
-  // Reset on close
+    // Reset initialized flag when modal closes
+    if (!isOpen && initialized) {
+      setInitialized(false);
+    }
+  }, [isOpen, initialized]); // Only depend on isOpen and initialized flag
+
+  // Reset errors on close
   useEffect(() => {
     if (!isOpen) {
-      setFormData({});
       setErrors({});
+      if (!externalOnFormDataChange) {
+        // Only reset internal form data if not using external
+        setInternalFormData({});
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, externalOnFormDataChange]);
 
   const handleChange = (name, value) => {
-    setFormData((prev) => ({
-      ...prev,
+    const newFormData = {
+      ...formData,
       [name]: value,
-    }));
+    };
+    setFormData(newFormData);
+
     // Clear error for this field
     if (errors[name]) {
       setErrors((prev) => ({
         ...prev,
         [name]: null,
       }));
+    }
+
+    // ✅ Call field's onChange if it exists
+    const field = fields.find(f => f.name === name);
+    if (field?.onChange) {
+      field.onChange(value, newFormData, setFormData);
     }
   };
 
@@ -88,7 +107,7 @@ export default function FormModal({
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    
+
     if (validateForm()) {
       onSubmit(formData);
     }
@@ -142,6 +161,7 @@ export default function FormModal({
                     value={formData[field.name] || ""}
                     onChange={handleChange}
                     error={errors[field.name]}
+                    formData={formData}
                   />
                 </div>
               ))}
@@ -183,14 +203,14 @@ export default function FormModal({
 }
 
 /**
- * FormField - Renders individual form field based on type
+ * FormField - Enhanced with searchable-select support
+ * ✅ UPDATED: Renders searchable-select fields
  */
-function FormField({ field, value, onChange, error }) {
-  const baseInputClass = `w-full px-3 py-2 border rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
-    error
+function FormField({ field, value, onChange, error, formData }) {
+  const baseInputClass = `w-full px-3 py-2 border rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${error
       ? "border-red-500 dark:border-red-500"
       : "border-slate-300 dark:border-slate-600"
-  }`;
+    }`;
 
   const renderInput = () => {
     switch (field.type) {
@@ -243,6 +263,32 @@ function FormField({ field, value, onChange, error }) {
               </option>
             ))}
           </select>
+        );
+
+      case "searchable-select":
+        // ✅ NEW: Searchable dropdown with datalist
+        return (
+          <div className="relative">
+            <input
+              type="text"
+              id={field.name}
+              value={value}
+              onChange={(e) => onChange(field.name, e.target.value)}
+              placeholder={field.placeholder}
+              required={field.required}
+              disabled={field.disabled}
+              list={`${field.name}-datalist`}
+              className={baseInputClass + " pr-10"}
+            />
+            <datalist id={`${field.name}-datalist`}>
+              {field.options?.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </datalist>
+            <i className="fas fa-search absolute right-3 top-3 text-slate-400 pointer-events-none"></i>
+          </div>
         );
 
       case "checkbox":

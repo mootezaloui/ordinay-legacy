@@ -13,12 +13,13 @@ import TableActions, { IconButton } from "../components/table/TableActions";
 import TableToolbar from "../components/table/TableToolbar";
 import Pagination from "../components/table/Pagination";
 import FormModal from "../components/FormModal/FormModal";
+import StatCard from "../components/dashboard/StatCard";
 import { taskFormFields, getFormTitle } from "../components/FormModal/formConfigs";
 import { mockTasks, mockDossiers, getStatusColor } from "../utils/mockData";
 
 export default function Tasks() {
   const navigate = useNavigate();
-  
+
   const [tasks, setTasks] = useState(mockTasks);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
@@ -28,6 +29,16 @@ export default function Tasks() {
     "Haute": "fas fa-arrow-up text-red-600 dark:text-red-400",
     "Moyenne": "fas fa-minus text-amber-600 dark:text-amber-400",
     "Basse": "fas fa-arrow-down text-green-600 dark:text-green-400",
+  };
+  // Calculate stats
+  const stats = {
+    total: tasks.length,
+    completed: tasks.filter(t => t.status === "Terminée").length,
+    inProgress: tasks.filter(t => t.status === "En cours").length,
+    overdue: tasks.filter(t => {
+      const dueDate = new Date(t.dueDate);
+      return dueDate < new Date() && t.status !== "Terminée";
+    }).length,
   };
 
   // Define table columns
@@ -102,27 +113,27 @@ export default function Tasks() {
       locked: true,
       render: (task) => (
         <TableActions>
-          <IconButton 
-            icon="view" 
-            variant="view" 
+          <IconButton
+            icon="view"
+            variant="view"
             title="Voir détails"
             onClick={(e) => {
               e.stopPropagation();
               handleView(task.id);
             }}
           />
-          <IconButton 
-            icon="edit" 
-            variant="edit" 
+          <IconButton
+            icon="edit"
+            variant="edit"
             title="Modifier"
             onClick={(e) => {
               e.stopPropagation();
               handleEdit(task);
             }}
           />
-          <IconButton 
-            icon="delete" 
-            variant="delete" 
+          <IconButton
+            icon="delete"
+            variant="delete"
             title="Supprimer"
             onClick={(e) => {
               e.stopPropagation();
@@ -159,8 +170,8 @@ export default function Tasks() {
   };
 
   const handleToggleComplete = (id) => {
-    setTasks(tasks.map(t => 
-      t.id === id 
+    setTasks(tasks.map(t =>
+      t.id === id
         ? { ...t, status: t.status === "Terminée" ? "En cours" : "Terminée" }
         : t
     ));
@@ -173,13 +184,13 @@ export default function Tasks() {
 
   const handleSubmit = async (formData) => {
     setIsLoading(true);
-    
+
     try {
       await new Promise((resolve) => setTimeout(resolve, 500));
-      
+
       if (editingTask) {
-        setTasks(tasks.map(t => 
-          t.id === editingTask.id 
+        setTasks(tasks.map(t =>
+          t.id === editingTask.id
             ? { ...formData, id: editingTask.id }
             : t
         ));
@@ -194,7 +205,7 @@ export default function Tasks() {
         setTasks([newTask, ...tasks]);
         alert("Tâche ajoutée avec succès!");
       }
-      
+
       setIsModalOpen(false);
       setEditingTask(null);
     } catch (error) {
@@ -210,8 +221,8 @@ export default function Tasks() {
       .filter(col => col.id !== "actions")
       .map(col => col.label)
       .join(",");
-    
-    const rows = table.allData.map(task => 
+
+    const rows = table.allData.map(task =>
       table.columns
         .filter(col => col.id !== "actions")
         .map(col => {
@@ -220,7 +231,7 @@ export default function Tasks() {
         })
         .join(",")
     );
-    
+
     const csv = [headers, ...rows].join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = window.URL.createObjectURL(blob);
@@ -261,6 +272,33 @@ export default function Tasks() {
           </button>
         }
       />
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <StatCard
+          label="Total Tâches"
+          value={stats.total}
+          icon="fas fa-tasks"
+          color="blue"
+        />
+        <StatCard
+          label="En cours"
+          value={stats.inProgress}
+          icon="fas fa-spinner"
+          color="amber"
+        />
+        <StatCard
+          label="Terminées"
+          value={stats.completed}
+          icon="fas fa-check-circle"
+          color="green"
+        />
+        <StatCard
+          label="En retard"
+          value={stats.overdue}
+          icon="fas fa-exclamation-circle"
+          color="red"
+        />
+      </div>
 
       <ContentSection>
         <TableToolbar
@@ -287,7 +325,7 @@ export default function Tasks() {
           />
           <TableBody isEmpty={table.data.length === 0} emptyMessage={table.isFiltering ? "Aucun résultat trouvé" : "Aucune tâche trouvée"}>
             {table.data.map((task) => (
-              <TableRow 
+              <TableRow
                 key={task.id}
                 onClick={() => handleView(task.id)}
                 className="cursor-pointer"

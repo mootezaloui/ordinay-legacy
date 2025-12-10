@@ -12,12 +12,14 @@ import TableCell from "../components/table/TableCell";
 import TableActions, { IconButton } from "../components/table/TableActions";
 import TableToolbar from "../components/table/TableToolbar";
 import Pagination from "../components/table/Pagination";
+import StatCard from "../components/dashboard/StatCard";
 import FormModal from "../components/FormModal/FormModal";
+import { caseFormFields } from "../components/FormModal/formConfigs";
 import { mockCases, mockDossiers, getStatusColor } from "../utils/mockData";
 
 export default function Cases() {
   const navigate = useNavigate();
-  
+
   const [cases, setCases] = useState(mockCases);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCase, setEditingCase] = useState(null);
@@ -86,27 +88,27 @@ export default function Cases() {
       locked: true,
       render: (caseItem) => (
         <TableActions>
-          <IconButton 
-            icon="view" 
-            variant="view" 
+          <IconButton
+            icon="view"
+            variant="view"
             title="Voir détails"
             onClick={(e) => {
               e.stopPropagation();
               handleView(caseItem.id);
             }}
           />
-          <IconButton 
-            icon="edit" 
-            variant="edit" 
+          <IconButton
+            icon="edit"
+            variant="edit"
             title="Modifier"
             onClick={(e) => {
               e.stopPropagation();
               handleEdit(caseItem);
             }}
           />
-          <IconButton 
-            icon="delete" 
-            variant="delete" 
+          <IconButton
+            icon="delete"
+            variant="delete"
             title="Supprimer"
             onClick={(e) => {
               e.stopPropagation();
@@ -117,6 +119,19 @@ export default function Cases() {
       ),
     },
   ];
+
+  // Calculate stats
+  const stats = {
+    total: cases.length,
+    active: cases.filter(c => c.status === "En cours").length,
+    upcoming: cases.filter(c => {
+      const hearingDate = new Date(c.nextHearing);
+      const nextWeek = new Date();
+      nextWeek.setDate(nextWeek.getDate() + 7);
+      return hearingDate <= nextWeek && hearingDate >= new Date();
+    }).length,
+    closed: cases.filter(c => c.status === "Terminé").length,
+  };
 
   // Initialize advanced table
   const table = useAdvancedTable(cases, columns, {
@@ -148,13 +163,13 @@ export default function Cases() {
 
   const handleSubmit = async (formData) => {
     setIsLoading(true);
-    
+
     try {
       await new Promise((resolve) => setTimeout(resolve, 500));
-      
+
       if (editingCase) {
-        setCases(cases.map(c => 
-          c.id === editingCase.id 
+        setCases(cases.map(c =>
+          c.id === editingCase.id
             ? { ...formData, id: editingCase.id }
             : c
         ));
@@ -169,7 +184,7 @@ export default function Cases() {
         setCases([newCase, ...cases]);
         alert("Procès ajouté avec succès!");
       }
-      
+
       setIsModalOpen(false);
       setEditingCase(null);
     } catch (error) {
@@ -185,8 +200,8 @@ export default function Cases() {
       .filter(col => col.id !== "actions")
       .map(col => col.label)
       .join(",");
-    
-    const rows = table.allData.map(caseItem => 
+
+    const rows = table.allData.map(caseItem =>
       table.columns
         .filter(col => col.id !== "actions")
         .map(col => {
@@ -195,7 +210,7 @@ export default function Cases() {
         })
         .join(",")
     );
-    
+
     const csv = [headers, ...rows].join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = window.URL.createObjectURL(blob);
@@ -206,63 +221,19 @@ export default function Cases() {
     window.URL.revokeObjectURL(url);
   };
 
-  // Form fields for cases
-  const caseFormFields = [
-    {
-      name: "caseNumber",
-      label: "Numéro de procès",
-      type: "text",
-      required: true,
-      placeholder: "PROC-2024-XXX"
-    },
-    {
-      name: "title",
-      label: "Titre",
-      type: "text",
-      required: true,
-      fullWidth: true,
-      placeholder: "Ex: Audience préliminaire"
-    },
-    {
-      name: "dossierId",
-      label: "Dossier",
-      type: "select",
-      required: true,
-      options: mockDossiers.map(d => ({
-        value: d.id,
-        label: `${d.caseNumber} - ${d.title}`
-      }))
-    },
-    {
-      name: "court",
-      label: "Tribunal",
-      type: "select",
-      required: true,
-      options: [
-        { value: "Tribunal de première instance", label: "Tribunal de première instance" },
-        { value: "Cour d'appel", label: "Cour d'appel" },
-        { value: "Cour de cassation", label: "Cour de cassation" },
-      ]
-    },
-    {
-      name: "nextHearing",
-      label: "Prochaine audience",
-      type: "date",
-      required: true,
-    },
-    {
-      name: "status",
-      label: "Statut",
-      type: "select",
-      required: true,
-      defaultValue: "En cours",
-      options: [
-        { value: "En cours", label: "En cours" },
-        { value: "En attente", label: "En attente" },
-        { value: "Terminé", label: "Terminé" },
-      ]
-    },
-  ];
+  // Populate dossier options in the form fields
+  const populatedCaseFormFields = caseFormFields.map(field => {
+    if (field.name === "dossierId") {
+      return {
+        ...field,
+        options: mockDossiers.map(d => ({
+          value: d.id,
+          label: `${d.caseNumber} - ${d.title}`
+        }))
+      };
+    }
+    return field;
+  });
 
   return (
     <PageLayout>
@@ -280,6 +251,34 @@ export default function Cases() {
           </button>
         }
       />
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <StatCard
+          label="Total Procès"
+          value={stats.total}
+          icon="fas fa-gavel"
+          color="purple"
+        />
+        <StatCard
+          label="En cours"
+          value={stats.active}
+          icon="fas fa-balance-scale"
+          color="blue"
+        />
+        <StatCard
+          label="Audiences Proches"
+          value={stats.upcoming}
+          icon="fas fa-calendar-week"
+          color="amber"
+          trendLabel="dans les 7 jours"
+        />
+        <StatCard
+          label="Terminés"
+          value={stats.closed}
+          icon="fas fa-check-circle"
+          color="green"
+        />
+      </div>
 
       <ContentSection>
         <TableToolbar
@@ -306,7 +305,7 @@ export default function Cases() {
           />
           <TableBody isEmpty={table.data.length === 0} emptyMessage={table.isFiltering ? "Aucun résultat trouvé" : "Aucun procès trouvé"}>
             {table.data.map((caseItem) => (
-              <TableRow 
+              <TableRow
                 key={caseItem.id}
                 onClick={() => handleView(caseItem.id)}
                 className="cursor-pointer"
@@ -340,7 +339,7 @@ export default function Cases() {
         onSubmit={handleSubmit}
         title={editingCase ? "Modifier Procès" : "Nouveau Procès"}
         subtitle={editingCase ? "Modifier les informations du procès" : "Ajouter un nouveau procès"}
-        fields={caseFormFields}
+        fields={populatedCaseFormFields}
         initialData={editingCase}
         isLoading={isLoading}
       />

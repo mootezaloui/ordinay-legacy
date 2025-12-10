@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
-import { useTheme } from "../contexts/theme";
-import { useSidebar } from "../contexts/SidebarContext";
+import { useTheme } from "../../contexts/theme";
+import { useSidebar } from "../../contexts/SidebarContext";
 
 export default function Sidebar() {
   const { isCollapsed, toggleSidebar } = useSidebar();
@@ -12,7 +12,7 @@ export default function Sidebar() {
     { icon: "fas fa-folder-open", label: "Dossiers", route: "/dossiers" },
     { icon: "fas fa-tasks", label: "Tâches", route: "/tasks" },
     { icon: "fas fa-gavel", label: "Procès", route: "/cases" },
-    { icon: "fas fa-calendar", label: "Séances Juridiques", route: "/sessions" },
+    { icon: "fas fa-calendar", label: "Audience ", route: "/sessions" },
     { icon: "fas fa-sticky-note", label: "Corvées", route: "/personal-tasks" },
     { icon: "fas fa-user-tie", label: "Huissier", route: "/officers" },
     { icon: "fas fa-calculator", label: "Comptabilité", route: "/accounting" },

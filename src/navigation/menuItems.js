@@ -36,7 +36,7 @@ export const menuItems = [
   },
   {
     icon: "fas fa-calendar",
-    label: "Séances Juridiques",
+    label: "Audience",
     route: "/sessions",
   },
   {

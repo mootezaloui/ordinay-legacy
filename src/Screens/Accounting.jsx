@@ -12,12 +12,13 @@ import TableCell from "../components/table/TableCell";
 import TableActions, { IconButton } from "../components/table/TableActions";
 import TableToolbar from "../components/table/TableToolbar";
 import Pagination from "../components/table/Pagination";
+import StatCard from "../components/dashboard/StatCard";
 import FormModal from "../components/FormModal/FormModal";
 import { mockAccounting, mockClients, getStatusColor } from "../utils/mockData";
 
 export default function Accounting() {
   const navigate = useNavigate();
-  
+
   const [invoices, setInvoices] = useState(mockAccounting);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState(null);
@@ -91,27 +92,27 @@ export default function Accounting() {
       locked: true,
       render: (invoice) => (
         <TableActions>
-          <IconButton 
-            icon="view" 
-            variant="view" 
+          <IconButton
+            icon="view"
+            variant="view"
             title="Voir facture"
             onClick={(e) => {
               e.stopPropagation();
               handleView(invoice.id);
             }}
           />
-          <IconButton 
-            icon="edit" 
-            variant="edit" 
+          <IconButton
+            icon="edit"
+            variant="edit"
             title="Modifier"
             onClick={(e) => {
               e.stopPropagation();
               handleEdit(invoice);
             }}
           />
-          <IconButton 
-            icon="delete" 
-            variant="delete" 
+          <IconButton
+            icon="delete"
+            variant="delete"
             title="Supprimer"
             onClick={(e) => {
               e.stopPropagation();
@@ -153,13 +154,13 @@ export default function Accounting() {
 
   const handleSubmit = async (formData) => {
     setIsLoading(true);
-    
+
     try {
       await new Promise((resolve) => setTimeout(resolve, 500));
-      
+
       if (editingInvoice) {
-        setInvoices(invoices.map(i => 
-          i.id === editingInvoice.id 
+        setInvoices(invoices.map(i =>
+          i.id === editingInvoice.id
             ? { ...formData, id: editingInvoice.id }
             : i
         ));
@@ -174,7 +175,7 @@ export default function Accounting() {
         setInvoices([newInvoice, ...invoices]);
         alert("Facture ajoutée avec succès!");
       }
-      
+
       setIsModalOpen(false);
       setEditingInvoice(null);
     } catch (error) {
@@ -190,8 +191,8 @@ export default function Accounting() {
       .filter(col => col.id !== "actions")
       .map(col => col.label)
       .join(",");
-    
-    const rows = table.allData.map(invoice => 
+
+    const rows = table.allData.map(invoice =>
       table.columns
         .filter(col => col.id !== "actions")
         .map(col => {
@@ -200,7 +201,7 @@ export default function Accounting() {
         })
         .join(",")
     );
-    
+
     const csv = [headers, ...rows].join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = window.URL.createObjectURL(blob);
@@ -282,7 +283,7 @@ export default function Accounting() {
         icon="fas fa-calculator"
         actions={
           <div className="flex gap-2">
-            <button 
+            <button
               onClick={handleExport}
               className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg font-medium transition-colors duration-200 flex items-center gap-2"
             >
@@ -376,7 +377,7 @@ export default function Accounting() {
           />
           <TableBody isEmpty={table.data.length === 0} emptyMessage={table.isFiltering ? "Aucun résultat trouvé" : "Aucune facture trouvée"}>
             {table.data.map((invoice) => (
-              <TableRow 
+              <TableRow
                 key={invoice.id}
                 onClick={() => handleView(invoice.id)}
                 className="cursor-pointer"

@@ -10,33 +10,33 @@ export const sessionConfig = {
   entityName: "Séance",
   icon: "fas fa-calendar",
   listRoute: "/sessions",
-  
+
   // Messages
   notFoundMessage: "Séance non trouvée",
   deleteConfirmMessage: "Êtes-vous sûr de vouloir supprimer cette séance ?",
-  
+
   // Permissions
   allowDelete: true,
   allowEdit: true,
-  
+
   // Data fetching
   fetchData: async (id) => {
     return mockSessionsExtended[id] || null;
   },
-  
+
   updateData: async (id, data) => {
     console.log("Updating session:", id, data);
     await new Promise(resolve => setTimeout(resolve, 500));
   },
-  
+
   deleteData: async (id) => {
     console.log("Deleting session:", id);
   },
-  
+
   // Header display
   getTitle: (data) => data.title,
   getSubtitle: (data) => `${data.type} - ${data.date} à ${data.time}`,
-  
+
   // Custom header rendering
   renderHeader: (data) => {
     const typeIcons = {
@@ -88,7 +88,7 @@ export const sessionConfig = {
       </ContentSection>
     );
   },
-  
+
   // Stats cards
   getStats: (data) => [
     {
@@ -113,7 +113,7 @@ export const sessionConfig = {
       label: "Participants"
     },
   ],
-  
+
   // Tabs configuration
   tabs: [
     {
@@ -128,14 +128,14 @@ export const sessionConfig = {
       icon: "fas fa-users",
       component: "relatedItems",
       getCount: (data) => data.participants?.length || 0,
-      
+
       itemsKey: "participants",
       emptyMessage: "Aucun participant",
       renderItem: (item) => ({
         title: item.name,
         subtitle: item.role,
       }),
-      
+
       allowAdd: true,
       allowDelete: true,
       entityName: "un participant",
@@ -191,7 +191,7 @@ export const sessionConfig = {
       component: "timeline",
     },
   ],
-  
+
   // Overview tab sections
   overviewSections: [
     {
@@ -203,10 +203,10 @@ export const sessionConfig = {
     {
       title: "Détails de la séance",
       fields: [
-        { 
+        {
           key: "type",
-          label: "Type", 
-          value: (data) => data.type, 
+          label: "Type",
+          value: (data) => data.type,
           icon: "fas fa-tag",
           type: "select",
           editable: true,
@@ -218,44 +218,54 @@ export const sessionConfig = {
             { value: "Téléphone", label: "Téléphone" },
           ]
         },
-        { 
+        {
           key: "date",
-          label: "Date", 
-          value: (data) => data.date, 
+          label: "Date",
+          value: (data) => data.date,
           icon: "fas fa-calendar",
           type: "date",
           editable: true
         },
-        { 
+        {
           key: "time",
-          label: "Heure", 
-          value: (data) => data.time, 
+          label: "Heure",
+          value: (data) => data.time,
           icon: "fas fa-clock",
-          type: "text",
+          type: "time",
           editable: true,
-          placeholder: "10:00"
+          helpText: "Format: HH:MM"
         },
-        { 
+        {
           key: "duration",
-          label: "Durée", 
-          value: (data) => data.duration, 
+          label: "Durée",
+          value: (data) => data.duration,
           icon: "fas fa-hourglass-half",
-          type: "text",
+          type: "select",
           editable: true,
-          placeholder: "1h"
+          options: [
+            { value: "00:15", label: "15 minutes" },
+            { value: "00:30", label: "30 minutes" },
+            { value: "00:45", label: "45 minutes" },
+            { value: "01:00", label: "1 heure" },
+            { value: "01:30", label: "1h30" },
+            { value: "02:00", label: "2 heures" },
+            { value: "02:30", label: "2h30" },
+            { value: "03:00", label: "3 heures" },
+            { value: "04:00", label: "4 heures" },
+          ]
         },
-        { 
+        {
           key: "location",
-          label: "Lieu", 
-          value: (data) => data.location, 
+          label: "Lieu",
+          value: (data) => data.location,
           icon: "fas fa-map-marker-alt",
           type: "text",
           editable: true
         },
-        { 
+        {
           key: "status",
-          label: "Statut", 
-          value: (data) => data.status, 
+          label: "Statut",
+          value: (data) => data.status,
           icon: "fas fa-info-circle",
           type: "select",
           editable: true,
@@ -286,7 +296,7 @@ function InfoCard({ icon, label, value, color }) {
     green: "bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400",
     amber: "bg-amber-100 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400",
   };
-  
+
   return (
     <div className="flex items-center gap-3">
       <div className={`p-2 rounded-lg ${colors[color]}`}>

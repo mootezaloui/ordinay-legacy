@@ -1,0 +1,42 @@
+import { Link } from "react-router-dom";
+import { useSidebar } from "../../contexts/SidebarContext";
+import NotificationDropDown from "../notifications/notificationdropdown";
+import UserDropdown from "../user/UserDropdown";
+import GlobalSearch from "../Search/GlobalSearch";
+
+export default function HeaderBar() {
+  const { isCollapsed } = useSidebar();
+
+  return (
+    <header className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-lg w-full transition-all duration-300 sticky top-0 z-30 border-b border-slate-200 dark:border-slate-700">
+      <div className="w-full px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-16 gap-4">
+          {/* Logo - Hidden when sidebar is expanded, visible when collapsed */}
+          <div className={`flex items-center flex-shrink-0 transition-all duration-300 ${isCollapsed ? "opacity-100 w-auto" : "opacity-0 w-0 overflow-hidden"
+            }`}>
+            <Link
+              to="/dashboard"
+              className="text-xl font-bold text-slate-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200"
+            >
+              LawFirm
+            </Link>
+          </div>
+
+          {/* Global Search */}
+          <div className="flex-1 max-w-2xl mx-4 hidden md:block">
+            <GlobalSearch />
+          </div>
+
+          {/* Icons & Profile */}
+          <div className="flex items-center gap-2 ml-auto">
+            {/* Notification Dropdown */}
+            <NotificationDropDown />
+
+            {/* User Dropdown */}
+            <UserDropdown />
+          </div>
+        </div>
+      </div>
+    </header>
+  );
+}

@@ -1,26 +1,44 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import ContentSection from "../../layout/ContentSection";
 import FormModal from "../../FormModal/FormModal";
 import { getStatusColor } from "../../../utils/mockData";
 
 /**
- * RelatedItems Tab - Displays related items with ADD functionality
- * Users can add new items directly from the detail view!
+ * RelatedItems Tab - Enhanced with dynamic field options
+ * ✅ UPDATED: Handles getOptions() for dynamic dropdowns
+ * ✅ UPDATED: Processes searchable-select fields
  */
 export default function RelatedItemsTab({ data, config, tabConfig, onItemsChange }) {
   const [items, setItems] = useState(data[tabConfig.itemsKey] || []);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [formData, setFormData] = useState({});
 
-  const handleAddItem = async (formData) => {
+  // ✅ Process form fields to handle dynamic options
+  const processedFormFields = useMemo(() => {
+    if (!tabConfig.formFields) return [];
+
+    return tabConfig.formFields.map(field => {
+      // If field has getOptions function, call it with current formData
+      if (field.getOptions && typeof field.getOptions === 'function') {
+        return {
+          ...field,
+          options: field.getOptions(formData),
+        };
+      }
+      return field;
+    });
+  }, [tabConfig.formFields, formData]);
+
+  const handleAddItem = async (submittedFormData) => {
     setIsLoading(true);
 
     try {
       // Create new item
       const newItem = {
         id: Date.now(),
-        ...formData,
+        ...submittedFormData,
         // Add parent reference if needed
         [config.entityType + 'Id']: data.id,
         createdDate: new Date().toISOString().split('T')[0],
@@ -40,6 +58,7 @@ export default function RelatedItemsTab({ data, config, tabConfig, onItemsChange
       await new Promise(resolve => setTimeout(resolve, 500));
 
       setIsAddModalOpen(false);
+      setFormData({}); // Reset form data
       alert(`${tabConfig.entityName || 'Item'} ajouté avec succès!`);
 
     } catch (error) {
@@ -64,6 +83,22 @@ export default function RelatedItemsTab({ data, config, tabConfig, onItemsChange
     }
   };
 
+  const handleModalOpen = () => {
+    // Initialize with defaults when opening
+    const defaults = {};
+    tabConfig.formFields?.forEach((field) => {
+      defaults[field.name] = field.defaultValue || "";
+    });
+    setFormData(defaults);
+    setIsAddModalOpen(true);
+  };
+
+  const handleModalClose = () => {
+    // Clear form data on close
+    setFormData({});
+    setIsAddModalOpen(false);
+  };
+
   if (items.length === 0) {
     return (
       <>
@@ -75,11 +110,11 @@ export default function RelatedItemsTab({ data, config, tabConfig, onItemsChange
             <p className="text-slate-600 dark:text-slate-400 mb-4">
               {tabConfig.emptyMessage || "Aucun élément"}
             </p>
-            
+
             {/* ADD BUTTON - Empty State */}
             {tabConfig.allowAdd !== false && (
               <button
-                onClick={() => setIsAddModalOpen(true)}
+                onClick={handleModalOpen}
                 className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors inline-flex items-center gap-2"
               >
                 <i className="fas fa-plus"></i>
@@ -93,12 +128,15 @@ export default function RelatedItemsTab({ data, config, tabConfig, onItemsChange
         {tabConfig.formFields && (
           <FormModal
             isOpen={isAddModalOpen}
-            onClose={() => setIsAddModalOpen(false)}
+            onClose={handleModalClose}
             onSubmit={handleAddItem}
             title={`Ajouter ${tabConfig.entityName || 'un élément'}`}
             subtitle={tabConfig.addSubtitle || `Créer un nouveau ${tabConfig.entityName?.toLowerCase() || 'élément'}`}
-            fields={tabConfig.formFields}
+            fields={processedFormFields}
             isLoading={isLoading}
+            // ✅ Pass formData state handlers for dynamic updates
+            formData={formData}
+            onFormDataChange={setFormData}
           />
         )}
       </>
@@ -107,13 +145,13 @@ export default function RelatedItemsTab({ data, config, tabConfig, onItemsChange
 
   return (
     <>
-      <ContentSection 
+      <ContentSection
         title={`${tabConfig.label} (${items.length})`}
         actions={
           // ADD BUTTON - Header
           tabConfig.allowAdd !== false && (
             <button
-              onClick={() => setIsAddModalOpen(true)}
+              onClick={handleModalOpen}
               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors text-sm inline-flex items-center gap-2"
             >
               <i className="fas fa-plus"></i>
@@ -139,9 +177,8 @@ export default function RelatedItemsTab({ data, config, tabConfig, onItemsChange
               >
                 <ItemWrapper
                   {...wrapperProps}
-                  className={`p-6 flex items-center justify-between transition-colors ${
-                    hasRoute ? 'hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer' : ''
-                  }`}
+                  className={`p-6 flex items-center justify-between transition-colors ${hasRoute ? 'hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer' : ''
+                    }`}
                 >
                   <div className="flex-1">
                     <p className="font-semibold text-slate-900 dark:text-white">
@@ -153,7 +190,7 @@ export default function RelatedItemsTab({ data, config, tabConfig, onItemsChange
                       </p>
                     )}
                   </div>
-                  
+
                   <div className="flex items-center gap-3">
                     {renderedItem.extra && (
                       <span className="text-lg font-bold text-slate-900 dark:text-white">
@@ -165,7 +202,7 @@ export default function RelatedItemsTab({ data, config, tabConfig, onItemsChange
                         {renderedItem.status}
                       </span>
                     )}
-                    
+
                     {/* Delete Button */}
                     {tabConfig.allowDelete !== false && (
                       <button
@@ -180,7 +217,7 @@ export default function RelatedItemsTab({ data, config, tabConfig, onItemsChange
                         <i className="fas fa-trash text-red-600 dark:text-red-400 text-sm"></i>
                       </button>
                     )}
-                    
+
                     {hasRoute && (
                       <i className="fas fa-chevron-right text-slate-400"></i>
                     )}
@@ -195,7 +232,7 @@ export default function RelatedItemsTab({ data, config, tabConfig, onItemsChange
         {tabConfig.allowAdd !== false && (
           <div className="p-6 border-t border-slate-200 dark:border-slate-700">
             <button
-              onClick={() => setIsAddModalOpen(true)}
+              onClick={handleModalOpen}
               className="w-full py-3 border-2 border-dashed border-slate-300 dark:border-slate-600 hover:border-blue-500 dark:hover:border-blue-500 rounded-lg text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors font-medium"
             >
               <i className="fas fa-plus mr-2"></i>
@@ -209,12 +246,15 @@ export default function RelatedItemsTab({ data, config, tabConfig, onItemsChange
       {tabConfig.formFields && (
         <FormModal
           isOpen={isAddModalOpen}
-          onClose={() => setIsAddModalOpen(false)}
+          onClose={handleModalClose}
           onSubmit={handleAddItem}
           title={`Ajouter ${tabConfig.entityName || 'un élément'}`}
           subtitle={tabConfig.addSubtitle || `Créer un nouveau ${tabConfig.entityName?.toLowerCase() || 'élément'} pour ${config.getTitle(data)}`}
-          fields={tabConfig.formFields}
+          fields={processedFormFields}
           isLoading={isLoading}
+          // ✅ Pass formData state handlers for dynamic updates
+          formData={formData}
+          onFormDataChange={setFormData}
         />
       )}
     </>

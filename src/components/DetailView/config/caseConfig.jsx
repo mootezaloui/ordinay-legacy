@@ -1,9 +1,11 @@
 import { Link } from "react-router-dom";
 import ContentSection from "../../layout/ContentSection";
 import { mockCasesExtended, getStatusColor } from "../../../utils/mockData";
+import { sessionFormFields } from "../../FormModal/formConfigs";
 
 /**
  * Case (Procès) Entity Configuration
+ * ✅ UPDATED: Audiences tab now creates Sessions (Séances Juridiques)
  */
 export const caseConfig = {
   // Basic info
@@ -11,33 +13,33 @@ export const caseConfig = {
   entityName: "Procès",
   icon: "fas fa-gavel",
   listRoute: "/cases",
-  
+
   // Messages
   notFoundMessage: "Procès non trouvé",
   deleteConfirmMessage: "Êtes-vous sûr de vouloir supprimer ce procès ?",
-  
+
   // Permissions
   allowDelete: true,
   allowEdit: true,
-  
+
   // Data fetching
   fetchData: async (id) => {
     return mockCasesExtended[id] || null;
   },
-  
+
   updateData: async (id, data) => {
     console.log("Updating case:", id, data);
     await new Promise(resolve => setTimeout(resolve, 500));
   },
-  
+
   deleteData: async (id) => {
     console.log("Deleting case:", id);
   },
-  
+
   // Header display
   getTitle: (data) => data.caseNumber,
   getSubtitle: (data) => data.title,
-  
+
   // Custom header rendering
   renderHeader: (data) => {
     return (
@@ -71,7 +73,7 @@ export const caseConfig = {
       </ContentSection>
     );
   },
-  
+
   // Stats cards
   getStats: (data) => [
     {
@@ -79,7 +81,7 @@ export const caseConfig = {
       iconColor: "text-red-600 dark:text-red-400",
       bgColor: "bg-red-100 dark:bg-red-900/20",
       value: data.nextHearing,
-      label: "Prochaine audience"
+      label: "Prochaine Audience"
     },
     {
       icon: "fas fa-file",
@@ -92,11 +94,11 @@ export const caseConfig = {
       icon: "fas fa-history",
       iconColor: "text-blue-600 dark:text-blue-400",
       bgColor: "bg-blue-100 dark:bg-blue-900/20",
-      value: data.hearings?.length || 0,
-      label: "Audiences"
+      value: data.sessions?.length || 0,
+      label: "Séances"
     },
   ],
-  
+
   // Tabs configuration
   tabs: [
     {
@@ -106,76 +108,49 @@ export const caseConfig = {
       component: "overview",
     },
     {
-      id: "hearings",
-      label: "Audiences",
+      id: "sessions",
+      label: "Séances",
       icon: "fas fa-calendar-alt",
       component: "relatedItems",
-      getCount: (data) => data.hearings?.length || 0,
-      
-      itemsKey: "hearings",
-      emptyMessage: "Aucune audience programmée",
+      getCount: (data) => data.sessions?.length || 0,
+
+      // ✅ CHANGED: Now manages Sessions (Séances) instead of simple hearings
+      itemsKey: "sessions",
+      itemRoute: "/sessions", // ✅ Links to Sessions detail view
+      emptyMessage: "Aucune séance programmée",
       renderItem: (item) => ({
-        title: `Audience du ${item.date}`,
-        subtitle: `${item.time} - ${item.type}`,
+        title: item.title,
+        subtitle: `${item.type} - ${item.date} à ${item.time} - ${item.location}`,
         status: item.status,
       }),
-      
+
+      // ✅ UPDATED: Uses sessionFormFields - user can choose session type
       allowAdd: true,
       allowDelete: true,
-      entityName: "une audience",
-      formFields: [
-        {
-          name: "date",
-          label: "Date",
-          type: "date",
-          required: true,
-        },
-        {
-          name: "time",
-          label: "Heure",
-          type: "text",
-          required: true,
-          placeholder: "10:00"
-        },
-        {
-          name: "type",
-          label: "Type d'audience",
-          type: "select",
-          required: true,
-          options: [
-            { value: "Préliminaire", label: "Préliminaire" },
-            { value: "Instruction", label: "Instruction" },
-            { value: "Plaidoirie", label: "Plaidoirie" },
-            { value: "Délibéré", label: "Délibéré" },
-            { value: "Jugement", label: "Jugement" },
-          ]
-        },
-        {
-          name: "location",
-          label: "Salle",
-          type: "text",
-          placeholder: "Ex: Salle 3"
-        },
-        {
-          name: "status",
-          label: "Statut",
-          type: "select",
-          required: true,
-          defaultValue: "Programmée",
-          options: [
-            { value: "Programmée", label: "Programmée" },
-            { value: "Terminée", label: "Terminée" },
-            { value: "Reportée", label: "Reportée" },
-            { value: "Annulée", label: "Annulée" },
-          ]
-        },
-        {
-          name: "notes",
-          label: "Notes",
-          type: "textarea",
-          rows: 3,
-        },
-      ],
+      entityName: "une séance",
+      addSubtitle: "Créer une nouvelle séance juridique pour ce procès",
+
+      // ✅ Filter session form fields - remove caseId since we're in case context
+      formFields: sessionFormFields
+        .filter(field => field.name !== 'caseId') // Remove case selector since we're already in case context
+        .map(field => {
+          // Pre-fill type as "Audience" but allow user to change it
+          if (field.name === 'type') {
+            return {
+              ...field,
+              defaultValue: "Audience",
+              // NOT disabled - user can select any type
+            };
+          }
+          // Pre-fill location with helpful placeholder
+          if (field.name === 'location') {
+            return {
+              ...field,
+              placeholder: "Salle d'audience / Lieu de rendez-vous",
+            };
+          }
+          return field;
+        }),
     },
     {
       id: "documents",
@@ -197,7 +172,7 @@ export const caseConfig = {
       component: "timeline",
     },
   ],
-  
+
   // Overview tab sections
   overviewSections: [
     {
@@ -209,10 +184,10 @@ export const caseConfig = {
     {
       title: "Informations du tribunal",
       fields: [
-        { 
+        {
           key: "court",
-          label: "Tribunal", 
-          value: (data) => data.court, 
+          label: "Tribunal",
+          value: (data) => data.court,
           icon: "fas fa-landmark",
           type: "select",
           editable: true,
@@ -222,26 +197,26 @@ export const caseConfig = {
             { value: "Cour de cassation", label: "Cour de cassation" },
           ]
         },
-        { 
+        {
           key: "judge",
-          label: "Juge", 
-          value: (data) => data.judge, 
+          label: "Juge",
+          value: (data) => data.judge,
           icon: "fas fa-balance-scale",
           type: "text",
           editable: true
         },
-        { 
+        {
           key: "courtRoom",
-          label: "Salle", 
-          value: (data) => data.courtRoom, 
+          label: "Salle",
+          value: (data) => data.courtRoom,
           icon: "fas fa-door-open",
           type: "text",
           editable: true
         },
-        { 
+        {
           key: "referenceNumber",
-          label: "Numéro de référence", 
-          value: (data) => data.referenceNumber, 
+          label: "Numéro de référence",
+          value: (data) => data.referenceNumber,
           icon: "fas fa-hashtag",
           type: "text",
           editable: true
@@ -251,18 +226,18 @@ export const caseConfig = {
     {
       title: "Dates importantes",
       fields: [
-        { 
+        {
           key: "filingDate",
-          label: "Date de dépôt", 
-          value: (data) => data.filingDate, 
+          label: "Date de dépôt",
+          value: (data) => data.filingDate,
           icon: "fas fa-calendar-plus",
           type: "date",
           editable: true
         },
-        { 
+        {
           key: "nextHearing",
-          label: "Prochaine audience", 
-          value: (data) => data.nextHearing, 
+          label: "Prochaine audience",
+          value: (data) => data.nextHearing,
           icon: "fas fa-calendar-alt",
           type: "date",
           editable: true
@@ -272,18 +247,18 @@ export const caseConfig = {
     {
       title: "Parties",
       fields: [
-        { 
+        {
           key: "adversaryParty",
-          label: "Partie adverse", 
-          value: (data) => data.adversaryParty, 
+          label: "Partie adverse",
+          value: (data) => data.adversaryParty,
           icon: "fas fa-user",
           type: "text",
           editable: true
         },
-        { 
+        {
           key: "adversaryLawyer",
-          label: "Avocat adverse", 
-          value: (data) => data.adversaryLawyer, 
+          label: "Avocat adverse",
+          value: (data) => data.adversaryLawyer,
           icon: "fas fa-user-tie",
           type: "text",
           editable: true
@@ -293,10 +268,10 @@ export const caseConfig = {
     {
       title: "Statut",
       fields: [
-        { 
+        {
           key: "status",
-          label: "Statut du procès", 
-          value: (data) => data.status, 
+          label: "Statut du procès",
+          value: (data) => data.status,
           icon: "fas fa-info-circle",
           type: "select",
           editable: true,
@@ -320,7 +295,7 @@ function InfoCard({ icon, label, value, color }) {
     blue: "bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400",
     amber: "bg-amber-100 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400",
   };
-  
+
   return (
     <div className="flex items-center gap-3">
       <div className={`p-2 rounded-lg ${colors[color]}`}>

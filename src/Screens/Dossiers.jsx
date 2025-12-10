@@ -15,10 +15,11 @@ import Pagination from "../components/table/Pagination";
 import FormModal from "../components/FormModal/FormModal";
 import { dossierFormFields, getFormTitle } from "../components/FormModal/formConfigs";
 import { mockDossiers, mockClients, getStatusColor } from "../utils/mockData";
+import StatCard from "../components/dashboard/StatCard";
 
 export default function Dossiers() {
   const navigate = useNavigate();
-  
+
   const [dossiers, setDossiers] = useState(mockDossiers);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingDossier, setEditingDossier] = useState(null);
@@ -29,6 +30,14 @@ export default function Dossiers() {
     "Haute": "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
     "Moyenne": "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
     "Basse": "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+  };
+
+  // Calculate stats
+  const stats = {
+    total: dossiers.length,
+    open: dossiers.filter(d => d.status === "Ouvert").length,
+    closed: dossiers.filter(d => d.status === "Fermé").length,
+    highPriority: dossiers.filter(d => d.priority === "Haute").length,
   };
 
   // Define table columns
@@ -95,27 +104,27 @@ export default function Dossiers() {
       locked: true,
       render: (dossier) => (
         <TableActions>
-          <IconButton 
-            icon="view" 
-            variant="view" 
+          <IconButton
+            icon="view"
+            variant="view"
             title="Voir détails"
             onClick={(e) => {
               e.stopPropagation();
               handleView(dossier.id);
             }}
           />
-          <IconButton 
-            icon="edit" 
-            variant="edit" 
+          <IconButton
+            icon="edit"
+            variant="edit"
             title="Modifier"
             onClick={(e) => {
               e.stopPropagation();
               handleEdit(dossier);
             }}
           />
-          <IconButton 
-            icon="delete" 
-            variant="delete" 
+          <IconButton
+            icon="delete"
+            variant="delete"
             title="Supprimer"
             onClick={(e) => {
               e.stopPropagation();
@@ -157,13 +166,13 @@ export default function Dossiers() {
 
   const handleSubmit = async (formData) => {
     setIsLoading(true);
-    
+
     try {
       await new Promise((resolve) => setTimeout(resolve, 500));
-      
+
       if (editingDossier) {
-        setDossiers(dossiers.map(d => 
-          d.id === editingDossier.id 
+        setDossiers(dossiers.map(d =>
+          d.id === editingDossier.id
             ? { ...formData, id: editingDossier.id }
             : d
         ));
@@ -178,7 +187,7 @@ export default function Dossiers() {
         setDossiers([newDossier, ...dossiers]);
         alert("Dossier ajouté avec succès!");
       }
-      
+
       setIsModalOpen(false);
       setEditingDossier(null);
     } catch (error) {
@@ -194,8 +203,8 @@ export default function Dossiers() {
       .filter(col => col.id !== "actions")
       .map(col => col.label)
       .join(",");
-    
-    const rows = table.allData.map(dossier => 
+
+    const rows = table.allData.map(dossier =>
       table.columns
         .filter(col => col.id !== "actions")
         .map(col => {
@@ -204,7 +213,7 @@ export default function Dossiers() {
         })
         .join(",")
     );
-    
+
     const csv = [headers, ...rows].join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = window.URL.createObjectURL(blob);
@@ -246,6 +255,34 @@ export default function Dossiers() {
         }
       />
 
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <StatCard
+          label="Total Dossiers"
+          value={stats.total}
+          icon="fas fa-folder-open"
+          color="blue"
+        />
+        <StatCard
+          label="Dossiers Ouverts"
+          value={stats.open}
+          icon="fas fa-folder"
+          color="green"
+        />
+        <StatCard
+          label="Dossiers Fermés"
+          value={stats.closed}
+          icon="fas fa-check-circle"
+          color="amber"
+        />
+        <StatCard
+          label="Priorité Haute"
+          value={stats.highPriority}
+          icon="fas fa-exclamation-triangle"
+          color="red"
+        />
+      </div>
+
       <ContentSection>
         <TableToolbar
           searchQuery={table.searchQuery}
@@ -271,7 +308,7 @@ export default function Dossiers() {
           />
           <TableBody isEmpty={table.data.length === 0} emptyMessage={table.isFiltering ? "Aucun résultat trouvé" : "Aucun dossier trouvé"}>
             {table.data.map((dossier) => (
-              <TableRow 
+              <TableRow
                 key={dossier.id}
                 onClick={() => handleView(dossier.id)}
                 className="cursor-pointer"

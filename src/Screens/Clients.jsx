@@ -13,17 +13,30 @@ import TableActions, { IconButton } from "../components/table/TableActions";
 import TableToolbar from "../components/table/TableToolbar";
 import Pagination from "../components/table/Pagination";
 import FormModal from "../components/FormModal/FormModal";
+import StatCard from "../components/dashboard/StatCard";
 import { clientFormFields, getFormTitle } from "../components/FormModal/formConfigs";
 import { mockClients, getStatusColor } from "../utils/mockData";
 
 export default function Clients() {
   const navigate = useNavigate();
-  
+
   // Store clients in state
   const [clients, setClients] = useState(mockClients);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClient, setEditingClient] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Calculate stats
+  const stats = {
+    total: clients.length,
+    active: clients.filter(c => c.status === "Actif").length,
+    inactive: clients.filter(c => c.status === "Inactif").length,
+    newThisMonth: clients.filter(c => {
+      const joinDate = new Date(c.joinDate);
+      const now = new Date();
+      return joinDate.getMonth() === now.getMonth() && joinDate.getFullYear() === now.getFullYear();
+    }).length,
+  };
 
   // Define table columns
   const columns = [
@@ -31,7 +44,7 @@ export default function Clients() {
       id: "name",
       label: "Nom",
       sortable: true,
-      locked: true, // Can't be hidden
+      locked: true,
       render: (client) => (
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
@@ -75,30 +88,30 @@ export default function Clients() {
       id: "actions",
       label: "Actions",
       sortable: false,
-      locked: true, // Can't be hidden
+      locked: true,
       render: (client) => (
         <TableActions>
-          <IconButton 
-            icon="view" 
-            variant="view" 
+          <IconButton
+            icon="view"
+            variant="view"
             title="Voir détails"
             onClick={(e) => {
               e.stopPropagation();
               handleView(client.id);
             }}
           />
-          <IconButton 
-            icon="edit" 
-            variant="edit" 
+          <IconButton
+            icon="edit"
+            variant="edit"
             title="Modifier"
             onClick={(e) => {
               e.stopPropagation();
               handleEdit(client);
             }}
           />
-          <IconButton 
-            icon="delete" 
-            variant="delete" 
+          <IconButton
+            icon="delete"
+            variant="delete"
             title="Supprimer"
             onClick={(e) => {
               e.stopPropagation();
@@ -118,7 +131,6 @@ export default function Clients() {
     searchableFields: ["name", "email", "phone", "status"],
   });
 
-  // Navigate to client detail
   const handleView = (id) => {
     navigate(`/clients/${id}`);
   };
@@ -141,30 +153,28 @@ export default function Clients() {
 
   const handleSubmit = async (formData) => {
     setIsLoading(true);
-    
+
     try {
       await new Promise((resolve) => setTimeout(resolve, 500));
-      
+
       if (editingClient) {
-        // UPDATE
-        setClients(clients.map(c => 
-          c.id === editingClient.id 
+        setClients(clients.map(c =>
+          c.id === editingClient.id
             ? { ...formData, id: editingClient.id }
             : c
         ));
         alert("Client modifié avec succès!");
       } else {
-        // ADD
         const newClient = {
           ...formData,
           id: Date.now(),
           joinDate: new Date().toISOString().split('T')[0],
         };
-        
+
         setClients([newClient, ...clients]);
         alert("Client ajouté avec succès!");
       }
-      
+
       setIsModalOpen(false);
       setEditingClient(null);
     } catch (error) {
@@ -175,14 +185,13 @@ export default function Clients() {
     }
   };
 
-  // Export to CSV
   const handleExport = () => {
     const headers = table.columns
       .filter(col => col.id !== "actions")
       .map(col => col.label)
       .join(",");
-    
-    const rows = table.allData.map(client => 
+
+    const rows = table.allData.map(client =>
       table.columns
         .filter(col => col.id !== "actions")
         .map(col => {
@@ -191,7 +200,7 @@ export default function Clients() {
         })
         .join(",")
     );
-    
+
     const csv = [headers, ...rows].join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = window.URL.createObjectURL(blob);
@@ -219,8 +228,36 @@ export default function Clients() {
         }
       />
 
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <StatCard
+          label="Total Clients"
+          value={stats.total}
+          icon="fas fa-users"
+          color="blue"
+        />
+        <StatCard
+          label="Clients Actifs"
+          value={stats.active}
+          icon="fas fa-user-check"
+          color="green"
+        />
+        <StatCard
+          label="Clients Inactifs"
+          value={stats.inactive}
+          icon="fas fa-user-slash"
+          color="amber"
+        />
+        <StatCard
+          label="Nouveaux ce mois"
+          value={stats.newThisMonth}
+          icon="fas fa-user-plus"
+          color="purple"
+          trendLabel="depuis le début du mois"
+        />
+      </div>
+
       <ContentSection>
-        {/* Table Toolbar */}
         <TableToolbar
           searchQuery={table.searchQuery}
           onSearchChange={table.setSearchQuery}
@@ -234,7 +271,6 @@ export default function Clients() {
           isFiltering={table.isFiltering}
         />
 
-        {/* Table */}
         <Table>
           <AdvancedTableHeader
             columns={table.columns}
@@ -246,7 +282,7 @@ export default function Clients() {
           />
           <TableBody isEmpty={table.data.length === 0} emptyMessage={table.isFiltering ? "Aucun résultat trouvé" : "Aucun client trouvé"}>
             {table.data.map((client) => (
-              <TableRow 
+              <TableRow
                 key={client.id}
                 onClick={() => handleView(client.id)}
                 className="cursor-pointer"
@@ -261,7 +297,6 @@ export default function Clients() {
           </TableBody>
         </Table>
 
-        {/* Pagination */}
         <Pagination
           currentPage={table.currentPage}
           totalPages={table.totalPages}
@@ -272,7 +307,6 @@ export default function Clients() {
         />
       </ContentSection>
 
-      {/* Add/Edit Modal */}
       <FormModal
         isOpen={isModalOpen}
         onClose={() => {
