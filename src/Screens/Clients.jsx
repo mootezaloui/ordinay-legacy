@@ -14,8 +14,9 @@ import TableToolbar from "../components/table/TableToolbar";
 import Pagination from "../components/table/Pagination";
 import FormModal from "../components/FormModal/FormModal";
 import StatCard from "../components/dashboard/StatCard";
+import InlineStatusSelector from "../components/InlineSelectors/InlineStatusSelector";
 import { clientFormFields, getFormTitle } from "../components/FormModal/formConfigs";
-import { mockClients, getStatusColor } from "../utils/mockData";
+import { mockClients } from "../utils/mockData";
 
 export default function Clients() {
   const navigate = useNavigate();
@@ -73,9 +74,14 @@ export default function Clients() {
       label: "Statut",
       sortable: true,
       render: (client) => (
-        <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(client.status)}`}>
-          {client.status}
-        </span>
+        <InlineStatusSelector
+          value={client.status}
+          onChange={(newStatus) => handleStatusChange(client.id, newStatus)}
+          statusOptions={[
+            { value: "Actif", label: "Actif", icon: "fas fa-circle-check", color: "text-green-600 dark:text-green-400" },
+            { value: "Inactif", label: "Inactif", icon: "fas fa-circle-xmark", color: "text-red-600 dark:text-red-400" },
+          ]}
+        />
       ),
     },
     {
@@ -133,6 +139,10 @@ export default function Clients() {
 
   const handleView = (id) => {
     navigate(`/clients/${id}`);
+  };
+
+  const handleStatusChange = (id, newStatus) => {
+    setClients(clients.map(c => c.id === id ? { ...c, status: newStatus } : c));
   };
 
   const handleEdit = (client) => {

@@ -14,7 +14,8 @@ import TableToolbar from "../components/table/TableToolbar";
 import Pagination from "../components/table/Pagination";
 import FormModal from "../components/FormModal/FormModal";
 import StatCard from "../components/dashboard/StatCard";
-import { mockOfficers, getStatusColor } from "../utils/mockData";
+import { mockOfficers } from "../utils/mockData";
+import InlineStatusSelector from "../components/InlineSelectors/InlineStatusSelector";
 
 export default function Officers() {
   const navigate = useNavigate();
@@ -38,16 +39,6 @@ export default function Officers() {
           </div>
           <span className="font-medium">{officer.name}</span>
         </div>
-      ),
-    },
-    {
-      id: "specialization",
-      label: "Spécialisation",
-      sortable: true,
-      render: (officer) => (
-        <span className="px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
-          {officer.specialization}
-        </span>
       ),
     },
     {
@@ -88,9 +79,14 @@ export default function Officers() {
       label: "Statut",
       sortable: true,
       render: (officer) => (
-        <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(officer.status)}`}>
-          {officer.status}
-        </span>
+        <InlineStatusSelector
+          value={officer.status}
+          onChange={(newStatus) => handleStatusChange(officer.id, newStatus)}
+          statusOptions={[
+            { value: "Actif", label: "Actif", icon: "fas fa-check-circle", color: "text-green-600" },
+            { value: "Inactif", label: "Inactif", icon: "fas fa-circle", color: "text-slate-600" },
+          ]}
+        />
       ),
     },
     {
@@ -145,7 +141,7 @@ export default function Officers() {
     initialSortBy: "name",
     initialSortDirection: "asc",
     initialItemsPerPage: 10,
-    searchableFields: ["name", "specialization", "phone", "email", "location", "status"],
+    searchableFields: ["name", "phone", "email", "location", "status"],
   });
 
   const handleView = (id) => {
@@ -161,6 +157,12 @@ export default function Officers() {
     if (window.confirm("Êtes-vous sûr de vouloir supprimer cet huissier ?")) {
       setOfficers(officers.filter(o => o.id !== id));
     }
+  };
+
+  const handleStatusChange = (id, newStatus) => {
+    setOfficers(officers.map(o =>
+      o.id === id ? { ...o, status: newStatus } : o
+    ));
   };
 
   const handleAddOfficer = () => {
@@ -226,7 +228,7 @@ export default function Officers() {
     window.URL.revokeObjectURL(url);
   };
 
-  // ✅ ENHANCED: Form fields for officers with additional professional details
+  // Form fields for officers
   const officerFormFields = [
     {
       name: "name",
@@ -235,41 +237,6 @@ export default function Officers() {
       required: true,
       placeholder: "Ex: Me. Ahmed Ben Salem",
       fullWidth: false,
-    },
-    {
-      name: "specialization",
-      label: "Spécialisation",
-      type: "select",
-      required: true,
-      options: [
-        { value: "Exécution", label: "Exécution" },
-        { value: "Recouvrement", label: "Recouvrement" },
-        { value: "Constat", label: "Constat" },
-        { value: "Signification", label: "Signification" },
-      ]
-    },
-    {
-      name: "registrationNumber",
-      label: "Numéro d'inscription",
-      type: "text",
-      required: false,
-      placeholder: "Ex: HJ-2020-123",
-      helpText: "Numéro d'inscription au tableau de l'ordre",
-    },
-    {
-      name: "office",
-      label: "Étude",
-      type: "text",
-      required: false,
-      placeholder: "Ex: Étude Ben Salem",
-      helpText: "Nom de l'étude d'huissier",
-    },
-    {
-      name: "yearsOfExperience",
-      label: "Années d'expérience",
-      type: "number",
-      required: false,
-      placeholder: "Ex: 10",
     },
     {
       name: "phone",

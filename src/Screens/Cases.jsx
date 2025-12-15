@@ -15,7 +15,8 @@ import Pagination from "../components/table/Pagination";
 import StatCard from "../components/dashboard/StatCard";
 import FormModal from "../components/FormModal/FormModal";
 import { caseFormFields } from "../components/FormModal/formConfigs";
-import { mockCases, mockDossiers, getStatusColor } from "../utils/mockData";
+import { mockCases, mockDossiers } from "../utils/mockData";
+import InlineStatusSelector from "../components/InlineSelectors/InlineStatusSelector";
 
 export default function Cases() {
   const navigate = useNavigate();
@@ -76,9 +77,16 @@ export default function Cases() {
       label: "Statut",
       sortable: true,
       render: (caseItem) => (
-        <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(caseItem.status)}`}>
-          {caseItem.status}
-        </span>
+        <InlineStatusSelector
+          value={caseItem.status}
+          onChange={(newStatus) => handleStatusChange(caseItem.id, newStatus)}
+          statusOptions={[
+            { value: "En cours", label: "En cours", icon: "fas fa-hourglass-half", color: "text-blue-600" },
+            { value: "En attente", label: "En attente", icon: "fas fa-clock", color: "text-amber-600" },
+            { value: "Suspendu", label: "Suspendu", icon: "fas fa-pause-circle", color: "text-orange-600" },
+            { value: "Clos", label: "Clos", icon: "fas fa-gavel", color: "text-gray-600" },
+          ]}
+        />
       ),
     },
     {
@@ -154,6 +162,12 @@ export default function Cases() {
     if (window.confirm("Êtes-vous sûr de vouloir supprimer ce procès ?")) {
       setCases(cases.filter(c => c.id !== id));
     }
+  };
+
+  const handleStatusChange = (id, newStatus) => {
+    setCases(cases.map(c =>
+      c.id === id ? { ...c, status: newStatus } : c
+    ));
   };
 
   const handleAddCase = () => {

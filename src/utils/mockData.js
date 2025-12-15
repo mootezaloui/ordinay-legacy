@@ -181,7 +181,9 @@ export const mockTasks = [
   {
     id: 1,
     title: "Préparer dossier plaidoirie",
+    parentType: "dossier", // ← PARENT TYPE: dossier or case
     dossierId: 1, // ← DOSSIER RELATIONSHIP
+    caseId: null,
     dossier: "DOS-2024-001",
     assignedTo: "Me. Hammami",
     dueDate: "2025-12-15",
@@ -191,7 +193,9 @@ export const mockTasks = [
   {
     id: 2,
     title: "Rédiger conclusions",
+    parentType: "dossier", // ← PARENT TYPE: dossier or case
     dossierId: 2, // ← DOSSIER RELATIONSHIP
+    caseId: null,
     dossier: "DOS-2024-002",
     assignedTo: "Me. Sassi",
     dueDate: "2025-12-20",
@@ -201,12 +205,38 @@ export const mockTasks = [
   {
     id: 3,
     title: "Suivi fiscal trimestriel",
+    parentType: "dossier", // ← PARENT TYPE: dossier or case
     dossierId: 3, // ← DOSSIER RELATIONSHIP
+    caseId: null,
     dossier: "DOS-2024-003",
     assignedTo: "Me. Cherif",
     dueDate: "2024-11-30",
     status: "Terminée",
     priority: "Basse",
+  },
+  {
+    id: 4,
+    title: "Dépôt des conclusions écrites",
+    parentType: "case", // ← PARENT TYPE: case
+    dossierId: null,
+    caseId: 1, // ← CASE RELATIONSHIP
+    case: "PRO-2024-001",
+    assignedTo: "Me. Hammami",
+    dueDate: "2025-12-18",
+    status: "En cours",
+    priority: "Haute",
+  },
+  {
+    id: 5,
+    title: "Préparation plaidoirie audience",
+    parentType: "case", // ← PARENT TYPE: case
+    dossierId: null,
+    caseId: 2, // ← CASE RELATIONSHIP
+    case: "PRO-2024-002",
+    assignedTo: "Me. Sassi",
+    dueDate: "2025-12-22",
+    status: "Non commencée",
+    priority: "Haute",
   },
 ];
 
@@ -506,7 +536,9 @@ export const mockDossiersExtended = {
     notes: "Dossier prioritaire - Échéance importante en décembre",
 
     // RELATIONSHIPS
-    tasks: mockTasks.filter((t) => t.dossierId === 1),
+    tasks: mockTasks.filter(
+      (t) => t.parentType === "dossier" && t.dossierId === 1
+    ),
     proceedings: mockCases.filter((c) => c.dossierId === 1),
     officerAssignments: mockOfficerAssignments.filter(
       (a) => a.entityType === "dossier" && a.entityId === 1
@@ -567,7 +599,9 @@ export const mockDossiersExtended = {
     estimatedValue: "N/A",
     notes: "Cas sensible - Médiation en cours",
 
-    tasks: mockTasks.filter((t) => t.dossierId === 2),
+    tasks: mockTasks.filter(
+      (t) => t.parentType === "dossier" && t.dossierId === 2
+    ),
     proceedings: mockCases.filter((c) => c.dossierId === 2),
     officerAssignments: mockOfficerAssignments.filter(
       (a) => a.entityType === "dossier" && a.entityId === 2
@@ -619,7 +653,9 @@ export const mockDossiersExtended = {
     estimatedValue: "75,000 TND",
     notes: "Dossier clôturé avec succès - Gain du recours",
 
-    tasks: mockTasks.filter((t) => t.dossierId === 3),
+    tasks: mockTasks.filter(
+      (t) => t.parentType === "dossier" && t.dossierId === 3
+    ),
     proceedings: mockCases.filter((c) => c.dossierId === 3),
     officerAssignments: [],
 
@@ -666,10 +702,13 @@ export const mockCasesExtended = {
     description: "Procès concernant la violation d'un contrat commercial.",
 
     // RELATIONSHIPS
+    tasks: mockTasks.filter((t) => t.parentType === "case" && t.caseId === 1),
     hearings: mockSessions.filter((s) => s.caseId === 1),
+    sessions: mockSessions.filter((s) => s.caseId === 1),
     officerAssignments: mockOfficerAssignments.filter(
       (a) => a.entityType === "case" && a.entityId === 1
     ),
+    missions: [], // Will be populated dynamically from officers
 
     documents: [
       {
@@ -726,8 +765,11 @@ export const mockCasesExtended = {
     description:
       "Appel du jugement de première instance concernant le divorce et la garde des enfants.",
 
+    tasks: mockTasks.filter((t) => t.parentType === "case" && t.caseId === 2),
     hearings: mockSessions.filter((s) => s.caseId === 2),
+    sessions: mockSessions.filter((s) => s.caseId === 2),
     officerAssignments: [],
+    missions: [], // Will be populated dynamically from officers
 
     documents: [],
     notes: [],
@@ -753,6 +795,7 @@ export const mockCasesExtended = {
     filingDate: "2024-04-01",
     description: "Recours contre un redressement fiscal.",
 
+    tasks: mockTasks.filter((t) => t.parentType === "case" && t.caseId === 3),
     hearings: mockSessions.filter((s) => s.caseId === 3),
     officerAssignments: [],
 
@@ -829,7 +872,19 @@ export const mockSessionsExtended = {
 
     participants: [],
     documents: [],
-    timeline: [],
+    timeline: [
+      { type: "created", event: "Séance programmée", date: "2024-12-05 10:00" },
+      {
+        type: "meeting",
+        event: "Réunion préparation avec client",
+        date: "2024-12-15 14:00",
+      },
+      {
+        type: "action",
+        event: "Convocation envoyée au tribunal",
+        date: "2024-12-20 09:00",
+      },
+    ],
   },
   3: {
     id: 3,
@@ -846,7 +901,19 @@ export const mockSessionsExtended = {
 
     participants: [],
     documents: [],
-    timeline: [],
+    timeline: [
+      { type: "created", event: "Appel programmé", date: "2025-06-01 11:00" },
+      {
+        type: "document",
+        event: "Dossier d'appel déposé",
+        date: "2025-08-15 15:00",
+      },
+      {
+        type: "action",
+        event: "Notification des parties",
+        date: "2025-10-01 09:30",
+      },
+    ],
   },
   4: {
     id: 4,
@@ -863,7 +930,19 @@ export const mockSessionsExtended = {
 
     participants: [],
     documents: [],
-    timeline: [],
+    timeline: [
+      {
+        type: "created",
+        event: "Consultation programmée",
+        date: "2024-12-01 10:00",
+      },
+      {
+        type: "call",
+        event: "Confirmation d'appel au client",
+        date: "2024-12-10 16:00",
+      },
+      { type: "action", event: "Documents préparés", date: "2024-12-14 11:00" },
+    ],
   },
 };
 
@@ -871,12 +950,15 @@ export const mockTasksExtended = {
   1: {
     id: 1,
     title: "Préparer dossier plaidoirie",
+    parentType: "dossier",
     dossierId: 1,
+    caseId: null,
     dossier: {
       id: 1,
       caseNumber: "DOS-2024-001",
       title: "Affaire Commerciale",
     },
+    case: null,
     assignedTo: "Me. Hammami",
     dueDate: "2025-12-15",
     status: "En cours",
@@ -901,12 +983,15 @@ export const mockTasksExtended = {
   2: {
     id: 2,
     title: "Rédiger conclusions",
+    parentType: "dossier",
     dossierId: 2,
+    caseId: null,
     dossier: {
       id: 2,
       caseNumber: "DOS-2024-002",
       title: "Divorce Contentieux",
     },
+    case: null,
     assignedTo: "Me. Sassi",
     dueDate: "2025-12-20",
     status: "En attente",
@@ -918,13 +1003,23 @@ export const mockTasksExtended = {
 
     documents: [],
     comments: [],
-    timeline: [],
+    timeline: [
+      { type: "created", event: "Tâche créée", date: "2024-12-01 09:00" },
+      {
+        type: "action",
+        event: "Assignée à Me. Sassi",
+        date: "2024-12-02 10:30",
+      },
+    ],
   },
   3: {
     id: 3,
     title: "Suivi fiscal trimestriel",
+    parentType: "dossier",
     dossierId: 3,
+    caseId: null,
     dossier: { id: 3, caseNumber: "DOS-2024-003", title: "Contentieux Fiscal" },
+    case: null,
     assignedTo: "Me. Cherif",
     dueDate: "2024-11-30",
     status: "Terminée",
@@ -936,7 +1031,75 @@ export const mockTasksExtended = {
 
     documents: [],
     comments: [],
-    timeline: [],
+    timeline: [
+      { type: "created", event: "Tâche créée", date: "2024-10-01 09:00" },
+      {
+        type: "action",
+        event: "Rapport fiscal préparé",
+        date: "2024-11-15 14:00",
+      },
+      {
+        type: "action",
+        event: "Réunion client effectuée",
+        date: "2024-11-25 11:00",
+      },
+      { type: "action", event: "Tâche complétée", date: "2024-11-30 16:00" },
+    ],
+  },
+  4: {
+    id: 4,
+    title: "Dépôt des conclusions écrites",
+    parentType: "case",
+    dossierId: null,
+    caseId: 1,
+    dossier: null,
+    case: {
+      id: 1,
+      caseNumber: "PRO-2024-001",
+      title: "Litige commercial - Audience",
+    },
+    assignedTo: "Me. Hammami",
+    dueDate: "2025-12-18",
+    status: "En cours",
+    priority: "Haute",
+    createdDate: "2024-12-05",
+    description:
+      "Déposer les conclusions écrites au greffe avant l'audience du 20 décembre.",
+    estimatedTime: "4h",
+    progress: 30,
+
+    documents: [],
+    comments: [],
+    timeline: [
+      { type: "created", event: "Tâche créée", date: "2024-12-05 10:00" },
+    ],
+  },
+  5: {
+    id: 5,
+    title: "Préparation plaidoirie audience",
+    parentType: "case",
+    dossierId: null,
+    caseId: 2,
+    dossier: null,
+    case: {
+      id: 2,
+      caseNumber: "PRO-2024-002",
+      title: "Divorce - Pension alimentaire",
+    },
+    assignedTo: "Me. Sassi",
+    dueDate: "2025-12-22",
+    status: "Non commencée",
+    priority: "Haute",
+    createdDate: "2024-12-10",
+    description: "Préparer la plaidoirie pour l'audience de divorce.",
+    estimatedTime: "6h",
+    progress: 0,
+
+    documents: [],
+    comments: [],
+    timeline: [
+      { type: "created", event: "Tâche créée", date: "2024-12-10 11:00" },
+    ],
   },
 };
 
@@ -958,8 +1121,107 @@ export const mockOfficersExtended = {
     completedCases: 145,
     notes: "Très professionnel - Disponible rapidement",
 
-    // RELATIONSHIPS - Show assignments
-    cases: mockOfficerAssignments.filter((a) => a.officerId === 1),
+    // RELATIONSHIPS - Map assignments to actual dossiers/cases
+    cases: [mockDossiers.find((d) => d.caseNumber === "DOS-2024-001")].filter(
+      Boolean
+    ),
+
+    // MISSIONS with documents
+    missions: [
+      {
+        id: 1,
+        missionNumber: "MIS-2024-001",
+        title: "Signification acte judiciaire",
+        missionType: "Signification",
+        entityType: "dossier",
+        entityReference: "DOS-2024-001",
+        assignDate: "2024-11-01",
+        dueDate: "2024-11-15",
+        completionDate: "2024-11-14",
+        priority: "Haute",
+        status: "Terminée",
+        description: "Signification de l'assignation au défendeur",
+        result:
+          "Acte signifié en mains propres le 14/11/2024 à 10h30. Signature obtenue.",
+        notes: "RDV pris au préalable par téléphone",
+        documents: [
+          {
+            id: 1,
+            name: "Assignation.pdf",
+            type: "pdf",
+            size: "450 KB",
+            uploadDate: "2024-11-01",
+            category: "Document à signifier",
+          },
+          {
+            id: 2,
+            name: "PV_Signification.pdf",
+            type: "pdf",
+            size: "280 KB",
+            uploadDate: "2024-11-14",
+            category: "Procès-verbal",
+          },
+        ],
+      },
+      {
+        id: 2,
+        missionNumber: "MIS-2024-015",
+        title: "Constat état des lieux",
+        missionType: "Constat",
+        entityType: "case",
+        entityReference: "PRO-2024-001",
+        assignDate: "2024-11-20",
+        dueDate: "2024-12-05",
+        priority: "Moyenne",
+        status: "En cours",
+        description: "Constat de l'état du local commercial",
+        result: "",
+        notes: "Attente confirmation date avec le propriétaire",
+        documents: [
+          {
+            id: 3,
+            name: "Plan_Local.pdf",
+            type: "pdf",
+            size: "1.2 MB",
+            uploadDate: "2024-11-20",
+            category: "Plan",
+          },
+          {
+            id: 4,
+            name: "Photos_Etat_Initial.zip",
+            type: "zip",
+            size: "5.8 MB",
+            uploadDate: "2024-11-20",
+            category: "Photos",
+          },
+        ],
+      },
+      {
+        id: 3,
+        missionNumber: "MIS-2024-032",
+        title: "Signification jugement",
+        missionType: "Signification",
+        entityType: "case",
+        entityReference: "PRO-2024-002",
+        assignDate: "2024-12-10",
+        dueDate: "2024-12-25",
+        priority: "Haute",
+        status: "Programmée",
+        description: "Signification du jugement de divorce",
+        result: "",
+        notes: "Mission programmée pour le 18/12/2024",
+        documents: [
+          {
+            id: 5,
+            name: "Jugement_Divorce.pdf",
+            type: "pdf",
+            size: "620 KB",
+            uploadDate: "2024-12-10",
+            category: "Jugement",
+          },
+        ],
+      },
+    ],
 
     documents: [],
     timeline: [
@@ -986,10 +1248,97 @@ export const mockOfficersExtended = {
     rating: 4.8,
     completedCases: 98,
 
-    cases: mockOfficerAssignments.filter((a) => a.officerId === 2),
+    // RELATIONSHIPS - Map assignments to actual dossiers/cases
+    cases: [mockCases.find((c) => c.caseNumber === "PRO-2024-001")].filter(
+      Boolean
+    ),
+
+    // MISSIONS with documents
+    missions: [
+      {
+        id: 4,
+        missionNumber: "MIS-2024-008",
+        title: "Exécution jugement - Saisie mobilière",
+        missionType: "Saisie",
+        entityType: "case",
+        entityReference: "PRO-2024-001",
+        assignDate: "2024-11-15",
+        dueDate: "2024-11-30",
+        completionDate: "2024-11-29",
+        priority: "Haute",
+        status: "Terminée",
+        description: "Saisie mobilière suite au jugement",
+        result:
+          "Saisie effectuée. Inventaire complet réalisé. Valeur estimée: 15,000 TND",
+        notes: "Présence de l'avocat du créancier requise",
+        documents: [
+          {
+            id: 6,
+            name: "Titre_Executoire.pdf",
+            type: "pdf",
+            size: "340 KB",
+            uploadDate: "2024-11-15",
+            category: "Titre exécutoire",
+          },
+          {
+            id: 7,
+            name: "Inventaire_Saisie.pdf",
+            type: "pdf",
+            size: "890 KB",
+            uploadDate: "2024-11-29",
+            category: "Inventaire",
+          },
+          {
+            id: 8,
+            name: "Photos_Biens.zip",
+            type: "zip",
+            size: "12.4 MB",
+            uploadDate: "2024-11-29",
+            category: "Photos",
+          },
+        ],
+      },
+      {
+        id: 5,
+        missionNumber: "MIS-2024-041",
+        title: "Recouvrement créance",
+        missionType: "Recouvrement",
+        entityType: "dossier",
+        entityReference: "DOS-2024-003",
+        assignDate: "2024-12-12",
+        dueDate: "2024-12-30",
+        priority: "Moyenne",
+        status: "En cours",
+        description: "Recouvrement amiable de créance fiscale",
+        result: "",
+        notes: "Premier contact établi - Débiteur demande délai",
+        documents: [
+          {
+            id: 9,
+            name: "Titre_Creance.pdf",
+            type: "pdf",
+            size: "210 KB",
+            uploadDate: "2024-12-12",
+            category: "Titre de créance",
+          },
+        ],
+      },
+    ],
 
     documents: [],
-    timeline: [],
+    timeline: [
+      { type: "created", event: "Huissier ajouté", date: "2024-02-20 10:00" },
+      {
+        type: "action",
+        event: "Mission MIS-2024-008 terminée",
+        date: "2024-11-29 14:00",
+      },
+      {
+        type: "action",
+        event: "Évaluation client: 4.8/5",
+        date: "2024-12-05 16:00",
+      },
+    ],
   },
   3: {
     id: 3,
@@ -1006,12 +1355,93 @@ export const mockOfficersExtended = {
     rating: 4.2,
     completedCases: 52,
 
-    cases: mockOfficerAssignments.filter((a) => a.officerId === 3),
+    // RELATIONSHIPS - Map assignments to actual dossiers/cases
+    cases: [mockDossiers.find((d) => d.caseNumber === "DOS-2024-002")].filter(
+      Boolean
+    ),
+
+    // MISSIONS with documents
+    missions: [
+      {
+        id: 6,
+        missionNumber: "MIS-2024-019",
+        title: "Constat dégâts des eaux",
+        missionType: "Constat",
+        entityType: "dossier",
+        entityReference: "DOS-2024-002",
+        assignDate: "2024-12-01",
+        dueDate: "2024-12-10",
+        priority: "Haute",
+        status: "Programmée",
+        description: "Constat contradictoire des dégâts suite à fuite",
+        result: "",
+        notes: "RDV fixé le 16/12/2024 à 14h00",
+        documents: [
+          {
+            id: 10,
+            name: "Demande_Constat.pdf",
+            type: "pdf",
+            size: "180 KB",
+            uploadDate: "2024-12-01",
+            category: "Demande",
+          },
+        ],
+      },
+    ],
 
     documents: [],
-    timeline: [],
+    timeline: [
+      { type: "created", event: "Huissier ajouté", date: "2024-05-10 09:00" },
+      {
+        type: "action",
+        event: "Mission DOS-2024-002 en cours",
+        date: "2024-12-01 14:00",
+      },
+      {
+        type: "action",
+        event: "RDV programmé le 16/12",
+        date: "2024-12-05 10:30",
+      },
+    ],
   },
 };
+
+// Helper function to get all missions for a case or dossier
+function getMissionsForEntity(entityType, entityReference) {
+  const missions = [];
+  Object.values(mockOfficersExtended).forEach((officer) => {
+    if (officer.missions) {
+      officer.missions.forEach((mission) => {
+        if (
+          mission.entityType === entityType &&
+          mission.entityReference === entityReference
+        ) {
+          missions.push({
+            ...mission,
+            officerId: officer.id,
+            officerName: officer.name,
+          });
+        }
+      });
+    }
+  });
+  return missions;
+}
+
+// Populate missions dynamically for cases
+Object.keys(mockCasesExtended).forEach((caseId) => {
+  const caseData = mockCasesExtended[caseId];
+  caseData.missions = getMissionsForEntity("case", caseData.caseNumber);
+});
+
+// Populate missions dynamically for dossiers
+Object.keys(mockDossiersExtended).forEach((dossierId) => {
+  const dossierData = mockDossiersExtended[dossierId];
+  dossierData.missions = getMissionsForEntity(
+    "dossier",
+    dossierData.caseNumber
+  );
+});
 
 export const mockAccountingExtended = {
   1: {
@@ -1180,7 +1610,14 @@ export const mockPersonalTasksExtended = {
     description: "Renouveler stock fournitures bureau (papier, stylos, etc.)",
 
     documents: [],
-    timeline: [],
+    timeline: [
+      { type: "created", event: "Tâche créée", date: "2024-12-05 09:00" },
+      {
+        type: "action",
+        event: "Devis reçus des fournisseurs",
+        date: "2024-12-10 16:00",
+      },
+    ],
   },
   3: {
     id: 3,
@@ -1194,7 +1631,15 @@ export const mockPersonalTasksExtended = {
     notes: "Dr. Kamel Ferchichi - Clinique Dentaire Lac",
 
     documents: [],
-    timeline: [],
+    timeline: [
+      { type: "created", event: "Tâche créée", date: "2024-11-20 10:00" },
+      {
+        type: "call",
+        event: "RDV confirmé avec la clinique",
+        date: "2024-12-05 14:00",
+      },
+      { type: "action", event: "Rappel envoyé", date: "2024-12-15 09:00" },
+    ],
   },
 };
 

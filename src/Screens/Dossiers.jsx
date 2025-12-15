@@ -14,8 +14,10 @@ import TableToolbar from "../components/table/TableToolbar";
 import Pagination from "../components/table/Pagination";
 import FormModal from "../components/FormModal/FormModal";
 import { dossierFormFields, getFormTitle } from "../components/FormModal/formConfigs";
-import { mockDossiers, mockClients, getStatusColor } from "../utils/mockData";
+import { mockDossiers, mockClients } from "../utils/mockData";
 import StatCard from "../components/dashboard/StatCard";
+import InlineStatusSelector from "../components/InlineSelectors/InlineStatusSelector";
+import InlinePrioritySelector from "../components/InlineSelectors/InlinePrioritySelector";
 
 export default function Dossiers() {
   const navigate = useNavigate();
@@ -24,13 +26,6 @@ export default function Dossiers() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingDossier, setEditingDossier] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
-
-  // Priority colors
-  const priorityColor = {
-    "Haute": "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
-    "Moyenne": "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
-    "Basse": "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
-  };
 
   // Calculate stats
   const stats = {
@@ -76,9 +71,16 @@ export default function Dossiers() {
       label: "Statut",
       sortable: true,
       render: (dossier) => (
-        <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(dossier.status)}`}>
-          {dossier.status}
-        </span>
+        <InlineStatusSelector
+          value={dossier.status}
+          onChange={(newStatus) => handleStatusChange(dossier.id, newStatus)}
+          statusOptions={[
+            { value: "Ouvert", label: "Ouvert", icon: "fas fa-folder-open", color: "text-green-600" },
+            { value: "En attente", label: "En attente", icon: "fas fa-clock", color: "text-amber-600" },
+            { value: "Fermé", label: "Fermé", icon: "fas fa-check-circle", color: "text-gray-600" },
+            { value: "Suspendu", label: "Suspendu", icon: "fas fa-pause-circle", color: "text-red-600" },
+          ]}
+        />
       ),
     },
     {
@@ -92,9 +94,10 @@ export default function Dossiers() {
       label: "Priorité",
       sortable: true,
       render: (dossier) => (
-        <span className={`px-3 py-1 rounded-full text-xs font-medium ${priorityColor[dossier.priority]}`}>
-          {dossier.priority}
-        </span>
+        <InlinePrioritySelector
+          value={dossier.priority}
+          onChange={(newPriority) => handlePriorityChange(dossier.id, newPriority)}
+        />
       ),
     },
     {
@@ -157,6 +160,18 @@ export default function Dossiers() {
     if (window.confirm("Êtes-vous sûr de vouloir supprimer ce dossier ?")) {
       setDossiers(dossiers.filter(d => d.id !== id));
     }
+  };
+
+  const handleStatusChange = (id, newStatus) => {
+    setDossiers(dossiers.map(d =>
+      d.id === id ? { ...d, status: newStatus } : d
+    ));
+  };
+
+  const handlePriorityChange = (id, newPriority) => {
+    setDossiers(dossiers.map(d =>
+      d.id === id ? { ...d, priority: newPriority } : d
+    ));
   };
 
   const handleAddDossier = () => {

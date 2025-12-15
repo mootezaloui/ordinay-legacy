@@ -1,8 +1,10 @@
 import ContentSection from "../../layout/ContentSection";
-import { mockSessionsExtended, getStatusColor } from "../../../utils/mockData";
+import { mockSessionsExtended, mockCases, mockDossiers, getStatusColor } from "../../../utils/mockData";
 
 /**
- * Session Entity Configuration
+ * Session Entity Configuration - UPDATED with Quick Actions
+ * ✅ Added inline quick actions for status and type
+ * ✅ Added structured edit mode for overview sections
  */
 export const sessionConfig = {
   // Basic info
@@ -36,6 +38,37 @@ export const sessionConfig = {
   // Header display
   getTitle: (data) => data.title,
   getSubtitle: (data) => `${data.type} - ${data.date} à ${data.time}`,
+
+  // ✅ NEW: Quick Actions Configuration
+  quickActions: [
+    {
+      key: "status",
+      label: "Statut",
+      icon: "fas fa-info-circle",
+      colorMap: true,
+      options: [
+        { value: "Programmée", label: "Programmée", color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" },
+        { value: "Confirmée", label: "Confirmée", color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" },
+        { value: "En attente", label: "En attente", color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
+        { value: "Terminée", label: "Terminée", color: "bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300" },
+        { value: "Annulée", label: "Annulée", color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" },
+      ]
+    },
+    {
+      key: "type",
+      label: "Type",
+      icon: "fas fa-tag",
+      colorMap: true,
+      options: [
+        { value: "Consultation", label: "Consultation", color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" },
+        { value: "Audience", label: "Audience", color: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400" },
+        { value: "Expertise", label: "Expertise", color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" },
+        { value: "Médiation", label: "Médiation", color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
+        { value: "Téléphone", label: "Téléphone", color: "bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300" },
+        { value: "Autre", label: "Autre", color: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300" },
+      ]
+    }
+  ],
 
   // Custom header rendering
   renderHeader: (data) => {
@@ -192,32 +225,112 @@ export const sessionConfig = {
     },
   ],
 
-  // Overview tab sections
+  // ✅ UPDATED: Overview sections with editStrategy
   overviewSections: [
     {
-      title: "Description",
-      type: "description",
-      fieldKey: "description",
-      content: (data) => data.description || "Aucune description",
+      title: "Informations générales",
+      editStrategy: "structured",
+      fields: [
+        {
+          key: "title",
+          label: "Titre de la séance",
+          value: (data) => data.title,
+          icon: "fas fa-file-alt",
+          type: "text",
+          editable: true
+        },
+        {
+          key: "linkType",
+          label: "Lié à",
+          value: (data) => {
+            // Return the actual value, not the label
+            if (data.linkType) return data.linkType;
+            if (data.dossierId || data.dossier) return "dossier";
+            if (data.caseId || data.case) return "case";
+            return "case";
+          },
+          icon: "fas fa-link",
+          type: "select",
+          editable: true,
+          required: true,
+          options: [
+            { value: "case", label: "Procès" },
+            { value: "dossier", label: "Dossier directement" },
+          ],
+          helpText: "Une audience peut être liée à un procès ou directement à un dossier"
+        },
+        {
+          key: "caseId",
+          label: "Procès",
+          value: (data) => data.caseId || "",
+          displayValue: (data) => data.case ? `${data.case.caseNumber} - ${data.case.title}` : "Aucun",
+          icon: "fas fa-gavel",
+          type: "searchable-select",
+          editable: true,
+          options: [
+            { value: "", label: "Sélectionner un procès..." },
+            ...mockCases.map(c => ({
+              value: c.id,
+              label: `${c.caseNumber} - ${c.title}`
+            }))
+          ],
+          helpText: "Sélectionner le procès concerné"
+        },
+        {
+          key: "dossierId",
+          label: "Dossier",
+          value: (data) => {
+            // If linked to a case, get the parent dossier
+            if (data.caseId) {
+              const parentCase = mockCases.find(c => c.id === data.caseId);
+              if (parentCase && parentCase.dossierId) {
+                return parentCase.dossierId;
+              }
+            }
+            // Otherwise use direct dossier link
+            return data.dossierId || "";
+          },
+          displayValue: (data) => {
+            // If linked to a case, show the parent dossier
+            if (data.caseId) {
+              const parentCase = mockCases.find(c => c.id === data.caseId);
+              if (parentCase && parentCase.dossierId) {
+                const parentDossier = mockDossiers.find(d => d.id === parentCase.dossierId);
+                if (parentDossier) {
+                  return `${parentDossier.caseNumber} - ${parentDossier.title}`;
+                }
+              }
+            }
+            // Otherwise show direct dossier link
+            if (data.dossier) {
+              return `${data.dossier.caseNumber} - ${data.dossier.title}`;
+            }
+            if (data.dossierId) {
+              const dossier = mockDossiers.find(d => d.id === data.dossierId);
+              if (dossier) {
+                return `${dossier.caseNumber} - ${dossier.title}`;
+              }
+            }
+            return "Aucun";
+          },
+          icon: "fas fa-folder",
+          type: "searchable-select",
+          editable: true,
+          options: [
+            { value: "", label: "Sélectionner un dossier..." },
+            ...mockDossiers.map(d => ({
+              value: d.id,
+              label: `${d.caseNumber} - ${d.title}`
+            }))
+          ],
+          helpText: "Sélectionner le dossier concerné"
+        },
+      ],
     },
     {
       title: "Détails de la séance",
+      editStrategy: "structured",
       fields: [
-        {
-          key: "type",
-          label: "Type",
-          value: (data) => data.type,
-          icon: "fas fa-tag",
-          type: "select",
-          editable: true,
-          options: [
-            { value: "Consultation", label: "Consultation" },
-            { value: "Audience", label: "Audience" },
-            { value: "Expertise", label: "Expertise" },
-            { value: "Médiation", label: "Médiation" },
-            { value: "Téléphone", label: "Téléphone" },
-          ]
-        },
         {
           key: "date",
           label: "Date",
@@ -231,13 +344,36 @@ export const sessionConfig = {
           label: "Heure",
           value: (data) => data.time,
           icon: "fas fa-clock",
-          type: "time",
+          type: "select",
           editable: true,
-          helpText: "Format: HH:MM"
+          helpText: "Sélectionnez l'heure de début",
+          options: [
+            { value: "08:00", label: "08:00" },
+            { value: "08:30", label: "08:30" },
+            { value: "09:00", label: "09:00" },
+            { value: "09:30", label: "09:30" },
+            { value: "10:00", label: "10:00" },
+            { value: "10:30", label: "10:30" },
+            { value: "11:00", label: "11:00" },
+            { value: "11:30", label: "11:30" },
+            { value: "12:00", label: "12:00" },
+            { value: "12:30", label: "12:30" },
+            { value: "13:00", label: "13:00" },
+            { value: "13:30", label: "13:30" },
+            { value: "14:00", label: "14:00" },
+            { value: "14:30", label: "14:30" },
+            { value: "15:00", label: "15:00" },
+            { value: "15:30", label: "15:30" },
+            { value: "16:00", label: "16:00" },
+            { value: "16:30", label: "16:30" },
+            { value: "17:00", label: "17:00" },
+            { value: "17:30", label: "17:30" },
+            { value: "18:00", label: "18:00" },
+          ],
         },
         {
           key: "duration",
-          label: "Durée",
+          label: "Durée estimée",
           value: (data) => data.duration,
           icon: "fas fa-hourglass-half",
           type: "select",
@@ -252,7 +388,8 @@ export const sessionConfig = {
             { value: "02:30", label: "2h30" },
             { value: "03:00", label: "3 heures" },
             { value: "04:00", label: "4 heures" },
-          ]
+          ],
+          helpText: "Durée prévue de la séance"
         },
         {
           key: "location",
@@ -262,25 +399,18 @@ export const sessionConfig = {
           type: "text",
           editable: true
         },
-        {
-          key: "status",
-          label: "Statut",
-          value: (data) => data.status,
-          icon: "fas fa-info-circle",
-          type: "select",
-          editable: true,
-          options: [
-            { value: "Programmé", label: "Programmé" },
-            { value: "Confirmé", label: "Confirmé" },
-            { value: "En attente", label: "En attente" },
-            { value: "Terminé", label: "Terminé" },
-            { value: "Annulé", label: "Annulé" },
-          ]
-        },
       ],
     },
     {
+      title: "Description",
+      editStrategy: "structured",
+      type: "description",
+      fieldKey: "description",
+      content: (data) => data.description || "Aucune description",
+    },
+    {
       title: "Compte-rendu",
+      editStrategy: "structured",
       type: "notes",
       fieldKey: "notes",
       content: (data) => data.notes || "Aucun compte-rendu",
@@ -298,7 +428,7 @@ function InfoCard({ icon, label, value, color }) {
   };
 
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex items-center gap-3" >
       <div className={`p-2 rounded-lg ${colors[color]}`}>
         <i className={icon}></i>
       </div>
@@ -306,6 +436,6 @@ function InfoCard({ icon, label, value, color }) {
         <p className="text-xs text-slate-500 dark:text-slate-400">{label}</p>
         <p className="text-sm font-medium text-slate-900 dark:text-white">{value}</p>
       </div>
-    </div>
+    </div >
   );
 }

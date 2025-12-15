@@ -1,9 +1,12 @@
 import { Link } from "react-router-dom";
 import ContentSection from "../../layout/ContentSection";
-import { mockTasksExtended, getStatusColor } from "../../../utils/mockData";
+import { mockTasksExtended, mockDossiers, mockCases, getStatusColor } from "../../../utils/mockData";
 
 /**
- * Task Entity Configuration
+ * Task Entity Configuration - UPDATED with Quick Actions
+ * ✅ Added inline quick actions for status, priority, assignedTo
+ * ✅ Added structured edit mode for overview sections
+ * ✅ UPDATED: Tasks can now belong to EITHER Dossier OR Case (Procès)
  */
 export const taskConfig = {
   // Basic info
@@ -11,33 +14,71 @@ export const taskConfig = {
   entityName: "Tâche",
   icon: "fas fa-tasks",
   listRoute: "/tasks",
-  
+
   // Messages
   notFoundMessage: "Tâche non trouvée",
   deleteConfirmMessage: "Êtes-vous sûr de vouloir supprimer cette tâche ?",
-  
+
   // Permissions
   allowDelete: true,
   allowEdit: true,
-  
+
   // Data fetching
   fetchData: async (id) => {
     return mockTasksExtended[id] || null;
   },
-  
+
   updateData: async (id, data) => {
     console.log("Updating task:", id, data);
     await new Promise(resolve => setTimeout(resolve, 500));
   },
-  
+
   deleteData: async (id) => {
     console.log("Deleting task:", id);
   },
-  
+
   // Header display
   getTitle: (data) => data.title,
   getSubtitle: (data) => `Créée le ${data.createdDate}`,
-  
+
+  // ✅ NEW: Quick Actions Configuration
+  quickActions: [
+    {
+      key: "status",
+      label: "Statut",
+      icon: "fas fa-info-circle",
+      colorMap: true,
+      options: [
+        { value: "Non commencée", label: "Non commencée", color: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300" },
+        { value: "En cours", label: "En cours", color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" },
+        { value: "En attente", label: "En attente", color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
+        { value: "Terminée", label: "Terminée", color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" },
+      ]
+    },
+    {
+      key: "priority",
+      label: "Priorité",
+      icon: "fas fa-flag",
+      colorMap: true,
+      options: [
+        { value: "Haute", label: "Haute", color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" },
+        { value: "Moyenne", label: "Moyenne", color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
+        { value: "Basse", label: "Basse", color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" },
+      ]
+    },
+    {
+      key: "assignedTo",
+      label: "Assigné à",
+      icon: "fas fa-user",
+      colorMap: false,
+      options: [
+        { value: "Me. Hammami", label: "Me. Hammami" },
+        { value: "Me. Ben Ali", label: "Me. Ben Ali" },
+        { value: "Me. Trabelsi", label: "Me. Trabelsi" },
+      ]
+    }
+  ],
+
   // Custom header rendering
   renderHeader: (data) => {
     const priorityColor = {
@@ -45,6 +86,29 @@ export const taskConfig = {
       "Moyenne": "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
       "Basse": "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
     };
+
+    // Determine parent link based on parentType
+    const parentLink = data.parentType === "case" && data.case
+      ? (
+        <Link
+          to={`/cases/${data.case.id}`}
+          className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-2"
+        >
+          <i className="fas fa-gavel"></i>
+          {data.case.caseNumber} - {data.case.title}
+        </Link>
+      )
+      : data.dossier
+        ? (
+          <Link
+            to={`/dossiers/${data.dossier.id}`}
+            className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-2"
+          >
+            <i className="fas fa-folder-open"></i>
+            {data.dossier.caseNumber} - {data.dossier.title}
+          </Link>
+        )
+        : null;
 
     return (
       <ContentSection>
@@ -54,13 +118,7 @@ export const taskConfig = {
               <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
                 {data.title}
               </h2>
-              <Link
-                to={`/dossiers/${data.dossier.id}`}
-                className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-2"
-              >
-                <i className="fas fa-folder-open"></i>
-                {data.dossier.caseNumber} - {data.dossier.title}
-              </Link>
+              {parentLink}
             </div>
             <div className="flex items-center gap-3">
               <span className={`px-3 py-1 rounded-full text-sm font-medium ${priorityColor[data.priority]}`}>
@@ -81,7 +139,7 @@ export const taskConfig = {
       </ContentSection>
     );
   },
-  
+
   // Stats cards
   getStats: (data) => [
     {
@@ -98,15 +156,8 @@ export const taskConfig = {
       value: data.assignedTo,
       label: "Assigné"
     },
-    {
-      icon: "fas fa-clock",
-      iconColor: "text-purple-600 dark:text-purple-400",
-      bgColor: "bg-purple-100 dark:bg-purple-900/20",
-      value: data.progress ? `${data.progress}%` : "0%",
-      label: "Progression"
-    },
   ],
-  
+
   // Tabs configuration
   tabs: [
     {
@@ -136,102 +187,90 @@ export const taskConfig = {
       component: "timeline",
     },
   ],
-  
-  // Overview tab sections
+
+  // ✅ UPDATED: Overview sections with editStrategy and parent selection
   overviewSections: [
     {
       title: "Description de la tâche",
+      editStrategy: "structured",
       type: "description",
       fieldKey: "description",
       content: (data) => data.description || "Aucune description",
     },
     {
       title: "Détails de la tâche",
+      editStrategy: "structured",
       fields: [
-        { 
-          key: "assignedTo",
-          label: "Assigné à", 
-          value: (data) => data.assignedTo, 
-          icon: "fas fa-user",
-          type: "select",
-          editable: true,
-          options: [
-            { value: "Me. Hammami", label: "Me. Hammami" },
-            { value: "Me. Ben Ali", label: "Me. Ben Ali" },
-            { value: "Me. Trabelsi", label: "Me. Trabelsi" },
-          ]
-        },
-        { 
+        {
           key: "dueDate",
-          label: "Date d'échéance", 
-          value: (data) => data.dueDate, 
+          label: "Date d'échéance",
+          value: (data) => data.dueDate,
           icon: "fas fa-calendar",
           type: "date",
           editable: true
         },
-        { 
-          key: "priority",
-          label: "Priorité", 
-          value: (data) => data.priority, 
-          icon: "fas fa-flag",
-          type: "select",
-          editable: true,
-          options: [
-            { value: "Haute", label: "Haute" },
-            { value: "Moyenne", label: "Moyenne" },
-            { value: "Basse", label: "Basse" },
-          ]
-        },
-        { 
-          key: "status",
-          label: "Statut", 
-          value: (data) => data.status, 
-          icon: "fas fa-info-circle",
-          type: "select",
-          editable: true,
-          options: [
-            { value: "Non commencée", label: "Non commencée" },
-            { value: "En cours", label: "En cours" },
-            { value: "En attente", label: "En attente" },
-            { value: "Terminée", label: "Terminée" },
-          ]
-        },
-        { 
+        {
           key: "estimatedTime",
-          label: "Temps estimé", 
-          value: (data) => data.estimatedTime || "N/A", 
+          label: "Temps estimé",
+          value: (data) => data.estimatedTime || "N/A",
           icon: "fas fa-clock",
           type: "text",
           editable: true,
           placeholder: "Ex: 2h"
         },
-        { 
-          key: "progress",
-          label: "Progression", 
-          value: (data) => data.progress ? `${data.progress}%` : "0%", 
-          icon: "fas fa-tasks",
-          type: "number",
-          editable: true,
-          placeholder: "0-100"
-        },
       ],
     },
     {
-      title: "Dossier lié",
+      title: "Entité associée",
+      editStrategy: "structured",
       fields: [
-        { 
-          key: "dossier.caseNumber",
-          label: "Numéro de dossier", 
-          value: (data) => data.dossier?.caseNumber || "N/A", 
-          icon: "fas fa-folder-open",
-          editable: false
+        {
+          key: "parentType",
+          label: "Type de lien",
+          value: (data) => data.parentType || "dossier",
+          icon: "fas fa-link",
+          type: "select",
+          editable: true,
+          required: true,
+          options: [
+            { value: "dossier", label: "Dossier" },
+            { value: "case", label: "Procès" },
+          ],
+          helpText: "Une tâche peut être liée à un dossier ou à un procès"
         },
-        { 
-          key: "dossier.title",
-          label: "Titre du dossier", 
-          value: (data) => data.dossier?.title || "N/A", 
-          icon: "fas fa-file-alt",
-          editable: false
+        {
+          key: "dossierId",
+          label: "Dossier",
+          value: (data) => data.dossierId || "",
+          displayValue: (data) => data.dossier ? `${data.dossier.caseNumber} - ${data.dossier.title}` : "Aucun",
+          icon: "fas fa-folder-open",
+          type: "searchable-select",
+          editable: true,
+          options: [
+            { value: "", label: "Sélectionner un dossier..." },
+            ...mockDossiers.map(d => ({
+              value: d.id,
+              label: `${d.caseNumber} - ${d.title}`
+            }))
+          ],
+          helpText: "Sélectionner le dossier concerné"
+        },
+        {
+          key: "caseId",
+          label: "Procès",
+          value: (data) => data.caseId || "",
+          displayValue: (data) => data.case ? `${data.case.caseNumber} - ${data.case.title}` : "Aucun",
+          icon: "fas fa-gavel",
+          type: "searchable-select",
+          editable: true,
+          options: [
+            { value: "", label: "Sélectionner un procès..." },
+            ...mockCases.map(c => ({
+              value: c.id,
+              label: `${c.caseNumber} - ${c.title}`
+            }))
+          ],
+          helpText: "Sélectionner le procès concerné"
         },
       ],
     },
@@ -245,7 +284,7 @@ function InfoCard({ icon, label, value, color }) {
     red: "bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400",
     purple: "bg-purple-100 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400",
   };
-  
+
   return (
     <div className="flex items-center gap-3">
       <div className={`p-2 rounded-lg ${colors[color]}`}>

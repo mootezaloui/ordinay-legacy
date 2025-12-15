@@ -1,10 +1,12 @@
 import ContentSection from "../../layout/ContentSection";
+import { missionFormFields } from "../../FormModal/formConfigs";
 import { mockOfficersExtended, mockDossiers, mockCases, getStatusColor } from "../../../utils/mockData";
 
 /**
- * Officer (Huissier) Entity Configuration
- * ✅ UPDATED: Dynamic entity selection based on "Lié à" dropdown
- * Now includes searchable dropdown for better UX
+ * Officer (Huissier) Entity Configuration - UPDATED with Quick Actions
+ * ✅ Added inline quick actions for status
+ * ✅ Added structured edit mode for overview sections
+ * ✅ Dynamic entity selection based on "Lié à" dropdown
  */
 export const officerConfig = {
   // Basic info
@@ -37,7 +39,22 @@ export const officerConfig = {
 
   // Header display
   getTitle: (data) => data.name,
-  getSubtitle: (data) => `${data.specialization} • ${data.location}`,
+  getSubtitle: (data) => data.location,
+
+  // ✅ NEW: Quick Actions Configuration
+  quickActions: [
+    {
+      key: "status",
+      label: "Statut",
+      icon: "fas fa-flag",
+      colorMap: true,
+      options: [
+        { value: "Disponible", label: "Disponible", color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" },
+        { value: "Occupé", label: "Occupé", color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
+        { value: "Inactif", label: "Inactif", color: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300" },
+      ]
+    }
+  ],
 
   // Custom header rendering
   renderHeader: (data) => {
@@ -58,7 +75,7 @@ export const officerConfig = {
                     {data.name}
                   </h2>
                   <p className="text-slate-600 dark:text-slate-400 mt-1">
-                    {data.specialization}
+                    Huissier de Justice
                   </p>
                 </div>
                 <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(data.status)}`}>
@@ -133,185 +150,127 @@ export const officerConfig = {
       id: "missions",
       label: "Missions",
       icon: "fas fa-clipboard-check",
-      component: "relatedItems",
+      component: "missions",
       getCount: (data) => data.missions?.length || 0,
 
       itemsKey: "missions",
       emptyMessage: "Aucune mission assignée à cet huissier",
-      renderItem: (item) => ({
-        title: `${item.missionType} - ${item.entityReference}`,
-        subtitle: `${item.title ? item.title + ' • ' : ''}Assigné le ${item.assignDate}${item.dueDate ? ' • Échéance: ' + item.dueDate : ''}`,
-        status: item.status,
-      }),
 
       allowAdd: true,
       allowDelete: true,
       entityName: "une mission",
       addSubtitle: "Assigner une nouvelle mission à cet huissier",
 
-      // ✅ UPDATED: Dynamic form fields with conditional logic
-      formFields: [
-        {
-          name: "missionNumber",
-          label: "Numéro de mission",
-          type: "text",
-          placeholder: "MIS-2024-001",
-          required: true,
-          helpText: "Format: MIS-ANNÉE-NUMÉRO",
-        },
-        {
-          name: "title",
-          label: "Titre de la mission",
-          type: "text",
-          placeholder: "Ex: Signification acte judiciaire",
-          required: true,
-          fullWidth: true,
-        },
-        {
-          name: "missionType",
-          label: "Type de mission",
-          type: "select",
-          required: true,
-          options: [
-            { value: "Signification", label: "Signification" },
-            { value: "Exécution", label: "Exécution" },
-            { value: "Constat", label: "Constat" },
-            { value: "Saisie", label: "Saisie" },
-            { value: "Recouvrement", label: "Recouvrement" },
-            { value: "Autre", label: "Autre" },
-          ],
-        },
-        {
-          name: "entityType",
-          label: "Lié à",
-          type: "select",
-          required: true,
-          options: [
-            { value: "dossier", label: "Dossier" },
-            { value: "case", label: "Procès" },
-          ],
-          helpText: "Cette mission concerne un dossier ou un procès",
-          // ✅ This field triggers the entityReference field update
-          onChange: (value, formData, setFormData) => {
-            // Clear entityReference when type changes
-            setFormData({
-              ...formData,
-              entityType: value,
-              entityReference: "",
-            });
-          },
-        },
-        {
-          name: "entityReference",
-          label: "Référence (Dossier/Procès)",
-          type: "searchable-select", // ✅ NEW: Searchable dropdown
-          placeholder: "Rechercher ou saisir: DOS-2024-001 ou PRO-2024-001",
-          required: true,
-          helpText: "Sélectionnez dans la liste ou saisissez manuellement",
-          // ✅ Dynamic options based on entityType
-          getOptions: (formData) => {
-            const entityType = formData.entityType;
+      // ✅ UPDATED: Use same getFormFields pattern as dossier and case
+      getFormFields: (officerData) => {
+        // Generate a default mission number
+        const year = new Date().getFullYear();
+        const randomNum = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+        const defaultMissionNumber = `MIS-${year}-${randomNum}`;
 
-            if (entityType === "dossier") {
-              // Return dossiers from mockData
-              return mockDossiers.map(d => ({
-                value: d.caseNumber,
-                label: `${d.caseNumber} - ${d.title}`,
-              }));
-            } else if (entityType === "case") {
-              // Return cases/procès from mockData
-              return mockCases.map(c => ({
-                value: c.caseNumber,
-                label: `${c.caseNumber} - ${c.title}`,
-              }));
-            }
+        const fields = missionFormFields.map(field => {
+          // Pre-fill and disable officerId with current officer
+          if (field.name === 'officerId') {
+            return {
+              ...field,
+              defaultValue: officerData.id,
+              disabled: true,
+              helpText: `Cette mission sera assignée à ${officerData.name}`,
+            };
+          }
+          // Auto-generate mission number
+          if (field.name === 'missionNumber') {
+            return {
+              ...field,
+              defaultValue: defaultMissionNumber,
+              disabled: true,
+            };
+          }
+          // Enable entityType (not disabled) for officer selection
+          if (field.name === 'entityType') {
+            return {
+              ...field,
+              disabled: false, // Allow selection for officers
+              helpText: "Sélectionner si cette mission concerne un dossier ou un procès",
+            };
+          }
+          // Enable entityReference (not disabled) for officer selection
+          if (field.name === 'entityReference') {
+            return {
+              ...field,
+              disabled: false, // Allow selection for officers
+              type: 'searchable-select', // Make it searchable
+              helpText: "Sélectionnez le dossier ou procès pour cette mission",
+              getOptions: (formData) => {
+                const entityType = formData.entityType;
+                
+                if (entityType === 'dossier') {
+                  return mockDossiers.map(d => ({
+                    value: d.caseNumber,
+                    label: `${d.caseNumber} - ${d.title}`,
+                  }));
+                } else if (entityType === 'case') {
+                  return mockCases.map(c => ({
+                    value: c.caseNumber,
+                    label: `${c.caseNumber} - ${c.title}`,
+                  }));
+                }
+                
+                return [];
+              },
+            };
+          }
+          return field;
+        });
 
-            return [];
+        // ✅ Add officer-specific fields after standard mission fields
+        return [
+          ...fields,
+          {
+            name: "result",
+            label: "Résultat / Réponse",
+            type: "textarea",
+            placeholder: "Compte-rendu de l'huissier après exécution de la mission...",
+            required: false,
+            fullWidth: true,
+            rows: 4,
+            helpText: "Important: Enregistrer ce que l'huissier a rapporté",
           },
-        },
-        {
-          name: "assignDate",
-          label: "Date d'assignation",
-          type: "date",
-          required: true,
-          defaultValue: new Date().toISOString().split("T")[0],
-        },
-        {
-          name: "dueDate",
-          label: "Date d'échéance",
-          type: "date",
-          required: false,
-          helpText: "Optionnel - date limite pour compléter la mission",
-        },
-        {
-          name: "priority",
-          label: "Priorité",
-          type: "select",
-          required: true,
-          defaultValue: "Moyenne",
-          options: [
-            { value: "Haute", label: "Haute" },
-            { value: "Moyenne", label: "Moyenne" },
-            { value: "Basse", label: "Basse" },
-          ],
-        },
-        {
-          name: "status",
-          label: "Statut",
-          type: "select",
-          required: true,
-          defaultValue: "Programmée",
-          options: [
-            { value: "Programmée", label: "Programmée" },
-            { value: "En cours", label: "En cours" },
-            { value: "Terminée", label: "Terminée" },
-            { value: "Annulée", label: "Annulée" },
-          ],
-        },
-        {
-          name: "description",
-          label: "Description",
-          type: "textarea",
-          placeholder: "Description détaillée de la mission...",
-          required: false,
-          fullWidth: true,
-          rows: 3,
-        },
-        {
-          name: "result",
-          label: "Résultat / Réponse",
-          type: "textarea",
-          placeholder: "Compte-rendu de l'huissier après exécution de la mission...",
-          required: false,
-          fullWidth: true,
-          rows: 4,
-          helpText: "Important: Enregistrer ce que l'huissier a rapporté",
-        },
-        {
-          name: "notes",
-          label: "Notes internes",
-          type: "textarea",
-          placeholder: "Notes internes sur cette mission...",
-          required: false,
-          fullWidth: true,
-          rows: 2,
-        },
-      ],
+        ];
+      },
     },
     {
       id: "cases",
-      label: "Dossiers",
+      label: "Affaires liées",
       icon: "fas fa-folder-open",
       component: "relatedItems",
       getCount: (data) => data.cases?.length || 0,
 
       itemsKey: "cases",
-      emptyMessage: "Aucun dossier associé",
-      renderItem: (item) => ({
-        title: item.caseNumber,
-        subtitle: item.title,
-        status: item.status,
-      }),
+      emptyMessage: "Aucune affaire associée",
+      itemRoute: (item) => {
+        // Determine if it's a dossier or case based on caseNumber prefix
+        if (item.caseNumber.startsWith('DOS-')) {
+          return '/dossiers';
+        } else if (item.caseNumber.startsWith('PRO-')) {
+          return '/cases';
+        }
+        return '/dossiers';
+      },
+      renderItem: (item) => {
+        // Determine type and icon based on caseNumber prefix
+        const isDossier = item.caseNumber.startsWith('DOS-');
+        const icon = isDossier ? 'fas fa-folder-open' : 'fas fa-gavel';
+        const iconColor = isDossier ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400';
+        
+        return {
+          title: item.caseNumber,
+          subtitle: item.title,
+          status: item.status,
+          icon: icon,
+          iconColor: iconColor,
+        };
+      },
 
       allowAdd: false,
       allowDelete: false,
@@ -331,53 +290,11 @@ export const officerConfig = {
     },
   ],
 
-  // Overview tab sections
+  // ✅ UPDATED: Overview sections with editStrategy
   overviewSections: [
     {
-      title: "Informations Professionnelles",
-      fields: [
-        {
-          key: "specialization",
-          label: "Spécialisation",
-          value: (data) => data.specialization,
-          icon: "fas fa-certificate",
-          type: "select",
-          editable: true,
-          options: [
-            { value: "Exécution", label: "Exécution" },
-            { value: "Recouvrement", label: "Recouvrement" },
-            { value: "Constat", label: "Constat" },
-            { value: "Signification", label: "Signification" },
-          ]
-        },
-        {
-          key: "registrationNumber",
-          label: "Numéro d'inscription",
-          value: (data) => data.registrationNumber || "N/A",
-          icon: "fas fa-id-card",
-          type: "text",
-          editable: true
-        },
-        {
-          key: "office",
-          label: "Étude",
-          value: (data) => data.office || "N/A",
-          icon: "fas fa-building",
-          type: "text",
-          editable: true
-        },
-        {
-          key: "yearsOfExperience",
-          label: "Années d'expérience",
-          value: (data) => data.yearsOfExperience ? `${data.yearsOfExperience} ans` : "N/A",
-          icon: "fas fa-calendar",
-          type: "number",
-          editable: true
-        },
-      ],
-    },
-    {
       title: "Coordonnées",
+      editStrategy: "structured",
       fields: [
         {
           key: "email",
@@ -425,25 +342,8 @@ export const officerConfig = {
       ],
     },
     {
-      title: "Statut",
-      fields: [
-        {
-          key: "status",
-          label: "Statut",
-          value: (data) => data.status,
-          icon: "fas fa-flag",
-          type: "select",
-          editable: true,
-          options: [
-            { value: "Disponible", label: "Disponible" },
-            { value: "Occupé", label: "Occupé" },
-            { value: "Inactif", label: "Inactif" },
-          ]
-        },
-      ],
-    },
-    {
       title: "Notes",
+      editStrategy: "structured",
       type: "notes",
       fieldKey: "notes",
       content: (data) => data.notes || "Aucune note",

@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useRef, useLayoutEffect, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { useAdvancedTable } from "../hooks/useAdvancedTable";
 import PageLayout from "../components/layout/PageLayout";
@@ -13,8 +14,11 @@ import TableActions, { IconButton } from "../components/table/TableActions";
 import TableToolbar from "../components/table/TableToolbar";
 import Pagination from "../components/table/Pagination";
 import FormModal from "../components/FormModal/FormModal";
-import StatCard from "../components/dashboard/StatCard";
-import { getStatusColor } from "../utils/mockData";
+import { getStatusColor, mockPersonalTasks } from "../utils/mockData";
+
+// Global state to track which dropdown is currently open
+let currentOpenPersonalTaskStatusDropdown = null;
+let currentOpenPersonalTaskPriorityDropdown = null;
 
 /**
  * Personal Tasks - For non-legal, personal/administrative tasks
@@ -22,54 +26,382 @@ import { getStatusColor } from "../utils/mockData";
  * NOT related to dossiers or clients
  */
 
-// Mock data for personal tasks
-const mockPersonalTasks = [
-  {
-    id: 1,
-    title: "Payer facture électricité",
-    category: "Factures",
-    dueDate: "2024-12-15",
-    priority: "Haute",
-    status: "En attente",
-    notes: "Facture du mois de novembre",
-  },
-  {
-    id: 2,
-    title: "Renouveler abonnement internet",
-    category: "Factures",
-    dueDate: "2024-12-20",
-    priority: "Moyenne",
-    status: "Non commencée",
-    notes: "",
-  },
-  {
-    id: 3,
-    title: "Acheter fournitures bureau",
-    category: "Bureau",
-    dueDate: "2024-12-10",
-    priority: "Basse",
-    status: "Terminée",
-    notes: "Papier, stylos, agrafeuse",
-  },
-  {
-    id: 4,
-    title: "Rendez-vous dentiste",
-    category: "Personnel",
-    dueDate: "2024-12-18",
-    priority: "Haute",
-    status: "Planifiée",
-    notes: "Contrôle annuel",
-  },
-  {
-    id: 5,
-    title: "Sauvegarder documents importants",
-    category: "Informatique",
-    dueDate: "2024-12-12",
-    priority: "Haute",
-    status: "En cours",
-    notes: "Backup mensuel",
-  },
-];
+/**
+ * StatusDropdown - Inline status selector for personal tasks
+ * Uses portal to render dropdown menu above all containers
+ */
+function StatusDropdown({ task, onStatusChange }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const buttonRef = useRef(null);
+  const dropdownIdRef = useRef(Symbol('personal-task-status-dropdown'));
+  const [menuPosition, setMenuPosition] = useState(null); // null until computed to avoid flash at (0,0)
+
+  const statusOptions = [
+    { value: "Non commencée", label: "Non commencée", icon: "fas fa-circle", color: "text-slate-500" },
+    { value: "En attente", label: "En attente", icon: "fas fa-pause-circle", color: "text-amber-600" },
+    { value: "En cours", label: "En cours", icon: "fas fa-spinner", color: "text-blue-600" },
+    { value: "Planifiée", label: "Planifiée", icon: "fas fa-calendar-check", color: "text-purple-600" },
+    { value: "Terminée", label: "Terminée", icon: "fas fa-check-circle", color: "text-green-600" },
+  ];
+
+  const currentStatus = statusOptions.find(s => s.value === task.status) || statusOptions[0];
+
+  const computeMenuPosition = () => {
+    if (!buttonRef.current) return null;
+    const rect = buttonRef.current.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const menuHeight = statusOptions.length * 40 + 8;
+    const menuWidth = 192;
+    const viewportLeft = 8;
+    const viewportRight = window.innerWidth - 8;
+
+    const shouldPositionAbove = spaceBelow < menuHeight && rect.top > menuHeight;
+
+    let left = rect.left;
+    if (left + menuWidth > viewportRight) {
+      left = rect.right - menuWidth;
+    }
+    if (left < viewportLeft) {
+      left = viewportLeft;
+    }
+
+    const top = shouldPositionAbove
+      ? rect.top - menuHeight - 4
+      : rect.bottom + 4;
+
+    return { top, left, width: rect.width };
+  };
+
+  // Update menu position when opened (sync calculation before paint)
+  useLayoutEffect(() => {
+    let rafId = null;
+
+    const updatePosition = () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        if (isOpen) {
+          const pos = computeMenuPosition();
+          if (pos) setMenuPosition(pos);
+        }
+      });
+    };
+
+    updatePosition();
+
+    if (isOpen) {
+      window.addEventListener('scroll', updatePosition, true);
+      window.addEventListener('resize', updatePosition);
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', updatePosition);
+        window.visualViewport.addEventListener('scroll', updatePosition);
+      }
+
+      return () => {
+        if (rafId) cancelAnimationFrame(rafId);
+        window.removeEventListener('scroll', updatePosition, true);
+        window.removeEventListener('resize', updatePosition);
+        if (window.visualViewport) {
+          window.visualViewport.removeEventListener('resize', updatePosition);
+          window.visualViewport.removeEventListener('scroll', updatePosition);
+        }
+      };
+    }
+  }, [isOpen, statusOptions.length]);
+
+  const handleStatusClick = (e, newStatus) => {
+    e.stopPropagation();
+    if (newStatus !== task.status) {
+      onStatusChange(task.id, newStatus);
+    }
+    setIsOpen(false);
+    if (currentOpenPersonalTaskStatusDropdown === dropdownIdRef.current) {
+      currentOpenPersonalTaskStatusDropdown = null;
+    }
+  };
+
+  const handleToggle = (e) => {
+    e.stopPropagation();
+
+    // Close any other open dropdown
+    if (currentOpenPersonalTaskStatusDropdown && currentOpenPersonalTaskStatusDropdown !== dropdownIdRef.current) {
+      // Trigger a custom event to close other dropdowns
+      window.dispatchEvent(new CustomEvent('closeAllPersonalTaskStatusDropdowns', {
+        detail: { except: dropdownIdRef.current }
+      }));
+    }
+
+    if (!isOpen) {
+      const pos = computeMenuPosition();
+      setMenuPosition(pos);
+      setIsOpen(true);
+      currentOpenPersonalTaskStatusDropdown = dropdownIdRef.current;
+    } else {
+      setIsOpen(false);
+      if (currentOpenPersonalTaskStatusDropdown === dropdownIdRef.current) {
+        currentOpenPersonalTaskStatusDropdown = null;
+      }
+    }
+  };
+
+  // Listen for global close event
+  useEffect(() => {
+    const handleCloseAll = (e) => {
+      if (e.detail?.except !== dropdownIdRef.current) {
+        setIsOpen(false);
+      }
+    };
+
+    window.addEventListener('closeAllPersonalTaskStatusDropdowns', handleCloseAll);
+    return () => window.removeEventListener('closeAllPersonalTaskStatusDropdowns', handleCloseAll);
+  }, []);
+
+  // Close on outside click
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (buttonRef.current && !buttonRef.current.contains(e.target)) {
+        setIsOpen(false);
+        if (currentOpenPersonalTaskStatusDropdown === dropdownIdRef.current) {
+          currentOpenPersonalTaskStatusDropdown = null;
+        }
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener("click", handleClickOutside);
+      return () => document.removeEventListener("click", handleClickOutside);
+    }
+  }, [isOpen]);
+
+  return (
+    <>
+      <button
+        ref={buttonRef}
+        onClick={handleToggle}
+        className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium transition-all hover:ring-2 hover:ring-blue-300 dark:hover:ring-blue-700 ${getStatusColor(task.status)}`}
+      >
+        <i className={`${currentStatus.icon} text-xs`}></i>
+        <span>{currentStatus.label}</span>
+        <i className="fas fa-chevron-down text-xs"></i>
+      </button>
+
+      {isOpen && menuPosition && createPortal(
+        <div
+          className="fixed w-48 bg-white dark:bg-slate-800 rounded-lg shadow-2xl border border-slate-200 dark:border-slate-700 py-1"
+          style={{
+            top: `${menuPosition.top}px`,
+            left: `${menuPosition.left}px`,
+            zIndex: 9999,
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+            {statusOptions.map((status) => (
+              <button
+                key={status.value}
+                onClick={(e) => handleStatusClick(e, status.value)}
+                className={`w-full text-left px-4 py-2 text-sm flex items-center gap-3 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors ${
+                  status.value === task.status ? 'bg-blue-50 dark:bg-blue-900/20' : ''
+                }`}
+              >
+                <i className={`${status.icon} ${status.color} dark:${status.color} w-4`}></i>
+                <span className="text-slate-900 dark:text-white">{status.label}</span>
+                {status.value === task.status && (
+                  <i className="fas fa-check text-blue-600 dark:text-blue-400 ml-auto text-xs"></i>
+                )}
+              </button>
+            ))}
+        </div>,
+        document.body
+      )}
+    </>
+  );
+}
+
+/**
+ * PriorityDropdown - Inline priority selector for personal tasks
+ */
+function PriorityDropdown({ task, onPriorityChange }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const buttonRef = useRef(null);
+  const dropdownIdRef = useRef(Symbol('personal-task-priority-dropdown'));
+  const [menuPosition, setMenuPosition] = useState(null); // null until computed to avoid flash at (0,0)
+
+  const priorityOptions = [
+    { value: "Haute", label: "Haute", icon: "fas fa-arrow-up", color: "text-red-600 dark:text-red-400", bgColor: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" },
+    { value: "Moyenne", label: "Moyenne", icon: "fas fa-minus", color: "text-amber-600 dark:text-amber-400", bgColor: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
+    { value: "Basse", label: "Basse", icon: "fas fa-arrow-down", color: "text-green-600 dark:text-green-400", bgColor: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" },
+  ];
+
+  const currentPriority = priorityOptions.find(p => p.value === task.priority) || priorityOptions[1];
+
+  const computeMenuPosition = () => {
+    if (!buttonRef.current) return null;
+    const rect = buttonRef.current.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const menuHeight = priorityOptions.length * 40 + 8;
+    const menuWidth = 176;
+    const viewportLeft = 8;
+    const viewportRight = window.innerWidth - 8;
+
+    const shouldPositionAbove = spaceBelow < menuHeight && rect.top > menuHeight;
+
+    let left = rect.left;
+    if (left + menuWidth > viewportRight) {
+      left = rect.right - menuWidth;
+    }
+    if (left < viewportLeft) {
+      left = viewportLeft;
+    }
+
+    const top = shouldPositionAbove
+      ? rect.top - menuHeight - 4
+      : rect.bottom + 4;
+
+    return { top, left, width: rect.width };
+  };
+
+  // Update menu position when opened (sync calculation before paint)
+  useLayoutEffect(() => {
+    let rafId = null;
+
+    const updatePosition = () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        if (isOpen) {
+          const pos = computeMenuPosition();
+          if (pos) setMenuPosition(pos);
+        }
+      });
+    };
+
+    updatePosition();
+
+    if (isOpen) {
+      window.addEventListener('scroll', updatePosition, true);
+      window.addEventListener('resize', updatePosition);
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', updatePosition);
+        window.visualViewport.addEventListener('scroll', updatePosition);
+      }
+
+      return () => {
+        if (rafId) cancelAnimationFrame(rafId);
+        window.removeEventListener('scroll', updatePosition, true);
+        window.removeEventListener('resize', updatePosition);
+        if (window.visualViewport) {
+          window.visualViewport.removeEventListener('resize', updatePosition);
+          window.visualViewport.removeEventListener('scroll', updatePosition);
+        }
+      };
+    }
+  }, [isOpen, priorityOptions.length]);
+
+  const handlePriorityClick = (e, newPriority) => {
+    e.stopPropagation();
+    if (newPriority !== task.priority) {
+      onPriorityChange(task.id, newPriority);
+    }
+    setIsOpen(false);
+    if (currentOpenPersonalTaskPriorityDropdown === dropdownIdRef.current) {
+      currentOpenPersonalTaskPriorityDropdown = null;
+    }
+  };
+
+  const handleToggle = (e) => {
+    e.stopPropagation();
+
+    // Close any other open dropdown
+    if (currentOpenPersonalTaskPriorityDropdown && currentOpenPersonalTaskPriorityDropdown !== dropdownIdRef.current) {
+      // Trigger a custom event to close other dropdowns
+      window.dispatchEvent(new CustomEvent('closeAllPersonalTaskPriorityDropdowns', {
+        detail: { except: dropdownIdRef.current }
+      }));
+    }
+
+    if (!isOpen) {
+      const pos = computeMenuPosition();
+      setMenuPosition(pos);
+      setIsOpen(true);
+      currentOpenPersonalTaskPriorityDropdown = dropdownIdRef.current;
+    } else {
+      setIsOpen(false);
+      if (currentOpenPersonalTaskPriorityDropdown === dropdownIdRef.current) {
+        currentOpenPersonalTaskPriorityDropdown = null;
+      }
+    }
+  };
+
+  // Listen for global close event
+  useEffect(() => {
+    const handleCloseAll = (e) => {
+      if (e.detail?.except !== dropdownIdRef.current) {
+        setIsOpen(false);
+      }
+    };
+
+    window.addEventListener('closeAllPersonalTaskPriorityDropdowns', handleCloseAll);
+    return () => window.removeEventListener('closeAllPersonalTaskPriorityDropdowns', handleCloseAll);
+  }, []);
+
+  // Close on outside click
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (buttonRef.current && !buttonRef.current.contains(e.target)) {
+        setIsOpen(false);
+        if (currentOpenPersonalTaskPriorityDropdown === dropdownIdRef.current) {
+          currentOpenPersonalTaskPriorityDropdown = null;
+        }
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener("click", handleClickOutside);
+      return () => document.removeEventListener("click", handleClickOutside);
+    }
+  }, [isOpen]);
+
+  return (
+    <>
+      <button
+        ref={buttonRef}
+        onClick={handleToggle}
+        className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium transition-all hover:ring-2 hover:ring-blue-300 dark:hover:ring-blue-700 ${currentPriority.bgColor}`}
+      >
+        <i className={`${currentPriority.icon} text-xs`}></i>
+        <span>{currentPriority.label}</span>
+        <i className="fas fa-chevron-down text-xs"></i>
+      </button>
+
+      {isOpen && menuPosition && createPortal(
+        <div
+          className="fixed w-44 bg-white dark:bg-slate-800 rounded-lg shadow-2xl border border-slate-200 dark:border-slate-700 py-1"
+          style={{
+            top: `${menuPosition.top}px`,
+            left: `${menuPosition.left}px`,
+            zIndex: 9999,
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+            {priorityOptions.map((priority) => (
+              <button
+                key={priority.value}
+                onClick={(e) => handlePriorityClick(e, priority.value)}
+                className={`w-full text-left px-4 py-2 text-sm flex items-center gap-3 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors ${
+                  priority.value === task.priority ? 'bg-blue-50 dark:bg-blue-900/20' : ''
+                }`}
+              >
+                <i className={`${priority.icon} ${priority.color} w-4`}></i>
+                <span className="text-slate-900 dark:text-white">{priority.label}</span>
+                {priority.value === task.priority && (
+                  <i className="fas fa-check text-blue-600 dark:text-blue-400 ml-auto text-xs"></i>
+                )}
+              </button>
+            ))}
+        </div>,
+        document.body
+      )}
+    </>
+  );
+}
 
 export default function PersonalTasks() {
   const navigate = useNavigate();
@@ -106,6 +438,22 @@ export default function PersonalTasks() {
     "Autre": "fas fa-sticky-note text-amber-600 dark:text-amber-400",
   };
 
+  const handleStatusChange = (taskId, newStatus) => {
+    setTasks(tasks.map(t =>
+      t.id === taskId
+        ? { ...t, status: newStatus }
+        : t
+    ));
+  };
+
+  const handlePriorityChange = (taskId, newPriority) => {
+    setTasks(tasks.map(t =>
+      t.id === taskId
+        ? { ...t, priority: newPriority }
+        : t
+    ));
+  };
+
   // Define table columns
   const columns = [
     {
@@ -115,13 +463,6 @@ export default function PersonalTasks() {
       locked: true,
       render: (task) => (
         <div className="flex items-center gap-3">
-          <input
-            type="checkbox"
-            checked={task.status === "Terminée"}
-            onChange={() => handleToggleComplete(task.id)}
-            onClick={(e) => e.stopPropagation()}
-            className="w-4 h-4 rounded border-slate-300 dark:border-slate-600 text-blue-600 focus:ring-blue-500"
-          />
           <span className={`font-medium ${task.status === "Terminée" ? "line-through text-slate-500 dark:text-slate-400" : "text-slate-900 dark:text-white"}`}>
             {task.title}
           </span>
@@ -163,24 +504,22 @@ export default function PersonalTasks() {
       id: "priority",
       label: "Priorité",
       sortable: true,
-      render: (task) => {
-        const config = priorityConfig[task.priority];
-        return (
-          <div className="flex items-center gap-2">
-            <i className={`${config.icon} ${config.color}`}></i>
-            <span className="text-sm">{task.priority}</span>
-          </div>
-        );
-      },
+      render: (task) => (
+        <PriorityDropdown
+          task={task}
+          onPriorityChange={handlePriorityChange}
+        />
+      ),
     },
     {
       id: "status",
       label: "Statut",
       sortable: true,
       render: (task) => (
-        <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(task.status)}`}>
-          {task.status}
-        </span>
+        <StatusDropdown
+          task={task}
+          onStatusChange={handleStatusChange}
+        />
       ),
     },
     {
@@ -243,14 +582,6 @@ export default function PersonalTasks() {
     if (window.confirm("Êtes-vous sûr de vouloir supprimer cette tâche ?")) {
       setTasks(tasks.filter(t => t.id !== id));
     }
-  };
-
-  const handleToggleComplete = (id) => {
-    setTasks(tasks.map(t =>
-      t.id === id
-        ? { ...t, status: t.status === "Terminée" ? "En attente" : "Terminée" }
-        : t
-    ));
   };
 
   const handleAddTask = () => {

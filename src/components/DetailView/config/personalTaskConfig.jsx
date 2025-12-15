@@ -1,73 +1,80 @@
 import ContentSection from "../../layout/ContentSection";
-import { getStatusColor } from "../../../utils/mockData";
+import { getStatusColor, mockPersonalTasksExtended } from "../../../utils/mockData";
 
 /**
- * Personal Task Configuration
- * For non-legal, personal/administrative tasks
+ * Personal Task Configuration - UPDATED with Quick Actions
+ * ✅ Added inline quick actions for status, priority, category
+ * ✅ Added structured edit mode for overview sections
  */
 
-// Mock extended data
-export const mockPersonalTasksExtended = {
-  1: {
-    id: 1,
-    title: "Payer facture électricité",
-    category: "Factures",
-    dueDate: "2024-12-15",
-    priority: "Haute",
-    status: "En attente",
-    notes: "Facture du mois de novembre - Montant: 150 TND",
-    createdDate: "2024-12-01",
-    description: "Paiement mensuel de la facture d'électricité du bureau",
-    timeline: [
-      {
-        type: "created",
-        event: "Tâche créée",
-        date: "2024-12-01 09:00",
-      },
-      {
-        type: "action",
-        event: "Facture reçue par email",
-        date: "2024-12-05 14:30",
-      },
-    ],
-    documents: [],
-  },
-};
-
 export const personalTaskConfig = {
-  // Basic info
   entityType: "personalTask",
   entityName: "Tâche Personnelle",
   icon: "fas fa-sticky-note",
   listRoute: "/personal-tasks",
-  
-  // Messages
   notFoundMessage: "Tâche personnelle non trouvée",
   deleteConfirmMessage: "Êtes-vous sûr de vouloir supprimer cette tâche personnelle ?",
-  
-  // Permissions
   allowDelete: true,
   allowEdit: true,
-  
-  // Data fetching
+
   fetchData: async (id) => {
     return mockPersonalTasksExtended[id] || null;
   },
-  
+
   updateData: async (id, data) => {
     console.log("Updating personal task:", id, data);
     await new Promise(resolve => setTimeout(resolve, 500));
   },
-  
+
   deleteData: async (id) => {
     console.log("Deleting personal task:", id);
   },
-  
-  // Header display
+
   getTitle: (data) => data.title,
   getSubtitle: (data) => `Créée le ${data.createdDate} • ${data.category}`,
-  
-  // Custom header rendering
+
+  // ✅ NEW: Quick Actions Configuration
+  quickActions: [
+    {
+      key: "status",
+      label: "Statut",
+      icon: "fas fa-info-circle",
+      colorMap: true,
+      options: [
+        { value: "Non commencée", label: "Non commencée", color: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300" },
+        { value: "En attente", label: "En attente", color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
+        { value: "En cours", label: "En cours", color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" },
+        { value: "Planifiée", label: "Planifiée", color: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400" },
+        { value: "Terminée", label: "Terminée", color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" },
+      ]
+    },
+    {
+      key: "priority",
+      label: "Priorité",
+      icon: "fas fa-flag",
+      colorMap: true,
+      options: [
+        { value: "Haute", label: "Haute", color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" },
+        { value: "Moyenne", label: "Moyenne", color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
+        { value: "Basse", label: "Basse", color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" },
+      ]
+    },
+    {
+      key: "category",
+      label: "Catégorie",
+      icon: "fas fa-tag",
+      colorMap: false,
+      options: [
+        { value: "Factures", label: "Factures" },
+        { value: "Bureau", label: "Bureau" },
+        { value: "Personnel", label: "Personnel" },
+        { value: "Informatique", label: "Informatique" },
+        { value: "Administratif", label: "Administratif" },
+        { value: "Autre", label: "Autre" },
+      ]
+    }
+  ],
+
   renderHeader: (data) => {
     const priorityConfig = {
       "Haute": {
@@ -128,31 +135,30 @@ export const personalTaskConfig = {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <InfoCard 
-              icon="fas fa-calendar-alt" 
-              label="Date limite" 
-              value={data.dueDate} 
-              color="blue" 
+            <InfoCard
+              icon="fas fa-calendar-alt"
+              label="Date limite"
+              value={data.dueDate}
+              color="blue"
             />
-            <InfoCard 
-              icon="fas fa-flag" 
-              label="Priorité" 
-              value={data.priority} 
-              color={data.priority === "Haute" ? "red" : data.priority === "Moyenne" ? "amber" : "green"} 
+            <InfoCard
+              icon="fas fa-flag"
+              label="Priorité"
+              value={data.priority}
+              color={data.priority === "Haute" ? "red" : data.priority === "Moyenne" ? "amber" : "green"}
             />
-            <InfoCard 
-              icon="fas fa-info-circle" 
-              label="Statut" 
-              value={data.status} 
-              color="purple" 
+            <InfoCard
+              icon="fas fa-info-circle"
+              label="Statut"
+              value={data.status}
+              color="purple"
             />
           </div>
         </div>
       </ContentSection>
     );
   },
-  
-  // Stats cards
+
   getStats: (data) => [
     {
       icon: "fas fa-calendar-check",
@@ -170,18 +176,17 @@ export const personalTaskConfig = {
     },
     {
       icon: "fas fa-flag",
-      iconColor: data.priority === "Haute" ? "text-red-600 dark:text-red-400" : 
-                 data.priority === "Moyenne" ? "text-amber-600 dark:text-amber-400" : 
-                 "text-green-600 dark:text-green-400",
-      bgColor: data.priority === "Haute" ? "bg-red-100 dark:bg-red-900/20" : 
-               data.priority === "Moyenne" ? "bg-amber-100 dark:bg-amber-900/20" : 
-               "bg-green-100 dark:bg-green-900/20",
+      iconColor: data.priority === "Haute" ? "text-red-600 dark:text-red-400" :
+        data.priority === "Moyenne" ? "text-amber-600 dark:text-amber-400" :
+          "text-green-600 dark:text-green-400",
+      bgColor: data.priority === "Haute" ? "bg-red-100 dark:bg-red-900/20" :
+        data.priority === "Moyenne" ? "bg-amber-100 dark:bg-amber-900/20" :
+          "bg-green-100 dark:bg-green-900/20",
       value: data.priority,
       label: "Priorité"
     },
   ],
-  
-  // Tabs configuration
+
   tabs: [
     {
       id: "overview",
@@ -203,74 +208,43 @@ export const personalTaskConfig = {
       component: "timeline",
     },
   ],
-  
-  // Overview tab sections
+
+  // ✅ UPDATED: Overview sections with editStrategy
   overviewSections: [
     {
+      title: "Informations générales",
+      editStrategy: "structured",
+      fields: [
+        {
+          key: "title",
+          label: "Titre de la tâche",
+          value: (data) => data.title,
+          icon: "fas fa-sticky-note",
+          type: "text",
+          editable: true,
+          required: true,
+          fullWidth: true,
+        },
+        {
+          key: "dueDate",
+          label: "Date limite",
+          value: (data) => data.dueDate,
+          icon: "fas fa-calendar",
+          type: "date",
+          editable: true
+        },
+      ],
+    },
+    {
       title: "Description de la tâche",
+      editStrategy: "structured",
       type: "description",
       fieldKey: "description",
       content: (data) => data.description || "Aucune description",
     },
     {
-      title: "Détails",
-      fields: [
-        { 
-          key: "category",
-          label: "Catégorie", 
-          value: (data) => data.category, 
-          icon: "fas fa-tag",
-          type: "select",
-          editable: true,
-          options: [
-            { value: "Factures", label: "Factures" },
-            { value: "Bureau", label: "Bureau" },
-            { value: "Personnel", label: "Personnel" },
-            { value: "Informatique", label: "Informatique" },
-            { value: "Administratif", label: "Administratif" },
-            { value: "Autre", label: "Autre" },
-          ]
-        },
-        { 
-          key: "dueDate",
-          label: "Date limite", 
-          value: (data) => data.dueDate, 
-          icon: "fas fa-calendar",
-          type: "date",
-          editable: true
-        },
-        { 
-          key: "priority",
-          label: "Priorité", 
-          value: (data) => data.priority, 
-          icon: "fas fa-flag",
-          type: "select",
-          editable: true,
-          options: [
-            { value: "Haute", label: "Haute" },
-            { value: "Moyenne", label: "Moyenne" },
-            { value: "Basse", label: "Basse" },
-          ]
-        },
-        { 
-          key: "status",
-          label: "Statut", 
-          value: (data) => data.status, 
-          icon: "fas fa-info-circle",
-          type: "select",
-          editable: true,
-          options: [
-            { value: "Non commencée", label: "Non commencée" },
-            { value: "En attente", label: "En attente" },
-            { value: "En cours", label: "En cours" },
-            { value: "Planifiée", label: "Planifiée" },
-            { value: "Terminée", label: "Terminée" },
-          ]
-        },
-      ],
-    },
-    {
       title: "Notes",
+      editStrategy: "structured",
       type: "notes",
       fieldKey: "notes",
       content: (data) => data.notes || "Aucune note",
@@ -287,7 +261,7 @@ function InfoCard({ icon, label, value, color }) {
     green: "bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400",
     purple: "bg-purple-100 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400",
   };
-  
+
   return (
     <div className="flex items-center gap-3">
       <div className={`p-2 rounded-lg ${colors[color]}`}>

@@ -1,47 +1,103 @@
 import { Link } from "react-router-dom";
 import ContentSection from "../../layout/ContentSection";
-import { mockDossiersExtended, getStatusColor } from "../../../utils/mockData";
-// Import existing form configs
-import { taskFormFields, caseFormFields } from "../../FormModal/formConfigs";
+import { mockDossiersExtended, mockClients, getStatusColor, mockCases, mockSessions, mockTasks, mockOfficers } from "../../../utils/mockData";
+import { taskFormFields, caseFormFields, sessionFormFields, missionFormFields } from "../../FormModal/formConfigs";
 
 /**
- * Dossier Entity Configuration - FIXED
- * - Fixed character encoding (Tâches, Procédures)
- * - Proceedings now properly create Cases (Procès)
+ * Dossier Entity Configuration - UPDATED with Quick Actions
+ * ✅ Added inline quick actions for status, priority, lawyer, phase
+ * ✅ Added structured edit mode for overview sections
  */
 export const dossierConfig = {
-  // Basic info
   entityType: "dossier",
   entityName: "Dossier",
   icon: "fas fa-folder-open",
   listRoute: "/dossiers",
-
-  // Messages
   notFoundMessage: "Dossier non trouvé",
   deleteConfirmMessage: "Êtes-vous sûr de vouloir supprimer ce dossier ?",
-
-  // Permissions
   allowDelete: true,
   allowEdit: true,
 
-  // Data fetching
   fetchData: async (id) => {
-    return mockDossiersExtended[id] || null;
+    const dossier = mockDossiersExtended[id];
+    if (dossier && !dossier.transactions) {
+      dossier.transactions = [];
+    }
+    return dossier || null;
   },
 
   updateData: async (id, data) => {
     console.log("Updating dossier:", id, data);
+    // TODO: API call
+    await new Promise(resolve => setTimeout(resolve, 500));
   },
 
   deleteData: async (id) => {
     console.log("Deleting dossier:", id);
   },
 
-  // Header display
   getTitle: (data) => data.caseNumber,
   getSubtitle: (data) => data.title,
 
-  // Custom header rendering
+  // ✅ NEW: Quick Actions Configuration
+  quickActions: [
+    {
+      key: "status",
+      label: "Statut",
+      icon: "fas fa-info-circle",
+      colorMap: true,
+      options: [
+        { value: "Ouvert", label: "Ouvert", color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" },
+        { value: "En attente", label: "En attente", color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
+        { value: "Fermé", label: "Fermé", color: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300" },
+        { value: "Suspendu", label: "Suspendu", color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" },
+      ],
+      validation: (data, newValue) => {
+        // Example: Cannot close if there are open tasks
+        if (newValue === "Fermé" && data.tasks && data.tasks.length > 0) {
+          return "Impossible de fermer : des tâches sont encore ouvertes";
+        }
+        return null;
+      }
+    },
+    {
+      key: "priority",
+      label: "Priorité",
+      icon: "fas fa-flag",
+      colorMap: true,
+      options: [
+        { value: "Haute", label: "Haute", color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" },
+        { value: "Moyenne", label: "Moyenne", color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
+        { value: "Basse", label: "Basse", color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" },
+      ]
+    },
+    {
+      key: "assignedLawyer",
+      label: "Avocat assigné",
+      icon: "fas fa-user-tie",
+      colorMap: false,
+      options: [
+        { value: "Me. Hammami", label: "Me. Hammami" },
+        { value: "Me. Ben Ali", label: "Me. Ben Ali" },
+        { value: "Me. Trabelsi", label: "Me. Trabelsi" },
+      ]
+    },
+    {
+      key: "phase",
+      label: "Phase",
+      icon: "fas fa-stream",
+      colorMap: false,
+      options: [
+        { value: "Ouverture", label: "Ouverture" },
+        { value: "Instruction", label: "Instruction" },
+        { value: "Négociation", label: "Négociation" },
+        { value: "Plaidoirie", label: "Plaidoirie" },
+        { value: "Jugement", label: "Jugement" },
+        { value: "Exécution", label: "Exécution" },
+      ]
+    }
+  ],
+
   renderHeader: (data) => {
     const priorityColor = {
       "Haute": "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
@@ -86,39 +142,53 @@ export const dossierConfig = {
     );
   },
 
-  // Stats cards
-  getStats: (data) => [
-    {
-      icon: "fas fa-file",
-      iconColor: "text-purple-600 dark:text-purple-400",
-      bgColor: "bg-purple-100 dark:bg-purple-900/20",
-      value: data.documents?.length || 0,
-      label: "Documents"
-    },
-    {
-      icon: "fas fa-tasks",
-      iconColor: "text-blue-600 dark:text-blue-400",
-      bgColor: "bg-blue-100 dark:bg-blue-900/20",
-      value: data.tasks?.length || 0,
-      label: "Tâches"
-    },
-    {
-      icon: "fas fa-sticky-note",
-      iconColor: "text-amber-600 dark:text-amber-400",
-      bgColor: "bg-amber-100 dark:bg-amber-900/20",
-      value: data.notes?.length || 0,
-      label: "Notes"
-    },
-    {
-      icon: "fas fa-gavel",
-      iconColor: "text-green-600 dark:text-green-400",
-      bgColor: "bg-green-100 dark:bg-green-900/20",
-      value: data.proceedings?.length || 0,
-      label: "Procès"
-    },
-  ],
+  getStats: (data) => {
+    const transactions = data.transactions || [];
+    const revenues = transactions.filter(t => t.type === 'revenue');
+    const expenses = transactions.filter(t => t.type === 'expense');
 
-  // Tabs configuration
+    const totalRevenue = revenues.reduce((sum, t) => {
+      const amount = parseFloat(t.amount.replace(/[^\d.]/g, '')) || 0;
+      return sum + amount;
+    }, 0);
+
+    const totalExpenses = expenses.reduce((sum, t) => {
+      const amount = parseFloat(t.amount.replace(/[^\d.]/g, '')) || 0;
+      return sum + amount;
+    }, 0);
+
+    return [
+      {
+        icon: "fas fa-file",
+        iconColor: "text-purple-600 dark:text-purple-400",
+        bgColor: "bg-purple-100 dark:bg-purple-900/20",
+        value: data.documents?.length || 0,
+        label: "Documents"
+      },
+      {
+        icon: "fas fa-tasks",
+        iconColor: "text-blue-600 dark:text-blue-400",
+        bgColor: "bg-blue-100 dark:bg-blue-900/20",
+        value: data.tasks?.length || 0,
+        label: "Tâches"
+      },
+      {
+        icon: "fas fa-gavel",
+        iconColor: "text-green-600 dark:text-green-400",
+        bgColor: "bg-green-100 dark:bg-green-900/20",
+        value: data.proceedings?.length || 0,
+        label: "Procès"
+      },
+      {
+        icon: "fas fa-chart-line",
+        iconColor: totalRevenue >= totalExpenses ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400",
+        bgColor: totalRevenue >= totalExpenses ? "bg-green-100 dark:bg-green-900/20" : "bg-red-100 dark:bg-red-900/20",
+        value: `${(totalRevenue - totalExpenses).toFixed(0)} TND`,
+        label: "Bénéfice Net"
+      },
+    ];
+  },
+
   tabs: [
     {
       id: "overview",
@@ -127,57 +197,229 @@ export const dossierConfig = {
       component: "overview",
     },
     {
+      id: "proceedings",
+      label: "Procès",
+      icon: "fas fa-gavel",
+      component: "aggregatedRelated",
+      aggregationType: "cases",
+      getCount: (data) => data.proceedings?.length || 0,
+      itemsKey: "proceedings",
+      allowAdd: true,
+      allowDelete: true,
+      entityName: "un procès",
+      addSubtitle: "Créer un nouveau procès pour ce dossier",
+      formFields: caseFormFields.filter(field => field.name !== 'dossierId'),
+    },
+    {
+      id: "sessions",
+      label: "Séances",
+      icon: "fas fa-calendar-alt",
+      component: "aggregatedRelated",
+      aggregationType: "sessions",
+      getCount: (data) => {
+        const dossierCases = data.proceedings || [];
+        return mockSessions.filter(session =>
+          dossierCases.some(cas => cas.id === session.caseId)
+        ).length;
+      },
+      allowAdd: true,
+      allowDelete: false,
+      entityName: "une séance",
+      addSubtitle: "Créer une nouvelle séance pour ce dossier",
+      // Dynamic form fields - allow linking to either this dossier or one of its procès
+      getFormFields: (dossierData) => {
+        const dossierCases = dossierData.proceedings || [];
+
+        return sessionFormFields.map(field => {
+          // Allow linkType to be editable - choose between dossier and case
+          if (field.name === 'linkType') {
+            return {
+              ...field,
+              // Not disabled - user can choose
+              defaultValue: 'case', // Default to case if procès exist, else dossier
+              helpText: dossierCases.length > 0
+                ? "Choisir si cette séance est liée à ce dossier ou à un procès spécifique"
+                : "Cette séance sera liée à ce dossier (aucun procès disponible)"
+            };
+          }
+          if (field.name === 'caseId') {
+            return {
+              ...field,
+              type: 'select', // Use regular select for better display
+              options: dossierCases.map(cas => ({
+                value: cas.id,
+                label: `${cas.caseNumber} - ${cas.title}`
+              })),
+              helpText: dossierCases.length === 0
+                ? "Aucun procès disponible. Veuillez d'abord créer un procès."
+                : "Sélectionner le procès auquel cette séance sera rattachée",
+              // Only show this field when linkType is 'case'
+              getOptions: (formData) => {
+                if (formData.linkType !== "case") return [];
+                return dossierCases.map(cas => ({
+                  value: cas.id,
+                  label: `${cas.caseNumber} - ${cas.title}`
+                }));
+              }
+            };
+          }
+          if (field.name === 'dossierId') {
+            return {
+              ...field,
+              type: 'select', // Use regular select for better display
+              defaultValue: dossierData.id,
+              disabled: true, // Make it read-only when shown
+              options: [{
+                value: dossierData.id,
+                label: `${dossierData.caseNumber} - ${dossierData.title}`
+              }],
+              helpText: "Cette séance sera rattachée à ce dossier",
+              // Only show this field when linkType is 'dossier'
+              hideIf: false, // Will be controlled by getOptions
+              getOptions: (formData) => {
+                if (formData.linkType !== "dossier") return [];
+                return [{
+                  value: dossierData.id,
+                  label: `${dossierData.caseNumber} - ${dossierData.title}`
+                }];
+              }
+            };
+          }
+          return field;
+        });
+      },
+    },
+    {
+      id: "tasks",
+      label: "Tâches",
+      icon: "fas fa-tasks",
+      component: "aggregatedRelated",
+      aggregationType: "tasks",
+      getCount: (data) => {
+        const dossierCases = data.proceedings || [];
+        return mockTasks.filter(task => {
+          if (task.parentType === 'dossier' && task.dossierId === data.id) {
+            return true;
+          } else if (task.parentType === 'case') {
+            return dossierCases.some(cas => cas.id === task.caseId);
+          }
+          return false;
+        }).length;
+      },
+      allowAdd: true,
+      allowDelete: false,
+      entityName: "une tâche",
+      addSubtitle: "Créer une nouvelle tâche pour ce dossier",
+      // Dynamic form fields - dossierId and caseId options filtered to this dossier
+      getFormFields: (dossierData) => {
+        const dossierCases = dossierData.proceedings || [];
+
+        return taskFormFields.map(field => {
+          // Default parentType to 'dossier' since we're in dossier context
+          if (field.name === 'parentType') {
+            return {
+              ...field,
+              defaultValue: 'dossier',
+              helpText: dossierCases.length > 0
+                ? "Choisir si cette tâche concerne le dossier en général ou un procès spécifique"
+                : "Cette tâche sera rattachée au dossier (aucun procès disponible)"
+            };
+          } else if (field.name === 'dossierId') {
+            // Show this field as disabled/read-only with the current dossier pre-filled
+            return {
+              ...field,
+              defaultValue: dossierData.id, // Auto-fill with current dossier ID
+              disabled: true, // Make it read-only (unchangeable)
+              options: [{
+                value: dossierData.id,
+                label: `${dossierData.caseNumber} - ${dossierData.title}`
+              }],
+              helpText: "Cette tâche sera rattachée à ce dossier",
+              // Override getOptions to use this dossier only
+              getOptions: (formData) => {
+                if (formData.parentType !== "dossier") return [];
+                return [{
+                  value: dossierData.id,
+                  label: `${dossierData.caseNumber} - ${dossierData.title}`
+                }];
+              }
+            };
+          } else if (field.name === 'caseId') {
+            return {
+              ...field,
+              options: dossierCases.map(cas => ({
+                value: cas.id,
+                label: `${cas.caseNumber} - ${cas.title}`
+              })),
+              helpText: dossierCases.length === 0
+                ? "Aucun procès disponible. Veuillez d'abord créer un procès."
+                : "Sélectionner le procès auquel cette tâche sera rattachée",
+              // Override getOptions to use filtered options
+              getOptions: (formData) => {
+                if (formData.parentType !== "case") return [];
+                return dossierCases.map(cas => ({
+                  value: cas.id,
+                  label: `${cas.caseNumber} - ${cas.title}`
+                }));
+              }
+            };
+          }
+          return field;
+        });
+      },
+    },
+    {
+      id: "missions",
+      label: "Missions",
+      icon: "fas fa-clipboard-list",
+      component: "aggregatedRelated",
+      aggregationType: "missions",
+      getCount: (data) => data.missions?.length || 0,
+      allowAdd: true,
+      allowDelete: false,
+      entityName: "une mission",
+      addSubtitle: "Créer une nouvelle mission d'huissier pour ce dossier",
+      // Dynamic form fields - entityType and entityReference pre-filled
+      getFormFields: (dossierData) => {
+        return missionFormFields.map(field => {
+          if (field.name === 'entityType') {
+            return {
+              ...field,
+              defaultValue: 'dossier',
+              disabled: true,
+            };
+          } else if (field.name === 'entityReference') {
+            return {
+              ...field,
+              defaultValue: dossierData.caseNumber,
+              disabled: true,
+              helpText: `Cette mission sera liée au dossier ${dossierData.caseNumber}`,
+            };
+          } else if (field.name === 'officerId') {
+            return {
+              ...field,
+              options: mockOfficers.map(officer => ({
+                value: officer.id,
+                label: officer.name
+              })),
+            };
+          }
+          return field;
+        });
+      },
+    },
+    {
+      id: "financial",
+      label: "Comptabilité",
+      icon: "fas fa-calculator",
+      component: "financial",
+    },
+    {
       id: "documents",
       label: "Documents",
       icon: "fas fa-file",
       component: "documents",
       getCount: (data) => data.documents?.length || 0,
-    },
-    {
-      id: "tasks",
-      label: "Tâches", // ✅ FIXED encoding
-      icon: "fas fa-tasks",
-      component: "relatedItems",
-      getCount: (data) => data.tasks?.length || 0,
-
-      itemsKey: "tasks",
-      itemRoute: "/tasks", // ✅ Can click to view task detail
-      emptyMessage: "Aucune tâche",
-      renderItem: (item) => ({
-        title: item.title,
-        subtitle: `Échéance: ${item.dueDate} | Assigné à: ${item.assignedTo}`,
-        status: item.status,
-      }),
-
-      // ADD functionality - Uses existing taskFormFields
-      allowAdd: true,
-      allowDelete: true,
-      entityName: "une tâche",
-      addSubtitle: "Créer une nouvelle tâche pour ce dossier",
-      formFields: taskFormFields.filter(field => field.name !== 'dossierId'), // Remove dossier selector
-    },
-    {
-      id: "proceedings",
-      label: "Procès", // ✅ FIXED encoding (was "Procédures")
-      icon: "fas fa-gavel",
-      component: "relatedItems",
-      getCount: (data) => data.proceedings?.length || 0,
-
-      itemsKey: "proceedings",
-      itemRoute: "/cases", // ✅ Links to /cases (Procès screen)
-      emptyMessage: "Aucun procès",
-      renderItem: (item) => ({
-        title: item.caseNumber,
-        subtitle: `${item.title} - Prochaine Audience: ${item.nextHearing}`,
-        status: item.status,
-      }),
-
-      // ✅ FIXED: Now uses caseFormFields (Procès form)
-      allowAdd: true,
-      allowDelete: true,
-      entityName: "un procès",
-      addSubtitle: "Créer un nouveau procès pour ce dossier",
-      formFields: caseFormFields.filter(field => field.name !== 'dossierId'), // Remove dossier selector since we're in dossier context
     },
     {
       id: "notes",
@@ -192,24 +434,95 @@ export const dossierConfig = {
       icon: "fas fa-history",
       component: "timeline",
     },
-    {
-      id: "financials",
-      label: "Finances",
-      icon: "fas fa-dollar-sign",
-      component: "financials",
-    },
   ],
 
-  // Overview tab sections
+  // ✅ UPDATED: Overview sections with editStrategy
   overviewSections: [
     {
+      title: "Informations Générales",
+      editStrategy: "structured", // ✅ Requires explicit Edit button
+      fields: [
+        {
+          key: "caseNumber",
+          label: "Numéro de dossier",
+          value: (data) => data.caseNumber,
+          icon: "fas fa-hashtag",
+          type: "text",
+          editable: true,
+          helpText: "Format: DOS-ANNÉE-NUMÉRO"
+        },
+        {
+          key: "title",
+          label: "Titre du dossier",
+          value: (data) => data.title,
+          icon: "fas fa-heading",
+          type: "text",
+          editable: true,
+          fullWidth: true
+        },
+        {
+          key: "clientId",
+          label: "Client",
+          value: (data) => {
+            const clientId = data.clientId || data.client?.id;
+            const client = mockClients.find(c => c.id === parseInt(clientId));
+            return client ? client.name : "Client inconnu";
+          },
+          icon: "fas fa-user",
+          type: "searchable-select",
+          editable: true,
+          options: mockClients.map(client => ({
+            value: client.id,
+            label: client.name
+          })),
+          helpText: "Sélectionner le client concerné"
+        },
+        {
+          key: "category",
+          label: "Catégorie",
+          value: (data) => data.category,
+          icon: "fas fa-layer-group",
+          type: "select",
+          editable: true,
+          options: [
+            { value: "Commercial", label: "Droit Commercial" },
+            { value: "Famille", label: "Droit de la Famille" },
+            { value: "Pénal", label: "Droit Pénal" },
+            { value: "Travail", label: "Droit du Travail" },
+            { value: "Immobilier", label: "Droit Immobilier" },
+            { value: "Administratif", label: "Droit Administratif" },
+            { value: "Fiscal", label: "Droit Fiscal" },
+            { value: "Autre", label: "Autre" },
+          ]
+        },
+        {
+          key: "openDate",
+          label: "Date d'ouverture",
+          value: (data) => data.openDate,
+          icon: "fas fa-calendar",
+          type: "date",
+          editable: true
+        },
+        {
+          key: "nextDeadline",
+          label: "Prochaine échéance",
+          value: (data) => data.nextDeadline,
+          icon: "fas fa-clock",
+          type: "date",
+          editable: true
+        },
+      ],
+    },
+    {
       title: "Description du dossier",
+      editStrategy: "structured", // ✅ Requires explicit Edit button
       type: "description",
       fieldKey: "description",
       content: (data) => data.description,
     },
     {
       title: "Partie Adverse",
+      editStrategy: "structured", // ✅ Requires explicit Edit button
       fields: [
         {
           key: "adversaryParty",
@@ -231,6 +544,7 @@ export const dossierConfig = {
     },
     {
       title: "Informations Juridiques",
+      editStrategy: "structured", // ✅ Requires explicit Edit button
       fields: [
         {
           key: "courtReference",
@@ -251,9 +565,6 @@ export const dossierConfig = {
       ],
     },
   ],
-
-  // Financial data
-  getFinancials: (data) => data.financials,
 };
 
 // Helper component

@@ -154,13 +154,7 @@ export const routes: RouteConfig[] = [
     icon: "fas fa-calculator",
     label: "Comptabilité",
   },
-  {
-    path: "/invoices/:id",
-    component: () => <DetailView entityType="invoice" />,
-    name: "InvoiceDetail",
-    icon: "fas fa-file-invoice-dollar",
-    label: "Détails Facture",
-  },
+
   {
     path: "/chatbot",
     component: ChatBot,

@@ -136,7 +136,7 @@ export const dossierFormFields = [
     // ✅ RELATIONSHIP FIELD - Client
     name: "clientId",
     label: "Client",
-    type: "select",
+    type: "searchable-select", // ✅ Use searchable select for scalability
     required: true,
     options: [], // ← Will be populated dynamically with mockClients
     helpText: "Sélectionner le client concerné",
@@ -263,13 +263,13 @@ export const caseFormFields = [
     fullWidth: true,
   },
   {
-    // ✅ RELATIONSHIP FIELD - Dossier
+    // ✅ RELATIONSHIP FIELD - Dossier (MANDATORY - every procès needs a dossier/client)
     name: "dossierId",
     label: "Dossier",
-    type: "select",
+    type: "searchable-select", // ✅ Use searchable select for scalability
     required: true,
     options: [], // ← Will be populated dynamically with mockDossiers
-    helpText: "Sélectionner le dossier concerné",
+    helpText: "Obligatoire - Chaque procès doit être lié à un dossier",
   },
   {
     name: "court",
@@ -393,13 +393,47 @@ export const sessionFormFields = [
     ],
   },
   {
-    // ✅ RELATIONSHIP FIELD - Procès (Optional for Consultations)
+    // ✅ NEW: Choose between linking to Procès or Dossier
+    name: "linkType",
+    label: "Lié à",
+    type: "select",
+    required: true,
+    defaultValue: "case",
+    options: [
+      { value: "case", label: "Procès" },
+      { value: "dossier", label: "Dossier directement" },
+    ],
+    helpText:
+      "Une audience peut être liée à un procès ou directement à un dossier",
+    onChange: (value, formData, setFormData) => {
+      // Clear the other field when type changes
+      setFormData({
+        ...formData,
+        linkType: value,
+        caseId: value === "case" ? formData.caseId : "",
+        dossierId: value === "dossier" ? formData.dossierId : "",
+      });
+    },
+  },
+  {
+    // ✅ RELATIONSHIP FIELD - Procès (shown when linkType is "case")
     name: "caseId",
     label: "Procès",
-    type: "select",
-    required: false, // ← Optional because consultations don't need a procès
+    type: "searchable-select", // ✅ Use searchable select for scalability
+    required: false,
     options: [], // ← Will be populated dynamically with mockCases
-    helpText: "Sélectionner le procès concerné (optionnel pour consultations)",
+    helpText: "Sélectionner le procès concerné",
+    // This field is conditionally visible based on linkType
+  },
+  {
+    // ✅ RELATIONSHIP FIELD - Dossier (shown when linkType is "dossier")
+    name: "dossierId",
+    label: "Dossier",
+    type: "searchable-select", // ✅ Use searchable select for scalability
+    required: false,
+    options: [], // ← Will be populated dynamically with mockDossiers
+    helpText: "Sélectionner le dossier concerné",
+    // This field is conditionally visible based on linkType
   },
   {
     name: "date",
@@ -410,9 +444,52 @@ export const sessionFormFields = [
   {
     name: "time",
     label: "Heure",
-    type: "time",
+    type: "select",
     required: true,
     helpText: "Sélectionnez l'heure de début",
+    options: [
+      { value: "08:00", label: "08:00" },
+      { value: "08:15", label: "08:15" },
+      { value: "08:30", label: "08:30" },
+      { value: "08:45", label: "08:45" },
+      { value: "09:00", label: "09:00" },
+      { value: "09:15", label: "09:15" },
+      { value: "09:30", label: "09:30" },
+      { value: "09:45", label: "09:45" },
+      { value: "10:00", label: "10:00" },
+      { value: "10:15", label: "10:15" },
+      { value: "10:30", label: "10:30" },
+      { value: "10:45", label: "10:45" },
+      { value: "11:00", label: "11:00" },
+      { value: "11:15", label: "11:15" },
+      { value: "11:30", label: "11:30" },
+      { value: "11:45", label: "11:45" },
+      { value: "12:00", label: "12:00" },
+      { value: "12:15", label: "12:15" },
+      { value: "12:30", label: "12:30" },
+      { value: "12:45", label: "12:45" },
+      { value: "13:00", label: "13:00" },
+      { value: "13:15", label: "13:15" },
+      { value: "13:30", label: "13:30" },
+      { value: "13:45", label: "13:45" },
+      { value: "14:00", label: "14:00" },
+      { value: "14:15", label: "14:15" },
+      { value: "14:30", label: "14:30" },
+      { value: "14:45", label: "14:45" },
+      { value: "15:00", label: "15:00" },
+      { value: "15:15", label: "15:15" },
+      { value: "15:30", label: "15:30" },
+      { value: "15:45", label: "15:45" },
+      { value: "16:00", label: "16:00" },
+      { value: "16:15", label: "16:15" },
+      { value: "16:30", label: "16:30" },
+      { value: "16:45", label: "16:45" },
+      { value: "17:00", label: "17:00" },
+      { value: "17:15", label: "17:15" },
+      { value: "17:30", label: "17:30" },
+      { value: "17:45", label: "17:45" },
+      { value: "18:00", label: "18:00" },
+    ],
   },
   {
     name: "duration",
@@ -479,12 +556,67 @@ export const taskFormFields = [
     fullWidth: true,
   },
   {
-    // ✅ RELATIONSHIP FIELD - Dossier
-    name: "dossierId",
-    label: "Dossier",
+    // ✅ PARENT TYPE - Choose between Dossier or Case
+    name: "parentType",
+    label: "Lié à",
     type: "select",
     required: true,
-    options: [], // ← Will be populated dynamically with mockDossiers
+    defaultValue: "dossier",
+    options: [
+      { value: "dossier", label: "Dossier" },
+      { value: "case", label: "Procès" },
+    ],
+    helpText: "Une tâche peut être liée à un dossier ou à un procès",
+  },
+  {
+    // ✅ RELATIONSHIP FIELD - Dossier (conditionally shown)
+    name: "dossierId",
+    label: "Dossier",
+    type: "searchable-select",
+    required: false, // Will be conditionally required
+    // ✅ Dynamic options based on parentType
+    getOptions: (formData) => {
+      // Only show if parentType is 'dossier'
+      if (formData.parentType !== "dossier") return [];
+
+      // Import mockDossiers dynamically or use global
+      const { mockDossiers } = require("../../../utils/mockData");
+      return [
+        { value: "", label: "Sélectionner un dossier..." },
+        ...mockDossiers.map((d) => ({
+          value: d.id,
+          label: `${d.caseNumber} - ${d.title}`,
+        })),
+      ];
+    },
+    options: [], // Will be populated dynamically
+    // ✅ Conditional visibility
+    hideIf: (formData) => formData.parentType !== "dossier",
+  },
+  {
+    // ✅ RELATIONSHIP FIELD - Case (conditionally shown)
+    name: "caseId",
+    label: "Procès",
+    type: "searchable-select",
+    required: false, // Will be conditionally required
+    // ✅ Dynamic options based on parentType
+    getOptions: (formData) => {
+      // Only show if parentType is 'case'
+      if (formData.parentType !== "case") return [];
+
+      // Import mockCases dynamically or use global
+      const { mockCases } = require("../../../utils/mockData");
+      return [
+        { value: "", label: "Sélectionner un procès..." },
+        ...mockCases.map((c) => ({
+          value: c.id,
+          label: `${c.caseNumber} - ${c.title}`,
+        })),
+      ];
+    },
+    options: [], // Will be populated dynamically
+    // ✅ Conditional visibility
+    hideIf: (formData) => formData.parentType !== "case",
   },
   {
     name: "assignedTo",
@@ -541,9 +673,104 @@ export const taskFormFields = [
   {
     name: "estimatedTime",
     label: "Temps estimé",
-    type: "text",
-    placeholder: "Ex: 2h",
+    type: "select",
     required: false,
+    options: [
+      { value: "0.5h", label: "30 minutes" },
+      { value: "1h", label: "1 heure" },
+      { value: "1.5h", label: "1h30" },
+      { value: "2h", label: "2 heures" },
+      { value: "3h", label: "3 heures" },
+      { value: "4h", label: "4 heures" },
+      { value: "6h", label: "6 heures" },
+      { value: "8h", label: "8 heures" },
+      { value: "12h", label: "12 heures" },
+      { value: "16h", label: "16 heures" },
+      { value: "20h", label: "20 heures" },
+      { value: "24h", label: "1 journée" },
+      { value: "40h", label: "2 jours" },
+      { value: "80h", label: "1 semaine" },
+    ],
+    helpText: "Durée estimée pour compléter la tâche",
+  },
+];
+
+// ========================================
+// PERSONAL TASK FORM
+// ========================================
+
+export const personalTaskFormFields = [
+  {
+    name: "title",
+    label: "Titre de la tâche",
+    type: "text",
+    placeholder: "Ex: Payer facture électricité",
+    required: true,
+    fullWidth: true,
+  },
+  {
+    name: "category",
+    label: "Catégorie",
+    type: "select",
+    required: true,
+    options: [
+      { value: "Factures", label: "Factures" },
+      { value: "Bureau", label: "Bureau" },
+      { value: "Personnel", label: "Personnel" },
+      { value: "Informatique", label: "Informatique" },
+      { value: "Administratif", label: "Administratif" },
+      { value: "Autre", label: "Autre" },
+    ],
+  },
+  {
+    name: "dueDate",
+    label: "Date limite",
+    type: "date",
+    required: true,
+  },
+  {
+    name: "priority",
+    label: "Priorité",
+    type: "select",
+    required: true,
+    defaultValue: "Moyenne",
+    options: [
+      { value: "Haute", label: "Haute" },
+      { value: "Moyenne", label: "Moyenne" },
+      { value: "Basse", label: "Basse" },
+    ],
+  },
+  {
+    name: "status",
+    label: "Statut",
+    type: "select",
+    required: true,
+    defaultValue: "Non commencée",
+    options: [
+      { value: "Non commencée", label: "Non commencée" },
+      { value: "En attente", label: "En attente" },
+      { value: "En cours", label: "En cours" },
+      { value: "Planifiée", label: "Planifiée" },
+      { value: "Terminée", label: "Terminée" },
+    ],
+  },
+  {
+    name: "description",
+    label: "Description",
+    type: "textarea",
+    placeholder: "Description détaillée de la tâche...",
+    required: false,
+    fullWidth: true,
+    rows: 4,
+  },
+  {
+    name: "notes",
+    label: "Notes",
+    type: "textarea",
+    placeholder: "Notes supplémentaires...",
+    required: false,
+    fullWidth: true,
+    rows: 3,
   },
 ];
 
@@ -553,35 +780,73 @@ export const taskFormFields = [
 
 export const officerAssignmentFormFields = [
   {
+    name: "missionNumber",
+    label: "Numéro de mission",
+    type: "text",
+    placeholder: "MIS-2024-001",
+    required: true,
+    helpText: "Format: MIS-ANNÉE-NUMÉRO",
+  },
+  {
+    name: "title",
+    label: "Titre de la mission",
+    type: "text",
+    placeholder: "Ex: Signification acte judiciaire",
+    required: true,
+    fullWidth: true,
+  },
+  {
     // ✅ RELATIONSHIP FIELD - Officer
     name: "officerId",
     label: "Huissier",
-    type: "select",
+    type: "searchable-select", // ✅ Use searchable select for scalability
     required: true,
     options: [], // ← Will be populated dynamically with mockOfficers
   },
   {
     name: "entityType",
-    label: "Type d'entité",
+    label: "Lié à",
     type: "select",
     required: true,
     options: [
       { value: "dossier", label: "Dossier" },
       { value: "case", label: "Procès" },
     ],
-    helpText: "Assigner à un dossier ou un procès",
+    helpText: "Cette mission concerne un dossier ou un procès",
+    // ✅ This field triggers the entityReference field update
+    onChange: (value, formData, setFormData) => {
+      // Clear entityReference when type changes
+      setFormData({
+        ...formData,
+        entityType: value,
+        entityReference: "",
+      });
+    },
   },
   {
-    // ✅ CONDITIONAL RELATIONSHIP FIELD
-    name: "entityId",
-    label: "Dossier/Procès",
-    type: "select",
+    name: "entityReference",
+    label: "Référence (Dossier/Procès)",
+    type: "searchable-select", // ✅ NEW: Searchable dropdown
+    placeholder: "Rechercher ou saisir: DOS-2024-001 ou PRO-2024-001",
     required: true,
-    options: [], // ← Will be populated dynamically based on entityType
-    helpText: "Sélectionner l'entité à assigner",
+    helpText: "Sélectionnez dans la liste ou saisissez manuellement",
+    // ✅ Dynamic options based on entityType
+    getOptions: (formData) => {
+      const entityType = formData.entityType;
+
+      if (entityType === "dossier") {
+        // Return dossiers from mockData - will be populated dynamically
+        return []; // Placeholder, will be populated by populateRelationshipOptions
+      } else if (entityType === "case") {
+        // Return cases/procès from mockData - will be populated dynamically
+        return []; // Placeholder, will be populated by populateRelationshipOptions
+      }
+
+      return [];
+    },
   },
   {
-    name: "taskType",
+    name: "missionType",
     label: "Type de mission",
     type: "select",
     required: true,
@@ -590,6 +855,7 @@ export const officerAssignmentFormFields = [
       { value: "Exécution", label: "Exécution" },
       { value: "Constat", label: "Constat" },
       { value: "Saisie", label: "Saisie" },
+      { value: "Recouvrement", label: "Recouvrement" },
       { value: "Autre", label: "Autre" },
     ],
   },
@@ -599,6 +865,25 @@ export const officerAssignmentFormFields = [
     type: "date",
     required: true,
     defaultValue: new Date().toISOString().split("T")[0],
+  },
+  {
+    name: "dueDate",
+    label: "Date d'échéance",
+    type: "date",
+    required: false,
+    helpText: "Optionnel - date limite pour compléter la mission",
+  },
+  {
+    name: "priority",
+    label: "Priorité",
+    type: "select",
+    required: true,
+    defaultValue: "Moyenne",
+    options: [
+      { value: "Haute", label: "Haute" },
+      { value: "Moyenne", label: "Moyenne" },
+      { value: "Basse", label: "Basse" },
+    ],
   },
   {
     name: "status",
@@ -614,13 +899,32 @@ export const officerAssignmentFormFields = [
     ],
   },
   {
-    name: "notes",
-    label: "Notes",
+    name: "description",
+    label: "Description",
     type: "textarea",
-    placeholder: "Notes sur la mission...",
+    placeholder: "Description détaillée de la mission...",
     required: false,
     fullWidth: true,
     rows: 3,
+  },
+  {
+    name: "result",
+    label: "Résultat / Réponse",
+    type: "textarea",
+    placeholder: "Compte-rendu de l'huissier après exécution de la mission...",
+    required: false,
+    fullWidth: true,
+    rows: 4,
+    helpText: "Important: Enregistrer ce que l'huissier a rapporté",
+  },
+  {
+    name: "notes",
+    label: "Notes internes",
+    type: "textarea",
+    placeholder: "Notes internes sur cette mission...",
+    required: false,
+    fullWidth: true,
+    rows: 2,
   },
 ];
 
@@ -640,7 +944,7 @@ export const invoiceFormFields = [
     // ✅ RELATIONSHIP FIELD - Client
     name: "clientId",
     label: "Client",
-    type: "select",
+    type: "searchable-select", // ✅ Use searchable select for scalability
     required: true,
     options: [], // ← Will be populated dynamically with mockClients
   },
@@ -648,7 +952,7 @@ export const invoiceFormFields = [
     // ✅ RELATIONSHIP FIELD - Dossier (optional)
     name: "dossierId",
     label: "Dossier (optionnel)",
-    type: "select",
+    type: "searchable-select", // ✅ Use searchable select for scalability
     required: false,
     options: [], // ← Will be populated dynamically with mockDossiers
     helpText: "Lier la facture à un dossier spécifique",
@@ -709,6 +1013,344 @@ export const invoiceFormFields = [
 ];
 
 // ========================================
+// MISSION FORM (Huissier Mission)
+// ========================================
+
+export const missionFormFields = [
+  {
+    name: "officerId",
+    label: "Huissier",
+    type: "searchable-select",
+    required: true,
+    placeholder: "Sélectionner un huissier...",
+    options: [], // Will be populated dynamically
+  },
+  {
+    name: "entityType",
+    label: "Type d'entité",
+    type: "select",
+    required: true,
+    disabled: true, // Will be set based on context
+    options: [
+      { value: "dossier", label: "Dossier" },
+      { value: "case", label: "Procès" },
+    ],
+  },
+  {
+    name: "entityReference",
+    label: "Référence",
+    type: "text",
+    required: true,
+    disabled: true, // Will be pre-filled based on context
+    helpText: "Référence du dossier ou procès",
+  },
+  {
+    name: "missionNumber",
+    label: "Numéro de mission",
+    type: "text",
+    required: false, // Auto-generated, not required for submission
+    disabled: true, // Will be auto-generated
+    placeholder: "Auto-généré (MIS-YYYY-XXX)",
+    helpText: "Généré automatiquement",
+  },
+  {
+    name: "title",
+    label: "Titre de la mission",
+    type: "text",
+    required: true,
+    fullWidth: true,
+    placeholder: "Ex: Signification acte judiciaire",
+  },
+  {
+    name: "missionType",
+    label: "Type de mission",
+    type: "select",
+    required: true,
+    options: [
+      { value: "Signification", label: "Signification" },
+      { value: "Constat", label: "Constat" },
+      { value: "Saisie", label: "Saisie" },
+      { value: "Exécution", label: "Exécution" },
+      { value: "Autre", label: "Autre" },
+    ],
+  },
+  {
+    name: "priority",
+    label: "Priorité",
+    type: "select",
+    required: true,
+    defaultValue: "Moyenne",
+    options: [
+      { value: "Haute", label: "🔴 Haute" },
+      { value: "Moyenne", label: "🟡 Moyenne" },
+      { value: "Basse", label: "🟢 Basse" },
+    ],
+  },
+  {
+    name: "assignDate",
+    label: "Date d'assignation",
+    type: "date",
+    required: true,
+    defaultValue: new Date().toISOString().split("T")[0],
+  },
+  {
+    name: "dueDate",
+    label: "Date limite",
+    type: "date",
+    required: true,
+  },
+  {
+    name: "status",
+    label: "Statut",
+    type: "select",
+    required: true,
+    defaultValue: "Programmée",
+    options: [
+      { value: "Programmée", label: "Programmée" },
+      { value: "En cours", label: "En cours" },
+      { value: "Terminée", label: "Terminée" },
+      { value: "Annulée", label: "Annulée" },
+    ],
+  },
+  {
+    name: "description",
+    label: "Description",
+    type: "textarea",
+    required: true,
+    fullWidth: true,
+    rows: 3,
+    placeholder: "Description détaillée de la mission...",
+  },
+  {
+    name: "notes",
+    label: "Notes",
+    type: "textarea",
+    required: false,
+    fullWidth: true,
+    rows: 2,
+    placeholder: "Notes additionnelles...",
+  },
+];
+
+// ========================================
+// FINANCIAL ENTRY FORM
+// ========================================
+
+export const financialEntryFormFields = [
+  {
+    name: "scope",
+    label: "Portée financière",
+    type: "select",
+    required: true,
+    defaultValue: "client",
+    options: [
+      { value: "client", label: "Client (affecte le solde client)" },
+      { value: "internal", label: "Interne (frais de bureau)" },
+    ],
+    helpText:
+      "Choisir 'Client' pour les opérations liées aux clients, 'Interne' pour les frais de bureau",
+    onChange: (value, formData, setFormData) => {
+      // Clear client/dossier/case when switching to internal
+      if (value === "internal") {
+        setFormData({
+          ...formData,
+          scope: value,
+          clientId: "",
+          dossierId: "",
+          caseId: "",
+        });
+      } else {
+        setFormData({
+          ...formData,
+          scope: value,
+        });
+      }
+    },
+  },
+  {
+    name: "type",
+    label: "Type d'opération",
+    type: "select",
+    required: true,
+    defaultValue: "expense",
+    options: [
+      { value: "revenue", label: "Recette (argent reçu)" },
+      { value: "expense", label: "Dépense (argent payé)" },
+    ],
+    onChange: (value, formData, setFormData) => {
+      // Auto-suggest category based on type
+      let suggestedCategory = formData.category;
+      if (value === "revenue" && formData.category === "frais_judiciaires") {
+        suggestedCategory = "honoraires";
+      } else if (value === "expense" && formData.category === "honoraires") {
+        suggestedCategory = "frais_judiciaires";
+      }
+      setFormData({
+        ...formData,
+        type: value,
+        category: suggestedCategory,
+      });
+    },
+  },
+  {
+    name: "category",
+    label: "Catégorie",
+    type: "select",
+    required: true,
+    getOptions: (formData) => {
+      const type = formData.type || "expense";
+      const scope = formData.scope || "client";
+
+      // Revenue categories
+      if (type === "revenue") {
+        return [
+          { value: "honoraires", label: "Honoraires" },
+          { value: "advance", label: "Avance client" },
+          { value: "other", label: "Autre recette" },
+        ];
+      }
+
+      // Expense categories
+      if (scope === "internal") {
+        return [
+          { value: "frais_bureau", label: "Frais de bureau" },
+          { value: "other", label: "Autre dépense" },
+        ];
+      }
+
+      return [
+        { value: "frais_judiciaires", label: "Frais judiciaires" },
+        { value: "frais_huissier", label: "Frais d'huissier" },
+        { value: "other", label: "Autre dépense" },
+      ];
+    },
+  },
+  {
+    name: "amount",
+    label: "Montant (TND)",
+    type: "number",
+    required: true,
+    placeholder: "0.00",
+    min: 0,
+    step: 0.01,
+    validate: (value) => {
+      const amount = parseFloat(value);
+      if (isNaN(amount) || amount <= 0) {
+        return "Le montant doit être supérieur à 0";
+      }
+      return null;
+    },
+  },
+  {
+    name: "date",
+    label: "Date",
+    type: "date",
+    required: true,
+    defaultValue: new Date().toISOString().split("T")[0],
+  },
+  {
+    name: "status",
+    label: "Statut",
+    type: "select",
+    required: true,
+    defaultValue: "confirmed",
+    options: [
+      { value: "draft", label: "Brouillon" },
+      { value: "confirmed", label: "Confirmé" },
+      { value: "paid", label: "Payé" },
+    ],
+  },
+  {
+    name: "description",
+    label: "Description",
+    type: "textarea",
+    required: true,
+    fullWidth: true,
+    rows: 3,
+    placeholder: "Description de l'opération financière...",
+  },
+  {
+    name: "clientId",
+    label: "Client",
+    type: "searchable-select",
+    required: false,
+    options: [], // Will be populated dynamically
+    hideIf: (formData) => formData.scope === "internal",
+    helpText: "Client concerné par cette opération",
+    onChange: (value, formData, setFormData) => {
+      // Clear dossier and case when client changes
+      setFormData({
+        ...formData,
+        clientId: value,
+        dossierId: "",
+        caseId: "",
+      });
+    },
+  },
+  {
+    name: "dossierId",
+    label: "Dossier (optionnel)",
+    type: "searchable-select",
+    required: false,
+    options: [], // Base options - will be filtered by getOptions
+    getOptions: (formData, allOptions) => {
+      // Filter dossiers by selected client
+      const clientId = formData.clientId;
+      if (!clientId || !allOptions?.dossiers) {
+        return [];
+      }
+      return allOptions.dossiers
+        .filter((d) => d.clientId === clientId)
+        .map((d) => ({ value: d.id, label: `${d.caseNumber} - ${d.title}` }));
+    },
+    hideIf: (formData) => formData.scope === "internal",
+    helpText: "Dossier concerné (optionnel)",
+    onChange: (value, formData, setFormData) => {
+      // Clear case when dossier changes
+      setFormData({
+        ...formData,
+        dossierId: value,
+        caseId: "",
+      });
+    },
+  },
+  {
+    name: "caseId",
+    label: "Procès (optionnel)",
+    type: "searchable-select",
+    required: false,
+    options: [], // Base options - will be filtered by getOptions
+    getOptions: (formData, allOptions) => {
+      // Filter cases by selected client or dossier
+      const clientId = formData.clientId;
+      const dossierId = formData.dossierId;
+      if (!allOptions?.cases) {
+        return [];
+      }
+
+      let filteredCases = allOptions.cases;
+
+      // If dossier is selected, filter by dossier
+      if (dossierId) {
+        filteredCases = filteredCases.filter((c) => c.dossierId === dossierId);
+      } else if (clientId) {
+        // If only client is selected, filter by client
+        filteredCases = filteredCases.filter((c) => c.clientId === clientId);
+      } else {
+        return [];
+      }
+
+      return filteredCases.map((c) => ({
+        value: c.id,
+        label: `${c.caseNumber} - ${c.title}`,
+      }));
+    },
+    hideIf: (formData) => formData.scope === "internal",
+    helpText: "Procès concerné (optionnel)",
+  },
+];
+
+// ========================================
 // HELPER FUNCTIONS
 // ========================================
 
@@ -722,8 +1364,11 @@ export function getFormFields(entityType) {
     case: caseFormFields,
     session: sessionFormFields,
     task: taskFormFields,
+    personalTask: personalTaskFormFields,
     invoice: invoiceFormFields,
     officerAssignment: officerAssignmentFormFields,
+    mission: missionFormFields,
+    financialEntry: financialEntryFormFields,
   };
 
   return fieldsMap[entityType] || [];
@@ -739,8 +1384,15 @@ export function getFormTitle(entityType, isEdit = false) {
     case: isEdit ? "Modifier Procès" : "Nouveau Procès",
     session: isEdit ? "Modifier Séance" : "Nouvelle Séance",
     task: isEdit ? "Modifier Tâche" : "Nouvelle Tâche",
+    personalTask: isEdit
+      ? "Modifier Tâche Personnelle"
+      : "Nouvelle Tâche Personnelle",
     invoice: isEdit ? "Modifier Facture" : "Nouvelle Facture",
     officerAssignment: isEdit ? "Modifier Mission" : "Assigner Huissier",
+    mission: isEdit ? "Modifier Mission Huissier" : "Nouvelle Mission Huissier",
+    financialEntry: isEdit
+      ? "Modifier Écriture Comptable"
+      : "Nouvelle Écriture Comptable",
   };
 
   return titles[entityType] || "Formulaire";
@@ -749,11 +1401,22 @@ export function getFormTitle(entityType, isEdit = false) {
 /**
  * Populate relationship dropdowns dynamically
  * This function should be called before opening the form modal
+ *
+ * For fields with getOptions function, raw data is passed via allOptions
+ * so the function can filter dynamically based on formData
  */
 export function populateRelationshipOptions(fields, data) {
   const { clients, dossiers, cases, officers } = data;
 
   return fields.map((field) => {
+    // For fields with getOptions, pass the raw data so they can filter dynamically
+    if (field.getOptions) {
+      return {
+        ...field,
+        allOptions: { clients, dossiers, cases, officers },
+      };
+    }
+
     if (field.name === "clientId" && clients) {
       return {
         ...field,
@@ -761,6 +1424,7 @@ export function populateRelationshipOptions(fields, data) {
       };
     }
     if (field.name === "dossierId" && dossiers) {
+      // Only populate static options if no getOptions function
       return {
         ...field,
         options: dossiers.map((d) => ({
@@ -770,6 +1434,7 @@ export function populateRelationshipOptions(fields, data) {
       };
     }
     if (field.name === "caseId" && cases) {
+      // Only populate static options if no getOptions function
       return {
         ...field,
         options: [
@@ -786,7 +1451,7 @@ export function populateRelationshipOptions(fields, data) {
         ...field,
         options: officers.map((o) => ({
           value: o.id,
-          label: `${o.name} - ${o.specialization}`,
+          label: o.name,
         })),
       };
     }

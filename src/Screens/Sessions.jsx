@@ -15,7 +15,8 @@ import Pagination from "../components/table/Pagination";
 import FormModal from "../components/FormModal/FormModal";
 import StatCard from "../components/dashboard/StatCard";
 import { sessionFormFields, getFormTitle } from "../components/FormModal/formConfigs";
-import { mockSessions, mockCases, getStatusColor } from "../utils/mockData";
+import { mockSessions, mockCases, mockDossiers } from "../utils/mockData";
+import InlineStatusSelector from "../components/InlineSelectors/InlineStatusSelector";
 
 export default function Sessions() {
   const navigate = useNavigate();
@@ -101,9 +102,17 @@ export default function Sessions() {
       label: "Statut",
       sortable: true,
       render: (session) => (
-        <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(session.status)}`}>
-          {session.status}
-        </span>
+        <InlineStatusSelector
+          value={session.status}
+          onChange={(newStatus) => handleStatusChange(session.id, newStatus)}
+          statusOptions={[
+            { value: "Programmée", label: "Programmée", icon: "fas fa-calendar", color: "text-blue-600" },
+            { value: "Confirmée", label: "Confirmée", icon: "fas fa-check", color: "text-green-600" },
+            { value: "En attente", label: "En attente", icon: "fas fa-clock", color: "text-amber-600" },
+            { value: "Terminée", label: "Terminée", icon: "fas fa-check-circle", color: "text-gray-600" },
+            { value: "Annulée", label: "Annulée", icon: "fas fa-times-circle", color: "text-red-600" },
+          ]}
+        />
       ),
     },
     {
@@ -166,6 +175,12 @@ export default function Sessions() {
     if (window.confirm("Êtes-vous sûr de vouloir supprimer cette séance ?")) {
       setSessions(sessions.filter(s => s.id !== id));
     }
+  };
+
+  const handleStatusChange = (id, newStatus) => {
+    setSessions(sessions.map(s =>
+      s.id === id ? { ...s, status: newStatus } : s
+    ));
   };
 
   const handleAddSession = () => {
@@ -231,16 +246,28 @@ export default function Sessions() {
     window.URL.revokeObjectURL(url);
   };
 
-  // ✅ Populate case options in the form fields
+  // ✅ Populate case and dossier options in the form fields
   const populatedSessionFormFields = sessionFormFields.map(field => {
     if (field.name === "caseId") {
       return {
         ...field,
         options: [
-          { value: "", label: "Aucun (consultation)" },
+          { value: "", label: "Sélectionner un procès..." },
           ...mockCases.map(c => ({
             value: c.id,
             label: `${c.caseNumber} - ${c.title}`
+          }))
+        ]
+      };
+    }
+    if (field.name === "dossierId") {
+      return {
+        ...field,
+        options: [
+          { value: "", label: "Sélectionner un dossier..." },
+          ...mockDossiers.map(d => ({
+            value: d.id,
+            label: `${d.caseNumber} - ${d.title}`
           }))
         ]
       };

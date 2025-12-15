@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAdvancedTable } from "../hooks/useAdvancedTable";
 import PageLayout from "../components/layout/PageLayout";
@@ -12,66 +12,194 @@ import TableCell from "../components/table/TableCell";
 import TableActions, { IconButton } from "../components/table/TableActions";
 import TableToolbar from "../components/table/TableToolbar";
 import Pagination from "../components/table/Pagination";
-import StatCard from "../components/dashboard/StatCard";
 import FormModal from "../components/FormModal/FormModal";
-import { mockAccounting, mockClients, getStatusColor } from "../utils/mockData";
+import StatCard from "../components/dashboard/StatCard";
+import { financialEntryFormFields, getFormTitle, populateRelationshipOptions } from "../components/FormModal/formConfigs";
+import { mockClients, mockDossiers, mockCases } from "../utils/mockData";
+import {
+  financialLedger,
+  addFinancialEntry,
+  updateFinancialEntry,
+  deleteFinancialEntry,
+  financialCategories,
+  financialStatuses,
+} from "../utils/financialData";
+import {
+  getFinancialEntriesForDisplay,
+  getAccountingStatistics,
+  formatCurrency,
+} from "../utils/financialUtils";
+import InlineStatusSelector from "../components/InlineSelectors/InlineStatusSelector";
 
 export default function Accounting() {
   const navigate = useNavigate();
 
-  const [invoices, setInvoices] = useState(mockAccounting);
+  // Use financial ledger as source of truth
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingInvoice, setEditingInvoice] = useState(null);
+  const [editingEntry, setEditingEntry] = useState(null);
+  const [selectedEntry, setSelectedEntry] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [filterScope, setFilterScope] = useState("all"); // all, client, internal
+  const [refreshKey, setRefreshKey] = useState(0); // Trigger re-renders on data changes
 
-  // Define table columns
-  const columns = [
-    {
-      id: "invoiceNumber",
-      label: "N° Facture",
-      sortable: true,
-      locked: true,
-      render: (invoice) => (
-        <span className="font-mono text-xs font-semibold text-blue-600 dark:text-blue-400">
-          {invoice.invoiceNumber}
-        </span>
-      ),
-    },
-    {
-      id: "client",
-      label: "Client",
-      sortable: true,
-      render: (invoice) => invoice.client,
-    },
-    {
-      id: "amount",
-      label: "Montant",
-      sortable: true,
-      render: (invoice) => (
-        <span className="font-bold text-slate-900 dark:text-white">
-          {invoice.amount}
-        </span>
-      ),
-    },
+  // Get display entries with computed fields
+  const displayEntries = useMemo(() => {
+    let filtered = getFinancialEntriesForDisplay();
+
+    // Apply scope filter
+    if (filterScope !== "all") {
+      filtered = filtered.filter(e => e.scope === filterScope);
+    }
+
+    return filtered;
+  }, [filterScope, refreshKey]);
+
+  // Calculate statistics from ledger
+  const stats = useMemo(() => {
+    return getAccountingStatistics();
+  }, [refreshKey]);
+
+  // Get priority items (entries needing attention)
+  const priorityItems = useMemo(() => {
+    const today = new Date();
+    const threeDaysFromNow = new Date(today.getTime() + 3 * 24 * 60 * 60 * 1000);
+
+    return displayEntries
+      .filter(entry => {
+        // Show unpaid/unconfirmed entries
+        if (entry.status === 'paid') return false;
+
+        // Show recent or upcoming entries
+        const entryDate = new Date(entry.date);
+        return entryDate <= threeDaysFromNow;
+      })
+      .sort((a, b) => {
+        // Sort by status priority (draft > confirmed > paid)
+        const statusOrder = { draft: 0, confirmed: 1, paid: 2 };
+        const statusDiff = statusOrder[a.status] - statusOrder[b.status];
+        if (statusDiff !== 0) return statusDiff;
+        return new Date(a.date) - new Date(b.date);
+      })
+      .slice(0, 10);
+  }, [displayEntries]);
+
+  // Handler functions (defined before columns to avoid hoisting issues)
+  const handleView = (entry) => {
+    setSelectedEntry(entry);
+  };
+
+  const handleEdit = (entry) => {
+    setEditingEntry(entry);
+    setIsModalOpen(true);
+  };
+
+  const handleDelete = (id) => {
+    if (window.confirm("Êtes-vous sûr de vouloir supprimer cette écriture comptable ?")) {
+      deleteFinancialEntry(id);
+      setRefreshKey((k) => k + 1); // Trigger re-render
+      setSelectedEntry(null); // Close detail modal if open
+    }
+  };
+
+  const handleStatusChange = (id, newStatus) => {
+    updateFinancialEntry(id, { status: newStatus });
+    setRefreshKey((k) => k + 1); // Trigger re-render
+    // Update selectedEntry if it's being viewed
+    if (selectedEntry && selectedEntry.id === id) {
+      const updatedEntry = displayEntries.find(e => e.id === id);
+      setSelectedEntry(updatedEntry || null);
+    }
+  };
+
+  // Define table columns (memoized to ensure handler closures are stable)
+  const columns = useMemo(() => [
     {
       id: "date",
       label: "Date",
       sortable: true,
-      render: (invoice) => invoice.date,
+      locked: true,
+      render: (entry) => (
+        <span className="text-sm font-medium text-slate-900 dark:text-white">
+          {entry.date}
+        </span>
+      ),
     },
     {
-      id: "dueDate",
-      label: "Échéance",
+      id: "description",
+      label: "Description",
       sortable: true,
-      render: (invoice) => <span className="font-medium">{invoice.dueDate}</span>,
+      render: (entry) => (
+        <div className="flex flex-col">
+          <span className="font-medium text-slate-900 dark:text-white">
+            {entry.description}
+          </span>
+          <div className="flex items-center gap-2 mt-1">
+            <span className={`px-2 py-0.5 rounded-full text-xs font-medium bg-${entry.categoryColor}-100 text-${entry.categoryColor}-800 dark:bg-${entry.categoryColor}-900/30 dark:text-${entry.categoryColor}-300`}>
+              {entry.categoryLabel}
+            </span>
+            {entry.scope === 'internal' && (
+              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300">
+                Bureau
+              </span>
+            )}
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: "entityReference",
+      label: "Client / Dossier",
+      sortable: true,
+      render: (entry) => (
+        <div className="flex flex-col text-sm">
+          {entry.clientName && (
+            <span className="font-medium text-slate-900 dark:text-white">
+              {entry.clientName}
+            </span>
+          )}
+          {entry.dossierReference && (
+            <span className="text-xs text-slate-500 dark:text-slate-400">
+              {entry.dossierReference}
+            </span>
+          )}
+          {entry.caseReference && (
+            <span className="text-xs text-blue-600 dark:text-blue-400">
+              {entry.caseReference}
+            </span>
+          )}
+          {!entry.clientName && (
+            <span className="text-xs text-slate-400 dark:text-slate-500">
+              Interne
+            </span>
+          )}
+        </div>
+      ),
     },
     {
       id: "type",
       label: "Type",
       sortable: true,
-      render: (invoice) => (
-        <span className="px-2 py-1 rounded text-xs font-medium bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300">
-          {invoice.type}
+      render: (entry) => (
+        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+          entry.type === "revenue"
+            ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300"
+            : "bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300"
+        }`}>
+          {entry.type === "revenue" ? "Recette" : "Dépense"}
+        </span>
+      ),
+    },
+    {
+      id: "amount",
+      label: "Montant",
+      sortable: true,
+      render: (entry) => (
+        <span className={`font-semibold ${
+          entry.type === "revenue"
+            ? "text-emerald-600 dark:text-emerald-400"
+            : "text-rose-600 dark:text-rose-400"
+        }`}>
+          {entry.amountWithSign}
         </span>
       ),
     },
@@ -79,10 +207,17 @@ export default function Accounting() {
       id: "status",
       label: "Statut",
       sortable: true,
-      render: (invoice) => (
-        <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(invoice.status)}`}>
-          {invoice.status}
-        </span>
+      render: (entry) => (
+        <InlineStatusSelector
+          value={entry.status}
+          onChange={(newStatus) => handleStatusChange(entry.id, newStatus)}
+          statusOptions={[
+            { value: "draft", label: "Brouillon", icon: "fas fa-file", color: "text-gray-600" },
+            { value: "confirmed", label: "Confirmé", icon: "fas fa-check-circle", color: "text-blue-600" },
+            { value: "paid", label: "Payé", icon: "fas fa-check-double", color: "text-green-600" },
+            { value: "cancelled", label: "Annulé", icon: "fas fa-times-circle", color: "text-red-600" },
+          ]}
+        />
       ),
     },
     {
@@ -90,24 +225,15 @@ export default function Accounting() {
       label: "Actions",
       sortable: false,
       locked: true,
-      render: (invoice) => (
+      render: (entry) => (
         <TableActions>
-          <IconButton
-            icon="view"
-            variant="view"
-            title="Voir facture"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleView(invoice.id);
-            }}
-          />
           <IconButton
             icon="edit"
             variant="edit"
             title="Modifier"
             onClick={(e) => {
               e.stopPropagation();
-              handleEdit(invoice);
+              handleEdit(entry);
             }}
           />
           <IconButton
@@ -116,39 +242,24 @@ export default function Accounting() {
             title="Supprimer"
             onClick={(e) => {
               e.stopPropagation();
-              handleDelete(invoice.id);
+              handleDelete(entry.id);
             }}
           />
         </TableActions>
       ),
     },
-  ];
+  ], [handleStatusChange, handleEdit, handleDelete]);
 
   // Initialize advanced table
-  const table = useAdvancedTable(invoices, columns, {
+  const table = useAdvancedTable(displayEntries, columns, {
     initialSortBy: "date",
     initialSortDirection: "desc",
-    initialItemsPerPage: 10,
-    searchableFields: ["invoiceNumber", "client", "amount", "type", "status"],
+    initialItemsPerPage: 25,
+    searchableFields: ["description", "clientName", "dossierReference", "caseReference", "categoryLabel"],
   });
 
-  const handleView = (id) => {
-    navigate(`/invoices/${id}`);
-  };
-
-  const handleEdit = (invoice) => {
-    setEditingInvoice(invoice);
-    setIsModalOpen(true);
-  };
-
-  const handleDelete = (id) => {
-    if (window.confirm("Êtes-vous sûr de vouloir supprimer cette facture ?")) {
-      setInvoices(invoices.filter(i => i.id !== id));
-    }
-  };
-
-  const handleAddInvoice = () => {
-    setEditingInvoice(null);
+  const handleAddEntry = () => {
+    setEditingEntry(null);
     setIsModalOpen(true);
   };
 
@@ -158,28 +269,36 @@ export default function Accounting() {
     try {
       await new Promise((resolve) => setTimeout(resolve, 500));
 
-      if (editingInvoice) {
-        setInvoices(invoices.map(i =>
-          i.id === editingInvoice.id
-            ? { ...formData, id: editingInvoice.id }
-            : i
-        ));
-        alert("Facture modifiée avec succès!");
+      if (editingEntry) {
+        // Update existing entry
+        updateFinancialEntry(editingEntry.id, formData);
+        alert("Écriture modifiée avec succès!");
       } else {
-        const client = mockClients.find(c => c.id === parseInt(formData.clientId));
-        const newInvoice = {
+        // Add new entry
+        // Resolve relationship names
+        const client = formData.clientId ? mockClients.find(c => c.id === parseInt(formData.clientId)) : null;
+        const dossier = formData.dossierId ? mockDossiers.find(d => d.id === parseInt(formData.dossierId)) : null;
+        const caseItem = formData.caseId ? mockCases.find(c => c.id === parseInt(formData.caseId)) : null;
+
+        const newEntry = {
           ...formData,
-          id: Date.now(),
-          client: client ? client.name : "Client inconnu",
+          clientId: client ? client.id : null,
+          clientName: client ? client.name : null,
+          dossierId: dossier ? dossier.id : null,
+          dossierReference: dossier ? dossier.caseNumber : null,
+          caseId: caseItem ? caseItem.id : null,
+          caseReference: caseItem ? caseItem.caseNumber : null,
         };
-        setInvoices([newInvoice, ...invoices]);
-        alert("Facture ajoutée avec succès!");
+
+        addFinancialEntry(newEntry);
+        alert("Écriture ajoutée avec succès!");
       }
 
+      setRefreshKey((k) => k + 1); // Trigger re-render
       setIsModalOpen(false);
-      setEditingInvoice(null);
+      setEditingEntry(null);
     } catch (error) {
-      console.error("Error submitting invoice:", error);
+      console.error("Error submitting entry:", error);
       alert("Erreur lors de l'enregistrement");
     } finally {
       setIsLoading(false);
@@ -192,11 +311,13 @@ export default function Accounting() {
       .map(col => col.label)
       .join(",");
 
-    const rows = table.allData.map(invoice =>
+    const rows = table.allData.map(entry =>
       table.columns
         .filter(col => col.id !== "actions")
         .map(col => {
-          const value = invoice[col.id] || "";
+          let value = entry[col.id] || "";
+          if (col.id === "amount") value = entry.amount;
+          if (col.id === "type") value = entry.type === "revenue" ? "Recette" : "Dépense";
           return `"${value}"`;
         })
         .join(",")
@@ -207,151 +328,163 @@ export default function Accounting() {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `accounting-${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `comptabilite-${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
     window.URL.revokeObjectURL(url);
   };
 
-  // Form fields for invoices
-  const invoiceFormFields = [
-    {
-      name: "invoiceNumber",
-      label: "Numéro de facture",
-      type: "text",
-      required: true,
-      placeholder: "FAC-2024-XXX"
-    },
-    {
-      name: "clientId",
-      label: "Client",
-      type: "select",
-      required: true,
-      options: mockClients.map(c => ({
-        value: c.id,
-        label: c.name
-      }))
-    },
-    {
-      name: "amount",
-      label: "Montant",
-      type: "text",
-      required: true,
-      placeholder: "Ex: 1,500 TND"
-    },
-    {
-      name: "date",
-      label: "Date",
-      type: "date",
-      required: true,
-    },
-    {
-      name: "dueDate",
-      label: "Date d'échéance",
-      type: "date",
-      required: true,
-    },
-    {
-      name: "type",
-      label: "Type",
-      type: "select",
-      required: true,
-      options: [
-        { value: "Honoraire", label: "Honoraire" },
-        { value: "Consultation", label: "Consultation" },
-        { value: "Frais", label: "Frais" },
-      ]
-    },
-    {
-      name: "status",
-      label: "Statut",
-      type: "select",
-      required: true,
-      defaultValue: "En attente",
-      options: [
-        { value: "Payée", label: "Payée" },
-        { value: "En attente", label: "En attente" },
-        { value: "En retard", label: "En retard" },
-      ]
-    },
-  ];
+  // Populate relationship options
+  const entryFields = populateRelationshipOptions(financialEntryFormFields, {
+    clients: mockClients,
+    dossiers: mockDossiers,
+    cases: mockCases,
+  });
 
   return (
     <PageLayout>
       <PageHeader
         title="Comptabilité"
-        subtitle={`${table.originalTotalItems} factures au total${table.isFiltering ? ` • ${table.totalItems} affichées` : ""}`}
+        subtitle={`${table.originalTotalItems} écritures au total${table.isFiltering ? ` • ${table.totalItems} affichées` : ""}`}
         icon="fas fa-calculator"
         actions={
-          <div className="flex gap-2">
-            <button
-              onClick={handleExport}
-              className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg font-medium transition-colors duration-200 flex items-center gap-2"
-            >
-              <i className="fas fa-download"></i>
-              Exporter
-            </button>
-            <button
-              onClick={handleAddInvoice}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center gap-2"
-            >
-              <i className="fas fa-plus"></i>
-              Nouvelle Facture
-            </button>
-          </div>
+          <button
+            onClick={handleAddEntry}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center gap-2"
+          >
+            <i className="fas fa-plus"></i>
+            Nouvelle Écriture
+          </button>
         }
       />
 
-      {/* Summary Cards */}
+      {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <div className="p-4 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-slate-500 dark:text-slate-400">Total Facturé</p>
-              <p className="text-2xl font-bold text-slate-900 dark:text-white mt-1">14,000 TND</p>
-            </div>
-            <div className="p-3 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
-              <i className="fas fa-file-invoice-dollar text-blue-600 dark:text-blue-400 text-xl"></i>
-            </div>
-          </div>
-        </div>
-
-        <div className="p-4 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-slate-500 dark:text-slate-400">Payé</p>
-              <p className="text-2xl font-bold text-green-600 dark:text-green-400 mt-1">4,500 TND</p>
-            </div>
-            <div className="p-3 bg-green-100 dark:bg-green-900/20 rounded-lg">
-              <i className="fas fa-check-circle text-green-600 dark:text-green-400 text-xl"></i>
-            </div>
-          </div>
-        </div>
-
-        <div className="p-4 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-slate-500 dark:text-slate-400">En attente</p>
-              <p className="text-2xl font-bold text-amber-600 dark:text-amber-400 mt-1">4,000 TND</p>
-            </div>
-            <div className="p-3 bg-amber-100 dark:bg-amber-900/20 rounded-lg">
-              <i className="fas fa-clock text-amber-600 dark:text-amber-400 text-xl"></i>
-            </div>
-          </div>
-        </div>
-
-        <div className="p-4 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-slate-500 dark:text-slate-400">En retard</p>
-              <p className="text-2xl font-bold text-red-600 dark:text-red-400 mt-1">5,500 TND</p>
-            </div>
-            <div className="p-3 bg-red-100 dark:bg-red-900/20 rounded-lg">
-              <i className="fas fa-exclamation-circle text-red-600 dark:text-red-400 text-xl"></i>
-            </div>
-          </div>
-        </div>
+        <StatCard
+          label="Recettes totales"
+          value={formatCurrency(stats.totalClientRevenue)}
+          icon="fas fa-arrow-down"
+          color="emerald"
+          trendLabel="Clients"
+        />
+        <StatCard
+          label="Dépenses clients"
+          value={formatCurrency(stats.totalClientExpense)}
+          icon="fas fa-arrow-up"
+          color="blue"
+          trendLabel="Remboursables"
+        />
+        <StatCard
+          label="Dépenses bureau"
+          value={formatCurrency(stats.totalInternalExpense)}
+          icon="fas fa-building"
+          color="orange"
+          trendLabel="Internes"
+        />
+        <StatCard
+          label="Solde net"
+          value={formatCurrency(stats.netProfit)}
+          icon="fas fa-balance-scale"
+          color={stats.netProfit >= 0 ? "green" : "red"}
+          trendLabel={stats.netProfit >= 0 ? "Positif" : "Négatif"}
+        />
       </div>
 
+      {/* Scope Filter */}
+      <div className="mb-4 flex gap-2">
+        <button
+          onClick={() => setFilterScope("all")}
+          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+            filterScope === "all"
+              ? "bg-blue-600 text-white"
+              : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+          }`}
+        >
+          Toutes
+        </button>
+        <button
+          onClick={() => setFilterScope("client")}
+          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+            filterScope === "client"
+              ? "bg-blue-600 text-white"
+              : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+          }`}
+        >
+          Clients
+        </button>
+        <button
+          onClick={() => setFilterScope("internal")}
+          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+            filterScope === "internal"
+              ? "bg-blue-600 text-white"
+              : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+          }`}
+        >
+          Bureau
+        </button>
+      </div>
+
+      {/* Priority Items Section */}
+      {priorityItems.length > 0 && (
+        <ContentSection title={`À Traiter en Priorité (${priorityItems.length})`}>
+          <div className="p-6">
+            <div className="space-y-3">
+              {priorityItems.slice(0, 5).map((entry) => {
+                const isDraft = entry.status === 'draft';
+                const isConfirmed = entry.status === 'confirmed';
+
+                return (
+                  <div
+                    key={entry.id}
+                    className={`p-4 rounded-lg border cursor-pointer transition-colors ${
+                      isDraft
+                        ? "border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20"
+                        : "border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-900/20"
+                    }`}
+                    onClick={() => handleView(entry)}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-3 h-3 rounded-full ${
+                          isDraft ? "bg-amber-500" : "bg-blue-500"
+                        }`} />
+                        <div>
+                          <div className="font-medium text-slate-900 dark:text-white">
+                            {entry.description}
+                          </div>
+                          <div className="text-sm text-slate-600 dark:text-slate-400">
+                            {entry.entityReference} • {entry.date}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className={`font-semibold ${
+                          entry.type === "revenue"
+                            ? "text-emerald-600 dark:text-emerald-400"
+                            : "text-rose-600 dark:text-rose-400"
+                        }`}>
+                          {entry.amountWithSign}
+                        </div>
+                        <div className={`text-xs px-2 py-1 rounded-full inline-block bg-${entry.statusColor}-100 text-${entry.statusColor}-800 dark:bg-${entry.statusColor}-900/30 dark:text-${entry.statusColor}-300`}>
+                          {entry.statusLabel}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {priorityItems.length > 5 && (
+              <div className="mt-4 text-center">
+                <span className="text-sm text-slate-500 dark:text-slate-400">
+                  Et {priorityItems.length - 5} autres éléments...
+                </span>
+              </div>
+            )}
+          </div>
+        </ContentSection>
+      )}
+
+      {/* Entries Table */}
       <ContentSection>
         <TableToolbar
           searchQuery={table.searchQuery}
@@ -375,16 +508,16 @@ export default function Accounting() {
             onReorder={table.reorderColumns}
             enableReorder={true}
           />
-          <TableBody isEmpty={table.data.length === 0} emptyMessage={table.isFiltering ? "Aucun résultat trouvé" : "Aucune facture trouvée"}>
-            {table.data.map((invoice) => (
+          <TableBody isEmpty={table.data.length === 0} emptyMessage={table.isFiltering ? "Aucun résultat trouvé" : "Aucune écriture trouvée"}>
+            {table.data.map((entry) => (
               <TableRow
-                key={invoice.id}
-                onClick={() => handleView(invoice.id)}
+                key={entry.id}
+                onClick={() => handleView(entry)}
                 className="cursor-pointer"
               >
                 {table.columns.map((column) => (
                   <TableCell key={column.id}>
-                    {column.render ? column.render(invoice) : invoice[column.id]}
+                    {column.render ? column.render(entry) : entry[column.id]}
                   </TableCell>
                 ))}
               </TableRow>
@@ -406,15 +539,215 @@ export default function Accounting() {
         isOpen={isModalOpen}
         onClose={() => {
           setIsModalOpen(false);
-          setEditingInvoice(null);
+          setEditingEntry(null);
         }}
         onSubmit={handleSubmit}
-        title={editingInvoice ? "Modifier Facture" : "Nouvelle Facture"}
-        subtitle={editingInvoice ? "Modifier les informations de la facture" : "Ajouter une nouvelle facture"}
-        fields={invoiceFormFields}
-        initialData={editingInvoice}
+        title={getFormTitle("financialEntry", !!editingEntry)}
+        subtitle={editingEntry ? "Modifier l'écriture comptable" : "Créer une nouvelle écriture"}
+        fields={entryFields}
+        initialData={editingEntry}
         isLoading={isLoading}
       />
+
+      {/* Detail View Modal */}
+      {selectedEntry && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={() => setSelectedEntry(null)}
+        >
+          <div
+            className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="sticky top-0 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 p-6 rounded-t-xl z-10">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-2">
+                    <i className={`${selectedEntry.categoryIcon} text-2xl text-${selectedEntry.categoryColor}-600`}></i>
+                    <div>
+                      <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
+                        Détails de l'écriture
+                      </h2>
+                      <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                        {selectedEntry.categoryLabel}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setSelectedEntry(null)}
+                  className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                >
+                  <i className="fas fa-times text-xl"></i>
+                </button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 space-y-6">
+              {/* Amount Card */}
+              <div className={`p-6 rounded-xl ${
+                selectedEntry.type === "revenue"
+                  ? "bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800"
+                  : "bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800"
+              }`}>
+                <div className="text-center">
+                  <div className="text-sm font-medium text-slate-600 dark:text-slate-400 mb-2">
+                    {selectedEntry.type === "revenue" ? "Recette" : "Dépense"}
+                  </div>
+                  <div className={`text-4xl font-bold ${
+                    selectedEntry.type === "revenue"
+                      ? "text-emerald-600 dark:text-emerald-400"
+                      : "text-rose-600 dark:text-rose-400"
+                  }`}>
+                    {selectedEntry.amountWithSign}
+                  </div>
+                </div>
+              </div>
+
+              {/* Details Grid */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg">
+                  <div className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
+                    Date
+                  </div>
+                  <div className="text-sm font-semibold text-slate-900 dark:text-white">
+                    {selectedEntry.date}
+                  </div>
+                </div>
+
+                <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg">
+                  <div className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
+                    Statut
+                  </div>
+                  <div className="mt-1">
+                    <InlineStatusSelector
+                      value={selectedEntry.status}
+                      onChange={(newStatus) => handleStatusChange(selectedEntry.id, newStatus)}
+                      statusOptions={[
+                        { value: "draft", label: "Brouillon", icon: "fas fa-file", color: "text-gray-600" },
+                        { value: "confirmed", label: "Confirmé", icon: "fas fa-check-circle", color: "text-blue-600" },
+                        { value: "paid", label: "Payé", icon: "fas fa-check-double", color: "text-green-600" },
+                        { value: "cancelled", label: "Annulé", icon: "fas fa-times-circle", color: "text-red-600" },
+                      ]}
+                    />
+                  </div>
+                </div>
+
+                {selectedEntry.scope && (
+                  <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg">
+                    <div className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
+                      Portée
+                    </div>
+                    <div className="text-sm font-semibold text-slate-900 dark:text-white">
+                      {selectedEntry.scope === 'client' ? 'Client' : 'Bureau'}
+                    </div>
+                  </div>
+                )}
+
+                <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg">
+                  <div className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
+                    Catégorie
+                  </div>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium bg-${selectedEntry.categoryColor}-100 text-${selectedEntry.categoryColor}-800 dark:bg-${selectedEntry.categoryColor}-900/30 dark:text-${selectedEntry.categoryColor}-300`}>
+                      {selectedEntry.categoryLabel}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Description */}
+              {selectedEntry.description && (
+                <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg">
+                  <div className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-2">
+                    Description
+                  </div>
+                  <div className="text-sm text-slate-900 dark:text-white whitespace-pre-wrap">
+                    {selectedEntry.description}
+                  </div>
+                </div>
+              )}
+
+              {/* Relationship Info */}
+              {(selectedEntry.clientName || selectedEntry.dossierReference || selectedEntry.caseReference) && (
+                <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg space-y-3">
+                  <div className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-2">
+                    Liée à
+                  </div>
+
+                  {selectedEntry.clientName && (
+                    <div className="flex items-center gap-2">
+                      <i className="fas fa-user text-slate-400"></i>
+                      <span className="text-sm font-medium text-slate-900 dark:text-white">
+                        {selectedEntry.clientName}
+                      </span>
+                    </div>
+                  )}
+
+                  {selectedEntry.dossierReference && (
+                    <div className="flex items-center gap-2">
+                      <i className="fas fa-folder text-slate-400"></i>
+                      <span className="text-sm text-slate-600 dark:text-slate-300">
+                        {selectedEntry.dossierReference}
+                      </span>
+                    </div>
+                  )}
+
+                  {selectedEntry.caseReference && (
+                    <div className="flex items-center gap-2">
+                      <i className="fas fa-gavel text-slate-400"></i>
+                      <span className="text-sm text-blue-600 dark:text-blue-400">
+                        {selectedEntry.caseReference}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Metadata */}
+              <div className="border-t border-slate-200 dark:border-slate-700 pt-4">
+                <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                  <div>
+                    Créé le {selectedEntry.createdAt}
+                  </div>
+                  {selectedEntry.createdBy && (
+                    <div>
+                      par {selectedEntry.createdBy}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Footer Actions */}
+            <div className="sticky bottom-0 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-200 dark:border-slate-700 p-6 rounded-b-xl flex gap-3">
+              <button
+                onClick={() => {
+                  setSelectedEntry(null);
+                  handleEdit(selectedEntry);
+                }}
+                className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center justify-center gap-2"
+              >
+                <i className="fas fa-edit"></i>
+                Modifier
+              </button>
+              <button
+                onClick={() => {
+                  if (window.confirm("Êtes-vous sûr de vouloir supprimer cette écriture ?")) {
+                    handleDelete(selectedEntry.id);
+                  }
+                }}
+                className="px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center justify-center gap-2"
+              >
+                <i className="fas fa-trash"></i>
+                Supprimer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </PageLayout>
   );
 }

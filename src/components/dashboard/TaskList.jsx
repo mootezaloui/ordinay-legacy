@@ -1,8 +1,9 @@
 import { useNavigate } from "react-router-dom";
 
 /**
- * TaskList Component  
+ * TaskList Component
  * Displays urgent/upcoming tasks with priorities
+ * Status changes happen on full task detail page for intentional workflow
  */
 export default function TaskList({ tasks, title = "Tâches Urgentes", maxItems = 5 }) {
   const navigate = useNavigate();
@@ -18,10 +19,11 @@ export default function TaskList({ tasks, title = "Tâches Urgentes", maxItems =
 
   const getStatusColor = (status) => {
     const colors = {
-      "En cours": "text-blue-600 dark:text-blue-400",
-      "En attente": "text-amber-600 dark:text-amber-400",
-      "Terminée": "text-green-600 dark:text-green-400",
-      "Non commencée": "text-slate-600 dark:text-slate-400",
+      "En cours": "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+      "En attente": "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
+      "Terminée": "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+      "Non commencée": "bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300",
+      "Planifiée": "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400",
     };
     return colors[status] || colors["Non commencée"];
   };
@@ -41,27 +43,14 @@ export default function TaskList({ tasks, title = "Tâches Urgentes", maxItems =
             className="p-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg hover:shadow-md transition-all cursor-pointer group"
           >
             <div className="flex items-start gap-3">
-              {/* Checkbox */}
-              <div className="flex-shrink-0 mt-1">
-                <input
-                  type="checkbox"
-                  checked={task.status === "Terminée"}
-                  onChange={(e) => {
-                    e.stopPropagation();
-                    // Handle task completion
-                  }}
-                  className="w-4 h-4 rounded border-slate-300 dark:border-slate-600 text-blue-600 focus:ring-blue-500"
-                />
-              </div>
-
               {/* Task Info */}
               <div className="flex-1 min-w-0">
-                <p className={`text-sm font-medium text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors ${
-                  task.status === "Terminée" ? "line-through text-slate-500 dark:text-slate-400" : ""
+                <p className={`text-sm font-medium group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors ${
+                  task.status === "Terminée" ? "line-through text-slate-500 dark:text-slate-400" : "text-slate-900 dark:text-white"
                 }`}>
                   {task.title}
                 </p>
-                
+
                 <div className="flex items-center gap-3 mt-2 flex-wrap">
                   {/* Dossier */}
                   {task.dossier && (
@@ -86,6 +75,11 @@ export default function TaskList({ tasks, title = "Tâches Urgentes", maxItems =
                       <span>{task.assignedTo}</span>
                     </div>
                   )}
+
+                  {/* Status Badge */}
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(task.status)}`}>
+                    {task.status}
+                  </span>
                 </div>
               </div>
 
@@ -96,13 +90,6 @@ export default function TaskList({ tasks, title = "Tâches Urgentes", maxItems =
                   {task.priority}
                 </span>
               </div>
-            </div>
-
-            {/* Status */}
-            <div className="mt-2 pl-7">
-              <span className={`text-xs ${getStatusColor(task.status)}`}>
-                {task.status}
-              </span>
             </div>
           </div>
         );

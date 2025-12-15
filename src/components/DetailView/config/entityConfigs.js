@@ -4,7 +4,6 @@ import { taskConfig } from "./taskConfig.jsx";
 import { sessionConfig } from "./sessionConfig.jsx";
 import { caseConfig } from "./caseConfig.jsx";
 import { officerConfig } from "./officerConfig.jsx";
-import { invoiceConfig } from "./invoiceConfig.jsx";
 import { personalTaskConfig } from "./personalTaskConfig.jsx";
 
 /**
@@ -18,7 +17,6 @@ const entityConfigs = {
   session: sessionConfig,
   case: caseConfig,
   officer: officerConfig,
-  invoice: invoiceConfig,
   personalTask: personalTaskConfig,
 };
 

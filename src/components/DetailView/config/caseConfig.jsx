@@ -1,11 +1,14 @@
 import { Link } from "react-router-dom";
 import ContentSection from "../../layout/ContentSection";
-import { mockCasesExtended, getStatusColor } from "../../../utils/mockData";
-import { sessionFormFields } from "../../FormModal/formConfigs";
+import { mockCasesExtended, mockDossiers, getStatusColor, mockSessions, mockTasks, mockOfficers } from "../../../utils/mockData";
+import { sessionFormFields, taskFormFields, missionFormFields } from "../../FormModal/formConfigs";
 
 /**
- * Case (Procès) Entity Configuration
- * ✅ UPDATED: Audiences tab now creates Sessions (Séances Juridiques)
+ * Case (Procès) Entity Configuration - UPDATED with Quick Actions
+ * ✅ Added inline quick actions for status
+ * ✅ Added structured edit mode for overview sections
+ * ✅ Audiences tab creates Sessions (Séances Juridiques)
+ * ✅ UPDATED: Added Tasks tab for case-specific tasks
  */
 export const caseConfig = {
   // Basic info
@@ -39,6 +42,22 @@ export const caseConfig = {
   // Header display
   getTitle: (data) => data.caseNumber,
   getSubtitle: (data) => data.title,
+
+  // ✅ NEW: Quick Actions Configuration
+  quickActions: [
+    {
+      key: "status",
+      label: "Statut",
+      icon: "fas fa-info-circle",
+      colorMap: true,
+      options: [
+        { value: "En cours", label: "En cours", color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" },
+        { value: "En attente", label: "En attente", color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
+        { value: "Suspendu", label: "Suspendu", color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" },
+        { value: "Clos", label: "Clos", color: "bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300" },
+      ]
+    }
+  ],
 
   // Custom header rendering
   renderHeader: (data) => {
@@ -111,35 +130,52 @@ export const caseConfig = {
       id: "sessions",
       label: "Séances",
       icon: "fas fa-calendar-alt",
-      component: "relatedItems",
+      component: "aggregatedRelated",
+      aggregationType: "sessions",
       getCount: (data) => data.sessions?.length || 0,
 
-      // ✅ CHANGED: Now manages Sessions (Séances) instead of simple hearings
-      itemsKey: "sessions",
-      itemRoute: "/sessions", // ✅ Links to Sessions detail view
-      emptyMessage: "Aucune séance programmée",
-      renderItem: (item) => ({
-        title: item.title,
-        subtitle: `${item.type} - ${item.date} à ${item.time} - ${item.location}`,
-        status: item.status,
-      }),
-
-      // ✅ UPDATED: Uses sessionFormFields - user can choose session type
       allowAdd: true,
-      allowDelete: true,
+      allowDelete: false,
       entityName: "une séance",
       addSubtitle: "Créer une nouvelle séance juridique pour ce procès",
 
-      // ✅ Filter session form fields - remove caseId since we're in case context
-      formFields: sessionFormFields
-        .filter(field => field.name !== 'caseId') // Remove case selector since we're already in case context
-        .map(field => {
+      // Dynamic form fields - caseId pre-filled and disabled since we're in case context
+      getFormFields: (caseData) => {
+        return sessionFormFields.map(field => {
+          if (field.name === 'caseId') {
+            return {
+              ...field,
+              type: 'select', // Use regular select instead of searchable-select when disabled
+              defaultValue: caseData.id,
+              disabled: true, // Make it read-only
+              options: [{
+                value: caseData.id,
+                label: `${caseData.caseNumber} - ${caseData.title}`
+              }],
+              helpText: "Cette séance sera rattachée à ce procès",
+            };
+          }
+          // Make linkType field non-editable - always linked to case
+          if (field.name === 'linkType') {
+            return {
+              ...field,
+              disabled: true, // Make it read-only
+              defaultValue: 'case',
+              helpText: "Cette séance est liée à ce procès",
+            };
+          }
+          // Hide dossierId field - not needed when adding to case
+          if (field.name === 'dossierId') {
+            return {
+              ...field,
+              hideIf: true, // Hide this field completely
+            };
+          }
           // Pre-fill type as "Audience" but allow user to change it
           if (field.name === 'type') {
             return {
               ...field,
               defaultValue: "Audience",
-              // NOT disabled - user can select any type
             };
           }
           // Pre-fill location with helpful placeholder
@@ -150,7 +186,123 @@ export const caseConfig = {
             };
           }
           return field;
-        }),
+        });
+      },
+    },
+    {
+      id: "tasks",
+      label: "Tâches",
+      icon: "fas fa-tasks",
+      component: "aggregatedRelated",
+      aggregationType: "tasks",
+      getCount: (data) => data.tasks?.length || 0,
+      allowAdd: true,
+      allowDelete: false,
+      entityName: "une tâche",
+      addSubtitle: "Créer une nouvelle tâche pour ce procès",
+      // Dynamic form fields - caseId and dossierId pre-filled based on context
+      getFormFields: (caseData) => {
+        // Get parent dossier data
+        const parentDossier = caseData.dossier;
+
+        return taskFormFields.map(field => {
+          // Default parentType to 'case' since we're in case context (opposite of dossier)
+          if (field.name === 'parentType') {
+            return {
+              ...field,
+              defaultValue: 'case',
+              helpText: "Choisir si cette tâche concerne le procès ou le dossier parent"
+            };
+          } else if (field.name === 'caseId') {
+            // Show this procès (disabled/read-only)
+            return {
+              ...field,
+              defaultValue: caseData.id,
+              disabled: true, // Make it read-only
+              options: [{
+                value: caseData.id,
+                label: `${caseData.caseNumber} - ${caseData.title}`
+              }],
+              helpText: "Cette tâche sera rattachée à ce procès",
+              // Override getOptions to use this case only when parentType is 'case'
+              getOptions: (formData) => {
+                if (formData.parentType !== "case") return [];
+                return [{
+                  value: caseData.id,
+                  label: `${caseData.caseNumber} - ${caseData.title}`
+                }];
+              }
+            };
+          } else if (field.name === 'dossierId') {
+            // Show parent dossier (disabled/read-only)
+            return {
+              ...field,
+              defaultValue: parentDossier?.id,
+              disabled: true, // Make it read-only
+              options: parentDossier ? [{
+                value: parentDossier.id,
+                label: `${parentDossier.caseNumber} - ${parentDossier.title}`
+              }] : [],
+              helpText: "Cette tâche sera rattachée au dossier parent",
+              // Override getOptions to use parent dossier only when parentType is 'dossier'
+              getOptions: (formData) => {
+                if (formData.parentType !== "dossier") return [];
+                return parentDossier ? [{
+                  value: parentDossier.id,
+                  label: `${parentDossier.caseNumber} - ${parentDossier.title}`
+                }] : [];
+              }
+            };
+          }
+          return field;
+        });
+      },
+    },
+    {
+      id: "missions",
+      label: "Missions",
+      icon: "fas fa-clipboard-list",
+      component: "aggregatedRelated",
+      aggregationType: "missions",
+      getCount: (data) => data.missions?.length || 0,
+      allowAdd: true,
+      allowDelete: false,
+      entityName: "une mission",
+      addSubtitle: "Créer une nouvelle mission d'huissier pour ce procès",
+      // Dynamic form fields - entityType and entityReference pre-filled
+      getFormFields: (caseData) => {
+        return missionFormFields.map(field => {
+          if (field.name === 'entityType') {
+            return {
+              ...field,
+              defaultValue: 'case',
+              disabled: true,
+            };
+          } else if (field.name === 'entityReference') {
+            return {
+              ...field,
+              defaultValue: caseData.caseNumber,
+              disabled: true,
+              helpText: `Cette mission sera liée au procès ${caseData.caseNumber}`,
+            };
+          } else if (field.name === 'officerId') {
+            return {
+              ...field,
+              options: mockOfficers.map(officer => ({
+                value: officer.id,
+                label: officer.name
+              })),
+            };
+          }
+          return field;
+        });
+      },
+    },
+    {
+      id: "financial",
+      label: "Comptabilité",
+      icon: "fas fa-calculator",
+      component: "financial",
     },
     {
       id: "documents",
@@ -173,16 +325,40 @@ export const caseConfig = {
     },
   ],
 
-  // Overview tab sections
+  // ✅ UPDATED: Overview sections with editStrategy
   overviewSections: [
     {
+      title: "Informations générales",
+      editStrategy: "structured",
+      fields: [
+        {
+          key: "caseNumber",
+          label: "Numéro de procès",
+          value: (data) => data.caseNumber,
+          icon: "fas fa-hashtag",
+          type: "text",
+          editable: true
+        },
+        {
+          key: "title",
+          label: "Titre du procès",
+          value: (data) => data.title,
+          icon: "fas fa-file-alt",
+          type: "text",
+          editable: true
+        },
+      ],
+    },
+    {
       title: "Description du procès",
+      editStrategy: "structured",
       type: "description",
       fieldKey: "description",
       content: (data) => data.description || "Aucune description",
     },
     {
       title: "Informations du tribunal",
+      editStrategy: "structured",
       fields: [
         {
           key: "court",
@@ -225,6 +401,7 @@ export const caseConfig = {
     },
     {
       title: "Dates importantes",
+      editStrategy: "structured",
       fields: [
         {
           key: "filingDate",
@@ -246,6 +423,7 @@ export const caseConfig = {
     },
     {
       title: "Parties",
+      editStrategy: "structured",
       fields: [
         {
           key: "adversaryParty",
@@ -266,21 +444,30 @@ export const caseConfig = {
       ],
     },
     {
-      title: "Statut",
+      title: "Dossier lié",
+      editStrategy: "structured",
       fields: [
         {
-          key: "status",
-          label: "Statut du procès",
-          value: (data) => data.status,
-          icon: "fas fa-info-circle",
-          type: "select",
+          key: "dossierId",
+          label: "Dossier associé",
+          value: (data) => {
+            // Return the dossierId for the select, not the full object
+            return data.dossier?.id || data.dossierId || "";
+          },
+          displayValue: (data) => {
+            // For display purposes, show the full dossier info
+            return data.dossier ? `${data.dossier.caseNumber} - ${data.dossier.title}` : "Aucun dossier";
+          },
+          icon: "fas fa-folder-open",
+          type: "searchable-select",
           editable: true,
-          options: [
-            { value: "En cours", label: "En cours" },
-            { value: "En attente", label: "En attente" },
-            { value: "Suspendu", label: "Suspendu" },
-            { value: "Clos", label: "Clos" },
-          ]
+          required: true,
+          options: mockDossiers.map(d => ({
+            value: d.id,
+            label: `${d.caseNumber} - ${d.title}`
+          })),
+          helpText: "Sélectionnez le dossier auquel ce procès est associé",
+          placeholder: "Rechercher un dossier..."
         },
       ],
     },

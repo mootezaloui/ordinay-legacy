@@ -44,6 +44,20 @@ export default function RelatedItemsTab({ data, config, tabConfig, onItemsChange
         createdDate: new Date().toISOString().split('T')[0],
       };
 
+      // ✅ Special handling for tasks: set parentType based on parent entity
+      if (tabConfig.itemsKey === 'tasks') {
+        newItem.parentType = config.entityType; // 'dossier' or 'case'
+        
+        // Set the appropriate parent ID and clear the other
+        if (config.entityType === 'dossier') {
+          newItem.dossierId = data.id;
+          newItem.caseId = null;
+        } else if (config.entityType === 'case') {
+          newItem.caseId = data.id;
+          newItem.dossierId = null;
+        }
+      }
+
       // Add to local state
       const updatedItems = [newItem, ...items];
       setItems(updatedItems);
@@ -163,11 +177,12 @@ export default function RelatedItemsTab({ data, config, tabConfig, onItemsChange
         <div className="divide-y divide-slate-200 dark:divide-slate-700">
           {items.map((item) => {
             const renderedItem = tabConfig.renderItem(item);
-            const hasRoute = tabConfig.itemRoute && item.id;
+            const itemRoute = tabConfig.itemRoute ? (typeof tabConfig.itemRoute === 'function' ? tabConfig.itemRoute(item) : tabConfig.itemRoute) : null;
+            const hasRoute = itemRoute && item.id;
 
             const ItemWrapper = hasRoute ? Link : 'div';
             const wrapperProps = hasRoute
-              ? { to: `${tabConfig.itemRoute}/${item.id}` }
+              ? { to: `${itemRoute}/${item.id}` }
               : {};
 
             return (
@@ -180,15 +195,25 @@ export default function RelatedItemsTab({ data, config, tabConfig, onItemsChange
                   className={`p-6 flex items-center justify-between transition-colors ${hasRoute ? 'hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer' : ''
                     }`}
                 >
-                  <div className="flex-1">
-                    <p className="font-semibold text-slate-900 dark:text-white">
-                      {renderedItem.title}
-                    </p>
-                    {renderedItem.subtitle && (
-                      <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-                        {renderedItem.subtitle}
-                      </p>
+                  <div className="flex items-center gap-4 flex-1">
+                    {/* Icon - NEW */}
+                    {renderedItem.icon && (
+                      <div className={`w-12 h-12 rounded-lg ${renderedItem.bgColor || 'bg-slate-100 dark:bg-slate-800'} flex items-center justify-center flex-shrink-0`}>
+                        <i className={`${renderedItem.icon} ${renderedItem.iconColor || 'text-slate-600 dark:text-slate-400'}`}></i>
+                      </div>
                     )}
+
+                    {/* Content */}
+                    <div className="flex-1">
+                      <p className="font-semibold text-slate-900 dark:text-white">
+                        {renderedItem.title}
+                      </p>
+                      {renderedItem.subtitle && (
+                        <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+                          {renderedItem.subtitle}
+                        </p>
+                      )}
+                    </div>
                   </div>
 
                   <div className="flex items-center gap-3">
