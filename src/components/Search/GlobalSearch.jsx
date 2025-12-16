@@ -53,6 +53,7 @@ export default function GlobalSearch() {
       case: `/cases/${id}`,
       session: `/sessions/${id}`,
       officer: `/officers/${id}`,
+      accounting: `/accounting/${id}`,
     };
 
     navigate(routes[type] || "/");

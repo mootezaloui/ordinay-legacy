@@ -1,6 +1,6 @@
 import { useState } from "react";
 import FormModal from "../FormModal/FormModal";
-import { useToast } from "./Toast";
+import { useNotifications } from "../../contexts/NotificationContext";
 import { 
   clientFormFields, 
   dossierFormFields, 
@@ -25,7 +25,7 @@ import { mockClients, mockDossiers } from "../../utils/mockData";
 export default function QuickActions({ onDataChange }) {
   const [activeModal, setActiveModal] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
-  const { showToast, ToastContainer } = useToast();
+  const { notify } = useNotifications();
 
   const handleSubmit = async (formData, entityType) => {
     setIsLoading(true);
@@ -59,29 +59,36 @@ export default function QuickActions({ onDataChange }) {
         onDataChange(entityType, newEntity);
       }
       
-      // Show success toast
+      // Show success toast + persist to notification center
       const messages = {
-        client: `Client "${formData.name}" créé avec succès!`,
-        dossier: `Dossier "${formData.caseNumber}" créé avec succès!`,
-        task: `Tâche "${formData.title}" créée avec succès!`,
-        session: `Séance "${formData.title}" programmée avec succès!`,
+        client: `Client "${formData.name}" cree avec succes!`,
+        dossier: `Dossier "${formData.caseNumber}" cree avec succes!`,
+        task: `Tache "${formData.title}" creee avec succes!`,
+        session: `Seance "${formData.title}" programmee avec succes!`,
       };
       
-      showToast(messages[entityType] || "Créé avec succès!", "success");
+      notify.success({
+        context: entityType,
+        title: getFormTitle(entityType, false),
+        message: messages[entityType] || "Cree avec succes!",
+      });
       
       // Close modal
       setActiveModal(null);
       
       // Optional: Reload page to refresh all data
       // setTimeout(() => window.location.reload(), 1500);
-      
-    } catch (error) {
-      console.error(`Error creating ${entityType}:`, error);
-      showToast(`Erreur lors de la création: ${error.message}`, "error");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      } catch (error) {
+        console.error(`Error creating ${entityType}:`, error);
+        notify.error({
+          context: entityType,
+          title: "Creation impossible",
+          message: `Erreur lors de la creation: ${error.message}`,
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
   // Prepare form fields with dynamic options
   const getFormFields = (type) => {
@@ -99,7 +106,7 @@ export default function QuickActions({ onDataChange }) {
           }
           return field;
         });
-      
+
       case "task":
         return taskFormFields.map(field => {
           if (field.name === "dossierId") {
@@ -113,13 +120,13 @@ export default function QuickActions({ onDataChange }) {
           }
           return field;
         });
-      
+
       case "client":
         return clientFormFields;
-      
+
       case "session":
         return sessionFormFields;
-      
+
       default:
         return [];
     }
@@ -175,9 +182,6 @@ export default function QuickActions({ onDataChange }) {
 
   return (
     <>
-      {/* Toast Container for notifications */}
-      <ToastContainer />
-      
       {/* Quick Action Buttons */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {actions.map((action) => (

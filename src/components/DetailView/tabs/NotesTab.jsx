@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useConfirm } from "../../../contexts/ConfirmContext";
 import ContentSection from "../../layout/ContentSection";
 
 /**
@@ -6,6 +7,7 @@ import ContentSection from "../../layout/ContentSection";
  * Works for any entity with a notes array
  */
 export default function NotesTab({ data, config }) {
+  const { confirm } = useConfirm();
   const [notes, setNotes] = useState(data.notes || []);
   const [isAdding, setIsAdding] = useState(false);
   const [newNote, setNewNote] = useState("");
@@ -28,8 +30,14 @@ export default function NotesTab({ data, config }) {
     console.log("Adding note:", note);
   };
 
-  const handleDeleteNote = (noteId) => {
-    if (window.confirm("Êtes-vous sûr de vouloir supprimer cette note ?")) {
+  const handleDeleteNote = async (noteId) => {
+    if (await confirm({
+      title: "Supprimer la note",
+      message: "Êtes-vous sûr de vouloir supprimer cette note ?",
+      confirmText: "Supprimer",
+      cancelText: "Annuler",
+      variant: "danger"
+    })) {
       setNotes(notes.filter(n => n.id !== noteId));
       // TODO: Delete from backend
       console.log("Deleting note:", noteId);

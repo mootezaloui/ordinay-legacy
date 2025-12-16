@@ -1,9 +1,11 @@
 import { useState } from "react";
+import { useToast } from "../contexts/ToastContext";
 import PageLayout from "../components/layout/PageLayout";
 import PageHeader from "../components/layout/PageHeader";
 import ContentSection from "../components/layout/ContentSection";
 
 export default function Profile() {
+  const { showToast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
   const [profile, setProfile] = useState({
     firstName: "Mohamed",
@@ -32,7 +34,7 @@ export default function Profile() {
     console.log("Profile saved:", profile);
     setIsEditing(false);
     // TODO: API call to save profile
-    alert("Profil mis à jour avec succès!");
+    showToast("Profil mis à jour avec succès!", "success");
   };
 
   const handleCancel = () => {

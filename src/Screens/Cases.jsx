@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAdvancedTable } from "../hooks/useAdvancedTable";
+import { useToast } from "../contexts/ToastContext";
+import { useConfirm } from "../contexts/ConfirmContext";
 import PageLayout from "../components/layout/PageLayout";
 import PageHeader from "../components/layout/PageHeader";
 import ContentSection from "../components/layout/ContentSection";
@@ -20,6 +22,8 @@ import InlineStatusSelector from "../components/InlineSelectors/InlineStatusSele
 
 export default function Cases() {
   const navigate = useNavigate();
+  const { showToast } = useToast();
+  const { confirm } = useConfirm();
 
   const [cases, setCases] = useState(mockCases);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -81,10 +85,10 @@ export default function Cases() {
           value={caseItem.status}
           onChange={(newStatus) => handleStatusChange(caseItem.id, newStatus)}
           statusOptions={[
-            { value: "En cours", label: "En cours", icon: "fas fa-hourglass-half", color: "text-blue-600" },
-            { value: "En attente", label: "En attente", icon: "fas fa-clock", color: "text-amber-600" },
-            { value: "Suspendu", label: "Suspendu", icon: "fas fa-pause-circle", color: "text-orange-600" },
-            { value: "Clos", label: "Clos", icon: "fas fa-gavel", color: "text-gray-600" },
+            { value: "En cours", label: "En cours", icon: "fas fa-hourglass-half", color: "blue" },
+            { value: "En attente", label: "En attente", icon: "fas fa-clock", color: "amber" },
+            { value: "Suspendu", label: "Suspendu", icon: "fas fa-pause-circle", color: "orange" },
+            { value: "Clos", label: "Clos", icon: "fas fa-gavel", color: "slate" },
           ]}
         />
       ),
@@ -158,9 +162,19 @@ export default function Cases() {
     setIsModalOpen(true);
   };
 
-  const handleDelete = (id) => {
-    if (window.confirm("Êtes-vous sûr de vouloir supprimer ce procès ?")) {
+  const handleDelete = async (id) => {
+    if (await confirm({
+      title: "Supprimer le procès",
+      message: "Êtes-vous sûr de vouloir supprimer ce procès ?",
+      confirmText: "Supprimer",
+      cancelText: "Annuler",
+      variant: "danger"
+    })) {
       setCases(cases.filter(c => c.id !== id));
+      showToast("Procès supprimé", "warning", {
+        title: "Suppression",
+        context: "case",
+      });
     }
   };
 
@@ -168,6 +182,10 @@ export default function Cases() {
     setCases(cases.map(c =>
       c.id === id ? { ...c, status: newStatus } : c
     ));
+    showToast(`Statut mis a jour: ${newStatus}`, "info", {
+      title: "Statut du proces",
+      context: "case",
+    });
   };
 
   const handleAddCase = () => {
@@ -187,7 +205,7 @@ export default function Cases() {
             ? { ...formData, id: editingCase.id }
             : c
         ));
-        alert("Procès modifié avec succès!");
+        showToast("Procès modifié avec succès!", "success");
       } else {
         const dossier = mockDossiers.find(d => d.id === parseInt(formData.dossierId));
         const newCase = {
@@ -196,14 +214,14 @@ export default function Cases() {
           dossier: dossier ? dossier.caseNumber : "N/A",
         };
         setCases([newCase, ...cases]);
-        alert("Procès ajouté avec succès!");
+        showToast("Procès ajouté avec succès!", "success");
       }
 
       setIsModalOpen(false);
       setEditingCase(null);
     } catch (error) {
       console.error("Error submitting case:", error);
-      alert("Erreur lors de l'enregistrement");
+      showToast("Erreur lors de l'enregistrement", "error");
     } finally {
       setIsLoading(false);
     }

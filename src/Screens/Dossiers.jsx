@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAdvancedTable } from "../hooks/useAdvancedTable";
+import { useToast } from "../contexts/ToastContext";
+import { useConfirm } from "../contexts/ConfirmContext";
 import PageLayout from "../components/layout/PageLayout";
 import PageHeader from "../components/layout/PageHeader";
 import ContentSection from "../components/layout/ContentSection";
@@ -21,6 +23,8 @@ import InlinePrioritySelector from "../components/InlineSelectors/InlinePriority
 
 export default function Dossiers() {
   const navigate = useNavigate();
+  const { showToast } = useToast();
+  const { confirm } = useConfirm();
 
   const [dossiers, setDossiers] = useState(mockDossiers);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -75,10 +79,10 @@ export default function Dossiers() {
           value={dossier.status}
           onChange={(newStatus) => handleStatusChange(dossier.id, newStatus)}
           statusOptions={[
-            { value: "Ouvert", label: "Ouvert", icon: "fas fa-folder-open", color: "text-green-600" },
-            { value: "En attente", label: "En attente", icon: "fas fa-clock", color: "text-amber-600" },
-            { value: "Fermé", label: "Fermé", icon: "fas fa-check-circle", color: "text-gray-600" },
-            { value: "Suspendu", label: "Suspendu", icon: "fas fa-pause-circle", color: "text-red-600" },
+            { value: "Ouvert", label: "Ouvert", icon: "fas fa-folder-open", color: "green" },
+            { value: "En attente", label: "En attente", icon: "fas fa-clock", color: "amber" },
+            { value: "Fermé", label: "Fermé", icon: "fas fa-check-circle", color: "slate" },
+            { value: "Suspendu", label: "Suspendu", icon: "fas fa-pause-circle", color: "red" },
           ]}
         />
       ),
@@ -156,9 +160,19 @@ export default function Dossiers() {
     setIsModalOpen(true);
   };
 
-  const handleDelete = (id) => {
-    if (window.confirm("Êtes-vous sûr de vouloir supprimer ce dossier ?")) {
+  const handleDelete = async (id) => {
+    if (await confirm({
+      title: "Supprimer le dossier",
+      message: "Êtes-vous sûr de vouloir supprimer ce dossier ?",
+      confirmText: "Supprimer",
+      cancelText: "Annuler",
+      variant: "danger"
+    })) {
       setDossiers(dossiers.filter(d => d.id !== id));
+      showToast("Dossier supprimé", "warning", {
+        title: "Suppression",
+        context: "dossier",
+      });
     }
   };
 
@@ -166,12 +180,20 @@ export default function Dossiers() {
     setDossiers(dossiers.map(d =>
       d.id === id ? { ...d, status: newStatus } : d
     ));
+    showToast(`Statut mis a jour: ${newStatus}`, "info", {
+      title: "Statut du dossier",
+      context: "dossier",
+    });
   };
 
   const handlePriorityChange = (id, newPriority) => {
     setDossiers(dossiers.map(d =>
       d.id === id ? { ...d, priority: newPriority } : d
     ));
+    showToast(`Priorite mise a jour: ${newPriority}`, "info", {
+      title: "Priorite du dossier",
+      context: "dossier",
+    });
   };
 
   const handleAddDossier = () => {
@@ -191,7 +213,7 @@ export default function Dossiers() {
             ? { ...formData, id: editingDossier.id }
             : d
         ));
-        alert("Dossier modifié avec succès!");
+        showToast("Dossier modifié avec succès!", "success");
       } else {
         const client = mockClients.find(c => c.id === parseInt(formData.clientId));
         const newDossier = {
@@ -200,14 +222,14 @@ export default function Dossiers() {
           client: client ? client.name : "Client inconnu",
         };
         setDossiers([newDossier, ...dossiers]);
-        alert("Dossier ajouté avec succès!");
+        showToast("Dossier ajouté avec succès!", "success");
       }
 
       setIsModalOpen(false);
       setEditingDossier(null);
     } catch (error) {
       console.error("Error submitting dossier:", error);
-      alert("Erreur lors de l'enregistrement");
+      showToast("Erreur lors de l'enregistrement", "error");
     } finally {
       setIsLoading(false);
     }

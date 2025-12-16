@@ -203,7 +203,7 @@ export const officerConfig = {
               helpText: "Sélectionnez le dossier ou procès pour cette mission",
               getOptions: (formData) => {
                 const entityType = formData.entityType;
-                
+
                 if (entityType === 'dossier') {
                   return mockDossiers.map(d => ({
                     value: d.caseNumber,
@@ -215,7 +215,7 @@ export const officerConfig = {
                     label: `${c.caseNumber} - ${c.title}`,
                   }));
                 }
-                
+
                 return [];
               },
             };
@@ -262,7 +262,7 @@ export const officerConfig = {
         const isDossier = item.caseNumber.startsWith('DOS-');
         const icon = isDossier ? 'fas fa-folder-open' : 'fas fa-gavel';
         const iconColor = isDossier ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400';
-        
+
         return {
           title: item.caseNumber,
           subtitle: item.title,
@@ -274,6 +274,13 @@ export const officerConfig = {
 
       allowAdd: false,
       allowDelete: false,
+    },
+    {
+      id: "financial",
+      label: "Comptabilité",
+      icon: "fas fa-coins",
+      component: "financial",
+      description: "Suivi financier de toutes les missions de cet huissier"
     },
     {
       id: "documents",

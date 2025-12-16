@@ -1,5 +1,8 @@
 import { useState, useEffect } from "react";
 import SearchableSelect from "./SearchableSelect";
+import InlineStatusSelector from "../InlineSelectors/InlineStatusSelector";
+import InlinePrioritySelector from "../InlineSelectors/InlinePrioritySelector";
+import { useNotifications } from "../../contexts/NotificationContext";
 
 /**
  * FormModal - Enhanced with improved responsive design
@@ -29,6 +32,7 @@ export default function FormModal({
   const [internalFormData, setInternalFormData] = useState({});
   const [errors, setErrors] = useState({});
   const [initialized, setInitialized] = useState(false);
+  const { notify } = useNotifications();
 
   // Use external formData if provided, otherwise use internal
   const formData = externalFormData !== undefined ? externalFormData : internalFormData;
@@ -69,6 +73,13 @@ export default function FormModal({
   // Initialize form data only once when modal opens
   useEffect(() => {
     if (isOpen && !initialized) {
+      // If using external formData control and it's already populated, skip initialization
+      if (externalFormData !== undefined && Object.keys(externalFormData).length > 0) {
+        // External formData is already set, don't override it
+        setInitialized(true);
+        return;
+      }
+
       if (initialData) {
         setFormData(initialData);
       } else {
@@ -116,7 +127,7 @@ export default function FormModal({
     // Call field's onChange if it exists
     const field = fields.find(f => f.name === name);
     if (field?.onChange) {
-      field.onChange(value, newFormData, setFormData);
+      field.onChange(value, newFormData, setFormData, field.allOptions);
     }
   };
 
@@ -163,6 +174,12 @@ export default function FormModal({
 
     if (validateForm()) {
       onSubmit(formData);
+    } else {
+      notify.warning({
+        title: "Champs requis",
+        message: "Merci de corriger les erreurs du formulaire avant de continuer.",
+        context: "form",
+      });
     }
   };
 
@@ -295,8 +312,8 @@ export default function FormModal({
  */
 function FormField({ field, value, onChange, error, formData, compact = false }) {
   const baseInputClass = `w-full ${compact ? 'px-2.5 py-1.5 text-sm' : 'px-3 py-2'} border rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${error
-      ? "border-red-500 dark:border-red-500"
-      : "border-slate-300 dark:border-slate-600"
+    ? "border-red-500 dark:border-red-500"
+    : "border-slate-300 dark:border-slate-600"
     }`;
 
   const renderInput = () => {
@@ -336,7 +353,7 @@ function FormField({ field, value, onChange, error, formData, compact = false })
 
       case "select":
         // Compute options from getOptions function if it exists, otherwise use static options
-        const fieldOptions = field.getOptions 
+        const fieldOptions = field.getOptions
           ? field.getOptions(formData)
           : (field.options || []);
 
@@ -377,7 +394,7 @@ function FormField({ field, value, onChange, error, formData, compact = false })
 
       case "searchable-select":
         // Compute options from getOptions function if it exists, otherwise use static options
-        const searchableOptions = field.getOptions 
+        const searchableOptions = field.getOptions
           ? field.getOptions(formData, field.allOptions)
           : (field.options || []);
         return (
@@ -438,16 +455,316 @@ function FormField({ field, value, onChange, error, formData, compact = false })
           </div>
         );
 
-      case "file":
+      case "inline-status":
         return (
-          <input
-            type="file"
-            id={field.name}
-            onChange={(e) => onChange(field.name, e.target.files[0])}
-            accept={field.accept}
-            disabled={field.disabled}
-            className={baseInputClass}
+          <InlineStatusSelector
+            value={value}
+            onChange={(newValue) => onChange(field.name, newValue)}
+            statusOptions={field.statusOptions || field.options}
           />
+        );
+
+      case "inline-priority":
+        return (
+          <InlinePrioritySelector
+            value={value}
+            onChange={(newValue) => onChange(field.name, newValue)}
+          />
+        );
+
+      case "file":
+        const selectedFiles = value ? (Array.isArray(value) ? value : [value]) : [];
+        const isMultiple = field.multiple;
+
+        const handleFileChange = (e) => {
+          const files = Array.from(e.target.files || []);
+          if (files.length > 0) {
+            onChange(field.name, isMultiple ? files : files[0]);
+          }
+        };
+
+        const handleFileDrop = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const files = Array.from(e.dataTransfer?.files || []);
+          if (files.length > 0) {
+            onChange(field.name, isMultiple ? files : files[0]);
+          }
+        };
+
+        const removeFile = (index) => {
+          if (isMultiple) {
+            const newFiles = selectedFiles.filter((_, i) => i !== index);
+            onChange(field.name, newFiles.length > 0 ? newFiles : null);
+          } else {
+            onChange(field.name, null);
+          }
+        };
+
+        return (
+          <div className="space-y-3">
+            {/* Drag & Drop Upload Zone */}
+            <div
+              onDragEnter={(e) => e.preventDefault()}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={handleFileDrop}
+              className="border-2 border-dashed border-slate-300 dark:border-slate-600 hover:border-blue-400 dark:hover:border-blue-500 rounded-lg p-6 text-center transition-all"
+            >
+              <div className="flex items-center justify-center gap-4">
+                <i className="fas fa-cloud-upload-alt text-slate-400 text-2xl"></i>
+                <div className="text-left">
+                  <p className="text-sm text-slate-700 dark:text-slate-300">
+                    Glissez-déposez vos fichiers ici ou
+                  </p>
+                  <label className="text-sm text-blue-600 dark:text-blue-400 hover:underline cursor-pointer">
+                    parcourir
+                    <input
+                      type="file"
+                      id={field.name}
+                      onChange={handleFileChange}
+                      accept={field.accept}
+                      multiple={isMultiple}
+                      disabled={field.disabled}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+              </div>
+              {field.accept && (
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-3">
+                  {field.accept.split(',').map(ext => ext.replace('.', '').toUpperCase()).join(', ')}
+                </p>
+              )}
+            </div>
+
+            {/* Selected Files List */}
+            {selectedFiles.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  {selectedFiles.length} fichier{selectedFiles.length > 1 ? 's' : ''} sélectionné{selectedFiles.length > 1 ? 's' : ''}
+                </p>
+                {selectedFiles.map((file, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-700"
+                  >
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
+                        <i className="fas fa-file text-blue-600 dark:text-blue-400"></i>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-slate-900 dark:text-white truncate">
+                          {file.name || file}
+                        </p>
+                        {file.size && (
+                          <p className="text-xs text-slate-500 dark:text-slate-400">
+                            {(file.size / 1024).toFixed(1)} KB
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeFile(index)}
+                      className="p-2 hover:bg-red-100 dark:hover:bg-red-900/20 rounded-lg transition-colors flex-shrink-0"
+                      title="Supprimer"
+                    >
+                      <i className="fas fa-times text-red-600 dark:text-red-400 text-sm"></i>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+
+      case "financial-entries":
+        const entries = Array.isArray(value) ? value : [];
+
+        const addEntry = () => {
+          const newEntry = {
+            id: Date.now(),
+            amount: "",
+            date: new Date().toISOString().split("T")[0],
+            description: "",
+            status: "confirmed"
+          };
+          onChange(field.name, [...entries, newEntry]);
+        };
+
+        const removeEntry = (entryId) => {
+          onChange(field.name, entries.filter(e => e.id !== entryId));
+        };
+
+        const updateEntry = (entryId, fieldName, fieldValue) => {
+          onChange(
+            field.name,
+            entries.map(e => e.id === entryId ? { ...e, [fieldName]: fieldValue } : e)
+          );
+        };
+
+        // Calculate total
+        const totalAmount = entries.reduce((sum, e) => sum + parseFloat(e.amount || 0), 0);
+
+        return (
+          <div className="space-y-4">
+            {/* Header with summary */}
+            <div className="flex items-center justify-between p-3 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-amber-600 dark:bg-amber-700 flex items-center justify-center">
+                  <i className="fas fa-coins text-white"></i>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                    Frais d'huissier
+                  </p>
+                  <p className="text-xs text-slate-600 dark:text-slate-400">
+                    {entries.length} {entries.length === 1 ? 'entrée' : 'entrées'} • Total: {totalAmount.toFixed(2)} TND
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={addEntry}
+                className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 dark:bg-amber-700 dark:hover:bg-amber-600 text-white rounded-lg font-medium transition-colors text-sm inline-flex items-center gap-2 shadow-sm"
+              >
+                <i className="fas fa-plus text-xs"></i>
+                Ajouter
+              </button>
+            </div>
+
+            {/* Entries list */}
+            {entries.length > 0 ? (
+              <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
+                {entries.map((entry, index) => (
+                  <div
+                    key={entry.id}
+                    className="relative p-4 bg-white dark:bg-slate-800 rounded-lg border-2 border-slate-200 dark:border-slate-700 hover:border-amber-300 dark:hover:border-amber-700 transition-colors shadow-sm"
+                  >
+                    {/* Entry header */}
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+                          <span className="text-xs font-bold text-amber-700 dark:text-amber-400">
+                            #{index + 1}
+                          </span>
+                        </div>
+                        <h4 className="text-sm font-semibold text-slate-900 dark:text-white">
+                          Frais {index + 1}
+                        </h4>
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${entry.status === 'paid'
+                          ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                          : entry.status === 'confirmed'
+                            ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
+                            : 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300'
+                          }`}>
+                          {entry.status === 'paid' ? 'Payé' : entry.status === 'confirmed' ? 'Confirmé' : 'Brouillon'}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeEntry(entry.id)}
+                        className="p-1.5 hover:bg-red-100 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                        title="Supprimer ce frais"
+                      >
+                        <i className="fas fa-trash text-red-600 dark:text-red-400 text-sm"></i>
+                      </button>
+                    </div>
+
+                    {/* Entry fields */}
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                            <i className="fas fa-money-bill-wave mr-1 text-green-600 dark:text-green-400"></i>
+                            Montant (TND) *
+                          </label>
+                          <input
+                            type="number"
+                            value={entry.amount}
+                            onChange={(e) => updateEntry(entry.id, "amount", e.target.value)}
+                            placeholder="0.00"
+                            min="0"
+                            step="0.01"
+                            className="w-full px-3 py-2 border-2 border-slate-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:border-amber-500 dark:focus:border-amber-500 focus:ring-2 focus:ring-amber-200 dark:focus:ring-amber-900/50 outline-none transition-colors text-sm font-semibold"
+                            required
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                            <i className="fas fa-calendar mr-1 text-blue-600 dark:text-blue-400"></i>
+                            Date *
+                          </label>
+                          <input
+                            type="date"
+                            value={entry.date}
+                            onChange={(e) => updateEntry(entry.id, "date", e.target.value)}
+                            className="w-full px-3 py-2 border-2 border-slate-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:border-amber-500 dark:focus:border-amber-500 focus:ring-2 focus:ring-amber-200 dark:focus:ring-amber-900/50 outline-none transition-colors text-sm"
+                            required
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                          <i className="fas fa-flag mr-1 text-purple-600 dark:text-purple-400"></i>
+                          Statut *
+                        </label>
+                        <select
+                          value={entry.status}
+                          onChange={(e) => updateEntry(entry.id, "status", e.target.value)}
+                          className="w-full px-3 py-2 border-2 border-slate-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:border-amber-500 dark:focus:border-amber-500 focus:ring-2 focus:ring-amber-200 dark:focus:ring-amber-900/50 outline-none transition-colors text-sm font-medium"
+                          required
+                        >
+                          <option value="draft">📝 Brouillon</option>
+                          <option value="confirmed">✅ Confirmé</option>
+                          <option value="paid">💰 Payé</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                          <i className="fas fa-align-left mr-1 text-slate-600 dark:text-slate-400"></i>
+                          Description *
+                        </label>
+                        <textarea
+                          value={entry.description}
+                          onChange={(e) => updateEntry(entry.id, "description", e.target.value)}
+                          placeholder="Ex: Frais de signification, déplacement..."
+                          rows={2}
+                          className="w-full px-3 py-2 border-2 border-slate-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:border-amber-500 dark:focus:border-amber-500 focus:ring-2 focus:ring-amber-200 dark:focus:ring-amber-900/50 outline-none transition-colors text-sm resize-none"
+                          required
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="p-8 text-center bg-slate-50 dark:bg-slate-900/50 rounded-lg border-2 border-dashed border-slate-300 dark:border-slate-700">
+                <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+                  <i className="fas fa-coins text-2xl text-amber-600 dark:text-amber-400"></i>
+                </div>
+                <p className="text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">
+                  Aucun frais ajouté
+                </p>
+                <p className="text-xs text-slate-500 dark:text-slate-500">
+                  Cliquez sur "Ajouter" pour enregistrer les frais de cette mission
+                </p>
+              </div>
+            )}
+          </div>
+        );
+
+      case "readonly":
+        const displayText = typeof field.displayValue === 'function'
+          ? field.displayValue(formData, value)
+          : (field.displayValue || value || "-");
+        return (
+          <div className={`px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg ${compact ? 'text-xs' : 'text-sm'} text-slate-900 dark:text-white font-medium`}>
+            {displayText}
+          </div>
         );
 
       default:
@@ -475,7 +792,7 @@ function FormField({ field, value, onChange, error, formData, compact = false })
 
   return (
     <div>
-      {field.type !== "checkbox" && (
+      {field.type !== "checkbox" && field.type !== "financial-entries" && (
         <label
           htmlFor={field.name}
           className={`block ${compact ? 'text-xs' : 'text-sm'} font-medium text-slate-700 dark:text-slate-300 ${compact ? 'mb-0.5' : 'mb-1'}`}
@@ -483,6 +800,13 @@ function FormField({ field, value, onChange, error, formData, compact = false })
           {field.label}
           {(field.required || isConditionallyRequired) && <span className="text-red-500 ml-1">*</span>}
         </label>
+      )}
+      {field.type === "financial-entries" && (
+        <div className="mb-2">
+          <label className={`block ${compact ? 'text-xs' : 'text-sm'} font-medium text-slate-700 dark:text-slate-300`}>
+            {field.label}
+          </label>
+        </div>
       )}
       {renderInput()}
       {error && (

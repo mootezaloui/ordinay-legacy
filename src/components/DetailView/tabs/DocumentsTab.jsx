@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useToast } from "../../../contexts/ToastContext";
+import { useConfirm } from "../../../contexts/ConfirmContext";
 import ContentSection from "../../layout/ContentSection";
 
 /**
@@ -6,6 +8,8 @@ import ContentSection from "../../layout/ContentSection";
  * Works for any entity with a documents array
  */
 export default function DocumentsTab({ data, config, onDocumentsChange }) {
+  const { showToast } = useToast();
+  const { confirm } = useConfirm();
   const [documents, setDocuments] = useState(data.documents || []);
   const [isDragging, setIsDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -80,11 +84,11 @@ export default function DocumentsTab({ data, config, onDocumentsChange }) {
       // Simulate upload delay
       await new Promise(resolve => setTimeout(resolve, 500));
 
-      alert(`${newDocuments.length} document(s) ajouté(s) avec succès!`);
+      showToast(`${newDocuments.length} document(s) ajouté(s) avec succès!`, "success");
 
     } catch (error) {
       console.error("Error uploading files:", error);
-      alert("Erreur lors de l'ajout des documents");
+      showToast("Erreur lors de l'ajout des documents", "error");
     } finally {
       setUploading(false);
     }
@@ -113,11 +117,17 @@ export default function DocumentsTab({ data, config, onDocumentsChange }) {
   const handleDownload = (doc) => {
     console.log("Downloading document:", doc);
     // TODO: Implement actual download
-    alert(`Téléchargement de ${doc.name}`);
+    showToast(`Téléchargement de ${doc.name}`, "info");
   };
 
-  const handleDelete = (docId) => {
-    if (window.confirm("Êtes-vous sûr de vouloir supprimer ce document ?")) {
+  const handleDelete = async (docId) => {
+    if (await confirm({
+      title: "Supprimer le document",
+      message: "Êtes-vous sûr de vouloir supprimer ce document ?",
+      confirmText: "Supprimer",
+      cancelText: "Annuler",
+      variant: "danger"
+    })) {
       const updatedDocuments = documents.filter(d => d.id !== docId);
       setDocuments(updatedDocuments);
 

@@ -167,6 +167,13 @@ export const taskConfig = {
       component: "overview",
     },
     {
+      id: "financial",
+      label: "Comptabilité",
+      icon: "fas fa-coins",
+      component: "financial",
+      description: "Suivi financier lié à cette tâche"
+    },
+    {
       id: "documents",
       label: "Documents",
       icon: "fas fa-file",

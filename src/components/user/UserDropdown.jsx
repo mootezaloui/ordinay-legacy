@@ -6,30 +6,29 @@ import { useTheme } from "../../contexts/ThemeProvider";
  * UserDropdown Component
  * Matches the style of NotificationDropdown
  */
-export default function UserDropdown() {
+export default function UserDropdown({ isOpen, onToggle, onClose }) {
     const navigate = useNavigate();
     const { theme, toggleTheme } = useTheme();
-    const [isOpen, setIsOpen] = useState(false);
     const dropdownRef = useRef(null);
 
     const toggleDropdown = (e) => {
         e.stopPropagation();
-        setIsOpen(!isOpen);
+        onToggle();
     };
 
     const handleClickOutside = (event) => {
         if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-            setIsOpen(false);
+            onClose();
         }
     };
 
     const handleNavigation = (path) => {
-        setIsOpen(false);
+        onClose();
         navigate(path);
     };
 
     const handleLogout = () => {
-        setIsOpen(false);
+        onClose();
         // Add your logout logic here
         navigate("/login");
     };
@@ -79,8 +78,8 @@ export default function UserDropdown() {
                 <svg
                     xmlns="http://www.w3.org/2000/svg"
                     className={`h-6 w-6 transition-colors duration-200 ${isOpen
-                            ? "text-blue-600 dark:text-blue-400"
-                            : "text-slate-600 dark:text-slate-200"
+                        ? "text-blue-600 dark:text-blue-400"
+                        : "text-slate-600 dark:text-slate-200"
                         }`}
                     fill="none"
                     viewBox="0 0 24 24"
@@ -98,8 +97,8 @@ export default function UserDropdown() {
                 <svg
                     xmlns="http://www.w3.org/2000/svg"
                     className={`absolute -bottom-1 -right-1 h-3 w-3 transition-all duration-200 ${isOpen
-                            ? "text-blue-600 dark:text-blue-400 rotate-180"
-                            : "text-slate-600 dark:text-slate-200"
+                        ? "text-blue-600 dark:text-blue-400 rotate-180"
+                        : "text-slate-600 dark:text-slate-200"
                         }`}
                     fill="none"
                     viewBox="0 0 24 24"

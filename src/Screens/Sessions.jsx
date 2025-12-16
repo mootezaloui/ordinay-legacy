@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAdvancedTable } from "../hooks/useAdvancedTable";
+import { useToast } from "../contexts/ToastContext";
+import { useConfirm } from "../contexts/ConfirmContext";
 import PageLayout from "../components/layout/PageLayout";
 import PageHeader from "../components/layout/PageHeader";
 import ContentSection from "../components/layout/ContentSection";
@@ -20,6 +22,8 @@ import InlineStatusSelector from "../components/InlineSelectors/InlineStatusSele
 
 export default function Sessions() {
   const navigate = useNavigate();
+  const { showToast } = useToast();
+  const { confirm } = useConfirm();
 
   const [sessions, setSessions] = useState(mockSessions);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -106,11 +110,11 @@ export default function Sessions() {
           value={session.status}
           onChange={(newStatus) => handleStatusChange(session.id, newStatus)}
           statusOptions={[
-            { value: "Programmée", label: "Programmée", icon: "fas fa-calendar", color: "text-blue-600" },
-            { value: "Confirmée", label: "Confirmée", icon: "fas fa-check", color: "text-green-600" },
-            { value: "En attente", label: "En attente", icon: "fas fa-clock", color: "text-amber-600" },
-            { value: "Terminée", label: "Terminée", icon: "fas fa-check-circle", color: "text-gray-600" },
-            { value: "Annulée", label: "Annulée", icon: "fas fa-times-circle", color: "text-red-600" },
+            { value: "Programmée", label: "Programmée", icon: "fas fa-calendar", color: "blue" },
+            { value: "Confirmée", label: "Confirmée", icon: "fas fa-check", color: "green" },
+            { value: "En attente", label: "En attente", icon: "fas fa-clock", color: "amber" },
+            { value: "Terminée", label: "Terminée", icon: "fas fa-check-circle", color: "slate" },
+            { value: "Annulée", label: "Annulée", icon: "fas fa-times-circle", color: "red" },
           ]}
         />
       ),
@@ -171,9 +175,19 @@ export default function Sessions() {
     setIsModalOpen(true);
   };
 
-  const handleDelete = (id) => {
-    if (window.confirm("Êtes-vous sûr de vouloir supprimer cette séance ?")) {
+  const handleDelete = async (id) => {
+    if (await confirm({
+      title: "Supprimer la séance",
+      message: "Êtes-vous sûr de vouloir supprimer cette séance ?",
+      confirmText: "Supprimer",
+      cancelText: "Annuler",
+      variant: "danger"
+    })) {
       setSessions(sessions.filter(s => s.id !== id));
+      showToast("Séance supprimée", "warning", {
+        title: "Suppression",
+        context: "session",
+      });
     }
   };
 
@@ -181,6 +195,10 @@ export default function Sessions() {
     setSessions(sessions.map(s =>
       s.id === id ? { ...s, status: newStatus } : s
     ));
+    showToast(`Statut mis a jour: ${newStatus}`, "info", {
+      title: "Statut de seance",
+      context: "session",
+    });
   };
 
   const handleAddSession = () => {
@@ -200,21 +218,21 @@ export default function Sessions() {
             ? { ...formData, id: editingSession.id }
             : s
         ));
-        alert("Séance modifiée avec succès!");
+        showToast("Séance modifiée avec succès!", "success");
       } else {
         const newSession = {
           ...formData,
           id: Date.now(),
         };
         setSessions([newSession, ...sessions]);
-        alert("Séance ajoutée avec succès!");
+        showToast("Séance ajoutée avec succès!", "success");
       }
 
       setIsModalOpen(false);
       setEditingSession(null);
     } catch (error) {
       console.error("Error submitting session:", error);
-      alert("Erreur lors de l'enregistrement");
+      showToast("Erreur lors de l'enregistrement", "error");
     } finally {
       setIsLoading(false);
     }

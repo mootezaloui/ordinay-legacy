@@ -21,7 +21,6 @@ import NotFound from "../Screens/NotFound";
 import Login from "../Screens/Auth/Login";
 import SignUp from "../Screens/Auth/SignUp";
 import ForgotPassword from "../Screens/Auth/ForgetPassword";
-// UPDATED: Import NotificationCenter instead of Notifications
 import NotificationCenter from "../components/notifications/NotificationCenter";
 import DetailView from "../components/DetailView/DetailView";
 
@@ -148,11 +147,25 @@ export const routes: RouteConfig[] = [
     label: "Détails Huissier",
   },
   {
+    path: "/missions/:id",
+    component: () => <DetailView entityType="mission" />,
+    name: "MissionDetail",
+    icon: "fas fa-clipboard-check",
+    label: "Détails Mission",
+  },
+  {
     path: "/accounting",
     component: Accounting,
     name: "Accounting",
     icon: "fas fa-calculator",
     label: "Comptabilité",
+  },
+  {
+    path: "/accounting/:id",
+    component: () => <DetailView entityType="financialEntry" />,
+    name: "FinancialEntryDetail",
+    icon: "fas fa-file-invoice-dollar",
+    label: "Détails Écriture",
   },
 
   {

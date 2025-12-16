@@ -1135,6 +1135,7 @@ export const mockOfficersExtended = {
         missionType: "Signification",
         entityType: "dossier",
         entityReference: "DOS-2024-001",
+        entityId: 1,
         assignDate: "2024-11-01",
         dueDate: "2024-11-15",
         completionDate: "2024-11-14",
@@ -1162,6 +1163,51 @@ export const mockOfficersExtended = {
             category: "Procès-verbal",
           },
         ],
+        financialEntries: [
+          {
+            id: 10001,
+            amount: 800,
+            date: "2024-11-14",
+            description:
+              "Frais de signification acte judiciaire - DOS-2024-001",
+            status: "paid",
+            missionId: 1,
+            missionNumber: "MIS-2024-001",
+            officerId: 1,
+            officerName: "Me. Karim Jlassi",
+            entityType: "dossier",
+            entityReference: "DOS-2024-001",
+            type: "expense",
+            category: "frais_huissier",
+            scope: "client",
+            currency: "TND",
+            sourceType: "mission",
+            sourceId: 1,
+            createdAt: "2024-11-14T15:00:00",
+            createdBy: "User",
+          },
+          {
+            id: 10002,
+            amount: 150,
+            date: "2024-11-14",
+            description: "Frais de déplacement et PV",
+            status: "paid",
+            missionId: 1,
+            missionNumber: "MIS-2024-001",
+            officerId: 1,
+            officerName: "Me. Karim Jlassi",
+            entityType: "dossier",
+            entityReference: "DOS-2024-001",
+            type: "expense",
+            category: "frais_huissier",
+            scope: "client",
+            currency: "TND",
+            sourceType: "mission",
+            sourceId: 1,
+            createdAt: "2024-11-14T15:00:00",
+            createdBy: "User",
+          },
+        ],
       },
       {
         id: 2,
@@ -1170,6 +1216,7 @@ export const mockOfficersExtended = {
         missionType: "Constat",
         entityType: "case",
         entityReference: "PRO-2024-001",
+        entityId: 1,
         assignDate: "2024-11-20",
         dueDate: "2024-12-05",
         priority: "Moyenne",
@@ -1195,6 +1242,29 @@ export const mockOfficersExtended = {
             category: "Photos",
           },
         ],
+        financialEntries: [
+          {
+            id: 10003,
+            amount: 1200,
+            date: "2024-11-20",
+            description: "Frais de constat état des lieux - PRO-2024-001",
+            status: "confirmed",
+            missionId: 2,
+            missionNumber: "MIS-2024-015",
+            officerId: 1,
+            officerName: "Me. Karim Jlassi",
+            entityType: "case",
+            entityReference: "PRO-2024-001",
+            type: "expense",
+            category: "frais_huissier",
+            scope: "client",
+            currency: "TND",
+            sourceType: "mission",
+            sourceId: 2,
+            createdAt: "2024-11-20T10:00:00",
+            createdBy: "User",
+          },
+        ],
       },
       {
         id: 3,
@@ -1203,6 +1273,7 @@ export const mockOfficersExtended = {
         missionType: "Signification",
         entityType: "case",
         entityReference: "PRO-2024-002",
+        entityId: 2,
         assignDate: "2024-12-10",
         dueDate: "2024-12-25",
         priority: "Haute",
@@ -1218,6 +1289,30 @@ export const mockOfficersExtended = {
             size: "620 KB",
             uploadDate: "2024-12-10",
             category: "Jugement",
+          },
+        ],
+        financialEntries: [
+          {
+            id: 10004,
+            amount: 650,
+            date: "2024-12-10",
+            description:
+              "Frais de signification jugement divorce - PRO-2024-002",
+            status: "draft",
+            missionId: 3,
+            missionNumber: "MIS-2024-032",
+            officerId: 1,
+            officerName: "Me. Karim Jlassi",
+            entityType: "case",
+            entityReference: "PRO-2024-002",
+            type: "expense",
+            category: "frais_huissier",
+            scope: "client",
+            currency: "TND",
+            sourceType: "mission",
+            sourceId: 3,
+            createdAt: "2024-12-10T09:00:00",
+            createdBy: "User",
           },
         ],
       },
@@ -1262,6 +1357,7 @@ export const mockOfficersExtended = {
         missionType: "Saisie",
         entityType: "case",
         entityReference: "PRO-2024-001",
+        entityId: 1,
         assignDate: "2024-11-15",
         dueDate: "2024-11-30",
         completionDate: "2024-11-29",
@@ -1297,6 +1393,51 @@ export const mockOfficersExtended = {
             category: "Photos",
           },
         ],
+        financialEntries: [
+          {
+            id: 10005,
+            amount: "2500",
+            date: "2024-11-29",
+            description:
+              "Frais de saisie mobilière et inventaire - PRO-2024-001",
+            status: "paid",
+            missionId: 4,
+            missionNumber: "MIS-2024-008",
+            officerId: 2,
+            officerName: "Me. Rania Mbarek",
+            entityType: "case",
+            entityReference: "PRO-2024-001",
+            type: "expense",
+            category: "frais_huissier",
+            scope: "client",
+            currency: "TND",
+            sourceType: "mission",
+            sourceId: 4,
+            createdAt: "2024-11-29T16:00:00",
+            createdBy: "User",
+          },
+          {
+            id: 10006,
+            amount: "350",
+            date: "2024-11-29",
+            description: "Frais de déplacement et transport",
+            status: "paid",
+            missionId: 4,
+            missionNumber: "MIS-2024-008",
+            officerId: 2,
+            officerName: "Me. Rania Mbarek",
+            entityType: "case",
+            entityReference: "PRO-2024-001",
+            type: "expense",
+            category: "frais_huissier",
+            scope: "client",
+            currency: "TND",
+            sourceType: "mission",
+            sourceId: 4,
+            createdAt: "2024-11-29T16:00:00",
+            createdBy: "User",
+          },
+        ],
       },
       {
         id: 5,
@@ -1305,6 +1446,7 @@ export const mockOfficersExtended = {
         missionType: "Recouvrement",
         entityType: "dossier",
         entityReference: "DOS-2024-003",
+        entityId: 3,
         assignDate: "2024-12-12",
         dueDate: "2024-12-30",
         priority: "Moyenne",
@@ -1369,6 +1511,7 @@ export const mockOfficersExtended = {
         missionType: "Constat",
         entityType: "dossier",
         entityReference: "DOS-2024-002",
+        entityId: 2,
         assignDate: "2024-12-01",
         dueDate: "2024-12-10",
         priority: "Haute",
@@ -1648,8 +1791,7 @@ export function getStatusColor(status) {
   const map = {
     Active:
       "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
-    Inactive:
-      "bg-slate-200 text-slate-800 dark:bg-slate-800 dark:text-slate-200",
+    Inactive: "bg-slate-600 text-white dark:bg-slate-700 dark:text-slate-200",
     "En cours":
       "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
     "En appel":
@@ -1658,7 +1800,7 @@ export function getStatusColor(status) {
       "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
     Ouvert:
       "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
-    Fermé: "bg-slate-200 text-slate-800 dark:bg-slate-800 dark:text-slate-200",
+    Fermé: "bg-slate-600 text-white dark:bg-slate-700 dark:text-slate-200",
     Terminée:
       "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
     Terminé:
@@ -1676,12 +1818,48 @@ export function getStatusColor(status) {
     Occupé:
       "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
     "Non commencée":
-      "bg-slate-200 text-slate-800 dark:bg-slate-800 dark:text-slate-200",
+      "bg-slate-600 text-white dark:bg-slate-700 dark:text-slate-200",
     Planifiée:
       "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
   };
   return (
     map[status] ||
-    "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200"
+    "bg-slate-600 text-white dark:bg-slate-700 dark:text-slate-200"
   );
+}
+
+// ========================================
+// HELPER: Extract all missions from officers
+// ========================================
+export function getAllMissions() {
+  const missions = [];
+  Object.values(mockOfficersExtended).forEach((officer) => {
+    if (officer.missions && Array.isArray(officer.missions)) {
+      officer.missions.forEach((mission) => {
+        missions.push({
+          ...mission,
+          officerId: officer.id,
+          officerName: officer.name,
+          // Map entity reference to entity ID
+          entityId: getEntityIdFromReference(
+            mission.entityType,
+            mission.entityReference
+          ),
+        });
+      });
+    }
+  });
+  return missions;
+}
+
+// Helper to map entity reference (like "DOS-2024-001") to entity ID
+function getEntityIdFromReference(entityType, reference) {
+  if (entityType === "dossier") {
+    const dossier = mockDossiers.find((d) => d.caseNumber === reference);
+    return dossier?.id;
+  } else if (entityType === "case") {
+    const caseItem = mockCases.find((c) => c.caseNumber === reference);
+    return caseItem?.id;
+  }
+  return null;
 }

@@ -5,6 +5,8 @@ import { sessionConfig } from "./sessionConfig.jsx";
 import { caseConfig } from "./caseConfig.jsx";
 import { officerConfig } from "./officerConfig.jsx";
 import { personalTaskConfig } from "./personalTaskConfig.jsx";
+import { financialEntryConfig } from "./financialEntryConfig.jsx";
+import { missionConfig } from "./missionConfig.jsx";
 
 /**
  * Central registry for all entity configurations
@@ -18,6 +20,8 @@ const entityConfigs = {
   case: caseConfig,
   officer: officerConfig,
   personalTask: personalTaskConfig,
+  financialEntry: financialEntryConfig,
+  mission: missionConfig,
 };
 
 /**

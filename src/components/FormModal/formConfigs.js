@@ -8,6 +8,8 @@
  * - Forms now properly handle entity relationships
  */
 
+import { mockDossiers, mockCases } from "../../utils/mockData";
+
 // ========================================
 // CLIENT FORM (No changes - clients are top level)
 // ========================================
@@ -92,12 +94,12 @@ export const clientFormFields = [
   {
     name: "status",
     label: "Statut",
-    type: "select",
+    type: "inline-status",
     required: true,
-    defaultValue: "Active",
-    options: [
-      { value: "Active", label: "Actif" },
-      { value: "Inactive", label: "Inactif" },
+    defaultValue: "Actif",
+    statusOptions: [
+      { value: "Actif", label: "Actif", color: "green" },
+      { value: "Inactif", label: "Inactif", color: "red" },
     ],
   },
   {
@@ -160,25 +162,21 @@ export const dossierFormFields = [
   {
     name: "priority",
     label: "Priorité",
-    type: "select",
+    type: "inline-priority",
     required: true,
     defaultValue: "Moyenne",
-    options: [
-      { value: "Haute", label: "Haute" },
-      { value: "Moyenne", label: "Moyenne" },
-      { value: "Basse", label: "Basse" },
-    ],
   },
   {
     name: "status",
     label: "Statut",
-    type: "select",
+    type: "inline-status",
     required: true,
     defaultValue: "Ouvert",
-    options: [
-      { value: "Ouvert", label: "Ouvert" },
-      { value: "En attente", label: "En attente" },
-      { value: "Fermé", label: "Fermé" },
+    statusOptions: [
+      { value: "Ouvert", label: "Ouvert", color: "green" },
+      { value: "En attente", label: "En attente", color: "amber" },
+      { value: "Fermé", label: "Fermé", color: "slate" },
+      { value: "Suspendu", label: "Suspendu", color: "red" },
     ],
   },
   {
@@ -344,14 +342,14 @@ export const caseFormFields = [
   {
     name: "status",
     label: "Statut du procès",
-    type: "select",
+    type: "inline-status",
     required: true,
     defaultValue: "En cours",
-    options: [
-      { value: "En cours", label: "En cours" },
-      { value: "En attente", label: "En attente" },
-      { value: "Suspendu", label: "Suspendu" },
-      { value: "Terminé", label: "Terminé" },
+    statusOptions: [
+      { value: "En cours", label: "En cours", color: "blue" },
+      { value: "En attente", label: "En attente", color: "amber" },
+      { value: "Suspendu", label: "Suspendu", color: "orange" },
+      { value: "Clos", label: "Clos", color: "slate" },
     ],
   },
   {
@@ -520,15 +518,15 @@ export const sessionFormFields = [
   {
     name: "status",
     label: "Statut",
-    type: "select",
+    type: "inline-status",
     required: true,
     defaultValue: "Programmée",
-    options: [
-      { value: "Programmée", label: "Programmée" },
-      { value: "Confirmée", label: "Confirmée" },
-      { value: "En attente", label: "En attente" },
-      { value: "Terminée", label: "Terminée" },
-      { value: "Annulée", label: "Annulée" },
+    statusOptions: [
+      { value: "Programmée", label: "Programmée", color: "blue" },
+      { value: "Confirmée", label: "Confirmée", color: "green" },
+      { value: "En attente", label: "En attente", color: "amber" },
+      { value: "Terminée", label: "Terminée", color: "slate" },
+      { value: "Annulée", label: "Annulée", color: "red" },
     ],
   },
   {
@@ -579,8 +577,7 @@ export const taskFormFields = [
       // Only show if parentType is 'dossier'
       if (formData.parentType !== "dossier") return [];
 
-      // Import mockDossiers dynamically or use global
-      const { mockDossiers } = require("../../../utils/mockData");
+      // Use imported mockDossiers
       return [
         { value: "", label: "Sélectionner un dossier..." },
         ...mockDossiers.map((d) => ({
@@ -604,8 +601,7 @@ export const taskFormFields = [
       // Only show if parentType is 'case'
       if (formData.parentType !== "case") return [];
 
-      // Import mockCases dynamically or use global
-      const { mockCases } = require("../../../utils/mockData");
+      // Use imported mockCases
       return [
         { value: "", label: "Sélectionner un procès..." },
         ...mockCases.map((c) => ({
@@ -639,26 +635,21 @@ export const taskFormFields = [
   {
     name: "priority",
     label: "Priorité",
-    type: "select",
+    type: "inline-priority",
     required: true,
     defaultValue: "Moyenne",
-    options: [
-      { value: "Haute", label: "Haute" },
-      { value: "Moyenne", label: "Moyenne" },
-      { value: "Basse", label: "Basse" },
-    ],
   },
   {
     name: "status",
     label: "Statut",
-    type: "select",
+    type: "inline-status",
     required: true,
     defaultValue: "Non commencée",
-    options: [
-      { value: "Non commencée", label: "Non commencée" },
-      { value: "En cours", label: "En cours" },
-      { value: "En attente", label: "En attente" },
-      { value: "Terminée", label: "Terminée" },
+    statusOptions: [
+      { value: "Non commencée", label: "Non commencée", color: "slate" },
+      { value: "En cours", label: "En cours", color: "blue" },
+      { value: "En attente", label: "En attente", color: "amber" },
+      { value: "Terminée", label: "Terminée", color: "green" },
     ],
   },
   {
@@ -731,27 +722,22 @@ export const personalTaskFormFields = [
   {
     name: "priority",
     label: "Priorité",
-    type: "select",
+    type: "inline-priority",
     required: true,
     defaultValue: "Moyenne",
-    options: [
-      { value: "Haute", label: "Haute" },
-      { value: "Moyenne", label: "Moyenne" },
-      { value: "Basse", label: "Basse" },
-    ],
   },
   {
     name: "status",
     label: "Statut",
-    type: "select",
+    type: "inline-status",
     required: true,
     defaultValue: "Non commencée",
-    options: [
-      { value: "Non commencée", label: "Non commencée" },
-      { value: "En attente", label: "En attente" },
-      { value: "En cours", label: "En cours" },
-      { value: "Planifiée", label: "Planifiée" },
-      { value: "Terminée", label: "Terminée" },
+    statusOptions: [
+      { value: "Non commencée", label: "Non commencée", color: "slate" },
+      { value: "En attente", label: "En attente", color: "amber" },
+      { value: "En cours", label: "En cours", color: "blue" },
+      { value: "Planifiée", label: "Planifiée", color: "purple" },
+      { value: "Terminée", label: "Terminée", color: "green" },
     ],
   },
   {
@@ -876,26 +862,21 @@ export const officerAssignmentFormFields = [
   {
     name: "priority",
     label: "Priorité",
-    type: "select",
+    type: "inline-priority",
     required: true,
     defaultValue: "Moyenne",
-    options: [
-      { value: "Haute", label: "Haute" },
-      { value: "Moyenne", label: "Moyenne" },
-      { value: "Basse", label: "Basse" },
-    ],
   },
   {
     name: "status",
     label: "Statut",
-    type: "select",
+    type: "inline-status",
     required: true,
     defaultValue: "Programmée",
-    options: [
-      { value: "Programmée", label: "Programmée" },
-      { value: "En cours", label: "En cours" },
-      { value: "Terminée", label: "Terminée" },
-      { value: "Annulée", label: "Annulée" },
+    statusOptions: [
+      { value: "Programmée", label: "Programmée", color: "blue" },
+      { value: "En cours", label: "En cours", color: "amber" },
+      { value: "Terminée", label: "Terminée", color: "green" },
+      { value: "Annulée", label: "Annulée", color: "red" },
     ],
   },
   {
@@ -991,14 +972,14 @@ export const invoiceFormFields = [
   {
     name: "status",
     label: "Statut",
-    type: "select",
+    type: "inline-status",
     required: true,
     defaultValue: "En attente",
-    options: [
-      { value: "Payée", label: "Payée" },
-      { value: "En attente", label: "En attente" },
-      { value: "En retard", label: "En retard" },
-      { value: "Annulée", label: "Annulée" },
+    statusOptions: [
+      { value: "Payée", label: "Payée", color: "green" },
+      { value: "En attente", label: "En attente", color: "amber" },
+      { value: "En retard", label: "En retard", color: "red" },
+      { value: "Annulée", label: "Annulée", color: "slate" },
     ],
   },
   {
@@ -1077,14 +1058,9 @@ export const missionFormFields = [
   {
     name: "priority",
     label: "Priorité",
-    type: "select",
+    type: "inline-priority",
     required: true,
     defaultValue: "Moyenne",
-    options: [
-      { value: "Haute", label: "🔴 Haute" },
-      { value: "Moyenne", label: "🟡 Moyenne" },
-      { value: "Basse", label: "🟢 Basse" },
-    ],
   },
   {
     name: "assignDate",
@@ -1102,14 +1078,14 @@ export const missionFormFields = [
   {
     name: "status",
     label: "Statut",
-    type: "select",
+    type: "inline-status",
     required: true,
     defaultValue: "Programmée",
-    options: [
-      { value: "Programmée", label: "Programmée" },
-      { value: "En cours", label: "En cours" },
-      { value: "Terminée", label: "Terminée" },
-      { value: "Annulée", label: "Annulée" },
+    statusOptions: [
+      { value: "Programmée", label: "Programmée", color: "blue" },
+      { value: "En cours", label: "En cours", color: "amber" },
+      { value: "Terminée", label: "Terminée", color: "green" },
+      { value: "Annulée", label: "Annulée", color: "red" },
     ],
   },
   {
@@ -1129,6 +1105,29 @@ export const missionFormFields = [
     fullWidth: true,
     rows: 2,
     placeholder: "Notes additionnelles...",
+  },
+  {
+    name: "documents",
+    label: "Documents",
+    type: "file",
+    required: false,
+    fullWidth: true,
+    multiple: true,
+    accept:
+      ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.gif,.zip,.rar,.txt",
+    helpText:
+      "Ajoutez des documents liés à cette mission (PDF, DOC, XLS, PPT, Images, Archives)",
+  },
+  {
+    name: "financialEntries",
+    label: "Frais d'huissier",
+    type: "financial-entries",
+    required: false,
+    fullWidth: true,
+    helpText:
+      "Ajoutez les frais liés à cette mission. Ces frais seront automatiquement liés à la mission et au client.",
+    // Financial entries will be an array of objects with: amount, date, description
+    defaultValue: [],
   },
 ];
 
@@ -1224,6 +1223,21 @@ export const financialEntryFormFields = [
         { value: "other", label: "Autre dépense" },
       ];
     },
+    onChange: (value, formData, setFormData) => {
+      // Clear mission when category is not frais_huissier
+      if (value !== "frais_huissier") {
+        setFormData({
+          ...formData,
+          category: value,
+          missionId: "",
+        });
+      } else {
+        setFormData({
+          ...formData,
+          category: value,
+        });
+      }
+    },
   },
   {
     name: "amount",
@@ -1251,13 +1265,13 @@ export const financialEntryFormFields = [
   {
     name: "status",
     label: "Statut",
-    type: "select",
+    type: "inline-status",
     required: true,
     defaultValue: "confirmed",
-    options: [
-      { value: "draft", label: "Brouillon" },
-      { value: "confirmed", label: "Confirmé" },
-      { value: "paid", label: "Payé" },
+    statusOptions: [
+      { value: "draft", label: "Brouillon", color: "slate" },
+      { value: "confirmed", label: "Confirmé", color: "blue" },
+      { value: "paid", label: "Payé", color: "green" },
     ],
   },
   {
@@ -1348,6 +1362,78 @@ export const financialEntryFormFields = [
     hideIf: (formData) => formData.scope === "internal",
     helpText: "Procès concerné (optionnel)",
   },
+  {
+    name: "missionId",
+    label: "Mission associée **",
+    type: "searchable-select",
+    required: false,
+    options: [], // Base options - will be filtered by getOptions
+    getOptions: (formData, allOptions) => {
+      // Only show missions related to selected dossier or case
+      const dossierId = formData.dossierId;
+      const caseId = formData.caseId;
+
+      if (!allOptions?.missions) {
+        return [{ value: "", label: "Aucune mission disponible" }];
+      }
+
+      let filteredMissions = allOptions.missions;
+
+      // Filter missions based on selected entity
+      if (dossierId) {
+        filteredMissions = filteredMissions.filter(
+          (m) => m.entityType === "dossier" && m.entityId === dossierId
+        );
+      } else if (caseId) {
+        filteredMissions = filteredMissions.filter(
+          (m) => m.entityType === "case" && m.entityId === caseId
+        );
+      } else {
+        // No dossier or case selected - don't show missions
+        return [
+          {
+            value: "",
+            label: "Veuillez d'abord sélectionner un dossier ou procès",
+          },
+        ];
+      }
+
+      if (filteredMissions.length === 0) {
+        return [{ value: "", label: "Aucune mission pour ce dossier/procès" }];
+      }
+
+      return [
+        { value: "", label: "Sélectionnez la mission liée à ces frais" },
+        ...filteredMissions.map((m) => ({
+          value: m.id,
+          label: `${m.missionNumber} - ${m.title} (${
+            m.officerName || "Huissier non défini"
+          }) - ${m.status}`,
+        })),
+      ];
+    },
+    hideIf: (formData) =>
+      formData.scope === "internal" || formData.category !== "frais_huissier",
+    helpText: "Sélectionnez la mission d'huissier liée à ces frais",
+    onChange: (value, formData, setFormData, allOptions) => {
+      // Auto-populate description when mission is selected
+      if (value && allOptions?.missions) {
+        const selectedMission = allOptions.missions.find((m) => m.id === value);
+        if (selectedMission && !formData.description) {
+          setFormData({
+            ...formData,
+            missionId: value,
+            description: `Frais d'huissier - ${selectedMission.missionNumber} - ${selectedMission.title}`,
+          });
+          return;
+        }
+      }
+      setFormData({
+        ...formData,
+        missionId: value,
+      });
+    },
+  },
 ];
 
 // ========================================
@@ -1406,14 +1492,14 @@ export function getFormTitle(entityType, isEdit = false) {
  * so the function can filter dynamically based on formData
  */
 export function populateRelationshipOptions(fields, data) {
-  const { clients, dossiers, cases, officers } = data;
+  const { clients, dossiers, cases, officers, missions } = data;
 
   return fields.map((field) => {
     // For fields with getOptions, pass the raw data so they can filter dynamically
     if (field.getOptions) {
       return {
         ...field,
-        allOptions: { clients, dossiers, cases, officers },
+        allOptions: { clients, dossiers, cases, officers, missions },
       };
     }
 

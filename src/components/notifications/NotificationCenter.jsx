@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useNotifications } from "../../contexts/NotificationContext";
+import { useConfirm } from "../../contexts/ConfirmContext";
 import PageLayout from "../layout/PageLayout";
 import PageHeader from "../layout/PageHeader";
 import ContentSection from "../layout/ContentSection";
@@ -11,6 +12,7 @@ import ContentSection from "../layout/ContentSection";
  */
 export default function NotificationCenter() {
   const navigate = useNavigate();
+  const { confirm } = useConfirm();
   const {
     notifications,
     unreadCount,
@@ -123,12 +125,14 @@ export default function NotificationCenter() {
             )}
             {notifications.length > 0 && (
               <button
-                onClick={() => {
-                  if (
-                    window.confirm(
-                      "Êtes-vous sûr de vouloir supprimer toutes les notifications ?"
-                    )
-                  ) {
+                onClick={async () => {
+                  if (await confirm({
+                    title: "Supprimer les notifications",
+                    message: "Êtes-vous sûr de vouloir supprimer toutes les notifications ?",
+                    confirmText: "Supprimer tout",
+                    cancelText: "Annuler",
+                    variant: "danger"
+                  })) {
                     clearAll();
                   }
                 }}

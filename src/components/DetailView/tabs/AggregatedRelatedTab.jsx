@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import { useToast } from "../../../contexts/ToastContext";
+import { useConfirm } from "../../../contexts/ConfirmContext";
 import ContentSection from "../../layout/ContentSection";
 import FormModal from "../../FormModal/FormModal";
 import { getStatusColor } from "../../../utils/mockData";
@@ -28,6 +30,8 @@ export default function AggregatedRelatedTab({
   tabConfig,
   onItemsChange
 }) {
+  const { showToast } = useToast();
+  const { confirm } = useConfirm();
   const [localItems, setLocalItems] = useState(items);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -63,18 +67,24 @@ export default function AggregatedRelatedTab({
       await new Promise(resolve => setTimeout(resolve, 500));
 
       setIsAddModalOpen(false);
-      alert(`${tabConfig?.entityName || 'Élément'} ajouté avec succès!`);
+      showToast(`${tabConfig?.entityName || 'Élément'} ajouté avec succès!`, "success");
 
     } catch (error) {
       console.error("Error adding item:", error);
-      alert("Erreur lors de l'ajout");
+      showToast("Erreur lors de l'ajout", "error");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleDeleteItem = (itemId) => {
-    if (window.confirm(`Êtes-vous sûr de vouloir supprimer cet élément ?`)) {
+  const handleDeleteItem = async (itemId) => {
+    if (await confirm({
+      title: "Supprimer l'élément",
+      message: "Êtes-vous sûr de vouloir supprimer cet élément ?",
+      confirmText: "Supprimer",
+      cancelText: "Annuler",
+      variant: "danger"
+    })) {
       const updatedItems = localItems.filter(item => item.id !== itemId);
       setLocalItems(updatedItems);
 

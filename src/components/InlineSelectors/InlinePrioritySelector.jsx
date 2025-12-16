@@ -196,9 +196,8 @@ export default function InlinePrioritySelector({
             <button
               key={priority.value}
               onClick={(e) => handlePriorityClick(e, priority.value)}
-              className={`w-full text-left px-4 py-2 text-sm flex items-center gap-3 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors ${
-                priority.value === value ? "bg-blue-50 dark:bg-blue-900/20" : ""
-              }`}
+              className={`w-full text-left px-4 py-2 text-sm flex items-center gap-3 transition-colors hover:bg-slate-300 dark:hover:bg-slate-700 ${priority.value === value ? "bg-blue-50 dark:bg-blue-900/20" : ""
+                }`}
             >
               {priority.icon && <i className={`${priority.icon} ${priority.color} w-4`}></i>}
               <span className="text-slate-900 dark:text-white">{priority.label}</span>

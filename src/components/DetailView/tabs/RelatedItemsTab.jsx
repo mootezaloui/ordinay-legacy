@@ -1,5 +1,7 @@
 import { useState, useMemo } from "react";
 import { Link } from "react-router-dom";
+import { useToast } from "../../../contexts/ToastContext";
+import { useConfirm } from "../../../contexts/ConfirmContext";
 import ContentSection from "../../layout/ContentSection";
 import FormModal from "../../FormModal/FormModal";
 import { getStatusColor } from "../../../utils/mockData";
@@ -10,6 +12,8 @@ import { getStatusColor } from "../../../utils/mockData";
  * ✅ UPDATED: Processes searchable-select fields
  */
 export default function RelatedItemsTab({ data, config, tabConfig, onItemsChange }) {
+  const { showToast } = useToast();
+  const { confirm } = useConfirm();
   const [items, setItems] = useState(data[tabConfig.itemsKey] || []);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -73,18 +77,24 @@ export default function RelatedItemsTab({ data, config, tabConfig, onItemsChange
 
       setIsAddModalOpen(false);
       setFormData({}); // Reset form data
-      alert(`${tabConfig.entityName || 'Item'} ajouté avec succès!`);
+      showToast(`${tabConfig.entityName || 'Item'} ajouté avec succès!`, "success");
 
     } catch (error) {
       console.error("Error adding item:", error);
-      alert("Erreur lors de l'ajout");
+      showToast("Erreur lors de l'ajout", "error");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleDeleteItem = (itemId) => {
-    if (window.confirm(`Êtes-vous sûr de vouloir supprimer ce ${tabConfig.entityName?.toLowerCase() || 'élément'} ?`)) {
+  const handleDeleteItem = async (itemId) => {
+    if (await confirm({
+      title: `Supprimer ${tabConfig.entityName?.toLowerCase() || 'l\'élément'}`,
+      message: `Êtes-vous sûr de vouloir supprimer ce ${tabConfig.entityName?.toLowerCase() || 'élément'} ?`,
+      confirmText: "Supprimer",
+      cancelText: "Annuler",
+      variant: "danger"
+    })) {
       const updatedItems = items.filter(item => item.id !== itemId);
       setItems(updatedItems);
 

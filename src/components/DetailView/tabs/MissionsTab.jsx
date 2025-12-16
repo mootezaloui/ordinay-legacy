@@ -1,20 +1,40 @@
 import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
+import { useToast } from "../../../contexts/ToastContext";
+import { useConfirm } from "../../../contexts/ConfirmContext";
 import ContentSection from "../../layout/ContentSection";
 import FormModal from "../../FormModal/FormModal";
-import { getStatusColor } from "../../../utils/mockData";
+import { getStatusColor, mockClients, mockDossiers, mockCases } from "../../../utils/mockData";
+import {
+  formatCurrency
+} from "../../../utils/financialUtils";
+import {
+  financialEntryFormFields,
+  populateRelationshipOptions
+} from "../../FormModal/formConfigs";
+import { addFinancialEntry } from "../../../utils/financialData";
 
 /**
  * MissionsTab - Scalable mission list with document management
  * Designed for huissier detail view to handle large numbers of missions
  */
 export default function MissionsTab({ data, config, tabConfig, onItemsChange }) {
+  const navigate = useNavigate();
+  const { showToast } = useToast();
+  const { confirm } = useConfirm();
   const [missions, setMissions] = useState(data[tabConfig.itemsKey] || []);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [selectedMission, setSelectedMission] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({});
   const [filterStatus, setFilterStatus] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [editingEntryId, setEditingEntryId] = useState(null);
+  const [editingEntryData, setEditingEntryData] = useState(null);
+  const [isFinancialModalOpen, setIsFinancialModalOpen] = useState(false);
+  const [selectedMissionForFinance, setSelectedMissionForFinance] = useState(null);
+  const [editingMissionId, setEditingMissionId] = useState(null);
+  const [uploadingDocument, setUploadingDocument] = useState(false);
+  const [selectedMissionForDoc, setSelectedMissionForDoc] = useState(null);
 
   // Filter missions by status and search
   const filteredMissions = useMemo(() => {
@@ -49,7 +69,7 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange }) 
   const processedFormFields = useMemo(() => {
     // Get form fields from either formFields array or getFormFields function
     let fields = [];
-    
+
     if (typeof tabConfig.getFormFields === 'function') {
       // Call getFormFields with current data
       fields = tabConfig.getFormFields(data);
@@ -76,43 +96,107 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange }) 
     setIsLoading(true);
 
     try {
-      // Ensure missionNumber is included even if it was disabled in the form
-      const missionNumberValue = submittedFormData.missionNumber || formData.missionNumber;
-      
-      const newMission = {
-        id: Date.now(),
-        ...submittedFormData,
-        officerId: data.id,
-        missionNumber: missionNumberValue, // Explicitly set mission number
-        documents: [],
-        createdDate: new Date().toISOString().split("T")[0],
-      };
+      // Check if we're editing an existing mission
+      if (editingMissionId) {
+        // UPDATE EXISTING MISSION
+        const { financialEntries, ...missionData } = submittedFormData;
 
-      const updatedMissions = [newMission, ...missions];
-      setMissions(updatedMissions);
+        const updatedMission = {
+          ...missions.find(m => m.id === editingMissionId),
+          ...missionData,
+          financialEntries: financialEntries || [],
+        };
 
-      if (onItemsChange) {
-        onItemsChange(tabConfig.itemsKey, updatedMissions);
+        const updatedMissions = missions.map(m =>
+          m.id === editingMissionId ? updatedMission : m
+        );
+
+        setMissions(updatedMissions);
+
+        if (onItemsChange) {
+          onItemsChange(tabConfig.itemsKey, updatedMissions);
+        }
+
+        showToast("Mission modifiée avec succès!", "success");
+        setEditingMissionId(null);
+      } else {
+        // ADD NEW MISSION
+        // Ensure missionNumber is included even if it was disabled in the form
+        const missionNumberValue = submittedFormData.missionNumber || formData.missionNumber;
+
+        // Extract financial entries if they exist
+        const { financialEntries, ...missionData } = submittedFormData;
+
+        const newMission = {
+          id: Date.now(),
+          ...missionData,
+          officerId: data.id,
+          missionNumber: missionNumberValue, // Explicitly set mission number
+          documents: [],
+          createdDate: new Date().toISOString().split("T")[0],
+        };
+
+        // Process financial entries if they exist
+        if (financialEntries && Array.isArray(financialEntries) && financialEntries.length > 0) {
+          // In a real application, these would be saved to the database
+          // For now, we'll log them and attach them to the mission for display
+          console.log("Financial entries for mission:", financialEntries);
+
+          // Store financial entries with the mission for later display
+          newMission.financialEntries = financialEntries.map(entry => ({
+            ...entry,
+            missionId: newMission.id,
+            missionNumber: missionNumberValue,
+            officerId: data.id,
+            officerName: data.name,
+            // Link to dossier/case if available
+            entityType: missionData.entityType,
+            entityReference: missionData.entityReference,
+            type: 'expense',
+            category: 'frais_huissier',
+            scope: 'client',
+            currency: 'TND',
+            sourceType: 'mission',
+            sourceId: newMission.id,
+            createdAt: new Date().toISOString(),
+            createdBy: 'User',
+          }));
+
+          showToast(
+            `Mission ajoutée avec ${financialEntries.length} frais enregistré(s)!`,
+            "success"
+          );
+        } else {
+          showToast("Mission ajoutée avec succès!", "success");
+        }
+
+        const updatedMissions = [newMission, ...missions];
+        setMissions(updatedMissions);
+
+        if (onItemsChange) {
+          onItemsChange(tabConfig.itemsKey, updatedMissions);
+        }
+
       }
-
-      console.log("Adding new mission:", newMission);
-      await new Promise((resolve) => setTimeout(resolve, 500));
 
       setIsAddModalOpen(false);
       setFormData({});
-      alert("Mission ajoutée avec succès!");
     } catch (error) {
       console.error("Error adding mission:", error);
-      alert("Erreur lors de l'ajout");
+      showToast("Erreur lors de l'ajout", "error");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleDeleteMission = (missionId) => {
-    if (
-      window.confirm("Êtes-vous sûr de vouloir supprimer cette mission ?")
-    ) {
+  const handleDeleteMission = async (missionId) => {
+    if (await confirm({
+      title: "Supprimer la mission",
+      message: "Êtes-vous sûr de vouloir supprimer cette mission ?",
+      confirmText: "Supprimer",
+      cancelText: "Annuler",
+      variant: "danger"
+    })) {
       const updatedMissions = missions.filter((m) => m.id !== missionId);
       setMissions(updatedMissions);
 
@@ -126,7 +210,7 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange }) 
 
   const handleModalOpen = () => {
     const defaults = {};
-    
+
     // Get fields from either getFormFields function or formFields array
     let fields = [];
     if (typeof tabConfig.getFormFields === 'function') {
@@ -134,39 +218,149 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange }) 
     } else if (tabConfig.formFields) {
       fields = tabConfig.formFields;
     }
-    
+
     // Set default values for all fields
     fields.forEach((field) => {
       defaults[field.name] = field.defaultValue || "";
     });
-    
+
     setFormData(defaults);
     setIsAddModalOpen(true);
   };
 
   const handleModalClose = () => {
     setFormData({});
+    setEditingMissionId(null);
     setIsAddModalOpen(false);
   };
 
   const handleMissionClick = (mission) => {
-    setSelectedMission(mission);
+    navigate(`/missions/${mission.id}`);
   };
 
-  const handleCloseMissionDetail = () => {
-    setSelectedMission(null);
+  const handleAddFinancialEntry = async (formData) => {
+    try {
+      // Add the financial entry
+      const newEntry = {
+        ...formData,
+        missionId: selectedMissionForFinance.id,
+        missionNumber: selectedMissionForFinance.missionNumber,
+        officerId: data.id,
+        officerName: data.name,
+        createdAt: new Date().toISOString(),
+        createdBy: "User",
+      };
+
+      addFinancialEntry(newEntry);
+
+      // Update the mission's financial entries
+      const updatedMissions = missions.map(m =>
+        m.id === selectedMissionForFinance.id
+          ? { ...m, financialEntries: [...(m.financialEntries || []), newEntry] }
+          : m
+      );
+
+      setMissions(updatedMissions);
+      if (onItemsChange) {
+        onItemsChange(tabConfig.itemsKey, updatedMissions);
+      }
+
+      setIsFinancialModalOpen(false);
+      setSelectedMissionForFinance(null);
+      showToast("Frais ajouté avec succès", "success");
+    } catch (error) {
+      console.error("Error adding financial entry:", error);
+      showToast("Erreur lors de l'ajout des frais", "error");
+    }
   };
 
-  const handleAddDocument = (missionId) => {
-    // TODO: Implement document upload
-    console.log("Add document to mission:", missionId);
-    alert("Fonctionnalité d'ajout de document à venir");
+  const handleAddDocument = (mission) => {
+    setSelectedMissionForDoc(mission);
+    // Trigger file input click
+    document.getElementById(`doc-upload-${mission.id}`)?.click();
   };
 
-  const handleDeleteDocument = (missionId, documentId) => {
-    if (
-      window.confirm("Êtes-vous sûr de vouloir supprimer ce document ?")
-    ) {
+  const handleDocumentSelect = async (missionId, files) => {
+    if (!files || files.length === 0) return;
+
+    setUploadingDocument(true);
+    try {
+      const fileArray = Array.from(files);
+
+      const formatFileSize = (bytes) => {
+        if (!bytes) return '0 KB';
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+        return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+      };
+
+      const getCategoryFromType = (extension) => {
+        const categoryMap = {
+          'pdf': 'PDF',
+          'doc': 'Document',
+          'docx': 'Document',
+          'xls': 'Tableur',
+          'xlsx': 'Tableur',
+          'ppt': 'Présentation',
+          'pptx': 'Présentation',
+          'jpg': 'Image',
+          'jpeg': 'Image',
+          'png': 'Image',
+          'gif': 'Image',
+          'zip': 'Archive',
+          'rar': 'Archive',
+          'txt': 'Texte',
+        };
+        return categoryMap[extension?.toLowerCase()] || 'Autre';
+      };
+
+      const newDocuments = fileArray.map((file) => {
+        const extension = file.name.split('.').pop();
+        return {
+          id: Date.now() + Math.random(),
+          name: file.name,
+          type: extension,
+          size: formatFileSize(file.size),
+          uploadDate: new Date().toISOString().split('T')[0],
+          category: getCategoryFromType(extension),
+        };
+      });
+
+      const updatedMissions = missions.map((mission) => {
+        if (mission.id === missionId) {
+          return {
+            ...mission,
+            documents: [...(mission.documents || []), ...newDocuments],
+          };
+        }
+        return mission;
+      });
+
+      setMissions(updatedMissions);
+
+      if (onItemsChange) {
+        onItemsChange(tabConfig.itemsKey, updatedMissions);
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 500));
+      showToast(`${newDocuments.length} document(s) ajouté(s) avec succès!`, "success");
+    } catch (error) {
+      console.error("Error uploading documents:", error);
+      showToast("Erreur lors de l'ajout des documents", "error");
+    } finally {
+      setUploadingDocument(false);
+      setSelectedMissionForDoc(null);
+    }
+  };
+
+  const handleDeleteDocument = async (missionId, documentId) => {
+    if (await confirm({
+      title: "Supprimer le document",
+      message: "Êtes-vous sûr de vouloir supprimer ce document ?",
+      confirmText: "Supprimer",
+      cancelText: "Annuler",
+      variant: "danger"
+    })) {
       const updatedMissions = missions.map((mission) => {
         if (mission.id === missionId) {
           return {
@@ -183,13 +377,71 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange }) 
         onItemsChange(tabConfig.itemsKey, updatedMissions);
       }
 
-      // Update selected mission if it's the one being modified
-      if (selectedMission?.id === missionId) {
-        const updatedMission = updatedMissions.find((m) => m.id === missionId);
-        setSelectedMission(updatedMission);
+      console.log("Deleting document:", documentId);
+    }
+  };
+
+  const handleEditFinancialEntry = (entry) => {
+    setEditingEntryId(entry.id);
+    setEditingEntryData({ ...entry });
+  };
+
+  const handleSaveFinancialEntry = (missionId) => {
+    if (!editingEntryData) return;
+
+    const updatedMissions = missions.map((mission) => {
+      if (mission.id === missionId && mission.financialEntries) {
+        return {
+          ...mission,
+          financialEntries: mission.financialEntries.map((entry) =>
+            entry.id === editingEntryId ? editingEntryData : entry
+          ),
+        };
+      }
+      return mission;
+    });
+
+    setMissions(updatedMissions);
+
+    if (onItemsChange) {
+      onItemsChange(tabConfig.itemsKey, updatedMissions);
+    }
+
+    setEditingEntryId(null);
+    setEditingEntryData(null);
+    showToast("Frais mis à jour avec succès!", "success");
+  };
+
+  const handleCancelEditFinancialEntry = () => {
+    setEditingEntryId(null);
+    setEditingEntryData(null);
+  };
+
+  const handleDeleteFinancialEntry = async (missionId, entryId) => {
+    if (await confirm({
+      title: "Supprimer les frais",
+      message: "Êtes-vous sûr de vouloir supprimer ces frais ?",
+      confirmText: "Supprimer",
+      cancelText: "Annuler",
+      variant: "danger"
+    })) {
+      const updatedMissions = missions.map((mission) => {
+        if (mission.id === missionId && mission.financialEntries) {
+          return {
+            ...mission,
+            financialEntries: mission.financialEntries.filter((entry) => entry.id !== entryId),
+          };
+        }
+        return mission;
+      });
+
+      setMissions(updatedMissions);
+
+      if (onItemsChange) {
+        onItemsChange(tabConfig.itemsKey, updatedMissions);
       }
 
-      console.log("Deleting document:", documentId);
+      showToast("Frais supprimés avec succès!", "success");
     }
   };
 
@@ -224,7 +476,7 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange }) 
                 className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors inline-flex items-center gap-2"
               >
                 <i className="fas fa-plus"></i>
-                Ajouter une mission
+                Ajouter {tabConfig.entityName || 'une mission'}
               </button>
             )}
           </div>
@@ -235,12 +487,13 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange }) 
             isOpen={isAddModalOpen}
             onClose={handleModalClose}
             onSubmit={handleAddMission}
-            title="Ajouter une mission"
+            title={editingMissionId ? "Modifier la mission" : "Ajouter une mission"}
             subtitle={tabConfig.addSubtitle}
             fields={processedFormFields}
             isLoading={isLoading}
             formData={formData}
             onFormDataChange={setFormData}
+            submitText={editingMissionId ? "Modifier" : "Ajouter"}
           />
         )}
       </>
@@ -281,51 +534,46 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange }) 
           <div className="flex gap-2 overflow-x-auto pb-2">
             <button
               onClick={() => setFilterStatus("all")}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap ${
-                filterStatus === "all"
-                  ? "bg-blue-600 text-white"
-                  : "bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600"
-              }`}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap ${filterStatus === "all"
+                ? "bg-blue-600 text-white"
+                : "bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600"
+                }`}
             >
               Toutes ({statusCounts.all})
             </button>
             <button
               onClick={() => setFilterStatus("Programmée")}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap ${
-                filterStatus === "Programmée"
-                  ? "bg-blue-600 text-white"
-                  : "bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600"
-              }`}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap ${filterStatus === "Programmée"
+                ? "bg-blue-600 text-white"
+                : "bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600"
+                }`}
             >
               Programmées ({statusCounts.Programmée})
             </button>
             <button
               onClick={() => setFilterStatus("En cours")}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap ${
-                filterStatus === "En cours"
-                  ? "bg-amber-600 text-white"
-                  : "bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600"
-              }`}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap ${filterStatus === "En cours"
+                ? "bg-amber-600 text-white"
+                : "bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600"
+                }`}
             >
               En cours ({statusCounts["En cours"]})
             </button>
             <button
               onClick={() => setFilterStatus("Terminée")}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap ${
-                filterStatus === "Terminée"
-                  ? "bg-green-600 text-white"
-                  : "bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600"
-              }`}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap ${filterStatus === "Terminée"
+                ? "bg-green-600 text-white"
+                : "bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600"
+                }`}
             >
               Terminées ({statusCounts.Terminée})
             </button>
             <button
               onClick={() => setFilterStatus("Annulée")}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap ${
-                filterStatus === "Annulée"
-                  ? "bg-red-600 text-white"
-                  : "bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600"
-              }`}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap ${filterStatus === "Annulée"
+                ? "bg-red-600 text-white"
+                : "bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600"
+                }`}
             >
               Annulées ({statusCounts.Annulée})
             </button>
@@ -396,6 +644,14 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange }) 
                           {mission.documents.length} document(s)
                         </span>
                       )}
+                      {mission.financialEntries && mission.financialEntries.length > 0 && (
+                        <span className="text-amber-600 dark:text-amber-400 font-medium">
+                          <i className="fas fa-coins mr-1"></i>
+                          {formatCurrency(
+                            mission.financialEntries.reduce((sum, e) => sum + parseFloat(e.amount || 0), 0)
+                          )} frais
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -428,7 +684,7 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange }) 
           isOpen={isAddModalOpen}
           onClose={handleModalClose}
           onSubmit={handleAddMission}
-          title="Ajouter une mission"
+          title={editingMissionId ? "Modifier la mission" : "Ajouter une mission"}
           subtitle={
             tabConfig.addSubtitle ||
             `Créer une nouvelle mission pour ${config.getTitle(data)}`
@@ -437,221 +693,113 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange }) 
           isLoading={isLoading}
           formData={formData}
           onFormDataChange={setFormData}
+          submitText={editingMissionId ? "Modifier" : "Ajouter"}
         />
       )}
 
-      {/* Mission Detail Modal */}
-      {selectedMission && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            {/* Header */}
-            <div className="sticky top-0 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 p-6 flex items-start justify-between">
-              <div className="flex-1">
-                <div className="flex items-center gap-3 mb-2">
-                  <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
-                    {selectedMission.missionNumber}
-                  </h2>
-                  <span
-                    className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(
-                      selectedMission.status
-                    )}`}
-                  >
-                    {selectedMission.status}
-                  </span>
-                </div>
-                <p className="text-slate-600 dark:text-slate-400">
-                  {selectedMission.title}
-                </p>
-              </div>
-              <button
-                onClick={handleCloseMissionDetail}
-                className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
-              >
-                <i className="fas fa-times text-slate-600 dark:text-slate-400"></i>
-              </button>
-            </div>
 
-            {/* Content */}
-            <div className="p-6 space-y-6">
-              {/* Mission Details */}
-              <div>
-                <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
-                  Détails de la mission
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm text-slate-500 dark:text-slate-400">
-                      Type de mission
-                    </label>
-                    <p className="text-slate-900 dark:text-white font-medium">
-                      {selectedMission.missionType}
-                    </p>
-                  </div>
-                  <div>
-                    <label className="text-sm text-slate-500 dark:text-slate-400">
-                      Référence
-                    </label>
-                    <p className="text-slate-900 dark:text-white font-medium">
-                      {selectedMission.entityReference}
-                    </p>
-                  </div>
-                  <div>
-                    <label className="text-sm text-slate-500 dark:text-slate-400">
-                      Date d'assignation
-                    </label>
-                    <p className="text-slate-900 dark:text-white font-medium">
-                      {selectedMission.assignDate}
-                    </p>
-                  </div>
-                  {selectedMission.dueDate && (
-                    <div>
-                      <label className="text-sm text-slate-500 dark:text-slate-400">
-                        Date d'échéance
-                      </label>
-                      <p className="text-slate-900 dark:text-white font-medium">
-                        {selectedMission.dueDate}
-                      </p>
-                    </div>
-                  )}
-                  {selectedMission.completionDate && (
-                    <div>
-                      <label className="text-sm text-slate-500 dark:text-slate-400">
-                        Date de complétion
-                      </label>
-                      <p className="text-slate-900 dark:text-white font-medium">
-                        {selectedMission.completionDate}
-                      </p>
-                    </div>
-                  )}
-                  <div>
-                    <label className="text-sm text-slate-500 dark:text-slate-400">
-                      Priorité
-                    </label>
-                    <p className="text-slate-900 dark:text-white font-medium">
-                      {selectedMission.priority}
-                    </p>
-                  </div>
-                </div>
-              </div>
+      {/* Financial Entry Modal */}
+      {isFinancialModalOpen && selectedMissionForFinance && (
+        <FormModal
+          isOpen={isFinancialModalOpen}
+          onClose={() => {
+            setIsFinancialModalOpen(false);
+            setSelectedMissionForFinance(null);
+          }}
+          onSubmit={handleAddFinancialEntry}
+          title="Ajouter frais d'huissier"
+          subtitle={`Mission: ${selectedMissionForFinance.missionNumber} - ${selectedMissionForFinance.title}`}
+          fields={(() => {
+            // Get base fields and populate with data
+            const baseFields = populateRelationshipOptions(financialEntryFormFields, {
+              clients: mockClients,
+              dossiers: mockDossiers,
+              cases: mockCases,
+              missions: []
+            });
 
-              {/* Description */}
-              {selectedMission.description && (
-                <div>
-                  <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">
-                    Description
-                  </h3>
-                  <p className="text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg">
-                    {selectedMission.description}
-                  </p>
-                </div>
-              )}
+            // Auto-populate fields based on mission
+            let clientId = null;
+            let dossierId = null;
+            let caseId = null;
 
-              {/* Result */}
-              {selectedMission.result && (
-                <div>
-                  <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">
-                    Résultat / Réponse de l'huissier
-                  </h3>
-                  <p className="text-slate-700 dark:text-slate-300 bg-green-50 dark:bg-green-900/20 p-4 rounded-lg border border-green-200 dark:border-green-800">
-                    {selectedMission.result}
-                  </p>
-                </div>
-              )}
+            if (selectedMissionForFinance.entityType === "dossier") {
+              // Mission linked to a dossier
+              const dossier = mockDossiers.find(d => d.caseNumber === selectedMissionForFinance.entityReference);
+              if (dossier) {
+                dossierId = dossier.id;
+                clientId = dossier.clientId;
+              }
+            } else if (selectedMissionForFinance.entityType === "case") {
+              // Mission linked to a case
+              const caseItem = mockCases.find(c => c.caseNumber === selectedMissionForFinance.entityReference);
+              if (caseItem) {
+                caseId = caseItem.id;
+                dossierId = caseItem.dossierId;
+                // Get client from the dossier
+                const dossier = mockDossiers.find(d => d.id === caseItem.dossierId);
+                if (dossier) {
+                  clientId = dossier.clientId;
+                }
+              }
+            }
 
-              {/* Notes */}
-              {selectedMission.notes && (
-                <div>
-                  <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">
-                    Notes internes
-                  </h3>
-                  <p className="text-slate-700 dark:text-slate-300 bg-amber-50 dark:bg-amber-900/20 p-4 rounded-lg border border-amber-200 dark:border-amber-800">
-                    {selectedMission.notes}
-                  </p>
-                </div>
-              )}
-
-              {/* Documents */}
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
-                    Documents ({selectedMission.documents?.length || 0})
-                  </h3>
-                  <button
-                    onClick={() => handleAddDocument(selectedMission.id)}
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors text-sm inline-flex items-center gap-2"
-                  >
-                    <i className="fas fa-plus"></i>
-                    Ajouter un document
-                  </button>
-                </div>
-
-                {selectedMission.documents &&
-                selectedMission.documents.length > 0 ? (
-                  <div className="space-y-2">
-                    {selectedMission.documents.map((doc) => (
-                      <div
-                        key={doc.id}
-                        className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-700 group hover:bg-slate-100 dark:hover:bg-slate-900"
-                      >
-                        <div className="flex items-center gap-3 flex-1">
-                          <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-                            <i className="fas fa-file-pdf text-blue-600 dark:text-blue-400"></i>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-slate-900 dark:text-white truncate">
-                              {doc.name}
-                            </p>
-                            <div className="flex gap-3 text-sm text-slate-500 dark:text-slate-400">
-                              <span>{doc.size}</span>
-                              <span>•</span>
-                              <span>{doc.uploadDate}</span>
-                              {doc.category && (
-                                <>
-                                  <span>•</span>
-                                  <span className="text-blue-600 dark:text-blue-400">
-                                    {doc.category}
-                                  </span>
-                                </>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => console.log("Download", doc.id)}
-                            className="p-2 hover:bg-blue-100 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
-                            title="Télécharger"
-                          >
-                            <i className="fas fa-download text-blue-600 dark:text-blue-400"></i>
-                          </button>
-                          <button
-                            onClick={() =>
-                              handleDeleteDocument(
-                                selectedMission.id,
-                                doc.id
-                              )
-                            }
-                            className="p-2 hover:bg-red-100 dark:hover:bg-red-900/20 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
-                            title="Supprimer"
-                          >
-                            <i className="fas fa-trash text-red-600 dark:text-red-400"></i>
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="p-8 text-center bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-700">
-                    <i className="fas fa-file-alt text-4xl text-slate-400 dark:text-slate-600 mb-3"></i>
-                    <p className="text-slate-600 dark:text-slate-400">
-                      Aucun document pour cette mission
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
+            return baseFields.map(field => {
+              if (field.name === "scope") {
+                return { ...field, type: "readonly", defaultValue: "client", displayValue: "Client (affecte le solde client)" };
+              }
+              if (field.name === "type") {
+                return { ...field, type: "readonly", defaultValue: "expense", displayValue: "Dépense (frais payé)" };
+              }
+              if (field.name === "category") {
+                return { ...field, type: "readonly", defaultValue: "frais_huissier", displayValue: "Frais d'huissier" };
+              }
+              if (field.name === "clientId") {
+                const client = mockClients.find(c => c.id === clientId);
+                return {
+                  ...field,
+                  type: "readonly",
+                  defaultValue: clientId || "",
+                  displayValue: client ? client.name : "Aucun client"
+                };
+              }
+              if (field.name === "dossierId") {
+                const doss = mockDossiers.find(d => d.id === dossierId);
+                return {
+                  ...field,
+                  type: "readonly",
+                  defaultValue: dossierId || "",
+                  displayValue: doss ? `${doss.caseNumber} - ${doss.title}` : "Aucun dossier"
+                };
+              }
+              if (field.name === "caseId") {
+                const caseItem = mockCases.find(c => c.id === caseId);
+                return {
+                  ...field,
+                  type: "readonly",
+                  defaultValue: caseId || "",
+                  displayValue: caseItem ? `${caseItem.caseNumber} - ${caseItem.title}` : "Aucun"
+                };
+              }
+              if (field.name === "missionId") {
+                return {
+                  ...field,
+                  type: "readonly",
+                  defaultValue: selectedMissionForFinance.id,
+                  displayValue: `${selectedMissionForFinance.missionNumber} - ${selectedMissionForFinance.title}`
+                };
+              }
+              if (field.name === "description") {
+                return {
+                  ...field,
+                  defaultValue: `Frais d'huissier - ${selectedMissionForFinance.missionNumber} - ${selectedMissionForFinance.title}`
+                };
+              }
+              return field;
+            });
+          })()}
+          isLoading={false}
+        />
       )}
     </>
   );

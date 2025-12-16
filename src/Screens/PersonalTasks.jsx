@@ -2,6 +2,8 @@ import { useState, useRef, useLayoutEffect, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { useAdvancedTable } from "../hooks/useAdvancedTable";
+import { useToast } from "../contexts/ToastContext";
+import { useConfirm } from "../contexts/ConfirmContext";
 import PageLayout from "../components/layout/PageLayout";
 import PageHeader from "../components/layout/PageHeader";
 import ContentSection from "../components/layout/ContentSection";
@@ -194,21 +196,20 @@ function StatusDropdown({ task, onStatusChange }) {
           }}
           onClick={(e) => e.stopPropagation()}
         >
-            {statusOptions.map((status) => (
-              <button
-                key={status.value}
-                onClick={(e) => handleStatusClick(e, status.value)}
-                className={`w-full text-left px-4 py-2 text-sm flex items-center gap-3 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors ${
-                  status.value === task.status ? 'bg-blue-50 dark:bg-blue-900/20' : ''
+          {statusOptions.map((status) => (
+            <button
+              key={status.value}
+              onClick={(e) => handleStatusClick(e, status.value)}
+              className={`w-full text-left px-4 py-2 text-sm flex items-center gap-3 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors ${status.value === task.status ? 'bg-blue-50 dark:bg-blue-900/20' : ''
                 }`}
-              >
-                <i className={`${status.icon} ${status.color} dark:${status.color} w-4`}></i>
-                <span className="text-slate-900 dark:text-white">{status.label}</span>
-                {status.value === task.status && (
-                  <i className="fas fa-check text-blue-600 dark:text-blue-400 ml-auto text-xs"></i>
-                )}
-              </button>
-            ))}
+            >
+              <i className={`${status.icon} ${status.color} dark:${status.color} w-4`}></i>
+              <span className="text-slate-900 dark:text-white">{status.label}</span>
+              {status.value === task.status && (
+                <i className="fas fa-check text-blue-600 dark:text-blue-400 ml-auto text-xs"></i>
+              )}
+            </button>
+          ))}
         </div>,
         document.body
       )}
@@ -381,21 +382,20 @@ function PriorityDropdown({ task, onPriorityChange }) {
           }}
           onClick={(e) => e.stopPropagation()}
         >
-            {priorityOptions.map((priority) => (
-              <button
-                key={priority.value}
-                onClick={(e) => handlePriorityClick(e, priority.value)}
-                className={`w-full text-left px-4 py-2 text-sm flex items-center gap-3 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors ${
-                  priority.value === task.priority ? 'bg-blue-50 dark:bg-blue-900/20' : ''
+          {priorityOptions.map((priority) => (
+            <button
+              key={priority.value}
+              onClick={(e) => handlePriorityClick(e, priority.value)}
+              className={`w-full text-left px-4 py-2 text-sm flex items-center gap-3 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors ${priority.value === task.priority ? 'bg-blue-50 dark:bg-blue-900/20' : ''
                 }`}
-              >
-                <i className={`${priority.icon} ${priority.color} w-4`}></i>
-                <span className="text-slate-900 dark:text-white">{priority.label}</span>
-                {priority.value === task.priority && (
-                  <i className="fas fa-check text-blue-600 dark:text-blue-400 ml-auto text-xs"></i>
-                )}
-              </button>
-            ))}
+            >
+              <i className={`${priority.icon} ${priority.color} w-4`}></i>
+              <span className="text-slate-900 dark:text-white">{priority.label}</span>
+              {priority.value === task.priority && (
+                <i className="fas fa-check text-blue-600 dark:text-blue-400 ml-auto text-xs"></i>
+              )}
+            </button>
+          ))}
         </div>,
         document.body
       )}
@@ -405,6 +405,8 @@ function PriorityDropdown({ task, onPriorityChange }) {
 
 export default function PersonalTasks() {
   const navigate = useNavigate();
+  const { showToast } = useToast();
+  const { confirm } = useConfirm();
 
   const [tasks, setTasks] = useState(mockPersonalTasks);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -444,6 +446,10 @@ export default function PersonalTasks() {
         ? { ...t, status: newStatus }
         : t
     ));
+    showToast(`Statut mis a jour: ${newStatus}`, "info", {
+      title: "Mise a jour du statut",
+      context: "personal-task",
+    });
   };
 
   const handlePriorityChange = (taskId, newPriority) => {
@@ -452,7 +458,12 @@ export default function PersonalTasks() {
         ? { ...t, priority: newPriority }
         : t
     ));
+    showToast(`Priorite mise a jour: ${newPriority}`, "info", {
+      title: "Priorite mise a jour",
+      context: "personal-task",
+    });
   };
+
 
   // Define table columns
   const columns = [
@@ -492,8 +503,8 @@ export default function PersonalTasks() {
 
         return (
           <span className={`text-sm font-medium ${isOverdue ? "text-red-600 dark:text-red-400" :
-              isDueSoon ? "text-amber-600 dark:text-amber-400" :
-                "text-slate-900 dark:text-white"
+            isDueSoon ? "text-amber-600 dark:text-amber-400" :
+              "text-slate-900 dark:text-white"
             }`}>
             {task.dueDate}
           </span>
@@ -578,9 +589,19 @@ export default function PersonalTasks() {
     setIsModalOpen(true);
   };
 
-  const handleDelete = (id) => {
-    if (window.confirm("Êtes-vous sûr de vouloir supprimer cette tâche ?")) {
+  const handleDelete = async (id) => {
+    if (await confirm({
+      title: "Supprimer la tâche",
+      message: "Êtes-vous sûr de vouloir supprimer cette tâche ?",
+      confirmText: "Supprimer",
+      cancelText: "Annuler",
+      variant: "danger"
+    })) {
       setTasks(tasks.filter(t => t.id !== id));
+      showToast("Tâche personnelle supprimée", "warning", {
+        title: "Suppression",
+        context: "personal-task",
+      });
     }
   };
 
@@ -601,21 +622,21 @@ export default function PersonalTasks() {
             ? { ...formData, id: editingTask.id }
             : t
         ));
-        alert("Tâche modifiée avec succès!");
+        showToast("Tâche modifiée avec succès!", "success");
       } else {
         const newTask = {
           ...formData,
           id: Date.now(),
         };
         setTasks([newTask, ...tasks]);
-        alert("Tâche ajoutée avec succès!");
+        showToast("Tâche ajoutée avec succès!", "success");
       }
 
       setIsModalOpen(false);
       setEditingTask(null);
     } catch (error) {
       console.error("Error submitting task:", error);
-      alert("Erreur lors de l'enregistrement");
+      showToast("Erreur lors de l'enregistrement", "error");
     } finally {
       setIsLoading(false);
     }

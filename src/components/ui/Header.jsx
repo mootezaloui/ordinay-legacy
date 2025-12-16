@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { useState } from "react";
 import { useSidebar } from "../../contexts/SidebarContext";
 import NotificationDropDown from "../notifications/notificationdropdown";
 import UserDropdown from "../user/UserDropdown";
@@ -6,6 +7,15 @@ import GlobalSearch from "../Search/GlobalSearch";
 
 export default function HeaderBar() {
   const { isCollapsed } = useSidebar();
+  const [activeDropdown, setActiveDropdown] = useState(null);
+
+  const handleDropdownToggle = (dropdownName) => {
+    setActiveDropdown(activeDropdown === dropdownName ? null : dropdownName);
+  };
+
+  const closeAllDropdowns = () => {
+    setActiveDropdown(null);
+  };
 
   return (
     <header className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-lg w-full transition-all duration-300 sticky top-0 z-30 border-b border-slate-200 dark:border-slate-700">
@@ -30,10 +40,18 @@ export default function HeaderBar() {
           {/* Icons & Profile */}
           <div className="flex items-center gap-2 ml-auto">
             {/* Notification Dropdown */}
-            <NotificationDropDown />
+            <NotificationDropDown
+              isOpen={activeDropdown === 'notifications'}
+              onToggle={() => handleDropdownToggle('notifications')}
+              onClose={closeAllDropdowns}
+            />
 
             {/* User Dropdown */}
-            <UserDropdown />
+            <UserDropdown
+              isOpen={activeDropdown === 'user'}
+              onToggle={() => handleDropdownToggle('user')}
+              onClose={closeAllDropdowns}
+            />
           </div>
         </div>
       </div>

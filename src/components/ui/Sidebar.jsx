@@ -1,10 +1,20 @@
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { useTheme } from "../../contexts/theme";
 import { useSidebar } from "../../contexts/SidebarContext";
+import { useEffect, useState } from "react";
 
 export default function Sidebar() {
   const { isCollapsed, toggleSidebar } = useSidebar();
   const { isDark, toggleTheme } = useTheme();
+  const location = useLocation();
+  const [activeFlash, setActiveFlash] = useState(false);
+
+  // Brief pop animation when route changes so the active item feels responsive
+  useEffect(() => {
+    setActiveFlash(true);
+    const timer = setTimeout(() => setActiveFlash(false), 280);
+    return () => clearTimeout(timer);
+  }, [location.pathname]);
 
   const menuItems = [
     { icon: "fas fa-th-large", label: "Dashboard", route: "/dashboard" },
@@ -45,20 +55,50 @@ export default function Sidebar() {
       {/* Navigation */}
       <nav className="flex-1 py-4 overflow-y-auto">
         <ul className="space-y-1 px-3">
-          {menuItems.map((item, index) => (
-            <li key={index}>
-              <Link
-                to={item.route}
-                className={`flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800 ${isCollapsed ? "justify-center" : "justify-start"
-                  }`}
-              >
-                <span className="flex-shrink-0">
-                  <i className={item.icon}></i>
-                </span>
-                {!isCollapsed && <span className="text-sm font-medium">{item.label}</span>}
-              </Link>
-            </li>
-          ))}
+          {menuItems.map((item, index) => {
+            const isActive = location.pathname.startsWith(item.route);
+            return (
+              <li key={index}>
+                {/*
+                  Use startsWith to handle nested routes (e.g., /clients/123) so the indicator stays active.
+                  A slim bar animates in/out on hover and active state for clarity when collapsed.
+                */}
+                <Link
+                  to={item.route}
+                  className={`group relative flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all duration-200 overflow-hidden ${isCollapsed ? "justify-center" : "justify-start"
+                    } ${isActive
+                      ? "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-200"
+                      : "hover:bg-slate-100 dark:hover:bg-slate-800"
+                    }`}
+                >
+                  <span
+                    className={`absolute left-0 top-1/2 h-8 w-1 -translate-y-1/2 rounded-r-full bg-blue-500 transition-all duration-300 ease-out ${isActive
+                      ? "scale-y-100 opacity-100"
+                      : "scale-y-0 opacity-0 group-hover:scale-y-100 group-hover:opacity-80"
+                    }`}
+                  ></span>
+                  <span className="flex-shrink-0">
+                    <i
+                      className={`${item.icon} transition-colors duration-200 ${isActive
+                        ? "text-blue-600 dark:text-blue-300"
+                        : "text-slate-500 group-hover:text-slate-700 dark:text-slate-400 dark:group-hover:text-slate-200"
+                      }`}
+                    ></i>
+                  </span>
+                  {!isCollapsed && (
+                    <span
+                      className={`text-sm font-medium transition-colors duration-200 ${isActive
+                        ? "text-blue-700 dark:text-blue-100"
+                        : "text-slate-700 group-hover:text-slate-900 dark:text-slate-200 dark:group-hover:text-white"
+                      } ${isActive && activeFlash ? "animate-pop" : ""}`}
+                    >
+                      {item.label}
+                    </span>
+                  )}
+                </Link>
+              </li>
+            );
+          })}
         </ul>
       </nav>
 

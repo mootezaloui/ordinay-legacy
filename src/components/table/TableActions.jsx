@@ -15,11 +15,11 @@ export default function TableActions({ children, className = "" }) {
 /**
  * IconButton - Helper component for action buttons
  */
-export function IconButton({ 
-  icon, 
-  onClick, 
+export function IconButton({
+  icon,
+  onClick,
   variant = "default",
-  title = "" 
+  title = ""
 }) {
   const variants = {
     default: "text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400",

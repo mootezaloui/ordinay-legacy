@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useToast } from "../../contexts/ToastContext";
+import { useConfirm } from "../../contexts/ConfirmContext";
 import PageLayout from "../layout/PageLayout";
 import PageHeader from "../layout/PageHeader";
 import { getEntityConfig } from "./config/entityConfigs";
@@ -21,6 +23,8 @@ import { mockCases, mockSessions, mockTasks } from "../../utils/mockData";
 export default function DetailView({ entityType }) {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { showToast } = useToast();
+  const { confirm } = useConfirm();
   const [isEditing, setIsEditing] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
   const [data, setData] = useState(null);
@@ -86,7 +90,7 @@ export default function DetailView({ entityType }) {
     if (validation) {
       const error = validation(data, value);
       if (error) {
-        alert(error); // TODO: Replace with toast notification
+        showToast(error, "error");
         return;
       }
     }
@@ -124,7 +128,7 @@ export default function DetailView({ entityType }) {
       console.error("Error saving quick action:", error);
       // Rollback on error
       setData({ ...data, [field]: oldValue });
-      alert("Erreur lors de l'enregistrement");
+      showToast("Erreur lors de l'enregistrement", "error");
     }
   };
 
@@ -187,10 +191,10 @@ export default function DetailView({ entityType }) {
 
       setOriginalData(updatedData);
       setIsEditing(false);
-      alert("Modifications enregistrées avec succès!");
+      showToast("Modifications enregistrées avec succès!", "success");
     } catch (error) {
       console.error("Error saving:", error);
-      alert("Erreur lors de l'enregistrement");
+      showToast("Erreur lors de l'enregistrement", "error");
     }
   };
 
@@ -199,10 +203,10 @@ export default function DetailView({ entityType }) {
       await config.updateData(id, data);
       setOriginalData(data);
       setIsEditing(false);
-      alert("Modifications enregistrées avec succès!");
+      showToast("Modifications enregistrées avec succès!", "success");
     } catch (error) {
       console.error("Error saving:", error);
-      alert("Erreur lors de l'enregistrement");
+      showToast("Erreur lors de l'enregistrement", "error");
     }
   };
 
@@ -212,12 +216,18 @@ export default function DetailView({ entityType }) {
   };
 
   const handleDelete = async () => {
-    if (window.confirm(config.deleteConfirmMessage)) {
+    if (await confirm({
+      title: "Supprimer",
+      message: config.deleteConfirmMessage,
+      confirmText: "Supprimer",
+      cancelText: "Annuler",
+      variant: "danger"
+    })) {
       try {
         await config.deleteData(id);
         navigate(config.listRoute);
       } catch (error) {
-        alert("Erreur lors de la suppression");
+        showToast("Erreur lors de la suppression", "error");
       }
     }
   };
@@ -226,6 +236,11 @@ export default function DetailView({ entityType }) {
     const tabConfig = config.tabs.find(t => t.id === activeTab);
 
     if (!tabConfig) return null;
+
+    // ✅ Support for custom render functions
+    if (tabConfig.render) {
+      return tabConfig.render(data, handleDataChange);
+    }
 
     switch (tabConfig.component) {
       case "overview":

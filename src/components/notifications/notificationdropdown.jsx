@@ -1,23 +1,24 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useNotifications } from "../../contexts/NotificationContext";
+import { useConfirm } from "../../contexts/ConfirmContext";
 
 /**
  * NotificationDropdown (Enhanced with Context)
  * Connected to centralized notification system
  */
-export default function NotificationDropdown() {
+export default function NotificationDropdown({ isOpen, onToggle, onClose }) {
   const navigate = useNavigate();
-  const { 
-    notifications, 
-    unreadCount, 
-    markAsRead, 
+  const { confirm } = useConfirm();
+  const {
+    notifications,
+    unreadCount,
+    markAsRead,
     markAllAsRead,
     deleteNotification,
-    clearAll 
+    clearAll
   } = useNotifications();
-  
-  const [isOpen, setIsOpen] = useState(false);
+
   const dropdownRef = useRef(null);
 
   // Show only recent 5 notifications in dropdown
@@ -25,7 +26,7 @@ export default function NotificationDropdown() {
 
   const toggleDropdown = (e) => {
     e.stopPropagation();
-    setIsOpen(!isOpen);
+    onToggle();
   };
 
   const handleNotificationClick = (notification) => {
@@ -33,29 +34,35 @@ export default function NotificationDropdown() {
     if (!notification.read) {
       markAsRead(notification.id);
     }
-    
+
     // Navigate if has link
     if (notification.link) {
-      setIsOpen(false);
+      onClose();
       navigate(notification.link);
     }
   };
 
-  const clearNotifications = () => {
-    if (window.confirm("Êtes-vous sûr de vouloir supprimer toutes les notifications ?")) {
+  const clearNotifications = async () => {
+    if (await confirm({
+      title: "Supprimer les notifications",
+      message: "Êtes-vous sûr de vouloir supprimer toutes les notifications ?",
+      confirmText: "Supprimer tout",
+      cancelText: "Annuler",
+      variant: "danger"
+    })) {
       clearAll();
-      setIsOpen(false);
+      onClose();
     }
   };
 
   const viewAllNotifications = () => {
-    setIsOpen(false);
+    onClose();
     navigate("/notifications");
   };
 
   const handleClickOutside = (event) => {
     if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-      setIsOpen(false);
+      onClose();
     }
   };
 
@@ -79,6 +86,8 @@ export default function NotificationDropdown() {
       urgent: "text-red-600 dark:text-red-400",
       high: "text-orange-600 dark:text-orange-400",
       success: "text-green-600 dark:text-green-400",
+      warning: "text-amber-600 dark:text-amber-400",
+      error: "text-red-600 dark:text-red-400",
       info: "text-blue-600 dark:text-blue-400",
     };
     return colors[priority] || colors.info;
@@ -94,18 +103,16 @@ export default function NotificationDropdown() {
       {/* Notification Bell */}
       <button
         onClick={toggleDropdown}
-        className={`relative p-3 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200 ${
-          isOpen ? "bg-slate-100 dark:bg-slate-800" : ""
-        }`}
+        className={`relative p-3 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200 ${isOpen ? "bg-slate-100 dark:bg-slate-800" : ""
+          }`}
         aria-label="Notifications"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
-          className={`h-6 w-6 transition-colors duration-200 ${
-            isOpen 
-              ? "text-blue-600 dark:text-blue-400" 
+          className={`h-6 w-6 transition-colors duration-200 ${isOpen
+              ? "text-blue-600 dark:text-blue-400"
               : "text-slate-600 dark:text-slate-200"
-          }`}
+            }`}
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -160,9 +167,8 @@ export default function NotificationDropdown() {
                 <div
                   key={notification.id}
                   onClick={() => handleNotificationClick(notification)}
-                  className={`group relative px-6 py-4 border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors duration-200 ${
-                    notification.link ? 'cursor-pointer' : ''
-                  }`}
+                  className={`group relative px-6 py-4 border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors duration-200 ${notification.link ? 'cursor-pointer' : ''
+                    }`}
                 >
                   <div className="flex items-start gap-4">
                     {/* Icon with priority color */}
@@ -173,18 +179,16 @@ export default function NotificationDropdown() {
                     {/* Content */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2">
-                        <p className={`font-semibold text-slate-900 dark:text-slate-100 ${
-                          !notification.read ? '' : 'opacity-75'
-                        }`}>
+                        <p className={`font-semibold text-slate-900 dark:text-slate-100 ${!notification.read ? '' : 'opacity-75'
+                          }`}>
                           {notification.title}
                         </p>
                         {!notification.read && (
                           <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 mt-2"></div>
                         )}
                       </div>
-                      <p className={`text-sm text-slate-600 dark:text-slate-300 mt-1 ${
-                        !notification.read ? '' : 'opacity-75'
-                      }`}>
+                      <p className={`text-sm text-slate-600 dark:text-slate-300 mt-1 ${!notification.read ? '' : 'opacity-75'
+                        }`}>
                         {notification.message}
                       </p>
                       <span className="text-xs text-slate-500 dark:text-slate-400 mt-2 block">

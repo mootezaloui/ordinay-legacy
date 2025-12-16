@@ -3,14 +3,14 @@
  * Utility functions for global search across all entities
  */
 
-import { 
-  mockClients, 
-  mockDossiers, 
-  mockTasks, 
-  mockCases, 
+import {
+  mockClients,
+  mockDossiers,
+  mockTasks,
+  mockCases,
   mockSessions,
   mockOfficers,
-  mockAccounting
+  mockAccounting,
 } from "./mockData";
 
 /**
@@ -40,7 +40,7 @@ export function searchAllData(query) {
  * Searches: name, email, phone, cin, profession, company
  */
 function searchClients(query) {
-  return mockClients.filter(client => {
+  return mockClients.filter((client) => {
     return (
       client.name?.toLowerCase().includes(query) ||
       client.email?.toLowerCase().includes(query) ||
@@ -57,7 +57,7 @@ function searchClients(query) {
  * Searches: caseNumber, title, client, category, adversaryParty
  */
 function searchDossiers(query) {
-  return mockDossiers.filter(dossier => {
+  return mockDossiers.filter((dossier) => {
     return (
       dossier.caseNumber?.toLowerCase().includes(query) ||
       dossier.title?.toLowerCase().includes(query) ||
@@ -74,7 +74,7 @@ function searchDossiers(query) {
  * Searches: title, assignedTo, dossier, description
  */
 function searchTasks(query) {
-  return mockTasks.filter(task => {
+  return mockTasks.filter((task) => {
     return (
       task.title?.toLowerCase().includes(query) ||
       task.assignedTo?.toLowerCase().includes(query) ||
@@ -89,7 +89,7 @@ function searchTasks(query) {
  * Searches: caseNumber, title, dossier, court
  */
 function searchCases(query) {
-  return mockCases.filter(caseItem => {
+  return mockCases.filter((caseItem) => {
     return (
       caseItem.caseNumber?.toLowerCase().includes(query) ||
       caseItem.title?.toLowerCase().includes(query) ||
@@ -104,7 +104,7 @@ function searchCases(query) {
  * Searches: title, type, location
  */
 function searchSessions(query) {
-  return mockSessions.filter(session => {
+  return mockSessions.filter((session) => {
     return (
       session.title?.toLowerCase().includes(query) ||
       session.type?.toLowerCase().includes(query) ||
@@ -118,7 +118,7 @@ function searchSessions(query) {
  * Searches: name, specialization, location
  */
 function searchOfficers(query) {
-  return mockOfficers.filter(officer => {
+  return mockOfficers.filter((officer) => {
     return (
       officer.name?.toLowerCase().includes(query) ||
       officer.specialization?.toLowerCase().includes(query) ||
@@ -134,7 +134,7 @@ function searchOfficers(query) {
  * Searches: invoiceNumber, client, type
  */
 function searchAccounting(query) {
-  return mockAccounting.filter(invoice => {
+  return mockAccounting.filter((invoice) => {
     return (
       invoice.invoiceNumber?.toLowerCase().includes(query) ||
       invoice.client?.toLowerCase().includes(query) ||
@@ -148,9 +148,11 @@ function searchAccounting(query) {
  */
 export function getTotalResultsCount(results) {
   if (!results) return 0;
-  
+
   return Object.values(results).reduce((total, categoryResults) => {
-    return total + (Array.isArray(categoryResults) ? categoryResults.length : 0);
+    return (
+      total + (Array.isArray(categoryResults) ? categoryResults.length : 0)
+    );
   }, 0);
 }
 
@@ -159,14 +161,14 @@ export function getTotalResultsCount(results) {
  */
 export function filterEmptyCategories(results) {
   if (!results) return null;
-  
+
   const filtered = {};
   Object.entries(results).forEach(([category, items]) => {
     if (Array.isArray(items) && items.length > 0) {
       filtered[category] = items;
     }
   });
-  
+
   return filtered;
 }
 
@@ -189,7 +191,7 @@ export function getRecentSearches() {
 export function saveRecentSearch(query) {
   try {
     const recent = getRecentSearches();
-    const updated = [query, ...recent.filter(q => q !== query)].slice(0, 5);
+    const updated = [query, ...recent.filter((q) => q !== query)].slice(0, 5);
     localStorage.setItem("recentSearches", JSON.stringify(updated));
   } catch (error) {
     console.error("Failed to save recent search:", error);

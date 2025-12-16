@@ -195,6 +195,13 @@ export const personalTaskConfig = {
       component: "overview",
     },
     {
+      id: "financial",
+      label: "Comptabilité",
+      icon: "fas fa-coins",
+      component: "financial",
+      description: "Frais de bureau et dépenses internes liés à cette tâche"
+    },
+    {
       id: "documents",
       label: "Documents",
       icon: "fas fa-file",

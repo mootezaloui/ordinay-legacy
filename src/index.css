@@ -75,7 +75,20 @@
 
   /* Smooth transitions for theme changes */
   * {
-    @apply transition-colors duration-200;
+    @apply transition-colors duration-150;
+  }
+
+  /* Better hover states for light mode */
+  button:not(:disabled):hover,
+  a:hover,
+  [role="button"]:hover {
+    @apply brightness-95;
+  }
+
+  .dark button:not(:disabled):hover,
+  .dark a:hover,
+  .dark [role="button"]:hover {
+    @apply brightness-110;
   }
 }
 
@@ -83,6 +96,19 @@
    Custom Scrollbar (Optional)
 -------------------------- */
 @layer utilities {
+  /* Enhanced hover states for light mode */
+  .hover-light {
+    @apply hover:bg-slate-200 dark:hover:bg-slate-700;
+  }
+
+  .hover-light-subtle {
+    @apply hover:bg-slate-100 dark:hover:bg-slate-800;
+  }
+
+  .hover-visible {
+    @apply hover:bg-slate-300 dark:hover:bg-slate-600;
+  }
+
   /* Custom scrollbar for webkit browsers */
   .scrollbar-thin::-webkit-scrollbar {
     width: 8px;
@@ -163,4 +189,19 @@
 
 .dark .scrollbar-thin::-webkit-scrollbar-thumb {
   background: #475569;
+}
+
+@keyframes pop {
+  0% {
+    transform: scale(0.97);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-pop {
+  animation: pop 0.28s ease-out;
 }

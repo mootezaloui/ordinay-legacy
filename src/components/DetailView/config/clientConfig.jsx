@@ -43,17 +43,8 @@ export const clientConfig = {
       colorMap: true,
       options: [
         { value: "Actif", label: "Actif", color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" },
-        { value: "Inactif", label: "Inactif", color: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300" },
-        { value: "Prospect", label: "Prospect", color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" },
-        { value: "Archivé", label: "Archivé", color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
+        { value: "Inactif", label: "Inactif", color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300" },
       ],
-      validation: (data, newValue) => {
-        // Example: Cannot archive if there are active dossiers
-        if (newValue === "Archivé" && data.relatedDossiers && data.relatedDossiers.some(d => d.status === "Ouvert")) {
-          return "Impossible d'archiver : le client a des dossiers actifs";
-        }
-        return null;
-      }
     }
   ],
 

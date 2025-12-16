@@ -1,15 +1,18 @@
 import { useState } from "react";
+import { useToast } from "../contexts/ToastContext";
+import { getNotificationPreferences, updateNotificationPreferences } from "../utils/scheduledNotifications";
 import PageLayout from "../components/layout/PageLayout";
 import PageHeader from "../components/layout/PageHeader";
 import ContentSection from "../components/layout/ContentSection";
 
 export default function Settings() {
+  const { showToast } = useToast();
   const [settings, setSettings] = useState({
     // General Settings
     language: "fr",
     timezone: "Africa/Tunis",
     dateFormat: "DD/MM/YYYY",
-    
+
     // Notification Settings
     emailNotifications: true,
     smsNotifications: false,
@@ -17,24 +20,42 @@ export default function Settings() {
     notifyNewClient: true,
     notifyNewCase: true,
     notifyDeadlines: true,
-    
+
     // Security Settings
     twoFactorAuth: false,
     sessionTimeout: "30",
-    
+
     // Appearance
     theme: "system",
     compactMode: false,
   });
 
+  // Load notification preferences
+  const [notificationPrefs, setNotificationPrefs] = useState(getNotificationPreferences());
+
   const handleChange = (field, value) => {
     setSettings(prev => ({ ...prev, [field]: value }));
   };
 
+  const handleNotificationPrefChange = (category, field, value) => {
+    setNotificationPrefs(prev => ({
+      ...prev,
+      [category]: {
+        ...prev[category],
+        [field]: value
+      }
+    }));
+  };
+
   const handleSave = () => {
     console.log("Settings saved:", settings);
+    console.log("Notification preferences saved:", notificationPrefs);
+
+    // Save notification preferences
+    updateNotificationPreferences('default', notificationPrefs);
+
     // TODO: API call to save settings
-    alert("Paramètres enregistrés avec succès!");
+    showToast("Paramètres enregistrés avec succès!", "success");
   };
 
   return (
@@ -129,41 +150,16 @@ export default function Settings() {
               </div>
               <button
                 onClick={() => handleChange("emailNotifications", !settings.emailNotifications)}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  settings.emailNotifications ? "bg-blue-600" : "bg-slate-300 dark:bg-slate-600"
-                }`}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${settings.emailNotifications ? "bg-blue-600" : "bg-slate-300 dark:bg-slate-600"
+                  }`}
               >
                 <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    settings.emailNotifications ? "translate-x-6" : "translate-x-1"
-                  }`}
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${settings.emailNotifications ? "translate-x-6" : "translate-x-1"
+                    }`}
                 />
               </button>
             </div>
 
-            {/* SMS Notifications */}
-            <div className="flex items-center justify-between py-3 border-b border-slate-200 dark:border-slate-700">
-              <div>
-                <label className="text-sm font-medium text-slate-900 dark:text-white">
-                  Notifications SMS
-                </label>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                  Recevoir des notifications par SMS
-                </p>
-              </div>
-              <button
-                onClick={() => handleChange("smsNotifications", !settings.smsNotifications)}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  settings.smsNotifications ? "bg-blue-600" : "bg-slate-300 dark:bg-slate-600"
-                }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    settings.smsNotifications ? "translate-x-6" : "translate-x-1"
-                  }`}
-                />
-              </button>
-            </div>
 
             {/* Push Notifications */}
             <div className="flex items-center justify-between py-3 border-b border-slate-200 dark:border-slate-700">
@@ -177,14 +173,12 @@ export default function Settings() {
               </div>
               <button
                 onClick={() => handleChange("pushNotifications", !settings.pushNotifications)}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  settings.pushNotifications ? "bg-blue-600" : "bg-slate-300 dark:bg-slate-600"
-                }`}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${settings.pushNotifications ? "bg-blue-600" : "bg-slate-300 dark:bg-slate-600"
+                  }`}
               >
                 <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    settings.pushNotifications ? "translate-x-6" : "translate-x-1"
-                  }`}
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${settings.pushNotifications ? "translate-x-6" : "translate-x-1"
+                    }`}
                 />
               </button>
             </div>
@@ -201,14 +195,12 @@ export default function Settings() {
               </div>
               <button
                 onClick={() => handleChange("notifyNewClient", !settings.notifyNewClient)}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  settings.notifyNewClient ? "bg-blue-600" : "bg-slate-300 dark:bg-slate-600"
-                }`}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${settings.notifyNewClient ? "bg-blue-600" : "bg-slate-300 dark:bg-slate-600"
+                  }`}
               >
                 <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    settings.notifyNewClient ? "translate-x-6" : "translate-x-1"
-                  }`}
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${settings.notifyNewClient ? "translate-x-6" : "translate-x-1"
+                    }`}
                 />
               </button>
             </div>
@@ -225,14 +217,12 @@ export default function Settings() {
               </div>
               <button
                 onClick={() => handleChange("notifyNewCase", !settings.notifyNewCase)}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  settings.notifyNewCase ? "bg-blue-600" : "bg-slate-300 dark:bg-slate-600"
-                }`}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${settings.notifyNewCase ? "bg-blue-600" : "bg-slate-300 dark:bg-slate-600"
+                  }`}
               >
                 <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    settings.notifyNewCase ? "translate-x-6" : "translate-x-1"
-                  }`}
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${settings.notifyNewCase ? "translate-x-6" : "translate-x-1"
+                    }`}
                 />
               </button>
             </div>
@@ -249,16 +239,197 @@ export default function Settings() {
               </div>
               <button
                 onClick={() => handleChange("notifyDeadlines", !settings.notifyDeadlines)}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  settings.notifyDeadlines ? "bg-blue-600" : "bg-slate-300 dark:bg-slate-600"
-                }`}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${settings.notifyDeadlines ? "bg-blue-600" : "bg-slate-300 dark:bg-slate-600"
+                  }`}
               >
                 <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    settings.notifyDeadlines ? "translate-x-6" : "translate-x-1"
-                  }`}
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${settings.notifyDeadlines ? "translate-x-6" : "translate-x-1"
+                    }`}
                 />
               </button>
+            </div>
+          </div>
+        </ContentSection>
+
+        {/* Date-Related Notification Preferences */}
+        <ContentSection title="Rappels Automatiques">
+          <div className="p-6 space-y-6">
+            {/* Tasks */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <i className="fas fa-tasks text-blue-600"></i>
+                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Tâches</h3>
+                </div>
+                <button
+                  onClick={() => handleNotificationPrefChange("tasks", "enabled", !notificationPrefs.tasks.enabled)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${notificationPrefs.tasks.enabled ? "bg-blue-600" : "bg-slate-300 dark:bg-slate-600"}`}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${notificationPrefs.tasks.enabled ? "translate-x-6" : "translate-x-1"}`} />
+                </button>
+              </div>
+              {notificationPrefs.tasks.enabled && (
+                <div className="ml-6 space-y-2 text-xs">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={notificationPrefs.tasks.overdueReminders}
+                      onChange={(e) => handleNotificationPrefChange("tasks", "overdueReminders", e.target.checked)}
+                      className="rounded border-slate-300 dark:border-slate-600"
+                    />
+                    <span className="text-slate-700 dark:text-slate-300">Rappels pour tâches en retard</span>
+                  </label>
+                  <p className="text-slate-500 dark:text-slate-400 ml-5">
+                    Rappels avant échéance: {notificationPrefs.tasks.beforeDeadline.join(', ')} jours
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Sessions */}
+            <div className="space-y-3 pt-4 border-t border-slate-200 dark:border-slate-700">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <i className="fas fa-gavel text-purple-600"></i>
+                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Séances</h3>
+                </div>
+                <button
+                  onClick={() => handleNotificationPrefChange("sessions", "enabled", !notificationPrefs.sessions.enabled)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${notificationPrefs.sessions.enabled ? "bg-blue-600" : "bg-slate-300 dark:bg-slate-600"}`}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${notificationPrefs.sessions.enabled ? "translate-x-6" : "translate-x-1"}`} />
+                </button>
+              </div>
+              {notificationPrefs.sessions.enabled && (
+                <div className="ml-6 space-y-2 text-xs">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={notificationPrefs.sessions.preparationReminders}
+                      onChange={(e) => handleNotificationPrefChange("sessions", "preparationReminders", e.target.checked)}
+                      className="rounded border-slate-300 dark:border-slate-600"
+                    />
+                    <span className="text-slate-700 dark:text-slate-300">Rappels de préparation</span>
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={notificationPrefs.sessions.dayOfReminder}
+                      onChange={(e) => handleNotificationPrefChange("sessions", "dayOfReminder", e.target.checked)}
+                      className="rounded border-slate-300 dark:border-slate-600"
+                    />
+                    <span className="text-slate-700 dark:text-slate-300">Rappel le jour même</span>
+                  </label>
+                  <p className="text-slate-500 dark:text-slate-400 ml-5">
+                    Rappels: {notificationPrefs.sessions.reminderDays.join(', ')} jours avant
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Payments */}
+            <div className="space-y-3 pt-4 border-t border-slate-200 dark:border-slate-700">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <i className="fas fa-dollar-sign text-green-600"></i>
+                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Paiements</h3>
+                </div>
+                <button
+                  onClick={() => handleNotificationPrefChange("payments", "enabled", !notificationPrefs.payments.enabled)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${notificationPrefs.payments.enabled ? "bg-blue-600" : "bg-slate-300 dark:bg-slate-600"}`}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${notificationPrefs.payments.enabled ? "translate-x-6" : "translate-x-1"}`} />
+                </button>
+              </div>
+              {notificationPrefs.payments.enabled && (
+                <div className="ml-6 space-y-2 text-xs">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={notificationPrefs.payments.overdueReminders}
+                      onChange={(e) => handleNotificationPrefChange("payments", "overdueReminders", e.target.checked)}
+                      className="rounded border-slate-300 dark:border-slate-600"
+                    />
+                    <span className="text-slate-700 dark:text-slate-300">Relances pour paiements en retard</span>
+                  </label>
+                  <p className="text-slate-500 dark:text-slate-400 ml-5">
+                    Rappels avant: {notificationPrefs.payments.reminderDays.join(', ')} jours
+                  </p>
+                  <p className="text-slate-500 dark:text-slate-400 ml-5">
+                    Relances après retard: {notificationPrefs.payments.overdueReminderFrequency.join(', ')} jours
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Missions */}
+            <div className="space-y-3 pt-4 border-t border-slate-200 dark:border-slate-700">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <i className="fas fa-briefcase text-orange-600"></i>
+                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Missions</h3>
+                </div>
+                <button
+                  onClick={() => handleNotificationPrefChange("missions", "enabled", !notificationPrefs.missions.enabled)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${notificationPrefs.missions.enabled ? "bg-blue-600" : "bg-slate-300 dark:bg-slate-600"}`}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${notificationPrefs.missions.enabled ? "translate-x-6" : "translate-x-1"}`} />
+                </button>
+              </div>
+              {notificationPrefs.missions.enabled && (
+                <div className="ml-6 space-y-2 text-xs">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={notificationPrefs.missions.completionCheck}
+                      onChange={(e) => handleNotificationPrefChange("missions", "completionCheck", e.target.checked)}
+                      className="rounded border-slate-300 dark:border-slate-600"
+                    />
+                    <span className="text-slate-700 dark:text-slate-300">Vérification après mission terminée</span>
+                  </label>
+                  <p className="text-slate-500 dark:text-slate-400 ml-5">
+                    Rappels: {notificationPrefs.missions.reminderDays.join(', ')} jours avant
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Dossiers */}
+            <div className="space-y-3 pt-4 border-t border-slate-200 dark:border-slate-700">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <i className="fas fa-folder-open text-amber-600"></i>
+                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Dossiers</h3>
+                </div>
+                <button
+                  onClick={() => handleNotificationPrefChange("dossiers", "enabled", !notificationPrefs.dossiers.enabled)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${notificationPrefs.dossiers.enabled ? "bg-blue-600" : "bg-slate-300 dark:bg-slate-600"}`}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${notificationPrefs.dossiers.enabled ? "translate-x-6" : "translate-x-1"}`} />
+                </button>
+              </div>
+              {notificationPrefs.dossiers.enabled && (
+                <div className="ml-6 space-y-2 text-xs">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={notificationPrefs.dossiers.inactivityReminder}
+                      onChange={(e) => handleNotificationPrefChange("dossiers", "inactivityReminder", e.target.checked)}
+                      className="rounded border-slate-300 dark:border-slate-600"
+                    />
+                    <span className="text-slate-700 dark:text-slate-300">Rappel d'inactivité ({notificationPrefs.dossiers.inactivityDays} jours)</span>
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={notificationPrefs.dossiers.reviewReminder}
+                      onChange={(e) => handleNotificationPrefChange("dossiers", "reviewReminder", e.target.checked)}
+                      className="rounded border-slate-300 dark:border-slate-600"
+                    />
+                    <span className="text-slate-700 dark:text-slate-300">Rappel de révision (tous les {notificationPrefs.dossiers.reviewInterval} jours)</span>
+                  </label>
+                </div>
+              )}
             </div>
           </div>
         </ContentSection>
@@ -278,14 +449,12 @@ export default function Settings() {
               </div>
               <button
                 onClick={() => handleChange("twoFactorAuth", !settings.twoFactorAuth)}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  settings.twoFactorAuth ? "bg-blue-600" : "bg-slate-300 dark:bg-slate-600"
-                }`}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${settings.twoFactorAuth ? "bg-blue-600" : "bg-slate-300 dark:bg-slate-600"
+                  }`}
               >
                 <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    settings.twoFactorAuth ? "translate-x-6" : "translate-x-1"
-                  }`}
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${settings.twoFactorAuth ? "translate-x-6" : "translate-x-1"
+                    }`}
                 />
               </button>
             </div>
@@ -344,30 +513,6 @@ export default function Settings() {
                 <option value="dark">Sombre</option>
                 <option value="system">Système</option>
               </select>
-            </div>
-
-            {/* Compact Mode */}
-            <div className="flex items-center justify-between">
-              <div>
-                <label className="text-sm font-medium text-slate-900 dark:text-white">
-                  Mode compact
-                </label>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                  Interface plus dense avec moins d'espacement
-                </p>
-              </div>
-              <button
-                onClick={() => handleChange("compactMode", !settings.compactMode)}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  settings.compactMode ? "bg-blue-600" : "bg-slate-300 dark:bg-slate-600"
-                }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    settings.compactMode ? "translate-x-6" : "translate-x-1"
-                  }`}
-                />
-              </button>
             </div>
           </div>
         </ContentSection>

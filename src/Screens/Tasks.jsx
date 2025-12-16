@@ -1,7 +1,8 @@
-import { useState, useRef, useLayoutEffect, useEffect } from "react";
-import { createPortal } from "react-dom";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAdvancedTable } from "../hooks/useAdvancedTable";
+import { useToast } from "../contexts/ToastContext";
+import { useConfirm } from "../contexts/ConfirmContext";
 import PageLayout from "../components/layout/PageLayout";
 import PageHeader from "../components/layout/PageHeader";
 import ContentSection from "../components/layout/ContentSection";
@@ -15,394 +16,15 @@ import TableToolbar from "../components/table/TableToolbar";
 import Pagination from "../components/table/Pagination";
 import FormModal from "../components/FormModal/FormModal";
 import StatCard from "../components/dashboard/StatCard";
+import InlineStatusSelector from "../components/InlineSelectors/InlineStatusSelector";
+import InlinePrioritySelector from "../components/InlineSelectors/InlinePrioritySelector";
 import { taskFormFields, getFormTitle } from "../components/FormModal/formConfigs";
 import { mockTasks, mockDossiers, mockCases, getStatusColor } from "../utils/mockData";
 
-// Global state to track which dropdown is currently open
-let currentOpenTaskStatusDropdown = null;
-let currentOpenTaskPriorityDropdown = null;
-
-/**
- * StatusDropdown - Inline status selector for tasks
- * Uses portal to render dropdown menu above all containers
- */
-function StatusDropdown({ task, onStatusChange, onClick }) {
-  const [isOpen, setIsOpen] = useState(false);
-  const buttonRef = useRef(null);
-  const dropdownIdRef = useRef(Symbol('task-status-dropdown'));
-  const [menuPosition, setMenuPosition] = useState(null); // null until computed to avoid flash at (0,0)
-
-  const statusOptions = [
-    { value: "Non commencée", label: "Non commencée", icon: "fas fa-circle", color: "text-slate-500" },
-    { value: "En cours", label: "En cours", icon: "fas fa-spinner", color: "text-blue-600" },
-    { value: "En attente", label: "En attente", icon: "fas fa-pause-circle", color: "text-amber-600" },
-    { value: "Terminée", label: "Terminée", icon: "fas fa-check-circle", color: "text-green-600" },
-  ];
-
-  const currentStatus = statusOptions.find(s => s.value === task.status) || statusOptions[0];
-
-  const computeMenuPosition = () => {
-    if (!buttonRef.current) return null;
-    const rect = buttonRef.current.getBoundingClientRect();
-    const spaceBelow = window.innerHeight - rect.bottom;
-    const menuHeight = statusOptions.length * 40 + 8;
-    const menuWidth = 192;
-    const viewportLeft = 8;
-    const viewportRight = window.innerWidth - 8;
-
-    const shouldPositionAbove = spaceBelow < menuHeight && rect.top > menuHeight;
-
-    let left = rect.left;
-    if (left + menuWidth > viewportRight) {
-      left = rect.right - menuWidth;
-    }
-    if (left < viewportLeft) {
-      left = viewportLeft;
-    }
-
-    const top = shouldPositionAbove
-      ? rect.top - menuHeight - 4
-      : rect.bottom + 4;
-
-    return { top, left, width: rect.width };
-  };
-
-  // Update menu position when opened (sync calculation before paint)
-  useLayoutEffect(() => {
-    let rafId = null;
-
-    const updatePosition = () => {
-      if (rafId) cancelAnimationFrame(rafId);
-      rafId = requestAnimationFrame(() => {
-        if (isOpen) {
-          const pos = computeMenuPosition();
-          if (pos) setMenuPosition(pos);
-        }
-      });
-    };
-
-    updatePosition();
-
-    if (isOpen) {
-      window.addEventListener('scroll', updatePosition, true);
-      window.addEventListener('resize', updatePosition);
-      if (window.visualViewport) {
-        window.visualViewport.addEventListener('resize', updatePosition);
-        window.visualViewport.addEventListener('scroll', updatePosition);
-      }
-
-      return () => {
-        if (rafId) cancelAnimationFrame(rafId);
-        window.removeEventListener('scroll', updatePosition, true);
-        window.removeEventListener('resize', updatePosition);
-        if (window.visualViewport) {
-          window.visualViewport.removeEventListener('resize', updatePosition);
-          window.visualViewport.removeEventListener('scroll', updatePosition);
-        }
-      };
-    }
-  }, [isOpen, statusOptions.length]);
-
-  const handleStatusClick = (e, newStatus) => {
-    e.stopPropagation();
-    if (newStatus !== task.status) {
-      onStatusChange(task.id, newStatus);
-    }
-    setIsOpen(false);
-    if (currentOpenTaskStatusDropdown === dropdownIdRef.current) {
-      currentOpenTaskStatusDropdown = null;
-    }
-  };
-
-  const handleToggle = (e) => {
-    e.stopPropagation();
-
-    // Close any other open dropdown
-    if (currentOpenTaskStatusDropdown && currentOpenTaskStatusDropdown !== dropdownIdRef.current) {
-      // Trigger a custom event to close other dropdowns
-      window.dispatchEvent(new CustomEvent('closeAllTaskStatusDropdowns', {
-        detail: { except: dropdownIdRef.current }
-      }));
-    }
-
-    if (!isOpen) {
-      const pos = computeMenuPosition();
-      setMenuPosition(pos);
-      setIsOpen(true);
-      currentOpenTaskStatusDropdown = dropdownIdRef.current;
-    } else {
-      setIsOpen(false);
-      if (currentOpenTaskStatusDropdown === dropdownIdRef.current) {
-        currentOpenTaskStatusDropdown = null;
-      }
-    }
-
-    if (onClick) onClick(e);
-  };
-
-  // Listen for global close event
-  useEffect(() => {
-    const handleCloseAll = (e) => {
-      if (e.detail?.except !== dropdownIdRef.current) {
-        setIsOpen(false);
-      }
-    };
-
-    window.addEventListener('closeAllTaskStatusDropdowns', handleCloseAll);
-    return () => window.removeEventListener('closeAllTaskStatusDropdowns', handleCloseAll);
-  }, []);
-
-  // Close on outside click
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (buttonRef.current && !buttonRef.current.contains(e.target)) {
-        setIsOpen(false);
-        if (currentOpenTaskStatusDropdown === dropdownIdRef.current) {
-          currentOpenTaskStatusDropdown = null;
-        }
-      }
-    };
-
-    if (isOpen) {
-      document.addEventListener("click", handleClickOutside);
-      return () => document.removeEventListener("click", handleClickOutside);
-    }
-  }, [isOpen]);
-
-  return (
-    <>
-      <button
-        ref={buttonRef}
-        onClick={handleToggle}
-        className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium transition-all hover:ring-2 hover:ring-blue-300 dark:hover:ring-blue-700 ${getStatusColor(task.status)}`}
-      >
-        <i className={`${currentStatus.icon} text-xs`}></i>
-        <span>{currentStatus.label}</span>
-        <i className="fas fa-chevron-down text-xs"></i>
-      </button>
-
-      {isOpen && menuPosition && createPortal(
-        <div
-          className="fixed w-48 bg-white dark:bg-slate-800 rounded-lg shadow-2xl border border-slate-200 dark:border-slate-700 py-1"
-          style={{
-            top: `${menuPosition.top}px`,
-            left: `${menuPosition.left}px`,
-            zIndex: 9999,
-          }}
-          onClick={(e) => e.stopPropagation()}
-        >
-            {statusOptions.map((status) => (
-              <button
-                key={status.value}
-                onClick={(e) => handleStatusClick(e, status.value)}
-                className={`w-full text-left px-4 py-2 text-sm flex items-center gap-3 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors ${
-                  status.value === task.status ? 'bg-blue-50 dark:bg-blue-900/20' : ''
-                }`}
-              >
-                <i className={`${status.icon} ${status.color} dark:${status.color} w-4`}></i>
-                <span className="text-slate-900 dark:text-white">{status.label}</span>
-                {status.value === task.status && (
-                  <i className="fas fa-check text-blue-600 dark:text-blue-400 ml-auto text-xs"></i>
-                )}
-              </button>
-            ))}
-        </div>,
-        document.body
-      )}
-    </>
-  );
-}
-
-/**
- * PriorityDropdown - Inline priority selector for tasks
- * Same portal pattern as StatusDropdown for consistency
- */
-function PriorityDropdown({ task, onPriorityChange }) {
-  const [isOpen, setIsOpen] = useState(false);
-  const buttonRef = useRef(null);
-  const dropdownIdRef = useRef(Symbol('task-priority-dropdown'));
-  const [menuPosition, setMenuPosition] = useState(null); // null until computed to avoid flash at (0,0)
-
-  const priorityOptions = [
-    { value: "Haute", label: "Haute", icon: "fas fa-arrow-up", color: "text-red-600 dark:text-red-400", bgColor: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" },
-    { value: "Moyenne", label: "Moyenne", icon: "fas fa-minus", color: "text-amber-600 dark:text-amber-400", bgColor: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
-    { value: "Basse", label: "Basse", icon: "fas fa-arrow-down", color: "text-green-600 dark:text-green-400", bgColor: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" },
-  ];
-
-  const currentPriority = priorityOptions.find(p => p.value === task.priority) || priorityOptions[1];
-
-  const computeMenuPosition = () => {
-    if (!buttonRef.current) return null;
-    const rect = buttonRef.current.getBoundingClientRect();
-    const spaceBelow = window.innerHeight - rect.bottom;
-    const menuHeight = priorityOptions.length * 40 + 8;
-    const menuWidth = 176;
-    const viewportLeft = 8;
-    const viewportRight = window.innerWidth - 8;
-
-    const shouldPositionAbove = spaceBelow < menuHeight && rect.top > menuHeight;
-
-    let left = rect.left;
-    if (left + menuWidth > viewportRight) {
-      left = rect.right - menuWidth;
-    }
-    if (left < viewportLeft) {
-      left = viewportLeft;
-    }
-
-    const top = shouldPositionAbove
-      ? rect.top - menuHeight - 4
-      : rect.bottom + 4;
-
-    return { top, left, width: rect.width };
-  };
-
-  // Update menu position when opened (sync calculation before paint)
-  useLayoutEffect(() => {
-    let rafId = null;
-
-    const updatePosition = () => {
-      if (rafId) cancelAnimationFrame(rafId);
-      rafId = requestAnimationFrame(() => {
-        if (isOpen) {
-          const pos = computeMenuPosition();
-          if (pos) setMenuPosition(pos);
-        }
-      });
-    };
-
-    updatePosition();
-
-    if (isOpen) {
-      window.addEventListener('scroll', updatePosition, true);
-      window.addEventListener('resize', updatePosition);
-      if (window.visualViewport) {
-        window.visualViewport.addEventListener('resize', updatePosition);
-        window.visualViewport.addEventListener('scroll', updatePosition);
-      }
-
-      return () => {
-        if (rafId) cancelAnimationFrame(rafId);
-        window.removeEventListener('scroll', updatePosition, true);
-        window.removeEventListener('resize', updatePosition);
-        if (window.visualViewport) {
-          window.visualViewport.removeEventListener('resize', updatePosition);
-          window.visualViewport.removeEventListener('scroll', updatePosition);
-        }
-      };
-    }
-  }, [isOpen, priorityOptions.length]);
-
-  const handlePriorityClick = (e, newPriority) => {
-    e.stopPropagation();
-    if (newPriority !== task.priority) {
-      onPriorityChange(task.id, newPriority);
-    }
-    setIsOpen(false);
-    if (currentOpenTaskPriorityDropdown === dropdownIdRef.current) {
-      currentOpenTaskPriorityDropdown = null;
-    }
-  };
-
-  const handleToggle = (e) => {
-    e.stopPropagation();
-
-    // Close any other open dropdown
-    if (currentOpenTaskPriorityDropdown && currentOpenTaskPriorityDropdown !== dropdownIdRef.current) {
-      // Trigger a custom event to close other dropdowns
-      window.dispatchEvent(new CustomEvent('closeAllTaskPriorityDropdowns', {
-        detail: { except: dropdownIdRef.current }
-      }));
-    }
-
-    if (!isOpen) {
-      const pos = computeMenuPosition();
-      setMenuPosition(pos);
-      setIsOpen(true);
-      currentOpenTaskPriorityDropdown = dropdownIdRef.current;
-    } else {
-      setIsOpen(false);
-      if (currentOpenTaskPriorityDropdown === dropdownIdRef.current) {
-        currentOpenTaskPriorityDropdown = null;
-      }
-    }
-  };
-
-  // Listen for global close event
-  useEffect(() => {
-    const handleCloseAll = (e) => {
-      if (e.detail?.except !== dropdownIdRef.current) {
-        setIsOpen(false);
-      }
-    };
-
-    window.addEventListener('closeAllTaskPriorityDropdowns', handleCloseAll);
-    return () => window.removeEventListener('closeAllTaskPriorityDropdowns', handleCloseAll);
-  }, []);
-
-  // Close on outside click
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (buttonRef.current && !buttonRef.current.contains(e.target)) {
-        setIsOpen(false);
-        if (currentOpenTaskPriorityDropdown === dropdownIdRef.current) {
-          currentOpenTaskPriorityDropdown = null;
-        }
-      }
-    };
-
-    if (isOpen) {
-      document.addEventListener("click", handleClickOutside);
-      return () => document.removeEventListener("click", handleClickOutside);
-    }
-  }, [isOpen]);
-
-  return (
-    <>
-      <button
-        ref={buttonRef}
-        onClick={handleToggle}
-        className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium transition-all hover:ring-2 hover:ring-blue-300 dark:hover:ring-blue-700 ${currentPriority.bgColor}`}
-      >
-        <i className={`${currentPriority.icon} text-xs`}></i>
-        <span>{currentPriority.label}</span>
-        <i className="fas fa-chevron-down text-xs"></i>
-      </button>
-
-      {isOpen && menuPosition && createPortal(
-        <div
-          className="fixed w-44 bg-white dark:bg-slate-800 rounded-lg shadow-2xl border border-slate-200 dark:border-slate-700 py-1"
-          style={{
-            top: `${menuPosition.top}px`,
-            left: `${menuPosition.left}px`,
-            zIndex: 9999,
-          }}
-          onClick={(e) => e.stopPropagation()}
-        >
-            {priorityOptions.map((priority) => (
-              <button
-                key={priority.value}
-                onClick={(e) => handlePriorityClick(e, priority.value)}
-                className={`w-full text-left px-4 py-2 text-sm flex items-center gap-3 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors ${
-                  priority.value === task.priority ? 'bg-blue-50 dark:bg-blue-900/20' : ''
-                }`}
-              >
-                <i className={`${priority.icon} ${priority.color} w-4`}></i>
-                <span className="text-slate-900 dark:text-white">{priority.label}</span>
-                {priority.value === task.priority && (
-                  <i className="fas fa-check text-blue-600 dark:text-blue-400 ml-auto text-xs"></i>
-                )}
-              </button>
-            ))}
-        </div>,
-        document.body
-      )}
-    </>
-  );
-}
-
 export default function Tasks() {
   const navigate = useNavigate();
+  const { showToast } = useToast();
+  const { confirm } = useConfirm();
 
   const [tasks, setTasks] = useState(mockTasks);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -426,6 +48,10 @@ export default function Tasks() {
         ? { ...t, status: newStatus }
         : t
     ));
+    showToast(`Statut mis a jour: ${newStatus}`, "info", {
+      title: "Mise a jour du statut",
+      context: "task",
+    });
   };
 
   const handlePriorityChange = (taskId, newPriority) => {
@@ -434,6 +60,10 @@ export default function Tasks() {
         ? { ...t, priority: newPriority }
         : t
     ));
+    showToast(`Priorite mise a jour: ${newPriority}`, "info", {
+      title: "Priorite de tache",
+      context: "task",
+    });
   };
 
   // Define table columns
@@ -493,9 +123,15 @@ export default function Tasks() {
       label: "Statut",
       sortable: true,
       render: (task) => (
-        <StatusDropdown
-          task={task}
-          onStatusChange={handleStatusChange}
+        <InlineStatusSelector
+          value={task.status}
+          onChange={(newStatus) => handleStatusChange(task.id, newStatus)}
+          statusOptions={[
+            { value: "Non commencée", label: "Non commencée", color: "slate" },
+            { value: "En cours", label: "En cours", color: "blue" },
+            { value: "En attente", label: "En attente", color: "amber" },
+            { value: "Terminée", label: "Terminée", color: "green" },
+          ]}
         />
       ),
     },
@@ -504,9 +140,9 @@ export default function Tasks() {
       label: "Priorité",
       sortable: true,
       render: (task) => (
-        <PriorityDropdown
-          task={task}
-          onPriorityChange={handlePriorityChange}
+        <InlinePrioritySelector
+          value={task.priority}
+          onChange={(newPriority) => handlePriorityChange(task.id, newPriority)}
         />
       ),
     },
@@ -567,9 +203,19 @@ export default function Tasks() {
     setIsModalOpen(true);
   };
 
-  const handleDelete = (id) => {
-    if (window.confirm("Êtes-vous sûr de vouloir supprimer cette tâche ?")) {
+  const handleDelete = async (id) => {
+    if (await confirm({
+      title: "Supprimer la tâche",
+      message: "Êtes-vous sûr de vouloir supprimer cette tâche ?",
+      confirmText: "Supprimer",
+      cancelText: "Annuler",
+      variant: "danger"
+    })) {
       setTasks(tasks.filter(t => t.id !== id));
+      showToast("Tâche supprimée", "warning", {
+        title: "Suppression",
+        context: "task",
+      });
     }
   };
 
@@ -590,7 +236,7 @@ export default function Tasks() {
             ? { ...formData, id: editingTask.id }
             : t
         ));
-        alert("Tâche modifiée avec succès!");
+        showToast("Tâche modifiée avec succès!", "success");
       } else {
         // Handle both dossier and case parent types
         const newTask = {
@@ -615,14 +261,14 @@ export default function Tasks() {
         }
 
         setTasks([newTask, ...tasks]);
-        alert("Tâche ajoutée avec succès!");
+        showToast("Tâche ajoutée avec succès!", "success");
       }
 
       setIsModalOpen(false);
       setEditingTask(null);
     } catch (error) {
       console.error("Error submitting task:", error);
-      alert("Erreur lors de l'enregistrement");
+      showToast("Erreur lors de l'enregistrement", "error");
     } finally {
       setIsLoading(false);
     }

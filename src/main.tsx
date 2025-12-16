@@ -3,6 +3,8 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { ThemeProvider } from "./contexts/ThemeProvider";
 import { SidebarProvider } from "./contexts/SidebarContext";
+import { ToastProvider } from "./contexts/ToastContext";
+import { ConfirmProvider } from "./contexts/ConfirmContext";
 import "@fortawesome/fontawesome-free/css/all.min.css";
 import { NotificationProvider } from "./contexts/NotificationContext";
 import AlertBanner from "./components/notifications/AlertBanner";
@@ -15,9 +17,13 @@ createRoot(document.getElementById("root")!).render(
       <AlertBanner />
       <ThemeProvider>
         <SidebarProvider>
-          <BrowserRouter>
-            <App />
-          </BrowserRouter>
+          <ToastProvider>
+            <ConfirmProvider>
+              <BrowserRouter>
+                <App />
+              </BrowserRouter>
+            </ConfirmProvider>
+          </ToastProvider>
         </SidebarProvider>
       </ThemeProvider>
     </NotificationProvider>

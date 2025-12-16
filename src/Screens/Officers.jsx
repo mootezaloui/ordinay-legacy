@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAdvancedTable } from "../hooks/useAdvancedTable";
+import { useToast } from "../contexts/ToastContext";
+import { useConfirm } from "../contexts/ConfirmContext";
 import PageLayout from "../components/layout/PageLayout";
 import PageHeader from "../components/layout/PageHeader";
 import ContentSection from "../components/layout/ContentSection";
@@ -19,6 +21,8 @@ import InlineStatusSelector from "../components/InlineSelectors/InlineStatusSele
 
 export default function Officers() {
   const navigate = useNavigate();
+  const { showToast } = useToast();
+  const { confirm } = useConfirm();
 
   const [officers, setOfficers] = useState(mockOfficers);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -83,8 +87,8 @@ export default function Officers() {
           value={officer.status}
           onChange={(newStatus) => handleStatusChange(officer.id, newStatus)}
           statusOptions={[
-            { value: "Actif", label: "Actif", icon: "fas fa-check-circle", color: "text-green-600" },
-            { value: "Inactif", label: "Inactif", icon: "fas fa-circle", color: "text-slate-600" },
+            { value: "Actif", label: "Actif", icon: "fas fa-check-circle", color: "green" },
+            { value: "Inactif", label: "Inactif", icon: "fas fa-circle", color: "slate" },
           ]}
         />
       ),
@@ -153,9 +157,19 @@ export default function Officers() {
     setIsModalOpen(true);
   };
 
-  const handleDelete = (id) => {
-    if (window.confirm("Êtes-vous sûr de vouloir supprimer cet huissier ?")) {
+  const handleDelete = async (id) => {
+    if (await confirm({
+      title: "Supprimer l'huissier",
+      message: "Êtes-vous sûr de vouloir supprimer cet huissier ?",
+      confirmText: "Supprimer",
+      cancelText: "Annuler",
+      variant: "danger"
+    })) {
       setOfficers(officers.filter(o => o.id !== id));
+      showToast("Huissier supprimé", "warning", {
+        title: "Suppression",
+        context: "officer",
+      });
     }
   };
 
@@ -182,21 +196,21 @@ export default function Officers() {
             ? { ...formData, id: editingOfficer.id }
             : o
         ));
-        alert("Huissier modifié avec succès!");
+        showToast("Huissier modifié avec succès!", "success");
       } else {
         const newOfficer = {
           ...formData,
           id: Date.now(),
         };
         setOfficers([newOfficer, ...officers]);
-        alert("Huissier ajouté avec succès!");
+        showToast("Huissier ajouté avec succès!", "success");
       }
 
       setIsModalOpen(false);
       setEditingOfficer(null);
     } catch (error) {
       console.error("Error submitting officer:", error);
-      alert("Erreur lors de l'enregistrement");
+      showToast("Erreur lors de l'enregistrement", "error");
     } finally {
       setIsLoading(false);
     }

@@ -1,15 +1,17 @@
-import { createContext, useContext, useState, useEffect, useCallback } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, useMemo } from "react";
+import notificationScheduler from "../services/notificationScheduler";
 
 /**
  * Notification Context
  * Centralized notification management system
- * 
+ *
  * Features:
  * - Add/Remove notifications
  * - Mark as read/unread
  * - Filter by type/priority
  * - Persist to localStorage
  * - Auto-generate notifications from app events
+ * - Scheduled date-based notifications
  */
 
 const NotificationContext = createContext();
@@ -40,7 +42,18 @@ export function NotificationProvider({ children }) {
       // Initialize with sample notifications
       setNotifications(getInitialNotifications());
     }
-  }, []);
+
+    // Start the notification scheduler
+    notificationScheduler.start((notification) => {
+      // When scheduler generates a notification, add it to the list
+      addNotification(notification);
+    });
+
+    // Cleanup on unmount
+    return () => {
+      notificationScheduler.stop();
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Save to localStorage whenever notifications change
   useEffect(() => {
@@ -49,41 +62,46 @@ export function NotificationProvider({ children }) {
     }
   }, [notifications]);
 
+  // Remove alert
+  const removeAlert = useCallback((alertId) => {
+    setAlerts(prev => prev.filter(a => a.id !== alertId));
+  }, []);
+
+  // Add alert (temporary banner notification)
+  const addAlert = useCallback((alert) => {
+    const duration = alert.duration ?? 5000;
+    const newAlert = {
+      id: Date.now() + Math.random(),
+      timestamp: new Date().toISOString(),
+      duration,
+      ...alert,
+    };
+
+    setAlerts(prev => [...prev, newAlert]);
+
+    // Auto-remove after duration (unless explicitly disabled)
+    if (typeof duration === "number" && duration > 0) {
+      setTimeout(() => {
+        removeAlert(newAlert.id);
+      }, duration);
+    }
+
+    return newAlert.id;
+  }, [removeAlert]);
+
   // Add new notification
   const addNotification = useCallback((notification) => {
     const newNotification = {
       id: Date.now() + Math.random(),
       timestamp: new Date().toISOString(),
       read: false,
+      severity: notification.severity || notification.priority || "info",
+      priority: notification.priority || notification.severity || "info",
       ...notification,
     };
 
     setNotifications(prev => [newNotification, ...prev]);
     return newNotification.id;
-  }, []);
-
-  // Add alert (temporary banner notification)
-  const addAlert = useCallback((alert) => {
-    const newAlert = {
-      id: Date.now() + Math.random(),
-      timestamp: new Date().toISOString(),
-      duration: alert.duration || 5000,
-      ...alert,
-    };
-
-    setAlerts(prev => [...prev, newAlert]);
-
-    // Auto-remove after duration
-    setTimeout(() => {
-      removeAlert(newAlert.id);
-    }, newAlert.duration);
-
-    return newAlert.id;
-  }, []);
-
-  // Remove alert
-  const removeAlert = useCallback((alertId) => {
-    setAlerts(prev => prev.filter(a => a.id !== alertId));
   }, []);
 
   // Mark notification as read
@@ -210,6 +228,74 @@ export function NotificationProvider({ children }) {
     });
   }, [addNotification]);
 
+  const severityConfig = useMemo(() => ({
+    success: { icon: "fas fa-check-circle", title: "Succes", duration: 3500 },
+    info: { icon: "fas fa-info-circle", title: "Info", duration: 4000 },
+    warning: { icon: "fas fa-exclamation-triangle", title: "Attention", duration: 8500 },
+    error: { icon: "fas fa-exclamation-circle", title: "Erreur", duration: 0 }, // 0 => require manual dismissal
+  }), []);
+
+  const buildNotification = useCallback((severity, payload = {}) => {
+    const config = severityConfig[severity] || severityConfig.info;
+    const title = payload.title || config.title;
+    const message = payload.message || config.message || "";
+    const duration = payload.duration ?? config.duration;
+
+    // Only add to notification center (bell) for errors or if explicitly requested
+    // Skip notification center for routine actions, warnings, success, info (toast-only)
+    const addToBell = payload.addToBell ?? (severity === "error");
+
+    let notificationId = null;
+
+    if (addToBell) {
+      notificationId = addNotification({
+        title,
+        message,
+        icon: payload.icon || config.icon,
+        link: payload.link,
+        type: payload.type || payload.context || "app",
+        priority: payload.priority || severity,
+        severity,
+        sticky: payload.sticky ?? (severity === "error" || severity === "warning"),
+        meta: payload.meta,
+      });
+    }
+
+    // Always show toast unless explicitly disabled
+    if (payload.toast !== false) {
+      addAlert({
+        type: severity,
+        title,
+        message,
+        action: payload.action,
+        duration: duration === 0 ? null : duration,
+      });
+    }
+
+    return notificationId;
+  }, [addAlert, addNotification, severityConfig]);
+
+  const notifier = useMemo(() => ({
+    success: (payload) => buildNotification("success", payload),
+    info: (payload) => buildNotification("info", payload),
+    warning: (payload) => buildNotification("warning", payload),
+    error: (payload) => buildNotification("error", payload),
+  }), [buildNotification]);
+
+  // Manual trigger for generating all notifications
+  const generateAllNotifications = useCallback((data) => {
+    const generatedNotifications = notificationScheduler.generateAllNotifications(data);
+    generatedNotifications.forEach(notification => {
+      addNotification(notification);
+    });
+    return generatedNotifications;
+  }, [addNotification]);
+
+  // Get scheduled notifications
+  const getScheduledNotifications = useCallback(() => {
+    return notificationScheduler.getScheduledNotifications();
+  }, []);
+
   const value = {
     // State
     notifications,
@@ -225,9 +311,10 @@ export function NotificationProvider({ children }) {
     deleteNotification,
     clearAll,
 
-    // Filters
+    // Filters & helpers
     getNotificationsByType,
     getNotificationsByPriority,
+    notify: notifier,
 
     // Event generators
     notifyNewClient,
@@ -238,6 +325,10 @@ export function NotificationProvider({ children }) {
     notifyDocumentUploaded,
     notifySessionScheduled,
     notifyDeadlineApproaching,
+
+    // Scheduler functions
+    generateAllNotifications,
+    getScheduledNotifications,
   };
 
   return (
@@ -250,7 +341,7 @@ export function NotificationProvider({ children }) {
 // Initial sample notifications
 function getInitialNotifications() {
   const now = new Date();
-  
+
   return [
     {
       id: 1,

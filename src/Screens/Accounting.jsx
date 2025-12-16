@@ -1,6 +1,8 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAdvancedTable } from "../hooks/useAdvancedTable";
+import { useToast } from "../contexts/ToastContext";
+import { useConfirm } from "../contexts/ConfirmContext";
 import PageLayout from "../components/layout/PageLayout";
 import PageHeader from "../components/layout/PageHeader";
 import ContentSection from "../components/layout/ContentSection";
@@ -33,11 +35,12 @@ import InlineStatusSelector from "../components/InlineSelectors/InlineStatusSele
 
 export default function Accounting() {
   const navigate = useNavigate();
+  const { showToast } = useToast();
+  const { confirm } = useConfirm();
 
   // Use financial ledger as source of truth
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState(null);
-  const [selectedEntry, setSelectedEntry] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [filterScope, setFilterScope] = useState("all"); // all, client, internal
   const [refreshKey, setRefreshKey] = useState(0); // Trigger re-renders on data changes
@@ -85,7 +88,7 @@ export default function Accounting() {
 
   // Handler functions (defined before columns to avoid hoisting issues)
   const handleView = (entry) => {
-    setSelectedEntry(entry);
+    navigate(`/accounting/${entry.id}`);
   };
 
   const handleEdit = (entry) => {
@@ -93,22 +96,22 @@ export default function Accounting() {
     setIsModalOpen(true);
   };
 
-  const handleDelete = (id) => {
-    if (window.confirm("Êtes-vous sûr de vouloir supprimer cette écriture comptable ?")) {
+  const handleDelete = async (id) => {
+    if (await confirm({
+      title: "Supprimer l'écriture",
+      message: "Êtes-vous sûr de vouloir supprimer cette écriture comptable ?",
+      confirmText: "Supprimer",
+      cancelText: "Annuler",
+      variant: "danger"
+    })) {
       deleteFinancialEntry(id);
       setRefreshKey((k) => k + 1); // Trigger re-render
-      setSelectedEntry(null); // Close detail modal if open
     }
   };
 
   const handleStatusChange = (id, newStatus) => {
     updateFinancialEntry(id, { status: newStatus });
     setRefreshKey((k) => k + 1); // Trigger re-render
-    // Update selectedEntry if it's being viewed
-    if (selectedEntry && selectedEntry.id === id) {
-      const updatedEntry = displayEntries.find(e => e.id === id);
-      setSelectedEntry(updatedEntry || null);
-    }
   };
 
   // Define table columns (memoized to ensure handler closures are stable)
@@ -180,11 +183,10 @@ export default function Accounting() {
       label: "Type",
       sortable: true,
       render: (entry) => (
-        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-          entry.type === "revenue"
-            ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300"
-            : "bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300"
-        }`}>
+        <span className={`px-2 py-1 rounded-full text-xs font-medium ${entry.type === "revenue"
+          ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300"
+          : "bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300"
+          }`}>
           {entry.type === "revenue" ? "Recette" : "Dépense"}
         </span>
       ),
@@ -194,11 +196,10 @@ export default function Accounting() {
       label: "Montant",
       sortable: true,
       render: (entry) => (
-        <span className={`font-semibold ${
-          entry.type === "revenue"
-            ? "text-emerald-600 dark:text-emerald-400"
-            : "text-rose-600 dark:text-rose-400"
-        }`}>
+        <span className={`font-semibold ${entry.type === "revenue"
+          ? "text-emerald-600 dark:text-emerald-400"
+          : "text-rose-600 dark:text-rose-400"
+          }`}>
           {entry.amountWithSign}
         </span>
       ),
@@ -212,10 +213,10 @@ export default function Accounting() {
           value={entry.status}
           onChange={(newStatus) => handleStatusChange(entry.id, newStatus)}
           statusOptions={[
-            { value: "draft", label: "Brouillon", icon: "fas fa-file", color: "text-gray-600" },
-            { value: "confirmed", label: "Confirmé", icon: "fas fa-check-circle", color: "text-blue-600" },
-            { value: "paid", label: "Payé", icon: "fas fa-check-double", color: "text-green-600" },
-            { value: "cancelled", label: "Annulé", icon: "fas fa-times-circle", color: "text-red-600" },
+            { value: "draft", label: "Brouillon", icon: "fas fa-file", color: "slate" },
+            { value: "confirmed", label: "Confirmé", icon: "fas fa-check-circle", color: "blue" },
+            { value: "paid", label: "Payé", icon: "fas fa-check-double", color: "green" },
+            { value: "cancelled", label: "Annulé", icon: "fas fa-times-circle", color: "red" },
           ]}
         />
       ),
@@ -272,7 +273,7 @@ export default function Accounting() {
       if (editingEntry) {
         // Update existing entry
         updateFinancialEntry(editingEntry.id, formData);
-        alert("Écriture modifiée avec succès!");
+        showToast("Écriture modifiée avec succès!", "success");
       } else {
         // Add new entry
         // Resolve relationship names
@@ -291,7 +292,7 @@ export default function Accounting() {
         };
 
         addFinancialEntry(newEntry);
-        alert("Écriture ajoutée avec succès!");
+        showToast("Écriture ajoutée avec succès!", "success");
       }
 
       setRefreshKey((k) => k + 1); // Trigger re-render
@@ -299,7 +300,7 @@ export default function Accounting() {
       setEditingEntry(null);
     } catch (error) {
       console.error("Error submitting entry:", error);
-      alert("Erreur lors de l'enregistrement");
+      showToast("Erreur lors de l'enregistrement", "error");
     } finally {
       setIsLoading(false);
     }
@@ -393,31 +394,28 @@ export default function Accounting() {
       <div className="mb-4 flex gap-2">
         <button
           onClick={() => setFilterScope("all")}
-          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-            filterScope === "all"
-              ? "bg-blue-600 text-white"
-              : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
-          }`}
+          className={`px-4 py-2 rounded-lg font-medium transition-colors ${filterScope === "all"
+            ? "bg-blue-600 text-white"
+            : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+            }`}
         >
           Toutes
         </button>
         <button
           onClick={() => setFilterScope("client")}
-          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-            filterScope === "client"
-              ? "bg-blue-600 text-white"
-              : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
-          }`}
+          className={`px-4 py-2 rounded-lg font-medium transition-colors ${filterScope === "client"
+            ? "bg-blue-600 text-white"
+            : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+            }`}
         >
           Clients
         </button>
         <button
           onClick={() => setFilterScope("internal")}
-          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-            filterScope === "internal"
-              ? "bg-blue-600 text-white"
-              : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
-          }`}
+          className={`px-4 py-2 rounded-lg font-medium transition-colors ${filterScope === "internal"
+            ? "bg-blue-600 text-white"
+            : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+            }`}
         >
           Bureau
         </button>
@@ -435,18 +433,16 @@ export default function Accounting() {
                 return (
                   <div
                     key={entry.id}
-                    className={`p-4 rounded-lg border cursor-pointer transition-colors ${
-                      isDraft
-                        ? "border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20"
-                        : "border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-900/20"
-                    }`}
+                    className={`p-4 rounded-lg border cursor-pointer transition-colors ${isDraft
+                      ? "border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20"
+                      : "border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-900/20"
+                      }`}
                     onClick={() => handleView(entry)}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div className={`w-3 h-3 rounded-full ${
-                          isDraft ? "bg-amber-500" : "bg-blue-500"
-                        }`} />
+                        <div className={`w-3 h-3 rounded-full ${isDraft ? "bg-amber-500" : "bg-blue-500"
+                          }`} />
                         <div>
                           <div className="font-medium text-slate-900 dark:text-white">
                             {entry.description}
@@ -457,11 +453,10 @@ export default function Accounting() {
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className={`font-semibold ${
-                          entry.type === "revenue"
-                            ? "text-emerald-600 dark:text-emerald-400"
-                            : "text-rose-600 dark:text-rose-400"
-                        }`}>
+                        <div className={`font-semibold ${entry.type === "revenue"
+                          ? "text-emerald-600 dark:text-emerald-400"
+                          : "text-rose-600 dark:text-rose-400"
+                          }`}>
                           {entry.amountWithSign}
                         </div>
                         <div className={`text-xs px-2 py-1 rounded-full inline-block bg-${entry.statusColor}-100 text-${entry.statusColor}-800 dark:bg-${entry.statusColor}-900/30 dark:text-${entry.statusColor}-300`}>
@@ -548,206 +543,6 @@ export default function Accounting() {
         initialData={editingEntry}
         isLoading={isLoading}
       />
-
-      {/* Detail View Modal */}
-      {selectedEntry && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-          onClick={() => setSelectedEntry(null)}
-        >
-          <div
-            className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Header */}
-            <div className="sticky top-0 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 p-6 rounded-t-xl z-10">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <i className={`${selectedEntry.categoryIcon} text-2xl text-${selectedEntry.categoryColor}-600`}></i>
-                    <div>
-                      <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
-                        Détails de l'écriture
-                      </h2>
-                      <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                        {selectedEntry.categoryLabel}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setSelectedEntry(null)}
-                  className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
-                >
-                  <i className="fas fa-times text-xl"></i>
-                </button>
-              </div>
-            </div>
-
-            {/* Content */}
-            <div className="p-6 space-y-6">
-              {/* Amount Card */}
-              <div className={`p-6 rounded-xl ${
-                selectedEntry.type === "revenue"
-                  ? "bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800"
-                  : "bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800"
-              }`}>
-                <div className="text-center">
-                  <div className="text-sm font-medium text-slate-600 dark:text-slate-400 mb-2">
-                    {selectedEntry.type === "revenue" ? "Recette" : "Dépense"}
-                  </div>
-                  <div className={`text-4xl font-bold ${
-                    selectedEntry.type === "revenue"
-                      ? "text-emerald-600 dark:text-emerald-400"
-                      : "text-rose-600 dark:text-rose-400"
-                  }`}>
-                    {selectedEntry.amountWithSign}
-                  </div>
-                </div>
-              </div>
-
-              {/* Details Grid */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg">
-                  <div className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
-                    Date
-                  </div>
-                  <div className="text-sm font-semibold text-slate-900 dark:text-white">
-                    {selectedEntry.date}
-                  </div>
-                </div>
-
-                <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg">
-                  <div className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
-                    Statut
-                  </div>
-                  <div className="mt-1">
-                    <InlineStatusSelector
-                      value={selectedEntry.status}
-                      onChange={(newStatus) => handleStatusChange(selectedEntry.id, newStatus)}
-                      statusOptions={[
-                        { value: "draft", label: "Brouillon", icon: "fas fa-file", color: "text-gray-600" },
-                        { value: "confirmed", label: "Confirmé", icon: "fas fa-check-circle", color: "text-blue-600" },
-                        { value: "paid", label: "Payé", icon: "fas fa-check-double", color: "text-green-600" },
-                        { value: "cancelled", label: "Annulé", icon: "fas fa-times-circle", color: "text-red-600" },
-                      ]}
-                    />
-                  </div>
-                </div>
-
-                {selectedEntry.scope && (
-                  <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg">
-                    <div className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
-                      Portée
-                    </div>
-                    <div className="text-sm font-semibold text-slate-900 dark:text-white">
-                      {selectedEntry.scope === 'client' ? 'Client' : 'Bureau'}
-                    </div>
-                  </div>
-                )}
-
-                <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg">
-                  <div className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
-                    Catégorie
-                  </div>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium bg-${selectedEntry.categoryColor}-100 text-${selectedEntry.categoryColor}-800 dark:bg-${selectedEntry.categoryColor}-900/30 dark:text-${selectedEntry.categoryColor}-300`}>
-                      {selectedEntry.categoryLabel}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Description */}
-              {selectedEntry.description && (
-                <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg">
-                  <div className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-2">
-                    Description
-                  </div>
-                  <div className="text-sm text-slate-900 dark:text-white whitespace-pre-wrap">
-                    {selectedEntry.description}
-                  </div>
-                </div>
-              )}
-
-              {/* Relationship Info */}
-              {(selectedEntry.clientName || selectedEntry.dossierReference || selectedEntry.caseReference) && (
-                <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg space-y-3">
-                  <div className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-2">
-                    Liée à
-                  </div>
-
-                  {selectedEntry.clientName && (
-                    <div className="flex items-center gap-2">
-                      <i className="fas fa-user text-slate-400"></i>
-                      <span className="text-sm font-medium text-slate-900 dark:text-white">
-                        {selectedEntry.clientName}
-                      </span>
-                    </div>
-                  )}
-
-                  {selectedEntry.dossierReference && (
-                    <div className="flex items-center gap-2">
-                      <i className="fas fa-folder text-slate-400"></i>
-                      <span className="text-sm text-slate-600 dark:text-slate-300">
-                        {selectedEntry.dossierReference}
-                      </span>
-                    </div>
-                  )}
-
-                  {selectedEntry.caseReference && (
-                    <div className="flex items-center gap-2">
-                      <i className="fas fa-gavel text-slate-400"></i>
-                      <span className="text-sm text-blue-600 dark:text-blue-400">
-                        {selectedEntry.caseReference}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Metadata */}
-              <div className="border-t border-slate-200 dark:border-slate-700 pt-4">
-                <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-                  <div>
-                    Créé le {selectedEntry.createdAt}
-                  </div>
-                  {selectedEntry.createdBy && (
-                    <div>
-                      par {selectedEntry.createdBy}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Footer Actions */}
-            <div className="sticky bottom-0 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-200 dark:border-slate-700 p-6 rounded-b-xl flex gap-3">
-              <button
-                onClick={() => {
-                  setSelectedEntry(null);
-                  handleEdit(selectedEntry);
-                }}
-                className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center justify-center gap-2"
-              >
-                <i className="fas fa-edit"></i>
-                Modifier
-              </button>
-              <button
-                onClick={() => {
-                  if (window.confirm("Êtes-vous sûr de vouloir supprimer cette écriture ?")) {
-                    handleDelete(selectedEntry.id);
-                  }
-                }}
-                className="px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center justify-center gap-2"
-              >
-                <i className="fas fa-trash"></i>
-                Supprimer
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </PageLayout>
   );
 }

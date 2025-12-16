@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAdvancedTable } from "../hooks/useAdvancedTable";
+import { useToast } from "../contexts/ToastContext";
+import { useConfirm } from "../contexts/ConfirmContext";
 import PageLayout from "../components/layout/PageLayout";
 import PageHeader from "../components/layout/PageHeader";
 import ContentSection from "../components/layout/ContentSection";
@@ -20,6 +22,8 @@ import { mockClients } from "../utils/mockData";
 
 export default function Clients() {
   const navigate = useNavigate();
+  const { showToast } = useToast();
+  const { confirm } = useConfirm();
 
   // Store clients in state
   const [clients, setClients] = useState(mockClients);
@@ -78,8 +82,8 @@ export default function Clients() {
           value={client.status}
           onChange={(newStatus) => handleStatusChange(client.id, newStatus)}
           statusOptions={[
-            { value: "Actif", label: "Actif", icon: "fas fa-circle-check", color: "text-green-600 dark:text-green-400" },
-            { value: "Inactif", label: "Inactif", icon: "fas fa-circle-xmark", color: "text-red-600 dark:text-red-400" },
+            { value: "Actif", label: "Actif", icon: "fas fa-circle-check", color: "green" },
+            { value: "Inactif", label: "Inactif", icon: "fas fa-circle-xmark", color: "red" },
           ]}
         />
       ),
@@ -143,6 +147,10 @@ export default function Clients() {
 
   const handleStatusChange = (id, newStatus) => {
     setClients(clients.map(c => c.id === id ? { ...c, status: newStatus } : c));
+    showToast(`Statut mis a jour: ${newStatus}`, "info", {
+      title: "Client mis a jour",
+      context: "client",
+    });
   };
 
   const handleEdit = (client) => {
@@ -150,9 +158,19 @@ export default function Clients() {
     setIsModalOpen(true);
   };
 
-  const handleDelete = (id) => {
-    if (window.confirm("Êtes-vous sûr de vouloir supprimer ce client ?")) {
+  const handleDelete = async (id) => {
+    if (await confirm({
+      title: "Supprimer le client",
+      message: "Êtes-vous sûr de vouloir supprimer ce client ?",
+      confirmText: "Supprimer",
+      cancelText: "Annuler",
+      variant: "danger"
+    })) {
       setClients(clients.filter(c => c.id !== id));
+      showToast("Client supprimé", "warning", {
+        title: "Suppression",
+        context: "client",
+      });
     }
   };
 
@@ -173,7 +191,7 @@ export default function Clients() {
             ? { ...formData, id: editingClient.id }
             : c
         ));
-        alert("Client modifié avec succès!");
+        showToast("Client modifié avec succès!", "success");
       } else {
         const newClient = {
           ...formData,
@@ -182,14 +200,14 @@ export default function Clients() {
         };
 
         setClients([newClient, ...clients]);
-        alert("Client ajouté avec succès!");
+        showToast("Client ajouté avec succès!", "success");
       }
 
       setIsModalOpen(false);
       setEditingClient(null);
     } catch (error) {
       console.error("Error submitting client:", error);
-      alert("Erreur lors de l'enregistrement");
+      showToast("Erreur lors de l'enregistrement", "error");
     } finally {
       setIsLoading(false);
     }
