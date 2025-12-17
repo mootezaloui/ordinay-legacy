@@ -19,6 +19,9 @@ import FormModal from "../components/FormModal/FormModal";
 import { caseFormFields } from "../components/FormModal/formConfigs";
 import { mockCases, mockDossiers } from "../utils/mockData";
 import InlineStatusSelector from "../components/InlineSelectors/InlineStatusSelector";
+import BlockerModal from "../components/ui/BlockerModal";
+import ConfirmImpactModal from "../components/ui/ConfirmImpactModal";
+import { canPerformAction } from "../services/domainRules";
 
 export default function Cases() {
   const navigate = useNavigate();
@@ -29,6 +32,10 @@ export default function Cases() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCase, setEditingCase] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [blockerModalOpen, setBlockerModalOpen] = useState(false);
+  const [validationResult, setValidationResult] = useState(null);
+  const [confirmImpactModalOpen, setConfirmImpactModalOpen] = useState(false);
+  const [pendingFormData, setPendingFormData] = useState(null);
 
   // Define table columns
   const columns = [
@@ -90,6 +97,9 @@ export default function Cases() {
             { value: "Suspendu", label: "Suspendu", icon: "fas fa-pause-circle", color: "orange" },
             { value: "Clos", label: "Clos", icon: "fas fa-gavel", color: "slate" },
           ]}
+          entityType="case"
+          entityId={caseItem.id}
+          entityData={caseItem}
         />
       ),
     },
@@ -158,11 +168,30 @@ export default function Cases() {
   };
 
   const handleEdit = (caseItem) => {
+    // ✅ Validate before allowing edit
+    const result = canPerformAction('case', caseItem.id, 'edit', { data: caseItem });
+
+    if (!result.allowed) {
+      setValidationResult(result);
+      setBlockerModalOpen(true);
+      return;
+    }
+
     setEditingCase(caseItem);
     setIsModalOpen(true);
   };
 
   const handleDelete = async (id) => {
+    // ✅ Validate before allowing delete
+    const caseItem = cases.find(c => c.id === id);
+    const result = canPerformAction('case', id, 'delete', { data: caseItem });
+
+    if (!result.allowed) {
+      setValidationResult(result);
+      setBlockerModalOpen(true);
+      return;
+    }
+
     if (await confirm({
       title: "Supprimer le procès",
       message: "Êtes-vous sûr de vouloir supprimer ce procès ?",
@@ -194,6 +223,33 @@ export default function Cases() {
   };
 
   const handleSubmit = async (formData) => {
+    // ✅ Validate before submitting (EDIT mode only)
+    if (editingCase) {
+      const result = canPerformAction('case', editingCase.id, 'edit', {
+        data: editingCase,
+        newData: formData
+      });
+
+      if (!result.allowed) {
+        setValidationResult(result);
+        setBlockerModalOpen(true);
+        return;
+      }
+
+      // Phase 2.5: Check if confirmation is required for relational changes
+      if (result.requiresConfirmation) {
+        setValidationResult(result);
+        setPendingFormData(formData);
+        setConfirmImpactModalOpen(true);
+        return;
+      }
+    }
+
+    // Proceed with save
+    await performSave(formData);
+  };
+
+  const performSave = async (formData) => {
     setIsLoading(true);
 
     try {
@@ -225,6 +281,12 @@ export default function Cases() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleConfirmImpact = async () => {
+    setConfirmImpactModalOpen(false);
+    await performSave(pendingFormData);
+    setPendingFormData(null);
   };
 
   const handleExport = () => {
@@ -374,6 +436,27 @@ export default function Cases() {
         fields={populatedCaseFormFields}
         initialData={editingCase}
         isLoading={isLoading}
+      />
+
+      <BlockerModal
+        isOpen={blockerModalOpen}
+        onClose={() => setBlockerModalOpen(false)}
+        actionName="Modifier/Supprimer le procès"
+        blockers={validationResult?.blockers || []}
+        warnings={validationResult?.warnings || []}
+        entityName={validationResult?.entityData?.caseNumber || "Procès"}
+      />
+
+      <ConfirmImpactModal
+        isOpen={confirmImpactModalOpen}
+        onClose={() => {
+          setConfirmImpactModalOpen(false);
+          setPendingFormData(null);
+        }}
+        onConfirm={handleConfirmImpact}
+        actionName="modifier le rattachement du procès"
+        impactSummary={validationResult?.impactSummary || []}
+        entityName={editingCase?.caseNumber || ""}
       />
     </PageLayout>
   );

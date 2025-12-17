@@ -26,13 +26,15 @@ export default function DetailView({ entityType }) {
   const { showToast } = useToast();
   const { confirm } = useConfirm();
   const [isEditing, setIsEditing] = useState(false);
-  const [activeTab, setActiveTab] = useState("overview");
-  const [data, setData] = useState(null);
-  const [originalData, setOriginalData] = useState(null);
-  const [loading, setLoading] = useState(true);
 
   // Get configuration for this entity type
   const config = getEntityConfig(entityType);
+
+  // Set active tab to first tab from config (dynamically)
+  const [activeTab, setActiveTab] = useState(config.tabs?.[0]?.id || "overview");
+  const [data, setData] = useState(null);
+  const [originalData, setOriginalData] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -159,18 +161,19 @@ export default function DetailView({ entityType }) {
 
   // ✅ Handle structured section saves (batched changes)
   const handleSectionSave = async (sectionData) => {
-    const updatedData = { ...data, ...sectionData };
-    setData(updatedData);
-
     try {
       await config.updateData(id, sectionData);
+
+      // ✅ Refetch data to get enriched/denormalized fields
+      const refreshedData = await config.fetchData(id);
+      setData(refreshedData);
 
       // Create batched timeline entry for multiple field changes
       const changedFields = Object.keys(sectionData).filter(
         key => sectionData[key] !== originalData[key]
       );
 
-      if (changedFields.length > 0) {
+      if (changedFields.length > 0 && refreshedData.timeline) {
         const timelineEntry = {
           type: "fields_updated",
           event: "Plusieurs champs modifiés",
@@ -183,13 +186,11 @@ export default function DetailView({ entityType }) {
           })),
         };
 
-        if (updatedData.timeline) {
-          updatedData.timeline = [timelineEntry, ...updatedData.timeline];
-          setData(updatedData);
-        }
+        refreshedData.timeline = [timelineEntry, ...refreshedData.timeline];
+        setData(refreshedData);
       }
 
-      setOriginalData(updatedData);
+      setOriginalData(refreshedData);
       setIsEditing(false);
       showToast("Modifications enregistrées avec succès!", "success");
     } catch (error) {
@@ -251,6 +252,8 @@ export default function DetailView({ entityType }) {
             isEditing={isEditing}
             onDataChange={handleDataChange}
             onSectionSave={handleSectionSave}
+            entityType={config.entityType}
+            entityId={parseInt(id)}
           />
         );
       case "documents":

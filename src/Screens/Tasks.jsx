@@ -20,6 +20,9 @@ import InlineStatusSelector from "../components/InlineSelectors/InlineStatusSele
 import InlinePrioritySelector from "../components/InlineSelectors/InlinePrioritySelector";
 import { taskFormFields, getFormTitle } from "../components/FormModal/formConfigs";
 import { mockTasks, mockDossiers, mockCases, getStatusColor } from "../utils/mockData";
+import BlockerModal from "../components/ui/BlockerModal";
+import ConfirmImpactModal from "../components/ui/ConfirmImpactModal";
+import { canPerformAction } from "../services/domainRules";
 
 export default function Tasks() {
   const navigate = useNavigate();
@@ -30,6 +33,10 @@ export default function Tasks() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [blockerModalOpen, setBlockerModalOpen] = useState(false);
+  const [validationResult, setValidationResult] = useState(null);
+  const [confirmImpactModalOpen, setConfirmImpactModalOpen] = useState(false);
+  const [pendingFormData, setPendingFormData] = useState(null);
 
   // Calculate stats
   const stats = {
@@ -132,6 +139,9 @@ export default function Tasks() {
             { value: "En attente", label: "En attente", color: "amber" },
             { value: "Terminée", label: "Terminée", color: "green" },
           ]}
+          entityType="task"
+          entityId={task.id}
+          entityData={task}
         />
       ),
     },
@@ -199,11 +209,30 @@ export default function Tasks() {
   };
 
   const handleEdit = (task) => {
+    // ✅ Validate before allowing edit
+    const result = canPerformAction('task', task.id, 'edit', { data: task });
+
+    if (!result.allowed) {
+      setValidationResult(result);
+      setBlockerModalOpen(true);
+      return;
+    }
+
     setEditingTask(task);
     setIsModalOpen(true);
   };
 
   const handleDelete = async (id) => {
+    // ✅ Validate before allowing delete
+    const task = tasks.find(t => t.id === id);
+    const result = canPerformAction('task', id, 'delete', { data: task });
+
+    if (!result.allowed) {
+      setValidationResult(result);
+      setBlockerModalOpen(true);
+      return;
+    }
+
     if (await confirm({
       title: "Supprimer la tâche",
       message: "Êtes-vous sûr de vouloir supprimer cette tâche ?",
@@ -225,6 +254,33 @@ export default function Tasks() {
   };
 
   const handleSubmit = async (formData) => {
+    // ✅ Validate before submitting (EDIT mode only)
+    if (editingTask) {
+      const result = canPerformAction('task', editingTask.id, 'edit', {
+        data: editingTask,
+        newData: formData
+      });
+
+      if (!result.allowed) {
+        setValidationResult(result);
+        setBlockerModalOpen(true);
+        return;
+      }
+
+      // Phase 2.5: Check if confirmation is required for relational changes
+      if (result.requiresConfirmation) {
+        setValidationResult(result);
+        setPendingFormData(formData);
+        setConfirmImpactModalOpen(true);
+        return;
+      }
+    }
+
+    // Proceed with save
+    await performSave(formData);
+  };
+
+  const performSave = async (formData) => {
     setIsLoading(true);
 
     try {
@@ -272,6 +328,12 @@ export default function Tasks() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleConfirmImpact = async () => {
+    setConfirmImpactModalOpen(false);
+    await performSave(pendingFormData);
+    setPendingFormData(null);
   };
 
   const handleExport = () => {
@@ -420,6 +482,27 @@ export default function Tasks() {
         fields={taskFields}
         initialData={editingTask}
         isLoading={isLoading}
+      />
+
+      <BlockerModal
+        isOpen={blockerModalOpen}
+        onClose={() => setBlockerModalOpen(false)}
+        actionName="Modifier/Supprimer la tâche"
+        blockers={validationResult?.blockers || []}
+        warnings={validationResult?.warnings || []}
+        entityName={validationResult?.entityData?.title || "Tâche"}
+      />
+
+      <ConfirmImpactModal
+        isOpen={confirmImpactModalOpen}
+        onClose={() => {
+          setConfirmImpactModalOpen(false);
+          setPendingFormData(null);
+        }}
+        onConfirm={handleConfirmImpact}
+        actionName="modifier le rattachement de la tâche"
+        impactSummary={validationResult?.impactSummary || []}
+        entityName={editingTask?.title || ""}
       />
     </PageLayout>
   );

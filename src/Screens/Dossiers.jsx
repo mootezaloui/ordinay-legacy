@@ -20,6 +20,9 @@ import { mockDossiers, mockClients } from "../utils/mockData";
 import StatCard from "../components/dashboard/StatCard";
 import InlineStatusSelector from "../components/InlineSelectors/InlineStatusSelector";
 import InlinePrioritySelector from "../components/InlineSelectors/InlinePrioritySelector";
+import BlockerModal from "../components/ui/BlockerModal";
+import ConfirmImpactModal from "../components/ui/ConfirmImpactModal";
+import { canPerformAction } from "../services/domainRules";
 
 export default function Dossiers() {
   const navigate = useNavigate();
@@ -30,6 +33,10 @@ export default function Dossiers() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingDossier, setEditingDossier] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [blockerModalOpen, setBlockerModalOpen] = useState(false);
+  const [validationResult, setValidationResult] = useState(null);
+  const [confirmImpactModalOpen, setConfirmImpactModalOpen] = useState(false);
+  const [pendingFormData, setPendingFormData] = useState(null);
 
   // Calculate stats
   const stats = {
@@ -84,6 +91,9 @@ export default function Dossiers() {
             { value: "Fermé", label: "Fermé", icon: "fas fa-check-circle", color: "slate" },
             { value: "Suspendu", label: "Suspendu", icon: "fas fa-pause-circle", color: "red" },
           ]}
+          entityType="dossier"
+          entityId={dossier.id}
+          entityData={dossier}
         />
       ),
     },
@@ -156,11 +166,30 @@ export default function Dossiers() {
   };
 
   const handleEdit = (dossier) => {
+    // ✅ Validate before allowing edit
+    const result = canPerformAction('dossier', dossier.id, 'edit', { data: dossier });
+
+    if (!result.allowed) {
+      setValidationResult(result);
+      setBlockerModalOpen(true);
+      return;
+    }
+
     setEditingDossier(dossier);
     setIsModalOpen(true);
   };
 
   const handleDelete = async (id) => {
+    // ✅ Validate before allowing delete
+    const dossier = dossiers.find(d => d.id === id);
+    const result = canPerformAction('dossier', id, 'delete', { data: dossier });
+
+    if (!result.allowed) {
+      setValidationResult(result);
+      setBlockerModalOpen(true);
+      return;
+    }
+
     if (await confirm({
       title: "Supprimer le dossier",
       message: "Êtes-vous sûr de vouloir supprimer ce dossier ?",
@@ -202,6 +231,33 @@ export default function Dossiers() {
   };
 
   const handleSubmit = async (formData) => {
+    // ✅ Validate before submitting (EDIT mode only)
+    if (editingDossier) {
+      const result = canPerformAction('dossier', editingDossier.id, 'edit', {
+        data: editingDossier,
+        newData: formData
+      });
+
+      if (!result.allowed) {
+        setValidationResult(result);
+        setBlockerModalOpen(true);
+        return;
+      }
+
+      // Phase 2.5: Check if confirmation is required for relational changes
+      if (result.requiresConfirmation) {
+        setValidationResult(result);
+        setPendingFormData(formData);
+        setConfirmImpactModalOpen(true);
+        return;
+      }
+    }
+
+    // Proceed with save
+    await performSave(formData);
+  };
+
+  const performSave = async (formData) => {
     setIsLoading(true);
 
     try {
@@ -233,6 +289,12 @@ export default function Dossiers() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleConfirmImpact = async () => {
+    setConfirmImpactModalOpen(false);
+    await performSave(pendingFormData);
+    setPendingFormData(null);
   };
 
   const handleExport = () => {
@@ -382,6 +444,27 @@ export default function Dossiers() {
         fields={dossierFields}
         initialData={editingDossier}
         isLoading={isLoading}
+      />
+
+      <BlockerModal
+        isOpen={blockerModalOpen}
+        onClose={() => setBlockerModalOpen(false)}
+        actionName="Modifier/Supprimer le dossier"
+        blockers={validationResult?.blockers || []}
+        warnings={validationResult?.warnings || []}
+        entityName={validationResult?.entityData?.caseNumber || "Dossier"}
+      />
+
+      <ConfirmImpactModal
+        isOpen={confirmImpactModalOpen}
+        onClose={() => {
+          setConfirmImpactModalOpen(false);
+          setPendingFormData(null);
+        }}
+        onConfirm={handleConfirmImpact}
+        actionName="modifier le rattachement du dossier"
+        impactSummary={validationResult?.impactSummary || []}
+        entityName={editingDossier?.caseNumber || ""}
       />
     </PageLayout>
   );

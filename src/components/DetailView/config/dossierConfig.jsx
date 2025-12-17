@@ -27,8 +27,28 @@ export const dossierConfig = {
   },
 
   updateData: async (id, data) => {
-    console.log("Updating dossier:", id, data);
-    // TODO: API call
+    // ✅ Actually update the dossier data in mockDossiersExtended
+    if (mockDossiersExtended[id]) {
+      const enrichedData = { ...data };
+
+      // ✅ Update client object when clientId changes
+      if ('clientId' in data) {
+        const client = mockClients.find(c => c.id === parseInt(data.clientId));
+        if (client) {
+          enrichedData.client = {
+            id: client.id,
+            name: client.name,
+            email: client.email,
+            phone: client.phone
+          };
+        }
+      }
+
+      mockDossiersExtended[id] = {
+        ...mockDossiersExtended[id],
+        ...enrichedData,
+      };
+    }
     await new Promise(resolve => setTimeout(resolve, 500));
   },
 
@@ -52,13 +72,7 @@ export const dossierConfig = {
         { value: "Fermé", label: "Fermé", color: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300" },
         { value: "Suspendu", label: "Suspendu", color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" },
       ],
-      validation: (data, newValue) => {
-        // Example: Cannot close if there are open tasks
-        if (newValue === "Fermé" && data.tasks && data.tasks.length > 0) {
-          return "Impossible de fermer : des tâches sont encore ouvertes";
-        }
-        return null;
-      }
+      // Validation now handled by domainRules service
     },
     {
       key: "priority",

@@ -3,13 +3,24 @@ import SearchableSelect from "./SearchableSelect";
 import InlineStatusSelector from "../InlineSelectors/InlineStatusSelector";
 import InlinePrioritySelector from "../InlineSelectors/InlinePrioritySelector";
 import { useNotifications } from "../../contexts/NotificationContext";
+import BlockerModal from "../ui/BlockerModal";
+import ConfirmImpactModal from "../ui/ConfirmImpactModal";
+import { canPerformAction } from "../../services/domainRules";
 
 /**
- * FormModal - Enhanced with improved responsive design
+ * FormModal - Enhanced with improved responsive design and domain rule validation
  * ✅ Adaptive width based on screen size
  * ✅ Better spacing to minimize scrolling
  * ✅ Compact layout options
  * ✅ Smart grid layout based on field count
+ * ✅ DOMAIN RULE VALIDATION - Enforces business rules and prevents integrity violations
+ * ✅ RELATIONAL-IMPACT CONFIRMATIONS - Requires user confirmation for structural changes
+ *
+ * CRITICAL SECURITY:
+ * - Pass entityType, entityId, and editingEntity props for EDIT mode validation
+ * - FormModal will automatically validate edits through canPerformAction()
+ * - Blocked actions show BlockerModal with clear explanations
+ * - Relational changes show ConfirmImpactModal requiring explicit confirmation
  */
 export default function FormModal({
   isOpen,
@@ -28,11 +39,21 @@ export default function FormModal({
   // ✅ NEW: Layout options
   size = "auto", // 'sm' | 'md' | 'lg' | 'xl' | 'auto'
   compact = false, // Compact spacing
+  // ✅ NEW: Domain rule validation (CRITICAL for integrity)
+  entityType = null, // Entity type for validation (e.g., 'dossier', 'case', 'task')
+  entityId = null, // Entity ID for edit mode validation
+  editingEntity = null, // Current entity data for edit mode
 }) {
   const [internalFormData, setInternalFormData] = useState({});
   const [errors, setErrors] = useState({});
   const [initialized, setInitialized] = useState(false);
   const { notify } = useNotifications();
+
+  // ✅ Domain rule validation state
+  const [blockerModalOpen, setBlockerModalOpen] = useState(false);
+  const [confirmImpactModalOpen, setConfirmImpactModalOpen] = useState(false);
+  const [validationResult, setValidationResult] = useState(null);
+  const [pendingFormData, setPendingFormData] = useState(null);
 
   // Use external formData if provided, otherwise use internal
   const formData = externalFormData !== undefined ? externalFormData : internalFormData;
@@ -172,15 +193,50 @@ export default function FormModal({
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    if (validateForm()) {
-      onSubmit(formData);
-    } else {
+    // Step 1: Field validation (required fields, custom validators)
+    if (!validateForm()) {
       notify.warning({
         title: "Champs requis",
         message: "Merci de corriger les erreurs du formulaire avant de continuer.",
         context: "form",
       });
+      return;
     }
+
+    // Step 2: Domain rule validation (CRITICAL - prevents integrity violations)
+    if (entityType && editingEntity && entityId) {
+      // EDIT MODE: Validate edit action
+      const result = canPerformAction(entityType, entityId, 'edit', {
+        data: editingEntity,
+        newData: formData
+      });
+
+      if (!result.allowed) {
+        // BLOCKED: Show blocker modal
+        setValidationResult(result);
+        setBlockerModalOpen(true);
+        return;
+      }
+
+      // Phase 2.5: Check for relational-impact changes
+      if (result.requiresConfirmation) {
+        // REQUIRES CONFIRMATION: Show impact modal
+        setValidationResult(result);
+        setPendingFormData(formData);
+        setConfirmImpactModalOpen(true);
+        return;
+      }
+    }
+
+    // Step 3: Proceed with submission
+    onSubmit(formData);
+  };
+
+  // Handle confirmed relational-impact changes
+  const handleConfirmImpact = () => {
+    setConfirmImpactModalOpen(false);
+    onSubmit(pendingFormData);
+    setPendingFormData(null);
   };
 
   if (!isOpen) return null;
@@ -303,6 +359,28 @@ export default function FormModal({
           </form>
         </div>
       </div>
+
+      {/* Domain Rule Validation Modals */}
+      <BlockerModal
+        isOpen={blockerModalOpen}
+        onClose={() => setBlockerModalOpen(false)}
+        actionName={editingEntity ? "Modifier" : "Enregistrer"}
+        blockers={validationResult?.blockers || []}
+        warnings={validationResult?.warnings || []}
+        entityName={editingEntity?.title || editingEntity?.name || editingEntity?.caseNumber || ""}
+      />
+
+      <ConfirmImpactModal
+        isOpen={confirmImpactModalOpen}
+        onClose={() => {
+          setConfirmImpactModalOpen(false);
+          setPendingFormData(null);
+        }}
+        onConfirm={handleConfirmImpact}
+        actionName="modifier le rattachement"
+        impactSummary={validationResult?.impactSummary || []}
+        entityName={editingEntity?.title || editingEntity?.name || editingEntity?.caseNumber || ""}
+      />
     </div>
   );
 }

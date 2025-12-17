@@ -1,8 +1,6 @@
 import ContentSection from "../../layout/ContentSection";
 import { mockOfficersExtended, mockDossiers, mockCases, getStatusColor } from "../../../utils/mockData";
 import { missionFormFields } from "../../FormModal/formConfigs";
-import InlineStatusSelector from "../../InlineSelectors/InlineStatusSelector";
-import InlinePrioritySelector from "../../InlineSelectors/InlinePrioritySelector";
 
 /**
  * Mission Entity Configuration
@@ -37,7 +35,17 @@ export const missionConfig = {
     },
 
     updateData: async (id, data) => {
-        console.log("Updating mission:", id, data);
+        // ✅ Actually update the mission data in mockOfficersExtended
+        for (const officer of Object.values(mockOfficersExtended)) {
+            const missionIndex = officer.missions?.findIndex(m => m.id === parseInt(id));
+            if (missionIndex !== -1 && missionIndex !== undefined) {
+                officer.missions[missionIndex] = {
+                    ...officer.missions[missionIndex],
+                    ...data,
+                };
+                break;
+            }
+        }
         await new Promise(resolve => setTimeout(resolve, 300));
     },
 
@@ -213,18 +221,22 @@ export const missionConfig = {
             });
         }
 
-        if (data.status === "Terminée") {
+        if (data.status === "Terminée" && data.assignDate && data.completionDate) {
             const assignDate = new Date(data.assignDate);
             const completionDate = new Date(data.completionDate);
-            const days = Math.ceil((completionDate - assignDate) / (1000 * 60 * 60 * 24));
 
-            stats.push({
-                icon: "fas fa-hourglass-half",
-                iconColor: "text-amber-600 dark:text-amber-400",
-                bgColor: "bg-amber-100 dark:bg-amber-900/20",
-                value: `${days}j`,
-                label: "Durée"
-            });
+            // Validate that both dates are valid
+            if (!isNaN(assignDate.getTime()) && !isNaN(completionDate.getTime())) {
+                const days = Math.ceil((completionDate - assignDate) / (1000 * 60 * 60 * 24));
+
+                stats.push({
+                    icon: "fas fa-hourglass-half",
+                    iconColor: "text-amber-600 dark:text-amber-400",
+                    bgColor: "bg-amber-100 dark:bg-amber-900/20",
+                    value: `${days}j`,
+                    label: "Durée"
+                });
+            }
         }
 
         return stats;
@@ -233,108 +245,17 @@ export const missionConfig = {
     // Tabs configuration
     tabs: [
         {
-            id: "informations",
-            label: "Informations",
-            icon: "fas fa-info-circle",
-            render: (data, onUpdate) => (
-                <div className="space-y-6">
-                    {/* Mission Details Card */}
-                    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-6 border-2 border-blue-200 dark:border-blue-800">
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="w-12 h-12 rounded-lg bg-blue-500 flex items-center justify-center">
-                                <i className="fas fa-clipboard-check text-white text-xl"></i>
-                            </div>
-                            <h3 className="text-xl font-bold text-blue-900 dark:text-blue-100">
-                                Détails de la Mission
-                            </h3>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="bg-white/60 dark:bg-slate-800/60 p-4 rounded-lg">
-                                <p className="text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">Titre</p>
-                                <p className="text-base font-semibold text-slate-900 dark:text-white">{data.title}</p>
-                            </div>
-                            <div className="bg-white/60 dark:bg-slate-800/60 p-4 rounded-lg">
-                                <p className="text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">Type</p>
-                                <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-bold ${data.missionType === 'Signification'
-                                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
-                                    : data.missionType === 'Saisie'
-                                        ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
-                                        : data.missionType === 'Constat'
-                                            ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300'
-                                            : 'bg-slate-100 text-slate-700 dark:bg-slate-900/30 dark:text-slate-300'
-                                    }`}>
-                                    <i className="fas fa-briefcase"></i>
-                                    {data.missionType}
-                                </span>
-                            </div>
-                            <div className="bg-white/60 dark:bg-slate-800/60 p-4 rounded-lg">
-                                <p className="text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">Statut</p>
-                                <InlineStatusSelector
-                                    value={data.status}
-                                    onChange={(newStatus) => onUpdate({ status: newStatus })}
-                                    statusOptions={[
-                                        { value: "Programmée", label: "Programmée", icon: "fas fa-calendar", color: "blue" },
-                                        { value: "En cours", label: "En cours", icon: "fas fa-spinner", color: "amber" },
-                                        { value: "Terminée", label: "Terminée", icon: "fas fa-check-circle", color: "green" },
-                                        { value: "Annulée", label: "Annulée", icon: "fas fa-times-circle", color: "red" },
-                                    ]}
-                                />
-                            </div>
-                            <div className="bg-white/60 dark:bg-slate-800/60 p-4 rounded-lg">
-                                <p className="text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">Priorité</p>
-                                <InlinePrioritySelector
-                                    value={data.priority}
-                                    onChange={(newPriority) => onUpdate({ priority: newPriority })}
-                                />
-                            </div>
-                            {data.entityReference && (
-                                <div className="bg-white/60 dark:bg-slate-800/60 p-4 rounded-lg">
-                                    <p className="text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">Entité liée</p>
-                                    <p className="text-base font-semibold text-slate-900 dark:text-white">
-                                        {data.entityType === 'dossier' ? 'Dossier' : 'Procès'}: {data.entityReference}
-                                    </p>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Description */}
-                        {data.description && (
-                            <div className="mt-4 bg-white/60 dark:bg-slate-800/60 p-4 rounded-lg">
-                                <p className="text-sm font-medium text-slate-600 dark:text-slate-400 mb-2">Description</p>
-                                <p className="text-base text-slate-900 dark:text-white whitespace-pre-wrap">{data.description}</p>
-                            </div>
-                        )}
-
-                        {/* Result */}
-                        {data.result && (
-                            <div className="mt-4 bg-green-50/60 dark:bg-green-900/20 p-4 rounded-lg border border-green-200 dark:border-green-800">
-                                <p className="text-sm font-medium text-green-600 dark:text-green-400 mb-2">
-                                    <i className="fas fa-check-circle mr-2"></i>
-                                    Résultat
-                                </p>
-                                <p className="text-base text-slate-900 dark:text-white whitespace-pre-wrap">{data.result}</p>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Notes Card (if any) */}
-                    {data.notes && (
-                        <div className="bg-gradient-to-br from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 rounded-xl p-6 border-2 border-amber-200 dark:border-amber-800">
-                            <div className="flex items-center gap-3 mb-4">
-                                <div className="w-12 h-12 rounded-lg bg-amber-500 flex items-center justify-center">
-                                    <i className="fas fa-sticky-note text-white text-xl"></i>
-                                </div>
-                                <h3 className="text-xl font-bold text-amber-900 dark:text-amber-100">
-                                    Notes
-                                </h3>
-                            </div>
-                            <div className="bg-white/60 dark:bg-slate-800/60 p-4 rounded-lg">
-                                <p className="text-base text-slate-900 dark:text-white whitespace-pre-wrap">{data.notes}</p>
-                            </div>
-                        </div>
-                    )}
-                </div>
-            ),
+            id: "overview",
+            label: "Vue d'ensemble",
+            icon: "fas fa-eye",
+            component: "overview",
+        },
+        {
+            id: "frais",
+            label: "Frais d'Huissier",
+            icon: "fas fa-coins",
+            getCount: (data) => data.financialEntries?.length || 0,
+            component: "financial",
         },
         {
             id: "documents",
@@ -433,6 +354,173 @@ export const missionConfig = {
             label: "Historique",
             icon: "fas fa-history",
             component: "timeline",
+        },
+    ],
+
+    // Overview sections configuration
+    overviewSections: [
+        {
+            title: "Détails de la Mission",
+            editStrategy: "structured",
+            fields: [
+                {
+                    key: "missionNumber",
+                    label: "Numéro de mission",
+                    value: (data) => data.missionNumber,
+                    icon: "fas fa-hashtag",
+                    type: "text",
+                    editable: false // Auto-generated
+                },
+                {
+                    key: "title",
+                    label: "Titre",
+                    value: (data) => data.title,
+                    icon: "fas fa-heading",
+                    type: "text",
+                    editable: true
+                },
+                {
+                    key: "missionType",
+                    label: "Type de mission",
+                    value: (data) => data.missionType,
+                    icon: "fas fa-briefcase",
+                    type: "select",
+                    editable: true,
+                    options: [
+                        { value: "Signification", label: "Signification" },
+                        { value: "Constat", label: "Constat" },
+                        { value: "Saisie", label: "Saisie" },
+                        { value: "Exécution", label: "Exécution" },
+                        { value: "Autre", label: "Autre" },
+                    ]
+                },
+                {
+                    key: "status",
+                    label: "Statut",
+                    value: (data) => data.status,
+                    displayValue: (data) => data.status || "N/A",
+                    icon: "fas fa-flag",
+                    type: "select",
+                    editable: true,
+                    options: [
+                        { value: "Programmée", label: "Programmée" },
+                        { value: "En cours", label: "En cours" },
+                        { value: "Terminée", label: "Terminée" },
+                        { value: "Annulée", label: "Annulée" },
+                    ]
+                },
+                {
+                    key: "priority",
+                    label: "Priorité",
+                    value: (data) => data.priority,
+                    displayValue: (data) => data.priority || "N/A",
+                    icon: "fas fa-exclamation-circle",
+                    type: "select",
+                    editable: true,
+                    options: [
+                        { value: "Basse", label: "Basse" },
+                        { value: "Moyenne", label: "Moyenne" },
+                        { value: "Haute", label: "Haute" },
+                        { value: "Urgente", label: "Urgente" },
+                    ]
+                },
+            ],
+        },
+        {
+            title: "Dates",
+            editStrategy: "structured",
+            fields: [
+                {
+                    key: "assignDate",
+                    label: "Date d'assignation",
+                    value: (data) => data.assignDate,
+                    icon: "fas fa-calendar-plus",
+                    type: "date",
+                    editable: true
+                },
+                {
+                    key: "dueDate",
+                    label: "Date limite",
+                    value: (data) => data.dueDate,
+                    icon: "fas fa-calendar-times",
+                    type: "date",
+                    editable: true
+                },
+                {
+                    key: "completionDate",
+                    label: "Date d'achèvement",
+                    value: (data) => data.completionDate,
+                    icon: "fas fa-calendar-check",
+                    type: "date",
+                    editable: true
+                },
+            ],
+        },
+        {
+            title: "Description",
+            editStrategy: "structured",
+            type: "description",
+            fieldKey: "description",
+            content: (data) => data.description,
+        },
+        {
+            title: "Compte Rendu / Résultat",
+            editStrategy: "structured",
+            type: "description",
+            fieldKey: "result",
+            content: (data) => data.result || "Aucun compte rendu",
+        },
+        {
+            title: "Entité Liée",
+            // No editStrategy - this section is read-only (no edit button)
+            fields: [
+                {
+                    key: "entityReference",
+                    label: data => data.entityType === 'dossier' ? 'Dossier' : 'Procès',
+                    value: (data) => data.entityReference,
+                    displayValue: (data) => data.entityReference || "Aucune",
+                    icon: data => data.entityType === 'dossier' ? 'fas fa-folder' : 'fas fa-gavel',
+                    type: "text",
+                    editable: false
+                },
+            ],
+        },
+        {
+            title: "Huissier",
+            // No editStrategy - this section is read-only (no edit button)
+            fields: [
+                {
+                    key: "officerName",
+                    label: "Nom de l'huissier",
+                    value: (data) => data.officerName,
+                    icon: "fas fa-user-tie",
+                    type: "text",
+                    editable: false
+                },
+                {
+                    key: "officerPhone",
+                    label: "Téléphone",
+                    value: (data) => data.officerPhone,
+                    icon: "fas fa-phone",
+                    type: "tel",
+                    editable: false
+                },
+                {
+                    key: "officerLocation",
+                    label: "Localisation",
+                    value: (data) => data.officerLocation,
+                    icon: "fas fa-map-marker-alt",
+                    type: "text",
+                    editable: false
+                },
+            ],
+        },
+        {
+            title: "Notes",
+            editStrategy: "structured",
+            type: "notes",
+            fieldKey: "notes",
+            content: (data) => data.notes || "Aucune note",
         },
     ],
 

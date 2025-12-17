@@ -3,7 +3,6 @@ import { getFinancialEntriesForDisplay, formatCurrency } from "../../../utils/fi
 import { updateFinancialEntry, deleteFinancialEntry } from "../../../utils/financialData";
 import { mockClients, mockDossiers, mockCases } from "../../../utils/mockData";
 import { financialEntryFormFields, populateRelationshipOptions } from "../../FormModal/formConfigs";
-import InlineStatusSelector from "../../InlineSelectors/InlineStatusSelector";
 
 /**
  * Financial Entry Entity Configuration - Enhanced with tabs and better UI
@@ -24,7 +23,69 @@ export const financialEntryConfig = {
     },
 
     updateData: async (id, data) => {
-        updateFinancialEntry(parseInt(id), data);
+        // ✅ Enrich data with denormalized display fields before saving
+        const enrichedData = { ...data };
+
+        // Update clientName if clientId changed
+        if ('clientId' in data) {
+            if (data.clientId) {
+                const client = mockClients.find(c => c.id === parseInt(data.clientId));
+                if (client) {
+                    enrichedData.clientName = client.name;
+                }
+            } else {
+                enrichedData.clientName = null;
+            }
+        }
+
+        // Update dossierReference if dossierId changed
+        if ('dossierId' in data) {
+            if (data.dossierId) {
+                const dossier = mockDossiers.find(d => d.id === parseInt(data.dossierId));
+                if (dossier) {
+                    enrichedData.dossierReference = dossier.caseNumber;
+                    // Also auto-fill client if not provided
+                    if (!('clientId' in data) && dossier.clientId) {
+                        enrichedData.clientId = dossier.clientId;
+                        const client = mockClients.find(c => c.id === dossier.clientId);
+                        if (client) {
+                            enrichedData.clientName = client.name;
+                        }
+                    }
+                }
+            } else {
+                enrichedData.dossierReference = null;
+            }
+        }
+
+        // Update caseReference if caseId changed
+        if ('caseId' in data) {
+            if (data.caseId) {
+                const selectedCase = mockCases.find(c => c.id === parseInt(data.caseId));
+                if (selectedCase) {
+                    enrichedData.caseReference = selectedCase.caseNumber;
+                    // Also auto-fill dossier and client if not provided
+                    if (!('dossierId' in data) && selectedCase.dossierId) {
+                        enrichedData.dossierId = selectedCase.dossierId;
+                        const dossier = mockDossiers.find(d => d.id === selectedCase.dossierId);
+                        if (dossier) {
+                            enrichedData.dossierReference = dossier.caseNumber;
+                            if (!('clientId' in data) && dossier.clientId) {
+                                enrichedData.clientId = dossier.clientId;
+                                const client = mockClients.find(c => c.id === dossier.clientId);
+                                if (client) {
+                                    enrichedData.clientName = client.name;
+                                }
+                            }
+                        }
+                    }
+                }
+            } else {
+                enrichedData.caseReference = null;
+            }
+        }
+
+        updateFinancialEntry(parseInt(id), enrichedData);
         await new Promise(resolve => setTimeout(resolve, 300));
     },
 
@@ -186,137 +247,203 @@ export const financialEntryConfig = {
         );
     },
 
-    // Overview sections - removed, using tabs instead
-    overviewSections: [],
+    // Overview sections configuration
+    overviewSections: [
+        {
+            title: "Détails Financiers",
+            editStrategy: "structured",
+            fields: [
+                {
+                    key: "description",
+                    label: "Description",
+                    value: (data) => data.description,
+                    icon: "fas fa-file-text",
+                    type: "textarea",
+                    editable: true,
+                    rows: 2
+                },
+                {
+                    key: "amount",
+                    label: "Montant",
+                    value: (data) => data.amount,
+                    icon: "fas fa-money-bill-wave",
+                    type: "number",
+                    editable: true,
+                    min: 0,
+                    step: 0.01
+                },
+                {
+                    key: "type",
+                    label: "Type",
+                    value: (data) => data.type === 'revenue' ? 'Recette' : 'Dépense',
+                    icon: data => data.type === 'revenue' ? 'fas fa-arrow-trend-down' : 'fas fa-arrow-trend-up',
+                    type: "select",
+                    editable: true,
+                    options: [
+                        { value: "revenue", label: "Recette" },
+                        { value: "expense", label: "Dépense" },
+                    ]
+                },
+                {
+                    key: "category",
+                    label: "Catégorie",
+                    value: (data) => data.categoryLabel,
+                    icon: "fas fa-tag",
+                    type: "select",
+                    editable: true,
+                    options: [
+                        { value: "honoraires", label: "Honoraires" },
+                        { value: "frais_huissier", label: "Frais d'huissier" },
+                        { value: "frais_bureau", label: "Frais de bureau" },
+                        { value: "salaire", label: "Salaire" },
+                        { value: "autre", label: "Autre" },
+                    ]
+                },
+                {
+                    key: "status",
+                    label: "Statut",
+                    value: (data) => data.status,
+                    displayValue: (data) => {
+                        const statusMap = {
+                            draft: "Brouillon",
+                            confirmed: "Confirmé",
+                            paid: "Payé",
+                            cancelled: "Annulé"
+                        };
+                        return statusMap[data.status] || data.status;
+                    },
+                    icon: "fas fa-flag",
+                    type: "select",
+                    editable: true,
+                    options: [
+                        { value: "draft", label: "Brouillon" },
+                        { value: "confirmed", label: "Confirmé" },
+                        { value: "paid", label: "Payé" },
+                        { value: "cancelled", label: "Annulé" },
+                    ]
+                },
+                {
+                    key: "scope",
+                    label: "Portée",
+                    value: (data) => data.scope === 'client' ? 'Client' : 'Bureau',
+                    icon: data => data.scope === 'client' ? 'fas fa-user' : 'fas fa-building',
+                    type: "select",
+                    editable: true,
+                    options: [
+                        { value: "client", label: "Client" },
+                        { value: "internal", label: "Bureau (Interne)" },
+                    ]
+                },
+            ],
+        },
+        {
+            title: "Dates",
+            editStrategy: "structured",
+            fields: [
+                {
+                    key: "date",
+                    label: "Date de l'opération",
+                    value: (data) => data.date,
+                    icon: "fas fa-calendar",
+                    type: "date",
+                    editable: true
+                },
+                {
+                    key: "dueDate",
+                    label: "Date d'échéance",
+                    value: (data) => data.dueDate,
+                    icon: "fas fa-clock",
+                    type: "date",
+                    editable: true
+                },
+            ],
+        },
+        {
+            title: "Entités Liées",
+            editStrategy: "structured",
+            fields: [
+                {
+                    key: "clientId",
+                    label: "Client",
+                    value: (data) => data.clientId || "",
+                    displayValue: (data) => data.clientName || "Aucun",
+                    icon: "fas fa-user",
+                    type: "searchable-select",
+                    editable: true,
+                    options: [
+                        { value: "", label: "Sélectionner un client..." },
+                        ...mockClients.map(c => ({ value: c.id, label: c.name }))
+                    ],
+                    helpText: "Sélectionner le client concerné (cela filtrera les dossiers et procès disponibles)"
+                },
+                {
+                    key: "dossierId",
+                    label: "Dossier",
+                    value: (data) => data.dossierId || "",
+                    displayValue: (data) => data.dossierReference || "Aucun",
+                    icon: "fas fa-folder",
+                    type: "searchable-select",
+                    editable: true,
+                    getOptions: (editedData) => {
+                        // ✅ Filter dossiers by selected client
+                        const clientId = editedData?.clientId;
+                        const filteredDossiers = clientId
+                            ? mockDossiers.filter(d => d.clientId === parseInt(clientId))
+                            : mockDossiers;
+
+                        return [
+                            { value: "", label: clientId ? "Sélectionner un dossier..." : "Sélectionner d'abord un client" },
+                            ...filteredDossiers.map(d => ({
+                                value: d.id,
+                                label: `${d.caseNumber} - ${d.title}`
+                            }))
+                        ];
+                    },
+                    helpText: "Seuls les dossiers du client sélectionné sont affichés"
+                },
+                {
+                    key: "caseId",
+                    label: "Procès",
+                    value: (data) => data.caseId || "",
+                    displayValue: (data) => data.caseReference || "Aucun",
+                    icon: "fas fa-gavel",
+                    type: "searchable-select",
+                    editable: true,
+                    getOptions: (editedData) => {
+                        // ✅ Filter cases by selected dossier
+                        const dossierId = editedData?.dossierId;
+                        const filteredCases = dossierId
+                            ? mockCases.filter(c => c.dossierId === parseInt(dossierId))
+                            : mockCases;
+
+                        return [
+                            { value: "", label: dossierId ? "Sélectionner un procès..." : "Sélectionner d'abord un dossier" },
+                            ...filteredCases.map(c => ({
+                                value: c.id,
+                                label: `${c.caseNumber} - ${c.title}`
+                            }))
+                        ];
+                    },
+                    helpText: "Seuls les procès du dossier sélectionné sont affichés"
+                },
+            ],
+        },
+        {
+            title: "Notes",
+            editStrategy: "structured",
+            type: "notes",
+            fieldKey: "notes",
+            content: (data) => data.notes || "Aucune note",
+        },
+    ],
 
     // Tabs configuration with colorful design
     tabs: [
         {
-            id: "informations",
-            label: "Informations",
-            icon: "fas fa-info-circle",
-            render: (data, onUpdate) => (
-                <div className="space-y-6">
-                    {/* Financial Details Card */}
-                    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-6 border-2 border-blue-200 dark:border-blue-800">
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="w-12 h-12 rounded-lg bg-blue-500 flex items-center justify-center">
-                                <i className="fas fa-file-invoice-dollar text-white text-xl"></i>
-                            </div>
-                            <h3 className="text-xl font-bold text-blue-900 dark:text-blue-100">
-                                Détails Financiers
-                            </h3>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="bg-white/60 dark:bg-slate-800/60 p-4 rounded-lg">
-                                <p className="text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">Description</p>
-                                <p className="text-base font-semibold text-slate-900 dark:text-white">{data.description}</p>
-                            </div>
-                            <div className="bg-white/60 dark:bg-slate-800/60 p-4 rounded-lg">
-                                <p className="text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">Montant</p>
-                                <p className={`text-2xl font-bold ${data.type === 'revenue' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
-                                    {data.amountWithSign}
-                                </p>
-                            </div>
-                            <div className="bg-white/60 dark:bg-slate-800/60 p-4 rounded-lg">
-                                <p className="text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">Type</p>
-                                <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-bold ${data.type === 'revenue'
-                                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
-                                    : 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300'
-                                    }`}>
-                                    <i className={`fas ${data.type === 'revenue' ? 'fa-arrow-trend-down' : 'fa-arrow-trend-up'}`}></i>
-                                    {data.type === 'revenue' ? 'Recette' : 'Dépense'}
-                                </span>
-                            </div>
-                            <div className="bg-white/60 dark:bg-slate-800/60 p-4 rounded-lg">
-                                <p className="text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">Catégorie</p>
-                                <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-bold bg-${data.categoryColor}-100 text-${data.categoryColor}-700 dark:bg-${data.categoryColor}-900/30 dark:text-${data.categoryColor}-300`}>
-                                    <i className="fas fa-tag"></i>
-                                    {data.categoryLabel}
-                                </span>
-                            </div>
-                            <div className="bg-white/60 dark:bg-slate-800/60 p-4 rounded-lg">
-                                <p className="text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">Statut</p>
-                                <InlineStatusSelector
-                                    value={data.status}
-                                    onChange={(newStatus) => onUpdate({ status: newStatus })}
-                                    statusOptions={[
-                                        { value: "draft", label: "Brouillon", icon: "fas fa-file", color: "slate" },
-                                        { value: "confirmed", label: "Confirmé", icon: "fas fa-check-circle", color: "blue" },
-                                        { value: "paid", label: "Payé", icon: "fas fa-check-double", color: "green" },
-                                        { value: "cancelled", label: "Annulé", icon: "fas fa-times-circle", color: "red" },
-                                    ]}
-                                />
-                            </div>
-                            <div className="bg-white/60 dark:bg-slate-800/60 p-4 rounded-lg">
-                                <p className="text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">Portée</p>
-                                <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-bold ${data.scope === 'client'
-                                    ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300'
-                                    : 'bg-slate-100 text-slate-700 dark:bg-slate-900/30 dark:text-slate-300'
-                                    }`}>
-                                    <i className={`fas ${data.scope === 'client' ? 'fa-user' : 'fa-building'}`}></i>
-                                    {data.scope === 'client' ? 'Client' : 'Bureau'}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Dates Card */}
-                    <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl p-6 border-2 border-green-200 dark:border-green-800">
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="w-12 h-12 rounded-lg bg-green-500 flex items-center justify-center">
-                                <i className="fas fa-calendar-alt text-white text-xl"></i>
-                            </div>
-                            <h3 className="text-xl font-bold text-green-900 dark:text-green-100">
-                                Dates
-                            </h3>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="bg-white/60 dark:bg-slate-800/60 p-4 rounded-lg">
-                                <p className="text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">Date de l'opération</p>
-                                <p className="text-base font-semibold text-slate-900 dark:text-white">
-                                    {new Date(data.date).toLocaleDateString('fr-FR', {
-                                        weekday: 'long',
-                                        day: '2-digit',
-                                        month: 'long',
-                                        year: 'numeric'
-                                    })}
-                                </p>
-                            </div>
-                            {data.dueDate && (
-                                <div className="bg-white/60 dark:bg-slate-800/60 p-4 rounded-lg">
-                                    <p className="text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">Date d'échéance</p>
-                                    <p className="text-base font-semibold text-slate-900 dark:text-white">
-                                        {new Date(data.dueDate).toLocaleDateString('fr-FR', {
-                                            weekday: 'long',
-                                            day: '2-digit',
-                                            month: 'long',
-                                            year: 'numeric'
-                                        })}
-                                    </p>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Notes Card (if any) */}
-                    {data.notes && (
-                        <div className="bg-gradient-to-br from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 rounded-xl p-6 border-2 border-amber-200 dark:border-amber-800">
-                            <div className="flex items-center gap-3 mb-4">
-                                <div className="w-12 h-12 rounded-lg bg-amber-500 flex items-center justify-center">
-                                    <i className="fas fa-sticky-note text-white text-xl"></i>
-                                </div>
-                                <h3 className="text-xl font-bold text-amber-900 dark:text-amber-100">
-                                    Notes
-                                </h3>
-                            </div>
-                            <div className="bg-white/60 dark:bg-slate-800/60 p-4 rounded-lg">
-                                <p className="text-base text-slate-900 dark:text-white whitespace-pre-wrap">{data.notes}</p>
-                            </div>
-                        </div>
-                    )}
-                </div>
-            ),
+            id: "overview",
+            label: "Vue d'ensemble",
+            icon: "fas fa-eye",
+            component: "overview",
         },
         {
             id: "relations",

@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
 import { getStatusColor } from "../../utils/mockData";
+import { canPerformAction } from "../../services/domainRules";
+import BlockerModal from "../ui/BlockerModal";
 
 // Global state to track which dropdown is currently open
 let currentOpenDropdown = null;
@@ -32,20 +34,52 @@ function getColorClasses(color) {
  * Auto-saves on selection, consistent across all screens
  * Uses portal to avoid z-index and overflow issues
  * Ensures only one dropdown is open at a time
+ *
+ * NEW: Integrates domain rules validation before allowing status changes
  */
 export default function InlineStatusSelector({
   value,
   onChange,
   statusOptions = [],
   entityType = "generic",
+  entityId = null,
+  entityData = null,
   size = "sm",
 }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [blockerModalOpen, setBlockerModalOpen] = useState(false);
+  const [validationResult, setValidationResult] = useState(null);
+  const [pendingValue, setPendingValue] = useState(null);
   const buttonRef = useRef(null);
   const dropdownIdRef = useRef(Symbol('dropdown'));
   const [menuPosition, setMenuPosition] = useState(null); // null until computed to avoid flash at (0,0)
 
   const currentStatus = statusOptions.find(s => s.value === value) || statusOptions[0];
+
+  /**
+   * Handle status change with domain rule validation
+   */
+  const handleStatusChange = (newValue) => {
+    // If entityId and entityType are provided, validate with domain rules
+    if (entityId && entityType && entityType !== 'generic') {
+      const result = canPerformAction(entityType, entityId, 'changeStatus', {
+        newValue,
+        currentValue: value,
+        data: entityData
+      });
+
+      if (!result.allowed) {
+        // Block the change and show blocker modal
+        setPendingValue(newValue);
+        setValidationResult(result);
+        setBlockerModalOpen(true);
+        return;
+      }
+    }
+
+    // Validation passed or no validation required - proceed with change
+    onChange(newValue);
+  };
 
   const computeMenuPosition = () => {
     if (!buttonRef.current) return null;
@@ -254,7 +288,7 @@ export default function InlineStatusSelector({
                 onClick={(e) => {
                   e.stopPropagation();
                   if (status.value !== value) {
-                    onChange(status.value);
+                    handleStatusChange(status.value);
                   }
                   setIsOpen(false);
                 }}
@@ -278,6 +312,16 @@ export default function InlineStatusSelector({
         </div>,
         document.body
       )}
+
+      {/* Blocker Modal */}
+      <BlockerModal
+        isOpen={blockerModalOpen}
+        onClose={() => setBlockerModalOpen(false)}
+        actionName={`Changer le statut vers "${pendingValue}"`}
+        blockers={validationResult?.blockers || []}
+        warnings={validationResult?.warnings || []}
+        entityName={entityData?.caseNumber || entityData?.title || `#${entityId}`}
+      />
     </>
   );
 }

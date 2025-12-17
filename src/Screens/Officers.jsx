@@ -18,6 +18,8 @@ import FormModal from "../components/FormModal/FormModal";
 import StatCard from "../components/dashboard/StatCard";
 import { mockOfficers } from "../utils/mockData";
 import InlineStatusSelector from "../components/InlineSelectors/InlineStatusSelector";
+import BlockerModal from "../components/ui/BlockerModal";
+import { canPerformAction } from "../services/domainRules";
 
 export default function Officers() {
   const navigate = useNavigate();
@@ -28,6 +30,8 @@ export default function Officers() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingOfficer, setEditingOfficer] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [blockerModalOpen, setBlockerModalOpen] = useState(false);
+  const [validationResult, setValidationResult] = useState(null);
 
   // Define table columns
   const columns = [
@@ -90,6 +94,9 @@ export default function Officers() {
             { value: "Actif", label: "Actif", icon: "fas fa-check-circle", color: "green" },
             { value: "Inactif", label: "Inactif", icon: "fas fa-circle", color: "slate" },
           ]}
+          entityType="officer"
+          entityId={officer.id}
+          entityData={officer}
         />
       ),
     },
@@ -153,11 +160,30 @@ export default function Officers() {
   };
 
   const handleEdit = (officer) => {
+    // ✅ Validate before allowing edit
+    const result = canPerformAction('officer', officer.id, 'edit', { data: officer });
+
+    if (!result.allowed) {
+      setValidationResult(result);
+      setBlockerModalOpen(true);
+      return;
+    }
+
     setEditingOfficer(officer);
     setIsModalOpen(true);
   };
 
   const handleDelete = async (id) => {
+    // ✅ Validate before allowing delete
+    const officer = officers.find(o => o.id === id);
+    const result = canPerformAction('officer', id, 'delete', { data: officer });
+
+    if (!result.allowed) {
+      setValidationResult(result);
+      setBlockerModalOpen(true);
+      return;
+    }
+
     if (await confirm({
       title: "Supprimer l'huissier",
       message: "Êtes-vous sûr de vouloir supprimer cet huissier ?",
@@ -185,6 +211,20 @@ export default function Officers() {
   };
 
   const handleSubmit = async (formData) => {
+    // ✅ Validate before submitting (EDIT mode only)
+    if (editingOfficer) {
+      const result = canPerformAction('officer', editingOfficer.id, 'edit', {
+        data: editingOfficer,
+        newData: formData
+      });
+
+      if (!result.allowed) {
+        setValidationResult(result);
+        setBlockerModalOpen(true);
+        return;
+      }
+    }
+
     setIsLoading(true);
 
     try {
@@ -419,6 +459,15 @@ export default function Officers() {
         fields={officerFormFields}
         initialData={editingOfficer}
         isLoading={isLoading}
+      />
+
+      <BlockerModal
+        isOpen={blockerModalOpen}
+        onClose={() => setBlockerModalOpen(false)}
+        actionName="Modifier/Supprimer l'huissier"
+        blockers={validationResult?.blockers || []}
+        warnings={validationResult?.warnings || []}
+        entityName={validationResult?.entityData?.name || "Huissier"}
       />
     </PageLayout>
   );

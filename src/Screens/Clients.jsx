@@ -19,6 +19,8 @@ import StatCard from "../components/dashboard/StatCard";
 import InlineStatusSelector from "../components/InlineSelectors/InlineStatusSelector";
 import { clientFormFields, getFormTitle } from "../components/FormModal/formConfigs";
 import { mockClients } from "../utils/mockData";
+import BlockerModal from "../components/ui/BlockerModal";
+import { canPerformAction } from "../services/domainRules";
 
 export default function Clients() {
   const navigate = useNavigate();
@@ -30,6 +32,8 @@ export default function Clients() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClient, setEditingClient] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [blockerModalOpen, setBlockerModalOpen] = useState(false);
+  const [validationResult, setValidationResult] = useState(null);
 
   // Calculate stats
   const stats = {
@@ -85,6 +89,9 @@ export default function Clients() {
             { value: "Actif", label: "Actif", icon: "fas fa-circle-check", color: "green" },
             { value: "Inactif", label: "Inactif", icon: "fas fa-circle-xmark", color: "red" },
           ]}
+          entityType="client"
+          entityId={client.id}
+          entityData={client}
         />
       ),
     },
@@ -154,11 +161,30 @@ export default function Clients() {
   };
 
   const handleEdit = (client) => {
+    // ✅ Validate before allowing edit
+    const result = canPerformAction('client', client.id, 'edit', { data: client });
+
+    if (!result.allowed) {
+      setValidationResult(result);
+      setBlockerModalOpen(true);
+      return;
+    }
+
     setEditingClient(client);
     setIsModalOpen(true);
   };
 
   const handleDelete = async (id) => {
+    // ✅ Validate before allowing delete
+    const client = clients.find(c => c.id === id);
+    const result = canPerformAction('client', id, 'delete', { data: client });
+
+    if (!result.allowed) {
+      setValidationResult(result);
+      setBlockerModalOpen(true);
+      return;
+    }
+
     if (await confirm({
       title: "Supprimer le client",
       message: "Êtes-vous sûr de vouloir supprimer ce client ?",
@@ -180,6 +206,20 @@ export default function Clients() {
   };
 
   const handleSubmit = async (formData) => {
+    // ✅ Validate before submitting (EDIT mode only)
+    if (editingClient) {
+      const result = canPerformAction('client', editingClient.id, 'edit', {
+        data: editingClient,
+        newData: formData
+      });
+
+      if (!result.allowed) {
+        setValidationResult(result);
+        setBlockerModalOpen(true);
+        return;
+      }
+    }
+
     setIsLoading(true);
 
     try {
@@ -347,6 +387,15 @@ export default function Clients() {
         fields={clientFormFields}
         initialData={editingClient}
         isLoading={isLoading}
+      />
+
+      <BlockerModal
+        isOpen={blockerModalOpen}
+        onClose={() => setBlockerModalOpen(false)}
+        actionName="Modifier/Supprimer le client"
+        blockers={validationResult?.blockers || []}
+        warnings={validationResult?.warnings || []}
+        entityName={validationResult?.entityData?.name || "Client"}
       />
     </PageLayout>
   );

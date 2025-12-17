@@ -1,9 +1,13 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import ContentSection from "../layout/ContentSection";
+import { canPerformAction } from "../../services/domainRules";
+import BlockerModal from "../ui/BlockerModal";
 
 /**
  * QuickActionsBar - Inline editable fields with auto-save
  * Displays status, priority, assignment, and other high-frequency fields
+ *
+ * NEW: Integrates domain rules validation before allowing changes
  */
 export default function QuickActionsBar({ data, config, onQuickAction }) {
     const quickActions = config.quickActions || [];
@@ -19,6 +23,9 @@ export default function QuickActionsBar({ data, config, onQuickAction }) {
                             key={action.key}
                             action={action}
                             value={data[action.key]}
+                            entityType={config.entityType}
+                            entityId={data.id}
+                            entityData={data}
                             onChange={(value) => onQuickAction(action.key, value, action.validation)}
                         />
                     ))}
@@ -30,13 +37,18 @@ export default function QuickActionsBar({ data, config, onQuickAction }) {
 
 /**
  * Individual Quick Action Field with dropdown/inline editing
+ *
+ * NEW: Integrates domain rules validation
  */
-function QuickActionField({ action, value, onChange }) {
+function QuickActionField({ action, value, onChange, entityType, entityId, entityData }) {
     const [isOpen, setIsOpen] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [showSuccess, setShowSuccess] = useState(false);
     const [showUndo, setShowUndo] = useState(false);
     const [previousValue, setPreviousValue] = useState(value);
+    const [blockerModalOpen, setBlockerModalOpen] = useState(false);
+    const [validationResult, setValidationResult] = useState(null);
+    const [pendingValue, setPendingValue] = useState(null);
 
     const currentOption = action.options?.find(opt => opt.value === value);
     const displayValue = currentOption?.label || value;
@@ -48,6 +60,24 @@ function QuickActionField({ action, value, onChange }) {
         if (newValue === value) {
             setIsOpen(false);
             return;
+        }
+
+        // Validate with domain rules before allowing the change
+        if (entityId && entityType && action.key === 'status') {
+            const result = canPerformAction(entityType, entityId, 'changeStatus', {
+                newValue,
+                currentValue: value,
+                data: entityData
+            });
+
+            if (!result.allowed) {
+                // Block the change and show blocker modal
+                setPendingValue(newValue);
+                setValidationResult(result);
+                setBlockerModalOpen(true);
+                setIsOpen(false);
+                return;
+            }
         }
 
         setPreviousValue(value);
@@ -162,6 +192,16 @@ function QuickActionField({ action, value, onChange }) {
                     </button>
                 </div>
             )}
+
+            {/* Blocker Modal */}
+            <BlockerModal
+                isOpen={blockerModalOpen}
+                onClose={() => setBlockerModalOpen(false)}
+                actionName={`Changer ${action.label} vers "${pendingValue}"`}
+                blockers={validationResult?.blockers || []}
+                warnings={validationResult?.warnings || []}
+                entityName={entityData?.caseNumber || entityData?.title || `#${entityId}`}
+            />
         </div>
     );
 }

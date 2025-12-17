@@ -29,7 +29,13 @@ export const officerConfig = {
   },
 
   updateData: async (id, data) => {
-    console.log("Updating officer:", id, data);
+    // ✅ Actually update the officer data in mockOfficersExtended
+    if (mockOfficersExtended[id]) {
+      mockOfficersExtended[id] = {
+        ...mockOfficersExtended[id],
+        ...data,
+      };
+    }
     await new Promise(resolve => setTimeout(resolve, 500));
   },
 
@@ -300,6 +306,37 @@ export const officerConfig = {
   // ✅ UPDATED: Overview sections with editStrategy
   overviewSections: [
     {
+      title: "Informations générales",
+      editStrategy: "structured",
+      fields: [
+        {
+          key: "name",
+          label: "Nom complet",
+          value: (data) => data.name,
+          icon: "fas fa-user",
+          type: "text",
+          editable: true,
+          required: true,
+          placeholder: "Ex: Me. Ahmed Ben Salem"
+        },
+        {
+          key: "status",
+          label: "Statut",
+          value: (data) => data.status,
+          displayValue: (data) => data.status || "N/A",
+          icon: "fas fa-flag",
+          type: "select",
+          editable: true,
+          required: true,
+          options: [
+            { value: "Disponible", label: "Disponible" },
+            { value: "Occupé", label: "Occupé" },
+            { value: "Inactif", label: "Inactif" },
+          ]
+        },
+      ],
+    },
+    {
       title: "Coordonnées",
       editStrategy: "structured",
       fields: [
@@ -310,7 +347,8 @@ export const officerConfig = {
           icon: "fas fa-envelope",
           type: "email",
           editable: true,
-          required: true
+          required: true,
+          placeholder: "email@exemple.com"
         },
         {
           key: "phone",
@@ -319,7 +357,8 @@ export const officerConfig = {
           icon: "fas fa-phone",
           type: "tel",
           editable: true,
-          required: true
+          required: true,
+          placeholder: "+216 98 123 456"
         },
         {
           key: "alternatePhone",
@@ -327,7 +366,8 @@ export const officerConfig = {
           value: (data) => data.alternatePhone || "N/A",
           icon: "fas fa-phone-alt",
           type: "tel",
-          editable: true
+          editable: true,
+          placeholder: "+216 71 234 567"
         },
         {
           key: "location",
@@ -335,7 +375,9 @@ export const officerConfig = {
           value: (data) => data.location,
           icon: "fas fa-map-marker-alt",
           type: "text",
-          editable: true
+          editable: true,
+          required: true,
+          placeholder: "Ex: Tunis"
         },
         {
           key: "address",
@@ -344,7 +386,8 @@ export const officerConfig = {
           icon: "fas fa-map",
           type: "textarea",
           editable: true,
-          rows: 2
+          rows: 2,
+          placeholder: "Adresse du cabinet/étude"
         },
       ],
     },

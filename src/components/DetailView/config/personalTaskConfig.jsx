@@ -22,7 +22,13 @@ export const personalTaskConfig = {
   },
 
   updateData: async (id, data) => {
-    console.log("Updating personal task:", id, data);
+    // ✅ Actually update the personal task data in mockPersonalTasksExtended
+    if (mockPersonalTasksExtended[id]) {
+      mockPersonalTasksExtended[id] = {
+        ...mockPersonalTasksExtended[id],
+        ...data,
+      };
+    }
     await new Promise(resolve => setTimeout(resolve, 500));
   },
 

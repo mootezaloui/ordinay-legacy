@@ -19,6 +19,8 @@ import StatCard from "../components/dashboard/StatCard";
 import { sessionFormFields, getFormTitle } from "../components/FormModal/formConfigs";
 import { mockSessions, mockCases, mockDossiers } from "../utils/mockData";
 import InlineStatusSelector from "../components/InlineSelectors/InlineStatusSelector";
+import BlockerModal from "../components/ui/BlockerModal";
+import { canPerformAction } from "../services/domainRules";
 
 export default function Sessions() {
   const navigate = useNavigate();
@@ -29,6 +31,8 @@ export default function Sessions() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSession, setEditingSession] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [blockerModalOpen, setBlockerModalOpen] = useState(false);
+  const [validationResult, setValidationResult] = useState(null);
 
   const typeIcons = {
     "Consultation": "fas fa-comments",
@@ -116,6 +120,9 @@ export default function Sessions() {
             { value: "Terminée", label: "Terminée", icon: "fas fa-check-circle", color: "slate" },
             { value: "Annulée", label: "Annulée", icon: "fas fa-times-circle", color: "red" },
           ]}
+          entityType="session"
+          entityId={session.id}
+          entityData={session}
         />
       ),
     },
@@ -171,11 +178,30 @@ export default function Sessions() {
   };
 
   const handleEdit = (session) => {
+    // ✅ Validate before allowing edit
+    const result = canPerformAction('session', session.id, 'edit', { data: session });
+
+    if (!result.allowed) {
+      setValidationResult(result);
+      setBlockerModalOpen(true);
+      return;
+    }
+
     setEditingSession(session);
     setIsModalOpen(true);
   };
 
   const handleDelete = async (id) => {
+    // ✅ Validate before allowing delete
+    const session = sessions.find(s => s.id === id);
+    const result = canPerformAction('session', id, 'delete', { data: session });
+
+    if (!result.allowed) {
+      setValidationResult(result);
+      setBlockerModalOpen(true);
+      return;
+    }
+
     if (await confirm({
       title: "Supprimer la séance",
       message: "Êtes-vous sûr de vouloir supprimer cette séance ?",
@@ -207,6 +233,20 @@ export default function Sessions() {
   };
 
   const handleSubmit = async (formData) => {
+    // ✅ Validate before submitting (EDIT mode only)
+    if (editingSession) {
+      const result = canPerformAction('session', editingSession.id, 'edit', {
+        data: editingSession,
+        newData: formData
+      });
+
+      if (!result.allowed) {
+        setValidationResult(result);
+        setBlockerModalOpen(true);
+        return;
+      }
+    }
+
     setIsLoading(true);
 
     try {
@@ -398,6 +438,15 @@ export default function Sessions() {
         fields={populatedSessionFormFields}
         initialData={editingSession}
         isLoading={isLoading}
+      />
+
+      <BlockerModal
+        isOpen={blockerModalOpen}
+        onClose={() => setBlockerModalOpen(false)}
+        actionName="Modifier/Supprimer la séance"
+        blockers={validationResult?.blockers || []}
+        warnings={validationResult?.warnings || []}
+        entityName={`Séance du ${validationResult?.entityData?.date || ''}`}
       />
     </PageLayout>
   );

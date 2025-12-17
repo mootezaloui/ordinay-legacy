@@ -32,6 +32,8 @@ import {
   formatCurrency,
 } from "../utils/financialUtils";
 import InlineStatusSelector from "../components/InlineSelectors/InlineStatusSelector";
+import BlockerModal from "../components/ui/BlockerModal";
+import { canPerformAction } from "../services/domainRules";
 
 export default function Accounting() {
   const navigate = useNavigate();
@@ -44,6 +46,8 @@ export default function Accounting() {
   const [isLoading, setIsLoading] = useState(false);
   const [filterScope, setFilterScope] = useState("all"); // all, client, internal
   const [refreshKey, setRefreshKey] = useState(0); // Trigger re-renders on data changes
+  const [blockerModalOpen, setBlockerModalOpen] = useState(false);
+  const [validationResult, setValidationResult] = useState(null);
 
   // Get display entries with computed fields
   const displayEntries = useMemo(() => {
@@ -92,11 +96,30 @@ export default function Accounting() {
   };
 
   const handleEdit = (entry) => {
+    // ✅ Validate before allowing edit
+    const result = canPerformAction('financialEntry', entry.id, 'edit', { data: entry });
+
+    if (!result.allowed) {
+      setValidationResult(result);
+      setBlockerModalOpen(true);
+      return;
+    }
+
     setEditingEntry(entry);
     setIsModalOpen(true);
   };
 
   const handleDelete = async (id) => {
+    // ✅ Validate before allowing delete
+    const entry = displayEntries.find(e => e.id === id);
+    const result = canPerformAction('financialEntry', id, 'delete', { data: entry });
+
+    if (!result.allowed) {
+      setValidationResult(result);
+      setBlockerModalOpen(true);
+      return;
+    }
+
     if (await confirm({
       title: "Supprimer l'écriture",
       message: "Êtes-vous sûr de vouloir supprimer cette écriture comptable ?",
@@ -110,6 +133,20 @@ export default function Accounting() {
   };
 
   const handleStatusChange = (id, newStatus) => {
+    // ✅ Validate before allowing status change
+    const entry = displayEntries.find(e => e.id === id);
+    const result = canPerformAction('financialEntry', id, 'changeStatus', {
+      data: entry,
+      newValue: newStatus,
+      currentValue: entry?.status
+    });
+
+    if (!result.allowed) {
+      setValidationResult(result);
+      setBlockerModalOpen(true);
+      return;
+    }
+
     updateFinancialEntry(id, { status: newStatus });
     setRefreshKey((k) => k + 1); // Trigger re-render
   };
@@ -218,6 +255,9 @@ export default function Accounting() {
             { value: "paid", label: "Payé", icon: "fas fa-check-double", color: "green" },
             { value: "cancelled", label: "Annulé", icon: "fas fa-times-circle", color: "red" },
           ]}
+          entityType="financialEntry"
+          entityId={entry.id}
+          entityData={entry}
         />
       ),
     },
@@ -265,6 +305,20 @@ export default function Accounting() {
   };
 
   const handleSubmit = async (formData) => {
+    // ✅ Validate before submitting (EDIT mode only)
+    if (editingEntry) {
+      const result = canPerformAction('financialEntry', editingEntry.id, 'edit', {
+        data: editingEntry,
+        newData: formData
+      });
+
+      if (!result.allowed) {
+        setValidationResult(result);
+        setBlockerModalOpen(true);
+        return;
+      }
+    }
+
     setIsLoading(true);
 
     try {
@@ -542,6 +596,15 @@ export default function Accounting() {
         fields={entryFields}
         initialData={editingEntry}
         isLoading={isLoading}
+      />
+
+      <BlockerModal
+        isOpen={blockerModalOpen}
+        onClose={() => setBlockerModalOpen(false)}
+        actionName="Modifier/Supprimer l'écriture financière"
+        blockers={validationResult?.blockers || []}
+        warnings={validationResult?.warnings || []}
+        entityName={validationResult?.entityData?.description || "Écriture"}
       />
     </PageLayout>
   );

@@ -1,13 +1,16 @@
 import { useState } from "react";
 import ContentSection from "../../layout/ContentSection";
 import SearchableSelect from "../../FormModal/SearchableSelect";
-import { mockDossiers, mockCases } from "../../../utils/mockData";
+import { mockDossiers, mockCases, mockClients } from "../../../utils/mockData";
+import BlockerModal from "../../ui/BlockerModal";
+import ConfirmImpactModal from "../../ui/ConfirmImpactModal";
+import { canPerformAction } from "../../../services/domainRules";
 
 /**
  * Overview Tab - Displays general information
  * ✅ UPDATED: Supports both inline quick actions and structured edit sections
  */
-export default function OverviewTab({ data, config, isEditing, onDataChange, onSectionSave }) {
+export default function OverviewTab({ data, config, isEditing, onDataChange, onSectionSave, entityType, entityId }) {
   if (!config.overviewSections) {
     return (
       <div className="p-6 text-center text-slate-600 dark:text-slate-400">
@@ -29,6 +32,8 @@ export default function OverviewTab({ data, config, isEditing, onDataChange, onS
               section={section}
               data={data}
               onSave={onSectionSave}
+              entityType={entityType}
+              entityId={entityId}
             />
           );
         }
@@ -51,12 +56,27 @@ export default function OverviewTab({ data, config, isEditing, onDataChange, onS
 /**
  * Structured Edit Section - Explicit Edit/Save buttons
  */
-function StructuredEditSection({ section, data, onSave }) {
+function StructuredEditSection({ section, data, onSave, entityType, entityId }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedData, setEditedData] = useState({});
   const [isSaving, setIsSaving] = useState(false);
+  const [blockerModalOpen, setBlockerModalOpen] = useState(false);
+  const [confirmImpactModalOpen, setConfirmImpactModalOpen] = useState(false);
+  const [validationResult, setValidationResult] = useState(null);
+  const [pendingData, setPendingData] = useState(null);
 
   const handleEdit = () => {
+    // ✅ Validate before allowing edit
+    if (entityType && entityId) {
+      const result = canPerformAction(entityType, entityId, 'edit', { data });
+
+      if (!result.allowed) {
+        setValidationResult(result);
+        setBlockerModalOpen(true);
+        return;
+      }
+    }
+
     // Initialize edited data with current values
     const initialData = {};
     if (section.fields) {
@@ -72,10 +92,43 @@ function StructuredEditSection({ section, data, onSave }) {
   };
 
   const handleSave = async () => {
+    // ✅ Validate before saving
+    if (entityType && entityId) {
+      const result = canPerformAction(entityType, entityId, 'edit', {
+        data,
+        newData: editedData
+      });
+
+      if (!result.allowed) {
+        setValidationResult(result);
+        setBlockerModalOpen(true);
+        return;
+      }
+
+      // Phase 2.5: Check for relational-impact changes
+      if (result.requiresConfirmation) {
+        setValidationResult(result);
+        setPendingData(editedData);
+        setConfirmImpactModalOpen(true);
+        return;
+      }
+    }
+
+    // Proceed with save
+    await performSave(editedData);
+  };
+
+  const performSave = async (dataToSave) => {
     setIsSaving(true);
-    await onSave(editedData);
+    await onSave(dataToSave);
     setIsSaving(false);
     setIsEditing(false);
+  };
+
+  const handleConfirmImpact = async () => {
+    setConfirmImpactModalOpen(false);
+    await performSave(pendingData);
+    setPendingData(null);
   };
 
   const handleCancel = () => {
@@ -106,7 +159,15 @@ function StructuredEditSection({ section, data, onSave }) {
       }
     }
 
-    // ✅ Update the full dossier object when dossierId changes
+    // ✅ Handle clientId change - clear dependent dossier and case (for financial entries)
+    if (fieldKey === "clientId") {
+      newData.dossierId = "";
+      newData.dossierReference = "";
+      newData.caseId = "";
+      newData.caseReference = "";
+    }
+
+    // ✅ Handle dossierId change - clear dependent case and update client (for financial entries)
     if (fieldKey === "dossierId") {
       const selectedDossier = mockDossiers.find(d => d.id === parseInt(value));
       if (selectedDossier) {
@@ -115,10 +176,22 @@ function StructuredEditSection({ section, data, onSave }) {
           caseNumber: selectedDossier.caseNumber,
           title: selectedDossier.title
         };
+        newData.dossierReference = selectedDossier.caseNumber;
+        // Auto-fill client if not already set
+        if (!newData.clientId) {
+          newData.clientId = selectedDossier.clientId;
+          const client = mockClients.find(c => c.id === selectedDossier.clientId);
+          if (client) {
+            newData.clientName = client.name;
+          }
+        }
       }
+      // Clear case when dossier changes
+      newData.caseId = "";
+      newData.caseReference = "";
     }
 
-    // ✅ Update the full case object when caseId changes
+    // ✅ Update the full case object when caseId changes (for all entities)
     if (fieldKey === "caseId") {
       const selectedCase = mockCases.find(c => c.id === parseInt(value));
       if (selectedCase) {
@@ -127,6 +200,22 @@ function StructuredEditSection({ section, data, onSave }) {
           caseNumber: selectedCase.caseNumber,
           title: selectedCase.title
         };
+        newData.caseReference = selectedCase.caseNumber;
+        // Auto-fill dossier and client if not already set
+        if (!newData.dossierId && selectedCase.dossierId) {
+          newData.dossierId = selectedCase.dossierId;
+          const dossier = mockDossiers.find(d => d.id === selectedCase.dossierId);
+          if (dossier) {
+            newData.dossierReference = dossier.caseNumber;
+            if (!newData.clientId) {
+              newData.clientId = dossier.clientId;
+              const client = mockClients.find(c => c.id === dossier.clientId);
+              if (client) {
+                newData.clientName = client.name;
+              }
+            }
+          }
+        }
       }
     }
 
@@ -244,7 +333,7 @@ function StructuredEditSection({ section, data, onSave }) {
 
               if (isEditing && field.editable !== false) {
                 // ✅ Determine if field is conditionally required
-                const isConditionallyRequired = 
+                const isConditionallyRequired =
                   (hasLinkType && (
                     (fieldKey === "caseId" && currentLinkType === "case") ||
                     (fieldKey === "dossierId" && currentLinkType === "dossier")
@@ -284,15 +373,20 @@ function StructuredEditSection({ section, data, onSave }) {
                     )}
 
                     {/* Select dropdown */}
-                    {(fieldType === 'select' || fieldType === 'searchable-select') && field.options && (() => {
-                      const useSearchable = fieldType === 'searchable-select' || field.options.length > 10;
+                    {(fieldType === 'select' || fieldType === 'searchable-select') && (field.options || field.getOptions) && (() => {
+                      // ✅ Support dynamic options based on current edited data
+                      const fieldOptions = typeof field.getOptions === 'function'
+                        ? field.getOptions(editedData)
+                        : field.options;
+
+                      const useSearchable = fieldType === 'searchable-select' || fieldOptions.length > 10;
 
                       if (useSearchable) {
                         return (
                           <SearchableSelect
                             value={editedData[fieldKey] || ''}
                             onChange={(newValue) => handleFieldChange(fieldKey, newValue)}
-                            options={field.options}
+                            options={fieldOptions}
                             placeholder={field.placeholder || "Rechercher..."}
                             disabled={false}
                           />
@@ -306,7 +400,7 @@ function StructuredEditSection({ section, data, onSave }) {
                           className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
                           <option value="">Sélectionner...</option>
-                          {field.options.map((option) => (
+                          {fieldOptions.map((option) => (
                             <option key={option.value} value={option.value}>
                               {option.label}
                             </option>
@@ -344,6 +438,27 @@ function StructuredEditSection({ section, data, onSave }) {
           </div>
         )}
       </div>
+
+      <BlockerModal
+        isOpen={blockerModalOpen}
+        onClose={() => setBlockerModalOpen(false)}
+        actionName={section.title ? `Modifier ${section.title.toLowerCase()}` : "Modifier cette section"}
+        blockers={validationResult?.blockers || []}
+        warnings={validationResult?.warnings || []}
+        entityName={data?.caseNumber || data?.title || data?.name || ""}
+      />
+
+      <ConfirmImpactModal
+        isOpen={confirmImpactModalOpen}
+        onClose={() => {
+          setConfirmImpactModalOpen(false);
+          setPendingData(null);
+        }}
+        onConfirm={handleConfirmImpact}
+        actionName="modifier le rattachement"
+        impactSummary={validationResult?.impactSummary || []}
+        entityName={data?.caseNumber || data?.title || data?.name || ""}
+      />
     </ContentSection>
   );
 }

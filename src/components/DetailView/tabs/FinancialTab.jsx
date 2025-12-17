@@ -33,9 +33,12 @@ import {
   getCaseFinancialSummary,
   getOfficerFinancialSummary,
   getPersonalTaskFinancialSummary,
+  getMissionFinancialSummary,
   getClientBalanceDetails,
 } from "../../../utils/financialUtils";
 import InlineStatusSelector from "../../InlineSelectors/InlineStatusSelector";
+import BlockerModal from "../../ui/BlockerModal";
+import { canPerformAction } from "../../../services/domainRules";
 
 /**
  * FinancialTab Component
@@ -57,6 +60,8 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
   const [editingEntry, setEditingEntry] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [blockerModalOpen, setBlockerModalOpen] = useState(false);
+  const [validationResult, setValidationResult] = useState(null);
 
   // Get financial summary based on entity type
   const summary = useMemo(() => {
@@ -69,6 +74,9 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
     } else if (entityType === "officer") {
       // For officers (huissiers), get all mission expenses
       return getOfficerFinancialSummary(entityId);
+    } else if (entityType === "mission") {
+      // For missions, get mission-specific financial entries
+      return getMissionFinancialSummary(entityId);
     } else if (entityType === "personalTask") {
       // For personal tasks, get internal expenses
       return getPersonalTaskFinancialSummary(entityId);
@@ -104,6 +112,9 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
     } else if (entityType === "officer") {
       // For officers (huissiers), filter by officerId to show all mission expenses
       filters = { scope: "client", officerId: entityId };
+    } else if (entityType === "mission") {
+      // For missions, filter by missionId to show mission-specific expenses
+      filters = { scope: "client", missionId: entityId };
     } else if (entityType === "personalTask") {
       // For personal tasks, filter by personalTaskId with internal scope
       filters = { scope: "internal", personalTaskId: entityId };
@@ -126,11 +137,30 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
   };
 
   const handleEdit = (entry) => {
+    // ✅ Validate before allowing edit
+    const result = canPerformAction('financialEntry', entry.id, 'edit', { data: entry });
+
+    if (!result.allowed) {
+      setValidationResult(result);
+      setBlockerModalOpen(true);
+      return;
+    }
+
     setEditingEntry(entry);
     setIsModalOpen(true);
   };
 
   const handleDelete = async (id) => {
+    // ✅ Validate before allowing delete
+    const entry = entries.find(e => e.id === id);
+    const result = canPerformAction('financialEntry', id, 'delete', { data: entry });
+
+    if (!result.allowed) {
+      setValidationResult(result);
+      setBlockerModalOpen(true);
+      return;
+    }
+
     if (await confirm({
       title: "Supprimer l'écriture",
       message: "Êtes-vous sûr de vouloir supprimer cette écriture ?",
@@ -146,6 +176,20 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
   };
 
   const handleStatusChange = (id, newStatus) => {
+    // ✅ Validate before allowing status change
+    const entry = entries.find(e => e.id === id);
+    const result = canPerformAction('financialEntry', id, 'changeStatus', {
+      data: entry,
+      newValue: newStatus,
+      currentValue: entry?.status
+    });
+
+    if (!result.allowed) {
+      setValidationResult(result);
+      setBlockerModalOpen(true);
+      return;
+    }
+
     updateFinancialEntry(id, { status: newStatus });
     setRefreshKey((k) => k + 1);
 
@@ -357,7 +401,27 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
         let mission = null;
         let officerData = null;
 
-        if (formData.missionId && entityData?.missions) {
+        // For mission entity type, the entityData IS the mission
+        if (entityType === "mission") {
+          mission = entityData;
+
+          // Derive client and dossier from mission's linked entity
+          if (mission.entityType === "dossier") {
+            dossier = mockDossiers.find(d => d.id === mission.entityId);
+            if (dossier) {
+              client = mockClients.find(c => c.id === dossier.clientId);
+            }
+          } else if (mission.entityType === "case") {
+            const linkedCase = mockCases.find(c => c.id === mission.entityId);
+            if (linkedCase) {
+              dossier = mockDossiers.find(d => d.id === linkedCase.dossierId);
+              if (dossier) {
+                client = mockClients.find(c => c.id === dossier.clientId);
+              }
+            }
+          }
+        } else if (formData.missionId && entityData?.missions) {
+          // For officer entity type, find mission from officer's missions array
           mission = entityData.missions.find((m) => m.id === parseInt(formData.missionId));
         }
 
@@ -374,8 +438,8 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
           caseId: caseItem ? caseItem.id : null,
           caseReference: caseItem ? caseItem.caseNumber : null,
           // Add officer and mission data
-          officerId: officerData ? officerData.id : (formData.officerId ? parseInt(formData.officerId) : null),
-          officerName: officerData ? officerData.name : null,
+          officerId: mission?.officerId || officerData?.id || (formData.officerId ? parseInt(formData.officerId) : null),
+          officerName: mission?.officerName || officerData?.name || null,
           missionId: mission ? mission.id : null,
           missionNumber: mission ? mission.missionNumber : null,
           sourceType: mission ? "mission" : "manual",
@@ -416,8 +480,8 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
       missions: missionsToShow,
     });
 
-    // Pre-fill and lock entity context when adding new entry from entity detail view
-    if (!editingEntry && entityType) {
+    // Pre-fill and lock entity context when adding/editing entry from entity detail view
+    if (entityType) {
       return fields.map((field) => {
         // Lock scope based on entity type
         if (field.name === "scope") {
@@ -426,15 +490,15 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
             return {
               ...field,
               type: "readonly",
-              defaultValue: "internal",
+              defaultValue: editingEntry?.scope || "internal",
               displayValue: "Interne (frais de bureau)"
             };
           }
-          // Client, dossier, case are client-related expenses
+          // Client, dossier, case, mission, officer are client-related expenses
           return {
             ...field,
             type: "readonly",
-            defaultValue: "client",
+            defaultValue: editingEntry?.scope || "client",
             displayValue: "Client (affecte le solde client)"
           };
         }
@@ -446,7 +510,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
             return {
               ...field,
               type: "readonly",
-              defaultValue: entityId,
+              defaultValue: editingEntry?.clientId || entityId,
               displayValue: client.name
             };
           }
@@ -474,7 +538,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
             return {
               ...field,
               type: "readonly",
-              defaultValue: entityId,
+              defaultValue: editingEntry?.dossierId || entityId,
               displayValue: dossier.caseNumber
             };
           }
@@ -483,7 +547,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
             return {
               ...field,
               type: "readonly",
-              defaultValue: dossier.clientId,
+              defaultValue: editingEntry?.clientId || dossier.clientId,
               displayValue: client ? client.name : "Client inconnu"
             };
           }
@@ -504,7 +568,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
             return {
               ...field,
               type: "readonly",
-              defaultValue: entityId,
+              defaultValue: editingEntry?.caseId || entityId,
               displayValue: caseItem.caseNumber
             };
           }
@@ -515,7 +579,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
             return {
               ...field,
               type: "readonly",
-              defaultValue: client ? client.id : null,
+              defaultValue: editingEntry?.clientId || (client ? client.id : null),
               displayValue: client ? client.name : "Client inconnu"
             };
           }
@@ -524,8 +588,342 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
             return {
               ...field,
               type: "readonly",
-              defaultValue: caseItem.dossierId,
+              defaultValue: editingEntry?.dossierId || caseItem.dossierId,
               displayValue: dossier ? dossier.caseNumber : "Dossier inconnu"
+            };
+          }
+        }
+
+        // For officer (huissier) detail view: lock type to "expense" since huissiers only have expenses
+        if (entityType === "officer") {
+          const missions = entityData?.missions || [];
+
+          // Extract unique dossiers and cases from this officer's missions
+          const officerDossierIds = new Set();
+          const officerCaseIds = new Set();
+          const officerClientIds = new Set();
+
+          missions.forEach(mission => {
+            if (mission.entityType === "dossier") {
+              const dossier = mockDossiers.find(d => d.caseNumber === mission.entityReference);
+              if (dossier) {
+                officerDossierIds.add(dossier.id);
+                officerClientIds.add(dossier.clientId);
+              }
+            } else if (mission.entityType === "case") {
+              const caseItem = mockCases.find(c => c.caseNumber === mission.entityReference);
+              if (caseItem) {
+                officerCaseIds.add(caseItem.id);
+                const dossier = mockDossiers.find(d => d.id === caseItem.dossierId);
+                if (dossier) {
+                  officerDossierIds.add(dossier.id);
+                  officerClientIds.add(dossier.clientId);
+                }
+              }
+            }
+          });
+
+          // Lock type to "expense" (read-only)
+          if (field.name === "type") {
+            return {
+              ...field,
+              type: "readonly",
+              defaultValue: "expense",
+              displayValue: "Dépense (frais huissier)",
+              helpText: "Les huissiers ne peuvent avoir que des dépenses"
+            };
+          }
+          // Pre-select category to "frais_huissier"
+          if (field.name === "category") {
+            return {
+              ...field,
+              defaultValue: "frais_huissier"
+            };
+          }
+          // Lock officer field to current officer
+          if (field.name === "officerId") {
+            return {
+              ...field,
+              type: "readonly",
+              defaultValue: entityId,
+              displayValue: entityData?.name || "Huissier",
+              helpText: "Frais pour cet huissier"
+            };
+          }
+          // Add mission selector - show only this officer's missions
+          if (field.name === "missionId") {
+            return {
+              ...field,
+              getOptions: undefined, // Remove the base getOptions function
+              hideIf: undefined,     // Remove the hideIf function
+              type: "searchable-select",
+              required: true,
+              label: "Mission associée *",
+              helpText: "Sélectionnez la mission liée à ces frais",
+              options: [
+                { value: "", label: "Sélectionner une mission..." },
+                ...missions.map((m) => ({
+                  value: m.id,
+                  label: `${m.missionNumber} - ${m.title} (${m.status})`,
+                })),
+              ],
+              onChange: (value, formData, setFormData) => {
+                if (value) {
+                  const selectedMission = missions.find(m => m.id === value);
+                  if (selectedMission) {
+                    const updates = {
+                      ...formData,
+                      missionId: value,
+                    };
+
+                    // Auto-populate description if empty
+                    if (!formData.description) {
+                      updates.description = `Frais d'huissier - ${selectedMission.missionNumber} - ${selectedMission.title}`;
+                    }
+
+                    // Auto-populate related entities based on mission type
+                    if (selectedMission.entityType === "dossier") {
+                      const dossier = mockDossiers.find(d => d.caseNumber === selectedMission.entityReference);
+                      if (dossier) {
+                        updates.dossierId = dossier.id;
+                        updates.clientId = dossier.clientId;
+                        updates.caseId = ""; // Clear case if it was set
+                      }
+                    } else if (selectedMission.entityType === "case") {
+                      const caseItem = mockCases.find(c => c.caseNumber === selectedMission.entityReference);
+                      if (caseItem) {
+                        updates.caseId = caseItem.id;
+                        const dossier = mockDossiers.find(d => d.id === caseItem.dossierId);
+                        if (dossier) {
+                          updates.dossierId = dossier.id;
+                          updates.clientId = dossier.clientId;
+                        }
+                      }
+                    }
+
+                    setFormData(updates);
+                    return;
+                  }
+                }
+              },
+            };
+          }
+
+          // Filter client dropdown to only show clients that have missions with this officer
+          if (field.name === "clientId") {
+            const clients = mockClients.filter(c => officerClientIds.has(c.id));
+            return {
+              ...field,
+              options: [
+                { value: "", label: "Sélectionner un client..." },
+                ...clients.map(c => ({ value: c.id, label: c.name }))
+              ]
+            };
+          }
+
+          // Filter dossier dropdown to only show dossiers that have missions with this officer
+          if (field.name === "dossierId") {
+            const dossiers = mockDossiers.filter(d => officerDossierIds.has(d.id));
+            return {
+              ...field,
+              options: [
+                { value: "", label: "Sélectionner un dossier..." },
+                ...dossiers.map(d => ({ value: d.id, label: d.caseNumber }))
+              ]
+            };
+          }
+
+          // Filter case dropdown to only show cases that have missions with this officer
+          if (field.name === "caseId") {
+            const cases = mockCases.filter(c => officerCaseIds.has(c.id));
+            return {
+              ...field,
+              options: [
+                { value: "", label: "Sélectionner un procès..." },
+                ...cases.map(c => ({ value: c.id, label: c.caseNumber }))
+              ]
+            };
+          }
+        }
+
+        // For mission detail view: auto-fill and lock all related fields
+        if (entityType === "mission") {
+          // Lock type to "expense" (missions only have expenses)
+          if (field.name === "type") {
+            return {
+              ...field,
+              type: "readonly",
+              defaultValue: editingEntry?.type || "expense",
+              displayValue: "Dépense (frais huissier)",
+              helpText: "Les frais de mission sont toujours des dépenses"
+            };
+          }
+
+          // Lock category to "frais_huissier"
+          if (field.name === "category") {
+            return {
+              ...field,
+              type: "readonly",
+              defaultValue: editingEntry?.category || "frais_huissier",
+              displayValue: "Frais d'huissier",
+              helpText: "Catégorie automatique pour les frais de mission"
+            };
+          }
+
+          // Lock scope to "client"
+          if (field.name === "scope") {
+            return {
+              ...field,
+              type: "readonly",
+              defaultValue: editingEntry?.scope || "client",
+              displayValue: "Client (affecte le solde client)",
+            };
+          }
+
+          // Lock mission to current mission
+          if (field.name === "missionId") {
+            return {
+              ...field,
+              type: "readonly",
+              defaultValue: editingEntry?.missionId || entityId,
+              displayValue: `${entityData.missionNumber} - ${entityData.title}`,
+              helpText: "Mission actuelle"
+            };
+          }
+
+          // Lock officer to mission's officer
+          if (field.name === "officerId") {
+            return {
+              ...field,
+              type: "readonly",
+              defaultValue: editingEntry?.officerId || entityData.officerId,
+              displayValue: entityData.officerName,
+              helpText: "Huissier de cette mission"
+            };
+          }
+
+          // Auto-fill client based on mission's entity
+          if (field.name === "clientId") {
+            let clientId = editingEntry?.clientId || null;
+            let clientName = "Client inconnu";
+
+            // If editing, use existing value, otherwise derive from mission
+            if (!editingEntry) {
+              if (entityData.entityType === "dossier") {
+                const dossier = mockDossiers.find(d => d.id === entityData.entityId);
+                if (dossier) {
+                  clientId = dossier.clientId;
+                  const client = mockClients.find(c => c.id === dossier.clientId);
+                  clientName = client ? client.name : "Client inconnu";
+                }
+              } else if (entityData.entityType === "case") {
+                const caseItem = mockCases.find(c => c.id === entityData.entityId);
+                if (caseItem) {
+                  const dossier = mockDossiers.find(d => d.id === caseItem.dossierId);
+                  if (dossier) {
+                    clientId = dossier.clientId;
+                    const client = mockClients.find(c => c.id === dossier.clientId);
+                    clientName = client ? client.name : "Client inconnu";
+                  }
+                }
+              }
+            } else {
+              // When editing, get the display name from the stored clientId
+              const client = mockClients.find(c => c.id === clientId);
+              clientName = client ? client.name : "Client inconnu";
+            }
+
+            return {
+              ...field,
+              type: "readonly",
+              defaultValue: clientId,
+              displayValue: clientName,
+              helpText: "Client lié à cette mission"
+            };
+          }
+
+          // Auto-fill dossier based on mission's entity
+          if (field.name === "dossierId") {
+            let dossierId = editingEntry?.dossierId || null;
+            let dossierRef = "Dossier inconnu";
+
+            // If editing, use existing value, otherwise derive from mission
+            if (!editingEntry) {
+              if (entityData.entityType === "dossier") {
+                const dossier = mockDossiers.find(d => d.id === entityData.entityId);
+                if (dossier) {
+                  dossierId = dossier.id;
+                  dossierRef = dossier.caseNumber;
+                }
+              } else if (entityData.entityType === "case") {
+                const caseItem = mockCases.find(c => c.id === entityData.entityId);
+                if (caseItem) {
+                  dossierId = caseItem.dossierId;
+                  const dossier = mockDossiers.find(d => d.id === caseItem.dossierId);
+                  dossierRef = dossier ? dossier.caseNumber : "Dossier inconnu";
+                }
+              }
+            } else {
+              // When editing, get the display name from the stored dossierId
+              const dossier = mockDossiers.find(d => d.id === dossierId);
+              dossierRef = dossier ? dossier.caseNumber : "Dossier inconnu";
+            }
+
+            return {
+              ...field,
+              type: "readonly",
+              defaultValue: dossierId,
+              displayValue: dossierRef,
+              helpText: "Dossier lié à cette mission"
+            };
+          }
+
+          // Auto-fill case based on mission's entity (if applicable)
+          if (field.name === "caseId") {
+            let caseId = editingEntry?.caseId || null;
+            let caseRef = null;
+
+            // If editing, use existing value, otherwise derive from mission
+            if (!editingEntry) {
+              if (entityData.entityType === "case") {
+                const caseItem = mockCases.find(c => c.id === entityData.entityId);
+                if (caseItem) {
+                  caseId = caseItem.id;
+                  caseRef = caseItem.caseNumber;
+                }
+              }
+            } else {
+              // When editing, get the display name from the stored caseId
+              if (caseId) {
+                const caseItem = mockCases.find(c => c.id === caseId);
+                caseRef = caseItem ? caseItem.caseNumber : "Procès inconnu";
+              }
+            }
+
+            if (caseId) {
+              return {
+                ...field,
+                type: "readonly",
+                defaultValue: caseId,
+                displayValue: caseRef,
+                helpText: "Procès lié à cette mission"
+              };
+            } else {
+              // Hide the field if mission is not linked to a case
+              return {
+                ...field,
+                type: "hidden",
+                defaultValue: null
+              };
+            }
+          }
+
+          // Auto-populate description with mission reference (only for new entries)
+          if (field.name === "description" && !editingEntry) {
+            return {
+              ...field,
+              defaultValue: `Frais d'huissier - ${entityData.missionNumber} - ${entityData.title}`,
+              placeholder: `Ex: Frais de déplacement, frais de PV, etc.`
             };
           }
         }
@@ -705,7 +1103,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
             return {
               ...field,
               type: "readonly",
-              defaultValue: "internal",
+              defaultValue: editingEntry?.scope || "internal",
               displayValue: "Interne (frais de bureau)",
               helpText: "Les tâches personnelles sont des dépenses internes uniquement"
             };
@@ -714,7 +1112,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
           if (field.name === "category") {
             return {
               ...field,
-              defaultValue: "frais_bureau"
+              defaultValue: editingEntry?.category || "frais_bureau"
             };
           }
         }
@@ -826,10 +1224,10 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               {formatCurrency(Math.abs(balanceDetails.balance))}
             </div>
             <div className={`text-xs mt-1 font-medium ${balanceDetails.balance > 0
-                ? "text-orange-600 dark:text-orange-400"
-                : balanceDetails.balance < 0
-                  ? "text-green-600 dark:text-green-400"
-                  : "text-slate-500 dark:text-slate-400"
+              ? "text-orange-600 dark:text-orange-400"
+              : balanceDetails.balance < 0
+                ? "text-green-600 dark:text-green-400"
+                : "text-slate-500 dark:text-slate-400"
               }`}>
               {balanceDetails.balance > 0
                 ? "→ Client doit payer"
@@ -1146,6 +1544,16 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
           </div>
         </div>
       )}
+
+      {/* Blocker Modal */}
+      <BlockerModal
+        isOpen={blockerModalOpen}
+        onClose={() => setBlockerModalOpen(false)}
+        actionName="Modifier/Supprimer l'écriture financière"
+        blockers={validationResult?.blockers || []}
+        warnings={validationResult?.warnings || []}
+        entityName={`Écriture #${validationResult?.entityId || ''}`}
+      />
     </div>
   );
 }

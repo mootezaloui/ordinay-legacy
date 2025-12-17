@@ -4,6 +4,8 @@ import { useToast } from "../../../contexts/ToastContext";
 import { useConfirm } from "../../../contexts/ConfirmContext";
 import ContentSection from "../../layout/ContentSection";
 import FormModal from "../../FormModal/FormModal";
+import ConfirmImpactModal from "../../ui/ConfirmImpactModal";
+import { canPerformAction } from "../../../services/domainRules";
 import { getStatusColor, mockClients, mockDossiers, mockCases } from "../../../utils/mockData";
 import {
   formatCurrency
@@ -35,6 +37,9 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange }) 
   const [editingMissionId, setEditingMissionId] = useState(null);
   const [uploadingDocument, setUploadingDocument] = useState(false);
   const [selectedMissionForDoc, setSelectedMissionForDoc] = useState(null);
+  const [confirmImpactModalOpen, setConfirmImpactModalOpen] = useState(false);
+  const [validationResult, setValidationResult] = useState(null);
+  const [pendingFormData, setPendingFormData] = useState(null);
 
   // Filter missions by status and search
   const filteredMissions = useMemo(() => {
@@ -93,6 +98,33 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange }) 
   }, [tabConfig.formFields, tabConfig.getFormFields, formData, data]);
 
   const handleAddMission = async (submittedFormData) => {
+    // Phase 2.5: Validate if editing and check for relational changes
+    if (editingMissionId) {
+      const currentMission = missions.find(m => m.id === editingMissionId);
+      const result = canPerformAction('mission', editingMissionId, 'edit', {
+        data: currentMission,
+        newData: submittedFormData
+      });
+
+      if (!result.allowed) {
+        showToast(result.blockers?.[0] || "Action non autorisée", "error");
+        return;
+      }
+
+      // Check if confirmation is required for relational changes
+      if (result.requiresConfirmation) {
+        setValidationResult(result);
+        setPendingFormData(submittedFormData);
+        setConfirmImpactModalOpen(true);
+        return;
+      }
+    }
+
+    // Proceed with save
+    await performMissionSave(submittedFormData);
+  };
+
+  const performMissionSave = async (submittedFormData) => {
     setIsLoading(true);
 
     try {
@@ -801,6 +833,23 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange }) 
           isLoading={false}
         />
       )}
+
+      {/* Relational-Impact Confirmation Modal */}
+      <ConfirmImpactModal
+        isOpen={confirmImpactModalOpen}
+        onClose={() => {
+          setConfirmImpactModalOpen(false);
+          setPendingFormData(null);
+        }}
+        onConfirm={async () => {
+          setConfirmImpactModalOpen(false);
+          await performMissionSave(pendingFormData);
+          setPendingFormData(null);
+        }}
+        actionName="modifier le rattachement de la mission"
+        impactSummary={validationResult?.impactSummary || []}
+        entityName={missions.find(m => m.id === editingMissionId)?.missionNumber || ""}
+      />
     </>
   );
 }

@@ -29,7 +29,13 @@ export const taskConfig = {
   },
 
   updateData: async (id, data) => {
-    console.log("Updating task:", id, data);
+    // ✅ Actually update the task data in mockTasksExtended
+    if (mockTasksExtended[id]) {
+      mockTasksExtended[id] = {
+        ...mockTasksExtended[id],
+        ...data,
+      };
+    }
     await new Promise(resolve => setTimeout(resolve, 500));
   },
 

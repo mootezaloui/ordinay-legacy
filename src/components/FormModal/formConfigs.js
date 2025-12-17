@@ -1098,6 +1098,23 @@ export const missionFormFields = [
     placeholder: "Description détaillée de la mission...",
   },
   {
+    name: "result",
+    label: "Compte Rendu / Résultat",
+    type: "textarea",
+    required: false,
+    fullWidth: true,
+    rows: 3,
+    placeholder: "Compte rendu détaillé de l'exécution de la mission...",
+    helpText: "À remplir une fois la mission terminée",
+  },
+  {
+    name: "completionDate",
+    label: "Date d'achèvement",
+    type: "date",
+    required: false,
+    helpText: "Date d'achèvement de la mission (si terminée)",
+  },
+  {
     name: "notes",
     label: "Notes",
     type: "textarea",

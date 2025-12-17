@@ -31,7 +31,13 @@ export const caseConfig = {
   },
 
   updateData: async (id, data) => {
-    console.log("Updating case:", id, data);
+    // ✅ Actually update the case data in mockCasesExtended
+    if (mockCasesExtended[id]) {
+      mockCasesExtended[id] = {
+        ...mockCasesExtended[id],
+        ...data,
+      };
+    }
     await new Promise(resolve => setTimeout(resolve, 500));
   },
 

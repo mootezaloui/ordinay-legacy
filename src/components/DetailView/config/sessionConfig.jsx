@@ -27,7 +27,13 @@ export const sessionConfig = {
   },
 
   updateData: async (id, data) => {
-    console.log("Updating session:", id, data);
+    // ✅ Actually update the session data in mockSessionsExtended
+    if (mockSessionsExtended[id]) {
+      mockSessionsExtended[id] = {
+        ...mockSessionsExtended[id],
+        ...data,
+      };
+    }
     await new Promise(resolve => setTimeout(resolve, 500));
   },
 

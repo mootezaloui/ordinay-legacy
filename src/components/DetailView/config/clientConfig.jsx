@@ -23,7 +23,13 @@ export const clientConfig = {
   },
 
   updateData: async (id, data) => {
-    console.log("Updating client:", id, data);
+    // ✅ Actually update the client data in mockClientsExtended
+    if (mockClientsExtended[id]) {
+      mockClientsExtended[id] = {
+        ...mockClientsExtended[id],
+        ...data,
+      };
+    }
     await new Promise(resolve => setTimeout(resolve, 500));
   },
 
