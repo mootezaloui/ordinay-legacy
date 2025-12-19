@@ -94,10 +94,18 @@ function StructuredEditSection({ section, data, onSave, entityType, entityId }) 
   const handleSave = async () => {
     // ✅ Validate before saving
     if (entityType && entityId) {
+      console.log("[OverviewTab] Validating section save:");
+      console.log("  Entity type:", entityType);
+      console.log("  Entity ID:", entityId);
+      console.log("  Original data:", data);
+      console.log("  Edited data (changes only):", editedData);
+
       const result = canPerformAction(entityType, entityId, 'edit', {
         data,
-        newData: editedData
+        newData: editedData  // Only the changed fields
       });
+
+      console.log("  Validation result:", result);
 
       if (!result.allowed) {
         setValidationResult(result);
@@ -107,6 +115,7 @@ function StructuredEditSection({ section, data, onSave, entityType, entityId }) 
 
       // Phase 2.5: Check for relational-impact changes
       if (result.requiresConfirmation) {
+        console.log("  >>> CONFIRMATION REQUIRED - showing modal");
         setValidationResult(result);
         setPendingData(editedData);
         setConfirmImpactModalOpen(true);
@@ -357,7 +366,7 @@ function StructuredEditSection({ section, data, onSave, entityType, entityId }) 
                         value={editedData[fieldKey] || ''}
                         onChange={(e) => handleFieldChange(fieldKey, e.target.value)}
                         placeholder={field.placeholder}
-                        className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3.5 py-2.5 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 hover:border-slate-300 dark:hover:border-slate-600 hover:shadow"
                       />
                     )}
 
@@ -368,11 +377,11 @@ function StructuredEditSection({ section, data, onSave, entityType, entityId }) 
                         onChange={(e) => handleFieldChange(fieldKey, e.target.value)}
                         placeholder={field.placeholder}
                         rows={field.rows || 3}
-                        className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3.5 py-2.5 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 hover:border-slate-300 dark:hover:border-slate-600 hover:shadow resize-none"
                       />
                     )}
 
-                    {/* Select dropdown */}
+                    {/* Select dropdown - ✅ UNIFIED: Consistent styling */}
                     {(fieldType === 'select' || fieldType === 'searchable-select') && (field.options || field.getOptions) && (() => {
                       // ✅ Support dynamic options based on current edited data
                       const fieldOptions = typeof field.getOptions === 'function'
@@ -389,23 +398,34 @@ function StructuredEditSection({ section, data, onSave, entityType, entityId }) 
                             options={fieldOptions}
                             placeholder={field.placeholder || "Rechercher..."}
                             disabled={false}
+                            compact={false}
+                            allowCreate={field.allowCreate || false}
+                            onCreateOption={field.onCreateOption || null}
+                            createLabel={field.createLabel || "Ajouter"}
                           />
                         );
                       }
 
+                      // ✅ MODERN/MINIMAL: Professional native select
                       return (
-                        <select
-                          value={editedData[fieldKey] || ''}
-                          onChange={(e) => handleFieldChange(fieldKey, e.target.value)}
-                          className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                          <option value="">Sélectionner...</option>
-                          {fieldOptions.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
+                        <div className="relative">
+                          <select
+                            value={editedData[fieldKey] || ''}
+                            onChange={(e) => handleFieldChange(fieldKey, e.target.value)}
+                            className="w-full px-3.5 py-2.5 pr-10 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 appearance-none cursor-pointer hover:border-slate-300 dark:hover:border-slate-600 hover:shadow"
+                          >
+                            <option value="">Sélectionner...</option>
+                            {fieldOptions.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                          {/* Modern/Minimal: Clean chevron */}
+                          <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                            <i className="fas fa-chevron-down text-slate-400 text-xs"></i>
+                          </div>
+                        </div>
                       );
                     })()}
 
@@ -584,7 +604,7 @@ function RegularSection({ section, data, isEditing, onDataChange }) {
                         value={value || ''}
                         onChange={(e) => handleFieldChange(fieldKey, e.target.value)}
                         placeholder={field.placeholder}
-                        className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3.5 py-2.5 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 hover:border-slate-300 dark:hover:border-slate-600 hover:shadow"
                       />
                     )}
 
@@ -594,7 +614,7 @@ function RegularSection({ section, data, isEditing, onDataChange }) {
                         onChange={(e) => handleFieldChange(fieldKey, e.target.value)}
                         placeholder={field.placeholder}
                         rows={field.rows || 3}
-                        className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3.5 py-2.5 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 hover:border-slate-300 dark:hover:border-slate-600 hover:shadow resize-none"
                       />
                     )}
 
@@ -609,23 +629,31 @@ function RegularSection({ section, data, isEditing, onDataChange }) {
                             options={field.options}
                             placeholder={field.placeholder || "Rechercher..."}
                             disabled={false}
+                            compact={false}
                           />
                         );
                       }
 
+                      // ✅ MODERN/MINIMAL: Professional native select
                       return (
-                        <select
-                          value={editedData[fieldKey] || ''}
-                          onChange={(e) => handleFieldChange(fieldKey, e.target.value)}
-                          className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                          <option value="">Sélectionner...</option>
-                          {field.options.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
+                        <div className="relative">
+                          <select
+                            value={editedData[fieldKey] || ''}
+                            onChange={(e) => handleFieldChange(fieldKey, e.target.value)}
+                            className="w-full px-3.5 py-2.5 pr-10 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 appearance-none cursor-pointer hover:border-slate-300 dark:hover:border-slate-600 hover:shadow"
+                          >
+                            <option value="">Sélectionner...</option>
+                            {field.options.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                          {/* Modern/Minimal: Clean chevron */}
+                          <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                            <i className="fas fa-chevron-down text-slate-400 text-xs"></i>
+                          </div>
+                        </div>
                       );
                     })()}
 

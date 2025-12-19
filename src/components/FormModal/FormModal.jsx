@@ -5,7 +5,18 @@ import InlinePrioritySelector from "../InlineSelectors/InlinePrioritySelector";
 import { useNotifications } from "../../contexts/NotificationContext";
 import BlockerModal from "../ui/BlockerModal";
 import ConfirmImpactModal from "../ui/ConfirmImpactModal";
+import ClientNotificationPrompt from "../ui/ClientNotificationPrompt";
 import { canPerformAction } from "../../services/domainRules";
+import {
+  generateEntityReference,
+  isReferenceUnique,
+  getDuplicateReferenceError,
+  normalizeReference,
+} from "../../utils/referenceUtils";
+import {
+  shouldPromptClientNotification,
+  sendClientNotification,
+} from "../../services/clientCommunication";
 
 /**
  * FormModal - Enhanced with improved responsive design and domain rule validation
@@ -54,6 +65,13 @@ export default function FormModal({
   const [confirmImpactModalOpen, setConfirmImpactModalOpen] = useState(false);
   const [validationResult, setValidationResult] = useState(null);
   const [pendingFormData, setPendingFormData] = useState(null);
+
+  // 📧 Client Notification State
+  const [notificationPrompt, setNotificationPrompt] = useState({
+    isOpen: false,
+    eventType: null,
+    eventData: null,
+  });
 
   // Use external formData if provided, otherwise use internal
   const formData = externalFormData !== undefined ? externalFormData : internalFormData;
@@ -203,6 +221,50 @@ export default function FormModal({
       return;
     }
 
+    // Step 1.5: Reference validation & auto-generation (CRITICAL - ensures uniqueness)
+    const referenceFieldMapping = {
+      dossier: "caseNumber",
+      case: "caseNumber",
+      mission: "missionNumber",
+    };
+
+    if (entityType && referenceFieldMapping[entityType]) {
+      const referenceField = referenceFieldMapping[entityType];
+      let reference = formData[referenceField];
+
+      // Auto-generate if empty
+      if (!reference || reference.trim() === "") {
+        reference = generateEntityReference(entityType);
+        formData[referenceField] = reference;
+        console.log(`✅ Auto-generated reference for ${entityType}:`, reference);
+      } else {
+        // Normalize user input (uppercase, trim)
+        reference = normalizeReference(reference);
+        formData[referenceField] = reference;
+      }
+
+      // Validate uniqueness (excluding current entity in edit mode)
+      const isUnique = isReferenceUnique(entityType, reference, entityId);
+
+      if (!isUnique) {
+        const errorMessage = getDuplicateReferenceError(entityType, reference);
+
+        notify.error({
+          title: "Référence déjà utilisée",
+          message: errorMessage,
+          context: "form",
+        });
+
+        // Set error on the field
+        setErrors({
+          ...errors,
+          [referenceField]: errorMessage,
+        });
+
+        return;
+      }
+    }
+
     // Step 2: Domain rule validation (CRITICAL - prevents integrity violations)
     if (entityType && editingEntity && entityId) {
       // EDIT MODE: Validate edit action
@@ -229,14 +291,87 @@ export default function FormModal({
     }
 
     // Step 3: Proceed with submission
-    onSubmit(formData);
+    handleSuccessfulSubmission(formData);
   };
 
   // Handle confirmed relational-impact changes
   const handleConfirmImpact = () => {
     setConfirmImpactModalOpen(false);
-    onSubmit(pendingFormData);
+    handleSuccessfulSubmission(pendingFormData);
     setPendingFormData(null);
+  };
+
+  /**
+   * 📧 Handle successful form submission + client notification check
+   */
+  const handleSuccessfulSubmission = (submittedFormData) => {
+    // First, call the parent's onSubmit
+    onSubmit(submittedFormData);
+
+    // Then check if client notification should be prompted
+    // Only for EDIT mode (entityId exists) or CREATE mode for specific entities
+    const isEditMode = entityId && editingEntity;
+    const isCreateMode = !entityId;
+
+    if (entityType && (isEditMode || isCreateMode)) {
+      const action = isEditMode ? 'edit' : 'create';
+      const context = isEditMode
+        ? { data: editingEntity, newData: submittedFormData }
+        : { data: submittedFormData };
+
+      const notificationCheck = shouldPromptClientNotification(
+        entityType,
+        action,
+        context
+      );
+
+      if (notificationCheck?.shouldPrompt) {
+        // Show notification prompt instead of closing immediately
+        setNotificationPrompt({
+          isOpen: true,
+          eventType: notificationCheck.eventType,
+          eventData: notificationCheck.eventData,
+        });
+        return; // Don't close modal yet
+      }
+    }
+
+    // No notification needed, close modal
+    onClose();
+  };
+
+  /**
+   * 📧 Handle sending client notification
+   */
+  const handleSendNotification = async () => {
+    const { eventType, eventData } = notificationPrompt;
+
+    try {
+      const result = await sendClientNotification(eventType, eventData, {
+        channels: ['email'], // MVP: email only
+      });
+
+      if (result.success) {
+        console.log('✅ Client notification sent successfully');
+      } else {
+        console.error('❌ Failed to send client notification');
+      }
+    } catch (error) {
+      console.error('Error sending client notification:', error);
+    }
+
+    // Close prompt and modal
+    setNotificationPrompt({ isOpen: false, eventType: null, eventData: null });
+    onClose();
+  };
+
+  /**
+   * 📧 Handle closing notification prompt without sending
+   */
+  const handleCloseNotificationPrompt = () => {
+    console.log('ℹ️ User chose not to notify client');
+    setNotificationPrompt({ isOpen: false, eventType: null, eventData: null });
+    onClose();
   };
 
   if (!isOpen) return null;
@@ -381,6 +516,15 @@ export default function FormModal({
         impactSummary={validationResult?.impactSummary || []}
         entityName={editingEntity?.title || editingEntity?.name || editingEntity?.caseNumber || ""}
       />
+
+      {/* 📧 Client Notification Prompt */}
+      <ClientNotificationPrompt
+        isOpen={notificationPrompt.isOpen}
+        onClose={handleCloseNotificationPrompt}
+        onConfirm={handleSendNotification}
+        eventType={notificationPrompt.eventType}
+        eventData={notificationPrompt.eventData}
+      />
     </div>
   );
 }
@@ -389,9 +533,9 @@ export default function FormModal({
  * FormField - Compact & responsive design
  */
 function FormField({ field, value, onChange, error, formData, compact = false }) {
-  const baseInputClass = `w-full ${compact ? 'px-2.5 py-1.5 text-sm' : 'px-3 py-2'} border rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${error
-    ? "border-red-500 dark:border-red-500"
-    : "border-slate-300 dark:border-slate-600"
+  const baseInputClass = `w-full ${compact ? 'px-3 py-1.5 text-sm' : 'px-3.5 py-2.5'} border rounded-lg shadow-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 ${error
+    ? "border-red-400 dark:border-red-500 focus:border-red-500 focus:ring-red-500/20"
+    : "border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 hover:shadow"
     }`;
 
   const renderInput = () => {
@@ -452,22 +596,29 @@ function FormField({ field, value, onChange, error, formData, compact = false })
           );
         }
 
+        // ✅ MODERN/MINIMAL: Professional native select
         return (
-          <select
-            id={field.name}
-            value={value}
-            onChange={(e) => onChange(field.name, e.target.value)}
-            required={field.required}
-            disabled={field.disabled}
-            className={baseInputClass}
-          >
-            <option value="">Sélectionner...</option>
-            {fieldOptions?.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+          <div className="relative">
+            <select
+              id={field.name}
+              value={value}
+              onChange={(e) => onChange(field.name, e.target.value)}
+              required={field.required}
+              disabled={field.disabled}
+              className={`${baseInputClass} appearance-none cursor-pointer pr-10 ${field.disabled ? 'bg-slate-50 dark:bg-slate-800 opacity-50' : ''}`}
+            >
+              <option value="">Sélectionner...</option>
+              {fieldOptions?.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            {/* Modern/Minimal: Clean chevron */}
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+              <i className="fas fa-chevron-down text-slate-400 text-xs"></i>
+            </div>
+          </div>
         );
 
       case "searchable-select":
@@ -475,6 +626,24 @@ function FormField({ field, value, onChange, error, formData, compact = false })
         const searchableOptions = field.getOptions
           ? field.getOptions(formData, field.allOptions)
           : (field.options || []);
+
+        // Handle create option callback
+        const handleCreateOption = async (newOptionName) => {
+          if (field.onCreateOption) {
+            try {
+              await field.onCreateOption(newOptionName);
+              // Refresh the form to show the new option
+              const updatedOptions = field.getOptions
+                ? field.getOptions(formData, field.allOptions)
+                : (field.options || []);
+              // Auto-select the newly created option
+              onChange(field.name, newOptionName);
+            } catch (error) {
+              console.error('Failed to create option:', error);
+            }
+          }
+        };
+
         return (
           <SearchableSelect
             value={value}
@@ -484,6 +653,9 @@ function FormField({ field, value, onChange, error, formData, compact = false })
             disabled={field.disabled}
             error={error}
             compact={compact}
+            allowCreate={field.allowCreate || false}
+            onCreateOption={handleCreateOption}
+            createLabel={field.createLabel || "Ajouter"}
           />
         );
 

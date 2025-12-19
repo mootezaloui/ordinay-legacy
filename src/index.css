@@ -205,3 +205,9 @@
 .animate-pop {
   animation: pop 0.28s ease-out;
 }
+
+/* Custom utility for text overflow handling */
+.overflow-wrap-anywhere {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}

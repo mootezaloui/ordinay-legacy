@@ -1,4 +1,6 @@
 import { useState, useRef, useLayoutEffect, useEffect } from "react";
+import { canPerformAction } from "../../services/domainRules";
+import BlockerModal from "../ui/BlockerModal";
 import { createPortal } from "react-dom";
 
 // Global state to track which dropdown is currently open
@@ -13,6 +15,9 @@ let currentOpenPriorityDropdown = null;
 export default function InlinePrioritySelector({
   value,
   onChange,
+  entityType = "generic",
+  entityId = null,
+  entityData = null,
   priorityOptions = [
     { value: "Basse", label: "Basse", icon: "fas fa-arrow-down", color: "text-green-600 dark:text-green-400" },
     { value: "Moyenne", label: "Moyenne", icon: "fas fa-minus", color: "text-amber-600 dark:text-amber-400" },
@@ -21,6 +26,9 @@ export default function InlinePrioritySelector({
   size = "sm",
 }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [blockerModalOpen, setBlockerModalOpen] = useState(false);
+  const [validationResult, setValidationResult] = useState(null);
+  const [pendingPriority, setPendingPriority] = useState(null);
   const buttonRef = useRef(null);
   const dropdownIdRef = useRef(Symbol('priority-dropdown'));
   const [menuPosition, setMenuPosition] = useState(null); // null until computed to avoid flash at (0,0)
@@ -92,6 +100,23 @@ export default function InlinePrioritySelector({
   const handlePriorityClick = (e, newPriority) => {
     e.stopPropagation();
     if (newPriority !== value) {
+      if (entityId && entityType && entityType !== "generic") {
+        const result = canPerformAction(entityType, entityId, "edit", {
+          data: entityData,
+          newData: { ...(entityData || {}), priority: newPriority },
+        });
+
+        if (!result.allowed) {
+          setPendingPriority(newPriority);
+          setValidationResult(result);
+          setBlockerModalOpen(true);
+          setIsOpen(false);
+          if (currentOpenPriorityDropdown === dropdownIdRef.current) {
+            currentOpenPriorityDropdown = null;
+          }
+          return;
+        }
+      }
       onChange(newPriority);
     }
     setIsOpen(false);
@@ -169,6 +194,7 @@ export default function InlinePrioritySelector({
   return (
     <>
       <button
+        type="button"
         ref={buttonRef}
         onClick={handleToggle}
         className={`flex items-center gap-2 rounded-full font-medium transition-all hover:ring-2 hover:ring-blue-300 dark:hover:ring-blue-700 ${sizeClasses[size]} ${priorityColors[value] || priorityColors["Moyenne"]}`}
@@ -209,6 +235,15 @@ export default function InlinePrioritySelector({
         </div>,
         document.body
       )}
+
+      <BlockerModal
+        isOpen={blockerModalOpen}
+        onClose={() => setBlockerModalOpen(false)}
+        actionName={`Changer la priorité vers "${pendingPriority}"`}
+        blockers={validationResult?.blockers || []}
+        warnings={validationResult?.warnings || []}
+        entityName={entityData?.title || entityData?.name || `#${entityId}`}
+      />
     </>
   );
 }

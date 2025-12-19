@@ -34,6 +34,8 @@ import {
 import InlineStatusSelector from "../components/InlineSelectors/InlineStatusSelector";
 import BlockerModal from "../components/ui/BlockerModal";
 import { canPerformAction } from "../services/domainRules";
+import { resolveDetailRoute } from "../utils/routeResolver";
+import { logEntityCreation } from "../services/historyService";
 
 export default function Accounting() {
   const navigate = useNavigate();
@@ -335,7 +337,7 @@ export default function Accounting() {
         const dossier = formData.dossierId ? mockDossiers.find(d => d.id === parseInt(formData.dossierId)) : null;
         const caseItem = formData.caseId ? mockCases.find(c => c.id === parseInt(formData.caseId)) : null;
 
-        const newEntry = {
+        const entryData = {
           ...formData,
           clientId: client ? client.id : null,
           clientName: client ? client.name : null,
@@ -345,8 +347,18 @@ export default function Accounting() {
           caseReference: caseItem ? caseItem.caseNumber : null,
         };
 
-        addFinancialEntry(newEntry);
+        // addFinancialEntry returns the new entry with its generated ID
+        const newEntry = addFinancialEntry(entryData);
         showToast("Écriture ajoutée avec succès!", "success");
+
+        // ✅ Log creation event using the returned entry's ID
+        logEntityCreation('financialEntry', newEntry.id, `${newEntry.type} - ${formatCurrency(newEntry.amount)}`);
+
+        // ✅ Navigate to detail view after creation using the returned entry's ID
+        const detailRoute = resolveDetailRoute('financialEntry', newEntry.id);
+        if (detailRoute) {
+          setTimeout(() => navigate(detailRoute), 100);
+        }
       }
 
       setRefreshKey((k) => k + 1); // Trigger re-render

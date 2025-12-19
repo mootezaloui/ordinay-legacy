@@ -9,6 +9,16 @@
  */
 
 import { mockDossiers, mockCases } from "../../utils/mockData";
+import {
+  getAllAssignees,
+  addCustomAssignee,
+} from "../../utils/assigneeManager";
+
+// Default assignees that are always available
+const DEFAULT_ASSIGNEES = [
+  { value: "Moi-même", label: "Moi-même" },
+  { value: "Stagiaire", label: "Stagiaire" },
+];
 
 // ========================================
 // CLIENT FORM (No changes - clients are top level)
@@ -120,11 +130,12 @@ export const clientFormFields = [
 export const dossierFormFields = [
   {
     name: "caseNumber",
-    label: "Numéro de dossier",
+    label: "Référence / Numéro",
     type: "text",
-    placeholder: "DOS-2024-001",
-    required: true,
-    helpText: "Format: DOS-ANNÉE-NUMÉRO",
+    placeholder: "Ex: DOS-2025-001 (auto-généré si vide)",
+    required: false,
+    helpText:
+      "Facultatif - Laissez vide pour génération automatique (DOS-ANNÉE-XXX)",
   },
   {
     name: "title",
@@ -246,11 +257,12 @@ export const dossierFormFields = [
 export const caseFormFields = [
   {
     name: "caseNumber",
-    label: "Numéro de procès",
+    label: "Référence / Numéro",
     type: "text",
-    placeholder: "PRO-2024-001",
-    required: true,
-    helpText: "Format: PRO-ANNÉE-NUMÉRO",
+    placeholder: "Ex: PRO-2025-001 (auto-généré si vide)",
+    required: false,
+    helpText:
+      "Facultatif - Laissez vide pour génération automatique (PRO-ANNÉE-XXX)",
   },
   {
     name: "title",
@@ -421,7 +433,7 @@ export const sessionFormFields = [
     required: false,
     options: [], // ← Will be populated dynamically with mockCases
     helpText: "Sélectionner le procès concerné",
-    // This field is conditionally visible based on linkType
+    hideIf: (formData) => formData.linkType !== "case",
   },
   {
     // ✅ RELATIONSHIP FIELD - Dossier (shown when linkType is "dossier")
@@ -431,7 +443,7 @@ export const sessionFormFields = [
     required: false,
     options: [], // ← Will be populated dynamically with mockDossiers
     helpText: "Sélectionner le dossier concerné",
-    // This field is conditionally visible based on linkType
+    hideIf: (formData) => formData.linkType !== "dossier",
   },
   {
     name: "date",
@@ -617,14 +629,20 @@ export const taskFormFields = [
   {
     name: "assignedTo",
     label: "Assigné à",
-    type: "select",
+    type: "searchable-select",
     required: true,
-    options: [
-      { value: "Me. Hammami", label: "Me. Mohamed Hammami" },
-      { value: "Me. Sassi", label: "Me. Asma Sassi" },
-      { value: "Me. Cherif", label: "Me. Karim Cherif" },
-      { value: "Stagiaire", label: "Stagiaire" },
-    ],
+    getOptions: () => getAllAssignees(DEFAULT_ASSIGNEES),
+    allowCreate: true,
+    onCreateOption: async (name) => {
+      try {
+        addCustomAssignee(name);
+        return true;
+      } catch (error) {
+        alert(error.message);
+        throw error;
+      }
+    },
+    createLabel: "Ajouter",
   },
   {
     name: "dueDate",
@@ -1027,12 +1045,13 @@ export const missionFormFields = [
   },
   {
     name: "missionNumber",
-    label: "Numéro de mission",
+    label: "Référence / Numéro",
     type: "text",
-    required: false, // Auto-generated, not required for submission
-    disabled: true, // Will be auto-generated
-    placeholder: "Auto-généré (MIS-YYYY-XXX)",
-    helpText: "Généré automatiquement",
+    required: false,
+    disabled: false, // Allow user input
+    placeholder: "Ex: MIS-2025-001 (auto-généré si vide)",
+    helpText:
+      "Facultatif - Laissez vide pour génération automatique (MIS-ANNÉE-XXX)",
   },
   {
     name: "title",

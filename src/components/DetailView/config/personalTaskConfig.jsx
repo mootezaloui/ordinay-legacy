@@ -17,23 +17,48 @@ export const personalTaskConfig = {
   allowDelete: true,
   allowEdit: true,
 
-  fetchData: async (id) => {
-    return mockPersonalTasksExtended[id] || null;
+  fetchData: async (id, contextData = null) => {
+    // Convert id to number for comparison
+    const numericId = parseInt(id);
+
+    let personalTask;
+    if (contextData?.personalTasks) {
+      // Use contextData.personalTasks from DataContext (this is the live data)
+      personalTask = contextData.personalTasks.find(pt => pt.id === numericId);
+    } else {
+      // Fallback to mockPersonalTasksExtended (static data)
+      personalTask = mockPersonalTasksExtended[numericId];
+    }
+    return personalTask || null;
   },
 
-  updateData: async (id, data) => {
-    // ✅ Actually update the personal task data in mockPersonalTasksExtended
-    if (mockPersonalTasksExtended[id]) {
-      mockPersonalTasksExtended[id] = {
-        ...mockPersonalTasksExtended[id],
-        ...data,
-      };
+  updateData: async (id, data, contextData = null) => {
+    const numericId = parseInt(id);
+
+    if (contextData?.updatePersonalTask) {
+      // Use DataContext to update (this persists to localStorage)
+      contextData.updatePersonalTask(numericId, data);
+    } else {
+      // Fallback to updating mockPersonalTasksExtended
+      if (mockPersonalTasksExtended[numericId]) {
+        mockPersonalTasksExtended[numericId] = {
+          ...mockPersonalTasksExtended[numericId],
+          ...data,
+        };
+      }
     }
     await new Promise(resolve => setTimeout(resolve, 500));
   },
 
-  deleteData: async (id) => {
-    console.log("Deleting personal task:", id);
+  deleteData: async (id, contextData = null) => {
+    const numericId = parseInt(id);
+
+    if (contextData?.deletePersonalTask) {
+      // Use DataContext to delete (this persists to localStorage)
+      contextData.deletePersonalTask(numericId);
+    } else {
+      console.log("Deleting personal task:", numericId);
+    }
   },
 
   getTitle: (data) => data.title,
@@ -218,7 +243,7 @@ export const personalTaskConfig = {
       id: "timeline",
       label: "Historique",
       icon: "fas fa-history",
-      component: "timeline",
+      component: "history",
     },
   ],
 

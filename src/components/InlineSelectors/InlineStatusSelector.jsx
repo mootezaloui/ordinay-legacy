@@ -3,6 +3,12 @@ import { createPortal } from "react-dom";
 import { getStatusColor } from "../../utils/mockData";
 import { canPerformAction } from "../../services/domainRules";
 import BlockerModal from "../ui/BlockerModal";
+import { logStatusChange } from "../../services/historyService";
+import ClientNotificationPrompt from "../ui/ClientNotificationPrompt";
+import {
+  shouldPromptClientNotification,
+  sendClientNotification,
+} from "../../services/clientCommunication";
 
 // Global state to track which dropdown is currently open
 let currentOpenDropdown = null;
@@ -54,10 +60,17 @@ export default function InlineStatusSelector({
   const dropdownIdRef = useRef(Symbol('dropdown'));
   const [menuPosition, setMenuPosition] = useState(null); // null until computed to avoid flash at (0,0)
 
+  // 📧 Client Notification State
+  const [notificationPrompt, setNotificationPrompt] = useState({
+    isOpen: false,
+    eventType: null,
+    eventData: null,
+  });
+
   const currentStatus = statusOptions.find(s => s.value === value) || statusOptions[0];
 
   /**
-   * Handle status change with domain rule validation
+   * Handle status change with domain rule validation + client notification
    */
   const handleStatusChange = (newValue) => {
     // If entityId and entityType are provided, validate with domain rules
@@ -79,6 +92,66 @@ export default function InlineStatusSelector({
 
     // Validation passed or no validation required - proceed with change
     onChange(newValue);
+
+    // ✅ Log status change to history
+    if (entityId && entityType && entityType !== 'generic') {
+      const oldStatusLabel = statusOptions.find(s => s.value === value)?.label || value;
+      const newStatusLabel = statusOptions.find(s => s.value === newValue)?.label || newValue;
+      logStatusChange(entityType, entityId, oldStatusLabel, newStatusLabel);
+    }
+
+    // 📧 Check if client notification should be prompted
+    if (entityId && entityType && entityType !== 'generic') {
+      const notificationCheck = shouldPromptClientNotification(
+        entityType,
+        'changeStatus',
+        {
+          oldValue: value,
+          newValue: newValue,
+          data: entityData,
+        }
+      );
+
+      if (notificationCheck?.shouldPrompt) {
+        setNotificationPrompt({
+          isOpen: true,
+          eventType: notificationCheck.eventType,
+          eventData: notificationCheck.eventData,
+        });
+      }
+    }
+  };
+
+  /**
+   * 📧 Handle sending client notification
+   */
+  const handleSendNotification = async () => {
+    const { eventType, eventData } = notificationPrompt;
+
+    try {
+      const result = await sendClientNotification(eventType, eventData, {
+        channels: ['email'], // MVP: email only
+      });
+
+      if (result.success) {
+        console.log('✅ Client notification sent successfully');
+      } else {
+        console.error('❌ Failed to send client notification');
+      }
+    } catch (error) {
+      console.error('Error sending client notification:', error);
+    }
+
+    // Close prompt
+    setNotificationPrompt({ isOpen: false, eventType: null, eventData: null });
+  };
+
+  /**
+   * 📧 Handle closing notification prompt without sending
+   */
+  const handleCloseNotificationPrompt = () => {
+    console.log('ℹ️ User chose not to notify client');
+    setNotificationPrompt({ isOpen: false, eventType: null, eventData: null });
   };
 
   const computeMenuPosition = () => {
@@ -216,6 +289,7 @@ export default function InlineStatusSelector({
   return (
     <>
       <button
+        type="button"
         ref={buttonRef}
         onClick={handleToggle}
         className={`flex items-center gap-2 rounded-full font-medium border transition-all hover:shadow-md hover:scale-105 ${sizeClasses[size]} ${getButtonColor()}`}
@@ -293,8 +367,8 @@ export default function InlineStatusSelector({
                   setIsOpen(false);
                 }}
                 className={`w-full text-left px-4 py-2.5 text-sm flex items-center gap-3 transition-all ${isSelected
-                    ? "bg-blue-50 dark:bg-blue-900/20 border-l-2 border-blue-500"
-                    : getHoverBg(status.color)
+                  ? "bg-blue-50 dark:bg-blue-900/20 border-l-2 border-blue-500"
+                  : getHoverBg(status.color)
                   }`}
               >
                 {status.icon ? (
@@ -313,7 +387,7 @@ export default function InlineStatusSelector({
         document.body
       )}
 
-      {/* Blocker Modal */}
+      {/* Blocker Modal - ENHANCED with interactive actions */}
       <BlockerModal
         isOpen={blockerModalOpen}
         onClose={() => setBlockerModalOpen(false)}
@@ -321,6 +395,30 @@ export default function InlineStatusSelector({
         blockers={validationResult?.blockers || []}
         warnings={validationResult?.warnings || []}
         entityName={entityData?.caseNumber || entityData?.title || `#${entityId}`}
+        entityType={entityType}
+        entityId={entityId}
+        action="changeStatus"
+        context={{ newValue: pendingValue, currentValue: value, data: entityData }}
+        onRetry={() => {
+          // Retry the status change after blockers are resolved
+          onChange(pendingValue);
+          setPendingValue(null);
+          setValidationResult(null);
+        }}
+        onUpdate={() => {
+          // Callback to refresh data when inline actions are performed
+          // In a real app, this would trigger a data refetch
+          console.log('Data updated, should refresh entity data');
+        }}
+      />
+
+      {/* 📧 Client Notification Prompt */}
+      <ClientNotificationPrompt
+        isOpen={notificationPrompt.isOpen}
+        onClose={handleCloseNotificationPrompt}
+        onConfirm={handleSendNotification}
+        eventType={notificationPrompt.eventType}
+        eventData={notificationPrompt.eventData}
       />
     </>
   );

@@ -20,6 +20,8 @@ import { mockOfficers } from "../utils/mockData";
 import InlineStatusSelector from "../components/InlineSelectors/InlineStatusSelector";
 import BlockerModal from "../components/ui/BlockerModal";
 import { canPerformAction } from "../services/domainRules";
+import { resolveDetailRoute } from "../utils/routeResolver";
+import { logEntityCreation } from "../services/historyService";
 
 export default function Officers() {
   const navigate = useNavigate();
@@ -91,7 +93,8 @@ export default function Officers() {
           value={officer.status}
           onChange={(newStatus) => handleStatusChange(officer.id, newStatus)}
           statusOptions={[
-            { value: "Actif", label: "Actif", icon: "fas fa-check-circle", color: "green" },
+            { value: "Disponible", label: "Disponible", icon: "fas fa-check-circle", color: "green" },
+            { value: "Occupé", label: "Occupé", icon: "fas fa-clock", color: "amber" },
             { value: "Inactif", label: "Inactif", icon: "fas fa-circle", color: "slate" },
           ]}
           entityType="officer"
@@ -169,6 +172,13 @@ export default function Officers() {
       return;
     }
 
+    if (result.requiresConfirmation) {
+      setValidationResult(result);
+      setPendingAction({ type: "openEdit", officer });
+      setConfirmImpactModalOpen(true);
+      return;
+    }
+
     setEditingOfficer(officer);
     setIsModalOpen(true);
   };
@@ -181,6 +191,13 @@ export default function Officers() {
     if (!result.allowed) {
       setValidationResult(result);
       setBlockerModalOpen(true);
+      return;
+    }
+
+    if (result.requiresConfirmation) {
+      setValidationResult(result);
+      setPendingAction({ type: "delete", id });
+      setConfirmImpactModalOpen(true);
       return;
     }
 
@@ -244,6 +261,15 @@ export default function Officers() {
         };
         setOfficers([newOfficer, ...officers]);
         showToast("Huissier ajouté avec succès!", "success");
+
+        // ✅ Log creation event
+        logEntityCreation('officer', newOfficer.id, formData.name);
+
+        // ✅ Navigate to detail view after creation
+        const detailRoute = resolveDetailRoute('officer', newOfficer.id);
+        if (detailRoute) {
+          setTimeout(() => navigate(detailRoute), 100);
+        }
       }
 
       setIsModalOpen(false);
@@ -282,8 +308,8 @@ export default function Officers() {
     window.URL.revokeObjectURL(url);
   };
 
-  // Form fields for officers
-  const officerFormFields = [
+  // Form fields for officers (base definition)
+  const officerFormFieldsBase = [
     {
       name: "name",
       label: "Nom complet",
@@ -351,6 +377,21 @@ export default function Officers() {
       rows: 3,
     },
   ];
+
+  // ✅ Apply status field protection when editing
+  const officerFormFields = editingOfficer
+    ? officerFormFieldsBase.map(field => {
+      if (field.name === "status") {
+        return {
+          ...field,
+          type: 'readonly',
+          displayValue: editingOfficer.status,
+          helpText: 'Le statut ne peut être modifié que via le sélecteur dans la liste'
+        };
+      }
+      return field;
+    })
+    : officerFormFieldsBase;
 
   return (
     <PageLayout>
@@ -459,6 +500,9 @@ export default function Officers() {
         fields={officerFormFields}
         initialData={editingOfficer}
         isLoading={isLoading}
+        entityType="officer"
+        entityId={editingOfficer?.id}
+        editingEntity={editingOfficer}
       />
 
       <BlockerModal

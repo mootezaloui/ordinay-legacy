@@ -26,23 +26,98 @@ export const caseConfig = {
   allowEdit: true,
 
   // Data fetching
-  fetchData: async (id) => {
-    return mockCasesExtended[id] || null;
+  fetchData: async (id, contextData = null) => {
+    console.log('[caseConfig] fetchData called with id:', id);
+    const numericId = parseInt(id);
+
+    let caseData;
+    if (contextData?.cases) {
+      // Use contextData.cases from DataContext (this is the live data)
+      console.log('[caseConfig] Using contextData.cases');
+      caseData = contextData.cases.find(c => c.id === numericId);
+    } else {
+      // Fallback to mockCasesExtended (static data)
+      console.log('[caseConfig] mockCasesExtended keys:', Object.keys(mockCasesExtended));
+      caseData = mockCasesExtended[numericId];
+    }
+    console.log('[caseConfig] Found case:', caseData);
+    if (!caseData) return null;
+
+    // ✅ Ensure dossier object is populated
+    const dossiers = contextData?.dossiers || mockDossiers;
+    let dossier = caseData.dossier;
+    if (!dossier && caseData.dossierId) {
+      const foundDossier = dossiers.find(d => d.id === parseInt(caseData.dossierId));
+      if (foundDossier) {
+        dossier = {
+          id: foundDossier.id,
+          caseNumber: foundDossier.caseNumber,
+          title: foundDossier.title
+        };
+      }
+    }
+
+    return {
+      ...caseData,
+      dossier: dossier || { id: null, caseNumber: 'N/A', title: 'Dossier inconnu' }
+    };
   },
 
-  updateData: async (id, data) => {
-    // ✅ Actually update the case data in mockCasesExtended
-    if (mockCasesExtended[id]) {
-      mockCasesExtended[id] = {
-        ...mockCasesExtended[id],
-        ...data,
-      };
+  updateData: async (id, data, contextData = null) => {
+    const numericId = parseInt(id);
+
+    if (contextData?.updateCase) {
+      // Use DataContext to update (this persists to localStorage)
+      contextData.updateCase(numericId, data);
+    } else {
+      // Fallback to updating mockCasesExtended
+      if (mockCasesExtended[numericId]) {
+        // ✅ Sync sessions with global mockSessions array
+        if ('sessions' in data) {
+          data.sessions.forEach(session => {
+            const existingIndex = mockSessions.findIndex(s => s.id === session.id);
+            if (existingIndex === -1) {
+              // New session - add to global array
+              mockSessions.push(session);
+            } else {
+              // Existing session - update it
+              mockSessions[existingIndex] = session;
+            }
+          });
+        }
+
+        // ✅ Sync tasks with global mockTasks array
+        if ('tasks' in data) {
+          data.tasks.forEach(task => {
+            const existingIndex = mockTasks.findIndex(t => t.id === task.id);
+            if (existingIndex === -1) {
+              // New task - add to global array
+              mockTasks.push(task);
+            } else {
+              // Existing task - update it
+              mockTasks[existingIndex] = task;
+            }
+          });
+        }
+
+        mockCasesExtended[numericId] = {
+          ...mockCasesExtended[numericId],
+          ...data,
+        };
+      }
     }
     await new Promise(resolve => setTimeout(resolve, 500));
   },
 
-  deleteData: async (id) => {
-    console.log("Deleting case:", id);
+  deleteData: async (id, contextData = null) => {
+    const numericId = parseInt(id);
+
+    if (contextData?.deleteCase) {
+      // Use DataContext to delete (this persists to localStorage)
+      contextData.deleteCase(numericId);
+    } else {
+      console.log("Deleting case:", numericId);
+    }
   },
 
   // Header display
@@ -75,13 +150,20 @@ export const caseConfig = {
               <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
                 {data.title}
               </h2>
-              <Link
-                to={`/dossiers/${data.dossier.id}`}
-                className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-2"
-              >
-                <i className="fas fa-folder-open"></i>
-                {data.dossier.caseNumber} - {data.dossier.title}
-              </Link>
+              {data.dossier?.id ? (
+                <Link
+                  to={`/dossiers/${data.dossier.id}`}
+                  className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-2"
+                >
+                  <i className="fas fa-folder-open"></i>
+                  {data.dossier.caseNumber} - {data.dossier.title}
+                </Link>
+              ) : (
+                <span className="text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                  <i className="fas fa-folder-open"></i>
+                  {data.dossier?.title || 'Dossier non assigné'}
+                </span>
+              )}
             </div>
             <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(data.status)}`}>
               {data.status}
@@ -139,7 +221,7 @@ export const caseConfig = {
       component: "aggregatedRelated",
       aggregationType: "sessions",
       getCount: (data) => data.sessions?.length || 0,
-
+      itemsKey: "sessions",
       allowAdd: true,
       allowDelete: false,
       entityName: "une séance",
@@ -202,6 +284,7 @@ export const caseConfig = {
       component: "aggregatedRelated",
       aggregationType: "tasks",
       getCount: (data) => data.tasks?.length || 0,
+      itemsKey: "tasks",
       allowAdd: true,
       allowDelete: false,
       entityName: "une tâche",
@@ -271,12 +354,18 @@ export const caseConfig = {
       component: "aggregatedRelated",
       aggregationType: "missions",
       getCount: (data) => data.missions?.length || 0,
+      itemsKey: "missions",
       allowAdd: true,
       allowDelete: false,
       entityName: "une mission",
       addSubtitle: "Créer une nouvelle mission d'huissier pour ce procès",
       // Dynamic form fields - entityType and entityReference pre-filled
       getFormFields: (caseData) => {
+        // Generate a default mission number
+        const year = new Date().getFullYear();
+        const randomNum = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+        const defaultMissionNumber = `MIS-${year}-${randomNum}`;
+
         return missionFormFields.map(field => {
           if (field.name === 'entityType') {
             return {
@@ -290,6 +379,12 @@ export const caseConfig = {
               defaultValue: caseData.caseNumber,
               disabled: true,
               helpText: `Cette mission sera liée au procès ${caseData.caseNumber}`,
+            };
+          } else if (field.name === 'missionNumber') {
+            return {
+              ...field,
+              defaultValue: defaultMissionNumber,
+              disabled: true,
             };
           } else if (field.name === 'officerId') {
             return {
@@ -327,7 +422,7 @@ export const caseConfig = {
       id: "timeline",
       label: "Historique",
       icon: "fas fa-history",
-      component: "timeline",
+      component: "history",
     },
   ],
 
@@ -458,11 +553,16 @@ export const caseConfig = {
           label: "Dossier associé",
           value: (data) => {
             // Return the dossierId for the select, not the full object
-            return data.dossier?.id || data.dossierId || "";
+            return data.dossierId || "";
           },
           displayValue: (data) => {
             // For display purposes, show the full dossier info
-            return data.dossier ? `${data.dossier.caseNumber} - ${data.dossier.title}` : "Aucun dossier";
+            if (!data.dossierId) return "Aucun dossier";
+            const dossier = mockDossiers.find(d => d.id === data.dossierId);
+            if (dossier) return `${dossier.caseNumber} - ${dossier.title}`;
+            // Fallback to hydrated dossier object if available
+            if (data.dossier?.caseNumber) return `${data.dossier.caseNumber} - ${data.dossier.title}`;
+            return "Aucun dossier";
           },
           icon: "fas fa-folder-open",
           type: "searchable-select",

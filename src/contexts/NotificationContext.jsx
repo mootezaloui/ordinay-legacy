@@ -28,6 +28,22 @@ export function NotificationProvider({ children }) {
   const [notifications, setNotifications] = useState([]);
   const [alerts, setAlerts] = useState([]);
 
+  // Add new notification
+  const addNotification = useCallback((notification) => {
+    const newNotification = {
+      id: Date.now() + Math.random(),
+      timestamp: new Date().toISOString(),
+      read: false,
+      severity: notification.severity || notification.priority || "info",
+      priority: notification.priority || notification.severity || "info",
+      ...notification,
+    };
+
+    console.log("[NOTIFICATION] Adding notification:", newNotification);
+    setNotifications(prev => [newNotification, ...prev]);
+    return newNotification.id;
+  }, []);
+
   // Load notifications from localStorage on mount
   useEffect(() => {
     const saved = localStorage.getItem("organia_notifications");
@@ -37,12 +53,17 @@ export function NotificationProvider({ children }) {
         setNotifications(parsed);
       } catch (error) {
         console.error("Failed to load notifications:", error);
+        // Initialize with sample notifications on error
+        setNotifications(getInitialNotifications());
       }
     } else {
       // Initialize with sample notifications
       setNotifications(getInitialNotifications());
     }
+  }, []);
 
+  // Start scheduler in separate effect with proper dependencies
+  useEffect(() => {
     // Start the notification scheduler
     notificationScheduler.start((notification) => {
       // When scheduler generates a notification, add it to the list
@@ -53,7 +74,7 @@ export function NotificationProvider({ children }) {
     return () => {
       notificationScheduler.stop();
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [addNotification]);
 
   // Save to localStorage whenever notifications change
   useEffect(() => {
@@ -88,21 +109,6 @@ export function NotificationProvider({ children }) {
 
     return newAlert.id;
   }, [removeAlert]);
-
-  // Add new notification
-  const addNotification = useCallback((notification) => {
-    const newNotification = {
-      id: Date.now() + Math.random(),
-      timestamp: new Date().toISOString(),
-      read: false,
-      severity: notification.severity || notification.priority || "info",
-      priority: notification.priority || notification.severity || "info",
-      ...notification,
-    };
-
-    setNotifications(prev => [newNotification, ...prev]);
-    return newNotification.id;
-  }, []);
 
   // Mark notification as read
   const markAsRead = useCallback((notificationId) => {

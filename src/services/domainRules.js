@@ -38,12 +38,17 @@ import {
   mockDossiersExtended,
   mockCasesExtended,
   mockClientsExtended,
+  mockClients,
+  mockDossiers,
   mockTasks,
   mockCases,
   mockSessions,
   getAllMissions,
-  mockAccounting
-} from '../utils/mockData';
+  mockOfficers,
+  mockOfficersExtended,
+} from "../utils/mockData";
+import { financialLedger } from "../utils/financialData";
+import { validateTemporalConstraints } from "./temporalValidation";
 
 // ========================================
 // CORE RULE ENGINE
@@ -70,36 +75,79 @@ export function canPerformAction(entityType, entityId, action, context = {}) {
 
   const actionValidator = validator[action];
 
-  if (!actionValidator) {
-    // No specific rule for this action - allow by default
-    return { allowed: true, blockers: [], warnings: [] };
-  }
+  let result = { allowed: true, blockers: [], warnings: [] };
 
-  try {
-    const result = actionValidator(entityId, context);
-
-    // Phase 2.5: Detect relational-impact changes
-    if (result.allowed && action === 'edit' && context.data && context.newData) {
-      const impactDetection = detectRelationalImpact(entityType, context.data, context.newData);
-      if (impactDetection.requiresConfirmation) {
-        return {
-          ...result,
-          requiresConfirmation: true,
-          impactSummary: impactDetection.impactSummary,
-          changeDetails: impactDetection.changeDetails
-        };
-      }
+  if (actionValidator) {
+    try {
+      result = actionValidator(entityId, context);
+    } catch (error) {
+      console.error(`Error validating ${entityType}.${action}:`, error);
+      return {
+        allowed: false,
+        blockers: ["Une erreur inattendue s'est produite. Veuillez réessayer."],
+        warnings: [],
+      };
     }
-
-    return result;
-  } catch (error) {
-    console.error(`Error validating ${entityType}.${action}:`, error);
-    return {
-      allowed: false,
-      blockers: ["Une erreur inattendue s'est produite. Veuillez réessayer."],
-      warnings: []
-    };
   }
+
+  // TEMPORAL VALIDATION: Apply date/time validation to all create and edit actions
+  if (
+    (action === "create" || action === "add" || action === "edit") &&
+    context.newData
+  ) {
+    try {
+      const temporalResult = validateTemporalConstraints(
+        entityType,
+        context.newData,
+        action,
+        context
+      );
+
+      // Merge temporal validation results with existing results
+      if (temporalResult) {
+        if (!temporalResult.allowed) {
+          result.allowed = false;
+        }
+        if (temporalResult.blockers && temporalResult.blockers.length > 0) {
+          result.blockers = [
+            ...(result.blockers || []),
+            ...temporalResult.blockers,
+          ];
+        }
+        if (temporalResult.warnings && temporalResult.warnings.length > 0) {
+          result.warnings = [
+            ...(result.warnings || []),
+            ...temporalResult.warnings,
+          ];
+        }
+      }
+    } catch (error) {
+      console.error(
+        `Error in temporal validation for ${entityType}.${action}:`,
+        error
+      );
+      // Continue with existing validation results
+    }
+  }
+
+  // Phase 2.5: Detect relational-impact changes (even if no specific validator exists)
+  if (result.allowed && action === "edit" && context.data && context.newData) {
+    const impactDetection = detectRelationalImpact(
+      entityType,
+      context.data,
+      context.newData
+    );
+    if (impactDetection.requiresConfirmation) {
+      return {
+        ...result,
+        requiresConfirmation: true,
+        impactSummary: impactDetection.impactSummary,
+        changeDetails: impactDetection.changeDetails,
+      };
+    }
+  }
+
+  return result;
 }
 
 // ========================================
@@ -121,6 +169,7 @@ function detectRelationalImpact(entityType, currentData, newData) {
     dossier: detectDossierImpact,
     case: detectCaseImpact,
     task: detectTaskImpact,
+    session: detectSessionImpact,
   };
 
   const detector = detectors[entityType];
@@ -135,35 +184,81 @@ function detectRelationalImpact(entityType, currentData, newData) {
  * Detect Mission → Huissier reassignment
  */
 function detectMissionImpact(currentData, newData) {
-  const officerIdChanged = currentData.officerId !== newData.officerId;
+  const changes = [];
 
-  if (!officerIdChanged) {
+  // Check for reference/number change
+  const referenceField = "missionNumber";
+  if (
+    referenceField in newData &&
+    currentData[referenceField] !== newData[referenceField]
+  ) {
+    changes.push({
+      type: "reference_change",
+      field: "Numéro de mission",
+      from: currentData[referenceField],
+      to: newData[referenceField],
+      impact: [
+        "• La référence de la mission sera modifiée",
+        "• Tous les documents et rapports devront être mis à jour",
+        "• Les écritures comptables conserveront la nouvelle référence",
+      ],
+    });
+  }
+
+  // Check for officer reassignment
+  if ("officerId" in newData) {
+    const officerIdChanged = currentData.officerId !== newData.officerId;
+
+    if (officerIdChanged) {
+      // Get officer names for better UX
+      const oldOfficer =
+        mockOfficersExtended[currentData.officerId] ||
+        Object.values(mockOfficersExtended).find(
+          (o) => o.id == currentData.officerId
+        );
+      const newOfficer =
+        mockOfficersExtended[newData.officerId] ||
+        Object.values(mockOfficersExtended).find(
+          (o) => o.id == newData.officerId
+        );
+
+      changes.push({
+        type: "officer_reassignment",
+        field: "Huissier",
+        from: oldOfficer?.name,
+        to: newOfficer?.name,
+        impact: [
+          "• La mission sera retirée de l'huissier actuel",
+          "• La responsabilité de suivi changera",
+          "• L'historique de la mission sera préservé",
+        ],
+      });
+    }
+  }
+
+  if (changes.length === 0) {
     return { requiresConfirmation: false };
   }
 
-  // Get officer names for better UX
-  const { mockOfficers } = require('../utils/mockData');
-  const oldOfficer = mockOfficers.find(o => o.id === currentData.officerId);
-  const newOfficer = mockOfficers.find(o => o.id === newData.officerId);
-
-  const impactSummary = [
-    `**Huissier actuel** : ${oldOfficer?.name || 'Non assigné'}`,
-    `**Nouvel huissier** : ${newOfficer?.name || 'Non assigné'}`,
-    '',
-    '**Impact** :',
-    '• La mission sera retirée de l\'huissier actuel',
-    '• La responsabilité de suivi changera',
-    '• L\'historique de la mission sera préservé'
-  ];
+  // Build comprehensive impact summary
+  const impactSummary = [];
+  changes.forEach((change) => {
+    impactSummary.push(
+      `**${change.field} actuel** : ${change.from || "Non défini"}`
+    );
+    impactSummary.push(
+      `**${change.field} nouveau** : ${change.to || "Non défini"}`
+    );
+    impactSummary.push("");
+    impactSummary.push("**Impact** :");
+    impactSummary.push(...change.impact);
+    impactSummary.push("");
+  });
 
   return {
     requiresConfirmation: true,
     impactSummary,
-    changeDetails: {
-      type: 'officer_reassignment',
-      from: oldOfficer?.name,
-      to: newOfficer?.name
-    }
+    changeDetails: changes[0], // Primary change for backward compatibility
   };
 }
 
@@ -171,36 +266,75 @@ function detectMissionImpact(currentData, newData) {
  * Detect Dossier → Client reassignment
  */
 function detectDossierImpact(currentData, newData) {
-  const clientIdChanged = currentData.clientId !== newData.clientId;
+  const changes = [];
 
-  if (!clientIdChanged) {
+  // Check for reference/number change
+  const referenceField = "caseNumber";
+  if (
+    referenceField in newData &&
+    currentData[referenceField] !== newData[referenceField]
+  ) {
+    changes.push({
+      type: "reference_change",
+      field: "Numéro de dossier",
+      from: currentData[referenceField],
+      to: newData[referenceField],
+      impact: [
+        "• La référence du dossier sera modifiée",
+        "• Tous les procès liés conserveront leur lien avec ce dossier",
+        "• Les documents et rapports devront être mis à jour",
+        "• Les écritures comptables conserveront la nouvelle référence",
+      ],
+    });
+  }
+
+  // Check for client reassignment
+  if ("clientId" in newData) {
+    const clientIdChanged = currentData.clientId != newData.clientId;
+
+    if (clientIdChanged) {
+      // Get client names for better UX
+      const oldClient = mockClients.find((c) => c.id == currentData.clientId);
+      const newClient = mockClients.find((c) => c.id == newData.clientId);
+
+      changes.push({
+        type: "client_reassignment",
+        field: "Client",
+        from: oldClient?.name,
+        to: newClient?.name,
+        impact: [
+          "• Tous les procès liés resteront attachés à ce dossier",
+          "• Les écritures comptables resteront associées au dossier",
+          "• Le dossier apparaîtra désormais sous le nouveau client",
+          "• Les indicateurs de suivi seront recalculés",
+        ],
+      });
+    }
+  }
+
+  if (changes.length === 0) {
     return { requiresConfirmation: false };
   }
 
-  // Get client names for better UX
-  const { mockClients } = require('../utils/mockData');
-  const oldClient = mockClients.find(c => c.id === currentData.clientId);
-  const newClient = mockClients.find(c => c.id === newData.clientId);
-
-  const impactSummary = [
-    `**Client actuel** : ${oldClient?.name || 'Non assigné'}`,
-    `**Nouveau client** : ${newClient?.name || 'Non assigné'}`,
-    '',
-    '**Impact** :',
-    '• Tous les procès liés resteront attachés à ce dossier',
-    '• Les écritures comptables resteront associées au dossier',
-    '• Le dossier apparaîtra désormais sous le nouveau client',
-    '• Les indicateurs de suivi seront recalculés'
-  ];
+  // Build comprehensive impact summary
+  const impactSummary = [];
+  changes.forEach((change) => {
+    impactSummary.push(
+      `**${change.field} actuel** : ${change.from || "Non défini"}`
+    );
+    impactSummary.push(
+      `**${change.field} nouveau** : ${change.to || "Non défini"}`
+    );
+    impactSummary.push("");
+    impactSummary.push("**Impact** :");
+    impactSummary.push(...change.impact);
+    impactSummary.push("");
+  });
 
   return {
     requiresConfirmation: true,
     impactSummary,
-    changeDetails: {
-      type: 'client_reassignment',
-      from: oldClient?.name,
-      to: newClient?.name
-    }
+    changeDetails: changes[0], // Primary change for backward compatibility
   };
 }
 
@@ -208,36 +342,81 @@ function detectDossierImpact(currentData, newData) {
  * Detect Procès (Case) → Dossier reassignment
  */
 function detectCaseImpact(currentData, newData) {
-  const dossierIdChanged = currentData.dossierId !== newData.dossierId;
+  const changes = [];
 
-  if (!dossierIdChanged) {
+  // Check for reference/number change
+  const referenceField = "caseNumber";
+  if (
+    referenceField in newData &&
+    currentData[referenceField] !== newData[referenceField]
+  ) {
+    changes.push({
+      type: "reference_change",
+      field: "Numéro de procès",
+      from: currentData[referenceField],
+      to: newData[referenceField],
+      impact: [
+        "• La référence du procès sera modifiée",
+        "• Toutes les séances liées conserveront leur lien avec ce procès",
+        "• Les documents et rapports devront être mis à jour",
+        "• Les écritures comptables conserveront la nouvelle référence",
+      ],
+    });
+  }
+
+  // Check for dossier reassignment
+  if ("dossierId" in newData) {
+    const dossierIdChanged = currentData.dossierId != newData.dossierId;
+
+    if (dossierIdChanged) {
+      // Get dossier info for better UX
+      const oldDossier = mockDossiers.find(
+        (d) => d.id == currentData.dossierId
+      );
+      const newDossier = mockDossiers.find((d) => d.id == newData.dossierId);
+
+      changes.push({
+        type: "dossier_reassignment",
+        field: "Dossier",
+        from: `${oldDossier?.caseNumber || "Non assigné"} - ${
+          oldDossier?.title || ""
+        }`,
+        to: `${newDossier?.caseNumber || "Non assigné"} - ${
+          newDossier?.title || ""
+        }`,
+        impact: [
+          "• Le client de rattachement pourra changer",
+          "• Les écritures comptables seront agrégées sous le nouveau dossier",
+          "• Les tâches et séances liées au procès seront déplacées",
+          "• Les indicateurs de suivi seront recalculés",
+        ],
+      });
+    }
+  }
+
+  if (changes.length === 0) {
     return { requiresConfirmation: false };
   }
 
-  // Get dossier info for better UX
-  const { mockDossiers } = require('../utils/mockData');
-  const oldDossier = mockDossiers.find(d => d.id === currentData.dossierId);
-  const newDossier = mockDossiers.find(d => d.id === newData.dossierId);
-
-  const impactSummary = [
-    `**Dossier actuel** : ${oldDossier?.caseNumber || 'Non assigné'} - ${oldDossier?.title || ''}`,
-    `**Nouveau dossier** : ${newDossier?.caseNumber || 'Non assigné'} - ${newDossier?.title || ''}`,
-    '',
-    '**Impact** :',
-    '• Le client de rattachement pourra changer',
-    '• Les écritures comptables seront agrégées sous le nouveau dossier',
-    '• Les tâches et séances liées au procès seront déplacées',
-    '• Les indicateurs de suivi seront recalculés'
-  ];
+  // Build comprehensive impact summary
+  const impactSummary = [];
+  changes.forEach((change) => {
+    impactSummary.push(
+      `**${change.field} actuel** : ${change.from || "Non défini"}`
+    );
+    impactSummary.push(
+      `**${change.field} nouveau** : ${change.to || "Non défini"}`
+    );
+    impactSummary.push("");
+    impactSummary.push("**Impact** :");
+    impactSummary.push(...change.impact);
+    impactSummary.push("");
+  });
 
   return {
     requiresConfirmation: true,
     impactSummary,
-    changeDetails: {
-      type: 'dossier_reassignment',
-      from: oldDossier?.caseNumber,
-      to: newDossier?.caseNumber
-    }
+    changeDetails: changes[0], // Primary change for backward compatibility
   };
 }
 
@@ -245,61 +424,150 @@ function detectCaseImpact(currentData, newData) {
  * Detect Task → Parent reassignment (Dossier or Procès)
  */
 function detectTaskImpact(currentData, newData) {
+  // ✅ Only check if parent fields are actually being changed (present in newData)
+  const parentTypeInNewData = "parentType" in newData;
+  const dossierIdInNewData = "dossierId" in newData;
+  const caseIdInNewData = "caseId" in newData;
+
+  // If none of these fields are being changed, no impact
+  if (!parentTypeInNewData && !dossierIdInNewData && !caseIdInNewData) {
+    return { requiresConfirmation: false };
+  }
+
   // Check if parent type changed
-  const parentTypeChanged = currentData.parentType !== newData.parentType;
+  const parentTypeChanged =
+    parentTypeInNewData && currentData.parentType !== newData.parentType;
 
   // Check if parent ID changed (within same type)
-  const dossierIdChanged = currentData.dossierId !== newData.dossierId;
-  const caseIdChanged = currentData.caseId !== newData.caseId;
+  const dossierIdChanged =
+    dossierIdInNewData && currentData.dossierId !== newData.dossierId;
+  const caseIdChanged =
+    caseIdInNewData && currentData.caseId !== newData.caseId;
 
-  const hasParentChange = parentTypeChanged || dossierIdChanged || caseIdChanged;
+  const hasParentChange =
+    parentTypeChanged || dossierIdChanged || caseIdChanged;
 
   if (!hasParentChange) {
     return { requiresConfirmation: false };
   }
 
   // Determine old and new parent info
-  let oldParentLabel = 'Non assignée';
-  let newParentLabel = 'Non assignée';
+  let oldParentLabel = "Non assignée";
+  let newParentLabel = "Non assignée";
 
-  if (currentData.parentType === 'dossier' && currentData.dossierId) {
-    const { mockDossiers } = require('../utils/mockData');
-    const dossier = mockDossiers.find(d => d.id === currentData.dossierId);
-    oldParentLabel = `Dossier ${dossier?.caseNumber || ''} - ${dossier?.title || ''}`;
-  } else if (currentData.parentType === 'case' && currentData.caseId) {
-    const { mockCases } = require('../utils/mockData');
-    const caseData = mockCases.find(c => c.id === currentData.caseId);
-    oldParentLabel = `Procès ${caseData?.caseNumber || ''} - ${caseData?.title || ''}`;
+  if (currentData.parentType === "dossier" && currentData.dossierId) {
+    const dossier = mockDossiers.find((d) => d.id == currentData.dossierId);
+    oldParentLabel = `Dossier ${dossier?.caseNumber || ""} - ${
+      dossier?.title || ""
+    }`;
+  } else if (currentData.parentType === "case" && currentData.caseId) {
+    const caseData = mockCases.find((c) => c.id == currentData.caseId);
+    oldParentLabel = `Procès ${caseData?.caseNumber || ""} - ${
+      caseData?.title || ""
+    }`;
   }
 
-  if (newData.parentType === 'dossier' && newData.dossierId) {
-    const { mockDossiers } = require('../utils/mockData');
-    const dossier = mockDossiers.find(d => d.id === newData.dossierId);
-    newParentLabel = `Dossier ${dossier?.caseNumber || ''} - ${dossier?.title || ''}`;
-  } else if (newData.parentType === 'case' && newData.caseId) {
-    const { mockCases } = require('../utils/mockData');
-    const caseData = mockCases.find(c => c.id === newData.caseId);
-    newParentLabel = `Procès ${caseData?.caseNumber || ''} - ${caseData?.title || ''}`;
+  if (newData.parentType === "dossier" && newData.dossierId) {
+    const dossier = mockDossiers.find((d) => d.id == newData.dossierId);
+    newParentLabel = `Dossier ${dossier?.caseNumber || ""} - ${
+      dossier?.title || ""
+    }`;
+  } else if (newData.parentType === "case" && newData.caseId) {
+    const caseData = mockCases.find((c) => c.id == newData.caseId);
+    newParentLabel = `Procès ${caseData?.caseNumber || ""} - ${
+      caseData?.title || ""
+    }`;
   }
 
   const impactSummary = [
     `**Parent actuel** : ${oldParentLabel}`,
     `**Nouveau parent** : ${newParentLabel}`,
-    '',
-    '**Impact** :',
-    '• La tâche sera retirée de son contexte actuel',
-    '• Les indicateurs de suivi seront recalculés',
-    '• L\'historique de la tâche sera préservé'
+    "",
+    "**Impact** :",
+    "• La tâche sera retirée de son contexte actuel",
+    "• Les indicateurs de suivi seront recalculés",
+    "• L'historique de la tâche sera préservé",
   ];
 
   return {
     requiresConfirmation: true,
     impactSummary,
     changeDetails: {
-      type: 'parent_reassignment',
+      type: "parent_reassignment",
       from: oldParentLabel,
-      to: newParentLabel
-    }
+      to: newParentLabel,
+    },
+  };
+}
+
+/**
+ * Detect Session (Audience) → Parent reassignment (Case or Dossier)
+ */
+function detectSessionImpact(currentData, newData) {
+  // ✅ Only check if parent fields are actually being changed (present in newData)
+  const caseIdInNewData = "caseId" in newData;
+  const dossierIdInNewData = "dossierId" in newData;
+
+  // If neither field is being changed, no impact
+  if (!caseIdInNewData && !dossierIdInNewData) {
+    return { requiresConfirmation: false };
+  }
+
+  // Check if parent changed
+  const caseIdChanged = caseIdInNewData && currentData.caseId != newData.caseId;
+  const dossierIdChanged =
+    dossierIdInNewData && currentData.dossierId != newData.dossierId;
+
+  if (!caseIdChanged && !dossierIdChanged) {
+    return { requiresConfirmation: false };
+  }
+
+  // Determine old and new parent info
+  let oldParentLabel = "Non assignée";
+  let newParentLabel = "Non assignée";
+
+  if (currentData.caseId) {
+    const caseData = mockCases.find((c) => c.id == currentData.caseId);
+    oldParentLabel = `Procès ${caseData?.caseNumber || ""} - ${
+      caseData?.title || ""
+    }`;
+  } else if (currentData.dossierId) {
+    const dossier = mockDossiers.find((d) => d.id == currentData.dossierId);
+    oldParentLabel = `Dossier ${dossier?.caseNumber || ""} - ${
+      dossier?.title || ""
+    }`;
+  }
+
+  if (newData.caseId) {
+    const caseData = mockCases.find((c) => c.id == newData.caseId);
+    newParentLabel = `Procès ${caseData?.caseNumber || ""} - ${
+      caseData?.title || ""
+    }`;
+  } else if (newData.dossierId) {
+    const dossier = mockDossiers.find((d) => d.id == newData.dossierId);
+    newParentLabel = `Dossier ${dossier?.caseNumber || ""} - ${
+      dossier?.title || ""
+    }`;
+  }
+
+  const impactSummary = [
+    `**Rattachement actuel** : ${oldParentLabel}`,
+    `**Nouveau rattachement** : ${newParentLabel}`,
+    "",
+    "**Impact** :",
+    "• L'audience sera retirée de son contexte actuel",
+    "• Les indicateurs de suivi seront recalculés",
+    "• L'historique de l'audience sera préservé",
+  ];
+
+  return {
+    requiresConfirmation: true,
+    impactSummary,
+    changeDetails: {
+      type: "session_parent_reassignment",
+      from: oldParentLabel,
+      to: newParentLabel,
+    },
   };
 }
 
@@ -389,33 +657,52 @@ function validateDossierClose(dossierId, context = {}) {
   }
 
   // Rule 1: Check for open tasks
-  const dossierTasks = mockTasks.filter(task =>
-    (task.parentType === 'dossier' && task.dossierId === dossierId) ||
-    (task.parentType === 'case' && dossier.proceedings?.some(proc => proc.id === task.caseId))
+  const dossierTasks = mockTasks.filter(
+    (task) =>
+      (task.parentType === "dossier" && task.dossierId === dossierId) ||
+      (task.parentType === "case" &&
+        dossier.proceedings?.some((proc) => proc.id === task.caseId))
   );
 
-  const incompleteTasks = dossierTasks.filter(task =>
-    task.status !== 'Terminée'
+  const incompleteTasks = dossierTasks.filter(
+    (task) => task.status !== "Terminée"
   );
 
   if (incompleteTasks.length > 0) {
     blockers.push(
-      `${incompleteTasks.length} tâche${incompleteTasks.length > 1 ? 's' : ''} non terminée${incompleteTasks.length > 1 ? 's' : ''} :` +
-      incompleteTasks.slice(0, 3).map(t => `\n  • ${t.title} (${t.status})`).join('') +
-      (incompleteTasks.length > 3 ? `\n  • ... et ${incompleteTasks.length - 3} autre${incompleteTasks.length - 3 > 1 ? 's' : ''}` : '')
+      `${incompleteTasks.length} tâche${
+        incompleteTasks.length > 1 ? "s" : ""
+      } non terminée${incompleteTasks.length > 1 ? "s" : ""} :` +
+        incompleteTasks
+          .slice(0, 3)
+          .map((t) => `\n  • ${t.title} (${t.status})`)
+          .join("") +
+        (incompleteTasks.length > 3
+          ? `\n  • ... et ${incompleteTasks.length - 3} autre${
+              incompleteTasks.length - 3 > 1 ? "s" : ""
+            }`
+          : "")
     );
   }
 
   // Rule 2: Check for open Procès (cases)
-  const openCases = dossier.proceedings?.filter(proc =>
-    proc.status !== 'Clos' && proc.status !== 'Terminé'
-  ) || [];
+  const openCases =
+    dossier.proceedings?.filter(
+      (proc) => proc.status !== "Clos" && proc.status !== "Terminé"
+    ) || [];
 
   if (openCases.length > 0) {
     blockers.push(
       `${openCases.length} procès non clos :` +
-      openCases.slice(0, 3).map(c => `\n  • ${c.caseNumber} - ${c.title} (${c.status})`).join('') +
-      (openCases.length > 3 ? `\n  • ... et ${openCases.length - 3} autre${openCases.length - 3 > 1 ? 's' : ''}` : '')
+        openCases
+          .slice(0, 3)
+          .map((c) => `\n  • ${c.caseNumber} - ${c.title} (${c.status})`)
+          .join("") +
+        (openCases.length > 3
+          ? `\n  • ... et ${openCases.length - 3} autre${
+              openCases.length - 3 > 1 ? "s" : ""
+            }`
+          : "")
     );
   }
 
@@ -423,24 +710,36 @@ function validateDossierClose(dossierId, context = {}) {
   const clientFinancials = getClientFinancials(dossier.clientId);
   if (clientFinancials.balance < 0) {
     blockers.push(
-      `Solde client impayé : ${Math.abs(clientFinancials.balance).toFixed(2)} TND`
+      `Solde client impayé : ${Math.abs(clientFinancials.balance).toFixed(
+        2
+      )} TND`
     );
   }
 
   // Rule 4: Check for active Huissier missions
   const allMissions = getAllMissions();
-  const dossierMissions = allMissions.filter(mission =>
-    mission.entityType === 'dossier' &&
-    mission.entityReference === dossier.caseNumber &&
-    mission.status !== 'Terminée' &&
-    mission.status !== 'Annulée'
+  const dossierMissions = allMissions.filter(
+    (mission) =>
+      mission.entityType === "dossier" &&
+      mission.entityReference === dossier.caseNumber &&
+      mission.status !== "Terminée" &&
+      mission.status !== "Annulée"
   );
 
   if (dossierMissions.length > 0) {
     blockers.push(
-      `${dossierMissions.length} mission${dossierMissions.length > 1 ? 's' : ''} d'huissier en cours :` +
-      dossierMissions.slice(0, 3).map(m => `\n  • ${m.missionNumber} - ${m.title} (${m.status})`).join('') +
-      (dossierMissions.length > 3 ? `\n  • ... et ${dossierMissions.length - 3} autre${dossierMissions.length - 3 > 1 ? 's' : ''}` : '')
+      `${dossierMissions.length} mission${
+        dossierMissions.length > 1 ? "s" : ""
+      } d'huissier en cours :` +
+        dossierMissions
+          .slice(0, 3)
+          .map((m) => `\n  • ${m.missionNumber} - ${m.title} (${m.status})`)
+          .join("") +
+        (dossierMissions.length > 3
+          ? `\n  • ... et ${dossierMissions.length - 3} autre${
+              dossierMissions.length - 3 > 1 ? "s" : ""
+            }`
+          : "")
     );
   }
 
@@ -485,24 +784,30 @@ function validateDossierDelete(dossierId, context = {}) {
   }
 
   // Check for related Tasks
-  const dossierTasks = mockTasks.filter(task =>
-    task.parentType === 'dossier' && task.dossierId === dossierId
+  const dossierTasks = mockTasks.filter(
+    (task) => task.parentType === "dossier" && task.dossierId === dossierId
   );
 
   if (dossierTasks.length > 0) {
     blockers.push(
-      `Ce dossier contient ${dossierTasks.length} tâche${dossierTasks.length > 1 ? 's' : ''}. Veuillez d'abord les supprimer.`
+      `Ce dossier contient ${dossierTasks.length} tâche${
+        dossierTasks.length > 1 ? "s" : ""
+      }. Veuillez d'abord les supprimer.`
     );
   }
 
   // Check for financial entries
-  const dossierFinancials = mockAccounting.filter(entry =>
-    entry.dossierId === dossierId
+  const dossierFinancials = financialLedger.filter(
+    (entry) => entry.dossierId === dossierId && entry.status !== "cancelled"
   );
 
   if (dossierFinancials.length > 0) {
     blockers.push(
-      `Ce dossier a ${dossierFinancials.length} écriture${dossierFinancials.length > 1 ? 's' : ''} comptable${dossierFinancials.length > 1 ? 's' : ''}. Suppression impossible.`
+      `Ce dossier a ${dossierFinancials.length} écriture${
+        dossierFinancials.length > 1 ? "s" : ""
+      } comptable${
+        dossierFinancials.length > 1 ? "s" : ""
+      }. Suppression impossible.`
     );
   }
 
@@ -519,7 +824,7 @@ function validateDossierDelete(dossierId, context = {}) {
 function validateDossierStatusChange(dossierId, context = {}) {
   const { newValue } = context;
 
-  if (newValue === 'Fermé' || newValue === 'Clos') {
+  if (newValue === "Fermé" || newValue === "Clos") {
     return validateDossierClose(dossierId, context);
   }
 
@@ -552,10 +857,14 @@ function validateCaseAdd(caseId, context = {}) {
   // Check if parent dossier is closed
   const dossier = mockDossiersExtended[dossierId];
   if (!dossier) {
-    return { allowed: false, blockers: ["Dossier parent introuvable"], warnings: [] };
+    return {
+      allowed: false,
+      blockers: ["Dossier parent introuvable"],
+      warnings: [],
+    };
   }
 
-  if (dossier.status === 'Fermé' || dossier.status === 'Archivé') {
+  if (dossier.status === "Fermé" || dossier.status === "Archivé") {
     blockers.push(
       `Impossible de créer un procès sous un dossier ${dossier.status.toLowerCase()}`,
       `Dossier: ${dossier.caseNumber} - ${dossier.title}`,
@@ -585,55 +894,87 @@ function validateCaseClose(caseId, context = {}) {
   }
 
   // Rule 1: Check for upcoming or incomplete Séances
-  const caseSessions = mockSessions.filter(session =>
-    session.caseId === caseId
+  const caseSessions = mockSessions.filter(
+    (session) => session.caseId === caseId
   );
 
   const today = new Date();
-  const upcomingSessions = caseSessions.filter(session => {
+  const upcomingSessions = caseSessions.filter((session) => {
     const sessionDate = new Date(session.date);
-    return sessionDate >= today && session.status !== 'Terminée' && session.status !== 'Annulée';
+    return (
+      sessionDate >= today &&
+      session.status !== "Terminée" &&
+      session.status !== "Annulée"
+    );
   });
 
   if (upcomingSessions.length > 0) {
     blockers.push(
-      `${upcomingSessions.length} séance${upcomingSessions.length > 1 ? 's' : ''} à venir ou non terminée${upcomingSessions.length > 1 ? 's' : ''} :` +
-      upcomingSessions.slice(0, 3).map(s => `\n  • ${s.title} le ${s.date} (${s.status})`).join('') +
-      (upcomingSessions.length > 3 ? `\n  • ... et ${upcomingSessions.length - 3} autre${upcomingSessions.length - 3 > 1 ? 's' : ''}` : '')
+      `${upcomingSessions.length} séance${
+        upcomingSessions.length > 1 ? "s" : ""
+      } à venir ou non terminée${upcomingSessions.length > 1 ? "s" : ""} :` +
+        upcomingSessions
+          .slice(0, 3)
+          .map((s) => `\n  • ${s.title} le ${s.date} (${s.status})`)
+          .join("") +
+        (upcomingSessions.length > 3
+          ? `\n  • ... et ${upcomingSessions.length - 3} autre${
+              upcomingSessions.length - 3 > 1 ? "s" : ""
+            }`
+          : "")
     );
   }
 
   // Rule 2: Check for open tasks
-  const caseTasks = mockTasks.filter(task =>
-    task.parentType === 'case' && task.caseId === caseId
+  const caseTasks = mockTasks.filter(
+    (task) => task.parentType === "case" && task.caseId === caseId
   );
 
-  const incompleteTasks = caseTasks.filter(task =>
-    task.status !== 'Terminée'
+  const incompleteTasks = caseTasks.filter(
+    (task) => task.status !== "Terminée"
   );
 
   if (incompleteTasks.length > 0) {
     blockers.push(
-      `${incompleteTasks.length} tâche${incompleteTasks.length > 1 ? 's' : ''} non terminée${incompleteTasks.length > 1 ? 's' : ''} :` +
-      incompleteTasks.slice(0, 3).map(t => `\n  • ${t.title} (${t.status})`).join('') +
-      (incompleteTasks.length > 3 ? `\n  • ... et ${incompleteTasks.length - 3} autre${incompleteTasks.length - 3 > 1 ? 's' : ''}` : '')
+      `${incompleteTasks.length} tâche${
+        incompleteTasks.length > 1 ? "s" : ""
+      } non terminée${incompleteTasks.length > 1 ? "s" : ""} :` +
+        incompleteTasks
+          .slice(0, 3)
+          .map((t) => `\n  • ${t.title} (${t.status})`)
+          .join("") +
+        (incompleteTasks.length > 3
+          ? `\n  • ... et ${incompleteTasks.length - 3} autre${
+              incompleteTasks.length - 3 > 1 ? "s" : ""
+            }`
+          : "")
     );
   }
 
   // Rule 3: Check for active missions
   const allMissions = getAllMissions();
-  const caseMissions = allMissions.filter(mission =>
-    mission.entityType === 'case' &&
-    mission.entityReference === caseData.caseNumber &&
-    mission.status !== 'Terminée' &&
-    mission.status !== 'Annulée'
+  const caseMissions = allMissions.filter(
+    (mission) =>
+      mission.entityType === "case" &&
+      mission.entityReference === caseData.caseNumber &&
+      mission.status !== "Terminée" &&
+      mission.status !== "Annulée"
   );
 
   if (caseMissions.length > 0) {
     blockers.push(
-      `${caseMissions.length} mission${caseMissions.length > 1 ? 's' : ''} d'huissier en cours :` +
-      caseMissions.slice(0, 3).map(m => `\n  • ${m.missionNumber} - ${m.title} (${m.status})`).join('') +
-      (caseMissions.length > 3 ? `\n  • ... et ${caseMissions.length - 3} autre${caseMissions.length - 3 > 1 ? 's' : ''}` : '')
+      `${caseMissions.length} mission${
+        caseMissions.length > 1 ? "s" : ""
+      } d'huissier en cours :` +
+        caseMissions
+          .slice(0, 3)
+          .map((m) => `\n  • ${m.missionNumber} - ${m.title} (${m.status})`)
+          .join("") +
+        (caseMissions.length > 3
+          ? `\n  • ... et ${caseMissions.length - 3} autre${
+              caseMissions.length - 3 > 1 ? "s" : ""
+            }`
+          : "")
     );
   }
 
@@ -655,24 +996,28 @@ function validateCaseDelete(caseId, context = {}) {
   }
 
   // Check for related Séances
-  const caseSessions = mockSessions.filter(session =>
-    session.caseId === caseId
+  const caseSessions = mockSessions.filter(
+    (session) => session.caseId === caseId
   );
 
   if (caseSessions.length > 0) {
     blockers.push(
-      `Ce procès contient ${caseSessions.length} séance${caseSessions.length > 1 ? 's' : ''}. Veuillez d'abord les supprimer.`
+      `Ce procès contient ${caseSessions.length} séance${
+        caseSessions.length > 1 ? "s" : ""
+      }. Veuillez d'abord les supprimer.`
     );
   }
 
   // Check for related Tasks
-  const caseTasks = mockTasks.filter(task =>
-    task.parentType === 'case' && task.caseId === caseId
+  const caseTasks = mockTasks.filter(
+    (task) => task.parentType === "case" && task.caseId === caseId
   );
 
   if (caseTasks.length > 0) {
     blockers.push(
-      `Ce procès contient ${caseTasks.length} tâche${caseTasks.length > 1 ? 's' : ''}. Veuillez d'abord les supprimer.`
+      `Ce procès contient ${caseTasks.length} tâche${
+        caseTasks.length > 1 ? "s" : ""
+      }. Veuillez d'abord les supprimer.`
     );
   }
 
@@ -687,7 +1032,7 @@ function validateCaseDelete(caseId, context = {}) {
 function validateCaseStatusChange(caseId, context = {}) {
   const { newValue } = context;
 
-  if (newValue === 'Clos' || newValue === 'Terminé') {
+  if (newValue === "Clos" || newValue === "Terminé") {
     return validateCaseClose(caseId, context);
   }
 
@@ -716,15 +1061,24 @@ function validateClientArchive(clientId, context = {}) {
 
   // Rule 1: Check for open Dossiers
   const clientDossiers = client.relatedDossiers || [];
-  const openDossiers = clientDossiers.filter(d =>
-    d.status !== 'Fermé' && d.status !== 'Clos'
+  const openDossiers = clientDossiers.filter(
+    (d) => d.status !== "Fermé" && d.status !== "Clos"
   );
 
   if (openDossiers.length > 0) {
     blockers.push(
-      `${openDossiers.length} dossier${openDossiers.length > 1 ? 's' : ''} encore ouvert${openDossiers.length > 1 ? 's' : ''} :` +
-      openDossiers.slice(0, 3).map(d => `\n  • ${d.caseNumber} - ${d.title} (${d.status})`).join('') +
-      (openDossiers.length > 3 ? `\n  • ... et ${openDossiers.length - 3} autre${openDossiers.length - 3 > 1 ? 's' : ''}` : '')
+      `${openDossiers.length} dossier${
+        openDossiers.length > 1 ? "s" : ""
+      } encore ouvert${openDossiers.length > 1 ? "s" : ""} :` +
+        openDossiers
+          .slice(0, 3)
+          .map((d) => `\n  • ${d.caseNumber} - ${d.title} (${d.status})`)
+          .join("") +
+        (openDossiers.length > 3
+          ? `\n  • ... et ${openDossiers.length - 3} autre${
+              openDossiers.length - 3 > 1 ? "s" : ""
+            }`
+          : "")
     );
   }
 
@@ -757,18 +1111,24 @@ function validateClientDelete(clientId, context = {}) {
   const clientDossiers = client.relatedDossiers || [];
   if (clientDossiers.length > 0) {
     blockers.push(
-      `Ce client a ${clientDossiers.length} dossier${clientDossiers.length > 1 ? 's' : ''}. Veuillez d'abord les supprimer.`
+      `Ce client a ${clientDossiers.length} dossier${
+        clientDossiers.length > 1 ? "s" : ""
+      }. Veuillez d'abord les supprimer.`
     );
   }
 
   // Check for financial entries
-  const clientFinancials = mockAccounting.filter(entry =>
-    entry.clientId === clientId
+  const clientFinancials = financialLedger.filter(
+    (entry) => entry.clientId === clientId && entry.status !== "cancelled"
   );
 
   if (clientFinancials.length > 0) {
     blockers.push(
-      `Ce client a ${clientFinancials.length} écriture${clientFinancials.length > 1 ? 's' : ''} comptable${clientFinancials.length > 1 ? 's' : ''}. Suppression impossible.`
+      `Ce client a ${clientFinancials.length} écriture${
+        clientFinancials.length > 1 ? "s" : ""
+      } comptable${
+        clientFinancials.length > 1 ? "s" : ""
+      }. Suppression impossible.`
     );
   }
 
@@ -783,7 +1143,7 @@ function validateClientDelete(clientId, context = {}) {
 function validateClientStatusChange(clientId, context = {}) {
   const { newValue } = context;
 
-  if (newValue === 'Inactif' || newValue === 'Archivé') {
+  if (newValue === "Inactif" || newValue === "Archivé") {
     return validateClientArchive(clientId, context);
   }
 
@@ -806,9 +1166,9 @@ function validateAccountingEditRestriction(entityId, context = {}) {
   return {
     allowed: false,
     blockers: [
-      "Modification interdite depuis l'écran Comptabilité\n\nL'écran Comptabilité est une surface de consultation et de réconciliation.\nLes modifications doivent être effectuées depuis l'écran de l'entité concernée :\n  • Clients → Menu Clients\n  • Dossiers → Menu Dossiers\n  • Procès → Menu Procès\n  • Huissiers → Menu Huissiers\n\nVous pouvez cliquer sur le nom de l'entité pour y accéder directement."
+      "Modification interdite depuis l'écran Comptabilité\n\nL'écran Comptabilité est une surface de consultation et de réconciliation.\nLes modifications doivent être effectuées depuis l'écran de l'entité concernée :\n  • Clients → Menu Clients\n  • Dossiers → Menu Dossiers\n  • Procès → Menu Procès\n  • Huissiers → Menu Huissiers\n\nVous pouvez cliquer sur le nom de l'entité pour y accéder directement.",
     ],
-    warnings: []
+    warnings: [],
   };
 }
 
@@ -833,26 +1193,34 @@ function validateTaskAdd(taskId, context = {}) {
   const caseId = context?.formData?.caseId || context?.data?.caseId;
 
   // Check parent based on type
-  if (parentType === 'dossier' && dossierId) {
+  if (parentType === "dossier" && dossierId) {
     const dossier = mockDossiersExtended[dossierId];
     if (!dossier) {
-      return { allowed: false, blockers: ["Dossier parent introuvable"], warnings: [] };
+      return {
+        allowed: false,
+        blockers: ["Dossier parent introuvable"],
+        warnings: [],
+      };
     }
 
-    if (dossier.status === 'Fermé' || dossier.status === 'Archivé') {
+    if (dossier.status === "Fermé" || dossier.status === "Archivé") {
       blockers.push(
         `Impossible de créer une tâche sous un dossier ${dossier.status.toLowerCase()}`,
         `Dossier: ${dossier.caseNumber} - ${dossier.title}`,
         `Vous devez d'abord rouvrir le dossier pour ajouter des tâches`
       );
     }
-  } else if (parentType === 'case' && caseId) {
+  } else if (parentType === "case" && caseId) {
     const caseData = mockCasesExtended[caseId];
     if (!caseData) {
-      return { allowed: false, blockers: ["Procès parent introuvable"], warnings: [] };
+      return {
+        allowed: false,
+        blockers: ["Procès parent introuvable"],
+        warnings: [],
+      };
     }
 
-    if (caseData.status === 'Clos' || caseData.status === 'Terminé') {
+    if (caseData.status === "Clos" || caseData.status === "Terminé") {
       blockers.push(
         `Impossible de créer une tâche sous un procès ${caseData.status.toLowerCase()}`,
         `Procès: ${caseData.caseNumber} - ${caseData.title}`,
@@ -876,22 +1244,25 @@ function validateTaskEdit(taskId, context = {}) {
   const blockers = [];
   const warnings = [];
 
-  const task = mockTasks.find(t => t.id === taskId);
+  // ✅ Use provided task data if available, otherwise look it up
+  const task = context.data || mockTasks.find((t) => t.id === taskId);
   if (!task) {
     return { allowed: false, blockers: ["Tâche introuvable"], warnings: [] };
   }
 
   // Check parent entity status
-  if (task.parentType === 'dossier' && task.dossierId) {
+  if (task.parentType === "dossier" && task.dossierId) {
     const dossier = mockDossiersExtended[task.dossierId];
-    if (dossier && (dossier.status === 'Fermé' || dossier.status === 'Clos')) {
+    if (dossier && (dossier.status === "Fermé" || dossier.status === "Clos")) {
       blockers.push(
-        `Cette tâche appartient au dossier "${dossier.caseNumber}" qui est ${dossier.status.toLowerCase()}.\n\nLes modifications ne sont plus autorisées sur les dossiers fermés.`
+        `Cette tâche appartient au dossier "${
+          dossier.caseNumber
+        }" qui est ${dossier.status.toLowerCase()}.\n\nLes modifications ne sont plus autorisées sur les dossiers fermés.`
       );
     }
-  } else if (task.parentType === 'case' && task.caseId) {
+  } else if (task.parentType === "case" && task.caseId) {
     const caseData = mockCasesExtended[task.caseId];
-    if (caseData && caseData.status === 'Clos') {
+    if (caseData && caseData.status === "Clos") {
       blockers.push(
         `Cette tâche appartient au procès "${caseData.caseNumber}" qui est clos.\n\nLes modifications ne sont plus autorisées sur les procès clos.`
       );
@@ -939,26 +1310,34 @@ function validateSessionAdd(sessionId, context = {}) {
   const caseId = context?.formData?.caseId || context?.data?.caseId;
 
   // Check based on link type
-  if (linkType === 'dossier' && dossierId) {
+  if (linkType === "dossier" && dossierId) {
     const dossier = mockDossiersExtended[dossierId];
     if (!dossier) {
-      return { allowed: false, blockers: ["Dossier parent introuvable"], warnings: [] };
+      return {
+        allowed: false,
+        blockers: ["Dossier parent introuvable"],
+        warnings: [],
+      };
     }
 
-    if (dossier.status === 'Fermé' || dossier.status === 'Archivé') {
+    if (dossier.status === "Fermé" || dossier.status === "Archivé") {
       blockers.push(
         `Impossible de créer une séance sous un dossier ${dossier.status.toLowerCase()}`,
         `Dossier: ${dossier.caseNumber} - ${dossier.title}`,
         `Vous devez d'abord rouvrir le dossier pour ajouter des séances`
       );
     }
-  } else if (linkType === 'case' && caseId) {
+  } else if (linkType === "case" && caseId) {
     const caseData = mockCasesExtended[caseId];
     if (!caseData) {
-      return { allowed: false, blockers: ["Procès parent introuvable"], warnings: [] };
+      return {
+        allowed: false,
+        blockers: ["Procès parent introuvable"],
+        warnings: [],
+      };
     }
 
-    if (caseData.status === 'Clos' || caseData.status === 'Terminé') {
+    if (caseData.status === "Clos" || caseData.status === "Terminé") {
       blockers.push(
         `Impossible de créer une séance sous un procès ${caseData.status.toLowerCase()}`,
         `Procès: ${caseData.caseNumber} - ${caseData.title}`,
@@ -982,7 +1361,8 @@ function validateSessionEdit(sessionId, context = {}) {
   const blockers = [];
   const warnings = [];
 
-  const session = mockSessions.find(s => s.id === sessionId);
+  // ✅ Use provided session data if available, otherwise look it up
+  const session = context.data || mockSessions.find((s) => s.id === sessionId);
   if (!session) {
     return { allowed: false, blockers: ["Séance introuvable"], warnings: [] };
   }
@@ -990,7 +1370,7 @@ function validateSessionEdit(sessionId, context = {}) {
   // Check if linked to a Procès
   if (session.caseId) {
     const caseData = mockCasesExtended[session.caseId];
-    if (caseData && caseData.status === 'Clos') {
+    if (caseData && caseData.status === "Clos") {
       blockers.push(
         `Cette séance appartient au procès "${caseData.caseNumber}" qui est clos.\n\nLes modifications ne sont plus autorisées sur les procès clos.`
       );
@@ -1000,9 +1380,11 @@ function validateSessionEdit(sessionId, context = {}) {
   // Check if linked directly to a Dossier
   if (session.dossierId) {
     const dossier = mockDossiersExtended[session.dossierId];
-    if (dossier && (dossier.status === 'Fermé' || dossier.status === 'Clos')) {
+    if (dossier && (dossier.status === "Fermé" || dossier.status === "Clos")) {
       blockers.push(
-        `Cette séance appartient au dossier "${dossier.caseNumber}" qui est ${dossier.status.toLowerCase()}.\n\nLes modifications ne sont plus autorisées sur les dossiers fermés.`
+        `Cette séance appartient au dossier "${
+          dossier.caseNumber
+        }" qui est ${dossier.status.toLowerCase()}.\n\nLes modifications ne sont plus autorisées sur les dossiers fermés.`
       );
     }
   }
@@ -1040,26 +1422,34 @@ function validateMissionAdd(missionId, context = {}) {
   const caseId = context?.formData?.caseId || context?.data?.caseId;
 
   // Check based on entity type
-  if (entityType === 'dossier' && dossierId) {
+  if (entityType === "dossier" && dossierId) {
     const dossier = mockDossiersExtended[dossierId];
     if (!dossier) {
-      return { allowed: false, blockers: ["Dossier parent introuvable"], warnings: [] };
+      return {
+        allowed: false,
+        blockers: ["Dossier parent introuvable"],
+        warnings: [],
+      };
     }
 
-    if (dossier.status === 'Fermé' || dossier.status === 'Archivé') {
+    if (dossier.status === "Fermé" || dossier.status === "Archivé") {
       blockers.push(
         `Impossible de créer une mission sous un dossier ${dossier.status.toLowerCase()}`,
         `Dossier: ${dossier.caseNumber} - ${dossier.title}`,
         `Vous devez d'abord rouvrir le dossier pour créer des missions`
       );
     }
-  } else if (entityType === 'case' && caseId) {
+  } else if (entityType === "case" && caseId) {
     const caseData = mockCasesExtended[caseId];
     if (!caseData) {
-      return { allowed: false, blockers: ["Procès parent introuvable"], warnings: [] };
+      return {
+        allowed: false,
+        blockers: ["Procès parent introuvable"],
+        warnings: [],
+      };
     }
 
-    if (caseData.status === 'Clos' || caseData.status === 'Terminé') {
+    if (caseData.status === "Clos" || caseData.status === "Terminé") {
       blockers.push(
         `Impossible de créer une mission sous un procès ${caseData.status.toLowerCase()}`,
         `Procès: ${caseData.caseNumber} - ${caseData.title}`,
@@ -1083,32 +1473,38 @@ function validateMissionEdit(missionId, context = {}) {
   const blockers = [];
   const warnings = [];
 
-  const allMissions = getAllMissions();
-  const mission = allMissions.find(m => m.id === missionId);
+  // ✅ Use provided mission data if available, otherwise look it up
+  let mission = context.data;
+  if (!mission) {
+    const allMissions = getAllMissions();
+    mission = allMissions.find((m) => m.id === missionId);
+  }
 
   if (!mission) {
     return { allowed: false, blockers: ["Mission introuvable"], warnings: [] };
   }
 
   // Check parent entity based on entityType
-  if (mission.entityType === 'dossier') {
+  if (mission.entityType === "dossier") {
     // Find dossier by caseNumber (entityReference)
     const dossier = Object.values(mockDossiersExtended).find(
-      d => d.caseNumber === mission.entityReference
+      (d) => d.caseNumber === mission.entityReference
     );
 
-    if (dossier && (dossier.status === 'Fermé' || dossier.status === 'Clos')) {
+    if (dossier && (dossier.status === "Fermé" || dossier.status === "Clos")) {
       blockers.push(
-        `Cette mission est liée au dossier "${dossier.caseNumber}" qui est ${dossier.status.toLowerCase()}.\n\nLes modifications ne sont plus autorisées sur les dossiers fermés.`
+        `Cette mission est liée au dossier "${
+          dossier.caseNumber
+        }" qui est ${dossier.status.toLowerCase()}.\n\nLes modifications ne sont plus autorisées sur les dossiers fermés.`
       );
     }
-  } else if (mission.entityType === 'case') {
+  } else if (mission.entityType === "case") {
     // Find case by caseNumber (entityReference)
     const caseData = Object.values(mockCasesExtended).find(
-      c => c.caseNumber === mission.entityReference
+      (c) => c.caseNumber === mission.entityReference
     );
 
-    if (caseData && caseData.status === 'Clos') {
+    if (caseData && caseData.status === "Clos") {
       blockers.push(
         `Cette mission est liée au procès "${caseData.caseNumber}" qui est clos.\n\nLes modifications ne sont plus autorisées sur les procès clos.`
       );
@@ -1151,9 +1547,11 @@ function validateFinancialEntryAdd(entryId, context = {}) {
   // Check if linked to a closed Dossier
   if (data.dossierId) {
     const dossier = mockDossiersExtended[data.dossierId];
-    if (dossier && (dossier.status === 'Fermé' || dossier.status === 'Clos')) {
+    if (dossier && (dossier.status === "Fermé" || dossier.status === "Clos")) {
       blockers.push(
-        `Le dossier "${dossier.caseNumber}" est ${dossier.status.toLowerCase()}.\n\nAucune nouvelle écriture comptable ne peut être ajoutée aux dossiers fermés.`
+        `Le dossier "${
+          dossier.caseNumber
+        }" est ${dossier.status.toLowerCase()}.\n\nAucune nouvelle écriture comptable ne peut être ajoutée aux dossiers fermés.`
       );
     }
   }
@@ -1161,7 +1559,7 @@ function validateFinancialEntryAdd(entryId, context = {}) {
   // Check if linked to a closed Procès
   if (data.caseId) {
     const caseData = mockCasesExtended[data.caseId];
-    if (caseData && caseData.status === 'Clos') {
+    if (caseData && caseData.status === "Clos") {
       blockers.push(
         `Le procès "${caseData.caseNumber}" est clos.\n\nAucune nouvelle écriture comptable ne peut être ajoutée aux procès clos.`
       );
@@ -1184,13 +1582,17 @@ function validateFinancialEntryEdit(entryId, context = {}) {
   const blockers = [];
   const warnings = [];
 
-  const entry = mockAccounting.find(e => e.id === entryId);
+  const entry = financialLedger.find((e) => e.id === entryId);
   if (!entry) {
-    return { allowed: false, blockers: ["Écriture comptable introuvable"], warnings: [] };
+    return {
+      allowed: false,
+      blockers: ["Écriture comptable introuvable"],
+      warnings: [],
+    };
   }
 
   // Rule 1: Cannot edit paid/validated entries
-  if (entry.status === 'Payée' || entry.status === 'paid') {
+  if (entry.status === "Payée" || entry.status === "paid") {
     blockers.push(
       "Cette écriture comptable est déjà payée.\n\nLes écritures payées ne peuvent plus être modifiées pour garantir l'intégrité financière."
     );
@@ -1199,9 +1601,11 @@ function validateFinancialEntryEdit(entryId, context = {}) {
   // Rule 2: Check parent Dossier
   if (entry.dossierId) {
     const dossier = mockDossiersExtended[entry.dossierId];
-    if (dossier && (dossier.status === 'Fermé' || dossier.status === 'Clos')) {
+    if (dossier && (dossier.status === "Fermé" || dossier.status === "Clos")) {
       blockers.push(
-        `Cette écriture est liée au dossier "${dossier.caseNumber}" qui est ${dossier.status.toLowerCase()}.\n\nLes écritures des dossiers fermés ne peuvent plus être modifiées.`
+        `Cette écriture est liée au dossier "${
+          dossier.caseNumber
+        }" qui est ${dossier.status.toLowerCase()}.\n\nLes écritures des dossiers fermés ne peuvent plus être modifiées.`
       );
     }
   }
@@ -1209,7 +1613,7 @@ function validateFinancialEntryEdit(entryId, context = {}) {
   // Rule 3: Check parent Procès
   if (entry.caseId) {
     const caseData = mockCasesExtended[entry.caseId];
-    if (caseData && caseData.status === 'Clos') {
+    if (caseData && caseData.status === "Clos") {
       blockers.push(
         `Cette écriture est liée au procès "${caseData.caseNumber}" qui est clos.\n\nLes écritures des procès clos ne peuvent plus être modifiées.`
       );
@@ -1231,13 +1635,17 @@ function validateFinancialEntryDelete(entryId, context = {}) {
   const blockers = [];
   const warnings = [];
 
-  const entry = mockAccounting.find(e => e.id === entryId);
+  const entry = financialLedger.find((e) => e.id === entryId);
   if (!entry) {
-    return { allowed: false, blockers: ["Écriture comptable introuvable"], warnings: [] };
+    return {
+      allowed: false,
+      blockers: ["Écriture comptable introuvable"],
+      warnings: [],
+    };
   }
 
   // Rule 1: Cannot delete paid entries
-  if (entry.status === 'Payée' || entry.status === 'paid') {
+  if (entry.status === "Payée" || entry.status === "paid") {
     blockers.push(
       "Cette écriture comptable est payée.\n\nLes écritures payées ne peuvent pas être supprimées. Vous devez créer une écriture de correction."
     );
@@ -1265,16 +1673,20 @@ function validateFinancialEntryStatusChange(entryId, context = {}) {
   const blockers = [];
   const warnings = [];
 
-  const entry = mockAccounting.find(e => e.id === entryId);
+  const entry = financialLedger.find((e) => e.id === entryId);
   if (!entry) {
-    return { allowed: false, blockers: ["Écriture comptable introuvable"], warnings: [] };
+    return {
+      allowed: false,
+      blockers: ["Écriture comptable introuvable"],
+      warnings: [],
+    };
   }
 
   const { newValue } = context;
 
   // If trying to change FROM paid status, block it
-  if (entry.status === 'Payée' || entry.status === 'paid') {
-    if (newValue !== 'Payée' && newValue !== 'paid') {
+  if (entry.status === "Payée" || entry.status === "paid") {
+    if (newValue !== "Payée" && newValue !== "paid") {
       blockers.push(
         "Cette écriture est déjà marquée comme payée.\n\nLes écritures payées ne peuvent pas être ramenées à un statut antérieur."
       );
@@ -1320,7 +1732,7 @@ function validateOfficerDelete(officerId, context = {}) {
 
   // Check for active missions
   const activeMissions = getAllMissions().filter(
-    m => m.officerId === officerId && m.status !== 'Terminé'
+    (m) => m.officerId === officerId && m.status !== "Terminé"
   );
 
   if (activeMissions.length > 0) {
@@ -1330,7 +1742,9 @@ function validateOfficerDelete(officerId, context = {}) {
   }
 
   // Check for financial entries
-  const financialEntries = mockAccounting.filter(e => e.officerId === officerId);
+  const financialEntries = financialLedger.filter(
+    (e) => e.officerId === officerId && e.status !== "cancelled"
+  );
   if (financialEntries.length > 0) {
     blockers.push(
       `Cet huissier est lié à ${financialEntries.length} écriture(s) comptable(s).\n\nLa suppression d'un huissier avec des écritures existantes compromettrait l'intégrité des données.`
@@ -1410,17 +1824,17 @@ function validatePersonalTaskStatusChange(taskId, context = {}) {
  * @returns {object} { totalInvoiced, totalPaid, balance }
  */
 function getClientFinancials(clientId) {
-  const clientEntries = mockAccounting.filter(entry =>
-    entry.clientId === clientId
+  const clientEntries = financialLedger.filter(
+    (entry) => entry.clientId === clientId && entry.status !== "cancelled"
   );
 
   let totalInvoiced = 0;
   let totalPaid = 0;
 
-  clientEntries.forEach(entry => {
-    const amount = parseFloat(entry.amount?.replace(/[^\d.]/g, '') || 0);
+  clientEntries.forEach((entry) => {
+    const amount = entry.amount || 0;
 
-    if (entry.status === 'Payée') {
+    if (entry.status === "paid") {
       totalPaid += amount;
     }
 
@@ -1430,7 +1844,7 @@ function getClientFinancials(clientId) {
   return {
     totalInvoiced,
     totalPaid,
-    balance: totalPaid - totalInvoiced // Negative means client owes money
+    balance: totalPaid - totalInvoiced, // Negative means client owes money
   };
 }
 
@@ -1442,18 +1856,21 @@ function getClientFinancials(clientId) {
  */
 export function formatBlockerMessage(blockers) {
   if (!blockers || blockers.length === 0) {
-    return '';
+    return "";
   }
 
-  const header = "Cette action ne peut pas être effectuée pour les raisons suivantes :\n\n";
-  const body = blockers.map((blocker, index) => {
-    // If blocker already has bullet points, keep formatting
-    if (blocker.includes('\n  •')) {
-      return blocker;
-    }
-    // Otherwise, add bullet
-    return `• ${blocker}`;
-  }).join('\n\n');
+  const header =
+    "Cette action ne peut pas être effectuée pour les raisons suivantes :\n\n";
+  const body = blockers
+    .map((blocker, index) => {
+      // If blocker already has bullet points, keep formatting
+      if (blocker.includes("\n  •")) {
+        return blocker;
+      }
+      // Otherwise, add bullet
+      return `• ${blocker}`;
+    })
+    .join("\n\n");
 
   return header + body;
 }
@@ -1466,11 +1883,11 @@ export function formatBlockerMessage(blockers) {
  */
 export function formatWarningMessage(warnings) {
   if (!warnings || warnings.length === 0) {
-    return '';
+    return "";
   }
 
   const header = "Attention :\n\n";
-  const body = warnings.map(warning => `⚠ ${warning}`).join('\n');
+  const body = warnings.map((warning) => `⚠ ${warning}`).join("\n");
 
   return header + body;
 }

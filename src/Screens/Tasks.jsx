@@ -23,6 +23,8 @@ import { mockTasks, mockDossiers, mockCases, getStatusColor } from "../utils/moc
 import BlockerModal from "../components/ui/BlockerModal";
 import ConfirmImpactModal from "../components/ui/ConfirmImpactModal";
 import { canPerformAction } from "../services/domainRules";
+import { resolveDetailRoute } from "../utils/routeResolver";
+import { logEntityCreation } from "../services/historyService";
 
 export default function Tasks() {
   const navigate = useNavigate();
@@ -153,6 +155,9 @@ export default function Tasks() {
         <InlinePrioritySelector
           value={task.priority}
           onChange={(newPriority) => handlePriorityChange(task.id, newPriority)}
+          entityType="task"
+          entityId={task.id}
+          entityData={task}
         />
       ),
     },
@@ -254,7 +259,7 @@ export default function Tasks() {
   };
 
   const handleSubmit = async (formData) => {
-    // ✅ Validate before submitting (EDIT mode only)
+    // ?. Validate before submitting
     if (editingTask) {
       const result = canPerformAction('task', editingTask.id, 'edit', {
         data: editingTask,
@@ -268,6 +273,19 @@ export default function Tasks() {
       }
 
       // Phase 2.5: Check if confirmation is required for relational changes
+      if (result.requiresConfirmation) {
+        setValidationResult(result);
+        setPendingFormData(formData);
+        setConfirmImpactModalOpen(true);
+        return;
+      }
+    } else {
+      const result = canPerformAction('task', null, 'add', { formData });
+      if (!result.allowed) {
+        setValidationResult(result);
+        setBlockerModalOpen(true);
+        return;
+      }
       if (result.requiresConfirmation) {
         setValidationResult(result);
         setPendingFormData(formData);
@@ -302,7 +320,6 @@ export default function Tasks() {
         };
 
         if (formData.parentType === "case" && formData.caseId) {
-          const { mockCases } = require("../utils/mockData");
           const parentCase = mockCases.find(c => c.id === parseInt(formData.caseId));
           newTask.case = parentCase ? parentCase.caseNumber : "N/A";
           newTask.caseId = formData.caseId;
@@ -318,6 +335,15 @@ export default function Tasks() {
 
         setTasks([newTask, ...tasks]);
         showToast("Tâche ajoutée avec succès!", "success");
+
+        // ✅ Log creation event
+        logEntityCreation('task', newTask.id, formData.title);
+
+        // ✅ Navigate to detail view after creation
+        const detailRoute = resolveDetailRoute('task', newTask.id);
+        if (detailRoute) {
+          setTimeout(() => navigate(detailRoute), 100);
+        }
       }
 
       setIsModalOpen(false);
@@ -362,7 +388,7 @@ export default function Tasks() {
     window.URL.revokeObjectURL(url);
   };
 
-  // Populate dossier options
+  // Populate dossier options and protect status field in edit mode
   const taskFields = taskFormFields.map(field => {
     if (field.name === "dossierId") {
       return {
@@ -371,6 +397,15 @@ export default function Tasks() {
           value: dossier.id,
           label: `${dossier.caseNumber} - ${dossier.title}`
         }))
+      };
+    }
+    // Protect status field in edit mode
+    if (field.name === "status" && editingTask) {
+      return {
+        ...field,
+        type: 'readonly',
+        displayValue: editingTask.status,
+        helpText: 'Le statut ne peut être modifié que via le sélecteur dans la liste'
       };
     }
     return field;
@@ -482,6 +517,9 @@ export default function Tasks() {
         fields={taskFields}
         initialData={editingTask}
         isLoading={isLoading}
+        entityType="task"
+        entityId={editingTask?.id}
+        editingEntity={editingTask}
       />
 
       <BlockerModal

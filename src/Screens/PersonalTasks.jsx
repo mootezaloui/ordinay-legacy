@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useAdvancedTable } from "../hooks/useAdvancedTable";
 import { useToast } from "../contexts/ToastContext";
 import { useConfirm } from "../contexts/ConfirmContext";
+import { useData } from "../contexts/DataContext";
 import PageLayout from "../components/layout/PageLayout";
 import PageHeader from "../components/layout/PageHeader";
 import ContentSection from "../components/layout/ContentSection";
@@ -17,6 +18,8 @@ import TableToolbar from "../components/table/TableToolbar";
 import Pagination from "../components/table/Pagination";
 import FormModal from "../components/FormModal/FormModal";
 import { getStatusColor, mockPersonalTasks } from "../utils/mockData";
+import { resolveDetailRoute } from "../utils/routeResolver";
+import { logEntityCreation } from "../services/historyService";
 
 // Global state to track which dropdown is currently open
 let currentOpenPersonalTaskStatusDropdown = null;
@@ -407,8 +410,9 @@ export default function PersonalTasks() {
   const navigate = useNavigate();
   const { showToast } = useToast();
   const { confirm } = useConfirm();
+  const { personalTasks, addPersonalTask, updatePersonalTask, deletePersonalTask } = useData();
 
-  const [tasks, setTasks] = useState(mockPersonalTasks);
+  const tasks = personalTasks;
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -441,11 +445,7 @@ export default function PersonalTasks() {
   };
 
   const handleStatusChange = (taskId, newStatus) => {
-    setTasks(tasks.map(t =>
-      t.id === taskId
-        ? { ...t, status: newStatus }
-        : t
-    ));
+    updatePersonalTask(taskId, { status: newStatus });
     showToast(`Statut mis a jour: ${newStatus}`, "info", {
       title: "Mise a jour du statut",
       context: "personal-task",
@@ -453,11 +453,7 @@ export default function PersonalTasks() {
   };
 
   const handlePriorityChange = (taskId, newPriority) => {
-    setTasks(tasks.map(t =>
-      t.id === taskId
-        ? { ...t, priority: newPriority }
-        : t
-    ));
+    updatePersonalTask(taskId, { priority: newPriority });
     showToast(`Priorite mise a jour: ${newPriority}`, "info", {
       title: "Priorite mise a jour",
       context: "personal-task",
@@ -597,7 +593,7 @@ export default function PersonalTasks() {
       cancelText: "Annuler",
       variant: "danger"
     })) {
-      setTasks(tasks.filter(t => t.id !== id));
+      deletePersonalTask(id);
       showToast("Tâche personnelle supprimée", "warning", {
         title: "Suppression",
         context: "personal-task",
@@ -617,19 +613,24 @@ export default function PersonalTasks() {
       await new Promise((resolve) => setTimeout(resolve, 500));
 
       if (editingTask) {
-        setTasks(tasks.map(t =>
-          t.id === editingTask.id
-            ? { ...formData, id: editingTask.id }
-            : t
-        ));
+        updatePersonalTask(editingTask.id, formData);
         showToast("Tâche modifiée avec succès!", "success");
       } else {
         const newTask = {
           ...formData,
           id: Date.now(),
         };
-        setTasks([newTask, ...tasks]);
+        addPersonalTask(newTask);
         showToast("Tâche ajoutée avec succès!", "success");
+
+        // ✅ Log creation event
+        logEntityCreation('personalTask', newTask.id, formData.title);
+
+        // ✅ Navigate to detail view after creation
+        const detailRoute = resolveDetailRoute('personalTask', newTask.id);
+        if (detailRoute) {
+          setTimeout(() => navigate(detailRoute), 100);
+        }
       }
 
       setIsModalOpen(false);
@@ -733,6 +734,21 @@ export default function PersonalTasks() {
       placeholder: "Notes additionnelles..."
     },
   ];
+
+  // ✅ Apply status field protection when editing
+  const dynamicPersonalTaskFormFields = editingTask
+    ? personalTaskFormFields.map(field => {
+      if (field.name === "status") {
+        return {
+          ...field,
+          type: 'readonly',
+          displayValue: editingTask.status,
+          helpText: 'Le statut ne peut être modifié que via le sélecteur dans la liste'
+        };
+      }
+      return field;
+    })
+    : personalTaskFormFields;
 
   // Calculate stats
   const stats = {
@@ -872,9 +888,12 @@ export default function PersonalTasks() {
         onSubmit={handleSubmit}
         title={editingTask ? "Modifier Tâche" : "Nouvelle Tâche Personnelle"}
         subtitle={editingTask ? "Modifier la tâche personnelle" : "Ajouter une tâche non liée aux dossiers"}
-        fields={personalTaskFormFields}
+        fields={dynamicPersonalTaskFormFields}
         initialData={editingTask}
         isLoading={isLoading}
+        entityType="personalTask"
+        entityId={editingTask?.id}
+        editingEntity={editingTask}
       />
     </PageLayout>
   );

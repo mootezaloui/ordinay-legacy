@@ -20,7 +20,10 @@ import InlineStatusSelector from "../components/InlineSelectors/InlineStatusSele
 import { clientFormFields, getFormTitle } from "../components/FormModal/formConfigs";
 import { mockClients } from "../utils/mockData";
 import BlockerModal from "../components/ui/BlockerModal";
+import ConfirmImpactModal from "../components/ui/ConfirmImpactModal";
 import { canPerformAction } from "../services/domainRules";
+import { resolveDetailRoute } from "../utils/routeResolver";
+import { logEntityCreation, logStatusChange } from "../services/historyService";
 
 export default function Clients() {
   const navigate = useNavigate();
@@ -34,6 +37,8 @@ export default function Clients() {
   const [isLoading, setIsLoading] = useState(false);
   const [blockerModalOpen, setBlockerModalOpen] = useState(false);
   const [validationResult, setValidationResult] = useState(null);
+  const [confirmImpactModalOpen, setConfirmImpactModalOpen] = useState(false);
+  const [pendingFormData, setPendingFormData] = useState(null);
 
   // Calculate stats
   const stats = {
@@ -206,7 +211,7 @@ export default function Clients() {
   };
 
   const handleSubmit = async (formData) => {
-    // ✅ Validate before submitting (EDIT mode only)
+    // ?. Validate before submitting
     if (editingClient) {
       const result = canPerformAction('client', editingClient.id, 'edit', {
         data: editingClient,
@@ -218,8 +223,25 @@ export default function Clients() {
         setBlockerModalOpen(true);
         return;
       }
+    } else {
+      const result = canPerformAction('client', null, 'add', { formData });
+      if (!result.allowed) {
+        setValidationResult(result);
+        setBlockerModalOpen(true);
+        return;
+      }
+      if (result.requiresConfirmation) {
+        setValidationResult(result);
+        setPendingFormData(formData);
+        setConfirmImpactModalOpen(true);
+        return;
+      }
     }
 
+    await performSave(formData);
+  };
+
+  const performSave = async (formData) => {
     setIsLoading(true);
 
     try {
@@ -241,6 +263,15 @@ export default function Clients() {
 
         setClients([newClient, ...clients]);
         showToast("Client ajouté avec succès!", "success");
+
+        // ✅ Log creation event
+        logEntityCreation('client', newClient.id, formData.name);
+
+        // ✅ Navigate to detail view after creation
+        const detailRoute = resolveDetailRoute('client', newClient.id);
+        if (detailRoute) {
+          setTimeout(() => navigate(detailRoute), 100);
+        }
       }
 
       setIsModalOpen(false);
@@ -252,6 +283,27 @@ export default function Clients() {
       setIsLoading(false);
     }
   };
+
+  const handleConfirmImpact = async () => {
+    setConfirmImpactModalOpen(false);
+    await performSave(pendingFormData);
+    setPendingFormData(null);
+  };
+
+  // Dynamic form fields - disable status field in edit mode to prevent bypassing domain rules
+  const dynamicClientFormFields = editingClient
+    ? clientFormFields.map(field => {
+      if (field.name === 'status') {
+        return {
+          ...field,
+          type: 'readonly',
+          displayValue: editingClient.status,
+          helpText: 'Le statut ne peut être modifié que via le sélecteur dans la liste'
+        };
+      }
+      return field;
+    })
+    : clientFormFields;
 
   const handleExport = () => {
     const headers = table.columns
@@ -384,9 +436,12 @@ export default function Clients() {
         onSubmit={handleSubmit}
         title={getFormTitle("client", !!editingClient)}
         subtitle={editingClient ? "Modifier les informations du client" : "Ajouter un nouveau client à votre base"}
-        fields={clientFormFields}
+        fields={dynamicClientFormFields}
         initialData={editingClient}
         isLoading={isLoading}
+        entityType="client"
+        entityId={editingClient?.id}
+        editingEntity={editingClient}
       />
 
       <BlockerModal
@@ -396,6 +451,18 @@ export default function Clients() {
         blockers={validationResult?.blockers || []}
         warnings={validationResult?.warnings || []}
         entityName={validationResult?.entityData?.name || "Client"}
+      />
+
+      <ConfirmImpactModal
+        isOpen={confirmImpactModalOpen}
+        onClose={() => {
+          setConfirmImpactModalOpen(false);
+          setPendingFormData(null);
+        }}
+        onConfirm={handleConfirmImpact}
+        actionName="confirmer la modification"
+        impactSummary={validationResult?.impactSummary || []}
+        entityName={pendingFormData?.name || editingClient?.name || ""}
       />
     </PageLayout>
   );

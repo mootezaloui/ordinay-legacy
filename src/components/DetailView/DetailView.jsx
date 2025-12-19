@@ -1,46 +1,64 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { useToast } from "../../contexts/ToastContext";
 import { useConfirm } from "../../contexts/ConfirmContext";
+import { useData } from "../../contexts/DataContext";
 import PageLayout from "../layout/PageLayout";
 import PageHeader from "../layout/PageHeader";
 import { getEntityConfig } from "./config/entityConfigs";
 import OverviewTab from "./tabs/OverviewTab";
 import DocumentsTab from "./tabs/DocumentsTab";
 import TimelineTab from "./tabs/TimelineTab";
+import HistoryTab from "./tabs/HistoryTab";
 import NotesTab from "./tabs/NotesTab";
 import RelatedItemsTab from "./tabs/RelatedItemsTab";
 import AggregatedRelatedTab from "./tabs/AggregatedRelatedTab";
 import MissionsTab from "./tabs/MissionsTab";
 import FinancialTab from "./tabs/FinancialTab";
 import QuickActionsBar from "./QuickActionsBar";
-import { mockCases, mockSessions, mockTasks } from "../../utils/mockData";
+import { mockCases, mockSessions, mockTasks, mockOfficers } from "../../utils/mockData";
+import { canPerformAction } from "../../services/domainRules";
 
 /**
  * Generic DetailView component with modern inline editing UX
  * ✅ UPDATED: Inline quick actions + structured edit mode
+ * ✅ UPDATED: Uses DataContext for dynamic data
  */
 export default function DetailView({ entityType }) {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { showToast } = useToast();
   const { confirm } = useConfirm();
+  const contextData = useData(); // Get all data from context
   const [isEditing, setIsEditing] = useState(false);
 
   // Get configuration for this entity type
   const config = getEntityConfig(entityType);
 
-  // Set active tab to first tab from config (dynamically)
-  const [activeTab, setActiveTab] = useState(config.tabs?.[0]?.id || "overview");
+  // ✅ Read active tab from URL query parameter, fallback to first tab or state
+  const tabFromUrl = searchParams.get('tab');
+  const tabFromState = location.state?.tab;
+  const defaultTab = tabFromUrl || tabFromState || config.tabs?.[0]?.id || "overview";
+  const [activeTab, setActiveTab] = useState(defaultTab);
   const [data, setData] = useState(null);
   const [originalData, setOriginalData] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // ✅ Sync activeTab with URL parameter
+  useEffect(() => {
+    const tabFromUrl = searchParams.get('tab');
+    if (tabFromUrl && tabFromUrl !== activeTab) {
+      setActiveTab(tabFromUrl);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const entityData = await config.fetchData(id);
+        const entityData = await config.fetchData(id, contextData);
         setData(entityData);
         setOriginalData(entityData);
       } catch (error) {
@@ -50,8 +68,15 @@ export default function DetailView({ entityType }) {
       }
     };
 
+    // Reset to default tab when navigating to a different entity
+    const tabFromUrl = searchParams.get('tab');
+    if (!tabFromUrl) {
+      const defaultTab = config.tabs?.[0]?.id || "overview";
+      setActiveTab(defaultTab);
+    }
+
     fetchData();
-  }, [id, entityType]);
+  }, [id, entityType, contextData.clients, contextData.dossiers, contextData.cases, contextData.tasks, contextData.sessions, contextData.officers, contextData.personalTasks]);
 
   if (loading) {
     return (
@@ -88,11 +113,29 @@ export default function DetailView({ entityType }) {
 
   // ✅ Handle inline quick action changes
   const handleQuickAction = async (field, value, validation) => {
-    // Run validation if provided
+    // ✅ Validate with domain rules before allowing any change
+    const validationResult = canPerformAction(entityType, id, 'edit', {
+      data: data,
+      newData: { ...data, [field]: value }
+    });
+
+    if (!validationResult.allowed) {
+      // Show blocker message with proper toast
+      showToast(validationResult.blockers[0] || "Cette modification n'est pas autorisée", "error", {
+        title: "Modification bloquée",
+        context: entityType,
+      });
+      return;
+    }
+
+    // Run field-level validation if provided
     if (validation) {
       const error = validation(data, value);
       if (error) {
-        showToast(error, "error");
+        showToast(error, "error", {
+          title: "Validation échouée",
+          context: entityType,
+        });
         return;
       }
     }
@@ -130,7 +173,10 @@ export default function DetailView({ entityType }) {
       console.error("Error saving quick action:", error);
       // Rollback on error
       setData({ ...data, [field]: oldValue });
-      showToast("Erreur lors de l'enregistrement", "error");
+      showToast("Erreur lors de l'enregistrement", "error", {
+        title: "Erreur de sauvegarde",
+        context: entityType,
+      });
     }
   };
 
@@ -143,9 +189,23 @@ export default function DetailView({ entityType }) {
     setData(newData);
   };
 
-  const handleItemsChange = (itemsKey, newItems) => {
+  const handleItemsChange = async (itemsKey, newItems) => {
     const newData = { ...data, [itemsKey]: newItems };
     setData(newData);
+
+    // ✅ Persist the changes to backend
+    try {
+      await config.updateData(id, { [itemsKey]: newItems });
+      setOriginalData(newData);
+    } catch (error) {
+      console.error("Error saving items change:", error);
+      // Rollback on error
+      setData(data);
+      showToast("Erreur lors de l'enregistrement", "error", {
+        title: "Erreur de sauvegarde",
+        context: entityType,
+      });
+    }
   };
 
   // Handle data refresh (for financial tab and other updates)
@@ -201,7 +261,48 @@ export default function DetailView({ entityType }) {
 
   const handleSave = async () => {
     try {
-      await config.updateData(id, data);
+      // ✅ Check for relational impact changes before saving
+      // Only pass the fields that actually changed
+      const changedFields = {};
+      Object.keys(data).forEach(key => {
+        if (data[key] !== originalData[key]) {
+          changedFields[key] = data[key];
+        }
+      });
+
+      console.log("Changed fields:", changedFields);
+      console.log("Entity type:", entityType);
+      console.log("Original data:", originalData);
+      console.log("New data:", data);
+
+      const validationResult = canPerformAction(entityType, id, 'edit', {
+        data: originalData,
+        newData: changedFields
+      });
+
+      console.log("Validation result:", validationResult);
+
+      if (!validationResult.allowed) {
+        showToast(validationResult.blockers[0] || "Cette modification n'est pas autorisée", "error");
+        return;
+      }
+
+      // ✅ If requires confirmation for relational changes, show impact dialog
+      if (validationResult.requiresConfirmation) {
+        const confirmed = await confirm({
+          title: "⚠️ Changement de rattachement",
+          message: validationResult.impactSummary?.join('\n') || "Êtes-vous sûr de vouloir effectuer ce changement ?",
+          confirmText: "Confirmer le changement",
+          cancelText: "Annuler",
+          variant: "warning"
+        });
+
+        if (!confirmed) {
+          return;
+        }
+      }
+
+      await config.updateData(id, data, contextData);
       setOriginalData(data);
       setIsEditing(false);
       showToast("Modifications enregistrées avec succès!", "success");
@@ -225,7 +326,7 @@ export default function DetailView({ entityType }) {
       variant: "danger"
     })) {
       try {
-        await config.deleteData(id);
+        await config.deleteData(id, contextData);
         navigate(config.listRoute);
       } catch (error) {
         showToast("Erreur lors de la suppression", "error");
@@ -266,6 +367,8 @@ export default function DetailView({ entityType }) {
         );
       case "timeline":
         return <TimelineTab data={data} config={config} />;
+      case "history":
+        return <HistoryTab entityType={config.entityType} entityId={parseInt(id)} />;
       case "notes":
         return <NotesTab data={data} config={config} />;
       case "financial":
@@ -336,9 +439,17 @@ export default function DetailView({ entityType }) {
         if (isClient) {
           // Client entity: Get all Procès related to this client (via Dossiers)
           const relatedDossiers = data.relatedDossiers || [];
-          items = mockCases.filter(cas =>
+
+          // ✅ Merge newly added items with existing items
+          const existingCases = mockCases.filter(cas =>
             relatedDossiers.some(dossier => dossier.id === cas.dossierId)
           );
+
+          const newlyAddedCases = data.relatedCases || [];
+          const caseIds = new Set(newlyAddedCases.map(c => c.id));
+          const uniqueExistingCases = existingCases.filter(c => !caseIds.has(c.id));
+
+          items = [...newlyAddedCases, ...uniqueExistingCases];
 
           getParentContext = (cas) => {
             const parentDossier = relatedDossiers.find(d => d.id === cas.dossierId);
@@ -358,7 +469,15 @@ export default function DetailView({ entityType }) {
           };
         } else if (isDossier) {
           // Dossier entity: Direct children - proceedings of this dossier
-          items = data.proceedings || [];
+          // ✅ Merge newly added items (data.proceedings) with existing items (filtered from mockCases)
+          const existingProceedings = mockCases.filter(c => c.dossierId === data.id);
+
+          // Combine and deduplicate
+          const newlyAddedProceedings = data.proceedings || [];
+          const proceedingIds = new Set(newlyAddedProceedings.map(p => p.id));
+          const uniqueExistingProceedings = existingProceedings.filter(p => !proceedingIds.has(p.id));
+
+          items = [...newlyAddedProceedings, ...uniqueExistingProceedings];
           getParentContext = null; // No parent context needed (direct children)
 
           entityConfig = {
@@ -383,9 +502,18 @@ export default function DetailView({ entityType }) {
             relatedDossiers.some(dossier => dossier.id === cas.dossierId)
           );
 
-          items = mockSessions.filter(session =>
+          // ✅ Merge newly added items with existing items
+          const existingSessions = mockSessions.filter(session =>
             relatedCases.some(cas => cas.id === session.caseId)
-          ).sort((a, b) => new Date(a.date) - new Date(b.date));
+          );
+
+          const newlyAddedSessions = data.relatedSessions || [];
+          const sessionIds = new Set(newlyAddedSessions.map(s => s.id));
+          const uniqueExistingSessions = existingSessions.filter(s => !sessionIds.has(s.id));
+
+          items = [...newlyAddedSessions, ...uniqueExistingSessions];
+
+          items = items.sort((a, b) => new Date(a.date) - new Date(b.date));
 
           getParentContext = (session) => {
             const parentCase = relatedCases.find(c => c.id === session.caseId);
@@ -411,9 +539,18 @@ export default function DetailView({ entityType }) {
           // Dossier entity: Get all Séances from this dossier's procès
           const dossierCases = data.proceedings || [];
 
-          items = mockSessions.filter(session =>
+          // ✅ Merge newly added items (data.sessions) with existing items (filtered from mockSessions)
+          const existingSessions = mockSessions.filter(session =>
             dossierCases.some(cas => cas.id === session.caseId)
-          ).sort((a, b) => new Date(a.date) - new Date(b.date));
+          );
+
+          // Combine and deduplicate
+          const newlyAddedSessions = data.sessions || [];
+          const sessionIds = new Set(newlyAddedSessions.map(s => s.id));
+          const uniqueExistingSessions = existingSessions.filter(s => !sessionIds.has(s.id));
+
+          items = [...newlyAddedSessions, ...uniqueExistingSessions];
+          items = items.sort((a, b) => new Date(a.date) - new Date(b.date));
 
           getParentContext = (session) => {
             const parentCase = dossierCases.find(c => c.id === session.caseId);
@@ -458,14 +595,23 @@ export default function DetailView({ entityType }) {
             relatedDossiers.some(dossier => dossier.id === cas.dossierId)
           );
 
-          items = mockTasks.filter(task => {
+          // ✅ Merge newly added items with existing items
+          const existingTasks = mockTasks.filter(task => {
             if (task.parentType === 'dossier') {
               return relatedDossiers.some(dossier => dossier.id === task.dossierId);
             } else if (task.parentType === 'case') {
               return relatedCasesForTasks.some(cas => cas.id === task.caseId);
             }
             return false;
-          }).sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+          });
+
+          const newlyAddedTasks = data.relatedTasks || [];
+          const taskIds = new Set(newlyAddedTasks.map(t => t.id));
+          const uniqueExistingTasks = existingTasks.filter(t => !taskIds.has(t.id));
+
+          items = [...newlyAddedTasks, ...uniqueExistingTasks];
+
+          items = items.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
 
           getParentContext = (task) => {
             if (task.parentType === 'dossier') {
@@ -497,14 +643,23 @@ export default function DetailView({ entityType }) {
           // Dossier entity: Get all Tasks for THIS dossier or its procès
           const dossierCases = data.proceedings || [];
 
-          items = mockTasks.filter(task => {
+          // ✅ Merge newly added items (data.tasks) with existing items (filtered from mockTasks)
+          const existingTasks = mockTasks.filter(task => {
             if (task.parentType === 'dossier' && task.dossierId === data.id) {
               return true;
             } else if (task.parentType === 'case') {
               return dossierCases.some(cas => cas.id === task.caseId);
             }
             return false;
-          }).sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+          });
+
+          // Combine and deduplicate
+          const newlyAddedTasks = data.tasks || [];
+          const taskIds = new Set(newlyAddedTasks.map(t => t.id));
+          const uniqueExistingTasks = existingTasks.filter(t => !taskIds.has(t.id));
+
+          items = [...newlyAddedTasks, ...uniqueExistingTasks];
+          items = items.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
 
           getParentContext = (task) => {
             if (task.parentType === 'case') {
@@ -529,14 +684,17 @@ export default function DetailView({ entityType }) {
           // Case entity: Get all Tasks for THIS case or its parent dossier
           const parentDossier = data.dossier;
 
-          items = mockTasks.filter(task => {
+          // ✅ PRIORITY 1: Use data from entity object if available (newly added items)
+          // ✅ PRIORITY 2: Fall back to filtering global array (existing items)
+          items = data.tasks || mockTasks.filter(task => {
             if (task.parentType === 'case' && task.caseId === data.id) {
               return true;
             } else if (task.parentType === 'dossier' && parentDossier && task.dossierId === parentDossier.id) {
               return true;
             }
             return false;
-          }).sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+          });
+          items = items.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
 
           getParentContext = (task) => {
             if (task.parentType === 'dossier') {
@@ -573,7 +731,11 @@ export default function DetailView({ entityType }) {
             route: "/officers", // Link to officer detail where mission is shown
             emptyMessage: "Aucune mission d'huissier pour ce dossier",
             getTitle: (item) => item.missionNumber,
-            getSubtitle: (item) => `${item.title} • ${item.missionType} • Huissier: ${item.officerName || 'N/A'}`,
+            getSubtitle: (item) => {
+              // Lookup officer name from officerId if not already set
+              const officerName = item.officerName || (item.officerId ? mockOfficers.find(o => o.id === parseInt(item.officerId))?.name : null) || 'N/A';
+              return `${item.title} • ${item.missionType} • Huissier: ${officerName}`;
+            },
             getStatus: (item) => item.status,
           };
         } else if (config.entityType === 'case') {
@@ -588,7 +750,11 @@ export default function DetailView({ entityType }) {
             route: "/officers",
             emptyMessage: "Aucune mission d'huissier pour ce procès",
             getTitle: (item) => item.missionNumber,
-            getSubtitle: (item) => `${item.title} • ${item.missionType} • Huissier: ${item.officerName || 'N/A'}`,
+            getSubtitle: (item) => {
+              // Lookup officer name from officerId if not already set
+              const officerName = item.officerName || (item.officerId ? mockOfficers.find(o => o.id === parseInt(item.officerId))?.name : null) || 'N/A';
+              return `${item.title} • ${item.missionType} • Huissier: ${officerName}`;
+            },
             getStatus: (item) => item.status,
           };
         }
@@ -620,7 +786,7 @@ export default function DetailView({ entityType }) {
         actions={
           <div className="flex items-center gap-3">
             <button
-              onClick={() => navigate(config.listRoute)}
+              onClick={() => navigate(-1)}
               className="px-4 py-2 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-lg font-medium transition-colors duration-200"
             >
               <i className="fas fa-arrow-left mr-2"></i>
@@ -683,7 +849,10 @@ export default function DetailView({ entityType }) {
             {config.tabs.map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => {
+                  setActiveTab(tab.id);
+                  setSearchParams({ tab: tab.id });
+                }}
                 className={`px-4 py-3 font-medium transition-colors duration-200 border-b-2 flex items-center gap-2 whitespace-nowrap ${activeTab === tab.id
                   ? "border-blue-600 text-blue-600 dark:text-blue-400"
                   : "border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"

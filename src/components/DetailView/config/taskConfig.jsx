@@ -1,6 +1,13 @@
 import { Link } from "react-router-dom";
 import ContentSection from "../../layout/ContentSection";
 import { mockTasksExtended, mockDossiers, mockCases, getStatusColor } from "../../../utils/mockData";
+import { getAllAssignees, addCustomAssignee } from "../../../utils/assigneeManager";
+
+// Default assignees that are always available
+const DEFAULT_ASSIGNEES = [
+  { value: "Moi-même", label: "Moi-même" },
+  { value: "Stagiaire", label: "Stagiaire" },
+];
 
 /**
  * Task Entity Configuration - UPDATED with Quick Actions
@@ -24,23 +31,82 @@ export const taskConfig = {
   allowEdit: true,
 
   // Data fetching
-  fetchData: async (id) => {
-    return mockTasksExtended[id] || null;
+  fetchData: async (id, contextData = null) => {
+    // Convert id to number for comparison
+    const numericId = parseInt(id);
+
+    let task;
+    if (contextData?.tasks) {
+      // Use contextData.tasks from DataContext (this is the live data)
+      task = contextData.tasks.find(t => t.id === numericId);
+    } else {
+      // Fallback to mockTasksExtended (static data)
+      task = mockTasksExtended[numericId];
+    }
+    if (!task) return null;
+
+    // ✅ Ensure dossier/case objects are populated
+    const dossiers = contextData?.dossiers || mockDossiers;
+    const cases = contextData?.cases || mockCases;
+
+    let dossier = task.dossier;
+    if (!dossier && task.dossierId) {
+      const foundDossier = dossiers.find(d => d.id === parseInt(task.dossierId));
+      if (foundDossier) {
+        dossier = {
+          id: foundDossier.id,
+          caseNumber: foundDossier.caseNumber,
+          title: foundDossier.title
+        };
+      }
+    }
+
+    let caseData = task.case;
+    if (!caseData && task.caseId) {
+      const foundCase = cases.find(c => c.id === parseInt(task.caseId));
+      if (foundCase) {
+        caseData = {
+          id: foundCase.id,
+          caseNumber: foundCase.caseNumber,
+          title: foundCase.title
+        };
+      }
+    }
+
+    return {
+      ...task,
+      dossier: dossier || null,
+      case: caseData || null
+    };
   },
 
-  updateData: async (id, data) => {
-    // ✅ Actually update the task data in mockTasksExtended
-    if (mockTasksExtended[id]) {
-      mockTasksExtended[id] = {
-        ...mockTasksExtended[id],
-        ...data,
-      };
+  updateData: async (id, data, contextData = null) => {
+    const numericId = parseInt(id);
+
+    if (contextData?.updateTask) {
+      // Use DataContext to update (this persists to localStorage)
+      contextData.updateTask(numericId, data);
+    } else {
+      // Fallback to updating mockTasksExtended
+      if (mockTasksExtended[numericId]) {
+        mockTasksExtended[numericId] = {
+          ...mockTasksExtended[numericId],
+          ...data,
+        };
+      }
     }
     await new Promise(resolve => setTimeout(resolve, 500));
   },
 
-  deleteData: async (id) => {
-    console.log("Deleting task:", id);
+  deleteData: async (id, contextData = null) => {
+    const numericId = parseInt(id);
+
+    if (contextData?.deleteTask) {
+      // Use DataContext to delete (this persists to localStorage)
+      contextData.deleteTask(numericId);
+    } else {
+      console.log("Deleting task:", numericId);
+    }
   },
 
   // Header display
@@ -77,11 +143,18 @@ export const taskConfig = {
       label: "Assigné à",
       icon: "fas fa-user",
       colorMap: false,
-      options: [
-        { value: "Me. Hammami", label: "Me. Hammami" },
-        { value: "Me. Ben Ali", label: "Me. Ben Ali" },
-        { value: "Me. Trabelsi", label: "Me. Trabelsi" },
-      ]
+      getOptions: () => getAllAssignees(DEFAULT_ASSIGNEES),
+      allowCreate: true,
+      onCreateOption: async (name) => {
+        try {
+          addCustomAssignee(name);
+          return true;
+        } catch (error) {
+          alert(error.message);
+          throw error;
+        }
+      },
+      createLabel: "Ajouter"
     }
   ],
 
@@ -197,7 +270,7 @@ export const taskConfig = {
       id: "timeline",
       label: "Historique",
       icon: "fas fa-history",
-      component: "timeline",
+      component: "history",
     },
   ],
 
@@ -255,7 +328,14 @@ export const taskConfig = {
           key: "dossierId",
           label: "Dossier",
           value: (data) => data.dossierId || "",
-          displayValue: (data) => data.dossier ? `${data.dossier.caseNumber} - ${data.dossier.title}` : "Aucun",
+          displayValue: (data) => {
+            if (!data.dossierId) return "Aucun";
+            const dossier = mockDossiers.find(d => d.id === data.dossierId);
+            if (dossier) return `${dossier.caseNumber} - ${dossier.title}`;
+            // Fallback to hydrated dossier object if available
+            if (data.dossier?.caseNumber) return `${data.dossier.caseNumber} - ${data.dossier.title}`;
+            return "Aucun";
+          },
           icon: "fas fa-folder-open",
           type: "searchable-select",
           editable: true,
@@ -272,7 +352,14 @@ export const taskConfig = {
           key: "caseId",
           label: "Procès",
           value: (data) => data.caseId || "",
-          displayValue: (data) => data.case ? `${data.case.caseNumber} - ${data.case.title}` : "Aucun",
+          displayValue: (data) => {
+            if (!data.caseId) return "Aucun";
+            const caseObj = mockCases.find(c => c.id === data.caseId);
+            if (caseObj) return `${caseObj.caseNumber} - ${caseObj.title}`;
+            // Fallback to hydrated case object if available
+            if (data.case?.caseNumber) return `${data.case.caseNumber} - ${data.case.title}`;
+            return "Aucun";
+          },
           icon: "fas fa-gavel",
           type: "searchable-select",
           editable: true,

@@ -24,23 +24,48 @@ export const officerConfig = {
   allowEdit: true,
 
   // Data fetching
-  fetchData: async (id) => {
-    return mockOfficersExtended[id] || null;
+  fetchData: async (id, contextData = null) => {
+    // Convert id to number for comparison
+    const numericId = parseInt(id);
+
+    let officer;
+    if (contextData?.officers) {
+      // Use contextData.officers from DataContext (this is the live data)
+      officer = contextData.officers.find(o => o.id === numericId);
+    } else {
+      // Fallback to mockOfficersExtended (static data)
+      officer = mockOfficersExtended[numericId];
+    }
+    return officer || null;
   },
 
-  updateData: async (id, data) => {
-    // ✅ Actually update the officer data in mockOfficersExtended
-    if (mockOfficersExtended[id]) {
-      mockOfficersExtended[id] = {
-        ...mockOfficersExtended[id],
-        ...data,
-      };
+  updateData: async (id, data, contextData = null) => {
+    const numericId = parseInt(id);
+
+    if (contextData?.updateOfficer) {
+      // Use DataContext to update (this persists to localStorage)
+      contextData.updateOfficer(numericId, data);
+    } else {
+      // Fallback to updating mockOfficersExtended
+      if (mockOfficersExtended[numericId]) {
+        mockOfficersExtended[numericId] = {
+          ...mockOfficersExtended[numericId],
+          ...data,
+        };
+      }
     }
     await new Promise(resolve => setTimeout(resolve, 500));
   },
 
-  deleteData: async (id) => {
-    console.log("Deleting officer:", id);
+  deleteData: async (id, contextData = null) => {
+    const numericId = parseInt(id);
+
+    if (contextData?.deleteOfficer) {
+      // Use DataContext to delete (this persists to localStorage)
+      contextData.deleteOfficer(numericId);
+    } else {
+      console.log("Deleting officer:", numericId);
+    }
   },
 
   // Header display
@@ -299,7 +324,7 @@ export const officerConfig = {
       id: "timeline",
       label: "Historique",
       icon: "fas fa-history",
-      component: "timeline",
+      component: "history",
     },
   ],
 

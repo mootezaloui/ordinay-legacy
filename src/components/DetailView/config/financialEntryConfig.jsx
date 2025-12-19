@@ -549,7 +549,7 @@ export const financialEntryConfig = {
             id: "timeline",
             label: "Historique",
             icon: "fas fa-history",
-            component: "timeline",
+            component: "history",
         },
     ],
 

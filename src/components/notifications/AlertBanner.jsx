@@ -55,7 +55,7 @@ export default function AlertBanner() {
   };
 
   return (
-    <div className="fixed top-20 left-0 right-0 z-40 px-4 space-y-3 pointer-events-none">
+    <div className="fixed top-20 left-0 right-0 z-[100] px-4 space-y-3 pointer-events-none">
       {alerts.map((alert) => {
         const style = getAlertStyles(alert.type);
 

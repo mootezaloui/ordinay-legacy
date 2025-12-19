@@ -22,23 +22,82 @@ export const sessionConfig = {
   allowEdit: true,
 
   // Data fetching
-  fetchData: async (id) => {
-    return mockSessionsExtended[id] || null;
+  fetchData: async (id, contextData = null) => {
+    // Convert id to number for comparison
+    const numericId = parseInt(id);
+
+    let session;
+    if (contextData?.sessions) {
+      // Use contextData.sessions from DataContext (this is the live data)
+      session = contextData.sessions.find(s => s.id === numericId);
+    } else {
+      // Fallback to mockSessionsExtended (static data)
+      session = mockSessionsExtended[numericId];
+    }
+    if (!session) return null;
+
+    // ✅ Ensure case/dossier objects are populated
+    const cases = contextData?.cases || mockCases;
+    const dossiers = contextData?.dossiers || mockDossiers;
+
+    let caseData = session.case;
+    if (!caseData && session.caseId) {
+      const foundCase = cases.find(c => c.id === parseInt(session.caseId));
+      if (foundCase) {
+        caseData = {
+          id: foundCase.id,
+          caseNumber: foundCase.caseNumber,
+          title: foundCase.title
+        };
+      }
+    }
+
+    let dossier = session.dossier;
+    if (!dossier && session.dossierId) {
+      const foundDossier = dossiers.find(d => d.id === parseInt(session.dossierId));
+      if (foundDossier) {
+        dossier = {
+          id: foundDossier.id,
+          caseNumber: foundDossier.caseNumber,
+          title: foundDossier.title
+        };
+      }
+    }
+
+    return {
+      ...session,
+      case: caseData || null,
+      dossier: dossier || null
+    };
   },
 
-  updateData: async (id, data) => {
-    // ✅ Actually update the session data in mockSessionsExtended
-    if (mockSessionsExtended[id]) {
-      mockSessionsExtended[id] = {
-        ...mockSessionsExtended[id],
-        ...data,
-      };
+  updateData: async (id, data, contextData = null) => {
+    const numericId = parseInt(id);
+
+    if (contextData?.updateSession) {
+      // Use DataContext to update (this persists to localStorage)
+      contextData.updateSession(numericId, data);
+    } else {
+      // Fallback to updating mockSessionsExtended
+      if (mockSessionsExtended[numericId]) {
+        mockSessionsExtended[numericId] = {
+          ...mockSessionsExtended[numericId],
+          ...data,
+        };
+      }
     }
     await new Promise(resolve => setTimeout(resolve, 500));
   },
 
-  deleteData: async (id) => {
-    console.log("Deleting session:", id);
+  deleteData: async (id, contextData = null) => {
+    const numericId = parseInt(id);
+
+    if (contextData?.updateSession) {
+      // Use DataContext to delete (this persists to localStorage)
+      contextData.deleteSession(numericId);
+    } else {
+      console.log("Deleting session:", numericId);
+    }
   },
 
   // Header display
@@ -227,7 +286,7 @@ export const sessionConfig = {
       id: "timeline",
       label: "Historique",
       icon: "fas fa-history",
-      component: "timeline",
+      component: "history",
     },
   ],
 

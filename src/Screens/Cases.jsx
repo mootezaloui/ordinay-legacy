@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAdvancedTable } from "../hooks/useAdvancedTable";
 import { useToast } from "../contexts/ToastContext";
 import { useConfirm } from "../contexts/ConfirmContext";
+import { useData } from "../contexts/DataContext";
 import PageLayout from "../components/layout/PageLayout";
 import PageHeader from "../components/layout/PageHeader";
 import ContentSection from "../components/layout/ContentSection";
@@ -17,18 +18,20 @@ import Pagination from "../components/table/Pagination";
 import StatCard from "../components/dashboard/StatCard";
 import FormModal from "../components/FormModal/FormModal";
 import { caseFormFields } from "../components/FormModal/formConfigs";
-import { mockCases, mockDossiers } from "../utils/mockData";
+import { mockDossiers } from "../utils/mockData";
 import InlineStatusSelector from "../components/InlineSelectors/InlineStatusSelector";
 import BlockerModal from "../components/ui/BlockerModal";
 import ConfirmImpactModal from "../components/ui/ConfirmImpactModal";
 import { canPerformAction } from "../services/domainRules";
+import { resolveDetailRoute } from "../utils/routeResolver";
+import { logEntityCreation } from "../services/historyService";
 
 export default function Cases() {
   const navigate = useNavigate();
   const { showToast } = useToast();
   const { confirm } = useConfirm();
+  const { cases, addCase, updateCase, deleteCase } = useData();
 
-  const [cases, setCases] = useState(mockCases);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCase, setEditingCase] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -199,7 +202,7 @@ export default function Cases() {
       cancelText: "Annuler",
       variant: "danger"
     })) {
-      setCases(cases.filter(c => c.id !== id));
+      deleteCase(id);
       showToast("Procès supprimé", "warning", {
         title: "Suppression",
         context: "case",
@@ -208,9 +211,7 @@ export default function Cases() {
   };
 
   const handleStatusChange = (id, newStatus) => {
-    setCases(cases.map(c =>
-      c.id === id ? { ...c, status: newStatus } : c
-    ));
+    updateCase(id, { status: newStatus });
     showToast(`Statut mis a jour: ${newStatus}`, "info", {
       title: "Statut du proces",
       context: "case",
@@ -223,7 +224,7 @@ export default function Cases() {
   };
 
   const handleSubmit = async (formData) => {
-    // ✅ Validate before submitting (EDIT mode only)
+    // ?. Validate before submitting
     if (editingCase) {
       const result = canPerformAction('case', editingCase.id, 'edit', {
         data: editingCase,
@@ -243,6 +244,19 @@ export default function Cases() {
         setConfirmImpactModalOpen(true);
         return;
       }
+    } else {
+      const result = canPerformAction('case', null, 'add', { formData });
+      if (!result.allowed) {
+        setValidationResult(result);
+        setBlockerModalOpen(true);
+        return;
+      }
+      if (result.requiresConfirmation) {
+        setValidationResult(result);
+        setPendingFormData(formData);
+        setConfirmImpactModalOpen(true);
+        return;
+      }
     }
 
     // Proceed with save
@@ -256,11 +270,7 @@ export default function Cases() {
       await new Promise((resolve) => setTimeout(resolve, 500));
 
       if (editingCase) {
-        setCases(cases.map(c =>
-          c.id === editingCase.id
-            ? { ...formData, id: editingCase.id }
-            : c
-        ));
+        updateCase(editingCase.id, formData);
         showToast("Procès modifié avec succès!", "success");
       } else {
         const dossier = mockDossiers.find(d => d.id === parseInt(formData.dossierId));
@@ -269,8 +279,17 @@ export default function Cases() {
           id: Date.now(),
           dossier: dossier ? dossier.caseNumber : "N/A",
         };
-        setCases([newCase, ...cases]);
+        addCase(newCase);
         showToast("Procès ajouté avec succès!", "success");
+
+        // ✅ Log creation event
+        logEntityCreation('case', newCase.id, newCase.caseNumber);
+
+        // ✅ Navigate to detail view after creation
+        const detailRoute = resolveDetailRoute('case', newCase.id);
+        if (detailRoute) {
+          setTimeout(() => navigate(detailRoute), 100);
+        }
       }
 
       setIsModalOpen(false);
@@ -315,7 +334,7 @@ export default function Cases() {
     window.URL.revokeObjectURL(url);
   };
 
-  // Populate dossier options in the form fields
+  // Populate dossier options and protect status field in edit mode
   const populatedCaseFormFields = caseFormFields.map(field => {
     if (field.name === "dossierId") {
       return {
@@ -324,6 +343,15 @@ export default function Cases() {
           value: d.id,
           label: `${d.caseNumber} - ${d.title}`
         }))
+      };
+    }
+    // Protect status field in edit mode
+    if (field.name === "status" && editingCase) {
+      return {
+        ...field,
+        type: 'readonly',
+        displayValue: editingCase.status,
+        helpText: 'Le statut ne peut être modifié que via le sélecteur dans la liste'
       };
     }
     return field;
@@ -436,6 +464,9 @@ export default function Cases() {
         fields={populatedCaseFormFields}
         initialData={editingCase}
         isLoading={isLoading}
+        entityType="case"
+        entityId={editingCase?.id}
+        editingEntity={editingCase}
       />
 
       <BlockerModal

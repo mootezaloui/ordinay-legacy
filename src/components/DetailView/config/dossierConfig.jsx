@@ -18,42 +18,150 @@ export const dossierConfig = {
   allowDelete: true,
   allowEdit: true,
 
-  fetchData: async (id) => {
-    const dossier = mockDossiersExtended[id];
-    if (dossier && !dossier.transactions) {
+  fetchData: async (id, contextData = null) => {
+    console.log('[dossierConfig] fetchData called with id:', id);
+    const numericId = parseInt(id);
+
+    let dossier;
+    if (contextData?.dossiers) {
+      // Use contextData.dossiers from DataContext (this is the live data)
+      console.log('[dossierConfig] Using contextData.dossiers');
+      dossier = contextData.dossiers.find(d => d.id === numericId);
+    } else {
+      // Fallback to mockDossiersExtended (static data)
+      console.log('[dossierConfig] mockDossiersExtended keys:', Object.keys(mockDossiersExtended));
+      dossier = mockDossiersExtended[numericId];
+    }
+    console.log('[dossierConfig] Found dossier:', dossier);
+    if (!dossier) return null;
+
+    if (!dossier.transactions) {
       dossier.transactions = [];
     }
-    return dossier || null;
+
+    // ✅ Compute aggregated related entities from contextData if available
+    const sessions = contextData?.sessions || mockSessions;
+    const tasks = contextData?.tasks || mockTasks;
+    const cases = contextData?.cases || [];
+
+    const dossierCases = dossier.proceedings || cases.filter(c => c.dossierId === numericId);
+    const relatedSessions = sessions.filter(session =>
+      dossierCases.some(cas => cas.id === session.caseId) ||
+      (session.linkType === 'dossier' && session.dossierId === numericId)
+    );
+    const relatedTasks = tasks.filter(task =>
+      (task.parentType === 'dossier' && task.dossierId === numericId) ||
+      (task.parentType === 'case' && dossierCases.some(cas => cas.id === task.caseId))
+    );
+
+    // ✅ Ensure client object is populated
+    const clients = contextData?.clients || mockClients;
+    let client = dossier.client;
+    if (!client && dossier.clientId) {
+      const foundClient = clients.find(c => c.id === parseInt(dossier.clientId));
+      if (foundClient) {
+        client = {
+          id: foundClient.id,
+          name: foundClient.name,
+          email: foundClient.email,
+          phone: foundClient.phone
+        };
+      }
+    }
+
+    return {
+      ...dossier,
+      client: client || { id: null, name: 'Client inconnu' },
+      sessions: relatedSessions,
+      tasks: relatedTasks,
+      proceedings: dossierCases,
+    };
   },
 
-  updateData: async (id, data) => {
-    // ✅ Actually update the dossier data in mockDossiersExtended
-    if (mockDossiersExtended[id]) {
-      const enrichedData = { ...data };
+  updateData: async (id, data, contextData = null) => {
+    const numericId = parseInt(id);
 
-      // ✅ Update client object when clientId changes
-      if ('clientId' in data) {
-        const client = mockClients.find(c => c.id === parseInt(data.clientId));
-        if (client) {
-          enrichedData.client = {
-            id: client.id,
-            name: client.name,
-            email: client.email,
-            phone: client.phone
-          };
+    if (contextData?.updateDossier) {
+      // Use DataContext to update (this persists to localStorage)
+      contextData.updateDossier(numericId, data);
+    } else {
+      // Fallback to updating mockDossiersExtended
+      if (mockDossiersExtended[numericId]) {
+        const enrichedData = { ...data };
+
+        // ✅ Update client object when clientId changes
+        if ('clientId' in data) {
+          const client = mockClients.find(c => c.id === parseInt(data.clientId));
+          if (client) {
+            enrichedData.client = {
+              id: client.id,
+              name: client.name,
+              email: client.email,
+              phone: client.phone
+            };
+          }
         }
-      }
 
-      mockDossiersExtended[id] = {
-        ...mockDossiersExtended[id],
-        ...enrichedData,
-      };
+        // ✅ Sync sessions with global mockSessions array
+        if ('sessions' in data) {
+          data.sessions.forEach(session => {
+            const existingIndex = mockSessions.findIndex(s => s.id === session.id);
+            if (existingIndex === -1) {
+              // New session - add to global array
+              mockSessions.push(session);
+            } else {
+              // Existing session - update it
+              mockSessions[existingIndex] = session;
+            }
+          });
+        }
+
+        // ✅ Sync tasks with global mockTasks array
+        if ('tasks' in data) {
+          data.tasks.forEach(task => {
+            const existingIndex = mockTasks.findIndex(t => t.id === task.id);
+            if (existingIndex === -1) {
+              // New task - add to global array
+              mockTasks.push(task);
+            } else {
+              // Existing task - update it
+              mockTasks[existingIndex] = task;
+            }
+          });
+        }
+
+        // ✅ Sync proceedings (cases) with global mockCases array
+        if ('proceedings' in data) {
+          data.proceedings.forEach(cas => {
+            const existingIndex = mockCases.findIndex(c => c.id === cas.id);
+            if (existingIndex === -1) {
+              // New case - add to global array
+              mockCases.push(cas);
+            } else {
+              // Existing case - update it
+              mockCases[existingIndex] = cas;
+            }
+          });
+        }
+
+        mockDossiersExtended[numericId] = {
+          ...mockDossiersExtended[numericId],
+          ...enrichedData,
+        };
+      }
     }
     await new Promise(resolve => setTimeout(resolve, 500));
   },
 
-  deleteData: async (id) => {
-    console.log("Deleting dossier:", id);
+  deleteData: async (id, contextData = null) => {
+    const numericId = parseInt(id);
+
+    if (contextData?.deleteDossier) {
+      // Use DataContext to delete (this persists to localStorage)
+      contextData.deleteDossier(numericId);
+    } else {
+      console.log("Deleting dossier:", numericId);
+    }
   },
 
   getTitle: (data) => data.caseNumber,
@@ -127,13 +235,20 @@ export const dossierConfig = {
               <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
                 {data.title}
               </h2>
-              <Link
-                to={`/clients/${data.client.id}`}
-                className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-2"
-              >
-                <i className="fas fa-user"></i>
-                {data.client.name}
-              </Link>
+              {data.client?.id ? (
+                <Link
+                  to={`/clients/${data.client.id}`}
+                  className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-2"
+                >
+                  <i className="fas fa-user"></i>
+                  {data.client.name}
+                </Link>
+              ) : (
+                <span className="text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                  <i className="fas fa-user"></i>
+                  {data.client?.name || 'Client non assigné'}
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-3">
               <span className={`px-3 py-1 rounded-full text-sm font-medium ${priorityColor[data.priority]}`}>
@@ -230,12 +345,8 @@ export const dossierConfig = {
       icon: "fas fa-calendar-alt",
       component: "aggregatedRelated",
       aggregationType: "sessions",
-      getCount: (data) => {
-        const dossierCases = data.proceedings || [];
-        return mockSessions.filter(session =>
-          dossierCases.some(cas => cas.id === session.caseId)
-        ).length;
-      },
+      getCount: (data) => data.sessions?.length || 0,
+      itemsKey: "sessions",
       allowAdd: true,
       allowDelete: false,
       entityName: "une séance",
@@ -309,17 +420,8 @@ export const dossierConfig = {
       icon: "fas fa-tasks",
       component: "aggregatedRelated",
       aggregationType: "tasks",
-      getCount: (data) => {
-        const dossierCases = data.proceedings || [];
-        return mockTasks.filter(task => {
-          if (task.parentType === 'dossier' && task.dossierId === data.id) {
-            return true;
-          } else if (task.parentType === 'case') {
-            return dossierCases.some(cas => cas.id === task.caseId);
-          }
-          return false;
-        }).length;
-      },
+      getCount: (data) => data.tasks?.length || 0,
+      itemsKey: "tasks",
       allowAdd: true,
       allowDelete: false,
       entityName: "une tâche",
@@ -395,6 +497,11 @@ export const dossierConfig = {
       addSubtitle: "Créer une nouvelle mission d'huissier pour ce dossier",
       // Dynamic form fields - entityType and entityReference pre-filled
       getFormFields: (dossierData) => {
+        // Generate a default mission number
+        const year = new Date().getFullYear();
+        const randomNum = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+        const defaultMissionNumber = `MIS-${year}-${randomNum}`;
+
         return missionFormFields.map(field => {
           if (field.name === 'entityType') {
             return {
@@ -408,6 +515,12 @@ export const dossierConfig = {
               defaultValue: dossierData.caseNumber,
               disabled: true,
               helpText: `Cette mission sera liée au dossier ${dossierData.caseNumber}`,
+            };
+          } else if (field.name === 'missionNumber') {
+            return {
+              ...field,
+              defaultValue: defaultMissionNumber,
+              disabled: true,
             };
           } else if (field.name === 'officerId') {
             return {
@@ -446,7 +559,7 @@ export const dossierConfig = {
       id: "timeline",
       label: "Historique",
       icon: "fas fa-history",
-      component: "timeline",
+      component: "history",
     },
   ],
 
@@ -479,7 +592,11 @@ export const dossierConfig = {
           label: "Client",
           value: (data) => {
             const clientId = data.clientId || data.client?.id;
-            const client = mockClients.find(c => c.id === parseInt(clientId));
+            return clientId;
+          },
+          displayValue: (data) => {
+            const clientId = data.clientId || data.client?.id;
+            const client = mockClients.find(c => c.id == clientId);
             return client ? client.name : "Client inconnu";
           },
           icon: "fas fa-user",
@@ -489,7 +606,7 @@ export const dossierConfig = {
             value: client.id,
             label: client.name
           })),
-          helpText: "Sélectionner le client concerné"
+          helpText: "Attention: Changer le client transférera le dossier vers un autre client"
         },
         {
           key: "category",

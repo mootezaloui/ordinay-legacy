@@ -1,23 +1,31 @@
-import { useState, useMemo } from "react";
-import { Link } from "react-router-dom";
+import { useState, useMemo, useEffect } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useToast } from "../../../contexts/ToastContext";
 import { useConfirm } from "../../../contexts/ConfirmContext";
 import ContentSection from "../../layout/ContentSection";
 import FormModal from "../../FormModal/FormModal";
 import { getStatusColor } from "../../../utils/mockData";
+import { resolveDetailRoute } from "../../../utils/routeResolver";
 
 /**
  * RelatedItems Tab - Enhanced with dynamic field options
  * ✅ UPDATED: Handles getOptions() for dynamic dropdowns
  * ✅ UPDATED: Processes searchable-select fields
+ * ✅ FIXED: Synchronizes local items state with parent data prop
  */
 export default function RelatedItemsTab({ data, config, tabConfig, onItemsChange }) {
+  const navigate = useNavigate();
   const { showToast } = useToast();
   const { confirm } = useConfirm();
   const [items, setItems] = useState(data[tabConfig.itemsKey] || []);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({});
+
+  // ✅ Synchronize local items state with parent data prop
+  useEffect(() => {
+    setItems(data[tabConfig.itemsKey] || []);
+  }, [data, tabConfig.itemsKey]);
 
   // ✅ Process form fields to handle dynamic options
   const processedFormFields = useMemo(() => {
@@ -51,7 +59,7 @@ export default function RelatedItemsTab({ data, config, tabConfig, onItemsChange
       // ✅ Special handling for tasks: set parentType based on parent entity
       if (tabConfig.itemsKey === 'tasks') {
         newItem.parentType = config.entityType; // 'dossier' or 'case'
-        
+
         // Set the appropriate parent ID and clear the other
         if (config.entityType === 'dossier') {
           newItem.dossierId = data.id;
@@ -78,6 +86,24 @@ export default function RelatedItemsTab({ data, config, tabConfig, onItemsChange
       setIsAddModalOpen(false);
       setFormData({}); // Reset form data
       showToast(`${tabConfig.entityName || 'Item'} ajouté avec succès!`, "success");
+
+      // ✅ Navigate to the new entity's detail view
+      // Map itemsKey to entity type for routing
+      const entityTypeMap = {
+        'tasks': 'task',
+        'sessions': 'session',
+        'dossiers': 'dossier',
+        'cases': 'case',
+        'officers': 'officer',
+        'missions': 'mission'
+      };
+      const itemEntityType = entityTypeMap[tabConfig.itemsKey] || tabConfig.itemsKey?.replace(/s$/, '');
+      if (itemEntityType) {
+        const detailRoute = resolveDetailRoute(itemEntityType, newItem.id);
+        if (detailRoute) {
+          setTimeout(() => navigate(detailRoute), 100);
+        }
+      }
 
     } catch (error) {
       console.error("Error adding item:", error);

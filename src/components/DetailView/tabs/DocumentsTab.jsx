@@ -1,18 +1,50 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useToast } from "../../../contexts/ToastContext";
 import { useConfirm } from "../../../contexts/ConfirmContext";
 import ContentSection from "../../layout/ContentSection";
+import documentService from "../../../services/documentService.js";
 
 /**
- * Documents Tab - Displays and manages documents with upload functionality
- * Works for any entity with a documents array
+ * Documents Tab - Centralized document management
+ * Uses entity-agnostic document service with abstracted storage
+ * Desktop-first design with local filesystem support
  */
 export default function DocumentsTab({ data, config, onDocumentsChange }) {
   const { showToast } = useToast();
   const { confirm } = useConfirm();
-  const [documents, setDocuments] = useState(data.documents || []);
+
+  // Entity information for linking
+  const entityType = config.entityType || 'unknown';
+  const entityId = data.id;
+
+  // Load documents from centralized service
+  const [documents, setDocuments] = useState([]);
   const [isDragging, setIsDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [missingFiles, setMissingFiles] = useState(new Set());
+
+  // Load documents for this entity
+  useEffect(() => {
+    loadDocuments();
+  }, [entityType, entityId]);
+
+  const loadDocuments = () => {
+    const entityDocuments = documentService.getEntityDocuments(entityType, entityId);
+    setDocuments(entityDocuments);
+    checkMissingFiles(entityDocuments);
+  };
+
+  // Check for missing files in storage
+  const checkMissingFiles = async (docs) => {
+    const missing = new Set();
+    for (const doc of docs) {
+      const exists = await documentService.documentFileExists(doc.id);
+      if (!exists) {
+        missing.add(doc.id);
+      }
+    }
+    setMissingFiles(missing);
+  };
 
   const getFileIcon = (type) => {
     const iconMap = {
@@ -34,57 +66,42 @@ export default function DocumentsTab({ data, config, onDocumentsChange }) {
     return iconMap[type?.toLowerCase()] || 'fas fa-file text-slate-600 dark:text-slate-400';
   };
 
-  const formatFileSize = (bytes) => {
-    if (!bytes) return '0 KB';
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-  };
-
   const handleFileSelect = async (files) => {
     setUploading(true);
 
     try {
-      // Convert FileList to Array
       const fileArray = Array.from(files);
 
-      // Process each file
-      const newDocuments = await Promise.all(
-        fileArray.map(async (file) => {
-          // Get file extension
-          const extension = file.name.split('.').pop();
-
-          // Create document object
-          return {
-            id: Date.now() + Math.random(), // Unique ID
-            name: file.name,
-            type: extension,
-            size: formatFileSize(file.size),
-            sizeBytes: file.size,
-            date: new Date().toISOString().split('T')[0],
-            category: getCategoryFromType(extension),
-            file: file, // Store file object for actual upload
-            uploadProgress: 100, // Simulated
-          };
-        })
+      // Upload via centralized service
+      const results = await documentService.uploadMultipleDocuments(
+        fileArray,
+        entityType,
+        entityId
       );
 
-      // Add to documents
-      const updatedDocuments = [...documents, ...newDocuments];
-      setDocuments(updatedDocuments);
+      // Reload documents
+      loadDocuments();
 
-      // Notify parent component
+      // Notify parent (for backward compatibility with legacy systems)
       if (onDocumentsChange) {
-        onDocumentsChange(updatedDocuments);
+        onDocumentsChange(documentService.getEntityDocuments(entityType, entityId));
       }
 
-      // TODO: Upload to server
-      console.log("Files to upload:", newDocuments);
-      
-      // Simulate upload delay
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Show results
+      if (results.successful.length > 0) {
+        showToast(
+          `${results.successful.length} document(s) ajouté(s) avec succès!`,
+          "success"
+        );
+      }
 
-      showToast(`${newDocuments.length} document(s) ajouté(s) avec succès!`, "success");
+      if (results.failed.length > 0) {
+        showToast(
+          `${results.failed.length} document(s) ont échoué`,
+          "error"
+        );
+        console.error("Failed uploads:", results.failed);
+      }
 
     } catch (error) {
       console.error("Error uploading files:", error);
@@ -94,50 +111,89 @@ export default function DocumentsTab({ data, config, onDocumentsChange }) {
     }
   };
 
-  const getCategoryFromType = (extension) => {
-    const categoryMap = {
-      'pdf': 'PDF',
-      'doc': 'Document',
-      'docx': 'Document',
-      'xls': 'Tableur',
-      'xlsx': 'Tableur',
-      'ppt': 'Présentation',
-      'pptx': 'Présentation',
-      'jpg': 'Image',
-      'jpeg': 'Image',
-      'png': 'Image',
-      'gif': 'Image',
-      'zip': 'Archive',
-      'rar': 'Archive',
-      'txt': 'Texte',
-    };
-    return categoryMap[extension?.toLowerCase()] || 'Autre';
+  const handleOpen = async (doc) => {
+    try {
+      await documentService.openDocument(doc.id);
+    } catch (error) {
+      console.error("Error opening document:", error);
+      showToast(
+        "Impossible d'ouvrir le document. Fichier manquant?",
+        "error"
+      );
+    }
   };
 
-  const handleDownload = (doc) => {
-    console.log("Downloading document:", doc);
-    // TODO: Implement actual download
-    showToast(`Téléchargement de ${doc.name}`, "info");
+  const handleDownload = async (doc) => {
+    try {
+      await documentService.downloadDocument(doc.id);
+      showToast(`Téléchargement de ${doc.name}`, "success");
+    } catch (error) {
+      console.error("Error downloading document:", error);
+      showToast("Erreur lors du téléchargement", "error");
+    }
+  };
+
+  const handleReveal = async (doc) => {
+    try {
+      await documentService.revealDocument(doc.id);
+    } catch (error) {
+      console.error("Error revealing document:", error);
+      showToast("Impossible d'afficher le fichier", "error");
+    }
   };
 
   const handleDelete = async (docId) => {
-    if (await confirm({
+    const confirmed = await confirm({
       title: "Supprimer le document",
-      message: "Êtes-vous sûr de vouloir supprimer ce document ?",
-      confirmText: "Supprimer",
-      cancelText: "Annuler",
+      message: "Voulez-vous supprimer le lien uniquement ou le fichier définitivement?",
+      confirmText: "Supprimer le fichier",
+      cancelText: "Retirer le lien",
       variant: "danger"
-    })) {
-      const updatedDocuments = documents.filter(d => d.id !== docId);
-      setDocuments(updatedDocuments);
+    });
 
-      if (onDocumentsChange) {
-        onDocumentsChange(updatedDocuments);
+    if (confirmed !== null) {
+      const deleteFile = confirmed === true;
+      const success = await documentService.deleteDocument(
+        docId,
+        entityType,
+        entityId,
+        deleteFile
+      );
+
+      if (success) {
+        loadDocuments();
+        if (onDocumentsChange) {
+          onDocumentsChange(documentService.getEntityDocuments(entityType, entityId));
+        }
+        showToast(
+          deleteFile ? "Document supprimé" : "Lien retiré",
+          "success"
+        );
+      } else {
+        showToast("Erreur lors de la suppression", "error");
       }
-
-      // TODO: Delete from server
-      console.log("Deleting document:", docId);
     }
+  };
+
+  const handleRelink = async (docId) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.gif,.zip,.rar,.txt';
+
+    input.onchange = async (e) => {
+      const file = e.target.files?.[0];
+      if (file) {
+        const success = await documentService.relinkDocument(docId, file);
+        if (success) {
+          loadDocuments();
+          showToast("Document relié avec succès", "success");
+        } else {
+          showToast("Erreur lors du remplacement", "error");
+        }
+      }
+    };
+
+    input.click();
   };
 
   const handleDragEnter = (e) => {
@@ -187,11 +243,10 @@ export default function DocumentsTab({ data, config, onDocumentsChange }) {
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
-            className={`border-2 border-dashed rounded-xl p-12 text-center transition-all ${
-              isDragging
+            className={`border-2 border-dashed rounded-xl p-12 text-center transition-all ${isDragging
                 ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
                 : 'border-slate-300 dark:border-slate-600 hover:border-blue-400 dark:hover:border-blue-500'
-            }`}
+              }`}
           >
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-800 mb-4">
               <i className="fas fa-cloud-upload-alt text-slate-400 dark:text-slate-600 text-2xl"></i>
@@ -231,11 +286,10 @@ export default function DocumentsTab({ data, config, onDocumentsChange }) {
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
-          className={`mb-6 border-2 border-dashed rounded-lg p-6 text-center transition-all ${
-            isDragging
+          className={`mb-6 border-2 border-dashed rounded-lg p-6 text-center transition-all ${isDragging
               ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
               : 'border-slate-300 dark:border-slate-600 hover:border-blue-400 dark:hover:border-blue-500'
-          }`}
+            }`}
         >
           <div className="flex items-center justify-center gap-4">
             <i className="fas fa-cloud-upload-alt text-slate-400 text-2xl"></i>
@@ -271,83 +325,112 @@ export default function DocumentsTab({ data, config, onDocumentsChange }) {
 
         {/* Documents Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {documents.map((doc) => (
-            <div
-              key={doc.id}
-              className="p-4 border border-slate-200 dark:border-slate-700 rounded-lg hover:border-blue-500 dark:hover:border-blue-500 transition-colors group"
-            >
-              <div className="flex items-start gap-3">
-                {/* File Icon */}
-                <div className="p-3 bg-slate-100 dark:bg-slate-700 rounded-lg flex-shrink-0">
-                  <i className={`${getFileIcon(doc.type)} text-xl`}></i>
-                </div>
-
-                {/* File Info */}
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-slate-900 dark:text-white truncate group-hover:text-blue-600 dark:group-hover:text-blue-400">
-                    {doc.name}
-                  </p>
-                  <div className="flex items-center gap-3 mt-1">
-                    <span className="text-xs text-slate-500 dark:text-slate-400">
-                      {doc.size}
-                    </span>
-                    <span className="text-xs text-slate-500 dark:text-slate-400">
-                      {doc.date}
-                    </span>
+          {documents.map((doc) => {
+            const isMissing = missingFiles.has(doc.id);
+            return (
+              <div
+                key={doc.id}
+                className={`p-4 border rounded-lg transition-colors group ${
+                  isMissing
+                    ? 'border-yellow-400 dark:border-yellow-600 bg-yellow-50 dark:bg-yellow-900/10'
+                    : 'border-slate-200 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-500'
+                }`}
+              >
+                {/* Missing File Warning */}
+                {isMissing && (
+                  <div className="mb-3 p-2 bg-yellow-100 dark:bg-yellow-900/20 border border-yellow-300 dark:border-yellow-700 rounded text-xs text-yellow-800 dark:text-yellow-300 flex items-center gap-2">
+                    <i className="fas fa-exclamation-triangle"></i>
+                    <span>Fichier manquant</span>
+                    <button
+                      onClick={() => handleRelink(doc.id)}
+                      className="ml-auto text-yellow-700 dark:text-yellow-400 underline hover:no-underline"
+                    >
+                      Relier à nouveau
+                    </button>
                   </div>
-                  {doc.category && (
-                    <span className="inline-block mt-2 px-2 py-0.5 bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 text-xs rounded">
-                      {doc.category}
-                    </span>
-                  )}
-                </div>
+                )}
 
-                {/* Actions */}
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDownload(doc);
-                    }}
-                    className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
-                    title="Télécharger"
+                <div className="flex items-start gap-3">
+                  {/* File Icon */}
+                  <div
+                    className={`p-3 rounded-lg flex-shrink-0 cursor-pointer ${
+                      isMissing
+                        ? 'bg-yellow-100 dark:bg-yellow-900/20'
+                        : 'bg-slate-100 dark:bg-slate-700'
+                    }`}
+                    onClick={() => !isMissing && handleOpen(doc)}
+                    title={isMissing ? "Fichier manquant" : "Ouvrir"}
                   >
-                    <i className="fas fa-download text-slate-600 dark:text-slate-400"></i>
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDelete(doc.id);
-                    }}
-                    className="p-2 hover:bg-red-100 dark:hover:bg-red-900/20 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
-                    title="Supprimer"
-                  >
-                    <i className="fas fa-trash text-red-600 dark:text-red-400"></i>
-                  </button>
+                    <i className={`${getFileIcon(doc.type)} text-xl ${isMissing ? 'opacity-50' : ''}`}></i>
+                  </div>
+
+                  {/* File Info */}
+                  <div className="flex-1 min-w-0">
+                    <p
+                      className={`font-medium truncate cursor-pointer ${
+                        isMissing
+                          ? 'text-slate-600 dark:text-slate-400'
+                          : 'text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400'
+                      }`}
+                      onClick={() => !isMissing && handleOpen(doc)}
+                      title={doc.name}
+                    >
+                      {doc.name}
+                    </p>
+                    <div className="flex items-center gap-3 mt-1">
+                      <span className="text-xs text-slate-500 dark:text-slate-400">
+                        {doc.size}
+                      </span>
+                      <span className="text-xs text-slate-500 dark:text-slate-400">
+                        {new Date(doc.uploadDate).toLocaleDateString()}
+                      </span>
+                    </div>
+                    {doc.category && (
+                      <span className="inline-block mt-2 px-2 py-0.5 bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 text-xs rounded">
+                        {doc.category}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDownload(doc);
+                      }}
+                      className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                      title="Télécharger"
+                      disabled={isMissing}
+                    >
+                      <i className={`fas fa-download text-slate-600 dark:text-slate-400 ${isMissing ? 'opacity-30' : ''}`}></i>
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleReveal(doc);
+                      }}
+                      className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                      title="Afficher dans le dossier"
+                      disabled={isMissing}
+                    >
+                      <i className={`fas fa-folder-open text-slate-600 dark:text-slate-400 ${isMissing ? 'opacity-30' : ''}`}></i>
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDelete(doc.id);
+                      }}
+                      className="p-2 hover:bg-red-100 dark:hover:bg-red-900/20 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                      title="Supprimer"
+                    >
+                      <i className="fas fa-trash text-red-600 dark:text-red-400"></i>
+                    </button>
+                  </div>
                 </div>
               </div>
-
-              {/* Upload Progress (if applicable) */}
-              {doc.uploadProgress !== undefined && doc.uploadProgress < 100 && (
-                <div className="mt-3">
-                  <div className="flex items-center justify-between text-xs mb-1">
-                    <span className="text-slate-600 dark:text-slate-400">
-                      Upload...
-                    </span>
-                    <span className="text-slate-600 dark:text-slate-400">
-                      {doc.uploadProgress}%
-                    </span>
-                  </div>
-                  <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5">
-                    <div
-                      className="bg-blue-600 h-1.5 rounded-full transition-all"
-                      style={{ width: `${doc.uploadProgress}%` }}
-                    ></div>
-                  </div>
-                </div>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Document Stats */}

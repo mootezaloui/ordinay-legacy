@@ -59,10 +59,13 @@ export const filterFinancialEntries = (filters = {}) => {
   // Filter by personal task
   if (filters.personalTaskId) {
     entries = entries.filter(
-      (e) =>
-        e.sourceType === "personal_task" &&
-        e.sourceId === filters.personalTaskId
+      (e) => e.personalTaskId === filters.personalTaskId
     );
+  }
+
+  // Filter by task
+  if (filters.taskId) {
+    entries = entries.filter((e) => e.taskId === filters.taskId);
   }
 
   // Filter by type (revenue/expense)

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useConfirm } from "../../../contexts/ConfirmContext";
 import ContentSection from "../../layout/ContentSection";
 
@@ -8,7 +8,29 @@ import ContentSection from "../../layout/ContentSection";
  */
 export default function NotesTab({ data, config }) {
   const { confirm } = useConfirm();
-  const [notes, setNotes] = useState(data.notes || []);
+
+  // Helper function to normalize notes data
+  const normalizeNotes = (notesData) => {
+    if (!notesData) return [];
+    if (Array.isArray(notesData)) return notesData;
+    // If notes is a string, convert it to a single note object
+    if (typeof notesData === 'string') {
+      return [{
+        id: 1,
+        date: new Date().toISOString().split('T')[0],
+        author: "Système",
+        content: notesData,
+      }];
+    }
+    return [];
+  };
+
+  const [notes, setNotes] = useState(normalizeNotes(data.notes));
+
+  // ✅ Synchronize local notes state with parent data prop
+  useEffect(() => {
+    setNotes(normalizeNotes(data.notes));
+  }, [data.notes]);
   const [isAdding, setIsAdding] = useState(false);
   const [newNote, setNewNote] = useState("");
 
@@ -25,7 +47,7 @@ export default function NotesTab({ data, config }) {
     setNotes([note, ...notes]);
     setNewNote("");
     setIsAdding(false);
-    
+
     // TODO: Save to backend
     console.log("Adding note:", note);
   };

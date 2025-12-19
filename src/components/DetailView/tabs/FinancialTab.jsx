@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { useToast } from "../../../contexts/ToastContext";
 import { useConfirm } from "../../../contexts/ConfirmContext";
 import { useAdvancedTable } from "../../../hooks/useAdvancedTable";
@@ -38,7 +39,9 @@ import {
 } from "../../../utils/financialUtils";
 import InlineStatusSelector from "../../InlineSelectors/InlineStatusSelector";
 import BlockerModal from "../../ui/BlockerModal";
+import ConfirmImpactModal from "../../ui/ConfirmImpactModal";
 import { canPerformAction } from "../../../services/domainRules";
+import { resolveDetailRoute } from "../../../utils/routeResolver";
 
 /**
  * FinancialTab Component
@@ -53,6 +56,7 @@ import { canPerformAction } from "../../../services/domainRules";
  * - onUpdate: Callback when financial data changes
  */
 export default function FinancialTab({ entityType, entityId, entityData, onUpdate }) {
+  const navigate = useNavigate();
   const { showToast } = useToast();
   const { confirm } = useConfirm();
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -62,6 +66,8 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
   const [refreshKey, setRefreshKey] = useState(0);
   const [blockerModalOpen, setBlockerModalOpen] = useState(false);
   const [validationResult, setValidationResult] = useState(null);
+  const [confirmImpactModalOpen, setConfirmImpactModalOpen] = useState(false);
+  const [pendingAction, setPendingAction] = useState(null);
 
   // Get financial summary based on entity type
   const summary = useMemo(() => {
@@ -137,7 +143,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
   };
 
   const handleEdit = (entry) => {
-    // ✅ Validate before allowing edit
+    // G£à Validate before allowing edit
     const result = canPerformAction('financialEntry', entry.id, 'edit', { data: entry });
 
     if (!result.allowed) {
@@ -151,60 +157,84 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
   };
 
   const handleDelete = async (id) => {
-    // ✅ Validate before allowing delete
     const entry = entries.find(e => e.id === id);
-    const result = canPerformAction('financialEntry', id, 'delete', { data: entry });
 
-    if (!result.allowed) {
-      setValidationResult(result);
-      setBlockerModalOpen(true);
-      return;
-    }
-
-    if (await confirm({
-      title: "Supprimer l'écriture",
-      message: "Êtes-vous sûr de vouloir supprimer cette écriture ?",
-      confirmText: "Supprimer",
-      cancelText: "Annuler",
-      variant: "danger"
-    })) {
-      deleteFinancialEntry(id);
-      setRefreshKey((k) => k + 1);
-      setSelectedEntry(null);
-      if (onUpdate) onUpdate();
-    }
+    await performFinancialMutation({
+      action: 'delete',
+      entryId: id,
+      data: entry,
+      newData: null,
+      mutate: async () => {
+        if (await confirm({
+          title: "Supprimer l'écriture",
+          message: "Êtes-vous sûr de vouloir supprimer cette écriture ?",
+          confirmText: "Supprimer",
+          cancelText: "Annuler",
+          variant: "danger"
+        })) {
+          deleteFinancialEntry(id);
+          setRefreshKey((k) => k + 1);
+          setSelectedEntry(null);
+          if (onUpdate) onUpdate();
+        }
+      }
+    });
   };
 
-  const handleStatusChange = (id, newStatus) => {
-    // ✅ Validate before allowing status change
+  const handleStatusChange = async (id, newStatus) => {
     const entry = entries.find(e => e.id === id);
-    const result = canPerformAction('financialEntry', id, 'changeStatus', {
+    const newData = { ...entry, status: newStatus };
+
+    await performFinancialMutation({
+      action: 'changeStatus',
+      entryId: id,
       data: entry,
-      newValue: newStatus,
-      currentValue: entry?.status
+      newData,
+      mutate: async () => {
+        updateFinancialEntry(id, { status: newStatus });
+        setRefreshKey((k) => k + 1);
+
+        if (selectedEntry?.id === id) {
+          const updatedEntries = getFinancialEntriesForDisplay();
+          const updatedEntry = updatedEntries.find((e) => e.id === id);
+          setSelectedEntry(updatedEntry);
+        }
+
+        if (onUpdate) onUpdate();
+      }
     });
-
-    if (!result.allowed) {
-      setValidationResult(result);
-      setBlockerModalOpen(true);
-      return;
-    }
-
-    updateFinancialEntry(id, { status: newStatus });
-    setRefreshKey((k) => k + 1);
-
-    // Update selected entry if it's the one being modified
-    if (selectedEntry?.id === id) {
-      const updatedEntries = getFinancialEntriesForDisplay();
-      const updatedEntry = updatedEntries.find((e) => e.id === id);
-      setSelectedEntry(updatedEntry);
-    }
-
-    if (onUpdate) onUpdate();
   };
 
   const handleCloseDetail = () => {
     setSelectedEntry(null);
+  };
+
+  const performFinancialMutation = async ({ action, entryId, data = null, newData = null, mutate }) => {
+    const result = canPerformAction('financialEntry', entryId, action, { data, newData });
+
+    if (!result.allowed) {
+      setValidationResult(result);
+      setBlockerModalOpen(true);
+      return false;
+    }
+
+    if (result.requiresConfirmation) {
+      setValidationResult(result);
+      setPendingAction({ action, entryId, data, newData, mutate });
+      setConfirmImpactModalOpen(true);
+      return false;
+    }
+
+    await mutate();
+    return true;
+  };
+
+  const handleConfirmImpact = async () => {
+    if (!pendingAction) return;
+    setConfirmImpactModalOpen(false);
+    const { mutate } = pendingAction;
+    setPendingAction(null);
+    await mutate();
   };
 
   // Define table columns (memoized to ensure handler closures are stable)
@@ -355,18 +385,30 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
   };
 
   const handleSubmit = async (formData) => {
+    const isEdit = !!editingEntry;
+
+    await performFinancialMutation({
+      action: isEdit ? 'edit' : 'add',
+      entryId: isEdit ? editingEntry.id : null,
+      data: isEdit ? editingEntry : null,
+      newData: formData,
+      mutate: async () => {
+        await performSave(formData);
+      }
+    });
+  };
+
+  const performSave = async (formData) => {
     setIsLoading(true);
 
     try {
       await new Promise((resolve) => setTimeout(resolve, 500));
 
       if (editingEntry) {
-        // Update existing entry
         updateFinancialEntry(editingEntry.id, formData);
         showToast("Écriture modifiée avec succès!", "success");
       } else {
-        // Add new entry with entity context
-        let client = formData.clientId
+        const client = formData.clientId
           ? mockClients.find((c) => c.id === parseInt(formData.clientId))
           : entityType === "client"
             ? mockClients.find((c) => c.id === entityId)
@@ -376,78 +418,75 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
           ? mockDossiers.find((d) => d.id === parseInt(formData.dossierId))
           : entityType === "dossier"
             ? mockDossiers.find((d) => d.id === entityId)
-            : null;
+            : entityType === "task" && entityData.dossierId
+              ? mockDossiers.find((d) => d.id === entityData.dossierId)
+              : null;
 
         const caseItem = formData.caseId
           ? mockCases.find((c) => c.id === parseInt(formData.caseId))
           : entityType === "case"
             ? mockCases.find((c) => c.id === entityId)
-            : null;
+            : entityType === "task" && entityData.caseId
+              ? mockCases.find((c) => c.id === entityData.caseId)
+              : null;
 
-        // For case entity type, derive client and dossier from the case's dossier relationship
         if (entityType === "case" && caseItem && !client) {
           dossier = mockDossiers.find((d) => d.id === caseItem.dossierId);
-          if (dossier) {
-            client = mockClients.find((c) => c.id === dossier.clientId);
-          }
         }
 
-        // For dossier entity type, derive client from the dossier
-        if (entityType === "dossier" && dossier && !client) {
-          client = mockClients.find((c) => c.id === dossier.clientId);
-        }
+        const derivedClient = client
+          || (dossier ? mockClients.find((c) => c.id === dossier.clientId) : null);
 
-        // Handle officer and mission data
         let mission = null;
-        let officerData = null;
-
-        // For mission entity type, the entityData IS the mission
         if (entityType === "mission") {
           mission = entityData;
-
-          // Derive client and dossier from mission's linked entity
           if (mission.entityType === "dossier") {
-            dossier = mockDossiers.find(d => d.id === mission.entityId);
-            if (dossier) {
-              client = mockClients.find(c => c.id === dossier.clientId);
-            }
+            dossier = mockDossiers.find(d => d.id === mission.entityId) || dossier;
           } else if (mission.entityType === "case") {
             const linkedCase = mockCases.find(c => c.id === mission.entityId);
             if (linkedCase) {
-              dossier = mockDossiers.find(d => d.id === linkedCase.dossierId);
-              if (dossier) {
-                client = mockClients.find(c => c.id === dossier.clientId);
-              }
+              dossier = mockDossiers.find(d => d.id === linkedCase.dossierId) || dossier;
             }
           }
         } else if (formData.missionId && entityData?.missions) {
-          // For officer entity type, find mission from officer's missions array
-          mission = entityData.missions.find((m) => m.id === parseInt(formData.missionId));
+          mission = entityData.missions.find((m) => m.id === parseInt(formData.missionId)) || null;
         }
 
-        if (entityType === "officer") {
-          officerData = entityData;
-        }
+        const missionClient = derivedClient || (dossier ? mockClients.find((c) => c.id === dossier.clientId) : null);
 
         const newEntry = {
           ...formData,
-          clientId: client ? client.id : null,
-          clientName: client ? client.name : null,
+          clientId: missionClient ? missionClient.id : null,
+          clientName: missionClient ? missionClient.name : null,
           dossierId: dossier ? dossier.id : null,
           dossierReference: dossier ? dossier.caseNumber : null,
           caseId: caseItem ? caseItem.id : null,
           caseReference: caseItem ? caseItem.caseNumber : null,
-          // Add officer and mission data
-          officerId: mission?.officerId || officerData?.id || (formData.officerId ? parseInt(formData.officerId) : null),
-          officerName: mission?.officerName || officerData?.name || null,
+          officerId: mission?.officerId || (entityType === "officer" ? entityData.id : null) || (formData.officerId ? parseInt(formData.officerId) : null),
+          officerName: mission?.officerName || (entityType === "officer" ? entityData.name : null),
           missionId: mission ? mission.id : null,
           missionNumber: mission ? mission.missionNumber : null,
           sourceType: mission ? "mission" : "manual",
           sourceId: mission ? mission.id : null,
+          // ✅ Set personalTaskId for personal task entries (ensure it's a number)
+          personalTaskId: entityType === "personalTask" ? parseInt(entityId) : null,
+          // ✅ Set taskId for task entries (ensure it's a number)
+          taskId: entityType === "task" ? parseInt(entityId) : null,
+          // ✅ Explicitly set scope to "internal" for personal task entries
+          scope: entityType === "personalTask" ? "internal" : (formData.scope || "client"),
         };
 
-        addFinancialEntry(newEntry);
+        const savedEntry = addFinancialEntry(newEntry);
         showToast("Écriture ajoutée avec succès!", "success");
+
+        // ✅ Navigate to the new financial entry's detail view
+        if (savedEntry && savedEntry.id) {
+          const detailRoute = resolveDetailRoute('financialEntry', savedEntry.id);
+          if (detailRoute) {
+            setTimeout(() => navigate(detailRoute), 100);
+            return; // Skip the remaining logic since we're navigating away
+          }
+        }
       }
 
       setRefreshKey((k) => k + 1);
@@ -1230,10 +1269,10 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
                 : "text-slate-500 dark:text-slate-400"
               }`}>
               {balanceDetails.balance > 0
-                ? "→ Client doit payer"
+                ? "🔻 Client doit payer"
                 : balanceDetails.balance < 0
-                  ? "→ Crédit client / À rembourser"
-                  : "✓ Compte équilibré"}
+                  ? "🔻 Crédit client / À rembourser"
+                  : "✅ Compte équilibré"}
             </div>
           </div>
         </div>
@@ -1554,6 +1593,18 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
         warnings={validationResult?.warnings || []}
         entityName={`Écriture #${validationResult?.entityId || ''}`}
       />
+      <ConfirmImpactModal
+        isOpen={confirmImpactModalOpen}
+        onClose={() => {
+          setConfirmImpactModalOpen(false);
+          setPendingAction(null);
+        }}
+        onConfirm={handleConfirmImpact}
+        actionName="confirmer la modification"
+        impactSummary={validationResult?.impactSummary || []}
+        entityName={pendingAction?.newData?.description || selectedEntry?.description || editingEntry?.description || ''}
+      />
+
     </div>
   );
 }

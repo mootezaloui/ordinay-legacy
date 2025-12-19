@@ -18,23 +18,77 @@ export const clientConfig = {
   allowDelete: true,
   allowEdit: true,
 
-  fetchData: async (id) => {
-    return mockClientsExtended[id] || null;
+  fetchData: async (id, contextData = null) => {
+    let client;
+
+    // Convert id to number for comparison
+    const numericId = parseInt(id);
+
+    if (contextData?.clients) {
+      // Use contextData.clients from DataContext (this is the live data)
+      client = contextData.clients.find(c => c.id === numericId);
+    } else {
+      // Fallback to mockClientsExtended (static data)
+      client = mockClientsExtended[numericId];
+    }
+
+    if (!client) return null;
+
+    // ✅ Compute aggregated related entities from contextData if available
+    const dossiers = contextData?.dossiers || [];
+    const cases = contextData?.cases || mockCases;
+    const sessions = contextData?.sessions || mockSessions;
+    const tasks = contextData?.tasks || mockTasks;
+
+    const relatedDossiers = dossiers.filter(d => d.clientId === numericId);
+    const relatedCases = cases.filter(cas =>
+      relatedDossiers.some(dossier => dossier.id === cas.dossierId)
+    );
+    const relatedSessions = sessions.filter(session =>
+      relatedCases.some(cas => cas.id === session.caseId)
+    );
+    const relatedTasks = tasks.filter(task =>
+      task.clientId === numericId ||
+      relatedDossiers.some(d => d.id === task.dossierId) ||
+      relatedCases.some(c => c.id === task.caseId)
+    );
+
+    return {
+      ...client,
+      relatedDossiers,
+      relatedCases,
+      relatedSessions,
+      relatedTasks,
+    };
   },
 
-  updateData: async (id, data) => {
-    // ✅ Actually update the client data in mockClientsExtended
-    if (mockClientsExtended[id]) {
-      mockClientsExtended[id] = {
-        ...mockClientsExtended[id],
-        ...data,
-      };
+  updateData: async (id, data, contextData = null) => {
+    const numericId = parseInt(id);
+
+    if (contextData?.updateClient) {
+      // Use DataContext to update (this persists to localStorage)
+      contextData.updateClient(numericId, data);
+    } else {
+      // Fallback to updating mockClientsExtended
+      if (mockClientsExtended[numericId]) {
+        mockClientsExtended[numericId] = {
+          ...mockClientsExtended[numericId],
+          ...data,
+        };
+      }
     }
     await new Promise(resolve => setTimeout(resolve, 500));
   },
 
-  deleteData: async (id) => {
-    console.log("Deleting client:", id);
+  deleteData: async (id, contextData = null) => {
+    const numericId = parseInt(id);
+
+    if (contextData?.deleteClient) {
+      // Use DataContext to delete (this persists to localStorage)
+      contextData.deleteClient(numericId);
+    } else {
+      console.log("Deleting client:", numericId);
+    }
   },
 
   getTitle: (data) => data.name,
@@ -150,12 +204,8 @@ export const clientConfig = {
       icon: "fas fa-gavel",
       component: "aggregatedRelated",
       aggregationType: "cases",
-      getCount: (data) => {
-        const relatedDossiers = data.relatedDossiers || [];
-        return mockCases.filter(cas =>
-          relatedDossiers.some(dossier => dossier.id === cas.dossierId)
-        ).length;
-      },
+      itemsKey: "relatedCases",
+      getCount: (data) => data.relatedCases?.length || 0,
       allowAdd: true,
       allowDelete: false,
       entityName: "un procès",
@@ -186,15 +236,8 @@ export const clientConfig = {
       icon: "fas fa-calendar-alt",
       component: "aggregatedRelated",
       aggregationType: "sessions",
-      getCount: (data) => {
-        const relatedDossiers = data.relatedDossiers || [];
-        const relatedCases = mockCases.filter(cas =>
-          relatedDossiers.some(dossier => dossier.id === cas.dossierId)
-        );
-        return mockSessions.filter(session =>
-          relatedCases.some(cas => cas.id === session.caseId)
-        ).length;
-      },
+      itemsKey: "relatedSessions",
+      getCount: (data) => data.relatedSessions?.length || 0,
       allowAdd: true,
       allowDelete: false,
       entityName: "une séance",
@@ -276,20 +319,8 @@ export const clientConfig = {
       icon: "fas fa-tasks",
       component: "aggregatedRelated",
       aggregationType: "tasks",
-      getCount: (data) => {
-        const relatedDossiers = data.relatedDossiers || [];
-        const relatedCases = mockCases.filter(cas =>
-          relatedDossiers.some(dossier => dossier.id === cas.dossierId)
-        );
-        return mockTasks.filter(task => {
-          if (task.parentType === 'dossier') {
-            return relatedDossiers.some(dossier => dossier.id === task.dossierId);
-          } else if (task.parentType === 'case') {
-            return relatedCases.some(cas => cas.id === task.caseId);
-          }
-          return false;
-        }).length;
-      },
+      itemsKey: "relatedTasks",
+      getCount: (data) => data.relatedTasks?.length || 0,
       allowAdd: true,
       allowDelete: false,
       entityName: "une tâche",
@@ -305,6 +336,7 @@ export const clientConfig = {
           if (field.name === 'dossierId') {
             return {
               ...field,
+              required: false,
               options: relatedDossiers.map(dossier => ({
                 value: dossier.id,
                 label: `${dossier.caseNumber} - ${dossier.title}`
@@ -324,6 +356,7 @@ export const clientConfig = {
           } else if (field.name === 'caseId') {
             return {
               ...field,
+              required: false,
               options: relatedCases.map(cas => {
                 const parentDossier = relatedDossiers.find(d => d.id === cas.dossierId);
                 return {
@@ -365,10 +398,10 @@ export const clientConfig = {
       getCount: (data) => data.documents?.length || 0,
     },
     {
-      id: "timeline",
+      id: "history",
       label: "Historique",
       icon: "fas fa-history",
-      component: "timeline",
+      component: "history",
     },
   ],
 

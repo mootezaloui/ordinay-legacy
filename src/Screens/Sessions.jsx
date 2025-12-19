@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAdvancedTable } from "../hooks/useAdvancedTable";
 import { useToast } from "../contexts/ToastContext";
 import { useConfirm } from "../contexts/ConfirmContext";
+import { useData } from "../contexts/DataContext";
 import PageLayout from "../components/layout/PageLayout";
 import PageHeader from "../components/layout/PageHeader";
 import ContentSection from "../components/layout/ContentSection";
@@ -20,19 +21,23 @@ import { sessionFormFields, getFormTitle } from "../components/FormModal/formCon
 import { mockSessions, mockCases, mockDossiers } from "../utils/mockData";
 import InlineStatusSelector from "../components/InlineSelectors/InlineStatusSelector";
 import BlockerModal from "../components/ui/BlockerModal";
+import ConfirmImpactModal from "../components/ui/ConfirmImpactModal";
 import { canPerformAction } from "../services/domainRules";
+import { resolveDetailRoute } from "../utils/routeResolver";
+import { logEntityCreation } from "../services/historyService";
 
 export default function Sessions() {
   const navigate = useNavigate();
   const { showToast } = useToast();
   const { confirm } = useConfirm();
-
-  const [sessions, setSessions] = useState(mockSessions);
+  const { sessions, addSession, updateSession, deleteSession } = useData();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSession, setEditingSession] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [blockerModalOpen, setBlockerModalOpen] = useState(false);
   const [validationResult, setValidationResult] = useState(null);
+  const [confirmImpactModalOpen, setConfirmImpactModalOpen] = useState(false);
+  const [pendingFormData, setPendingFormData] = useState(null);
 
   const typeIcons = {
     "Consultation": "fas fa-comments",
@@ -187,7 +192,9 @@ export default function Sessions() {
       return;
     }
 
-    setEditingSession(session);
+    // Determine linkType based on existing data
+    const linkType = session.caseId ? "case" : "dossier";
+    setEditingSession({ ...session, linkType });
     setIsModalOpen(true);
   };
 
@@ -209,7 +216,7 @@ export default function Sessions() {
       cancelText: "Annuler",
       variant: "danger"
     })) {
-      setSessions(sessions.filter(s => s.id !== id));
+      deleteSession(id);
       showToast("Séance supprimée", "warning", {
         title: "Suppression",
         context: "session",
@@ -218,9 +225,7 @@ export default function Sessions() {
   };
 
   const handleStatusChange = (id, newStatus) => {
-    setSessions(sessions.map(s =>
-      s.id === id ? { ...s, status: newStatus } : s
-    ));
+    updateSession(id, { status: newStatus });
     showToast(`Statut mis a jour: ${newStatus}`, "info", {
       title: "Statut de seance",
       context: "session",
@@ -233,7 +238,7 @@ export default function Sessions() {
   };
 
   const handleSubmit = async (formData) => {
-    // ✅ Validate before submitting (EDIT mode only)
+    // ?. Validate before submitting
     if (editingSession) {
       const result = canPerformAction('session', editingSession.id, 'edit', {
         data: editingSession,
@@ -245,27 +250,56 @@ export default function Sessions() {
         setBlockerModalOpen(true);
         return;
       }
+
+      if (result.requiresConfirmation) {
+        setValidationResult(result);
+        setPendingFormData(formData);
+        setConfirmImpactModalOpen(true);
+        return;
+      }
+    } else {
+      const result = canPerformAction('session', null, 'add', { formData });
+      if (!result.allowed) {
+        setValidationResult(result);
+        setBlockerModalOpen(true);
+        return;
+      }
+      if (result.requiresConfirmation) {
+        setValidationResult(result);
+        setPendingFormData(formData);
+        setConfirmImpactModalOpen(true);
+        return;
+      }
     }
 
+    await performSave(formData);
+  };
+
+  const performSave = async (formData) => {
     setIsLoading(true);
 
     try {
       await new Promise((resolve) => setTimeout(resolve, 500));
 
       if (editingSession) {
-        setSessions(sessions.map(s =>
-          s.id === editingSession.id
-            ? { ...formData, id: editingSession.id }
-            : s
-        ));
+        updateSession(editingSession.id, formData);
         showToast("Séance modifiée avec succès!", "success");
       } else {
         const newSession = {
           ...formData,
           id: Date.now(),
         };
-        setSessions([newSession, ...sessions]);
+        addSession(newSession);
         showToast("Séance ajoutée avec succès!", "success");
+
+        // ✅ Log creation event
+        logEntityCreation('session', newSession.id, formData.type || 'Séance');
+
+        // ✅ Navigate to detail view after creation
+        const detailRoute = resolveDetailRoute('session', newSession.id);
+        if (detailRoute) {
+          setTimeout(() => navigate(detailRoute), 100);
+        }
       }
 
       setIsModalOpen(false);
@@ -276,6 +310,12 @@ export default function Sessions() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleConfirmImpact = async () => {
+    setConfirmImpactModalOpen(false);
+    await performSave(pendingFormData);
+    setPendingFormData(null);
   };
 
   const handleExport = () => {
@@ -328,6 +368,15 @@ export default function Sessions() {
             label: `${d.caseNumber} - ${d.title}`
           }))
         ]
+      };
+    }
+    // Protect status field from direct edit to enforce domain rules
+    if (field.name === "status" && editingSession) {
+      return {
+        ...field,
+        type: 'readonly',
+        displayValue: editingSession.status,
+        helpText: 'Le statut ne peut être modifié que via le sélecteur dans la liste'
       };
     }
     return field;
@@ -438,6 +487,9 @@ export default function Sessions() {
         fields={populatedSessionFormFields}
         initialData={editingSession}
         isLoading={isLoading}
+        entityType="session"
+        entityId={editingSession?.id}
+        editingEntity={editingSession}
       />
 
       <BlockerModal
@@ -448,6 +500,18 @@ export default function Sessions() {
         warnings={validationResult?.warnings || []}
         entityName={`Séance du ${validationResult?.entityData?.date || ''}`}
       />
+      <ConfirmImpactModal
+        isOpen={confirmImpactModalOpen}
+        onClose={() => {
+          setConfirmImpactModalOpen(false);
+          setPendingFormData(null);
+        }}
+        onConfirm={handleConfirmImpact}
+        actionName="confirmer la modification"
+        impactSummary={validationResult?.impactSummary || []}
+        entityName={pendingFormData?.title || editingSession?.title || ""}
+      />
+
     </PageLayout>
   );
 }

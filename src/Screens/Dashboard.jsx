@@ -23,10 +23,10 @@ export default function Dashboard() {
   // Calculate real stats from mock data
   const stats = useMemo(() => {
     const activeClients = mockClients.filter(c => c.status === "Active").length;
-    const activeDossiers = mockDossiers.filter(d => d.status === "En cours").length;
+    const activeDossiers = mockDossiers.filter(d => d.status === "Ouvert").length;
     const pendingTasks = mockTasks.filter(t => t.status !== "Terminée").length;
     const todayTasks = mockTasks.filter(t => t.dueDate === new Date().toISOString().split('T')[0]).length;
-    
+
     // Calculate revenue (sum of paid invoices)
     const paidInvoices = mockAccounting.filter(i => i.status === "Payée");
     const revenue = paidInvoices.reduce((sum, inv) => {
@@ -208,7 +208,7 @@ export default function Dashboard() {
             trendLabel="vs mois dernier"
             onClick={() => navigate("/clients")}
           />
-          
+
           <StatCard
             label="Dossiers Actifs"
             value={stats.dossiers.active}
@@ -217,7 +217,7 @@ export default function Dashboard() {
             trendLabel={`${stats.dossiers.newThisWeek} nouveaux cette semaine`}
             onClick={() => navigate("/dossiers")}
           />
-          
+
           <StatCard
             label="Tâches en Attente"
             value={stats.tasks.pending}
@@ -226,7 +226,7 @@ export default function Dashboard() {
             trendLabel={`${stats.tasks.dueToday} à faire aujourd'hui`}
             onClick={() => navigate("/tasks")}
           />
-          
+
           <StatCard
             label="Revenu"
             value={`${stats.revenue.total.toLocaleString('fr-TN')} TND`}

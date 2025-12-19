@@ -63,16 +63,16 @@ export default function ConfirmImpactModal({
       >
         {/* Header */}
         <div className="bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800 px-6 py-4">
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-amber-100 dark:bg-amber-900/40 rounded-full">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-3 flex-1 min-w-0">
+              <div className="p-2 bg-amber-100 dark:bg-amber-900/40 rounded-full flex-shrink-0">
                 <i className="fas fa-exclamation-triangle text-amber-600 dark:text-amber-400 text-xl"></i>
               </div>
-              <div>
+              <div className="flex-1 min-w-0">
                 <h3 className="text-lg font-bold text-amber-900 dark:text-amber-100">
                   ⚠️ Changement de rattachement
                 </h3>
-                <p className="text-sm text-amber-700 dark:text-amber-300 mt-0.5 break-words">
+                <p className="text-sm text-amber-700 dark:text-amber-300 mt-0.5 break-words overflow-wrap-anywhere">
                   Vous êtes sur le point de {actionName.toLowerCase()}
                   {entityName && ` ${entityName}`}
                 </p>
@@ -80,7 +80,7 @@ export default function ConfirmImpactModal({
             </div>
             <button
               onClick={onClose}
-              className="text-amber-600 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-200 transition-colors"
+              className="text-amber-600 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-200 transition-colors flex-shrink-0"
               aria-label="Fermer"
             >
               <i className="fas fa-times text-xl"></i>
@@ -106,7 +106,7 @@ export default function ConfirmImpactModal({
                   >
                     <span className="text-amber-500 mt-1 flex-shrink-0">•</span>
                     <p
-                      className="text-sm break-words flex-1"
+                      className="text-sm break-words overflow-wrap-anywhere flex-1"
                       dangerouslySetInnerHTML={{ __html: formatLine(line.replace(/^•\s*/, '')) }}
                     />
                   </div>
@@ -118,7 +118,7 @@ export default function ConfirmImpactModal({
                 return (
                   <p
                     key={index}
-                    className="text-sm text-slate-900 dark:text-white font-medium break-words"
+                    className="text-sm text-slate-900 dark:text-white font-medium break-words overflow-wrap-anywhere"
                     dangerouslySetInnerHTML={{ __html: formatLine(line) }}
                   />
                 );
@@ -128,7 +128,7 @@ export default function ConfirmImpactModal({
               return (
                 <p
                   key={index}
-                  className="text-sm text-slate-700 dark:text-slate-300 break-words"
+                  className="text-sm text-slate-700 dark:text-slate-300 break-words overflow-wrap-anywhere"
                 >
                   {line}
                 </p>

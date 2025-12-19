@@ -1,12 +1,13 @@
-import { useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useMemo, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useToast } from "../../../contexts/ToastContext";
 import { useConfirm } from "../../../contexts/ConfirmContext";
 import ContentSection from "../../layout/ContentSection";
 import FormModal from "../../FormModal/FormModal";
 import ConfirmImpactModal from "../../ui/ConfirmImpactModal";
+import BlockerModal from "../../ui/BlockerModal";
 import { canPerformAction } from "../../../services/domainRules";
-import { getStatusColor, mockClients, mockDossiers, mockCases } from "../../../utils/mockData";
+import { getStatusColor, mockClients, mockDossiers, mockCases, mockOfficers } from "../../../utils/mockData";
 import {
   formatCurrency
 } from "../../../utils/financialUtils";
@@ -15,6 +16,8 @@ import {
   populateRelationshipOptions
 } from "../../FormModal/formConfigs";
 import { addFinancialEntry } from "../../../utils/financialData";
+import { logEntityCreation, logAssignment } from "../../../services/historyService";
+import { resolveDetailRoute } from "../../../utils/routeResolver";
 
 /**
  * MissionsTab - Scalable mission list with document management
@@ -22,9 +25,15 @@ import { addFinancialEntry } from "../../../utils/financialData";
  */
 export default function MissionsTab({ data, config, tabConfig, onItemsChange }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { showToast } = useToast();
   const { confirm } = useConfirm();
   const [missions, setMissions] = useState(data[tabConfig.itemsKey] || []);
+
+  // ✅ Synchronize local missions state with parent data prop
+  useEffect(() => {
+    setMissions(data[tabConfig.itemsKey] || []);
+  }, [data, tabConfig.itemsKey]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({});
@@ -40,6 +49,7 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange }) 
   const [confirmImpactModalOpen, setConfirmImpactModalOpen] = useState(false);
   const [validationResult, setValidationResult] = useState(null);
   const [pendingFormData, setPendingFormData] = useState(null);
+  const [blockerModalOpen, setBlockerModalOpen] = useState(false);
 
   // Filter missions by status and search
   const filteredMissions = useMemo(() => {
@@ -98,7 +108,7 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange }) 
   }, [tabConfig.formFields, tabConfig.getFormFields, formData, data]);
 
   const handleAddMission = async (submittedFormData) => {
-    // Phase 2.5: Validate if editing and check for relational changes
+    // Validate via domain rules
     if (editingMissionId) {
       const currentMission = missions.find(m => m.id === editingMissionId);
       const result = canPerformAction('mission', editingMissionId, 'edit', {
@@ -107,11 +117,25 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange }) 
       });
 
       if (!result.allowed) {
-        showToast(result.blockers?.[0] || "Action non autorisée", "error");
+        setValidationResult(result);
+        setBlockerModalOpen(true);
         return;
       }
 
-      // Check if confirmation is required for relational changes
+      // Check if confirmation is required for relational changes (e.g., officer reassignment)
+      if (result.requiresConfirmation) {
+        setValidationResult(result);
+        setPendingFormData(submittedFormData);
+        setConfirmImpactModalOpen(true);
+        return;
+      }
+    } else {
+      const result = canPerformAction('mission', null, 'add', { newData: submittedFormData });
+      if (!result.allowed) {
+        setValidationResult(result);
+        setBlockerModalOpen(true);
+        return;
+      }
       if (result.requiresConfirmation) {
         setValidationResult(result);
         setPendingFormData(submittedFormData);
@@ -133,8 +157,9 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange }) 
         // UPDATE EXISTING MISSION
         const { financialEntries, ...missionData } = submittedFormData;
 
+        const oldMission = missions.find(m => m.id === editingMissionId);
         const updatedMission = {
-          ...missions.find(m => m.id === editingMissionId),
+          ...oldMission,
           ...missionData,
           financialEntries: financialEntries || [],
         };
@@ -149,24 +174,55 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange }) 
           onItemsChange(tabConfig.itemsKey, updatedMissions);
         }
 
+        // ✅ Log reassignment if officer changed
+        if (oldMission.officerId !== parseInt(missionData.officerId)) {
+          const newOfficer = mockOfficers.find(o => o.id === parseInt(missionData.officerId));
+          const oldOfficer = mockOfficers.find(o => o.id === oldMission.officerId);
+          logAssignment(
+            'mission',
+            editingMissionId,
+            newOfficer?.name || 'Unknown',
+            oldOfficer?.name || 'Unknown'
+          );
+        }
+
         showToast("Mission modifiée avec succès!", "success");
         setEditingMissionId(null);
       } else {
         // ADD NEW MISSION
-        // Ensure missionNumber is included even if it was disabled in the form
-        const missionNumberValue = submittedFormData.missionNumber || formData.missionNumber;
+        console.log("📝 Mission creation - submittedFormData:", submittedFormData);
 
-        // Extract financial entries if they exist
-        const { financialEntries, ...missionData } = submittedFormData;
+        // Get officer name and ID from selected officerId in the form
+        const selectedOfficerId = parseInt(submittedFormData.officerId);
+        console.log("🔍 Looking for officer with ID:", selectedOfficerId);
+
+        const selectedOfficer = mockOfficers.find(o => o.id === selectedOfficerId);
+        console.log("👤 Found officer:", selectedOfficer);
+
+        const officerName = selectedOfficer ? selectedOfficer.name : "Unknown";
+        console.log("✅ Officer name:", officerName);
+
+        // Generate mission number if not provided or empty
+        const missionNumberValue = (submittedFormData.missionNumber && submittedFormData.missionNumber.trim()) ||
+          (formData.missionNumber && formData.missionNumber.trim()) ||
+          `MIS-${new Date().getFullYear()}-${String(Date.now()).slice(-3)}`;
+        console.log("🔢 Mission number:", missionNumberValue);
+
+        // Extract financial entries and fields we'll override if they exist
+        const { financialEntries, officerId: _, officerName: __, missionNumber: ___, ...missionData } = submittedFormData;
 
         const newMission = {
           id: Date.now(),
           ...missionData,
-          officerId: data.id,
-          missionNumber: missionNumberValue, // Explicitly set mission number
+          officerId: selectedOfficerId, // ✅ Use the officer selected in the form
+          officerName, // ✅ Add officer name
+          missionNumber: missionNumberValue, // ✅ Generate if needed
           documents: [],
           createdDate: new Date().toISOString().split("T")[0],
         };
+
+        console.log("✨ FINAL NEW MISSION OBJECT:", newMission);
+        console.log("✨ officerId:", newMission.officerId, "| officerName:", newMission.officerName, "| missionNumber:", newMission.missionNumber);
 
         // Process financial entries if they exist
         if (financialEntries && Array.isArray(financialEntries) && financialEntries.length > 0) {
@@ -179,8 +235,8 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange }) 
             ...entry,
             missionId: newMission.id,
             missionNumber: missionNumberValue,
-            officerId: data.id,
-            officerName: data.name,
+            officerId: selectedOfficerId, // ✅ Use correct officer ID
+            officerName: officerName, // ✅ Use correct officer name
             // Link to dossier/case if available
             entityType: missionData.entityType,
             entityReference: missionData.entityReference,
@@ -205,8 +261,20 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange }) 
         const updatedMissions = [newMission, ...missions];
         setMissions(updatedMissions);
 
+        // ✅ Log mission creation
+        logEntityCreation('mission', newMission.id, missionNumberValue);
+
+        // ✅ Log initial assignment
+        logAssignment('mission', newMission.id, officerName);
+
         if (onItemsChange) {
           onItemsChange(tabConfig.itemsKey, updatedMissions);
+        }
+
+        // ✅ Navigate to detail view after creation
+        const detailRoute = resolveDetailRoute('mission', newMission.id);
+        if (detailRoute) {
+          setTimeout(() => navigate(detailRoute), 100);
         }
 
       }
@@ -222,9 +290,25 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange }) 
   };
 
   const handleDeleteMission = async (missionId) => {
+    const mission = missions.find(m => m.id === missionId);
+    const result = canPerformAction('mission', missionId, 'delete', { data: mission });
+
+    if (!result.allowed) {
+      setValidationResult(result);
+      setBlockerModalOpen(true);
+      return;
+    }
+
+    if (result.requiresConfirmation) {
+      setValidationResult(result);
+      setPendingFormData({ deleteId: missionId });
+      setConfirmImpactModalOpen(true);
+      return;
+    }
+
     if (await confirm({
       title: "Supprimer la mission",
-      message: "Êtes-vous sûr de vouloir supprimer cette mission ?",
+      message: "AStes-vous sA¯r de vouloir supprimer cette mission ?",
       confirmText: "Supprimer",
       cancelText: "Annuler",
       variant: "danger"
@@ -235,8 +319,6 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange }) 
       if (onItemsChange) {
         onItemsChange(tabConfig.itemsKey, updatedMissions);
       }
-
-      console.log("Deleting mission:", missionId);
     }
   };
 
@@ -267,7 +349,13 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange }) 
   };
 
   const handleMissionClick = (mission) => {
-    navigate(`/missions/${mission.id}`);
+    // ✅ Pass current location to preserve back navigation context
+    navigate(`/missions/${mission.id}`, {
+      state: {
+        from: location.pathname,
+        tab: new URLSearchParams(location.search).get('tab') || 'overview'
+      }
+    });
   };
 
   const handleAddFinancialEntry = async (formData) => {
@@ -283,12 +371,12 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange }) 
         createdBy: "User",
       };
 
-      addFinancialEntry(newEntry);
+      const savedEntry = addFinancialEntry(newEntry);
 
       // Update the mission's financial entries
       const updatedMissions = missions.map(m =>
         m.id === selectedMissionForFinance.id
-          ? { ...m, financialEntries: [...(m.financialEntries || []), newEntry] }
+          ? { ...m, financialEntries: [...(m.financialEntries || []), savedEntry] }
           : m
       );
 
@@ -300,6 +388,14 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange }) 
       setIsFinancialModalOpen(false);
       setSelectedMissionForFinance(null);
       showToast("Frais ajouté avec succès", "success");
+
+      // ✅ Navigate to the new financial entry's detail view
+      if (savedEntry && savedEntry.id) {
+        const detailRoute = resolveDetailRoute('financialEntry', savedEntry.id);
+        if (detailRoute) {
+          setTimeout(() => navigate(detailRoute), 100);
+        }
+      }
     } catch (error) {
       console.error("Error adding financial entry:", error);
       showToast("Erreur lors de l'ajout des frais", "error");
@@ -843,12 +939,29 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange }) 
         }}
         onConfirm={async () => {
           setConfirmImpactModalOpen(false);
-          await performMissionSave(pendingFormData);
+          if (pendingFormData?.deleteId) {
+            const missionId = pendingFormData.deleteId;
+            const updatedMissions = missions.filter((m) => m.id !== missionId);
+            setMissions(updatedMissions);
+            if (onItemsChange) {
+              onItemsChange(tabConfig.itemsKey, updatedMissions);
+            }
+          } else {
+            await performMissionSave(pendingFormData);
+          }
           setPendingFormData(null);
         }}
         actionName="modifier le rattachement de la mission"
         impactSummary={validationResult?.impactSummary || []}
         entityName={missions.find(m => m.id === editingMissionId)?.missionNumber || ""}
+      />
+      <BlockerModal
+        isOpen={blockerModalOpen}
+        onClose={() => setBlockerModalOpen(false)}
+        actionName="Action mission"
+        blockers={validationResult?.blockers || []}
+        warnings={validationResult?.warnings || []}
+        entityName={validationResult?.entityData?.missionNumber || validationResult?.entityData?.title || ""}
       />
     </>
   );

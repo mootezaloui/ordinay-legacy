@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { useToast } from "../../../contexts/ToastContext";
 import { useConfirm } from "../../../contexts/ConfirmContext";
 import ContentSection from "../../layout/ContentSection";
@@ -30,6 +30,7 @@ export default function AggregatedRelatedTab({
   tabConfig,
   onItemsChange
 }) {
+  const location = useLocation();
   const { showToast } = useToast();
   const { confirm } = useConfirm();
   const [localItems, setLocalItems] = useState(items);
@@ -110,10 +111,19 @@ export default function AggregatedRelatedTab({
   // Check if required parent entities exist (e.g., dossierId or caseId)
   const canAdd = hasFormFields && formFields.every(field => {
     if (field.required && field.type === 'searchable-select') {
-      return field.options && field.options.length > 0;
+      // Check if field has static options or a getOptions function
+      return (field.options && field.options.length > 0) || field.getOptions;
     }
     return true;
-  });
+  }) && (tabConfig.aggregationType !== 'tasks' || (() => {
+    // Special logic for tasks: check if there are options for either dossierId or caseId
+    const dossierField = formFields.find(f => f.name === 'dossierId');
+    const caseField = formFields.find(f => f.name === 'caseId');
+    // Check for static options or getOptions function
+    const hasDossierOptions = (dossierField?.options && dossierField.options.length > 0) || dossierField?.getOptions;
+    const hasCaseOptions = (caseField?.options && caseField.options.length > 0) || caseField?.getOptions;
+    return hasDossierOptions || hasCaseOptions;
+  })());
 
   if (localItems.length === 0) {
     return (
@@ -152,6 +162,7 @@ export default function AggregatedRelatedTab({
             subtitle={tabConfig.addSubtitle || `Créer un nouveau ${tabConfig.entityName?.toLowerCase() || 'élément'}`}
             fields={formFields}
             isLoading={isLoading}
+            entityType={tabConfig.aggregationType}
           />
         )}
       </>
@@ -188,6 +199,7 @@ export default function AggregatedRelatedTab({
                 entityConfig={entityConfig}
                 allowDelete={allowDelete}
                 onDelete={handleDeleteItem}
+                currentLocation={location}
               />
             );
           })}
@@ -219,6 +231,7 @@ export default function AggregatedRelatedTab({
           subtitle={tabConfig.addSubtitle || `Créer un nouveau ${tabConfig.entityName?.toLowerCase() || 'élément'}`}
           fields={formFields}
           isLoading={isLoading}
+          entityType={tabConfig.aggregationType}
         />
       )}
     </>
@@ -228,11 +241,15 @@ export default function AggregatedRelatedTab({
 /**
  * ItemRow - Single item with parent context breadcrumb
  */
-function ItemRow({ item, parentContext, entityConfig, allowDelete, onDelete }) {
+function ItemRow({ item, parentContext, entityConfig, allowDelete, onDelete, currentLocation }) {
   return (
     <div className="group">
       <Link
         to={`${entityConfig.route}/${item.id}`}
+        state={{
+          from: currentLocation.pathname,
+          tab: new URLSearchParams(currentLocation.search).get('tab') || 'overview'
+        }}
         className="p-6 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
       >
         <div className="flex items-center gap-4 flex-1">

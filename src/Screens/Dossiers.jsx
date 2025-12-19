@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAdvancedTable } from "../hooks/useAdvancedTable";
 import { useToast } from "../contexts/ToastContext";
 import { useConfirm } from "../contexts/ConfirmContext";
+import { useData } from "../contexts/DataContext";
 import PageLayout from "../components/layout/PageLayout";
 import PageHeader from "../components/layout/PageHeader";
 import ContentSection from "../components/layout/ContentSection";
@@ -16,20 +17,22 @@ import TableToolbar from "../components/table/TableToolbar";
 import Pagination from "../components/table/Pagination";
 import FormModal from "../components/FormModal/FormModal";
 import { dossierFormFields, getFormTitle } from "../components/FormModal/formConfigs";
-import { mockDossiers, mockClients } from "../utils/mockData";
+import { mockClients } from "../utils/mockData";
 import StatCard from "../components/dashboard/StatCard";
 import InlineStatusSelector from "../components/InlineSelectors/InlineStatusSelector";
 import InlinePrioritySelector from "../components/InlineSelectors/InlinePrioritySelector";
 import BlockerModal from "../components/ui/BlockerModal";
 import ConfirmImpactModal from "../components/ui/ConfirmImpactModal";
 import { canPerformAction } from "../services/domainRules";
+import { resolveDetailRoute } from "../utils/routeResolver";
+import { logEntityCreation } from "../services/historyService";
 
 export default function Dossiers() {
   const navigate = useNavigate();
   const { showToast } = useToast();
   const { confirm } = useConfirm();
+  const { dossiers, addDossier, updateDossier, deleteDossier } = useData();
 
-  const [dossiers, setDossiers] = useState(mockDossiers);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingDossier, setEditingDossier] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -111,6 +114,9 @@ export default function Dossiers() {
         <InlinePrioritySelector
           value={dossier.priority}
           onChange={(newPriority) => handlePriorityChange(dossier.id, newPriority)}
+          entityType="dossier"
+          entityId={dossier.id}
+          entityData={dossier}
         />
       ),
     },
@@ -197,7 +203,7 @@ export default function Dossiers() {
       cancelText: "Annuler",
       variant: "danger"
     })) {
-      setDossiers(dossiers.filter(d => d.id !== id));
+      deleteDossier(id);
       showToast("Dossier supprimé", "warning", {
         title: "Suppression",
         context: "dossier",
@@ -206,9 +212,7 @@ export default function Dossiers() {
   };
 
   const handleStatusChange = (id, newStatus) => {
-    setDossiers(dossiers.map(d =>
-      d.id === id ? { ...d, status: newStatus } : d
-    ));
+    updateDossier(id, { status: newStatus });
     showToast(`Statut mis a jour: ${newStatus}`, "info", {
       title: "Statut du dossier",
       context: "dossier",
@@ -216,9 +220,7 @@ export default function Dossiers() {
   };
 
   const handlePriorityChange = (id, newPriority) => {
-    setDossiers(dossiers.map(d =>
-      d.id === id ? { ...d, priority: newPriority } : d
-    ));
+    updateDossier(id, { priority: newPriority });
     showToast(`Priorite mise a jour: ${newPriority}`, "info", {
       title: "Priorite du dossier",
       context: "dossier",
@@ -231,7 +233,7 @@ export default function Dossiers() {
   };
 
   const handleSubmit = async (formData) => {
-    // ✅ Validate before submitting (EDIT mode only)
+    // ?. Validate before submitting
     if (editingDossier) {
       const result = canPerformAction('dossier', editingDossier.id, 'edit', {
         data: editingDossier,
@@ -251,6 +253,19 @@ export default function Dossiers() {
         setConfirmImpactModalOpen(true);
         return;
       }
+    } else {
+      const result = canPerformAction('dossier', null, 'add', { formData });
+      if (!result.allowed) {
+        setValidationResult(result);
+        setBlockerModalOpen(true);
+        return;
+      }
+      if (result.requiresConfirmation) {
+        setValidationResult(result);
+        setPendingFormData(formData);
+        setConfirmImpactModalOpen(true);
+        return;
+      }
     }
 
     // Proceed with save
@@ -264,11 +279,7 @@ export default function Dossiers() {
       await new Promise((resolve) => setTimeout(resolve, 500));
 
       if (editingDossier) {
-        setDossiers(dossiers.map(d =>
-          d.id === editingDossier.id
-            ? { ...formData, id: editingDossier.id }
-            : d
-        ));
+        updateDossier(editingDossier.id, formData);
         showToast("Dossier modifié avec succès!", "success");
       } else {
         const client = mockClients.find(c => c.id === parseInt(formData.clientId));
@@ -277,8 +288,17 @@ export default function Dossiers() {
           id: Date.now(),
           client: client ? client.name : "Client inconnu",
         };
-        setDossiers([newDossier, ...dossiers]);
+        addDossier(newDossier);
         showToast("Dossier ajouté avec succès!", "success");
+
+        // ✅ Log creation event
+        logEntityCreation('dossier', newDossier.id, newDossier.caseNumber);
+
+        // ✅ Navigate to detail view after creation
+        const detailRoute = resolveDetailRoute('dossier', newDossier.id);
+        if (detailRoute) {
+          setTimeout(() => navigate(detailRoute), 100);
+        }
       }
 
       setIsModalOpen(false);
@@ -323,7 +343,7 @@ export default function Dossiers() {
     window.URL.revokeObjectURL(url);
   };
 
-  // Populate client options
+  // Populate client options and protect status field in edit mode
   const dossierFields = dossierFormFields.map(field => {
     if (field.name === "clientId") {
       return {
@@ -332,6 +352,15 @@ export default function Dossiers() {
           value: client.id,
           label: client.name
         }))
+      };
+    }
+    // Protect status field in edit mode
+    if (field.name === "status" && editingDossier) {
+      return {
+        ...field,
+        type: 'readonly',
+        displayValue: editingDossier.status,
+        helpText: 'Le statut ne peut être modifié que via le sélecteur dans la liste'
       };
     }
     return field;
@@ -444,6 +473,9 @@ export default function Dossiers() {
         fields={dossierFields}
         initialData={editingDossier}
         isLoading={isLoading}
+        entityType="dossier"
+        entityId={editingDossier?.id}
+        editingEntity={editingDossier}
       />
 
       <BlockerModal
