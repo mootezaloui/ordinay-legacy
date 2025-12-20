@@ -43,10 +43,10 @@ export const caseConfig = {
     console.log('[caseConfig] Found case:', caseData);
     if (!caseData) return null;
 
-    // ✅ Ensure dossier object is populated
+    // ✅ Always resolve dossier from dossierId using latest context data
     const dossiers = contextData?.dossiers || mockDossiers;
-    let dossier = caseData.dossier;
-    if (!dossier && caseData.dossierId) {
+    let dossier = null;
+    if (caseData.dossierId) {
       const foundDossier = dossiers.find(d => d.id === parseInt(caseData.dossierId));
       if (foundDossier) {
         dossier = {

@@ -54,10 +54,10 @@ export const dossierConfig = {
       (task.parentType === 'case' && dossierCases.some(cas => cas.id === task.caseId))
     );
 
-    // ✅ Ensure client object is populated
+    // ✅ Always resolve client from clientId using latest context data
     const clients = contextData?.clients || mockClients;
-    let client = dossier.client;
-    if (!client && dossier.clientId) {
+    let client = null;
+    if (dossier.clientId) {
       const foundClient = clients.find(c => c.id === parseInt(dossier.clientId));
       if (foundClient) {
         client = {
@@ -71,7 +71,7 @@ export const dossierConfig = {
 
     return {
       ...dossier,
-      client: client || { id: null, name: 'Client inconnu' },
+      client: client || { id: null, name: 'Client non assigné' },
       sessions: relatedSessions,
       tasks: relatedTasks,
       proceedings: dossierCases,

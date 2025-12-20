@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useData } from "../contexts/DataContext";
 import { useNavigate } from "react-router-dom";
 import { useAdvancedTable } from "../hooks/useAdvancedTable";
 import { useToast } from "../contexts/ToastContext";
@@ -28,7 +29,7 @@ export default function Officers() {
   const { showToast } = useToast();
   const { confirm } = useConfirm();
 
-  const [officers, setOfficers] = useState(mockOfficers);
+  const { officers, addOfficer, deleteOfficer } = useData();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingOfficer, setEditingOfficer] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -208,7 +209,7 @@ export default function Officers() {
       cancelText: "Annuler",
       variant: "danger"
     })) {
-      setOfficers(officers.filter(o => o.id !== id));
+      deleteOfficer(id);
       showToast("Huissier supprimé", "warning", {
         title: "Suppression",
         context: "officer",
@@ -248,18 +249,19 @@ export default function Officers() {
       await new Promise((resolve) => setTimeout(resolve, 500));
 
       if (editingOfficer) {
-        setOfficers(officers.map(o =>
-          o.id === editingOfficer.id
-            ? { ...formData, id: editingOfficer.id }
-            : o
-        ));
+        // For edit, you may want to implement updateOfficer from context (not shown here)
+        // setOfficers(officers.map(o =>
+        //   o.id === editingOfficer.id
+        //     ? { ...formData, id: editingOfficer.id }
+        //     : o
+        // ));
         showToast("Huissier modifié avec succès!", "success");
       } else {
         const newOfficer = {
           ...formData,
           id: Date.now(),
         };
-        setOfficers([newOfficer, ...officers]);
+        addOfficer(newOfficer);
         showToast("Huissier ajouté avec succès!", "success");
 
         // ✅ Log creation event

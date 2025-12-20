@@ -20,6 +20,7 @@ import InlineStatusSelector from "../components/InlineSelectors/InlineStatusSele
 import InlinePrioritySelector from "../components/InlineSelectors/InlinePrioritySelector";
 import { taskFormFields, getFormTitle } from "../components/FormModal/formConfigs";
 import { mockTasks, mockDossiers, mockCases, getStatusColor } from "../utils/mockData";
+import { useData } from "../contexts/DataContext";
 import BlockerModal from "../components/ui/BlockerModal";
 import ConfirmImpactModal from "../components/ui/ConfirmImpactModal";
 import { canPerformAction } from "../services/domainRules";
@@ -27,11 +28,13 @@ import { resolveDetailRoute } from "../utils/routeResolver";
 import { logEntityCreation } from "../services/historyService";
 
 export default function Tasks() {
+  // Use DataContext for global tasks and actions
+  const { tasks, addTask, updateTask, deleteTask } = useData();
   const navigate = useNavigate();
   const { showToast } = useToast();
   const { confirm } = useConfirm();
 
-  const [tasks, setTasks] = useState(mockTasks);
+  // Removed local tasks state; use context only
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -52,11 +55,7 @@ export default function Tasks() {
   };
 
   const handleStatusChange = (taskId, newStatus) => {
-    setTasks(tasks.map(t =>
-      t.id === taskId
-        ? { ...t, status: newStatus }
-        : t
-    ));
+    updateTask(taskId, { status: newStatus });
     showToast(`Statut mis a jour: ${newStatus}`, "info", {
       title: "Mise a jour du statut",
       context: "task",
@@ -64,11 +63,7 @@ export default function Tasks() {
   };
 
   const handlePriorityChange = (taskId, newPriority) => {
-    setTasks(tasks.map(t =>
-      t.id === taskId
-        ? { ...t, priority: newPriority }
-        : t
-    ));
+    updateTask(taskId, { priority: newPriority });
     showToast(`Priorite mise a jour: ${newPriority}`, "info", {
       title: "Priorite de tache",
       context: "task",
@@ -245,7 +240,7 @@ export default function Tasks() {
       cancelText: "Annuler",
       variant: "danger"
     })) {
-      setTasks(tasks.filter(t => t.id !== id));
+      deleteTask(id);
       showToast("Tâche supprimée", "warning", {
         title: "Suppression",
         context: "task",
@@ -305,11 +300,7 @@ export default function Tasks() {
       await new Promise((resolve) => setTimeout(resolve, 500));
 
       if (editingTask) {
-        setTasks(tasks.map(t =>
-          t.id === editingTask.id
-            ? { ...formData, id: editingTask.id }
-            : t
-        ));
+        updateTask(editingTask.id, formData);
         showToast("Tâche modifiée avec succès!", "success");
       } else {
         // Handle both dossier and case parent types
@@ -332,8 +323,7 @@ export default function Tasks() {
           newTask.caseId = null;
           newTask.case = null;
         }
-
-        setTasks([newTask, ...tasks]);
+        addTask(newTask); // Add to global context and mock data
         showToast("Tâche ajoutée avec succès!", "success");
 
         // ✅ Log creation event

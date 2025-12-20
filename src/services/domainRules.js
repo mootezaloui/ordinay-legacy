@@ -773,7 +773,8 @@ function validateDossierDelete(dossierId, context = {}) {
 
   const dossier = mockDossiersExtended[dossierId];
   if (!dossier) {
-    return { allowed: false, blockers: ["Dossier introuvable"], warnings: [] };
+    // Allow deletion if dossier is already missing (e.g., local-only app, already deleted)
+    return { allowed: true, blockers: [], warnings: [] };
   }
 
   // Check for related Procès
@@ -992,7 +993,8 @@ function validateCaseDelete(caseId, context = {}) {
 
   const caseData = mockCasesExtended[caseId];
   if (!caseData) {
-    return { allowed: false, blockers: ["Procès introuvable"], warnings: [] };
+    // Allow deletion if case is already missing (e.g., local-only app, already deleted)
+    return { allowed: true, blockers: [], warnings: [] };
   }
 
   // Check for related Séances
@@ -1103,8 +1105,9 @@ function validateClientDelete(clientId, context = {}) {
   const warnings = [];
 
   const client = mockClientsExtended[clientId];
+  // PATCH: Allow delete if client is not found (already deleted)
   if (!client) {
-    return { allowed: false, blockers: ["Client introuvable"], warnings: [] };
+    return { allowed: true, blockers: [], warnings: [] };
   }
 
   // Check for related Dossiers

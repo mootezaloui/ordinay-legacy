@@ -18,7 +18,7 @@ import FormModal from "../components/FormModal/FormModal";
 import StatCard from "../components/dashboard/StatCard";
 import InlineStatusSelector from "../components/InlineSelectors/InlineStatusSelector";
 import { clientFormFields, getFormTitle } from "../components/FormModal/formConfigs";
-import { mockClients } from "../utils/mockData";
+import { useData } from "../contexts/DataContext";
 import BlockerModal from "../components/ui/BlockerModal";
 import ConfirmImpactModal from "../components/ui/ConfirmImpactModal";
 import { canPerformAction } from "../services/domainRules";
@@ -29,9 +29,7 @@ export default function Clients() {
   const navigate = useNavigate();
   const { showToast } = useToast();
   const { confirm } = useConfirm();
-
-  // Store clients in state
-  const [clients, setClients] = useState(mockClients);
+  const { clients, addClient, updateClient, deleteClient } = useData();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClient, setEditingClient] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -157,12 +155,16 @@ export default function Clients() {
     navigate(`/clients/${id}`);
   };
 
-  const handleStatusChange = (id, newStatus) => {
-    setClients(clients.map(c => c.id === id ? { ...c, status: newStatus } : c));
-    showToast(`Statut mis a jour: ${newStatus}`, "info", {
-      title: "Client mis a jour",
-      context: "client",
-    });
+  const handleStatusChange = async (id, newStatus) => {
+    try {
+      await updateClient(id, { status: newStatus });
+      showToast(`Statut mis a jour: ${newStatus}`, "info", {
+        title: "Client mis a jour",
+        context: "client",
+      });
+    } catch (error) {
+      showToast("Erreur lors de la mise à jour du statut", "error");
+    }
   };
 
   const handleEdit = (client) => {
@@ -197,11 +199,17 @@ export default function Clients() {
       cancelText: "Annuler",
       variant: "danger"
     })) {
-      setClients(clients.filter(c => c.id !== id));
-      showToast("Client supprimé", "warning", {
-        title: "Suppression",
-        context: "client",
-      });
+      try {
+        await deleteClient(id);
+        showToast("Client supprimé", "warning", {
+          title: "Suppression",
+          context: "client",
+        });
+        // Redirect to clients list after deletion
+        navigate("/clients");
+      } catch (error) {
+        showToast("Erreur lors de la suppression du client", "error");
+      }
     }
   };
 
@@ -243,16 +251,10 @@ export default function Clients() {
 
   const performSave = async (formData) => {
     setIsLoading(true);
-
     try {
       await new Promise((resolve) => setTimeout(resolve, 500));
-
       if (editingClient) {
-        setClients(clients.map(c =>
-          c.id === editingClient.id
-            ? { ...formData, id: editingClient.id }
-            : c
-        ));
+        await updateClient(editingClient.id, formData);
         showToast("Client modifié avec succès!", "success");
       } else {
         const newClient = {
@@ -260,20 +262,14 @@ export default function Clients() {
           id: Date.now(),
           joinDate: new Date().toISOString().split('T')[0],
         };
-
-        setClients([newClient, ...clients]);
+        await addClient(newClient);
         showToast("Client ajouté avec succès!", "success");
-
-        // ✅ Log creation event
         logEntityCreation('client', newClient.id, formData.name);
-
-        // ✅ Navigate to detail view after creation
         const detailRoute = resolveDetailRoute('client', newClient.id);
         if (detailRoute) {
           setTimeout(() => navigate(detailRoute), 100);
         }
       }
-
       setIsModalOpen(false);
       setEditingClient(null);
     } catch (error) {

@@ -45,12 +45,12 @@ export const taskConfig = {
     }
     if (!task) return null;
 
-    // ✅ Ensure dossier/case objects are populated
+    // ✅ Always resolve dossier and case from IDs using latest context data
     const dossiers = contextData?.dossiers || mockDossiers;
     const cases = contextData?.cases || mockCases;
 
-    let dossier = task.dossier;
-    if (!dossier && task.dossierId) {
+    let dossier = null;
+    if (task.dossierId) {
       const foundDossier = dossiers.find(d => d.id === parseInt(task.dossierId));
       if (foundDossier) {
         dossier = {
@@ -61,8 +61,8 @@ export const taskConfig = {
       }
     }
 
-    let caseData = task.case;
-    if (!caseData && task.caseId) {
+    let caseData = null;
+    if (task.caseId) {
       const foundCase = cases.find(c => c.id === parseInt(task.caseId));
       if (foundCase) {
         caseData = {
