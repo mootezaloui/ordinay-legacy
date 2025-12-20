@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import {
   mockAccounting,
   mockCases,
@@ -72,6 +72,27 @@ export function DataProvider({ children }) {
   const [officers, setOfficers] = useState(() =>
     loadFromStorage("officers", Object.values(mockOfficersExtended))
   );
+
+  // Keep mockData collections in sync with the live state (important for selectors and templates)
+  useEffect(() => {
+    syncArrayRef(mockClients, clients);
+  }, [clients]);
+
+  useEffect(() => {
+    syncArrayRef(mockDossiers, dossiers);
+  }, [dossiers]);
+
+  useEffect(() => {
+    syncArrayRef(mockCases, cases);
+  }, [cases]);
+
+  useEffect(() => {
+    syncArrayRef(mockSessions, sessions);
+  }, [sessions]);
+
+  useEffect(() => {
+    syncArrayRef(mockTasks, tasks);
+  }, [tasks]);
 
   // --- Clients ---
   const addClient = (client) => {

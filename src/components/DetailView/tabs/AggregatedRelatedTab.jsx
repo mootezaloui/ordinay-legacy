@@ -49,6 +49,69 @@ export default function AggregatedRelatedTab({
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Prefill context so FormModal (and notifications) know parent relationships even if fields are hidden
+  const prefillContext = (() => {
+    const ctx = {};
+
+    // Always carry client context when available
+    if (config?.entityType === "client") {
+      ctx.clientId = data.id;
+      ctx.clientName = data.name;
+      ctx.client = data.name;
+    } else if (data?.clientId) {
+      ctx.clientId = data.clientId;
+      ctx.clientName = data.client?.name || data.client;
+    }
+
+    // Dossier context
+    if (config?.entityType === "dossier") {
+      ctx.dossierId = data.id;
+      ctx.dossier = data.caseNumber;
+      ctx.clientId = ctx.clientId || data.clientId;
+      ctx.clientName = ctx.clientName || data.client?.name || data.client;
+    }
+
+    // Case context
+    if (config?.entityType === "case") {
+      ctx.caseId = data.id;
+      ctx.caseNumber = data.caseNumber;
+      ctx.caseTitle = data.title;
+      ctx.dossierId = data.dossierId || ctx.dossierId;
+      ctx.clientId = ctx.clientId || data.clientId;
+      ctx.clientName = ctx.clientName || data.client?.name || data.client;
+    }
+
+    // Sessions and tasks can default linkType when coming from dossier/case
+    if (tabConfig?.aggregationType === "sessions" && config?.entityType === "dossier") {
+      ctx.linkType = "dossier";
+      ctx.dossierId = ctx.dossierId || data.id;
+    }
+    if (tabConfig?.aggregationType === "sessions" && config?.entityType === "case") {
+      ctx.linkType = "case";
+      ctx.caseId = ctx.caseId || data.id;
+    }
+    if (tabConfig?.aggregationType === "sessions" && config?.entityType === "client") {
+      const relatedDossiers = data.relatedDossiers || [];
+      if (relatedDossiers.length === 1) {
+        ctx.linkType = "dossier";
+        ctx.dossierId = relatedDossiers[0].id;
+        ctx.dossier = relatedDossiers[0].caseNumber;
+        ctx.clientId = ctx.clientId || data.id;
+      }
+    }
+    if (tabConfig?.aggregationType === "tasks") {
+      if (config?.entityType === "dossier") {
+        ctx.parentType = "dossier";
+        ctx.dossierId = ctx.dossierId || data.id;
+      } else if (config?.entityType === "case") {
+        ctx.parentType = "case";
+        ctx.caseId = ctx.caseId || data.id;
+      }
+    }
+
+    return ctx;
+  })();
+
   // Update local items when props change
   useEffect(() => {
     setLocalItems(items);
@@ -73,14 +136,17 @@ export default function AggregatedRelatedTab({
     setIsLoading(true);
 
     try {
+      // Merge in parent context so the saved entity and notification logic both know relationships
+      const mergedFormData = { ...prefillContext, ...formData };
+
       // Normalize numeric ids to avoid filter mismatches
       const normalizedFormData = {
-        ...formData,
-        clientId: toIntOrNull(formData.clientId),
-        dossierId: toIntOrNull(formData.dossierId),
-        caseId: toIntOrNull(formData.caseId),
-        officerId: toIntOrNull(formData.officerId),
-        missionId: toIntOrNull(formData.missionId),
+        ...mergedFormData,
+        clientId: toIntOrNull(mergedFormData.clientId),
+        dossierId: toIntOrNull(mergedFormData.dossierId),
+        caseId: toIntOrNull(mergedFormData.caseId),
+        officerId: toIntOrNull(mergedFormData.officerId),
+        missionId: toIntOrNull(mergedFormData.missionId),
       };
 
       // Inject parent relationships to keep entities consistent with main list creations
@@ -216,6 +282,8 @@ export default function AggregatedRelatedTab({
   // Check if add/delete is allowed
   const allowAdd = tabConfig?.allowAdd !== false;
   const allowDelete = tabConfig?.allowDelete !== false;
+  const isAddEnabled = tabConfig?.addEnabled ? tabConfig.addEnabled(data) : true;
+  const disabledReason = tabConfig?.addDisabledText || "Action indisponible pour le moment.";
 
   // Get form fields - support both static formFields and dynamic getFormFields
   const formFields = tabConfig?.getFormFields
@@ -253,13 +321,18 @@ export default function AggregatedRelatedTab({
               {entityConfig.emptyMessage}
             </p>
 
-            {/* ADD BUTTON - Empty State */}
-            {allowAdd && hasFormFields && (
+            {/* Improved UX: Show message instead of a disabled add button when prerequisites are missing */}
+            {allowAdd && hasFormFields && (!canAdd || !isAddEnabled) && (
+              <div className="mt-4 text-amber-600 dark:text-amber-400 font-medium flex flex-col items-center gap-2 text-center">
+                <i className="fas fa-info-circle text-2xl"></i>
+                <span>{disabledReason}</span>
+              </div>
+            )}
+            {/* Show add button only if allowed and parent entity exists */}
+            {allowAdd && hasFormFields && canAdd && isAddEnabled && (
               <button
                 onClick={() => setIsAddModalOpen(true)}
-                disabled={!canAdd}
-                className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                title={!canAdd ? "Créez d'abord les entités parentes requises" : ""}
+                className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors inline-flex items-center gap-2"
               >
                 <i className="fas fa-plus"></i>
                 Ajouter {tabConfig.entityName || 'un élément'}
@@ -269,11 +342,12 @@ export default function AggregatedRelatedTab({
         </ContentSection>
 
         {/* Add Modal */}
-        {hasFormFields && (
+        {hasFormFields && canAdd && isAddEnabled && (
           <FormModal
             isOpen={isAddModalOpen}
             onClose={() => setIsAddModalOpen(false)}
             onSubmit={handleAddItem}
+            initialData={prefillContext}
             title={`Ajouter ${tabConfig.entityName || 'un élément'}`}
             subtitle={tabConfig.addSubtitle || `Créer un nouveau ${tabConfig.entityName?.toLowerCase() || 'élément'}`}
             fields={formFields}
@@ -292,15 +366,19 @@ export default function AggregatedRelatedTab({
         actions={
           // ADD BUTTON - Header
           allowAdd && hasFormFields && (
-            <button
-              onClick={() => setIsAddModalOpen(true)}
-              disabled={!canAdd}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors text-sm inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-              title={!canAdd ? "Créez d'abord les entités parentes requises" : ""}
-            >
-              <i className="fas fa-plus"></i>
-              Ajouter
-            </button>
+            isAddEnabled && canAdd ? (
+              <button
+                onClick={() => setIsAddModalOpen(true)}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors text-sm inline-flex items-center gap-2"
+              >
+                <i className="fas fa-plus"></i>
+                Ajouter
+              </button>
+            ) : (
+              <span className="text-xs text-slate-500 dark:text-slate-400">
+                {disabledReason}
+              </span>
+            )
           )
         }
       >
@@ -324,15 +402,19 @@ export default function AggregatedRelatedTab({
         {/* ADD BUTTON - Bottom */}
         {allowAdd && hasFormFields && (
           <div className="p-6 border-t border-slate-200 dark:border-slate-700">
-            <button
-              onClick={() => setIsAddModalOpen(true)}
-              disabled={!canAdd}
-              className="w-full py-3 border-2 border-dashed border-slate-300 dark:border-slate-600 hover:border-blue-500 dark:hover:border-blue-500 rounded-lg text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-              title={!canAdd ? "Créez d'abord les entités parentes requises" : ""}
-            >
-              <i className="fas fa-plus mr-2"></i>
-              Ajouter {tabConfig.entityName || 'un élément'}
-            </button>
+            {isAddEnabled && canAdd ? (
+              <button
+                onClick={() => setIsAddModalOpen(true)}
+                className="w-full py-3 border-2 border-dashed border-slate-300 dark:border-slate-600 hover:border-blue-500 dark:hover:border-blue-500 rounded-lg text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors font-medium"
+              >
+                <i className="fas fa-plus mr-2"></i>
+                Ajouter {tabConfig.entityName || 'un élément'}
+              </button>
+            ) : (
+              <div className="text-center text-sm text-slate-500 dark:text-slate-400">
+                {disabledReason}
+              </div>
+            )}
           </div>
         )}
       </ContentSection>
@@ -343,6 +425,7 @@ export default function AggregatedRelatedTab({
           isOpen={isAddModalOpen}
           onClose={() => setIsAddModalOpen(false)}
           onSubmit={handleAddItem}
+          initialData={prefillContext}
           title={`Ajouter ${tabConfig.entityName || 'un élément'}`}
           subtitle={tabConfig.addSubtitle || `Créer un nouveau ${tabConfig.entityName?.toLowerCase() || 'élément'}`}
           fields={formFields}

@@ -593,6 +593,10 @@ export const missionConfig = {
                         value: officer.id,
                         label: officer.name
                     })),
+                    getOptions: () => Object.values(mockOfficersExtended).map(officer => ({
+                        value: officer.id,
+                        label: officer.name
+                    })), 
                     helpText: "Attention: Changer l'huissier transférera la mission vers un autre huissier"
                 },
                 {

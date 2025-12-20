@@ -617,13 +617,14 @@ export async function sendClientNotification(eventType, eventData, options = {})
 // ========================================
 
 // For flows that navigate immediately after create/edit, stash the pending notification
-// and let the destination screen consume it.
+// and let the destination screen present it. We keep it until the user explicitly handles it.
 let pendingNotification = null;
 export function setPendingNotification(notification) {
   pendingNotification = notification;
 }
-export function consumePendingNotification() {
-  const notif = pendingNotification;
+export function getPendingNotification() {
+  return pendingNotification;
+}
+export function clearPendingNotification() {
   pendingNotification = null;
-  return notif;
 }

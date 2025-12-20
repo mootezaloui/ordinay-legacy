@@ -17,7 +17,7 @@ import MissionsTab from "./tabs/MissionsTab";
 import FinancialTab from "./tabs/FinancialTab";
 import QuickActionsBar from "./QuickActionsBar";
 import ClientNotificationPrompt from "../ui/ClientNotificationPrompt";
-import { shouldPromptClientNotification, sendClientNotification, consumePendingNotification, setPendingNotification } from "../../services/clientCommunication";
+import { shouldPromptClientNotification, sendClientNotification, getPendingNotification, clearPendingNotification, setPendingNotification } from "../../services/clientCommunication";
 import BlockerModal from "../ui/BlockerModal";
 import { mockCases, mockSessions, mockTasks, mockOfficers } from "../../utils/mockData";
 import { canPerformAction } from "../../services/domainRules";
@@ -37,6 +37,7 @@ export default function DetailView({ entityType }) {
   const contextData = useData(); // Get all data from context
   const [isEditing, setIsEditing] = useState(false);
   const justSaved = useRef(false);
+  const pendingNotificationRef = useRef(null);
   const latestContextRef = useRef(contextData);
   const [blockerModalOpen, setBlockerModalOpen] = useState(false);
   const [validationResult, setValidationResult] = useState(null);
@@ -75,13 +76,10 @@ export default function DetailView({ entityType }) {
     let isMounted = true;
 
     // Consume any pending notification (e.g., from a creation flow that navigated here)
-    const pending = consumePendingNotification?.();
+    // Read pending notification but defer display until data is loaded to avoid flicker during navigation
+    const pending = getPendingNotification?.();
     if (pending && pending.eventType) {
-      setNotificationPrompt({
-        isOpen: true,
-        eventType: pending.eventType,
-        eventData: pending.eventData,
-      });
+      pendingNotificationRef.current = pending;
     }
 
     const fetchData = async () => {
@@ -115,6 +113,19 @@ export default function DetailView({ entityType }) {
       isMounted = false;
     };
   }, [id, entityType, contextData.clients, contextData.dossiers, contextData.cases, contextData.tasks, contextData.sessions, contextData.officers, contextData.personalTasks]);
+
+  // Show pending notification once data is loaded to avoid pre-navigation flicker
+  useEffect(() => {
+    if (!loading && pendingNotificationRef.current && pendingNotificationRef.current.eventType) {
+      const pending = pendingNotificationRef.current;
+      pendingNotificationRef.current = null;
+      setNotificationPrompt({
+        isOpen: true,
+        eventType: pending.eventType,
+        eventData: pending.eventData,
+      });
+    }
+  }, [loading]);
 
   if (loading) {
     return (
@@ -573,7 +584,7 @@ export default function DetailView({ entityType }) {
             iconColor: "text-green-600 dark:text-green-400",
             bgColor: "bg-green-100 dark:bg-green-900/20",
             route: "/sessions",
-            emptyMessage: "Aucune séance programmée pour ce client",
+            emptyMessage: "Aucune séance programmée pour ce client.\nPour ajouter une audience, créez d'abord un dossier et un procès.",
             getTitle: (item) => item.title,
             getSubtitle: (item) => `${item.date} à ${item.time} • ${item.location}`,
             getStatus: (item) => item.status,
@@ -936,17 +947,21 @@ export default function DetailView({ entityType }) {
         isOpen={notificationPrompt.isOpen}
         eventType={notificationPrompt.eventType}
         eventData={notificationPrompt.eventData}
-        onSend={async () => {
+        onConfirm={async () => {
           const { eventType, eventData } = notificationPrompt;
           try {
             await sendClientNotification(eventType, eventData, { channels: ["email"] });
           } catch (error) {
             console.error("Error sending client notification:", error);
           } finally {
+            clearPendingNotification?.();
             setNotificationPrompt({ isOpen: false, eventType: null, eventData: null });
           }
         }}
-        onClose={() => setNotificationPrompt({ isOpen: false, eventType: null, eventData: null })}
+        onClose={() => {
+          clearPendingNotification?.();
+          setNotificationPrompt({ isOpen: false, eventType: null, eventData: null });
+        }}
       />
     </PageLayout>
   );

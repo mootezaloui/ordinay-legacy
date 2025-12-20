@@ -113,23 +113,21 @@ export default function FormModal({
   // Initialize form data only once when modal opens
   useEffect(() => {
     if (isOpen && !initialized) {
-      // If using external formData control and it's already populated, skip initialization
+      // Build defaults from field.defaultValue
+      const defaults = {};
+      fields.forEach((field) => {
+        defaults[field.name] = field.defaultValue || "";
+      });
+
+      // If using external formData and it already has values, keep them
       if (externalFormData !== undefined && Object.keys(externalFormData).length > 0) {
-        // External formData is already set, don't override it
         setInitialized(true);
         return;
       }
 
-      if (initialData) {
-        setFormData(initialData);
-      } else {
-        // Set default values from fields
-        const defaults = {};
-        fields.forEach((field) => {
-          defaults[field.name] = field.defaultValue || "";
-        });
-        setFormData(defaults);
-      }
+      // Merge defaults with initialData (so defaults still apply when we pass prefill context)
+      const mergedInitial = initialData ? { ...defaults, ...initialData } : defaults;
+      setFormData(mergedInitial);
       setInitialized(true);
     }
 
@@ -179,6 +177,9 @@ export default function FormModal({
 
     fields.forEach((field) => {
       // Skip validation for conditionally hidden fields
+      if (field.hideIf && typeof field.hideIf === 'function' && field.hideIf(formData)) {
+        return;
+      }
       if (hasLinkTypeField && field.name === "caseId" && formData.linkType !== "case") {
         return;
       }
@@ -197,7 +198,7 @@ export default function FormModal({
       }
 
       // Custom validation
-      if (field.validate && formData[field.name]) {
+      if (field.validate) {
         const error = field.validate(formData[field.name], formData);
         if (error) {
           newErrors[field.name] = error;

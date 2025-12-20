@@ -82,10 +82,16 @@ function StructuredEditSection({ section, data, onSave, entityType, entityId }) 
     if (section.fields) {
       section.fields.forEach(field => {
         const fieldKey = field.key || field.label.toLowerCase().replace(/\s+/g, '_');
-        initialData[fieldKey] = data[fieldKey];
+        const resolvedFromField = typeof field.value === 'function'
+          ? field.value(data)
+          : undefined;
+        const resolvedValue = resolvedFromField !== undefined ? resolvedFromField : data[fieldKey];
+        initialData[fieldKey] = resolvedValue ?? '';
       });
     } else if (section.fieldKey) {
-      initialData[section.fieldKey] = data[section.fieldKey];
+      initialData[section.fieldKey] = data[section.fieldKey] ?? (
+        typeof section.content === 'function' ? section.content(data) : section.content
+      );
     }
     setEditedData(initialData);
     setIsEditing(true);

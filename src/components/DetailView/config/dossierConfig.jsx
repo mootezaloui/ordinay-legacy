@@ -44,7 +44,8 @@ export const dossierConfig = {
     const tasks = contextData?.tasks || mockTasks;
     const cases = contextData?.cases || [];
 
-    const dossierCases = dossier.proceedings || cases.filter(c => c.dossierId === numericId);
+    // Always derive proceedings from the live cases list to stay in sync with deletions
+    const dossierCases = cases.filter(c => c.dossierId === numericId);
     const relatedSessions = sessions.filter(session =>
       dossierCases.some(cas => cas.id === session.caseId) ||
       (session.linkType === 'dossier' && session.dossierId === numericId)
@@ -602,7 +603,7 @@ export const dossierConfig = {
           icon: "fas fa-user",
           type: "searchable-select",
           editable: true,
-          options: mockClients.map(client => ({
+          getOptions: () => mockClients.map(client => ({
             value: client.id,
             label: client.name
           })),

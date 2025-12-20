@@ -1068,7 +1068,15 @@ function validateClientArchive(clientId, context = {}) {
   const blockers = [];
   const warnings = [];
 
-  const client = mockClientsExtended[clientId];
+  // Prefer live data from context (DetailView / Inline selectors), then fallback to store or mocks
+  const client =
+    context.data ||
+    context.currentData ||
+    (context.contextData?.clients || []).find((c) => c.id == clientId) ||
+    mockClientsExtended[clientId] ||
+    mockClientsExtended[Number(clientId)] ||
+    mockClients.find((c) => c.id == clientId);
+
   if (!client) {
     return { allowed: false, blockers: ["Client introuvable"], warnings: [] };
   }
@@ -1209,16 +1217,15 @@ function validateTaskAdd(taskId, context = {}) {
 
   // Check parent based on type
   if (parentType === "dossier" && dossierId) {
-    const dossier = mockDossiersExtended[dossierId];
+    const dossier =
+      mockDossiersExtended[dossierId] ||
+      mockDossiers.find((d) => d.id == dossierId) ||
+      context?.data?.dossier;
     if (!dossier) {
-      return {
-        allowed: false,
-        blockers: ["Dossier parent introuvable"],
-        warnings: [],
-      };
+      warnings.push("Dossier parent non résolu (vérifiez après enregistrement).");
     }
 
-    if (dossier.status === "Fermé" || dossier.status === "Archivé") {
+    if (dossier && (dossier.status === "Fermé" || dossier.status === "Archivé")) {
       blockers.push(
         `Impossible de créer une tâche sous un dossier ${dossier.status.toLowerCase()}`,
         `Dossier: ${dossier.caseNumber} - ${dossier.title}`,
@@ -1226,16 +1233,15 @@ function validateTaskAdd(taskId, context = {}) {
       );
     }
   } else if (parentType === "case" && caseId) {
-    const caseData = mockCasesExtended[caseId];
+    const caseData =
+      mockCasesExtended[caseId] ||
+      mockCases.find((c) => c.id == caseId) ||
+      context?.data?.case;
     if (!caseData) {
-      return {
-        allowed: false,
-        blockers: ["Procès parent introuvable"],
-        warnings: [],
-      };
+      warnings.push("Procès parent non résolu (vérifiez après enregistrement).");
     }
 
-    if (caseData.status === "Clos" || caseData.status === "Terminé") {
+    if (caseData && (caseData.status === "Clos" || caseData.status === "Terminé")) {
       blockers.push(
         `Impossible de créer une tâche sous un procès ${caseData.status.toLowerCase()}`,
         `Procès: ${caseData.caseNumber} - ${caseData.title}`,
@@ -1326,16 +1332,16 @@ function validateSessionAdd(sessionId, context = {}) {
 
   // Check based on link type
   if (linkType === "dossier" && dossierId) {
-    const dossier = mockDossiersExtended[dossierId];
+    const dossier =
+      mockDossiersExtended[dossierId] ||
+      mockDossiers.find((d) => d.id == dossierId) ||
+      context?.data?.dossier;
     if (!dossier) {
-      return {
-        allowed: false,
-        blockers: ["Dossier parent introuvable"],
-        warnings: [],
-      };
+      // Allow submit to avoid blocking on newly created/unsynced dossier ids
+      warnings.push("Dossier parent non résolu (vérifiez après enregistrement).");
     }
 
-    if (dossier.status === "Fermé" || dossier.status === "Archivé") {
+    if (dossier && (dossier.status === "Fermé" || dossier.status === "Archivé")) {
       blockers.push(
         `Impossible de créer une séance sous un dossier ${dossier.status.toLowerCase()}`,
         `Dossier: ${dossier.caseNumber} - ${dossier.title}`,
@@ -1343,16 +1349,15 @@ function validateSessionAdd(sessionId, context = {}) {
       );
     }
   } else if (linkType === "case" && caseId) {
-    const caseData = mockCasesExtended[caseId];
+    const caseData =
+      mockCasesExtended[caseId] ||
+      mockCases.find((c) => c.id == caseId) ||
+      context?.data?.case;
     if (!caseData) {
-      return {
-        allowed: false,
-        blockers: ["Procès parent introuvable"],
-        warnings: [],
-      };
+      warnings.push("Procès parent non résolu (vérifiez après enregistrement).");
     }
 
-    if (caseData.status === "Clos" || caseData.status === "Terminé") {
+    if (caseData && (caseData.status === "Clos" || caseData.status === "Terminé")) {
       blockers.push(
         `Impossible de créer une séance sous un procès ${caseData.status.toLowerCase()}`,
         `Procès: ${caseData.caseNumber} - ${caseData.title}`,

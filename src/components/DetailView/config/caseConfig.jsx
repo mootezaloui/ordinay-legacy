@@ -44,6 +44,8 @@ export const caseConfig = {
     if (!caseData) return null;
 
     // ✅ Always resolve dossier from dossierId using latest context data
+    const sessions = contextData?.sessions || mockSessions;
+    const tasks = contextData?.tasks || mockTasks;
     const dossiers = contextData?.dossiers || mockDossiers;
     let dossier = null;
     if (caseData.dossierId) {
@@ -59,7 +61,10 @@ export const caseConfig = {
 
     return {
       ...caseData,
-      dossier: dossier || { id: null, caseNumber: 'N/A', title: 'Dossier inconnu' }
+      dossier: dossier || { id: null, caseNumber: 'N/A', title: 'Dossier inconnu' },
+      // Always derive related collections from live context (avoid stale embedded arrays)
+      sessions: sessions.filter((s) => s.caseId === numericId),
+      tasks: tasks.filter((t) => t.parentType === "case" && t.caseId === numericId),
     };
   },
 
@@ -229,6 +234,10 @@ export const caseConfig = {
 
       // Dynamic form fields - caseId pre-filled and disabled since we're in case context
       getFormFields: (caseData) => {
+        // If the case is not linked to a dossier, return an empty array to trigger the UX message in AggregatedRelatedTab
+        if (!caseData.dossierId) {
+          return [];
+        }
         return sessionFormFields.map(field => {
           if (field.name === 'caseId') {
             return {
@@ -568,7 +577,7 @@ export const caseConfig = {
           type: "searchable-select",
           editable: true,
           required: true,
-          options: mockDossiers.map(d => ({
+          getOptions: () => mockDossiers.map(d => ({
             value: d.id,
             label: `${d.caseNumber} - ${d.title}`
           })),

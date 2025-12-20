@@ -1326,7 +1326,13 @@ export const financialEntryFormFields = [
     required: false,
     options: [], // Will be populated dynamically
     hideIf: (formData) => formData.scope === "internal",
-    helpText: "Client concerné par cette opération",
+    helpText: "Client concerné par cette opération (obligatoire si portée = Client)",
+    validate: (value, formData) => {
+      if (formData.scope === "client" && (!value || value === "")) {
+        return "Le client est requis lorsque la portée est 'Client'.";
+      }
+      return null;
+    },
     onChange: (value, formData, setFormData) => {
       // Clear dossier and case when client changes
       setFormData({

@@ -346,6 +346,13 @@ export const taskConfig = {
               label: `${d.caseNumber} - ${d.title}`
             }))
           ],
+          getOptions: () => ([
+            { value: "", label: "SAclectionner un dossier..." },
+            ...mockDossiers.map(d => ({
+              value: d.id,
+              label: `${d.caseNumber} - ${d.title}`
+            }))
+          ]),
           helpText: "Sélectionner le dossier concerné"
         },
         {
@@ -370,6 +377,13 @@ export const taskConfig = {
               label: `${c.caseNumber} - ${c.title}`
             }))
           ],
+          getOptions: () => ([
+            { value: "", label: "Sélectionner un procès..." },
+            ...mockCases.map(c => ({
+              value: c.id,
+              label: `${c.caseNumber} - ${c.title}`
+            }))
+          ]),
           helpText: "Sélectionner le procès concerné"
         },
       ],

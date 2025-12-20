@@ -374,6 +374,10 @@ export const financialEntryConfig = {
                         { value: "", label: "Sélectionner un client..." },
                         ...mockClients.map(c => ({ value: c.id, label: c.name }))
                     ],
+                    getOptions: () => ([
+                        { value: "", label: "SAclectionner un client..." },
+                        ...mockClients.map(c => ({ value: c.id, label: c.name }))
+                    ]),
                     helpText: "Sélectionner le client concerné (cela filtrera les dossiers et procès disponibles)"
                 },
                 {

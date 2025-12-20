@@ -40,29 +40,32 @@ export const sessionConfig = {
     const cases = contextData?.cases || mockCases;
     const dossiers = contextData?.dossiers || mockDossiers;
 
-    let caseData = session.case;
-    if (!caseData && session.caseId) {
-      const foundCase = cases.find(c => c.id === parseInt(session.caseId));
-      if (foundCase) {
-        caseData = {
-          id: foundCase.id,
-          caseNumber: foundCase.caseNumber,
-          title: foundCase.title
-        };
-      }
-    }
+    // Always resolve parents from live data (avoid undefined)
+    const caseData = session.caseId
+      ? (() => {
+        const foundCase = cases.find(c => c.id === parseInt(session.caseId));
+        return foundCase
+          ? { id: foundCase.id, caseNumber: foundCase.caseNumber, title: foundCase.title, dossierId: foundCase.dossierId }
+          : session.case || null;
+      })()
+      : session.case || null;
 
-    let dossier = session.dossier;
-    if (!dossier && session.dossierId) {
-      const foundDossier = dossiers.find(d => d.id === parseInt(session.dossierId));
-      if (foundDossier) {
-        dossier = {
-          id: foundDossier.id,
-          caseNumber: foundDossier.caseNumber,
-          title: foundDossier.title
-        };
-      }
-    }
+    const dossier = session.dossierId
+      ? (() => {
+        const foundDossier = dossiers.find(d => d.id === parseInt(session.dossierId));
+        return foundDossier
+          ? { id: foundDossier.id, caseNumber: foundDossier.caseNumber, title: foundDossier.title }
+          : session.dossier || null;
+      })()
+      : // if linked to a case, derive dossier via case.dossierId
+      (caseData?.dossierId
+        ? (() => {
+          const found = dossiers.find(d => d.id === parseInt(caseData.dossierId));
+          return found
+            ? { id: found.id, caseNumber: found.caseNumber, title: found.title }
+            : null;
+        })()
+        : session.dossier || null);
 
     return {
       ...session,
@@ -339,6 +342,13 @@ export const sessionConfig = {
               label: `${c.caseNumber} - ${c.title}`
             }))
           ],
+          getOptions: () => ([
+            { value: "", label: "Sélectionner un procès..." },
+            ...mockCases.map(c => ({
+              value: c.id,
+              label: `${c.caseNumber} - ${c.title}`
+            }))
+          ]),
           helpText: "Sélectionner le procès concerné"
         },
         {
@@ -388,6 +398,13 @@ export const sessionConfig = {
               label: `${d.caseNumber} - ${d.title}`
             }))
           ],
+          getOptions: () => ([
+            { value: "", label: "Sélectionner un dossier..." },
+            ...mockDossiers.map(d => ({
+              value: d.id,
+              label: `${d.caseNumber} - ${d.title}`
+            }))
+          ]),
           helpText: "Sélectionner le dossier concerné"
         },
       ],
