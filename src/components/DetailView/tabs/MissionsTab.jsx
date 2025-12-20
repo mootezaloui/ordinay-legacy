@@ -211,9 +211,42 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange }) 
         // Extract financial entries and fields we'll override if they exist
         const { financialEntries, officerId: _, officerName: __, missionNumber: ___, ...missionData } = submittedFormData;
 
+        // Derive relational context based on parent entity (dossier, case, officer)
+        const relationshipFields = (() => {
+          const rel = {};
+          if (config?.entityType === "dossier") {
+            rel.entityType = "dossier";
+            rel.entityId = data.id;
+            rel.dossierId = data.id;
+            rel.dossierReference = data.caseNumber;
+            const clientId = data.clientId || data.client?.id;
+            const clientName = data.client?.name || data.client;
+            if (clientId) rel.clientId = parseInt(clientId, 10);
+            if (clientName) rel.clientName = clientName;
+          } else if (config?.entityType === "case") {
+            rel.entityType = "case";
+            rel.entityId = data.id;
+            rel.caseId = data.id;
+            rel.caseReference = data.caseNumber;
+            const dossierId = data.dossier?.id || data.dossierId;
+            const dossierRef = data.dossier?.caseNumber || data.dossierReference;
+            if (dossierId) rel.dossierId = dossierId;
+            if (dossierRef) rel.dossierReference = dossierRef;
+            const clientId = data.dossier?.clientId || data.clientId;
+            const clientName = data.dossier?.client || data.client?.name;
+            if (clientId) rel.clientId = parseInt(clientId, 10);
+            if (clientName) rel.clientName = clientName;
+          } else if (config?.entityType === "officer") {
+            rel.officerId = data.id;
+            rel.officerName = data.name;
+          }
+          return rel;
+        })();
+
         const newMission = {
           id: Date.now(),
           ...missionData,
+          ...relationshipFields,
           officerId: selectedOfficerId, // ✅ Use the officer selected in the form
           officerName, // ✅ Add officer name
           missionNumber: missionNumberValue, // ✅ Generate if needed
@@ -622,6 +655,7 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange }) 
             formData={formData}
             onFormDataChange={setFormData}
             submitText={editingMissionId ? "Modifier" : "Ajouter"}
+            entityType="mission"
           />
         )}
       </>
@@ -822,6 +856,7 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange }) 
           formData={formData}
           onFormDataChange={setFormData}
           submitText={editingMissionId ? "Modifier" : "Ajouter"}
+          entityType="mission"
         />
       )}
 

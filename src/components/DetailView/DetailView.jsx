@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { useToast } from "../../contexts/ToastContext";
 import { useConfirm } from "../../contexts/ConfirmContext";
@@ -33,6 +33,8 @@ export default function DetailView({ entityType }) {
   const { confirm } = useConfirm();
   const contextData = useData(); // Get all data from context
   const [isEditing, setIsEditing] = useState(false);
+  const justSaved = useRef(false);
+  const latestContextRef = useRef(contextData);
 
   // Get configuration for this entity type
   const config = getEntityConfig(entityType);
@@ -46,6 +48,11 @@ export default function DetailView({ entityType }) {
   const [originalData, setOriginalData] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // Keep latest context in a ref so delayed callbacks don't read stale values
+  useEffect(() => {
+    latestContextRef.current = contextData;
+  }, [contextData]);
+
   // ✅ Sync activeTab with URL parameter
   useEffect(() => {
     const tabFromUrl = searchParams.get('tab');
@@ -55,16 +62,23 @@ export default function DetailView({ entityType }) {
   }, [searchParams]);
 
   useEffect(() => {
+    let isMounted = true;
+
     const fetchData = async () => {
-      setLoading(true);
+      if (!justSaved.current) {
+        setLoading(true);
+      }
       try {
-        const entityData = await config.fetchData(id, contextData);
+        const entityData = await config.fetchData(id, latestContextRef.current);
+        if (!isMounted) return;
         setData(entityData);
         setOriginalData(entityData);
       } catch (error) {
         console.error("Error fetching data:", error);
       } finally {
+        if (!isMounted) return;
         setLoading(false);
+        justSaved.current = false;
       }
     };
 
@@ -76,6 +90,10 @@ export default function DetailView({ entityType }) {
     }
 
     fetchData();
+
+    return () => {
+      isMounted = false;
+    };
   }, [id, entityType, contextData.clients, contextData.dossiers, contextData.cases, contextData.tasks, contextData.sessions, contextData.officers, contextData.personalTasks]);
 
   if (loading) {
@@ -147,8 +165,8 @@ export default function DetailView({ entityType }) {
     setData(newData);
 
     try {
-      // Auto-save to backend
-      await config.updateData(id, { [field]: value });
+      // Auto-save to backend and update context
+      await config.updateData(id, { [field]: value }, contextData);
 
       // Create timeline entry
       const timelineEntry = {
@@ -195,7 +213,7 @@ export default function DetailView({ entityType }) {
 
     // ✅ Persist the changes to backend
     try {
-      await config.updateData(id, { [itemsKey]: newItems });
+      await config.updateData(id, { [itemsKey]: newItems }, contextData);
       setOriginalData(newData);
     } catch (error) {
       console.error("Error saving items change:", error);
@@ -211,9 +229,10 @@ export default function DetailView({ entityType }) {
   // Handle data refresh (for financial tab and other updates)
   const handleDataRefresh = async () => {
     try {
-      const entityData = await config.fetchData(id);
-      setData(entityData);
-      setOriginalData(entityData);
+      const entityData = await config.fetchData(id, latestContextRef.current);
+      // Force new object reference to trigger re-render
+      setData(entityData ? { ...entityData } : entityData);
+      setOriginalData(entityData ? { ...entityData } : entityData);
     } catch (error) {
       console.error("Error refreshing data:", error);
     }
@@ -222,37 +241,14 @@ export default function DetailView({ entityType }) {
   // ✅ Handle structured section saves (batched changes)
   const handleSectionSave = async (sectionData) => {
     try {
-      await config.updateData(id, sectionData);
-
-      // ✅ Refetch data to get enriched/denormalized fields
-      const refreshedData = await config.fetchData(id);
-      setData(refreshedData);
-
-      // Create batched timeline entry for multiple field changes
-      const changedFields = Object.keys(sectionData).filter(
-        key => sectionData[key] !== originalData[key]
-      );
-
-      if (changedFields.length > 0 && refreshedData.timeline) {
-        const timelineEntry = {
-          type: "fields_updated",
-          event: "Plusieurs champs modifiés",
-          timestamp: new Date().toISOString(),
-          user: "Me. Hammami", // TODO: Get from auth context
-          changes: changedFields.map(field => ({
-            field,
-            oldValue: originalData[field],
-            newValue: sectionData[field],
-          })),
-        };
-
-        refreshedData.timeline = [timelineEntry, ...refreshedData.timeline];
-        setData(refreshedData);
-      }
-
-      setOriginalData(refreshedData);
+      // Update context synchronously
+      await config.updateData(id, sectionData, latestContextRef.current);
+      // Optimistically update local state
+      setData(prev => ({ ...prev, ...sectionData }));
+      setOriginalData(prev => ({ ...prev, ...sectionData }));
       setIsEditing(false);
       showToast("Modifications enregistrées avec succès!", "success");
+      justSaved.current = true;
     } catch (error) {
       console.error("Error saving:", error);
       showToast("Erreur lors de l'enregistrement", "error");
@@ -270,17 +266,10 @@ export default function DetailView({ entityType }) {
         }
       });
 
-      console.log("Changed fields:", changedFields);
-      console.log("Entity type:", entityType);
-      console.log("Original data:", originalData);
-      console.log("New data:", data);
-
       const validationResult = canPerformAction(entityType, id, 'edit', {
         data: originalData,
         newData: changedFields
       });
-
-      console.log("Validation result:", validationResult);
 
       if (!validationResult.allowed) {
         showToast(validationResult.blockers[0] || "Cette modification n'est pas autorisée", "error");
@@ -302,10 +291,15 @@ export default function DetailView({ entityType }) {
         }
       }
 
-      await config.updateData(id, data, contextData);
-      setOriginalData(data);
+      // Update context synchronously
+      await config.updateData(id, data, latestContextRef.current);
+      // Optimistically update local state
+      setOriginalData({ ...data });
       setIsEditing(false);
       showToast("Modifications enregistrées avec succès!", "success");
+      justSaved.current = true;
+      // Optionally refresh from backend for denormalized fields
+      setTimeout(() => { handleDataRefresh(); }, 10);
     } catch (error) {
       console.error("Error saving:", error);
       showToast("Erreur lors de l'enregistrement", "error");
@@ -783,28 +777,8 @@ export default function DetailView({ entityType }) {
         title={config.getTitle(data)}
         subtitle={config.getSubtitle(data)}
         icon={config.icon}
-        actions={
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => navigate(-1)}
-              className="px-4 py-2 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-lg font-medium transition-colors duration-200"
-            >
-              <i className="fas fa-arrow-left mr-2"></i>
-              Retour
-            </button>
-
-            {config.allowDelete && !isEditing && (
-              <button
-                onClick={handleDelete}
-                className="px-4 py-2 border border-red-300 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg font-medium transition-colors duration-200"
-              >
-                <i className="fas fa-trash mr-2"></i>
-                Supprimer
-              </button>
-            )}
-          </div>
-        }
       />
+
 
       <div className="space-y-6">
         {/* Header Section - customizable per entity */}

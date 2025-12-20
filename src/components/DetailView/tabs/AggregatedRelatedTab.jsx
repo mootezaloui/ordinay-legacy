@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useToast } from "../../../contexts/ToastContext";
 import { useConfirm } from "../../../contexts/ConfirmContext";
+import { useData } from "../../../contexts/DataContext";
 import ContentSection from "../../layout/ContentSection";
 import FormModal from "../../FormModal/FormModal";
 import { getStatusColor } from "../../../utils/mockData";
@@ -31,8 +32,19 @@ export default function AggregatedRelatedTab({
   onItemsChange
 }) {
   const location = useLocation();
+  const navigate = useNavigate();
   const { showToast } = useToast();
   const { confirm } = useConfirm();
+  const {
+    addDossier,
+    addCase,
+    addSession,
+    addTask,
+    deleteDossier,
+    deleteCase,
+    deleteSession,
+    deleteTask,
+  } = useData();
   const [localItems, setLocalItems] = useState(items);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -42,18 +54,96 @@ export default function AggregatedRelatedTab({
     setLocalItems(items);
   }, [items]);
 
+  // Normalize aggregation key to a reference-aware entity type (plural -> singular)
+  const referenceEntityType = tabConfig?.referenceEntityType
+    || (tabConfig?.aggregationType === "cases" ? "case"
+      : tabConfig?.aggregationType === "dossiers" ? "dossier"
+        : tabConfig?.aggregationType === "missions" ? "mission"
+          : tabConfig?.aggregationType);
+
+  const toIntOrNull = (value) => {
+    const n = parseInt(value, 10);
+    return Number.isNaN(n) ? null : n;
+  };
+
   const handleAddItem = async (formData) => {
     setIsLoading(true);
 
     try {
+      // Normalize numeric ids to avoid filter mismatches
+      const normalizedFormData = {
+        ...formData,
+        clientId: toIntOrNull(formData.clientId),
+        dossierId: toIntOrNull(formData.dossierId),
+        caseId: toIntOrNull(formData.caseId),
+        officerId: toIntOrNull(formData.officerId),
+        missionId: toIntOrNull(formData.missionId),
+      };
+
+      // Inject parent relationships to keep entities consistent with main list creations
+      const relationshipFields = (() => {
+        const rel = {};
+
+        // Dossier creation from Client detail
+        if (tabConfig?.aggregationType === "dossiers" && config?.entityType === "client") {
+          rel.clientId = data.id;
+          rel.client = data.name;
+        }
+
+        // Procès creation
+        if (tabConfig?.aggregationType === "cases") {
+          if (config?.entityType === "dossier") {
+            rel.dossierId = data.id;
+            rel.dossier = data.caseNumber;
+            const clientId = data.clientId || data.client?.id;
+            const clientName = data.client?.name || data.client;
+            if (clientId) rel.clientId = parseInt(clientId, 10);
+            if (clientName) rel.client = clientName;
+          } else if (config?.entityType === "client") {
+            const parentDossier = (data.relatedDossiers || []).find(
+              (d) => d.id === normalizedFormData.dossierId
+            );
+            if (parentDossier) {
+              rel.dossierId = parentDossier.id;
+              rel.dossier = parentDossier.caseNumber;
+              const clientId = parentDossier.clientId || data.id;
+              const clientName = parentDossier.client || data.name;
+              if (clientId) rel.clientId = parseInt(clientId, 10);
+              if (clientName) rel.client = clientName;
+            }
+          }
+        }
+
+        return rel;
+      })();
+
       // Create new item
       const newItem = {
         id: Date.now(),
-        ...formData,
+        ...normalizedFormData,
+        ...relationshipFields,
         // Add parent reference
         [config.entityType + 'Id']: data.id,
         createdDate: new Date().toISOString().split('T')[0],
       };
+
+      // Persist via global store (same flow as list screens)
+      switch (tabConfig?.aggregationType) {
+        case "dossiers":
+          addDossier(newItem);
+          break;
+        case "cases":
+          addCase(newItem);
+          break;
+        case "sessions":
+          addSession(newItem);
+          break;
+        case "tasks":
+          addTask(newItem);
+          break;
+        default:
+          break;
+      }
 
       // Add to local state
       const updatedItems = [newItem, ...localItems];
@@ -69,6 +159,11 @@ export default function AggregatedRelatedTab({
 
       setIsAddModalOpen(false);
       showToast(`${tabConfig?.entityName || 'Élément'} ajouté avec succès!`, "success");
+
+      // Navigate to the newly created entity detail view
+      if (entityConfig?.route) {
+        navigate(`${entityConfig.route}/${newItem.id}`);
+      }
 
     } catch (error) {
       console.error("Error adding item:", error);
@@ -91,6 +186,24 @@ export default function AggregatedRelatedTab({
 
       if (onItemsChange && tabConfig?.itemsKey) {
         onItemsChange(tabConfig.itemsKey, updatedItems);
+      }
+
+      // Keep global store consistent with list screens
+      switch (tabConfig?.aggregationType) {
+        case "dossiers":
+          deleteDossier(itemId);
+          break;
+        case "cases":
+          deleteCase(itemId);
+          break;
+        case "sessions":
+          deleteSession(itemId);
+          break;
+        case "tasks":
+          deleteTask(itemId);
+          break;
+        default:
+          break;
       }
 
       console.log("Deleting item:", itemId);
@@ -162,7 +275,7 @@ export default function AggregatedRelatedTab({
             subtitle={tabConfig.addSubtitle || `Créer un nouveau ${tabConfig.entityName?.toLowerCase() || 'élément'}`}
             fields={formFields}
             isLoading={isLoading}
-            entityType={tabConfig.aggregationType}
+            entityType={referenceEntityType}
           />
         )}
       </>
@@ -231,7 +344,7 @@ export default function AggregatedRelatedTab({
           subtitle={tabConfig.addSubtitle || `Créer un nouveau ${tabConfig.entityName?.toLowerCase() || 'élément'}`}
           fields={formFields}
           isLoading={isLoading}
-          entityType={tabConfig.aggregationType}
+          entityType={referenceEntityType}
         />
       )}
     </>

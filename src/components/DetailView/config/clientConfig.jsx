@@ -77,7 +77,6 @@ export const clientConfig = {
         };
       }
     }
-    await new Promise(resolve => setTimeout(resolve, 500));
   },
 
   deleteData: async (id, contextData = null) => {
