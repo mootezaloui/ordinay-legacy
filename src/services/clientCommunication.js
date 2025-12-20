@@ -36,7 +36,7 @@
  * - SMS (future): sendSMSNotification()
  */
 
-import { mockClients } from '../utils/mockData';
+import { mockClients, mockDossiers, mockCases } from '../utils/mockData';
 import { emailTemplates } from './emailTemplates';
 
 // ========================================
@@ -67,16 +67,48 @@ export function shouldPromptClientNotification(entityType, action, context = {})
   return actionDetector(context);
 }
 
+// Helper: resolve client info from ids or nested data
+function resolveClientInfo(data = {}) {
+  // Prefer explicit clientId
+  let clientId = data.clientId || data.client?.id;
+
+  // Try dossier reference
+  if (!clientId && data.dossierId) {
+    const dossier = mockDossiers.find(d => d.id === parseInt(data.dossierId, 10));
+    if (dossier) clientId = dossier.clientId;
+  }
+
+  // Try case reference
+  if (!clientId && data.caseId) {
+    const caseItem = mockCases.find(c => c.id === parseInt(data.caseId, 10));
+    if (caseItem) {
+      clientId = caseItem.clientId || (() => {
+        const dossier = mockDossiers.find(d => d.id === caseItem.dossierId);
+        return dossier?.clientId;
+      })();
+    }
+  }
+
+  // Try nested case/dossier objects
+  if (!clientId && data.dossier?.clientId) clientId = data.dossier.clientId;
+  if (!clientId && data.case?.dossier?.clientId) clientId = data.case.dossier.clientId;
+
+  const client = mockClients.find(c => c.id === clientId);
+  return { clientId, clientName: data.clientName || data.client?.name || client?.name };
+}
+
 // ========================================
 // EVENT DETECTORS BY ENTITY TYPE
 // ========================================
 
 const EVENT_DETECTORS = {
   dossier: {
+    create: detectDossierCreated,
     changeStatus: detectDossierStatusChange,
     edit: detectDossierDeadlineChange,
   },
   case: {
+    create: detectCaseCreated,
     changeStatus: detectCaseStatusChange,
     edit: detectCaseHearingChange,
   },
@@ -85,7 +117,33 @@ const EVENT_DETECTORS = {
     edit: detectSessionDateChange,
     changeStatus: detectSessionCancellation,
   },
+  financialEntry: {
+    add: detectFinancialEntryAdded,
+    create: detectFinancialEntryAdded,
+  },
 };
+
+/**
+ * Detect Dossier creation
+ */
+function detectDossierCreated(context) {
+  const { data } = context;
+
+  const { clientId, clientName } = resolveClientInfo(data);
+  if (!clientId) return null;
+
+  return {
+    shouldPrompt: true,
+    eventType: 'dossier_created',
+    eventData: {
+      dossierNumber: data.caseNumber,
+      dossierTitle: data.title,
+      clientId,
+      clientName,
+      joinDate: data.joinDate,
+    },
+  };
+}
 
 /**
  * Detect Dossier status changes that are client-relevant
@@ -169,6 +227,29 @@ function detectDossierDeadlineChange(context) {
 }
 
 /**
+ * Detect Procès (Case) creation
+ */
+function detectCaseCreated(context) {
+  const { data } = context;
+
+  const { clientId, clientName } = resolveClientInfo(data);
+
+  if (!clientId) return null;
+
+  return {
+    shouldPrompt: true,
+    eventType: 'case_created',
+    eventData: {
+      caseNumber: data.caseNumber,
+      caseTitle: data.title,
+      court: data.court,
+      clientId,
+      clientName,
+    },
+  };
+}
+
+/**
  * Detect Procès (Case) status changes
  */
 function detectCaseStatusChange(context) {
@@ -181,9 +262,8 @@ function detectCaseStatusChange(context) {
     return null;
   }
 
-  // Get client info from dossier
-  const clientId = data.dossier?.clientId || data.clientId;
-  const clientName = data.dossier?.client?.name || data.client?.name;
+  // Get client info from dossier/case refs
+  const { clientId, clientName } = resolveClientInfo(data);
 
   return {
     shouldPrompt: true,
@@ -220,8 +300,7 @@ function detectCaseHearingChange(context) {
   }
 
   // Get client info
-  const clientId = data.dossier?.clientId || data.clientId;
-  const clientName = data.dossier?.client?.name || data.client?.name;
+  const { clientId, clientName } = resolveClientInfo({ ...data, ...newData });
 
   return {
     shouldPrompt: true,
@@ -244,14 +323,8 @@ function detectCaseHearingChange(context) {
 function detectSessionCreated(context) {
   const { data } = context;
 
-  // Only notify for Audience type sessions (not internal consultations)
-  if (data.type !== 'Audience') {
-    return null;
-  }
-
-  // Get client info from linked case or dossier
-  const clientId = data.case?.dossier?.clientId || data.dossier?.clientId;
-  const clientName = data.case?.dossier?.client?.name || data.dossier?.client?.name;
+  // Get client info from linked case or dossier (fallback to ids)
+  const { clientId, clientName } = resolveClientInfo(data);
 
   if (!clientId) {
     return null; // No client link
@@ -281,11 +354,6 @@ function detectSessionCreated(context) {
 function detectSessionDateChange(context) {
   const { data, newData } = context;
 
-  // Only for Audience type
-  if (data.type !== 'Audience') {
-    return null;
-  }
-
   // Check if date or time changed
   const dateChanged = 'date' in newData && data.date !== newData.date;
   const timeChanged = 'time' in newData && data.time !== newData.time;
@@ -295,8 +363,7 @@ function detectSessionDateChange(context) {
   }
 
   // Get client info
-  const clientId = data.case?.dossier?.clientId || data.dossier?.clientId;
-  const clientName = data.case?.dossier?.client?.name || data.dossier?.client?.name;
+  const { clientId, clientName } = resolveClientInfo({ ...data, ...newData });
 
   if (!clientId) {
     return null;
@@ -326,19 +393,13 @@ function detectSessionDateChange(context) {
 function detectSessionCancellation(context) {
   const { oldValue, newValue, data } = context;
 
-  // Only for Audience type
-  if (data.type !== 'Audience') {
-    return null;
-  }
-
   // Only if status changed to Annulée
   if (newValue !== 'Annulée' || oldValue === 'Annulée') {
     return null;
   }
 
   // Get client info
-  const clientId = data.case?.dossier?.clientId || data.dossier?.clientId;
-  const clientName = data.case?.dossier?.client?.name || data.dossier?.client?.name;
+  const { clientId, clientName } = resolveClientInfo(data);
 
   if (!clientId) {
     return null;
@@ -356,6 +417,33 @@ function detectSessionCancellation(context) {
       caseTitle: data.case?.title,
       clientId,
       clientName,
+    },
+  };
+}
+
+/**
+ * Detect financial entry creation that impacts client balance
+ */
+function detectFinancialEntryAdded(context) {
+  const { data } = context;
+
+  const { clientId, clientName } = resolveClientInfo(data);
+  if (!clientId) return null;
+
+  // Only notify for client-scope entries (not internal-only)
+  if (data.scope && data.scope !== 'client') return null;
+
+  return {
+    shouldPrompt: true,
+    eventType: 'financial_entry_added',
+    eventData: {
+      description: data.description,
+      amountWithSign: data.amountWithSign,
+      amount: data.amount,
+      dueDate: data.dueDate,
+      clientId,
+      clientName,
+      clientBalance: data.clientBalance,
     },
   };
 }
@@ -386,13 +474,17 @@ export function generateClientEmail(eventType, eventData) {
     throw new Error(`Client email not found for clientId: ${eventData.clientId}`);
   }
 
-  // Generate email from template
-  const email = template(eventData);
+  // Resolve client name (fallback to client record if not provided)
+  const resolvedClientName = eventData.clientName || client?.name || "votre client";
+  const enrichedEventData = { ...eventData, clientName: resolvedClientName };
+
+  // Generate email from template with enriched data
+  const email = template(enrichedEventData);
 
   return {
     ...email,
     clientEmail,
-    clientName: eventData.clientName,
+    clientName: resolvedClientName,
   };
 }
 
@@ -518,4 +610,20 @@ export async function sendClientNotification(eventType, eventData, options = {})
     success: overallSuccess,
     channels: results,
   };
+}
+
+// ========================================
+// LIGHTWEIGHT PENDING NOTIFICATION BUFFER
+// ========================================
+
+// For flows that navigate immediately after create/edit, stash the pending notification
+// and let the destination screen consume it.
+let pendingNotification = null;
+export function setPendingNotification(notification) {
+  pendingNotification = notification;
+}
+export function consumePendingNotification() {
+  const notif = pendingNotification;
+  pendingNotification = null;
+  return notif;
 }

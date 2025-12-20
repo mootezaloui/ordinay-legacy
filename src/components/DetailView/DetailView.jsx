@@ -16,6 +16,9 @@ import AggregatedRelatedTab from "./tabs/AggregatedRelatedTab";
 import MissionsTab from "./tabs/MissionsTab";
 import FinancialTab from "./tabs/FinancialTab";
 import QuickActionsBar from "./QuickActionsBar";
+import ClientNotificationPrompt from "../ui/ClientNotificationPrompt";
+import { shouldPromptClientNotification, sendClientNotification, consumePendingNotification, setPendingNotification } from "../../services/clientCommunication";
+import BlockerModal from "../ui/BlockerModal";
 import { mockCases, mockSessions, mockTasks, mockOfficers } from "../../utils/mockData";
 import { canPerformAction } from "../../services/domainRules";
 
@@ -35,6 +38,13 @@ export default function DetailView({ entityType }) {
   const [isEditing, setIsEditing] = useState(false);
   const justSaved = useRef(false);
   const latestContextRef = useRef(contextData);
+  const [blockerModalOpen, setBlockerModalOpen] = useState(false);
+  const [validationResult, setValidationResult] = useState(null);
+  const [notificationPrompt, setNotificationPrompt] = useState({
+    isOpen: false,
+    eventType: null,
+    eventData: null,
+  });
 
   // Get configuration for this entity type
   const config = getEntityConfig(entityType);
@@ -63,6 +73,16 @@ export default function DetailView({ entityType }) {
 
   useEffect(() => {
     let isMounted = true;
+
+    // Consume any pending notification (e.g., from a creation flow that navigated here)
+    const pending = consumePendingNotification?.();
+    if (pending && pending.eventType) {
+      setNotificationPrompt({
+        isOpen: true,
+        eventType: pending.eventType,
+        eventData: pending.eventData,
+      });
+    }
 
     const fetchData = async () => {
       if (!justSaved.current) {
@@ -186,6 +206,27 @@ export default function DetailView({ entityType }) {
 
       // Update original data to reflect saved state
       setOriginalData(newData);
+      // Prompt client notification for status changes (post-success, optional)
+      if (field === "status") {
+        const notificationCheck = shouldPromptClientNotification(
+          entityType,
+          "changeStatus",
+          {
+            oldValue,
+            newValue: value,
+            data,
+            newData,
+          }
+        );
+
+        if (notificationCheck?.shouldPrompt) {
+          setNotificationPrompt({
+            isOpen: true,
+            eventType: notificationCheck.eventType,
+            eventData: notificationCheck.eventData,
+          });
+        }
+      }
 
     } catch (error) {
       console.error("Error saving quick action:", error);
@@ -312,6 +353,14 @@ export default function DetailView({ entityType }) {
   };
 
   const handleDelete = async () => {
+    // Domain rule validation before prompting delete
+    const result = canPerformAction(entityType, parseInt(id), 'delete', { data });
+    if (!result.allowed) {
+      setValidationResult(result);
+      setBlockerModalOpen(true);
+      return;
+    }
+
     if (await confirm({
       title: "Supprimer",
       message: config.deleteConfirmMessage,
@@ -777,6 +826,27 @@ export default function DetailView({ entityType }) {
         title={config.getTitle(data)}
         subtitle={config.getSubtitle(data)}
         icon={config.icon}
+        actions={
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate(-1)}
+              className="px-4 py-2 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-lg font-medium transition-colors duration-200"
+            >
+              <i className="fas fa-arrow-left mr-2"></i>
+              Retour
+            </button>
+
+            {config.allowDelete && !isEditing && (
+              <button
+                onClick={handleDelete}
+                className="px-4 py-2 border border-red-300 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg font-medium transition-colors duration-200"
+              >
+                <i className="fas fa-trash mr-2"></i>
+                Supprimer
+              </button>
+            )}
+          </div>
+        }
       />
 
 
@@ -847,6 +917,37 @@ export default function DetailView({ entityType }) {
         {/* Tab Content */}
         {renderTabContent()}
       </div>
+
+      {/* Domain rule blocker modal */}
+      <BlockerModal
+        isOpen={blockerModalOpen}
+        onClose={() => setBlockerModalOpen(false)}
+        actionName="Supprimer"
+        blockers={validationResult?.blockers || []}
+        warnings={validationResult?.warnings || []}
+        entityName={config.getTitle ? config.getTitle(data) : ''}
+        entityType={entityType}
+        entityId={parseInt(id)}
+        action="delete"
+        onRetry={() => handleDelete()}
+      />
+      {/* Client notification prompt for inline changes */}
+      <ClientNotificationPrompt
+        isOpen={notificationPrompt.isOpen}
+        eventType={notificationPrompt.eventType}
+        eventData={notificationPrompt.eventData}
+        onSend={async () => {
+          const { eventType, eventData } = notificationPrompt;
+          try {
+            await sendClientNotification(eventType, eventData, { channels: ["email"] });
+          } catch (error) {
+            console.error("Error sending client notification:", error);
+          } finally {
+            setNotificationPrompt({ isOpen: false, eventType: null, eventData: null });
+          }
+        }}
+        onClose={() => setNotificationPrompt({ isOpen: false, eventType: null, eventData: null })}
+      />
     </PageLayout>
   );
 }

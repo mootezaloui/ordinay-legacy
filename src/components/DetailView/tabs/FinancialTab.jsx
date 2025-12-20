@@ -1410,6 +1410,9 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
         }
         fields={entryFields}
         initialData={editingEntry}
+        entityType="financialEntry"
+        entityId={editingEntry?.id}
+        editingEntity={editingEntry}
         isLoading={isLoading}
       />
 

@@ -49,6 +49,7 @@ import {
 } from "../utils/mockData";
 import { financialLedger } from "../utils/financialData";
 import { validateTemporalConstraints } from "./temporalValidation";
+import { enrichBlockers } from "./blockerEnrichment";
 
 // ========================================
 // CORE RULE ENGINE
@@ -145,6 +146,17 @@ export function canPerformAction(entityType, entityId, action, context = {}) {
         changeDetails: impactDetection.changeDetails,
       };
     }
+  }
+
+  // Enrich blockers with structured, actionable data for the UI
+  if (result.blockers && result.blockers.length > 0) {
+    result.blockers = enrichBlockers(
+      result.blockers,
+      entityType,
+      entityId,
+      action,
+      context
+    );
   }
 
   return result;

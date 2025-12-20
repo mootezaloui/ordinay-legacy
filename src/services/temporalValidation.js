@@ -533,7 +533,7 @@ function validateTaskDates(taskData, action, context = {}) {
       (taskData.status !== "Terminée" && taskData.status !== "Annulée")
     ) {
       if (isInPast(taskData.dueDate)) {
-        warnings.push(
+        blockers.push(
           `La date d'échéance (${formatDate(
             taskData.dueDate
           )}) est dans le passé.`
@@ -628,7 +628,7 @@ function validateSessionDates(sessionData, action, context = {}) {
   if (sessionData.date) {
     if (sessionData.status !== "Terminée" && sessionData.status !== "Annulée") {
       if (isInPast(sessionData.date)) {
-        warnings.push(
+        blockers.push(
           `La date de la séance (${formatDate(
             sessionData.date
           )}) est dans le passé, mais son statut n'est pas "Terminée".`
@@ -923,10 +923,10 @@ function validatePersonalTaskDates(personalTaskData, action, context = {}) {
   const blockers = [];
   const warnings = [];
 
-  // Rule: Due date in the past should trigger warning (unless completed)
+  // Rule: Due date in the past should block (unless completed)
   if (personalTaskData.dueDate && personalTaskData.status !== "Terminée") {
     if (isInPast(personalTaskData.dueDate)) {
-      warnings.push(
+      blockers.push(
         `L'échéance (${formatDate(personalTaskData.dueDate)}) est dépassée.`
       );
     }

@@ -59,7 +59,10 @@ export default function AggregatedRelatedTab({
     || (tabConfig?.aggregationType === "cases" ? "case"
       : tabConfig?.aggregationType === "dossiers" ? "dossier"
         : tabConfig?.aggregationType === "missions" ? "mission"
-          : tabConfig?.aggregationType);
+          : tabConfig?.aggregationType === "tasks" ? "task"
+            : tabConfig?.aggregationType === "sessions" ? "session"
+              : tabConfig?.aggregationType === "personalTasks" ? "personalTask"
+                : tabConfig?.aggregationType);
 
   const toIntOrNull = (value) => {
     const n = parseInt(value, 10);

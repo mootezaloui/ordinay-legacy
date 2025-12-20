@@ -16,6 +16,7 @@ import {
 import {
   shouldPromptClientNotification,
   sendClientNotification,
+  setPendingNotification,
 } from "../../services/clientCommunication";
 
 /**
@@ -266,12 +267,14 @@ export default function FormModal({
     }
 
     // Step 2: Domain rule validation (CRITICAL - prevents integrity violations)
-    if (entityType && editingEntity && entityId) {
-      // EDIT MODE: Validate edit action
-      const result = canPerformAction(entityType, entityId, 'edit', {
-        data: editingEntity,
-        newData: formData
-      });
+    if (entityType) {
+      const isEditMode = editingEntity && entityId;
+      const action = isEditMode ? 'edit' : 'add';
+      const context = isEditMode
+        ? { data: editingEntity, newData: formData }
+        : { data: formData, newData: formData };
+
+      const result = canPerformAction(entityType, isEditMode ? entityId : null, action, context);
 
       if (!result.allowed) {
         // BLOCKED: Show blocker modal
@@ -326,7 +329,13 @@ export default function FormModal({
       );
 
       if (notificationCheck?.shouldPrompt) {
-        // Show notification prompt instead of closing immediately
+        // For creates (which may navigate immediately), defer the prompt to the destination by stashing it
+        if (action === 'create') {
+          setPendingNotification(notificationCheck);
+          onClose();
+          return;
+        }
+        // For edits, show prompt immediately
         setNotificationPrompt({
           isOpen: true,
           eventType: notificationCheck.eventType,
@@ -360,6 +369,7 @@ export default function FormModal({
       console.error('Error sending client notification:', error);
     }
 
+    setPendingNotification(null); // clear any stashed notification
     // Close prompt and modal
     setNotificationPrompt({ isOpen: false, eventType: null, eventData: null });
     onClose();
@@ -370,6 +380,7 @@ export default function FormModal({
    */
   const handleCloseNotificationPrompt = () => {
     console.log('ℹ️ User chose not to notify client');
+    setPendingNotification(null); // clear any stashed notification
     setNotificationPrompt({ isOpen: false, eventType: null, eventData: null });
     onClose();
   };
