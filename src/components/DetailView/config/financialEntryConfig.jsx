@@ -3,6 +3,7 @@ import { getFinancialEntriesForDisplay, formatCurrency } from "../../../utils/fi
 import { updateFinancialEntry, deleteFinancialEntry } from "../../../utils/financialData";
 import { mockClients, mockDossiers, mockCases } from "../../../utils/mockData";
 import { financialEntryFormFields, populateRelationshipOptions } from "../../FormModal/formConfigs";
+import { formatDateValue } from "../../../utils/dateFormat";
 
 /**
  * Financial Entry Entity Configuration - Enhanced with tabs and better UI
@@ -95,11 +96,7 @@ export const financialEntryConfig = {
 
     getTitle: (data) => `#${data.id} - ${data.description}`,
     getSubtitle: (data) => {
-        const date = new Date(data.date).toLocaleDateString('fr-FR', {
-            day: '2-digit',
-            month: 'long',
-            year: 'numeric'
-        });
+        const date = formatDateValue(data.date);
         return `${data.categoryLabel} • ${date}`;
     },
 
@@ -173,11 +170,7 @@ export const financialEntryConfig = {
                                     <div className="min-w-0 flex-1">
                                         <p className="text-xs font-medium text-blue-600 dark:text-blue-400">Date</p>
                                         <p className="text-sm font-bold text-blue-900 dark:text-blue-100 truncate">
-                                            {new Date(data.date).toLocaleDateString('fr-FR', {
-                                                day: '2-digit',
-                                                month: 'short',
-                                                year: 'numeric'
-                                            })}
+                                            {formatDateValue(data.date)}
                                         </p>
                                     </div>
                                 </div>
@@ -230,11 +223,7 @@ export const financialEntryConfig = {
                                         <div className="min-w-0 flex-1">
                                             <p className="text-xs font-medium text-orange-600 dark:text-orange-400">Échéance</p>
                                             <p className="text-sm font-bold text-orange-900 dark:text-orange-100 truncate">
-                                                {new Date(data.dueDate).toLocaleDateString('fr-FR', {
-                                                    day: '2-digit',
-                                                    month: 'short',
-                                                    year: 'numeric'
-                                                })}
+                                                {formatDateValue(data.dueDate)}
                                             </p>
                                         </div>
                                     </div>

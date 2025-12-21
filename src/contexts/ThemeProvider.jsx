@@ -1,5 +1,8 @@
-import { useEffect, useState, useContext } from 'react';
+import { useEffect, useState, useContext, useMemo } from 'react';
 import { ThemeContext } from './theme';
+
+const THEME_STORAGE_KEY = "theme";
+const THEME_PREFERENCE_KEY = "themePreference";
 
 export function useTheme() {
   const context = useContext(ThemeContext);
@@ -11,19 +14,27 @@ export function useTheme() {
 
 export function ThemeProvider({ children }) {
   // Initialize from localStorage or system preference
-  const [theme, setThemeState] = useState(() => {
-    // 1. Check localStorage first (user preference)
-    const stored = localStorage.getItem('theme');
-    if (stored === 'light' || stored === 'dark') return stored;
-
-    // 2. Fall back to system preference
-    if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      return 'dark';
+  const [themePreference, setThemePreference] = useState(() => {
+    const storedPreference = localStorage.getItem(THEME_PREFERENCE_KEY);
+    if (storedPreference === "light" || storedPreference === "dark" || storedPreference === "system") {
+      return storedPreference;
     }
 
-    // 3. Default to light
-    return 'light';
+    // Fallback to legacy key
+    const stored = localStorage.getItem(THEME_STORAGE_KEY);
+    if (stored === "light" || stored === "dark") {
+      return stored;
+    }
+
+    return "system";
   });
+
+  const systemTheme = useMemo(
+    () => (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'),
+    []
+  );
+
+  const resolvedTheme = themePreference === "system" ? systemTheme : themePreference;
 
   // Apply theme to DOM and persist to localStorage
   useEffect(() => {
@@ -33,46 +44,52 @@ export function ThemeProvider({ children }) {
     root.classList.remove('light', 'dark');
     
     // Add the current theme class
-    root.classList.add(theme);
+    root.classList.add(resolvedTheme);
     
     // Persist to localStorage
-    localStorage.setItem('theme', theme);
+    localStorage.setItem(THEME_STORAGE_KEY, resolvedTheme);
+    localStorage.setItem(THEME_PREFERENCE_KEY, themePreference);
     
     // Debug log
-    console.log('Theme applied:', theme, 'HTML classes:', root.classList.toString());
-  }, [theme]);
+    console.log('Theme applied:', resolvedTheme, 'HTML classes:', root.classList.toString());
+  }, [resolvedTheme, themePreference]);
 
   // Listen for system theme changes (optional but nice UX)
   useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     
     const handleChange = (e) => {
-      // Only auto-switch if user hasn't manually set a preference
-      const storedTheme = localStorage.getItem('theme');
-      if (!storedTheme) {
-        setThemeState(e.matches ? 'dark' : 'light');
+      if (themePreference === "system") {
+        const next = e.matches ? 'dark' : 'light';
+        localStorage.setItem(THEME_STORAGE_KEY, next);
+        const root = document.documentElement;
+        root.classList.remove('light', 'dark');
+        root.classList.add(next);
+        console.log('System theme change detected, applying', next);
       }
     };
 
     mediaQuery.addEventListener('change', handleChange);
     return () => mediaQuery.removeEventListener('change', handleChange);
-  }, []);
+  }, [themePreference]);
 
   const toggleTheme = () => {
-    const newTheme = theme === 'dark' ? 'light' : 'dark';
-    console.log('Toggling theme from', theme, 'to', newTheme);
-    setThemeState(newTheme);
+    const newTheme = resolvedTheme === 'dark' ? 'light' : 'dark';
+    console.log('Toggling theme from', resolvedTheme, 'to', newTheme);
+    setThemePreference(newTheme);
   };
 
   const setTheme = (newTheme) => {
-    setThemeState(newTheme);
+    setThemePreference(newTheme);
   };
 
   const value = {
-    theme,
-    isDark: theme === 'dark',
+    theme: resolvedTheme,
+    themePreference,
+    isDark: resolvedTheme === 'dark',
     toggleTheme,
     setTheme,
+    setThemePreference,
   };
 
   return (

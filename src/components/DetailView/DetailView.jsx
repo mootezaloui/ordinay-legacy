@@ -170,10 +170,20 @@ export default function DetailView({ entityType }) {
 
     if (!validationResult.allowed) {
       // Show blocker message with proper toast
-      showToast(validationResult.blockers[0] || "Cette modification n'est pas autorisée", "error", {
+      let blockerMsg = "Cette modification n'est pas autorisée";
+      if (validationResult.blockers && validationResult.blockers.length > 0) {
+        const firstBlocker = validationResult.blockers[0];
+        if (typeof firstBlocker === 'object' && firstBlocker !== null) {
+          blockerMsg = firstBlocker.reason || blockerMsg;
+        } else if (typeof firstBlocker === 'string') {
+          blockerMsg = firstBlocker;
+        }
+      }
+      showToast(blockerMsg, "error", {
         title: "Modification bloquée",
         context: entityType,
       });
+      // Do not proceed with update or show success toast
       return;
     }
 

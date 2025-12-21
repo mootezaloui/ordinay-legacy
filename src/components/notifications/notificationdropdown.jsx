@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useNotifications } from "../../contexts/NotificationContext";
 import { useConfirm } from "../../contexts/ConfirmContext";
+import { useSettings } from "../../contexts/SettingsContext";
 
 /**
  * NotificationDropdown (Enhanced with Context)
@@ -10,6 +11,7 @@ import { useConfirm } from "../../contexts/ConfirmContext";
 export default function NotificationDropdown({ isOpen, onToggle, onClose }) {
   const navigate = useNavigate();
   const { confirm } = useConfirm();
+  const { formatDate } = useSettings();
   const {
     notifications,
     unreadCount,
@@ -30,12 +32,10 @@ export default function NotificationDropdown({ isOpen, onToggle, onClose }) {
   };
 
   const handleNotificationClick = (notification) => {
-    // Mark as read
     if (!notification.read) {
       markAsRead(notification.id);
     }
 
-    // Navigate if has link
     if (notification.link) {
       onClose();
       navigate(notification.link);
@@ -78,7 +78,7 @@ export default function NotificationDropdown({ isOpen, onToggle, onClose }) {
     if (diffMins < 60) return `Il y a ${diffMins} min`;
     if (diffHours < 24) return `Il y a ${diffHours}h`;
     if (diffDays < 7) return `Il y a ${diffDays}j`;
-    return date.toLocaleDateString('fr-FR', { month: 'short', day: 'numeric' });
+    return formatDate(date);
   };
 
   const getPriorityColor = (priority) => {
@@ -100,7 +100,6 @@ export default function NotificationDropdown({ isOpen, onToggle, onClose }) {
 
   return (
     <div className="relative" ref={dropdownRef}>
-      {/* Notification Bell */}
       <button
         onClick={toggleDropdown}
         className={`relative p-3 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200 ${isOpen ? "bg-slate-100 dark:bg-slate-800" : ""
@@ -125,7 +124,6 @@ export default function NotificationDropdown({ isOpen, onToggle, onClose }) {
           />
         </svg>
 
-        {/* Badge with animation */}
         {unreadCount > 0 && (
           <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[20px] h-5 px-1.5 bg-red-500 text-white text-xs font-bold rounded-full shadow-lg animate-pulse">
             {unreadCount > 99 ? "99+" : unreadCount}
@@ -133,16 +131,14 @@ export default function NotificationDropdown({ isOpen, onToggle, onClose }) {
         )}
       </button>
 
-      {/* Dropdown */}
       {isOpen && (
         <div className="absolute right-0 mt-3 w-96 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 overflow-hidden z-50">
-          {/* Header */}
           <div className="px-6 py-4 bg-gradient-to-r from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold text-white">Notifications</h3>
               <div className="flex items-center gap-2">
                 <span className="text-sm text-blue-100 dark:text-blue-200">
-                  {unreadCount} non lue{unreadCount > 1 ? 's' : ''}
+                  {unreadCount} non lue{unreadCount > 1 ? "s" : ""}
                 </span>
                 {unreadCount > 0 && (
                   <button
@@ -160,26 +156,23 @@ export default function NotificationDropdown({ isOpen, onToggle, onClose }) {
             </div>
           </div>
 
-          {/* Notification List */}
           {recentNotifications.length > 0 ? (
             <div className="max-h-[400px] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-700">
               {recentNotifications.map((notification) => (
                 <div
                   key={notification.id}
                   onClick={() => handleNotificationClick(notification)}
-                  className={`group relative px-6 py-4 border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors duration-200 ${notification.link ? 'cursor-pointer' : ''
+                  className={`group relative px-6 py-4 border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors duration-200 ${notification.link ? "cursor-pointer" : ""
                     }`}
                 >
                   <div className="flex items-start gap-4">
-                    {/* Icon with priority color */}
                     <div className={`flex-shrink-0 ${getPriorityColor(notification.priority)}`}>
-                      <i className={`${notification.icon || 'fas fa-bell'} text-xl`}></i>
+                      <i className={`${notification.icon || "fas fa-bell"} text-xl`}></i>
                     </div>
 
-                    {/* Content */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2">
-                        <p className={`font-semibold text-slate-900 dark:text-slate-100 ${!notification.read ? '' : 'opacity-75'
+                        <p className={`font-semibold text-slate-900 dark:text-slate-100 ${!notification.read ? "" : "opacity-75"
                           }`}>
                           {notification.title}
                         </p>
@@ -187,7 +180,7 @@ export default function NotificationDropdown({ isOpen, onToggle, onClose }) {
                           <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 mt-2"></div>
                         )}
                       </div>
-                      <p className={`text-sm text-slate-600 dark:text-slate-300 mt-1 ${!notification.read ? '' : 'opacity-75'
+                      <p className={`text-sm text-slate-600 dark:text-slate-300 mt-1 ${!notification.read ? "" : "opacity-75"
                         }`}>
                         {notification.message}
                       </p>
@@ -196,7 +189,6 @@ export default function NotificationDropdown({ isOpen, onToggle, onClose }) {
                       </span>
                     </div>
 
-                    {/* Actions */}
                     <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
                         onClick={(e) => {
@@ -227,7 +219,6 @@ export default function NotificationDropdown({ isOpen, onToggle, onClose }) {
             </div>
           )}
 
-          {/* Footer */}
           <div className="grid grid-cols-2 divide-x divide-slate-200 dark:divide-slate-700 border-t border-slate-200 dark:border-slate-700">
             <button
               onClick={viewAllNotifications}

@@ -20,6 +20,33 @@ const DEFAULT_ASSIGNEES = [
   { value: "Stagiaire", label: "Stagiaire" },
 ];
 
+// Dossier phases with lightweight creation support
+const DEFAULT_PHASES = [
+  "Ouverture",
+  "Instruction",
+  "Négociation",
+  "Plaidoirie",
+  "Jugement",
+  "Exécution",
+];
+let phaseOptions = [...DEFAULT_PHASES];
+
+export const getPhaseOptions = () =>
+  phaseOptions.map((phase) => ({ value: phase, label: phase }));
+
+export const addCustomPhase = (name) => {
+  const normalized = (name || "").trim();
+  if (!normalized) {
+    throw new Error("Le nom de phase ne peut pas être vide");
+  }
+  const exists = phaseOptions.some(
+    (phase) => phase.toLowerCase() === normalized.toLowerCase()
+  );
+  if (!exists) {
+    phaseOptions = [...phaseOptions, normalized];
+  }
+};
+
 // ========================================
 // CLIENT FORM (No changes - clients are top level)
 // ========================================
@@ -178,6 +205,19 @@ export const dossierFormFields = [
     defaultValue: "Moyenne",
   },
   {
+    name: "phase",
+    label: "Phase",
+    type: "searchable-select",
+    required: true,
+    defaultValue: "Instruction",
+    getOptions: () => getPhaseOptions(),
+    allowCreate: true,
+    onCreateOption: async (name) => {
+      addCustomPhase(name);
+      return true;
+    },
+  },
+  {
     name: "status",
     label: "Statut",
     type: "inline-status",
@@ -233,14 +273,6 @@ export const dossierFormFields = [
     type: "text",
     placeholder: "Ex: TPI-2024-1234",
     required: false,
-  },
-  {
-    name: "assignedLawyer",
-    label: "Avocat assigné",
-    type: "text",
-    placeholder: "Me. Nom de l'avocat",
-    required: false,
-    defaultValue: "Me. Mohamed Hammami",
   },
   {
     name: "nextDeadline",

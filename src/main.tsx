@@ -9,26 +9,29 @@ import { DataProvider } from "./contexts/DataContext";
 import "@fortawesome/fontawesome-free/css/all.min.css";
 import { NotificationProvider } from "./contexts/NotificationContext";
 import AlertBanner from "./components/notifications/AlertBanner";
+import { SettingsProvider } from "./contexts/SettingsContext";
 import "./index.css";
 import App from "./App";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <ThemeProvider>
-      <DataProvider>
-        <NotificationProvider>
-          <AlertBanner />
-          <SidebarProvider>
-            <ToastProvider>
-              <ConfirmProvider>
-                <BrowserRouter>
-                  <App />
-                </BrowserRouter>
-              </ConfirmProvider>
-            </ToastProvider>
-          </SidebarProvider>
-        </NotificationProvider>
-      </DataProvider>
-    </ThemeProvider>
+    <SettingsProvider>
+      <ThemeProvider>
+        <DataProvider>
+          <NotificationProvider>
+            <AlertBanner />
+            <SidebarProvider>
+              <ToastProvider>
+                <ConfirmProvider>
+                  <BrowserRouter>
+                    <App />
+                  </BrowserRouter>
+                </ConfirmProvider>
+              </ToastProvider>
+            </SidebarProvider>
+          </NotificationProvider>
+        </DataProvider>
+      </ThemeProvider>
+    </SettingsProvider>
   </StrictMode>
 );

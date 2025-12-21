@@ -35,7 +35,12 @@ import InlineStatusSelector from "../components/InlineSelectors/InlineStatusSele
 import BlockerModal from "../components/ui/BlockerModal";
 import { canPerformAction } from "../services/domainRules";
 import { resolveDetailRoute } from "../utils/routeResolver";
-import { logEntityCreation } from "../services/historyService";
+import {
+  logEntityCreation,
+  logHistoryEvent,
+  logStatusChange,
+  EVENT_TYPES,
+} from "../services/historyService";
 
 export default function Accounting() {
   const navigate = useNavigate();
@@ -149,7 +154,9 @@ export default function Accounting() {
       return;
     }
 
+    const oldStatus = entry?.status;
     updateFinancialEntry(id, { status: newStatus });
+    logStatusChange("financialEntry", id, oldStatus, newStatus);
     setRefreshKey((k) => k + 1); // Trigger re-render
   };
 
@@ -328,8 +335,25 @@ export default function Accounting() {
 
       if (editingEntry) {
         // Update existing entry
+        const previous = editingEntry;
         updateFinancialEntry(editingEntry.id, formData);
         showToast("Écriture modifiée avec succès!", "success");
+
+        const changedFields = Object.entries(formData || {}).reduce((acc, [key, value]) => {
+          if (previous[key] !== value) {
+            acc[key] = `${previous[key] ?? ""} -> ${value ?? ""}`;
+          }
+          return acc;
+        }, {});
+        if (Object.keys(changedFields).length > 0) {
+          logHistoryEvent({
+            entityType: "financialEntry",
+            entityId: editingEntry.id,
+            eventType: EVENT_TYPES.SYSTEM,
+            label: "Mise à jour",
+            metadata: changedFields,
+          });
+        }
       } else {
         // Add new entry
         // Resolve relationship names
@@ -353,6 +377,50 @@ export default function Accounting() {
 
         // ✅ Log creation event using the returned entry's ID
         logEntityCreation('financialEntry', newEntry.id, `${newEntry.type} - ${formatCurrency(newEntry.amount)}`);
+
+        // ✅ Log relation on linked entities
+        if (newEntry.clientId) {
+          logHistoryEvent({
+            entityType: "client",
+            entityId: newEntry.clientId,
+            eventType: EVENT_TYPES.FINANCE,
+            label: "Écriture comptable ajoutée",
+            details: newEntry.description,
+            metadata: {
+              amount: formatCurrency(newEntry.amount),
+              relatedType: "financialEntry",
+              relatedId: newEntry.id,
+            },
+          });
+        }
+        if (newEntry.dossierId) {
+          logHistoryEvent({
+            entityType: "dossier",
+            entityId: newEntry.dossierId,
+            eventType: EVENT_TYPES.FINANCE,
+            label: "Écriture comptable ajoutée",
+            details: newEntry.description,
+            metadata: {
+              amount: formatCurrency(newEntry.amount),
+              relatedType: "financialEntry",
+              relatedId: newEntry.id,
+            },
+          });
+        }
+        if (newEntry.caseId) {
+          logHistoryEvent({
+            entityType: "case",
+            entityId: newEntry.caseId,
+            eventType: EVENT_TYPES.FINANCE,
+            label: "Écriture comptable ajoutée",
+            details: newEntry.description,
+            metadata: {
+              amount: formatCurrency(newEntry.amount),
+              relatedType: "financialEntry",
+              relatedId: newEntry.id,
+            },
+          });
+        }
 
         // ✅ Navigate to detail view after creation using the returned entry's ID
         const detailRoute = resolveDetailRoute('financialEntry', newEntry.id);

@@ -33,6 +33,7 @@ import {
   getAllMissions,
 } from "../utils/mockData";
 import { financialLedger } from "../utils/financialData";
+import { formatDateValue } from "../utils/dateFormat";
 
 // ========================================
 // CORE DATE UTILITIES
@@ -130,11 +131,7 @@ function formatDate(dateInput) {
   const date = parseDate(dateInput);
   if (!date) return "date invalide";
 
-  return date.toLocaleDateString("fr-FR", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
+  return formatDateValue(date);
 }
 
 // ========================================

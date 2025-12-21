@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import { useSettings } from "../../contexts/SettingsContext";
 
 /**
  * UpcomingEvents Component
@@ -6,6 +7,7 @@ import { useNavigate } from "react-router-dom";
  */
 export default function UpcomingEvents({ events, maxItems = 5 }) {
   const navigate = useNavigate();
+  const { formatDate, formatDateTime } = useSettings();
 
   const getEventColor = (type) => {
     const colors = {
@@ -29,17 +31,7 @@ export default function UpcomingEvents({ events, maxItems = 5 }) {
     if (diffHours < 1) return "Bientôt";
     if (diffHours < 24) return `Dans ${diffHours}h`;
     if (diffDays < 7) return `Dans ${diffDays}j`;
-    return eventDate.toLocaleDateString('fr-FR', { month: 'short', day: 'numeric' });
-  };
-
-  const formatDateTime = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleString('fr-FR', { 
-      month: 'short', 
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    return formatDate(eventDate);
   };
 
   const displayedEvents = events.slice(0, maxItems);
@@ -49,14 +41,14 @@ export default function UpcomingEvents({ events, maxItems = 5 }) {
       {displayedEvents.map((event) => {
         const colors = getEventColor(event.type);
         const timeUntil = getTimeUntil(event.date);
-        const isUrgent = timeUntil.includes('h') || timeUntil === 'Bientôt';
+        const isUrgent = timeUntil.includes("h") || timeUntil === "Bientôt";
 
         return (
           <div
             key={event.id}
             onClick={() => event.link && navigate(event.link)}
             className={`flex items-center justify-between p-4 ${colors.bg} rounded-lg ${
-              event.link ? 'cursor-pointer hover:shadow-md' : ''
+              event.link ? "cursor-pointer hover:shadow-md" : ""
             } transition-all`}
           >
             <div className="flex-1 min-w-0">
@@ -78,10 +70,12 @@ export default function UpcomingEvents({ events, maxItems = 5 }) {
                 </div>
               )}
             </div>
-            
-            <span className={`px-3 py-1 text-xs font-medium ${colors.badge} rounded-full whitespace-nowrap ml-3 ${
-              isUrgent ? 'animate-pulse' : ''
-            }`}>
+
+            <span
+              className={`px-3 py-1 text-xs font-medium ${colors.badge} rounded-full whitespace-nowrap ml-3 ${
+                isUrgent ? "animate-pulse" : ""
+              }`}
+            >
               {timeUntil}
             </span>
           </div>

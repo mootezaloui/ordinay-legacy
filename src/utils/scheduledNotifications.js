@@ -269,15 +269,49 @@ export const notificationFrequencySettings = {
  * Get user notification preferences
  * In production, this would be fetched from user settings
  */
-export function getNotificationPreferences(userId = 'default') {
-  return notificationFrequencySettings;
+const NOTIFICATION_PREF_KEY = "organia_notification_prefs";
+
+const mergePreferences = (base, override) => {
+  if (!override) return base;
+  const merged = { ...base };
+  Object.keys(override).forEach((key) => {
+    const nextVal = override[key];
+    if (nextVal && typeof nextVal === "object" && !Array.isArray(nextVal)) {
+      merged[key] = { ...(base[key] || {}), ...nextVal };
+    } else {
+      merged[key] = nextVal;
+    }
+  });
+  return merged;
+};
+
+export function getNotificationPreferences(userId = "default") {
+  // userId is unused in the mock implementation
+  if (typeof window === "undefined") return notificationFrequencySettings;
+
+  try {
+    const raw = window.localStorage.getItem(NOTIFICATION_PREF_KEY);
+    if (!raw) return notificationFrequencySettings;
+    const parsed = JSON.parse(raw);
+    return mergePreferences(notificationFrequencySettings, parsed);
+  } catch (error) {
+    console.warn("[scheduledNotifications] Failed to load preferences", error);
+    return notificationFrequencySettings;
+  }
 }
 
 /**
  * Update notification preferences
  */
 export function updateNotificationPreferences(userId, preferences) {
-  // In production, this would update the database
-  console.log(`Updated notification preferences for user ${userId}`, preferences);
-  return { ...notificationFrequencySettings, ...preferences };
+  // userId is unused in the mock implementation
+  const merged = mergePreferences(notificationFrequencySettings, preferences);
+  try {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(NOTIFICATION_PREF_KEY, JSON.stringify(merged));
+    }
+  } catch (error) {
+    console.warn("[scheduledNotifications] Failed to persist preferences", error);
+  }
+  return merged;
 }

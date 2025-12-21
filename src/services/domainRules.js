@@ -1598,11 +1598,17 @@ function validateFinancialEntryAdd(entryId, context = {}) {
  * - Cannot edit if related Procès is Clos
  * - Cannot edit if entry is already Paid/Validated
  */
+
+const normalizeFinancialEntryId = (entryId) => {
+  const parsed = parseInt(entryId, 10);
+  return Number.isNaN(parsed) ? entryId : parsed;
+};
+
 function validateFinancialEntryEdit(entryId, context = {}) {
   const blockers = [];
   const warnings = [];
 
-  const entry = financialLedger.find((e) => e.id === entryId);
+  const entry = financialLedger.find((e) => e.id === normalizeFinancialEntryId(entryId));
   if (!entry) {
     return {
       allowed: false,
@@ -1655,7 +1661,7 @@ function validateFinancialEntryDelete(entryId, context = {}) {
   const blockers = [];
   const warnings = [];
 
-  const entry = financialLedger.find((e) => e.id === entryId);
+  const entry = financialLedger.find((e) => e.id === normalizeFinancialEntryId(entryId));
   if (!entry) {
     return {
       allowed: false,
@@ -1693,7 +1699,7 @@ function validateFinancialEntryStatusChange(entryId, context = {}) {
   const blockers = [];
   const warnings = [];
 
-  const entry = financialLedger.find((e) => e.id === entryId);
+  const entry = financialLedger.find((e) => e.id === normalizeFinancialEntryId(entryId));
   if (!entry) {
     return {
       allowed: false,

@@ -12,9 +12,31 @@
  * - system: confirmations de règles, blocages résolus
  */
 
-// In-memory storage (will persist per session)
+// In-memory storage with localStorage persistence
 // Structure: { entityType: { entityId: [events...] } }
-const historyStore = {};
+const HISTORY_STORAGE_KEY = "lawyer-app:history";
+
+const loadHistoryStore = () => {
+  if (typeof window === "undefined") return {};
+  try {
+    const stored = window.localStorage.getItem(HISTORY_STORAGE_KEY);
+    return stored ? JSON.parse(stored) : {};
+  } catch (error) {
+    console.warn("[historyService] Failed to load history from storage", error);
+    return {};
+  }
+};
+
+const persistHistoryStore = (store) => {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(store));
+  } catch (error) {
+    console.warn("[historyService] Failed to persist history to storage", error);
+  }
+};
+
+const historyStore = loadHistoryStore();
 
 /**
  * Event type constants
@@ -88,6 +110,7 @@ export const logHistoryEvent = ({
   };
 
   historyStore[entityType][entityId].push(historyEntry);
+  persistHistoryStore(historyStore);
 
   return historyEntry;
 };
@@ -117,6 +140,7 @@ export const getEntityHistory = (entityType, entityId) => {
 export const clearEntityHistory = (entityType, entityId) => {
   if (historyStore[entityType] && historyStore[entityType][entityId]) {
     historyStore[entityType][entityId] = [];
+    persistHistoryStore(historyStore);
   }
 };
 

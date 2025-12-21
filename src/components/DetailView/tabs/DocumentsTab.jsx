@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useToast } from "../../../contexts/ToastContext";
 import { useConfirm } from "../../../contexts/ConfirmContext";
+import { useSettings } from "../../../contexts/SettingsContext";
 import ContentSection from "../../layout/ContentSection";
 import documentService from "../../../services/documentService.js";
 
@@ -12,6 +13,7 @@ import documentService from "../../../services/documentService.js";
 export default function DocumentsTab({ data, config, onDocumentsChange }) {
   const { showToast } = useToast();
   const { confirm } = useConfirm();
+  const { formatDate } = useSettings();
 
   // Entity information for linking
   const entityType = config.entityType || 'unknown';
@@ -382,7 +384,7 @@ export default function DocumentsTab({ data, config, onDocumentsChange }) {
                         {doc.size}
                       </span>
                       <span className="text-xs text-slate-500 dark:text-slate-400">
-                        {new Date(doc.uploadDate).toLocaleDateString()}
+                        {formatDate(doc.uploadDate)}
                       </span>
                     </div>
                     {doc.category && (

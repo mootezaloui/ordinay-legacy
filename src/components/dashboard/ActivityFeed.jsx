@@ -1,8 +1,12 @@
+import { useSettings } from "../../contexts/SettingsContext";
+
 /**
  * ActivityFeed Component
  * Displays recent activities with icons, timestamps, and user info
  */
 export default function ActivityFeed({ activities, maxItems = 5 }) {
+  const { formatDate } = useSettings();
+
   const getActivityIcon = (type) => {
     const icons = {
       client: { icon: "fas fa-user-plus", color: "blue" },
@@ -30,7 +34,7 @@ export default function ActivityFeed({ activities, maxItems = 5 }) {
     if (diffMins < 60) return `Il y a ${diffMins} min`;
     if (diffHours < 24) return `Il y a ${diffHours}h`;
     if (diffDays < 7) return `Il y a ${diffDays}j`;
-    return date.toLocaleDateString('fr-FR', { month: 'short', day: 'numeric' });
+    return formatDate(date);
   };
 
   const displayedActivities = activities.slice(0, maxItems);
@@ -42,10 +46,10 @@ export default function ActivityFeed({ activities, maxItems = 5 }) {
         const isLast = index === displayedActivities.length - 1;
 
         return (
-          <div 
+          <div
             key={activity.id}
             className={`flex items-start gap-4 ${
-              !isLast ? 'pb-4 border-b border-slate-200 dark:border-slate-700' : ''
+              !isLast ? "pb-4 border-b border-slate-200 dark:border-slate-700" : ""
             }`}
           >
             {/* Icon */}
@@ -69,7 +73,7 @@ export default function ActivityFeed({ activities, maxItems = 5 }) {
                 </p>
                 {activity.user && (
                   <>
-                    <span className="text-xs text-slate-400">•</span>
+                    <span className="text-xs text-slate-400">·</span>
                     <p className="text-xs text-slate-500 dark:text-slate-400">
                       {activity.user}
                     </p>

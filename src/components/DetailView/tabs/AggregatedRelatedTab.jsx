@@ -6,6 +6,7 @@ import { useData } from "../../../contexts/DataContext";
 import ContentSection from "../../layout/ContentSection";
 import FormModal from "../../FormModal/FormModal";
 import { getStatusColor } from "../../../utils/mockData";
+import { logEntityCreation, logHistoryEvent, EVENT_TYPES } from "../../../services/historyService";
 
 /**
  * AggregatedRelatedTab - Generic tab for displaying aggregated related entities
@@ -132,6 +133,33 @@ export default function AggregatedRelatedTab({
     return Number.isNaN(n) ? null : n;
   };
 
+  const getCreatedLabel = () => {
+    switch (tabConfig?.aggregationType) {
+      case "dossiers":
+        return "Dossier créé";
+      case "cases":
+        return "Procès créé";
+      case "sessions":
+        return "Séance créée";
+      case "tasks":
+        return "Tâche créée";
+      default:
+        return "Élément créé";
+    }
+  };
+
+  const getItemTitle = (item) => {
+    if (!item) return "";
+    return (
+      item.caseNumber ||
+      item.title ||
+      item.name ||
+      item.description ||
+      tabConfig?.entityName ||
+      "ElAment"
+    );
+  };
+
   const handleAddItem = async (formData) => {
     setIsLoading(true);
 
@@ -212,6 +240,22 @@ export default function AggregatedRelatedTab({
           break;
         default:
           break;
+      }
+
+      // Log history for the created entity and its parent
+      logEntityCreation(referenceEntityType, newItem.id, getItemTitle(newItem));
+      if (data?.id && config?.entityType) {
+        logHistoryEvent({
+          entityType: config.entityType,
+          entityId: data.id,
+          eventType: EVENT_TYPES.RELATION,
+          label: getCreatedLabel(),
+          details: getItemTitle(newItem),
+          metadata: {
+            relatedType: referenceEntityType,
+            relatedId: newItem.id,
+          },
+        });
       }
 
       // Add to local state

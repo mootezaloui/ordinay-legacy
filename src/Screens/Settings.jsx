@@ -1,37 +1,27 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useToast } from "../contexts/ToastContext";
-import { getNotificationPreferences, updateNotificationPreferences } from "../utils/scheduledNotifications";
+import { useSettings } from "../contexts/SettingsContext";
+import { useTheme } from "../contexts/ThemeProvider";
+import { updateNotificationPreferences } from "../utils/scheduledNotifications";
 import PageLayout from "../components/layout/PageLayout";
 import PageHeader from "../components/layout/PageHeader";
 import ContentSection from "../components/layout/ContentSection";
 
 export default function Settings() {
   const { showToast } = useToast();
-  const [settings, setSettings] = useState({
-    // General Settings
-    language: "fr",
-    timezone: "Africa/Tunis",
-    dateFormat: "DD/MM/YYYY",
+  const { settings: savedSettings, notificationPrefs: savedNotificationPrefs, updateSettings, updateNotificationPrefs } = useSettings();
+  const { setThemePreference } = useTheme();
 
-    // Notification Settings
-    emailNotifications: true,
-    smsNotifications: false,
-    pushNotifications: true,
-    notifyNewClient: true,
-    notifyNewCase: true,
-    notifyDeadlines: true,
+  const [settings, setSettings] = useState(savedSettings);
+  const [notificationPrefs, setNotificationPrefs] = useState(savedNotificationPrefs);
 
-    // Security Settings
-    twoFactorAuth: false,
-    sessionTimeout: "30",
+  useEffect(() => {
+    setSettings(savedSettings);
+  }, [savedSettings]);
 
-    // Appearance
-    theme: "system",
-    compactMode: false,
-  });
-
-  // Load notification preferences
-  const [notificationPrefs, setNotificationPrefs] = useState(getNotificationPreferences());
+  useEffect(() => {
+    setNotificationPrefs(savedNotificationPrefs);
+  }, [savedNotificationPrefs]);
 
   const handleChange = (field, value) => {
     setSettings(prev => ({ ...prev, [field]: value }));
@@ -47,14 +37,16 @@ export default function Settings() {
     }));
   };
 
+  const handleCancel = () => {
+    setSettings(savedSettings);
+    setNotificationPrefs(savedNotificationPrefs);
+  };
+
   const handleSave = () => {
-    console.log("Settings saved:", settings);
-    console.log("Notification preferences saved:", notificationPrefs);
-
-    // Save notification preferences
-    updateNotificationPreferences('default', notificationPrefs);
-
-    // TODO: API call to save settings
+    updateSettings(settings);
+    updateNotificationPrefs(notificationPrefs);
+    updateNotificationPreferences("default", notificationPrefs);
+    setThemePreference(settings.theme);
     showToast("Paramètres enregistrés avec succès!", "success");
   };
 
@@ -68,7 +60,7 @@ export default function Settings() {
 
       <div className="space-y-6">
         {/* General Settings */}
-        <ContentSection title="Paramètres Généraux">
+        <ContentSection title="Paramètres généraux">
           <div className="p-6 space-y-6">
             {/* Language */}
             <div className="flex items-center justify-between">
@@ -86,29 +78,8 @@ export default function Settings() {
                 className="px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="fr">Français</option>
-                <option value="ar">العربية</option>
+                <option value="ar">Arabe</option>
                 <option value="en">English</option>
-              </select>
-            </div>
-
-            {/* Timezone */}
-            <div className="flex items-center justify-between">
-              <div>
-                <label className="text-sm font-medium text-slate-900 dark:text-white">
-                  Fuseau horaire
-                </label>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                  Votre fuseau horaire local
-                </p>
-              </div>
-              <select
-                value={settings.timezone}
-                onChange={(e) => handleChange("timezone", e.target.value)}
-                className="px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="Africa/Tunis">Tunis (GMT+1)</option>
-                <option value="Europe/Paris">Paris (GMT+1)</option>
-                <option value="Africa/Cairo">Cairo (GMT+2)</option>
               </select>
             </div>
 
@@ -159,7 +130,6 @@ export default function Settings() {
                 />
               </button>
             </div>
-
 
             {/* Push Notifications */}
             <div className="flex items-center justify-between py-3 border-b border-slate-200 dark:border-slate-700">
@@ -280,7 +250,7 @@ export default function Settings() {
                     <span className="text-slate-700 dark:text-slate-300">Rappels pour tâches en retard</span>
                   </label>
                   <p className="text-slate-500 dark:text-slate-400 ml-5">
-                    Rappels avant échéance: {notificationPrefs.tasks.beforeDeadline.join(', ')} jours
+                    Rappels avant échéance: {notificationPrefs.tasks.beforeDeadline.join(", ")} jours
                   </p>
                 </div>
               )}
@@ -321,7 +291,7 @@ export default function Settings() {
                     <span className="text-slate-700 dark:text-slate-300">Rappel le jour même</span>
                   </label>
                   <p className="text-slate-500 dark:text-slate-400 ml-5">
-                    Rappels: {notificationPrefs.sessions.reminderDays.join(', ')} jours avant
+                    Rappels: {notificationPrefs.sessions.reminderDays.join(", ")} jours avant
                   </p>
                 </div>
               )}
@@ -353,10 +323,10 @@ export default function Settings() {
                     <span className="text-slate-700 dark:text-slate-300">Relances pour paiements en retard</span>
                   </label>
                   <p className="text-slate-500 dark:text-slate-400 ml-5">
-                    Rappels avant: {notificationPrefs.payments.reminderDays.join(', ')} jours
+                    Rappels avant: {notificationPrefs.payments.reminderDays.join(", ")} jours
                   </p>
                   <p className="text-slate-500 dark:text-slate-400 ml-5">
-                    Relances après retard: {notificationPrefs.payments.overdueReminderFrequency.join(', ')} jours
+                    Relances après retard: {notificationPrefs.payments.overdueReminderFrequency.join(", ")} jours
                   </p>
                 </div>
               )}
@@ -388,7 +358,7 @@ export default function Settings() {
                     <span className="text-slate-700 dark:text-slate-300">Vérification après mission terminée</span>
                   </label>
                   <p className="text-slate-500 dark:text-slate-400 ml-5">
-                    Rappels: {notificationPrefs.missions.reminderDays.join(', ')} jours avant
+                    Rappels: {notificationPrefs.missions.reminderDays.join(", ")} jours avant
                   </p>
                 </div>
               )}
@@ -519,7 +489,10 @@ export default function Settings() {
 
         {/* Save Button */}
         <div className="flex items-center justify-end gap-4">
-          <button className="px-6 py-2.5 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-lg font-medium transition-colors duration-200">
+          <button
+            onClick={handleCancel}
+            className="px-6 py-2.5 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-lg font-medium transition-colors duration-200"
+          >
             Annuler
           </button>
           <button

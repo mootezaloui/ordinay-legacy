@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import ContentSection from "../../layout/ContentSection";
 import { mockDossiersExtended, mockClients, getStatusColor, mockCases, mockSessions, mockTasks, mockOfficers } from "../../../utils/mockData";
-import { taskFormFields, caseFormFields, sessionFormFields, missionFormFields } from "../../FormModal/formConfigs";
+import { taskFormFields, caseFormFields, sessionFormFields, missionFormFields, getPhaseOptions, addCustomPhase } from "../../FormModal/formConfigs";
 
 /**
  * Dossier Entity Configuration - UPDATED with Quick Actions
@@ -195,29 +195,16 @@ export const dossierConfig = {
       ]
     },
     {
-      key: "assignedLawyer",
-      label: "Avocat assigné",
-      icon: "fas fa-user-tie",
-      colorMap: false,
-      options: [
-        { value: "Me. Hammami", label: "Me. Hammami" },
-        { value: "Me. Ben Ali", label: "Me. Ben Ali" },
-        { value: "Me. Trabelsi", label: "Me. Trabelsi" },
-      ]
-    },
-    {
       key: "phase",
       label: "Phase",
       icon: "fas fa-stream",
       colorMap: false,
-      options: [
-        { value: "Ouverture", label: "Ouverture" },
-        { value: "Instruction", label: "Instruction" },
-        { value: "Négociation", label: "Négociation" },
-        { value: "Plaidoirie", label: "Plaidoirie" },
-        { value: "Jugement", label: "Jugement" },
-        { value: "Exécution", label: "Exécution" },
-      ]
+      getOptions: () => getPhaseOptions(),
+      allowCreate: true,
+      createLabel: "Ajouter une phase",
+      onCreateOption: async (name) => {
+        addCustomPhase(name);
+      }
     }
   ],
 
@@ -264,7 +251,7 @@ export const dossierConfig = {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <InfoCard icon="fas fa-calendar" label="Date d'ouverture" value={data.openDate} color="blue" />
             <InfoCard icon="fas fa-layer-group" label="Catégorie" value={data.category} color="purple" />
-            <InfoCard icon="fas fa-user-tie" label="Avocat assigné" value={data.assignedLawyer} color="green" />
+            <InfoCard icon="fas fa-stream" label="Phase" value={data.phase || "Non définie"} color="green" />
             <InfoCard icon="fas fa-clock" label="Prochaine échéance" value={data.nextDeadline} color="amber" />
           </div>
         </div>
@@ -625,6 +612,22 @@ export const dossierConfig = {
             { value: "Administratif", label: "Droit Administratif" },
             { value: "Fiscal", label: "Droit Fiscal" },
             { value: "Autre", label: "Autre" },
+          ]
+        },
+        {
+          key: "phase",
+          label: "Phase",
+          value: (data) => data.phase,
+          icon: "fas fa-stream",
+          type: "select",
+          editable: true,
+          options: [
+            { value: "Ouverture", label: "Ouverture" },
+            { value: "Instruction", label: "Instruction" },
+            { value: "NAcgociation", label: "NAcgociation" },
+            { value: "Plaidoirie", label: "Plaidoirie" },
+            { value: "Jugement", label: "Jugement" },
+            { value: "ExAccution", label: "ExAccution" },
           ]
         },
         {

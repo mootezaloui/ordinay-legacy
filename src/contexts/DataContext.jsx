@@ -20,6 +20,7 @@ import {
   syncSessionToExtended,
   syncTaskToExtended,
 } from "../utils/mockData";
+import { logHistoryEvent, EVENT_TYPES } from "../services/historyService";
 
 const DataContext = createContext(null);
 const STORAGE_PREFIX = "lawyer-app:data:";
@@ -49,6 +50,96 @@ const syncArrayRef = (targetArray, nextValue) => {
   targetArray.splice(0, targetArray.length, ...nextValue);
 };
 
+const rebuildClientsExtended = (clients, dossiers, cases) => {
+  // Drop stale entries
+  Object.keys(mockClientsExtended).forEach((id) => {
+    if (!clients.find((c) => c.id === Number(id))) {
+      delete mockClientsExtended[id];
+    }
+  });
+
+  clients.forEach((client) => {
+    const relatedDossiers = dossiers.filter((d) => d.clientId === client.id);
+    const relatedCases = cases.filter((c) =>
+      relatedDossiers.some((d) => d.id === c.dossierId)
+    );
+    mockClientsExtended[client.id] = {
+      ...client,
+      relatedDossiers,
+      relatedCases,
+      invoices: mockClientsExtended[client.id]?.invoices || [],
+      documents: mockClientsExtended[client.id]?.documents || [],
+      timeline: mockClientsExtended[client.id]?.timeline || [],
+    };
+  });
+};
+
+const rebuildDossiersExtended = (dossiers, cases, tasks, sessions) => {
+  Object.keys(mockDossiersExtended).forEach((id) => {
+    if (!dossiers.find((d) => d.id === Number(id))) {
+      delete mockDossiersExtended[id];
+    }
+  });
+
+  dossiers.forEach((dossier) => {
+    mockDossiersExtended[dossier.id] = {
+      ...dossier,
+      proceedings: cases.filter((c) => c.dossierId === dossier.id),
+      tasks: tasks.filter(
+        (t) =>
+          t.dossierId === dossier.id ||
+          (t.caseId && cases.find((c) => c.id === t.caseId)?.dossierId === dossier.id)
+      ),
+      sessions: sessions.filter(
+        (s) =>
+          s.dossierId === dossier.id ||
+          cases.find((c) => c.id === s.caseId)?.dossierId === dossier.id
+      ),
+      documents: mockDossiersExtended[dossier.id]?.documents || [],
+      timeline: mockDossiersExtended[dossier.id]?.timeline || [],
+    };
+  });
+};
+
+const rebuildCasesExtended = (cases, tasks, sessions) => {
+  Object.keys(mockCasesExtended).forEach((id) => {
+    if (!cases.find((c) => c.id === Number(id))) {
+      delete mockCasesExtended[id];
+    }
+  });
+
+  cases.forEach((caseItem) => {
+    mockCasesExtended[caseItem.id] = {
+      ...caseItem,
+      tasks: tasks.filter((t) => t.caseId === caseItem.id),
+      sessions: sessions.filter((s) => s.caseId === caseItem.id),
+      documents: mockCasesExtended[caseItem.id]?.documents || [],
+      timeline: mockCasesExtended[caseItem.id]?.timeline || [],
+    };
+  });
+};
+
+const logUpdateHistory = (entityType, prevEntity, updates) => {
+  if (!prevEntity) return;
+
+  const changedFields = Object.entries(updates || {}).reduce((acc, [key, value]) => {
+    const oldVal = prevEntity[key];
+    if (oldVal === value) return acc;
+    acc[key] = `${oldVal ?? ""} -> ${value ?? ""}`;
+    return acc;
+  }, {});
+
+  if (Object.keys(changedFields).length === 0) return;
+
+  logHistoryEvent({
+    entityType,
+    entityId: prevEntity.id,
+    eventType: EVENT_TYPES.SYSTEM,
+    label: "Mise a jour",
+    metadata: changedFields,
+  });
+};
+
 export function DataProvider({ children }) {
   // Seed state from localStorage when possible, otherwise from mock data.
   const [clients, setClients] = useState(() =>
@@ -76,15 +167,18 @@ export function DataProvider({ children }) {
   // Keep mockData collections in sync with the live state (important for selectors and templates)
   useEffect(() => {
     syncArrayRef(mockClients, clients);
-  }, [clients]);
+    rebuildClientsExtended(clients, dossiers, cases);
+  }, [clients, dossiers, cases]);
 
   useEffect(() => {
     syncArrayRef(mockDossiers, dossiers);
-  }, [dossiers]);
+    rebuildDossiersExtended(dossiers, cases, tasks, sessions);
+  }, [dossiers, cases, tasks, sessions]);
 
   useEffect(() => {
     syncArrayRef(mockCases, cases);
-  }, [cases]);
+    rebuildCasesExtended(cases, tasks, sessions);
+  }, [cases, tasks, sessions]);
 
   useEffect(() => {
     syncArrayRef(mockSessions, sessions);
@@ -112,6 +206,7 @@ export function DataProvider({ children }) {
   };
 
   const updateClient = (id, updates) => {
+    const prev = clients.find((c) => c.id === id);
     setClients((prev) => {
       const next = prev.map((client) =>
         client.id === id ? { ...client, ...updates } : client
@@ -124,6 +219,7 @@ export function DataProvider({ children }) {
       }
       return next;
     });
+    logUpdateHistory("client", prev, updates);
   };
 
   const deleteClient = (id) => {
@@ -149,6 +245,7 @@ export function DataProvider({ children }) {
   };
 
   const updateDossier = (id, updates) => {
+    const prev = dossiers.find((d) => d.id === id);
     setDossiers((prev) => {
       const next = prev.map((dossier) =>
         dossier.id === id ? { ...dossier, ...updates } : dossier
@@ -161,6 +258,7 @@ export function DataProvider({ children }) {
       }
       return next;
     });
+    logUpdateHistory("dossier", prev, updates);
   };
 
   const deleteDossier = (id) => {
@@ -181,11 +279,26 @@ export function DataProvider({ children }) {
       saveToStorage("cases", next);
       syncArrayRef(mockCases, next);
       syncCaseToExtended(caseItem);
+      // Log relation on parent dossier so its history shows the new Procès
+      if (caseItem.dossierId) {
+        logHistoryEvent({
+          entityType: "dossier",
+          entityId: caseItem.dossierId,
+          eventType: EVENT_TYPES.RELATION,
+          label: "Procès créé",
+          details: caseItem.caseNumber || caseItem.title || "Procès",
+          metadata: {
+            relatedType: "case",
+            relatedId: caseItem.id,
+          },
+        });
+      }
       return next;
     });
   };
 
   const updateCase = (id, updates) => {
+    const prev = cases.find((c) => c.id === id);
     setCases((prev) => {
       const next = prev.map((caseItem) =>
         caseItem.id === id ? { ...caseItem, ...updates } : caseItem
@@ -198,6 +311,7 @@ export function DataProvider({ children }) {
       }
       return next;
     });
+    logUpdateHistory("case", prev, updates);
   };
 
   const deleteCase = (id) => {
@@ -223,6 +337,7 @@ export function DataProvider({ children }) {
   };
 
   const updateSession = (id, updates) => {
+    const prev = sessions.find((s) => s.id === id);
     setSessions((prev) => {
       const next = prev.map((session) =>
         session.id === id ? { ...session, ...updates } : session
@@ -235,6 +350,7 @@ export function DataProvider({ children }) {
       }
       return next;
     });
+    logUpdateHistory("session", prev, updates);
   };
 
   const deleteSession = (id) => {
@@ -260,6 +376,7 @@ export function DataProvider({ children }) {
   };
 
   const updateTask = (id, updates) => {
+    const prev = tasks.find((t) => t.id === id);
     setTasks((prev) => {
       const next = prev.map((task) =>
         task.id === id ? { ...task, ...updates } : task
@@ -272,6 +389,7 @@ export function DataProvider({ children }) {
       }
       return next;
     });
+    logUpdateHistory("task", prev, updates);
   };
 
   const deleteTask = (id) => {
@@ -295,6 +413,7 @@ export function DataProvider({ children }) {
   };
 
   const updatePersonalTask = (id, updates) => {
+    const prev = personalTasks.find((t) => t.id === id);
     setPersonalTasks((prev) => {
       const next = prev.map((task) =>
         task.id === id ? { ...task, ...updates } : task
@@ -302,6 +421,7 @@ export function DataProvider({ children }) {
       saveToStorage("personalTasks", next);
       return next;
     });
+    logUpdateHistory("personalTask", prev, updates);
   };
 
   const deletePersonalTask = (id) => {
@@ -324,6 +444,7 @@ export function DataProvider({ children }) {
   };
 
   const updateOfficer = (id, updates) => {
+    const prev = officers.find((o) => o.id === id);
     setOfficers((prev) => {
       const next = prev.map((officer) =>
         officer.id === id ? { ...officer, ...updates } : officer
@@ -336,6 +457,7 @@ export function DataProvider({ children }) {
       }
       return next;
     });
+    logUpdateHistory("officer", prev, updates);
   };
 
   const deleteOfficer = (id) => {

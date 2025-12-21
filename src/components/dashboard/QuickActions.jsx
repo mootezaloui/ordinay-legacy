@@ -1,14 +1,17 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import FormModal from "../FormModal/FormModal";
 import { useNotifications } from "../../contexts/NotificationContext";
-import { 
-  clientFormFields, 
-  dossierFormFields, 
-  taskFormFields, 
+import {
+  clientFormFields,
+  dossierFormFields,
+  taskFormFields,
   sessionFormFields,
-  getFormTitle 
+  getFormTitle,
 } from "../FormModal/formConfigs";
-import { mockClients, mockDossiers } from "../../utils/mockData";
+import { useData } from "../../contexts/DataContext";
+import { resolveDetailRoute } from "../../utils/routeResolver";
+import { logEntityCreation } from "../../services/historyService";
 
 /**
  * QuickActions Component (FINAL VERSION)
@@ -18,7 +21,7 @@ import { mockClients, mockDossiers } from "../../utils/mockData";
  * - Toast notifications for success/error
  * - Loading states
  * - Data refresh callback support
- * 
+ *
  * Usage:
  * <QuickActions onDataChange={(type, data) => console.log('New', type, data)} />
  */
@@ -26,96 +29,201 @@ export default function QuickActions({ onDataChange }) {
   const [activeModal, setActiveModal] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const { notify } = useNotifications();
+  const navigate = useNavigate();
+  const {
+    clients,
+    dossiers,
+    cases,
+    addClient,
+    addDossier,
+    addTask,
+    addSession,
+  } = useData();
+
+  // Keep select options in sync with live data
+  const clientOptions = useMemo(
+    () => clients.map((client) => ({ value: client.id, label: client.name })),
+    [clients]
+  );
+  const dossierOptions = useMemo(
+    () =>
+      dossiers.map((dossier) => ({
+        value: dossier.id,
+        label: `${dossier.caseNumber} - ${dossier.title}`,
+      })),
+    [dossiers]
+  );
+  const caseOptions = useMemo(
+    () =>
+      cases.map((caseItem) => ({
+        value: caseItem.id,
+        label: `${caseItem.caseNumber} - ${caseItem.title}`,
+      })),
+    [cases]
+  );
+
+  const navigateToDetail = (entityType, entityId) => {
+    const detailRoute = resolveDetailRoute(entityType, entityId);
+    if (detailRoute) {
+      setTimeout(() => navigate(detailRoute), 150);
+    }
+  };
 
   const handleSubmit = async (formData, entityType) => {
     setIsLoading(true);
-    
+
     try {
       // Simulate API call (replace with actual API call)
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
-      // Create the new entity with proper structure
-      const newEntity = {
-        ...formData,
-        id: Date.now(),
-        // Add computed fields based on entity type
-        ...(entityType === 'client' && {
-          joinDate: new Date().toISOString().split('T')[0],
-          status: formData.status || 'Active',
-        }),
-        ...(entityType === 'dossier' && {
-          openDate: formData.openDate || new Date().toISOString().split('T')[0],
-          client: mockClients.find(c => c.id === parseInt(formData.clientId))?.name || 'N/A',
-        }),
-        ...(entityType === 'task' && {
-          dossier: mockDossiers.find(d => d.id === parseInt(formData.dossierId))?.caseNumber || 'N/A',
-        }),
-      };
-      
-      console.log(`✅ Created ${entityType}:`, newEntity);
-      
-      // Optional: Call callback to update parent state
-      if (onDataChange) {
+      await new Promise((resolve) => setTimeout(resolve, 800));
+
+      let newEntity = null;
+
+      switch (entityType) {
+        case "client": {
+          newEntity = {
+            ...formData,
+            id: Date.now(),
+            joinDate: formData.joinDate || new Date().toISOString().split("T")[0],
+          };
+          addClient(newEntity);
+          logEntityCreation("client", newEntity.id, formData.name);
+          break;
+        }
+        case "dossier": {
+          const clientId = formData.clientId ? parseInt(formData.clientId, 10) : null;
+          const client = clients.find((c) => c.id === clientId);
+          newEntity = {
+            ...formData,
+            id: Date.now(),
+            clientId,
+            client: client?.name || "Client inconnu",
+            openDate: formData.openDate || new Date().toISOString().split("T")[0],
+          };
+          addDossier(newEntity);
+          logEntityCreation("dossier", newEntity.id, newEntity.caseNumber);
+          break;
+        }
+        case "task": {
+          const parentType = formData.parentType || (formData.caseId ? "case" : "dossier");
+          const newTask = {
+            ...formData,
+            id: Date.now(),
+            parentType,
+          };
+
+          if (parentType === "case" && formData.caseId) {
+            const caseId = parseInt(formData.caseId, 10);
+            const parentCase = cases.find((c) => c.id === caseId);
+            newTask.caseId = caseId;
+            newTask.case = parentCase?.caseNumber || "N/A";
+            newTask.dossierId = null;
+            newTask.dossier = null;
+          } else if (formData.dossierId) {
+            const dossierId = parseInt(formData.dossierId, 10);
+            const dossier = dossiers.find((d) => d.id === dossierId);
+            newTask.dossierId = dossierId;
+            newTask.dossier = dossier?.caseNumber || "N/A";
+            newTask.caseId = null;
+            newTask.case = null;
+          }
+
+          newEntity = newTask;
+          addTask(newEntity);
+          logEntityCreation("task", newEntity.id, formData.title);
+          break;
+        }
+        case "session": {
+          const newSession = {
+            ...formData,
+            id: Date.now(),
+          };
+
+          if (formData.caseId) {
+            const caseId = parseInt(formData.caseId, 10);
+            const parentCase = cases.find((c) => c.id === caseId);
+            newSession.caseId = caseId;
+            newSession.caseName = parentCase
+              ? `${parentCase.caseNumber} - ${parentCase.title}`
+              : null;
+          }
+
+          if (formData.dossierId) {
+            newSession.dossierId = parseInt(formData.dossierId, 10);
+          }
+
+          newEntity = newSession;
+          addSession(newEntity);
+          logEntityCreation("session", newEntity.id, formData.title);
+          break;
+        }
+        default:
+          throw new Error(`Unsupported entity type: ${entityType}`);
+      }
+
+      if (newEntity && onDataChange) {
         onDataChange(entityType, newEntity);
       }
-      
-      // Show success toast + persist to notification center
+
       const messages = {
-        client: `Client "${formData.name}" cree avec succes!`,
-        dossier: `Dossier "${formData.caseNumber}" cree avec succes!`,
-        task: `Tache "${formData.title}" creee avec succes!`,
-        session: `Seance "${formData.title}" programmee avec succes!`,
+        client: `Client "${formData.name}" créé avec succès !`,
+        dossier: `Dossier "${formData.caseNumber || formData.title}" créé avec succès !`,
+        task: `Tâche "${formData.title}" créée avec succès !`,
+        session: `Séance "${formData.title}" programmée avec succès !`,
       };
-      
+
       notify.success({
         context: entityType,
         title: getFormTitle(entityType, false),
         message: messages[entityType] || "Cree avec succes!",
       });
-      
-      // Close modal
+
+      navigateToDetail(entityType, newEntity?.id);
+
       setActiveModal(null);
-      
-      // Optional: Reload page to refresh all data
-      // setTimeout(() => window.location.reload(), 1500);
-      } catch (error) {
-        console.error(`Error creating ${entityType}:`, error);
-        notify.error({
-          context: entityType,
-          title: "Creation impossible",
-          message: `Erreur lors de la creation: ${error.message}`,
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    };
+    } catch (error) {
+      console.error(`Error creating ${entityType}:`, error);
+      notify.error({
+        context: entityType,
+        title: "Création impossible",
+        message: `Erreur lors de la création : ${error.message}`,
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Prepare form fields with dynamic options
   const getFormFields = (type) => {
     switch (type) {
       case "dossier":
-        return dossierFormFields.map(field => {
+        return dossierFormFields.map((field) => {
           if (field.name === "clientId") {
             return {
               ...field,
-              options: mockClients.map(client => ({
-                value: client.id,
-                label: client.name
-              }))
+              options: clientOptions,
             };
           }
           return field;
         });
 
       case "task":
-        return taskFormFields.map(field => {
+        return taskFormFields.map((field) => {
           if (field.name === "dossierId") {
             return {
               ...field,
-              options: mockDossiers.map(dossier => ({
-                value: dossier.id,
-                label: `${dossier.caseNumber} - ${dossier.title}`
-              }))
+              options: [
+                { value: "", label: "Sélectionner un dossier..." },
+                ...dossierOptions,
+              ],
+            };
+          }
+          if (field.name === "caseId") {
+            return {
+              ...field,
+              options: [
+                { value: "", label: "Sélectionner un procès..." },
+                ...caseOptions,
+              ],
             };
           }
           return field;
@@ -125,7 +233,27 @@ export default function QuickActions({ onDataChange }) {
         return clientFormFields;
 
       case "session":
-        return sessionFormFields;
+        return sessionFormFields.map((field) => {
+          if (field.name === "caseId") {
+            return {
+              ...field,
+              options: [
+                { value: "", label: "Sélectionner un procès..." },
+                ...caseOptions,
+              ],
+            };
+          }
+          if (field.name === "dossierId") {
+            return {
+              ...field,
+              options: [
+                { value: "", label: "Sélectionner un dossier..." },
+                ...dossierOptions,
+              ],
+            };
+          }
+          return field;
+        });
 
       default:
         return [];
@@ -146,28 +274,28 @@ export default function QuickActions({ onDataChange }) {
     {
       id: 1,
       type: "client",
-      label: "Nouveau Client",
+      label: "Nouveau client",
       icon: "fas fa-user-plus",
       color: "blue",
     },
     {
       id: 2,
       type: "dossier",
-      label: "Nouveau Dossier",
+      label: "Nouveau dossier",
       icon: "fas fa-folder-plus",
       color: "purple",
     },
     {
       id: 3,
       type: "task",
-      label: "Nouvelle Tâche",
+      label: "Nouvelle tâche",
       icon: "fas fa-plus-circle",
       color: "amber",
     },
     {
       id: 4,
       type: "session",
-      label: "Programmer Session",
+      label: "Programmer séance",
       icon: "fas fa-calendar-plus",
       color: "green",
     },
@@ -213,6 +341,7 @@ export default function QuickActions({ onDataChange }) {
           subtitle={getSubtitle(action.type)}
           fields={getFormFields(action.type)}
           isLoading={isLoading}
+          entityType={action.type}
         />
       ))}
     </>

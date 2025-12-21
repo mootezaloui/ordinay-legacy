@@ -10,8 +10,11 @@
  * Each template is a function that takes eventData and returns { subject, body }
  */
 
+import { formatDateValue } from "../utils/dateFormat";
+
 // Helper to render sender signature with a future user name (fallback to firm name)
 const getSenderName = (eventData) => eventData?.senderName || "Votre Cabinet d'avocats";
+const formatEmailDate = (value) => formatDateValue(value);
 
 // ========================================
 // TEMPLATE: DOSSIER CREATED
@@ -32,7 +35,7 @@ function dossierCreatedTemplate(eventData) {
 Nous vous confirmons l'ouverture de votre dossier.
 
 Dossier : ${dossierTitle} (${dossierNumber})
-Date d'inscription : ${joinDate ? new Date(joinDate).toLocaleDateString('fr-FR') : new Date().toLocaleDateString('fr-FR')}
+Date d'inscription : ${joinDate ? formatEmailDate(joinDate) : formatEmailDate(new Date())}
 
 Nous restons à votre disposition pour toute question.
 
@@ -76,7 +79,7 @@ Nous vous informons que le statut de votre dossier a été modifié.
 
 Dossier : ${dossierTitle} (${dossierNumber})
 Nouveau statut : ${newStatus}
-Date : ${new Date().toLocaleDateString("fr-FR")}
+Date : ${formatEmailDate(new Date())}
 
 ${explanation}
 
@@ -102,8 +105,8 @@ function dossierDeadlineChangedTemplate(eventData) {
     diffDays,
   } = eventData;
 
-  const oldDate = new Date(oldDeadline).toLocaleDateString("fr-FR");
-  const newDate = new Date(newDeadline).toLocaleDateString("fr-FR");
+  const oldDate = formatEmailDate(oldDeadline);
+  const newDate = formatEmailDate(newDeadline);
 
   const impactNote =
     diffDays > 30
@@ -156,7 +159,7 @@ Nous vous informons d'une évolution concernant votre procès.
 Procès : ${caseTitle} (${caseNumber})
 Tribunal : ${court}
 Nouveau statut : ${newStatus}
-Date : ${new Date().toLocaleDateString("fr-FR")}
+Date : ${formatEmailDate(new Date())}
 
 ${explanation}
 
@@ -206,10 +209,10 @@ function caseHearingChangedTemplate(eventData) {
     eventData;
 
   const oldDateFormatted = oldDate
-    ? new Date(oldDate).toLocaleDateString("fr-FR")
+    ? formatEmailDate(oldDate)
     : "Non définie";
   const newDateFormatted = newDate
-    ? new Date(newDate).toLocaleDateString("fr-FR")
+    ? formatEmailDate(newDate)
     : "Non définie";
 
   const subject = `Modification de la date d'audience - ${caseTitle} (${caseNumber})`;
@@ -251,7 +254,7 @@ function sessionScheduledTemplate(eventData) {
     clientName,
   } = eventData;
 
-  const dateFormatted = new Date(date).toLocaleDateString("fr-FR");
+  const dateFormatted = formatEmailDate(date);
 
   const subject = `Audience programmée - ${
     sessionTitle || sessionType || "Audience"
@@ -294,8 +297,8 @@ function sessionDateChangedTemplate(eventData) {
     clientName,
   } = eventData;
 
-  const oldDateFormatted = new Date(oldDate).toLocaleDateString("fr-FR");
-  const newDateFormatted = new Date(newDate).toLocaleDateString("fr-FR");
+  const oldDateFormatted = formatEmailDate(oldDate);
+  const newDateFormatted = formatEmailDate(newDate);
 
   const subject = `Modification de la date d'audience - ${
     sessionTitle || "Audience"
@@ -340,7 +343,7 @@ function sessionCancelledTemplate(eventData) {
     clientName,
   } = eventData;
 
-  const dateFormatted = new Date(date).toLocaleDateString("fr-FR");
+  const dateFormatted = formatEmailDate(date);
 
   const subject = `Annulation d'audience - ${caseNumber || "Votre dossier"}`;
 
@@ -382,7 +385,7 @@ Une nouvelle écriture comptable a été enregistrée.
 
 Objet : ${description}
 Montant : ${amountWithSign || amount || "N/A"}
-${dueDate ? `Échéance : ${new Date(dueDate).toLocaleDateString("fr-FR")}` : ""}
+${dueDate ? `Échéance : ${formatEmailDate(dueDate)}` : ""}
 ${clientBalance ? `Solde client après écriture : ${clientBalance}` : ""}
 
 Merci de prendre connaissance de cette mise à jour.

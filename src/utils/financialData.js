@@ -32,6 +32,12 @@
  * - cancelled: Cancelled entry
  */
 
+import {
+  logEntityCreation,
+  logHistoryEvent,
+  EVENT_TYPES,
+} from "../services/historyService";
+
 // Financial Entry ID counter
 let nextFinancialId = 1;
 
@@ -492,6 +498,44 @@ export const addFinancialEntry = (entry) => {
   };
 
   financialLedger.push(newEntry);
+
+  // History: creation of the financial entry itself
+  logEntityCreation("financialEntry", newEntry.id, newEntry.description || "Écriture");
+
+  // History: relations on linked entities
+  const relationPayload = {
+    eventType: EVENT_TYPES.FINANCE,
+    label: "Écriture comptable ajoutée",
+    details: newEntry.description,
+    metadata: {
+      amount: `${newEntry.amount} ${newEntry.currency || "TND"}`,
+      relatedType: "financialEntry",
+      relatedId: newEntry.id,
+    },
+  };
+
+  if (newEntry.clientId) {
+    logHistoryEvent({
+      ...relationPayload,
+      entityType: "client",
+      entityId: newEntry.clientId,
+    });
+  }
+  if (newEntry.dossierId) {
+    logHistoryEvent({
+      ...relationPayload,
+      entityType: "dossier",
+      entityId: newEntry.dossierId,
+    });
+  }
+  if (newEntry.caseId) {
+    logHistoryEvent({
+      ...relationPayload,
+      entityType: "case",
+      entityId: newEntry.caseId,
+    });
+  }
+
   return newEntry;
 };
 

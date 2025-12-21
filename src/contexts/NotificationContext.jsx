@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, useMemo } from "react";
 import notificationScheduler from "../services/notificationScheduler";
+import { useSettings } from "./SettingsContext";
 
 /**
  * Notification Context
@@ -27,9 +28,20 @@ export function useNotifications() {
 export function NotificationProvider({ children }) {
   const [notifications, setNotifications] = useState([]);
   const [alerts, setAlerts] = useState([]);
+  const { canNotifyType, notificationsEnabled, notificationPrefs } = useSettings();
+
+  const shouldNotify = useCallback((payload) => {
+    const type = payload?.type || payload?.context;
+    return canNotifyType(type);
+  }, [canNotifyType]);
 
   // Add new notification
   const addNotification = useCallback((notification) => {
+    if (!shouldNotify(notification)) {
+      console.log("[NOTIFICATION] Skipped due to user preferences", notification);
+      return null;
+    }
+
     const newNotification = {
       id: Date.now() + Math.random(),
       timestamp: new Date().toISOString(),
@@ -42,7 +54,7 @@ export function NotificationProvider({ children }) {
     console.log("[NOTIFICATION] Adding notification:", newNotification);
     setNotifications(prev => [newNotification, ...prev]);
     return newNotification.id;
-  }, []);
+  }, [shouldNotify]);
 
   // Load notifications from localStorage on mount
   useEffect(() => {
@@ -90,6 +102,11 @@ export function NotificationProvider({ children }) {
 
   // Add alert (temporary banner notification)
   const addAlert = useCallback((alert) => {
+    if (!shouldNotify(alert)) {
+      console.log("[NOTIFICATION] Alert suppressed by user preferences", alert);
+      return null;
+    }
+
     const duration = alert.duration ?? 5000;
     const newAlert = {
       id: Date.now() + Math.random(),
@@ -108,7 +125,7 @@ export function NotificationProvider({ children }) {
     }
 
     return newAlert.id;
-  }, [removeAlert]);
+  }, [removeAlert, shouldNotify]);
 
   // Mark notification as read
   const markAsRead = useCallback((notificationId) => {
@@ -335,6 +352,10 @@ export function NotificationProvider({ children }) {
     // Scheduler functions
     generateAllNotifications,
     getScheduledNotifications,
+
+    // Preferences info
+    notificationsEnabled,
+    notificationPrefs,
   };
 
   return (

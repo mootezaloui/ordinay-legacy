@@ -1,6 +1,7 @@
 import ContentSection from "../../layout/ContentSection";
 import { mockOfficersExtended, mockDossiers, mockCases, getStatusColor } from "../../../utils/mockData";
 import { missionFormFields } from "../../FormModal/formConfigs";
+import { formatDateValue } from "../../../utils/dateFormat";
 
 /**
  * Mission Entity Configuration
@@ -190,11 +191,7 @@ export const missionConfig = {
                                     <div className="min-w-0 flex-1">
                                         <p className="text-xs font-medium text-blue-600 dark:text-blue-400">Assignée le</p>
                                         <p className="text-sm font-bold text-blue-900 dark:text-blue-100 truncate">
-                                            {new Date(data.assignDate).toLocaleDateString('fr-FR', {
-                                                day: '2-digit',
-                                                month: 'short',
-                                                year: 'numeric'
-                                            })}
+                                            {formatDateValue(data.assignDate)}
                                         </p>
                                     </div>
                                 </div>
@@ -208,11 +205,7 @@ export const missionConfig = {
                                         <div className="min-w-0 flex-1">
                                             <p className="text-xs font-medium text-orange-600 dark:text-orange-400">Échéance</p>
                                             <p className="text-sm font-bold text-orange-900 dark:text-orange-100 truncate">
-                                                {new Date(data.dueDate).toLocaleDateString('fr-FR', {
-                                                    day: '2-digit',
-                                                    month: 'short',
-                                                    year: 'numeric'
-                                                })}
+                                                {formatDateValue(data.dueDate)}
                                             </p>
                                         </div>
                                     </div>
@@ -227,11 +220,7 @@ export const missionConfig = {
                                         <div className="min-w-0 flex-1">
                                             <p className="text-xs font-medium text-green-600 dark:text-green-400">Terminée le</p>
                                             <p className="text-sm font-bold text-green-900 dark:text-green-100 truncate">
-                                                {new Date(data.completionDate).toLocaleDateString('fr-FR', {
-                                                    day: '2-digit',
-                                                    month: 'short',
-                                                    year: 'numeric'
-                                                })}
+                                                {formatDateValue(data.completionDate)}
                                             </p>
                                         </div>
                                     </div>
