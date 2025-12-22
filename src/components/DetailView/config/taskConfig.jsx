@@ -9,6 +9,28 @@ const DEFAULT_ASSIGNEES = [
   { value: "Stagiaire", label: "Stagiaire" },
 ];
 
+// Helper function to convert estimated time value to label
+const getEstimatedTimeLabel = (value) => {
+  if (!value) return "N/A";
+  const timeMap = {
+    "0.5h": "30 minutes",
+    "1h": "1 heure",
+    "1.5h": "1h30",
+    "2h": "2 heures",
+    "3h": "3 heures",
+    "4h": "4 heures",
+    "6h": "6 heures",
+    "8h": "8 heures",
+    "12h": "12 heures",
+    "16h": "16 heures",
+    "20h": "20 heures",
+    "24h": "1 journée",
+    "40h": "2 jours",
+    "80h": "1 semaine",
+  };
+  return timeMap[value] || value;
+};
+
 /**
  * Task Entity Configuration - UPDATED with Quick Actions
  * ✅ Added inline quick actions for status, priority, assignedTo
@@ -212,7 +234,7 @@ export const taskConfig = {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <InfoCard icon="fas fa-user" label="Assigné à" value={data.assignedTo} color="blue" />
             <InfoCard icon="fas fa-calendar" label="Date limite" value={data.dueDate} color="red" />
-            <InfoCard icon="fas fa-clock" label="Temps estimé" value={data.estimatedTime || "N/A"} color="purple" />
+            <InfoCard icon="fas fa-clock" label="Temps estimé" value={getEstimatedTimeLabel(data.estimatedTime)} color="purple" />
           </div>
         </div>
       </ContentSection>
@@ -298,11 +320,26 @@ export const taskConfig = {
         {
           key: "estimatedTime",
           label: "Temps estimé",
-          value: (data) => data.estimatedTime || "N/A",
+          value: (data) => getEstimatedTimeLabel(data.estimatedTime),
           icon: "fas fa-clock",
-          type: "text",
+          type: "select",
           editable: true,
-          placeholder: "Ex: 2h"
+          options: [
+            { value: "0.5h", label: "30 minutes" },
+            { value: "1h", label: "1 heure" },
+            { value: "1.5h", label: "1h30" },
+            { value: "2h", label: "2 heures" },
+            { value: "3h", label: "3 heures" },
+            { value: "4h", label: "4 heures" },
+            { value: "6h", label: "6 heures" },
+            { value: "8h", label: "8 heures" },
+            { value: "12h", label: "12 heures" },
+            { value: "16h", label: "16 heures" },
+            { value: "20h", label: "20 heures" },
+            { value: "24h", label: "1 journée" },
+            { value: "40h", label: "2 jours" },
+            { value: "80h", label: "1 semaine" },
+          ],
         },
       ],
     },

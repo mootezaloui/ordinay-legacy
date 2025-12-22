@@ -381,8 +381,12 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange }) 
     setIsAddModalOpen(false);
   };
 
-  const handleMissionClick = (mission) => {
-    // ✅ Pass current location to preserve back navigation context
+  const handleMissionClick = (mission, evt) => {
+    if (evt) {
+      evt.stopPropagation();
+      evt.preventDefault();
+    }
+    // ✅ Always navigate to mission detail (not officer)
     navigate(`/missions/${mission.id}`, {
       state: {
         from: location.pathname,
@@ -404,12 +408,31 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange }) 
         createdBy: "User",
       };
 
+      const validation = canPerformAction("financialEntry", null, "add", { data: newEntry, newData: newEntry });
+      if (!validation.allowed) {
+        setValidationResult(validation);
+        setBlockerModalOpen(true);
+        return;
+      }
+      if (validation.requiresConfirmation) {
+        setValidationResult(validation);
+        setConfirmImpactModalOpen(true);
+        return;
+      }
+
       const savedEntry = addFinancialEntry(newEntry);
+      if (!savedEntry.entry) {
+        if (savedEntry.result) {
+          setValidationResult(savedEntry.result);
+          setBlockerModalOpen(true);
+        }
+        return;
+      }
 
       // Update the mission's financial entries
       const updatedMissions = missions.map(m =>
         m.id === selectedMissionForFinance.id
-          ? { ...m, financialEntries: [...(m.financialEntries || []), savedEntry] }
+          ? { ...m, financialEntries: [...(m.financialEntries || []), savedEntry.entry] }
           : m
       );
 
@@ -753,7 +776,7 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange }) 
               <div
                 key={mission.id}
                 className="group p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-colors"
-                onClick={() => handleMissionClick(mission)}
+                onClick={(e) => handleMissionClick(mission, e)}
               >
                 <div className="flex items-start justify-between gap-4">
                   {/* Mission Info */}

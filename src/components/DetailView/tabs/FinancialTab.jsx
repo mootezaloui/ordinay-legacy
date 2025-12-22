@@ -172,7 +172,14 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
           cancelText: "Annuler",
           variant: "danger"
         })) {
-          deleteFinancialEntry(id);
+          const result = deleteFinancialEntry(id);
+          if (!result.success) {
+            if (result.result) {
+              setValidationResult(result.result);
+              setBlockerModalOpen(true);
+            }
+            return;
+          }
           setRefreshKey((k) => k + 1);
           setSelectedEntry(null);
           if (onUpdate) onUpdate();
@@ -191,7 +198,14 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
       data: entry,
       newData,
       mutate: async () => {
-        updateFinancialEntry(id, { status: newStatus });
+        const result = updateFinancialEntry(id, { status: newStatus });
+        if (!result.entry) {
+          if (result.result) {
+            setValidationResult(result.result);
+            setBlockerModalOpen(true);
+          }
+          return;
+        }
         setRefreshKey((k) => k + 1);
 
         if (selectedEntry?.id === id) {
@@ -405,7 +419,15 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
       await new Promise((resolve) => setTimeout(resolve, 500));
 
       if (editingEntry) {
-        updateFinancialEntry(editingEntry.id, formData);
+        const result = updateFinancialEntry(editingEntry.id, formData);
+        if (!result.entry) {
+          if (result.result) {
+            setValidationResult(result.result);
+            setBlockerModalOpen(true);
+          }
+          setIsLoading(false);
+          return;
+        }
         showToast("Écriture modifiée avec succès!", "success");
       } else {
         const client = formData.clientId
@@ -477,11 +499,19 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
         };
 
         const savedEntry = addFinancialEntry(newEntry);
+        if (!savedEntry.entry) {
+          if (savedEntry.result) {
+            setValidationResult(savedEntry.result);
+            setBlockerModalOpen(true);
+          }
+          setIsLoading(false);
+          return;
+        }
         showToast("Écriture ajoutée avec succès!", "success");
 
         // ✅ Navigate to the new financial entry's detail view
-        if (savedEntry && savedEntry.id) {
-          const detailRoute = resolveDetailRoute('financialEntry', savedEntry.id);
+        if (savedEntry.entry && savedEntry.entry.id) {
+          const detailRoute = resolveDetailRoute('financialEntry', savedEntry.entry.id);
           if (detailRoute) {
             setTimeout(() => navigate(detailRoute), 100);
             return; // Skip the remaining logic since we're navigating away

@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAdvancedTable } from "../hooks/useAdvancedTable";
 import { useToast } from "../contexts/ToastContext";
@@ -19,7 +19,6 @@ import StatCard from "../components/dashboard/StatCard";
 import InlineStatusSelector from "../components/InlineSelectors/InlineStatusSelector";
 import InlinePrioritySelector from "../components/InlineSelectors/InlinePrioritySelector";
 import { taskFormFields, getFormTitle } from "../components/FormModal/formConfigs";
-import { mockTasks, mockDossiers, mockCases, getStatusColor } from "../utils/mockData";
 import { useData } from "../contexts/DataContext";
 import BlockerModal from "../components/ui/BlockerModal";
 import ConfirmImpactModal from "../components/ui/ConfirmImpactModal";
@@ -29,7 +28,7 @@ import { logEntityCreation } from "../services/historyService";
 
 export default function Tasks() {
   // Use DataContext for global tasks and actions
-  const { tasks, addTask, updateTask, deleteTask } = useData();
+  const { tasks, dossiers, cases, addTask, updateTask, deleteTask, loading, loadError } = useData();
   const navigate = useNavigate();
   const { showToast } = useToast();
   const { confirm } = useConfirm();
@@ -42,6 +41,22 @@ export default function Tasks() {
   const [validationResult, setValidationResult] = useState(null);
   const [confirmImpactModalOpen, setConfirmImpactModalOpen] = useState(false);
   const [pendingFormData, setPendingFormData] = useState(null);
+
+  const statusLabelMap = {
+    "Non commencée": "Not Started",
+    "En cours": "In Progress",
+    "En attente": "On Hold",
+    "Terminée": "Completed",
+  };
+
+  const priorityLabelMap = {
+    Haute: "High",
+    Moyenne: "Medium",
+    Basse: "Low",
+  };
+
+  const getStatusLabel = (status) => statusLabelMap[status] || status;
+  const getPriorityLabel = (priority) => priorityLabelMap[priority] || priority;
 
   // Calculate stats
   const stats = {
@@ -56,16 +71,16 @@ export default function Tasks() {
 
   const handleStatusChange = (taskId, newStatus) => {
     updateTask(taskId, { status: newStatus });
-    showToast(`Statut mis a jour: ${newStatus}`, "info", {
-      title: "Mise a jour du statut",
+    showToast(`Status updated: ${getStatusLabel(newStatus)}`, "info", {
+      title: "Status updated",
       context: "task",
     });
   };
 
   const handlePriorityChange = (taskId, newPriority) => {
     updateTask(taskId, { priority: newPriority });
-    showToast(`Priorite mise a jour: ${newPriority}`, "info", {
-      title: "Priorite de tache",
+    showToast(`Priority updated: ${getPriorityLabel(newPriority)}`, "info", {
+      title: "Task priority",
       context: "task",
     });
   };
@@ -74,7 +89,7 @@ export default function Tasks() {
   const columns = [
     {
       id: "title",
-      label: "Tâche",
+      label: "Task",
       sortable: true,
       locked: true,
       render: (task) => (
@@ -87,7 +102,7 @@ export default function Tasks() {
     },
     {
       id: "parent",
-      label: "Lié à",
+      label: "Linked to",
       sortable: true,
       render: (task) => {
         if (task.parentType === "case" && task.case) {
@@ -112,29 +127,29 @@ export default function Tasks() {
     },
     {
       id: "assignedTo",
-      label: "Assigné à",
+      label: "Assigned to",
       sortable: true,
       render: (task) => task.assignedTo,
     },
     {
       id: "dueDate",
-      label: "Date limite",
+      label: "Due Date",
       sortable: true,
       render: (task) => <span className="text-sm">{task.dueDate}</span>,
     },
     {
       id: "status",
-      label: "Statut",
+      label: "Status",
       sortable: true,
       render: (task) => (
         <InlineStatusSelector
           value={task.status}
           onChange={(newStatus) => handleStatusChange(task.id, newStatus)}
           statusOptions={[
-            { value: "Non commencée", label: "Non commencée", color: "slate" },
-            { value: "En cours", label: "En cours", color: "blue" },
-            { value: "En attente", label: "En attente", color: "amber" },
-            { value: "Terminée", label: "Terminée", color: "green" },
+            { value: "Non commencée", label: "Not Started", color: "slate" },
+            { value: "En cours", label: "In Progress", color: "blue" },
+            { value: "En attente", label: "On Hold", color: "amber" },
+            { value: "Terminée", label: "Completed", color: "green" },
           ]}
           entityType="task"
           entityId={task.id}
@@ -144,7 +159,7 @@ export default function Tasks() {
     },
     {
       id: "priority",
-      label: "Priorité",
+      label: "Priority",
       sortable: true,
       render: (task) => (
         <InlinePrioritySelector
@@ -166,7 +181,7 @@ export default function Tasks() {
           <IconButton
             icon="view"
             variant="view"
-            title="Voir détails"
+            title="View details"
             onClick={(e) => {
               e.stopPropagation();
               handleView(task.id);
@@ -175,7 +190,7 @@ export default function Tasks() {
           <IconButton
             icon="edit"
             variant="edit"
-            title="Modifier"
+            title="Edit"
             onClick={(e) => {
               e.stopPropagation();
               handleEdit(task);
@@ -184,7 +199,7 @@ export default function Tasks() {
           <IconButton
             icon="delete"
             variant="delete"
-            title="Supprimer"
+            title="Delete"
             onClick={(e) => {
               e.stopPropagation();
               handleDelete(task.id);
@@ -203,8 +218,25 @@ export default function Tasks() {
     searchableFields: ["title", "dossier", "case", "assignedTo", "status", "priority"],
   });
 
+  if (loading) {
+    return (
+      <PageLayout>
+        <PageHeader title="Tasks" />
+        {loadError && (
+          <ContentSection>
+            <div className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-red-700">
+              {loadError}
+            </div>
+          </ContentSection>
+        )}
+        <ContentSection>
+          <p>Loading data...</p>
+        </ContentSection>
+      </PageLayout>
+    );
+  }
+
   const handleView = (id) => {
-    navigate(`/tasks/${id}`);
     navigate(`/tasks/${id}`);
   };
 
@@ -233,16 +265,16 @@ export default function Tasks() {
       return;
     }
 
-    if (await confirm({
-      title: "Supprimer la tâche",
-      message: "Êtes-vous sûr de vouloir supprimer cette tâche ?",
-      confirmText: "Supprimer",
-      cancelText: "Annuler",
+  if (await confirm({
+      title: "Delete task",
+      message: "Are you sure you want to delete this task?",
+      confirmText: "Delete",
+      cancelText: "Cancel",
       variant: "danger"
     })) {
       deleteTask(id);
-      showToast("Tâche supprimée", "warning", {
-        title: "Suppression",
+      showToast("Task deleted", "warning", {
+        title: "Deleted",
         context: "task",
       });
     }
@@ -254,7 +286,7 @@ export default function Tasks() {
   };
 
   const handleSubmit = async (formData) => {
-    // ?. Validate before submitting
+    // Validate before submitting
     if (editingTask) {
       const result = canPerformAction('task', editingTask.id, 'edit', {
         data: editingTask,
@@ -300,37 +332,18 @@ export default function Tasks() {
       await new Promise((resolve) => setTimeout(resolve, 500));
 
       if (editingTask) {
-        updateTask(editingTask.id, formData);
-        showToast("Tâche modifiée avec succès!", "success");
+        await updateTask(editingTask.id, formData);
+        showToast("Task updated successfully!", "success");
       } else {
-        // Handle both dossier and case parent types
-        const newTask = {
-          ...formData,
-          id: Date.now(),
-          parentType: formData.parentType || "dossier",
-        };
+        const creation = await addTask(formData);
+        const createdEntity = creation?.created || creation;
+        const createdId = createdEntity?.id;
+        if (!createdId) throw new Error("Missing task identifier");
+        showToast("Task added successfully!", "success");
 
-        if (formData.parentType === "case" && formData.caseId) {
-          const parentCase = mockCases.find(c => c.id === parseInt(formData.caseId));
-          newTask.case = parentCase ? parentCase.caseNumber : "N/A";
-          newTask.caseId = formData.caseId;
-          newTask.dossierId = null;
-          newTask.dossier = null;
-        } else if (formData.dossierId) {
-          const dossier = mockDossiers.find(d => d.id === parseInt(formData.dossierId));
-          newTask.dossier = dossier ? dossier.caseNumber : "N/A";
-          newTask.dossierId = formData.dossierId;
-          newTask.caseId = null;
-          newTask.case = null;
-        }
-        addTask(newTask); // Add to global context and mock data
-        showToast("Tâche ajoutée avec succès!", "success");
+        logEntityCreation('task', createdId, createdEntity?.title);
 
-        // ✅ Log creation event
-        logEntityCreation('task', newTask.id, formData.title);
-
-        // ✅ Navigate to detail view after creation
-        const detailRoute = resolveDetailRoute('task', newTask.id);
+        const detailRoute = resolveDetailRoute('task', createdId);
         if (detailRoute) {
           setTimeout(() => navigate(detailRoute), 100);
         }
@@ -340,7 +353,7 @@ export default function Tasks() {
       setEditingTask(null);
     } catch (error) {
       console.error("Error submitting task:", error);
-      showToast("Erreur lors de l'enregistrement", "error");
+      showToast("Error while saving", "error");
     } finally {
       setIsLoading(false);
     }
@@ -383,9 +396,18 @@ export default function Tasks() {
     if (field.name === "dossierId") {
       return {
         ...field,
-        options: mockDossiers.map(dossier => ({
+        options: dossiers.map(dossier => ({
           value: dossier.id,
           label: `${dossier.caseNumber} - ${dossier.title}`
+        }))
+      };
+    }
+    if (field.name === "caseId") {
+      return {
+        ...field,
+        options: cases.map(cs => ({
+          value: cs.id,
+          label: `${cs.caseNumber} - ${cs.title}`
         }))
       };
     }
@@ -395,7 +417,7 @@ export default function Tasks() {
         ...field,
         type: 'readonly',
         displayValue: editingTask.status,
-        helpText: 'Le statut ne peut être modifié que via le sélecteur dans la liste'
+        helpText: 'Status can only be changed using the selector in the list'
       };
     }
     return field;
@@ -404,8 +426,8 @@ export default function Tasks() {
   return (
     <PageLayout>
       <PageHeader
-        title="Tâches"
-        subtitle={`${table.originalTotalItems} tâches au total${table.isFiltering ? ` • ${table.totalItems} affichées` : ""}`}
+        title="Tasks"
+        subtitle={`${table.originalTotalItems} tasks in total${table.isFiltering ? ` • ${table.totalItems} displayed` : ""}`}
         icon="fas fa-tasks"
         actions={
           <button
@@ -413,32 +435,39 @@ export default function Tasks() {
             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center gap-2"
           >
             <i className="fas fa-plus"></i>
-            Nouvelle Tâche
+            New Task
           </button>
         }
       />
+      {loadError && (
+        <ContentSection>
+          <div className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-red-700">
+            {loadError}
+          </div>
+        </ContentSection>
+      )}
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <StatCard
-          label="Total Tâches"
+          label="Total Tasks"
           value={stats.total}
           icon="fas fa-tasks"
           color="blue"
         />
         <StatCard
-          label="En cours"
+          label="In Progress"
           value={stats.inProgress}
           icon="fas fa-spinner"
           color="amber"
         />
         <StatCard
-          label="Terminées"
+          label="Completed"
           value={stats.completed}
           icon="fas fa-check-circle"
           color="green"
         />
         <StatCard
-          label="En retard"
+          label="Overdue"
           value={stats.overdue}
           icon="fas fa-exclamation-circle"
           color="red"
@@ -468,7 +497,7 @@ export default function Tasks() {
             onReorder={table.reorderColumns}
             enableReorder={true}
           />
-          <TableBody isEmpty={table.data.length === 0} emptyMessage={table.isFiltering ? "Aucun résultat trouvé" : "Aucune tâche trouvée"}>
+          <TableBody isEmpty={table.data.length === 0} emptyMessage={table.isFiltering ? "No results found" : "No tasks found"}>
             {table.data.map((task) => (
               <TableRow
                 key={task.id}
@@ -503,7 +532,7 @@ export default function Tasks() {
         }}
         onSubmit={handleSubmit}
         title={getFormTitle("task", !!editingTask)}
-        subtitle={editingTask ? "Modifier la tâche" : "Ajouter une nouvelle tâche"}
+        subtitle={editingTask ? "Edit task" : "Add a new task"}
         fields={taskFields}
         initialData={editingTask}
         isLoading={isLoading}
@@ -515,10 +544,10 @@ export default function Tasks() {
       <BlockerModal
         isOpen={blockerModalOpen}
         onClose={() => setBlockerModalOpen(false)}
-        actionName="Modifier/Supprimer la tâche"
+        actionName="Edit/Delete task"
         blockers={validationResult?.blockers || []}
         warnings={validationResult?.warnings || []}
-        entityName={validationResult?.entityData?.title || "Tâche"}
+        entityName={validationResult?.entityData?.title || "Task"}
       />
 
       <ConfirmImpactModal
@@ -528,7 +557,7 @@ export default function Tasks() {
           setPendingFormData(null);
         }}
         onConfirm={handleConfirmImpact}
-        actionName="modifier le rattachement de la tâche"
+        actionName="change task linkage"
         impactSummary={validationResult?.impactSummary || []}
         entityName={editingTask?.title || ""}
       />

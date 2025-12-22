@@ -86,12 +86,18 @@ export const financialEntryConfig = {
             }
         }
 
-        updateFinancialEntry(parseInt(id), enrichedData);
+        const result = updateFinancialEntry(parseInt(id), enrichedData);
+        if (!result.entry) {
+            throw new Error("Financial entry update blocked");
+        }
         await new Promise(resolve => setTimeout(resolve, 300));
     },
 
     deleteData: async (id) => {
-        deleteFinancialEntry(parseInt(id));
+        const result = deleteFinancialEntry(parseInt(id));
+        if (!result.success) {
+            throw new Error("Financial entry delete blocked");
+        }
     },
 
     getTitle: (data) => `#${data.id} - ${data.description}`,

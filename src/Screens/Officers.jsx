@@ -257,18 +257,15 @@ export default function Officers() {
         // ));
         showToast("Huissier modifié avec succès!", "success");
       } else {
-        const newOfficer = {
-          ...formData,
-          id: Date.now(),
-        };
-        addOfficer(newOfficer);
+        const creation = await addOfficer(formData);
+        const createdOfficer = creation?.created || creation;
         showToast("Huissier ajouté avec succès!", "success");
 
         // ✅ Log creation event
-        logEntityCreation('officer', newOfficer.id, formData.name);
+        logEntityCreation('officer', createdOfficer.id, formData.name);
 
         // ✅ Navigate to detail view after creation
-        const detailRoute = resolveDetailRoute('officer', newOfficer.id);
+        const detailRoute = resolveDetailRoute('officer', createdOfficer.id);
         if (detailRoute) {
           setTimeout(() => navigate(detailRoute), 100);
         }

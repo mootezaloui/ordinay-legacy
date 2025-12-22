@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAdvancedTable } from "../hooks/useAdvancedTable";
 import { useToast } from "../contexts/ToastContext";
@@ -18,9 +18,9 @@ import FormModal from "../components/FormModal/FormModal";
 import StatCard from "../components/dashboard/StatCard";
 import { financialEntryFormFields, getFormTitle, populateRelationshipOptions } from "../components/FormModal/formConfigs";
 import { mockClients, mockDossiers, mockCases } from "../utils/mockData";
+import { useData } from "../contexts/DataContext";
 import {
   financialLedger,
-  addFinancialEntry,
   updateFinancialEntry,
   deleteFinancialEntry,
   financialCategories,
@@ -46,6 +46,7 @@ export default function Accounting() {
   const navigate = useNavigate();
   const { showToast } = useToast();
   const { confirm } = useConfirm();
+  const { financialEntries, loading, loadError, addFinancialEntry } = useData();
 
   // Use financial ledger as source of truth
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -97,6 +98,14 @@ export default function Accounting() {
       .slice(0, 10);
   }, [displayEntries]);
 
+  // Re-render when backend financial entries load
+  useEffect(() => {
+    if (financialEntries && Array.isArray(financialEntries)) {
+      // Force downstream selectors to recompute by bumping refreshKey
+      setRefreshKey((k) => k + 1);
+    }
+  }, [financialEntries]);
+
   // Handler functions (defined before columns to avoid hoisting issues)
   const handleView = (entry) => {
     navigate(`/accounting/${entry.id}`);
@@ -134,7 +143,14 @@ export default function Accounting() {
       cancelText: "Annuler",
       variant: "danger"
     })) {
-      deleteFinancialEntry(id);
+      const delResult = deleteFinancialEntry(id);
+      if (!delResult.success) {
+        if (delResult.result) {
+          setValidationResult(delResult.result);
+          setBlockerModalOpen(true);
+        }
+        return;
+      }
       setRefreshKey((k) => k + 1); // Trigger re-render
     }
   };
@@ -155,7 +171,14 @@ export default function Accounting() {
     }
 
     const oldStatus = entry?.status;
-    updateFinancialEntry(id, { status: newStatus });
+    const statusResult = updateFinancialEntry(id, { status: newStatus });
+    if (!statusResult.entry) {
+      if (statusResult.result) {
+        setValidationResult(statusResult.result);
+        setBlockerModalOpen(true);
+      }
+      return;
+    }
     logStatusChange("financialEntry", id, oldStatus, newStatus);
     setRefreshKey((k) => k + 1); // Trigger re-render
   };
@@ -336,7 +359,15 @@ export default function Accounting() {
       if (editingEntry) {
         // Update existing entry
         const previous = editingEntry;
-        updateFinancialEntry(editingEntry.id, formData);
+        const updateResult = updateFinancialEntry(editingEntry.id, formData);
+        if (!updateResult.entry) {
+          if (updateResult.result) {
+            setValidationResult(updateResult.result);
+            setBlockerModalOpen(true);
+          }
+          setIsLoading(false);
+          return;
+        }
         showToast("Écriture modifiée avec succès!", "success");
 
         const changedFields = Object.entries(formData || {}).reduce((acc, [key, value]) => {
@@ -356,76 +387,29 @@ export default function Accounting() {
         }
       } else {
         // Add new entry
-        // Resolve relationship names
-        const client = formData.clientId ? mockClients.find(c => c.id === parseInt(formData.clientId)) : null;
-        const dossier = formData.dossierId ? mockDossiers.find(d => d.id === parseInt(formData.dossierId)) : null;
-        const caseItem = formData.caseId ? mockCases.find(c => c.id === parseInt(formData.caseId)) : null;
+        console.log('[Accounting.handleSubmit] Creating financial entry with formData:', formData);
 
-        const entryData = {
-          ...formData,
-          clientId: client ? client.id : null,
-          clientName: client ? client.name : null,
-          dossierId: dossier ? dossier.id : null,
-          dossierReference: dossier ? dossier.caseNumber : null,
-          caseId: caseItem ? caseItem.id : null,
-          caseReference: caseItem ? caseItem.caseNumber : null,
-        };
+        const creation = await addFinancialEntry(formData);
+        const createdEntry = creation?.created || creation;
 
-        // addFinancialEntry returns the new entry with its generated ID
-        const newEntry = addFinancialEntry(entryData);
+        if (!creation || !creation.ok) {
+          if (creation?.result) {
+            setValidationResult(creation.result);
+            setBlockerModalOpen(true);
+          }
+          setIsLoading(false);
+          return;
+        }
+
         showToast("Écriture ajoutée avec succès!", "success");
 
         // ✅ Log creation event using the returned entry's ID
-        logEntityCreation('financialEntry', newEntry.id, `${newEntry.type} - ${formatCurrency(newEntry.amount)}`);
-
-        // ✅ Log relation on linked entities
-        if (newEntry.clientId) {
-          logHistoryEvent({
-            entityType: "client",
-            entityId: newEntry.clientId,
-            eventType: EVENT_TYPES.FINANCE,
-            label: "Écriture comptable ajoutée",
-            details: newEntry.description,
-            metadata: {
-              amount: formatCurrency(newEntry.amount),
-              relatedType: "financialEntry",
-              relatedId: newEntry.id,
-            },
-          });
-        }
-        if (newEntry.dossierId) {
-          logHistoryEvent({
-            entityType: "dossier",
-            entityId: newEntry.dossierId,
-            eventType: EVENT_TYPES.FINANCE,
-            label: "Écriture comptable ajoutée",
-            details: newEntry.description,
-            metadata: {
-              amount: formatCurrency(newEntry.amount),
-              relatedType: "financialEntry",
-              relatedId: newEntry.id,
-            },
-          });
-        }
-        if (newEntry.caseId) {
-          logHistoryEvent({
-            entityType: "case",
-            entityId: newEntry.caseId,
-            eventType: EVENT_TYPES.FINANCE,
-            label: "Écriture comptable ajoutée",
-            details: newEntry.description,
-            metadata: {
-              amount: formatCurrency(newEntry.amount),
-              relatedType: "financialEntry",
-              relatedId: newEntry.id,
-            },
-          });
-        }
+        logEntityCreation('financialEntry', createdEntry.id, createdEntry.description || `${createdEntry.type} - ${formatCurrency(createdEntry.amount)}`);
 
         // ✅ Navigate to detail view after creation using the returned entry's ID
-        const detailRoute = resolveDetailRoute('financialEntry', newEntry.id);
+        const detailRoute = resolveDetailRoute('financialEntry', createdEntry.id);
         if (detailRoute) {
-          setTimeout(() => navigate(detailRoute), 100);
+          setTimeout(() => navigate(detailRoute, { state: { createdEntry } }), 100);
         }
       }
 

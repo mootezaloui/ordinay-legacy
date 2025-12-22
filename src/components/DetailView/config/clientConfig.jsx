@@ -44,8 +44,10 @@ export const clientConfig = {
     const relatedCases = cases.filter(cas =>
       relatedDossiers.some(dossier => dossier.id === cas.dossierId)
     );
+    // Aggregate all sessions related to this client (by related cases or dossiers)
     const relatedSessions = sessions.filter(session =>
-      relatedCases.some(cas => cas.id === session.caseId)
+      relatedCases.some(cas => cas.id === session.caseId) ||
+      relatedDossiers.some(dossier => dossier.id === session.dossierId)
     );
     const relatedTasks = tasks.filter(task =>
       task.clientId === numericId ||
@@ -59,6 +61,8 @@ export const clientConfig = {
       relatedCases,
       relatedSessions,
       relatedTasks,
+      // For tab count compatibility:
+      sessions: relatedSessions,
     };
   },
 
@@ -233,7 +237,7 @@ export const clientConfig = {
     },
     {
       id: "sessions",
-      label: "Séances",
+      label: "Audiences",
       icon: "fas fa-calendar-alt",
       component: "aggregatedRelated",
       aggregationType: "sessions",

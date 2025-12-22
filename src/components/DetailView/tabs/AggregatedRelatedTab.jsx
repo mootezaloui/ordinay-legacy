@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useToast } from "../../../contexts/ToastContext";
 import { useConfirm } from "../../../contexts/ConfirmContext";
@@ -214,12 +214,11 @@ export default function AggregatedRelatedTab({
         return rel;
       })();
 
-      // Create new item
-      const newItem = {
+      // Create new item (default shape; may be overwritten for backend-created entities)
+      let newItem = {
         id: Date.now(),
         ...normalizedFormData,
         ...relationshipFields,
-        // Add parent reference
         [config.entityType + 'Id']: data.id,
         createdDate: new Date().toISOString().split('T')[0],
       };
@@ -227,16 +226,32 @@ export default function AggregatedRelatedTab({
       // Persist via global store (same flow as list screens)
       switch (tabConfig?.aggregationType) {
         case "dossiers":
-          addDossier(newItem);
+          {
+            const creation = await addDossier({ ...normalizedFormData, ...relationshipFields });
+            const created = creation?.created || creation;
+            newItem = { ...created };
+          }
           break;
         case "cases":
-          addCase(newItem);
+          {
+            const creation = await addCase({ ...normalizedFormData, ...relationshipFields });
+            const created = creation?.created || creation;
+            newItem = { ...created };
+          }
           break;
         case "sessions":
-          addSession(newItem);
+          {
+            const creation = await addSession({ ...normalizedFormData, ...relationshipFields });
+            const created = creation?.created || creation;
+            newItem = { ...created };
+          }
           break;
         case "tasks":
-          addTask(newItem);
+          {
+            const creation = await addTask({ ...normalizedFormData, ...relationshipFields });
+            const created = creation?.created || creation;
+            newItem = { ...created };
+          }
           break;
         default:
           break;
@@ -566,3 +581,5 @@ function ItemRow({ item, parentContext, entityConfig, allowDelete, onDelete, cur
     </div>
   );
 }
+
+

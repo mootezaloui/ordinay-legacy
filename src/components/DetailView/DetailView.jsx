@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+﻿import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { useToast } from "../../contexts/ToastContext";
 import { useConfirm } from "../../contexts/ConfirmContext";
@@ -58,6 +58,19 @@ export default function DetailView({ entityType }) {
   const [data, setData] = useState(null);
   const [originalData, setOriginalData] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // Fallback: If financialEntry not found, use location.state?.createdEntry
+  useEffect(() => {
+    if (
+      entityType === 'financialEntry' &&
+      !loading &&
+      !data &&
+      location.state?.createdEntry
+    ) {
+      setData(location.state.createdEntry);
+      setOriginalData(location.state.createdEntry);
+    }
+  }, [entityType, loading, data, location.state]);
 
   // Keep latest context in a ref so delayed callbacks don't read stale values
   useEffect(() => {
@@ -558,98 +571,105 @@ export default function DetailView({ entityType }) {
         }
         break;
 
-      case "sessions":
-        if (isClient) {
-          // Client entity: Get all Séances related to this client (via Procès)
-          const relatedDossiers = data.relatedDossiers || [];
-          const relatedCases = mockCases.filter(cas =>
-            relatedDossiers.some(dossier => dossier.id === cas.dossierId)
-          );
+      case "sessions": {
+        const allSessions = latestContextRef.current.sessions || [];
+        const allCases = latestContextRef.current.cases || mockCases;
+        const allDossiers = latestContextRef.current.dossiers || [];
 
-          // ✅ Merge newly added items with existing items
-          const existingSessions = mockSessions.filter(session =>
-            relatedCases.some(cas => cas.id === session.caseId)
+        if (isClient) {
+          const relatedDossiers = allDossiers.filter((d) => d.clientId === data.id);
+          const relatedCases = allCases.filter((c) => relatedDossiers.some((d) => d.id === c.dossierId));
+
+          const existingSessions = allSessions.filter(
+            (s) =>
+              (s.caseId && relatedCases.some((c) => c.id === s.caseId)) ||
+              (s.dossierId && relatedDossiers.some((d) => d.id === s.dossierId))
           );
 
           const newlyAddedSessions = data.relatedSessions || [];
-          const sessionIds = new Set(newlyAddedSessions.map(s => s.id));
-          const uniqueExistingSessions = existingSessions.filter(s => !sessionIds.has(s.id));
+          const sessionIds = new Set(newlyAddedSessions.map((s) => s.id));
+          const uniqueExistingSessions = existingSessions.filter((s) => !sessionIds.has(s.id));
 
-          items = [...newlyAddedSessions, ...uniqueExistingSessions];
-
-          items = items.sort((a, b) => new Date(a.date) - new Date(b.date));
+          items = [...newlyAddedSessions, ...uniqueExistingSessions].sort(
+            (a, b) => new Date(a.date) - new Date(b.date)
+          );
 
           getParentContext = (session) => {
-            const parentCase = relatedCases.find(c => c.id === session.caseId);
-            const parentDossier = parentCase ? relatedDossiers.find(d => d.id === parentCase.dossierId) : null;
-            return {
-              dossier: parentDossier,
-              case: parentCase
-            };
+            const parentCase = session.caseId ? relatedCases.find((c) => c.id === session.caseId) : null;
+            const parentDossier = parentCase
+              ? relatedDossiers.find((d) => d.id === parentCase.dossierId)
+              : relatedDossiers.find((d) => d.id === session.dossierId);
+            return { dossier: parentDossier, case: parentCase };
           };
 
           entityConfig = {
-            title: "Séances",
+            title: "Audiences",
             icon: "fas fa-calendar-alt",
             iconColor: "text-green-600 dark:text-green-400",
             bgColor: "bg-green-100 dark:bg-green-900/20",
             route: "/sessions",
-            emptyMessage: "Aucune séance programmée pour ce client.\nPour ajouter une audience, créez d'abord un dossier et un procès.",
+            emptyMessage:
+              "Aucune Audiences programmAce pour ce client.\nPour ajouter une audience, crAcez d'abord un dossier et un procA\"s.",
             getTitle: (item) => item.title,
-            getSubtitle: (item) => `${item.date} à ${item.time} • ${item.location}`,
+            getSubtitle: (item) => `${item.date} • ${item.time} • ${item.location}`,
             getStatus: (item) => item.status,
           };
         } else if (isDossier) {
-          // Dossier entity: Get all Séances from this dossier's procès
-          const dossierCases = data.proceedings || [];
+          const dossierCases = (latestContextRef.current.cases || []).filter((c) => c.dossierId === data.id);
 
-          // ✅ Merge newly added items (data.sessions) with existing items (filtered from mockSessions)
-          const existingSessions = mockSessions.filter(session =>
-            dossierCases.some(cas => cas.id === session.caseId)
+          const existingSessions = allSessions.filter(
+            (s) =>
+              s.dossierId === data.id ||
+              (s.caseId && dossierCases.some((c) => c.id === s.caseId))
           );
 
-          // Combine and deduplicate
           const newlyAddedSessions = data.sessions || [];
-          const sessionIds = new Set(newlyAddedSessions.map(s => s.id));
-          const uniqueExistingSessions = existingSessions.filter(s => !sessionIds.has(s.id));
+          const sessionIds = new Set(newlyAddedSessions.map((s) => s.id));
+          const uniqueExistingSessions = existingSessions.filter((s) => !sessionIds.has(s.id));
 
-          items = [...newlyAddedSessions, ...uniqueExistingSessions];
-          items = items.sort((a, b) => new Date(a.date) - new Date(b.date));
+          items = [...newlyAddedSessions, ...uniqueExistingSessions].sort(
+            (a, b) => new Date(a.date) - new Date(b.date)
+          );
 
           getParentContext = (session) => {
-            const parentCase = dossierCases.find(c => c.id === session.caseId);
+            const parentCase = session.caseId ? dossierCases.find((c) => c.id === session.caseId) : null;
             return { case: parentCase };
           };
 
           entityConfig = {
-            title: "Séances",
+            title: "Audiences",
             icon: "fas fa-calendar-alt",
             iconColor: "text-green-600 dark:text-green-400",
             bgColor: "bg-green-100 dark:bg-green-900/20",
             route: "/sessions",
-            emptyMessage: "Aucune séance programmée pour ce dossier",
+            emptyMessage: "Aucune sAcance programmAce pour ce dossier",
             getTitle: (item) => item.title,
-            getSubtitle: (item) => `${item.date} à ${item.time} • ${item.location}`,
+            getSubtitle: (item) => `${item.date} • ${item.time} • ${item.location}`,
             getStatus: (item) => item.status,
           };
         } else if (config.entityType === 'case') {
-          // Case entity: Direct children - sessions of this case only
-          items = data.sessions || [];
+          items =
+            data.sessions ||
+            allSessions.filter(
+              (s) => s.caseId === data.id || s.dossierId === data.dossier?.id
+            );
+          items = items.sort((a, b) => new Date(a.date) - new Date(b.date));
           getParentContext = null; // No parent context needed (direct children)
 
           entityConfig = {
-            title: "Séances",
+            title: "Audiences",
             icon: "fas fa-calendar-alt",
             iconColor: "text-green-600 dark:text-green-400",
             bgColor: "bg-green-100 dark:bg-green-900/20",
             route: "/sessions",
-            emptyMessage: "Aucune séance programmée pour ce procès",
+            emptyMessage: "Aucune sAcance programmAce pour ce procA\"s",
             getTitle: (item) => item.title,
-            getSubtitle: (item) => `${item.date} à ${item.time} • ${item.location}`,
+            getSubtitle: (item) => `${item.date} • ${item.time} • ${item.location}`,
             getStatus: (item) => item.status,
           };
         }
         break;
+      }
 
       case "tasks":
         if (isClient) {
@@ -792,7 +812,7 @@ export default function DetailView({ entityType }) {
             icon: "fas fa-clipboard-list",
             iconColor: "text-indigo-600 dark:text-indigo-400",
             bgColor: "bg-indigo-100 dark:bg-indigo-900/20",
-            route: "/officers", // Link to officer detail where mission is shown
+            route: "/missions", // Navigate to mission detail
             emptyMessage: "Aucune mission d'huissier pour ce dossier",
             getTitle: (item) => item.missionNumber,
             getSubtitle: (item) => {
@@ -811,7 +831,7 @@ export default function DetailView({ entityType }) {
             icon: "fas fa-clipboard-list",
             iconColor: "text-indigo-600 dark:text-indigo-400",
             bgColor: "bg-indigo-100 dark:bg-indigo-900/20",
-            route: "/officers",
+            route: "/missions", // Navigate to mission detail
             emptyMessage: "Aucune mission d'huissier pour ce procès",
             getTitle: (item) => item.missionNumber,
             getSubtitle: (item) => {
@@ -976,3 +996,5 @@ export default function DetailView({ entityType }) {
     </PageLayout>
   );
 }
+
+

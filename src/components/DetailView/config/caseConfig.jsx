@@ -59,11 +59,14 @@ export const caseConfig = {
       }
     }
 
+    // Aggregate all sessions related to this case (by caseId or dossierId)
+    const caseSessions = sessions.filter((s) => s.caseId === numericId || s.dossierId === caseData.dossierId);
+
     return {
       ...caseData,
       dossier: dossier || { id: null, caseNumber: 'N/A', title: 'Dossier inconnu' },
       // Always derive related collections from live context (avoid stale embedded arrays)
-      sessions: sessions.filter((s) => s.caseId === numericId),
+      sessions: caseSessions,
       tasks: tasks.filter((t) => t.parentType === "case" && t.caseId === numericId),
     };
   },
@@ -207,7 +210,7 @@ export const caseConfig = {
       iconColor: "text-blue-600 dark:text-blue-400",
       bgColor: "bg-blue-100 dark:bg-blue-900/20",
       value: data.sessions?.length || 0,
-      label: "Séances"
+      label: "Audiences"
     },
   ],
 
@@ -221,7 +224,7 @@ export const caseConfig = {
     },
     {
       id: "sessions",
-      label: "Séances",
+      label: "Audiences",
       icon: "fas fa-calendar-alt",
       component: "aggregatedRelated",
       aggregationType: "sessions",

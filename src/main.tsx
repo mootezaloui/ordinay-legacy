@@ -17,20 +17,20 @@ createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <SettingsProvider>
       <ThemeProvider>
-        <DataProvider>
-          <NotificationProvider>
-            <AlertBanner />
-            <SidebarProvider>
-              <ToastProvider>
+        <NotificationProvider>
+          <ToastProvider>
+            <DataProvider>
+              <AlertBanner />
+              <SidebarProvider>
                 <ConfirmProvider>
                   <BrowserRouter>
                     <App />
                   </BrowserRouter>
                 </ConfirmProvider>
-              </ToastProvider>
-            </SidebarProvider>
-          </NotificationProvider>
-        </DataProvider>
+              </SidebarProvider>
+            </DataProvider>
+          </ToastProvider>
+        </NotificationProvider>
       </ThemeProvider>
     </SettingsProvider>
   </StrictMode>

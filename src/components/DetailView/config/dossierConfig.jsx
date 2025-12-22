@@ -46,9 +46,10 @@ export const dossierConfig = {
 
     // Always derive proceedings from the live cases list to stay in sync with deletions
     const dossierCases = cases.filter(c => c.dossierId === numericId);
+    // Aggregate all sessions related to this dossier (by dossierId or by caseId)
     const relatedSessions = sessions.filter(session =>
-      dossierCases.some(cas => cas.id === session.caseId) ||
-      (session.linkType === 'dossier' && session.dossierId === numericId)
+      session.dossierId === numericId ||
+      dossierCases.some(cas => cas.id === session.caseId)
     );
     const relatedTasks = tasks.filter(task =>
       (task.parentType === 'dossier' && task.dossierId === numericId) ||
@@ -329,7 +330,7 @@ export const dossierConfig = {
     },
     {
       id: "sessions",
-      label: "Séances",
+      label: "Audiences",
       icon: "fas fa-calendar-alt",
       component: "aggregatedRelated",
       aggregationType: "sessions",

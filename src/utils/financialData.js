@@ -36,10 +36,22 @@ import {
   logEntityCreation,
   logHistoryEvent,
   EVENT_TYPES,
+  logStatusChange,
+  logLifecycleChange,
 } from "../services/historyService";
+import { canPerformAction } from "../services/domainRules";
 
 // Financial Entry ID counter
 let nextFinancialId = 1;
+
+const validateFinancialMutation = (action, entryId, context = {}) => {
+  const result = canPerformAction("financialEntry", entryId, action, context);
+  if (!result.allowed || result.requiresConfirmation) {
+    console.warn("[financialData] Mutation blocked", action, entryId, result);
+    return { ok: false, result };
+  }
+  return { ok: true, result };
+};
 
 /**
  * Financial Ledger - Single Source of Truth
@@ -497,10 +509,25 @@ export const addFinancialEntry = (entry) => {
     ...entry,
   };
 
+  const validation = validateFinancialMutation("add", newEntry.id, {
+    data: newEntry,
+    newData: newEntry,
+  });
+  if (!validation.ok) {
+    return { entry: null, result: validation.result };
+  }
+
   financialLedger.push(newEntry);
 
   // History: creation of the financial entry itself
   logEntityCreation("financialEntry", newEntry.id, newEntry.description || "Écriture");
+  logHistoryEvent({
+    entityType: "financialEntry",
+    entityId: newEntry.id,
+    eventType: EVENT_TYPES.FINANCE,
+    label: "Création",
+    metadata: { created: newEntry },
+  });
 
   // History: relations on linked entities
   const relationPayload = {
@@ -536,7 +563,7 @@ export const addFinancialEntry = (entry) => {
     });
   }
 
-  return newEntry;
+  return { entry: newEntry, result: validation.result };
 };
 
 /**
@@ -545,13 +572,37 @@ export const addFinancialEntry = (entry) => {
 export const updateFinancialEntry = (id, updates) => {
   const index = financialLedger.findIndex((entry) => entry.id === id);
   if (index !== -1) {
-    financialLedger[index] = {
-      ...financialLedger[index],
-      ...updates,
-    };
-    return financialLedger[index];
+    const nextValue = { ...financialLedger[index], ...updates };
+    const validation = validateFinancialMutation("edit", id, {
+      data: financialLedger[index],
+      newData: nextValue,
+    });
+    if (!validation.ok) {
+      return { entry: null, result: validation.result };
+    }
+    const prev = financialLedger[index];
+    financialLedger[index] = nextValue;
+    const changedFields = Object.entries(updates || {}).reduce((acc, [key, value]) => {
+      const oldVal = prev[key];
+      if (oldVal === value) return acc;
+      acc[key] = `${oldVal ?? ""} -> ${value ?? ""}`;
+      return acc;
+    }, {});
+    if (Object.keys(changedFields).length > 0) {
+      logHistoryEvent({
+        entityType: "financialEntry",
+        entityId: id,
+        eventType: EVENT_TYPES.FINANCE,
+        label: "Mise à jour",
+        metadata: changedFields,
+      });
+    }
+    if (Object.prototype.hasOwnProperty.call(updates, "status") && prev.status !== updates.status) {
+      logStatusChange("financialEntry", id, prev.status, updates.status);
+    }
+    return { entry: financialLedger[index], result: validation.result };
   }
-  return null;
+  return { entry: null, result: { allowed: false, blockers: ["A%criture comptable introuvable"] } };
 };
 
 /**
@@ -560,10 +611,32 @@ export const updateFinancialEntry = (id, updates) => {
 export const deleteFinancialEntry = (id) => {
   const index = financialLedger.findIndex((entry) => entry.id === id);
   if (index !== -1) {
+    const validation = validateFinancialMutation("delete", id, {
+      data: financialLedger[index],
+    });
+    if (!validation.ok) {
+      return { success: false, result: validation.result };
+    }
+    const prev = financialLedger[index];
     financialLedger[index].status = "cancelled";
-    return true;
+    logLifecycleChange("financialEntry", id, "deleted");
+    logHistoryEvent({
+      entityType: "financialEntry",
+      entityId: id,
+      eventType: EVENT_TYPES.FINANCE,
+      label: "Annulation",
+      metadata: { previousStatus: prev.status, newStatus: "cancelled" },
+    });
+    return { success: true, result: validation.result };
   }
-  return false;
+  return { success: false, result: { allowed: false, blockers: ["A%criture comptable introuvable"] } };
+};
+
+export const setFinancialLedger = (entries) => {
+  if (!Array.isArray(entries)) return;
+  financialLedger.splice(0, financialLedger.length, ...entries);
+  const maxId = entries.reduce((max, e) => Math.max(max, Number(e.id) || 0), 0);
+  nextFinancialId = maxId + 1;
 };
 
 // Category metadata

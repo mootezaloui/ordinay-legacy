@@ -21,37 +21,37 @@ export const menuItems = [
   },
   {
     icon: "fas fa-folder-open",
-    label: "Dossiers",
+    label: "Case Files",
     route: "/dossiers",
   },
   {
     icon: "fas fa-tasks",
-    label: "Tâches",
+    label: "Tasks",
     route: "/tasks",
   },
   {
     icon: "fas fa-gavel",
-    label: "Procès",
+    label: "Cases",
     route: "/cases",
   },
   {
     icon: "fas fa-calendar",
-    label: "Audience",
+    label: "Sessions",
     route: "/sessions",
   },
   {
     icon: "fas fa-sticky-note",
-    label: "Tâches Personnelles",
+    label: "Personal Tasks",
     route: "/personal-tasks",
   },
   {
     icon: "fas fa-user-tie",
-    label: "Huissier",
+    label: "Bailiffs",
     route: "/officers",
   },
   {
     icon: "fas fa-calculator",
-    label: "Comptabilité",
+    label: "Accounting",
     route: "/accounting",
   },
   {

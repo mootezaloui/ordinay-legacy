@@ -47,6 +47,25 @@ export default function Sessions() {
     "Téléphone": "fas fa-phone",
   };
 
+  const statusLabelMap = {
+    "Programmée": "Scheduled",
+    "Confirmée": "Confirmed",
+    "En attente": "On Hold",
+    "Terminée": "Completed",
+    "Annulée": "Cancelled",
+  };
+
+  const typeLabelMap = {
+    "Consultation": "Consultation",
+    "Audience": "Hearing",
+    "Expertise": "Expert Review",
+    "Médiation": "Mediation",
+    "Téléphone": "Phone",
+  };
+
+  const getStatusLabel = (status) => statusLabelMap[status] || status;
+  const getTypeLabel = (type) => typeLabelMap[type] || type;
+
   // Calculate stats
   const stats = {
     total: sessions.length,
@@ -65,7 +84,7 @@ export default function Sessions() {
   const columns = [
     {
       id: "title",
-      label: "Titre",
+      label: "Title",
       sortable: true,
       locked: true,
       render: (session) => <span className="font-medium">{session.title}</span>,
@@ -77,7 +96,7 @@ export default function Sessions() {
       render: (session) => (
         <div className="flex items-center gap-2">
           <i className={`${typeIcons[session.type]} text-blue-600 dark:text-blue-400 text-sm`}></i>
-          <span className="text-sm">{session.type}</span>
+          <span className="text-sm">{getTypeLabel(session.type)}</span>
         </div>
       ),
     },
@@ -89,19 +108,19 @@ export default function Sessions() {
     },
     {
       id: "time",
-      label: "Heure",
+      label: "Time",
       sortable: true,
       render: (session) => session.time,
     },
     {
       id: "duration",
-      label: "Durée",
+      label: "Duration",
       sortable: true,
       render: (session) => <span className="text-slate-600 dark:text-slate-400">{session.duration}</span>,
     },
     {
       id: "location",
-      label: "Lieu",
+      label: "Location",
       sortable: true,
       render: (session) => (
         <div className="flex items-center gap-2">
@@ -112,18 +131,18 @@ export default function Sessions() {
     },
     {
       id: "status",
-      label: "Statut",
+      label: "Status",
       sortable: true,
       render: (session) => (
         <InlineStatusSelector
           value={session.status}
           onChange={(newStatus) => handleStatusChange(session.id, newStatus)}
           statusOptions={[
-            { value: "Programmée", label: "Programmée", icon: "fas fa-calendar", color: "blue" },
-            { value: "Confirmée", label: "Confirmée", icon: "fas fa-check", color: "green" },
-            { value: "En attente", label: "En attente", icon: "fas fa-clock", color: "amber" },
-            { value: "Terminée", label: "Terminée", icon: "fas fa-check-circle", color: "slate" },
-            { value: "Annulée", label: "Annulée", icon: "fas fa-times-circle", color: "red" },
+            { value: "Programmée", label: "Scheduled", icon: "fas fa-calendar", color: "blue" },
+            { value: "Confirmée", label: "Confirmed", icon: "fas fa-check", color: "green" },
+            { value: "En attente", label: "On Hold", icon: "fas fa-clock", color: "amber" },
+            { value: "Terminée", label: "Completed", icon: "fas fa-check-circle", color: "slate" },
+            { value: "Annulée", label: "Cancelled", icon: "fas fa-times-circle", color: "red" },
           ]}
           entityType="session"
           entityId={session.id}
@@ -141,7 +160,7 @@ export default function Sessions() {
           <IconButton
             icon="view"
             variant="view"
-            title="Voir détails"
+            title="View details"
             onClick={(e) => {
               e.stopPropagation();
               handleView(session.id);
@@ -150,7 +169,7 @@ export default function Sessions() {
           <IconButton
             icon="edit"
             variant="edit"
-            title="Modifier"
+            title="Edit"
             onClick={(e) => {
               e.stopPropagation();
               handleEdit(session);
@@ -159,7 +178,7 @@ export default function Sessions() {
           <IconButton
             icon="delete"
             variant="delete"
-            title="Supprimer"
+            title="Delete"
             onClick={(e) => {
               e.stopPropagation();
               handleDelete(session.id);
@@ -210,15 +229,15 @@ export default function Sessions() {
     }
 
     if (await confirm({
-      title: "Supprimer la séance",
-      message: "Êtes-vous sûr de vouloir supprimer cette séance ?",
-      confirmText: "Supprimer",
-      cancelText: "Annuler",
+      title: "Delete session",
+      message: "Are you sure you want to delete this session?",
+      confirmText: "Delete",
+      cancelText: "Cancel",
       variant: "danger"
     })) {
       deleteSession(id);
-      showToast("Séance supprimée", "warning", {
-        title: "Suppression",
+      showToast("Session deleted", "warning", {
+        title: "Deleted",
         context: "session",
       });
     }
@@ -226,8 +245,8 @@ export default function Sessions() {
 
   const handleStatusChange = (id, newStatus) => {
     updateSession(id, { status: newStatus });
-    showToast(`Statut mis a jour: ${newStatus}`, "info", {
-      title: "Statut de seance",
+    showToast(`Status updated: ${getStatusLabel(newStatus)}`, "info", {
+      title: "Session status",
       context: "session",
     });
   };
@@ -283,20 +302,17 @@ export default function Sessions() {
 
       if (editingSession) {
         updateSession(editingSession.id, formData);
-        showToast("Séance modifiée avec succès!", "success");
+        showToast("Session updated successfully!", "success");
       } else {
-        const newSession = {
-          ...formData,
-          id: Date.now(),
-        };
-        addSession(newSession);
-        showToast("Séance ajoutée avec succès!", "success");
+        const creation = await addSession(formData);
+        const createdSession = creation?.created || creation;
+        showToast("Session added successfully!", "success");
 
         // ✅ Log creation event
-        logEntityCreation('session', newSession.id, formData.type || 'Séance');
+        logEntityCreation('session', createdSession.id, formData.type || 'Session');
 
         // ✅ Navigate to detail view after creation
-        const detailRoute = resolveDetailRoute('session', newSession.id);
+        const detailRoute = resolveDetailRoute('session', createdSession.id);
         if (detailRoute) {
           setTimeout(() => navigate(detailRoute), 100);
         }
@@ -306,7 +322,7 @@ export default function Sessions() {
       setEditingSession(null);
     } catch (error) {
       console.error("Error submitting session:", error);
-      showToast("Erreur lors de l'enregistrement", "error");
+      showToast("Error while saving", "error");
     } finally {
       setIsLoading(false);
     }
@@ -350,7 +366,7 @@ export default function Sessions() {
       return {
         ...field,
         options: [
-          { value: "", label: "Sélectionner un procès..." },
+          { value: "", label: "Select a case..." },
           ...mockCases.map(c => ({
             value: c.id,
             label: `${c.caseNumber} - ${c.title}`
@@ -362,7 +378,7 @@ export default function Sessions() {
       return {
         ...field,
         options: [
-          { value: "", label: "Sélectionner un dossier..." },
+          { value: "", label: "Select a case file..." },
           ...mockDossiers.map(d => ({
             value: d.id,
             label: `${d.caseNumber} - ${d.title}`
@@ -376,7 +392,7 @@ export default function Sessions() {
         ...field,
         type: 'readonly',
         displayValue: editingSession.status,
-        helpText: 'Le statut ne peut être modifié que via le sélecteur dans la liste'
+        helpText: 'Status can only be changed using the selector in the list'
       };
     }
     return field;
@@ -385,8 +401,8 @@ export default function Sessions() {
   return (
     <PageLayout>
       <PageHeader
-        title="Audiences"
-        subtitle={`${table.originalTotalItems} séances au total${table.isFiltering ? ` • ${table.totalItems} affichées` : ""}`}
+        title="Sessions"
+        subtitle={`${table.originalTotalItems} sessions in total${table.isFiltering ? ` • ${table.totalItems} displayed` : ""}`}
         icon="fas fa-calendar"
         actions={
           <button
@@ -394,32 +410,32 @@ export default function Sessions() {
             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center gap-2"
           >
             <i className="fas fa-plus"></i>
-            Nouvelle Séance
+            New Session
           </button>
         }
       />
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <StatCard
-          label="Total Séances"
+          label="Total Sessions"
           value={stats.total}
           icon="fas fa-calendar"
           color="blue"
         />
         <StatCard
-          label="Aujourd'hui"
+          label="Today"
           value={stats.today}
           icon="fas fa-calendar-day"
           color="purple"
         />
         <StatCard
-          label="Cette semaine"
+          label="This Week"
           value={stats.thisWeek}
           icon="fas fa-calendar-week"
           color="amber"
         />
         <StatCard
-          label="Terminées"
+          label="Completed"
           value={stats.completed}
           icon="fas fa-check-circle"
           color="green"
@@ -448,7 +464,7 @@ export default function Sessions() {
             onReorder={table.reorderColumns}
             enableReorder={true}
           />
-          <TableBody isEmpty={table.data.length === 0} emptyMessage={table.isFiltering ? "Aucun résultat trouvé" : "Aucune séance trouvée"}>
+          <TableBody isEmpty={table.data.length === 0} emptyMessage={table.isFiltering ? "No results found" : "No sessions found"}>
             {table.data.map((session) => (
               <TableRow
                 key={session.id}
@@ -483,7 +499,7 @@ export default function Sessions() {
         }}
         onSubmit={handleSubmit}
         title={getFormTitle("session", !!editingSession)}
-        subtitle={editingSession ? "Modifier la séance" : "Ajouter une nouvelle séance"}
+        subtitle={editingSession ? "Edit session" : "Add a new session"}
         fields={populatedSessionFormFields}
         initialData={editingSession}
         isLoading={isLoading}
@@ -495,10 +511,10 @@ export default function Sessions() {
       <BlockerModal
         isOpen={blockerModalOpen}
         onClose={() => setBlockerModalOpen(false)}
-        actionName="Modifier/Supprimer la séance"
+        actionName="Edit/Delete session"
         blockers={validationResult?.blockers || []}
         warnings={validationResult?.warnings || []}
-        entityName={`Séance du ${validationResult?.entityData?.date || ''}`}
+        entityName={`Session on ${validationResult?.entityData?.date || ''}`}
       />
       <ConfirmImpactModal
         isOpen={confirmImpactModalOpen}
@@ -507,7 +523,7 @@ export default function Sessions() {
           setPendingFormData(null);
         }}
         onConfirm={handleConfirmImpact}
-        actionName="confirmer la modification"
+        actionName="confirm the change"
         impactSummary={validationResult?.impactSummary || []}
         entityName={pendingFormData?.title || editingSession?.title || ""}
       />

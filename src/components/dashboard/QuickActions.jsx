@@ -80,80 +80,45 @@ export default function QuickActions({ onDataChange }) {
 
       switch (entityType) {
         case "client": {
-          newEntity = {
+          const payload = {
             ...formData,
-            id: Date.now(),
             joinDate: formData.joinDate || new Date().toISOString().split("T")[0],
           };
-          addClient(newEntity);
-          logEntityCreation("client", newEntity.id, formData.name);
+          const creation = await addClient(payload);
+          const createdEntity = creation?.created || creation;
+          const createdId = createdEntity?.id;
+          const createdName = createdEntity?.name || formData.name;
+          if (!createdId) throw new Error("Identifiant du client manquant");
+          newEntity = { ...createdEntity };
+          logEntityCreation("client", createdId, createdName);
           break;
         }
         case "dossier": {
-          const clientId = formData.clientId ? parseInt(formData.clientId, 10) : null;
-          const client = clients.find((c) => c.id === clientId);
-          newEntity = {
-            ...formData,
-            id: Date.now(),
-            clientId,
-            client: client?.name || "Client inconnu",
-            openDate: formData.openDate || new Date().toISOString().split("T")[0],
-          };
-          addDossier(newEntity);
-          logEntityCreation("dossier", newEntity.id, newEntity.caseNumber);
+          const creation = await addDossier(formData);
+          const createdEntity = creation?.created || creation;
+          const createdId = createdEntity?.id;
+          if (!createdId) throw new Error("Identifiant du dossier manquant");
+          newEntity = { ...createdEntity };
+          logEntityCreation("dossier", createdId, createdEntity?.caseNumber);
           break;
         }
         case "task": {
           const parentType = formData.parentType || (formData.caseId ? "case" : "dossier");
-          const newTask = {
+          const payload = {
             ...formData,
-            id: Date.now(),
             parentType,
           };
-
-          if (parentType === "case" && formData.caseId) {
-            const caseId = parseInt(formData.caseId, 10);
-            const parentCase = cases.find((c) => c.id === caseId);
-            newTask.caseId = caseId;
-            newTask.case = parentCase?.caseNumber || "N/A";
-            newTask.dossierId = null;
-            newTask.dossier = null;
-          } else if (formData.dossierId) {
-            const dossierId = parseInt(formData.dossierId, 10);
-            const dossier = dossiers.find((d) => d.id === dossierId);
-            newTask.dossierId = dossierId;
-            newTask.dossier = dossier?.caseNumber || "N/A";
-            newTask.caseId = null;
-            newTask.case = null;
-          }
-
-          newEntity = newTask;
-          addTask(newEntity);
-          logEntityCreation("task", newEntity.id, formData.title);
+          const creation = await addTask(payload);
+          const createdEntity = creation?.created || creation;
+          newEntity = { ...createdEntity };
+          logEntityCreation("task", newEntity.id, newEntity.title);
           break;
         }
         case "session": {
-          const newSession = {
-            ...formData,
-            id: Date.now(),
-          };
-
-          if (formData.caseId) {
-            const caseId = parseInt(formData.caseId, 10);
-            const parentCase = cases.find((c) => c.id === caseId);
-            newSession.caseId = caseId;
-            newSession.caseName = parentCase
-              ? `${parentCase.caseNumber} - ${parentCase.title}`
-              : null;
-          }
-
-          if (formData.dossierId) {
-            newSession.dossierId = parseInt(formData.dossierId, 10);
-          }
-
-          newEntity = newSession;
-          addSession(newEntity);
-          logEntityCreation("session", newEntity.id, formData.title);
+          const creation = await addSession(formData);
+          const createdEntity = creation?.created || creation;
+          newEntity = { ...createdEntity };
+          logEntityCreation("session", newEntity.id, newEntity.title);
           break;
         }
         default:

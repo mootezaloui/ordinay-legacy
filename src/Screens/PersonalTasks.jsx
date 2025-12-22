@@ -616,18 +616,17 @@ export default function PersonalTasks() {
         updatePersonalTask(editingTask.id, formData);
         showToast("Tâche modifiée avec succès!", "success");
       } else {
-        const newTask = {
-          ...formData,
-          id: Date.now(),
-        };
-        addPersonalTask(newTask);
+        console.log('[PersonalTasks.handleSubmit] Creating personal task with formData:', formData);
+
+        const creation = await addPersonalTask(formData);
+        const createdTask = creation?.created || creation;
         showToast("Tâche ajoutée avec succès!", "success");
 
         // ✅ Log creation event
-        logEntityCreation('personalTask', newTask.id, formData.title);
+        logEntityCreation('personalTask', createdTask.id, formData.title);
 
         // ✅ Navigate to detail view after creation
-        const detailRoute = resolveDetailRoute('personalTask', newTask.id);
+        const detailRoute = resolveDetailRoute('personalTask', createdTask.id);
         if (detailRoute) {
           setTimeout(() => navigate(detailRoute), 100);
         }

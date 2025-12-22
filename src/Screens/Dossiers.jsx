@@ -17,7 +17,6 @@ import TableToolbar from "../components/table/TableToolbar";
 import Pagination from "../components/table/Pagination";
 import FormModal from "../components/FormModal/FormModal";
 import { dossierFormFields, getFormTitle } from "../components/FormModal/formConfigs";
-import { mockClients } from "../utils/mockData";
 import StatCard from "../components/dashboard/StatCard";
 import InlineStatusSelector from "../components/InlineSelectors/InlineStatusSelector";
 import InlinePrioritySelector from "../components/InlineSelectors/InlinePrioritySelector";
@@ -31,7 +30,7 @@ export default function Dossiers() {
   const navigate = useNavigate();
   const { showToast } = useToast();
   const { confirm } = useConfirm();
-  const { dossiers, addDossier, updateDossier, deleteDossier } = useData();
+  const { dossiers, clients, addDossier, updateDossier, deleteDossier, loading, loadError } = useData();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingDossier, setEditingDossier] = useState(null);
@@ -167,6 +166,25 @@ export default function Dossiers() {
     searchableFields: ["caseNumber", "title", "client", "category", "status"],
   });
 
+  if (loading) {
+    return (
+      <PageLayout>
+        <PageHeader title="Dossiers" />
+        {loadError && (
+          <ContentSection>
+            <div className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-red-700">
+              {loadError}
+            </div>
+          </ContentSection>
+        )}
+        <ContentSection>
+          <p>Chargement des donnees...</p>
+        </ContentSection>
+      </PageLayout>
+    );
+  }
+
+
   const handleView = (id) => {
     navigate(`/dossiers/${id}`);
   };
@@ -238,39 +256,37 @@ export default function Dossiers() {
       const result = canPerformAction('dossier', editingDossier.id, 'edit', {
         data: editingDossier,
         newData: formData
-      });
+      })
 
       if (!result.allowed) {
-        setValidationResult(result);
-        setBlockerModalOpen(true);
-        return;
+        setValidationResult(result)
+        setBlockerModalOpen(true)
+        return
       }
 
-      // Phase 2.5: Check if confirmation is required for relational changes
       if (result.requiresConfirmation) {
-        setValidationResult(result);
-        setPendingFormData(formData);
-        setConfirmImpactModalOpen(true);
-        return;
+        setValidationResult(result)
+        setPendingFormData(formData)
+        setConfirmImpactModalOpen(true)
+        return
       }
     } else {
-      const result = canPerformAction('dossier', null, 'add', { formData });
+      const result = canPerformAction('dossier', null, 'add', { formData })
       if (!result.allowed) {
-        setValidationResult(result);
-        setBlockerModalOpen(true);
-        return;
+        setValidationResult(result)
+        setBlockerModalOpen(true)
+        return
       }
       if (result.requiresConfirmation) {
-        setValidationResult(result);
-        setPendingFormData(formData);
-        setConfirmImpactModalOpen(true);
-        return;
+        setValidationResult(result)
+        setPendingFormData(formData)
+        setConfirmImpactModalOpen(true)
+        return
       }
     }
 
-    // Proceed with save
-    await performSave(formData);
-  };
+    await performSave(formData)
+  }
 
   const performSave = async (formData) => {
     setIsLoading(true);
@@ -280,22 +296,18 @@ export default function Dossiers() {
 
       if (editingDossier) {
         updateDossier(editingDossier.id, formData);
-        showToast("Dossier modifié avec succès!", "success");
+        showToast("Dossier modifie avec succes!", "success");
       } else {
-        const client = mockClients.find(c => c.id === parseInt(formData.clientId));
-        const newDossier = {
-          ...formData,
-          id: Date.now(),
-          client: client ? client.name : "Client inconnu",
-        };
-        addDossier(newDossier);
-        showToast("Dossier ajouté avec succès!", "success");
+        const creation = await addDossier(formData);
+        const createdEntity = creation?.created || creation;
+        const createdId = createdEntity?.id;
+        const createdCaseNumber = createdEntity?.caseNumber || createdEntity?.reference || formData.caseNumber;
+        if (!createdId) throw new Error("Identifiant du dossier manquant");
+        showToast("Dossier ajoute avec succes!", "success");
 
-        // ✅ Log creation event
-        logEntityCreation('dossier', newDossier.id, newDossier.caseNumber);
+        logEntityCreation('dossier', createdId, createdCaseNumber);
 
-        // ✅ Navigate to detail view after creation
-        const detailRoute = resolveDetailRoute('dossier', newDossier.id);
+        const detailRoute = resolveDetailRoute('dossier', createdId);
         if (detailRoute) {
           setTimeout(() => navigate(detailRoute), 100);
         }
@@ -348,7 +360,7 @@ export default function Dossiers() {
     if (field.name === "clientId") {
       return {
         ...field,
-        options: mockClients.map(client => ({
+        options: clients.map(client => ({
           value: client.id,
           label: client.name
         }))
@@ -501,3 +513,5 @@ export default function Dossiers() {
     </PageLayout>
   );
 }
+
+

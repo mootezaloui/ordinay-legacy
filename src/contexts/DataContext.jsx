@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+﻿import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import {
   mockAccounting,
   mockCases,
@@ -21,6 +21,23 @@ import {
   syncTaskToExtended,
 } from "../utils/mockData";
 import { logHistoryEvent, EVENT_TYPES } from "../services/historyService";
+import { canPerformAction } from "../services/domainRules";
+import { useToast } from "./ToastContext";
+import { logEntityCreation, logLifecycleChange, logStatusChange } from "../services/historyService";
+import { apiClient } from "../services/api/client";
+import { adaptHistory } from "../services/api/adapters";
+import {
+  adaptCase,
+  adaptClient,
+  adaptDossier,
+  adaptSession,
+  adaptTask,
+  adaptOfficer,
+  adaptFinancialEntry,
+  adaptMission,
+  adaptPersonalTask,
+} from "../services/api/adapters";
+import { setFinancialLedger } from "../utils/financialData";
 
 const DataContext = createContext(null);
 const STORAGE_PREFIX = "lawyer-app:data:";
@@ -74,7 +91,7 @@ const rebuildClientsExtended = (clients, dossiers, cases) => {
   });
 };
 
-const rebuildDossiersExtended = (dossiers, cases, tasks, sessions) => {
+const rebuildDossiersExtended = (dossiers, cases, tasks, sessions, missions) => {
   Object.keys(mockDossiersExtended).forEach((id) => {
     if (!dossiers.find((d) => d.id === Number(id))) {
       delete mockDossiersExtended[id];
@@ -95,13 +112,18 @@ const rebuildDossiersExtended = (dossiers, cases, tasks, sessions) => {
           s.dossierId === dossier.id ||
           cases.find((c) => c.id === s.caseId)?.dossierId === dossier.id
       ),
+      missions: missions.filter(
+        (m) =>
+          (m.entityType === "dossier" && m.entityId === dossier.id) ||
+          (m.entityType === "case" && cases.find((c) => c.id === m.entityId)?.dossierId === dossier.id)
+      ),
       documents: mockDossiersExtended[dossier.id]?.documents || [],
       timeline: mockDossiersExtended[dossier.id]?.timeline || [],
     };
   });
 };
 
-const rebuildCasesExtended = (cases, tasks, sessions) => {
+const rebuildCasesExtended = (cases, tasks, sessions, missions) => {
   Object.keys(mockCasesExtended).forEach((id) => {
     if (!cases.find((c) => c.id === Number(id))) {
       delete mockCasesExtended[id];
@@ -113,8 +135,28 @@ const rebuildCasesExtended = (cases, tasks, sessions) => {
       ...caseItem,
       tasks: tasks.filter((t) => t.caseId === caseItem.id),
       sessions: sessions.filter((s) => s.caseId === caseItem.id),
+      missions: missions.filter((m) => m.entityType === "case" && m.entityId === caseItem.id),
       documents: mockCasesExtended[caseItem.id]?.documents || [],
       timeline: mockCasesExtended[caseItem.id]?.timeline || [],
+    };
+  });
+};
+
+const rebuildOfficersExtended = (officers, missions) => {
+  Object.keys(mockOfficersExtended).forEach((id) => {
+    if (!officers.find((o) => o.id === Number(id))) {
+      delete mockOfficersExtended[id];
+    }
+  });
+
+  officers.forEach((officer) => {
+    const officerMissions = missions.filter((m) => m.officerId === officer.id);
+    mockOfficersExtended[officer.id] = {
+      ...officer,
+      missions: officerMissions,
+      documents: mockOfficersExtended[officer.id]?.documents || [],
+      notes: mockOfficersExtended[officer.id]?.notes || [],
+      timeline: mockOfficersExtended[officer.id]?.timeline || [],
     };
   });
 };
@@ -140,7 +182,192 @@ const logUpdateHistory = (entityType, prevEntity, updates) => {
   });
 };
 
+const logStatusHistory = (entityType, prevEntity, updates) => {
+  if (!prevEntity) return;
+  if (!Object.prototype.hasOwnProperty.call(updates, "status")) return;
+  const oldStatus = prevEntity.status;
+  const newStatus = updates.status;
+  if (oldStatus === newStatus) return;
+  logStatusChange(entityType, prevEntity.id, oldStatus, newStatus);
+};
+
+const logCreationHistory = (entityType, entity) => {
+  if (!entity?.id) return;
+  const name = entity.name || entity.title || entity.caseNumber || entity.description || `#${entity.id}`;
+  logEntityCreation(entityType, entity.id, name);
+};
+
+const logDeletionHistory = (entityType, entity) => {
+  if (!entity?.id) return;
+  logLifecycleChange(entityType, entity.id, "deleted");
+  logHistoryEvent({
+    entityType,
+    entityId: entity.id,
+    eventType: EVENT_TYPES.LIFECYCLE,
+    label: "Suppression",
+    metadata: { deleted: { id: entity.id } },
+  });
+};
+
+const toTimelineEntries = (historyItems = []) =>
+  historyItems.map((item) => item.timelineEntry || {
+    type: item.action || "action",
+    event: item.description || item.action || "Événement",
+    date: item.createdAt || item.created_at || "",
+  });
+
+const recordHistoryEvent = async (apiClientInstance, { entityType, entityId, action, description, changedFields, actor }) => {
+  try {
+    const created = await apiClientInstance.post("/history", {
+      entity_type: entityType,
+      entity_id: entityId,
+      action,
+      description,
+      changed_fields: changedFields,
+      actor,
+    });
+    const adapted = adaptHistory(created);
+    return adapted.timelineEntry;
+  } catch (err) {
+    console.warn("[DataContext] Failed to record history event", err);
+    return null;
+  }
+};
+
+const validateMutation = (entityType, action, entityId, context = {}, integrityIssues = []) => {
+  const relatedIssues = integrityIssues.filter(
+    (issue) => issue.entityType === entityType && issue.entityId === entityId
+  );
+
+  if (relatedIssues.length > 0) {
+    return {
+      ok: false,
+      result: {
+        allowed: false,
+        blockers: relatedIssues.map((i) => i.message),
+        warnings: [],
+      },
+    };
+  }
+
+  const result = canPerformAction(entityType, entityId, action, context);
+  if (!result.allowed || result.requiresConfirmation) {
+    console.warn(`[DataContext] ${entityType}.${action} blocked`, result);
+    return { ok: false, result };
+  }
+  return { ok: true, result };
+};
+
+const normalizeId = (value) => {
+  if (typeof value === "string") {
+    const parsed = parseInt(value, 10);
+    return Number.isNaN(parsed) ? value : parsed;
+  }
+  return value;
+};
+
+const reconcileEntities = (clients, dossiers, cases, tasks, sessions) => {
+  const issues = [];
+
+  const byId = (arr) => new Map(arr.map((item) => [item.id, item]));
+
+  const clientsById = byId(clients);
+  const dossiersById = byId(dossiers);
+  const casesById = byId(cases);
+
+  const normalizedClients = clients.map((c) => ({
+    ...c,
+    id: normalizeId(c.id),
+  }));
+
+  const normalizedDossiers = dossiers.map((d) => {
+    const normalized = { ...d, id: normalizeId(d.id), clientId: normalizeId(d.clientId) };
+    if (normalized.clientId && !clientsById.has(normalized.clientId)) {
+      issues.push({
+        entityType: "dossier",
+        entityId: normalized.id,
+        message: "Dossier sans client parent dans les donnÃ©es persistÃ©es.",
+      });
+    }
+    return normalized;
+  });
+
+  const normalizedCases = cases.map((c) => {
+    const normalized = {
+      ...c,
+      id: normalizeId(c.id),
+      dossierId: normalizeId(c.dossierId),
+    };
+    if (normalized.dossierId && !dossiersById.has(normalized.dossierId)) {
+      issues.push({
+        entityType: "case",
+        entityId: normalized.id,
+        message: "ProcÃ¨s sans dossier parent dans les donnÃ©es persistÃ©es.",
+      });
+    }
+    return normalized;
+  });
+
+  const normalizedTasks = tasks.map((t) => {
+    const normalized = {
+      ...t,
+      id: normalizeId(t.id),
+      dossierId: normalizeId(t.dossierId),
+      caseId: normalizeId(t.caseId),
+    };
+    if (normalized.parentType === "case" && normalized.caseId && !casesById.has(normalized.caseId)) {
+      issues.push({
+        entityType: "task",
+        entityId: normalized.id,
+        message: "TÃ¢che liÃ©e Ã  un procÃ¨s introuvable (donnÃ©es persistÃ©es).",
+      });
+    }
+    if (normalized.parentType === "dossier" && normalized.dossierId && !dossiersById.has(normalized.dossierId)) {
+      issues.push({
+        entityType: "task",
+        entityId: normalized.id,
+        message: "TÃ¢che liÃ©e Ã  un dossier introuvable (donnÃ©es persistÃ©es).",
+      });
+    }
+    return normalized;
+  });
+
+  const normalizedSessions = sessions.map((s) => {
+    const normalized = {
+      ...s,
+      id: normalizeId(s.id),
+      dossierId: normalizeId(s.dossierId),
+      caseId: normalizeId(s.caseId),
+    };
+    if (normalized.caseId && !casesById.has(normalized.caseId)) {
+      issues.push({
+        entityType: "session",
+        entityId: normalized.id,
+        message: "SÃ©ance liÃ©e Ã  un procÃ¨s introuvable (donnÃ©es persistÃ©es).",
+      });
+    }
+    if (normalized.dossierId && !dossiersById.has(normalized.dossierId)) {
+      issues.push({
+        entityType: "session",
+        entityId: normalized.id,
+        message: "SÃ©ance liÃ©e Ã  un dossier introuvable (donnÃ©es persistÃ©es).",
+      });
+    }
+    return normalized;
+  });
+
+  return {
+    normalizedClients,
+    normalizedDossiers,
+    normalizedCases,
+    normalizedTasks,
+    normalizedSessions,
+    issues,
+  };
+};
+
 export function DataProvider({ children }) {
+  const { showToast } = useToast();
   // Seed state from localStorage when possible, otherwise from mock data.
   const [clients, setClients] = useState(() =>
     loadFromStorage("clients", Object.values(mockClientsExtended))
@@ -157,12 +384,22 @@ export function DataProvider({ children }) {
   const [tasks, setTasks] = useState(() =>
     loadFromStorage("tasks", mockTasks)
   );
+  const [missions, setMissions] = useState(() =>
+    loadFromStorage("missions", [])
+  );
   const [personalTasks, setPersonalTasks] = useState(() =>
     loadFromStorage("personalTasks", mockPersonalTasks)
   );
   const [officers, setOfficers] = useState(() =>
     loadFromStorage("officers", Object.values(mockOfficersExtended))
   );
+  const [financialEntries, setFinancialEntries] = useState(() =>
+    loadFromStorage("financial", [])
+  );
+  const [integrityIssues, setIntegrityIssues] = useState([]);
+  const [reconciled, setReconciled] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState(null);
 
   // Keep mockData collections in sync with the live state (important for selectors and templates)
   useEffect(() => {
@@ -172,13 +409,13 @@ export function DataProvider({ children }) {
 
   useEffect(() => {
     syncArrayRef(mockDossiers, dossiers);
-    rebuildDossiersExtended(dossiers, cases, tasks, sessions);
-  }, [dossiers, cases, tasks, sessions]);
+    rebuildDossiersExtended(dossiers, cases, tasks, sessions, missions);
+  }, [dossiers, cases, tasks, sessions, missions]);
 
   useEffect(() => {
     syncArrayRef(mockCases, cases);
-    rebuildCasesExtended(cases, tasks, sessions);
-  }, [cases, tasks, sessions]);
+    rebuildCasesExtended(cases, tasks, sessions, missions);
+  }, [cases, tasks, sessions, missions]);
 
   useEffect(() => {
     syncArrayRef(mockSessions, sessions);
@@ -188,41 +425,285 @@ export function DataProvider({ children }) {
     syncArrayRef(mockTasks, tasks);
   }, [tasks]);
 
+  useEffect(() => {
+    syncArrayRef(mockOfficers, officers);
+    rebuildOfficersExtended(officers, missions);
+  }, [officers, missions]);
+
+  // Reconcile persisted data on startup to restore relationships and detect issues
+  useEffect(() => {
+    if (reconciled || loading) return;
+    const {
+      normalizedClients,
+      normalizedDossiers,
+      normalizedCases,
+      normalizedTasks,
+      normalizedSessions,
+      issues,
+    } = reconcileEntities(clients, dossiers, cases, tasks, sessions);
+
+    setClients(normalizedClients);
+    setDossiers(normalizedDossiers);
+    setCases(normalizedCases);
+    setTasks(normalizedTasks);
+    setSessions(normalizedSessions);
+    setIntegrityIssues(issues);
+    setReconciled(true);
+
+    if (issues.length > 0) {
+      showToast(
+        `Donnees incompletes detectees (${issues.length}). Certaines actions seront bloquees.`,
+        "warning"
+      );
+    }
+  }, [reconciled, loading]);
+
+  // Read-only fetch from backend (clients -> dossiers -> cases -> tasks -> sessions -> officers -> missions -> financial)
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      setLoadError(null);
+      try {
+        const apiClients = await apiClient.get("/clients");
+        const clientsAdapted = apiClients.map(adaptClient);
+        const clientsById = Object.fromEntries(clientsAdapted.map((c) => [c.id, c]));
+
+        const apiDossiers = await apiClient.get("/dossiers");
+        const dossiersAdapted = apiDossiers.map((d) => adaptDossier(d, clientsById));
+        const dossiersById = Object.fromEntries(dossiersAdapted.map((d) => [d.id, d]));
+
+        const apiCases = await apiClient.get("/cases");
+        const casesAdapted = apiCases.map((c) => adaptCase(c, dossiersById));
+        const casesById = Object.fromEntries(casesAdapted.map((c) => [c.id, c]));
+
+        const apiTasks = await apiClient.get("/tasks");
+        const tasksAdapted = apiTasks.map((t) => adaptTask(t, dossiersById, casesById));
+
+        const apiSessions = await apiClient.get("/sessions");
+        const sessionsAdapted = apiSessions.map((s) => adaptSession(s, dossiersById, casesById));
+        const apiOfficers = await apiClient.get("/officers");
+        const officersAdapted = apiOfficers.map(adaptOfficer);
+        const officersById = Object.fromEntries(officersAdapted.map((o) => [o.id, o]));
+        const apiMissions = await apiClient.get("/missions");
+        const missionsAdapted = apiMissions.map((m) => adaptMission(m, dossiersById, casesById));
+        const missionsWithOfficer = missionsAdapted.map((mission) => ({
+          ...mission,
+          officerName: mission.officerId ? officersById[mission.officerId]?.name || "" : "",
+        }));
+        const apiPersonalTasks = await apiClient.get("/personal-tasks");
+        const personalTasksAdapted = apiPersonalTasks.map(adaptPersonalTask);
+
+        const missionsByOfficer = {};
+        const missionsByDossier = {};
+        const missionsByCase = {};
+
+        missionsWithOfficer.forEach((mission) => {
+          if (mission.officerId) {
+            missionsByOfficer[mission.officerId] = missionsByOfficer[mission.officerId] || [];
+            missionsByOfficer[mission.officerId].push(mission);
+          }
+          if (mission.entityType === "dossier" && mission.entityId) {
+            missionsByDossier[mission.entityId] = missionsByDossier[mission.entityId] || [];
+            missionsByDossier[mission.entityId].push(mission);
+          }
+          if (mission.entityType === "case" && mission.entityId) {
+            missionsByCase[mission.entityId] = missionsByCase[mission.entityId] || [];
+            missionsByCase[mission.entityId].push(mission);
+          }
+        });
+
+        const officersWithMissions = officersAdapted.map((officer) => ({
+          ...officer,
+          missions: missionsByOfficer[officer.id] || [],
+        }));
+
+        const apiFinancial = await apiClient.get("/financial");
+        const financialAdapted = apiFinancial.map((f) =>
+          adaptFinancialEntry(f, clientsById, dossiersById, casesById)
+        );
+
+        const apiHistoryClients = await apiClient.get("/history?entity_type=client");
+        const historyClientsAdapted = apiHistoryClients.map(adaptHistory);
+        const historyByClient = historyClientsAdapted.reduce((acc, evt) => {
+          if (!acc[evt.entityId]) acc[evt.entityId] = [];
+          acc[evt.entityId].push(evt.timelineEntry);
+          return acc;
+        }, {});
+
+        const {
+          normalizedClients,
+          normalizedDossiers,
+          normalizedCases,
+          normalizedTasks,
+          normalizedSessions,
+          issues,
+        } = reconcileEntities(
+          clientsAdapted,
+          dossiersAdapted,
+          casesAdapted,
+          tasksAdapted,
+          sessionsAdapted
+        );
+
+        const clientsWithTimeline = normalizedClients.map((client) => ({
+          ...client,
+          timeline: historyByClient[client.id] || [],
+        }));
+
+        const dossiersWithMissions = normalizedDossiers.map((dossier) => ({
+          ...dossier,
+          missions: missionsByDossier[dossier.id] || dossier.missions || [],
+        }));
+
+        const casesWithMissions = normalizedCases.map((caseItem) => ({
+          ...caseItem,
+          missions: missionsByCase[caseItem.id] || caseItem.missions || [],
+        }));
+
+        if (cancelled) return;
+        setClients(clientsWithTimeline);
+        setDossiers(dossiersWithMissions);
+        setCases(casesWithMissions);
+        setTasks(normalizedTasks);
+        setSessions(normalizedSessions);
+        setPersonalTasks(personalTasksAdapted);
+        setMissions(missionsWithOfficer);
+        setOfficers(officersWithMissions);
+        setFinancialEntries(financialAdapted);
+        setFinancialLedger(financialAdapted);
+        saveToStorage("clients", clientsWithTimeline);
+        saveToStorage("dossiers", dossiersWithMissions);
+        saveToStorage("cases", casesWithMissions);
+        saveToStorage("tasks", normalizedTasks);
+        saveToStorage("sessions", normalizedSessions);
+        saveToStorage("personalTasks", personalTasksAdapted);
+        saveToStorage("missions", missionsWithOfficer);
+        saveToStorage("officers", officersWithMissions);
+        saveToStorage("financial", financialAdapted);
+        setIntegrityIssues(issues);
+        setReconciled(true);
+      } catch (error) {
+        if (cancelled) return;
+        console.error("[DataContext] API load failed", error);
+        setLoadError(error.message || "Erreur de chargement");
+        showToast("Impossible de charger les donnees distantes (lecture seule).", "error");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [showToast]);
+
   // --- Clients ---
-  const addClient = (client) => {
+  const addClient = async (client) => {
+    const validation = validateMutation("client", "add", client?.id, { data: client, newData: client }, integrityIssues);
+    if (!validation.ok) return validation;
+
+    const payload = {
+      name: client.name,
+      email: client.email,
+      phone: client.phone,
+      alternate_phone: client.alternatePhone,
+      address: client.address,
+      status: client.status === "Actif" ? "active" : client.status === "Inactif" ? "inactive" : client.status,
+      cin: client.cin,
+      date_of_birth: client.dateOfBirth,
+      profession: client.profession,
+      company: client.company,
+      tax_id: client.taxId,
+      notes: client.notes,
+      join_date: client.joinDate,
+    };
+
+    const created = await apiClient.post("/clients", payload);
+    const adapted = adaptClient(created);
+    const timelineEntry = await recordHistoryEvent(apiClient, {
+      entityType: "client",
+      entityId: adapted.id,
+      action: "created",
+      description: `Client créé: ${adapted.name}`,
+      actor: "system",
+    });
+    const adaptedWithTimeline = {
+      ...adapted,
+      timeline: timelineEntry ? [timelineEntry] : [],
+    };
+
     setClients((prev) => {
-      const next = [...prev, client];
+      const next = [...prev, adaptedWithTimeline];
       saveToStorage("clients", next);
       syncArrayRef(mockClients, next);
-      mockClientsExtended[client.id] = {
-        ...client,
-        invoices: mockAccounting.filter((inv) => inv.clientId === client.id),
+      mockClientsExtended[adapted.id] = {
+        ...adaptedWithTimeline,
+        invoices: mockAccounting.filter((inv) => inv.clientId === adapted.id),
         documents: [],
-        timeline: [],
-        relatedDossiers: dossiers.filter((d) => d.clientId === client.id),
+        timeline: adaptedWithTimeline.timeline,
+        relatedDossiers: dossiers.filter((d) => d.clientId === adapted.id),
       };
       return next;
     });
+
+    logCreationHistory("client", created);
+    return { ok: true, result: validation.result, created: adaptedWithTimeline };
   };
 
-  const updateClient = (id, updates) => {
+  const updateClient = async (id, updates) => {
     const prev = clients.find((c) => c.id === id);
-    setClients((prev) => {
-      const next = prev.map((client) =>
-        client.id === id ? { ...client, ...updates } : client
-      );
+    const validation = validateMutation("client", "edit", id, { data: prev, newData: { ...prev, ...updates } }, integrityIssues);
+    if (!validation.ok) return validation;
+
+    let timelineEntry = null;
+    try {
+      timelineEntry = await recordHistoryEvent(apiClient, {
+        entityType: "client",
+        entityId: id,
+        action: "updated",
+        description: "Client mis à jour",
+        changedFields: updates,
+        actor: "system",
+      });
+    } catch (err) {
+      // already logged inside recordHistoryEvent
+    }
+
+    setClients((prevState) => {
+      const next = prevState.map((client) => {
+        if (client.id !== id) return client;
+        const timeline = timelineEntry
+          ? [timelineEntry, ...(client.timeline || [])]
+          : client.timeline;
+        return { ...client, ...updates, timeline };
+      });
       saveToStorage("clients", next);
       const idx = mockClients.findIndex((c) => c.id === id);
       if (idx !== -1) mockClients[idx] = { ...mockClients[idx], ...updates };
       if (mockClientsExtended[id]) {
-        mockClientsExtended[id] = { ...mockClientsExtended[id], ...updates };
+        mockClientsExtended[id] = {
+          ...mockClientsExtended[id],
+          ...updates,
+          timeline: timelineEntry
+            ? [timelineEntry, ...(mockClientsExtended[id].timeline || [])]
+            : mockClientsExtended[id].timeline,
+        };
       }
       return next;
     });
     logUpdateHistory("client", prev, updates);
+    logStatusHistory("client", prev, updates);
+
+    return validation;
   };
 
   const deleteClient = (id) => {
+    const prev = clients.find((c) => c.id === id);
+    const validation = validateMutation("client", "delete", id, { data: prev }, integrityIssues);
+    if (!validation.ok) return validation;
+
     setClients((prev) => {
       const next = prev.filter((client) => client.id !== id);
       saveToStorage("clients", next);
@@ -231,21 +712,55 @@ export function DataProvider({ children }) {
       delete mockClientsExtended[id];
       return next;
     });
+
+    logDeletionHistory("client", prev);
+    return validation;
   };
 
   // --- Dossiers ---
-  const addDossier = (dossier) => {
+  const addDossier = async (dossier) => {
+    const validation = validateMutation("dossier", "add", dossier?.id, { data: dossier, newData: dossier }, integrityIssues);
+    if (!validation.ok) return validation;
+
+    const payload = {
+      client_id: dossier.clientId || dossier.client_id || dossier.client?.id,
+      title: dossier.title,
+      description: dossier.description,
+      category: dossier.category,
+      phase: dossier.phase,
+      adversary_party: dossier.adversaryParty || dossier.adversary_party || dossier.adversary,
+      adversary_lawyer: dossier.adversaryLawyer || dossier.adversary_lawyer,
+      estimated_value: dossier.estimatedValue || dossier.estimated_value,
+      court_reference: dossier.courtReference || dossier.court_reference,
+      assigned_lawyer: dossier.assignedLawyer || dossier.assigned_lawyer,
+      status: dossier.status === "Ouvert" ? "open" : dossier.status === "En attente" ? "on_hold" : dossier.status === "FermAc" ? "closed" : dossier.status,
+      priority: dossier.priority === "Haute" ? "high" : dossier.priority === "Moyenne" ? "medium" : dossier.priority === "Basse" ? "low" : dossier.priority,
+      opened_at: dossier.openDate,
+      next_deadline: dossier.nextDeadline || dossier.prochaineEcheance,
+      reference: dossier.caseNumber,
+      case_number: dossier.caseNumber,
+    };
+
+    const created = await apiClient.post("/dossiers", payload);
+    const adapted = adaptDossier(created, Object.fromEntries(clients.map((c) => [c.id, c])));
+
     setDossiers((prev) => {
-      const next = [...prev, dossier];
+      const next = [...prev, adapted];
       saveToStorage("dossiers", next);
       syncArrayRef(mockDossiers, next);
-      syncDossierToExtended(dossier);
+      syncDossierToExtended(adapted);
       return next;
     });
+
+    logCreationHistory("dossier", created);
+    return { ok: true, result: validation.result, created: adapted };
   };
 
   const updateDossier = (id, updates) => {
     const prev = dossiers.find((d) => d.id === id);
+    const validation = validateMutation("dossier", "edit", id, { data: prev, newData: { ...prev, ...updates } }, integrityIssues);
+    if (!validation.ok) return validation;
+
     setDossiers((prev) => {
       const next = prev.map((dossier) =>
         dossier.id === id ? { ...dossier, ...updates } : dossier
@@ -259,9 +774,16 @@ export function DataProvider({ children }) {
       return next;
     });
     logUpdateHistory("dossier", prev, updates);
+    logStatusHistory("dossier", prev, updates);
+
+    return validation;
   };
 
   const deleteDossier = (id) => {
+    const prev = dossiers.find((d) => d.id === id);
+    const validation = validateMutation("dossier", "delete", id, { data: prev }, integrityIssues);
+    if (!validation.ok) return validation;
+
     setDossiers((prev) => {
       const next = prev.filter((dossier) => dossier.id !== id);
       saveToStorage("dossiers", next);
@@ -270,35 +792,72 @@ export function DataProvider({ children }) {
       delete mockDossiersExtended[id];
       return next;
     });
+
+    logDeletionHistory("dossier", prev);
+    return validation;
   };
 
   // --- Cases ---
-  const addCase = (caseItem) => {
+  const addCase = async (caseItem) => {
+    const validation = validateMutation("case", "add", caseItem?.id, { data: caseItem, newData: caseItem }, integrityIssues);
+    if (!validation.ok) return validation;
+
+    // Helper to convert empty strings to null
+    const emptyToNull = (value) => (value === "" || value === undefined) ? null : value;
+
+    const payload = {
+      dossier_id: caseItem.dossierId || caseItem.dossier_id,
+      title: caseItem.title,
+      description: emptyToNull(caseItem.description),
+      adversary: emptyToNull(caseItem.adversaire || caseItem.adversary),
+      adversary_party: emptyToNull(caseItem.adversaryParty || caseItem.adversary_party),
+      adversary_lawyer: emptyToNull(caseItem.adversaryLawyer || caseItem.adversary_lawyer),
+      court: emptyToNull(caseItem.court),
+      court_room: emptyToNull(caseItem.courtRoom || caseItem.court_room),
+      judge: emptyToNull(caseItem.judge),
+      filing_date: emptyToNull(caseItem.filingDate),
+      next_hearing: emptyToNull(caseItem.nextHearing),
+      reference_number: emptyToNull(caseItem.referenceNumber),
+      status: caseItem.status === "En cours" ? "open" : caseItem.status === "En attente" ? "on_hold" : caseItem.status === "Suspendu" ? "on_hold" : caseItem.status === "Clos" ? "closed" : caseItem.status,
+      priority: caseItem.priority === "Haute" ? "high" : caseItem.priority === "Moyenne" ? "medium" : caseItem.priority === "Basse" ? "low" : caseItem.priority,
+      opened_at: emptyToNull(caseItem.openDate),
+      reference: emptyToNull(caseItem.caseNumber || caseItem.referenceNumber),
+      case_number: emptyToNull(caseItem.caseNumber || caseItem.referenceNumber),
+    };
+
+    const created = await apiClient.post("/cases", payload);
+    const adapted = adaptCase(created, Object.fromEntries(dossiers.map((d) => [d.id, d])));
+
     setCases((prev) => {
-      const next = [...prev, caseItem];
+      const next = [...prev, adapted];
       saveToStorage("cases", next);
       syncArrayRef(mockCases, next);
-      syncCaseToExtended(caseItem);
-      // Log relation on parent dossier so its history shows the new Procès
-      if (caseItem.dossierId) {
+      syncCaseToExtended(adapted);
+      if (adapted.dossierId) {
         logHistoryEvent({
           entityType: "dossier",
-          entityId: caseItem.dossierId,
+          entityId: adapted.dossierId,
           eventType: EVENT_TYPES.RELATION,
           label: "Procès créé",
-          details: caseItem.caseNumber || caseItem.title || "Procès",
+          details: adapted.caseNumber || adapted.title || "Procès",
           metadata: {
             relatedType: "case",
-            relatedId: caseItem.id,
+            relatedId: adapted.id,
           },
         });
       }
       return next;
     });
+
+    logCreationHistory("case", created);
+    return { ok: true, result: validation.result, created: adapted };
   };
 
   const updateCase = (id, updates) => {
     const prev = cases.find((c) => c.id === id);
+    const validation = validateMutation("case", "edit", id, { data: prev, newData: { ...prev, ...updates } }, integrityIssues);
+    if (!validation.ok) return validation;
+
     setCases((prev) => {
       const next = prev.map((caseItem) =>
         caseItem.id === id ? { ...caseItem, ...updates } : caseItem
@@ -312,9 +871,16 @@ export function DataProvider({ children }) {
       return next;
     });
     logUpdateHistory("case", prev, updates);
+    logStatusHistory("case", prev, updates);
+
+    return validation;
   };
 
   const deleteCase = (id) => {
+    const prev = cases.find((c) => c.id === id);
+    const validation = validateMutation("case", "delete", id, { data: prev }, integrityIssues);
+    if (!validation.ok) return validation;
+
     setCases((prev) => {
       const next = prev.filter((caseItem) => caseItem.id !== id);
       saveToStorage("cases", next);
@@ -323,21 +889,87 @@ export function DataProvider({ children }) {
       delete mockCasesExtended[id];
       return next;
     });
+
+    logDeletionHistory("case", prev);
+    return validation;
   };
 
   // --- Sessions ---
-  const addSession = (session) => {
+  const addSession = async (sessionItem) => {
+    const validation = validateMutation("session", "add", sessionItem?.id, { data: sessionItem, newData: sessionItem }, integrityIssues);
+    if (!validation.ok) return validation;
+
+    const emptyToNull = (value) => (value === "" || value === undefined ? null : value);
+
+    console.log('[DataContext.addSession] Incoming sessionItem:', sessionItem);
+
+    const normalizeTxt = (val) =>
+      (val || "")
+        .toLowerCase()
+        .replace(/[éèê]/g, "e")
+        .replace(/[àâ]/g, "a")
+        .replace(/[ùû]/g, "u")
+        .replace(/[ô]/g, "o")
+        .replace(/[îï]/g, "i");
+
+    const mapSessionType = (raw) => {
+      const v = normalizeTxt(raw);
+      if (["audience", "hearing"].includes(v)) return "hearing";
+      if (["consultation"].includes(v)) return "consultation";
+      if (["mediation"].includes(v)) return "mediation";
+      if (["expertise"].includes(v)) return "other";
+      if (["telephone", "tel", "phone"].includes(v)) return "other";
+      return v || "hearing";
+    };
+
+    const payload = {
+      title: emptyToNull(sessionItem.title),
+      session_type: mapSessionType(sessionItem.type || sessionItem.session_type),
+      status: (() => {
+        const st = normalizeTxt(sessionItem.status);
+        if (["programmee", "progremmee", "confirmee", "confirmee"].includes(st)) return "scheduled";
+        if (["terminee", "termine"].includes(st)) return "completed";
+        if (["annulee", "annule"].includes(st)) return "cancelled";
+        if (["reportee", "reporee", "postponed"].includes(st)) return "postponed";
+        return sessionItem.status;
+      })(),
+      scheduled_at:
+        sessionItem.scheduledAt ||
+        sessionItem.scheduled_at ||
+        (sessionItem.date ? `${sessionItem.date}T${sessionItem.time || "00:00"}:00` : null),
+      location: emptyToNull(sessionItem.location),
+      duration: emptyToNull(sessionItem.duration),
+      outcome: emptyToNull(sessionItem.outcome),
+      description: emptyToNull(sessionItem.description),
+      notes: emptyToNull(sessionItem.notes),
+      dossier_id: emptyToNull(sessionItem.dossierId || sessionItem.dossier_id),
+      case_id: emptyToNull(sessionItem.caseId || sessionItem.case_id),
+    };
+
+    console.log('[DataContext.addSession] Sending payload:', payload);
+
+    const created = await apiClient.post("/sessions", payload);
+    const dossiersById = Object.fromEntries(dossiers.map((d) => [d.id, d]));
+    const casesById = Object.fromEntries(cases.map((c) => [c.id, c]));
+    const adapted = adaptSession(created, dossiersById, casesById);
+
     setSessions((prev) => {
-      const next = [...prev, session];
+      const next = [...prev, adapted];
       saveToStorage("sessions", next);
       syncArrayRef(mockSessions, next);
-      syncSessionToExtended(session);
+      syncSessionToExtended(adapted);
       return next;
     });
+
+    logCreationHistory("session", created);
+    return { ok: true, result: validation.result, created: adapted };
   };
 
   const updateSession = (id, updates) => {
     const prev = sessions.find((s) => s.id === id);
+    const validation = validateMutation("session", "edit", id, { data: prev, newData: { ...prev, ...updates } }, integrityIssues);
+    if (!validation.ok) return validation;
+
     setSessions((prev) => {
       const next = prev.map((session) =>
         session.id === id ? { ...session, ...updates } : session
@@ -351,9 +983,16 @@ export function DataProvider({ children }) {
       return next;
     });
     logUpdateHistory("session", prev, updates);
+    logStatusHistory("session", prev, updates);
+
+    return validation;
   };
 
   const deleteSession = (id) => {
+    const prev = sessions.find((s) => s.id === id);
+    const validation = validateMutation("session", "delete", id, { data: prev }, integrityIssues);
+    if (!validation.ok) return validation;
+
     setSessions((prev) => {
       const next = prev.filter((session) => session.id !== id);
       saveToStorage("sessions", next);
@@ -362,21 +1001,78 @@ export function DataProvider({ children }) {
       delete mockSessionsExtended[id];
       return next;
     });
+
+    logDeletionHistory("session", prev);
+    return validation;
   };
 
   // --- Tasks (linked to dossiers/cases) ---
-  const addTask = (task) => {
+  const addTask = async (taskItem) => {
+    const validation = validateMutation("task", "add", taskItem?.id, { data: taskItem, newData: taskItem }, integrityIssues);
+    if (!validation.ok) return validation;
+
+    const emptyToNull = (value) => (value === "" || value === undefined ? null : value);
+
+    console.log('[DataContext.addTask] Incoming taskItem:', taskItem);
+
+    const payload = {
+      title: taskItem.title,
+      description: emptyToNull(taskItem.description),
+      dossier_id: emptyToNull(taskItem.dossierId || taskItem.dossier_id),
+      case_id: emptyToNull(taskItem.caseId || taskItem.case_id),
+      assigned_to: emptyToNull(taskItem.assignedTo || taskItem.assigned_to),
+      due_date: emptyToNull(taskItem.dueDate || taskItem.due_date),
+      estimated_time: emptyToNull(taskItem.estimatedTime || taskItem.estimated_time),
+      status:
+        taskItem.status === "Non commencée" || taskItem.status === "Non commencee" || taskItem.status === "À faire" || taskItem.status === "A faire"
+          ? "todo"
+          : taskItem.status === "En cours"
+            ? "in_progress"
+            : taskItem.status === "Bloqué" || taskItem.status === "Bloquee"
+              ? "blocked"
+              : taskItem.status === "Terminé" || taskItem.status === "Terminée" || taskItem.status === "Terminee"
+                ? "done"
+                : taskItem.status === "Annulé" || taskItem.status === "Annulée" || taskItem.status === "Annulee"
+                  ? "cancelled"
+                  : taskItem.status === "En attente"
+                    ? "todo"
+                    : taskItem.status === "Planifiée" || taskItem.status === "Planifiee"
+                      ? "todo"
+                      : taskItem.status,
+      priority:
+        taskItem.priority === "Haute"
+          ? "high"
+          : taskItem.priority === "Moyenne"
+            ? "medium"
+            : taskItem.priority === "Basse"
+              ? "low"
+              : taskItem.priority,
+    };
+
+    console.log('[DataContext.addTask] Sending payload:', payload);
+
+    const created = await apiClient.post("/tasks", payload);
+    const dossiersById = Object.fromEntries(dossiers.map((d) => [d.id, d]));
+    const casesById = Object.fromEntries(cases.map((c) => [c.id, c]));
+    const adapted = adaptTask(created, dossiersById, casesById);
+
     setTasks((prev) => {
-      const next = [...prev, task];
+      const next = [...prev, adapted];
       saveToStorage("tasks", next);
       syncArrayRef(mockTasks, next);
-      syncTaskToExtended(task);
+      syncTaskToExtended(adapted);
       return next;
     });
+
+    logCreationHistory("task", created);
+    return { ok: true, result: validation.result, created: adapted };
   };
 
   const updateTask = (id, updates) => {
     const prev = tasks.find((t) => t.id === id);
+    const validation = validateMutation("task", "edit", id, { data: prev, newData: { ...prev, ...updates } }, integrityIssues);
+    if (!validation.ok) return validation;
+
     setTasks((prev) => {
       const next = prev.map((task) =>
         task.id === id ? { ...task, ...updates } : task
@@ -390,9 +1086,16 @@ export function DataProvider({ children }) {
       return next;
     });
     logUpdateHistory("task", prev, updates);
+    logStatusHistory("task", prev, updates);
+
+    return validation;
   };
 
   const deleteTask = (id) => {
+    const prev = tasks.find((t) => t.id === id);
+    const validation = validateMutation("task", "delete", id, { data: prev }, integrityIssues);
+    if (!validation.ok) return validation;
+
     setTasks((prev) => {
       const next = prev.filter((task) => task.id !== id);
       saveToStorage("tasks", next);
@@ -401,19 +1104,76 @@ export function DataProvider({ children }) {
       delete mockTasksExtended[id];
       return next;
     });
+
+    logDeletionHistory("task", prev);
+    return validation;
   };
 
   // --- Personal Tasks (non-linked) ---
-  const addPersonalTask = (task) => {
+  const addPersonalTask = async (task) => {
+    const validation = validateMutation("personalTask", "add", task?.id, { data: task, newData: task }, integrityIssues);
+    if (!validation.ok) return validation;
+
+    const emptyToNull = (value) => (value === "" || value === undefined ? null : value);
+
+    console.log('[DataContext.addPersonalTask] Incoming task:', task);
+
+    // Map status from French to English
+    const statusMap = {
+      "À faire": "todo",
+      "todo": "todo",
+      "En cours": "in_progress",
+      "in_progress": "in_progress",
+      "Bloqué": "blocked",
+      "blocked": "blocked",
+      "Terminé": "done",
+      "done": "done",
+      "Annulé": "cancelled",
+      "cancelled": "cancelled",
+    };
+
+    // Map priority from French to English
+    const priorityMap = {
+      "Basse": "low",
+      "low": "low",
+      "Moyenne": "medium",
+      "medium": "medium",
+      "Haute": "high",
+      "high": "high",
+      "Urgent": "urgent",
+      "urgent": "urgent",
+    };
+
+    const payload = {
+      title: task.title,
+      description: emptyToNull(task.description),
+      category: emptyToNull(task.category),
+      status: statusMap[task.status] || task.status || "todo",
+      priority: priorityMap[task.priority] || task.priority || "medium",
+      due_date: emptyToNull(task.dueDate || task.due_date),
+      completed_at: emptyToNull(task.completedAt || task.completed_at),
+    };
+
+    console.log('[DataContext.addPersonalTask] Sending payload:', payload);
+
+    const created = await apiClient.post("/personal-tasks", payload);
+    const adapted = adaptPersonalTask(created);
+
     setPersonalTasks((prev) => {
-      const next = [...prev, task];
+      const next = [...prev, adapted];
       saveToStorage("personalTasks", next);
       return next;
     });
+
+    logCreationHistory("personalTask", created);
+    return { ok: true, result: validation.result, created: adapted };
   };
 
   const updatePersonalTask = (id, updates) => {
     const prev = personalTasks.find((t) => t.id === id);
+    const validation = validateMutation("personalTask", "edit", id, { data: prev, newData: { ...prev, ...updates } }, integrityIssues);
+    if (!validation.ok) return validation;
+
     setPersonalTasks((prev) => {
       const next = prev.map((task) =>
         task.id === id ? { ...task, ...updates } : task
@@ -422,29 +1182,74 @@ export function DataProvider({ children }) {
       return next;
     });
     logUpdateHistory("personalTask", prev, updates);
+    logStatusHistory("personalTask", prev, updates);
+
+    return validation;
   };
 
   const deletePersonalTask = (id) => {
+    const prev = personalTasks.find((t) => t.id === id);
+    const validation = validateMutation("personalTask", "delete", id, { data: prev }, integrityIssues);
+    if (!validation.ok) return validation;
+
     setPersonalTasks((prev) => {
       const next = prev.filter((task) => task.id !== id);
       saveToStorage("personalTasks", next);
       return next;
     });
+
+    logDeletionHistory("personalTask", prev);
+    return validation;
   };
 
   // --- Officers ---
-  const addOfficer = (officer) => {
+  const addOfficer = async (officer) => {
+    const validation = validateMutation("officer", "add", officer?.id, { data: officer, newData: officer }, integrityIssues);
+    if (!validation.ok) return validation;
+
+    const emptyToNull = (value) => (value === "" || value === undefined ? null : value);
+
+    console.log('[DataContext.addOfficer] Incoming officer:', officer);
+
+    // Map frontend field names to backend expectations
+    const payload = {
+      name: officer.name,
+      email: emptyToNull(officer.email),
+      phone: emptyToNull(officer.phone),
+      agency: emptyToNull(officer.location || officer.agency), // location maps to agency
+      status:
+        officer.status === "Disponible"
+          ? "active"
+          : officer.status === "Occupé" || officer.status === "Occupe"
+            ? "busy"
+            : officer.status === "Inactif"
+              ? "inactive"
+              : officer.status,
+      notes: emptyToNull(officer.notes),
+    };
+
+    console.log('[DataContext.addOfficer] Sending payload:', payload);
+
+    const created = await apiClient.post("/officers", payload);
+    const adapted = adaptOfficer(created);
+
     setOfficers((prev) => {
-      const next = [...prev, officer];
+      const next = [...prev, adapted];
       saveToStorage("officers", next);
       syncArrayRef(mockOfficers, next);
-      syncOfficerToExtended(officer);
+      syncOfficerToExtended(adapted);
       return next;
     });
+
+    logCreationHistory("officer", created);
+    return { ok: true, result: validation.result, created: adapted };
   };
 
   const updateOfficer = (id, updates) => {
     const prev = officers.find((o) => o.id === id);
+    const validation = validateMutation("officer", "edit", id, { data: prev, newData: { ...prev, ...updates } }, integrityIssues);
+    if (!validation.ok) return validation;
+
     setOfficers((prev) => {
       const next = prev.map((officer) =>
         officer.id === id ? { ...officer, ...updates } : officer
@@ -458,9 +1263,16 @@ export function DataProvider({ children }) {
       return next;
     });
     logUpdateHistory("officer", prev, updates);
+    logStatusHistory("officer", prev, updates);
+
+    return validation;
   };
 
   const deleteOfficer = (id) => {
+    const prev = officers.find((o) => o.id === id);
+    const validation = validateMutation("officer", "delete", id, { data: prev }, integrityIssues);
+    if (!validation.ok) return validation;
+
     setOfficers((prev) => {
       const next = prev.filter((officer) => officer.id !== id);
       saveToStorage("officers", next);
@@ -469,6 +1281,121 @@ export function DataProvider({ children }) {
       delete mockOfficersExtended[id];
       return next;
     });
+
+    logDeletionHistory("officer", prev);
+    return validation;
+  };
+
+  // --- Missions ---
+  const addMission = async (mission) => {
+    const validation = validateMutation("mission", "add", mission?.id, { data: mission, newData: mission }, integrityIssues);
+    if (!validation.ok) return validation;
+
+    const emptyToNull = (value) => (value === "" || value === undefined ? null : value);
+
+    console.log('[DataContext.addMission] Incoming mission:', mission);
+
+    // Map frontend field names to backend expectations
+    const payload = {
+      title: mission.title,
+      description: emptyToNull(mission.description),
+      mission_type: emptyToNull(mission.missionType || mission.mission_type),
+      status:
+        mission.status === "Programmée" || mission.status === "Programmee" || mission.status === "Planifiée" || mission.status === "Planifiee"
+          ? "planned"
+          : mission.status === "En cours"
+            ? "in_progress"
+            : mission.status === "Terminée" || mission.status === "Terminee"
+              ? "completed"
+              : mission.status === "Annulée" || mission.status === "Annulee"
+                ? "cancelled"
+                : mission.status,
+      priority:
+        mission.priority === "Haute" ? "high"
+          : mission.priority === "Moyenne" ? "medium"
+            : mission.priority === "Basse" ? "low"
+              : mission.priority,
+      due_date: emptyToNull(mission.dueDate || mission.due_date),
+      closed_at: emptyToNull(mission.closedAt || mission.closed_at),
+      dossier_id: emptyToNull(mission.dossierId || mission.dossier_id),
+      case_id: emptyToNull(mission.caseId || mission.case_id),
+      officer_id: emptyToNull(mission.officerId || mission.officer_id),
+      reference: emptyToNull(mission.missionNumber || mission.reference),
+    };
+
+    console.log('[DataContext.addMission] Sending payload:', payload);
+
+    const created = await apiClient.post("/missions", payload);
+    const dossiersById = Object.fromEntries(dossiers.map((d) => [d.id, d]));
+    const casesById = Object.fromEntries(cases.map((c) => [c.id, c]));
+    const adapted = adaptMission(created, dossiersById, casesById);
+
+    setMissions((prev) => {
+      const next = [...prev, adapted];
+      saveToStorage("missions", next);
+      return next;
+    });
+
+    logCreationHistory("mission", created);
+    return { ok: true, result: validation.result, created: adapted };
+  };
+
+  // --- Financial Entries ---
+  const addFinancialEntry = async (entry) => {
+    const validation = validateMutation("financialEntry", "add", entry?.id, { data: entry, newData: entry }, integrityIssues);
+    if (!validation.ok) return validation;
+
+    const emptyToNull = (value) => (value === "" || value === undefined ? null : value);
+
+    console.log('[DataContext.addFinancialEntry] Incoming entry:', entry);
+
+    // Map status from French to English
+    const statusMap = {
+      "Brouillon": "pending",
+      "draft": "pending",
+      "Confirmé": "posted",
+      "confirmed": "posted",
+      "Payé": "paid",
+      "paid": "paid",
+      "Annulé": "void",
+      "cancelled": "void",
+    };
+
+    // Map type: frontend uses "revenue"/"expense", backend uses "income"/"expense"
+    const entryType = entry.type || entry.entry_type || entry.category;
+    const backendType = entryType === "revenue" ? "income" : "expense";
+
+    // Map frontend field names to backend expectations
+    const payload = {
+      client_id: emptyToNull(entry.clientId || entry.client_id),
+      dossier_id: emptyToNull(entry.dossierId || entry.dossier_id),
+      case_id: emptyToNull(entry.caseId || entry.case_id),
+      entry_type: backendType,
+      status: statusMap[entry.status] || entry.status || "pending",
+      amount: entry.amount,
+      currency: entry.currency || "TND",
+      due_date: emptyToNull(entry.dueDate || entry.due_date || entry.date),
+      paid_at: emptyToNull(entry.paidAt || entry.paid_at),
+      description: emptyToNull(entry.description),
+      reference: emptyToNull(entry.reference),
+    };
+
+    console.log('[DataContext.addFinancialEntry] Sending payload:', payload);
+
+    const created = await apiClient.post("/financial", payload);
+    const clientsById = Object.fromEntries(clients.map((c) => [c.id, c]));
+    const dossiersById = Object.fromEntries(dossiers.map((d) => [d.id, d]));
+    const casesById = Object.fromEntries(cases.map((c) => [c.id, c]));
+    const adapted = adaptFinancialEntry(created, clientsById, dossiersById, casesById);
+
+    setFinancialEntries((prev) => {
+      const next = [...prev, adapted];
+      saveToStorage("financialEntries", next);
+      return next;
+    });
+
+    logCreationHistory("financialEntry", created);
+    return { ok: true, result: validation.result, created: adapted };
   };
 
   const value = useMemo(
@@ -478,8 +1405,12 @@ export function DataProvider({ children }) {
       cases,
       sessions,
       tasks,
+      missions,
       personalTasks,
       officers,
+      financialEntries,
+      loading,
+      loadError,
       addClient,
       updateClient,
       deleteClient,
@@ -501,6 +1432,10 @@ export function DataProvider({ children }) {
       addOfficer,
       updateOfficer,
       deleteOfficer,
+      addMission,
+      addFinancialEntry,
+      integrityIssues,
+      reconciled,
     }),
     [
       clients,
@@ -508,8 +1443,14 @@ export function DataProvider({ children }) {
       cases,
       sessions,
       tasks,
+      missions,
       personalTasks,
       officers,
+      financialEntries,
+      loading,
+      loadError,
+      integrityIssues,
+      reconciled,
     ]
   );
 
@@ -523,3 +1464,7 @@ export const useData = () => {
   }
   return context;
 };
+
+
+
+

@@ -280,7 +280,7 @@ export const sessionConfig = {
       getCount: (data) => data.documents?.length || 0,
     },
     {
-      id: "notes",
+      id: "Compte-rendu",
       label: "Compte-rendu",
       icon: "fas fa-sticky-note",
       component: "notes",
@@ -491,11 +491,11 @@ export const sessionConfig = {
       content: (data) => data.description || "Aucune description",
     },
     {
-      title: "Compte-rendu",
+      title: "Notes",
       editStrategy: "structured",
       type: "notes",
       fieldKey: "notes",
-      content: (data) => data.notes || "Aucun compte-rendu",
+      content: (data) => data.notes || "Aucune notes",
     },
   ],
 };

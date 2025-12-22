@@ -261,7 +261,7 @@ export default function Settings() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <i className="fas fa-gavel text-purple-600"></i>
-                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Séances</h3>
+                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Audiences</h3>
                 </div>
                 <button
                   onClick={() => handleNotificationPrefChange("sessions", "enabled", !notificationPrefs.sessions.enabled)}

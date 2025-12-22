@@ -224,7 +224,7 @@ export default function GlobalSearch() {
               {/* Sessions */}
               {results.sessions?.length > 0 && (
                 <SearchSection
-                  title="Séances"
+                  title="Audiences"
                   icon="fas fa-calendar"
                   iconColor="text-amber-600 dark:text-amber-400"
                   bgColor="bg-amber-100 dark:bg-amber-900/20"

@@ -29,7 +29,7 @@ export default function Clients() {
   const navigate = useNavigate();
   const { showToast } = useToast();
   const { confirm } = useConfirm();
-  const { clients, addClient, updateClient, deleteClient } = useData();
+  const { clients, addClient, updateClient, deleteClient, loading, loadError } = useData();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClient, setEditingClient] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -151,6 +151,25 @@ export default function Clients() {
     searchableFields: ["name", "email", "phone", "status"],
   });
 
+  if (loading) {
+    return (
+      <PageLayout>
+        <PageHeader title="Clients" />
+        {loadError && (
+          <ContentSection>
+            <div className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-red-700">
+              {loadError}
+            </div>
+          </ContentSection>
+        )}
+        <ContentSection>
+          <p>Chargement des donnees...</p>
+        </ContentSection>
+      </PageLayout>
+    );
+  }
+
+
   const handleView = (id) => {
     navigate(`/clients/${id}`);
   };
@@ -259,13 +278,19 @@ export default function Clients() {
       } else {
         const newClient = {
           ...formData,
-          id: Date.now(),
-          joinDate: new Date().toISOString().split('T')[0],
+          joinDate: formData.joinDate || new Date().toISOString().split('T')[0],
         };
-        await addClient(newClient);
+        const creation = await addClient(newClient);
+        const createdEntity = creation?.created || creation;
+        const createdId = createdEntity?.id;
+        const createdName = createdEntity?.name || formData.name;
+        if (!createdId) {
+          showToast("Client crAcA, mais l'identifiant renvoyA n'est pas disponible", "warning");
+          return;
+        }
         showToast("Client ajouté avec succès!", "success");
-        logEntityCreation('client', newClient.id, formData.name);
-        const detailRoute = resolveDetailRoute('client', newClient.id);
+        logEntityCreation('client', createdId, createdName);
+        const detailRoute = resolveDetailRoute('client', createdId);
         if (detailRoute) {
           setTimeout(() => navigate(detailRoute), 100);
         }

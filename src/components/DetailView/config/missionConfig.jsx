@@ -17,12 +17,29 @@ export const missionConfig = {
     allowDelete: true,
     allowEdit: true,
 
-    fetchData: async (id) => {
-        // Find mission across all officers
-        for (const officer of Object.values(mockOfficersExtended)) {
-            const mission = officer.missions?.find(m => m.id === parseInt(id));
+    fetchData: async (id, contextData = null) => {
+        const missionId = parseInt(id);
+
+        // Prefer live data from context (backend)
+        if (contextData?.missions) {
+            const mission = contextData.missions.find(m => m.id === missionId);
             if (mission) {
-                // Enrich mission with officer info
+                // Enrich with officer info when available
+                const officer = contextData.officers?.find(o => o.id === mission.officerId);
+                return {
+                    ...mission,
+                    officerId: mission.officerId ?? officer?.id ?? null,
+                    officerName: officer?.name || mission.officerName || "",
+                    officerPhone: officer?.phone || mission.officerPhone || "",
+                    officerLocation: officer?.location || mission.officerLocation || "",
+                };
+            }
+        }
+
+        // Fallback to mock data
+        for (const officer of Object.values(mockOfficersExtended)) {
+            const mission = officer.missions?.find(m => m.id === missionId);
+            if (mission) {
                 return {
                     ...mission,
                     officerId: officer.id,
