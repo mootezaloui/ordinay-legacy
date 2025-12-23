@@ -18,7 +18,6 @@ import Pagination from "../components/table/Pagination";
 import FormModal from "../components/FormModal/FormModal";
 import StatCard from "../components/dashboard/StatCard";
 import { sessionFormFields, getFormTitle } from "../components/FormModal/formConfigs";
-import { mockSessions, mockCases, mockDossiers } from "../utils/mockData";
 import InlineStatusSelector from "../components/InlineSelectors/InlineStatusSelector";
 import BlockerModal from "../components/ui/BlockerModal";
 import ConfirmImpactModal from "../components/ui/ConfirmImpactModal";
@@ -235,11 +234,15 @@ export default function Sessions() {
       cancelText: "Cancel",
       variant: "danger"
     })) {
-      deleteSession(id);
-      showToast("Session deleted", "warning", {
-        title: "Deleted",
-        context: "session",
-      });
+      try {
+        await deleteSession(id);
+        showToast("Session deleted", "warning", {
+          title: "Deleted",
+          context: "session",
+        });
+      } catch (error) {
+        showToast("Error deleting session", "error");
+      }
     }
   };
 
@@ -367,7 +370,7 @@ export default function Sessions() {
         ...field,
         options: [
           { value: "", label: "Select a case..." },
-          ...mockCases.map(c => ({
+          ...[].map(c => ({
             value: c.id,
             label: `${c.caseNumber} - ${c.title}`
           }))
@@ -379,7 +382,7 @@ export default function Sessions() {
         ...field,
         options: [
           { value: "", label: "Select a case file..." },
-          ...mockDossiers.map(d => ({
+          ...[].map(d => ({
             value: d.id,
             label: `${d.caseNumber} - ${d.title}`
           }))

@@ -162,9 +162,12 @@ export default function Clients() {
             </div>
           </ContentSection>
         )}
-        <ContentSection>
-          <p>Chargement des donnees...</p>
-        </ContentSection>
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <i className="fas fa-spinner fa-spin text-4xl text-blue-600 dark:text-blue-400 mb-4"></i>
+            <p className="text-slate-600 dark:text-slate-400">Chargement des données...</p>
+          </div>
+        </div>
       </PageLayout>
     );
   }
@@ -219,7 +222,14 @@ export default function Clients() {
       variant: "danger"
     })) {
       try {
-        await deleteClient(id);
+        const result = await deleteClient(id);
+
+        if (!result || !result.ok) {
+          console.error('[Clients.handleDelete] Delete failed with result:', result);
+          showToast("Erreur lors de la suppression du client", "error");
+          return;
+        }
+
         showToast("Client supprimé", "warning", {
           title: "Suppression",
           context: "client",
@@ -227,6 +237,7 @@ export default function Clients() {
         // Redirect to clients list after deletion
         navigate("/clients");
       } catch (error) {
+        console.error('[Clients.handleDelete] Delete error:', error);
         showToast("Erreur lors de la suppression du client", "error");
       }
     }

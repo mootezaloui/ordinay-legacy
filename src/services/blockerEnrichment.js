@@ -6,16 +6,18 @@
  *
  * This module parses blocker messages from domainRules and enriches them
  * with metadata about related entities and available actions.
+ *
+ * Note: All data comes from the live entities provided via the context argument.
  */
 
-import {
-  mockTasks,
-  mockSessions,
-  mockDossiers,
-  mockCases,
-  getAllMissions,
-} from "../utils/mockData";
-import { financialLedger } from "../utils/financialData";
+const getData = (context = {}) => ({
+  tasks: context.entities?.tasks || [],
+  sessions: context.entities?.sessions || [],
+  dossiers: context.entities?.dossiers || [],
+  cases: context.entities?.cases || [],
+  missions: context.entities?.missions || [],
+  financialEntries: context.entities?.financialEntries || [],
+});
 
 /**
  * Enriches blockers with actionable metadata
@@ -24,7 +26,7 @@ import { financialLedger } from "../utils/financialData";
  * @param {string} entityType - Type of entity being validated
  * @param {number|string} entityId - ID of entity being validated
  * @param {string} action - Action being attempted
- * @param {object} context - Additional context
+ * @param {object} context - Additional context (must include entities snapshot)
  * @returns {Array<object>} Enriched blocker objects with actions
  */
 export function enrichBlockers(
@@ -34,6 +36,7 @@ export function enrichBlockers(
   action,
   context = {}
 ) {
+  const data = getData(context);
   if (!blockers || blockers.length === 0) {
     return [];
   }
@@ -45,7 +48,7 @@ export function enrichBlockers(
       entityType,
       entityId,
       action,
-      context
+      data
     );
 
     // If we couldn't enrich it, return as plain blocker
@@ -64,10 +67,10 @@ export function enrichBlockers(
 /**
  * Parse a blocker message and extract actionable metadata
  */
-function parseBlocker(blocker, entityType, entityId, action, context) {
+function parseBlocker(blocker, entityType, entityId, action, data) {
   // Pattern 1: Incomplete tasks
   if (blocker.includes("tâche") && blocker.includes("non terminée")) {
-    return parseTaskBlocker(blocker, entityType, entityId);
+    return parseTaskBlocker(blocker, entityType, entityId, data);
   }
 
   // Pattern 2: Open cases (procès)
@@ -75,7 +78,7 @@ function parseBlocker(blocker, entityType, entityId, action, context) {
     blocker.includes("procès non clos") ||
     (blocker.includes("procès") && blocker.includes("qui est clos"))
   ) {
-    return parseCaseBlocker(blocker, entityType, entityId);
+    return parseCaseBlocker(blocker, entityType, entityId, data);
   }
 
   // Pattern 3: Upcoming/incomplete sessions
@@ -83,17 +86,17 @@ function parseBlocker(blocker, entityType, entityId, action, context) {
     blocker.includes("séance") &&
     (blocker.includes("à venir") || blocker.includes("non terminée"))
   ) {
-    return parseSessionBlocker(blocker, entityType, entityId);
+    return parseSessionBlocker(blocker, entityType, entityId, data);
   }
 
   // Pattern 4: Active missions
   if (blocker.includes("mission") && blocker.includes("en cours")) {
-    return parseMissionBlocker(blocker, entityType, entityId);
+    return parseMissionBlocker(blocker, entityType, entityId, data);
   }
 
   // Pattern 5: Unpaid financial balance
   if (blocker.includes("Solde") && blocker.includes("impayé")) {
-    return parseFinancialBlocker(blocker, entityType, entityId);
+    return parseFinancialBlocker(blocker, entityType, entityId, data);
   }
 
   // Pattern 6: Parent is closed (edit restrictions)
@@ -101,7 +104,7 @@ function parseBlocker(blocker, entityType, entityId, action, context) {
     blocker.includes("appartient") &&
     (blocker.includes("fermé") || blocker.includes("clos"))
   ) {
-    return parseClosedParentBlocker(blocker, entityType, entityId);
+    return parseClosedParentBlocker(blocker, entityType, entityId, data);
   }
 
   // Pattern 7: Cannot create under closed parent
@@ -137,24 +140,24 @@ function parseBlocker(blocker, entityType, entityId, action, context) {
 /**
  * Parse incomplete tasks blocker
  */
-function parseTaskBlocker(blocker, entityType, entityId) {
-  // Extract task IDs from the blocker context
+function parseTaskBlocker(blocker, entityType, entityId, data) {
   let tasks = [];
 
   if (entityType === "dossier") {
-    const dossier = mockDossiers.find((d) => d.id == entityId);
+    const dossier = data.dossiers.find((d) => d.id == entityId);
     if (dossier) {
-      tasks = mockTasks
+      const proceedings = data.cases.filter((c) => c.dossierId === dossier.id);
+      tasks = data.tasks
         .filter(
           (task) =>
             (task.parentType === "dossier" && task.dossierId == entityId) ||
             (task.parentType === "case" &&
-              dossier.proceedings?.some((p) => p.id == task.caseId))
+              proceedings.some((p) => p.id == task.caseId))
         )
         .filter((task) => task.status !== "Terminée");
     }
   } else if (entityType === "case") {
-    tasks = mockTasks.filter(
+    tasks = data.tasks.filter(
       (task) =>
         task.parentType === "case" &&
         task.caseId == entityId &&
@@ -162,7 +165,6 @@ function parseTaskBlocker(blocker, entityType, entityId) {
     );
   }
 
-  // Create action items for each incomplete task
   const items = tasks.slice(0, 5).map((task) => ({
     entityId: task.id,
     entityLabel: task.title,
@@ -183,7 +185,7 @@ function parseTaskBlocker(blocker, entityType, entityId) {
         entityType: "task",
         entityId: task.id,
         icon: "fas fa-check",
-        safe: true, // Safe inline action
+        safe: true,
       },
     ],
   }));
@@ -202,22 +204,21 @@ function parseTaskBlocker(blocker, entityType, entityId) {
 /**
  * Parse open cases blocker
  */
-function parseCaseBlocker(blocker, entityType, entityId) {
+function parseCaseBlocker(blocker, entityType, entityId, data) {
   let cases = [];
 
   if (entityType === "dossier") {
-    const dossier = mockDossiers.find((d) => d.id == entityId);
-    if (dossier && dossier.proceedings) {
-      cases = dossier.proceedings.filter(
+    const dossier = data.dossiers.find((d) => d.id == entityId);
+    if (dossier) {
+      const proceedings = data.cases.filter((c) => c.dossierId === dossier.id);
+      cases = proceedings.filter(
         (proc) => proc.status !== "Clos" && proc.status !== "Terminé"
       );
     }
   }
 
-  // For case blockers, we should check the parent
   if (blocker.includes("appartient au procès")) {
-    // This is a different pattern - child entity blocked by closed parent
-    return parseClosedParentBlocker(blocker, entityType, entityId);
+    return parseClosedParentBlocker(blocker, entityType, entityId, data);
   }
 
   const items = cases.slice(0, 5).map((caseData) => ({
@@ -248,12 +249,12 @@ function parseCaseBlocker(blocker, entityType, entityId) {
 /**
  * Parse upcoming/incomplete sessions blocker
  */
-function parseSessionBlocker(blocker, entityType, entityId) {
+function parseSessionBlocker(blocker, entityType, entityId, data) {
   let sessions = [];
 
   if (entityType === "case") {
     const today = new Date();
-    sessions = mockSessions
+    sessions = data.sessions
       .filter((session) => session.caseId == entityId)
       .filter((session) => {
         const sessionDate = new Date(session.date);
@@ -304,28 +305,28 @@ function parseSessionBlocker(blocker, entityType, entityId) {
 /**
  * Parse active missions blocker
  */
-function parseMissionBlocker(blocker, entityType, entityId) {
-  const allMissions = getAllMissions();
+function parseMissionBlocker(blocker, entityType, entityId, data) {
+  const allMissions = data.missions || [];
   let missions = [];
 
   if (entityType === "dossier") {
-    const dossier = mockDossiers.find((d) => d.id == entityId);
+    const dossier = data.dossiers.find((d) => d.id == entityId);
     if (dossier) {
       missions = allMissions.filter(
         (mission) =>
           mission.entityType === "dossier" &&
-          mission.entityReference === dossier.caseNumber &&
+          mission.entityId === dossier.id &&
           mission.status !== "Terminée" &&
           mission.status !== "Annulée"
       );
     }
   } else if (entityType === "case") {
-    const caseData = mockCases.find((c) => c.id == entityId);
+    const caseData = data.cases.find((c) => c.id == entityId);
     if (caseData) {
       missions = allMissions.filter(
         (mission) =>
           mission.entityType === "case" &&
-          mission.entityReference === caseData.caseNumber &&
+          mission.entityId === caseData.id &&
           mission.status !== "Terminée" &&
           mission.status !== "Annulée"
       );
@@ -334,7 +335,7 @@ function parseMissionBlocker(blocker, entityType, entityId) {
 
   const items = missions.slice(0, 5).map((mission) => ({
     entityId: mission.id,
-    entityLabel: `${mission.missionNumber} - ${mission.title}`,
+    entityLabel: `${mission.missionNumber || mission.id} - ${mission.title || "Mission"}`,
     entityType: "mission",
     status: mission.status,
     actions: [
@@ -363,13 +364,13 @@ function parseMissionBlocker(blocker, entityType, entityId) {
 /**
  * Parse unpaid financial balance blocker
  */
-function parseFinancialBlocker(blocker, entityType, entityId) {
+function parseFinancialBlocker(blocker, entityType, entityId, data) {
   let entries = [];
 
   if (entityType === "dossier") {
-    const dossier = mockDossiers.find((d) => d.id == entityId);
+    const dossier = data.dossiers.find((d) => d.id == entityId);
     if (dossier) {
-      entries = financialLedger.filter(
+      entries = data.financialEntries.filter(
         (entry) =>
           entry.clientId == dossier.clientId &&
           entry.status !== "paid" &&
@@ -377,7 +378,7 @@ function parseFinancialBlocker(blocker, entityType, entityId) {
       );
     }
   } else if (entityType === "client") {
-    entries = financialLedger.filter(
+    entries = data.financialEntries.filter(
       (entry) =>
         entry.clientId == entityId &&
         entry.status !== "paid" &&
@@ -387,7 +388,7 @@ function parseFinancialBlocker(blocker, entityType, entityId) {
 
   const items = entries.slice(0, 5).map((entry) => ({
     entityId: entry.id,
-    entityLabel: `${entry.description || "Écriture"} - ${entry.amount} TND`,
+    entityLabel: `${entry.description || "Écriture"} - ${entry.amount} ${entry.currency || "TND"}`,
     entityType: "financialEntry",
     status: entry.status,
     actions: [
@@ -423,55 +424,54 @@ function parseFinancialBlocker(blocker, entityType, entityId) {
 /**
  * Parse closed parent blocker (for edit restrictions)
  */
-function parseClosedParentBlocker(blocker, entityType, entityId) {
+function parseClosedParentBlocker(blocker, entityType, entityId, data) {
   let parentInfo = null;
 
-  // Extract parent information based on entity type
   if (entityType === "task") {
-    const task = mockTasks.find((t) => t.id == entityId);
+    const task = data.tasks.find((t) => t.id == entityId);
     if (task) {
       if (task.parentType === "dossier") {
-        const dossier = mockDossiers.find((d) => d.id == task.dossierId);
+        const dossier = data.dossiers.find((d) => d.id == task.dossierId);
         if (dossier) {
           parentInfo = {
             entityType: "dossier",
             entityId: dossier.id,
-            entityLabel: `${dossier.caseNumber} - ${dossier.title}`,
+            entityLabel: `${dossier.caseNumber || dossier.id} - ${dossier.title}`,
             status: dossier.status,
           };
         }
       } else if (task.parentType === "case") {
-        const caseData = mockCases.find((c) => c.id == task.caseId);
+        const caseData = data.cases.find((c) => c.id == task.caseId);
         if (caseData) {
           parentInfo = {
             entityType: "case",
             entityId: caseData.id,
-            entityLabel: `${caseData.caseNumber} - ${caseData.title}`,
+            entityLabel: `${caseData.caseNumber || caseData.id} - ${caseData.title}`,
             status: caseData.status,
           };
         }
       }
     }
   } else if (entityType === "session") {
-    const session = mockSessions.find((s) => s.id == entityId);
+    const session = data.sessions.find((s) => s.id == entityId);
     if (session) {
       if (session.caseId) {
-        const caseData = mockCases.find((c) => c.id == session.caseId);
+        const caseData = data.cases.find((c) => c.id == session.caseId);
         if (caseData) {
           parentInfo = {
             entityType: "case",
             entityId: caseData.id,
-            entityLabel: `${caseData.caseNumber} - ${caseData.title}`,
+            entityLabel: `${caseData.caseNumber || caseData.id} - ${caseData.title}`,
             status: caseData.status,
           };
         }
       } else if (session.dossierId) {
-        const dossier = mockDossiers.find((d) => d.id == session.dossierId);
+        const dossier = data.dossiers.find((d) => d.id == session.dossierId);
         if (dossier) {
           parentInfo = {
             entityType: "dossier",
             entityId: dossier.id,
-            entityLabel: `${dossier.caseNumber} - ${dossier.title}`,
+            entityLabel: `${dossier.caseNumber || dossier.id} - ${dossier.title}`,
             status: dossier.status,
           };
         }
@@ -491,7 +491,6 @@ function parseClosedParentBlocker(blocker, entityType, entityId) {
       icon: "fas fa-external-link-alt",
     });
 
-    // Offer to reopen if it's just closed (not deleted/archived)
     if (parentInfo.status === "Fermé" || parentInfo.status === "Clos") {
       actions.push({
         label: `Rouvrir le ${
@@ -517,9 +516,7 @@ function parseClosedParentBlocker(blocker, entityType, entityId) {
 /**
  * Parse "cannot create under closed parent" blocker
  */
-function parseCreateUnderClosedParentBlocker(blocker, entityType, entityId) {
-  // Extract parent ID from context - this would come from the form data
-  // For now, we'll just provide navigation help
+function parseCreateUnderClosedParentBlocker(blocker) {
   return {
     type: "closedParent",
     reason: blocker,

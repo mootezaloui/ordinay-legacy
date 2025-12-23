@@ -17,15 +17,11 @@ import {
   getFormTitle,
   populateRelationshipOptions,
 } from "../../FormModal/formConfigs";
-import { mockClients, mockDossiers, mockCases, getAllMissions } from "../../../utils/mockData";
 import {
-  financialLedger,
-  addFinancialEntry,
-  updateFinancialEntry,
-  deleteFinancialEntry,
   financialCategories,
   financialStatuses,
-} from "../../../utils/financialData";
+} from "../../../utils/financialConstants";
+import { useData } from "../../../contexts/DataContext";
 import {
   getFinancialEntriesForDisplay,
   formatCurrency,
@@ -59,6 +55,17 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
   const navigate = useNavigate();
   const { showToast } = useToast();
   const { confirm } = useConfirm();
+  const {
+    clients = [],
+    dossiers = [],
+    cases = [],
+    missions = [],
+    officers = [],
+    financialEntries = [],
+    addFinancialEntry,
+    updateFinancialEntry,
+    deleteFinancialEntry,
+  } = useData();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState(null);
   const [editingEntry, setEditingEntry] = useState(null);
@@ -72,38 +79,38 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
   // Get financial summary based on entity type
   const summary = useMemo(() => {
     if (entityType === "client") {
-      return getClientFinancialSummary(entityId);
+      return getClientFinancialSummary(entityId, financialEntries);
     } else if (entityType === "dossier") {
-      return getDossierFinancialSummary(entityId);
+      return getDossierFinancialSummary(entityId, financialEntries);
     } else if (entityType === "case") {
-      return getCaseFinancialSummary(entityId);
+      return getCaseFinancialSummary(entityId, financialEntries);
     } else if (entityType === "officer") {
       // For officers (huissiers), get all mission expenses
-      return getOfficerFinancialSummary(entityId);
+      return getOfficerFinancialSummary(entityId, financialEntries);
     } else if (entityType === "mission") {
       // For missions, get mission-specific financial entries
-      return getMissionFinancialSummary(entityId);
+      return getMissionFinancialSummary(entityId, financialEntries);
     } else if (entityType === "personalTask") {
       // For personal tasks, get internal expenses
-      return getPersonalTaskFinancialSummary(entityId);
+      return getPersonalTaskFinancialSummary(entityId, financialEntries);
     } else if (entityType === "task") {
       // For tasks, get financial data based on parent relationship
       if (entityData.parentType === "case" && entityData.caseId) {
-        return getCaseFinancialSummary(entityData.caseId);
+        return getCaseFinancialSummary(entityData.caseId, financialEntries);
       } else if (entityData.dossierId) {
-        return getDossierFinancialSummary(entityData.dossierId);
+        return getDossierFinancialSummary(entityData.dossierId, financialEntries);
       }
     }
     return null;
-  }, [entityType, entityId, entityData, refreshKey]);
+  }, [entityType, entityId, entityData, refreshKey, financialEntries]);
 
   // Get client balance details (only for clients)
   const balanceDetails = useMemo(() => {
     if (entityType === "client") {
-      return getClientBalanceDetails(entityId);
+      return getClientBalanceDetails(entityId, financialEntries);
     }
     return null;
-  }, [entityType, entityId, refreshKey]);
+  }, [entityType, entityId, refreshKey, financialEntries]);
 
   // Get filtered entries for this entity
   const entries = useMemo(() => {
@@ -134,8 +141,8 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
       }
     }
 
-    return getFinancialEntriesForDisplay(filters);
-  }, [entityType, entityId, entityData, refreshKey]);
+    return getFinancialEntriesForDisplay(filters, financialEntries);
+  }, [entityType, entityId, entityData, refreshKey, financialEntries]);
 
   // Handler functions (defined before columns to avoid hoisting issues)
   const handleView = (entry) => {
@@ -144,7 +151,10 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
 
   const handleEdit = (entry) => {
     // G£à Validate before allowing edit
-    const result = canPerformAction('financialEntry', entry.id, 'edit', { data: entry });
+    const result = canPerformAction('financialEntry', entry.id, 'edit', {
+      data: entry,
+      entities: { clients, dossiers, cases, missions, officers, financialEntries }
+    });
 
     if (!result.allowed) {
       setValidationResult(result);
@@ -224,7 +234,11 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
   };
 
   const performFinancialMutation = async ({ action, entryId, data = null, newData = null, mutate }) => {
-    const result = canPerformAction('financialEntry', entryId, action, { data, newData });
+    const result = canPerformAction('financialEntry', entryId, action, {
+      data,
+      newData,
+      entities: { clients, dossiers, cases, missions, officers, financialEntries }
+    });
 
     if (!result.allowed) {
       setValidationResult(result);
@@ -431,50 +445,50 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
         showToast("Écriture modifiée avec succès!", "success");
       } else {
         const client = formData.clientId
-          ? mockClients.find((c) => c.id === parseInt(formData.clientId))
+          ? clients.find((c) => c.id === parseInt(formData.clientId))
           : entityType === "client"
-            ? mockClients.find((c) => c.id === entityId)
+            ? clients.find((c) => c.id === entityId)
             : null;
 
         let dossier = formData.dossierId
-          ? mockDossiers.find((d) => d.id === parseInt(formData.dossierId))
+          ? dossiers.find((d) => d.id === parseInt(formData.dossierId))
           : entityType === "dossier"
-            ? mockDossiers.find((d) => d.id === entityId)
+            ? dossiers.find((d) => d.id === entityId)
             : entityType === "task" && entityData.dossierId
-              ? mockDossiers.find((d) => d.id === entityData.dossierId)
+              ? dossiers.find((d) => d.id === entityData.dossierId)
               : null;
 
         const caseItem = formData.caseId
-          ? mockCases.find((c) => c.id === parseInt(formData.caseId))
+          ? cases.find((c) => c.id === parseInt(formData.caseId))
           : entityType === "case"
-            ? mockCases.find((c) => c.id === entityId)
+            ? cases.find((c) => c.id === entityId)
             : entityType === "task" && entityData.caseId
-              ? mockCases.find((c) => c.id === entityData.caseId)
+              ? cases.find((c) => c.id === entityData.caseId)
               : null;
 
         if (entityType === "case" && caseItem && !client) {
-          dossier = mockDossiers.find((d) => d.id === caseItem.dossierId);
+          dossier = dossiers.find((d) => d.id === caseItem.dossierId);
         }
 
         const derivedClient = client
-          || (dossier ? mockClients.find((c) => c.id === dossier.clientId) : null);
+          || (dossier ? clients.find((c) => c.id === dossier.clientId) : null);
 
         let mission = null;
         if (entityType === "mission") {
           mission = entityData;
           if (mission.entityType === "dossier") {
-            dossier = mockDossiers.find(d => d.id === mission.entityId) || dossier;
+            dossier = dossiers.find(d => d.id === mission.entityId) || dossier;
           } else if (mission.entityType === "case") {
-            const linkedCase = mockCases.find(c => c.id === mission.entityId);
+            const linkedCase = cases.find(c => c.id === mission.entityId);
             if (linkedCase) {
-              dossier = mockDossiers.find(d => d.id === linkedCase.dossierId) || dossier;
+              dossier = dossiers.find(d => d.id === linkedCase.dossierId) || dossier;
             }
           }
         } else if (formData.missionId && entityData?.missions) {
           mission = entityData.missions.find((m) => m.id === parseInt(formData.missionId)) || null;
         }
 
-        const missionClient = derivedClient || (dossier ? mockClients.find((c) => c.id === dossier.clientId) : null);
+        const missionClient = derivedClient || (dossier ? clients.find((c) => c.id === dossier.clientId) : null);
 
         const newEntry = {
           ...formData,
@@ -540,12 +554,12 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
         officerId: entityData.id,
         officerName: entityData.name,
       }))
-      : getAllMissions();
+      : missions;
 
     const fields = populateRelationshipOptions(financialEntryFormFields, {
-      clients: mockClients,
-      dossiers: mockDossiers,
-      cases: mockCases,
+      clients,
+      dossiers,
+      cases,
       missions: missionsToShow,
     });
 
@@ -574,7 +588,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
 
         // For client detail view: show client as readonly, allow optional dossier/case selection
         if (entityType === "client") {
-          const client = mockClients.find(c => c.id === entityId);
+          const client = clients.find(c => c.id === entityId);
           if (field.name === "clientId" && client) {
             return {
               ...field,
@@ -585,14 +599,14 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
           }
           // Get client's dossiers and cases for optional selection
           if (field.name === "dossierId" && client) {
-            const clientDossiers = mockDossiers.filter(d => d.clientId === entityId);
+            const clientDossiers = dossiers.filter(d => d.clientId === entityId);
             return {
               ...field,
               options: clientDossiers.map(d => ({ value: d.id, label: d.caseNumber }))
             };
           }
           if (field.name === "caseId" && client) {
-            const clientCases = mockCases.filter(c => c.clientId === entityId);
+            const clientCases = cases.filter(c => c.clientId === entityId);
             return {
               ...field,
               options: clientCases.map(c => ({ value: c.id, label: c.caseNumber }))
@@ -602,7 +616,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
 
         // For dossier detail view: show dossier and client as readonly, allow optional case selection
         if (entityType === "dossier") {
-          const dossier = mockDossiers.find(d => d.id === entityId);
+          const dossier = dossiers.find(d => d.id === entityId);
           if (field.name === "dossierId" && dossier) {
             return {
               ...field,
@@ -612,7 +626,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
             };
           }
           if (field.name === "clientId" && dossier) {
-            const client = mockClients.find(cl => cl.id === dossier.clientId);
+            const client = clients.find(cl => cl.id === dossier.clientId);
             return {
               ...field,
               type: "readonly",
@@ -622,7 +636,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
           }
           // Only allow cases from this dossier's client
           if (field.name === "caseId" && dossier) {
-            const dossierCases = mockCases.filter(c => c.clientId === dossier.clientId);
+            const dossierCases = cases.filter(c => c.clientId === dossier.clientId);
             return {
               ...field,
               options: dossierCases.map(c => ({ value: c.id, label: c.caseNumber }))
@@ -632,7 +646,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
 
         // For case detail view: pre-fill and disable caseId AND clientId AND dossierId
         if (entityType === "case") {
-          const caseItem = mockCases.find(c => c.id === entityId);
+          const caseItem = cases.find(c => c.id === entityId);
           if (field.name === "caseId" && caseItem) {
             return {
               ...field,
@@ -643,8 +657,8 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
           }
           if (field.name === "clientId" && caseItem) {
             // Get client through the dossier relationship since cases don't have direct clientId
-            const dossier = mockDossiers.find(d => d.id === caseItem.dossierId);
-            const client = dossier ? mockClients.find(cl => cl.id === dossier.clientId) : null;
+            const dossier = dossiers.find(d => d.id === caseItem.dossierId);
+            const client = dossier ? clients.find(cl => cl.id === dossier.clientId) : null;
             return {
               ...field,
               type: "readonly",
@@ -653,7 +667,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
             };
           }
           if (field.name === "dossierId" && caseItem) {
-            const dossier = mockDossiers.find(d => d.id === caseItem.dossierId);
+            const dossier = dossiers.find(d => d.id === caseItem.dossierId);
             return {
               ...field,
               type: "readonly",
@@ -674,16 +688,16 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
 
           missions.forEach(mission => {
             if (mission.entityType === "dossier") {
-              const dossier = mockDossiers.find(d => d.caseNumber === mission.entityReference);
+              const dossier = dossiers.find(d => d.caseNumber === mission.entityReference);
               if (dossier) {
                 officerDossierIds.add(dossier.id);
                 officerClientIds.add(dossier.clientId);
               }
             } else if (mission.entityType === "case") {
-              const caseItem = mockCases.find(c => c.caseNumber === mission.entityReference);
+              const caseItem = cases.find(c => c.caseNumber === mission.entityReference);
               if (caseItem) {
                 officerCaseIds.add(caseItem.id);
-                const dossier = mockDossiers.find(d => d.id === caseItem.dossierId);
+                const dossier = dossiers.find(d => d.id === caseItem.dossierId);
                 if (dossier) {
                   officerDossierIds.add(dossier.id);
                   officerClientIds.add(dossier.clientId);
@@ -752,17 +766,17 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
 
                     // Auto-populate related entities based on mission type
                     if (selectedMission.entityType === "dossier") {
-                      const dossier = mockDossiers.find(d => d.caseNumber === selectedMission.entityReference);
+                      const dossier = [].find(d => d.caseNumber === selectedMission.entityReference);
                       if (dossier) {
                         updates.dossierId = dossier.id;
                         updates.clientId = dossier.clientId;
                         updates.caseId = ""; // Clear case if it was set
                       }
                     } else if (selectedMission.entityType === "case") {
-                      const caseItem = mockCases.find(c => c.caseNumber === selectedMission.entityReference);
+                      const caseItem = [].find(c => c.caseNumber === selectedMission.entityReference);
                       if (caseItem) {
                         updates.caseId = caseItem.id;
-                        const dossier = mockDossiers.find(d => d.id === caseItem.dossierId);
+                        const dossier = [].find(d => d.id === caseItem.dossierId);
                         if (dossier) {
                           updates.dossierId = dossier.id;
                           updates.clientId = dossier.clientId;
@@ -780,7 +794,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
 
           // Filter client dropdown to only show clients that have missions with this officer
           if (field.name === "clientId") {
-            const clients = mockClients.filter(c => officerClientIds.has(c.id));
+            const clients = [].filter(c => officerClientIds.has(c.id));
             return {
               ...field,
               options: [
@@ -792,7 +806,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
 
           // Filter dossier dropdown to only show dossiers that have missions with this officer
           if (field.name === "dossierId") {
-            const dossiers = mockDossiers.filter(d => officerDossierIds.has(d.id));
+            const dossiers = [].filter(d => officerDossierIds.has(d.id));
             return {
               ...field,
               options: [
@@ -804,7 +818,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
 
           // Filter case dropdown to only show cases that have missions with this officer
           if (field.name === "caseId") {
-            const cases = mockCases.filter(c => officerCaseIds.has(c.id));
+            const cases = [].filter(c => officerCaseIds.has(c.id));
             return {
               ...field,
               options: [
@@ -879,26 +893,26 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
             // If editing, use existing value, otherwise derive from mission
             if (!editingEntry) {
               if (entityData.entityType === "dossier") {
-                const dossier = mockDossiers.find(d => d.id === entityData.entityId);
+                const dossier = [].find(d => d.id === entityData.entityId);
                 if (dossier) {
                   clientId = dossier.clientId;
-                  const client = mockClients.find(c => c.id === dossier.clientId);
+                  const client = [].find(c => c.id === dossier.clientId);
                   clientName = client ? client.name : "Client inconnu";
                 }
               } else if (entityData.entityType === "case") {
-                const caseItem = mockCases.find(c => c.id === entityData.entityId);
+                const caseItem = [].find(c => c.id === entityData.entityId);
                 if (caseItem) {
-                  const dossier = mockDossiers.find(d => d.id === caseItem.dossierId);
+                  const dossier = [].find(d => d.id === caseItem.dossierId);
                   if (dossier) {
                     clientId = dossier.clientId;
-                    const client = mockClients.find(c => c.id === dossier.clientId);
+                    const client = [].find(c => c.id === dossier.clientId);
                     clientName = client ? client.name : "Client inconnu";
                   }
                 }
               }
             } else {
               // When editing, get the display name from the stored clientId
-              const client = mockClients.find(c => c.id === clientId);
+              const client = [].find(c => c.id === clientId);
               clientName = client ? client.name : "Client inconnu";
             }
 
@@ -919,22 +933,22 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
             // If editing, use existing value, otherwise derive from mission
             if (!editingEntry) {
               if (entityData.entityType === "dossier") {
-                const dossier = mockDossiers.find(d => d.id === entityData.entityId);
+                const dossier = [].find(d => d.id === entityData.entityId);
                 if (dossier) {
                   dossierId = dossier.id;
                   dossierRef = dossier.caseNumber;
                 }
               } else if (entityData.entityType === "case") {
-                const caseItem = mockCases.find(c => c.id === entityData.entityId);
+                const caseItem = [].find(c => c.id === entityData.entityId);
                 if (caseItem) {
                   dossierId = caseItem.dossierId;
-                  const dossier = mockDossiers.find(d => d.id === caseItem.dossierId);
+                  const dossier = [].find(d => d.id === caseItem.dossierId);
                   dossierRef = dossier ? dossier.caseNumber : "Dossier inconnu";
                 }
               }
             } else {
               // When editing, get the display name from the stored dossierId
-              const dossier = mockDossiers.find(d => d.id === dossierId);
+              const dossier = [].find(d => d.id === dossierId);
               dossierRef = dossier ? dossier.caseNumber : "Dossier inconnu";
             }
 
@@ -955,7 +969,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
             // If editing, use existing value, otherwise derive from mission
             if (!editingEntry) {
               if (entityData.entityType === "case") {
-                const caseItem = mockCases.find(c => c.id === entityData.entityId);
+                const caseItem = [].find(c => c.id === entityData.entityId);
                 if (caseItem) {
                   caseId = caseItem.id;
                   caseRef = caseItem.caseNumber;
@@ -964,7 +978,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
             } else {
               // When editing, get the display name from the stored caseId
               if (caseId) {
-                const caseItem = mockCases.find(c => c.id === caseId);
+                const caseItem = [].find(c => c.id === caseId);
                 caseRef = caseItem ? caseItem.caseNumber : "Procès inconnu";
               }
             }
@@ -1008,16 +1022,16 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
 
           missions.forEach(mission => {
             if (mission.entityType === "dossier") {
-              const dossier = mockDossiers.find(d => d.caseNumber === mission.entityReference);
+              const dossier = [].find(d => d.caseNumber === mission.entityReference);
               if (dossier) {
                 officerDossierIds.add(dossier.id);
                 officerClientIds.add(dossier.clientId);
               }
             } else if (mission.entityType === "case") {
-              const caseItem = mockCases.find(c => c.caseNumber === mission.entityReference);
+              const caseItem = [].find(c => c.caseNumber === mission.entityReference);
               if (caseItem) {
                 officerCaseIds.add(caseItem.id);
-                const dossier = mockDossiers.find(d => d.id === caseItem.dossierId);
+                const dossier = [].find(d => d.id === caseItem.dossierId);
                 if (dossier) {
                   officerDossierIds.add(dossier.id);
                   officerClientIds.add(dossier.clientId);
@@ -1086,17 +1100,17 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
 
                     // Auto-populate related entities based on mission type
                     if (selectedMission.entityType === "dossier") {
-                      const dossier = mockDossiers.find(d => d.caseNumber === selectedMission.entityReference);
+                      const dossier = [].find(d => d.caseNumber === selectedMission.entityReference);
                       if (dossier) {
                         updates.dossierId = dossier.id;
                         updates.clientId = dossier.clientId;
                         updates.caseId = ""; // Clear case if it was set
                       }
                     } else if (selectedMission.entityType === "case") {
-                      const caseItem = mockCases.find(c => c.caseNumber === selectedMission.entityReference);
+                      const caseItem = [].find(c => c.caseNumber === selectedMission.entityReference);
                       if (caseItem) {
                         updates.caseId = caseItem.id;
-                        const dossier = mockDossiers.find(d => d.id === caseItem.dossierId);
+                        const dossier = [].find(d => d.id === caseItem.dossierId);
                         if (dossier) {
                           updates.dossierId = dossier.id;
                           updates.clientId = dossier.clientId;
@@ -1115,7 +1129,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
 
           // Filter clients - only those with dossiers/cases assigned to this officer
           if (field.name === "clientId") {
-            const filteredClients = mockClients.filter(c => officerClientIds.has(c.id));
+            const filteredClients = [].filter(c => officerClientIds.has(c.id));
             return {
               ...field,
               type: "readonly",
@@ -1132,7 +1146,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
 
           // Filter dossiers - only those assigned to this officer
           if (field.name === "dossierId") {
-            const filteredDossiers = mockDossiers.filter(d => officerDossierIds.has(d.id));
+            const filteredDossiers = [].filter(d => officerDossierIds.has(d.id));
             return {
               ...field,
               type: "readonly",
@@ -1149,7 +1163,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
 
           // Filter cases - only those assigned to this officer
           if (field.name === "caseId") {
-            const filteredCases = mockCases.filter(c => officerCaseIds.has(c.id));
+            const filteredCases = [].filter(c => officerCaseIds.has(c.id));
             return {
               ...field,
               type: "readonly",
@@ -1443,6 +1457,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
         entityType="financialEntry"
         entityId={editingEntry?.id}
         editingEntity={editingEntry}
+        entities={{ clients, dossiers, cases, missions, officers, financialEntries }}
         isLoading={isLoading}
       />
 

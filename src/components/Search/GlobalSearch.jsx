@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { searchAllData } from "../../utils/searchUtils";
+import { useData } from "../../contexts/DataContext";
 
 /**
  * GlobalSearch - Universal search component
@@ -13,6 +14,15 @@ export default function GlobalSearch() {
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const searchRef = useRef(null);
+  const {
+    clients,
+    dossiers,
+    tasks,
+    cases,
+    sessions,
+    officers,
+    financialEntries,
+  } = useData();
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -36,7 +46,15 @@ export default function GlobalSearch() {
 
     setIsLoading(true);
     const timer = setTimeout(() => {
-      const searchResults = searchAllData(query);
+      const searchResults = searchAllData(query, {
+        clients,
+        dossiers,
+        tasks,
+        cases,
+        sessions,
+        officers,
+        accounting: financialEntries,
+      });
       setResults(searchResults);
       setIsOpen(true);
       setIsLoading(false);

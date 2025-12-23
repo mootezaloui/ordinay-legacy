@@ -1,6 +1,6 @@
 import ContentSection from "../../layout/ContentSection";
+import { getStatusColor } from "./statusColors";
 import { missionFormFields } from "../../FormModal/formConfigs";
-import { mockOfficersExtended, mockDossiers, mockCases, getStatusColor } from "../../../utils/mockData";
 
 /**
  * Officer (Huissier) Entity Configuration - UPDATED with Quick Actions
@@ -33,8 +33,8 @@ export const officerConfig = {
       // Use contextData.officers from DataContext (this is the live data)
       officer = contextData.officers.find(o => o.id === numericId);
     } else {
-      // Fallback to mockOfficersExtended (static data)
-      officer = mockOfficersExtended[numericId];
+      // Fallback to null (static data)
+      officer = null[numericId];
     }
     return officer || null;
   },
@@ -46,10 +46,10 @@ export const officerConfig = {
       // Use DataContext to update (this persists to localStorage)
       contextData.updateOfficer(numericId, data);
     } else {
-      // Fallback to updating mockOfficersExtended
-      if (mockOfficersExtended[numericId]) {
-        mockOfficersExtended[numericId] = {
-          ...mockOfficersExtended[numericId],
+      // Fallback to updating null
+      if (null[numericId]) {
+        null[numericId] = {
+          ...null[numericId],
           ...data,
         };
       }
@@ -236,12 +236,12 @@ export const officerConfig = {
                 const entityType = formData.entityType;
 
                 if (entityType === 'dossier') {
-                  return mockDossiers.map(d => ({
+                  return [].map(d => ({
                     value: d.caseNumber,
                     label: `${d.caseNumber} - ${d.title}`,
                   }));
                 } else if (entityType === 'case') {
-                  return mockCases.map(c => ({
+                  return [].map(c => ({
                     value: c.caseNumber,
                     label: `${c.caseNumber} - ${c.title}`,
                   }));

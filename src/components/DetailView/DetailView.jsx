@@ -19,7 +19,6 @@ import QuickActionsBar from "./QuickActionsBar";
 import ClientNotificationPrompt from "../ui/ClientNotificationPrompt";
 import { shouldPromptClientNotification, sendClientNotification, getPendingNotification, clearPendingNotification, setPendingNotification } from "../../services/clientCommunication";
 import BlockerModal from "../ui/BlockerModal";
-import { mockCases, mockSessions, mockTasks, mockOfficers } from "../../utils/mockData";
 import { canPerformAction } from "../../services/domainRules";
 
 /**
@@ -58,6 +57,7 @@ export default function DetailView({ entityType }) {
   const [data, setData] = useState(null);
   const [originalData, setOriginalData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const globalLoading = contextData.loading;
 
   // Fallback: If financialEntry not found, use location.state?.createdEntry
   useEffect(() => {
@@ -140,7 +140,7 @@ export default function DetailView({ entityType }) {
     }
   }, [loading]);
 
-  if (loading) {
+  if (loading || globalLoading) {
     return (
       <PageLayout>
         <div className="flex items-center justify-center py-12">
@@ -153,7 +153,7 @@ export default function DetailView({ entityType }) {
     );
   }
 
-  if (!data) {
+  if (!loading && !globalLoading && !data) {
     return (
       <PageLayout>
         <div className="text-center py-12">
@@ -250,7 +250,8 @@ export default function DetailView({ entityType }) {
             newValue: value,
             data,
             newData,
-          }
+          },
+          contextData
         );
 
         if (notificationCheck?.shouldPrompt) {
@@ -432,6 +433,7 @@ export default function DetailView({ entityType }) {
             onSectionSave={handleSectionSave}
             entityType={config.entityType}
             entityId={parseInt(id)}
+            contextData={contextData}
           />
         );
       case "documents":
@@ -518,7 +520,7 @@ export default function DetailView({ entityType }) {
           const relatedDossiers = data.relatedDossiers || [];
 
           // ✅ Merge newly added items with existing items
-          const existingCases = mockCases.filter(cas =>
+          const existingCases = latestContextRef.current.cases || [].filter(cas =>
             relatedDossiers.some(dossier => dossier.id === cas.dossierId)
           );
 
@@ -546,8 +548,8 @@ export default function DetailView({ entityType }) {
           };
         } else if (isDossier) {
           // Dossier entity: Direct children - proceedings of this dossier
-          // ✅ Merge newly added items (data.proceedings) with existing items (filtered from mockCases)
-          const existingProceedings = mockCases.filter(c => c.dossierId === data.id);
+          // ✅ Merge newly added items (data.proceedings) with existing items (filtered from latestContextRef.current.cases || [])
+          const existingProceedings = latestContextRef.current.cases || [].filter(c => c.dossierId === data.id);
 
           // Combine and deduplicate
           const newlyAddedProceedings = data.proceedings || [];
@@ -573,7 +575,7 @@ export default function DetailView({ entityType }) {
 
       case "sessions": {
         const allSessions = latestContextRef.current.sessions || [];
-        const allCases = latestContextRef.current.cases || mockCases;
+        const allCases = latestContextRef.current.cases || latestContextRef.current.cases || [];
         const allDossiers = latestContextRef.current.dossiers || [];
 
         if (isClient) {
@@ -675,12 +677,12 @@ export default function DetailView({ entityType }) {
         if (isClient) {
           // Client entity: Get all Tasks related to this client (via Dossiers or Procès)
           const relatedDossiers = data.relatedDossiers || [];
-          const relatedCasesForTasks = mockCases.filter(cas =>
+          const relatedCasesForTasks = latestContextRef.current.cases || [].filter(cas =>
             relatedDossiers.some(dossier => dossier.id === cas.dossierId)
           );
 
           // ✅ Merge newly added items with existing items
-          const existingTasks = mockTasks.filter(task => {
+          const existingTasks = latestContextRef.current.tasks || [].filter(task => {
             if (task.parentType === 'dossier') {
               return relatedDossiers.some(dossier => dossier.id === task.dossierId);
             } else if (task.parentType === 'case') {
@@ -727,8 +729,8 @@ export default function DetailView({ entityType }) {
           // Dossier entity: Get all Tasks for THIS dossier or its procès
           const dossierCases = data.proceedings || [];
 
-          // ✅ Merge newly added items (data.tasks) with existing items (filtered from mockTasks)
-          const existingTasks = mockTasks.filter(task => {
+          // ✅ Merge newly added items (data.tasks) with existing items (filtered from latestContextRef.current.tasks || [])
+          const existingTasks = latestContextRef.current.tasks || [].filter(task => {
             if (task.parentType === 'dossier' && task.dossierId === data.id) {
               return true;
             } else if (task.parentType === 'case') {
@@ -770,7 +772,7 @@ export default function DetailView({ entityType }) {
 
           // ✅ PRIORITY 1: Use data from entity object if available (newly added items)
           // ✅ PRIORITY 2: Fall back to filtering global array (existing items)
-          items = data.tasks || mockTasks.filter(task => {
+          items = data.tasks || latestContextRef.current.tasks || [].filter(task => {
             if (task.parentType === 'case' && task.caseId === data.id) {
               return true;
             } else if (task.parentType === 'dossier' && parentDossier && task.dossierId === parentDossier.id) {
@@ -817,7 +819,7 @@ export default function DetailView({ entityType }) {
             getTitle: (item) => item.missionNumber,
             getSubtitle: (item) => {
               // Lookup officer name from officerId if not already set
-              const officerName = item.officerName || (item.officerId ? mockOfficers.find(o => o.id === parseInt(item.officerId))?.name : null) || 'N/A';
+              const officerName = item.officerName || (item.officerId ? latestContextRef.current.officers || [].find(o => o.id === parseInt(item.officerId))?.name : null) || 'N/A';
               return `${item.title} • ${item.missionType} • Huissier: ${officerName}`;
             },
             getStatus: (item) => item.status,
@@ -836,7 +838,7 @@ export default function DetailView({ entityType }) {
             getTitle: (item) => item.missionNumber,
             getSubtitle: (item) => {
               // Lookup officer name from officerId if not already set
-              const officerName = item.officerName || (item.officerId ? mockOfficers.find(o => o.id === parseInt(item.officerId))?.name : null) || 'N/A';
+              const officerName = item.officerName || (item.officerId ? latestContextRef.current.officers || [].find(o => o.id === parseInt(item.officerId))?.name : null) || 'N/A';
               return `${item.title} • ${item.missionType} • Huissier: ${officerName}`;
             },
             getStatus: (item) => item.status,
@@ -857,6 +859,7 @@ export default function DetailView({ entityType }) {
         entityConfig={entityConfig}
         tabConfig={tabConfig}
         onItemsChange={handleItemsChange}
+        contextData={contextData}
       />
     );
   };
@@ -901,6 +904,7 @@ export default function DetailView({ entityType }) {
             data={data}
             config={config}
             onQuickAction={handleQuickAction}
+            contextData={contextData}
           />
         )}
 

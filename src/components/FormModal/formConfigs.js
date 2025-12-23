@@ -8,7 +8,6 @@
  * - Forms now properly handle entity relationships
  */
 
-import { mockDossiers, mockCases } from "../../utils/mockData";
 import {
   getAllAssignees,
   addCustomAssignee,
@@ -178,7 +177,7 @@ export const dossierFormFields = [
     label: "Client",
     type: "searchable-select", // ✅ Use searchable select for scalability
     required: true,
-    options: [], // ← Will be populated dynamically with mockClients
+    options: [], // ← Will be populated dynamically with []
     helpText: "Sélectionner le client concerné",
   },
   {
@@ -310,7 +309,7 @@ export const caseFormFields = [
     label: "Dossier",
     type: "searchable-select", // ✅ Use searchable select for scalability
     required: true,
-    options: [], // ← Will be populated dynamically with mockDossiers
+    options: [], // ← Will be populated dynamically with []
     helpText: "Obligatoire - Chaque procès doit être lié à un dossier",
   },
   {
@@ -425,6 +424,7 @@ export const sessionFormFields = [
     label: "Type",
     type: "select",
     required: true,
+    defaultValue: "Audience",
     options: [
       { value: "Audience", label: "Audience" },
       { value: "Consultation", label: "Consultation" },
@@ -463,7 +463,7 @@ export const sessionFormFields = [
     label: "Procès",
     type: "searchable-select", // ✅ Use searchable select for scalability
     required: false,
-    options: [], // ← Will be populated dynamically with mockCases
+    options: [], // ← Will be populated dynamically with []
     helpText: "Sélectionner le procès concerné",
     hideIf: (formData) => formData.linkType !== "case",
   },
@@ -473,7 +473,7 @@ export const sessionFormFields = [
     label: "Dossier",
     type: "searchable-select", // ✅ Use searchable select for scalability
     required: false,
-    options: [], // ← Will be populated dynamically with mockDossiers
+    options: [], // ← Will be populated dynamically with []
     helpText: "Sélectionner le dossier concerné",
     hideIf: (formData) => formData.linkType !== "dossier",
   },
@@ -621,10 +621,10 @@ export const taskFormFields = [
       // Only show if parentType is 'dossier'
       if (formData.parentType !== "dossier") return [];
 
-      // Use imported mockDossiers
+      // Use imported []
       return [
         { value: "", label: "Sélectionner un dossier..." },
-        ...mockDossiers.map((d) => ({
+        ...[].map((d) => ({
           value: d.id,
           label: `${d.caseNumber} - ${d.title}`,
         })),
@@ -645,10 +645,10 @@ export const taskFormFields = [
       // Only show if parentType is 'case'
       if (formData.parentType !== "case") return [];
 
-      // Use imported mockCases
+      // Use imported []
       return [
         { value: "", label: "Sélectionner un procès..." },
-        ...mockCases.map((c) => ({
+        ...[].map((c) => ({
           value: c.id,
           label: `${c.caseNumber} - ${c.title}`,
         })),
@@ -694,12 +694,13 @@ export const taskFormFields = [
     label: "Statut",
     type: "inline-status",
     required: true,
-    defaultValue: "Non commencée",
+    defaultValue: "Non commencee",
     statusOptions: [
-      { value: "Non commencée", label: "Non commencée", color: "slate" },
-      { value: "En cours", label: "En cours", color: "blue" },
+      { value: "Non commencee", label: "Non commencée", color: "slate" },
       { value: "En attente", label: "En attente", color: "amber" },
-      { value: "Terminée", label: "Terminée", color: "green" },
+      { value: "Planifiee", label: "Planifiée", color: "purple" },
+      { value: "En cours", label: "En cours", color: "blue" },
+      { value: "Terminee", label: "Terminée", color: "green" },
     ],
   },
   {
@@ -837,7 +838,7 @@ export const officerAssignmentFormFields = [
     label: "Huissier",
     type: "searchable-select", // ✅ Use searchable select for scalability
     required: true,
-    options: [], // ← Will be populated dynamically with mockOfficers
+    options: [], // ← Will be populated dynamically with []
   },
   {
     name: "entityType",
@@ -977,7 +978,7 @@ export const invoiceFormFields = [
     label: "Client",
     type: "searchable-select", // ✅ Use searchable select for scalability
     required: true,
-    options: [], // ← Will be populated dynamically with mockClients
+    options: [], // ← Will be populated dynamically with []
   },
   {
     // ✅ RELATIONSHIP FIELD - Dossier (optional)
@@ -985,7 +986,7 @@ export const invoiceFormFields = [
     label: "Dossier (optionnel)",
     type: "searchable-select", // ✅ Use searchable select for scalability
     required: false,
-    options: [], // ← Will be populated dynamically with mockDossiers
+    options: [], // ← Will be populated dynamically with []
     helpText: "Lier la facture à un dossier spécifique",
   },
   {
@@ -1358,7 +1359,8 @@ export const financialEntryFormFields = [
     required: false,
     options: [], // Will be populated dynamically
     hideIf: (formData) => formData.scope === "internal",
-    helpText: "Client concerné par cette opération (obligatoire si portée = Client)",
+    helpText:
+      "Client concerné par cette opération (obligatoire si portée = Client)",
     validate: (value, formData) => {
       if (formData.scope === "client" && (!value || value === "")) {
         return "Le client est requis lorsque la portée est 'Client'.";

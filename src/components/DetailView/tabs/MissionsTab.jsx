@@ -7,7 +7,6 @@ import FormModal from "../../FormModal/FormModal";
 import ConfirmImpactModal from "../../ui/ConfirmImpactModal";
 import BlockerModal from "../../ui/BlockerModal";
 import { canPerformAction } from "../../../services/domainRules";
-import { getStatusColor, mockClients, mockDossiers, mockCases, mockOfficers } from "../../../utils/mockData";
 import {
   formatCurrency
 } from "../../../utils/financialUtils";
@@ -15,7 +14,6 @@ import {
   financialEntryFormFields,
   populateRelationshipOptions
 } from "../../FormModal/formConfigs";
-import { addFinancialEntry } from "../../../utils/financialData";
 import { logEntityCreation, logAssignment } from "../../../services/historyService";
 import { resolveDetailRoute } from "../../../utils/routeResolver";
 
@@ -176,8 +174,8 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange }) 
 
         // ✅ Log reassignment if officer changed
         if (oldMission.officerId !== parseInt(missionData.officerId)) {
-          const newOfficer = mockOfficers.find(o => o.id === parseInt(missionData.officerId));
-          const oldOfficer = mockOfficers.find(o => o.id === oldMission.officerId);
+          const newOfficer = [].find(o => o.id === parseInt(missionData.officerId));
+          const oldOfficer = [].find(o => o.id === oldMission.officerId);
           logAssignment(
             'mission',
             editingMissionId,
@@ -196,7 +194,7 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange }) 
         const selectedOfficerId = parseInt(submittedFormData.officerId);
         console.log("🔍 Looking for officer with ID:", selectedOfficerId);
 
-        const selectedOfficer = mockOfficers.find(o => o.id === selectedOfficerId);
+        const selectedOfficer = [].find(o => o.id === selectedOfficerId);
         console.log("👤 Found officer:", selectedOfficer);
 
         const officerName = selectedOfficer ? selectedOfficer.name : "Unknown";
@@ -898,9 +896,9 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange }) 
           fields={(() => {
             // Get base fields and populate with data
             const baseFields = populateRelationshipOptions(financialEntryFormFields, {
-              clients: mockClients,
-              dossiers: mockDossiers,
-              cases: mockCases,
+              clients: [],
+              dossiers: [],
+              cases: [],
               missions: []
             });
 
@@ -911,19 +909,19 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange }) 
 
             if (selectedMissionForFinance.entityType === "dossier") {
               // Mission linked to a dossier
-              const dossier = mockDossiers.find(d => d.caseNumber === selectedMissionForFinance.entityReference);
+              const dossier = [].find(d => d.caseNumber === selectedMissionForFinance.entityReference);
               if (dossier) {
                 dossierId = dossier.id;
                 clientId = dossier.clientId;
               }
             } else if (selectedMissionForFinance.entityType === "case") {
               // Mission linked to a case
-              const caseItem = mockCases.find(c => c.caseNumber === selectedMissionForFinance.entityReference);
+              const caseItem = [].find(c => c.caseNumber === selectedMissionForFinance.entityReference);
               if (caseItem) {
                 caseId = caseItem.id;
                 dossierId = caseItem.dossierId;
                 // Get client from the dossier
-                const dossier = mockDossiers.find(d => d.id === caseItem.dossierId);
+                const dossier = [].find(d => d.id === caseItem.dossierId);
                 if (dossier) {
                   clientId = dossier.clientId;
                 }
@@ -941,7 +939,7 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange }) 
                 return { ...field, type: "readonly", defaultValue: "frais_huissier", displayValue: "Frais d'huissier" };
               }
               if (field.name === "clientId") {
-                const client = mockClients.find(c => c.id === clientId);
+                const client = [].find(c => c.id === clientId);
                 return {
                   ...field,
                   type: "readonly",
@@ -950,7 +948,7 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange }) 
                 };
               }
               if (field.name === "dossierId") {
-                const doss = mockDossiers.find(d => d.id === dossierId);
+                const doss = [].find(d => d.id === dossierId);
                 return {
                   ...field,
                   type: "readonly",
@@ -959,7 +957,7 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange }) 
                 };
               }
               if (field.name === "caseId") {
-                const caseItem = mockCases.find(c => c.id === caseId);
+                const caseItem = [].find(c => c.id === caseId);
                 return {
                   ...field,
                   type: "readonly",

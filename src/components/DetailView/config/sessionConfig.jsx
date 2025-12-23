@@ -1,5 +1,5 @@
 import ContentSection from "../../layout/ContentSection";
-import { mockSessionsExtended, mockCases, mockDossiers, getStatusColor } from "../../../utils/mockData";
+import { getStatusColor } from "./statusColors";
 
 /**
  * Session Entity Configuration - UPDATED with Quick Actions
@@ -31,14 +31,14 @@ export const sessionConfig = {
       // Use contextData.sessions from DataContext (this is the live data)
       session = contextData.sessions.find(s => s.id === numericId);
     } else {
-      // Fallback to mockSessionsExtended (static data)
-      session = mockSessionsExtended[numericId];
+      // Fallback to null (static data)
+      session = null[numericId];
     }
     if (!session) return null;
 
     // ✅ Ensure case/dossier objects are populated
-    const cases = contextData?.cases || mockCases;
-    const dossiers = contextData?.dossiers || mockDossiers;
+    const cases = contextData?.cases || [];
+    const dossiers = contextData?.dossiers || [];
 
     // Always resolve parents from live data (avoid undefined)
     const caseData = session.caseId
@@ -77,18 +77,34 @@ export const sessionConfig = {
   updateData: async (id, data, contextData = null) => {
     const numericId = parseInt(id);
 
-    if (contextData?.updateSession) {
-      // Use DataContext to update (this persists to localStorage)
-      contextData.updateSession(numericId, data);
-    } else {
-      // Fallback to updating mockSessionsExtended
-      if (mockSessionsExtended[numericId]) {
-        mockSessionsExtended[numericId] = {
-          ...mockSessionsExtended[numericId],
-          ...data,
-        };
+    // Filter out any potential relationship fields - session entity should only contain session-specific data
+    const sessionFields = [
+      'title', 'type', 'linkType', 'caseId', 'dossierId', 'date', 'time',
+      'duration', 'location', 'status', 'description'
+    ];
+    const sessionData = Object.keys(data).reduce((acc, key) => {
+      if (sessionFields.includes(key)) {
+        acc[key] = data[key];
+      }
+      return acc;
+    }, {});
+
+    // Only update if there are actual session fields to update
+    if (Object.keys(sessionData).length > 0) {
+      if (contextData?.updateSession) {
+        // Use DataContext to update (this persists to localStorage)
+        contextData.updateSession(numericId, sessionData);
+      } else {
+        // Fallback to updating null
+        if (null[numericId]) {
+          null[numericId] = {
+            ...null[numericId],
+            ...sessionData,
+          };
+        }
       }
     }
+    // If no session fields to update, skip the update
     await new Promise(resolve => setTimeout(resolve, 500));
   },
 
@@ -337,14 +353,14 @@ export const sessionConfig = {
           editable: true,
           options: [
             { value: "", label: "Sélectionner un procès..." },
-            ...mockCases.map(c => ({
+            ...[].map(c => ({
               value: c.id,
               label: `${c.caseNumber} - ${c.title}`
             }))
           ],
           getOptions: () => ([
             { value: "", label: "Sélectionner un procès..." },
-            ...mockCases.map(c => ({
+            ...[].map(c => ({
               value: c.id,
               label: `${c.caseNumber} - ${c.title}`
             }))
@@ -357,7 +373,7 @@ export const sessionConfig = {
           value: (data) => {
             // If linked to a case, get the parent dossier
             if (data.caseId) {
-              const parentCase = mockCases.find(c => c.id === data.caseId);
+              const parentCase = [].find(c => c.id === data.caseId);
               if (parentCase && parentCase.dossierId) {
                 return parentCase.dossierId;
               }
@@ -368,9 +384,9 @@ export const sessionConfig = {
           displayValue: (data) => {
             // If linked to a case, show the parent dossier
             if (data.caseId) {
-              const parentCase = mockCases.find(c => c.id === data.caseId);
+              const parentCase = [].find(c => c.id === data.caseId);
               if (parentCase && parentCase.dossierId) {
-                const parentDossier = mockDossiers.find(d => d.id === parentCase.dossierId);
+                const parentDossier = [].find(d => d.id === parentCase.dossierId);
                 if (parentDossier) {
                   return `${parentDossier.caseNumber} - ${parentDossier.title}`;
                 }
@@ -381,7 +397,7 @@ export const sessionConfig = {
               return `${data.dossier.caseNumber} - ${data.dossier.title}`;
             }
             if (data.dossierId) {
-              const dossier = mockDossiers.find(d => d.id === data.dossierId);
+              const dossier = [].find(d => d.id === data.dossierId);
               if (dossier) {
                 return `${dossier.caseNumber} - ${dossier.title}`;
               }
@@ -393,14 +409,14 @@ export const sessionConfig = {
           editable: true,
           options: [
             { value: "", label: "Sélectionner un dossier..." },
-            ...mockDossiers.map(d => ({
+            ...[].map(d => ({
               value: d.id,
               label: `${d.caseNumber} - ${d.title}`
             }))
           ],
           getOptions: () => ([
             { value: "", label: "Sélectionner un dossier..." },
-            ...mockDossiers.map(d => ({
+            ...[].map(d => ({
               value: d.id,
               label: `${d.caseNumber} - ${d.title}`
             }))

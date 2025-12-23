@@ -8,18 +8,18 @@
  */
 
 import {
-  financialLedger,
   financialCategories,
   financialStatuses,
-} from "./financialData";
+} from "./financialConstants";
 
 /**
  * Filter financial entries by criteria
  * @param {Object} filters - Filter criteria
+ * @param {Array} allEntries - All financial entries (from DataContext)
  * @returns {Array} Filtered entries
  */
-export const filterFinancialEntries = (filters = {}) => {
-  let entries = [...financialLedger];
+export const filterFinancialEntries = (filters = {}, allEntries = []) => {
+  let entries = [...allEntries];
 
   // Exclude cancelled entries by default
   if (filters.includeCancelled !== true) {
@@ -111,10 +111,11 @@ const computeTotal = (entries) => {
  * Returns detailed breakdown of revenues, expenses, and balances
  *
  * @param {Object} filters - Filter criteria
+ * @param {Array} allEntries - All financial entries (from DataContext)
  * @returns {Object} Financial summary
  */
-export const computeFinancialSummary = (filters = {}) => {
-  const entries = filterFinancialEntries(filters);
+export const computeFinancialSummary = (filters = {}, allEntries = []) => {
+  const entries = filterFinancialEntries(filters, allEntries);
 
   // Separate by type
   const revenues = entries.filter((e) => e.type === "revenue");
@@ -211,64 +212,71 @@ export const computeFinancialSummary = (filters = {}) => {
 /**
  * Get financial summary for a specific client
  * @param {Number} clientId - Client ID
+ * @param {Array} allEntries - All financial entries (from DataContext)
  * @returns {Object} Client financial summary
  */
-export const getClientFinancialSummary = (clientId) => {
-  return computeFinancialSummary({ clientId, scope: "client" });
+export const getClientFinancialSummary = (clientId, allEntries = []) => {
+  return computeFinancialSummary({ clientId, scope: "client" }, allEntries);
 };
 
 /**
  * Get financial summary for a specific dossier
  * @param {Number} dossierId - Dossier ID
+ * @param {Array} allEntries - All financial entries (from DataContext)
  * @returns {Object} Dossier financial summary
  */
-export const getDossierFinancialSummary = (dossierId) => {
-  return computeFinancialSummary({ dossierId, scope: "client" });
+export const getDossierFinancialSummary = (dossierId, allEntries = []) => {
+  return computeFinancialSummary({ dossierId, scope: "client" }, allEntries);
 };
 
 /**
  * Get financial summary for a specific case (procès)
  * @param {Number} caseId - Case ID
+ * @param {Array} allEntries - All financial entries (from DataContext)
  * @returns {Object} Case financial summary
  */
-export const getCaseFinancialSummary = (caseId) => {
-  return computeFinancialSummary({ caseId, scope: "client" });
+export const getCaseFinancialSummary = (caseId, allEntries = []) => {
+  return computeFinancialSummary({ caseId, scope: "client" }, allEntries);
 };
 
 /**
  * Get financial summary for a specific mission
  * @param {Number} missionId - Mission ID
+ * @param {Array} allEntries - All financial entries (from DataContext)
  * @returns {Object} Mission financial summary (expenses only)
  */
-export const getMissionFinancialSummary = (missionId) => {
-  return computeFinancialSummary({ missionId, scope: "client" });
+export const getMissionFinancialSummary = (missionId, allEntries = []) => {
+  return computeFinancialSummary({ missionId, scope: "client" }, allEntries);
 };
 
 /**
  * Get financial summary for all missions of an officer (huissier)
  * @param {Number} officerId - Officer ID
+ * @param {Array} allEntries - All financial entries (from DataContext)
  * @returns {Object} Officer missions financial summary
  */
-export const getOfficerFinancialSummary = (officerId) => {
-  return computeFinancialSummary({ officerId, scope: "client" });
+export const getOfficerFinancialSummary = (officerId, allEntries = []) => {
+  return computeFinancialSummary({ officerId, scope: "client" }, allEntries);
 };
 
 /**
  * Get financial summary for a specific personal task
  * @param {Number} personalTaskId - Personal Task ID
+ * @param {Array} allEntries - All financial entries (from DataContext)
  * @returns {Object} Personal task financial summary (internal expenses only)
  */
-export const getPersonalTaskFinancialSummary = (personalTaskId) => {
-  return computeFinancialSummary({ personalTaskId, scope: "internal" });
+export const getPersonalTaskFinancialSummary = (personalTaskId, allEntries = []) => {
+  return computeFinancialSummary({ personalTaskId, scope: "internal" }, allEntries);
 };
 
 /**
  * Get global accounting summary (all client + internal expenses)
+ * @param {Array} allEntries - All financial entries (from DataContext)
  * @returns {Object} Global summary with client and internal breakdown
  */
-export const getGlobalAccountingSummary = () => {
-  const clientSummary = computeFinancialSummary({ scope: "client" });
-  const internalSummary = computeFinancialSummary({ scope: "internal" });
+export const getGlobalAccountingSummary = (allEntries = []) => {
+  const clientSummary = computeFinancialSummary({ scope: "client" }, allEntries);
+  const internalSummary = computeFinancialSummary({ scope: "internal" }, allEntries);
 
   return {
     client: clientSummary,
@@ -303,10 +311,11 @@ export const formatCurrency = (amount, currency = "TND") => {
  * Includes computed display fields
  *
  * @param {Object} filters - Filter criteria
+ * @param {Array} allEntries - All financial entries (from DataContext)
  * @returns {Array} Entries with display fields
  */
-export const getFinancialEntriesForDisplay = (filters = {}) => {
-  const entries = filterFinancialEntries(filters);
+export const getFinancialEntriesForDisplay = (filters = {}, allEntries = []) => {
+  const entries = filterFinancialEntries(filters, allEntries);
 
   return entries.map((entry) => ({
     ...entry,
@@ -335,10 +344,11 @@ export const getFinancialEntriesForDisplay = (filters = {}) => {
  * Returns a comprehensive breakdown of what the client owes
  *
  * @param {Number} clientId - Client ID
+ * @param {Array} allEntries - All financial entries (from DataContext)
  * @returns {Object} Balance details
  */
-export const getClientBalanceDetails = (clientId) => {
-  const summary = getClientFinancialSummary(clientId);
+export const getClientBalanceDetails = (clientId, allEntries = []) => {
+  const summary = getClientFinancialSummary(clientId, allEntries);
 
   // Total amount owed by client
   const totalOwed = summary.honoraires; // Honoraires are what client must pay
@@ -379,10 +389,11 @@ export const getClientBalanceDetails = (clientId) => {
  * Get internal expenses summary
  * Returns summary of office expenses (Personal Tasks, etc.)
  *
+ * @param {Array} allEntries - All financial entries (from DataContext)
  * @returns {Object} Internal expenses summary
  */
-export const getInternalExpensesSummary = () => {
-  return computeFinancialSummary({ scope: "internal" });
+export const getInternalExpensesSummary = (allEntries = []) => {
+  return computeFinancialSummary({ scope: "internal" }, allEntries);
 };
 
 /**
@@ -425,11 +436,12 @@ export const validateFinancialEntry = (entry) => {
 
 /**
  * Get statistics for accounting dashboard
+ * @param {Array} allEntries - All financial entries (from DataContext)
  * @returns {Object} Dashboard statistics
  */
-export const getAccountingStatistics = () => {
-  const allClientEntries = filterFinancialEntries({ scope: "client" });
-  const allInternalEntries = filterFinancialEntries({ scope: "internal" });
+export const getAccountingStatistics = (allEntries = []) => {
+  const allClientEntries = filterFinancialEntries({ scope: "client" }, allEntries);
+  const allInternalEntries = filterFinancialEntries({ scope: "internal" }, allEntries);
 
   // Client financials
   const clientRevenues = allClientEntries.filter((e) => e.type === "revenue");

@@ -36,8 +36,7 @@
  * - SMS (future): sendSMSNotification()
  */
 
-import { mockClients, mockDossiers, mockCases } from '../utils/mockData';
-import { emailTemplates } from './emailTemplates';
+import { emailTemplates } from "./emailTemplates";
 
 // ========================================
 // CLIENT-RELEVANT EVENT DETECTION
@@ -49,9 +48,15 @@ import { emailTemplates } from './emailTemplates';
  * @param {string} entityType - Type of entity (dossier, case, session, etc.)
  * @param {string} action - Action performed (changeStatus, create, edit, delete)
  * @param {object} context - Action context (oldValue, newValue, data, etc.)
+ * @param {object} entities - All entities data { clients, dossiers, cases, etc. }
  * @returns {object|null} { shouldPrompt: true, eventType: "dossier_closed", eventData: {...} } or null
  */
-export function shouldPromptClientNotification(entityType, action, context = {}) {
+export function shouldPromptClientNotification(
+  entityType,
+  action,
+  context = {},
+  entities = {}
+) {
   const detector = EVENT_DETECTORS[entityType];
 
   if (!detector) {
@@ -64,37 +69,48 @@ export function shouldPromptClientNotification(entityType, action, context = {})
     return null; // No notification logic for this action
   }
 
-  return actionDetector(context);
+  return actionDetector(context, entities);
 }
 
 // Helper: resolve client info from ids or nested data
-function resolveClientInfo(data = {}) {
+function resolveClientInfo(data = {}, entities = {}) {
+  const { clients = [], dossiers = [], cases = [] } = entities;
+
   // Prefer explicit clientId
   let clientId = data.clientId || data.client?.id;
 
   // Try dossier reference
   if (!clientId && data.dossierId) {
-    const dossier = mockDossiers.find(d => d.id === parseInt(data.dossierId, 10));
-    if (dossier) clientId = dossier.clientId;
+    const dossier = dossiers.find((d) => d.id === parseInt(data.dossierId, 10));
+    if (dossier) clientId = dossier.clientId || dossier.client_id;
   }
 
   // Try case reference
   if (!clientId && data.caseId) {
-    const caseItem = mockCases.find(c => c.id === parseInt(data.caseId, 10));
+    const caseItem = cases.find((c) => c.id === parseInt(data.caseId, 10));
     if (caseItem) {
-      clientId = caseItem.clientId || (() => {
-        const dossier = mockDossiers.find(d => d.id === caseItem.dossierId);
-        return dossier?.clientId;
-      })();
+      clientId =
+        caseItem.clientId ||
+        caseItem.client_id ||
+        (() => {
+          const dossier = dossiers.find(
+            (d) => d.id === caseItem.dossierId || caseItem.dossier_id
+          );
+          return dossier?.clientId || dossier?.client_id;
+        })();
     }
   }
 
   // Try nested case/dossier objects
   if (!clientId && data.dossier?.clientId) clientId = data.dossier.clientId;
-  if (!clientId && data.case?.dossier?.clientId) clientId = data.case.dossier.clientId;
+  if (!clientId && data.case?.dossier?.clientId)
+    clientId = data.case.dossier.clientId;
 
-  const client = mockClients.find(c => c.id === clientId);
-  return { clientId, clientName: data.clientName || data.client?.name || client?.name };
+  const client = clients.find((c) => c.id === clientId);
+  return {
+    clientId,
+    clientName: data.clientName || data.client?.name || client?.name,
+  };
 }
 
 // ========================================
@@ -126,15 +142,15 @@ const EVENT_DETECTORS = {
 /**
  * Detect Dossier creation
  */
-function detectDossierCreated(context) {
+function detectDossierCreated(context, entities) {
   const { data } = context;
 
-  const { clientId, clientName } = resolveClientInfo(data);
+  const { clientId, clientName } = resolveClientInfo(data, entities);
   if (!clientId) return null;
 
   return {
     shouldPrompt: true,
-    eventType: 'dossier_created',
+    eventType: "dossier_created",
     eventData: {
       dossierNumber: data.caseNumber,
       dossierTitle: data.title,
@@ -148,11 +164,11 @@ function detectDossierCreated(context) {
 /**
  * Detect Dossier status changes that are client-relevant
  */
-function detectDossierStatusChange(context) {
+function detectDossierStatusChange(context, entities) {
   const { oldValue, newValue, data } = context;
 
   // Client-relevant status changes
-  const relevantStatuses = ['Fermé', 'Suspendu', 'Ouvert'];
+  const relevantStatuses = ["Fermé", "Suspendu", "Ouvert"];
 
   // Only trigger if status actually changed AND is client-relevant
   if (oldValue === newValue || !relevantStatuses.includes(newValue)) {
@@ -160,16 +176,18 @@ function detectDossierStatusChange(context) {
   }
 
   // Special case: Reopening (Fermé → Ouvert)
-  const isReopening = oldValue === 'Fermé' && newValue === 'Ouvert';
+  const isReopening = oldValue === "Fermé" && newValue === "Ouvert";
+
+  const { clientId, clientName } = resolveClientInfo(data, entities);
 
   return {
     shouldPrompt: true,
-    eventType: 'dossier_status_changed',
+    eventType: "dossier_status_changed",
     eventData: {
       dossierNumber: data.caseNumber,
       dossierTitle: data.title,
-      clientId: data.clientId,
-      clientName: data.client?.name,
+      clientId,
+      clientName,
       oldStatus: oldValue,
       newStatus: newValue,
       isReopening,
@@ -180,11 +198,11 @@ function detectDossierStatusChange(context) {
 /**
  * Detect significant deadline changes (>7 days)
  */
-function detectDossierDeadlineChange(context) {
+function detectDossierDeadlineChange(context, entities) {
   const { data, newData } = context;
 
   // Check if deadline field is being changed
-  if (!('nextDeadline' in newData)) {
+  if (!("nextDeadline" in newData)) {
     return null;
   }
 
@@ -211,14 +229,16 @@ function detectDossierDeadlineChange(context) {
     return null;
   }
 
+  const { clientId, clientName } = resolveClientInfo(data, entities);
+
   return {
     shouldPrompt: true,
-    eventType: 'dossier_deadline_changed',
+    eventType: "dossier_deadline_changed",
     eventData: {
       dossierNumber: data.caseNumber,
       dossierTitle: data.title,
-      clientId: data.clientId,
-      clientName: data.client?.name,
+      clientId,
+      clientName,
       oldDeadline,
       newDeadline,
       diffDays: Math.round(diffDays),
@@ -229,16 +249,16 @@ function detectDossierDeadlineChange(context) {
 /**
  * Detect Procès (Case) creation
  */
-function detectCaseCreated(context) {
+function detectCaseCreated(context, entities) {
   const { data } = context;
 
-  const { clientId, clientName } = resolveClientInfo(data);
+  const { clientId, clientName } = resolveClientInfo(data, entities);
 
   if (!clientId) return null;
 
   return {
     shouldPrompt: true,
-    eventType: 'case_created',
+    eventType: "case_created",
     eventData: {
       caseNumber: data.caseNumber,
       caseTitle: data.title,
@@ -252,22 +272,22 @@ function detectCaseCreated(context) {
 /**
  * Detect Procès (Case) status changes
  */
-function detectCaseStatusChange(context) {
+function detectCaseStatusChange(context, entities) {
   const { oldValue, newValue, data } = context;
 
   // Client-relevant status changes
-  const relevantStatuses = ['Clos', 'Suspendu'];
+  const relevantStatuses = ["Clos", "Suspendu"];
 
   if (oldValue === newValue || !relevantStatuses.includes(newValue)) {
     return null;
   }
 
   // Get client info from dossier/case refs
-  const { clientId, clientName } = resolveClientInfo(data);
+  const { clientId, clientName } = resolveClientInfo(data, entities);
 
   return {
     shouldPrompt: true,
-    eventType: 'case_status_changed',
+    eventType: "case_status_changed",
     eventData: {
       caseNumber: data.caseNumber,
       caseTitle: data.title,
@@ -283,11 +303,11 @@ function detectCaseStatusChange(context) {
 /**
  * Detect next hearing date changes
  */
-function detectCaseHearingChange(context) {
+function detectCaseHearingChange(context, entities) {
   const { data, newData } = context;
 
   // Check if nextHearing field is being changed
-  if (!('nextHearing' in newData)) {
+  if (!("nextHearing" in newData)) {
     return null;
   }
 
@@ -300,11 +320,14 @@ function detectCaseHearingChange(context) {
   }
 
   // Get client info
-  const { clientId, clientName } = resolveClientInfo({ ...data, ...newData });
+  const { clientId, clientName } = resolveClientInfo(
+    { ...data, ...newData },
+    entities
+  );
 
   return {
     shouldPrompt: true,
-    eventType: 'case_hearing_changed',
+    eventType: "case_hearing_changed",
     eventData: {
       caseNumber: data.caseNumber,
       caseTitle: data.title,
@@ -332,7 +355,7 @@ function detectSessionCreated(context) {
 
   return {
     shouldPrompt: true,
-    eventType: 'session_scheduled',
+    eventType: "session_scheduled",
     eventData: {
       sessionTitle: data.title,
       sessionType: data.type,
@@ -351,19 +374,22 @@ function detectSessionCreated(context) {
 /**
  * Detect Session date/time changes
  */
-function detectSessionDateChange(context) {
+function detectSessionDateChange(context, entities) {
   const { data, newData } = context;
 
   // Check if date or time changed
-  const dateChanged = 'date' in newData && data.date !== newData.date;
-  const timeChanged = 'time' in newData && data.time !== newData.time;
+  const dateChanged = "date" in newData && data.date !== newData.date;
+  const timeChanged = "time" in newData && data.time !== newData.time;
 
   if (!dateChanged && !timeChanged) {
     return null;
   }
 
   // Get client info
-  const { clientId, clientName } = resolveClientInfo({ ...data, ...newData });
+  const { clientId, clientName } = resolveClientInfo(
+    { ...data, ...newData },
+    entities
+  );
 
   if (!clientId) {
     return null;
@@ -371,7 +397,7 @@ function detectSessionDateChange(context) {
 
   return {
     shouldPrompt: true,
-    eventType: 'session_date_changed',
+    eventType: "session_date_changed",
     eventData: {
       sessionTitle: data.title,
       location: data.location,
@@ -390,16 +416,16 @@ function detectSessionDateChange(context) {
 /**
  * Detect Session cancellation
  */
-function detectSessionCancellation(context) {
+function detectSessionCancellation(context, entities) {
   const { oldValue, newValue, data } = context;
 
   // Only if status changed to Annulée
-  if (newValue !== 'Annulée' || oldValue === 'Annulée') {
+  if (newValue !== "Annulée" || oldValue === "Annulée") {
     return null;
   }
 
   // Get client info
-  const { clientId, clientName } = resolveClientInfo(data);
+  const { clientId, clientName } = resolveClientInfo(data, entities);
 
   if (!clientId) {
     return null;
@@ -407,7 +433,7 @@ function detectSessionCancellation(context) {
 
   return {
     shouldPrompt: true,
-    eventType: 'session_cancelled',
+    eventType: "session_cancelled",
     eventData: {
       sessionTitle: data.title,
       date: data.date,
@@ -424,18 +450,18 @@ function detectSessionCancellation(context) {
 /**
  * Detect financial entry creation that impacts client balance
  */
-function detectFinancialEntryAdded(context) {
+function detectFinancialEntryAdded(context, entities) {
   const { data } = context;
 
-  const { clientId, clientName } = resolveClientInfo(data);
+  const { clientId, clientName } = resolveClientInfo(data, entities);
   if (!clientId) return null;
 
   // Only notify for client-scope entries (not internal-only)
-  if (data.scope && data.scope !== 'client') return null;
+  if (data.scope && data.scope !== "client") return null;
 
   return {
     shouldPrompt: true,
-    eventType: 'financial_entry_added',
+    eventType: "financial_entry_added",
     eventData: {
       description: data.description,
       amountWithSign: data.amountWithSign,
@@ -459,6 +485,20 @@ function detectFinancialEntryAdded(context) {
  * @param {object} eventData - Event-specific data
  * @returns {object} { subject, body, clientEmail }
  */
+const STORAGE_KEY_CLIENTS = "lawyer-app:data:clients";
+
+const resolveClientFromStorage = (clientId) => {
+  if (typeof window === "undefined" || !clientId) return null;
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY_CLIENTS);
+    if (!raw) return null;
+    const clients = JSON.parse(raw);
+    return clients.find((c) => String(c.id) === String(clientId)) || null;
+  } catch (_err) {
+    return null;
+  }
+};
+
 export function generateClientEmail(eventType, eventData) {
   const template = emailTemplates[eventType];
 
@@ -466,16 +506,23 @@ export function generateClientEmail(eventType, eventData) {
     throw new Error(`No email template found for event type: ${eventType}`);
   }
 
-  // Get client email
-  const client = mockClients.find(c => c.id === eventData.clientId);
-  const clientEmail = client?.email;
+  // Resolve client info: prefer explicit eventData, fallback to cached clients from storage
+  const clientFromEvent = eventData.client || null;
+  const clientFromStorage = resolveClientFromStorage(eventData.clientId);
+  const resolvedClient = clientFromEvent || clientFromStorage || null;
 
+  const clientEmail = eventData.clientEmail || resolvedClient?.email || null;
   if (!clientEmail) {
-    throw new Error(`Client email not found for clientId: ${eventData.clientId}`);
+    console.warn(
+      "[clientCommunication] Client email missing for clientId:",
+      eventData.clientId
+    );
+    return null;
   }
 
-  // Resolve client name (fallback to client record if not provided)
-  const resolvedClientName = eventData.clientName || client?.name || "votre client";
+  // Resolve client name (fallback to generic label)
+  const resolvedClientName =
+    eventData.clientName || resolvedClient?.name || "votre client";
   const enrichedEventData = { ...eventData, clientName: resolvedClientName };
 
   // Generate email from template with enriched data
@@ -502,13 +549,13 @@ export function generateClientEmail(eventType, eventData) {
  * @returns {Promise<boolean>} Success status
  */
 export async function sendEmailNotification(email) {
-  console.log('📧 CLIENT EMAIL NOTIFICATION (MVP - Simulated)');
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log("📧 CLIENT EMAIL NOTIFICATION (MVP - Simulated)");
+  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
   console.log(`To: ${email.clientEmail}`);
   console.log(`Subject: ${email.subject}`);
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
   console.log(email.body);
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
   // FUTURE: Replace with actual backend call
   // const response = await fetch('/api/notifications/email', {
@@ -534,7 +581,7 @@ export async function sendEmailNotification(email) {
  */
 export async function sendMobileNotification(notification) {
   // FUTURE IMPLEMENTATION
-  console.log('📱 MOBILE NOTIFICATION (Future feature)', notification);
+  console.log("📱 MOBILE NOTIFICATION (Future feature)", notification);
   return Promise.resolve(true);
 }
 
@@ -546,7 +593,7 @@ export async function sendMobileNotification(notification) {
  */
 export async function sendInAppNotification(notification) {
   // FUTURE IMPLEMENTATION
-  console.log('🔔 IN-APP NOTIFICATION (Future feature)', notification);
+  console.log("🔔 IN-APP NOTIFICATION (Future feature)", notification);
   return Promise.resolve(true);
 }
 
@@ -565,46 +612,54 @@ export async function sendInAppNotification(notification) {
  * @param {object} options - Notification options { channels: ['email', 'mobile', 'in-app'] }
  * @returns {Promise<object>} { success: boolean, channels: { email: true, mobile: false } }
  */
-export async function sendClientNotification(eventType, eventData, options = {}) {
-  const channels = options.channels || ['email']; // Default: email only
+export async function sendClientNotification(
+  eventType,
+  eventData,
+  options = {}
+) {
+  const channels = options.channels || ["email"]; // Default: email only
 
   const results = {};
 
   // EMAIL CHANNEL
-  if (channels.includes('email')) {
+  if (channels.includes("email")) {
     try {
       const email = generateClientEmail(eventType, eventData);
-      const success = await sendEmailNotification(email);
-      results.email = success;
+      if (email) {
+        const success = await sendEmailNotification(email);
+        results.email = success;
+      } else {
+        results.email = false;
+      }
     } catch (error) {
-      console.error('Error sending email notification:', error);
+      console.error("Error sending email notification:", error);
       results.email = false;
     }
   }
 
   // MOBILE CHANNEL (FUTURE)
-  if (channels.includes('mobile')) {
+  if (channels.includes("mobile")) {
     try {
       const success = await sendMobileNotification({ eventType, eventData });
       results.mobile = success;
     } catch (error) {
-      console.error('Error sending mobile notification:', error);
+      console.error("Error sending mobile notification:", error);
       results.mobile = false;
     }
   }
 
   // IN-APP CHANNEL (FUTURE)
-  if (channels.includes('in-app')) {
+  if (channels.includes("in-app")) {
     try {
       const success = await sendInAppNotification({ eventType, eventData });
       results.inApp = success;
     } catch (error) {
-      console.error('Error sending in-app notification:', error);
+      console.error("Error sending in-app notification:", error);
       results.inApp = false;
     }
   }
 
-  const overallSuccess = Object.values(results).some(success => success);
+  const overallSuccess = Object.values(results).some((success) => success);
 
   return {
     success: overallSuccess,

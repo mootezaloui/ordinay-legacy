@@ -12,7 +12,23 @@ const statusMapCommon: Record<string, string> = {
   closed: "Fermé",
 };
 
+const caseStatusMap: Record<string, string> = {
+  open: "En cours",
+  in_progress: "En cours",
+  on_hold: "En attente",
+  closed: "Clos",
+  Suspendu: "Suspendu",
+  "En cours": "En cours",
+  "En attente": "En attente",
+  "Clos": "Clos",
+};
+
 const priorityMap: Record<string, string> = {
+  "Basse": "Basse",
+  "Moyenne": "Moyenne",
+  "Haute": "Haute",
+  "Urgent": "Urgent",
+  // Fallbacks for English values
   low: "Basse",
   medium: "Moyenne",
   high: "Haute",
@@ -20,10 +36,18 @@ const priorityMap: Record<string, string> = {
 };
 
 const taskStatusMap: Record<string, string> = {
-  todo: "À faire",
+  "Non commencee": "Non commencée",
+  "En cours": "En cours",
+  "Bloqué": "Bloqué",
+  "Terminee": "Terminée",
+  "Annulé": "Annulé",
+  "En attente": "En attente",
+  "Planifiee": "Planifiée",
+  // Fallbacks for English values
+  todo: "Non commencée",
   in_progress: "En cours",
   blocked: "Bloqué",
-  done: "Terminé",
+  done: "Terminée",
   cancelled: "Annulé",
 };
 
@@ -34,8 +58,17 @@ const sessionStatusMap: Record<string, string> = {
   postponed: "Reportée",
 };
 
+const sessionTypeMap: Record<string, string> = {
+  hearing: "Audience",
+  consultation: "Consultation",
+  mediation: "Médiation",
+  expertise: "Expertise",
+  phone: "Téléphone",
+  other: "Autre",
+};
+
 const dateOnly = (value?: string | null) =>
-  value ? value.split("T")[0] : "";
+  value ? value.split("T")[0] : null;
 
 const formatDateTime = (value?: string | null) => {
   if (!value) return "";
@@ -103,6 +136,7 @@ export function adaptDossier(api: any, clientsById: Record<number, any>) {
     estimatedValue: api.estimated_value ?? "",
     courtReference: api.court_reference ?? "",
     nextDeadline: dateOnly(api.next_deadline),
+    relatedCases: api.relatedCases || [],
   };
 }
 
@@ -114,7 +148,7 @@ export function adaptCase(api: any, dossiersById: Record<number, any>) {
     title: api.title ?? "",
     dossierId: api.dossier_id,
     dossier: dossierTitle,
-    status: statusMapCommon[api.status] ?? api.status ?? "",
+    status: caseStatusMap[api.status] ?? api.status ?? "",
     openDate: dateOnly(api.opened_at),
     priority: priorityMap[api.priority] ?? api.priority ?? "",
     adversaire: api.adversary ?? "",
@@ -155,6 +189,7 @@ export function adaptTask(api: any, dossiersById: Record<number, any>, casesById
     status: taskStatusMap[api.status] ?? api.status ?? "",
     priority: priorityMap[api.priority] ?? api.priority ?? "",
     description: api.description ?? "",
+    createdDate: dateOnly(api.created_at),
   };
 }
 
@@ -170,7 +205,7 @@ export function adaptSession(api: any, dossiersById: Record<number, any>, casesB
   return {
     id: api.id,
     title: api.title || api.notes || api.session_type || "Session",
-    type: api.session_type ?? "",
+    type: sessionTypeMap[api.session_type] ?? api.session_type ?? "",
     dossierId: api.dossier_id ?? null,
     caseId: api.case_id ?? null,
     dossier: dossierLabel,
@@ -272,7 +307,13 @@ export function adaptMission(
 }
 
 const personalTaskStatusMap: Record<string, string> = {
-  todo: "À faire",
+  "Non commencée": "Non commencée",
+  "En attente": "En attente",
+  "En cours": "En cours",
+  "Planifiée": "Planifiée",
+  "Terminée": "Terminée",
+  // Fallbacks for English values
+  todo: "Non commencée",
   in_progress: "En cours",
   blocked: "Bloqué",
   done: "Terminé",
@@ -289,6 +330,7 @@ export function adaptPersonalTask(api: any) {
     priority: priorityMap[api.priority] ?? api.priority ?? "",
     dueDate: dateOnly(api.due_date),
     completedAt: dateOnly(api.completed_at),
+    createdDate: dateOnly(api.created_at),
   };
 }
 

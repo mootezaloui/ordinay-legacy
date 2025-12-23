@@ -1,5 +1,5 @@
 import ContentSection from "../../layout/ContentSection";
-import { mockOfficersExtended, mockDossiers, mockCases, getStatusColor } from "../../../utils/mockData";
+import { getStatusColor } from "./statusColors";
 import { missionFormFields } from "../../FormModal/formConfigs";
 import { formatDateValue } from "../../../utils/dateFormat";
 
@@ -35,20 +35,6 @@ export const missionConfig = {
                 };
             }
         }
-
-        // Fallback to mock data
-        for (const officer of Object.values(mockOfficersExtended)) {
-            const mission = officer.missions?.find(m => m.id === missionId);
-            if (mission) {
-                return {
-                    ...mission,
-                    officerId: officer.id,
-                    officerName: officer.name,
-                    officerPhone: officer.phone,
-                    officerLocation: officer.location,
-                };
-            }
-        }
         return null;
     },
 
@@ -60,7 +46,7 @@ export const missionConfig = {
         let missionIndex = -1;
         let mission = null;
 
-        for (const officer of Object.values(mockOfficersExtended)) {
+        for (const officer of (data?.officers || [])) {
             const index = officer.missions?.findIndex(m => m.id === missionId);
             if (index !== -1 && index !== undefined) {
                 currentOfficer = officer;
@@ -74,7 +60,7 @@ export const missionConfig = {
 
         // Check if officer is being changed
         if (data.officerId && data.officerId != currentOfficer.id) {
-            const newOfficer = mockOfficersExtended[data.officerId];
+            const newOfficer = data.officers?.find(o => o.id === data.officerId);
 
             if (newOfficer) {
                 // Remove mission from current officer
@@ -144,10 +130,7 @@ export const missionConfig = {
             label: "Huissier",
             icon: "fas fa-user-tie",
             displayValue: (data) => data.officerName || "Non assigné",
-            options: Object.values(mockOfficersExtended).map(officer => ({
-                value: officer.id,
-                label: officer.name
-            })),
+            options: [],
         }
     ],
 
@@ -527,59 +510,67 @@ export const missionConfig = {
             content: (data) => data.result || "Aucun compte rendu",
         },
         {
-            title: "Entité Liée",
+            title: "Entite Liee",
             editStrategy: "structured",
             fields: [
                 {
                     key: "entityType",
-                    label: "Type d'entité",
+                    label: "Type d'entite",
                     value: (data) => data.entityType || "dossier",
                     icon: "fas fa-link",
                     type: "select",
                     editable: true,
                     options: [
                         { value: "dossier", label: "Dossier" },
-                        { value: "case", label: "Procès" },
+                        { value: "case", label: "Proces" },
                     ],
-                    helpText: "Sélectionnez le type d'entité auquel cette mission est liée"
+                    helpText: "Selectionnez le type d'entite auquel cette mission est liee",
                 },
                 {
                     key: "entityId",
-                    label: "Entité",
-                    value: (data) => data.entityId || "",
+                    label: "Entite",
+                    value: (data) => data?.entityId || "",
                     displayValue: (data) => {
-                        if (!data.entityId) return "Aucune";
-                        if (data.entityType === 'dossier') {
-                            const dossier = mockDossiers.find(d => d.id === data.entityId);
-                            return dossier ? `${dossier.caseNumber} - ${dossier.title}` : data.entityReference || "Aucune";
-                        } else {
-                            const caseObj = mockCases.find(c => c.id === data.entityId);
-                            return caseObj ? `${caseObj.caseNumber} - ${caseObj.title}` : data.entityReference || "Aucune";
+                        if (!data?.entityId) return "Aucune";
+                        if (data.entityType === "dossier") {
+                            return data.entityReference || `Dossier #${data.entityId}`;
                         }
+                        if (data.entityType === "case") {
+                            return data.entityReference || `Proces #${data.entityId}`;
+                        }
+                        return data.entityReference || `#${data.entityId}`;
                     },
-                    icon: data => data.entityType === 'dossier' ? 'fas fa-folder' : 'fas fa-gavel',
+                    icon: (data) => (data?.entityType === "dossier" ? "fas fa-folder" : "fas fa-gavel"),
                     type: "searchable-select",
                     editable: true,
-                    getOptions: (data) => {
-                        if (data.entityType === 'case') {
+                    getOptions: (data = {}) => {
+                        const emptyOption = {
+                            value: "",
+                            label:
+                                data.entityType === "case"
+                                    ? "Selectionner un proces..."
+                                    : "Selectionner un dossier...",
+                        };
+                        const dossiers = data.dossiers || [];
+                        const cases = data.cases || [];
+                        if (data.entityType === "case") {
                             return [
-                                { value: "", label: "Sélectionner un procès..." },
-                                ...mockCases.map(c => ({
+                                emptyOption,
+                                ...cases.map((c) => ({
                                     value: c.id,
-                                    label: `${c.caseNumber} - ${c.title}`
-                                }))
-                            ];
-                        } else {
-                            return [
-                                { value: "", label: "Sélectionner un dossier..." },
-                                ...mockDossiers.map(d => ({
-                                    value: d.id,
-                                    label: `${d.caseNumber} - ${d.title}`
-                                }))
+                                    label: `${c.caseNumber} - ${c.title}`,
+                                })),
                             ];
                         }
+                        return [
+                            emptyOption,
+                            ...dossiers.map((d) => ({
+                                value: d.id,
+                                label: `${d.caseNumber} - ${d.title}`,
+                            })),
+                        ];
                     },
-                    helpText: "Sélectionnez le dossier ou procès concerné"
+                    helpText: "Selectionnez le dossier ou proces concerne",
                 },
             ],
         },
@@ -595,14 +586,8 @@ export const missionConfig = {
                     icon: "fas fa-user-tie",
                     type: "select",
                     editable: true,
-                    options: Object.values(mockOfficersExtended).map(officer => ({
-                        value: officer.id,
-                        label: officer.name
-                    })),
-                    getOptions: () => Object.values(mockOfficersExtended).map(officer => ({
-                        value: officer.id,
-                        label: officer.name
-                    })), 
+                    options: [],
+                    getOptions: () => [],
                     helpText: "Attention: Changer l'huissier transférera la mission vers un autre huissier"
                 },
                 {

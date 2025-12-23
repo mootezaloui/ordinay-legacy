@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
-import { getStatusColor } from "../../utils/mockData";
 import { canPerformAction } from "../../services/domainRules";
 import BlockerModal from "../ui/BlockerModal";
 import { logStatusChange } from "../../services/historyService";
@@ -9,6 +8,7 @@ import {
   shouldPromptClientNotification,
   sendClientNotification,
 } from "../../services/clientCommunication";
+import { useData } from "../../contexts/DataContext";
 
 // Global state to track which dropdown is currently open
 let currentOpenDropdown = null;
@@ -52,6 +52,7 @@ export default function InlineStatusSelector({
   entityData = null,
   size = "sm",
 }) {
+  const contextData = useData();
   const [isOpen, setIsOpen] = useState(false);
   const [blockerModalOpen, setBlockerModalOpen] = useState(false);
   const [validationResult, setValidationResult] = useState(null);
@@ -78,7 +79,9 @@ export default function InlineStatusSelector({
       const result = canPerformAction(entityType, entityId, 'changeStatus', {
         newValue,
         currentValue: value,
-        data: entityData
+        data: entityData,
+        contextData,
+        entities: contextData
       });
 
       if (!result.allowed) {

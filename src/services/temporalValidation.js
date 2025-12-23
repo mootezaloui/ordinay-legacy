@@ -24,16 +24,32 @@
  * - Soft warnings (unusual but allowed situations)
  */
 
-import {
-  mockDossiers,
-  mockCases,
-  mockClients,
-  mockTasks,
-  mockSessions,
-  getAllMissions,
-} from "../utils/mockData";
-import { financialLedger } from "../utils/financialData";
 import { formatDateValue } from "../utils/dateFormat";
+
+// Live entities are injected via the context parameter.
+let entities = {
+  clients: [],
+  dossiers: [],
+  cases: [],
+  tasks: [],
+  sessions: [],
+  missions: [],
+  financialEntries: [],
+};
+
+const loadEntities = (context = {}) => {
+  entities = {
+    clients: context.entities?.clients || [],
+    dossiers: context.entities?.dossiers || [],
+    cases: context.entities?.cases || [],
+    tasks: context.entities?.tasks || [],
+    sessions: context.entities?.sessions || [],
+    missions: context.entities?.missions || [],
+    financialEntries: context.entities?.financialEntries || [],
+  };
+};
+
+const getAllMissions = () => entities.missions || [];
 
 // ========================================
 // CORE DATE UTILITIES
@@ -187,11 +203,11 @@ function mergeResults(...results) {
  */
 function findEntity(entityType, entityId) {
   const lookupMap = {
-    client: mockClients,
-    dossier: mockDossiers,
-    case: mockCases,
-    task: mockTasks,
-    session: mockSessions,
+    client: entities.clients,
+    dossier: entities.dossiers,
+    case: entities.cases,
+    task: entities.tasks,
+    session: entities.sessions,
     mission: getAllMissions(),
   };
 
@@ -402,7 +418,7 @@ function validateDossierDates(dossierData, action, context = {}) {
     action === "close" ||
     (dossierData.status === "Fermé" && context.data?.status !== "Fermé")
   ) {
-    const childCases = mockCases.filter((c) => c.dossierId == dossierData.id);
+    const childCases = [].filter((c) => c.dossierId == dossierData.id);
     const openCases = childCases.filter(
       (c) => c.status !== "Terminé" && c.status !== "Fermé"
     );
@@ -484,7 +500,7 @@ function validateCaseDates(caseData, action, context = {}) {
     action === "close" ||
     (caseData.status === "Terminé" && context.data?.status !== "Terminé")
   ) {
-    const futureSessions = mockSessions.filter(
+    const futureSessions = [].filter(
       (s) =>
         s.caseId == caseData.id && isInFuture(s.date) && s.status !== "Annulée"
     );
@@ -962,6 +978,9 @@ export function validateTemporalConstraints(
   action = "edit",
   context = {}
 ) {
+  // Refresh entity snapshot from live data
+  loadEntities(context);
+
   // No data to validate
   if (!entityData) {
     return validationResult(true);

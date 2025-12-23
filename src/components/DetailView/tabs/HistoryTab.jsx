@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useState, useEffect } from "react";
 import { getEntityHistory } from "../../../services/historyService";
 import {
     Clock,
@@ -15,7 +15,7 @@ import {
 
 /**
  * History Tab - Read-only audit trail
- * 
+ *
  * Displays chronological timeline of important events:
  * - Lifecycle events (création, clôture, archivage)
  * - Status changes (old → new)
@@ -25,10 +25,31 @@ import {
  * - Relational impact confirmations
  */
 export default function HistoryTab({ entityType, entityId }) {
-    // Get history from service
-    const history = useMemo(() => {
-        return getEntityHistory(entityType, entityId);
+    const [history, setHistory] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    // Fetch history from backend
+    useEffect(() => {
+        const fetchHistory = async () => {
+            setLoading(true);
+            const events = await getEntityHistory(entityType, entityId);
+            setHistory(events);
+            setLoading(false);
+        };
+
+        fetchHistory();
     }, [entityType, entityId]);
+
+    if (loading) {
+        return (
+            <div className="flex flex-col items-center justify-center p-12 text-center">
+                <Clock className="w-16 h-16 text-slate-300 dark:text-slate-600 mb-4 animate-pulse" />
+                <h3 className="text-lg font-medium text-slate-700 dark:text-slate-300 mb-2">
+                    Chargement de l'historique...
+                </h3>
+            </div>
+        );
+    }
 
     if (!history || history.length === 0) {
         return (

@@ -3,9 +3,9 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useToast } from "../../../contexts/ToastContext";
 import { useConfirm } from "../../../contexts/ConfirmContext";
 import { useData } from "../../../contexts/DataContext";
+import { getStatusColor } from "../config/statusColors";
 import ContentSection from "../../layout/ContentSection";
 import FormModal from "../../FormModal/FormModal";
-import { getStatusColor } from "../../../utils/mockData";
 import { logEntityCreation, logHistoryEvent, EVENT_TYPES } from "../../../services/historyService";
 
 /**
@@ -30,7 +30,8 @@ export default function AggregatedRelatedTab({
   getParentContext,
   entityConfig,
   tabConfig,
-  onItemsChange
+  onItemsChange,
+  contextData
 }) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -187,6 +188,17 @@ export default function AggregatedRelatedTab({
           rel.client = data.name;
         }
 
+        // Session creation from Dossier or Case detail
+        if (tabConfig?.aggregationType === "sessions") {
+          if (config?.entityType === "dossier") {
+            rel.linkType = "dossier";
+            rel.dossierId = data.id;
+          } else if (config?.entityType === "case") {
+            rel.linkType = "case";
+            rel.caseId = data.id;
+          }
+        }
+
         // Procès creation
         if (tabConfig?.aggregationType === "cases") {
           if (config?.entityType === "dossier") {
@@ -228,28 +240,48 @@ export default function AggregatedRelatedTab({
         case "dossiers":
           {
             const creation = await addDossier({ ...normalizedFormData, ...relationshipFields });
-            const created = creation?.created || creation;
+            if (!creation.ok) {
+              console.error("Dossier creation failed:", creation.result);
+              showToast("Erreur lors de la création du dossier", "error");
+              return;
+            }
+            const created = creation.created || creation;
             newItem = { ...created };
           }
           break;
         case "cases":
           {
             const creation = await addCase({ ...normalizedFormData, ...relationshipFields });
-            const created = creation?.created || creation;
+            if (!creation.ok) {
+              console.error("Case creation failed:", creation.result);
+              showToast("Erreur lors de la création du procès", "error");
+              return;
+            }
+            const created = creation.created || creation;
             newItem = { ...created };
           }
           break;
         case "sessions":
           {
             const creation = await addSession({ ...normalizedFormData, ...relationshipFields });
-            const created = creation?.created || creation;
+            if (!creation.ok) {
+              console.error("Session creation failed:", creation.result);
+              showToast("Erreur lors de la création de la séance", "error");
+              return;
+            }
+            const created = creation.created || creation;
             newItem = { ...created };
           }
           break;
         case "tasks":
           {
             const creation = await addTask({ ...normalizedFormData, ...relationshipFields });
-            const created = creation?.created || creation;
+            if (!creation.ok) {
+              console.error("Task creation failed:", creation.result);
+              showToast("Erreur lors de la création de la tâche", "error");
+              return;
+            }
+            const created = creation.created || creation;
             newItem = { ...created };
           }
           break;
@@ -412,6 +444,7 @@ export default function AggregatedRelatedTab({
             fields={formFields}
             isLoading={isLoading}
             entityType={referenceEntityType}
+            entities={contextData}
           />
         )}
       </>
@@ -581,5 +614,4 @@ function ItemRow({ item, parentContext, entityConfig, allowDelete, onDelete, cur
     </div>
   );
 }
-
 

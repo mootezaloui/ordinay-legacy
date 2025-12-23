@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import ContentSection from "../../layout/ContentSection";
-import { mockClientsExtended, getStatusColor, mockCases, mockSessions, mockTasks } from "../../../utils/mockData";
+import { getStatusColor } from "./statusColors";
 import { dossierFormFields, caseFormFields, sessionFormFields, taskFormFields } from "../../FormModal/formConfigs";
 
 /**
@@ -28,17 +28,17 @@ export const clientConfig = {
       // Use contextData.clients from DataContext (this is the live data)
       client = contextData.clients.find(c => c.id === numericId);
     } else {
-      // Fallback to mockClientsExtended (static data)
-      client = mockClientsExtended[numericId];
+      // Fallback to null (static data)
+      client = null[numericId];
     }
 
     if (!client) return null;
 
     // ✅ Compute aggregated related entities from contextData if available
     const dossiers = contextData?.dossiers || [];
-    const cases = contextData?.cases || mockCases;
-    const sessions = contextData?.sessions || mockSessions;
-    const tasks = contextData?.tasks || mockTasks;
+    const cases = contextData?.cases || [];
+    const sessions = contextData?.sessions || [];
+    const tasks = contextData?.tasks || [];
 
     const relatedDossiers = dossiers.filter(d => d.clientId === numericId);
     const relatedCases = cases.filter(cas =>
@@ -69,18 +69,35 @@ export const clientConfig = {
   updateData: async (id, data, contextData = null) => {
     const numericId = parseInt(id);
 
-    if (contextData?.updateClient) {
-      // Use DataContext to update (this persists to localStorage)
-      contextData.updateClient(numericId, data);
-    } else {
-      // Fallback to updating mockClientsExtended
-      if (mockClientsExtended[numericId]) {
-        mockClientsExtended[numericId] = {
-          ...mockClientsExtended[numericId],
-          ...data,
-        };
+    // Filter out relationship fields - client entity should only contain client-specific data
+    const clientFields = [
+      'name', 'email', 'phone', 'alternatePhone', 'address', 'status',
+      'cin', 'dateOfBirth', 'profession', 'company', 'taxId', 'notes', 'joinDate'
+    ];
+    const clientData = Object.keys(data).reduce((acc, key) => {
+      if (clientFields.includes(key)) {
+        acc[key] = data[key];
+      }
+      return acc;
+    }, {});
+
+    // Only update if there are actual client fields to update
+    if (Object.keys(clientData).length > 0) {
+      if (contextData?.updateClient) {
+        // Use DataContext to update (this persists to localStorage)
+        contextData.updateClient(numericId, clientData);
+      } else {
+        // Fallback to updating null
+        if (null[numericId]) {
+          null[numericId] = {
+            ...null[numericId],
+            ...clientData,
+          };
+        }
       }
     }
+    // If no client fields to update, skip the update (this happens when only relationship fields change)
+    await new Promise(resolve => setTimeout(resolve, 500));
   },
 
   deleteData: async (id, contextData = null) => {
@@ -252,9 +269,7 @@ export const clientConfig = {
       // Dynamic form fields - allow linking to either dossier or procès
       getFormFields: (clientData) => {
         const relatedDossiers = clientData.relatedDossiers || [];
-        const relatedCases = mockCases.filter(cas =>
-          relatedDossiers.some(dossier => dossier.id === cas.dossierId)
-        );
+        const relatedCases = clientData.relatedCases || [];
 
         return sessionFormFields.map(field => {
           // Allow linkType to be editable - choose between dossier and case
@@ -337,9 +352,7 @@ export const clientConfig = {
       // Dynamic form fields - dossierId and caseId options filtered to client's entities
       getFormFields: (clientData) => {
         const relatedDossiers = clientData.relatedDossiers || [];
-        const relatedCases = mockCases.filter(cas =>
-          relatedDossiers.some(dossier => dossier.id === cas.dossierId)
-        );
+        const relatedCases = clientData.relatedCases || [];
 
         return taskFormFields.map(field => {
           if (field.name === 'dossierId') {

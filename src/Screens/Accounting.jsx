@@ -17,15 +17,11 @@ import Pagination from "../components/table/Pagination";
 import FormModal from "../components/FormModal/FormModal";
 import StatCard from "../components/dashboard/StatCard";
 import { financialEntryFormFields, getFormTitle, populateRelationshipOptions } from "../components/FormModal/formConfigs";
-import { mockClients, mockDossiers, mockCases } from "../utils/mockData";
 import { useData } from "../contexts/DataContext";
 import {
-  financialLedger,
-  updateFinancialEntry,
-  deleteFinancialEntry,
   financialCategories,
   financialStatuses,
-} from "../utils/financialData";
+} from "../utils/financialConstants";
 import {
   getFinancialEntriesForDisplay,
   getAccountingStatistics,
@@ -46,7 +42,7 @@ export default function Accounting() {
   const navigate = useNavigate();
   const { showToast } = useToast();
   const { confirm } = useConfirm();
-  const { financialEntries, loading, loadError, addFinancialEntry } = useData();
+  const { financialEntries, loading, loadError, addFinancialEntry, updateFinancialEntry, deleteFinancialEntry } = useData();
 
   // Use financial ledger as source of truth
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -59,7 +55,7 @@ export default function Accounting() {
 
   // Get display entries with computed fields
   const displayEntries = useMemo(() => {
-    let filtered = getFinancialEntriesForDisplay();
+    let filtered = getFinancialEntriesForDisplay({}, financialEntries);
 
     // Apply scope filter
     if (filterScope !== "all") {
@@ -67,12 +63,12 @@ export default function Accounting() {
     }
 
     return filtered;
-  }, [filterScope, refreshKey]);
+  }, [filterScope, refreshKey, financialEntries]);
 
   // Calculate statistics from ledger
   const stats = useMemo(() => {
-    return getAccountingStatistics();
-  }, [refreshKey]);
+    return getAccountingStatistics(financialEntries);
+  }, [refreshKey, financialEntries]);
 
   // Get priority items (entries needing attention)
   const priorityItems = useMemo(() => {
@@ -143,19 +139,17 @@ export default function Accounting() {
       cancelText: "Annuler",
       variant: "danger"
     })) {
-      const delResult = deleteFinancialEntry(id);
-      if (!delResult.success) {
-        if (delResult.result) {
-          setValidationResult(delResult.result);
-          setBlockerModalOpen(true);
-        }
-        return;
+      try {
+        await deleteFinancialEntry(id);
+        showToast("Écriture supprimée", "warning");
+        setRefreshKey((k) => k + 1); // Trigger re-render
+      } catch (error) {
+        showToast("Erreur lors de la suppression", "error");
       }
-      setRefreshKey((k) => k + 1); // Trigger re-render
     }
   };
 
-  const handleStatusChange = (id, newStatus) => {
+  const handleStatusChange = async (id, newStatus) => {
     // ✅ Validate before allowing status change
     const entry = displayEntries.find(e => e.id === id);
     const result = canPerformAction('financialEntry', id, 'changeStatus', {
@@ -171,8 +165,8 @@ export default function Accounting() {
     }
 
     const oldStatus = entry?.status;
-    const statusResult = updateFinancialEntry(id, { status: newStatus });
-    if (!statusResult.entry) {
+    const statusResult = await updateFinancialEntry(id, { status: newStatus });
+    if (!statusResult.ok) {
       if (statusResult.result) {
         setValidationResult(statusResult.result);
         setBlockerModalOpen(true);
@@ -359,8 +353,8 @@ export default function Accounting() {
       if (editingEntry) {
         // Update existing entry
         const previous = editingEntry;
-        const updateResult = updateFinancialEntry(editingEntry.id, formData);
-        if (!updateResult.entry) {
+        const updateResult = await updateFinancialEntry(editingEntry.id, formData);
+        if (!updateResult.ok) {
           if (updateResult.result) {
             setValidationResult(updateResult.result);
             setBlockerModalOpen(true);
@@ -454,9 +448,9 @@ export default function Accounting() {
 
   // Populate relationship options
   const entryFields = populateRelationshipOptions(financialEntryFormFields, {
-    clients: mockClients,
-    dossiers: mockDossiers,
-    cases: mockCases,
+    clients: [],
+    dossiers: [],
+    cases: [],
   });
 
   return (

@@ -22,10 +22,10 @@ export default function TaskList({ tasks, title = "Tâches Urgentes", maxItems =
       "En cours": "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
       "En attente": "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
       "Terminée": "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
-      "Non commencée": "bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300",
-      "Planifiée": "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400",
+      "Non commencee": "bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300",
+      "Planifiee": "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400",
     };
-    return colors[status] || colors["Non commencée"];
+    return colors[status] || colors["Non commencee"];
   };
 
   const displayedTasks = tasks.slice(0, maxItems);
@@ -45,9 +45,8 @@ export default function TaskList({ tasks, title = "Tâches Urgentes", maxItems =
             <div className="flex items-start gap-3">
               {/* Task Info */}
               <div className="flex-1 min-w-0">
-                <p className={`text-sm font-medium group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors ${
-                  task.status === "Terminée" ? "line-through text-slate-500 dark:text-slate-400" : "text-slate-900 dark:text-white"
-                }`}>
+                <p className={`text-sm font-medium group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors ${task.status === "Terminée" ? "line-through text-slate-500 dark:text-slate-400" : "text-slate-900 dark:text-white"
+                  }`}>
                   {task.title}
                 </p>
 
@@ -60,9 +59,8 @@ export default function TaskList({ tasks, title = "Tâches Urgentes", maxItems =
                   )}
 
                   {/* Due Date */}
-                  <div className={`flex items-center gap-1 text-xs ${
-                    isOverdue ? "text-red-600 dark:text-red-400 font-medium" : "text-slate-500 dark:text-slate-400"
-                  }`}>
+                  <div className={`flex items-center gap-1 text-xs ${isOverdue ? "text-red-600 dark:text-red-400 font-medium" : "text-slate-500 dark:text-slate-400"
+                    }`}>
                     <i className="fas fa-clock text-xs"></i>
                     <span>{task.dueDate}</span>
                     {isOverdue && <i className="fas fa-exclamation-circle ml-1"></i>}

@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import ContentSection from "../../layout/ContentSection";
-import { mockCasesExtended, mockDossiers, getStatusColor, mockSessions, mockTasks, mockOfficers } from "../../../utils/mockData";
+import { getStatusColor } from "./statusColors";
 import { sessionFormFields, taskFormFields, missionFormFields } from "../../FormModal/formConfigs";
 
 /**
@@ -36,17 +36,17 @@ export const caseConfig = {
       console.log('[caseConfig] Using contextData.cases');
       caseData = contextData.cases.find(c => c.id === numericId);
     } else {
-      // Fallback to mockCasesExtended (static data)
-      console.log('[caseConfig] mockCasesExtended keys:', Object.keys(mockCasesExtended));
-      caseData = mockCasesExtended[numericId];
+      // Fallback to null (static data)
+      console.log('[caseConfig] null keys:', Object.keys(null));
+      caseData = null[numericId];
     }
     console.log('[caseConfig] Found case:', caseData);
     if (!caseData) return null;
 
     // ✅ Always resolve dossier from dossierId using latest context data
-    const sessions = contextData?.sessions || mockSessions;
-    const tasks = contextData?.tasks || mockTasks;
-    const dossiers = contextData?.dossiers || mockDossiers;
+    const sessions = contextData?.sessions || [];
+    const tasks = contextData?.tasks || [];
+    const dossiers = contextData?.dossiers || [];
     let dossier = null;
     if (caseData.dossierId) {
       const foundDossier = dossiers.find(d => d.id === parseInt(caseData.dossierId));
@@ -74,46 +74,35 @@ export const caseConfig = {
   updateData: async (id, data, contextData = null) => {
     const numericId = parseInt(id);
 
-    if (contextData?.updateCase) {
-      // Use DataContext to update (this persists to localStorage)
-      contextData.updateCase(numericId, data);
-    } else {
-      // Fallback to updating mockCasesExtended
-      if (mockCasesExtended[numericId]) {
-        // ✅ Sync sessions with global mockSessions array
-        if ('sessions' in data) {
-          data.sessions.forEach(session => {
-            const existingIndex = mockSessions.findIndex(s => s.id === session.id);
-            if (existingIndex === -1) {
-              // New session - add to global array
-              mockSessions.push(session);
-            } else {
-              // Existing session - update it
-              mockSessions[existingIndex] = session;
-            }
-          });
-        }
+    // Filter out relationship fields - case entity should only contain case-specific data
+    const caseFields = [
+      'caseNumber', 'title', 'dossierId', 'court', 'courtRoom', 'judge',
+      'filingDate', 'nextHearing', 'referenceNumber', 'adversaryParty',
+      'adversaryLawyer', 'status', 'description'
+    ];
+    const caseData = Object.keys(data).reduce((acc, key) => {
+      if (caseFields.includes(key)) {
+        acc[key] = data[key];
+      }
+      return acc;
+    }, {});
 
-        // ✅ Sync tasks with global mockTasks array
-        if ('tasks' in data) {
-          data.tasks.forEach(task => {
-            const existingIndex = mockTasks.findIndex(t => t.id === task.id);
-            if (existingIndex === -1) {
-              // New task - add to global array
-              mockTasks.push(task);
-            } else {
-              // Existing task - update it
-              mockTasks[existingIndex] = task;
-            }
-          });
+    // Only update if there are actual case fields to update
+    if (Object.keys(caseData).length > 0) {
+      if (contextData?.updateCase) {
+        // Use DataContext to update (this persists to localStorage)
+        contextData.updateCase(numericId, caseData);
+      } else {
+        // Fallback to updating null
+        if (null[numericId]) {
+          null[numericId] = {
+            ...null[numericId],
+            ...caseData,
+          };
         }
-
-        mockCasesExtended[numericId] = {
-          ...mockCasesExtended[numericId],
-          ...data,
-        };
       }
     }
+    // If no case fields to update, skip the update (this happens when only relationship fields change)
     await new Promise(resolve => setTimeout(resolve, 500));
   },
 
@@ -401,7 +390,7 @@ export const caseConfig = {
           } else if (field.name === 'officerId') {
             return {
               ...field,
-              options: mockOfficers.map(officer => ({
+              options: [].map(officer => ({
                 value: officer.id,
                 label: officer.name
               })),
@@ -570,7 +559,7 @@ export const caseConfig = {
           displayValue: (data) => {
             // For display purposes, show the full dossier info
             if (!data.dossierId) return "Aucun dossier";
-            const dossier = mockDossiers.find(d => d.id === data.dossierId);
+            const dossier = [].find(d => d.id === data.dossierId);
             if (dossier) return `${dossier.caseNumber} - ${dossier.title}`;
             // Fallback to hydrated dossier object if available
             if (data.dossier?.caseNumber) return `${data.dossier.caseNumber} - ${data.dossier.title}`;
@@ -580,7 +569,7 @@ export const caseConfig = {
           type: "searchable-select",
           editable: true,
           required: true,
-          getOptions: () => mockDossiers.map(d => ({
+          getOptions: () => [].map(d => ({
             value: d.id,
             label: `${d.caseNumber} - ${d.title}`
           })),

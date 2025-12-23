@@ -43,10 +43,10 @@ export default function Tasks() {
   const [pendingFormData, setPendingFormData] = useState(null);
 
   const statusLabelMap = {
-    "Non commencée": "Not Started",
+    "Non commencee": "Not Started",
     "En cours": "In Progress",
     "En attente": "On Hold",
-    "Terminée": "Completed",
+    "Terminee": "Completed",
   };
 
   const priorityLabelMap = {
@@ -61,11 +61,11 @@ export default function Tasks() {
   // Calculate stats
   const stats = {
     total: tasks.length,
-    completed: tasks.filter(t => t.status === "Terminée").length,
+    completed: tasks.filter(t => t.status === "Terminee").length,
     inProgress: tasks.filter(t => t.status === "En cours").length,
     overdue: tasks.filter(t => {
       const dueDate = new Date(t.dueDate);
-      return dueDate < new Date() && t.status !== "Terminée";
+      return dueDate < new Date() && t.status !== "Terminee";
     }).length,
   };
 
@@ -94,7 +94,7 @@ export default function Tasks() {
       locked: true,
       render: (task) => (
         <div className="flex items-center gap-3">
-          <span className={task.status === "Terminée" ? "line-through text-slate-500 dark:text-slate-400" : ""}>
+          <span className={task.status === "Terminee" ? "line-through text-slate-500 dark:text-slate-400" : ""}>
             {task.title}
           </span>
         </div>
@@ -146,10 +146,10 @@ export default function Tasks() {
           value={task.status}
           onChange={(newStatus) => handleStatusChange(task.id, newStatus)}
           statusOptions={[
-            { value: "Non commencée", label: "Not Started", color: "slate" },
+            { value: "Non commencee", label: "Not Started", color: "slate" },
             { value: "En cours", label: "In Progress", color: "blue" },
             { value: "En attente", label: "On Hold", color: "amber" },
-            { value: "Terminée", label: "Completed", color: "green" },
+            { value: "Terminee", label: "Completed", color: "green" },
           ]}
           entityType="task"
           entityId={task.id}
@@ -265,7 +265,7 @@ export default function Tasks() {
       return;
     }
 
-  if (await confirm({
+    if (await confirm({
       title: "Delete task",
       message: "Are you sure you want to delete this task?",
       confirmText: "Delete",

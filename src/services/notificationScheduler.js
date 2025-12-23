@@ -20,14 +20,6 @@ import {
 } from "../utils/scheduledNotifications";
 import { resolveEntityLink } from "../utils/notificationTemplates";
 import { evaluateAllRules } from "./notificationRules";
-import {
-  mockTasks,
-  mockPersonalTasks,
-  mockSessions,
-  mockAccounting,
-  getAllMissions,
-  mockDossiers,
-} from "../utils/mockData";
 
 /**
  * Notification Scheduler Class
@@ -38,6 +30,14 @@ class NotificationScheduler {
     this.intervalId = null;
     this.checkInterval = 60000; // Check every minute
     this.onNotificationGenerated = null;
+    this.data = {
+      tasks: [],
+      sessions: [],
+      missions: [],
+      financialEntries: [],
+      dossiers: [],
+      cases: [],
+    };
     this.scheduledNotifications = getSimulatedScheduledNotifications();
     this.sentNotificationIds = new Set(); // Track sent notifications to avoid duplicates
     this.lastCheckDate = null; // Track last check to run daily checks
@@ -84,6 +84,7 @@ class NotificationScheduler {
     const now = new Date();
     const currentDate = now.toISOString().split("T")[0]; // YYYY-MM-DD
     const preferences = getNotificationPreferences();
+    const data = this.data || {};
 
     // Only run full data check once per day
     const shouldRunDailyCheck = this.lastCheckDate !== currentDate;
@@ -99,34 +100,33 @@ class NotificationScheduler {
       try {
         // Generate task notifications from real tasks
         if (preferences.tasks.enabled) {
-          const taskNotifs = generateTaskNotifications(mockTasks);
+          const taskNotifs = generateTaskNotifications(data.tasks || []);
           const personalTaskNotifs =
-            generateTaskNotifications(mockPersonalTasks);
+            generateTaskNotifications(data.personalTasks || []);
           generatedNotifications.push(...taskNotifs, ...personalTaskNotifs);
         }
 
         // Generate session notifications from real sessions
         if (preferences.sessions.enabled) {
-          const sessionNotifs = generateSessionNotifications(mockSessions);
+          const sessionNotifs = generateSessionNotifications(data.sessions || []);
           generatedNotifications.push(...sessionNotifs);
         }
 
         // Generate payment notifications from real financial entries
         if (preferences.payments.enabled) {
-          const paymentNotifs = generatePaymentNotifications(mockAccounting);
+          const paymentNotifs = generatePaymentNotifications(data.financialEntries || []);
           generatedNotifications.push(...paymentNotifs);
         }
 
         // Generate mission notifications from real missions
         if (preferences.missions.enabled) {
-          const allMissions = getAllMissions();
-          const missionNotifs = generateMissionNotifications(allMissions);
+          const missionNotifs = generateMissionNotifications(data.missions || []);
           generatedNotifications.push(...missionNotifs);
         }
 
         // Generate dossier notifications from real dossiers
         if (preferences.dossiers.enabled) {
-          const dossierNotifs = generateDossierNotifications(mockDossiers);
+          const dossierNotifs = generateDossierNotifications(data.dossiers || []);
           generatedNotifications.push(...dossierNotifs);
         }
 
@@ -160,7 +160,9 @@ class NotificationScheduler {
 
     // Evaluate intelligent rules engine for behavior-driven notifications
     try {
-      const ruleBasedNotifications = evaluateAllRules(now);
+      const ruleBasedNotifications = evaluateAllRules(now, {
+        entities: this.data,
+      });
 
       if (ruleBasedNotifications.length > 0) {
         console.log(
@@ -397,6 +399,7 @@ class NotificationScheduler {
    * Useful for testing or manual refresh
    */
   generateAllNotifications(data) {
+    this.data = data || this.data;
     const preferences = getNotificationPreferences();
     const allNotifications = [];
 

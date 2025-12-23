@@ -12,14 +12,29 @@
  * Philosophy: Think like a legal assistant, not a cron job.
  */
 
-import {
-  mockTasks,
-  mockSessions,
-  getAllMissions,
-  mockDossiersExtended,
-  mockCasesExtended,
-} from "../utils/mockData";
-import { financialLedger } from "../utils/financialData";
+// Live entities are provided by callers (scheduler/context) via a context object.
+let entities = {
+  tasks: [],
+  sessions: [],
+  missions: [],
+  dossiers: [],
+  cases: [],
+  financialEntries: [],
+};
+
+const loadEntities = (context = {}) => {
+  entities = {
+    tasks: context.entities?.tasks || context.tasks || [],
+    sessions: context.entities?.sessions || context.sessions || [],
+    missions: context.entities?.missions || context.missions || [],
+    dossiers: context.entities?.dossiers || context.dossiers || [],
+    cases: context.entities?.cases || context.cases || [],
+    financialEntries:
+      context.entities?.financialEntries || context.financialEntries || [],
+  };
+};
+
+const getAllMissions = () => entities.missions || [];
 
 // ============================================
 // CORE UTILITIES
@@ -1021,6 +1036,7 @@ export const RuleRegistry = {
  * Returns array of notifications that should be triggered
  */
 export function evaluateEntityRules(entityType, entity, context = {}) {
+  loadEntities(context);
   const rules = RuleRegistry[entityType];
   if (!rules) return [];
 
@@ -1061,37 +1077,35 @@ export function evaluateEntityRules(entityType, entity, context = {}) {
  * Evaluate all rules across all entities
  * This is called by the scheduler periodically
  */
-export function evaluateAllRules(currentDate = new Date()) {
+export function evaluateAllRules(currentDate = new Date(), context = {}) {
+  loadEntities(context);
   const allNotifications = [];
 
-  // 1. Task Rules
-  mockTasks.forEach((task) => {
-    const taskNotifications = evaluateEntityRules("task", task);
+  const tasks = entities.tasks || [];
+  const sessions = entities.sessions || [];
+  const missions = getAllMissions();
+  const financialEntries = entities.financialEntries || [];
+  const dossiers = entities.dossiers || [];
+
+  tasks.forEach((task) => {
+    const taskNotifications = evaluateEntityRules("task", task, context);
     allNotifications.push(...taskNotifications);
   });
 
-  // 2. Session Rules
-  mockSessions.forEach((session) => {
-    const sessionNotifications = evaluateEntityRules("session", session);
+  sessions.forEach((session) => {
+    const sessionNotifications = evaluateEntityRules("session", session, context);
     allNotifications.push(...sessionNotifications);
   });
 
-  // 3. Mission Rules
-  const allMissions = getAllMissions();
-  allMissions.forEach((mission) => {
-    const missionNotifications = evaluateEntityRules("mission", mission);
+  missions.forEach((mission) => {
+    const missionNotifications = evaluateEntityRules("mission", mission, context);
     allNotifications.push(...missionNotifications);
   });
 
-  // 4. Financial Rules
-  financialLedger.forEach((entry) => {
-    const financialNotifications = evaluateEntityRules("financial", entry);
+  financialEntries.forEach((entry) => {
+    const financialNotifications = evaluateEntityRules("financial", entry, context);
     allNotifications.push(...financialNotifications);
   });
-
-  // 5. System Rules (pass aggregated data)
-  const dossiers = Object.values(mockDossiersExtended);
-  const missions = getAllMissions();
 
   // Daily activity check
   const noDossierUpdates = SystemRules.noDossierUpdatesToday(
@@ -1108,7 +1122,7 @@ export function evaluateAllRules(currentDate = new Date()) {
   }
 
   // Multiple deadlines
-  const multipleDeadlines = SystemRules.multipleDeadlinesApproaching(mockTasks);
+  const multipleDeadlines = SystemRules.multipleDeadlinesApproaching(tasks);
   if (multipleDeadlines.shouldNotify) {
     allNotifications.push({
       ruleId: "system_multipleDeadlines",
@@ -1131,8 +1145,8 @@ export function evaluateAllRules(currentDate = new Date()) {
 
   // Weekly summary
   const weeklySummary = SystemRules.weeklyOverdueSummary(
-    mockTasks,
-    mockSessions,
+    tasks,
+    sessions,
     missions,
     currentDate
   );

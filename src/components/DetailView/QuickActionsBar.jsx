@@ -13,7 +13,7 @@ import SearchableSelect from "../FormModal/SearchableSelect";
  * NEW: Integrates domain rules validation before allowing changes
  * UPDATED: Uses centralized toast system for consistent UX
  */
-export default function QuickActionsBar({ data, config, onQuickAction }) {
+export default function QuickActionsBar({ data, config, onQuickAction, contextData }) {
     const quickActions = config.quickActions || [];
 
     if (quickActions.length === 0) return null;
@@ -30,6 +30,7 @@ export default function QuickActionsBar({ data, config, onQuickAction }) {
                             entityType={config.entityType}
                             entityId={data.id}
                             entityData={data}
+                            contextData={contextData}
                             onChange={(value) => onQuickAction(action.key, value, action.validation)}
                         />
                     ))}
@@ -45,7 +46,7 @@ export default function QuickActionsBar({ data, config, onQuickAction }) {
  * NEW: Integrates domain rules validation
  * UPDATED: Uses centralized toast notifications
  */
-function QuickActionField({ action, value, onChange, entityType, entityId, entityData }) {
+function QuickActionField({ action, value, onChange, entityType, entityId, entityData, contextData }) {
     const [isOpen, setIsOpen] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [showSuccess, setShowSuccess] = useState(false);
@@ -107,7 +108,9 @@ function QuickActionField({ action, value, onChange, entityType, entityId, entit
                 newValue,
                 currentValue: value,
                 data: entityData,
-                newData: { ...(entityData || {}), [action.key]: newValue }
+                newData: { ...(entityData || {}), [action.key]: newValue },
+                contextData,
+                entities: contextData
             });
 
             if (!result.allowed) {

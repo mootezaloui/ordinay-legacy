@@ -1,7 +1,5 @@
 import ContentSection from "../../layout/ContentSection";
 import { getFinancialEntriesForDisplay, formatCurrency } from "../../../utils/financialUtils";
-import { updateFinancialEntry, deleteFinancialEntry } from "../../../utils/financialData";
-import { mockClients, mockDossiers, mockCases } from "../../../utils/mockData";
 import { financialEntryFormFields, populateRelationshipOptions } from "../../FormModal/formConfigs";
 import { formatDateValue } from "../../../utils/dateFormat";
 
@@ -30,7 +28,7 @@ export const financialEntryConfig = {
         // Update clientName if clientId changed
         if ('clientId' in data) {
             if (data.clientId) {
-                const client = mockClients.find(c => c.id === parseInt(data.clientId));
+                const client = [].find(c => c.id === parseInt(data.clientId));
                 if (client) {
                     enrichedData.clientName = client.name;
                 }
@@ -42,13 +40,13 @@ export const financialEntryConfig = {
         // Update dossierReference if dossierId changed
         if ('dossierId' in data) {
             if (data.dossierId) {
-                const dossier = mockDossiers.find(d => d.id === parseInt(data.dossierId));
+                const dossier = [].find(d => d.id === parseInt(data.dossierId));
                 if (dossier) {
                     enrichedData.dossierReference = dossier.caseNumber;
                     // Also auto-fill client if not provided
                     if (!('clientId' in data) && dossier.clientId) {
                         enrichedData.clientId = dossier.clientId;
-                        const client = mockClients.find(c => c.id === dossier.clientId);
+                        const client = [].find(c => c.id === dossier.clientId);
                         if (client) {
                             enrichedData.clientName = client.name;
                         }
@@ -62,18 +60,18 @@ export const financialEntryConfig = {
         // Update caseReference if caseId changed
         if ('caseId' in data) {
             if (data.caseId) {
-                const selectedCase = mockCases.find(c => c.id === parseInt(data.caseId));
+                const selectedCase = [].find(c => c.id === parseInt(data.caseId));
                 if (selectedCase) {
                     enrichedData.caseReference = selectedCase.caseNumber;
                     // Also auto-fill dossier and client if not provided
                     if (!('dossierId' in data) && selectedCase.dossierId) {
                         enrichedData.dossierId = selectedCase.dossierId;
-                        const dossier = mockDossiers.find(d => d.id === selectedCase.dossierId);
+                        const dossier = [].find(d => d.id === selectedCase.dossierId);
                         if (dossier) {
                             enrichedData.dossierReference = dossier.caseNumber;
                             if (!('clientId' in data) && dossier.clientId) {
                                 enrichedData.clientId = dossier.clientId;
-                                const client = mockClients.find(c => c.id === dossier.clientId);
+                                const client = [].find(c => c.id === dossier.clientId);
                                 if (client) {
                                     enrichedData.clientName = client.name;
                                 }
@@ -367,11 +365,11 @@ export const financialEntryConfig = {
                     editable: true,
                     options: [
                         { value: "", label: "Sélectionner un client..." },
-                        ...mockClients.map(c => ({ value: c.id, label: c.name }))
+                        ...[].map(c => ({ value: c.id, label: c.name }))
                     ],
                     getOptions: () => ([
                         { value: "", label: "SAclectionner un client..." },
-                        ...mockClients.map(c => ({ value: c.id, label: c.name }))
+                        ...[].map(c => ({ value: c.id, label: c.name }))
                     ]),
                     helpText: "Sélectionner le client concerné (cela filtrera les dossiers et procès disponibles)"
                 },
@@ -387,8 +385,8 @@ export const financialEntryConfig = {
                         // ✅ Filter dossiers by selected client
                         const clientId = editedData?.clientId;
                         const filteredDossiers = clientId
-                            ? mockDossiers.filter(d => d.clientId === parseInt(clientId))
-                            : mockDossiers;
+                            ? [].filter(d => d.clientId === parseInt(clientId))
+                            : [];
 
                         return [
                             { value: "", label: clientId ? "Sélectionner un dossier..." : "Sélectionner d'abord un client" },
@@ -412,8 +410,8 @@ export const financialEntryConfig = {
                         // ✅ Filter cases by selected dossier
                         const dossierId = editedData?.dossierId;
                         const filteredCases = dossierId
-                            ? mockCases.filter(c => c.dossierId === parseInt(dossierId))
-                            : mockCases;
+                            ? [].filter(c => c.dossierId === parseInt(dossierId))
+                            : [];
 
                         return [
                             { value: "", label: dossierId ? "Sélectionner un procès..." : "Sélectionner d'abord un dossier" },
@@ -555,9 +553,9 @@ export const financialEntryConfig = {
     // Form configuration for editing
     getFormFields: () => {
         const fields = populateRelationshipOptions(financialEntryFormFields, {
-            clients: mockClients,
-            dossiers: mockDossiers,
-            cases: mockCases,
+            clients: [],
+            dossiers: [],
+            cases: [],
         });
         return fields;
     },

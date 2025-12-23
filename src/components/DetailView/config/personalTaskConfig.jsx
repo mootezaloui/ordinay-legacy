@@ -1,5 +1,5 @@
 import ContentSection from "../../layout/ContentSection";
-import { getStatusColor, mockPersonalTasksExtended } from "../../../utils/mockData";
+import { getStatusColor } from "./statusColors";
 
 /**
  * Personal Task Configuration - UPDATED with Quick Actions
@@ -72,10 +72,10 @@ export const personalTaskConfig = {
       icon: "fas fa-info-circle",
       colorMap: true,
       options: [
-        { value: "Non commencée", label: "Non commencée", color: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300" },
+        { value: "Non commencee", label: "Non commencée", color: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300" },
         { value: "En attente", label: "En attente", color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
         { value: "En cours", label: "En cours", color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" },
-        { value: "Planifiée", label: "Planifiée", color: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400" },
+        { value: "Planifiee", label: "Planifiée", color: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400" },
         { value: "Terminée", label: "Terminée", color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" },
       ]
     },
@@ -169,7 +169,7 @@ export const personalTaskConfig = {
             <InfoCard
               icon="fas fa-calendar-alt"
               label="Date limite"
-              value={data.dueDate}
+              value={data.dueDate || "N/A"}
               color="blue"
             />
             <InfoCard
@@ -195,7 +195,7 @@ export const personalTaskConfig = {
       icon: "fas fa-calendar-check",
       iconColor: "text-blue-600 dark:text-blue-400",
       bgColor: "bg-blue-100 dark:bg-blue-900/20",
-      value: data.dueDate,
+      value: data.dueDate || "N/A",
       label: "Échéance"
     },
     {

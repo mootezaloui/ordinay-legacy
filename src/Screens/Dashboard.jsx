@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+﻿import { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import PageLayout from "../components/layout/PageLayout";
 import PageHeader from "../components/layout/PageHeader";
@@ -8,23 +8,28 @@ import ActivityFeed from "../components/dashboard/ActivityFeed";
 import UpcomingEvents from "../components/dashboard/UpcomingEvents";
 import QuickActions from "../components/dashboard/QuickActions";
 import TaskList from "../components/dashboard/TaskList";
-import {
-  mockClients,
-  mockDossiers,
-  mockTasks,
-  mockSessions,
-  mockCases,
-  mockAccounting,
-  mockOfficersExtended,
-} from "../utils/mockData";
-import { financialLedger } from "../utils/financialData";
 import { useSettings } from "../contexts/SettingsContext";
+import { useData } from "../contexts/DataContext";
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const [isProjectionCollapsed, setProjectionCollapsed] = useState(false);
   const [isLoadMapCollapsed, setLoadMapCollapsed] = useState(false);
   const { formatDate: formatDisplayDate } = useSettings();
+  const { clients, dossiers, tasks, sessions, cases, missions, financialEntries } = useData();
+  // Temporary aliases to remove mock references
+  const mockClients = clients || [];
+  const mockDossiers = dossiers || [];
+  const mockTasks = tasks || [];
+  const mockSessions = sessions || [];
+  const mockCases = cases || [];
+  const mockAccounting = financialEntries || [];
+  const mockOfficersExtended = (missions || []).reduce((acc, m) => {
+    const list = acc[m.officerId] || { missions: [] };
+    list.missions.push(m);
+    acc[m.officerId] = list;
+    return acc;
+  }, {});
 
   useEffect(() => {
     if (typeof window !== "undefined" && window.innerWidth < 768) {
@@ -35,13 +40,13 @@ export default function Dashboard() {
 
   // Calculate real stats from mock data
   const stats = useMemo(() => {
-    const activeClients = mockClients.filter(c => c.status === "Active").length;
-    const activeDossiers = mockDossiers.filter(d => d.status === "Ouvert").length;
-    const pendingTasks = mockTasks.filter(t => t.status !== "Terminée").length;
-    const todayTasks = mockTasks.filter(t => t.dueDate === new Date().toISOString().split('T')[0]).length;
+    const activeClients = clients.filter(c => c.status === "Active").length;
+    const activeDossiers = dossiers.filter(d => d.status === "Ouvert").length;
+    const pendingTasks = tasks.filter(t => t.status !== "Terminé").length;
+    const todayTasks = tasks.filter(t => t.dueDate === new Date().toISOString().split('T')[0]).length;
 
     // Calculate revenue (sum of paid invoices)
-    const paidInvoices = mockAccounting.filter(i => i.status === "Payée");
+    const paidInvoices = financialEntries.filter(i => i.status === "Payée");
     const revenue = paidInvoices.reduce((sum, inv) => {
       const amount = parseFloat(inv.amount.replace(/[^0-9.]/g, '')) || 0;
       return sum + amount;
@@ -49,17 +54,17 @@ export default function Dashboard() {
 
     return {
       clients: {
-        total: mockClients.length,
+        total: clients.length,
         active: activeClients,
         trend: 12, // Mock trend
       },
       dossiers: {
-        total: mockDossiers.length,
+        total: dossiers.length,
         active: activeDossiers,
         newThisWeek: 3, // Mock
       },
       tasks: {
-        total: mockTasks.length,
+        total: tasks.length,
         pending: pendingTasks,
         dueToday: todayTasks,
       },
@@ -75,7 +80,7 @@ export default function Dashboard() {
     const activities = [];
 
     // Recent clients
-    mockClients.slice(0, 2).forEach(client => {
+    clients.slice(0, 2).forEach(client => {
       activities.push({
         id: `client-${client.id}`,
         type: "client",
@@ -88,11 +93,11 @@ export default function Dashboard() {
     });
 
     // Recent dossiers
-    mockDossiers.slice(0, 1).forEach(dossier => {
+    dossiers.slice(0, 1).forEach(dossier => {
       activities.push({
         id: `dossier-${dossier.id}`,
         type: "dossier",
-        title: `Dossier mis à jour: ${dossier.caseNumber}`,
+        title: `Dossier updated: ${dossier.caseNumber}`,
         description: dossier.title,
         timestamp: dossier.openDate || new Date().toISOString(),
         user: "Me. Sassi",
@@ -101,12 +106,12 @@ export default function Dashboard() {
     });
 
     // Recent sessions
-    mockSessions.slice(0, 1).forEach(session => {
+    sessions.slice(0, 1).forEach(session => {
       activities.push({
         id: `session-${session.id}`,
         type: "session",
-        title: `Séance programmée: ${session.title}`,
-        description: `${session.date} à ${session.time}`,
+        title: `Scheduled Session: ${session.title}`,
+        description: `${session.date} at ${session.time}`,
         timestamp: new Date().toISOString(),
         user: "Me. Cherif",
         onClick: () => navigate(`/sessions/${session.id}`),
@@ -122,7 +127,7 @@ export default function Dashboard() {
     const events = [];
 
     // Upcoming sessions
-    mockSessions.forEach(session => {
+    sessions.forEach(session => {
       const sessionDate = new Date(`${session.date}T${session.time || '00:00'}`);
       if (sessionDate > new Date()) {
         events.push({
@@ -137,7 +142,7 @@ export default function Dashboard() {
     });
 
     // Upcoming hearings from cases
-    mockCases.forEach(caseItem => {
+    cases.forEach(caseItem => {
       const hearingDate = new Date(caseItem.nextHearing);
       if (hearingDate > new Date()) {
         events.push({
@@ -152,9 +157,9 @@ export default function Dashboard() {
     });
 
     // Task deadlines
-    mockTasks.forEach(task => {
+    tasks.forEach(task => {
       const dueDate = new Date(task.dueDate);
-      if (dueDate > new Date() && task.status !== "Terminée") {
+      if (dueDate > new Date() && task.status !== "Terminé") {
         events.push({
           id: `task-${task.id}`,
           type: "deadline",
@@ -170,15 +175,15 @@ export default function Dashboard() {
   }, []);
 
   // Get urgent tasks (high priority or due soon)
-const urgentTasks = useMemo(() => {
+  const urgentTasks = useMemo(() => {
     const today = new Date();
     const threeDaysFromNow = new Date(today.getTime() + 3 * 24 * 60 * 60 * 1000);
 
-    return mockTasks
+    return tasks
       .filter(task => {
         const dueDate = new Date(task.dueDate);
         return (
-          task.status !== "Terminée" &&
+          task.status !== "Terminé" &&
           (task.priority === "Haute" || dueDate <= threeDaysFromNow)
         );
       })
@@ -204,35 +209,35 @@ const urgentTasks = useMemo(() => {
     };
 
     // Sessions
-    mockSessions.forEach(session => {
+    sessions.forEach(session => {
       pushItem(`${session.date}T${session.time || "00:00"}`, "session", session.title, `/sessions/${session.id}`);
     });
 
     // Tasks
-    mockTasks.forEach(task => {
+    tasks.forEach(task => {
       pushItem(task.dueDate, "task", task.title, `/tasks/${task.id}`);
     });
 
     // Cases: next hearings
-    mockCases.forEach(c => {
+    cases.forEach(c => {
       pushItem(c.nextHearing, "case", c.title, `/cases/${c.id}`);
     });
 
     // Dossiers: next deadline
-    mockDossiers.forEach(d => {
+    dossiers.forEach(d => {
       if (d.nextDeadline) {
         pushItem(d.nextDeadline, "dossier", d.title, `/dossiers/${d.id}`);
       }
     });
 
     // Financial entries: use dueDate if available, fallback to date
-    financialLedger.forEach(entry => {
+    financialEntries.forEach(entry => {
       const targetDate = entry.dueDate || entry.date;
       pushItem(targetDate, "finance", entry.description, `/accounting/${entry.id}`);
     });
 
     // Missions with due dates (from officers)
-    Object.values(mockOfficersExtended).forEach(officer => {
+    Object.values(missions).forEach(officer => {
       officer.missions?.forEach(mission => {
         if (mission.dueDate) {
           pushItem(mission.dueDate, "mission", mission.title, `/missions/${mission.id}`);
@@ -264,8 +269,8 @@ const urgentTasks = useMemo(() => {
   const getTypeMeta = (type) => {
     const map = {
       session: { label: "Audience", icon: "fas fa-gavel", color: "text-purple-600" },
-      task: { label: "Tâche", icon: "fas fa-tasks", color: "text-amber-600" },
-      case: { label: "Procès", icon: "fas fa-scale-balanced", color: "text-blue-600" },
+      task: { label: "Tasks", icon: "fas fa-tasks", color: "text-amber-600" },
+      case: { label: "Lawsuite", icon: "fas fa-scale-balanced", color: "text-blue-600" },
       dossier: { label: "Dossier", icon: "fas fa-folder-open", color: "text-green-600" },
       finance: { label: "Finance", icon: "fas fa-file-invoice-dollar", color: "text-emerald-600" },
       mission: { label: "Mission", icon: "fas fa-user-tie", color: "text-teal-600" },
@@ -372,7 +377,7 @@ const urgentTasks = useMemo(() => {
           />
 
           <StatCard
-            label="Tâches en Attente"
+            label="Tasks en Attente"
             value={stats.tasks.pending}
             icon="fas fa-tasks"
             color="amber"
@@ -394,14 +399,14 @@ const urgentTasks = useMemo(() => {
         {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Urgent Tasks */}
-          <ContentSection title={`Tâches Urgentes (${urgentTasks.length})`}>
+          <ContentSection title={`Urgent Tasks (${urgentTasks.length})`}>
             <div className="p-6">
               <TaskList tasks={urgentTasks} maxItems={5} />
             </div>
           </ContentSection>
 
           {/* Upcoming Events */}
-          <ContentSection title={`Événements à Venir (${upcomingEvents.length})`}>
+          <ContentSection title={`Upcoming Events (${upcomingEvents.length})`}>
             <div className="p-6">
               <UpcomingEvents events={upcomingEvents} maxItems={5} />
             </div>
@@ -413,7 +418,7 @@ const urgentTasks = useMemo(() => {
           {/* Projection Section */}
           <div className="lg:col-span-3">
             <ContentSection
-              title="Projection (30–90 jours)"
+              title="Projection (30–90 days)"
               actions={
                 <button
                   onClick={() => setProjectionCollapsed(!isProjectionCollapsed)}
@@ -443,7 +448,7 @@ const urgentTasks = useMemo(() => {
                         <div className="space-y-2">
                           {win.highlights.length === 0 && (
                             <p className="text-xs text-slate-500 dark:text-slate-400">
-                              Rien à signaler
+                              Nothing to report
                             </p>
                           )}
                           {win.highlights.map((item, idx) => {
@@ -459,7 +464,7 @@ const urgentTasks = useMemo(() => {
                                   <span className="truncate">{item.label}</span>
                                 </div>
                                 <div className="text-xs text-slate-500 dark:text-slate-400">
-                                  {formatDate(item.date)} · {meta.label}
+                                  {formatDate(item.date)} â”¬â•– {meta.label}
                                 </div>
                               </button>
                             );
@@ -476,12 +481,12 @@ const urgentTasks = useMemo(() => {
                         Planning Lane
                       </h3>
                       <span className="text-xs text-slate-500 dark:text-slate-400">
-                        Prochains événements (8–12 éléments)
+                        Upcoming events (8–12 items)
                       </span>
                     </div>
                     {laneItems.length === 0 ? (
                       <p className="text-sm text-slate-500 dark:text-slate-400">
-                        Aucun événement futur détecté.
+                        No upcoming events detected.
                       </p>
                     ) : (
                       <div className="overflow-x-auto">
@@ -521,7 +526,7 @@ const urgentTasks = useMemo(() => {
           {/* Load Map */}
           <div className="lg:col-span-3">
             <ContentSection
-              title="Charge à venir (par semaine)"
+              title="Upcoming Load (per week)"
               actions={
                 <button
                   onClick={() => setLoadMapCollapsed(!isLoadMapCollapsed)}
@@ -535,7 +540,7 @@ const urgentTasks = useMemo(() => {
                 <div className="p-6">
                   {loadMapWeeks.length === 0 ? (
                     <p className="text-sm text-slate-500 dark:text-slate-400">
-                      Aucune échéance future détectée.
+                      No upcoming load detected.
                     </p>
                   ) : (
                     <div className="flex gap-3 overflow-x-auto">
@@ -567,7 +572,7 @@ const urgentTasks = useMemo(() => {
                               {label}
                             </div>
                             <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                              {week.count} élément{week.count > 1 ? "s" : ""}
+                              {week.count} item{week.count > 1 ? "s" : ""}
                             </div>
                           </div>
                         );
@@ -581,7 +586,7 @@ const urgentTasks = useMemo(() => {
 
           {/* Recent Activity - takes 2 columns */}
           <div className="lg:col-span-2">
-            <ContentSection title="Activité Récente">
+            <ContentSection title="Recent Activity">
               <div className="p-6">
                 <ActivityFeed activities={recentActivities} maxItems={6} />
               </div>
@@ -601,8 +606,8 @@ const urgentTasks = useMemo(() => {
                 <div className="space-y-2">
                   {[
                     { label: "En cours", value: stats.dossiers.active, color: "blue" },
-                    { label: "En attente", value: mockDossiers.filter(d => d.status === "En attente").length, color: "amber" },
-                    { label: "Fermés", value: mockDossiers.filter(d => d.status === "Terminé").length, color: "green" },
+                    { label: "En attente", value: dossiers.filter(d => d.status === "En attente").length, color: "amber" },
+                    { label: "Fermés", value: dossiers.filter(d => d.status === "Terminé").length, color: "green" },
                   ].map((item) => (
                     <div key={item.label} className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
@@ -623,14 +628,14 @@ const urgentTasks = useMemo(() => {
               <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                    Tâches par Priorité
+                    Tasks by priority
                   </span>
                 </div>
                 <div className="space-y-2">
                   {[
-                    { label: "Haute", value: mockTasks.filter(t => t.priority === "Haute" && t.status !== "Terminée").length, color: "red" },
-                    { label: "Moyenne", value: mockTasks.filter(t => t.priority === "Moyenne" && t.status !== "Terminée").length, color: "amber" },
-                    { label: "Basse", value: mockTasks.filter(t => t.priority === "Basse" && t.status !== "Terminée").length, color: "blue" },
+                    { label: "Haute", value: tasks.filter(t => t.priority === "Haute" && t.status !== "Terminé").length, color: "red" },
+                    { label: "Moyenne", value: tasks.filter(t => t.priority === "Moyenne" && t.status !== "Terminé").length, color: "amber" },
+                    { label: "Basse", value: tasks.filter(t => t.priority === "Basse" && t.status !== "Terminé").length, color: "blue" },
                   ].map((item) => (
                     <div key={item.label} className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
@@ -651,14 +656,14 @@ const urgentTasks = useMemo(() => {
               <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                    État des Paiements
+                    â”œÃ«tat des Paiements
                   </span>
                 </div>
                 <div className="space-y-2">
                   {[
-                    { label: "Payé", value: mockAccounting.filter(i => i.status === "Payée").length, color: "green" },
-                    { label: "En attente", value: mockAccounting.filter(i => i.status === "En attente").length, color: "amber" },
-                    { label: "En retard", value: mockAccounting.filter(i => i.status === "En retard").length, color: "red" },
+                    { label: "Payé", value: financialEntries.filter(i => i.status === "Payé").length, color: "green" },
+                    { label: "En attente", value: financialEntries.filter(i => i.status === "En attente").length, color: "amber" },
+                    { label: "En retard", value: financialEntries.filter(i => i.status === "En retard").length, color: "red" },
                   ].map((item) => (
                     <div key={item.label} className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
@@ -681,3 +686,4 @@ const urgentTasks = useMemo(() => {
     </PageLayout>
   );
 }
+

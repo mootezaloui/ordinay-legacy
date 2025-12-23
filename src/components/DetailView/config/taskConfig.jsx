@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import ContentSection from "../../layout/ContentSection";
-import { mockTasksExtended, mockDossiers, mockCases, getStatusColor } from "../../../utils/mockData";
+import { getStatusColor } from "./statusColors";
 import { getAllAssignees, addCustomAssignee } from "../../../utils/assigneeManager";
 
 // Default assignees that are always available
@@ -62,14 +62,14 @@ export const taskConfig = {
       // Use contextData.tasks from DataContext (this is the live data)
       task = contextData.tasks.find(t => t.id === numericId);
     } else {
-      // Fallback to mockTasksExtended (static data)
-      task = mockTasksExtended[numericId];
+      // Fallback to null (static data)
+      task = null[numericId];
     }
     if (!task) return null;
 
     // ✅ Always resolve dossier and case from IDs using latest context data
-    const dossiers = contextData?.dossiers || mockDossiers;
-    const cases = contextData?.cases || mockCases;
+    const dossiers = contextData?.dossiers || [];
+    const cases = contextData?.cases || [];
 
     let dossier = null;
     if (task.dossierId) {
@@ -105,18 +105,34 @@ export const taskConfig = {
   updateData: async (id, data, contextData = null) => {
     const numericId = parseInt(id);
 
-    if (contextData?.updateTask) {
-      // Use DataContext to update (this persists to localStorage)
-      contextData.updateTask(numericId, data);
-    } else {
-      // Fallback to updating mockTasksExtended
-      if (mockTasksExtended[numericId]) {
-        mockTasksExtended[numericId] = {
-          ...mockTasksExtended[numericId],
-          ...data,
-        };
+    // Filter out any potential relationship fields - task entity should only contain task-specific data
+    const taskFields = [
+      'title', 'parentType', 'dossierId', 'caseId', 'assignedTo', 'dueDate',
+      'priority', 'status', 'description', 'estimatedTime'
+    ];
+    const taskData = Object.keys(data).reduce((acc, key) => {
+      if (taskFields.includes(key)) {
+        acc[key] = data[key];
+      }
+      return acc;
+    }, {});
+
+    // Only update if there are actual task fields to update
+    if (Object.keys(taskData).length > 0) {
+      if (contextData?.updateTask) {
+        // Use DataContext to update (this persists to localStorage)
+        contextData.updateTask(numericId, taskData);
+      } else {
+        // Fallback to updating null
+        if (null[numericId]) {
+          null[numericId] = {
+            ...null[numericId],
+            ...taskData,
+          };
+        }
       }
     }
+    // If no task fields to update, skip the update
     await new Promise(resolve => setTimeout(resolve, 500));
   },
 
@@ -143,9 +159,10 @@ export const taskConfig = {
       icon: "fas fa-info-circle",
       colorMap: true,
       options: [
-        { value: "Non commencée", label: "Non commencée", color: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300" },
-        { value: "En cours", label: "En cours", color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" },
+        { value: "Non commencee", label: "Non commencée", color: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300" },
         { value: "En attente", label: "En attente", color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
+        { value: "Planifiee", label: "Planifiée", color: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400" },
+        { value: "En cours", label: "En cours", color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" },
         { value: "Terminée", label: "Terminée", color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" },
       ]
     },
@@ -367,7 +384,7 @@ export const taskConfig = {
           value: (data) => data.dossierId || "",
           displayValue: (data) => {
             if (!data.dossierId) return "Aucun";
-            const dossier = mockDossiers.find(d => d.id === data.dossierId);
+            const dossier = [].find(d => d.id === data.dossierId);
             if (dossier) return `${dossier.caseNumber} - ${dossier.title}`;
             // Fallback to hydrated dossier object if available
             if (data.dossier?.caseNumber) return `${data.dossier.caseNumber} - ${data.dossier.title}`;
@@ -378,14 +395,14 @@ export const taskConfig = {
           editable: true,
           options: [
             { value: "", label: "Sélectionner un dossier..." },
-            ...mockDossiers.map(d => ({
+            ...[].map(d => ({
               value: d.id,
               label: `${d.caseNumber} - ${d.title}`
             }))
           ],
           getOptions: () => ([
             { value: "", label: "SAclectionner un dossier..." },
-            ...mockDossiers.map(d => ({
+            ...[].map(d => ({
               value: d.id,
               label: `${d.caseNumber} - ${d.title}`
             }))
@@ -398,7 +415,7 @@ export const taskConfig = {
           value: (data) => data.caseId || "",
           displayValue: (data) => {
             if (!data.caseId) return "Aucun";
-            const caseObj = mockCases.find(c => c.id === data.caseId);
+            const caseObj = [].find(c => c.id === data.caseId);
             if (caseObj) return `${caseObj.caseNumber} - ${caseObj.title}`;
             // Fallback to hydrated case object if available
             if (data.case?.caseNumber) return `${data.case.caseNumber} - ${data.case.title}`;
@@ -409,14 +426,14 @@ export const taskConfig = {
           editable: true,
           options: [
             { value: "", label: "Sélectionner un procès..." },
-            ...mockCases.map(c => ({
+            ...[].map(c => ({
               value: c.id,
               label: `${c.caseNumber} - ${c.title}`
             }))
           ],
           getOptions: () => ([
             { value: "", label: "Sélectionner un procès..." },
-            ...mockCases.map(c => ({
+            ...[].map(c => ({
               value: c.id,
               label: `${c.caseNumber} - ${c.title}`
             }))

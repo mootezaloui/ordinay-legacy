@@ -34,22 +34,108 @@
  * }
  */
 
-import {
-  mockDossiersExtended,
-  mockCasesExtended,
-  mockClientsExtended,
-  mockClients,
-  mockDossiers,
-  mockTasks,
-  mockCases,
-  mockSessions,
-  getAllMissions,
-  mockOfficers,
-  mockOfficersExtended,
-} from "../utils/mockData";
-import { financialLedger } from "../utils/financialData";
+// Live data is provided by callers through the context parameter.
+// We keep legacy variable names to avoid touching downstream logic.
+let mockDossiersExtended = {};
+let mockCasesExtended = {};
+let mockClientsExtended = {};
+let mockClients = [];
+let mockDossiers = [];
+let mockTasks = [];
+let mockCases = [];
+let mockSessions = [];
+let mockOfficers = [];
+let mockOfficersExtended = {};
+let financialLedger = [];
+let missionsCache = [];
+const getAllMissions = () => missionsCache;
+
 import { validateTemporalConstraints } from "./temporalValidation";
 import { enrichBlockers } from "./blockerEnrichment";
+
+// Build in-memory snapshots from the live entities supplied in context.entities
+const loadContextData = (context = {}) => {
+  const entities = context.entities || {};
+  mockClients = entities.clients || [];
+  mockDossiers = entities.dossiers || [];
+  mockCases = entities.cases || [];
+  mockTasks = entities.tasks || [];
+  mockSessions = entities.sessions || [];
+  missionsCache = entities.missions || [];
+  mockOfficers = entities.officers || [];
+  financialLedger = entities.financialEntries || [];
+
+  const casesById = new Map(mockCases.map((c) => [c.id, c]));
+
+  mockDossiersExtended = mockDossiers.reduce((acc, dossier) => {
+    const proceedings = mockCases.filter((c) => c.dossierId === dossier.id);
+    const dossierTasks = mockTasks.filter(
+      (task) =>
+        (task.parentType === "dossier" && task.dossierId === dossier.id) ||
+        (task.parentType === "case" &&
+          proceedings.some((p) => p.id === task.caseId))
+    );
+    const dossierSessions = mockSessions.filter(
+      (session) =>
+        session.dossierId === dossier.id ||
+        proceedings.some((p) => p.id === session.caseId)
+    );
+    const dossierMissions = missionsCache.filter(
+      (mission) =>
+        (mission.entityType === "dossier" && mission.entityId === dossier.id) ||
+        (mission.entityType === "case" &&
+          proceedings.some((p) => p.id === mission.entityId))
+    );
+    acc[dossier.id] = {
+      ...dossier,
+      proceedings,
+      tasks: dossierTasks,
+      sessions: dossierSessions,
+      missions: dossierMissions,
+    };
+    return acc;
+  }, {});
+
+  mockCasesExtended = mockCases.reduce((acc, caseItem) => {
+    acc[caseItem.id] = {
+      ...caseItem,
+      tasks: mockTasks.filter(
+        (task) => task.parentType === "case" && task.caseId === caseItem.id
+      ),
+      sessions: mockSessions.filter(
+        (session) => session.caseId === caseItem.id
+      ),
+      missions: missionsCache.filter(
+        (mission) =>
+          mission.entityType === "case" && mission.entityId === caseItem.id
+      ),
+    };
+    return acc;
+  }, {});
+
+  mockClientsExtended = mockClients.reduce((acc, client) => {
+    const clientDossiers = mockDossiers.filter((d) => d.clientId === client.id);
+    const clientCases = mockCases.filter((c) =>
+      clientDossiers.some((d) => d.id === c.dossierId)
+    );
+    acc[client.id] = {
+      ...client,
+      dossiers: clientDossiers,
+      proceedings: clientCases,
+    };
+    return acc;
+  }, {});
+
+  mockOfficersExtended = mockOfficers.reduce((acc, officer) => {
+    acc[officer.id] = {
+      ...officer,
+      missions: missionsCache.filter(
+        (mission) => mission.officerId === officer.id
+      ),
+    };
+    return acc;
+  }, {});
+};
 
 // ========================================
 // CORE RULE ENGINE
@@ -67,6 +153,9 @@ import { enrichBlockers } from "./blockerEnrichment";
  *                      changeDetails?: object }
  */
 export function canPerformAction(entityType, entityId, action, context = {}) {
+  // Refresh in-memory data snapshot from live entities
+  loadContextData(context);
+
   const validator = VALIDATORS[entityType];
 
   if (!validator) {
@@ -306,8 +395,8 @@ function detectDossierImpact(currentData, newData) {
 
     if (clientIdChanged) {
       // Get client names for better UX
-      const oldClient = mockClients.find((c) => c.id == currentData.clientId);
-      const newClient = mockClients.find((c) => c.id == newData.clientId);
+      const oldClient = [].find((c) => c.id == currentData.clientId);
+      const newClient = [].find((c) => c.id == newData.clientId);
 
       changes.push({
         type: "client_reassignment",
@@ -382,10 +471,8 @@ function detectCaseImpact(currentData, newData) {
 
     if (dossierIdChanged) {
       // Get dossier info for better UX
-      const oldDossier = mockDossiers.find(
-        (d) => d.id == currentData.dossierId
-      );
-      const newDossier = mockDossiers.find((d) => d.id == newData.dossierId);
+      const oldDossier = [].find((d) => d.id == currentData.dossierId);
+      const newDossier = [].find((d) => d.id == newData.dossierId);
 
       changes.push({
         type: "dossier_reassignment",
@@ -468,24 +555,24 @@ function detectTaskImpact(currentData, newData) {
   let newParentLabel = "Non assignée";
 
   if (currentData.parentType === "dossier" && currentData.dossierId) {
-    const dossier = mockDossiers.find((d) => d.id == currentData.dossierId);
+    const dossier = [].find((d) => d.id == currentData.dossierId);
     oldParentLabel = `Dossier ${dossier?.caseNumber || ""} - ${
       dossier?.title || ""
     }`;
   } else if (currentData.parentType === "case" && currentData.caseId) {
-    const caseData = mockCases.find((c) => c.id == currentData.caseId);
+    const caseData = [].find((c) => c.id == currentData.caseId);
     oldParentLabel = `Procès ${caseData?.caseNumber || ""} - ${
       caseData?.title || ""
     }`;
   }
 
   if (newData.parentType === "dossier" && newData.dossierId) {
-    const dossier = mockDossiers.find((d) => d.id == newData.dossierId);
+    const dossier = [].find((d) => d.id == newData.dossierId);
     newParentLabel = `Dossier ${dossier?.caseNumber || ""} - ${
       dossier?.title || ""
     }`;
   } else if (newData.parentType === "case" && newData.caseId) {
-    const caseData = mockCases.find((c) => c.id == newData.caseId);
+    const caseData = [].find((c) => c.id == newData.caseId);
     newParentLabel = `Procès ${caseData?.caseNumber || ""} - ${
       caseData?.title || ""
     }`;
@@ -539,24 +626,24 @@ function detectSessionImpact(currentData, newData) {
   let newParentLabel = "Non assignée";
 
   if (currentData.caseId) {
-    const caseData = mockCases.find((c) => c.id == currentData.caseId);
+    const caseData = [].find((c) => c.id == currentData.caseId);
     oldParentLabel = `Procès ${caseData?.caseNumber || ""} - ${
       caseData?.title || ""
     }`;
   } else if (currentData.dossierId) {
-    const dossier = mockDossiers.find((d) => d.id == currentData.dossierId);
+    const dossier = [].find((d) => d.id == currentData.dossierId);
     oldParentLabel = `Dossier ${dossier?.caseNumber || ""} - ${
       dossier?.title || ""
     }`;
   }
 
   if (newData.caseId) {
-    const caseData = mockCases.find((c) => c.id == newData.caseId);
+    const caseData = [].find((c) => c.id == newData.caseId);
     newParentLabel = `Procès ${caseData?.caseNumber || ""} - ${
       caseData?.title || ""
     }`;
   } else if (newData.dossierId) {
-    const dossier = mockDossiers.find((d) => d.id == newData.dossierId);
+    const dossier = [].find((d) => d.id == newData.dossierId);
     newParentLabel = `Dossier ${dossier?.caseNumber || ""} - ${
       dossier?.title || ""
     }`;
@@ -662,14 +749,24 @@ function validateDossierClose(dossierId, context = {}) {
   const blockers = [];
   const warnings = [];
 
-  // Fetch dossier data
-  const dossier = mockDossiersExtended[dossierId];
+  // Prefer live data from context (DetailView / Inline selectors), then fallback to store or mocks
+  const dossier =
+    context.data ||
+    context.currentData ||
+    (context.contextData?.dossiers || []).find((d) => d.id == dossierId) ||
+    mockDossiersExtended[dossierId] ||
+    mockDossiersExtended[Number(dossierId)] ||
+    [].find((d) => d.id == dossierId);
+
   if (!dossier) {
     return { allowed: false, blockers: ["Dossier introuvable"], warnings: [] };
   }
 
+  // Get tasks from context
+  const allTasks = context.contextData?.tasks || [];
+
   // Rule 1: Check for open tasks
-  const dossierTasks = mockTasks.filter(
+  const dossierTasks = allTasks.filter(
     (task) =>
       (task.parentType === "dossier" && task.dossierId === dossierId) ||
       (task.parentType === "case" &&
@@ -719,17 +816,36 @@ function validateDossierClose(dossierId, context = {}) {
   }
 
   // Rule 3: Check for unpaid client balance
-  const clientFinancials = getClientFinancials(dossier.clientId);
-  if (clientFinancials.balance < 0) {
-    blockers.push(
-      `Solde client impayé : ${Math.abs(clientFinancials.balance).toFixed(
-        2
-      )} TND`
-    );
+  const allFinancialEntries =
+    context.contextData?.financialEntries || financialLedger || [];
+  const clientEntries = allFinancialEntries.filter(
+    (entry) =>
+      entry.clientId === dossier.clientId &&
+      entry.status !== "cancelled" &&
+      entry.status !== "Annulé"
+  );
+
+  let totalInvoiced = 0;
+  let totalPaid = 0;
+
+  clientEntries.forEach((entry) => {
+    const amount = entry.amount || 0;
+    if (entry.type === "revenue" || entry.type === "income") {
+      if (entry.status === "paid" || entry.status === "Payé") {
+        totalPaid += amount;
+      } else {
+        totalInvoiced += amount;
+      }
+    }
+  });
+
+  const balance = totalPaid - totalInvoiced;
+  if (balance < 0) {
+    blockers.push(`Solde client impayé : ${Math.abs(balance).toFixed(2)} TND`);
   }
 
   // Rule 4: Check for active Huissier missions
-  const allMissions = getAllMissions();
+  const allMissions = context.contextData?.missions || missionsCache || [];
   const dossierMissions = allMissions.filter(
     (mission) =>
       mission.entityType === "dossier" &&
@@ -783,7 +899,12 @@ function validateDossierDelete(dossierId, context = {}) {
   const blockers = [];
   const warnings = [];
 
-  const dossier = mockDossiersExtended[dossierId];
+  const dossiers = context.dossiers || context.entities?.dossiers || [];
+  const tasks = context.tasks || context.entities?.tasks || [];
+  const financialEntries =
+    context.financialEntries || context.entities?.financialEntries || [];
+
+  const dossier = dossiers.find((d) => String(d.id) === String(dossierId));
   if (!dossier) {
     // Allow deletion if dossier is already missing (e.g., local-only app, already deleted)
     return { allowed: true, blockers: [], warnings: [] };
@@ -797,7 +918,7 @@ function validateDossierDelete(dossierId, context = {}) {
   }
 
   // Check for related Tasks
-  const dossierTasks = mockTasks.filter(
+  const dossierTasks = tasks.filter(
     (task) => task.parentType === "dossier" && task.dossierId === dossierId
   );
 
@@ -810,7 +931,7 @@ function validateDossierDelete(dossierId, context = {}) {
   }
 
   // Check for financial entries
-  const dossierFinancials = financialLedger.filter(
+  const dossierFinancials = financialEntries.filter(
     (entry) => entry.dossierId === dossierId && entry.status !== "cancelled"
   );
 
@@ -870,6 +991,10 @@ function validateCaseAdd(caseId, context = {}) {
   // Check if parent dossier is closed
   const dossier = mockDossiersExtended[dossierId];
   if (!dossier) {
+    // If no dossiers are loaded, don't block (data might not be loaded yet)
+    if (mockDossiers.length === 0) {
+      return { allowed: true, blockers: [], warnings: [] };
+    }
     return {
       allowed: false,
       blockers: ["Dossier parent introuvable"],
@@ -907,9 +1032,7 @@ function validateCaseClose(caseId, context = {}) {
   }
 
   // Rule 1: Check for upcoming or incomplete Séances
-  const caseSessions = mockSessions.filter(
-    (session) => session.caseId === caseId
-  );
+  const caseSessions = [].filter((session) => session.caseId === caseId);
 
   const today = new Date();
   const upcomingSessions = caseSessions.filter((session) => {
@@ -939,7 +1062,7 @@ function validateCaseClose(caseId, context = {}) {
   }
 
   // Rule 2: Check for open tasks
-  const caseTasks = mockTasks.filter(
+  const caseTasks = [].filter(
     (task) => task.parentType === "case" && task.caseId === caseId
   );
 
@@ -1010,9 +1133,7 @@ function validateCaseDelete(caseId, context = {}) {
   }
 
   // Check for related Séances
-  const caseSessions = mockSessions.filter(
-    (session) => session.caseId === caseId
-  );
+  const caseSessions = [].filter((session) => session.caseId === caseId);
 
   if (caseSessions.length > 0) {
     blockers.push(
@@ -1023,7 +1144,7 @@ function validateCaseDelete(caseId, context = {}) {
   }
 
   // Check for related Tasks
-  const caseTasks = mockTasks.filter(
+  const caseTasks = [].filter(
     (task) => task.parentType === "case" && task.caseId === caseId
   );
 
@@ -1075,7 +1196,7 @@ function validateClientArchive(clientId, context = {}) {
     (context.contextData?.clients || []).find((c) => c.id == clientId) ||
     mockClientsExtended[clientId] ||
     mockClientsExtended[Number(clientId)] ||
-    mockClients.find((c) => c.id == clientId);
+    [].find((c) => c.id == clientId);
 
   if (!client) {
     return { allowed: false, blockers: ["Client introuvable"], warnings: [] };
@@ -1217,15 +1338,17 @@ function validateTaskAdd(taskId, context = {}) {
 
   // Check parent based on type
   if (parentType === "dossier" && dossierId) {
-    const dossier =
-      mockDossiersExtended[dossierId] ||
-      mockDossiers.find((d) => d.id == dossierId) ||
-      context?.data?.dossier;
+    const dossier = mockDossiersExtended[dossierId];
     if (!dossier) {
-      warnings.push("Dossier parent non résolu (vérifiez après enregistrement).");
+      warnings.push(
+        "Dossier parent non résolu (vérifiez après enregistrement)."
+      );
     }
 
-    if (dossier && (dossier.status === "Fermé" || dossier.status === "Archivé")) {
+    if (
+      dossier &&
+      (dossier.status === "Fermé" || dossier.status === "Archivé")
+    ) {
       blockers.push(
         `Impossible de créer une tâche sous un dossier ${dossier.status.toLowerCase()}`,
         `Dossier: ${dossier.caseNumber} - ${dossier.title}`,
@@ -1233,15 +1356,17 @@ function validateTaskAdd(taskId, context = {}) {
       );
     }
   } else if (parentType === "case" && caseId) {
-    const caseData =
-      mockCasesExtended[caseId] ||
-      mockCases.find((c) => c.id == caseId) ||
-      context?.data?.case;
+    const caseData = mockCasesExtended[caseId];
     if (!caseData) {
-      warnings.push("Procès parent non résolu (vérifiez après enregistrement).");
+      warnings.push(
+        "Procès parent non résolu (vérifiez après enregistrement)."
+      );
     }
 
-    if (caseData && (caseData.status === "Clos" || caseData.status === "Terminé")) {
+    if (
+      caseData &&
+      (caseData.status === "Clos" || caseData.status === "Terminé")
+    ) {
       blockers.push(
         `Impossible de créer une tâche sous un procès ${caseData.status.toLowerCase()}`,
         `Procès: ${caseData.caseNumber} - ${caseData.title}`,
@@ -1266,7 +1391,7 @@ function validateTaskEdit(taskId, context = {}) {
   const warnings = [];
 
   // ✅ Use provided task data if available, otherwise look it up
-  const task = context.data || mockTasks.find((t) => t.id === taskId);
+  const task = context.data || [].find((t) => t.id === taskId);
   if (!task) {
     return { allowed: false, blockers: ["Tâche introuvable"], warnings: [] };
   }
@@ -1332,16 +1457,18 @@ function validateSessionAdd(sessionId, context = {}) {
 
   // Check based on link type
   if (linkType === "dossier" && dossierId) {
-    const dossier =
-      mockDossiersExtended[dossierId] ||
-      mockDossiers.find((d) => d.id == dossierId) ||
-      context?.data?.dossier;
+    const dossier = mockDossiersExtended[dossierId];
     if (!dossier) {
       // Allow submit to avoid blocking on newly created/unsynced dossier ids
-      warnings.push("Dossier parent non résolu (vérifiez après enregistrement).");
+      warnings.push(
+        "Dossier parent non résolu (vérifiez après enregistrement)."
+      );
     }
 
-    if (dossier && (dossier.status === "Fermé" || dossier.status === "Archivé")) {
+    if (
+      dossier &&
+      (dossier.status === "Fermé" || dossier.status === "Archivé")
+    ) {
       blockers.push(
         `Impossible de créer une séance sous un dossier ${dossier.status.toLowerCase()}`,
         `Dossier: ${dossier.caseNumber} - ${dossier.title}`,
@@ -1349,15 +1476,17 @@ function validateSessionAdd(sessionId, context = {}) {
       );
     }
   } else if (linkType === "case" && caseId) {
-    const caseData =
-      mockCasesExtended[caseId] ||
-      mockCases.find((c) => c.id == caseId) ||
-      context?.data?.case;
+    const caseData = mockCasesExtended[caseId];
     if (!caseData) {
-      warnings.push("Procès parent non résolu (vérifiez après enregistrement).");
+      warnings.push(
+        "Procès parent non résolu (vérifiez après enregistrement)."
+      );
     }
 
-    if (caseData && (caseData.status === "Clos" || caseData.status === "Terminé")) {
+    if (
+      caseData &&
+      (caseData.status === "Clos" || caseData.status === "Terminé")
+    ) {
       blockers.push(
         `Impossible de créer une séance sous un procès ${caseData.status.toLowerCase()}`,
         `Procès: ${caseData.caseNumber} - ${caseData.title}`,
@@ -1382,7 +1511,7 @@ function validateSessionEdit(sessionId, context = {}) {
   const warnings = [];
 
   // ✅ Use provided session data if available, otherwise look it up
-  const session = context.data || mockSessions.find((s) => s.id === sessionId);
+  const session = context.data || [].find((s) => s.id === sessionId);
   if (!session) {
     return { allowed: false, blockers: ["Séance introuvable"], warnings: [] };
   }
@@ -1507,7 +1636,7 @@ function validateMissionEdit(missionId, context = {}) {
   // Check parent entity based on entityType
   if (mission.entityType === "dossier") {
     // Find dossier by caseNumber (entityReference)
-    const dossier = Object.values(mockDossiersExtended).find(
+    const dossier = Object.values(null).find(
       (d) => d.caseNumber === mission.entityReference
     );
 
@@ -1520,7 +1649,7 @@ function validateMissionEdit(missionId, context = {}) {
     }
   } else if (mission.entityType === "case") {
     // Find case by caseNumber (entityReference)
-    const caseData = Object.values(mockCasesExtended).find(
+    const caseData = Object.values(null).find(
       (c) => c.caseNumber === mission.entityReference
     );
 
@@ -1608,7 +1737,9 @@ function validateFinancialEntryEdit(entryId, context = {}) {
   const blockers = [];
   const warnings = [];
 
-  const entry = financialLedger.find((e) => e.id === normalizeFinancialEntryId(entryId));
+  const entry = financialLedger.find(
+    (e) => e.id === normalizeFinancialEntryId(entryId)
+  );
   if (!entry) {
     return {
       allowed: false,
@@ -1661,7 +1792,9 @@ function validateFinancialEntryDelete(entryId, context = {}) {
   const blockers = [];
   const warnings = [];
 
-  const entry = financialLedger.find((e) => e.id === normalizeFinancialEntryId(entryId));
+  const entry = financialLedger.find(
+    (e) => e.id === normalizeFinancialEntryId(entryId)
+  );
   if (!entry) {
     return {
       allowed: false,
@@ -1699,7 +1832,9 @@ function validateFinancialEntryStatusChange(entryId, context = {}) {
   const blockers = [];
   const warnings = [];
 
-  const entry = financialLedger.find((e) => e.id === normalizeFinancialEntryId(entryId));
+  const entry = financialLedger.find(
+    (e) => e.id === normalizeFinancialEntryId(entryId)
+  );
   if (!entry) {
     return {
       allowed: false,

@@ -55,6 +55,7 @@ export default function FormModal({
   entityType = null, // Entity type for validation (e.g., 'dossier', 'case', 'task')
   entityId = null, // Entity ID for edit mode validation
   editingEntity = null, // Current entity data for edit mode
+  entities = null, // Entities data for domain rule validation { clients, dossiers, cases, etc. }
 }) {
   const [internalFormData, setInternalFormData] = useState({});
   const [errors, setErrors] = useState({});
@@ -272,8 +273,8 @@ export default function FormModal({
       const isEditMode = editingEntity && entityId;
       const action = isEditMode ? 'edit' : 'add';
       const context = isEditMode
-        ? { data: editingEntity, newData: formData }
-        : { data: formData, newData: formData };
+        ? { data: editingEntity, newData: formData, entities }
+        : { data: formData, newData: formData, entities };
 
       const result = canPerformAction(entityType, isEditMode ? entityId : null, action, context);
 
@@ -326,7 +327,8 @@ export default function FormModal({
       const notificationCheck = shouldPromptClientNotification(
         entityType,
         action,
-        context
+        context,
+        entities
       );
 
       if (notificationCheck?.shouldPrompt) {

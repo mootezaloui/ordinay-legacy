@@ -4,7 +4,6 @@ import { useToast } from "../../../contexts/ToastContext";
 import { useConfirm } from "../../../contexts/ConfirmContext";
 import ContentSection from "../../layout/ContentSection";
 import FormModal from "../../FormModal/FormModal";
-import { getStatusColor } from "../../../utils/mockData";
 import { resolveDetailRoute } from "../../../utils/routeResolver";
 
 /**

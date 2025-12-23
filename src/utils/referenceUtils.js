@@ -20,7 +20,6 @@
  * const isValid = isReferenceUnique('dossier', 'DOS-2025-001', currentId);
  */
 
-import { mockDossiers, mockCases, getAllMissions } from "./mockData";
 
 /**
  * Reference format definitions
@@ -51,12 +50,12 @@ const REFERENCE_FORMATS = {
 function getExistingReferences(entityType) {
   switch (entityType) {
     case "dossier":
-      return mockDossiers.map((d) => ({
+      return [].map((d) => ({
         id: d.id,
         reference: d.caseNumber || d.reference,
       }));
     case "case":
-      return mockCases.map((c) => ({
+      return [].map((c) => ({
         id: c.id,
         reference: c.caseNumber || c.reference,
       }));

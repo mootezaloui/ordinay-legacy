@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import ContentSection from "../../layout/ContentSection";
-import { mockDossiersExtended, mockClients, getStatusColor, mockCases, mockSessions, mockTasks, mockOfficers } from "../../../utils/mockData";
+import { getStatusColor } from "./statusColors";
 import { taskFormFields, caseFormFields, sessionFormFields, missionFormFields, getPhaseOptions, addCustomPhase } from "../../FormModal/formConfigs";
 
 /**
@@ -28,9 +28,9 @@ export const dossierConfig = {
       console.log('[dossierConfig] Using contextData.dossiers');
       dossier = contextData.dossiers.find(d => d.id === numericId);
     } else {
-      // Fallback to mockDossiersExtended (static data)
-      console.log('[dossierConfig] mockDossiersExtended keys:', Object.keys(mockDossiersExtended));
-      dossier = mockDossiersExtended[numericId];
+      // Fallback to null (static data)
+      console.log('[dossierConfig] null keys:', Object.keys(null));
+      dossier = null[numericId];
     }
     console.log('[dossierConfig] Found dossier:', dossier);
     if (!dossier) return null;
@@ -40,8 +40,8 @@ export const dossierConfig = {
     }
 
     // ✅ Compute aggregated related entities from contextData if available
-    const sessions = contextData?.sessions || mockSessions;
-    const tasks = contextData?.tasks || mockTasks;
+    const sessions = contextData?.sessions || [];
+    const tasks = contextData?.tasks || [];
     const cases = contextData?.cases || [];
 
     // Always derive proceedings from the live cases list to stay in sync with deletions
@@ -57,7 +57,7 @@ export const dossierConfig = {
     );
 
     // ✅ Always resolve client from clientId using latest context data
-    const clients = contextData?.clients || mockClients;
+    const clients = contextData?.clients || [];
     let client = null;
     if (dossier.clientId) {
       const foundClient = clients.find(c => c.id === parseInt(dossier.clientId));
@@ -83,75 +83,24 @@ export const dossierConfig = {
   updateData: async (id, data, contextData = null) => {
     const numericId = parseInt(id);
 
-    if (contextData?.updateDossier) {
-      // Use DataContext to update (this persists to localStorage)
-      contextData.updateDossier(numericId, data);
-    } else {
-      // Fallback to updating mockDossiersExtended
-      if (mockDossiersExtended[numericId]) {
-        const enrichedData = { ...data };
-
-        // ✅ Update client object when clientId changes
-        if ('clientId' in data) {
-          const client = mockClients.find(c => c.id === parseInt(data.clientId));
-          if (client) {
-            enrichedData.client = {
-              id: client.id,
-              name: client.name,
-              email: client.email,
-              phone: client.phone
-            };
-          }
-        }
-
-        // ✅ Sync sessions with global mockSessions array
-        if ('sessions' in data) {
-          data.sessions.forEach(session => {
-            const existingIndex = mockSessions.findIndex(s => s.id === session.id);
-            if (existingIndex === -1) {
-              // New session - add to global array
-              mockSessions.push(session);
-            } else {
-              // Existing session - update it
-              mockSessions[existingIndex] = session;
-            }
-          });
-        }
-
-        // ✅ Sync tasks with global mockTasks array
-        if ('tasks' in data) {
-          data.tasks.forEach(task => {
-            const existingIndex = mockTasks.findIndex(t => t.id === task.id);
-            if (existingIndex === -1) {
-              // New task - add to global array
-              mockTasks.push(task);
-            } else {
-              // Existing task - update it
-              mockTasks[existingIndex] = task;
-            }
-          });
-        }
-
-        // ✅ Sync proceedings (cases) with global mockCases array
-        if ('proceedings' in data) {
-          data.proceedings.forEach(cas => {
-            const existingIndex = mockCases.findIndex(c => c.id === cas.id);
-            if (existingIndex === -1) {
-              // New case - add to global array
-              mockCases.push(cas);
-            } else {
-              // Existing case - update it
-              mockCases[existingIndex] = cas;
-            }
-          });
-        }
-
-        mockDossiersExtended[numericId] = {
-          ...mockDossiersExtended[numericId],
-          ...enrichedData,
-        };
+    // Filter out relationship fields - dossier entity should only contain dossier-specific data
+    const dossierFields = [
+      'caseNumber', 'title', 'clientId', 'category', 'priority', 'phase',
+      'openDate', 'nextDeadline', 'description', 'status'
+    ];
+    const dossierData = Object.keys(data).reduce((acc, key) => {
+      if (dossierFields.includes(key)) {
+        acc[key] = data[key];
       }
+      return acc;
+    }, {});
+
+    // Only update if there are actual dossier fields to update
+    if (Object.keys(dossierData).length > 0 && contextData?.updateDossier) {
+      // Use DataContext to update (this persists to localStorage)
+      contextData.updateDossier(numericId, dossierData);
     }
+    // If no dossier fields to update, skip the update (this happens when only relationship fields change)
     await new Promise(resolve => setTimeout(resolve, 500));
   },
 
@@ -514,7 +463,7 @@ export const dossierConfig = {
           } else if (field.name === 'officerId') {
             return {
               ...field,
-              options: mockOfficers.map(officer => ({
+              options: [].map(officer => ({
                 value: officer.id,
                 label: officer.name
               })),
@@ -583,18 +532,22 @@ export const dossierConfig = {
             const clientId = data.clientId || data.client?.id;
             return clientId;
           },
-          displayValue: (data) => {
+          displayValue: (data, contextData) => {
             const clientId = data.clientId || data.client?.id;
-            const client = mockClients.find(c => c.id == clientId);
+            const clients = contextData?.clients || [];
+            const client = clients.find(c => c.id == clientId);
             return client ? client.name : "Client inconnu";
           },
           icon: "fas fa-user",
           type: "searchable-select",
           editable: true,
-          getOptions: () => mockClients.map(client => ({
-            value: client.id,
-            label: client.name
-          })),
+          getOptions: (formData, contextData) => {
+            const clients = contextData?.clients || [];
+            return clients.map(client => ({
+              value: client.id,
+              label: client.name
+            }));
+          },
           helpText: "Attention: Changer le client transférera le dossier vers un autre client"
         },
         {

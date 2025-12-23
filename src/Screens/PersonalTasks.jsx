@@ -17,8 +17,8 @@ import TableActions, { IconButton } from "../components/table/TableActions";
 import TableToolbar from "../components/table/TableToolbar";
 import Pagination from "../components/table/Pagination";
 import FormModal from "../components/FormModal/FormModal";
-import { getStatusColor, mockPersonalTasks } from "../utils/mockData";
 import { resolveDetailRoute } from "../utils/routeResolver";
+import { getStatusColor } from "../components/DetailView/config/statusColors";
 import { logEntityCreation } from "../services/historyService";
 
 // Global state to track which dropdown is currently open
@@ -42,11 +42,11 @@ function StatusDropdown({ task, onStatusChange }) {
   const [menuPosition, setMenuPosition] = useState(null); // null until computed to avoid flash at (0,0)
 
   const statusOptions = [
-    { value: "Non commencée", label: "Non commencée", icon: "fas fa-circle", color: "text-slate-500" },
+    { value: "Non commencee", label: "Non commencée", icon: "fas fa-circle", color: "text-slate-500" },
     { value: "En attente", label: "En attente", icon: "fas fa-pause-circle", color: "text-amber-600" },
     { value: "En cours", label: "En cours", icon: "fas fa-spinner", color: "text-blue-600" },
-    { value: "Planifiée", label: "Planifiée", icon: "fas fa-calendar-check", color: "text-purple-600" },
-    { value: "Terminée", label: "Terminée", icon: "fas fa-check-circle", color: "text-green-600" },
+    { value: "Planifiee", label: "Planifiée", icon: "fas fa-calendar-check", color: "text-purple-600" },
+    { value: "Terminee", label: "Terminée", icon: "fas fa-check-circle", color: "text-green-600" },
   ];
 
   const currentStatus = statusOptions.find(s => s.value === task.status) || statusOptions[0];
@@ -470,7 +470,7 @@ export default function PersonalTasks() {
       locked: true,
       render: (task) => (
         <div className="flex items-center gap-3">
-          <span className={`font-medium ${task.status === "Terminée" ? "line-through text-slate-500 dark:text-slate-400" : "text-slate-900 dark:text-white"}`}>
+          <span className={`font-medium ${task.status === "Terminee" ? "line-through text-slate-500 dark:text-slate-400" : "text-slate-900 dark:text-white"}`}>
             {task.title}
           </span>
         </div>
@@ -492,9 +492,13 @@ export default function PersonalTasks() {
       label: "Date limite",
       sortable: true,
       render: (task) => {
+        if (task.dueDate === null) {
+          return <span className="text-sm text-slate-500 dark:text-slate-400">N/A</span>;
+        }
+
         const today = new Date();
         const dueDate = new Date(task.dueDate);
-        const isOverdue = dueDate < today && task.status !== "Terminée";
+        const isOverdue = dueDate < today && task.status !== "Terminee";
         const isDueSoon = (dueDate - today) / (1000 * 60 * 60 * 24) <= 3 && dueDate >= today;
 
         return (
@@ -717,11 +721,11 @@ export default function PersonalTasks() {
       required: true,
       defaultValue: "En attente",
       options: [
-        { value: "Non commencée", label: "Non commencée" },
+        { value: "Non commencee", label: "Non commencée" },
         { value: "En attente", label: "En attente" },
         { value: "En cours", label: "En cours" },
-        { value: "Planifiée", label: "Planifiée" },
-        { value: "Terminée", label: "Terminée" },
+        { value: "Planifiee", label: "Planifiée" },
+        { value: "Terminee", label: "Terminée" },
       ]
     },
     {
@@ -752,11 +756,11 @@ export default function PersonalTasks() {
   // Calculate stats
   const stats = {
     total: tasks.length,
-    completed: tasks.filter(t => t.status === "Terminée").length,
-    pending: tasks.filter(t => t.status !== "Terminée").length,
+    completed: tasks.filter(t => t.status === "Terminee").length,
+    pending: tasks.filter(t => t.status !== "Terminee").length,
     overdue: tasks.filter(t => {
       const dueDate = new Date(t.dueDate);
-      return dueDate < new Date() && t.status !== "Terminée";
+      return dueDate < new Date() && t.status !== "Terminee";
     }).length,
   };
 

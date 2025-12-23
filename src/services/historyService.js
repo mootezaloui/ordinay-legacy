@@ -1,7 +1,7 @@
 /**
  * History / Audit Trail Service
  *
- * Frontend-only, append-only event logging system.
+ * Backend-integrated event logging system.
  * Tracks lifecycle events, status changes, and important actions across all entities.
  *
  * Event Types:
@@ -12,31 +12,7 @@
  * - system: confirmations de règles, blocages résolus
  */
 
-// In-memory storage with localStorage persistence
-// Structure: { entityType: { entityId: [events...] } }
-const HISTORY_STORAGE_KEY = "lawyer-app:history";
-
-const loadHistoryStore = () => {
-  if (typeof window === "undefined") return {};
-  try {
-    const stored = window.localStorage.getItem(HISTORY_STORAGE_KEY);
-    return stored ? JSON.parse(stored) : {};
-  } catch (error) {
-    console.warn("[historyService] Failed to load history from storage", error);
-    return {};
-  }
-};
-
-const persistHistoryStore = (store) => {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(store));
-  } catch (error) {
-    console.warn("[historyService] Failed to persist history to storage", error);
-  }
-};
-
-const historyStore = loadHistoryStore();
+import { apiClient } from "./api/client";
 
 /**
  * Event type constants
@@ -51,22 +27,33 @@ export const EVENT_TYPES = {
 };
 
 /**
- * Initialize history for an entity type if not exists
+ * Map backend event data to frontend format
  */
-const initEntityType = (entityType) => {
-  if (!historyStore[entityType]) {
-    historyStore[entityType] = {};
+const mapBackendEventToFrontend = (event) => {
+  let metadata = {};
+  if (event.changed_fields) {
+    try {
+      metadata =
+        typeof event.changed_fields === "string"
+          ? JSON.parse(event.changed_fields)
+          : event.changed_fields;
+    } catch (err) {
+      console.warn(
+        "[historyService] Failed to parse changed_fields",
+        event.changed_fields
+      );
+      metadata = {};
+    }
   }
-};
 
-/**
- * Initialize history for a specific entity if not exists
- */
-const initEntity = (entityType, entityId) => {
-  initEntityType(entityType);
-  if (!historyStore[entityType][entityId]) {
-    historyStore[entityType][entityId] = [];
-  }
+  return {
+    id: event.id,
+    timestamp: event.created_at,
+    eventType: event.action || EVENT_TYPES.LIFECYCLE,
+    label: event.description || event.action,
+    details: event.description,
+    metadata,
+  };
 };
 
 /**
@@ -79,9 +66,9 @@ const initEntity = (entityType, entityId) => {
  * @param {string} params.label - Short human-readable title (in French)
  * @param {string} [params.details] - Optional description
  * @param {Object} [params.metadata] - Optional metadata (old/new values, related entities)
- * @returns {Object} The created history entry
+ * @returns {Promise<Object>} The created history entry
  */
-export const logHistoryEvent = ({
+export const logHistoryEvent = async ({
   entityType,
   entityId,
   eventType,
@@ -96,23 +83,20 @@ export const logHistoryEvent = ({
     return null;
   }
 
-  initEntity(entityType, entityId);
+  try {
+    const backendEvent = await apiClient.post("/history", {
+      entity_type: entityType,
+      entity_id: entityId,
+      action: eventType,
+      description: details || label,
+      changed_fields: Object.keys(metadata).length > 0 ? metadata : null,
+    });
 
-  const historyEntry = {
-    id: `${entityType}-${entityId}-${Date.now()}-${Math.random()
-      .toString(36)
-      .substr(2, 9)}`,
-    timestamp: new Date().toISOString(),
-    eventType,
-    label,
-    details,
-    metadata,
-  };
-
-  historyStore[entityType][entityId].push(historyEntry);
-  persistHistoryStore(historyStore);
-
-  return historyEntry;
+    return mapBackendEventToFrontend(backendEvent);
+  } catch (error) {
+    console.error("[historyService] Failed to log history event", error);
+    return null;
+  }
 };
 
 /**
@@ -120,15 +104,23 @@ export const logHistoryEvent = ({
  *
  * @param {string} entityType - Type of entity
  * @param {number|string} entityId - Entity ID
- * @returns {Array} Array of history entries, newest first
+ * @returns {Promise<Array>} Array of history entries, newest first
  */
-export const getEntityHistory = (entityType, entityId) => {
-  initEntity(entityType, entityId);
+export const getEntityHistory = async (entityType, entityId) => {
+  try {
+    const events = await apiClient.get(`/history?entity_type=${entityType}&entity_id=${entityId}`);
 
-  // Return a copy, sorted newest first
-  return [...historyStore[entityType][entityId]].sort(
-    (a, b) => new Date(b.timestamp) - new Date(a.timestamp)
-  );
+    // Map backend events to frontend format
+    const mappedEvents = events.map(mapBackendEventToFrontend);
+
+    // Return sorted newest first
+    return mappedEvents.sort(
+      (a, b) => new Date(b.timestamp) - new Date(a.timestamp)
+    );
+  } catch (error) {
+    console.error("[historyService] Failed to fetch history", error);
+    return [];
+  }
 };
 
 /**
@@ -137,11 +129,9 @@ export const getEntityHistory = (entityType, entityId) => {
  * @param {string} entityType
  * @param {number|string} entityId
  */
-export const clearEntityHistory = (entityType, entityId) => {
-  if (historyStore[entityType] && historyStore[entityType][entityId]) {
-    historyStore[entityType][entityId] = [];
-    persistHistoryStore(historyStore);
-  }
+export const clearEntityHistory = async (entityType, entityId) => {
+  console.warn("[historyService] clearEntityHistory is deprecated - history is managed by backend");
+  // No-op: history is now managed by the backend
 };
 
 /**
@@ -300,8 +290,14 @@ export const logRelationalImpact = (
 /**
  * Get all history entries across all entities (for debugging)
  */
-export const getAllHistory = () => {
-  return historyStore;
+export const getAllHistory = async () => {
+  try {
+    const events = await apiClient.get("/history");
+    return events.map(mapBackendEventToFrontend);
+  } catch (error) {
+    console.error("[historyService] Failed to fetch all history", error);
+    return [];
+  }
 };
 
 export default {

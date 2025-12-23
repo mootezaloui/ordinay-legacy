@@ -1,7 +1,6 @@
 import { useState } from "react";
 import ContentSection from "../../layout/ContentSection";
 import SearchableSelect from "../../FormModal/SearchableSelect";
-import { mockDossiers, mockCases, mockClients } from "../../../utils/mockData";
 import BlockerModal from "../../ui/BlockerModal";
 import ConfirmImpactModal from "../../ui/ConfirmImpactModal";
 import { canPerformAction } from "../../../services/domainRules";
@@ -10,7 +9,7 @@ import { canPerformAction } from "../../../services/domainRules";
  * Overview Tab - Displays general information
  * ✅ UPDATED: Supports both inline quick actions and structured edit sections
  */
-export default function OverviewTab({ data, config, isEditing, onDataChange, onSectionSave, entityType, entityId }) {
+export default function OverviewTab({ data, config, isEditing, onDataChange, onSectionSave, entityType, entityId, contextData = {} }) {
   if (!config.overviewSections) {
     return (
       <div className="p-6 text-center text-slate-600 dark:text-slate-400">
@@ -34,6 +33,7 @@ export default function OverviewTab({ data, config, isEditing, onDataChange, onS
               onSave={onSectionSave}
               entityType={entityType}
               entityId={entityId}
+              contextData={contextData}
             />
           );
         }
@@ -46,6 +46,7 @@ export default function OverviewTab({ data, config, isEditing, onDataChange, onS
             data={data}
             isEditing={isEditing}
             onDataChange={onDataChange}
+            contextData={contextData}
           />
         );
       })}
@@ -56,7 +57,7 @@ export default function OverviewTab({ data, config, isEditing, onDataChange, onS
 /**
  * Structured Edit Section - Explicit Edit/Save buttons
  */
-function StructuredEditSection({ section, data, onSave, entityType, entityId }) {
+function StructuredEditSection({ section, data, onSave, entityType, entityId, contextData = {} }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedData, setEditedData] = useState({});
   const [isSaving, setIsSaving] = useState(false);
@@ -184,7 +185,7 @@ function StructuredEditSection({ section, data, onSave, entityType, entityId }) 
 
     // ✅ Handle dossierId change - clear dependent case and update client (for financial entries)
     if (fieldKey === "dossierId") {
-      const selectedDossier = mockDossiers.find(d => d.id === parseInt(value));
+      const selectedDossier = [].find(d => d.id === parseInt(value));
       if (selectedDossier) {
         newData.dossier = {
           id: selectedDossier.id,
@@ -195,7 +196,7 @@ function StructuredEditSection({ section, data, onSave, entityType, entityId }) 
         // Auto-fill client if not already set
         if (!newData.clientId) {
           newData.clientId = selectedDossier.clientId;
-          const client = mockClients.find(c => c.id === selectedDossier.clientId);
+          const client = [].find(c => c.id === selectedDossier.clientId);
           if (client) {
             newData.clientName = client.name;
           }
@@ -208,7 +209,7 @@ function StructuredEditSection({ section, data, onSave, entityType, entityId }) 
 
     // ✅ Update the full case object when caseId changes (for all entities)
     if (fieldKey === "caseId") {
-      const selectedCase = mockCases.find(c => c.id === parseInt(value));
+      const selectedCase = [].find(c => c.id === parseInt(value));
       if (selectedCase) {
         newData.case = {
           id: selectedCase.id,
@@ -219,12 +220,12 @@ function StructuredEditSection({ section, data, onSave, entityType, entityId }) 
         // Auto-fill dossier and client if not already set
         if (!newData.dossierId && selectedCase.dossierId) {
           newData.dossierId = selectedCase.dossierId;
-          const dossier = mockDossiers.find(d => d.id === selectedCase.dossierId);
+          const dossier = [].find(d => d.id === selectedCase.dossierId);
           if (dossier) {
             newData.dossierReference = dossier.caseNumber;
             if (!newData.clientId) {
               newData.clientId = dossier.clientId;
-              const client = mockClients.find(c => c.id === dossier.clientId);
+              const client = [].find(c => c.id === dossier.clientId);
               if (client) {
                 newData.clientName = client.name;
               }
@@ -391,7 +392,7 @@ function StructuredEditSection({ section, data, onSave, entityType, entityId }) 
                     {(fieldType === 'select' || fieldType === 'searchable-select') && (field.options || field.getOptions) && (() => {
                       // ✅ Support dynamic options based on current edited data
                       const fieldOptions = typeof field.getOptions === 'function'
-                        ? field.getOptions(editedData)
+                        ? field.getOptions(editedData, contextData)
                         : field.options;
 
                       const useSearchable = fieldType === 'searchable-select' || fieldOptions.length > 10;
@@ -455,7 +456,7 @@ function StructuredEditSection({ section, data, onSave, entityType, entityId }) 
                   <div className="flex-1">
                     <p className="text-xs text-slate-500 dark:text-slate-400">{field.label}</p>
                     <p className="text-sm text-slate-900 dark:text-white font-medium">
-                      {field.displayValue ? (typeof field.displayValue === 'function' ? field.displayValue(data) : field.displayValue) : value || <span className="text-slate-400 dark:text-slate-600">N/A</span>}
+                      {field.displayValue ? (typeof field.displayValue === 'function' ? field.displayValue(data, contextData) : field.displayValue) : value || <span className="text-slate-400 dark:text-slate-600">N/A</span>}
                     </p>
                   </div>
                 </div>
@@ -492,7 +493,7 @@ function StructuredEditSection({ section, data, onSave, entityType, entityId }) 
 /**
  * Regular Section - No explicit edit mode (for backwards compatibility)
  */
-function RegularSection({ section, data, isEditing, onDataChange }) {
+function RegularSection({ section, data, isEditing, onDataChange, contextData = {} }) {
   const [editedData, setEditedData] = useState(data);
 
   const handleFieldChange = (fieldKey, value) => {
@@ -508,7 +509,7 @@ function RegularSection({ section, data, isEditing, onDataChange }) {
     }
 
     if (fieldKey === "dossierId") {
-      const selectedDossier = mockDossiers.find(d => d.id === parseInt(value));
+      const selectedDossier = [].find(d => d.id === parseInt(value));
       if (selectedDossier) {
         newData.dossier = {
           id: selectedDossier.id,
@@ -519,7 +520,7 @@ function RegularSection({ section, data, isEditing, onDataChange }) {
     }
 
     if (fieldKey === "caseId") {
-      const selectedCase = mockCases.find(c => c.id === parseInt(value));
+      const selectedCase = [].find(c => c.id === parseInt(value));
       if (selectedCase) {
         newData.case = {
           id: selectedCase.id,
@@ -682,7 +683,7 @@ function RegularSection({ section, data, isEditing, onDataChange }) {
                   <div className="flex-1">
                     <p className="text-xs text-slate-500 dark:text-slate-400">{field.label}</p>
                     <p className="text-sm text-slate-900 dark:text-white font-medium">
-                      {field.displayValue ? (typeof field.displayValue === 'function' ? field.displayValue(data) : field.displayValue) : value || <span className="text-slate-400 dark:text-slate-600">N/A</span>}
+                      {field.displayValue ? (typeof field.displayValue === 'function' ? field.displayValue(data, contextData) : field.displayValue) : value || <span className="text-slate-400 dark:text-slate-600">N/A</span>}
                     </p>
                   </div>
                 </div>

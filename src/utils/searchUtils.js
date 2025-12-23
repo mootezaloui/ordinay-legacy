@@ -1,46 +1,41 @@
 /**
- * searchUtils.js
- * Utility functions for global search across all entities
+ * Global search utilities.
+ * All data must be provided explicitly (no mock or in-memory fallbacks).
  */
-
-import {
-  mockClients,
-  mockDossiers,
-  mockTasks,
-  mockCases,
-  mockSessions,
-  mockOfficers,
-  mockAccounting,
-} from "./mockData";
 
 /**
  * Search all data across all entities
  * Returns categorized results
  */
-export function searchAllData(query) {
+export function searchAllData(query, data = {}) {
   if (!query || query.trim().length === 0) {
     return null;
   }
 
   const searchTerm = query.toLowerCase().trim();
+  const {
+    clients = [],
+    dossiers = [],
+    tasks = [],
+    cases = [],
+    sessions = [],
+    officers = [],
+    accounting = [],
+  } = data;
 
   return {
-    clients: searchClients(searchTerm),
-    dossiers: searchDossiers(searchTerm),
-    tasks: searchTasks(searchTerm),
-    cases: searchCases(searchTerm),
-    sessions: searchSessions(searchTerm),
-    officers: searchOfficers(searchTerm),
-    accounting: searchAccounting(searchTerm),
+    clients: searchClients(searchTerm, clients),
+    dossiers: searchDossiers(searchTerm, dossiers),
+    tasks: searchTasks(searchTerm, tasks),
+    cases: searchCases(searchTerm, cases),
+    sessions: searchSessions(searchTerm, sessions),
+    officers: searchOfficers(searchTerm, officers),
+    accounting: searchAccounting(searchTerm, accounting),
   };
 }
 
-/**
- * Search clients
- * Searches: name, email, phone, cin, profession, company
- */
-function searchClients(query) {
-  return mockClients.filter((client) => {
+function searchClients(query, clients) {
+  return clients.filter((client) => {
     return (
       client.name?.toLowerCase().includes(query) ||
       client.email?.toLowerCase().includes(query) ||
@@ -52,12 +47,8 @@ function searchClients(query) {
   });
 }
 
-/**
- * Search dossiers
- * Searches: caseNumber, title, client, category, adversaryParty
- */
-function searchDossiers(query) {
-  return mockDossiers.filter((dossier) => {
+function searchDossiers(query, dossiers) {
+  return dossiers.filter((dossier) => {
     return (
       dossier.caseNumber?.toLowerCase().includes(query) ||
       dossier.title?.toLowerCase().includes(query) ||
@@ -69,12 +60,8 @@ function searchDossiers(query) {
   });
 }
 
-/**
- * Search tasks
- * Searches: title, assignedTo, dossier, description
- */
-function searchTasks(query) {
-  return mockTasks.filter((task) => {
+function searchTasks(query, tasks) {
+  return tasks.filter((task) => {
     return (
       task.title?.toLowerCase().includes(query) ||
       task.assignedTo?.toLowerCase().includes(query) ||
@@ -84,12 +71,8 @@ function searchTasks(query) {
   });
 }
 
-/**
- * Search cases (proceedings)
- * Searches: caseNumber, title, dossier, court
- */
-function searchCases(query) {
-  return mockCases.filter((caseItem) => {
+function searchCases(query, cases) {
+  return cases.filter((caseItem) => {
     return (
       caseItem.caseNumber?.toLowerCase().includes(query) ||
       caseItem.title?.toLowerCase().includes(query) ||
@@ -99,12 +82,8 @@ function searchCases(query) {
   });
 }
 
-/**
- * Search sessions
- * Searches: title, type, location
- */
-function searchSessions(query) {
-  return mockSessions.filter((session) => {
+function searchSessions(query, sessions) {
+  return sessions.filter((session) => {
     return (
       session.title?.toLowerCase().includes(query) ||
       session.type?.toLowerCase().includes(query) ||
@@ -113,12 +92,8 @@ function searchSessions(query) {
   });
 }
 
-/**
- * Search officers
- * Searches: name, specialization, location
- */
-function searchOfficers(query) {
-  return mockOfficers.filter((officer) => {
+function searchOfficers(query, officers) {
+  return officers.filter((officer) => {
     return (
       officer.name?.toLowerCase().includes(query) ||
       officer.specialization?.toLowerCase().includes(query) ||
@@ -129,12 +104,8 @@ function searchOfficers(query) {
   });
 }
 
-/**
- * Search accounting/invoices
- * Searches: invoiceNumber, client, type
- */
-function searchAccounting(query) {
-  return mockAccounting.filter((invoice) => {
+function searchAccounting(query, entries) {
+  return entries.filter((invoice) => {
     return (
       invoice.invoiceNumber?.toLowerCase().includes(query) ||
       invoice.client?.toLowerCase().includes(query) ||
@@ -143,9 +114,6 @@ function searchAccounting(query) {
   });
 }
 
-/**
- * Get total results count
- */
 export function getTotalResultsCount(results) {
   if (!results) return 0;
 
@@ -156,9 +124,6 @@ export function getTotalResultsCount(results) {
   }, 0);
 }
 
-/**
- * Filter results to only show categories with results
- */
 export function filterEmptyCategories(results) {
   if (!results) return null;
 
@@ -172,10 +137,6 @@ export function filterEmptyCategories(results) {
   return filtered;
 }
 
-/**
- * Get search suggestions based on recent searches
- * Can be implemented with localStorage
- */
 export function getRecentSearches() {
   try {
     const recent = localStorage.getItem("recentSearches");
@@ -185,9 +146,6 @@ export function getRecentSearches() {
   }
 }
 
-/**
- * Save search to recent searches
- */
 export function saveRecentSearch(query) {
   try {
     const recent = getRecentSearches();
@@ -198,9 +156,6 @@ export function saveRecentSearch(query) {
   }
 }
 
-/**
- * Clear recent searches
- */
 export function clearRecentSearches() {
   try {
     localStorage.removeItem("recentSearches");
