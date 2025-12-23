@@ -434,7 +434,7 @@ export const dossierConfig = {
       entityName: "une mission",
       addSubtitle: "Créer une nouvelle mission d'huissier pour ce dossier",
       // Dynamic form fields - entityType and entityReference pre-filled
-      getFormFields: (dossierData) => {
+      getFormFields: (dossierData, contextData) => {
         // Generate a default mission number
         const year = new Date().getFullYear();
         const randomNum = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
@@ -463,7 +463,7 @@ export const dossierConfig = {
           } else if (field.name === 'officerId') {
             return {
               ...field,
-              options: [].map(officer => ({
+              options: (contextData?.officers || []).map(officer => ({
                 value: officer.id,
                 label: officer.name
               })),

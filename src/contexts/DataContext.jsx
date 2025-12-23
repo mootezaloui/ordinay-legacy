@@ -1122,6 +1122,7 @@ export function DataProvider({ children }) {
       priority: priorityMap[task.priority] || task.priority || "medium",
       due_date: emptyToNull(task.dueDate || task.due_date),
       completed_at: emptyToNull(task.completedAt || task.completed_at),
+      notes: emptyToNull(task.notes),
     };
 
     console.log('[DataContext.addPersonalTask] Sending payload:', payload);
@@ -1182,6 +1183,7 @@ export function DataProvider({ children }) {
       priority: updates.priority ? (priorityMap[updates.priority] || updates.priority) : undefined,
       due_date: emptyToNull(updates.dueDate || updates.due_date),
       completed_at: emptyToNull(updates.completedAt || updates.completed_at),
+      notes: emptyToNull(updates.notes),
     };
 
     // Remove undefined values
@@ -1361,8 +1363,12 @@ export function DataProvider({ children }) {
           : mission.priority === "Moyenne" ? "medium"
             : mission.priority === "Basse" ? "low"
               : mission.priority,
+      assign_date: emptyToNull(mission.assignDate || mission.assign_date),
       due_date: emptyToNull(mission.dueDate || mission.due_date),
+      completion_date: emptyToNull(mission.completionDate || mission.completion_date),
       closed_at: emptyToNull(mission.closedAt || mission.closed_at),
+      result: emptyToNull(mission.result),
+      notes: emptyToNull(mission.notes),
       dossier_id: emptyToNull(mission.dossierId || mission.dossier_id),
       case_id: emptyToNull(mission.caseId || mission.case_id),
       officer_id: emptyToNull(mission.officerId || mission.officer_id),
@@ -1408,8 +1414,12 @@ export function DataProvider({ children }) {
                 updates.priority === "Moyenne" ? "medium" :
                 updates.priority === "Basse" ? "low" :
                 updates.priority,
+      assign_date: emptyToNull(updates.assignDate || updates.assign_date),
       due_date: emptyToNull(updates.dueDate || updates.due_date),
+      completion_date: emptyToNull(updates.completionDate || updates.completion_date),
       closed_at: emptyToNull(updates.closedAt || updates.closed_at),
+      result: emptyToNull(updates.result),
+      notes: emptyToNull(updates.notes),
       dossier_id: emptyToNull(updates.dossierId || updates.dossier_id),
       case_id: emptyToNull(updates.caseId || updates.case_id),
       officer_id: emptyToNull(updates.officerId || updates.officer_id),

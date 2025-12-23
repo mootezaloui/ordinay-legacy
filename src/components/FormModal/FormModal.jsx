@@ -237,7 +237,7 @@ export default function FormModal({
 
       // Auto-generate if empty
       if (!reference || reference.trim() === "") {
-        reference = generateEntityReference(entityType);
+        reference = generateEntityReference(entityType, entities);
         formData[referenceField] = reference;
         console.log(`✅ Auto-generated reference for ${entityType}:`, reference);
       } else {
@@ -247,7 +247,7 @@ export default function FormModal({
       }
 
       // Validate uniqueness (excluding current entity in edit mode)
-      const isUnique = isReferenceUnique(entityType, reference, entityId);
+      const isUnique = isReferenceUnique(entityType, reference, entityId, entities);
 
       if (!isUnique) {
         const errorMessage = getDuplicateReferenceError(entityType, reference);

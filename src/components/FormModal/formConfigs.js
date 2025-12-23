@@ -616,21 +616,7 @@ export const taskFormFields = [
     label: "Dossier",
     type: "searchable-select",
     required: false, // Will be conditionally required
-    // ✅ Dynamic options based on parentType
-    getOptions: (formData) => {
-      // Only show if parentType is 'dossier'
-      if (formData.parentType !== "dossier") return [];
-
-      // Use imported []
-      return [
-        { value: "", label: "Sélectionner un dossier..." },
-        ...[].map((d) => ({
-          value: d.id,
-          label: `${d.caseNumber} - ${d.title}`,
-        })),
-      ];
-    },
-    options: [], // Will be populated dynamically
+    options: [], // Will be populated by parent component (Tasks.jsx)
     // ✅ Conditional visibility
     hideIf: (formData) => formData.parentType !== "dossier",
   },
@@ -640,21 +626,7 @@ export const taskFormFields = [
     label: "Procès",
     type: "searchable-select",
     required: false, // Will be conditionally required
-    // ✅ Dynamic options based on parentType
-    getOptions: (formData) => {
-      // Only show if parentType is 'case'
-      if (formData.parentType !== "case") return [];
-
-      // Use imported []
-      return [
-        { value: "", label: "Sélectionner un procès..." },
-        ...[].map((c) => ({
-          value: c.id,
-          label: `${c.caseNumber} - ${c.title}`,
-        })),
-      ];
-    },
-    options: [], // Will be populated dynamically
+    options: [], // Will be populated by parent component (Tasks.jsx)
     // ✅ Conditional visibility
     hideIf: (formData) => formData.parentType !== "case",
   },
@@ -938,16 +910,6 @@ export const officerAssignmentFormFields = [
     required: false,
     fullWidth: true,
     rows: 3,
-  },
-  {
-    name: "result",
-    label: "Résultat / Réponse",
-    type: "textarea",
-    placeholder: "Compte-rendu de l'huissier après exécution de la mission...",
-    required: false,
-    fullWidth: true,
-    rows: 4,
-    helpText: "Important: Enregistrer ce que l'huissier a rapporté",
   },
   {
     name: "notes",

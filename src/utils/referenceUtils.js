@@ -45,22 +45,23 @@ const REFERENCE_FORMATS = {
 /**
  * Get all existing references for a given entity type
  * @param {string} entityType - 'dossier', 'case', or 'mission'
+ * @param {Object} entities - All entities data { dossiers, cases, missions, etc. }
  * @returns {Array<{id: number, reference: string}>} - Array of {id, reference} objects
  */
-function getExistingReferences(entityType) {
+function getExistingReferences(entityType, entities = {}) {
   switch (entityType) {
     case "dossier":
-      return [].map((d) => ({
+      return (entities.dossiers || []).map((d) => ({
         id: d.id,
         reference: d.caseNumber || d.reference,
       }));
     case "case":
-      return [].map((c) => ({
+      return (entities.cases || []).map((c) => ({
         id: c.id,
         reference: c.caseNumber || c.reference,
       }));
     case "mission":
-      return getAllMissions().map((m) => ({
+      return (entities.missions || []).map((m) => ({
         id: m.id,
         reference: m.missionNumber || m.reference,
       }));
@@ -74,9 +75,10 @@ function getExistingReferences(entityType) {
  * Automatically increments based on existing references for current year
  *
  * @param {string} entityType - 'dossier', 'case', or 'mission'
+ * @param {Object} entities - All entities data { dossiers, cases, missions, etc. }
  * @returns {string} - Generated reference (e.g., "DOS-2025-001")
  */
-export function generateEntityReference(entityType) {
+export function generateEntityReference(entityType, entities = {}) {
   const format = REFERENCE_FORMATS[entityType];
 
   if (!format) {
@@ -88,7 +90,7 @@ export function generateEntityReference(entityType) {
   const prefix = `${format.prefix}-${currentYear}-`;
 
   // Get all existing references for this entity type
-  const existingRefs = getExistingReferences(entityType);
+  const existingRefs = getExistingReferences(entityType, entities);
 
   // Filter references for current year and extract numbers
   const currentYearNumbers = existingRefs
@@ -118,18 +120,20 @@ export function generateEntityReference(entityType) {
  * @param {string} entityType - 'dossier', 'case', or 'mission'
  * @param {string} reference - Reference to validate
  * @param {number|null} currentEntityId - ID of entity being edited (exclude from check)
+ * @param {Object} entities - All entities data { dossiers, cases, missions, etc. }
  * @returns {boolean} - true if unique, false if duplicate
  */
 export function isReferenceUnique(
   entityType,
   reference,
-  currentEntityId = null
+  currentEntityId = null,
+  entities = {}
 ) {
   if (!reference) {
     return true; // Empty references are valid (will be auto-generated)
   }
 
-  const existingRefs = getExistingReferences(entityType);
+  const existingRefs = getExistingReferences(entityType, entities);
 
   // Check for duplicates, excluding current entity (for edit mode)
   const isDuplicate = existingRefs.some((item) => {

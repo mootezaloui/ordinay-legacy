@@ -193,7 +193,7 @@ export const officerConfig = {
       addSubtitle: "Assigner une nouvelle mission à cet huissier",
 
       // ✅ UPDATED: Use same getFormFields pattern as dossier and case
-      getFormFields: (officerData) => {
+      getFormFields: (officerData, contextData) => {
         // Generate a default mission number
         const year = new Date().getFullYear();
         const randomNum = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
@@ -236,12 +236,12 @@ export const officerConfig = {
                 const entityType = formData.entityType;
 
                 if (entityType === 'dossier') {
-                  return [].map(d => ({
+                  return (contextData?.dossiers || []).map(d => ({
                     value: d.caseNumber,
                     label: `${d.caseNumber} - ${d.title}`,
                   }));
                 } else if (entityType === 'case') {
-                  return [].map(c => ({
+                  return (contextData?.cases || []).map(c => ({
                     value: c.caseNumber,
                     label: `${c.caseNumber} - ${c.title}`,
                   }));
@@ -254,20 +254,7 @@ export const officerConfig = {
           return field;
         });
 
-        // ✅ Add officer-specific fields after standard mission fields
-        return [
-          ...fields,
-          {
-            name: "result",
-            label: "Résultat / Réponse",
-            type: "textarea",
-            placeholder: "Compte-rendu de l'huissier après exécution de la mission...",
-            required: false,
-            fullWidth: true,
-            rows: 4,
-            helpText: "Important: Enregistrer ce que l'huissier a rapporté",
-          },
-        ];
+        return fields;
       },
     },
     {

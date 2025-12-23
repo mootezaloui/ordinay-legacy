@@ -475,6 +475,7 @@ export default function DetailView({ entityType }) {
             config={config}
             tabConfig={tabConfig}
             onItemsChange={handleItemsChange}
+            contextData={contextData}
           />
         );
       case "aggregatedRelated":

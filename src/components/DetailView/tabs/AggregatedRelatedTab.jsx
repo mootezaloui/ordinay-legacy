@@ -378,7 +378,7 @@ export default function AggregatedRelatedTab({
 
   // Get form fields - support both static formFields and dynamic getFormFields
   const formFields = tabConfig?.getFormFields
-    ? tabConfig.getFormFields(data)
+    ? tabConfig.getFormFields(data, contextData)
     : tabConfig?.formFields || [];
 
   const hasFormFields = formFields && formFields.length > 0;

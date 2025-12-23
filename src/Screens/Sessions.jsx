@@ -29,7 +29,7 @@ export default function Sessions() {
   const navigate = useNavigate();
   const { showToast } = useToast();
   const { confirm } = useConfirm();
-  const { sessions, addSession, updateSession, deleteSession } = useData();
+  const { sessions, dossiers, cases, addSession, updateSession, deleteSession } = useData();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSession, setEditingSession] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -368,25 +368,19 @@ export default function Sessions() {
     if (field.name === "caseId") {
       return {
         ...field,
-        options: [
-          { value: "", label: "Select a case..." },
-          ...[].map(c => ({
-            value: c.id,
-            label: `${c.caseNumber} - ${c.title}`
-          }))
-        ]
+        options: cases.map(c => ({
+          value: c.id,
+          label: `${c.caseNumber} - ${c.title}`
+        }))
       };
     }
     if (field.name === "dossierId") {
       return {
         ...field,
-        options: [
-          { value: "", label: "Select a case file..." },
-          ...[].map(d => ({
-            value: d.id,
-            label: `${d.caseNumber} - ${d.title}`
-          }))
-        ]
+        options: dossiers.map(d => ({
+          value: d.id,
+          label: `${d.caseNumber} - ${d.title}`
+        }))
       };
     }
     // Protect status field from direct edit to enforce domain rules

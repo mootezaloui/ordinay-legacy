@@ -2,11 +2,13 @@ import { useState, useMemo, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useToast } from "../../../contexts/ToastContext";
 import { useConfirm } from "../../../contexts/ConfirmContext";
+import { useData } from "../../../contexts/DataContext";
 import ContentSection from "../../layout/ContentSection";
 import FormModal from "../../FormModal/FormModal";
 import ConfirmImpactModal from "../../ui/ConfirmImpactModal";
 import BlockerModal from "../../ui/BlockerModal";
 import { canPerformAction } from "../../../services/domainRules";
+import { getStatusColor } from "../config/statusColors";
 import {
   formatCurrency
 } from "../../../utils/financialUtils";
@@ -21,11 +23,12 @@ import { resolveDetailRoute } from "../../../utils/routeResolver";
  * MissionsTab - Scalable mission list with document management
  * Designed for huissier detail view to handle large numbers of missions
  */
-export default function MissionsTab({ data, config, tabConfig, onItemsChange }) {
+export default function MissionsTab({ data, config, tabConfig, onItemsChange, contextData }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { showToast } = useToast();
   const { confirm } = useConfirm();
+  const { addMission, updateMission } = useData();
   const [missions, setMissions] = useState(data[tabConfig.itemsKey] || []);
 
   // ✅ Synchronize local missions state with parent data prop
@@ -84,8 +87,8 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange }) 
     let fields = [];
 
     if (typeof tabConfig.getFormFields === 'function') {
-      // Call getFormFields with current data
-      fields = tabConfig.getFormFields(data);
+      // Call getFormFields with current data and contextData
+      fields = tabConfig.getFormFields(data, contextData);
     } else if (tabConfig.formFields) {
       // Use static formFields array
       fields = tabConfig.formFields;
@@ -153,17 +156,14 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange }) 
       // Check if we're editing an existing mission
       if (editingMissionId) {
         // UPDATE EXISTING MISSION
-        const { financialEntries, ...missionData } = submittedFormData;
+        console.log("📝 Updating mission ID:", editingMissionId, "with:", submittedFormData);
 
-        const oldMission = missions.find(m => m.id === editingMissionId);
-        const updatedMission = {
-          ...oldMission,
-          ...missionData,
-          financialEntries: financialEntries || [],
-        };
+        // ✅ Call backend API to update mission
+        await updateMission(editingMissionId, submittedFormData);
 
+        // Fetch updated mission from local state (DataContext will have updated it)
         const updatedMissions = missions.map(m =>
-          m.id === editingMissionId ? updatedMission : m
+          m.id === editingMissionId ? { ...m, ...submittedFormData } : m
         );
 
         setMissions(updatedMissions);
@@ -172,138 +172,63 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange }) 
           onItemsChange(tabConfig.itemsKey, updatedMissions);
         }
 
-        // ✅ Log reassignment if officer changed
-        if (oldMission.officerId !== parseInt(missionData.officerId)) {
-          const newOfficer = [].find(o => o.id === parseInt(missionData.officerId));
-          const oldOfficer = [].find(o => o.id === oldMission.officerId);
-          logAssignment(
-            'mission',
-            editingMissionId,
-            newOfficer?.name || 'Unknown',
-            oldOfficer?.name || 'Unknown'
-          );
-        }
-
         showToast("Mission modifiée avec succès!", "success");
         setEditingMissionId(null);
       } else {
         // ADD NEW MISSION
         console.log("📝 Mission creation - submittedFormData:", submittedFormData);
 
-        // Get officer name and ID from selected officerId in the form
-        const selectedOfficerId = parseInt(submittedFormData.officerId);
-        console.log("🔍 Looking for officer with ID:", selectedOfficerId);
-
-        const selectedOfficer = [].find(o => o.id === selectedOfficerId);
-        console.log("👤 Found officer:", selectedOfficer);
-
-        const officerName = selectedOfficer ? selectedOfficer.name : "Unknown";
-        console.log("✅ Officer name:", officerName);
-
-        // Generate mission number if not provided or empty
-        const missionNumberValue = (submittedFormData.missionNumber && submittedFormData.missionNumber.trim()) ||
-          (formData.missionNumber && formData.missionNumber.trim()) ||
-          `MIS-${new Date().getFullYear()}-${String(Date.now()).slice(-3)}`;
-        console.log("🔢 Mission number:", missionNumberValue);
-
-        // Extract financial entries and fields we'll override if they exist
-        const { financialEntries, officerId: _, officerName: __, missionNumber: ___, ...missionData } = submittedFormData;
-
         // Derive relational context based on parent entity (dossier, case, officer)
         const relationshipFields = (() => {
           const rel = {};
           if (config?.entityType === "dossier") {
-            rel.entityType = "dossier";
-            rel.entityId = data.id;
             rel.dossierId = data.id;
-            rel.dossierReference = data.caseNumber;
-            const clientId = data.clientId || data.client?.id;
-            const clientName = data.client?.name || data.client;
-            if (clientId) rel.clientId = parseInt(clientId, 10);
-            if (clientName) rel.clientName = clientName;
           } else if (config?.entityType === "case") {
-            rel.entityType = "case";
-            rel.entityId = data.id;
             rel.caseId = data.id;
-            rel.caseReference = data.caseNumber;
-            const dossierId = data.dossier?.id || data.dossierId;
-            const dossierRef = data.dossier?.caseNumber || data.dossierReference;
-            if (dossierId) rel.dossierId = dossierId;
-            if (dossierRef) rel.dossierReference = dossierRef;
-            const clientId = data.dossier?.clientId || data.clientId;
-            const clientName = data.dossier?.client || data.client?.name;
-            if (clientId) rel.clientId = parseInt(clientId, 10);
-            if (clientName) rel.clientName = clientName;
           } else if (config?.entityType === "officer") {
-            rel.officerId = data.id;
-            rel.officerName = data.name;
+            // When creating from officer view, convert entityReference to ID
+            if (submittedFormData.entityType && submittedFormData.entityReference) {
+              if (submittedFormData.entityType === 'dossier') {
+                const dossier = contextData?.dossiers?.find(d => d.caseNumber === submittedFormData.entityReference);
+                if (dossier) rel.dossierId = dossier.id;
+              } else if (submittedFormData.entityType === 'case') {
+                const caseEntity = contextData?.cases?.find(c => c.caseNumber === submittedFormData.entityReference);
+                if (caseEntity) rel.caseId = caseEntity.id;
+              }
+            }
           }
           return rel;
         })();
 
-        const newMission = {
-          id: Date.now(),
-          ...missionData,
+        // Remove entityType and entityReference before sending to backend
+        const { entityType, entityReference, ...restFormData } = submittedFormData;
+
+        // Prepare mission data for backend
+        const missionData = {
+          ...restFormData,
           ...relationshipFields,
-          officerId: selectedOfficerId, // ✅ Use the officer selected in the form
-          officerName, // ✅ Add officer name
-          missionNumber: missionNumberValue, // ✅ Generate if needed
-          documents: [],
-          createdDate: new Date().toISOString().split("T")[0],
         };
 
-        console.log("✨ FINAL NEW MISSION OBJECT:", newMission);
-        console.log("✨ officerId:", newMission.officerId, "| officerName:", newMission.officerName, "| missionNumber:", newMission.missionNumber);
+        console.log("✨ Sending mission to backend:", missionData);
 
-        // Process financial entries if they exist
-        if (financialEntries && Array.isArray(financialEntries) && financialEntries.length > 0) {
-          // In a real application, these would be saved to the database
-          // For now, we'll log them and attach them to the mission for display
-          console.log("Financial entries for mission:", financialEntries);
+        // ✅ Call backend API to create mission
+        const creation = await addMission(missionData);
+        const createdMission = creation?.created || creation;
 
-          // Store financial entries with the mission for later display
-          newMission.financialEntries = financialEntries.map(entry => ({
-            ...entry,
-            missionId: newMission.id,
-            missionNumber: missionNumberValue,
-            officerId: selectedOfficerId, // ✅ Use correct officer ID
-            officerName: officerName, // ✅ Use correct officer name
-            // Link to dossier/case if available
-            entityType: missionData.entityType,
-            entityReference: missionData.entityReference,
-            type: 'expense',
-            category: 'frais_huissier',
-            scope: 'client',
-            currency: 'TND',
-            sourceType: 'mission',
-            sourceId: newMission.id,
-            createdAt: new Date().toISOString(),
-            createdBy: 'User',
-          }));
+        console.log("✅ Mission created with ID:", createdMission.id);
 
-          showToast(
-            `Mission ajoutée avec ${financialEntries.length} frais enregistré(s)!`,
-            "success"
-          );
-        } else {
-          showToast("Mission ajoutée avec succès!", "success");
-        }
-
-        const updatedMissions = [newMission, ...missions];
+        // Update local state with the created mission
+        const updatedMissions = [createdMission, ...missions];
         setMissions(updatedMissions);
-
-        // ✅ Log mission creation
-        logEntityCreation('mission', newMission.id, missionNumberValue);
-
-        // ✅ Log initial assignment
-        logAssignment('mission', newMission.id, officerName);
 
         if (onItemsChange) {
           onItemsChange(tabConfig.itemsKey, updatedMissions);
         }
 
-        // ✅ Navigate to detail view after creation
-        const detailRoute = resolveDetailRoute('mission', newMission.id);
+        showToast("Mission ajoutée avec succès!", "success");
+
+        // ✅ Navigate to detail view after creation using real database ID
+        const detailRoute = resolveDetailRoute('mission', createdMission.id);
         if (detailRoute) {
           setTimeout(() => navigate(detailRoute), 100);
         }
@@ -359,7 +284,7 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange }) 
     // Get fields from either getFormFields function or formFields array
     let fields = [];
     if (typeof tabConfig.getFormFields === 'function') {
-      fields = tabConfig.getFormFields(data);
+      fields = tabConfig.getFormFields(data, contextData);
     } else if (tabConfig.formFields) {
       fields = tabConfig.formFields;
     }
@@ -677,6 +602,7 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange }) 
             onFormDataChange={setFormData}
             submitText={editingMissionId ? "Modifier" : "Ajouter"}
             entityType="mission"
+            entities={contextData}
           />
         )}
       </>
@@ -878,6 +804,7 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange }) 
           onFormDataChange={setFormData}
           submitText={editingMissionId ? "Modifier" : "Ajouter"}
           entityType="mission"
+          entities={contextData}
         />
       )}
 

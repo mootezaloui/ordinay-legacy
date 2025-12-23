@@ -42,7 +42,7 @@ export default function Accounting() {
   const navigate = useNavigate();
   const { showToast } = useToast();
   const { confirm } = useConfirm();
-  const { financialEntries, loading, loadError, addFinancialEntry, updateFinancialEntry, deleteFinancialEntry } = useData();
+  const { financialEntries, clients, dossiers, cases, loading, loadError, addFinancialEntry, updateFinancialEntry, deleteFinancialEntry } = useData();
 
   // Use financial ledger as source of truth
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -448,9 +448,9 @@ export default function Accounting() {
 
   // Populate relationship options
   const entryFields = populateRelationshipOptions(financialEntryFormFields, {
-    clients: [],
-    dossiers: [],
-    cases: [],
+    clients,
+    dossiers,
+    cases,
   });
 
   return (
