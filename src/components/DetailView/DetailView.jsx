@@ -178,7 +178,8 @@ export default function DetailView({ entityType }) {
     // ✅ Validate with domain rules before allowing any change
     const validationResult = canPerformAction(entityType, id, 'edit', {
       data: data,
-      newData: { ...data, [field]: value }
+      newData: { ...data, [field]: value },
+      entities: contextData
     });
 
     if (!validationResult.allowed) {
@@ -344,7 +345,8 @@ export default function DetailView({ entityType }) {
 
       const validationResult = canPerformAction(entityType, id, 'edit', {
         data: originalData,
-        newData: changedFields
+        newData: changedFields,
+        entities: contextData
       });
 
       if (!validationResult.allowed) {
@@ -389,7 +391,10 @@ export default function DetailView({ entityType }) {
 
   const handleDelete = async () => {
     // Domain rule validation before prompting delete
-    const result = canPerformAction(entityType, parseInt(id), 'delete', { data });
+    const result = canPerformAction(entityType, parseInt(id), 'delete', {
+      data,
+      entities: contextData
+    });
     if (!result.allowed) {
       setValidationResult(result);
       setBlockerModalOpen(true);

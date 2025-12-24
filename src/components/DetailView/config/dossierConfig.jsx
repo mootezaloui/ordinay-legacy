@@ -1,7 +1,18 @@
 import { Link } from "react-router-dom";
 import ContentSection from "../../layout/ContentSection";
 import { getStatusColor } from "./statusColors";
-import { taskFormFields, caseFormFields, sessionFormFields, missionFormFields, getPhaseOptions, addCustomPhase } from "../../FormModal/formConfigs";
+import { taskFormFields, caseFormFields, sessionFormFields, missionFormFields } from "../../FormModal/formConfigs";
+import { getAllPhases, addCustomPhase } from "../../../utils/phaseManager";
+
+// Default phases for dossiers
+const DEFAULT_PHASES = [
+  { value: "Ouverture", label: "Ouverture" },
+  { value: "Instruction", label: "Instruction" },
+  { value: "Négociation", label: "Négociation" },
+  { value: "Plaidoirie", label: "Plaidoirie" },
+  { value: "Jugement", label: "Jugement" },
+  { value: "Exécution", label: "Exécution" },
+];
 
 /**
  * Dossier Entity Configuration - UPDATED with Quick Actions
@@ -149,11 +160,12 @@ export const dossierConfig = {
       label: "Phase",
       icon: "fas fa-stream",
       colorMap: false,
-      getOptions: () => getPhaseOptions(),
+      getOptions: () => getAllPhases(DEFAULT_PHASES),
       allowCreate: true,
       createLabel: "Ajouter une phase",
       onCreateOption: async (name) => {
         addCustomPhase(name);
+        return true;
       }
     }
   ],

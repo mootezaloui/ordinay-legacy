@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import SearchableSelect from "./SearchableSelect";
 import InlineStatusSelector from "../InlineSelectors/InlineStatusSelector";
 import InlinePrioritySelector from "../InlineSelectors/InlinePrioritySelector";
+import LoadingScreen from "../loading/LoadingScreen";
 import { useNotifications } from "../../contexts/NotificationContext";
 import BlockerModal from "../ui/BlockerModal";
 import ConfirmImpactModal from "../ui/ConfirmImpactModal";
@@ -489,13 +490,10 @@ export default function FormModal({
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className={`${compact ? 'px-3 py-1.5 text-sm' : 'px-4 py-2'} bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center gap-2`}
+                  className={`${compact ? 'px-3 py-1.5 text-sm' : 'px-4 py-2'} bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center gap-2 justify-center min-w-[140px]`}
                 >
                   {isLoading ? (
-                    <>
-                      <i className="fas fa-spinner fa-spin"></i>
-                      Enregistrement...
-                    </>
+                    <LoadingScreen variant="minimal" message="" />
                   ) : (
                     <>
                       <i className="fas fa-save"></i>

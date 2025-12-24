@@ -114,7 +114,8 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
       const currentMission = missions.find(m => m.id === editingMissionId);
       const result = canPerformAction('mission', editingMissionId, 'edit', {
         data: currentMission,
-        newData: submittedFormData
+        newData: submittedFormData,
+        entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
       });
 
       if (!result.allowed) {
@@ -131,7 +132,10 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
         return;
       }
     } else {
-      const result = canPerformAction('mission', null, 'add', { newData: submittedFormData });
+      const result = canPerformAction('mission', null, 'add', {
+        newData: submittedFormData,
+        entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
+      });
       if (!result.allowed) {
         setValidationResult(result);
         setBlockerModalOpen(true);
@@ -283,7 +287,10 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
 
   const handleDeleteMission = async (missionId) => {
     const mission = missions.find(m => m.id === missionId);
-    const result = canPerformAction('mission', missionId, 'delete', { data: mission });
+    const result = canPerformAction('mission', missionId, 'delete', {
+      data: mission,
+      entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
+    });
 
     if (!result.allowed) {
       setValidationResult(result);
@@ -379,7 +386,11 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
         createdBy: "User",
       };
 
-      const validation = canPerformAction("financialEntry", null, "add", { data: newEntry, newData: newEntry });
+      const validation = canPerformAction("financialEntry", null, "add", {
+        data: newEntry,
+        newData: newEntry,
+        entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
+      });
       if (!validation.allowed) {
         setValidationResult(validation);
         setBlockerModalOpen(true);

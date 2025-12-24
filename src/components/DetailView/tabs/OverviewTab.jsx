@@ -69,7 +69,7 @@ function StructuredEditSection({ section, data, onSave, entityType, entityId, co
   const handleEdit = () => {
     // ✅ Validate before allowing edit
     if (entityType && entityId) {
-      const result = canPerformAction(entityType, entityId, 'edit', { 
+      const result = canPerformAction(entityType, entityId, 'edit', {
         data,
         entities: {
           financialEntries: contextData.financialEntries || [],

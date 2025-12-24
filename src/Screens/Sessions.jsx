@@ -29,7 +29,19 @@ export default function Sessions() {
   const navigate = useNavigate();
   const { showToast } = useToast();
   const { confirm } = useConfirm();
-  const { sessions, dossiers, cases, addSession, updateSession, deleteSession } = useData();
+  const {
+    sessions,
+    dossiers,
+    cases,
+    clients,
+    tasks,
+    officers,
+    missions,
+    financialEntries,
+    addSession,
+    updateSession,
+    deleteSession
+  } = useData();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSession, setEditingSession] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -202,7 +214,10 @@ export default function Sessions() {
 
   const handleEdit = (session) => {
     // ✅ Validate before allowing edit
-    const result = canPerformAction('session', session.id, 'edit', { data: session });
+    const result = canPerformAction('session', session.id, 'edit', {
+      data: session,
+      entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
+    });
 
     if (!result.allowed) {
       setValidationResult(result);
@@ -219,7 +234,10 @@ export default function Sessions() {
   const handleDelete = async (id) => {
     // ✅ Validate before allowing delete
     const session = sessions.find(s => s.id === id);
-    const result = canPerformAction('session', id, 'delete', { data: session });
+    const result = canPerformAction('session', id, 'delete', {
+      data: session,
+      entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
+    });
 
     if (!result.allowed) {
       setValidationResult(result);
@@ -264,7 +282,8 @@ export default function Sessions() {
     if (editingSession) {
       const result = canPerformAction('session', editingSession.id, 'edit', {
         data: editingSession,
-        newData: formData
+        newData: formData,
+        entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
       });
 
       if (!result.allowed) {
@@ -280,7 +299,10 @@ export default function Sessions() {
         return;
       }
     } else {
-      const result = canPerformAction('session', null, 'add', { formData });
+      const result = canPerformAction('session', null, 'add', {
+        formData,
+        entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
+      });
       if (!result.allowed) {
         setValidationResult(result);
         setBlockerModalOpen(true);

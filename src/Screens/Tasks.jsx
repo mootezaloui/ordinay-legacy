@@ -18,6 +18,7 @@ import FormModal from "../components/FormModal/FormModal";
 import StatCard from "../components/dashboard/StatCard";
 import InlineStatusSelector from "../components/InlineSelectors/InlineStatusSelector";
 import InlinePrioritySelector from "../components/InlineSelectors/InlinePrioritySelector";
+import LoadingScreen from "../components/loading/LoadingScreen";
 import { taskFormFields, getFormTitle } from "../components/FormModal/formConfigs";
 import { useData } from "../contexts/DataContext";
 import BlockerModal from "../components/ui/BlockerModal";
@@ -28,7 +29,21 @@ import { logEntityCreation } from "../services/historyService";
 
 export default function Tasks() {
   // Use DataContext for global tasks and actions
-  const { tasks, dossiers, cases, addTask, updateTask, deleteTask, loading, loadError } = useData();
+  const {
+    tasks,
+    dossiers,
+    cases,
+    clients,
+    sessions,
+    officers,
+    missions,
+    financialEntries,
+    addTask,
+    updateTask,
+    deleteTask,
+    loading,
+    loadError
+  } = useData();
   const navigate = useNavigate();
   const { showToast } = useToast();
   const { confirm } = useConfirm();
@@ -229,9 +244,7 @@ export default function Tasks() {
             </div>
           </ContentSection>
         )}
-        <ContentSection>
-          <p>Loading data...</p>
-        </ContentSection>
+        <LoadingScreen variant="page" message="Chargement des tâches..." />
       </PageLayout>
     );
   }
@@ -242,7 +255,10 @@ export default function Tasks() {
 
   const handleEdit = (task) => {
     // ✅ Validate before allowing edit
-    const result = canPerformAction('task', task.id, 'edit', { data: task });
+    const result = canPerformAction('task', task.id, 'edit', {
+      data: task,
+      entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
+    });
 
     if (!result.allowed) {
       setValidationResult(result);
@@ -257,7 +273,10 @@ export default function Tasks() {
   const handleDelete = async (id) => {
     // ✅ Validate before allowing delete
     const task = tasks.find(t => t.id === id);
-    const result = canPerformAction('task', id, 'delete', { data: task });
+    const result = canPerformAction('task', id, 'delete', {
+      data: task,
+      entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
+    });
 
     if (!result.allowed) {
       setValidationResult(result);
@@ -290,7 +309,8 @@ export default function Tasks() {
     if (editingTask) {
       const result = canPerformAction('task', editingTask.id, 'edit', {
         data: editingTask,
-        newData: formData
+        newData: formData,
+        entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
       });
 
       if (!result.allowed) {
@@ -307,7 +327,10 @@ export default function Tasks() {
         return;
       }
     } else {
-      const result = canPerformAction('task', null, 'add', { formData });
+      const result = canPerformAction('task', null, 'add', {
+        formData,
+        entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
+      });
       if (!result.allowed) {
         setValidationResult(result);
         setBlockerModalOpen(true);

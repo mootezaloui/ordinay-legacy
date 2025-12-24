@@ -42,7 +42,21 @@ export default function Accounting() {
   const navigate = useNavigate();
   const { showToast } = useToast();
   const { confirm } = useConfirm();
-  const { financialEntries, clients, dossiers, cases, loading, loadError, addFinancialEntry, updateFinancialEntry, deleteFinancialEntry } = useData();
+  const {
+    financialEntries,
+    clients,
+    dossiers,
+    cases,
+    tasks,
+    sessions,
+    officers,
+    missions,
+    loading,
+    loadError,
+    addFinancialEntry,
+    updateFinancialEntry,
+    deleteFinancialEntry
+  } = useData();
 
   // Use financial ledger as source of truth
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -111,7 +125,7 @@ export default function Accounting() {
     // ✅ Validate before allowing edit
     const result = canPerformAction('financialEntry', entry.id, 'edit', {
       data: entry,
-      entities: { financialEntries }
+      entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
     });
 
     if (!result.allowed) {
@@ -129,7 +143,7 @@ export default function Accounting() {
     const entry = displayEntries.find(e => e.id === id);
     const result = canPerformAction('financialEntry', id, 'delete', {
       data: entry,
-      entities: { financialEntries }
+      entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
     });
 
     if (!result.allowed) {
@@ -162,7 +176,7 @@ export default function Accounting() {
       data: entry,
       newValue: newStatus,
       currentValue: entry?.status,
-      entities: { financialEntries }
+      entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
     });
 
     if (!result.allowed) {
@@ -343,7 +357,7 @@ export default function Accounting() {
       const result = canPerformAction('financialEntry', editingEntry.id, 'edit', {
         data: editingEntry,
         newData: formData,
-        entities: { financialEntries }
+        entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
       });
 
       if (!result.allowed) {

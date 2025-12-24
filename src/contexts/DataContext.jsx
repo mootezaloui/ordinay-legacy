@@ -521,7 +521,10 @@ export function DataProvider({ children }) {
 
   const deleteClient = async (id) => {
     const prev = clients.find((c) => c.id === id);
-    const validation = validateMutation("client", "delete", id, { data: prev }, integrityIssues);
+    const validation = validateMutation("client", "delete", id, {
+      data: prev,
+      entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
+    }, integrityIssues);
     if (!validation.ok) return validation;
 
     console.log('[DataContext.deleteClient] Deleting client ID:', id);
@@ -657,7 +660,10 @@ export function DataProvider({ children }) {
 
   const deleteDossier = async (id) => {
     const prev = dossiers.find((d) => d.id === id);
-    const validation = validateMutation("dossier", "delete", id, { data: prev }, integrityIssues);
+    const validation = validateMutation("dossier", "delete", id, {
+      data: prev,
+      entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
+    }, integrityIssues);
     if (!validation.ok) return validation;
 
     console.log('[DataContext.deleteDossier] Deleting dossier ID:', id);
@@ -814,7 +820,10 @@ export function DataProvider({ children }) {
 
   const deleteCase = async (id) => {
     const prev = cases.find((c) => c.id === id);
-    const validation = validateMutation("case", "delete", id, { data: prev }, integrityIssues);
+    const validation = validateMutation("case", "delete", id, {
+      data: prev,
+      entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
+    }, integrityIssues);
     if (!validation.ok) return validation;
 
     console.log('[DataContext.deleteCase] Deleting case ID:', id);
@@ -981,7 +990,10 @@ export function DataProvider({ children }) {
 
   const deleteSession = async (id) => {
     const prev = sessions.find((s) => s.id === id);
-    const validation = validateMutation("session", "delete", id, { data: prev }, integrityIssues);
+    const validation = validateMutation("session", "delete", id, {
+      data: prev,
+      entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
+    }, integrityIssues);
     if (!validation.ok) return validation;
 
     console.log('[DataContext.deleteSession] Deleting session ID:', id);
@@ -1092,7 +1104,10 @@ export function DataProvider({ children }) {
 
   const deleteTask = async (id) => {
     const prev = tasks.find((t) => t.id === id);
-    const validation = validateMutation("task", "delete", id, { data: prev }, integrityIssues);
+    const validation = validateMutation("task", "delete", id, {
+      data: prev,
+      entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
+    }, integrityIssues);
     if (!validation.ok) return validation;
 
     console.log('[DataContext.deleteTask] Deleting task ID:', id);
@@ -1241,7 +1256,10 @@ export function DataProvider({ children }) {
 
   const deletePersonalTask = async (id) => {
     const prev = personalTasks.find((t) => t.id === id);
-    const validation = validateMutation("personalTask", "delete", id, { data: prev }, integrityIssues);
+    const validation = validateMutation("personalTask", "delete", id, {
+      data: prev,
+      entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
+    }, integrityIssues);
     if (!validation.ok) return validation;
 
     console.log('[DataContext.deletePersonalTask] Deleting personal task ID:', id);
@@ -1380,7 +1398,10 @@ export function DataProvider({ children }) {
 
   const deleteOfficer = async (id) => {
     const prev = officers.find((o) => o.id === id);
-    const validation = validateMutation("officer", "delete", id, { data: prev }, integrityIssues);
+    const validation = validateMutation("officer", "delete", id, {
+      data: prev,
+      entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
+    }, integrityIssues);
     if (!validation.ok) return validation;
 
     console.log('[DataContext.deleteOfficer] Deleting officer ID:', id);
@@ -1516,7 +1537,10 @@ export function DataProvider({ children }) {
 
   const deleteMission = async (id) => {
     const prev = missions.find((m) => m.id === id);
-    const validation = validateMutation("mission", "delete", id, { data: prev }, integrityIssues);
+    const validation = validateMutation("mission", "delete", id, {
+      data: prev,
+      entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
+    }, integrityIssues);
     if (!validation.ok) return validation;
 
     console.log('[DataContext.deleteMission] Deleting mission ID:', id);

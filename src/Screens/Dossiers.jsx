@@ -20,6 +20,7 @@ import { dossierFormFields, getFormTitle } from "../components/FormModal/formCon
 import StatCard from "../components/dashboard/StatCard";
 import InlineStatusSelector from "../components/InlineSelectors/InlineStatusSelector";
 import InlinePrioritySelector from "../components/InlineSelectors/InlinePrioritySelector";
+import LoadingScreen from "../components/loading/LoadingScreen";
 import BlockerModal from "../components/ui/BlockerModal";
 import ConfirmImpactModal from "../components/ui/ConfirmImpactModal";
 import { canPerformAction } from "../services/domainRules";
@@ -30,7 +31,21 @@ export default function Dossiers() {
   const navigate = useNavigate();
   const { showToast } = useToast();
   const { confirm } = useConfirm();
-  const { dossiers, clients, addDossier, updateDossier, deleteDossier, loading, loadError } = useData();
+  const {
+    dossiers,
+    clients,
+    cases,
+    tasks,
+    sessions,
+    officers,
+    missions,
+    financialEntries,
+    addDossier,
+    updateDossier,
+    deleteDossier,
+    loading,
+    loadError
+  } = useData();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingDossier, setEditingDossier] = useState(null);
@@ -177,9 +192,7 @@ export default function Dossiers() {
             </div>
           </ContentSection>
         )}
-        <ContentSection>
-          <p>Chargement des donnees...</p>
-        </ContentSection>
+        <LoadingScreen variant="page" message="Chargement des dossiers..." />
       </PageLayout>
     );
   }
@@ -191,7 +204,10 @@ export default function Dossiers() {
 
   const handleEdit = (dossier) => {
     // ✅ Validate before allowing edit
-    const result = canPerformAction('dossier', dossier.id, 'edit', { data: dossier });
+    const result = canPerformAction('dossier', dossier.id, 'edit', {
+      data: dossier,
+      entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
+    });
 
     if (!result.allowed) {
       setValidationResult(result);
@@ -206,7 +222,10 @@ export default function Dossiers() {
   const handleDelete = async (id) => {
     // ✅ Validate before allowing delete
     const dossier = dossiers.find(d => d.id === id);
-    const result = canPerformAction('dossier', id, 'delete', { data: dossier });
+    const result = canPerformAction('dossier', id, 'delete', {
+      data: dossier,
+      entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
+    });
 
     if (!result.allowed) {
       setValidationResult(result);
@@ -255,7 +274,8 @@ export default function Dossiers() {
     if (editingDossier) {
       const result = canPerformAction('dossier', editingDossier.id, 'edit', {
         data: editingDossier,
-        newData: formData
+        newData: formData,
+        entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
       })
 
       if (!result.allowed) {
@@ -271,7 +291,10 @@ export default function Dossiers() {
         return
       }
     } else {
-      const result = canPerformAction('dossier', null, 'add', { formData })
+      const result = canPerformAction('dossier', null, 'add', {
+        formData,
+        entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
+      })
       if (!result.allowed) {
         setValidationResult(result)
         setBlockerModalOpen(true)

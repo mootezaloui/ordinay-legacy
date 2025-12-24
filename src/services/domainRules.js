@@ -749,21 +749,20 @@ function validateDossierClose(dossierId, context = {}) {
   const blockers = [];
   const warnings = [];
 
+  // Get all entities from context
+  const allTasks = context.tasks || context.entities?.tasks || mockTasks || [];
+
   // Prefer live data from context (DetailView / Inline selectors), then fallback to store or mocks
   const dossier =
     context.data ||
     context.currentData ||
-    (context.contextData?.dossiers || []).find((d) => d.id == dossierId) ||
     mockDossiersExtended[dossierId] ||
     mockDossiersExtended[Number(dossierId)] ||
-    [].find((d) => d.id == dossierId);
+    (context.dossiers || context.entities?.dossiers || []).find((d) => String(d.id) === String(dossierId));
 
   if (!dossier) {
     return { allowed: false, blockers: ["Dossier introuvable"], warnings: [] };
   }
-
-  // Get tasks from context
-  const allTasks = context.contextData?.tasks || [];
 
   // Rule 1: Check for open tasks
   const dossierTasks = allTasks.filter(
@@ -795,10 +794,11 @@ function validateDossierClose(dossierId, context = {}) {
   }
 
   // Rule 2: Check for open Procès (cases)
-  const openCases =
-    dossier.proceedings?.filter(
-      (proc) => proc.status !== "Clos" && proc.status !== "Terminé"
-    ) || [];
+  const allCases = context.cases || context.entities?.cases || mockCases || [];
+  const dossierCases = allCases.filter((c) => String(c.dossierId) === String(dossierId));
+  const openCases = dossierCases.filter(
+    (proc) => proc.status !== "Clos" && proc.status !== "Terminé"
+  );
 
   if (openCases.length > 0) {
     blockers.push(
@@ -817,7 +817,7 @@ function validateDossierClose(dossierId, context = {}) {
 
   // Rule 3: Check for unpaid client balance
   const allFinancialEntries =
-    context.contextData?.financialEntries || financialLedger || [];
+    context.financialEntries || context.entities?.financialEntries || financialLedger || [];
   const clientEntries = allFinancialEntries.filter(
     (entry) =>
       entry.clientId === dossier.clientId &&
@@ -845,7 +845,7 @@ function validateDossierClose(dossierId, context = {}) {
   }
 
   // Rule 4: Check for active Huissier missions
-  const allMissions = context.contextData?.missions || missionsCache || [];
+  const allMissions = context.missions || context.entities?.missions || missionsCache || [];
   const dossierMissions = allMissions.filter(
     (mission) =>
       mission.entityType === "dossier" &&
@@ -899,21 +899,26 @@ function validateDossierDelete(dossierId, context = {}) {
   const blockers = [];
   const warnings = [];
 
-  const dossiers = context.dossiers || context.entities?.dossiers || [];
   const tasks = context.tasks || context.entities?.tasks || [];
+  const cases = context.cases || context.entities?.cases || [];
   const financialEntries =
     context.financialEntries || context.entities?.financialEntries || [];
 
-  const dossier = dossiers.find((d) => String(d.id) === String(dossierId));
+  // Use enriched data from mockDossiersExtended if available, otherwise fallback to context
+  const dossier = mockDossiersExtended[dossierId] ||
+    mockDossiersExtended[Number(dossierId)] ||
+    (context.dossiers || context.entities?.dossiers || []).find((d) => String(d.id) === String(dossierId));
+
   if (!dossier) {
     // Allow deletion if dossier is already missing (e.g., local-only app, already deleted)
     return { allowed: true, blockers: [], warnings: [] };
   }
 
-  // Check for related Procès
-  if (dossier.proceedings && dossier.proceedings.length > 0) {
+  // Check for related Procès (cases)
+  const dossierCases = cases.filter((c) => String(c.dossierId) === String(dossierId));
+  if (dossierCases.length > 0) {
     blockers.push(
-      `Ce dossier contient ${dossier.proceedings.length} procès. Veuillez d'abord les supprimer.`
+      `Ce dossier contient ${dossierCases.length} procès. Veuillez d'abord les supprimer.`
     );
   }
 
@@ -1025,14 +1030,20 @@ function validateCaseClose(caseId, context = {}) {
   const blockers = [];
   const warnings = [];
 
+  const sessions = context.sessions || context.entities?.sessions || mockSessions || [];
+  const tasks = context.tasks || context.entities?.tasks || mockTasks || [];
+
   // Fetch case data
-  const caseData = mockCasesExtended[caseId];
+  const caseData = mockCasesExtended[caseId] ||
+    mockCasesExtended[Number(caseId)] ||
+    (context.cases || context.entities?.cases || []).find((c) => String(c.id) === String(caseId));
+
   if (!caseData) {
     return { allowed: false, blockers: ["Procès introuvable"], warnings: [] };
   }
 
   // Rule 1: Check for upcoming or incomplete Séances
-  const caseSessions = [].filter((session) => session.caseId === caseId);
+  const caseSessions = sessions.filter((session) => String(session.caseId) === String(caseId));
 
   const today = new Date();
   const upcomingSessions = caseSessions.filter((session) => {
@@ -1062,8 +1073,8 @@ function validateCaseClose(caseId, context = {}) {
   }
 
   // Rule 2: Check for open tasks
-  const caseTasks = [].filter(
-    (task) => task.parentType === "case" && task.caseId === caseId
+  const caseTasks = tasks.filter(
+    (task) => task.parentType === "case" && String(task.caseId) === String(caseId)
   );
 
   const incompleteTasks = caseTasks.filter(
@@ -1126,14 +1137,20 @@ function validateCaseDelete(caseId, context = {}) {
   const blockers = [];
   const warnings = [];
 
-  const caseData = mockCasesExtended[caseId];
+  const sessions = context.sessions || context.entities?.sessions || [];
+  const tasks = context.tasks || context.entities?.tasks || [];
+
+  const caseData = mockCasesExtended[caseId] ||
+    mockCasesExtended[Number(caseId)] ||
+    (context.cases || context.entities?.cases || []).find((c) => String(c.id) === String(caseId));
+
   if (!caseData) {
     // Allow deletion if case is already missing (e.g., local-only app, already deleted)
     return { allowed: true, blockers: [], warnings: [] };
   }
 
   // Check for related Séances
-  const caseSessions = [].filter((session) => session.caseId === caseId);
+  const caseSessions = sessions.filter((session) => String(session.caseId) === String(caseId));
 
   if (caseSessions.length > 0) {
     blockers.push(
@@ -1144,8 +1161,8 @@ function validateCaseDelete(caseId, context = {}) {
   }
 
   // Check for related Tasks
-  const caseTasks = [].filter(
-    (task) => task.parentType === "case" && task.caseId === caseId
+  const caseTasks = tasks.filter(
+    (task) => task.parentType === "case" && String(task.caseId) === String(caseId)
   );
 
   if (caseTasks.length > 0) {
@@ -1203,7 +1220,7 @@ function validateClientArchive(clientId, context = {}) {
   }
 
   // Rule 1: Check for open Dossiers
-  const clientDossiers = client.relatedDossiers || [];
+  const clientDossiers = client.dossiers || [];
   const openDossiers = clientDossiers.filter(
     (d) => d.status !== "Fermé" && d.status !== "Clos"
   );
@@ -1252,7 +1269,7 @@ function validateClientDelete(clientId, context = {}) {
   }
 
   // Check for related Dossiers
-  const clientDossiers = client.relatedDossiers || [];
+  const clientDossiers = client.dossiers || [];
   if (clientDossiers.length > 0) {
     blockers.push(
       `Ce client a ${clientDossiers.length} dossier${
@@ -1738,9 +1755,9 @@ function validateFinancialEntryEdit(entryId, context = {}) {
   const warnings = [];
 
   // Use the data from context if available, otherwise fall back to financialLedger
-  const entry = context.data || financialLedger.find(
-    (e) => e.id === normalizeFinancialEntryId(entryId)
-  );
+  const entry =
+    context.data ||
+    financialLedger.find((e) => e.id === normalizeFinancialEntryId(entryId));
 
   if (!entry) {
     return {
@@ -1795,9 +1812,9 @@ function validateFinancialEntryDelete(entryId, context = {}) {
   const warnings = [];
 
   // Use the data from context if available, otherwise fall back to financialLedger
-  const entry = context.data || financialLedger.find(
-    (e) => e.id === normalizeFinancialEntryId(entryId)
-  );
+  const entry =
+    context.data ||
+    financialLedger.find((e) => e.id === normalizeFinancialEntryId(entryId));
   if (!entry) {
     return {
       allowed: false,

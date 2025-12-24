@@ -12,6 +12,21 @@ import {
   getAllAssignees,
   addCustomAssignee,
 } from "../../utils/assigneeManager";
+import { getAllCourts, addCustomCourt } from "../../utils/courtManager";
+import { getAllPhases, addCustomPhase } from "../../utils/phaseManager";
+import { getAllJudges, addCustomJudge } from "../../utils/judgeManager";
+import {
+  getAllAdversaryLawyers,
+  addCustomAdversaryLawyer,
+} from "../../utils/adversaryLawyerManager";
+import {
+  getAllCategories,
+  addCustomCategory,
+} from "../../utils/categoryManager";
+import {
+  getAllMissionTypes,
+  addCustomMissionType,
+} from "../../utils/missionTypeManager";
 
 // Default assignees that are always available
 const DEFAULT_ASSIGNEES = [
@@ -19,32 +34,53 @@ const DEFAULT_ASSIGNEES = [
   { value: "Stagiaire", label: "Stagiaire" },
 ];
 
-// Dossier phases with lightweight creation support
-const DEFAULT_PHASES = [
-  "Ouverture",
-  "Instruction",
-  "Négociation",
-  "Plaidoirie",
-  "Jugement",
-  "Exécution",
+// Default courts that are always available
+const DEFAULT_COURTS = [
+  {
+    value: "Tribunal de première instance",
+    label: "Tribunal de première instance",
+  },
+  { value: "Tribunal de première instance - Tunis", label: "TPI Tunis" },
+  { value: "Tribunal de première instance - Ariana", label: "TPI Ariana" },
+  {
+    value: "Tribunal de première instance - Ben Arous",
+    label: "TPI Ben Arous",
+  },
+  { value: "Cour d'appel", label: "Cour d'appel" },
+  { value: "Cour d'Appel - Tunis", label: "Cour d'Appel Tunis" },
+  { value: "Cour de cassation", label: "Cour de cassation" },
+  { value: "Tribunal administratif", label: "Tribunal administratif" },
 ];
-let phaseOptions = [...DEFAULT_PHASES];
 
-export const getPhaseOptions = () =>
-  phaseOptions.map((phase) => ({ value: phase, label: phase }));
+// Default phases that are always available
+const DEFAULT_PHASES = [
+  { value: "Ouverture", label: "Ouverture" },
+  { value: "Instruction", label: "Instruction" },
+  { value: "Négociation", label: "Négociation" },
+  { value: "Plaidoirie", label: "Plaidoirie" },
+  { value: "Jugement", label: "Jugement" },
+  { value: "Exécution", label: "Exécution" },
+];
 
-export const addCustomPhase = (name) => {
-  const normalized = (name || "").trim();
-  if (!normalized) {
-    throw new Error("Le nom de phase ne peut pas être vide");
-  }
-  const exists = phaseOptions.some(
-    (phase) => phase.toLowerCase() === normalized.toLowerCase()
-  );
-  if (!exists) {
-    phaseOptions = [...phaseOptions, normalized];
-  }
-};
+// Default categories for dossiers
+const DEFAULT_CATEGORIES = [
+  { value: "Commercial", label: "Droit Commercial" },
+  { value: "Famille", label: "Droit de la Famille" },
+  { value: "Pénal", label: "Droit Pénal" },
+  { value: "Travail", label: "Droit du Travail" },
+  { value: "Immobilier", label: "Droit Immobilier" },
+  { value: "Administratif", label: "Droit Administratif" },
+  { value: "Fiscal", label: "Droit Fiscal" },
+];
+
+// Default mission types
+const DEFAULT_MISSION_TYPES = [
+  { value: "Signification", label: "Signification" },
+  { value: "Exécution", label: "Exécution" },
+  { value: "Constat", label: "Constat" },
+  { value: "Saisie", label: "Saisie" },
+  { value: "Enquête", label: "Enquête" },
+];
 
 // ========================================
 // CLIENT FORM (No changes - clients are top level)
@@ -183,18 +219,19 @@ export const dossierFormFields = [
   {
     name: "category",
     label: "Catégorie",
-    type: "select",
+    type: "searchable-select",
     required: true,
-    options: [
-      { value: "Commercial", label: "Droit Commercial" },
-      { value: "Famille", label: "Droit de la Famille" },
-      { value: "Pénal", label: "Droit Pénal" },
-      { value: "Travail", label: "Droit du Travail" },
-      { value: "Immobilier", label: "Droit Immobilier" },
-      { value: "Administratif", label: "Droit Administratif" },
-      { value: "Fiscal", label: "Droit Fiscal" },
-      { value: "Autre", label: "Autre" },
-    ],
+    getOptions: () => getAllCategories(DEFAULT_CATEGORIES),
+    allowCreate: true,
+    onCreateOption: async (name) => {
+      try {
+        addCustomCategory(name);
+        return true;
+      } catch (error) {
+        console.error("Error adding category:", error);
+        return false;
+      }
+    },
   },
   {
     name: "priority",
@@ -209,11 +246,16 @@ export const dossierFormFields = [
     type: "searchable-select",
     required: true,
     defaultValue: "Instruction",
-    getOptions: () => getPhaseOptions(),
+    getOptions: () => getAllPhases(DEFAULT_PHASES),
     allowCreate: true,
     onCreateOption: async (name) => {
-      addCustomPhase(name);
-      return true;
+      try {
+        addCustomPhase(name);
+        return true;
+      } catch (error) {
+        console.error("Error adding phase:", error);
+        return false;
+      }
     },
   },
   {
@@ -255,9 +297,20 @@ export const dossierFormFields = [
   {
     name: "adversaryLawyer",
     label: "Avocat adverse",
-    type: "text",
+    type: "searchable-select",
     placeholder: "Me. Nom de l'avocat",
     required: false,
+    getOptions: () => getAllAdversaryLawyers([]),
+    allowCreate: true,
+    onCreateOption: async (name) => {
+      try {
+        addCustomAdversaryLawyer(name);
+        return true;
+      } catch (error) {
+        console.error("Error adding adversary lawyer:", error);
+        return false;
+      }
+    },
   },
   {
     name: "estimatedValue",
@@ -315,24 +368,20 @@ export const caseFormFields = [
   {
     name: "court",
     label: "Tribunal",
-    type: "select",
+    type: "searchable-select",
     required: true,
-    options: [
-      {
-        value: "Tribunal de première instance",
-        label: "Tribunal de première instance",
-      },
-      { value: "Tribunal de première instance - Tunis", label: "TPI Tunis" },
-      { value: "Tribunal de première instance - Ariana", label: "TPI Ariana" },
-      {
-        value: "Tribunal de première instance - Ben Arous",
-        label: "TPI Ben Arous",
-      },
-      { value: "Cour d'appel", label: "Cour d'appel" },
-      { value: "Cour d'Appel - Tunis", label: "Cour d'Appel Tunis" },
-      { value: "Cour de cassation", label: "Cour de cassation" },
-      { value: "Tribunal administratif", label: "Tribunal administratif" },
-    ],
+    getOptions: () => getAllCourts(DEFAULT_COURTS),
+    allowCreate: true,
+    onCreateOption: async (name) => {
+      try {
+        addCustomCourt(name);
+        return true;
+      } catch (error) {
+        alert(error.message);
+        throw error;
+      }
+    },
+    createLabel: "Ajouter",
   },
   {
     name: "courtRoom",
@@ -344,9 +393,20 @@ export const caseFormFields = [
   {
     name: "judge",
     label: "Juge",
-    type: "text",
+    type: "searchable-select",
     placeholder: "Nom du juge",
     required: false,
+    getOptions: () => getAllJudges([]),
+    allowCreate: true,
+    onCreateOption: async (name) => {
+      try {
+        addCustomJudge(name);
+        return true;
+      } catch (error) {
+        console.error("Error adding judge:", error);
+        return false;
+      }
+    },
   },
   {
     name: "filingDate",
@@ -378,9 +438,20 @@ export const caseFormFields = [
   {
     name: "adversaryLawyer",
     label: "Avocat adverse",
-    type: "text",
+    type: "searchable-select",
     placeholder: "Me. Nom de l'avocat",
     required: false,
+    getOptions: () => getAllAdversaryLawyers([]),
+    allowCreate: true,
+    onCreateOption: async (name) => {
+      try {
+        addCustomAdversaryLawyer(name);
+        return true;
+      } catch (error) {
+        console.error("Error adding adversary lawyer:", error);
+        return false;
+      }
+    },
   },
   {
     name: "status",
@@ -857,16 +928,19 @@ export const officerAssignmentFormFields = [
   {
     name: "missionType",
     label: "Type de mission",
-    type: "select",
+    type: "searchable-select",
     required: true,
-    options: [
-      { value: "Signification", label: "Signification" },
-      { value: "Exécution", label: "Exécution" },
-      { value: "Constat", label: "Constat" },
-      { value: "Saisie", label: "Saisie" },
-      { value: "Recouvrement", label: "Recouvrement" },
-      { value: "Autre", label: "Autre" },
-    ],
+    getOptions: () => getAllMissionTypes(DEFAULT_MISSION_TYPES),
+    allowCreate: true,
+    onCreateOption: async (name) => {
+      try {
+        addCustomMissionType(name);
+        return true;
+      } catch (error) {
+        console.error("Error adding mission type:", error);
+        return false;
+      }
+    },
   },
   {
     name: "assignDate",
@@ -1059,15 +1133,19 @@ export const missionFormFields = [
   {
     name: "missionType",
     label: "Type de mission",
-    type: "select",
+    type: "searchable-select",
     required: true,
-    options: [
-      { value: "Signification", label: "Signification" },
-      { value: "Constat", label: "Constat" },
-      { value: "Saisie", label: "Saisie" },
-      { value: "Exécution", label: "Exécution" },
-      { value: "Autre", label: "Autre" },
-    ],
+    getOptions: () => getAllMissionTypes(DEFAULT_MISSION_TYPES),
+    allowCreate: true,
+    onCreateOption: async (name) => {
+      try {
+        addCustomMissionType(name);
+        return true;
+      } catch (error) {
+        console.error("Error adding mission type:", error);
+        return false;
+      }
+    },
   },
   {
     name: "priority",

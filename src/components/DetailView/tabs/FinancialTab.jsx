@@ -154,7 +154,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
     // G£à Validate before allowing edit
     const result = canPerformAction('financialEntry', entry.id, 'edit', {
       data: entry,
-      entities: { clients, dossiers, cases, missions, officers, financialEntries }
+      entities: { clients, dossiers, cases, tasks, sessions, missions, officers, financialEntries }
     });
 
     if (!result.allowed) {
@@ -238,7 +238,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
     const result = canPerformAction('financialEntry', entryId, action, {
       data,
       newData,
-      entities: { clients, dossiers, cases, missions, officers, financialEntries }
+      entities: { clients, dossiers, cases, tasks, sessions, missions, officers, financialEntries }
     });
 
     if (!result.allowed) {

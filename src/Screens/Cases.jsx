@@ -19,6 +19,7 @@ import StatCard from "../components/dashboard/StatCard";
 import FormModal from "../components/FormModal/FormModal";
 import { caseFormFields } from "../components/FormModal/formConfigs";
 import InlineStatusSelector from "../components/InlineSelectors/InlineStatusSelector";
+import LoadingScreen from "../components/loading/LoadingScreen";
 import BlockerModal from "../components/ui/BlockerModal";
 import ConfirmImpactModal from "../components/ui/ConfirmImpactModal";
 import { canPerformAction } from "../services/domainRules";
@@ -186,9 +187,7 @@ export default function Cases() {
             </div>
           </ContentSection>
         )}
-        <ContentSection>
-          <p>Loading data...</p>
-        </ContentSection>
+        <LoadingScreen variant="page" message="Chargement des cases..." />
       </PageLayout>
     );
   }

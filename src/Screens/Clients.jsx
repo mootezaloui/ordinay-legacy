@@ -17,6 +17,7 @@ import Pagination from "../components/table/Pagination";
 import FormModal from "../components/FormModal/FormModal";
 import StatCard from "../components/dashboard/StatCard";
 import InlineStatusSelector from "../components/InlineSelectors/InlineStatusSelector";
+import LoadingScreen from "../components/loading/LoadingScreen";
 import { clientFormFields, getFormTitle } from "../components/FormModal/formConfigs";
 import { useData } from "../contexts/DataContext";
 import BlockerModal from "../components/ui/BlockerModal";
@@ -29,7 +30,21 @@ export default function Clients() {
   const navigate = useNavigate();
   const { showToast } = useToast();
   const { confirm } = useConfirm();
-  const { clients, addClient, updateClient, deleteClient, loading, loadError } = useData();
+  const {
+    clients,
+    dossiers,
+    cases,
+    tasks,
+    sessions,
+    officers,
+    missions,
+    financialEntries,
+    addClient,
+    updateClient,
+    deleteClient,
+    loading,
+    loadError
+  } = useData();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClient, setEditingClient] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -162,12 +177,7 @@ export default function Clients() {
             </div>
           </ContentSection>
         )}
-        <div className="flex items-center justify-center py-12">
-          <div className="text-center">
-            <i className="fas fa-spinner fa-spin text-4xl text-blue-600 dark:text-blue-400 mb-4"></i>
-            <p className="text-slate-600 dark:text-slate-400">Chargement des données...</p>
-          </div>
-        </div>
+        <LoadingScreen variant="page" message="Chargement des données..." />
       </PageLayout>
     );
   }
@@ -206,7 +216,10 @@ export default function Clients() {
   const handleDelete = async (id) => {
     // ✅ Validate before allowing delete
     const client = clients.find(c => c.id === id);
-    const result = canPerformAction('client', id, 'delete', { data: client });
+    const result = canPerformAction('client', id, 'delete', {
+      data: client,
+      entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
+    });
 
     if (!result.allowed) {
       setValidationResult(result);

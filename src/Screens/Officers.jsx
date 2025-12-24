@@ -28,7 +28,18 @@ export default function Officers() {
   const { showToast } = useToast();
   const { confirm } = useConfirm();
 
-  const { officers, addOfficer, deleteOfficer } = useData();
+  const {
+    officers,
+    clients,
+    dossiers,
+    cases,
+    tasks,
+    sessions,
+    missions,
+    financialEntries,
+    addOfficer,
+    deleteOfficer
+  } = useData();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingOfficer, setEditingOfficer] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -164,7 +175,10 @@ export default function Officers() {
 
   const handleEdit = (officer) => {
     // ✅ Validate before allowing edit
-    const result = canPerformAction('officer', officer.id, 'edit', { data: officer });
+    const result = canPerformAction('officer', officer.id, 'edit', {
+      data: officer,
+      entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
+    });
 
     if (!result.allowed) {
       setValidationResult(result);
@@ -186,7 +200,10 @@ export default function Officers() {
   const handleDelete = async (id) => {
     // ✅ Validate before allowing delete
     const officer = officers.find(o => o.id === id);
-    const result = canPerformAction('officer', id, 'delete', { data: officer });
+    const result = canPerformAction('officer', id, 'delete', {
+      data: officer,
+      entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
+    });
 
     if (!result.allowed) {
       setValidationResult(result);
@@ -232,7 +249,8 @@ export default function Officers() {
     if (editingOfficer) {
       const result = canPerformAction('officer', editingOfficer.id, 'edit', {
         data: editingOfficer,
-        newData: formData
+        newData: formData,
+        entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
       });
 
       if (!result.allowed) {
