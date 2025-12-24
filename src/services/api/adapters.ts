@@ -90,7 +90,7 @@ const financialStatusMap: Record<string, string> = {
 };
 
 const missionStatusMap: Record<string, string> = {
-  planned: "Planifiée",
+  planned: "Programmée",
   in_progress: "En cours",
   completed: "Terminée",
   cancelled: "Annulée",
@@ -228,8 +228,11 @@ export function adaptOfficer(api: any) {
     name: api.name ?? "",
     specialization: api.specialization ?? "",
     phone: api.phone ?? "",
+    alternatePhone: api.alternate_phone ?? "",
     email: api.email ?? "",
-    location: api.agency ?? "",
+    location: api.location ?? api.agency ?? "",
+    address: api.address ?? "",
+    agency: api.agency ?? "",
     status: officerStatusMap[api.status] ?? api.status ?? "",
     registrationNumber: api.registration_number ?? "",
     notes: api.notes ?? "",
@@ -295,14 +298,20 @@ export function adaptMission(
     missionType: api.mission_type ?? "",
     status: missionStatusMap[api.status] ?? api.status ?? "",
     priority: priorityMap[api.priority] ?? api.priority ?? "",
+    assignDate: dateOnly(api.assign_date),
     dueDate: dateOnly(api.due_date),
+    completionDate: dateOnly(api.completion_date),
     closedAt: dateOnly(api.closed_at),
+    result: api.result ?? "",
+    notes: api.notes ?? "",
+    description: api.description ?? "",
+    dossierId: api.dossier_id ?? null,
+    caseId: api.case_id ?? null,
     officerId: api.officer_id ?? null,
     officerName: "",
     entityType,
     entityId: api.dossier_id ?? api.case_id ?? null,
     entityReference: entityType === "dossier" ? dossierRef : caseRef,
-    description: api.description ?? "",
   };
 }
 

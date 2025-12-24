@@ -109,7 +109,10 @@ export default function Accounting() {
 
   const handleEdit = (entry) => {
     // ✅ Validate before allowing edit
-    const result = canPerformAction('financialEntry', entry.id, 'edit', { data: entry });
+    const result = canPerformAction('financialEntry', entry.id, 'edit', {
+      data: entry,
+      entities: { financialEntries }
+    });
 
     if (!result.allowed) {
       setValidationResult(result);
@@ -124,7 +127,10 @@ export default function Accounting() {
   const handleDelete = async (id) => {
     // ✅ Validate before allowing delete
     const entry = displayEntries.find(e => e.id === id);
-    const result = canPerformAction('financialEntry', id, 'delete', { data: entry });
+    const result = canPerformAction('financialEntry', id, 'delete', {
+      data: entry,
+      entities: { financialEntries }
+    });
 
     if (!result.allowed) {
       setValidationResult(result);
@@ -155,7 +161,8 @@ export default function Accounting() {
     const result = canPerformAction('financialEntry', id, 'changeStatus', {
       data: entry,
       newValue: newStatus,
-      currentValue: entry?.status
+      currentValue: entry?.status,
+      entities: { financialEntries }
     });
 
     if (!result.allowed) {
@@ -335,7 +342,8 @@ export default function Accounting() {
     if (editingEntry) {
       const result = canPerformAction('financialEntry', editingEntry.id, 'edit', {
         data: editingEntry,
-        newData: formData
+        newData: formData,
+        entities: { financialEntries }
       });
 
       if (!result.allowed) {

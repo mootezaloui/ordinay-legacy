@@ -584,25 +584,59 @@ export function DataProvider({ children }) {
 
     console.log('[DataContext.updateDossier] Updating dossier ID:', id, 'with:', updates);
 
-    const payload = {
-      client_id: updates.clientId || updates.client_id,
-      title: updates.title,
-      description: updates.description,
-      category: updates.category,
-      phase: updates.phase,
-      adversary_party: updates.adversaryParty || updates.adversary_party || updates.adversary,
-      adversary_lawyer: updates.adversaryLawyer || updates.adversary_lawyer,
-      estimated_value: updates.estimatedValue || updates.estimated_value,
-      court_reference: updates.courtReference || updates.court_reference,
-      assigned_lawyer: updates.assignedLawyer || updates.assigned_lawyer,
-      status: updates.status === "Ouvert" ? "open" : updates.status === "En attente" ? "on_hold" : updates.status === "Fermé" ? "closed" : updates.status,
-      priority: updates.priority === "Haute" ? "high" : updates.priority === "Moyenne" ? "medium" : updates.priority === "Basse" ? "low" : updates.priority,
-      opened_at: updates.openDate,
-      next_deadline: updates.nextDeadline || updates.prochaineEcheance,
-    };
+    // 🚨 CRITICAL FIX: Build payload with ONLY the fields present in updates (PATCH semantics)
+    const payload = {};
 
-    // Remove undefined values
-    Object.keys(payload).forEach(key => payload[key] === undefined && delete payload[key]);
+    if (updates.clientId !== undefined || updates.client_id !== undefined) {
+      payload.client_id = updates.clientId || updates.client_id;
+    }
+    if (updates.title !== undefined) {
+      payload.title = updates.title;
+    }
+    if (updates.description !== undefined) {
+      payload.description = updates.description;
+    }
+    if (updates.category !== undefined) {
+      payload.category = updates.category;
+    }
+    if (updates.phase !== undefined) {
+      payload.phase = updates.phase;
+    }
+    if (updates.adversaryParty !== undefined || updates.adversary_party !== undefined || updates.adversary !== undefined) {
+      payload.adversary_party = updates.adversaryParty || updates.adversary_party || updates.adversary;
+    }
+    if (updates.adversaryLawyer !== undefined || updates.adversary_lawyer !== undefined) {
+      payload.adversary_lawyer = updates.adversaryLawyer || updates.adversary_lawyer;
+    }
+    if (updates.estimatedValue !== undefined || updates.estimated_value !== undefined) {
+      payload.estimated_value = updates.estimatedValue || updates.estimated_value;
+    }
+    if (updates.courtReference !== undefined || updates.court_reference !== undefined) {
+      payload.court_reference = updates.courtReference || updates.court_reference;
+    }
+    if (updates.assignedLawyer !== undefined || updates.assigned_lawyer !== undefined) {
+      payload.assigned_lawyer = updates.assignedLawyer || updates.assigned_lawyer;
+    }
+    if (updates.status !== undefined) {
+      payload.status = updates.status === "Ouvert" ? "open" : updates.status === "En attente" ? "on_hold" : updates.status === "Fermé" ? "closed" : updates.status;
+    }
+    if (updates.priority !== undefined) {
+      payload.priority = updates.priority === "Haute" ? "high" : updates.priority === "Moyenne" ? "medium" : updates.priority === "Basse" ? "low" : updates.priority;
+    }
+    if (updates.openDate !== undefined) {
+      payload.opened_at = updates.openDate;
+    }
+    if (updates.nextDeadline !== undefined || updates.prochaineEcheance !== undefined) {
+      payload.next_deadline = updates.nextDeadline || updates.prochaineEcheance;
+    }
+
+    // Safety check: ensure we have at least one field to update
+    if (Object.keys(payload).length === 0) {
+      console.warn('[DataContext.updateDossier] No valid dossier fields to update, skipping API call');
+      return validation;
+    }
+
+    console.log('[DataContext.updateDossier] Sending PATCH payload:', payload);
 
     const updated = await apiClient.put(`/dossiers/${id}`, payload);
     const clientsById = Object.fromEntries(clients.map((c) => [c.id, c]));
@@ -1242,7 +1276,10 @@ export function DataProvider({ children }) {
       name: officer.name,
       email: emptyToNull(officer.email),
       phone: emptyToNull(officer.phone),
-      agency: emptyToNull(officer.location || officer.agency), // location maps to agency
+      alternate_phone: emptyToNull(officer.alternatePhone || officer.alternate_phone),
+      address: emptyToNull(officer.address),
+      location: emptyToNull(officer.location),
+      agency: emptyToNull(officer.agency),
       status:
         officer.status === "Disponible"
           ? "active"
@@ -1278,22 +1315,52 @@ export function DataProvider({ children }) {
 
     const emptyToNull = (value) => (value === "" || value === undefined) ? null : value;
 
-    const payload = {
-      name: updates.name,
-      email: emptyToNull(updates.email),
-      phone: emptyToNull(updates.phone),
-      agency: emptyToNull(updates.location || updates.agency),
-      registration_number: emptyToNull(updates.registrationNumber || updates.registration_number),
-      status: updates.status === "Disponible" ? "active" :
+    // 🚨 CRITICAL FIX: Build payload with ONLY the fields present in updates (PATCH semantics)
+    // This prevents sending undefined/null for fields that weren't changed
+    const payload = {};
+
+    if (updates.name !== undefined) {
+      payload.name = updates.name;
+    }
+    if (updates.email !== undefined) {
+      payload.email = emptyToNull(updates.email);
+    }
+    if (updates.phone !== undefined) {
+      payload.phone = emptyToNull(updates.phone);
+    }
+    if (updates.alternatePhone !== undefined || updates.alternate_phone !== undefined) {
+      payload.alternate_phone = emptyToNull(updates.alternatePhone || updates.alternate_phone);
+    }
+    if (updates.address !== undefined) {
+      payload.address = emptyToNull(updates.address);
+    }
+    if (updates.location !== undefined) {
+      payload.location = emptyToNull(updates.location);
+    }
+    if (updates.agency !== undefined) {
+      payload.agency = emptyToNull(updates.agency);
+    }
+    if (updates.registrationNumber !== undefined || updates.registration_number !== undefined) {
+      payload.registration_number = emptyToNull(updates.registrationNumber || updates.registration_number);
+    }
+    if (updates.status !== undefined) {
+      payload.status = updates.status === "Disponible" ? "active" :
               updates.status === "Occupé" || updates.status === "Occupe" ? "busy" :
               updates.status === "Inactif" ? "inactive" :
               updates.status === "Suspendu" ? "suspended" :
-              updates.status,
-      notes: emptyToNull(updates.notes),
-    };
+              updates.status;
+    }
+    if (updates.notes !== undefined) {
+      payload.notes = emptyToNull(updates.notes);
+    }
 
-    // Remove undefined values
-    Object.keys(payload).forEach(key => payload[key] === undefined && delete payload[key]);
+    // Safety check: ensure we have at least one field to update
+    if (Object.keys(payload).length === 0) {
+      console.warn('[DataContext.updateOfficer] No valid officer fields to update, skipping API call');
+      return validation;
+    }
+
+    console.log('[DataContext.updateOfficer] Sending PATCH payload:', payload);
 
     const updated = await apiClient.put(`/officers/${id}`, payload);
     const adapted = adaptOfficer(updated);
@@ -1500,8 +1567,10 @@ export function DataProvider({ children }) {
       client_id: emptyToNull(entry.clientId || entry.client_id),
       dossier_id: emptyToNull(entry.dossierId || entry.dossier_id),
       case_id: emptyToNull(entry.caseId || entry.case_id),
+      mission_id: emptyToNull(entry.missionId || entry.mission_id),
       entry_type: backendType,
       status: statusMap[entry.status] || entry.status || "pending",
+      category: emptyToNull(entry.category),
       amount: entry.amount,
       currency: entry.currency || "TND",
       due_date: emptyToNull(entry.dueDate || entry.due_date || entry.date),

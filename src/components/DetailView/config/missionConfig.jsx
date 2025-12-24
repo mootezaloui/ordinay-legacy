@@ -26,12 +26,27 @@ export const missionConfig = {
             if (mission) {
                 // Enrich with officer info when available
                 const officer = contextData.officers?.find(o => o.id === mission.officerId);
+
+                // ✅ Enrich with financial entries linked to this mission
+                const financialEntries = contextData?.financialEntries || [];
+                const missionFinancialEntries = financialEntries.filter(entry => {
+                    // Match by mission_id (primary) or fallback to dossier/case relationship
+                    return (
+                        entry.missionId === missionId ||
+                        (
+                            (mission.dossierId && entry.dossierId === mission.dossierId) ||
+                            (mission.caseId && entry.caseId === mission.caseId)
+                        )
+                    ) && entry.category === 'frais_huissier'; // Only officer fees
+                });
+
                 return {
                     ...mission,
                     officerId: mission.officerId ?? officer?.id ?? null,
                     officerName: officer?.name || mission.officerName || "",
                     officerPhone: officer?.phone || mission.officerPhone || "",
                     officerLocation: officer?.location || mission.officerLocation || "",
+                    financialEntries: missionFinancialEntries,
                 };
             }
         }

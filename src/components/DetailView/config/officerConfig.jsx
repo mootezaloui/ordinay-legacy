@@ -36,21 +36,82 @@ export const officerConfig = {
       // Fallback to null (static data)
       officer = null[numericId];
     }
-    return officer || null;
+
+    if (!officer) return null;
+
+    // ✅ Compute aggregated related entities from contextData if available
+    const missions = contextData?.missions || [];
+    const cases = contextData?.cases || [];
+    const dossiers = contextData?.dossiers || [];
+
+    // Filter missions assigned to this officer
+    const officerMissions = missions.filter(m => m.officerId === numericId);
+
+    // Filter cases where this officer has missions
+    const relatedCaseIds = new Set(
+      missions
+        .filter(m => m.officerId === numericId && m.caseId)
+        .map(m => m.caseId)
+    );
+    const officerCases = cases.filter(c => relatedCaseIds.has(c.id));
+
+    // Filter dossiers where this officer has missions
+    const relatedDossierIds = new Set(
+      missions
+        .filter(m => m.officerId === numericId && m.dossierId)
+        .map(m => m.dossierId)
+    );
+    const officerDossiers = dossiers.filter(d => relatedDossierIds.has(d.id));
+
+    return {
+      ...officer,
+      missions: officerMissions,
+      cases: officerCases,
+      dossiers: officerDossiers,
+    };
   },
 
   updateData: async (id, data, contextData = null) => {
     const numericId = parseInt(id);
 
+    // 🚨 CRITICAL SAFETY: Relational arrays (missions, cases, dossiers) should NEVER trigger officer table updates
+    // These are read-only computed properties from the backend
+    const relationalFields = ['missions', 'cases', 'dossiers'];
+    const hasOnlyRelationalFields = Object.keys(data).every(key => relationalFields.includes(key));
+
+    if (hasOnlyRelationalFields) {
+      console.log('[officerConfig.updateData] BLOCKED: Attempted to update officer with only relational fields:', Object.keys(data));
+      console.log('[officerConfig.updateData] Relational data changes are handled by their respective entities (missions/cases/dossiers)');
+      // These updates are safe to ignore - the relational data is managed by the mission/case/dossier services
+      return;
+    }
+
+    // Only update officer table fields (name, email, phone, agency, status, notes)
+    const officerFields = ['name', 'email', 'phone', 'location', 'agency', 'status', 'notes', 'registrationNumber'];
+    const officerOnlyData = {};
+    let hasOfficerFields = false;
+
+    for (const key of Object.keys(data)) {
+      if (officerFields.includes(key)) {
+        officerOnlyData[key] = data[key];
+        hasOfficerFields = true;
+      }
+    }
+
+    if (!hasOfficerFields) {
+      console.log('[officerConfig.updateData] No officer fields to update, skipping');
+      return;
+    }
+
     if (contextData?.updateOfficer) {
-      // Use DataContext to update (this persists to localStorage)
-      contextData.updateOfficer(numericId, data);
+      // Use DataContext to update (this persists to backend)
+      contextData.updateOfficer(numericId, officerOnlyData);
     } else {
       // Fallback to updating null
       if (null[numericId]) {
         null[numericId] = {
           ...null[numericId],
-          ...data,
+          ...officerOnlyData,
         };
       }
     }

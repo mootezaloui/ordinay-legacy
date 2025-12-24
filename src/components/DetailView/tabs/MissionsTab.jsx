@@ -28,7 +28,7 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
   const location = useLocation();
   const { showToast } = useToast();
   const { confirm } = useConfirm();
-  const { addMission, updateMission } = useData();
+  const { addMission, updateMission, deleteMission, addFinancialEntry } = useData();
   const [missions, setMissions] = useState(data[tabConfig.itemsKey] || []);
 
   // ✅ Synchronize local missions state with parent data prop
@@ -178,6 +178,9 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
         // ADD NEW MISSION
         console.log("📝 Mission creation - submittedFormData:", submittedFormData);
 
+        // Extract financial entries to create separately after mission creation
+        const { financialEntries, entityType, entityReference, ...restFormData } = submittedFormData;
+
         // Derive relational context based on parent entity (dossier, case, officer)
         const relationshipFields = (() => {
           const rel = {};
@@ -187,12 +190,12 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
             rel.caseId = data.id;
           } else if (config?.entityType === "officer") {
             // When creating from officer view, convert entityReference to ID
-            if (submittedFormData.entityType && submittedFormData.entityReference) {
-              if (submittedFormData.entityType === 'dossier') {
-                const dossier = contextData?.dossiers?.find(d => d.caseNumber === submittedFormData.entityReference);
+            if (entityType && entityReference) {
+              if (entityType === 'dossier') {
+                const dossier = contextData?.dossiers?.find(d => d.caseNumber === entityReference);
                 if (dossier) rel.dossierId = dossier.id;
-              } else if (submittedFormData.entityType === 'case') {
-                const caseEntity = contextData?.cases?.find(c => c.caseNumber === submittedFormData.entityReference);
+              } else if (entityType === 'case') {
+                const caseEntity = contextData?.cases?.find(c => c.caseNumber === entityReference);
                 if (caseEntity) rel.caseId = caseEntity.id;
               }
             }
@@ -200,10 +203,7 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
           return rel;
         })();
 
-        // Remove entityType and entityReference before sending to backend
-        const { entityType, entityReference, ...restFormData } = submittedFormData;
-
-        // Prepare mission data for backend
+        // Prepare mission data for backend (without financialEntries)
         const missionData = {
           ...restFormData,
           ...relationshipFields,
@@ -217,6 +217,44 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
 
         console.log("✅ Mission created with ID:", createdMission.id);
 
+        // ✅ Create financial entries if they exist
+        if (financialEntries && Array.isArray(financialEntries) && financialEntries.length > 0) {
+          console.log("💰 Creating financial entries for mission:", financialEntries);
+
+          for (const entry of financialEntries) {
+            const financialEntryData = {
+              ...entry,
+              // ✅ Link to the mission we just created
+              missionId: createdMission.id,
+              // Link to the client from the dossier/case
+              clientId: relationshipFields.dossierId
+                ? contextData?.dossiers?.find(d => d.id === relationshipFields.dossierId)?.clientId
+                : relationshipFields.caseId
+                  ? contextData?.cases?.find(c => c.id === relationshipFields.caseId)?.dossierId
+                    ? contextData?.dossiers?.find(d => d.id === contextData.cases.find(c => c.id === relationshipFields.caseId).dossierId)?.clientId
+                    : null
+                  : null,
+              dossierId: relationshipFields.dossierId || null,
+              caseId: relationshipFields.caseId || null,
+              type: 'expense', // Officer fees are expenses
+              category: 'frais_huissier',
+              status: entry.status || 'Brouillon',
+              currency: entry.currency || 'TND',
+            };
+
+            try {
+              await addFinancialEntry(financialEntryData);
+              console.log("✅ Financial entry created:", financialEntryData);
+            } catch (error) {
+              console.error("❌ Failed to create financial entry:", error);
+            }
+          }
+
+          showToast(`Mission ajoutée avec ${financialEntries.length} frais enregistré(s)!`, "success");
+        } else {
+          showToast("Mission ajoutée avec succès!", "success");
+        }
+
         // Update local state with the created mission
         const updatedMissions = [createdMission, ...missions];
         setMissions(updatedMissions);
@@ -224,8 +262,6 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
         if (onItemsChange) {
           onItemsChange(tabConfig.itemsKey, updatedMissions);
         }
-
-        showToast("Mission ajoutée avec succès!", "success");
 
         // ✅ Navigate to detail view after creation using real database ID
         const detailRoute = resolveDetailRoute('mission', createdMission.id);
@@ -269,11 +305,23 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
       cancelText: "Annuler",
       variant: "danger"
     })) {
-      const updatedMissions = missions.filter((m) => m.id !== missionId);
-      setMissions(updatedMissions);
+      try {
+        // ✅ Call backend API to delete mission
+        console.log("🗑️ Deleting mission ID:", missionId);
+        await deleteMission(missionId);
 
-      if (onItemsChange) {
-        onItemsChange(tabConfig.itemsKey, updatedMissions);
+        // Update local state
+        const updatedMissions = missions.filter((m) => m.id !== missionId);
+        setMissions(updatedMissions);
+
+        if (onItemsChange) {
+          onItemsChange(tabConfig.itemsKey, updatedMissions);
+        }
+
+        showToast("Mission supprimée avec succès!", "success");
+      } catch (error) {
+        console.error("❌ Error deleting mission:", error);
+        showToast("Erreur lors de la suppression de la mission", "error");
       }
     }
   };

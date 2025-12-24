@@ -1,7 +1,7 @@
 import ContentSection from "../../layout/ContentSection";
 import { getFinancialEntriesForDisplay, formatCurrency } from "../../../utils/financialUtils";
-import { financialEntryFormFields, populateRelationshipOptions } from "../../FormModal/formConfigs";
 import { formatDateValue } from "../../../utils/dateFormat";
+import { financialCategories } from "../../../utils/financialConstants";
 
 /**
  * Financial Entry Entity Configuration - Enhanced with tabs and better UI
@@ -16,92 +16,44 @@ export const financialEntryConfig = {
     allowDelete: true,
     allowEdit: true,
 
-    fetchData: async (id) => {
+    fetchData: async (id, contextData = null) => {
+        const numericId = parseInt(id);
+
+        // Use live data from context (backend-driven)
+        if (contextData?.financialEntries) {
+            const entry = contextData.financialEntries.find(e => e.id === numericId);
+            return entry || null;
+        }
+
+        // Fallback to static data
         const entries = getFinancialEntriesForDisplay();
-        return entries.find(e => e.id === parseInt(id)) || null;
+        return entries.find(e => e.id === numericId) || null;
     },
 
-    updateData: async (id, data) => {
-        // ✅ Enrich data with denormalized display fields before saving
-        const enrichedData = { ...data };
+    updateData: async (id, data, contextData = null) => {
+        const numericId = parseInt(id);
 
-        // Update clientName if clientId changed
-        if ('clientId' in data) {
-            if (data.clientId) {
-                const client = [].find(c => c.id === parseInt(data.clientId));
-                if (client) {
-                    enrichedData.clientName = client.name;
-                }
-            } else {
-                enrichedData.clientName = null;
-            }
-        }
-
-        // Update dossierReference if dossierId changed
-        if ('dossierId' in data) {
-            if (data.dossierId) {
-                const dossier = [].find(d => d.id === parseInt(data.dossierId));
-                if (dossier) {
-                    enrichedData.dossierReference = dossier.caseNumber;
-                    // Also auto-fill client if not provided
-                    if (!('clientId' in data) && dossier.clientId) {
-                        enrichedData.clientId = dossier.clientId;
-                        const client = [].find(c => c.id === dossier.clientId);
-                        if (client) {
-                            enrichedData.clientName = client.name;
-                        }
-                    }
-                }
-            } else {
-                enrichedData.dossierReference = null;
-            }
-        }
-
-        // Update caseReference if caseId changed
-        if ('caseId' in data) {
-            if (data.caseId) {
-                const selectedCase = [].find(c => c.id === parseInt(data.caseId));
-                if (selectedCase) {
-                    enrichedData.caseReference = selectedCase.caseNumber;
-                    // Also auto-fill dossier and client if not provided
-                    if (!('dossierId' in data) && selectedCase.dossierId) {
-                        enrichedData.dossierId = selectedCase.dossierId;
-                        const dossier = [].find(d => d.id === selectedCase.dossierId);
-                        if (dossier) {
-                            enrichedData.dossierReference = dossier.caseNumber;
-                            if (!('clientId' in data) && dossier.clientId) {
-                                enrichedData.clientId = dossier.clientId;
-                                const client = [].find(c => c.id === dossier.clientId);
-                                if (client) {
-                                    enrichedData.clientName = client.name;
-                                }
-                            }
-                        }
-                    }
-                }
-            } else {
-                enrichedData.caseReference = null;
-            }
-        }
-
-        const result = updateFinancialEntry(parseInt(id), enrichedData);
-        if (!result.entry) {
-            throw new Error("Financial entry update blocked");
+        if (contextData?.updateFinancialEntry) {
+            // Use DataContext to update (this persists to backend)
+            await contextData.updateFinancialEntry(numericId, data);
         }
         await new Promise(resolve => setTimeout(resolve, 300));
     },
 
-    deleteData: async (id) => {
-        const result = deleteFinancialEntry(parseInt(id));
-        if (!result.success) {
-            throw new Error("Financial entry delete blocked");
+    deleteData: async (id, contextData = null) => {
+        const numericId = parseInt(id);
+
+        if (contextData?.deleteFinancialEntry) {
+            // Use DataContext to delete (this persists to backend)
+            await contextData.deleteFinancialEntry(numericId);
         }
     },
 
     getTitle: (data) => `#${data.id} - ${data.description}`,
     getSubtitle: (data) => {
         const date = formatDateValue(data.date);
-        return `${data.categoryLabel} • ${date}`;
+        const categoryLabel = financialCategories[data.category]?.label || data.category;
+        return `${categoryLabel} • ${date}`;
     },
 
     // Quick Actions Configuration
@@ -269,7 +221,7 @@ export const financialEntryConfig = {
                     key: "type",
                     label: "Type",
                     value: (data) => data.type === 'revenue' ? 'Recette' : 'Dépense',
-                    icon: data => data.type === 'revenue' ? 'fas fa-arrow-trend-down' : 'fas fa-arrow-trend-up',
+                    icon: "fas fa-exchange-alt",
                     type: "select",
                     editable: true,
                     options: [
@@ -280,7 +232,14 @@ export const financialEntryConfig = {
                 {
                     key: "category",
                     label: "Catégorie",
-                    value: (data) => data.categoryLabel,
+                    value: (data) => data.category,
+                    displayValue: (data) => {
+                        // Use categoryLabel if available, otherwise compute from category
+                        if (data.categoryLabel) {
+                            return data.categoryLabel;
+                        }
+                        return financialCategories[data.category]?.label || data.category || "N/A";
+                    },
                     icon: "fas fa-tag",
                     type: "select",
                     editable: true,
@@ -319,7 +278,7 @@ export const financialEntryConfig = {
                     key: "scope",
                     label: "Portée",
                     value: (data) => data.scope === 'client' ? 'Client' : 'Bureau',
-                    icon: data => data.scope === 'client' ? 'fas fa-user' : 'fas fa-building',
+                    icon: "fas fa-layer-group",
                     type: "select",
                     editable: true,
                     options: [
@@ -550,15 +509,6 @@ export const financialEntryConfig = {
         },
     ],
 
-    // Form configuration for editing
-    getFormFields: () => {
-        const fields = populateRelationshipOptions(financialEntryFormFields, {
-            clients: [],
-            dossiers: [],
-            cases: [],
-        });
-        return fields;
-    },
 };
 
 export default financialEntryConfig;

@@ -881,6 +881,38 @@ export default function DetailView({ entityType }) {
               Retour
             </button>
 
+            {config.allowEdit && !isEditing && (
+              <button
+                onClick={() => setIsEditing(true)}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200"
+              >
+                <i className="fas fa-edit mr-2"></i>
+                Modifier
+              </button>
+            )}
+
+            {config.allowEdit && isEditing && (
+              <>
+                <button
+                  onClick={() => {
+                    setData(originalData);
+                    setIsEditing(false);
+                  }}
+                  className="px-4 py-2 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-lg font-medium transition-colors duration-200"
+                >
+                  <i className="fas fa-times mr-2"></i>
+                  Annuler
+                </button>
+                <button
+                  onClick={handleSave}
+                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors duration-200"
+                >
+                  <i className="fas fa-save mr-2"></i>
+                  Enregistrer
+                </button>
+              </>
+            )}
+
             {config.allowDelete && !isEditing && (
               <button
                 onClick={handleDelete}

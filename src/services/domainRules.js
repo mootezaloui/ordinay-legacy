@@ -1636,7 +1636,7 @@ function validateMissionEdit(missionId, context = {}) {
   // Check parent entity based on entityType
   if (mission.entityType === "dossier") {
     // Find dossier by caseNumber (entityReference)
-    const dossier = Object.values(null).find(
+    const dossier = mockDossiers.find(
       (d) => d.caseNumber === mission.entityReference
     );
 
@@ -1649,7 +1649,7 @@ function validateMissionEdit(missionId, context = {}) {
     }
   } else if (mission.entityType === "case") {
     // Find case by caseNumber (entityReference)
-    const caseData = Object.values(null).find(
+    const caseData = mockCases.find(
       (c) => c.caseNumber === mission.entityReference
     );
 
@@ -1737,9 +1737,11 @@ function validateFinancialEntryEdit(entryId, context = {}) {
   const blockers = [];
   const warnings = [];
 
-  const entry = financialLedger.find(
+  // Use the data from context if available, otherwise fall back to financialLedger
+  const entry = context.data || financialLedger.find(
     (e) => e.id === normalizeFinancialEntryId(entryId)
   );
+
   if (!entry) {
     return {
       allowed: false,
@@ -1792,7 +1794,8 @@ function validateFinancialEntryDelete(entryId, context = {}) {
   const blockers = [];
   const warnings = [];
 
-  const entry = financialLedger.find(
+  // Use the data from context if available, otherwise fall back to financialLedger
+  const entry = context.data || financialLedger.find(
     (e) => e.id === normalizeFinancialEntryId(entryId)
   );
   if (!entry) {
@@ -1902,13 +1905,17 @@ function validateOfficerDelete(officerId, context = {}) {
     );
   }
 
-  // Check for financial entries
+  // Check for financial entries linked to missions assigned to this officer
+  const missionsWithOfficer = getAllMissions().filter(
+    (m) => m.officerId === officerId
+  );
+  const missionIds = missionsWithOfficer.map((m) => m.id);
   const financialEntries = financialLedger.filter(
-    (e) => e.officerId === officerId && e.status !== "cancelled"
+    (e) => missionIds.includes(e.missionId) && e.status !== "cancelled"
   );
   if (financialEntries.length > 0) {
     blockers.push(
-      `Cet huissier est lié à ${financialEntries.length} écriture(s) comptable(s).\n\nLa suppression d'un huissier avec des écritures existantes compromettrait l'intégrité des données.`
+      `Cet huissier est lié à ${financialEntries.length} écriture(s) comptable(s) via ses missions.\n\nLa suppression d'un huissier avec des écritures existantes compromettrait l'intégrité des données.`
     );
   }
 

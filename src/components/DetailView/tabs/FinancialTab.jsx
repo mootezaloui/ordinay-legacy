@@ -38,6 +38,7 @@ import BlockerModal from "../../ui/BlockerModal";
 import ConfirmImpactModal from "../../ui/ConfirmImpactModal";
 import { canPerformAction } from "../../../services/domainRules";
 import { resolveDetailRoute } from "../../../utils/routeResolver";
+import GlassModal from "../../ui/GlassModal";
 
 /**
  * FinancialTab Component
@@ -1461,70 +1462,79 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
         isLoading={isLoading}
       />
 
-      {/* Entry Detail Modal */}
-      {selectedEntry && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-            {/* Header */}
-            <div className="sticky top-0 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 p-6 flex items-start justify-between">
-              <div className="flex-1">
-                <div className="flex items-center gap-3 mb-2">
-                  <span
-                    className={`px-3 py-1 rounded-full text-sm font-medium ${selectedEntry.type === "revenue"
-                      ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300"
-                      : "bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300"
+      {/* Entry Detail Modal - Global Glass Sheet Architecture */}
+      <GlassModal
+        isOpen={!!selectedEntry}
+        onClose={handleCloseDetail}
+        maxWidth="3xl"
+      >
+        {selectedEntry && (
+          <>
+            {/* Header - Fixed at Top */}
+            <div className="flex-shrink-0 p-6 pb-4 border-b border-slate-200/50 dark:border-slate-700/50">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-3 flex-wrap">
+                    <span
+                      className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold tracking-wide ${
+                        selectedEntry.type === "revenue"
+                          ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
+                          : "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300"
                       }`}
-                  >
-                    {selectedEntry.type === "revenue" ? "Recette" : "Dépense"}
-                  </span>
-                  <span
-                    className={`px-3 py-1 rounded-full text-sm font-medium bg-${selectedEntry.statusColor}-100 text-${selectedEntry.statusColor}-800 dark:bg-${selectedEntry.statusColor}-900/30 dark:text-${selectedEntry.statusColor}-300`}
-                  >
-                    {selectedEntry.statusLabel}
-                  </span>
+                    >
+                      <i className={`fas ${selectedEntry.type === "revenue" ? "fa-arrow-up" : "fa-arrow-down"} mr-1.5 text-xs`}></i>
+                      {selectedEntry.type === "revenue" ? "Recette" : "Dépense"}
+                    </span>
+                    <span
+                      className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold tracking-wide bg-${selectedEntry.statusColor}-100 text-${selectedEntry.statusColor}-700 dark:bg-${selectedEntry.statusColor}-900/40 dark:text-${selectedEntry.statusColor}-300`}
+                    >
+                      {selectedEntry.statusLabel}
+                    </span>
+                  </div>
+                  <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-1 tracking-tight">
+                    {selectedEntry.amountFormatted}
+                  </h2>
+                  <p className="text-sm text-slate-600 dark:text-slate-400 line-clamp-1">
+                    {selectedEntry.description}
+                  </p>
                 </div>
-                <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
-                  {selectedEntry.amountFormatted}
-                </h2>
-                <p className="text-slate-600 dark:text-slate-400 mt-1">
-                  {selectedEntry.description}
-                </p>
+                <button
+                  onClick={handleCloseDetail}
+                  className="flex-shrink-0 p-2.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all duration-200 hover:scale-105 active:scale-95"
+                  aria-label="Fermer"
+                >
+                  <i className="fas fa-times text-slate-500 dark:text-slate-400 text-lg"></i>
+                </button>
               </div>
-              <button
-                onClick={handleCloseDetail}
-                className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
-              >
-                <i className="fas fa-times text-slate-600 dark:text-slate-400"></i>
-              </button>
             </div>
 
-            {/* Content */}
-            <div className="p-6 space-y-6">
-              {/* Entry Details */}
+            {/* Scrollable Content */}
+            <div className="flex-1 overflow-y-auto overscroll-contain p-6 space-y-6 custom-scrollbar">
+              {/* Entry Details Grid */}
               <div>
-                <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
+                <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-4 uppercase tracking-wider">
                   Détails de l'écriture
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm text-slate-500 dark:text-slate-400">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                       Date
                     </label>
-                    <p className="text-slate-900 dark:text-white font-medium">
+                    <p className="text-base text-slate-900 dark:text-white font-semibold">
                       {selectedEntry.date}
                     </p>
                   </div>
-                  <div>
-                    <label className="text-sm text-slate-500 dark:text-slate-400">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                       Catégorie
                     </label>
-                    <p className="text-slate-900 dark:text-white font-medium">
-                      <i className={`${financialCategories[selectedEntry.category]?.icon} mr-2`}></i>
+                    <p className="text-base text-slate-900 dark:text-white font-semibold flex items-center gap-2">
+                      <i className={`${financialCategories[selectedEntry.category]?.icon} text-slate-400`}></i>
                       {selectedEntry.categoryLabel}
                     </p>
                   </div>
-                  <div>
-                    <label className="text-sm text-slate-500 dark:text-slate-400">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                       Statut
                     </label>
                     <div className="flex gap-2 mt-1">
@@ -1539,55 +1549,56 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
                       />
                     </div>
                   </div>
-                  <div>
-                    <label className="text-sm text-slate-500 dark:text-slate-400">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                       Montant
                     </label>
                     <p
-                      className={`text-2xl font-bold ${selectedEntry.type === "revenue"
-                        ? "text-emerald-600 dark:text-emerald-400"
-                        : "text-rose-600 dark:text-rose-400"
-                        }`}
+                      className={`text-3xl font-bold ${
+                        selectedEntry.type === "revenue"
+                          ? "text-emerald-600 dark:text-emerald-400"
+                          : "text-rose-600 dark:text-rose-400"
+                      }`}
                     >
                       {selectedEntry.amountWithSign}
                     </p>
                   </div>
                   {selectedEntry.clientName && (
-                    <div>
-                      <label className="text-sm text-slate-500 dark:text-slate-400">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                         Client
                       </label>
-                      <p className="text-slate-900 dark:text-white font-medium">
+                      <p className="text-base text-slate-900 dark:text-white font-semibold">
                         {selectedEntry.clientName}
                       </p>
                     </div>
                   )}
                   {selectedEntry.dossierReference && (
-                    <div>
-                      <label className="text-sm text-slate-500 dark:text-slate-400">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                         Dossier
                       </label>
-                      <p className="text-slate-900 dark:text-white font-medium">
+                      <p className="text-base text-slate-900 dark:text-white font-semibold font-mono">
                         {selectedEntry.dossierReference}
                       </p>
                     </div>
                   )}
                   {selectedEntry.caseReference && (
-                    <div>
-                      <label className="text-sm text-slate-500 dark:text-slate-400">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                         Procès
                       </label>
-                      <p className="text-slate-900 dark:text-white font-medium">
+                      <p className="text-base text-slate-900 dark:text-white font-semibold font-mono">
                         {selectedEntry.caseReference}
                       </p>
                     </div>
                   )}
                   {selectedEntry.createdBy && (
-                    <div>
-                      <label className="text-sm text-slate-500 dark:text-slate-400">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                         Créé par
                       </label>
-                      <p className="text-slate-900 dark:text-white font-medium">
+                      <p className="text-base text-slate-900 dark:text-white font-semibold">
                         {selectedEntry.createdBy}
                       </p>
                     </div>
@@ -1595,42 +1606,46 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
                 </div>
               </div>
 
-              {/* Description */}
-              <div>
-                <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">
+              {/* Description Section */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-slate-900 dark:text-white uppercase tracking-wider">
                   Description
                 </h3>
-                <p className="text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg">
-                  {selectedEntry.description}
-                </p>
+                <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200/50 dark:border-slate-700/50 p-4 rounded-xl">
+                  <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">
+                    {selectedEntry.description}
+                  </p>
+                </div>
               </div>
+            </div>
 
-              {/* Actions */}
-              {entityType !== "officer" && (
-                <div className="flex gap-3 pt-4 border-t border-slate-200 dark:border-slate-700">
+            {/* Sticky Action Bar at Bottom */}
+            {entityType !== "officer" && (
+              <div className="flex-shrink-0 border-t border-slate-200/50 dark:border-slate-700/50 p-4 bg-slate-50/50 dark:bg-slate-800/50 backdrop-blur-sm">
+                <div className="flex items-center justify-between gap-3">
                   <button
                     onClick={() => {
                       setSelectedEntry(null);
                       handleEdit(selectedEntry);
                     }}
-                    className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors inline-flex items-center justify-center gap-2"
+                    className="flex-1 px-5 py-3 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-xl font-semibold transition-all duration-200 inline-flex items-center justify-center gap-2.5 shadow-lg shadow-blue-600/25 hover:shadow-xl hover:shadow-blue-600/30 hover:scale-[1.02] active:scale-[0.98]"
                   >
-                    <i className="fas fa-edit"></i>
-                    Modifier
+                    <i className="fas fa-edit text-sm"></i>
+                    <span>Modifier</span>
                   </button>
                   <button
                     onClick={() => handleDelete(selectedEntry.id)}
-                    className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors inline-flex items-center gap-2"
+                    className="px-5 py-3 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white rounded-xl font-semibold transition-all duration-200 inline-flex items-center justify-center gap-2.5 shadow-lg shadow-red-600/25 hover:shadow-xl hover:shadow-red-600/30 hover:scale-[1.02] active:scale-[0.98]"
                   >
-                    <i className="fas fa-trash"></i>
-                    Supprimer
+                    <i className="fas fa-trash text-sm"></i>
+                    <span>Supprimer</span>
                   </button>
                 </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+              </div>
+            )}
+          </>
+        )}
+      </GlassModal>
 
       {/* Blocker Modal */}
       <BlockerModal
