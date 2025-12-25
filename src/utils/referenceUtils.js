@@ -48,7 +48,12 @@ const REFERENCE_FORMATS = {
  * @param {Object} entities - All entities data { dossiers, cases, missions, etc. }
  * @returns {Array<{id: number, reference: string}>} - Array of {id, reference} objects
  */
-function getExistingReferences(entityType, entities = {}) {
+function getExistingReferences(entityType, entities) {
+  // Handle null or undefined entities
+  if (!entities || typeof entities !== 'object') {
+    return [];
+  }
+
   switch (entityType) {
     case "dossier":
       return (entities.dossiers || []).map((d) => ({

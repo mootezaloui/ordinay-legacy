@@ -73,7 +73,12 @@ export function shouldPromptClientNotification(
 }
 
 // Helper: resolve client info from ids or nested data
-function resolveClientInfo(data = {}, entities = {}) {
+function resolveClientInfo(data = {}, entities) {
+  // Handle null or undefined entities
+  if (!entities || typeof entities !== 'object') {
+    entities = {};
+  }
+
   const { clients = [], dossiers = [], cases = [] } = entities;
 
   // Prefer explicit clientId

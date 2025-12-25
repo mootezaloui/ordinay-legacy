@@ -43,6 +43,7 @@ export default function Dossiers() {
     addDossier,
     updateDossier,
     deleteDossier,
+    deleteDossierCascade,
     loading,
     loadError
   } = useData();
@@ -54,6 +55,7 @@ export default function Dossiers() {
   const [validationResult, setValidationResult] = useState(null);
   const [confirmImpactModalOpen, setConfirmImpactModalOpen] = useState(false);
   const [pendingFormData, setPendingFormData] = useState(null);
+  const [pendingDeleteId, setPendingDeleteId] = useState(null);
 
   // Calculate stats
   const stats = {
@@ -229,6 +231,7 @@ export default function Dossiers() {
 
     if (!result.allowed) {
       setValidationResult(result);
+      setPendingDeleteId(id);
       setBlockerModalOpen(true);
       return;
     }
@@ -245,6 +248,34 @@ export default function Dossiers() {
         title: "Suppression",
         context: "dossier",
       });
+    }
+  };
+
+  const handleForceDelete = async () => {
+    if (!pendingDeleteId) return;
+
+    setBlockerModalOpen(false);
+
+    try {
+      const result = await deleteDossierCascade(pendingDeleteId);
+
+      if (!result || !result.ok) {
+        console.error('[Dossiers.handleForceDelete] Cascade delete failed:', result);
+        showToast("Erreur lors de la suppression en cascade", "error");
+        return;
+      }
+
+      showToast("Dossier et toutes les entités liées supprimés", "success", {
+        title: "Suppression en cascade",
+        context: "dossier",
+      });
+
+      setPendingDeleteId(null);
+      setValidationResult(null);
+      navigate("/dossiers");
+    } catch (error) {
+      console.error('[Dossiers.handleForceDelete] Error:', error);
+      showToast("Erreur lors de la suppression en cascade", "error");
     }
   };
 
@@ -515,11 +546,19 @@ export default function Dossiers() {
 
       <BlockerModal
         isOpen={blockerModalOpen}
-        onClose={() => setBlockerModalOpen(false)}
+        onClose={() => {
+          setBlockerModalOpen(false);
+          setPendingDeleteId(null);
+          setValidationResult(null);
+        }}
         actionName="Modifier/Supprimer le dossier"
         blockers={validationResult?.blockers || []}
         warnings={validationResult?.warnings || []}
         entityName={validationResult?.entityData?.caseNumber || "Dossier"}
+        requiresForceDelete={validationResult?.requiresForceDelete || false}
+        affectedEntities={validationResult?.affectedEntities || []}
+        forceDeleteMessage={validationResult?.forceDeleteMessage || ""}
+        onForceDelete={handleForceDelete}
       />
 
       <ConfirmImpactModal

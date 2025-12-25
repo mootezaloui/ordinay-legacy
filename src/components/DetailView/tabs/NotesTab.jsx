@@ -1,84 +1,61 @@
 import { useState, useEffect } from "react";
-import { useConfirm } from "../../../contexts/ConfirmContext";
+import { useToast } from "../../../contexts/ToastContext";
 import ContentSection from "../../layout/ContentSection";
 
 /**
- * Notes Tab - Displays and manages notes
- * Works for any entity with a notes array
+ * Notes Tab - Displays and manages notes as a simple text field
+ * Persists to backend via the onUpdate callback
  */
-export default function NotesTab({ data, config }) {
-  const { confirm } = useConfirm();
+export default function NotesTab({ data, config, onUpdate }) {
+  const { showToast } = useToast();
+  const [notes, setNotes] = useState(data.notes || "");
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
-  // Helper function to normalize notes data
-  const normalizeNotes = (notesData) => {
-    if (!notesData) return [];
-    if (Array.isArray(notesData)) return notesData;
-    // If notes is a string, convert it to a single note object
-    if (typeof notesData === 'string') {
-      return [{
-        id: 1,
-        date: new Date().toISOString().split('T')[0],
-        author: "Système",
-        content: notesData,
-      }];
-    }
-    return [];
-  };
-
-  const [notes, setNotes] = useState(normalizeNotes(data.notes));
-
-  // ✅ Synchronize local notes state with parent data prop
+  // Synchronize local notes state with parent data prop
   useEffect(() => {
-    setNotes(normalizeNotes(data.notes));
+    setNotes(data.notes || "");
   }, [data.notes]);
-  const [isAdding, setIsAdding] = useState(false);
-  const [newNote, setNewNote] = useState("");
 
-  const handleAddNote = () => {
-    if (!newNote.trim()) return;
+  const handleSave = async () => {
+    if (!onUpdate) {
+      console.error('[NotesTab] onUpdate callback not provided');
+      showToast("Impossible de sauvegarder les notes", "error");
+      return;
+    }
 
-    const note = {
-      id: Date.now(),
-      date: new Date().toISOString().split('T')[0],
-      author: "Me. Hammami", // TODO: Get from auth context
-      content: newNote,
-    };
-
-    setNotes([note, ...notes]);
-    setNewNote("");
-    setIsAdding(false);
-
-    // TODO: Save to backend
-    console.log("Adding note:", note);
-  };
-
-  const handleDeleteNote = async (noteId) => {
-    if (await confirm({
-      title: "Supprimer la note",
-      message: "Êtes-vous sûr de vouloir supprimer cette note ?",
-      confirmText: "Supprimer",
-      cancelText: "Annuler",
-      variant: "danger"
-    })) {
-      setNotes(notes.filter(n => n.id !== noteId));
-      // TODO: Delete from backend
-      console.log("Deleting note:", noteId);
+    setIsSaving(true);
+    try {
+      // Call the onUpdate callback to save notes to backend
+      await onUpdate({ notes });
+      setIsEditing(false);
+      showToast("Notes sauvegardées", "success");
+    } catch (error) {
+      console.error('[NotesTab] Error saving notes:', error);
+      showToast("Erreur lors de la sauvegarde des notes", "error");
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  if (notes.length === 0 && !isAdding) {
+  const handleCancel = () => {
+    setNotes(data.notes || "");
+    setIsEditing(false);
+  };
+
+  if (!notes && !isEditing) {
     return (
       <ContentSection title="Notes">
         <div className="p-12 text-center">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-800 mb-4">
-            <i className="fas fa-sticky-note text-slate-400 dark:text-slate-600 text-2xl"></i>
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-amber-100 dark:bg-amber-900/20 mb-4">
+            <i className="fas fa-sticky-note text-amber-500 dark:text-amber-400 text-2xl"></i>
           </div>
           <p className="text-slate-600 dark:text-slate-400 mb-4">
             Aucune note
           </p>
           <button
-            onClick={() => setIsAdding(true)}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+            onClick={() => setIsEditing(true)}
+            className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-medium transition-colors"
           >
             <i className="fas fa-plus mr-2"></i>
             Ajouter une note
@@ -89,76 +66,73 @@ export default function NotesTab({ data, config }) {
   }
 
   return (
-    <ContentSection title={`Notes (${notes.length})`}>
-      <div className="p-6 space-y-4">
-        {/* Add Note Form */}
-        {isAdding ? (
-          <div className="p-4 bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800 rounded-lg">
-            <textarea
-              value={newNote}
-              onChange={(e) => setNewNote(e.target.value)}
-              placeholder="Écrivez votre note ici..."
-              className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3"
-              rows="4"
-              autoFocus
-            />
+    <ContentSection title="Notes">
+      <div className="p-6">
+        {isEditing ? (
+          <div className="space-y-4">
+            <div className="p-4 bg-amber-50 dark:bg-amber-900/10 border-2 border-amber-300 dark:border-amber-700 rounded-lg">
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Écrivez vos notes ici... (Post-it virtuel)"
+                className="w-full px-3 py-2 border border-amber-300 dark:border-amber-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none"
+                rows="12"
+                autoFocus
+              />
+            </div>
             <div className="flex items-center gap-2">
               <button
-                onClick={handleAddNote}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+                onClick={handleSave}
+                disabled={isSaving}
+                className="px-4 py-2 bg-amber-500 hover:bg-amber-600 disabled:bg-amber-400 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
               >
-                <i className="fas fa-save mr-2"></i>
-                Enregistrer
+                {isSaving ? (
+                  <>
+                    <i className="fas fa-spinner fa-spin"></i>
+                    Enregistrement...
+                  </>
+                ) : (
+                  <>
+                    <i className="fas fa-save"></i>
+                    Enregistrer
+                  </>
+                )}
               </button>
               <button
-                onClick={() => {
-                  setIsAdding(false);
-                  setNewNote("");
-                }}
-                className="px-4 py-2 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-lg font-medium transition-colors"
+                onClick={handleCancel}
+                disabled={isSaving}
+                className="px-4 py-2 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50 text-slate-700 dark:text-slate-200 rounded-lg font-medium transition-colors"
               >
                 Annuler
               </button>
             </div>
           </div>
         ) : (
-          <button
-            onClick={() => setIsAdding(true)}
-            className="w-full py-3 border-2 border-dashed border-slate-300 dark:border-slate-600 hover:border-amber-500 dark:hover:border-amber-500 rounded-lg text-slate-600 dark:text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 transition-colors"
-          >
-            <i className="fas fa-plus mr-2"></i>
-            Ajouter une note
-          </button>
-        )}
-
-        {/* Notes List */}
-        {notes.map((note) => (
-          <div
-            key={note.id}
-            className="p-4 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 rounded-lg relative group"
-          >
-            <div className="flex items-start justify-between mb-2">
-              <span className="text-sm font-medium text-slate-900 dark:text-white">
-                {note.author}
-              </span>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-slate-500 dark:text-slate-400">
-                  {note.date}
-                </span>
+          <div className="space-y-4">
+            <div className="p-6 bg-amber-50 dark:bg-amber-900/10 border-2 border-amber-300 dark:border-amber-700 rounded-lg shadow-sm">
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex items-center gap-2 text-amber-700 dark:text-amber-300">
+                  <i className="fas fa-sticky-note"></i>
+                  <span className="font-semibold text-sm">Post-it</span>
+                </div>
                 <button
-                  onClick={() => handleDeleteNote(note.id)}
-                  className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 dark:hover:bg-red-900/20 rounded transition-all"
-                  title="Supprimer"
+                  onClick={() => setIsEditing(true)}
+                  className="p-1.5 hover:bg-amber-100 dark:hover:bg-amber-900/30 rounded transition-colors"
+                  title="Modifier"
                 >
-                  <i className="fas fa-trash text-red-600 dark:text-red-400 text-sm"></i>
+                  <i className="fas fa-edit text-amber-600 dark:text-amber-400"></i>
                 </button>
               </div>
+              <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed">
+                {notes}
+              </p>
             </div>
-            <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">
-              {note.content}
+            <p className="text-xs text-slate-500 dark:text-slate-400 text-center">
+              <i className="fas fa-info-circle mr-1"></i>
+              Cliquez sur l'icône d'édition pour modifier vos notes
             </p>
           </div>
-        ))}
+        )}
       </div>
     </ContentSection>
   );

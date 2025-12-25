@@ -898,9 +898,11 @@ function validateDossierArchive(dossierId, context = {}) {
 function validateDossierDelete(dossierId, context = {}) {
   const blockers = [];
   const warnings = [];
+  const affectedEntities = [];
 
   const tasks = context.tasks || context.entities?.tasks || [];
   const cases = context.cases || context.entities?.cases || [];
+  const sessions = context.sessions || context.entities?.sessions || [];
   const financialEntries =
     context.financialEntries || context.entities?.financialEntries || [];
 
@@ -917,42 +919,102 @@ function validateDossierDelete(dossierId, context = {}) {
   // Check for related Procès (cases)
   const dossierCases = cases.filter((c) => String(c.dossierId) === String(dossierId));
   if (dossierCases.length > 0) {
-    blockers.push(
-      `Ce dossier contient ${dossierCases.length} procès. Veuillez d'abord les supprimer.`
+    affectedEntities.push({
+      type: 'cases',
+      count: dossierCases.length,
+      items: dossierCases.slice(0, 5).map(c => ({
+        id: c.id,
+        label: `${c.caseNumber} - ${c.title}`
+      }))
+    });
+
+    warnings.push(
+      `Ce dossier contient ${dossierCases.length} procès qui ${dossierCases.length > 1 ? "seront supprimés" : "sera supprimé"}.`
     );
   }
 
   // Check for related Tasks
   const dossierTasks = tasks.filter(
-    (task) => task.parentType === "dossier" && task.dossierId === dossierId
+    (task) => task.parentType === "dossier" && String(task.dossierId) === String(dossierId)
   );
 
   if (dossierTasks.length > 0) {
-    blockers.push(
+    affectedEntities.push({
+      type: 'tasks',
+      count: dossierTasks.length,
+      items: dossierTasks.slice(0, 5).map(t => ({
+        id: t.id,
+        label: t.title
+      }))
+    });
+
+    warnings.push(
       `Ce dossier contient ${dossierTasks.length} tâche${
         dossierTasks.length > 1 ? "s" : ""
-      }. Veuillez d'abord les supprimer.`
+      } qui ${dossierTasks.length > 1 ? "seront supprimées" : "sera supprimée"}.`
+    );
+  }
+
+  // Check for related Sessions
+  const dossierSessions = sessions.filter(
+    (session) => String(session.dossierId) === String(dossierId)
+  );
+
+  if (dossierSessions.length > 0) {
+    affectedEntities.push({
+      type: 'sessions',
+      count: dossierSessions.length,
+      items: dossierSessions.slice(0, 5).map(s => ({
+        id: s.id,
+        label: `${s.type} - ${s.date}`
+      }))
+    });
+
+    warnings.push(
+      `Ce dossier contient ${dossierSessions.length} séance${
+        dossierSessions.length > 1 ? "s" : ""
+      } qui ${dossierSessions.length > 1 ? "seront supprimées" : "sera supprimée"}.`
     );
   }
 
   // Check for financial entries
   const dossierFinancials = financialEntries.filter(
-    (entry) => entry.dossierId === dossierId && entry.status !== "cancelled"
+    (entry) => String(entry.dossierId) === String(dossierId) && entry.status !== "cancelled"
   );
 
   if (dossierFinancials.length > 0) {
-    blockers.push(
+    affectedEntities.push({
+      type: 'financialEntries',
+      count: dossierFinancials.length,
+      items: dossierFinancials.slice(0, 5).map(e => ({
+        id: e.id,
+        label: `${e.description} - ${e.amount} TND`
+      }))
+    });
+
+    warnings.push(
       `Ce dossier a ${dossierFinancials.length} écriture${
         dossierFinancials.length > 1 ? "s" : ""
       } comptable${
         dossierFinancials.length > 1 ? "s" : ""
-      }. Suppression impossible.`
+      } qui ${dossierFinancials.length > 1 ? "seront supprimées" : "sera supprimée"}.`
     );
   }
 
-  const allowed = blockers.length === 0;
+  // If there are affected entities, require force delete instead of blocking
+  if (affectedEntities.length > 0) {
+    const totalCount = affectedEntities.reduce((sum, e) => sum + e.count, 0);
+    return {
+      allowed: false,
+      blockers: [],
+      warnings,
+      requiresForceDelete: true,
+      affectedEntities,
+      forceDeleteMessage: `⚠️ Attention : Supprimer ce dossier supprimera également ${totalCount} entité${totalCount > 1 ? "s" : ""} liée${totalCount > 1 ? "s" : ""} (procès, tâches, séances, écritures comptables). Cette action est irréversible.`
+    };
+  }
 
-  return { allowed, blockers, warnings };
+  return { allowed: true, blockers: [], warnings: [] };
 }
 
 /**
@@ -1136,6 +1198,7 @@ function validateCaseClose(caseId, context = {}) {
 function validateCaseDelete(caseId, context = {}) {
   const blockers = [];
   const warnings = [];
+  const affectedEntities = [];
 
   const sessions = context.sessions || context.entities?.sessions || [];
   const tasks = context.tasks || context.entities?.tasks || [];
@@ -1153,10 +1216,19 @@ function validateCaseDelete(caseId, context = {}) {
   const caseSessions = sessions.filter((session) => String(session.caseId) === String(caseId));
 
   if (caseSessions.length > 0) {
-    blockers.push(
+    affectedEntities.push({
+      type: 'sessions',
+      count: caseSessions.length,
+      items: caseSessions.slice(0, 5).map(s => ({
+        id: s.id,
+        label: `${s.type} - ${s.date}`
+      }))
+    });
+
+    warnings.push(
       `Ce procès contient ${caseSessions.length} séance${
         caseSessions.length > 1 ? "s" : ""
-      }. Veuillez d'abord les supprimer.`
+      } qui ${caseSessions.length > 1 ? "seront supprimées" : "sera supprimée"}.`
     );
   }
 
@@ -1166,16 +1238,36 @@ function validateCaseDelete(caseId, context = {}) {
   );
 
   if (caseTasks.length > 0) {
-    blockers.push(
+    affectedEntities.push({
+      type: 'tasks',
+      count: caseTasks.length,
+      items: caseTasks.slice(0, 5).map(t => ({
+        id: t.id,
+        label: t.title
+      }))
+    });
+
+    warnings.push(
       `Ce procès contient ${caseTasks.length} tâche${
         caseTasks.length > 1 ? "s" : ""
-      }. Veuillez d'abord les supprimer.`
+      } qui ${caseTasks.length > 1 ? "seront supprimées" : "sera supprimée"}.`
     );
   }
 
-  const allowed = blockers.length === 0;
+  // If there are affected entities, require force delete instead of blocking
+  if (affectedEntities.length > 0) {
+    const totalCount = affectedEntities.reduce((sum, e) => sum + e.count, 0);
+    return {
+      allowed: false,
+      blockers: [],
+      warnings,
+      requiresForceDelete: true,
+      affectedEntities,
+      forceDeleteMessage: `⚠️ Attention : Supprimer ce procès supprimera également ${totalCount} entité${totalCount > 1 ? "s" : ""} liée${totalCount > 1 ? "s" : ""} (séances, tâches). Cette action est irréversible.`
+    };
+  }
 
-  return { allowed, blockers, warnings };
+  return { allowed: true, blockers: [], warnings: [] };
 }
 
 /**
@@ -1261,6 +1353,7 @@ function validateClientArchive(clientId, context = {}) {
 function validateClientDelete(clientId, context = {}) {
   const blockers = [];
   const warnings = [];
+  const affectedEntities = [];
 
   const client = mockClientsExtended[clientId];
   // PATCH: Allow delete if client is not found (already deleted)
@@ -1271,10 +1364,19 @@ function validateClientDelete(clientId, context = {}) {
   // Check for related Dossiers
   const clientDossiers = client.dossiers || [];
   if (clientDossiers.length > 0) {
-    blockers.push(
+    affectedEntities.push({
+      type: 'dossiers',
+      count: clientDossiers.length,
+      items: clientDossiers.slice(0, 5).map(d => ({
+        id: d.id,
+        label: `${d.caseNumber} - ${d.title}`
+      }))
+    });
+
+    warnings.push(
       `Ce client a ${clientDossiers.length} dossier${
         clientDossiers.length > 1 ? "s" : ""
-      }. Veuillez d'abord les supprimer.`
+      } qui ${clientDossiers.length > 1 ? "seront supprimés" : "sera supprimé"}.`
     );
   }
 
@@ -1284,18 +1386,37 @@ function validateClientDelete(clientId, context = {}) {
   );
 
   if (clientFinancials.length > 0) {
-    blockers.push(
+    affectedEntities.push({
+      type: 'financialEntries',
+      count: clientFinancials.length,
+      items: clientFinancials.slice(0, 5).map(e => ({
+        id: e.id,
+        label: `${e.description} - ${e.amount} TND`
+      }))
+    });
+
+    warnings.push(
       `Ce client a ${clientFinancials.length} écriture${
         clientFinancials.length > 1 ? "s" : ""
       } comptable${
         clientFinancials.length > 1 ? "s" : ""
-      }. Suppression impossible.`
+      } qui ${clientFinancials.length > 1 ? "seront supprimées" : "sera supprimée"}.`
     );
   }
 
-  const allowed = blockers.length === 0;
+  // If there are affected entities, require force delete instead of blocking
+  if (affectedEntities.length > 0) {
+    return {
+      allowed: false,
+      blockers: [],
+      warnings,
+      requiresForceDelete: true,
+      affectedEntities,
+      forceDeleteMessage: `⚠️ Attention : Supprimer ce client supprimera également toutes les entités liées (${clientDossiers.length} dossier${clientDossiers.length > 1 ? "s" : ""}, ${clientFinancials.length} écriture${clientFinancials.length > 1 ? "s" : ""} comptable${clientFinancials.length > 1 ? "s" : ""}). Cette action est irréversible.`
+    };
+  }
 
-  return { allowed, blockers, warnings };
+  return { allowed: true, blockers: [], warnings: [] };
 }
 
 /**

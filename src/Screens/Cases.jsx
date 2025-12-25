@@ -30,7 +30,7 @@ export default function Cases() {
   const navigate = useNavigate();
   const { showToast } = useToast();
   const { confirm } = useConfirm();
-  const { cases, dossiers, clients, sessions, tasks, missions, officers, financialEntries, addCase, updateCase, deleteCase, loading, loadError } = useData();
+  const { cases, dossiers, clients, sessions, tasks, missions, officers, financialEntries, addCase, updateCase, deleteCase, deleteCaseCascade, loading, loadError } = useData();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCase, setEditingCase] = useState(null);
@@ -39,6 +39,7 @@ export default function Cases() {
   const [validationResult, setValidationResult] = useState(null);
   const [confirmImpactModalOpen, setConfirmImpactModalOpen] = useState(false);
   const [pendingFormData, setPendingFormData] = useState(null);
+  const [pendingDeleteId, setPendingDeleteId] = useState(null);
 
   const statusLabelMap = {
     "En cours": "In Progress",
@@ -224,6 +225,7 @@ export default function Cases() {
 
     if (!result.allowed) {
       setValidationResult(result);
+      setPendingDeleteId(id);
       setBlockerModalOpen(true);
       return;
     }
@@ -240,6 +242,34 @@ export default function Cases() {
         title: "Deleted",
         context: "case",
       });
+    }
+  };
+
+  const handleForceDelete = async () => {
+    if (!pendingDeleteId) return;
+
+    setBlockerModalOpen(false);
+
+    try {
+      const result = await deleteCaseCascade(pendingDeleteId);
+
+      if (!result || !result.ok) {
+        console.error('[Cases.handleForceDelete] Cascade delete failed:', result);
+        showToast("Error during cascade deletion", "error");
+        return;
+      }
+
+      showToast("Case and all related entities deleted", "success", {
+        title: "Cascade deletion",
+        context: "case",
+      });
+
+      setPendingDeleteId(null);
+      setValidationResult(null);
+      navigate("/cases");
+    } catch (error) {
+      console.error('[Cases.handleForceDelete] Error:', error);
+      showToast("Error during cascade deletion", "error");
     }
   };
 
@@ -517,11 +547,19 @@ export default function Cases() {
 
       <BlockerModal
         isOpen={blockerModalOpen}
-        onClose={() => setBlockerModalOpen(false)}
+        onClose={() => {
+          setBlockerModalOpen(false);
+          setPendingDeleteId(null);
+          setValidationResult(null);
+        }}
         actionName="Edit/Delete case"
         blockers={validationResult?.blockers || []}
         warnings={validationResult?.warnings || []}
         entityName={validationResult?.entityData?.caseNumber || "Case"}
+        requiresForceDelete={validationResult?.requiresForceDelete || false}
+        affectedEntities={validationResult?.affectedEntities || []}
+        forceDeleteMessage={validationResult?.forceDeleteMessage || ""}
+        onForceDelete={handleForceDelete}
       />
 
       <ConfirmImpactModal

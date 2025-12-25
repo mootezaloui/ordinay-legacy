@@ -42,6 +42,7 @@ export default function Clients() {
     addClient,
     updateClient,
     deleteClient,
+    deleteClientCascade,
     loading,
     loadError
   } = useData();
@@ -52,6 +53,7 @@ export default function Clients() {
   const [validationResult, setValidationResult] = useState(null);
   const [confirmImpactModalOpen, setConfirmImpactModalOpen] = useState(false);
   const [pendingFormData, setPendingFormData] = useState(null);
+  const [pendingDeleteId, setPendingDeleteId] = useState(null);
 
   // Calculate stats
   const stats = {
@@ -223,6 +225,7 @@ export default function Clients() {
 
     if (!result.allowed) {
       setValidationResult(result);
+      setPendingDeleteId(id); // Store ID for force delete
       setBlockerModalOpen(true);
       return;
     }
@@ -253,6 +256,37 @@ export default function Clients() {
         console.error('[Clients.handleDelete] Delete error:', error);
         showToast("Erreur lors de la suppression du client", "error");
       }
+    }
+  };
+
+  /**
+   * Handle force delete - cascade delete client and all related entities
+   */
+  const handleForceDelete = async () => {
+    if (!pendingDeleteId) return;
+
+    setBlockerModalOpen(false);
+
+    try {
+      const result = await deleteClientCascade(pendingDeleteId);
+
+      if (!result || !result.ok) {
+        console.error('[Clients.handleForceDelete] Cascade delete failed:', result);
+        showToast("Erreur lors de la suppression en cascade", "error");
+        return;
+      }
+
+      showToast("Client et toutes les entités liées supprimés", "success", {
+        title: "Suppression en cascade",
+        context: "client",
+      });
+
+      setPendingDeleteId(null);
+      setValidationResult(null);
+      navigate("/clients");
+    } catch (error) {
+      console.error('[Clients.handleForceDelete] Error:', error);
+      showToast("Erreur lors de la suppression en cascade", "error");
     }
   };
 
@@ -491,11 +525,19 @@ export default function Clients() {
 
       <BlockerModal
         isOpen={blockerModalOpen}
-        onClose={() => setBlockerModalOpen(false)}
+        onClose={() => {
+          setBlockerModalOpen(false);
+          setPendingDeleteId(null);
+          setValidationResult(null);
+        }}
         actionName="Modifier/Supprimer le client"
         blockers={validationResult?.blockers || []}
         warnings={validationResult?.warnings || []}
         entityName={validationResult?.entityData?.name || "Client"}
+        requiresForceDelete={validationResult?.requiresForceDelete || false}
+        affectedEntities={validationResult?.affectedEntities || []}
+        forceDeleteMessage={validationResult?.forceDeleteMessage || ""}
+        onForceDelete={handleForceDelete}
       />
 
       <ConfirmImpactModal

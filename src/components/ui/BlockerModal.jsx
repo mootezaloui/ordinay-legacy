@@ -23,6 +23,10 @@ import { useToast } from '../../contexts/ToastContext';
  * - context: object (additional context for enrichment)
  * - onRetry: function (callback to retry the original action after resolution)
  * - onUpdate: function (callback when blockers are resolved to refresh data)
+ * - requiresForceDelete: boolean (if true, shows force delete option)
+ * - affectedEntities: array (list of entities that will be cascade deleted)
+ * - forceDeleteMessage: string (warning message for force delete)
+ * - onForceDelete: function (callback when user confirms force delete)
  */
 export default function BlockerModal({
   isOpen,
@@ -36,7 +40,11 @@ export default function BlockerModal({
   action = null,
   context = {},
   onRetry = null,
-  onUpdate = null
+  onUpdate = null,
+  requiresForceDelete = false,
+  affectedEntities = [],
+  forceDeleteMessage = "",
+  onForceDelete = null
 }) {
   const navigate = useNavigate();
   const { showToast } = useToast();
@@ -326,8 +334,69 @@ export default function BlockerModal({
             </div>
           )}
 
+          {/* Force Delete Section */}
+          {requiresForceDelete && affectedEntities.length > 0 && (
+            <div className="bg-red-50 dark:bg-red-900/10 border-2 border-red-300 dark:border-red-700 rounded-lg p-5 w-full mt-4">
+              <h4 className="text-base font-bold text-red-900 dark:text-red-100 mb-3 flex items-center gap-2">
+                <i className="fas fa-exclamation-triangle text-red-600 dark:text-red-400"></i>
+                Supprimer quand même ?
+              </h4>
+
+              <p className="text-sm text-red-800 dark:text-red-200 mb-4 leading-relaxed">
+                {forceDeleteMessage}
+              </p>
+
+              {/* Affected Entities List */}
+              <div className="space-y-3 mb-4">
+                {affectedEntities.map((entityGroup, idx) => (
+                  <div key={idx} className="bg-white dark:bg-slate-900 border border-red-200 dark:border-red-800 rounded-lg p-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <i className="fas fa-trash-alt text-red-500 text-xs"></i>
+                      <span className="text-sm font-semibold text-red-900 dark:text-red-100">
+                        {entityGroup.count} {getEntityTypeLabel(entityGroup.type, entityGroup.count)} {entityGroup.count > 1 ? "seront supprimés" : "sera supprimé"}
+                      </span>
+                    </div>
+                    {entityGroup.items && entityGroup.items.length > 0 && (
+                      <ul className="space-y-1 ml-5">
+                        {entityGroup.items.map((item, itemIdx) => (
+                          <li key={itemIdx} className="text-xs text-red-700 dark:text-red-300">
+                            • {item.label}
+                          </li>
+                        ))}
+                        {entityGroup.count > entityGroup.items.length && (
+                          <li className="text-xs text-red-600 dark:text-red-400 font-medium">
+                            • ... et {entityGroup.count - entityGroup.items.length} de plus
+                          </li>
+                        )}
+                      </ul>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              <div className="bg-red-100 dark:bg-red-950/40 border border-red-300 dark:border-red-800 rounded-lg p-3 mb-4">
+                <p className="text-xs text-red-900 dark:text-red-100 font-semibold flex items-center gap-2">
+                  <i className="fas fa-info-circle"></i>
+                  Cette action est irréversible. Toutes les données seront définitivement supprimées.
+                </p>
+              </div>
+
+              <button
+                onClick={() => {
+                  if (onForceDelete) {
+                    onForceDelete();
+                  }
+                }}
+                className="w-full px-4 py-3 bg-red-600 hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-700 text-white rounded-lg transition-colors font-semibold flex items-center justify-center gap-2"
+              >
+                <i className="fas fa-trash-alt"></i>
+                Oui, supprimer tout définitivement
+              </button>
+            </div>
+          )}
+
           {/* Guidance */}
-          {!allResolved && (
+          {!allResolved && !requiresForceDelete && (
             <div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800 rounded-lg p-4 w-full">
               <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-2 flex items-center gap-2">
                 <i className="fas fa-lightbulb text-blue-500"></i>
@@ -489,4 +558,21 @@ function ActionButton({ action, item, blockerIndex, onNavigate, onInlineAction, 
       <span>{action.label}</span>
     </button>
   );
+}
+
+/**
+ * Helper function to get localized entity type label
+ */
+function getEntityTypeLabel(type, count = 1) {
+  const labels = {
+    clients: count > 1 ? 'clients' : 'client',
+    dossiers: count > 1 ? 'dossiers' : 'dossier',
+    cases: count > 1 ? 'procès' : 'procès',
+    tasks: count > 1 ? 'tâches' : 'tâche',
+    sessions: count > 1 ? 'séances' : 'séance',
+    missions: count > 1 ? 'missions' : 'mission',
+    financialEntries: count > 1 ? 'écritures comptables' : 'écriture comptable',
+    officers: count > 1 ? 'huissiers' : 'huissier'
+  };
+  return labels[type] || type;
 }

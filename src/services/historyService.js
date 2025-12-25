@@ -124,14 +124,32 @@ export const getEntityHistory = async (entityType, entityId) => {
 };
 
 /**
- * Clear history for an entity (use sparingly, mainly for testing)
+ * Delete all history for an entity
+ *
+ * @param {string} entityType
+ * @param {number|string} entityId
+ * @returns {Promise<number>} Number of deleted entries
+ */
+export const deleteEntityHistory = async (entityType, entityId) => {
+  try {
+    const result = await apiClient.delete(`/history/entity?entity_type=${entityType}&entity_id=${entityId}`);
+    console.log(`[historyService] Deleted ${result.deletedCount || 0} history entries for ${entityType} ${entityId}`);
+    return result.deletedCount || 0;
+  } catch (error) {
+    console.error("[historyService] Failed to delete entity history", error);
+    return 0;
+  }
+};
+
+/**
+ * Clear history for an entity (deprecated, use deleteEntityHistory)
  *
  * @param {string} entityType
  * @param {number|string} entityId
  */
 export const clearEntityHistory = async (entityType, entityId) => {
-  console.warn("[historyService] clearEntityHistory is deprecated - history is managed by backend");
-  // No-op: history is now managed by the backend
+  console.warn("[historyService] clearEntityHistory is deprecated - use deleteEntityHistory instead");
+  return deleteEntityHistory(entityType, entityId);
 };
 
 /**
@@ -303,6 +321,7 @@ export const getAllHistory = async () => {
 export default {
   logHistoryEvent,
   getEntityHistory,
+  deleteEntityHistory,
   clearEntityHistory,
   logEntityCreation,
   logStatusChange,

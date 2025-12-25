@@ -454,7 +454,20 @@ export default function DetailView({ entityType }) {
       case "history":
         return <HistoryTab entityType={config.entityType} entityId={parseInt(id)} />;
       case "notes":
-        return <NotesTab data={data} config={config} />;
+        return <NotesTab
+          data={data}
+          config={config}
+          onUpdate={async (updates) => {
+            try {
+              await config.updateData(id, updates, latestContextRef.current);
+              setData(prev => ({ ...prev, ...updates }));
+              setOriginalData(prev => ({ ...prev, ...updates }));
+            } catch (error) {
+              console.error('[DetailView] Error updating notes:', error);
+              throw error;
+            }
+          }}
+        />;
       case "financial":
         return (
           <FinancialTab

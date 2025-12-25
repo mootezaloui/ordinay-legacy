@@ -1,5 +1,5 @@
 ﻿import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { logHistoryEvent, EVENT_TYPES } from "../services/historyService";
+import { logHistoryEvent, EVENT_TYPES, deleteEntityHistory } from "../services/historyService";
 import { canPerformAction } from "../services/domainRules";
 import { useToast } from "./ToastContext";
 import { logEntityCreation, logLifecycleChange, logStatusChange } from "../services/historyService";
@@ -531,6 +531,9 @@ export function DataProvider({ children }) {
 
     await apiClient.delete(`/clients/${id}`);
 
+    // Delete history for this client
+    await deleteEntityHistory('client', id);
+
     setClients((prev) => {
       const next = prev.filter((client) => client.id !== id);
       saveToStorage("clients", next);
@@ -539,6 +542,53 @@ export function DataProvider({ children }) {
 
     logDeletionHistory("client", prev);
     return { ok: true, result: validation.result };
+  };
+
+  /**
+   * CASCADE DELETE: Delete client and all related entities
+   * Called when user confirms force delete from BlockerModal
+   */
+  const deleteClientCascade = async (id) => {
+    console.log('[DataContext.deleteClientCascade] Force deleting client and all related entities:', id);
+
+    try {
+      // Find all related dossiers
+      const clientDossiers = dossiers.filter(d => String(d.clientId) === String(id));
+
+      // Delete each dossier (which will cascade delete its children and their history)
+      for (const dossier of clientDossiers) {
+        await deleteDossierCascade(dossier.id);
+      }
+
+      // Find and delete all financial entries for this client
+      const clientFinancials = financialEntries.filter(e => String(e.clientId) === String(id));
+      for (const entry of clientFinancials) {
+        await deleteFinancialEntry(entry.id);
+        // Delete history for each financial entry
+        await deleteEntityHistory('financial_entry', entry.id);
+      }
+
+      // Delete the client from backend
+      await apiClient.delete(`/clients/${id}`);
+
+      // Delete all history for this client
+      await deleteEntityHistory('client', id);
+
+      setClients((prev) => {
+        const next = prev.filter((client) => client.id !== id);
+        saveToStorage("clients", next);
+        return next;
+      });
+
+      const prev = clients.find((c) => c.id === id);
+      logDeletionHistory("client", prev);
+
+      console.log('[DataContext.deleteClientCascade] Successfully deleted client and all related entities');
+      return { ok: true, result: { message: 'Client et toutes les entités liées supprimés avec succès' } };
+    } catch (error) {
+      console.error('[DataContext.deleteClientCascade] Error during cascade delete:', error);
+      return { ok: false, result: { message: 'Erreur lors de la suppression en cascade' } };
+    }
   };
 
   // --- Dossiers ---
@@ -551,6 +601,8 @@ export function DataProvider({ children }) {
     if (!validation.ok) return validation;
 
     const payload = {
+      reference: dossier.reference || dossier.caseNumber,
+      case_number: dossier.caseNumber || dossier.reference,
       client_id: dossier.clientId || dossier.client_id || dossier.client?.id,
       title: dossier.title,
       description: dossier.description,
@@ -670,6 +722,9 @@ export function DataProvider({ children }) {
 
     await apiClient.delete(`/dossiers/${id}`);
 
+    // Delete history for this dossier
+    await deleteEntityHistory('dossier', id);
+
     setDossiers((prev) => {
       const next = prev.filter((dossier) => dossier.id !== id);
       saveToStorage("dossiers", next);
@@ -678,6 +733,69 @@ export function DataProvider({ children }) {
 
     logDeletionHistory("dossier", prev);
     return { ok: true, result: validation.result };
+  };
+
+  /**
+   * CASCADE DELETE: Delete dossier and all related entities
+   * Called when user confirms force delete from BlockerModal
+   */
+  const deleteDossierCascade = async (id) => {
+    console.log('[DataContext.deleteDossierCascade] Force deleting dossier and all related entities:', id);
+
+    try {
+      // Find all related cases
+      const dossierCases = cases.filter(c => String(c.dossierId) === String(id));
+
+      // Delete each case (which will cascade delete its children and their history)
+      for (const caseItem of dossierCases) {
+        await deleteCaseCascade(caseItem.id);
+      }
+
+      // Find and delete all tasks for this dossier
+      const dossierTasks = tasks.filter(t => t.parentType === 'dossier' && String(t.dossierId) === String(id));
+      for (const task of dossierTasks) {
+        await deleteTask(task.id);
+        // Delete history for each task
+        await deleteEntityHistory('task', task.id);
+      }
+
+      // Find and delete all sessions for this dossier
+      const dossierSessions = sessions.filter(s => String(s.dossierId) === String(id) && !s.caseId);
+      for (const session of dossierSessions) {
+        await deleteSession(session.id);
+        // Delete history for each session
+        await deleteEntityHistory('session', session.id);
+      }
+
+      // Find and delete all financial entries for this dossier
+      const dossierFinancials = financialEntries.filter(e => String(e.dossierId) === String(id));
+      for (const entry of dossierFinancials) {
+        await deleteFinancialEntry(entry.id);
+        // Delete history for each financial entry
+        await deleteEntityHistory('financial_entry', entry.id);
+      }
+
+      // Delete the dossier from backend
+      await apiClient.delete(`/dossiers/${id}`);
+
+      // Delete all history for this dossier
+      await deleteEntityHistory('dossier', id);
+
+      setDossiers((prev) => {
+        const next = prev.filter((dossier) => dossier.id !== id);
+        saveToStorage("dossiers", next);
+        return next;
+      });
+
+      const prev = dossiers.find((d) => d.id === id);
+      logDeletionHistory("dossier", prev);
+
+      console.log('[DataContext.deleteDossierCascade] Successfully deleted dossier and all related entities');
+      return { ok: true, result: { message: 'Dossier et toutes les entités liées supprimés avec succès' } };
+    } catch (error) {
+      console.error('[DataContext.deleteDossierCascade] Error during cascade delete:', error);
+      return { ok: false, result: { message: 'Erreur lors de la suppression en cascade' } };
+    }
   };
 
   // --- Cases ---
@@ -830,6 +948,9 @@ export function DataProvider({ children }) {
 
     await apiClient.delete(`/cases/${id}`);
 
+    // Delete history for this case
+    await deleteEntityHistory('case', id);
+
     setCases((prev) => {
       const next = prev.filter((caseItem) => caseItem.id !== id);
       saveToStorage("cases", next);
@@ -838,6 +959,53 @@ export function DataProvider({ children }) {
 
     logDeletionHistory("case", prev);
     return { ok: true, result: validation.result };
+  };
+
+  /**
+   * CASCADE DELETE: Delete case and all related entities
+   * Called when user confirms force delete from BlockerModal
+   */
+  const deleteCaseCascade = async (id) => {
+    console.log('[DataContext.deleteCaseCascade] Force deleting case and all related entities:', id);
+
+    try {
+      // Find and delete all sessions for this case
+      const caseSessions = sessions.filter(s => String(s.caseId) === String(id));
+      for (const session of caseSessions) {
+        await deleteSession(session.id);
+        // Delete history for each session
+        await deleteEntityHistory('session', session.id);
+      }
+
+      // Find and delete all tasks for this case
+      const caseTasks = tasks.filter(t => t.parentType === 'case' && String(t.caseId) === String(id));
+      for (const task of caseTasks) {
+        await deleteTask(task.id);
+        // Delete history for each task
+        await deleteEntityHistory('task', task.id);
+      }
+
+      // Delete the case from backend
+      await apiClient.delete(`/cases/${id}`);
+
+      // Delete all history for this case
+      await deleteEntityHistory('case', id);
+
+      setCases((prev) => {
+        const next = prev.filter((caseItem) => caseItem.id !== id);
+        saveToStorage("cases", next);
+        return next;
+      });
+
+      const prev = cases.find((c) => c.id === id);
+      logDeletionHistory("case", prev);
+
+      console.log('[DataContext.deleteCaseCascade] Successfully deleted case and all related entities');
+      return { ok: true, result: { message: 'Procès et toutes les entités liées supprimés avec succès' } };
+    } catch (error) {
+      console.error('[DataContext.deleteCaseCascade] Error during cascade delete:', error);
+      return { ok: false, result: { message: 'Erreur lors de la suppression en cascade' } };
+    }
   };
 
   // --- Sessions ---
@@ -1000,6 +1168,9 @@ export function DataProvider({ children }) {
 
     await apiClient.delete(`/sessions/${id}`);
 
+    // Delete history for this session
+    await deleteEntityHistory('session', id);
+
     setSessions((prev) => {
       const next = prev.filter((session) => session.id !== id);
       saveToStorage("sessions", next);
@@ -1113,6 +1284,9 @@ export function DataProvider({ children }) {
     console.log('[DataContext.deleteTask] Deleting task ID:', id);
 
     await apiClient.delete(`/tasks/${id}`);
+
+    // Delete history for this task
+    await deleteEntityHistory('task', id);
 
     setTasks((prev) => {
       const next = prev.filter((task) => task.id !== id);
@@ -1681,6 +1855,9 @@ export function DataProvider({ children }) {
 
     await apiClient.delete(`/financial/${id}`);
 
+    // Delete history for this financial entry
+    await deleteEntityHistory('financial_entry', id);
+
     setFinancialEntries((prev) => {
       const next = prev.filter((entry) => entry.id !== id);
       saveToStorage("financialEntries", next);
@@ -1707,12 +1884,15 @@ export function DataProvider({ children }) {
       addClient,
       updateClient,
       deleteClient,
+      deleteClientCascade,
       addDossier,
       updateDossier,
       deleteDossier,
+      deleteDossierCascade,
       addCase,
       updateCase,
       deleteCase,
+      deleteCaseCascade,
       addSession,
       updateSession,
       deleteSession,
