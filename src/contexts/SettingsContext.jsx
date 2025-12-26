@@ -10,12 +10,7 @@ const DEFAULT_SETTINGS = {
   dateFormat: getDefaultDateFormat(),
   theme: "system",
   compactMode: false,
-  emailNotifications: true,
-  smsNotifications: false,
-  pushNotifications: true,
-  notifyNewClient: true,
-  notifyNewCase: true,
-  notifyDeadlines: true,
+  desktopNotifications: true, // Simplified: just enable/disable all notifications
 };
 
 const SettingsContext = createContext(null);
@@ -85,14 +80,16 @@ export function SettingsProvider({ children }) {
   }, []);
 
   const notificationsEnabled = useMemo(
-    () => settings.emailNotifications || settings.smsNotifications || settings.pushNotifications,
-    [settings.emailNotifications, settings.smsNotifications, settings.pushNotifications]
+    () => settings.desktopNotifications !== false,
+    [settings.desktopNotifications]
   );
 
   const canNotifyType = useCallback((type) => {
+    // Global notification toggle
     if (!notificationsEnabled) return false;
     if (!type) return true;
 
+    // Map notification types to preference keys
     const normalized = type.toLowerCase();
     const prefsKeyMap = {
       task: "tasks",
@@ -101,26 +98,21 @@ export function SettingsProvider({ children }) {
       hearing: "sessions",
       payment: "payments",
       finance: "payments",
+      financial: "payments",
       mission: "missions",
       dossier: "dossiers",
       case: "dossiers",
+      client: "clients",
     };
 
-    if ((normalized === "client") && !settings.notifyNewClient) return false;
-    if ((normalized === "dossier" || normalized === "case" || normalized === "hearing") && !settings.notifyNewCase) {
-      return false;
-    }
-    if ((normalized === "deadline" || normalized === "task" || normalized === "payment" || normalized === "finance") && !settings.notifyDeadlines) {
-      return false;
-    }
-
+    // Check entity-specific preferences
     const prefKey = prefsKeyMap[normalized];
     if (prefKey && notificationPrefs?.[prefKey]?.enabled === false) {
       return false;
     }
 
     return true;
-  }, [notificationsEnabled, settings.notifyDeadlines, settings.notifyNewCase, settings.notifyNewClient, notificationPrefs]);
+  }, [notificationsEnabled, notificationPrefs]);
 
   const value = useMemo(() => ({
     hydrated,

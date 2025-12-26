@@ -547,6 +547,7 @@ export default function Dossiers() {
         entityType="dossier"
         entityId={editingDossier?.id}
         editingEntity={editingDossier}
+        entities={{ clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }}
       />
 
       <BlockerModal

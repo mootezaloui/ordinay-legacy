@@ -132,10 +132,16 @@ export function getNotificationsDueNow(scheduledNotifications, currentTime = new
 export const notificationFrequencySettings = {
   tasks: {
     enabled: true,
-    urgentOnly: false, // If true, only urgent notifications
-    beforeDeadline: [1, 3, 7], // Days before deadline to notify
-    overdueReminders: true,
-    statusCheckFrequency: 3, // Days
+    overdueReminders: true, // Rappels pour tâches en retard
+    upcomingReminders: true, // Rappels avant échéance
+    reminderDays: [1, 3, 7], // Days before deadline to notify
+  },
+
+  personalTasks: {
+    enabled: true,
+    upcomingReminders: true, // Rappels avant échéance
+    completionReminders: true, // Rappels après échéance pour mise à jour
+    reminderDays: [1, 3, 7], // Days before deadline to notify
   },
 
   sessions: {
@@ -154,16 +160,26 @@ export const notificationFrequencySettings = {
 
   missions: {
     enabled: true,
-    reminderDays: [1, 2, 5],
-    completionCheck: true,
+    upcomingReminders: true, // Rappels avant échéance
+    completionReminders: true, // Rappels après échéance pour vérifier si mission accomplie
+    reminderDays: [1, 3, 7], // Days before deadline to notify
   },
 
   dossiers: {
     enabled: true,
     inactivityReminder: true,
-    inactivityDays: 7,
+    inactivityDays: 7, // Notify if no update for 7+ days
     reviewReminder: true,
-    reviewInterval: 30, // Days
+    reviewIntervalHigh: 7, // High priority: review every 7 days
+    reviewIntervalMedium: 15, // Medium priority: review every 15 days
+    reviewIntervalLow: 30, // Low priority: review every 30 days
+    deadlineReminders: true, // For next_deadline field (prochaine échéance)
+  },
+
+  clients: {
+    enabled: true,
+    inactivityReminder: true,
+    inactivityDays: 60, // Notify if no activity for 60+ days
   },
 };
 

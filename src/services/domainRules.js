@@ -742,6 +742,7 @@ const VALIDATORS = {
  *
  * Business Rules:
  * - Cannot create if no clients exist
+ * - Must have a client selected in the form
  */
 function validateDossierAdd(dossierId, context = {}) {
   const blockers = [];
@@ -750,9 +751,28 @@ function validateDossierAdd(dossierId, context = {}) {
   // Get entities from context
   const clients = context?.entities?.clients || mockClients || [];
 
-  // Check if any clients exist
+  // Get formData to check if client is selected
+  // Note: FormModal passes form data as 'data' or 'formData' depending on the caller
+  const formData = context?.formData || context?.data || {};
+
+  // 🐛 DEBUG: Log to see what we're receiving
+  console.log('🔍 validateDossierAdd DEBUG:', {
+    clientsCount: clients.length,
+    formData,
+    clientIdInForm: formData.clientId,
+    contextKeys: Object.keys(context),
+    fullContext: context
+  });
+
+  // Check if any clients exist in the system
   if (clients.length === 0) {
     blockers.push("Ajoutez d'abord un client avant de créer un dossier.");
+    return { allowed: false, blockers, warnings: [] };
+  }
+
+  // Check if a client was actually selected in the form
+  if (!formData.clientId || formData.clientId === "") {
+    blockers.push("Veuillez sélectionner un client pour ce dossier.");
     return { allowed: false, blockers, warnings: [] };
   }
 

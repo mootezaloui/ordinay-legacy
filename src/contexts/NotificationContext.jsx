@@ -252,43 +252,60 @@ export function NotificationProvider({ children }) {
         console.log("[NOTIFICATION] Loading entity data for scheduler...");
 
         // Fetch all entities from APIs using apiClient
-        const [tasks, personalTasks, sessions, missions, financialEntries, dossiers] = await Promise.all([
-          apiClient.get('/tasks').catch(() => []),
-          apiClient.get('/personal-tasks').catch(() => []),
-          apiClient.get('/sessions').catch(() => []),
-          apiClient.get('/missions').catch(() => []),
-          apiClient.get('/financial').catch(() => []),
-          apiClient.get('/dossiers').catch(() => []),
+        const [tasks, personalTasks, sessions, cases, missions, financialEntries, dossiers, clients] = await Promise.all([
+          apiClient.get('/tasks').catch(err => { console.error('[NOTIFICATION] Failed to load tasks:', err); return []; }),
+          apiClient.get('/personal-tasks').catch(err => { console.error('[NOTIFICATION] Failed to load personal-tasks:', err); return []; }),
+          apiClient.get('/sessions').catch(err => { console.error('[NOTIFICATION] Failed to load sessions:', err); return []; }),
+          apiClient.get('/cases').catch(err => { console.error('[NOTIFICATION] Failed to load cases:', err); return []; }),
+          apiClient.get('/missions').catch(err => { console.error('[NOTIFICATION] Failed to load missions:', err); return []; }),
+          apiClient.get('/financial').catch(err => { console.error('[NOTIFICATION] Failed to load financial:', err); return []; }),
+          apiClient.get('/dossiers').catch(err => { console.error('[NOTIFICATION] Failed to load dossiers:', err); return []; }),
+          apiClient.get('/clients').catch(err => { console.error('[NOTIFICATION] Failed to load clients:', err); return []; }),
         ]);
 
         // Feed data to scheduler
         notificationScheduler.data = {
-          tasks: tasks || [],
-          personalTasks: personalTasks || [],
-          sessions: sessions || [],
-          missions: missions || [],
-          financialEntries: financialEntries || [],
-          dossiers: dossiers || [],
+          tasks: Array.isArray(tasks) ? tasks : [],
+          personalTasks: Array.isArray(personalTasks) ? personalTasks : [],
+          sessions: Array.isArray(sessions) ? sessions : [],
+          cases: Array.isArray(cases) ? cases : [],
+          missions: Array.isArray(missions) ? missions : [],
+          financialEntries: Array.isArray(financialEntries) ? financialEntries : [],
+          dossiers: Array.isArray(dossiers) ? dossiers : [],
+          clients: Array.isArray(clients) ? clients : [],
         };
 
         console.log("[NOTIFICATION] Entity data loaded:", {
           tasks: (tasks || []).length,
           personalTasks: (personalTasks || []).length,
           sessions: (sessions || []).length,
+          cases: (cases || []).length,
           missions: (missions || []).length,
           financialEntries: (financialEntries || []).length,
           dossiers: (dossiers || []).length,
+          clients: (clients || []).length,
         });
       } catch (error) {
         console.error("[NOTIFICATION] Failed to load entity data:", error);
+        // Set empty arrays to prevent crashes
+        notificationScheduler.data = {
+          tasks: [],
+          personalTasks: [],
+          sessions: [],
+          cases: [],
+          missions: [],
+          financialEntries: [],
+          dossiers: [],
+          clients: [],
+        };
       }
     }
 
     // Load data immediately
     loadEntityData();
 
-    // Reload every hour to keep data fresh for notification generation
-    const dataRefreshInterval = setInterval(loadEntityData, 60 * 60 * 1000);
+    // Reload every 30 minutes (instead of hourly) to keep data fresh
+    const dataRefreshInterval = setInterval(loadEntityData, 30 * 60 * 1000);
 
     return () => {
       clearInterval(dataRefreshInterval);

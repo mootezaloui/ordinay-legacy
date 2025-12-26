@@ -109,111 +109,23 @@ export default function Settings() {
         {/* Notification Settings */}
         <ContentSection title="Notifications">
           <div className="p-6 space-y-4">
-            {/* Email Notifications */}
-            <div className="flex items-center justify-between py-3 border-b border-slate-200 dark:border-slate-700">
-              <div>
-                <label className="text-sm font-medium text-slate-900 dark:text-white">
-                  Notifications par email
-                </label>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                  Recevoir des notifications par email
-                </p>
-              </div>
-              <button
-                onClick={() => handleChange("emailNotifications", !settings.emailNotifications)}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${settings.emailNotifications ? "bg-blue-600" : "bg-slate-300 dark:bg-slate-600"
-                  }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${settings.emailNotifications ? "translate-x-6" : "translate-x-1"
-                    }`}
-                />
-              </button>
-            </div>
-
-            {/* Push Notifications */}
-            <div className="flex items-center justify-between py-3 border-b border-slate-200 dark:border-slate-700">
-              <div>
-                <label className="text-sm font-medium text-slate-900 dark:text-white">
-                  Notifications push
-                </label>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                  Notifications dans le navigateur
-                </p>
-              </div>
-              <button
-                onClick={() => handleChange("pushNotifications", !settings.pushNotifications)}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${settings.pushNotifications ? "bg-blue-600" : "bg-slate-300 dark:bg-slate-600"
-                  }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${settings.pushNotifications ? "translate-x-6" : "translate-x-1"
-                    }`}
-                />
-              </button>
-            </div>
-
-            {/* New Client Notification */}
-            <div className="flex items-center justify-between py-3 border-b border-slate-200 dark:border-slate-700">
-              <div>
-                <label className="text-sm font-medium text-slate-900 dark:text-white">
-                  Nouveau client
-                </label>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                  Notifier lors de l'ajout d'un nouveau client
-                </p>
-              </div>
-              <button
-                onClick={() => handleChange("notifyNewClient", !settings.notifyNewClient)}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${settings.notifyNewClient ? "bg-blue-600" : "bg-slate-300 dark:bg-slate-600"
-                  }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${settings.notifyNewClient ? "translate-x-6" : "translate-x-1"
-                    }`}
-                />
-              </button>
-            </div>
-
-            {/* New Case Notification */}
-            <div className="flex items-center justify-between py-3 border-b border-slate-200 dark:border-slate-700">
-              <div>
-                <label className="text-sm font-medium text-slate-900 dark:text-white">
-                  Nouveau dossier
-                </label>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                  Notifier lors de la création d'un dossier
-                </p>
-              </div>
-              <button
-                onClick={() => handleChange("notifyNewCase", !settings.notifyNewCase)}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${settings.notifyNewCase ? "bg-blue-600" : "bg-slate-300 dark:bg-slate-600"
-                  }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${settings.notifyNewCase ? "translate-x-6" : "translate-x-1"
-                    }`}
-                />
-              </button>
-            </div>
-
-            {/* Deadline Notification */}
+            {/* Desktop Notifications Toggle */}
             <div className="flex items-center justify-between py-3">
               <div>
                 <label className="text-sm font-medium text-slate-900 dark:text-white">
-                  Échéances
+                  Activer les notifications
                 </label>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                  Rappel des échéances importantes
+                  Afficher les notifications dans l'application
                 </p>
               </div>
               <button
-                onClick={() => handleChange("notifyDeadlines", !settings.notifyDeadlines)}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${settings.notifyDeadlines ? "bg-blue-600" : "bg-slate-300 dark:bg-slate-600"
+                onClick={() => handleChange("desktopNotifications", !settings.desktopNotifications)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${settings.desktopNotifications ? "bg-blue-600" : "bg-slate-300 dark:bg-slate-600"
                   }`}
               >
                 <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${settings.notifyDeadlines ? "translate-x-6" : "translate-x-1"
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${settings.desktopNotifications ? "translate-x-6" : "translate-x-1"
                     }`}
                 />
               </button>
@@ -239,19 +151,93 @@ export default function Settings() {
                 </button>
               </div>
               {notificationPrefs.tasks.enabled && (
-                <div className="ml-6 space-y-2 text-xs">
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={notificationPrefs.tasks.overdueReminders}
-                      onChange={(e) => handleNotificationPrefChange("tasks", "overdueReminders", e.target.checked)}
-                      className="rounded border-slate-300 dark:border-slate-600"
-                    />
-                    <span className="text-slate-700 dark:text-slate-300">Rappels pour tâches en retard</span>
-                  </label>
-                  <p className="text-slate-500 dark:text-slate-400 ml-5">
-                    Rappels avant échéance: {notificationPrefs.tasks.beforeDeadline.join(", ")} jours
-                  </p>
+                <div className="ml-6 space-y-3 text-xs">
+                  {/* Overdue Reminders */}
+                  <div className="space-y-1">
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={notificationPrefs.tasks.overdueReminders}
+                        onChange={(e) => handleNotificationPrefChange("tasks", "overdueReminders", e.target.checked)}
+                        className="rounded border-slate-300 dark:border-slate-600"
+                      />
+                      <span className="text-slate-700 dark:text-slate-300">Rappels pour tâches en retard</span>
+                    </label>
+                    <p className="text-slate-500 dark:text-slate-400 pl-6">
+                      Notification quotidienne pour les tâches en retard (jusqu'à 3 jours).
+                    </p>
+                  </div>
+
+                  {/* Upcoming Deadline Reminders */}
+                  <div className="space-y-1">
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={notificationPrefs.tasks.upcomingReminders}
+                        onChange={(e) => handleNotificationPrefChange("tasks", "upcomingReminders", e.target.checked)}
+                        className="rounded border-slate-300 dark:border-slate-600"
+                      />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        Rappels avant échéance
+                      </span>
+                    </label>
+                    <p className="text-slate-500 dark:text-slate-400 pl-6">
+                      Rappels: {notificationPrefs.tasks.reminderDays.join(", ")} jours avant l'échéance.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Personal Tasks */}
+            <div className="space-y-3 pt-4 border-t border-slate-200 dark:border-slate-700">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <i className="fas fa-user-check text-indigo-600"></i>
+                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Tâches Personnelles</h3>
+                </div>
+                <button
+                  onClick={() => handleNotificationPrefChange("personalTasks", "enabled", !notificationPrefs.personalTasks.enabled)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${notificationPrefs.personalTasks.enabled ? "bg-blue-600" : "bg-slate-300 dark:bg-slate-600"}`}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${notificationPrefs.personalTasks.enabled ? "translate-x-6" : "translate-x-1"}`} />
+                </button>
+              </div>
+              {notificationPrefs.personalTasks.enabled && (
+                <div className="ml-6 space-y-3 text-xs">
+                  {/* Upcoming Deadline Reminders */}
+                  <div className="space-y-1">
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={notificationPrefs.personalTasks.upcomingReminders}
+                        onChange={(e) => handleNotificationPrefChange("personalTasks", "upcomingReminders", e.target.checked)}
+                        className="rounded border-slate-300 dark:border-slate-600"
+                      />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        Rappels avant échéance
+                      </span>
+                    </label>
+                    <p className="text-slate-500 dark:text-slate-400 pl-6">
+                      Rappels: {notificationPrefs.personalTasks.reminderDays.join(", ")} jours avant l'échéance.
+                    </p>
+                  </div>
+
+                  {/* Completion Reminders */}
+                  <div className="space-y-1">
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={notificationPrefs.personalTasks.completionReminders}
+                        onChange={(e) => handleNotificationPrefChange("personalTasks", "completionReminders", e.target.checked)}
+                        className="rounded border-slate-300 dark:border-slate-600"
+                      />
+                      <span className="text-slate-700 dark:text-slate-300">Rappels de mise à jour après échéance</span>
+                    </label>
+                    <p className="text-slate-500 dark:text-slate-400 pl-6">
+                      Demande si la tâche a été accomplie après l'échéance.
+                    </p>
+                  </div>
                 </div>
               )}
             </div>
@@ -271,30 +257,66 @@ export default function Settings() {
                 </button>
               </div>
               {notificationPrefs.sessions.enabled && (
-                <div className="ml-6 space-y-2 text-xs">
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={notificationPrefs.sessions.preparationReminders}
-                      onChange={(e) => handleNotificationPrefChange("sessions", "preparationReminders", e.target.checked)}
-                      className="rounded border-slate-300 dark:border-slate-600"
-                    />
-                    <span className="text-slate-700 dark:text-slate-300">Rappels de préparation</span>
-                  </label>
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={notificationPrefs.sessions.dayOfReminder}
-                      onChange={(e) => handleNotificationPrefChange("sessions", "dayOfReminder", e.target.checked)}
-                      className="rounded border-slate-300 dark:border-slate-600"
-                    />
-                    <span className="text-slate-700 dark:text-slate-300">Rappel le jour même</span>
-                  </label>
-                  <p className="text-slate-500 dark:text-slate-400 ml-5">
-                    Rappels: {notificationPrefs.sessions.reminderDays.join(", ")} jours avant
-                  </p>
+                <div className="ml-6 space-y-3 text-xs">
+                  {/* Preparation Reminders */}
+                  <div className="space-y-1">
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={notificationPrefs.sessions.preparationReminders}
+                        onChange={(e) => handleNotificationPrefChange("sessions", "preparationReminders", e.target.checked)}
+                        className="rounded border-slate-300 dark:border-slate-600"
+                      />
+                      <span className="text-slate-700 dark:text-slate-300 font-medium">Rappels de préparation</span>
+                    </label>
+                    <p className="text-slate-500 dark:text-slate-400 ml-5">
+                      Rappels pour les audiences à venir: {notificationPrefs.sessions.reminderDays.join(", ")} jours avant l'audience.
+                    </p>
+                  </div>
+
+                  {/* Day-of Reminder */}
+                  <div className="space-y-1">
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={notificationPrefs.sessions.dayOfReminder}
+                        onChange={(e) => handleNotificationPrefChange("sessions", "dayOfReminder", e.target.checked)}
+                        className="rounded border-slate-300 dark:border-slate-600"
+                      />
+                      <span className="text-slate-700 dark:text-slate-300 font-medium">Rappel le jour même</span>
+                    </label>
+                    <p className="text-slate-500 dark:text-slate-400 ml-5">
+                      Notification critique le jour de l'audience pour éviter tout oubli.
+                    </p>
+                  </div>
                 </div>
               )}
+            </div>
+
+            {/* Cases/Procès - Note: Cases don't have their own notification preferences */}
+            {/* Case notifications are controlled by parent dossier priority */}
+            <div className="space-y-3 pt-4 border-t border-slate-200 dark:border-slate-700">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <i className="fas fa-balance-scale text-red-600"></i>
+                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Procès</h3>
+                </div>
+                <div className="text-xs text-slate-500 dark:text-slate-400 italic">
+                  Basé sur la priorité du dossier parent
+                </div>
+              </div>
+              <div className="ml-6 text-xs text-slate-600 dark:text-slate-400">
+                <p className="mb-2">
+                  <strong>Notifications automatiques:</strong>
+                </p>
+                <ul className="list-disc list-inside space-y-1 ml-2">
+                  <li>Rappel si aucune audience programmée (fréquence selon priorité du dossier)</li>
+                  <li>Suggestion de mise à jour après audiences/tâches terminées</li>
+                </ul>
+                <p className="mt-2 text-slate-500 dark:text-slate-500 italic">
+                  Les procès héritent de la priorité de leur dossier parent pour déterminer la fréquence des rappels.
+                </p>
+              </div>
             </div>
 
             {/* Payments */}
@@ -347,19 +369,40 @@ export default function Settings() {
                 </button>
               </div>
               {notificationPrefs.missions.enabled && (
-                <div className="ml-6 space-y-2 text-xs">
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={notificationPrefs.missions.completionCheck}
-                      onChange={(e) => handleNotificationPrefChange("missions", "completionCheck", e.target.checked)}
-                      className="rounded border-slate-300 dark:border-slate-600"
-                    />
-                    <span className="text-slate-700 dark:text-slate-300">Vérification après mission terminée</span>
-                  </label>
-                  <p className="text-slate-500 dark:text-slate-400 ml-5">
-                    Rappels: {notificationPrefs.missions.reminderDays.join(", ")} jours avant
-                  </p>
+                <div className="ml-6 space-y-3 text-xs">
+                  {/* Upcoming Deadline Reminders */}
+                  <div className="space-y-1">
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={notificationPrefs.missions.upcomingReminders}
+                        onChange={(e) => handleNotificationPrefChange("missions", "upcomingReminders", e.target.checked)}
+                        className="rounded border-slate-300 dark:border-slate-600"
+                      />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        Rappels avant échéance (Date limite)
+                      </span>
+                    </label>
+                    <p className="text-slate-500 dark:text-slate-400 pl-6">
+                      Rappels: {notificationPrefs.missions.reminderDays.join(", ")} jours avant l'échéance.
+                    </p>
+                  </div>
+
+                  {/* Completion Reminders */}
+                  <div className="space-y-1">
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={notificationPrefs.missions.completionReminders}
+                        onChange={(e) => handleNotificationPrefChange("missions", "completionReminders", e.target.checked)}
+                        className="rounded border-slate-300 dark:border-slate-600"
+                      />
+                      <span className="text-slate-700 dark:text-slate-300">Vérification après échéance</span>
+                    </label>
+                    <p className="text-slate-500 dark:text-slate-400 pl-6">
+                      Demande si l'huissier a accompli la mission après l'échéance.
+                    </p>
+                  </div>
                 </div>
               )}
             </div>
@@ -379,25 +422,98 @@ export default function Settings() {
                 </button>
               </div>
               {notificationPrefs.dossiers.enabled && (
+                <div className="ml-6 space-y-3 text-xs">
+                  {/* Inactivity Reminder */}
+                  <div className="space-y-1">
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={notificationPrefs.dossiers.inactivityReminder}
+                        onChange={(e) => handleNotificationPrefChange("dossiers", "inactivityReminder", e.target.checked)}
+                        className="rounded border-slate-300 dark:border-slate-600"
+                      />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        Rappel d'inactivité ({notificationPrefs.dossiers.inactivityDays} jours)
+                      </span>
+                    </label>
+                    <p className="text-slate-500 dark:text-slate-400 pl-6">
+                      Notification si le dossier n'a pas été mis à jour depuis {notificationPrefs.dossiers.inactivityDays} jours.
+                    </p>
+                  </div>
+
+                  {/* Review Reminder */}
+                  <div className="space-y-1">
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={notificationPrefs.dossiers.reviewReminder}
+                        onChange={(e) => handleNotificationPrefChange("dossiers", "reviewReminder", e.target.checked)}
+                        className="rounded border-slate-300 dark:border-slate-600"
+                      />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        Rappel de révision (basé sur priorité)
+                      </span>
+                    </label>
+                    <p className="text-slate-500 dark:text-slate-400 pl-6">
+                      Haute priorité: tous les {notificationPrefs.dossiers.reviewIntervalHigh} jours
+                      <br />
+                      Moyenne priorité: tous les {notificationPrefs.dossiers.reviewIntervalMedium} jours
+                      <br />
+                      Basse priorité: tous les {notificationPrefs.dossiers.reviewIntervalLow} jours
+                    </p>
+                  </div>
+
+                  {/* Deadline Reminders */}
+                  <div className="space-y-1">
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={notificationPrefs.dossiers.deadlineReminders}
+                        onChange={(e) => handleNotificationPrefChange("dossiers", "deadlineReminders", e.target.checked)}
+                        className="rounded border-slate-300 dark:border-slate-600"
+                      />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        Prochaine échéance (next_deadline)
+                      </span>
+                    </label>
+                    <p className="text-slate-500 dark:text-slate-400 pl-6">
+                      Rappels pour les échéances: 7 jours avant, 3 jours avant, le jour même, et en cas de retard.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Clients */}
+            <div className="space-y-3 pt-4 border-t border-slate-200 dark:border-slate-700">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <i className="fas fa-users text-purple-600"></i>
+                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Clients</h3>
+                </div>
+                <button
+                  onClick={() => handleNotificationPrefChange("clients", "enabled", !notificationPrefs.clients.enabled)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${notificationPrefs.clients.enabled ? "bg-blue-600" : "bg-slate-300 dark:bg-slate-600"}`}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${notificationPrefs.clients.enabled ? "translate-x-6" : "translate-x-1"}`} />
+                </button>
+              </div>
+              {notificationPrefs.clients.enabled && (
                 <div className="ml-6 space-y-2 text-xs">
                   <label className="flex items-center gap-2">
                     <input
                       type="checkbox"
-                      checked={notificationPrefs.dossiers.inactivityReminder}
-                      onChange={(e) => handleNotificationPrefChange("dossiers", "inactivityReminder", e.target.checked)}
+                      checked={notificationPrefs.clients.inactivityReminder}
+                      onChange={(e) => handleNotificationPrefChange("clients", "inactivityReminder", e.target.checked)}
                       className="rounded border-slate-300 dark:border-slate-600"
                     />
-                    <span className="text-slate-700 dark:text-slate-300">Rappel d'inactivité ({notificationPrefs.dossiers.inactivityDays} jours)</span>
+                    <span className="text-slate-700 dark:text-slate-300">
+                      Rappel d'inactivité ({notificationPrefs.clients.inactivityDays} jours sans activité)
+                    </span>
                   </label>
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={notificationPrefs.dossiers.reviewReminder}
-                      onChange={(e) => handleNotificationPrefChange("dossiers", "reviewReminder", e.target.checked)}
-                      className="rounded border-slate-300 dark:border-slate-600"
-                    />
-                    <span className="text-slate-700 dark:text-slate-300">Rappel de révision (tous les {notificationPrefs.dossiers.reviewInterval} jours)</span>
-                  </label>
+                  <p className="text-slate-500 dark:text-slate-400 pl-6">
+                    Notification si le client n'a eu aucune activité (dossiers, tâches, séances, paiements) pendant {notificationPrefs.clients.inactivityDays} jours.
+                  </p>
                 </div>
               )}
             </div>

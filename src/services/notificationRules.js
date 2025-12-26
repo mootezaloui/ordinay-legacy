@@ -19,6 +19,7 @@ let entities = {
   missions: [],
   dossiers: [],
   cases: [],
+  clients: [],
   financialEntries: [],
 };
 
@@ -29,6 +30,7 @@ const loadEntities = (context = {}) => {
     missions: context.entities?.missions || context.missions || [],
     dossiers: context.entities?.dossiers || context.dossiers || [],
     cases: context.entities?.cases || context.cases || [],
+    clients: context.entities?.clients || context.clients || [],
     financialEntries:
       context.entities?.financialEntries || context.financialEntries || [],
   };
@@ -91,13 +93,50 @@ function getPriorityWeight(priority) {
 }
 
 /**
+ * Notification history tracker (in-memory cache)
+ * Maps ruleId to last sent timestamp
+ */
+const notificationHistory = new Map();
+
+/**
  * Anti-spam: Check if notification was recently sent
- * (In production, this would check notification history)
+ * Uses in-memory cache to track recent notifications
  */
 function wasNotificationRecentlySent(ruleId, entityId, withinHours = 24) {
-  // Placeholder - in production, check notification history database
-  // For now, we'll assume false to allow initial implementation
-  return false;
+  const key = `${ruleId}_${entityId}`;
+  const lastSent = notificationHistory.get(key);
+
+  if (!lastSent) {
+    return false;
+  }
+
+  const hoursSinceLastSent = (Date.now() - lastSent) / (1000 * 60 * 60);
+  return hoursSinceLastSent < withinHours;
+}
+
+/**
+ * Mark notification as sent (for deduplication)
+ */
+function markNotificationSent(ruleId, entityId) {
+  const key = `${ruleId}_${entityId}`;
+  notificationHistory.set(key, Date.now());
+
+  // Clean up old entries (older than 7 days) to prevent memory leak
+  if (notificationHistory.size > 1000) {
+    const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    for (const [k, timestamp] of notificationHistory.entries()) {
+      if (timestamp < weekAgo) {
+        notificationHistory.delete(k);
+      }
+    }
+  }
+}
+
+/**
+ * Clear notification history (for testing)
+ */
+function clearNotificationHistory() {
+  notificationHistory.clear();
 }
 
 // ============================================
@@ -125,121 +164,12 @@ class RuleResult {
 
 export const TaskRules = {
   /**
-   * RULE: High Priority Task - Upcoming Deadline
-   * Triggers: Daily reminders in last 3 days before due date
+   * RULE: Overdue Task Reminders
+   * Triggers: When task is past due date
+   * Shows clear overdue status with days count
    */
-  highPriorityUpcoming(task) {
-    if (!task.dueDate || task.status === "Terminée") {
-      return new RuleResult(false);
-    }
-
-    const daysLeft = calculateDaysDifference(task.dueDate);
-    const isHighPriority = getPriorityWeight(task.priority) >= 3;
-
-    if (isHighPriority && daysLeft >= 0 && daysLeft <= 3) {
-      return new RuleResult(true, {
-        priority: "high",
-        frequency: "daily",
-        subType: "upcoming",
-        title: `Échéance Critique - ${daysLeft} jour${daysLeft > 1 ? "s" : ""}`,
-        message: `La tâche haute priorité "${
-          task.title
-        }" arrive à échéance dans ${daysLeft} jour${
-          daysLeft > 1 ? "s" : ""
-        }. Action requise.`,
-        metadata: { daysLeft, taskPriority: task.priority },
-      });
-    }
-
-    return new RuleResult(false);
-  },
-
-  /**
-   * RULE: Medium Priority Task - Moderate Reminders
-   * Triggers: Reminders at 7 days, 3 days, 1 day
-   */
-  mediumPriorityUpcoming(task) {
-    if (!task.dueDate || task.status === "Terminée") {
-      return new RuleResult(false);
-    }
-
-    const daysLeft = calculateDaysDifference(task.dueDate);
-    const isMediumPriority = getPriorityWeight(task.priority) === 2;
-    const reminderDays = [7, 3, 1];
-
-    if (isMediumPriority && reminderDays.includes(daysLeft)) {
-      return new RuleResult(true, {
-        priority: "medium",
-        frequency: "once",
-        subType: "upcoming",
-        title: `Rappel de Tâche - ${daysLeft} jour${daysLeft > 1 ? "s" : ""}`,
-        message: `La tâche "${
-          task.title
-        }" doit être terminée dans ${daysLeft} jour${daysLeft > 1 ? "s" : ""}.`,
-        metadata: { daysLeft, taskPriority: task.priority },
-      });
-    }
-
-    return new RuleResult(false);
-  },
-
-  /**
-   * RULE: Low Priority Task - Single Reminder
-   * Triggers: One reminder at 1 day before
-   */
-  lowPriorityUpcoming(task) {
-    if (!task.dueDate || task.status === "Terminée") {
-      return new RuleResult(false);
-    }
-
-    const daysLeft = calculateDaysDifference(task.dueDate);
-    const isLowPriority = getPriorityWeight(task.priority) === 1;
-
-    if (isLowPriority && daysLeft === 1) {
-      return new RuleResult(true, {
-        priority: "low",
-        frequency: "once",
-        subType: "upcoming",
-        title: "Rappel de Tâche",
-        message: `La tâche "${task.title}" est prévue pour demain.`,
-        metadata: { daysLeft, taskPriority: task.priority },
-      });
-    }
-
-    return new RuleResult(false);
-  },
-
-  /**
-   * RULE: Task Due Today
-   * Triggers: Morning reminder for all non-completed tasks due today
-   */
-  dueToday(task) {
-    if (!task.dueDate || task.status === "Terminée") {
-      return new RuleResult(false);
-    }
-
-    const daysLeft = calculateDaysDifference(task.dueDate);
-
-    if (daysLeft === 0) {
-      return new RuleResult(true, {
-        priority: "high",
-        frequency: "once",
-        subType: "dueToday",
-        title: "Échéance Aujourd'hui",
-        message: `La tâche "${task.title}" doit être terminée aujourd'hui.`,
-        metadata: { daysLeft: 0, taskPriority: task.priority },
-      });
-    }
-
-    return new RuleResult(false);
-  },
-
-  /**
-   * RULE: Overdue Task - Escalating Reminders
-   * Triggers: Increasing urgency based on days overdue
-   */
-  overdue(task) {
-    if (!task.dueDate || task.status === "Terminée") {
+  overdueReminder(task) {
+    if (!task.dueDate || task.status === "Terminée" || task.status === "Completed") {
       return new RuleResult(false);
     }
 
@@ -249,59 +179,198 @@ export const TaskRules = {
       const daysOverdue = Math.abs(daysLeft);
       const priorityWeight = getPriorityWeight(task.priority);
 
-      // Escalation thresholds based on priority
-      const shouldEscalate =
-        (priorityWeight >= 3 && daysOverdue >= 1) || // High priority: immediate
-        (priorityWeight === 2 && daysOverdue >= 2) || // Medium: after 2 days
-        (priorityWeight === 1 && daysOverdue >= 7); // Low: after 1 week
-
-      if (shouldEscalate) {
-        return new RuleResult(true, {
-          priority: "urgent",
-          frequency: daysOverdue <= 3 ? "daily" : "once",
-          subType: "overdue",
-          title: `RETARD - ${daysOverdue} jour${daysOverdue > 1 ? "s" : ""}`,
-          message: `La tâche "${
-            task.title
-          }" est en retard de ${daysOverdue} jour${
-            daysOverdue > 1 ? "s" : ""
-          }. Merci de la finaliser ou mettre à jour son statut.`,
-          metadata: { daysOverdue, taskPriority: task.priority },
-        });
-      }
+      return new RuleResult(true, {
+        priority: "urgent",
+        frequency: daysOverdue <= 3 ? "daily" : "once",
+        subType: "overdue",
+        title: `Tâche en Retard - ${daysOverdue} jour${daysOverdue > 1 ? "s" : ""}`,
+        message: `La tâche "${task.title}" est en retard de ${daysOverdue} jour${daysOverdue > 1 ? "s" : ""}. Action requise.`,
+        metadata: {
+          taskId: task.id,
+          taskTitle: task.title,
+          daysOverdue,
+          priority: task.priority,
+          priorityWeight,
+        },
+      });
     }
 
     return new RuleResult(false);
   },
 
   /**
-   * RULE: Inactive Task - No Status Update
-   * Triggers: If task hasn't been updated for N days (based on priority)
+   * RULE: Upcoming Deadline Reminders
+   * Triggers: At 7, 3, and 1 day(s) before due date
+   * Priority-aware notifications
+   *
+   * EDGE CASE HANDLING: If task was created recently (e.g., created today with deadline tomorrow),
+   * only send notifications for reminder days that haven't been "missed".
+   * For example, if created today with deadline in 2 days, don't send the "7 days before" notification.
    */
-  inactiveTask(task) {
-    if (!task.updatedAt || task.status === "Terminée") {
+  upcomingDeadline(task) {
+    if (!task.dueDate || task.status === "Terminée" || task.status === "Completed") {
       return new RuleResult(false);
     }
 
-    const daysSinceLastUpdate = daysSinceUpdate(task.updatedAt);
+    const daysLeft = calculateDaysDifference(task.dueDate);
     const priorityWeight = getPriorityWeight(task.priority);
+    const reminderDays = [7, 3, 1];
 
-    // Inactivity thresholds based on priority
-    const inactivityThreshold =
-      priorityWeight >= 3
-        ? 3 // High: 3 days
-        : priorityWeight === 2
-        ? 7 // Medium: 7 days
-        : 14; // Low: 14 days
+    if (reminderDays.includes(daysLeft)) {
+      // Edge case: Check if task was created recently
+      // Only send notification if enough time has passed since creation
+      const createdDate = task.created_at || task.createdAt;
+      if (createdDate) {
+        const daysSinceCreation = daysSinceUpdate(createdDate);
+        const totalDaysUntilDeadline = daysLeft + daysSinceCreation;
 
-    if (daysSinceLastUpdate >= inactivityThreshold) {
+        // If the reminder day (7, 3, or 1) is greater than total days since creation,
+        // it means this reminder was "missed" because the task was created too close to deadline
+        if (daysLeft > totalDaysUntilDeadline) {
+          return new RuleResult(false);
+        }
+      }
+
+      // Determine priority level based on days left and task priority
+      let notificationPriority = "medium";
+      if (daysLeft === 1) {
+        notificationPriority = priorityWeight >= 3 ? "urgent" : "high";
+      } else if (daysLeft === 3) {
+        notificationPriority = priorityWeight >= 3 ? "high" : "medium";
+      }
+
       return new RuleResult(true, {
-        priority: "medium",
+        priority: notificationPriority,
         frequency: "once",
-        subType: "statusCheck",
-        title: "Vérification de Statut",
-        message: `La tâche "${task.title}" n'a pas été mise à jour depuis ${daysSinceLastUpdate} jours. Est-elle toujours pertinente ?`,
-        metadata: { daysSinceLastUpdate, taskPriority: task.priority },
+        subType: "upcomingDeadline",
+        title: `Échéance dans ${daysLeft} jour${daysLeft > 1 ? "s" : ""}`,
+        message: `La tâche "${task.title}" doit être terminée dans ${daysLeft} jour${daysLeft > 1 ? "s" : ""}.`,
+        metadata: {
+          taskId: task.id,
+          taskTitle: task.title,
+          daysLeft,
+          priority: task.priority,
+          priorityWeight,
+        },
+      });
+    }
+
+    return new RuleResult(false);
+  },
+};
+
+// ============================================
+// 1.5️⃣ PERSONAL TASK RULES
+// ============================================
+
+export const PersonalTaskRules = {
+  /**
+   * RULE: Upcoming Personal Task Deadline Reminders
+   * Triggers: At 7, 3, and 1 day(s) before due date
+   * Priority-aware notifications based on personal task priority
+   *
+   * EDGE CASE HANDLING: If task was created recently, only send valid reminders
+   */
+  upcomingDeadline(personalTask) {
+    const dueDate = personalTask.due_date || personalTask.dueDate;
+    if (!dueDate) return new RuleResult(false);
+
+    // Skip completed/cancelled tasks
+    const completedStatuses = ["done", "cancelled", "Terminée"];
+    if (completedStatuses.includes(personalTask.status)) {
+      return new RuleResult(false);
+    }
+
+    const daysLeft = calculateDaysDifference(dueDate);
+    const priorityWeight = getPriorityWeight(personalTask.priority);
+    const reminderDays = [7, 3, 1];
+
+    if (reminderDays.includes(daysLeft)) {
+      // Edge case: Check if task was created recently
+      const createdDate = personalTask.created_at || personalTask.createdAt;
+      if (createdDate) {
+        const daysSinceCreation = daysSinceUpdate(createdDate);
+        const totalDaysUntilDeadline = daysLeft + daysSinceCreation;
+
+        // Skip "missed" reminders
+        if (daysLeft > totalDaysUntilDeadline) {
+          return new RuleResult(false);
+        }
+      }
+
+      // Determine priority level based on days left and task priority
+      let notificationPriority = "medium";
+      if (daysLeft === 1) {
+        notificationPriority = priorityWeight >= 3 ? "urgent" : "high";
+      } else if (daysLeft === 3) {
+        notificationPriority = priorityWeight >= 3 ? "high" : "medium";
+      }
+
+      return new RuleResult(true, {
+        priority: notificationPriority,
+        frequency: "once",
+        subType: "upcomingDeadline",
+        title: `Tâche Personnelle - Échéance dans ${daysLeft} jour${daysLeft > 1 ? "s" : ""}`,
+        message: `La tâche personnelle "${personalTask.title}" doit être terminée dans ${daysLeft} jour${daysLeft > 1 ? "s" : ""}.`,
+        metadata: {
+          taskId: personalTask.id,
+          taskTitle: personalTask.title,
+          daysLeft,
+          priority: personalTask.priority,
+          priorityWeight,
+          category: personalTask.category,
+        },
+      });
+    }
+
+    return new RuleResult(false);
+  },
+
+  /**
+   * RULE: Post-Deadline Task Completion Reminder
+   * Triggers: 1+ days after deadline if task is not marked as done
+   * Asks user if the task was completed
+   * Priority-aware reminders
+   */
+  completionReminder(personalTask) {
+    const dueDate = personalTask.due_date || personalTask.dueDate;
+    if (!dueDate) return new RuleResult(false);
+
+    // Skip completed/cancelled tasks
+    const completedStatuses = ["done", "cancelled", "Terminée"];
+    if (completedStatuses.includes(personalTask.status)) {
+      return new RuleResult(false);
+    }
+
+    const daysLeft = calculateDaysDifference(dueDate);
+
+    // Check if deadline has passed (1+ day ago)
+    if (daysLeft < -1) {
+      const daysPastDeadline = Math.abs(daysLeft);
+      const priorityWeight = getPriorityWeight(personalTask.priority);
+
+      // Frequency based on how long it's been overdue and priority
+      let frequency = "once";
+      if (daysPastDeadline <= 7) {
+        frequency = priorityWeight >= 3 ? "daily" : "once"; // High priority gets daily reminders
+      } else {
+        frequency = "weekly"; // After a week, reduce to weekly
+      }
+
+      return new RuleResult(true, {
+        priority: priorityWeight >= 3 ? "high" : "medium",
+        frequency,
+        subType: "completionReminder",
+        title: "Tâche Personnelle - Mise à Jour Requise",
+        message: `La tâche personnelle "${personalTask.title}" avait une échéance il y a ${daysPastDeadline} jour${daysPastDeadline > 1 ? "s" : ""}. La tâche a-t-elle été accomplie ?`,
+        metadata: {
+          taskId: personalTask.id,
+          taskTitle: personalTask.title,
+          daysPastDeadline,
+          priority: personalTask.priority,
+          priorityWeight,
+          category: personalTask.category,
+        },
       });
     }
 
@@ -315,351 +384,110 @@ export const TaskRules = {
 
 export const SessionRules = {
   /**
-   * RULE: Session Tomorrow
-   * Triggers: Evening reminder for session next day
+   * RULE: Upcoming Hearing/Audience Reminders
+   * Triggers: At 7, 3, and 1 day(s) before scheduled hearing
+   * Hearings are CRITICAL - missing one has serious legal consequences
+   * Priority inherited from parent dossier
+   *
+   * EDGE CASE HANDLING: If hearing was scheduled recently, only send valid reminders
    */
-  sessionTomorrow(session) {
-    if (!session.date) return new RuleResult(false);
+  upcomingHearing(session) {
+    const scheduledDate = session.scheduled_at || session.scheduledAt;
+    if (!scheduledDate) return new RuleResult(false);
 
-    const daysLeft = calculateDaysDifference(session.date);
+    // Skip if not a hearing/audience
+    const isHearing =
+      session.session_type === "hearing" ||
+      session.session_type === "Audience" ||
+      session.sessionType === "hearing" ||
+      session.sessionType === "Audience";
 
-    if (daysLeft === 1) {
-      const sessionType = session.caseId ? "procès" : "dossier";
-      return new RuleResult(true, {
-        priority: "high",
-        frequency: "once",
-        subType: "tomorrow",
-        title: "Audience Demain",
-        message: `L'audience pour ${sessionType} "${
-          session.caseNumber || session.dossierNumber
-        }" est prévue demain à ${session.time || "l'heure prévue"}.`,
-        metadata: { daysLeft: 1, sessionType },
-      });
-    }
+    if (!isHearing) return new RuleResult(false);
 
-    return new RuleResult(false);
-  },
-
-  /**
-   * RULE: Session Today
-   * Triggers: Morning reminder on day of session
-   */
-  sessionToday(session) {
-    if (!session.date) return new RuleResult(false);
-
-    const daysLeft = calculateDaysDifference(session.date);
-
-    if (daysLeft === 0) {
-      return new RuleResult(true, {
-        priority: "urgent",
-        frequency: "once",
-        subType: "today",
-        title: "Audience Aujourd'hui",
-        message: `Audience aujourd'hui à ${
-          session.time || "l'heure prévue"
-        } - ${session.subject || "Audience programmée"}`,
-        metadata: { daysLeft: 0, time: session.time },
-      });
-    }
-
-    return new RuleResult(false);
-  },
-
-  /**
-   * RULE: Session Preparation
-   * Triggers: Reminders at 7, 3, 2 days before
-   */
-  sessionPreparation(session) {
-    if (!session.date) return new RuleResult(false);
-
-    const daysLeft = calculateDaysDifference(session.date);
-    const preparationDays = [7, 3, 2];
-
-    if (preparationDays.includes(daysLeft)) {
-      return new RuleResult(true, {
-        priority: "medium",
-        frequency: "once",
-        subType: "preparation",
-        title: `Préparation Audience - ${daysLeft} jours`,
-        message: `L'audience du ${session.date} approche. Pensez à préparer le dossier et vérifier les pièces.`,
-        metadata: { daysLeft, preparationPhase: true },
-      });
-    }
-
-    return new RuleResult(false);
-  },
-
-  /**
-   * RULE: Session Status Not Updated After Event
-   * Triggers: If session date passed but status not updated
-   */
-  sessionStatusNotUpdated(session) {
-    if (!session.date) return new RuleResult(false);
-
-    const daysLeft = calculateDaysDifference(session.date);
-    const daysPassed = Math.abs(daysLeft);
-
-    // Check if session passed but status still pending/scheduled
-    const isPastSession = daysLeft < 0;
-    const needsUpdate =
-      session.status !== "Terminée" && session.status !== "Annulée";
-
-    if (isPastSession && needsUpdate && daysPassed >= 1 && daysPassed <= 7) {
-      return new RuleResult(true, {
-        priority: "high",
-        frequency: daysPassed <= 2 ? "daily" : "once",
-        subType: "statusUpdate",
-        title: "Mise à Jour Requise",
-        message: `L'audience du ${session.date} est passée. Merci de mettre à jour le statut et d'ajouter le compte rendu.`,
-        metadata: { daysPassed, needsStatusUpdate: true },
-      });
-    }
-
-    return new RuleResult(false);
-  },
-
-  /**
-   * RULE: Postponed Session Follow-up
-   * Triggers: If session was postponed, remind to reschedule
-   */
-  postponedSessionFollowup(session) {
-    if (session.status !== "Reportée" && session.status !== "Postponed") {
-      return new RuleResult(false);
-    }
-
-    const daysSincePostponed = session.updatedAt
-      ? daysSinceUpdate(session.updatedAt)
-      : 0;
-
-    if (daysSincePostponed >= 2) {
-      return new RuleResult(true, {
-        priority: "medium",
-        frequency: "once",
-        subType: "postponed",
-        title: "Audience Reportée",
-        message: `L'audience "${session.subject}" a été reportée. Avez-vous fixé une nouvelle date ?`,
-        metadata: { daysSincePostponed, status: session.status },
-      });
-    }
-
-    return new RuleResult(false);
-  },
-};
-
-// ============================================
-// 3️⃣ MISSION (HUISSIER) WORKFLOW RULES
-// ============================================
-
-export const MissionRules = {
-  /**
-   * RULE: Mission Assigned
-   * Triggers: When mission is newly assigned
-   */
-  missionAssigned(mission) {
-    if (!mission.assignDate) return new RuleResult(false);
-
-    const daysSinceAssignment = daysSinceUpdate(mission.assignDate);
-
-    if (daysSinceAssignment === 0) {
-      return new RuleResult(true, {
-        priority: "medium",
-        frequency: "once",
-        subType: "assigned",
-        title: "Nouvelle Mission",
-        message: `Mission "${mission.title}" assignée à l'huissier ${
-          mission.officerName || "désigné"
-        }.`,
-        metadata: { assignmentDate: mission.assignDate },
-      });
-    }
-
-    return new RuleResult(false);
-  },
-
-  /**
-   * RULE: Mission Due Today
-   * Triggers: Reminder on due date
-   */
-  missionDueToday(mission) {
+    // Skip if cancelled or completed
     if (
-      !mission.dueDate ||
-      mission.status === "Terminée" ||
-      mission.status === "Annulée"
+      session.status === "cancelled" ||
+      session.status === "Annulee" ||
+      session.status === "completed" ||
+      session.status === "Terminee"
     ) {
       return new RuleResult(false);
     }
 
-    const daysLeft = calculateDaysDifference(mission.dueDate);
+    const daysLeft = calculateDaysDifference(scheduledDate);
+    const reminderDays = [7, 3, 1];
 
-    if (daysLeft === 0) {
-      const isHighPriority =
-        mission.priority === "Haute" || mission.priority === "High";
+    if (reminderDays.includes(daysLeft)) {
+      // Edge case: Check if hearing was scheduled recently
+      const createdDate = session.created_at || session.createdAt;
+      if (createdDate) {
+        const daysSinceCreation = daysSinceUpdate(createdDate);
+        const totalDaysUntilHearing = daysLeft + daysSinceCreation;
+
+        // Skip "missed" reminders
+        if (daysLeft > totalDaysUntilHearing) {
+          return new RuleResult(false);
+        }
+      }
+
+      // Get parent dossier/case to inherit priority
+      const dossiers = entities.dossiers || [];
+      const cases = entities.cases || [];
+
+      let priority = "Moyenne";
+      let parentDossier = null;
+
+      // Try to find parent via case first
+      if (session.case_id) {
+        const parentCase = cases.find(c => c.id === session.case_id);
+        if (parentCase && parentCase.dossier_id) {
+          parentDossier = dossiers.find(d => d.id === parentCase.dossier_id);
+        }
+      }
+
+      // Or directly via dossier_id
+      if (!parentDossier && session.dossier_id) {
+        parentDossier = dossiers.find(d => d.id === session.dossier_id);
+      }
+
+      if (parentDossier) {
+        priority = parentDossier.priority || "Moyenne";
+      }
+
+      const priorityWeight = getPriorityWeight(priority);
+
+      // Determine priority based on days left AND dossier priority
+      // Hearings are always critical, but urgency increases with proximity
+      let notificationPriority = "high";
+      if (daysLeft === 1) {
+        notificationPriority = "urgent"; // Always urgent 1 day before
+      } else if (daysLeft === 3) {
+        notificationPriority = priorityWeight >= 3 ? "urgent" : "high"; // High priority dossiers get urgent
+      } else if (daysLeft === 7) {
+        notificationPriority = priorityWeight >= 3 ? "high" : "medium"; // High priority gets high, others medium
+      }
+
+      const caseNumber =
+        session.case_number ||
+        session.caseNumber ||
+        session.dossier_number ||
+        session.dossierNumber ||
+        "procès";
+
       return new RuleResult(true, {
-        priority: isHighPriority ? "urgent" : "high",
+        priority: notificationPriority,
         frequency: "once",
-        subType: "dueToday",
-        title: "Mission Échéance Aujourd'hui",
-        message: `La mission "${mission.title}" doit être exécutée aujourd'hui.`,
-        metadata: { daysLeft: 0, missionPriority: mission.priority },
-      });
-    }
-
-    return new RuleResult(false);
-  },
-
-  /**
-   * RULE: Mission Upcoming (High Priority)
-   * Triggers: Daily reminders for high priority missions
-   */
-  missionUpcoming(mission) {
-    if (
-      !mission.dueDate ||
-      mission.status === "Terminée" ||
-      mission.status === "Annulée"
-    ) {
-      return new RuleResult(false);
-    }
-
-    const daysLeft = calculateDaysDifference(mission.dueDate);
-    const isHighPriority =
-      mission.priority === "Haute" || mission.priority === "High";
-
-    if (isHighPriority && daysLeft > 0 && daysLeft <= 3) {
-      return new RuleResult(true, {
-        priority: "high",
-        frequency: "daily",
-        subType: "upcoming",
-        title: `Mission Prioritaire - ${daysLeft} jour${
-          daysLeft > 1 ? "s" : ""
-        }`,
-        message: `La mission "${
-          mission.title
-        }" doit être réalisée dans ${daysLeft} jour${daysLeft > 1 ? "s" : ""}.`,
-        metadata: { daysLeft, missionPriority: mission.priority },
-      });
-    }
-
-    return new RuleResult(false);
-  },
-
-  /**
-   * RULE: Mission Completed - Documents Check
-   * Triggers: After mission marked complete, check if documents uploaded
-   */
-  missionCompletedDocumentsCheck(mission) {
-    if (mission.status !== "Terminée") {
-      return new RuleResult(false);
-    }
-
-    const hasDocuments = mission.documents && mission.documents.length > 0;
-    const daysSinceCompletion = mission.updatedAt
-      ? daysSinceUpdate(mission.updatedAt)
-      : 0;
-
-    // Check after 1 day if no documents
-    if (!hasDocuments && daysSinceCompletion >= 1 && daysSinceCompletion <= 7) {
-      return new RuleResult(true, {
-        priority: "medium",
-        frequency: "once",
-        subType: "documentsCheck",
-        title: "Documents Mission",
-        message: `La mission "${mission.title}" est terminée. Les documents justificatifs ont-ils été récupérés et archivés ?`,
-        metadata: { daysSinceCompletion, hasDocuments: false },
-      });
-    }
-
-    return new RuleResult(false);
-  },
-
-  /**
-   * RULE: Mission Overdue
-   * Triggers: If mission past due date
-   */
-  missionOverdue(mission) {
-    if (
-      !mission.dueDate ||
-      mission.status === "Terminée" ||
-      mission.status === "Annulée"
-    ) {
-      return new RuleResult(false);
-    }
-
-    const daysLeft = calculateDaysDifference(mission.dueDate);
-
-    if (daysLeft < 0) {
-      const daysOverdue = Math.abs(daysLeft);
-      return new RuleResult(true, {
-        priority: "urgent",
-        frequency: daysOverdue <= 3 ? "daily" : "once",
-        subType: "overdue",
-        title: `Mission en Retard - ${daysOverdue} jour${
-          daysOverdue > 1 ? "s" : ""
-        }`,
-        message: `La mission "${
-          mission.title
-        }" est en retard de ${daysOverdue} jour${
-          daysOverdue > 1 ? "s" : ""
-        }. Vérifier le statut avec l'huissier.`,
-        metadata: { daysOverdue },
-      });
-    }
-
-    return new RuleResult(false);
-  },
-
-  /**
-   * RULE: Mission Reassigned (Audit Trail)
-   * Triggers: Informational when mission changes officer
-   */
-  missionReassigned(mission, previousOfficerId) {
-    if (!previousOfficerId || mission.officerId === previousOfficerId) {
-      return new RuleResult(false);
-    }
-
-    return new RuleResult(true, {
-      priority: "low",
-      frequency: "once",
-      subType: "reassigned",
-      title: "Mission Réassignée",
-      message: `La mission "${mission.title}" a été réassignée à un nouvel huissier.`,
-      metadata: { previousOfficerId, newOfficerId: mission.officerId },
-    });
-  },
-};
-
-// ============================================
-// 4️⃣ FINANCIAL & ADMINISTRATIVE RULES
-// ============================================
-
-export const FinancialRules = {
-  /**
-   * RULE: Client Advance Received
-   * Triggers: Confirmation when advance payment recorded
-   */
-  advanceReceived(entry) {
-    if (
-      entry.type !== "revenue" ||
-      entry.category !== "advance" ||
-      entry.status !== "paid"
-    ) {
-      return new RuleResult(false);
-    }
-
-    const daysSincePayment = entry.date ? daysSinceUpdate(entry.date) : 999;
-
-    if (daysSincePayment === 0) {
-      return new RuleResult(true, {
-        priority: "low",
-        frequency: "once",
-        subType: "advanceReceived",
-        title: "Avance Reçue",
-        message: `Avance de ${entry.amount} ${entry.currency} reçue pour ${
-          entry.clientName || "client"
-        }.`,
+        subType: "upcomingHearing",
+        title: `Audience dans ${daysLeft} jour${daysLeft > 1 ? "s" : ""}`,
+        message: `Audience prévue pour le procès "${caseNumber}" dans ${daysLeft} jour${daysLeft > 1 ? "s" : ""}. ${session.location ? `Lieu: ${session.location}` : "Vérifier les documents et préparation."}`,
         metadata: {
-          amount: entry.amount,
-          currency: entry.currency,
-          clientName: entry.clientName,
+          sessionId: session.id,
+          caseNumber,
+          scheduledDate,
+          daysLeft,
+          location: session.location,
+          dossierId: parentDossier?.id,
+          dossierPriority: priority,
         },
       });
     }
@@ -668,41 +496,1039 @@ export const FinancialRules = {
   },
 
   /**
-   * RULE: Payment Overdue
-   * Triggers: When payment is past due date
+   * RULE: Hearing Today
+   * Triggers: Morning reminder on day of hearing
+   * ALWAYS notify - this is critical
    */
-  paymentOverdue(entry) {
+  hearingToday(session) {
+    const scheduledDate = session.scheduled_at || session.scheduledAt;
+    if (!scheduledDate) return new RuleResult(false);
+
+    // Skip if not a hearing/audience
+    const isHearing =
+      session.session_type === "hearing" ||
+      session.session_type === "Audience" ||
+      session.sessionType === "hearing" ||
+      session.sessionType === "Audience";
+
+    if (!isHearing) return new RuleResult(false);
+
+    // Skip if cancelled or completed
     if (
-      !entry.dueDate ||
-      entry.status === "paid" ||
-      entry.status === "void"
+      session.status === "cancelled" ||
+      session.status === "Annulee" ||
+      session.status === "completed" ||
+      session.status === "Terminee"
     ) {
       return new RuleResult(false);
     }
 
-    const daysLeft = calculateDaysDifference(entry.dueDate);
+    const daysLeft = calculateDaysDifference(scheduledDate);
 
+    if (daysLeft === 0) {
+      const caseNumber =
+        session.case_number ||
+        session.caseNumber ||
+        session.dossier_number ||
+        session.dossierNumber ||
+        "procès";
+
+      // Extract time if available
+      const time = scheduledDate.includes("T")
+        ? scheduledDate.split("T")[1].substring(0, 5)
+        : "l'heure prévue";
+
+      return new RuleResult(true, {
+        priority: "urgent",
+        frequency: "once",
+        subType: "hearingToday",
+        title: "🔴 Audience Aujourd'hui",
+        message: `Audience aujourd'hui pour le procès "${caseNumber}" à ${time}. ${session.location ? `Lieu: ${session.location}` : ""}`,
+        metadata: {
+          sessionId: session.id,
+          caseNumber,
+          scheduledDate,
+          time,
+          location: session.location,
+          daysLeft: 0,
+        },
+      });
+    }
+
+    return new RuleResult(false);
+  },
+
+  /**
+   * RULE: Post-Hearing Outcome Reminder
+   * Triggers: 1 day after a hearing that hasn't been updated with an outcome
+   * Prompts user to document what happened during the hearing
+   * Priority inherited from parent dossier
+   */
+  hearingOutcomeReminder(session) {
+    const scheduledDate = session.scheduled_at || session.scheduledAt;
+    if (!scheduledDate) return new RuleResult(false);
+
+    // Only check hearings/audiences
+    const isHearing =
+      session.session_type === "hearing" ||
+      session.session_type === "Audience" ||
+      session.sessionType === "hearing" ||
+      session.sessionType === "Audience";
+
+    if (!isHearing) return new RuleResult(false);
+
+    // Skip if already completed or cancelled
+    if (
+      session.status === "completed" ||
+      session.status === "Terminee" ||
+      session.status === "cancelled" ||
+      session.status === "Annulee"
+    ) {
+      return new RuleResult(false);
+    }
+
+    // Skip if outcome is already documented
+    if (session.outcome && session.outcome.trim().length > 0) {
+      return new RuleResult(false);
+    }
+
+    // Check if hearing date has passed (1+ day ago)
+    const daysLeft = calculateDaysDifference(scheduledDate);
+
+    if (daysLeft < -1) {
+      // Hearing was more than 1 day ago and still no outcome
+      const daysSinceHearing = Math.abs(daysLeft);
+
+      // Get parent dossier/case to inherit priority
+      const dossiers = entities.dossiers || [];
+      const cases = entities.cases || [];
+
+      let priority = "Moyenne";
+      let parentDossier = null;
+
+      // Try to find parent via case first
+      if (session.case_id) {
+        const parentCase = cases.find(c => c.id === session.case_id);
+        if (parentCase && parentCase.dossier_id) {
+          parentDossier = dossiers.find(d => d.id === parentCase.dossier_id);
+        }
+      }
+
+      // Or directly via dossier_id
+      if (!parentDossier && session.dossier_id) {
+        parentDossier = dossiers.find(d => d.id === session.dossier_id);
+      }
+
+      if (parentDossier) {
+        priority = parentDossier.priority || "Moyenne";
+      }
+
+      const priorityWeight = getPriorityWeight(priority);
+
+      const caseNumber =
+        session.case_number ||
+        session.caseNumber ||
+        session.dossier_number ||
+        session.dossierNumber ||
+        "procès";
+
+      return new RuleResult(true, {
+        priority: priorityWeight >= 3 ? "high" : "medium",
+        frequency: daysSinceHearing <= 7 ? "once" : "weekly",
+        subType: "hearingOutcome",
+        title: "Résultat d'Audience - Documentation Requise",
+        message: `L'audience pour le procès "${caseNumber}" a eu lieu il y a ${daysSinceHearing} jour${daysSinceHearing > 1 ? "s" : ""}. Quel est le résultat de l'audience ?`,
+        metadata: {
+          sessionId: session.id,
+          caseNumber,
+          scheduledDate,
+          daysSinceHearing,
+          dossierId: parentDossier?.id,
+          dossierPriority: priority,
+        },
+      });
+    }
+
+    return new RuleResult(false);
+  },
+};
+
+// ============================================
+// 3️⃣ CASE/PROCÈS MANAGEMENT RULES
+// ============================================
+
+export const CaseRules = {
+  /**
+   * RULE: Missing Hearing/Audience Reminder
+   * Triggers: When a procès has no upcoming hearings scheduled
+   * Frequency depends on priority (inherited from parent dossier):
+   * - High priority: every 3 days
+   * - Medium priority: every 5 days
+   * - Low priority: every 10 days
+   * Only applies to active/open cases
+   */
+  missingHearingReminder(caseItem, context = {}) {
+    const sessions = context.sessions || [];
+    const dossiers = entities.dossiers || [];
+
+    // Skip closed/suspended cases
+    const closedStatuses = ["Clos", "closed", "Suspendu", "on_hold"];
+    if (closedStatuses.includes(caseItem.status)) {
+      return new RuleResult(false);
+    }
+
+    // Check if case has any upcoming hearings
+    const caseId = caseItem.id;
+    const hasUpcomingHearings = sessions.some(session => {
+      const belongsToCase = session.case_id === caseId;
+      const isHearing = session.session_type === "hearing" || session.session_type === "Audience";
+      const isNotCancelled = session.status !== "cancelled" && session.status !== "Annulee";
+
+      // Check if session is in the future
+      const sessionDate = new Date(session.scheduled_at);
+      const isFuture = sessionDate > new Date();
+
+      return belongsToCase && isHearing && isNotCancelled && isFuture;
+    });
+
+    // If has upcoming hearings, no need to remind
+    if (hasUpcomingHearings) {
+      return new RuleResult(false);
+    }
+
+    // Check last reminder time to avoid spamming
+    const openedDate = caseItem.opened_at || caseItem.created_at;
+    if (!openedDate) return new RuleResult(false);
+
+    const daysSinceOpened = daysSinceUpdate(openedDate);
+
+    // Don't send reminder for very new cases (give at least 2 days)
+    if (daysSinceOpened < 2) {
+      return new RuleResult(false);
+    }
+
+    // Inherit priority from parent dossier (cases don't have their own priority)
+    const parentDossier = dossiers.find(d => d.id === caseItem.dossier_id);
+    const priority = parentDossier?.priority || "Moyenne";
+    const priorityWeight = getPriorityWeight(priority);
+
+    let reminderIntervalDays;
+    let priorityLabel;
+
+    if (priorityWeight >= 3) {
+      reminderIntervalDays = 3; // Every 3 days for high priority
+      priorityLabel = "Haute";
+    } else if (priorityWeight === 2) {
+      reminderIntervalDays = 5; // Every 5 days for medium priority
+      priorityLabel = "Moyenne";
+    } else {
+      reminderIntervalDays = 10; // Every 10 days for low priority
+      priorityLabel = "Basse";
+    }
+
+    // Check if enough time has passed since case opened (use modulo to trigger periodically)
+    const shouldRemind = daysSinceOpened % reminderIntervalDays === 0;
+
+    if (shouldRemind) {
+      const caseTitle = caseItem.title || caseItem.case_number || caseItem.reference;
+
+      return new RuleResult(true, {
+        priority: priorityWeight >= 3 ? "high" : "medium",
+        subType: "missingHearing",
+        title: "Audience Manquante - Procès sans Audience",
+        message: `Le procès "${caseTitle}" (Priorité: ${priorityLabel}) n'a aucune audience programmée. Une audience a-t-elle été créée ?`,
+        metadata: {
+          caseNumber: caseItem.case_number || caseItem.reference,
+          caseTitle,
+          priority: priorityLabel,
+          dossierId: parentDossier?.id,
+          daysSinceOpened,
+          reminderInterval: reminderIntervalDays,
+        },
+      });
+    }
+
+    return new RuleResult(false);
+  },
+
+  /**
+   * RULE: Status Update Reminder
+   * Triggers: When a procès has completed activities (hearings/tasks) but hasn't been updated recently
+   * Suggests checking if the case status should be updated (e.g., verdict reached, case closed)
+   * Frequency depends on priority (inherited from parent dossier):
+   * - High priority: every 7 days
+   * - Medium priority: every 14 days
+   * - Low priority: every 21 days
+   */
+  statusUpdateReminder(caseItem, context = {}) {
+    const sessions = context.sessions || [];
+    const tasks = context.tasks || [];
+    const dossiers = entities.dossiers || [];
+
+    // Skip closed cases - they don't need status updates
+    const closedStatuses = ["Clos", "closed"];
+    if (closedStatuses.includes(caseItem.status)) {
+      return new RuleResult(false);
+    }
+
+    // Check for completed hearings for this case
+    const completedHearings = sessions.filter(session => {
+      const belongsToCase = session.case_id === caseItem.id;
+      const isHearing = session.session_type === "hearing" || session.session_type === "Audience";
+      const isCompleted = session.status === "completed" || session.status === "Terminee";
+      return belongsToCase && isHearing && isCompleted;
+    });
+
+    // Check for completed tasks for this case
+    const completedTasks = tasks.filter(task => {
+      const belongsToCase = task.case_id === caseItem.id;
+      const isCompleted = task.status === "Terminée" || task.status === "completed";
+      return belongsToCase && isCompleted;
+    });
+
+    // Only remind if there's been some activity (at least 1 completed hearing or 2 completed tasks)
+    const hasSignificantActivity = completedHearings.length >= 1 || completedTasks.length >= 2;
+
+    if (!hasSignificantActivity) {
+      return new RuleResult(false);
+    }
+
+    // Check when the case was last updated
+    const lastUpdate = caseItem.updated_at || caseItem.updatedAt;
+    if (!lastUpdate) return new RuleResult(false);
+
+    const daysSinceLastUpdate = daysSinceUpdate(lastUpdate);
+
+    // Inherit priority from parent dossier (cases don't have their own priority)
+    const parentDossier = dossiers.find(d => d.id === caseItem.dossier_id);
+    const priority = parentDossier?.priority || "Moyenne";
+    const priorityWeight = getPriorityWeight(priority);
+
+    let reminderIntervalDays;
+
+    if (priorityWeight >= 3) {
+      reminderIntervalDays = 7; // Weekly for high priority
+    } else if (priorityWeight === 2) {
+      reminderIntervalDays = 14; // Bi-weekly for medium priority
+    } else {
+      reminderIntervalDays = 21; // Every 3 weeks for low priority
+    }
+
+    // Only remind if enough time has passed since last update
+    if (daysSinceLastUpdate >= reminderIntervalDays) {
+      const caseTitle = caseItem.title || caseItem.case_number || caseItem.reference;
+
+      // Build activity summary
+      let activitySummary = "";
+      if (completedHearings.length > 0) {
+        activitySummary += `${completedHearings.length} audience(s) terminée(s)`;
+      }
+      if (completedTasks.length > 0) {
+        if (activitySummary) activitySummary += " et ";
+        activitySummary += `${completedTasks.length} tâche(s) accomplie(s)`;
+      }
+
+      return new RuleResult(true, {
+        priority: priorityWeight >= 3 ? "high" : "medium",
+        subType: "statusUpdate",
+        title: "Mise à Jour de Statut - Procès",
+        message: `Le procès "${caseTitle}" a ${activitySummary}. Le statut du procès doit-il être mis à jour ? Y a-t-il eu un verdict ?`,
+        metadata: {
+          caseNumber: caseItem.case_number || caseItem.reference,
+          caseTitle,
+          completedHearings: completedHearings.length,
+          completedTasks: completedTasks.length,
+          currentStatus: caseItem.status,
+          daysSinceUpdate: daysSinceLastUpdate,
+          dossierId: parentDossier?.id,
+          dossierPriority: priority,
+        },
+      });
+    }
+
+    return new RuleResult(false);
+  },
+};
+
+// ============================================
+// 4️⃣ MISSION (HUISSIER) WORKFLOW RULES
+// ============================================
+
+export const MissionRules = {
+  /**
+   * RULE: Upcoming Mission Deadline
+   * Triggers: 7, 3, 1 days before due_date
+   * Priority-aware urgency based on mission's own priority field
+   */
+  upcomingDeadline(mission) {
+    const dueDate = mission.due_date || mission.dueDate;
+    if (!dueDate) return new RuleResult(false);
+
+    // Skip completed or cancelled missions
+    if (mission.status === "Terminee" || mission.status === "Annulee") {
+      return new RuleResult(false);
+    }
+
+    const daysLeft = daysUntilDate(dueDate);
+    const priorityWeight = getPriorityWeight(mission.priority);
+    const reminderDays = [7, 3, 1];
+
+    // Edge case: Don't trigger "missed" reminders for recently created missions
+    const createdDate = mission.created_at || mission.createdAt;
+    if (createdDate) {
+      const daysSinceCreation = daysSinceUpdate(createdDate);
+      const totalDaysUntilDeadline = daysLeft + daysSinceCreation;
+
+      // If this reminder day was before the mission was created, skip it
+      if (daysLeft > totalDaysUntilDeadline) {
+        return new RuleResult(false);
+      }
+    }
+
+    if (reminderDays.includes(daysLeft)) {
+      const priorityLabel = priorityWeight >= 3 ? "Haute" : priorityWeight === 2 ? "Moyenne" : "Basse";
+
+      // Priority-aware notification urgency
+      let notificationPriority = "medium";
+      if (daysLeft === 1) {
+        notificationPriority = priorityWeight >= 3 ? "urgent" : "high";
+      } else if (daysLeft === 3) {
+        notificationPriority = priorityWeight >= 3 ? "high" : "medium";
+      } else if (daysLeft === 7) {
+        notificationPriority = priorityWeight >= 2 ? "medium" : "low";
+      }
+
+      const missionDescription = mission.description || mission.title || "Mission";
+
+      return new RuleResult(true, {
+        priority: notificationPriority,
+        frequency: "once",
+        subType: "upcomingDeadline",
+        title: `Mission - Échéance dans ${daysLeft} jour${daysLeft > 1 ? "s" : ""}`,
+        message: `La mission "${missionDescription}" (priorité ${priorityLabel}) a une échéance dans ${daysLeft} jour${daysLeft > 1 ? "s" : ""} (${new Date(dueDate).toLocaleDateString("fr-FR")}).`,
+        metadata: {
+          missionId: mission.id,
+          dueDate,
+          daysLeft,
+          priority: mission.priority,
+        },
+      });
+    }
+
+    return new RuleResult(false);
+  },
+
+  /**
+   * RULE: Mission Completion Reminder
+   * Triggers: 1+ days after due_date if mission status is not "Terminee"
+   * Asks if the huissier has finished the task
+   * Priority-based frequency: high priority = daily, others = weekly after 7 days
+   */
+  completionReminder(mission) {
+    const dueDate = mission.due_date || mission.dueDate;
+    if (!dueDate) return new RuleResult(false);
+
+    // Only trigger for missions that are not completed or cancelled
+    if (mission.status === "Terminee" || mission.status === "Annulee") {
+      return new RuleResult(false);
+    }
+
+    const daysLeft = daysUntilDate(dueDate);
+    const priorityWeight = getPriorityWeight(mission.priority);
+
+    // Trigger only if deadline has passed (1+ days overdue)
+    if (daysLeft < -1) {
+      const daysPastDeadline = Math.abs(daysLeft);
+      const missionDescription = mission.description || mission.title || "Mission";
+
+      // Priority-based frequency
+      let frequency = "once";
+      if (daysPastDeadline <= 7) {
+        // First week: daily for high priority, once for others
+        frequency = priorityWeight >= 3 ? "daily" : "once";
+      } else {
+        // After a week: weekly reminders
+        frequency = "weekly";
+      }
+
+      return new RuleResult(true, {
+        priority: priorityWeight >= 3 ? "high" : "medium",
+        frequency,
+        subType: "completionReminder",
+        title: "Mission - Mise à Jour Requise",
+        message: `La mission "${missionDescription}" avait une échéance il y a ${daysPastDeadline} jour${daysPastDeadline > 1 ? "s" : ""}. La mission a-t-elle été accomplie par l'huissier ?`,
+        metadata: {
+          missionId: mission.id,
+          dueDate,
+          daysPastDeadline,
+          priority: mission.priority,
+          status: mission.status,
+        },
+      });
+    }
+
+    return new RuleResult(false);
+  },
+};
+
+// ============================================
+// 4.5️⃣ FINANCIAL & PAYMENT RULES
+// ============================================
+
+export const FinancialRules = {
+  /**
+   * RULE: Upcoming Payment Due Date Reminder
+   * Triggers: 7, 3, 1 days before due_date
+   * Applies to unpaid income/revenue entries (client payments expected)
+   */
+  upcomingPaymentReminder(financialEntry) {
+    const dueDate = financialEntry.due_date || financialEntry.dueDate;
+    if (!dueDate) return new RuleResult(false);
+
+    // Only for income/revenue entries (payments we expect to receive)
+    const isPaymentExpected =
+      financialEntry.entry_type === "income" ||
+      financialEntry.entry_type === "revenue";
+
+    if (!isPaymentExpected) return new RuleResult(false);
+
+    // Skip if already paid or voided
+    if (
+      financialEntry.status === "paid" ||
+      financialEntry.status === "void"
+    ) {
+      return new RuleResult(false);
+    }
+
+    const daysLeft = daysUntilDate(dueDate);
+    const reminderDays = [7, 3, 1];
+
+    // Edge case: Don't trigger "missed" reminders for recently created entries
+    const createdDate = financialEntry.created_at || financialEntry.createdAt;
+    if (createdDate) {
+      const daysSinceCreation = daysSinceUpdate(createdDate);
+      const totalDaysUntilDueDate = daysLeft + daysSinceCreation;
+
+      // Skip "missed" reminders
+      if (daysLeft > totalDaysUntilDueDate) {
+        return new RuleResult(false);
+      }
+    }
+
+    if (reminderDays.includes(daysLeft)) {
+      // Look up parent entities to get context
+      const clients = entities.clients || [];
+      const dossiers = entities.dossiers || [];
+      const cases = entities.cases || [];
+
+      let clientName = "Client";
+      let contextInfo = "";
+
+      // Try to get client directly
+      if (financialEntry.client_id) {
+        const client = clients.find(c => c.id === financialEntry.client_id);
+        if (client) {
+          clientName = client.name;
+        }
+      }
+
+      // Try to get dossier context
+      if (financialEntry.dossier_id) {
+        const dossier = dossiers.find(d => d.id === financialEntry.dossier_id);
+        if (dossier) {
+          contextInfo = ` - Dossier: ${dossier.case_number || dossier.reference}`;
+          // If no client found yet, get from dossier
+          if (clientName === "Client" && dossier.client_id) {
+            const client = clients.find(c => c.id === dossier.client_id);
+            if (client) clientName = client.name;
+          }
+        }
+      }
+
+      // Try to get case context
+      if (financialEntry.case_id) {
+        const caseItem = cases.find(c => c.id === financialEntry.case_id);
+        if (caseItem) {
+          contextInfo = ` - Procès: ${caseItem.case_number || caseItem.reference}`;
+          // Get dossier from case to find client
+          if (clientName === "Client" && caseItem.dossier_id) {
+            const dossier = dossiers.find(d => d.id === caseItem.dossier_id);
+            if (dossier && dossier.client_id) {
+              const client = clients.find(c => c.id === dossier.client_id);
+              if (client) clientName = client.name;
+            }
+          }
+        }
+      }
+
+      const amount = financialEntry.amount || 0;
+      const currency = financialEntry.currency || "TND";
+
+      // Determine priority based on proximity
+      let notificationPriority = "medium";
+      if (daysLeft === 1) {
+        notificationPriority = "high";
+      } else if (daysLeft === 3) {
+        notificationPriority = "medium";
+      }
+
+      return new RuleResult(true, {
+        priority: notificationPriority,
+        frequency: "once",
+        subType: "upcomingPayment",
+        title: `Paiement Attendu - ${daysLeft} jour${daysLeft > 1 ? "s" : ""}`,
+        message: `Paiement de ${amount} ${currency} attendu de "${clientName}"${contextInfo} dans ${daysLeft} jour${daysLeft > 1 ? "s" : ""}. ${financialEntry.description || ""}`,
+        metadata: {
+          financialEntryId: financialEntry.id,
+          clientName,
+          amount,
+          currency,
+          dueDate,
+          daysLeft,
+          entryType: financialEntry.entry_type,
+          dossierId: financialEntry.dossier_id,
+          caseId: financialEntry.case_id,
+        },
+      });
+    }
+
+    return new RuleResult(false);
+  },
+
+  /**
+   * RULE: Overdue Payment Reminder
+   * Triggers: 1, 3, 7, 14 days after due_date if payment not received
+   * Multiple reminders to follow up on late payments
+   */
+  overduePaymentReminder(financialEntry) {
+    const dueDate = financialEntry.due_date || financialEntry.dueDate;
+    if (!dueDate) return new RuleResult(false);
+
+    // Only for income/revenue entries (payments we expect to receive)
+    const isPaymentExpected =
+      financialEntry.entry_type === "income" ||
+      financialEntry.entry_type === "revenue";
+
+    if (!isPaymentExpected) return new RuleResult(false);
+
+    // Skip if already paid or voided
+    if (
+      financialEntry.status === "paid" ||
+      financialEntry.status === "void"
+    ) {
+      return new RuleResult(false);
+    }
+
+    const daysLeft = daysUntilDate(dueDate);
+    const overdueReminderDays = [1, 3, 7, 14]; // Days after due date to remind
+
+    // Check if payment is overdue
     if (daysLeft < 0) {
       const daysOverdue = Math.abs(daysLeft);
 
-      // Rate-limited reminders: at 1, 7, 14, 30 days
-      const reminderDays = [1, 7, 14, 30];
+      // Only send reminder on specific days
+      if (overdueReminderDays.includes(daysOverdue)) {
+        // Look up parent entities to get context
+        const clients = entities.clients || [];
+        const dossiers = entities.dossiers || [];
+        const cases = entities.cases || [];
 
-      if (reminderDays.includes(daysOverdue)) {
+        let clientName = "Client";
+        let contextInfo = "";
+
+        // Try to get client directly
+        if (financialEntry.client_id) {
+          const client = clients.find(c => c.id === financialEntry.client_id);
+          if (client) {
+            clientName = client.name;
+          }
+        }
+
+        // Try to get dossier context
+        if (financialEntry.dossier_id) {
+          const dossier = dossiers.find(d => d.id === financialEntry.dossier_id);
+          if (dossier) {
+            contextInfo = ` - Dossier: ${dossier.case_number || dossier.reference}`;
+            // If no client found yet, get from dossier
+            if (clientName === "Client" && dossier.client_id) {
+              const client = clients.find(c => c.id === dossier.client_id);
+              if (client) clientName = client.name;
+            }
+          }
+        }
+
+        // Try to get case context
+        if (financialEntry.case_id) {
+          const caseItem = cases.find(c => c.id === financialEntry.case_id);
+          if (caseItem) {
+            contextInfo = ` - Procès: ${caseItem.case_number || caseItem.reference}`;
+            // Get dossier from case to find client
+            if (clientName === "Client" && caseItem.dossier_id) {
+              const dossier = dossiers.find(d => d.id === caseItem.dossier_id);
+              if (dossier && dossier.client_id) {
+                const client = clients.find(c => c.id === dossier.client_id);
+                if (client) clientName = client.name;
+              }
+            }
+          }
+        }
+
+        const amount = financialEntry.amount || 0;
+        const currency = financialEntry.currency || "TND";
+
+        // Escalating priority based on how long it's overdue
+        let notificationPriority = "high";
+        if (daysOverdue >= 7) {
+          notificationPriority = "urgent"; // Very overdue
+        }
+
         return new RuleResult(true, {
-          priority: daysOverdue >= 7 ? "urgent" : "high",
+          priority: notificationPriority,
           frequency: "once",
-          subType: "paymentOverdue",
-          title: `Paiement en Retard - ${daysOverdue} jour${
-            daysOverdue > 1 ? "s" : ""
-          }`,
-          message: `Paiement de ${entry.amount} ${entry.currency} pour ${
-            entry.clientName || "client"
-          } en retard de ${daysOverdue} jour${daysOverdue > 1 ? "s" : ""}.`,
+          subType: "overduePayment",
+          title: `Paiement en Retard - ${daysOverdue} jour${daysOverdue > 1 ? "s" : ""}`,
+          message: `Le paiement de ${amount} ${currency} de "${clientName}"${contextInfo} est en retard de ${daysOverdue} jour${daysOverdue > 1 ? "s" : ""}. Relance recommandée.`,
           metadata: {
+            financialEntryId: financialEntry.id,
+            clientName,
+            amount,
+            currency,
+            dueDate,
             daysOverdue,
-            amount: entry.amount,
-            clientName: entry.clientName,
+            entryType: financialEntry.entry_type,
+            dossierId: financialEntry.dossier_id,
+            caseId: financialEntry.case_id,
+          },
+        });
+      }
+    }
+
+    return new RuleResult(false);
+  },
+};
+
+// ============================================
+// 5️⃣ DOSSIER MANAGEMENT RULES
+// ============================================
+
+export const DossierRules = {
+  /**
+   * RULE: Dossier Inactivity (7+ Days)
+   * Triggers: When dossier hasn't been updated for 7+ days
+   * Only applies to active dossiers (not closed/archived)
+   */
+  inactivityReminder(dossier) {
+    // Skip closed/archived dossiers
+    if (
+      dossier.status === "Fermé" ||
+      dossier.status === "Ferme" ||
+      dossier.status === "Clos" ||
+      dossier.status === "Archivé" ||
+      dossier.status === "closed"
+    ) {
+      return new RuleResult(false);
+    }
+
+    const lastUpdate = dossier.updated_at || dossier.updatedAt;
+    if (!lastUpdate) return new RuleResult(false);
+
+    const daysSinceLastUpdate = daysSinceUpdate(lastUpdate);
+
+    if (daysSinceLastUpdate >= 7) {
+      return new RuleResult(true, {
+        priority: "medium",
+        frequency: "once",
+        subType: "inactivityReminder",
+        title: "Dossier Inactif - 7+ Jours",
+        message: `Le dossier "${dossier.case_number || dossier.caseNumber || dossier.reference}" n'a pas été mis à jour depuis ${daysSinceLastUpdate} jours. Une révision est recommandée.`,
+        metadata: {
+          dossierId: dossier.id,
+          dossierNumber: dossier.case_number || dossier.caseNumber || dossier.reference,
+          daysSinceLastUpdate,
+        },
+      });
+    }
+
+    return new RuleResult(false);
+  },
+
+  /**
+   * RULE: Dossier Review Reminder
+   * Triggers: Based on priority - High: 7 days, Medium: 15 days, Low: 30 days
+   * Suggests periodic review to ensure nothing is missed
+   */
+  reviewReminder(dossier) {
+    // Skip closed/archived dossiers
+    if (
+      dossier.status === "Fermé" ||
+      dossier.status === "Ferme" ||
+      dossier.status === "Clos" ||
+      dossier.status === "Archivé" ||
+      dossier.status === "closed"
+    ) {
+      return new RuleResult(false);
+    }
+
+    const lastUpdate = dossier.updated_at || dossier.updatedAt;
+    if (!lastUpdate) return new RuleResult(false);
+
+    const daysSinceLastUpdate = daysSinceUpdate(lastUpdate);
+    const priorityWeight = getPriorityWeight(dossier.priority);
+
+    // Review thresholds based on priority
+    const reviewThreshold =
+      priorityWeight >= 3
+        ? 7  // High priority: review every 7 days
+        : priorityWeight === 2
+        ? 15 // Medium priority: review every 15 days
+        : 30; // Low priority: review every 30 days
+
+    if (daysSinceLastUpdate >= reviewThreshold) {
+      const priorityLabel = priorityWeight >= 3 ? "Haute" : priorityWeight === 2 ? "Moyenne" : "Basse";
+
+      return new RuleResult(true, {
+        priority: priorityWeight >= 3 ? "high" : "medium",
+        frequency: "once",
+        subType: "reviewReminder",
+        title: `Révision Dossier - Priorité ${priorityLabel}`,
+        message: `Le dossier "${dossier.case_number || dossier.caseNumber || dossier.reference}" (priorité ${priorityLabel}) nécessite une révision. Dernière mise à jour il y a ${daysSinceLastUpdate} jours.`,
+        metadata: {
+          dossierId: dossier.id,
+          dossierNumber: dossier.case_number || dossier.caseNumber || dossier.reference,
+          daysSinceLastUpdate,
+          priority: dossier.priority,
+          reviewThreshold,
+        },
+      });
+    }
+
+    return new RuleResult(false);
+  },
+
+  /**
+   * RULE: Prochaine Échéance (Next Deadline)
+   * Triggers: Notifications for upcoming deadlines
+   * - Overdue: Immediate notification
+   * - Due today: Morning reminder
+   * - Due in 1-3 days: Daily reminders
+   * - Due in 7 days: Single reminder
+   *
+   * EDGE CASE HANDLING:
+   * 1. If deadline was set recently, only send notifications for reminder days that haven't been "missed"
+   * 2. DUPLICATE PREVENTION: If any task exists with the same deadline, skip this notification
+   *    (task notifications are more specific and actionable)
+   */
+  nextDeadline(dossier) {
+    const deadlineDate = dossier.next_deadline || dossier.nextDeadline;
+    if (!deadlineDate) return new RuleResult(false);
+
+    // DUPLICATE PREVENTION: Check if any task has the same deadline
+    const tasks = entities.tasks || [];
+    const hasTaskWithSameDeadline = tasks.some(task => {
+      // Check if task belongs to this dossier
+      const taskBelongsToDossier =
+        task.dossier_id === dossier.id ||
+        task.dossierId === dossier.id;
+
+      if (!taskBelongsToDossier) return false;
+
+      // Check if task is active (not completed/cancelled)
+      const isActiveTask =
+        task.status !== "Terminée" &&
+        task.status !== "Completed" &&
+        task.status !== "done" &&
+        task.status !== "cancelled";
+
+      if (!isActiveTask) return false;
+
+      // Check if task has the same deadline (compare dates)
+      const taskDeadline = task.due_date || task.dueDate;
+      if (!taskDeadline) return false;
+
+      // Normalize dates to compare (remove time component)
+      const dossierDeadlineNormalized = new Date(deadlineDate).toISOString().split('T')[0];
+      const taskDeadlineNormalized = new Date(taskDeadline).toISOString().split('T')[0];
+
+      return dossierDeadlineNormalized === taskDeadlineNormalized;
+    });
+
+    // If a task exists with the same deadline, skip dossier notification
+    // (task notification is more specific and provides better context)
+    if (hasTaskWithSameDeadline) {
+      return new RuleResult(false);
+    }
+
+    const daysLeft = calculateDaysDifference(deadlineDate);
+
+    // Overdue deadline - always notify
+    if (daysLeft < 0) {
+      const daysOverdue = Math.abs(daysLeft);
+      return new RuleResult(true, {
+        priority: "urgent",
+        frequency: daysOverdue <= 3 ? "daily" : "once",
+        subType: "deadlineOverdue",
+        title: `Échéance Dépassée - ${daysOverdue} jour${daysOverdue > 1 ? "s" : ""}`,
+        message: `L'échéance du dossier "${dossier.case_number || dossier.caseNumber || dossier.reference}" est dépassée de ${daysOverdue} jour${daysOverdue > 1 ? "s" : ""}. Action urgente requise.`,
+        metadata: {
+          dossierId: dossier.id,
+          dossierNumber: dossier.case_number || dossier.caseNumber || dossier.reference,
+          deadline: deadlineDate,
+          daysOverdue,
+        },
+      });
+    }
+
+    // Due today - always notify
+    if (daysLeft === 0) {
+      return new RuleResult(true, {
+        priority: "urgent",
+        frequency: "once",
+        subType: "deadlineToday",
+        title: "Échéance Aujourd'hui",
+        message: `L'échéance du dossier "${dossier.case_number || dossier.caseNumber || dossier.reference}" est aujourd'hui. Merci de finaliser les actions nécessaires.`,
+        metadata: {
+          dossierId: dossier.id,
+          dossierNumber: dossier.case_number || dossier.caseNumber || dossier.reference,
+          deadline: deadlineDate,
+          daysLeft: 0,
+        },
+      });
+    }
+
+    // Edge case check: For upcoming deadlines, verify the deadline wasn't just set
+    const lastUpdate = dossier.updated_at || dossier.updatedAt;
+    if (lastUpdate && daysLeft > 0) {
+      const daysSinceUpdate = daysSinceUpdate(lastUpdate);
+      const totalDaysUntilDeadline = daysLeft + daysSinceUpdate;
+
+      // Due in 1-3 days (daily reminders)
+      if (daysLeft >= 1 && daysLeft <= 3) {
+        // Only send if the deadline existed long enough for this reminder to be valid
+        if (daysLeft > totalDaysUntilDeadline) {
+          return new RuleResult(false);
+        }
+
+        return new RuleResult(true, {
+          priority: "high",
+          frequency: "daily",
+          subType: "deadlineUpcoming",
+          title: `Échéance Proche - ${daysLeft} jour${daysLeft > 1 ? "s" : ""}`,
+          message: `L'échéance du dossier "${dossier.case_number || dossier.caseNumber || dossier.reference}" arrive dans ${daysLeft} jour${daysLeft > 1 ? "s" : ""}. Préparation recommandée.`,
+          metadata: {
+            dossierId: dossier.id,
+            dossierNumber: dossier.case_number || dossier.caseNumber || dossier.reference,
+            deadline: deadlineDate,
+            daysLeft,
+          },
+        });
+      }
+
+      // Due in 7 days (single reminder)
+      if (daysLeft === 7) {
+        // Only send if the deadline existed long enough (at least 7 days)
+        if (totalDaysUntilDeadline < 7) {
+          return new RuleResult(false);
+        }
+
+        return new RuleResult(true, {
+          priority: "medium",
+          frequency: "once",
+          subType: "deadlineWeek",
+          title: "Échéance dans 7 jours",
+          message: `L'échéance du dossier "${dossier.case_number || dossier.caseNumber || dossier.reference}" est dans 7 jours. Planification recommandée.`,
+          metadata: {
+            dossierId: dossier.id,
+            dossierNumber: dossier.case_number || dossier.caseNumber || dossier.reference,
+            deadline: deadlineDate,
+            daysLeft: 7,
+          },
+        });
+      }
+    }
+
+    return new RuleResult(false);
+  },
+};
+
+// ============================================
+// 6️⃣ CLIENT ACTIVITY & ENGAGEMENT RULES
+// ============================================
+
+export const ClientRules = {
+  /**
+   * RULE: Client Inactive (60+ Days)
+   * Triggers: When client hasn't had ANY activity for 60+ days
+   * Checks: dossier updates, tasks, sessions, payments
+   */
+  inactiveClient(client, context = {}) {
+    if (!client.updated_at && !client.updatedAt) {
+      return new RuleResult(false);
+    }
+
+    const lastUpdate = client.updated_at || client.updatedAt;
+    const daysSinceLastUpdate = daysSinceUpdate(lastUpdate);
+
+    // Only check active clients
+    const isActive = client.status === "Actif" || client.status === "active";
+    if (!isActive) {
+      return new RuleResult(false);
+    }
+
+    if (daysSinceLastUpdate >= 60) {
+      // Check if client has any recent activity across all entities
+      const clientId = client.id;
+      const dossiers = entities.dossiers || [];
+      const tasks = entities.tasks || [];
+      const sessions = entities.sessions || [];
+      const financialEntries = entities.financialEntries || [];
+
+      // Find any recent activity related to this client
+      const hasRecentDossierActivity = dossiers.some(d => {
+        if (d.client_id !== clientId && d.clientId !== clientId) return false;
+        const dossierDays = daysSinceUpdate(d.updated_at || d.updatedAt);
+        return dossierDays < 60;
+      });
+
+      const hasRecentTaskActivity = tasks.some(t => {
+        const relatedDossier = dossiers.find(d =>
+          (d.id === t.dossier_id || d.id === t.dossierId) &&
+          (d.client_id === clientId || d.clientId === clientId)
+        );
+        if (!relatedDossier) return false;
+        const taskDays = daysSinceUpdate(t.updated_at || t.updatedAt);
+        return taskDays < 60;
+      });
+
+      const hasRecentSessionActivity = sessions.some(s => {
+        const relatedDossier = dossiers.find(d =>
+          (d.id === s.dossier_id || d.id === s.dossierId) &&
+          (d.client_id === clientId || d.clientId === clientId)
+        );
+        if (!relatedDossier) return false;
+        const sessionDays = daysSinceUpdate(s.updated_at || s.updatedAt);
+        return sessionDays < 60;
+      });
+
+      const hasRecentFinancialActivity = financialEntries.some(f => {
+        if (f.client_id !== clientId && f.clientId !== clientId) return false;
+        const financialDays = daysSinceUpdate(f.updated_at || f.updatedAt);
+        return financialDays < 60;
+      });
+
+      // If no recent activity found, trigger notification
+      if (!hasRecentDossierActivity && !hasRecentTaskActivity &&
+          !hasRecentSessionActivity && !hasRecentFinancialActivity) {
+        return new RuleResult(true, {
+          priority: "medium",
+          frequency: "once",
+          subType: "inactiveClient",
+          title: "Client Inactif - 60+ Jours",
+          message: `Le client "${client.name}" n'a eu aucune activité depuis ${daysSinceLastUpdate} jours (dossiers, tâches, séances, paiements). Souhaitez-vous marquer ce client comme inactif ?`,
+          metadata: {
+            clientId: client.id,
+            clientName: client.name,
+            daysSinceLastUpdate,
+            suggestAction: "mark_inactive"
           },
         });
       }
@@ -711,309 +1537,13 @@ export const FinancialRules = {
     return new RuleResult(false);
   },
 
-  /**
-   * RULE: Payment Due Today
-   * Triggers: Reminder on payment due date
-   */
-  paymentDueToday(entry) {
-    if (
-      !entry.dueDate ||
-      entry.status === "paid" ||
-      entry.status === "void"
-    ) {
-      return new RuleResult(false);
-    }
-
-    const daysLeft = calculateDaysDifference(entry.dueDate);
-
-    if (daysLeft === 0) {
-      return new RuleResult(true, {
-        priority: "high",
-        frequency: "once",
-        subType: "paymentDueToday",
-        title: "Paiement Dû Aujourd'hui",
-        message: `Paiement de ${entry.amount} ${
-          entry.currency
-        } attendu aujourd'hui - ${entry.clientName || "Client"}.`,
-        metadata: { amount: entry.amount, clientName: entry.clientName },
-      });
-    }
-
-    return new RuleResult(false);
-  },
-
-  /**
-   * RULE: Payment Upcoming
-   * Triggers: Reminder 3 days before payment due
-   */
-  paymentUpcoming(entry) {
-    if (
-      !entry.dueDate ||
-      entry.status === "paid" ||
-      entry.status === "void"
-    ) {
-      return new RuleResult(false);
-    }
-
-    const daysLeft = calculateDaysDifference(entry.dueDate);
-
-    if (daysLeft === 3) {
-      return new RuleResult(true, {
-        priority: "medium",
-        frequency: "once",
-        subType: "paymentUpcoming",
-        title: "Paiement à Venir - 3 jours",
-        message: `Paiement de ${entry.amount} ${
-          entry.currency
-        } attendu dans 3 jours - ${entry.clientName || "Client"}.`,
-        metadata: { daysLeft: 3, amount: entry.amount },
-      });
-    }
-
-    return new RuleResult(false);
-  },
-
-  /**
-   * RULE: Expense Without Reimbursement
-   * Triggers: If expense added but not marked as reimbursed after N days
-   */
-  expenseNotReimbursed(entry) {
-    if (entry.type !== "expense" || entry.scope !== "internal") {
-      return new RuleResult(false);
-    }
-
-    const daysSinceExpense = entry.date ? daysSinceUpdate(entry.date) : 0;
-    const isNotPaid = entry.status !== "paid";
-
-    if (isNotPaid && daysSinceExpense >= 7) {
-      return new RuleResult(true, {
-        priority: "medium",
-        frequency: "once",
-        subType: "expenseNotReimbursed",
-        title: "Dépense Non Remboursée",
-        message: `Dépense de ${entry.amount} ${entry.currency} (${entry.description}) non remboursée depuis ${daysSinceExpense} jours.`,
-        metadata: { daysSinceExpense, amount: entry.amount },
-      });
-    }
-
-    return new RuleResult(false);
-  },
-
-  /**
-   * RULE: Client Balance Negative
-   * Triggers: When client owes money (rate-limited)
-   */
-  clientBalanceOverdue(clientId, balance) {
-    if (balance >= 0) return new RuleResult(false);
-
-    const amountOwed = Math.abs(balance);
-
-    // Only notify if amount is significant (> 100)
-    if (amountOwed > 100) {
-      return new RuleResult(true, {
-        priority: "medium",
-        frequency: "weekly", // Rate-limited to weekly
-        subType: "balanceOverdue",
-        title: "Solde Client Négatif",
-        message: `Le client a un solde impayé de ${amountOwed.toFixed(
-          2
-        )} TND. Relance recommandée.`,
-        metadata: { clientId, balance, amountOwed },
-      });
-    }
-
-    return new RuleResult(false);
-  },
 };
 
 // ============================================
-// 5️⃣ SYSTEM-LEVEL SMART NUDGES
+// 6️⃣ SYSTEM-LEVEL SMART NUDGES (DISABLED)
 // ============================================
 
-export const SystemRules = {
-  /**
-   * RULE: Daily Activity Nudge
-   * Triggers: If no dossier updates today (checked at end of day)
-   */
-  noDossierUpdatesToday(allDossiers, currentDate = new Date()) {
-    const today = currentDate.toISOString().split("T")[0];
-
-    const updatedToday = allDossiers.some((dossier) => {
-      const lastUpdate = dossier.updatedAt || dossier.createdAt;
-      return lastUpdate && lastUpdate.startsWith(today);
-    });
-
-    if (!updatedToday) {
-      const currentHour = currentDate.getHours();
-
-      // Only trigger after 3 PM
-      if (currentHour >= 15) {
-        return new RuleResult(true, {
-          priority: "low",
-          frequency: "once",
-          subType: "noDossierUpdates",
-          title: "Activité du Jour",
-          message:
-            "Aucun dossier n'a été mis à jour aujourd'hui. Tout va bien ?",
-          metadata: { date: today },
-        });
-      }
-    }
-
-    return new RuleResult(false);
-  },
-
-  /**
-   * RULE: Multiple Deadlines Approaching
-   * Triggers: When several tasks are due within 2 days
-   */
-  multipleDeadlinesApproaching(tasks) {
-    const upcomingTasks = tasks.filter((task) => {
-      if (!task.dueDate || task.status === "Terminée") return false;
-      const daysLeft = calculateDaysDifference(task.dueDate);
-      return daysLeft >= 0 && daysLeft <= 2;
-    });
-
-    if (upcomingTasks.length >= 3) {
-      return new RuleResult(true, {
-        priority: "medium",
-        frequency: "once",
-        subType: "multipleDeadlines",
-        title: "Plusieurs Échéances Proches",
-        message: `${upcomingTasks.length} tâches arrivent à échéance dans les 2 prochains jours. Planification recommandée.`,
-        metadata: {
-          taskCount: upcomingTasks.length,
-          tasks: upcomingTasks.map((t) => t.id),
-        },
-      });
-    }
-
-    return new RuleResult(false);
-  },
-
-  /**
-   * RULE: Missions Pending Follow-up
-   * Triggers: When multiple missions completed but not fully processed
-   */
-  missionsPendingFollowup(missions) {
-    const pendingFollowup = missions.filter((mission) => {
-      if (mission.status !== "Terminée") return false;
-
-      const hasDocuments = mission.documents && mission.documents.length > 0;
-      const hasFinancialEntry =
-        mission.financialEntries && mission.financialEntries.length > 0;
-      const daysSinceCompletion = mission.updatedAt
-        ? daysSinceUpdate(mission.updatedAt)
-        : 0;
-
-      return (!hasDocuments || !hasFinancialEntry) && daysSinceCompletion >= 2;
-    });
-
-    if (pendingFollowup.length >= 2) {
-      return new RuleResult(true, {
-        priority: "medium",
-        frequency: "once",
-        subType: "pendingFollowup",
-        title: "Missions Non Finalisées",
-        message: `${pendingFollowup.length} missions terminées nécessitent un suivi (documents ou frais manquants).`,
-        metadata: {
-          missionCount: pendingFollowup.length,
-          missions: pendingFollowup.map((m) => m.id),
-        },
-      });
-    }
-
-    return new RuleResult(false);
-  },
-
-  /**
-   * RULE: Overdue Items Summary
-   * Triggers: Weekly summary of all overdue items
-   */
-  weeklyOverdueSummary(tasks, sessions, missions, currentDate = new Date()) {
-    const dayOfWeek = currentDate.getDay();
-
-    // Only trigger on Mondays (1)
-    if (dayOfWeek !== 1) {
-      return new RuleResult(false);
-    }
-
-    const overdueTasks = tasks.filter((task) => {
-      if (!task.dueDate || task.status === "Terminée") return false;
-      return calculateDaysDifference(task.dueDate) < 0;
-    });
-
-    const overdueMissions = missions.filter((mission) => {
-      if (!mission.dueDate || mission.status === "Terminée") return false;
-      return calculateDaysDifference(mission.dueDate) < 0;
-    });
-
-    const overdueCount = overdueTasks.length + overdueMissions.length;
-
-    if (overdueCount > 0) {
-      return new RuleResult(true, {
-        priority: "medium",
-        frequency: "weekly",
-        subType: "overdueSummary",
-        title: "Résumé Hebdomadaire",
-        message: `${overdueCount} élément${
-          overdueCount > 1 ? "s" : ""
-        } en retard : ${overdueTasks.length} tâche${
-          overdueTasks.length > 1 ? "s" : ""
-        }, ${overdueMissions.length} mission${
-          overdueMissions.length > 1 ? "s" : ""
-        }.`,
-        metadata: {
-          overdueTasks: overdueTasks.length,
-          overdueMissions: overdueMissions.length,
-        },
-      });
-    }
-
-    return new RuleResult(false);
-  },
-
-  /**
-   * RULE: Inactive Dossiers Check
-   * Triggers: Monthly reminder for dossiers not updated in 30+ days
-   */
-  inactiveDossiersCheck(dossiers) {
-    const inactiveDossiers = dossiers.filter((dossier) => {
-      if (
-        dossier.status === "Fermé" ||
-        dossier.status === "Clos" ||
-        dossier.status === "Archivé"
-      ) {
-        return false;
-      }
-
-      const daysSinceLastUpdate = dossier.updatedAt
-        ? daysSinceUpdate(dossier.updatedAt)
-        : 999;
-      return daysSinceLastUpdate >= 30;
-    });
-
-    if (inactiveDossiers.length > 0) {
-      return new RuleResult(true, {
-        priority: "low",
-        frequency: "monthly",
-        subType: "inactiveDossiers",
-        title: "Dossiers Inactifs",
-        message: `${inactiveDossiers.length} dossier${
-          inactiveDossiers.length > 1 ? "s" : ""
-        } n'${
-          inactiveDossiers.length > 1 ? "ont" : "a"
-        } pas été mis à jour depuis 30+ jours.`,
-        metadata: {
-          dossierCount: inactiveDossiers.length,
-          dossiers: inactiveDossiers.map((d) => d.id),
-        },
-      });
-    }
-
-    return new RuleResult(false);
-  },
-};
+export const SystemRules = {};
 
 // ============================================
 // RULE REGISTRY & EXECUTOR
@@ -1025,9 +1555,13 @@ export const SystemRules = {
  */
 export const RuleRegistry = {
   task: TaskRules,
+  personalTask: PersonalTaskRules,
   session: SessionRules,
+  case: CaseRules,
   mission: MissionRules,
   financial: FinancialRules,
+  dossier: DossierRules,
+  client: ClientRules,
   system: SystemRules,
 };
 
@@ -1060,6 +1594,8 @@ export function evaluateEntityRules(entityType, entity, context = {}) {
             entityId: entity.id,
             ...result,
           });
+          // Mark as sent to prevent duplicates
+          markNotificationSent(ruleId, entity.id);
         }
       }
     } catch (error) {
@@ -1082,93 +1618,61 @@ export function evaluateAllRules(currentDate = new Date(), context = {}) {
   const allNotifications = [];
 
   const tasks = entities.tasks || [];
+  const personalTasks = entities.personalTasks || [];
   const sessions = entities.sessions || [];
-  const missions = getAllMissions();
+  const cases = entities.cases || [];
+  const missions = entities.missions || [];
   const financialEntries = entities.financialEntries || [];
   const dossiers = entities.dossiers || [];
+  const clients = entities.clients || [];
 
+  // Evaluate task rules (overdue, upcoming deadlines)
   tasks.forEach((task) => {
     const taskNotifications = evaluateEntityRules("task", task, context);
     allNotifications.push(...taskNotifications);
   });
 
+  // Evaluate personal task rules (upcoming deadlines, completion reminders)
+  personalTasks.forEach((personalTask) => {
+    const personalTaskNotifications = evaluateEntityRules("personalTask", personalTask, context);
+    allNotifications.push(...personalTaskNotifications);
+  });
+
+  // Evaluate session rules (upcoming hearings, hearing today)
   sessions.forEach((session) => {
     const sessionNotifications = evaluateEntityRules("session", session, context);
     allNotifications.push(...sessionNotifications);
   });
 
+  // Evaluate case/procès rules (missing hearings, status updates)
+  cases.forEach((caseItem) => {
+    const caseNotifications = evaluateEntityRules("case", caseItem, context);
+    allNotifications.push(...caseNotifications);
+  });
+
+  // Evaluate mission rules (upcoming deadlines, completion reminders)
   missions.forEach((mission) => {
     const missionNotifications = evaluateEntityRules("mission", mission, context);
     allNotifications.push(...missionNotifications);
   });
 
-  financialEntries.forEach((entry) => {
-    const financialNotifications = evaluateEntityRules("financial", entry, context);
+  // Evaluate financial rules (upcoming payments, overdue payments)
+  financialEntries.forEach((financialEntry) => {
+    const financialNotifications = evaluateEntityRules("financial", financialEntry, context);
     allNotifications.push(...financialNotifications);
   });
 
-  // Daily activity check
-  const noDossierUpdates = SystemRules.noDossierUpdatesToday(
-    dossiers,
-    currentDate
-  );
-  if (noDossierUpdates.shouldNotify) {
-    allNotifications.push({
-      ruleId: "system_noDossierUpdates",
-      ruleName: "noDossierUpdatesToday",
-      entityType: "system",
-      ...noDossierUpdates,
-    });
-  }
+  // Evaluate dossier rules (inactivity, review, deadline)
+  dossiers.forEach((dossier) => {
+    const dossierNotifications = evaluateEntityRules("dossier", dossier, context);
+    allNotifications.push(...dossierNotifications);
+  });
 
-  // Multiple deadlines
-  const multipleDeadlines = SystemRules.multipleDeadlinesApproaching(tasks);
-  if (multipleDeadlines.shouldNotify) {
-    allNotifications.push({
-      ruleId: "system_multipleDeadlines",
-      ruleName: "multipleDeadlinesApproaching",
-      entityType: "system",
-      ...multipleDeadlines,
-    });
-  }
-
-  // Missions pending followup
-  const missionsPending = SystemRules.missionsPendingFollowup(missions);
-  if (missionsPending.shouldNotify) {
-    allNotifications.push({
-      ruleId: "system_missionsPending",
-      ruleName: "missionsPendingFollowup",
-      entityType: "system",
-      ...missionsPending,
-    });
-  }
-
-  // Weekly summary
-  const weeklySummary = SystemRules.weeklyOverdueSummary(
-    tasks,
-    sessions,
-    missions,
-    currentDate
-  );
-  if (weeklySummary.shouldNotify) {
-    allNotifications.push({
-      ruleId: "system_weeklySummary",
-      ruleName: "weeklyOverdueSummary",
-      entityType: "system",
-      ...weeklySummary,
-    });
-  }
-
-  // Inactive dossiers
-  const inactiveDossiers = SystemRules.inactiveDossiersCheck(dossiers);
-  if (inactiveDossiers.shouldNotify) {
-    allNotifications.push({
-      ruleId: "system_inactiveDossiers",
-      ruleName: "inactiveDossiersCheck",
-      entityType: "system",
-      ...inactiveDossiers,
-    });
-  }
+  // Evaluate client rules (60-day inactivity)
+  clients.forEach((client) => {
+    const clientNotifications = evaluateEntityRules("client", client, context);
+    allNotifications.push(...clientNotifications);
+  });
 
   return allNotifications;
 }
@@ -1178,11 +1682,17 @@ export function evaluateAllRules(currentDate = new Date(), context = {}) {
  */
 export default {
   TaskRules,
+  PersonalTaskRules,
   SessionRules,
+  CaseRules,
   MissionRules,
   FinancialRules,
+  DossierRules,
+  ClientRules,
   SystemRules,
   RuleRegistry,
   evaluateEntityRules,
   evaluateAllRules,
+  markNotificationSent,
+  clearNotificationHistory,
 };

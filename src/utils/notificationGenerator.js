@@ -430,11 +430,78 @@ export function generateDossierNotifications(dossiers) {
   const now = new Date();
 
   dossiers.forEach(dossier => {
-    if (dossier.status === "Fermé") return;
+    if (dossier.status === "Fermé" || dossier.status === "Ferme" || dossier.status === "closed") return;
+
+    // Prochaine Échéance (Next Deadline) notifications
+    if (dossier.next_deadline || dossier.nextDeadline) {
+      const deadlineDate = dossier.next_deadline || dossier.nextDeadline;
+      const daysLeft = calculateDaysDifference(deadlineDate, now);
+
+      // Overdue deadline
+      if (daysLeft < 0) {
+        const daysOverdue = Math.abs(daysLeft);
+        notifications.push(buildNotification({
+          entityType: "dossier",
+          entityId: dossier.id,
+          subType: "deadlineOverdue",
+          priority: "urgent",
+          title: "Échéance Dépassée",
+          message: `L'échéance du dossier ${dossier.case_number || dossier.caseNumber || dossier.reference} est dépassée de ${daysOverdue} jour${daysOverdue > 1 ? 's' : ''}.`,
+          icon: "fas fa-exclamation-triangle",
+          timestamp: now.toISOString(),
+          metadata: {
+            dossierId: dossier.id,
+            caseNumber: dossier.case_number || dossier.caseNumber,
+            daysOverdue,
+            deadline: deadlineDate,
+          },
+        }));
+      }
+      // Due today
+      else if (daysLeft === 0) {
+        notifications.push(buildNotification({
+          entityType: "dossier",
+          entityId: dossier.id,
+          subType: "deadlineToday",
+          priority: "urgent",
+          title: "Échéance Aujourd'hui",
+          message: `L'échéance du dossier ${dossier.case_number || dossier.caseNumber || dossier.reference} est aujourd'hui.`,
+          icon: "fas fa-clock",
+          timestamp: now.toISOString(),
+          metadata: {
+            dossierId: dossier.id,
+            caseNumber: dossier.case_number || dossier.caseNumber,
+            daysLeft: 0,
+            deadline: deadlineDate,
+          },
+        }));
+      }
+      // Upcoming (1-7 days)
+      else if (daysLeft <= 7) {
+        const priority = daysLeft <= 2 ? "high" : "medium";
+        notifications.push(buildNotification({
+          entityType: "dossier",
+          entityId: dossier.id,
+          subType: "deadlineUpcoming",
+          priority,
+          title: `Échéance dans ${daysLeft} jour${daysLeft > 1 ? 's' : ''}`,
+          message: `L'échéance du dossier ${dossier.case_number || dossier.caseNumber || dossier.reference} arrive dans ${daysLeft} jour${daysLeft > 1 ? 's' : ''}.`,
+          icon: "fas fa-calendar-alt",
+          timestamp: now.toISOString(),
+          metadata: {
+            dossierId: dossier.id,
+            caseNumber: dossier.case_number || dossier.caseNumber,
+            daysLeft,
+            deadline: deadlineDate,
+          },
+        }));
+      }
+    }
 
     // Check for dossiers not updated in a while
-    if (dossier.lastUpdateDate) {
-      const daysSinceUpdate = Math.abs(calculateDaysDifference(dossier.lastUpdateDate, now));
+    if (dossier.lastUpdateDate || dossier.updated_at || dossier.updatedAt) {
+      const lastUpdate = dossier.lastUpdateDate || dossier.updated_at || dossier.updatedAt;
+      const daysSinceUpdate = Math.abs(calculateDaysDifference(lastUpdate, now));
 
       if (daysSinceUpdate >= 7) {
         const template = getRandomTemplate(dossierNotificationTemplates.statusUpdate);
@@ -450,7 +517,7 @@ export function generateDossierNotifications(dossiers) {
           timestamp: now.toISOString(),
           metadata: {
             dossierId: dossier.id,
-            caseNumber: dossier.caseNumber,
+            caseNumber: dossier.case_number || dossier.caseNumber,
             daysSinceUpdate,
           },
         }));
@@ -458,8 +525,9 @@ export function generateDossierNotifications(dossiers) {
     }
 
     // Review reminder for long-running dossiers
-    if (dossier.openDate) {
-      const daysOpen = Math.abs(calculateDaysDifference(dossier.openDate, now));
+    if (dossier.openDate || dossier.opened_at || dossier.openedAt) {
+      const openDate = dossier.openDate || dossier.opened_at || dossier.openedAt;
+      const daysOpen = Math.abs(calculateDaysDifference(openDate, now));
 
       if (daysOpen >= 30 && daysOpen % 30 === 0) {
         const template = getRandomTemplate(dossierNotificationTemplates.review);
@@ -475,7 +543,7 @@ export function generateDossierNotifications(dossiers) {
           timestamp: now.toISOString(),
           metadata: {
             dossierId: dossier.id,
-            caseNumber: dossier.caseNumber,
+            caseNumber: dossier.case_number || dossier.caseNumber,
             daysOpen,
           },
         }));

@@ -37,6 +37,8 @@ class NotificationScheduler {
       financialEntries: [],
       dossiers: [],
       cases: [],
+      clients: [],
+      personalTasks: [],
     };
     this.scheduledNotifications = getSimulatedScheduledNotifications();
     this.sentNotificationIds = new Set(); // Track sent notifications to avoid duplicates
