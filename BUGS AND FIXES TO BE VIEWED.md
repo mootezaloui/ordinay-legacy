@@ -7,6 +7,15 @@
 
 ## 🐞 Bugs & Edge Cases (To Fix)
 
+
+Check status fields why they are in english and make errors now.
+
+check for domain rule when i want to close a proces with open session it blocks perfecty, but when i want to click the mark as finished it says error ( check if related to the other bug first )
+
+check notifications, its not normally behaving, why not creating notification when CREATING/updating an entity ?
+
+do the same as client detail screen tabs to not add tasks, dossiers, proces, unless we have the parent entity
+
 ### 👤 Client
 
 - [x] **Client can be set to `Inactive` from table inline edit**

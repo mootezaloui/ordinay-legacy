@@ -457,6 +457,23 @@ function StructuredEditSection({ section, data, onSave, entityType, entityId, co
                 );
               }
 
+              // ✅ Support custom rendering for special fields (display mode)
+              if (field.customRender) {
+                return (
+                  <div key={fieldIndex} className="flex items-start gap-3">
+                    {field.icon && (
+                      <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center">
+                        <i className={`${field.icon} text-slate-400 dark:text-slate-500`}></i>
+                      </div>
+                    )}
+                    <div className="flex-1">
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">{field.label}</p>
+                      {field.customRender(data, contextData)}
+                    </div>
+                  </div>
+                );
+              }
+
               // Display mode
               return (
                 <div key={fieldIndex} className="flex items-center gap-3">
@@ -681,6 +698,23 @@ function RegularSection({ section, data, isEditing, onDataChange, contextData = 
                         {field.helpText}
                       </p>
                     )}
+                  </div>
+                );
+              }
+
+              // ✅ Support custom rendering for special fields
+              if (field.customRender) {
+                return (
+                  <div key={fieldIndex} className="flex items-start gap-3">
+                    {field.icon && (
+                      <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center">
+                        <i className={`${field.icon} text-slate-400 dark:text-slate-500`}></i>
+                      </div>
+                    )}
+                    <div className="flex-1">
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">{field.label}</p>
+                      {field.customRender(data, contextData)}
+                    </div>
                   </div>
                 );
               }

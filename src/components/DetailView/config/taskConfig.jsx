@@ -120,8 +120,8 @@ export const taskConfig = {
     // Only update if there are actual task fields to update
     if (Object.keys(taskData).length > 0) {
       if (contextData?.updateTask) {
-        // Use DataContext to update (this persists to localStorage)
-        contextData.updateTask(numericId, taskData);
+        // Use DataContext to update (this persists to localStorage and API)
+        await contextData.updateTask(numericId, taskData);
       } else {
         // Fallback to updating null
         if (null[numericId]) {
@@ -130,10 +130,9 @@ export const taskConfig = {
             ...taskData,
           };
         }
+        await new Promise(resolve => setTimeout(resolve, 500));
       }
     }
-    // If no task fields to update, skip the update
-    await new Promise(resolve => setTimeout(resolve, 500));
   },
 
   deleteData: async (id, contextData = null) => {
@@ -160,10 +159,9 @@ export const taskConfig = {
       colorMap: true,
       options: [
         { value: "Non commencee", label: "Non commencée", color: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300" },
-        { value: "En attente", label: "En attente", color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
-        { value: "Planifiee", label: "Planifiée", color: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400" },
         { value: "En cours", label: "En cours", color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" },
-        { value: "Terminée", label: "Terminée", color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" },
+        { value: "En attente", label: "En attente", color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
+        { value: "Terminee", label: "Terminée", color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" },
       ]
     },
     {

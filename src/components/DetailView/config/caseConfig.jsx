@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import ContentSection from "../../layout/ContentSection";
 import { getStatusColor } from "./statusColors";
 import { sessionFormFields, taskFormFields, missionFormFields } from "../../FormModal/formConfigs";
+import { calculateNextHearing, formatDate, getDeadlineUrgency } from "../../../utils/deadlineUtils";
 
 /**
  * Case (Procès) Entity Configuration - UPDATED with Quick Actions
@@ -62,12 +63,17 @@ export const caseConfig = {
     // Aggregate all sessions related to this case (by caseId or dossierId)
     const caseSessions = sessions.filter((s) => s.caseId === numericId || s.dossierId === caseData.dossierId);
 
+    // ✅ Calculate dynamic next hearing from all related sessions
+    const nextHearingObj = calculateNextHearing(caseData, caseSessions);
+
     return {
       ...caseData,
       dossier: dossier || { id: null, caseNumber: 'N/A', title: 'Dossier inconnu' },
       // Always derive related collections from live context (avoid stale embedded arrays)
       sessions: caseSessions,
       tasks: tasks.filter((t) => t.parentType === "case" && t.caseId === numericId),
+      // ✅ Add computed next hearing
+      computedNextHearing: nextHearingObj,
     };
   },
 
@@ -169,7 +175,44 @@ export const caseConfig = {
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <InfoCard icon="fas fa-landmark" label="Tribunal" value={data.court} color="purple" />
-            <InfoCard icon="fas fa-calendar-alt" label="Prochaine audience" value={data.nextHearing} color="red" />
+            {(() => {
+              const hearing = data.computedNextHearing;
+              if (!hearing) {
+                return <InfoCard icon="fas fa-calendar-alt" label="Prochaine audience" value="Aucune audience" color="amber" />;
+              }
+
+              const formattedDate = formatDate(hearing.date);
+              const urgency = getDeadlineUrgency(hearing);
+              const linkTo = hearing.entityId ? `/sessions/${hearing.entityId}` : null;
+
+              // Choose color based on urgency
+              const urgencyColors = {
+                critical: "red",
+                urgent: "red",
+                soon: "amber",
+                normal: "amber",
+              };
+
+              // Format subtitle with time and location if available
+              let subtitle = hearing.label;
+              if (hearing.time) {
+                subtitle += ` à ${hearing.time}`;
+              }
+              if (hearing.location) {
+                subtitle += ` - ${hearing.location}`;
+              }
+
+              return (
+                <InfoCard
+                  icon="fas fa-calendar-alt"
+                  label="Prochaine audience"
+                  value={formattedDate}
+                  subtitle={subtitle}
+                  color={urgencyColors[urgency]}
+                  linkTo={linkTo}
+                />
+              );
+            })()}
             <InfoCard icon="fas fa-balance-scale" label="Juge" value={data.judge} color="blue" />
             <InfoCard icon="fas fa-user-tie" label="Avocat adverse" value={data.adversaryLawyer} color="amber" />
           </div>
@@ -179,14 +222,18 @@ export const caseConfig = {
   },
 
   // Stats cards
-  getStats: (data) => [
-    {
-      icon: "fas fa-calendar-check",
-      iconColor: "text-red-600 dark:text-red-400",
-      bgColor: "bg-red-100 dark:bg-red-900/20",
-      value: data.nextHearing,
-      label: "Prochaine Audience"
-    },
+  getStats: (data) => {
+    const hearing = data.computedNextHearing;
+    const hearingValue = hearing ? formatDate(hearing.date) : "Aucune audience";
+
+    return [
+      {
+        icon: "fas fa-calendar-check",
+        iconColor: "text-red-600 dark:text-red-400",
+        bgColor: "bg-red-100 dark:bg-red-900/20",
+        value: hearingValue,
+        label: "Prochaine Audience"
+      },
     {
       icon: "fas fa-file",
       iconColor: "text-purple-600 dark:text-purple-400",
@@ -201,7 +248,8 @@ export const caseConfig = {
       value: data.sessions?.length || 0,
       label: "Audiences"
     },
-  ],
+    ];
+  },
 
   // Tabs configuration
   tabs: [
@@ -516,10 +564,90 @@ export const caseConfig = {
         {
           key: "nextHearing",
           label: "Prochaine audience",
-          value: (data) => data.nextHearing,
+          value: (data) => {
+            const hearing = data.computedNextHearing;
+            if (!hearing) return "Aucune audience";
+            return formatDate(hearing.date);
+          },
           icon: "fas fa-calendar-alt",
-          type: "date",
-          editable: true
+          type: "custom",
+          editable: false,
+          customRender: (data) => {
+            const hearing = data.computedNextHearing;
+            if (!hearing) {
+              return (
+                <div className="text-slate-500 dark:text-slate-400 text-sm">
+                  Aucune audience programmée
+                </div>
+              );
+            }
+
+            const formattedDate = formatDate(hearing.date);
+            const urgency = getDeadlineUrgency(hearing);
+            const linkTo = hearing.entityId ? `/sessions/${hearing.entityId}` : null;
+
+            // Urgency badge colors
+            const urgencyStyles = {
+              critical: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 border-red-300 dark:border-red-700",
+              urgent: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400 border-orange-300 dark:border-orange-700",
+              soon: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 border-amber-300 dark:border-amber-700",
+              normal: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 border-blue-300 dark:border-blue-700",
+            };
+
+            const urgencyLabels = {
+              critical: "Aujourd'hui",
+              urgent: "Urgent",
+              soon: "Bientôt",
+              normal: "Programmé",
+            };
+
+            // Build full label
+            let fullLabel = hearing.label;
+            if (hearing.time) {
+              fullLabel += ` à ${hearing.time}`;
+            }
+            if (hearing.location) {
+              fullLabel += ` - ${hearing.location}`;
+            }
+
+            return (
+              <div className="flex items-start gap-3">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-slate-900 dark:text-white font-medium">
+                      {formattedDate}
+                    </span>
+                    {hearing.time && (
+                      <span className="text-sm text-slate-600 dark:text-slate-400">
+                        {hearing.time}
+                      </span>
+                    )}
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${urgencyStyles[urgency]}`}>
+                      {urgencyLabels[urgency]}
+                    </span>
+                  </div>
+                  <div className="text-sm text-slate-600 dark:text-slate-400">
+                    {hearing.label}
+                  </div>
+                  {hearing.location && (
+                    <div className="text-sm text-slate-500 dark:text-slate-500 mt-0.5">
+                      <i className="fas fa-map-marker-alt mr-1"></i>
+                      {hearing.location}
+                    </div>
+                  )}
+                  {linkTo && (
+                    <Link
+                      to={linkTo}
+                      className="text-sm text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-1 mt-1"
+                    >
+                      Voir les détails de l'audience
+                      <i className="fas fa-arrow-right text-xs"></i>
+                    </Link>
+                  )}
+                </div>
+              </div>
+            );
+          }
         },
       ],
     },
@@ -582,7 +710,7 @@ export const caseConfig = {
 };
 
 // Helper component
-function InfoCard({ icon, label, value, color }) {
+function InfoCard({ icon, label, value, color, linkTo = null, subtitle = null }) {
   const colors = {
     purple: "bg-purple-100 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400",
     red: "bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400",
@@ -590,15 +718,32 @@ function InfoCard({ icon, label, value, color }) {
     amber: "bg-amber-100 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400",
   };
 
-  return (
-    <div className="flex items-center gap-3">
+  const content = (
+    <>
       <div className={`p-2 rounded-lg ${colors[color]}`}>
         <i className={icon}></i>
       </div>
-      <div>
+      <div className="flex-1 min-w-0">
         <p className="text-xs text-slate-500 dark:text-slate-400">{label}</p>
-        <p className="text-sm font-medium text-slate-900 dark:text-white">{value}</p>
+        <p className="text-sm font-medium text-slate-900 dark:text-white truncate">{value}</p>
+        {subtitle && (
+          <p className="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">{subtitle}</p>
+        )}
       </div>
-    </div>
+    </>
   );
+
+  if (linkTo) {
+    return (
+      <Link
+        to={linkTo}
+        className="flex items-center gap-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 p-2 -m-2 rounded-lg transition-colors group"
+      >
+        {content}
+        <i className="fas fa-arrow-right text-slate-400 dark:text-slate-500 text-xs opacity-0 group-hover:opacity-100 transition-opacity"></i>
+      </Link>
+    );
+  }
+
+  return <div className="flex items-center gap-3">{content}</div>;
 }

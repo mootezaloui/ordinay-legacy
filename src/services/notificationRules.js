@@ -675,7 +675,7 @@ export const FinancialRules = {
     if (
       !entry.dueDate ||
       entry.status === "paid" ||
-      entry.status === "cancelled"
+      entry.status === "void"
     ) {
       return new RuleResult(false);
     }
@@ -719,7 +719,7 @@ export const FinancialRules = {
     if (
       !entry.dueDate ||
       entry.status === "paid" ||
-      entry.status === "cancelled"
+      entry.status === "void"
     ) {
       return new RuleResult(false);
     }
@@ -750,7 +750,7 @@ export const FinancialRules = {
     if (
       !entry.dueDate ||
       entry.status === "paid" ||
-      entry.status === "cancelled"
+      entry.status === "void"
     ) {
       return new RuleResult(false);
     }

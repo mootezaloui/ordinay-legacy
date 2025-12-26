@@ -21,9 +21,9 @@ import {
 export const filterFinancialEntries = (filters = {}, allEntries = []) => {
   let entries = [...allEntries];
 
-  // Exclude cancelled entries by default
+  // Exclude void entries by default
   if (filters.includeCancelled !== true) {
-    entries = entries.filter((e) => e.status !== "cancelled");
+    entries = entries.filter((e) => e.status !== "void");
   }
 
   // Filter by scope

@@ -676,6 +676,7 @@ function detectSessionImpact(currentData, newData) {
 
 const VALIDATORS = {
   dossier: {
+    add: validateDossierAdd,
     close: validateDossierClose,
     archive: validateDossierArchive,
     delete: validateDossierDelete,
@@ -735,6 +736,29 @@ const VALIDATORS = {
 // ========================================
 // DOSSIER VALIDATORS
 // ========================================
+
+/**
+ * Validate adding a Dossier
+ *
+ * Business Rules:
+ * - Cannot create if no clients exist
+ */
+function validateDossierAdd(dossierId, context = {}) {
+  const blockers = [];
+  const warnings = [];
+
+  // Get entities from context
+  const clients = context?.entities?.clients || mockClients || [];
+
+  // Check if any clients exist
+  if (clients.length === 0) {
+    blockers.push("Ajoutez d'abord un client avant de créer un dossier.");
+    return { allowed: false, blockers, warnings: [] };
+  }
+
+  const allowed = blockers.length === 0;
+  return { allowed, blockers, warnings };
+}
 
 /**
  * Validate closing a Dossier
@@ -821,7 +845,7 @@ function validateDossierClose(dossierId, context = {}) {
   const clientEntries = allFinancialEntries.filter(
     (entry) =>
       entry.clientId === dossier.clientId &&
-      entry.status !== "cancelled" &&
+      entry.status !== "void" &&
       entry.status !== "Annulé"
   );
 
@@ -979,7 +1003,7 @@ function validateDossierDelete(dossierId, context = {}) {
 
   // Check for financial entries
   const dossierFinancials = financialEntries.filter(
-    (entry) => String(entry.dossierId) === String(dossierId) && entry.status !== "cancelled"
+    (entry) => String(entry.dossierId) === String(dossierId) && entry.status !== "void"
   );
 
   if (dossierFinancials.length > 0) {
@@ -1047,19 +1071,27 @@ function validateCaseAdd(caseId, context = {}) {
   const blockers = [];
   const warnings = [];
 
+  // Get entities from context
+  const dossiers = context?.entities?.dossiers || mockDossiers || [];
+
   // Get the parent dossier ID from context
   const dossierId = context?.formData?.dossierId || context?.data?.dossierId;
 
   if (!dossierId) {
-    // No parent validation needed if no dossier specified
+    // No dossier specified - check if there are any dossiers available
+    if (dossiers.length === 0) {
+      blockers.push("Ajoutez d'abord un dossier avant de créer un procès.");
+      return { allowed: false, blockers, warnings: [] };
+    }
+    // No parent validation needed if dossier will be selected
     return { allowed: true, blockers: [], warnings: [] };
   }
 
-  // Check if parent dossier is closed
-  const dossier = mockDossiersExtended[dossierId];
+  // Check if parent dossier exists
+  const dossier = dossiers.find(d => d.id === parseInt(dossierId)) || mockDossiersExtended[dossierId];
   if (!dossier) {
     // If no dossiers are loaded, don't block (data might not be loaded yet)
-    if (mockDossiers.length === 0) {
+    if (dossiers.length === 0) {
       return { allowed: true, blockers: [], warnings: [] };
     }
     return {
@@ -1069,6 +1101,7 @@ function validateCaseAdd(caseId, context = {}) {
     };
   }
 
+  // Check if parent dossier is closed
   if (dossier.status === "Fermé" || dossier.status === "Archivé") {
     blockers.push(
       `Impossible de créer un procès sous un dossier ${dossier.status.toLowerCase()}`,
@@ -1382,7 +1415,7 @@ function validateClientDelete(clientId, context = {}) {
 
   // Check for financial entries
   const clientFinancials = financialLedger.filter(
-    (entry) => entry.clientId === clientId && entry.status !== "cancelled"
+    (entry) => entry.clientId === clientId && entry.status !== "void"
   );
 
   if (clientFinancials.length > 0) {
@@ -1469,14 +1502,24 @@ function validateTaskAdd(taskId, context = {}) {
   const blockers = [];
   const warnings = [];
 
+  // Get entities from context
+  const dossiers = context?.entities?.dossiers || mockDossiers || [];
+  const cases = context?.entities?.cases || mockCases || [];
+
   // Get parent info from context (formData for new tasks)
   const parentType = context?.formData?.parentType || context?.data?.parentType;
   const dossierId = context?.formData?.dossierId || context?.data?.dossierId;
   const caseId = context?.formData?.caseId || context?.data?.caseId;
 
+  // If no parent specified and no dossiers exist, block creation
+  if (!dossierId && !caseId && dossiers.length === 0) {
+    blockers.push("Ajoutez d'abord un dossier avant de créer une tâche.");
+    return { allowed: false, blockers, warnings: [] };
+  }
+
   // Check parent based on type
   if (parentType === "dossier" && dossierId) {
-    const dossier = mockDossiersExtended[dossierId];
+    const dossier = dossiers.find(d => d.id === parseInt(dossierId)) || mockDossiersExtended[dossierId];
     if (!dossier) {
       warnings.push(
         "Dossier parent non résolu (vérifiez après enregistrement)."
@@ -1494,7 +1537,7 @@ function validateTaskAdd(taskId, context = {}) {
       );
     }
   } else if (parentType === "case" && caseId) {
-    const caseData = mockCasesExtended[caseId];
+    const caseData = cases.find(c => c.id === parseInt(caseId)) || mockCasesExtended[caseId];
     if (!caseData) {
       warnings.push(
         "Procès parent non résolu (vérifiez après enregistrement)."
@@ -1588,14 +1631,24 @@ function validateSessionAdd(sessionId, context = {}) {
   const blockers = [];
   const warnings = [];
 
+  // Get entities from context
+  const dossiers = context?.entities?.dossiers || mockDossiers || [];
+  const cases = context?.entities?.cases || mockCases || [];
+
   // Get parent info from context
   const linkType = context?.formData?.linkType || context?.data?.linkType;
   const dossierId = context?.formData?.dossierId || context?.data?.dossierId;
   const caseId = context?.formData?.caseId || context?.data?.caseId;
 
+  // If no parent specified and no dossiers exist, block creation
+  if (!dossierId && !caseId && dossiers.length === 0) {
+    blockers.push("Ajoutez d'abord un dossier avant de programmer une audience.");
+    return { allowed: false, blockers, warnings: [] };
+  }
+
   // Check based on link type
   if (linkType === "dossier" && dossierId) {
-    const dossier = mockDossiersExtended[dossierId];
+    const dossier = dossiers.find(d => d.id === parseInt(dossierId)) || mockDossiersExtended[dossierId];
     if (!dossier) {
       // Allow submit to avoid blocking on newly created/unsynced dossier ids
       warnings.push(
@@ -1614,7 +1667,7 @@ function validateSessionAdd(sessionId, context = {}) {
       );
     }
   } else if (linkType === "case" && caseId) {
-    const caseData = mockCasesExtended[caseId];
+    const caseData = cases.find(c => c.id === parseInt(caseId)) || mockCasesExtended[caseId];
     if (!caseData) {
       warnings.push(
         "Procès parent non résolu (vérifiez après enregistrement)."
@@ -2131,7 +2184,7 @@ function validatePersonalTaskStatusChange(taskId, context = {}) {
  */
 function getClientFinancials(clientId) {
   const clientEntries = financialLedger.filter(
-    (entry) => entry.clientId === clientId && entry.status !== "cancelled"
+    (entry) => entry.clientId === clientId && entry.status !== "void"
   );
 
   let totalInvoiced = 0;

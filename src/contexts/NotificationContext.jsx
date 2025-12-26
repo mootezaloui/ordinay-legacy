@@ -1,6 +1,8 @@
 import { createContext, useContext, useState, useEffect, useCallback, useMemo } from "react";
 import notificationScheduler from "../services/notificationScheduler";
 import { useSettings } from "./SettingsContext";
+import * as notificationService from "../services/notificationService";
+import { apiClient } from "../services/api/client";
 
 /**
  * Notification Context
@@ -16,6 +18,50 @@ import { useSettings } from "./SettingsContext";
  */
 
 const NotificationContext = createContext();
+
+/**
+ * Helper: Get icon based on entity type and severity
+ */
+function getIconForEntityType(entityType, severity) {
+  if (!entityType) {
+    return severity === "error" ? "fas fa-exclamation-circle" : "fas fa-bell";
+  }
+
+  const iconMap = {
+    client: "fas fa-user",
+    dossier: "fas fa-folder",
+    case: "fas fa-gavel",
+    task: "fas fa-tasks",
+    session: "fas fa-calendar-check",
+    mission: "fas fa-briefcase",
+    financial_entry: "fas fa-dollar-sign",
+    personal_task: "fas fa-clipboard-check",
+    document: "fas fa-file-upload",
+  };
+
+  return iconMap[entityType] || "fas fa-bell";
+}
+
+/**
+ * Helper: Get navigation link based on entity type and ID
+ */
+function getLinkForEntity(entityType, entityId) {
+  if (!entityType || !entityId) return null;
+
+  const linkMap = {
+    client: `/clients/${entityId}`,
+    dossier: `/dossiers/${entityId}`,
+    case: `/cases/${entityId}`,
+    task: `/tasks/${entityId}`,
+    session: `/sessions/${entityId}`,
+    mission: `/missions/${entityId}`,
+    financial_entry: `/accounting`,
+    personal_task: `/personal-tasks/${entityId}`,
+    document: `/documents/${entityId}`,
+  };
+
+  return linkMap[entityType] || null;
+}
 
 export function useNotifications() {
   const context = useContext(NotificationContext);
@@ -36,42 +82,217 @@ export function NotificationProvider({ children }) {
   }, [canNotifyType]);
 
   // Add new notification
-  const addNotification = useCallback((notification) => {
+  const addNotification = useCallback(async (notification) => {
     if (!shouldNotify(notification)) {
       console.log("[NOTIFICATION] Skipped due to user preferences", notification);
       return null;
     }
 
-    const newNotification = {
-      id: Date.now() + Math.random(),
-      timestamp: new Date().toISOString(),
-      read: false,
-      severity: notification.severity || notification.priority || "info",
-      priority: notification.priority || notification.severity || "info",
-      ...notification,
-    };
+    try {
+      // Map priority to valid severity (database constraint: info, warning, error)
+      const mapPriorityToSeverity = (priority) => {
+        const priorityLower = (priority || '').toLowerCase();
+        if (priorityLower === 'urgent' || priorityLower === 'critical' || priorityLower === 'high') {
+          return 'error';
+        }
+        if (priorityLower === 'medium' || priorityLower === 'soon') {
+          return 'warning';
+        }
+        // info, low, success, normal, etc.
+        return 'info';
+      };
 
-    console.log("[NOTIFICATION] Adding notification:", newNotification);
-    setNotifications(prev => [newNotification, ...prev]);
-    return newNotification.id;
-  }, [shouldNotify]);
-
-  // Load notifications from localStorage on mount
-  useEffect(() => {
-    const saved = localStorage.getItem("organia_notifications");
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        setNotifications(parsed);
-      } catch (error) {
-        console.error("Failed to load notifications:", error);
-        // Initialize with sample notifications on error
-        setNotifications(getInitialNotifications());
+      // Determine severity: use existing severity if valid, otherwise map from priority
+      let severity = notification.severity || notification.priority || 'info';
+      const validSeverities = ['info', 'warning', 'error'];
+      if (!validSeverities.includes(severity)) {
+        severity = mapPriorityToSeverity(severity);
       }
-    } else {
-      // Initialize with sample notifications
-      setNotifications(getInitialNotifications());
+
+      // Only include entity_type and entity_id if BOTH are present
+      // Backend validation requires both or neither
+      const hasEntityType = notification.entityType !== undefined && notification.entityType !== null;
+      const hasEntityId = notification.entityId !== undefined && notification.entityId !== null;
+
+      // Check for duplicate notification before creating
+      // Avoid creating duplicate notifications for the same entity
+      if (hasEntityType && hasEntityId) {
+        const existingNotification = notifications.find(n =>
+          n.entityType === notification.entityType &&
+          n.entityId === notification.entityId &&
+          n.title === notification.title &&
+          n.status !== 'archived' &&
+          // Only check unread or notifications from the last 24 hours
+          (!n.read || (new Date() - new Date(n.timestamp)) < 24 * 60 * 60 * 1000)
+        );
+
+        if (existingNotification) {
+          console.log("[NOTIFICATION] Duplicate detected, skipping:", notification.title);
+          return existingNotification.id;
+        }
+      }
+
+      // Prepare notification data for API
+      const notificationData = {
+        title: notification.title,
+        message: notification.message,
+        severity: severity,
+        status: notification.read === true ? "read" : "unread",
+      };
+
+      if (hasEntityType && hasEntityId) {
+        notificationData.entity_type = notification.entityType;
+        notificationData.entity_id = notification.entityId;
+      }
+
+      // Only include scheduled_at if present
+      if (notification.scheduledAt) {
+        notificationData.scheduled_at = notification.scheduledAt;
+      }
+
+      // Create notification via API
+      const createdNotification = await notificationService.createNotification(notificationData);
+
+      // Transform API response to match frontend format
+      const frontendNotification = {
+        ...createdNotification,
+        id: createdNotification.id,
+        timestamp: createdNotification.created_at,
+        read: createdNotification.status === "read",
+        severity: createdNotification.severity,
+        priority: createdNotification.severity,
+        type: notification.type || "app",
+        icon: notification.icon,
+        link: notification.link,
+        sticky: notification.sticky,
+        meta: notification.meta,
+      };
+
+      console.log("[NOTIFICATION] Adding notification:", frontendNotification);
+      setNotifications(prev => [frontendNotification, ...prev]);
+      return frontendNotification.id;
+    } catch (error) {
+      console.error("[NOTIFICATION] Failed to create notification:", error);
+      // Fallback to local-only notification on error
+      const localNotification = {
+        id: Date.now() + Math.random(),
+        timestamp: new Date().toISOString(),
+        read: false,
+        severity: notification.severity || notification.priority || "info",
+        priority: notification.priority || notification.severity || "info",
+        ...notification,
+      };
+      setNotifications(prev => [localNotification, ...prev]);
+      return localNotification.id;
     }
+  }, [shouldNotify, notifications]);
+
+  // Load notifications from API on mount
+  useEffect(() => {
+    async function loadNotifications() {
+      try {
+        const apiNotifications = await notificationService.fetchNotifications();
+
+        // Handle case where API returns undefined or null
+        if (!apiNotifications || !Array.isArray(apiNotifications)) {
+          console.warn("API returned invalid notifications data:", apiNotifications);
+          setNotifications([]);
+          return;
+        }
+
+        // Transform API notifications to frontend format
+        const transformedNotifications = apiNotifications.map(n => ({
+          id: n.id,
+          title: n.title,
+          message: n.message,
+          severity: n.severity,
+          priority: n.severity,
+          status: n.status,
+          read: n.status === "read",
+          timestamp: n.created_at,
+          entityType: n.entity_type,
+          entityId: n.entity_id,
+          scheduledAt: n.scheduled_at,
+          readAt: n.read_at,
+          type: "app", // Default type, can be enhanced based on entity_type
+          icon: getIconForEntityType(n.entity_type, n.severity),
+          link: getLinkForEntity(n.entity_type, n.entity_id),
+        }));
+
+        setNotifications(transformedNotifications);
+
+        // Also cache in localStorage for offline access
+        localStorage.setItem("organia_notifications", JSON.stringify(transformedNotifications));
+      } catch (error) {
+        console.error("Failed to load notifications from API:", error);
+
+        // Fallback to localStorage if API fails
+        const saved = localStorage.getItem("organia_notifications");
+        if (saved) {
+          try {
+            const parsed = JSON.parse(saved);
+            setNotifications(parsed);
+          } catch (parseError) {
+            console.error("Failed to parse cached notifications:", parseError);
+            setNotifications([]);
+          }
+        } else {
+          setNotifications([]);
+        }
+      }
+    }
+
+    loadNotifications();
+  }, []);
+
+  // Load entity data for the notification scheduler
+  useEffect(() => {
+    async function loadEntityData() {
+      try {
+        console.log("[NOTIFICATION] Loading entity data for scheduler...");
+
+        // Fetch all entities from APIs using apiClient
+        const [tasks, personalTasks, sessions, missions, financialEntries, dossiers] = await Promise.all([
+          apiClient.get('/tasks').catch(() => []),
+          apiClient.get('/personal-tasks').catch(() => []),
+          apiClient.get('/sessions').catch(() => []),
+          apiClient.get('/missions').catch(() => []),
+          apiClient.get('/financial').catch(() => []),
+          apiClient.get('/dossiers').catch(() => []),
+        ]);
+
+        // Feed data to scheduler
+        notificationScheduler.data = {
+          tasks: tasks || [],
+          personalTasks: personalTasks || [],
+          sessions: sessions || [],
+          missions: missions || [],
+          financialEntries: financialEntries || [],
+          dossiers: dossiers || [],
+        };
+
+        console.log("[NOTIFICATION] Entity data loaded:", {
+          tasks: (tasks || []).length,
+          personalTasks: (personalTasks || []).length,
+          sessions: (sessions || []).length,
+          missions: (missions || []).length,
+          financialEntries: (financialEntries || []).length,
+          dossiers: (dossiers || []).length,
+        });
+      } catch (error) {
+        console.error("[NOTIFICATION] Failed to load entity data:", error);
+      }
+    }
+
+    // Load data immediately
+    loadEntityData();
+
+    // Reload every hour to keep data fresh for notification generation
+    const dataRefreshInterval = setInterval(loadEntityData, 60 * 60 * 1000);
+
+    return () => {
+      clearInterval(dataRefreshInterval);
+    };
   }, []);
 
   // Start scheduler in separate effect with proper dependencies
@@ -128,20 +349,46 @@ export function NotificationProvider({ children }) {
   }, [removeAlert, shouldNotify]);
 
   // Mark notification as read
-  const markAsRead = useCallback((notificationId) => {
-    setNotifications(prev =>
-      prev.map(n => n.id === notificationId ? { ...n, read: true } : n)
-    );
+  const markAsRead = useCallback(async (notificationId) => {
+    try {
+      await notificationService.markAsRead(notificationId);
+      setNotifications(prev =>
+        prev.map(n => n.id === notificationId ? { ...n, read: true, status: "read" } : n)
+      );
+    } catch (error) {
+      console.error(`Failed to mark notification ${notificationId} as read:`, error);
+      // Still update locally on error for better UX
+      setNotifications(prev =>
+        prev.map(n => n.id === notificationId ? { ...n, read: true, status: "read" } : n)
+      );
+    }
   }, []);
 
   // Mark all as read
-  const markAllAsRead = useCallback(() => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-  }, []);
+  const markAllAsRead = useCallback(async () => {
+    try {
+      const unreadIds = notifications.filter(n => !n.read).map(n => n.id);
+      if (unreadIds.length > 0) {
+        await notificationService.markAllAsRead(unreadIds);
+      }
+      setNotifications(prev => prev.map(n => ({ ...n, read: true, status: "read" })));
+    } catch (error) {
+      console.error("Failed to mark all notifications as read:", error);
+      // Still update locally on error for better UX
+      setNotifications(prev => prev.map(n => ({ ...n, read: true, status: "read" })));
+    }
+  }, [notifications]);
 
   // Delete notification
-  const deleteNotification = useCallback((notificationId) => {
-    setNotifications(prev => prev.filter(n => n.id !== notificationId));
+  const deleteNotification = useCallback(async (notificationId) => {
+    try {
+      await notificationService.deleteNotification(notificationId);
+      setNotifications(prev => prev.filter(n => n.id !== notificationId));
+    } catch (error) {
+      console.error(`Failed to delete notification ${notificationId}:`, error);
+      // Still update locally on error for better UX
+      setNotifications(prev => prev.filter(n => n.id !== notificationId));
+    }
   }, []);
 
   // Clear all notifications
@@ -363,67 +610,4 @@ export function NotificationProvider({ children }) {
       {children}
     </NotificationContext.Provider>
   );
-}
-
-// Initial sample notifications
-function getInitialNotifications() {
-  const now = new Date();
-
-  return [
-    {
-      id: 1,
-      type: "deadline",
-      priority: "urgent",
-      title: "Échéance Critique",
-      message: "Le dossier #DOS-2024-001 doit être finalisé aujourd'hui!",
-      icon: "fas fa-exclamation-circle",
-      link: "/dossiers/1",
-      timestamp: new Date(now.getTime() - 10 * 60000).toISOString(),
-      read: false,
-    },
-    {
-      id: 2,
-      type: "hearing",
-      priority: "high",
-      title: "Audience Demain",
-      message: "L'audience pour le dossier #DOS-2024-002 est prévue demain à 10h00.",
-      icon: "fas fa-gavel",
-      link: "/cases/1",
-      timestamp: new Date(now.getTime() - 2 * 3600000).toISOString(),
-      read: false,
-    },
-    {
-      id: 3,
-      type: "payment",
-      priority: "success",
-      title: "Paiement Reçu",
-      message: "Ahmed Ben Ali a effectué un paiement de 1,500 TND.",
-      icon: "fas fa-dollar-sign",
-      link: "/accounting",
-      timestamp: new Date(now.getTime() - 24 * 3600000).toISOString(),
-      read: false,
-    },
-    {
-      id: 4,
-      type: "client",
-      priority: "info",
-      title: "Nouveau Client",
-      message: "Sarah Trabelsi a été ajoutée à votre base de clients.",
-      icon: "fas fa-user-plus",
-      link: "/clients",
-      timestamp: new Date(now.getTime() - 48 * 3600000).toISOString(),
-      read: true,
-    },
-    {
-      id: 5,
-      type: "document",
-      priority: "info",
-      title: "Document Ajouté",
-      message: "Contrat signé ajouté au dossier #DOS-2024-003.",
-      icon: "fas fa-file-upload",
-      link: "/dossiers/3",
-      timestamp: new Date(now.getTime() - 72 * 3600000).toISOString(),
-      read: true,
-    },
-  ];
 }

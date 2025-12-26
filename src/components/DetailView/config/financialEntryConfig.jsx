@@ -67,7 +67,7 @@ export const financialEntryConfig = {
                 { value: "draft", label: "Brouillon", color: "slate", icon: "fas fa-file" },
                 { value: "confirmed", label: "Confirmé", color: "blue", icon: "fas fa-check-circle" },
                 { value: "paid", label: "Payé", color: "green", icon: "fas fa-check-double" },
-                { value: "cancelled", label: "Annulé", color: "red", icon: "fas fa-times-circle" },
+                { value: "void", label: "Annulé", color: "red", icon: "fas fa-times-circle" },
             ],
         }
     ],
@@ -260,7 +260,7 @@ export const financialEntryConfig = {
                             draft: "Brouillon",
                             confirmed: "Confirmé",
                             paid: "Payé",
-                            cancelled: "Annulé"
+                            void: "Annulé"
                         };
                         return statusMap[data.status] || data.status;
                     },
@@ -271,7 +271,7 @@ export const financialEntryConfig = {
                         { value: "draft", label: "Brouillon" },
                         { value: "confirmed", label: "Confirmé" },
                         { value: "paid", label: "Payé" },
-                        { value: "cancelled", label: "Annulé" },
+                        { value: "void", label: "Annulé" },
                     ]
                 },
                 {

@@ -142,7 +142,7 @@ export const officerConfig = {
       colorMap: true,
       options: [
         { value: "Disponible", label: "Disponible", color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" },
-        { value: "Occupé", label: "Occupé", color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
+        { value: "Occupe", label: "Occupé", color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
         { value: "Inactif", label: "Inactif", color: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300" },
       ]
     }

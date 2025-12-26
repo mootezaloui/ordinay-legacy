@@ -38,6 +38,7 @@ export default function Officers() {
     missions,
     financialEntries,
     addOfficer,
+    updateOfficer,
     deleteOfficer
   } = useData();
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -105,7 +106,7 @@ export default function Officers() {
           onChange={(newStatus) => handleStatusChange(officer.id, newStatus)}
           statusOptions={[
             { value: "Disponible", label: "Disponible", icon: "fas fa-check-circle", color: "green" },
-            { value: "Occupé", label: "Occupé", icon: "fas fa-clock", color: "amber" },
+            { value: "Occupe", label: "Occupé", icon: "fas fa-clock", color: "amber" },
             { value: "Inactif", label: "Inactif", icon: "fas fa-circle", color: "slate" },
           ]}
           entityType="officer"
@@ -233,10 +234,8 @@ export default function Officers() {
     }
   };
 
-  const handleStatusChange = (id, newStatus) => {
-    setOfficers(officers.map(o =>
-      o.id === id ? { ...o, status: newStatus } : o
-    ));
+  const handleStatusChange = async (id, newStatus) => {
+    await updateOfficer(id, { status: newStatus });
   };
 
   const handleAddOfficer = () => {

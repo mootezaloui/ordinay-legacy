@@ -48,7 +48,10 @@ export default function NotificationCenter() {
   };
 
   const formatTimestamp = (timestamp) => {
-    const date = new Date(timestamp);
+    // SQLite CURRENT_TIMESTAMP returns UTC format: "YYYY-MM-DD HH:MM:SS"
+    // Add 'Z' to indicate UTC timezone for correct parsing
+    const timestampStr = timestamp.includes('T') ? timestamp : timestamp.replace(' ', 'T') + 'Z';
+    const date = new Date(timestampStr);
     const now = new Date();
     const diffMs = now - date;
     const diffHours = Math.floor(diffMs / 3600000);

@@ -426,7 +426,12 @@ export default function Sessions() {
         actions={
           <button
             onClick={handleAddSession}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center gap-2"
+            disabled={dossiers.length === 0}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors duration-200 flex items-center gap-2 ${dossiers.length === 0
+              ? "bg-gray-400 cursor-not-allowed text-gray-200"
+              : "bg-blue-600 hover:bg-blue-700 text-white"
+              }`}
+            title={dossiers.length === 0 ? "Ajoutez d'abord un dossier avant de programmer une audience." : ""}
           >
             <i className="fas fa-plus"></i>
             New Session
@@ -483,7 +488,7 @@ export default function Sessions() {
             onReorder={table.reorderColumns}
             enableReorder={true}
           />
-          <TableBody isEmpty={table.data.length === 0} emptyMessage={table.isFiltering ? "No results found" : "No sessions found"}>
+          <TableBody isEmpty={table.data.length === 0} emptyMessage={table.isFiltering ? "No results found" : dossiers.length === 0 ? "Ajoutez d'abord un dossier avant de programmer une audience." : "No sessions found"}>
             {table.data.map((session) => (
               <TableRow
                 key={session.id}

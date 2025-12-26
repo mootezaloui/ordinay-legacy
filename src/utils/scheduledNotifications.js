@@ -86,111 +86,13 @@ export function getScheduledNotificationsForDate(entityType, date = new Date()) 
 }
 
 /**
- * Simulated scheduled notifications
- * In production, these would be generated dynamically based on the rules above
+ * Scheduled notifications are now managed by the backend.
+ * This function is kept for backward compatibility but returns an empty array.
+ * Use the notification scheduler service with real backend data instead.
  */
 export function getSimulatedScheduledNotifications() {
-  const now = new Date();
-  const today = now.toISOString().split('T')[0];
-
-  // Calculate dates
-  const tomorrow = new Date(now);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-
-  const in3Days = new Date(now);
-  in3Days.setDate(in3Days.getDate() + 3);
-
-  const in7Days = new Date(now);
-  in7Days.setDate(in7Days.getDate() + 7);
-
-  const yesterday = new Date(now);
-  yesterday.setDate(yesterday.getDate() - 1);
-
-  return [
-    // TASK: Due today
-    {
-      id: "notif_task_1",
-      entityType: "task",
-      entityId: 1,
-      scheduledFor: `${today} 09:00`,
-      type: "task",
-      subType: "dueToday",
-      priority: "high",
-      sent: false,
-    },
-
-    // TASK: Upcoming in 3 days
-    {
-      id: "notif_task_2",
-      entityType: "task",
-      entityId: 4,
-      scheduledFor: `${today} 09:00`,
-      type: "task",
-      subType: "upcoming",
-      priority: "medium",
-      sent: false,
-    },
-
-    // SESSION: Tomorrow
-    {
-      id: "notif_session_1",
-      entityType: "session",
-      entityId: 1,
-      scheduledFor: `${today} 18:00`,
-      type: "session",
-      subType: "tomorrow",
-      priority: "high",
-      sent: false,
-    },
-
-    // PAYMENT: Overdue
-    {
-      id: "notif_payment_1",
-      entityType: "financialEntry",
-      entityId: 1,
-      scheduledFor: `${today} 10:00`,
-      type: "payment",
-      subType: "overdue",
-      priority: "urgent",
-      sent: false,
-    },
-
-    // PAYMENT: Due in 3 days
-    {
-      id: "notif_payment_2",
-      entityType: "financialEntry",
-      entityId: 2,
-      scheduledFor: `${today} 10:00`,
-      type: "payment",
-      subType: "upcoming",
-      priority: "medium",
-      sent: false,
-    },
-
-    // MISSION: Today
-    {
-      id: "notif_mission_1",
-      entityType: "mission",
-      entityId: 1,
-      scheduledFor: `${today} 09:00`,
-      type: "mission",
-      subType: "today",
-      priority: "high",
-      sent: false,
-    },
-
-    // DOSSIER: Status update needed
-    {
-      id: "notif_dossier_1",
-      entityType: "dossier",
-      entityId: 1,
-      scheduledFor: `${today} 17:00`,
-      type: "dossier",
-      subType: "statusUpdate",
-      priority: "medium",
-      sent: false,
-    },
-  ];
+  // Mock data removed - notifications are now generated from real backend data
+  return [];
 }
 
 /**

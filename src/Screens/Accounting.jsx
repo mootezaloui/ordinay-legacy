@@ -300,7 +300,7 @@ export default function Accounting() {
             { value: "draft", label: "Brouillon", icon: "fas fa-file", color: "slate" },
             { value: "confirmed", label: "Confirmé", icon: "fas fa-check-circle", color: "blue" },
             { value: "paid", label: "Payé", icon: "fas fa-check-double", color: "green" },
-            { value: "cancelled", label: "Annulé", icon: "fas fa-times-circle", color: "red" },
+            { value: "void", label: "Annulé", icon: "fas fa-times-circle", color: "red" },
           ]}
           entityType="financialEntry"
           entityId={entry.id}

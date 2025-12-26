@@ -21,6 +21,7 @@ import { resolveDetailRoute } from "../utils/routeResolver";
 import { getStatusColor } from "../components/DetailView/config/statusColors";
 import { logEntityCreation } from "../services/historyService";
 
+
 // Global state to track which dropdown is currently open
 let currentOpenPersonalTaskStatusDropdown = null;
 let currentOpenPersonalTaskPriorityDropdown = null;
@@ -42,11 +43,11 @@ function StatusDropdown({ task, onStatusChange }) {
   const [menuPosition, setMenuPosition] = useState(null); // null until computed to avoid flash at (0,0)
 
   const statusOptions = [
-    { value: "Non commencee", label: "Non commencée", icon: "fas fa-circle", color: "text-slate-500" },
-    { value: "En attente", label: "En attente", icon: "fas fa-pause-circle", color: "text-amber-600" },
-    { value: "En cours", label: "En cours", icon: "fas fa-spinner", color: "text-blue-600" },
-    { value: "Planifiee", label: "Planifiée", icon: "fas fa-calendar-check", color: "text-purple-600" },
-    { value: "Terminee", label: "Terminée", icon: "fas fa-check-circle", color: "text-green-600" },
+    { value: "Non commencée", label: "Non commencée", color: "slate" },
+    { value: "En attente", label: "En attente", color: "amber" },
+    { value: "En cours", label: "En cours", color: "blue" },
+    { value: "Planifiée", label: "Planifiée", color: "purple" },
+    { value: "Terminée", label: "Terminée", color: "green" },
   ];
 
   const currentStatus = statusOptions.find(s => s.value === task.status) || statusOptions[0];

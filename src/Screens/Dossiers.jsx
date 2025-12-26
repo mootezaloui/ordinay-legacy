@@ -441,7 +441,12 @@ export default function Dossiers() {
         actions={
           <button
             onClick={handleAddDossier}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center gap-2"
+            disabled={clients.length === 0}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors duration-200 flex items-center gap-2 ${clients.length === 0
+              ? "bg-gray-400 cursor-not-allowed text-gray-200"
+              : "bg-blue-600 hover:bg-blue-700 text-white"
+              }`}
+            title={clients.length === 0 ? "Ajoutez d'abord un client avant de créer un dossier." : ""}
           >
             <i className="fas fa-plus"></i>
             Nouveau Dossier
@@ -500,7 +505,7 @@ export default function Dossiers() {
             onReorder={table.reorderColumns}
             enableReorder={true}
           />
-          <TableBody isEmpty={table.data.length === 0} emptyMessage={table.isFiltering ? "Aucun résultat trouvé" : "Aucun dossier trouvé"}>
+          <TableBody isEmpty={table.data.length === 0} emptyMessage={table.isFiltering ? "Aucun résultat trouvé" : clients.length === 0 ? "Ajoutez d'abord un client avant de créer un dossier." : "Aucun dossier trouvé"}>
             {table.data.map((dossier) => (
               <TableRow
                 key={dossier.id}

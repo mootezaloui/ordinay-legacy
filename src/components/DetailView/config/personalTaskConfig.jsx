@@ -36,8 +36,8 @@ export const personalTaskConfig = {
     const numericId = parseInt(id);
 
     if (contextData?.updatePersonalTask) {
-      // Use DataContext to update (this persists to localStorage)
-      contextData.updatePersonalTask(numericId, data);
+      // Use DataContext to update (this persists to localStorage and API)
+      await contextData.updatePersonalTask(numericId, data);
     } else {
       // Fallback to updating mockPersonalTasksExtended
       if (mockPersonalTasksExtended[numericId]) {
@@ -72,10 +72,10 @@ export const personalTaskConfig = {
       icon: "fas fa-info-circle",
       colorMap: true,
       options: [
-        { value: "Non commencee", label: "Non commencée", color: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300" },
+        { value: "Non commencée", label: "Non commencée", color: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300" },
         { value: "En attente", label: "En attente", color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
         { value: "En cours", label: "En cours", color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" },
-        { value: "Planifiee", label: "Planifiée", color: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400" },
+        { value: "Planifiée", label: "Planifiée", color: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400" },
         { value: "Terminée", label: "Terminée", color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" },
       ]
     },

@@ -60,6 +60,8 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
     clients = [],
     dossiers = [],
     cases = [],
+    tasks = [],
+    sessions = [],
     missions = [],
     officers = [],
     financialEntries = [],
@@ -334,6 +336,9 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
         <InlineStatusSelector
           value={entry.status}
           onChange={(newStatus) => handleStatusChange(entry.id, newStatus)}
+          entityType="financialEntry"
+          entityId={entry.id}
+          entityData={entry}
           statusOptions={[
             {
               value: "draft",
@@ -352,6 +357,12 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               label: "Payé",
               icon: "fas fa-check-double",
               color: "green",
+            },
+            {
+              value: "void",
+              label: "Annulé",
+              icon: "fas fa-times-circle",
+              color: "red",
             },
           ]}
         />

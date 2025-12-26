@@ -86,7 +86,7 @@ const financialStatusMap: Record<string, string> = {
   pending: "draft",
   posted: "confirmed",
   paid: "paid",
-  void: "cancelled",
+  void: "void",
 };
 
 const missionStatusMap: Record<string, string> = {

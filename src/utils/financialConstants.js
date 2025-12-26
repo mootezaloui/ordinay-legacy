@@ -60,7 +60,7 @@ export const financialStatuses = {
     color: "green",
     icon: "fas fa-check-double",
   },
-  cancelled: {
+  void: {
     label: "Annulé",
     color: "red",
     icon: "fas fa-times-circle",

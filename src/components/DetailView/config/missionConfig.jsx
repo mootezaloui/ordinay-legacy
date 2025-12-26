@@ -53,63 +53,22 @@ export const missionConfig = {
         return null;
     },
 
-    updateData: async (id, data) => {
+    updateData: async (id, data, contextData = null) => {
         const missionId = parseInt(id);
 
-        // Find current officer who has this mission
-        let currentOfficer = null;
-        let missionIndex = -1;
-        let mission = null;
-
-        for (const officer of (data?.officers || [])) {
-            const index = officer.missions?.findIndex(m => m.id === missionId);
-            if (index !== -1 && index !== undefined) {
-                currentOfficer = officer;
-                missionIndex = index;
-                mission = officer.missions[index];
-                break;
-            }
+        if (contextData?.updateMission) {
+            // Use DataContext to update (this persists to backend and localStorage)
+            await contextData.updateMission(missionId, data);
         }
-
-        if (!mission) return;
-
-        // Check if officer is being changed
-        if (data.officerId && data.officerId != currentOfficer.id) {
-            const newOfficer = data.officers?.find(o => o.id === data.officerId);
-
-            if (newOfficer) {
-                // Remove mission from current officer
-                currentOfficer.missions.splice(missionIndex, 1);
-
-                // Update mission with new officer info
-                const updatedMission = {
-                    ...mission,
-                    ...data,
-                    officerId: newOfficer.id,
-                    officerName: newOfficer.name,
-                    officerPhone: newOfficer.phone,
-                    officerLocation: newOfficer.location,
-                };
-
-                // Add mission to new officer
-                if (!newOfficer.missions) {
-                    newOfficer.missions = [];
-                }
-                newOfficer.missions.push(updatedMission);
-            }
-        } else {
-            // Just update the mission in place
-            currentOfficer.missions[missionIndex] = {
-                ...mission,
-                ...data,
-            };
-        }
-
-        await new Promise(resolve => setTimeout(resolve, 300));
     },
 
-    deleteData: async (id) => {
-        console.log("Deleting mission:", id);
+    deleteData: async (id, contextData = null) => {
+        const missionId = parseInt(id);
+
+        if (contextData?.deleteMission) {
+            // Use DataContext to delete (this persists to backend and localStorage)
+            await contextData.deleteMission(missionId);
+        }
     },
 
     getTitle: (data) => data.missionNumber || `Mission #${data.id}`,
@@ -308,7 +267,10 @@ export const missionConfig = {
             id: "frais",
             label: "Frais d'Huissier",
             icon: "fas fa-coins",
-            getCount: (data) => data.financialEntries?.length || 0,
+            getCount: (data) => {
+                // Filter financial entries to only include those belonging to this specific mission
+                return data.financialEntries?.filter(entry => entry.missionId === data.id).length || 0;
+            },
             component: "financial",
         },
         {

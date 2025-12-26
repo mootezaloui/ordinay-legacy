@@ -1061,9 +1061,16 @@ export function DataProvider({ children }) {
       outcome: emptyToNull(sessionItem.outcome),
       description: emptyToNull(sessionItem.description),
       notes: emptyToNull(sessionItem.notes),
-      dossier_id: emptyToNull(sessionItem.dossierId || sessionItem.dossier_id),
-      case_id: emptyToNull(sessionItem.caseId || sessionItem.case_id),
     };
+
+    // Only include dossier_id OR case_id, not both (backend requires XOR)
+    const dossierId = emptyToNull(sessionItem.dossierId || sessionItem.dossier_id);
+    const caseId = emptyToNull(sessionItem.caseId || sessionItem.case_id);
+    if (dossierId) {
+      payload.dossier_id = dossierId;
+    } else if (caseId) {
+      payload.case_id = caseId;
+    }
 
     console.log('[DataContext.addSession] Sending payload:', payload);
 
@@ -1111,31 +1118,52 @@ export function DataProvider({ children }) {
       return v || "hearing";
     };
 
-    const payload = {
-      title: emptyToNull(updates.title),
-      session_type: updates.type ? mapSessionType(updates.type || updates.session_type) : undefined,
-      status: updates.status ? (() => {
+    const payload = {};
+    if (updates.title !== undefined) {
+      payload.title = emptyToNull(updates.title);
+    }
+    if (updates.type !== undefined || updates.session_type !== undefined) {
+      payload.session_type = mapSessionType(updates.type || updates.session_type);
+    }
+    if (updates.status !== undefined) {
+      payload.status = (() => {
         const st = normalizeTxt(updates.status);
         if (["programmee", "programmee", "confirmee", "scheduled"].includes(st)) return "scheduled";
         if (["terminee", "termine", "completed"].includes(st)) return "completed";
         if (["annulee", "annule", "cancelled"].includes(st)) return "cancelled";
         if (["reportee", "reporte", "postponed"].includes(st)) return "postponed";
         return updates.status;
-      })() : undefined,
-      scheduled_at:
+      })();
+    }
+    if (updates.scheduledAt !== undefined || updates.scheduled_at !== undefined || updates.date !== undefined) {
+      payload.scheduled_at =
         updates.scheduledAt ||
         updates.scheduled_at ||
-        (updates.date ? `${updates.date}T${updates.time || "00:00"}:00` : undefined),
-      location: emptyToNull(updates.location),
-      duration: emptyToNull(updates.duration),
-      outcome: emptyToNull(updates.outcome),
-      description: emptyToNull(updates.description),
-      notes: emptyToNull(updates.notes),
-      dossier_id: emptyToNull(updates.dossierId || updates.dossier_id),
-      case_id: emptyToNull(updates.caseId || updates.case_id),
-    };
+        (updates.date ? `${updates.date}T${updates.time || "00:00"}:00` : undefined);
+    }
+    if (updates.location !== undefined) {
+      payload.location = emptyToNull(updates.location);
+    }
+    if (updates.duration !== undefined) {
+      payload.duration = emptyToNull(updates.duration);
+    }
+    if (updates.outcome !== undefined) {
+      payload.outcome = emptyToNull(updates.outcome);
+    }
+    if (updates.description !== undefined) {
+      payload.description = emptyToNull(updates.description);
+    }
+    if (updates.notes !== undefined) {
+      payload.notes = emptyToNull(updates.notes);
+    }
+    if (updates.dossierId !== undefined || updates.dossier_id !== undefined) {
+      payload.dossier_id = emptyToNull(updates.dossierId || updates.dossier_id);
+    }
+    if (updates.caseId !== undefined || updates.case_id !== undefined) {
+      payload.case_id = emptyToNull(updates.caseId || updates.case_id);
+    }
 
-    // Remove undefined values
+    // Remove undefined values (though they shouldn't be there now)
     Object.keys(payload).forEach(key => payload[key] === undefined && delete payload[key]);
 
     const updated = await apiClient.put(`/sessions/${id}`, payload);
@@ -1197,8 +1225,6 @@ export function DataProvider({ children }) {
     const payload = {
       title: taskItem.title || "Nouvelle tâche",
       description: emptyToNull(taskItem.description),
-      dossier_id: emptyToNull(taskItem.dossierId || taskItem.dossier_id),
-      case_id: emptyToNull(taskItem.caseId || taskItem.case_id),
       assigned_to: emptyToNull(taskItem.assignedTo || taskItem.assigned_to),
       due_date: emptyToNull(taskItem.dueDate || taskItem.due_date),
       estimated_time: emptyToNull(taskItem.estimatedTime || taskItem.estimated_time),
@@ -1206,7 +1232,14 @@ export function DataProvider({ children }) {
       priority: taskItem.priority || "Moyenne",
     };
 
-    console.log('[DataContext.addTask] Sending payload:', payload);
+    // Only include dossier_id OR case_id, not both (backend requires XOR)
+    const dossierId = emptyToNull(taskItem.dossierId || taskItem.dossier_id);
+    const caseId = emptyToNull(taskItem.caseId || taskItem.case_id);
+    if (dossierId) {
+      payload.dossier_id = dossierId;
+    } else if (caseId) {
+      payload.case_id = caseId;
+    }
 
     const created = await apiClient.post("/tasks", payload);
     const dossiersById = Object.fromEntries(dossiers.map((d) => [d.id, d]));
@@ -1232,28 +1265,47 @@ export function DataProvider({ children }) {
 
     const emptyToNull = (value) => (value === "" || value === undefined) ? null : value;
 
-    const payload = {
-      title: updates.title,
-      description: emptyToNull(updates.description),
-      dossier_id: emptyToNull(updates.dossierId || updates.dossier_id),
-      case_id: emptyToNull(updates.caseId || updates.case_id),
-      assigned_to: emptyToNull(updates.assignedTo || updates.assigned_to),
-      due_date: emptyToNull(updates.dueDate || updates.due_date),
-      estimated_time: emptyToNull(updates.estimatedTime || updates.estimated_time),
-      status: updates.status === "Non commencee" ? "todo" :
-        updates.status === "En cours" ? "in_progress" :
-          updates.status === "Bloquée" ? "blocked" :
-            updates.status === "Terminee" ? "done" :
-              updates.status === "Annulée" ? "cancelled" :
-                updates.status,
-      priority: updates.priority === "Haute" ? "high" :
-        updates.priority === "Moyenne" ? "medium" :
-          updates.priority === "Basse" ? "low" :
-            updates.priority,
-    };
+    const payload = {};
 
-    // Remove undefined values
-    Object.keys(payload).forEach(key => payload[key] === undefined && delete payload[key]);
+    // Only include fields that are being updated
+    if (updates.title !== undefined) {
+      payload.title = updates.title;
+    }
+    if (updates.description !== undefined) {
+      payload.description = emptyToNull(updates.description);
+    }
+    if (updates.dossierId !== undefined || updates.dossier_id !== undefined) {
+      payload.dossier_id = emptyToNull(updates.dossierId || updates.dossier_id);
+    }
+    if (updates.caseId !== undefined || updates.case_id !== undefined) {
+      payload.case_id = emptyToNull(updates.caseId || updates.case_id);
+    }
+    if (updates.assignedTo !== undefined || updates.assigned_to !== undefined) {
+      payload.assigned_to = emptyToNull(updates.assignedTo || updates.assigned_to);
+    }
+    if (updates.dueDate !== undefined || updates.due_date !== undefined) {
+      payload.due_date = emptyToNull(updates.dueDate || updates.due_date);
+    }
+    if (updates.estimatedTime !== undefined || updates.estimated_time !== undefined) {
+      payload.estimated_time = emptyToNull(updates.estimatedTime || updates.estimated_time);
+    }
+    if (updates.status !== undefined) {
+      // Backend expects French statuses WITHOUT accents
+      const statusMap = {
+        "Non commencée": "Non commencee",
+        "En cours": "En cours",
+        "Bloqué": "Bloqué",
+        "Terminée": "Terminee",
+        "Annulé": "Annulé",
+        "En attente": "En attente",
+        "Planifiée": "Planifiee",
+      };
+      payload.status = statusMap[updates.status] || updates.status;
+    }
+    if (updates.priority !== undefined) {
+      // Backend expects French priorities, send as-is
+      payload.priority = updates.priority;
+    }
 
     const updated = await apiClient.put(`/tasks/${id}`, payload);
     const dossiersById = Object.fromEntries(dossiers.map((d) => [d.id, d]));
@@ -1372,45 +1424,35 @@ export function DataProvider({ children }) {
 
     const emptyToNull = (value) => (value === "" || value === undefined) ? null : value;
 
-    // Map status from French to English
-    const statusMap = {
-      "Non commencée": "todo",
-      "todo": "todo",
-      "En attente": "in_progress",
-      "in_progress": "in_progress",
-      "Bloqué": "blocked",
-      "blocked": "blocked",
-      "Terminée": "done",
-      "done": "done",
-      "Annulée": "cancelled",
-      "cancelled": "cancelled",
-    };
+    const payload = {};
 
-    // Map priority from French to English
-    const priorityMap = {
-      "Basse": "low",
-      "low": "low",
-      "Moyenne": "medium",
-      "medium": "medium",
-      "Haute": "high",
-      "high": "high",
-      "Urgent": "urgent",
-      "urgent": "urgent",
-    };
-
-    const payload = {
-      title: updates.title,
-      description: emptyToNull(updates.description),
-      category: emptyToNull(updates.category),
-      status: updates.status ? (statusMap[updates.status] || updates.status) : undefined,
-      priority: updates.priority ? (priorityMap[updates.priority] || updates.priority) : undefined,
-      due_date: emptyToNull(updates.dueDate || updates.due_date),
-      completed_at: emptyToNull(updates.completedAt || updates.completed_at),
-      notes: emptyToNull(updates.notes),
-    };
-
-    // Remove undefined values
-    Object.keys(payload).forEach(key => payload[key] === undefined && delete payload[key]);
+    // Only include fields that are being updated
+    if (updates.title !== undefined) {
+      payload.title = updates.title;
+    }
+    if (updates.description !== undefined) {
+      payload.description = emptyToNull(updates.description);
+    }
+    if (updates.category !== undefined) {
+      payload.category = emptyToNull(updates.category);
+    }
+    if (updates.status !== undefined) {
+      // Database accepts both French and English, send as-is
+      payload.status = updates.status;
+    }
+    if (updates.priority !== undefined) {
+      // Database accepts both French and English, send as-is
+      payload.priority = updates.priority;
+    }
+    if (updates.dueDate !== undefined || updates.due_date !== undefined) {
+      payload.due_date = emptyToNull(updates.dueDate || updates.due_date);
+    }
+    if (updates.completedAt !== undefined || updates.completed_at !== undefined) {
+      payload.completed_at = emptyToNull(updates.completedAt || updates.completed_at);
+    }
+    if (updates.notes !== undefined) {
+      payload.notes = emptyToNull(updates.notes);
+    }
 
     const updated = await apiClient.put(`/personal-tasks/${id}`, payload);
     const adapted = adaptPersonalTask(updated);
@@ -1536,11 +1578,8 @@ export function DataProvider({ children }) {
       payload.registration_number = emptyToNull(updates.registrationNumber || updates.registration_number);
     }
     if (updates.status !== undefined) {
-      payload.status = updates.status === "Disponible" ? "active" :
-              updates.status === "Occupé" || updates.status === "Occupe" ? "busy" :
-              updates.status === "Inactif" ? "inactive" :
-              updates.status === "Suspendu" ? "suspended" :
-              updates.status;
+      // Database accepts French values directly: Disponible, Occupe, Inactif
+      payload.status = updates.status;
     }
     if (updates.notes !== undefined) {
       payload.notes = emptyToNull(updates.notes);
@@ -1663,33 +1702,61 @@ export function DataProvider({ children }) {
 
     const emptyToNull = (value) => (value === "" || value === undefined) ? null : value;
 
-    const payload = {
-      title: updates.title,
-      description: emptyToNull(updates.description),
-      mission_type: emptyToNull(updates.missionType || updates.mission_type),
-      status: updates.status === "Programmée" || updates.status === "Programmee" || updates.status === "Planifiée" || updates.status === "Planifiee" ? "planned" :
-              updates.status === "En cours" ? "in_progress" :
-              updates.status === "Terminée" || updates.status === "Terminee" ? "completed" :
-              updates.status === "Annulée" || updates.status === "Annulee" ? "cancelled" :
-              updates.status,
-      priority: updates.priority === "Haute" ? "high" :
-                updates.priority === "Moyenne" ? "medium" :
-                updates.priority === "Basse" ? "low" :
-                updates.priority,
-      assign_date: emptyToNull(updates.assignDate || updates.assign_date),
-      due_date: emptyToNull(updates.dueDate || updates.due_date),
-      completion_date: emptyToNull(updates.completionDate || updates.completion_date),
-      closed_at: emptyToNull(updates.closedAt || updates.closed_at),
-      result: emptyToNull(updates.result),
-      notes: emptyToNull(updates.notes),
-      dossier_id: emptyToNull(updates.dossierId || updates.dossier_id),
-      case_id: emptyToNull(updates.caseId || updates.case_id),
-      officer_id: emptyToNull(updates.officerId || updates.officer_id),
-      reference: emptyToNull(updates.missionNumber || updates.reference),
-    };
+    // Build payload with ONLY the fields present in updates (PATCH semantics)
+    const payload = {};
 
-    // Remove undefined values
-    Object.keys(payload).forEach(key => payload[key] === undefined && delete payload[key]);
+    if (updates.title !== undefined) {
+      payload.title = updates.title;
+    }
+    if (updates.description !== undefined) {
+      payload.description = emptyToNull(updates.description);
+    }
+    if (updates.missionType !== undefined || updates.mission_type !== undefined) {
+      payload.mission_type = emptyToNull(updates.missionType || updates.mission_type);
+    }
+    if (updates.status !== undefined) {
+      payload.status = updates.status === "Programmée" || updates.status === "Programmee" || updates.status === "Planifiée" || updates.status === "Planifiee" ? "planned" :
+        updates.status === "En cours" ? "in_progress" :
+          updates.status === "Terminée" || updates.status === "Terminee" ? "completed" :
+            updates.status === "Annulée" || updates.status === "Annulee" ? "cancelled" :
+              updates.status;
+    }
+    if (updates.priority !== undefined) {
+      payload.priority = updates.priority === "Haute" ? "high" :
+        updates.priority === "Moyenne" ? "medium" :
+          updates.priority === "Basse" ? "low" :
+            updates.priority;
+    }
+    if (updates.assignDate !== undefined || updates.assign_date !== undefined) {
+      payload.assign_date = emptyToNull(updates.assignDate || updates.assign_date);
+    }
+    if (updates.dueDate !== undefined || updates.due_date !== undefined) {
+      payload.due_date = emptyToNull(updates.dueDate || updates.due_date);
+    }
+    if (updates.completionDate !== undefined || updates.completion_date !== undefined) {
+      payload.completion_date = emptyToNull(updates.completionDate || updates.completion_date);
+    }
+    if (updates.closedAt !== undefined || updates.closed_at !== undefined) {
+      payload.closed_at = emptyToNull(updates.closedAt || updates.closed_at);
+    }
+    if (updates.result !== undefined) {
+      payload.result = emptyToNull(updates.result);
+    }
+    if (updates.notes !== undefined) {
+      payload.notes = emptyToNull(updates.notes);
+    }
+    if (updates.dossierId !== undefined || updates.dossier_id !== undefined) {
+      payload.dossier_id = emptyToNull(updates.dossierId || updates.dossier_id);
+    }
+    if (updates.caseId !== undefined || updates.case_id !== undefined) {
+      payload.case_id = emptyToNull(updates.caseId || updates.case_id);
+    }
+    if (updates.officerId !== undefined || updates.officer_id !== undefined) {
+      payload.officer_id = emptyToNull(updates.officerId || updates.officer_id);
+    }
+    if (updates.missionNumber !== undefined || updates.reference !== undefined) {
+      payload.reference = emptyToNull(updates.missionNumber || updates.reference);
+    }
 
     const updated = await apiClient.put(`/missions/${id}`, payload);
     const dossiersById = Object.fromEntries(dossiers.map((d) => [d.id, d]));
@@ -1706,7 +1773,7 @@ export function DataProvider({ children }) {
     logUpdateHistory("mission", prev, updates);
     logStatusHistory("mission", prev, updates);
 
-    return validation;
+    return adapted;
   };
 
   const deleteMission = async (id) => {

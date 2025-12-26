@@ -539,7 +539,7 @@ export default function DetailView({ entityType }) {
           const relatedDossiers = data.relatedDossiers || [];
 
           // ✅ Merge newly added items with existing items
-          const existingCases = latestContextRef.current.cases || [].filter(cas =>
+          const existingCases = (latestContextRef.current.cases || []).filter(cas =>
             relatedDossiers.some(dossier => dossier.id === cas.dossierId)
           );
 
@@ -568,7 +568,7 @@ export default function DetailView({ entityType }) {
         } else if (isDossier) {
           // Dossier entity: Direct children - proceedings of this dossier
           // ✅ Merge newly added items (data.proceedings) with existing items (filtered from latestContextRef.current.cases || [])
-          const existingProceedings = latestContextRef.current.cases || [].filter(c => c.dossierId === data.id);
+          const existingProceedings = (latestContextRef.current.cases || []).filter(c => c.dossierId === data.id);
 
           // Combine and deduplicate
           const newlyAddedProceedings = data.proceedings || [];
@@ -630,7 +630,7 @@ export default function DetailView({ entityType }) {
             bgColor: "bg-green-100 dark:bg-green-900/20",
             route: "/sessions",
             emptyMessage:
-              "Aucune Audiences programmAce pour ce client.\nPour ajouter une audience, crAcez d'abord un dossier et un procA\"s.",
+              "Aucune Audiences programmAce pour ce client.\nPour ajouter une audience, creez un dossier ou un proces.",
             getTitle: (item) => item.title,
             getSubtitle: (item) => `${item.date} • ${item.time} • ${item.location}`,
             getStatus: (item) => item.status,
@@ -696,12 +696,12 @@ export default function DetailView({ entityType }) {
         if (isClient) {
           // Client entity: Get all Tasks related to this client (via Dossiers or Procès)
           const relatedDossiers = data.relatedDossiers || [];
-          const relatedCasesForTasks = latestContextRef.current.cases || [].filter(cas =>
+          const relatedCasesForTasks = (latestContextRef.current.cases || []).filter(cas =>
             relatedDossiers.some(dossier => dossier.id === cas.dossierId)
           );
 
           // ✅ Merge newly added items with existing items
-          const existingTasks = latestContextRef.current.tasks || [].filter(task => {
+          const existingTasks = (latestContextRef.current.tasks || []).filter(task => {
             if (task.parentType === 'dossier') {
               return relatedDossiers.some(dossier => dossier.id === task.dossierId);
             } else if (task.parentType === 'case') {
@@ -749,7 +749,7 @@ export default function DetailView({ entityType }) {
           const dossierCases = data.proceedings || [];
 
           // ✅ Merge newly added items (data.tasks) with existing items (filtered from latestContextRef.current.tasks || [])
-          const existingTasks = latestContextRef.current.tasks || [].filter(task => {
+          const existingTasks = (latestContextRef.current.tasks || []).filter(task => {
             if (task.parentType === 'dossier' && task.dossierId === data.id) {
               return true;
             } else if (task.parentType === 'case') {
@@ -791,7 +791,7 @@ export default function DetailView({ entityType }) {
 
           // ✅ PRIORITY 1: Use data from entity object if available (newly added items)
           // ✅ PRIORITY 2: Fall back to filtering global array (existing items)
-          items = data.tasks || latestContextRef.current.tasks || [].filter(task => {
+          items = data.tasks || (latestContextRef.current.tasks || []).filter(task => {
             if (task.parentType === 'case' && task.caseId === data.id) {
               return true;
             } else if (task.parentType === 'dossier' && parentDossier && task.dossierId === parentDossier.id) {
@@ -838,7 +838,7 @@ export default function DetailView({ entityType }) {
             getTitle: (item) => item.missionNumber,
             getSubtitle: (item) => {
               // Lookup officer name from officerId if not already set
-              const officerName = item.officerName || (item.officerId ? latestContextRef.current.officers || [].find(o => o.id === parseInt(item.officerId))?.name : null) || 'N/A';
+              const officerName = item.officerName || (item.officerId ? (latestContextRef.current.officers || []).find(o => o.id === parseInt(item.officerId))?.name : null) || 'N/A';
               return `${item.title} • ${item.missionType} • Huissier: ${officerName}`;
             },
             getStatus: (item) => item.status,
@@ -857,7 +857,7 @@ export default function DetailView({ entityType }) {
             getTitle: (item) => item.missionNumber,
             getSubtitle: (item) => {
               // Lookup officer name from officerId if not already set
-              const officerName = item.officerName || (item.officerId ? latestContextRef.current.officers || [].find(o => o.id === parseInt(item.officerId))?.name : null) || 'N/A';
+              const officerName = item.officerName || (item.officerId ? (latestContextRef.current.officers || []).find(o => o.id === parseInt(item.officerId))?.name : null) || 'N/A';
               return `${item.title} • ${item.missionType} • Huissier: ${officerName}`;
             },
             getStatus: (item) => item.status,
@@ -899,39 +899,9 @@ export default function DetailView({ entityType }) {
               Retour
             </button>
 
-            {config.allowEdit && !isEditing && (
-              <button
-                onClick={() => setIsEditing(true)}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200"
-              >
-                <i className="fas fa-edit mr-2"></i>
-                Modifier
-              </button>
-            )}
+            {/* ✅ REMOVED: Top-level Modifier button - all sections now use structured edit mode with individual edit buttons */}
 
-            {config.allowEdit && isEditing && (
-              <>
-                <button
-                  onClick={() => {
-                    setData(originalData);
-                    setIsEditing(false);
-                  }}
-                  className="px-4 py-2 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-lg font-medium transition-colors duration-200"
-                >
-                  <i className="fas fa-times mr-2"></i>
-                  Annuler
-                </button>
-                <button
-                  onClick={handleSave}
-                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors duration-200"
-                >
-                  <i className="fas fa-save mr-2"></i>
-                  Enregistrer
-                </button>
-              </>
-            )}
-
-            {config.allowDelete && !isEditing && (
+            {config.allowDelete && (
               <button
                 onClick={handleDelete}
                 className="px-4 py-2 border border-red-300 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg font-medium transition-colors duration-200"

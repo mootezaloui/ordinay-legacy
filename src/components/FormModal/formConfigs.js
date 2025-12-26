@@ -326,12 +326,7 @@ export const dossierFormFields = [
     placeholder: "Ex: TPI-2024-1234",
     required: false,
   },
-  {
-    name: "nextDeadline",
-    label: "Prochaine échéance",
-    type: "date",
-    required: false,
-  },
+  // ✅ REMOVED: nextDeadline - now auto-calculated from sessions/tasks/financial entries
 ];
 
 // ========================================
@@ -415,12 +410,7 @@ export const caseFormFields = [
     required: true,
     defaultValue: new Date().toISOString().split("T")[0],
   },
-  {
-    name: "nextHearing",
-    label: "Prochaine Audience",
-    type: "date",
-    required: false,
-  },
+  // ✅ REMOVED: nextHearing - now auto-calculated from related sessions
   {
     name: "referenceNumber",
     label: "Numéro de référence",

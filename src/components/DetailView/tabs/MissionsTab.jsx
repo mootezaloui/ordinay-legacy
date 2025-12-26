@@ -28,7 +28,20 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
   const location = useLocation();
   const { showToast } = useToast();
   const { confirm } = useConfirm();
-  const { addMission, updateMission, deleteMission, addFinancialEntry } = useData();
+  const {
+    clients,
+    dossiers,
+    cases,
+    tasks,
+    sessions,
+    officers,
+    missions: allMissions,
+    financialEntries,
+    addMission,
+    updateMission,
+    deleteMission,
+    addFinancialEntry
+  } = useData();
   const [missions, setMissions] = useState(data[tabConfig.itemsKey] || []);
 
   // ✅ Synchronize local missions state with parent data prop
@@ -115,7 +128,7 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
       const result = canPerformAction('mission', editingMissionId, 'edit', {
         data: currentMission,
         newData: submittedFormData,
-        entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
+        entities: { clients, dossiers, cases, tasks, sessions, officers, missions: allMissions, financialEntries }
       });
 
       if (!result.allowed) {
@@ -134,7 +147,7 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
     } else {
       const result = canPerformAction('mission', null, 'add', {
         newData: submittedFormData,
-        entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
+        entities: { clients, dossiers, cases, tasks, sessions, officers, missions: allMissions, financialEntries }
       });
       if (!result.allowed) {
         setValidationResult(result);
@@ -162,12 +175,12 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
         // UPDATE EXISTING MISSION
         console.log("📝 Updating mission ID:", editingMissionId, "with:", submittedFormData);
 
-        // ✅ Call backend API to update mission
-        await updateMission(editingMissionId, submittedFormData);
+        // ✅ Call backend API to update mission and get the adapted result
+        const updatedMission = await updateMission(editingMissionId, submittedFormData);
 
-        // Fetch updated mission from local state (DataContext will have updated it)
+        // Update local state with the properly adapted mission data from the API
         const updatedMissions = missions.map(m =>
-          m.id === editingMissionId ? { ...m, ...submittedFormData } : m
+          m.id === editingMissionId ? updatedMission : m
         );
 
         setMissions(updatedMissions);
@@ -389,7 +402,7 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
       const validation = canPerformAction("financialEntry", null, "add", {
         data: newEntry,
         newData: newEntry,
-        entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
+        entities: { clients, dossiers, cases, tasks, sessions, officers, missions: allMissions, financialEntries }
       });
       if (!validation.allowed) {
         setValidationResult(validation);

@@ -3,6 +3,7 @@ import ContentSection from "../../layout/ContentSection";
 import { getStatusColor } from "./statusColors";
 import { taskFormFields, caseFormFields, sessionFormFields, missionFormFields } from "../../FormModal/formConfigs";
 import { getAllPhases, addCustomPhase } from "../../../utils/phaseManager";
+import { calculateNextDeadline, formatDate, getDeadlineNavigationPath, getDeadlineUrgency } from "../../../utils/deadlineUtils";
 
 // Default phases for dossiers
 const DEFAULT_PHASES = [
@@ -54,6 +55,7 @@ export const dossierConfig = {
     const sessions = contextData?.sessions || [];
     const tasks = contextData?.tasks || [];
     const cases = contextData?.cases || [];
+    const financialEntries = contextData?.financialEntries || [];
 
     // Always derive proceedings from the live cases list to stay in sync with deletions
     const dossierCases = cases.filter(c => c.dossierId === numericId);
@@ -66,6 +68,13 @@ export const dossierConfig = {
       (task.parentType === 'dossier' && task.dossierId === numericId) ||
       (task.parentType === 'case' && dossierCases.some(cas => cas.id === task.caseId))
     );
+    const relatedFinancialEntries = financialEntries.filter(entry =>
+      entry.dossierId === numericId ||
+      dossierCases.some(cas => cas.id === entry.caseId)
+    );
+
+    // ✅ Calculate dynamic next deadline from all related entities
+    const nextDeadlineObj = calculateNextDeadline(dossier, relatedSessions, relatedTasks, relatedFinancialEntries);
 
     // ✅ Always resolve client from clientId using latest context data
     const clients = contextData?.clients || [];
@@ -88,6 +97,9 @@ export const dossierConfig = {
       sessions: relatedSessions,
       tasks: relatedTasks,
       proceedings: dossierCases,
+      financialEntries: relatedFinancialEntries,
+      // ✅ Add computed next deadline
+      computedNextDeadline: nextDeadlineObj,
     };
   },
 
@@ -214,7 +226,35 @@ export const dossierConfig = {
             <InfoCard icon="fas fa-calendar" label="Date d'ouverture" value={data.openDate} color="blue" />
             <InfoCard icon="fas fa-layer-group" label="Catégorie" value={data.category} color="purple" />
             <InfoCard icon="fas fa-stream" label="Phase" value={data.phase || "Non définie"} color="green" />
-            <InfoCard icon="fas fa-clock" label="Prochaine échéance" value={data.nextDeadline} color="amber" />
+            {(() => {
+              const deadline = data.computedNextDeadline;
+              if (!deadline) {
+                return <InfoCard icon="fas fa-clock" label="Prochaine échéance" value="Aucune échéance" color="amber" />;
+              }
+
+              const formattedDate = formatDate(deadline.date);
+              const urgency = getDeadlineUrgency(deadline);
+              const linkTo = getDeadlineNavigationPath(deadline, data.id);
+
+              // Choose color based on urgency
+              const urgencyColors = {
+                critical: "red",
+                urgent: "amber",
+                soon: "amber",
+                normal: "amber",
+              };
+
+              return (
+                <InfoCard
+                  icon="fas fa-clock"
+                  label="Prochaine échéance"
+                  value={formattedDate}
+                  subtitle={deadline.label}
+                  color={urgencyColors[urgency]}
+                  linkTo={linkTo}
+                />
+              );
+            })()}
           </div>
         </div>
       </ContentSection>
@@ -607,10 +647,70 @@ export const dossierConfig = {
         {
           key: "nextDeadline",
           label: "Prochaine échéance",
-          value: (data) => data.nextDeadline,
+          value: (data) => {
+            const deadline = data.computedNextDeadline;
+            if (!deadline) return "Aucune échéance";
+            return formatDate(deadline.date);
+          },
           icon: "fas fa-clock",
-          type: "date",
-          editable: true
+          type: "custom",
+          editable: false,
+          customRender: (data) => {
+            const deadline = data.computedNextDeadline;
+            if (!deadline) {
+              return (
+                <div className="text-slate-500 dark:text-slate-400 text-sm">
+                  Aucune échéance à venir
+                </div>
+              );
+            }
+
+            const formattedDate = formatDate(deadline.date);
+            const urgency = getDeadlineUrgency(deadline);
+            const linkTo = getDeadlineNavigationPath(deadline, data.id);
+
+            // Urgency badge colors
+            const urgencyStyles = {
+              critical: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 border-red-300 dark:border-red-700",
+              urgent: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400 border-orange-300 dark:border-orange-700",
+              soon: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 border-amber-300 dark:border-amber-700",
+              normal: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 border-blue-300 dark:border-blue-700",
+            };
+
+            const urgencyLabels = {
+              critical: "Critique",
+              urgent: "Urgent",
+              soon: "Bientôt",
+              normal: "Planifié",
+            };
+
+            return (
+              <div className="flex items-start gap-3">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-slate-900 dark:text-white font-medium">
+                      {formattedDate}
+                    </span>
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${urgencyStyles[urgency]}`}>
+                      {urgencyLabels[urgency]}
+                    </span>
+                  </div>
+                  <div className="text-sm text-slate-600 dark:text-slate-400">
+                    {deadline.label}
+                  </div>
+                  {linkTo && (
+                    <Link
+                      to={linkTo}
+                      className="text-sm text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-1 mt-1"
+                    >
+                      Voir les détails
+                      <i className="fas fa-arrow-right text-xs"></i>
+                    </Link>
+                  )}
+                </div>
+              </div>
+            );
+          }
         },
       ],
     },
@@ -669,23 +769,41 @@ export const dossierConfig = {
 };
 
 // Helper component
-function InfoCard({ icon, label, value, color }) {
+function InfoCard({ icon, label, value, color, linkTo = null, subtitle = null }) {
   const colors = {
     blue: "bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400",
     purple: "bg-purple-100 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400",
     green: "bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400",
     amber: "bg-amber-100 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400",
+    red: "bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400",
   };
 
-  return (
-    <div className="flex items-center gap-3">
+  const content = (
+    <>
       <div className={`p-2 rounded-lg ${colors[color]}`}>
         <i className={icon}></i>
       </div>
-      <div>
+      <div className="flex-1 min-w-0">
         <p className="text-xs text-slate-500 dark:text-slate-400">{label}</p>
-        <p className="text-sm font-medium text-slate-900 dark:text-white">{value}</p>
+        <p className="text-sm font-medium text-slate-900 dark:text-white truncate">{value}</p>
+        {subtitle && (
+          <p className="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">{subtitle}</p>
+        )}
       </div>
-    </div>
+    </>
   );
+
+  if (linkTo) {
+    return (
+      <Link
+        to={linkTo}
+        className="flex items-center gap-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 p-2 -m-2 rounded-lg transition-colors group"
+      >
+        {content}
+        <i className="fas fa-arrow-right text-slate-400 dark:text-slate-500 text-xs opacity-0 group-hover:opacity-100 transition-opacity"></i>
+      </Link>
+    );
+  }
+
+  return <div className="flex items-center gap-3">{content}</div>;
 }

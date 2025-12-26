@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAdvancedTable } from "../hooks/useAdvancedTable";
 import { useToast } from "../contexts/ToastContext";
@@ -25,12 +25,25 @@ import ConfirmImpactModal from "../components/ui/ConfirmImpactModal";
 import { canPerformAction } from "../services/domainRules";
 import { resolveDetailRoute } from "../utils/routeResolver";
 import { logEntityCreation } from "../services/historyService";
+import { calculateNextHearing, formatDate, getDeadlineUrgency } from "../utils/deadlineUtils";
 
 export default function Cases() {
   const navigate = useNavigate();
   const { showToast } = useToast();
   const { confirm } = useConfirm();
   const { cases, dossiers, clients, sessions, tasks, missions, officers, financialEntries, addCase, updateCase, deleteCase, deleteCaseCascade, loading, loadError } = useData();
+
+  // Compute next hearing for each case
+  const enhancedCases = useMemo(() => {
+    return cases.map(caseItem => {
+      const caseSessions = sessions.filter(s => s.caseId === caseItem.id || s.dossierId === caseItem.dossierId);
+      const nextHearingObj = calculateNextHearing(caseItem, caseSessions);
+      return {
+        ...caseItem,
+        computedNextHearing: nextHearingObj,
+      };
+    });
+  }, [cases, sessions]);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCase, setEditingCase] = useState(null);
@@ -95,7 +108,22 @@ export default function Cases() {
       id: "nextHearing",
       label: "Next hearing",
       sortable: true,
-      render: (caseItem) => <span className="font-medium">{caseItem.nextHearing}</span>,
+      render: (caseItem) => {
+        const hearing = caseItem.computedNextHearing;
+        if (!hearing) return <span className="text-slate-400 italic">No hearing</span>;
+        const urgency = getDeadlineUrgency(hearing);
+        const urgencyColor = {
+          critical: "text-red-600 font-bold",
+          urgent: "text-amber-600 font-semibold",
+          soon: "text-blue-600 font-medium",
+          normal: "text-slate-900 dark:text-white"
+        }[urgency] || "text-slate-900 dark:text-white";
+        return (
+          <span className={urgencyColor} title={hearing.label}>
+            {formatDate(hearing.date)}{hearing.time ? ` ${hearing.time}` : ""}
+          </span>
+        );
+      },
     },
     {
       id: "status",
@@ -158,19 +186,21 @@ export default function Cases() {
 
   // Calculate stats
   const stats = {
-    total: cases.length,
-    active: cases.filter(c => c.status === "En cours").length,
-    upcoming: cases.filter(c => {
-      const hearingDate = new Date(c.nextHearing);
+    total: enhancedCases.length,
+    active: enhancedCases.filter(c => c.status === "En cours").length,
+    upcoming: enhancedCases.filter(c => {
+      const hearing = c.computedNextHearing;
+      if (!hearing) return false;
+      const hearingDate = new Date(hearing.date);
       const nextWeek = new Date();
       nextWeek.setDate(nextWeek.getDate() + 7);
       return hearingDate <= nextWeek && hearingDate >= new Date();
     }).length,
-    closed: cases.filter(c => c.status === "TerminÃ©").length,
+    closed: enhancedCases.filter(c => c.status === "TerminÃ©").length,
   };
 
   // Initialize advanced table
-  const table = useAdvancedTable(cases, columns, {
+  const table = useAdvancedTable(enhancedCases, columns, {
     initialSortBy: "nextHearing",
     initialSortDirection: "asc",
     initialItemsPerPage: 10,
@@ -431,8 +461,8 @@ export default function Cases() {
             onClick={handleAddCase}
             disabled={dossiers.length === 0}
             className={`px-4 py-2 rounded-lg font-medium transition-colors duration-200 flex items-center gap-2 ${dossiers.length === 0
-                ? "bg-gray-400 cursor-not-allowed text-gray-200"
-                : "bg-blue-600 hover:bg-blue-700 text-white"
+              ? "bg-gray-400 cursor-not-allowed text-gray-200"
+              : "bg-blue-600 hover:bg-blue-700 text-white"
               }`}
             title={dossiers.length === 0 ? "Cannot create a case without dossiers. Please create a dossier first." : ""}
           >
@@ -500,7 +530,7 @@ export default function Cases() {
             onReorder={table.reorderColumns}
             enableReorder={true}
           />
-          <TableBody isEmpty={table.data.length === 0} emptyMessage={table.isFiltering ? "No results found" : "No cases found"}>
+          <TableBody isEmpty={table.data.length === 0} emptyMessage={table.isFiltering ? "No results found" : dossiers.length === 0 ? "Ajoutez d'abord un dossier avant de créer un procès." : "No cases found"}>
             {table.data.map((caseItem) => (
               <TableRow
                 key={caseItem.id}
