@@ -12,8 +12,8 @@ export const missionConfig = {
     entityName: "Mission",
     icon: "fas fa-clipboard-check",
     listRoute: "/officers",
-    notFoundMessage: "Mission non trouvée",
-    deleteConfirmMessage: "Êtes-vous sûr de vouloir supprimer cette mission ?",
+    notFoundMessage: "Mission not found.",
+    deleteConfirmMessage: "Are you sure you want to delete this mission?",
     allowDelete: true,
     allowEdit: true,
 
@@ -37,7 +37,7 @@ export const missionConfig = {
                             (mission.dossierId && entry.dossierId === mission.dossierId) ||
                             (mission.caseId && entry.caseId === mission.caseId)
                         )
-                    ) && entry.category === 'frais_huissier'; // Only officer fees
+                    ) && entry.category === 'bailiff_fees'; // Only officer fees
                 });
 
                 return {
@@ -78,32 +78,32 @@ export const missionConfig = {
     quickActions: [
         {
             key: "status",
-            label: "Statut",
+            label: "Status",
             icon: "fas fa-flag",
             colorMap: true,
             options: [
-                { value: "Programmée", label: "Programmée", color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400", icon: "fas fa-calendar" },
-                { value: "En cours", label: "En cours", color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400", icon: "fas fa-spinner" },
-                { value: "Terminée", label: "Terminée", color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400", icon: "fas fa-check-circle" },
-                { value: "Annulée", label: "Annulée", color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400", icon: "fas fa-times-circle" },
+                { value: "Planned", label: "Planned", color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400", icon: "fas fa-calendar" },
+                { value: "In Progress", label: "In Progress", color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400", icon: "fas fa-spinner" },
+                { value: "Completed", label: "Completed", color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400", icon: "fas fa-check-circle" },
+                { value: "Cancelled", label: "Cancelled", color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400", icon: "fas fa-times-circle" },
             ],
         },
         {
             key: "priority",
-            label: "Priorité",
+            label: "Priority",
             icon: "fas fa-exclamation-circle",
             colorMap: true,
             options: [
-                { value: "Haute", label: "Haute", color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400", icon: "fas fa-angle-double-up" },
-                { value: "Moyenne", label: "Moyenne", color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400", icon: "fas fa-minus" },
-                { value: "Basse", label: "Basse", color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400", icon: "fas fa-angle-double-down" },
+                { value: "High", label: "High", color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400", icon: "fas fa-angle-double-up" },
+                { value: "Medium", label: "Medium", color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400", icon: "fas fa-minus" },
+                { value: "Low", label: "Low", color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400", icon: "fas fa-angle-double-down" },
             ],
         },
         {
             key: "officerId",
-            label: "Huissier",
+            label: "Bailiff",
             icon: "fas fa-user-tie",
-            displayValue: (data) => data.officerName || "Non assigné",
+            displayValue: (data) => data.officerName || "Unassigned",
             options: [],
         }
     ],
@@ -111,12 +111,12 @@ export const missionConfig = {
     renderHeader: (data) => {
         const getStatusBadge = () => {
             const statusMap = {
-                "Programmée": { bg: "from-blue-400 to-blue-600", icon: "fa-calendar" },
-                "En cours": { bg: "from-amber-400 to-orange-600", icon: "fa-spinner" },
-                "Terminée": { bg: "from-green-400 to-green-600", icon: "fa-check-circle" },
-                "Annulée": { bg: "from-red-400 to-red-600", icon: "fa-times-circle" },
+                "Scheduled": { bg: "from-blue-400 to-blue-600", icon: "fa-calendar" },
+                "In Progress": { bg: "from-amber-400 to-orange-600", icon: "fa-spinner" },
+                "Completed": { bg: "from-green-400 to-green-600", icon: "fa-check-circle" },
+                "Cancelled": { bg: "from-red-400 to-red-600", icon: "fa-times-circle" },
             };
-            return statusMap[data.status] || statusMap["Programmée"];
+            return statusMap[data.status] || statusMap["Scheduled"];
         };
 
         const statusBadge = getStatusBadge();
@@ -137,11 +137,11 @@ export const missionConfig = {
                                     {data.missionNumber}
                                 </div>
                                 <div className="flex items-center gap-3 flex-wrap">
-                                    <span className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-bold ${data.missionType === 'Signification'
+                                    <span className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-bold ${data.missionType === 'Service'
                                         ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
-                                        : data.missionType === 'Saisie'
+                                        : data.missionType === 'Execution'
                                             ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
-                                            : data.missionType === 'Constat'
+                                            : data.missionType === 'Observation'
                                                 ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300'
                                                 : 'bg-slate-100 text-slate-700 dark:bg-slate-900/30 dark:text-slate-300'
                                         }`}>
@@ -150,7 +150,7 @@ export const missionConfig = {
                                     </span>
                                     <span className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-bold ${getStatusColor(data.priority)}`}>
                                         <i className="fas fa-exclamation-circle"></i>
-                                        Priorité: {data.priority}
+                                        Priority: {data.priority}
                                     </span>
                                 </div>
                             </div>
@@ -163,7 +163,7 @@ export const missionConfig = {
                                         <i className="fas fa-calendar-plus text-white"></i>
                                     </div>
                                     <div className="min-w-0 flex-1">
-                                        <p className="text-xs font-medium text-blue-600 dark:text-blue-400">Assignée le</p>
+                                        <p className="text-xs font-medium text-blue-600 dark:text-blue-400">Assigned On</p>
                                         <p className="text-sm font-bold text-blue-900 dark:text-blue-100 truncate">
                                             {formatDateValue(data.assignDate)}
                                         </p>
@@ -177,7 +177,7 @@ export const missionConfig = {
                                             <i className="fas fa-clock text-white"></i>
                                         </div>
                                         <div className="min-w-0 flex-1">
-                                            <p className="text-xs font-medium text-orange-600 dark:text-orange-400">Échéance</p>
+                                            <p className="text-xs font-medium text-orange-600 dark:text-orange-400">Due Date</p>
                                             <p className="text-sm font-bold text-orange-900 dark:text-orange-100 truncate">
                                                 {formatDateValue(data.dueDate)}
                                             </p>
@@ -192,7 +192,7 @@ export const missionConfig = {
                                             <i className="fas fa-check-circle text-white"></i>
                                         </div>
                                         <div className="min-w-0 flex-1">
-                                            <p className="text-xs font-medium text-green-600 dark:text-green-400">Terminée le</p>
+                                            <p className="text-xs font-medium text-green-600 dark:text-green-400">Completed On</p>
                                             <p className="text-sm font-bold text-green-900 dark:text-green-100 truncate">
                                                 {formatDateValue(data.completionDate)}
                                             </p>
@@ -207,7 +207,7 @@ export const missionConfig = {
                                             <i className="fas fa-user-tie text-white"></i>
                                         </div>
                                         <div className="min-w-0 flex-1">
-                                            <p className="text-xs font-medium text-amber-600 dark:text-amber-400">Huissier</p>
+                                            <p className="text-xs font-medium text-amber-600 dark:text-amber-400">Bailiff</p>
                                             <p className="text-sm font-bold text-amber-900 dark:text-amber-100 truncate">{data.officerName}</p>
                                         </div>
                                     </div>
@@ -234,7 +234,7 @@ export const missionConfig = {
             });
         }
 
-        if (data.status === "Terminée" && data.assignDate && data.completionDate) {
+        if (data.status === "Completed" && data.assignDate && data.completionDate) {
             const assignDate = new Date(data.assignDate);
             const completionDate = new Date(data.completionDate);
 
@@ -246,8 +246,8 @@ export const missionConfig = {
                     icon: "fas fa-hourglass-half",
                     iconColor: "text-amber-600 dark:text-amber-400",
                     bgColor: "bg-amber-100 dark:bg-amber-900/20",
-                    value: `${days}j`,
-                    label: "Durée"
+                    value: `${days}d`,
+                    label: "Duration"
                 });
             }
         }
@@ -259,13 +259,13 @@ export const missionConfig = {
     tabs: [
         {
             id: "overview",
-            label: "Vue d'ensemble",
+            label: "Overview",
             icon: "fas fa-eye",
             component: "overview",
         },
         {
-            id: "frais",
-            label: "Frais d'Huissier",
+            id: "fees",
+            label: "Bailiff Fees",
             icon: "fas fa-coins",
             getCount: (data) => {
                 // Filter financial entries to only include those belonging to this specific mission
@@ -292,7 +292,7 @@ export const missionConfig = {
                                 <i className="fas fa-link text-white text-xl"></i>
                             </div>
                             <h3 className="text-xl font-bold text-purple-900 dark:text-purple-100">
-                                Entités Liées
+                                Linked Entities
                             </h3>
                         </div>
 
@@ -307,7 +307,7 @@ export const missionConfig = {
                                             <i className="fas fa-user-tie text-white text-lg"></i>
                                         </div>
                                         <div>
-                                            <p className="text-sm font-medium text-amber-600 dark:text-amber-400">Huissier</p>
+                                            <p className="text-sm font-medium text-amber-600 dark:text-amber-400">Bailiff</p>
                                             <p className="text-base font-bold text-slate-900 dark:text-white">{data.officerName}</p>
                                             {data.officerPhone && (
                                                 <p className="text-sm text-slate-600 dark:text-slate-400">{data.officerPhone}</p>
@@ -346,7 +346,7 @@ export const missionConfig = {
                                             <i className="fas fa-gavel text-white text-lg"></i>
                                         </div>
                                         <div>
-                                            <p className="text-sm font-medium text-red-600 dark:text-red-400">Procès</p>
+                                            <p className="text-sm font-medium text-red-600 dark:text-red-400">Lawsuit</p>
                                             <p className="text-base font-bold text-slate-900 dark:text-white">{data.entityReference}</p>
                                         </div>
                                     </div>
@@ -357,7 +357,7 @@ export const missionConfig = {
                             {!data.officerId && !data.entityId && (
                                 <div className="text-center py-12">
                                     <i className="fas fa-unlink text-slate-300 dark:text-slate-600 text-4xl mb-3"></i>
-                                    <p className="text-slate-500 dark:text-slate-400">Aucune entité liée</p>
+                                    <p className="text-slate-500 dark:text-slate-400">No linked entity</p>
                                 </div>
                             )}
                         </div>
@@ -367,7 +367,7 @@ export const missionConfig = {
         },
         {
             id: "timeline",
-            label: "Historique",
+            label: "History",
             icon: "fas fa-history",
             component: "history",
         },
@@ -376,12 +376,12 @@ export const missionConfig = {
     // Overview sections configuration
     overviewSections: [
         {
-            title: "Détails de la Mission",
+            title: "Mission Details",
             editStrategy: "structured",
             fields: [
                 {
                     key: "missionNumber",
-                    label: "Numéro de mission",
+                    label: "Mission Number",
                     value: (data) => data.missionNumber,
                     icon: "fas fa-hashtag",
                     type: "text",
@@ -389,7 +389,7 @@ export const missionConfig = {
                 },
                 {
                     key: "title",
-                    label: "Titre",
+                    label: "Title",
                     value: (data) => data.title,
                     icon: "fas fa-heading",
                     type: "text",
@@ -397,47 +397,47 @@ export const missionConfig = {
                 },
                 {
                     key: "missionType",
-                    label: "Type de mission",
+                    label: "Mission Type",
                     value: (data) => data.missionType,
                     icon: "fas fa-briefcase",
                     type: "select",
                     editable: true,
                     options: [
-                        { value: "Signification", label: "Signification" },
-                        { value: "Constat", label: "Constat" },
-                        { value: "Saisie", label: "Saisie" },
-                        { value: "Exécution", label: "Exécution" },
-                        { value: "Autre", label: "Autre" },
+                        { value: "Service", label: "Service" },
+                        { value: "Inspection", label: "Inspection" },
+                        { value: "Seizure", label: "Seizure" },
+                        { value: "Execution", label: "Execution" },
+                        { value: "Other", label: "Other" },
                     ]
                 },
                 {
                     key: "status",
-                    label: "Statut",
+                    label: "Status",
                     value: (data) => data.status,
                     displayValue: (data) => data.status || "N/A",
                     icon: "fas fa-flag",
                     type: "select",
                     editable: true,
                     options: [
-                        { value: "Programmée", label: "Programmée" },
-                        { value: "En cours", label: "En cours" },
-                        { value: "Terminée", label: "Terminée" },
-                        { value: "Annulée", label: "Annulée" },
+                        { value: "Scheduled", label: "Scheduled" },
+                        { value: "In Progress", label: "In Progress" },
+                        { value: "Completed", label: "Completed" },
+                        { value: "Cancelled", label: "Cancelled" },
                     ]
                 },
                 {
                     key: "priority",
-                    label: "Priorité",
+                    label: "Priority",
                     value: (data) => data.priority,
                     displayValue: (data) => data.priority || "N/A",
                     icon: "fas fa-exclamation-circle",
                     type: "select",
                     editable: true,
                     options: [
-                        { value: "Basse", label: "Basse" },
-                        { value: "Moyenne", label: "Moyenne" },
-                        { value: "Haute", label: "Haute" },
-                        { value: "Urgente", label: "Urgente" },
+                        { value: "Low", label: "Low" },
+                        { value: "Medium", label: "Medium" },
+                        { value: "High", label: "High" },
+                        { value: "Urgent", label: "Urgent" },
                     ]
                 },
             ],
@@ -448,7 +448,7 @@ export const missionConfig = {
             fields: [
                 {
                     key: "assignDate",
-                    label: "Date d'assignation",
+                    label: "Assign Date",
                     value: (data) => data.assignDate,
                     icon: "fas fa-calendar-plus",
                     type: "date",
@@ -456,7 +456,7 @@ export const missionConfig = {
                 },
                 {
                     key: "dueDate",
-                    label: "Date limite",
+                    label: "Due Date",
                     value: (data) => data.dueDate,
                     icon: "fas fa-calendar-times",
                     type: "date",
@@ -464,7 +464,7 @@ export const missionConfig = {
                 },
                 {
                     key: "completionDate",
-                    label: "Date d'achèvement",
+                    label: "Completion Date",
                     value: (data) => data.completionDate,
                     icon: "fas fa-calendar-check",
                     type: "date",
@@ -480,40 +480,40 @@ export const missionConfig = {
             content: (data) => data.description,
         },
         {
-            title: "Compte Rendu / Résultat",
+            title: "Report / Result",
             editStrategy: "structured",
             type: "description",
             fieldKey: "result",
-            content: (data) => data.result || "Aucun compte rendu",
+            content: (data) => data.result || "No report available",
         },
         {
-            title: "Entite Liee",
+            title: "Linked Entity",
             editStrategy: "structured",
             fields: [
                 {
                     key: "entityType",
-                    label: "Type d'entite",
+                    label: "Entity Type",
                     value: (data) => data.entityType || "dossier",
                     icon: "fas fa-link",
                     type: "select",
                     editable: true,
                     options: [
                         { value: "dossier", label: "Dossier" },
-                        { value: "case", label: "Proces" },
+                        { value: "case", label: "Lawsuit" },
                     ],
-                    helpText: "Selectionnez le type d'entite auquel cette mission est liee",
+                    helpText: "Select the type of entity this mission is linked to",
                 },
                 {
                     key: "entityId",
-                    label: "Entite",
+                    label: "Entity",
                     value: (data) => data?.entityId || "",
                     displayValue: (data) => {
-                        if (!data?.entityId) return "Aucune";
+                        if (!data?.entityId) return "None";
                         if (data.entityType === "dossier") {
                             return data.entityReference || `Dossier #${data.entityId}`;
                         }
                         if (data.entityType === "case") {
-                            return data.entityReference || `Proces #${data.entityId}`;
+                            return data.entityReference || `Lawsuit #${data.entityId}`;
                         }
                         return data.entityReference || `#${data.entityId}`;
                     },
@@ -525,8 +525,8 @@ export const missionConfig = {
                             value: "",
                             label:
                                 data.entityType === "case"
-                                    ? "Selectionner un proces..."
-                                    : "Selectionner un dossier...",
+                                    ? "Select a lawsuit..."
+                                    : "Select a dossier...",
                         };
                         const dossiers = data.dossiers || [];
                         const cases = data.cases || [];
@@ -547,29 +547,29 @@ export const missionConfig = {
                             })),
                         ];
                     },
-                    helpText: "Selectionnez le dossier ou proces concerne",
+                    helpText: "Select the dossier or lawsuit concerned",
                 },
             ],
         },
         {
-            title: "Huissier",
+            title: "Bailiff Information",
             editStrategy: "structured",
             fields: [
                 {
                     key: "officerId",
-                    label: "Huissier assigné",
+                    label: "Assigned Bailiff",
                     value: (data) => data.officerId,
-                    displayValue: (data) => data.officerName || "Non assigné",
+                    displayValue: (data) => data.officerName || "Not assigned",
                     icon: "fas fa-user-tie",
                     type: "select",
                     editable: true,
                     options: [],
                     getOptions: () => [],
-                    helpText: "Attention: Changer l'huissier transférera la mission vers un autre huissier"
+                    helpText: "Warning: Changing the bailiff will transfer the mission to another bailiff"
                 },
                 {
                     key: "officerPhone",
-                    label: "Téléphone",
+                    label: "Phone",
                     value: (data) => data.officerPhone,
                     icon: "fas fa-phone",
                     type: "tel",
@@ -577,7 +577,7 @@ export const missionConfig = {
                 },
                 {
                     key: "officerLocation",
-                    label: "Localisation",
+                    label: "Location",
                     value: (data) => data.officerLocation,
                     icon: "fas fa-map-marker-alt",
                     type: "text",
@@ -590,7 +590,7 @@ export const missionConfig = {
             editStrategy: "structured",
             type: "notes",
             fieldKey: "notes",
-            content: (data) => data.notes || "Aucune note",
+            content: (data) => data.notes || "No notes",
         },
     ],
 

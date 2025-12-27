@@ -19,9 +19,9 @@ export default function InlinePrioritySelector({
   entityId = null,
   entityData = null,
   priorityOptions = [
-    { value: "Basse", label: "Basse", icon: "fas fa-arrow-down", color: "text-green-600 dark:text-green-400" },
-    { value: "Moyenne", label: "Moyenne", icon: "fas fa-minus", color: "text-amber-600 dark:text-amber-400" },
-    { value: "Haute", label: "Haute", icon: "fas fa-arrow-up", color: "text-red-600 dark:text-red-400" },
+    { value: "Low", label: "Low", icon: "fas fa-arrow-down", color: "text-green-600 dark:text-green-400" },
+    { value: "Medium", label: "Medium", icon: "fas fa-minus", color: "text-amber-600 dark:text-amber-400" },
+    { value: "High", label: "High", icon: "fas fa-arrow-up", color: "text-red-600 dark:text-red-400" },
   ],
   size = "sm",
 }) {
@@ -186,9 +186,9 @@ export default function InlinePrioritySelector({
   };
 
   const priorityColors = {
-    "Haute": "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
-    "Moyenne": "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
-    "Basse": "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+    "High": "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+    "Medium": "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
+    "Low": "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
   };
 
   return (

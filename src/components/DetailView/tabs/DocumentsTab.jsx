@@ -92,14 +92,14 @@ export default function DocumentsTab({ data, config, onDocumentsChange }) {
       // Show results
       if (results.successful.length > 0) {
         showToast(
-          `${results.successful.length} document(s) ajouté(s) avec succès!`,
+          `${results.successful.length} document(s) added successfully!`,
           "success"
         );
       }
 
       if (results.failed.length > 0) {
         showToast(
-          `${results.failed.length} document(s) ont échoué`,
+          `${results.failed.length} document(s) failed to upload`,
           "error"
         );
         console.error("Failed uploads:", results.failed);
@@ -107,7 +107,7 @@ export default function DocumentsTab({ data, config, onDocumentsChange }) {
 
     } catch (error) {
       console.error("Error uploading files:", error);
-      showToast("Erreur lors de l'ajout des documents", "error");
+      showToast("Error adding documents", "error");
     } finally {
       setUploading(false);
     }
@@ -119,7 +119,7 @@ export default function DocumentsTab({ data, config, onDocumentsChange }) {
     } catch (error) {
       console.error("Error opening document:", error);
       showToast(
-        "Impossible d'ouvrir le document. Fichier manquant?",
+        "Unable to open document. File missing?",
         "error"
       );
     }
@@ -128,10 +128,10 @@ export default function DocumentsTab({ data, config, onDocumentsChange }) {
   const handleDownload = async (doc) => {
     try {
       await documentService.downloadDocument(doc.id);
-      showToast(`Téléchargement de ${doc.name}`, "success");
+      showToast(`Downloading ${doc.name}`, "success");
     } catch (error) {
       console.error("Error downloading document:", error);
-      showToast("Erreur lors du téléchargement", "error");
+      showToast("Error downloading document", "error");
     }
   };
 
@@ -140,16 +140,16 @@ export default function DocumentsTab({ data, config, onDocumentsChange }) {
       await documentService.revealDocument(doc.id);
     } catch (error) {
       console.error("Error revealing document:", error);
-      showToast("Impossible d'afficher le fichier", "error");
+      showToast("Unable to reveal file", "error");
     }
   };
 
   const handleDelete = async (docId) => {
     const confirmed = await confirm({
-      title: "Supprimer le document",
-      message: "Voulez-vous supprimer le lien uniquement ou le fichier définitivement?",
-      confirmText: "Supprimer le fichier",
-      cancelText: "Retirer le lien",
+      title: "Delete document",
+      message: "Do you want to delete the link only or the file permanently?",
+      confirmText: "Delete file",
+      cancelText: "Remove link",
       variant: "danger"
     });
 
@@ -168,11 +168,11 @@ export default function DocumentsTab({ data, config, onDocumentsChange }) {
           onDocumentsChange(documentService.getEntityDocuments(entityType, entityId));
         }
         showToast(
-          deleteFile ? "Document supprimé" : "Lien retiré",
+          deleteFile ? "Document deleted" : "Link removed",
           "success"
         );
       } else {
-        showToast("Erreur lors de la suppression", "error");
+        showToast("Error deleting document", "error");
       }
     }
   };
@@ -188,9 +188,9 @@ export default function DocumentsTab({ data, config, onDocumentsChange }) {
         const success = await documentService.relinkDocument(docId, file);
         if (success) {
           loadDocuments();
-          showToast("Document relié avec succès", "success");
+          showToast("Document relinked successfully", "success");
         } else {
-          showToast("Erreur lors du remplacement", "error");
+          showToast("Error replacing document", "error");
         }
       }
     };
@@ -246,22 +246,22 @@ export default function DocumentsTab({ data, config, onDocumentsChange }) {
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
             className={`border-2 border-dashed rounded-xl p-12 text-center transition-all ${isDragging
-                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                : 'border-slate-300 dark:border-slate-600 hover:border-blue-400 dark:hover:border-blue-500'
+              ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+              : 'border-slate-300 dark:border-slate-600 hover:border-blue-400 dark:hover:border-blue-500'
               }`}
           >
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-800 mb-4">
               <i className="fas fa-cloud-upload-alt text-slate-400 dark:text-slate-600 text-2xl"></i>
             </div>
             <p className="text-slate-900 dark:text-white font-medium mb-2">
-              Glissez-déposez vos fichiers ici
+              Drag and drop your files here
             </p>
             <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
-              ou
+              or
             </p>
             <label className="inline-block px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium cursor-pointer transition-colors">
               <i className="fas fa-plus mr-2"></i>
-              Parcourir les fichiers
+              Browse files
               <input
                 type="file"
                 multiple
@@ -271,7 +271,7 @@ export default function DocumentsTab({ data, config, onDocumentsChange }) {
               />
             </label>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-4">
-              PDF, DOC, XLS, PPT, Images, Archives (Max 10MB par fichier)
+              PDF, DOC, XLS, PPT, Images, Archives (Max 10MB per file)
             </p>
           </div>
         </div>
@@ -289,18 +289,18 @@ export default function DocumentsTab({ data, config, onDocumentsChange }) {
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
           className={`mb-6 border-2 border-dashed rounded-lg p-6 text-center transition-all ${isDragging
-              ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-              : 'border-slate-300 dark:border-slate-600 hover:border-blue-400 dark:hover:border-blue-500'
+            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+            : 'border-slate-300 dark:border-slate-600 hover:border-blue-400 dark:hover:border-blue-500'
             }`}
         >
           <div className="flex items-center justify-center gap-4">
             <i className="fas fa-cloud-upload-alt text-slate-400 text-2xl"></i>
             <div className="text-left">
               <p className="text-sm text-slate-700 dark:text-slate-300">
-                Glissez-déposez vos fichiers ici ou
+                Drag and drop your files here or
               </p>
               <label className="text-sm text-blue-600 dark:text-blue-400 hover:underline cursor-pointer">
-                parcourir
+                browse
                 <input
                   type="file"
                   multiple
@@ -319,7 +319,7 @@ export default function DocumentsTab({ data, config, onDocumentsChange }) {
             <div className="flex items-center gap-3">
               <i className="fas fa-spinner fa-spin text-blue-600 dark:text-blue-400"></i>
               <span className="text-sm text-blue-900 dark:text-blue-300">
-                Téléchargement en cours...
+                Uploading...
               </span>
             </div>
           </div>
@@ -332,22 +332,21 @@ export default function DocumentsTab({ data, config, onDocumentsChange }) {
             return (
               <div
                 key={doc.id}
-                className={`p-4 border rounded-lg transition-colors group ${
-                  isMissing
+                className={`p-4 border rounded-lg transition-colors group ${isMissing
                     ? 'border-yellow-400 dark:border-yellow-600 bg-yellow-50 dark:bg-yellow-900/10'
                     : 'border-slate-200 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-500'
-                }`}
+                  }`}
               >
                 {/* Missing File Warning */}
                 {isMissing && (
                   <div className="mb-3 p-2 bg-yellow-100 dark:bg-yellow-900/20 border border-yellow-300 dark:border-yellow-700 rounded text-xs text-yellow-800 dark:text-yellow-300 flex items-center gap-2">
                     <i className="fas fa-exclamation-triangle"></i>
-                    <span>Fichier manquant</span>
+                    <span>Missing file</span>
                     <button
                       onClick={() => handleRelink(doc.id)}
                       className="ml-auto text-yellow-700 dark:text-yellow-400 underline hover:no-underline"
                     >
-                      Relier à nouveau
+                      Relink
                     </button>
                   </div>
                 )}
@@ -355,13 +354,12 @@ export default function DocumentsTab({ data, config, onDocumentsChange }) {
                 <div className="flex items-start gap-3">
                   {/* File Icon */}
                   <div
-                    className={`p-3 rounded-lg flex-shrink-0 cursor-pointer ${
-                      isMissing
+                    className={`p-3 rounded-lg flex-shrink-0 cursor-pointer ${isMissing
                         ? 'bg-yellow-100 dark:bg-yellow-900/20'
                         : 'bg-slate-100 dark:bg-slate-700'
-                    }`}
+                      }`}
                     onClick={() => !isMissing && handleOpen(doc)}
-                    title={isMissing ? "Fichier manquant" : "Ouvrir"}
+                    title={isMissing ? "Missing file" : "Open"}
                   >
                     <i className={`${getFileIcon(doc.type)} text-xl ${isMissing ? 'opacity-50' : ''}`}></i>
                   </div>
@@ -369,11 +367,10 @@ export default function DocumentsTab({ data, config, onDocumentsChange }) {
                   {/* File Info */}
                   <div className="flex-1 min-w-0">
                     <p
-                      className={`font-medium truncate cursor-pointer ${
-                        isMissing
+                      className={`font-medium truncate cursor-pointer ${isMissing
                           ? 'text-slate-600 dark:text-slate-400'
                           : 'text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400'
-                      }`}
+                        }`}
                       onClick={() => !isMissing && handleOpen(doc)}
                       title={doc.name}
                     >
@@ -402,7 +399,7 @@ export default function DocumentsTab({ data, config, onDocumentsChange }) {
                         handleDownload(doc);
                       }}
                       className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
-                      title="Télécharger"
+                      title="Download"
                       disabled={isMissing}
                     >
                       <i className={`fas fa-download text-slate-600 dark:text-slate-400 ${isMissing ? 'opacity-30' : ''}`}></i>
@@ -413,7 +410,7 @@ export default function DocumentsTab({ data, config, onDocumentsChange }) {
                         handleReveal(doc);
                       }}
                       className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
-                      title="Afficher dans le dossier"
+                      title="Reveal in folder"
                       disabled={isMissing}
                     >
                       <i className={`fas fa-folder-open text-slate-600 dark:text-slate-400 ${isMissing ? 'opacity-30' : ''}`}></i>
@@ -424,7 +421,7 @@ export default function DocumentsTab({ data, config, onDocumentsChange }) {
                         handleDelete(doc.id);
                       }}
                       className="p-2 hover:bg-red-100 dark:hover:bg-red-900/20 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
-                      title="Supprimer"
+                      title="Delete"
                     >
                       <i className="fas fa-trash text-red-600 dark:text-red-400"></i>
                     </button>
@@ -467,7 +464,7 @@ export default function DocumentsTab({ data, config, onDocumentsChange }) {
                 {(documents.reduce((sum, d) => sum + (d.sizeBytes || 0), 0) / (1024 * 1024)).toFixed(1)} MB
               </p>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Taille totale
+                Total size
               </p>
             </div>
           </div>

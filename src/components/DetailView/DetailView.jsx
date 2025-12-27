@@ -146,7 +146,7 @@ export default function DetailView({ entityType }) {
         <div className="flex items-center justify-center py-12">
           <div className="text-center">
             <i className="fas fa-spinner fa-spin text-4xl text-blue-600 dark:text-blue-400 mb-4"></i>
-            <p className="text-slate-600 dark:text-slate-400">Chargement...</p>
+            <p className="text-slate-600 dark:text-slate-400">Loading...</p>
           </div>
         </div>
       </PageLayout>
@@ -166,7 +166,7 @@ export default function DetailView({ entityType }) {
             className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
           >
             <i className="fas fa-arrow-left mr-2"></i>
-            Retour à la liste
+            Back to list
           </button>
         </div>
       </PageLayout>
@@ -184,7 +184,7 @@ export default function DetailView({ entityType }) {
 
     if (!validationResult.allowed) {
       // Show blocker message with proper toast
-      let blockerMsg = "Cette modification n'est pas autorisée";
+      let blockerMsg = "This modification is not allowed.";
       if (validationResult.blockers && validationResult.blockers.length > 0) {
         const firstBlocker = validationResult.blockers[0];
         if (typeof firstBlocker === 'object' && firstBlocker !== null) {
@@ -194,7 +194,7 @@ export default function DetailView({ entityType }) {
         }
       }
       showToast(blockerMsg, "error", {
-        title: "Modification bloquée",
+        title: "Modification blocked",
         context: entityType,
       });
       // Do not proceed with update or show success toast
@@ -206,7 +206,7 @@ export default function DetailView({ entityType }) {
       const error = validation(data, value);
       if (error) {
         showToast(error, "error", {
-          title: "Validation échouée",
+          title: "Validation failed",
           context: entityType,
         });
         return;
@@ -226,7 +226,7 @@ export default function DetailView({ entityType }) {
       // Create timeline entry
       const timelineEntry = {
         type: `${field}_change`,
-        event: `${field} modifié`,
+        event: `${field} modified`,
         timestamp: new Date().toISOString(),
         user: "Me. Hammami", // TODO: Get from auth context
         oldValue,
@@ -268,8 +268,8 @@ export default function DetailView({ entityType }) {
       console.error("Error saving quick action:", error);
       // Rollback on error
       setData({ ...data, [field]: oldValue });
-      showToast("Erreur lors de l'enregistrement", "error", {
-        title: "Erreur de sauvegarde",
+      showToast("Error in the save", "error", {
+        title: "Save error",
         context: entityType,
       });
     }
@@ -296,8 +296,8 @@ export default function DetailView({ entityType }) {
       console.error("Error saving items change:", error);
       // Rollback on error
       setData(data);
-      showToast("Erreur lors de l'enregistrement", "error", {
-        title: "Erreur de sauvegarde",
+      showToast("Error saving changes", "error", {
+        title: "Save error",
         context: entityType,
       });
     }
@@ -324,11 +324,11 @@ export default function DetailView({ entityType }) {
       setData(prev => ({ ...prev, ...sectionData }));
       setOriginalData(prev => ({ ...prev, ...sectionData }));
       setIsEditing(false);
-      showToast("Modifications enregistrées avec succès!", "success");
+      showToast("Changes saved successfully!", "success");
       justSaved.current = true;
     } catch (error) {
       console.error("Error saving:", error);
-      showToast("Erreur lors de l'enregistrement", "error");
+      showToast("Error saving changes", "error");
     }
   };
 
@@ -350,17 +350,17 @@ export default function DetailView({ entityType }) {
       });
 
       if (!validationResult.allowed) {
-        showToast(validationResult.blockers[0] || "Cette modification n'est pas autorisée", "error");
+        showToast(validationResult.blockers[0] || "This modification is not allowed", "error");
         return;
       }
 
       // ✅ If requires confirmation for relational changes, show impact dialog
       if (validationResult.requiresConfirmation) {
         const confirmed = await confirm({
-          title: "⚠️ Changement de rattachement",
-          message: validationResult.impactSummary?.join('\n') || "Êtes-vous sûr de vouloir effectuer ce changement ?",
-          confirmText: "Confirmer le changement",
-          cancelText: "Annuler",
+          title: "⚠️ Attachment change",
+          message: validationResult.impactSummary?.join('\n') || "Are you sure you want to make this change?",
+          confirmText: "Confirm change",
+          cancelText: "Cancel",
           variant: "warning"
         });
 
@@ -374,13 +374,13 @@ export default function DetailView({ entityType }) {
       // Optimistically update local state
       setOriginalData({ ...data });
       setIsEditing(false);
-      showToast("Modifications enregistrées avec succès!", "success");
+      showToast("Changes saved successfully!", "success");
       justSaved.current = true;
       // Optionally refresh from backend for denormalized fields
       setTimeout(() => { handleDataRefresh(); }, 10);
     } catch (error) {
       console.error("Error saving:", error);
-      showToast("Erreur lors de l'enregistrement", "error");
+      showToast("Error saving changes", "error");
     }
   };
 
@@ -402,17 +402,17 @@ export default function DetailView({ entityType }) {
     }
 
     if (await confirm({
-      title: "Supprimer",
+      title: "Delete",
       message: config.deleteConfirmMessage,
-      confirmText: "Supprimer",
-      cancelText: "Annuler",
+      confirmText: "Delete",
+      cancelText: "Cancel",
       variant: "danger"
     })) {
       try {
         await config.deleteData(id, contextData);
         navigate(config.listRoute);
       } catch (error) {
-        showToast("Erreur lors de la suppression", "error");
+        showToast("Error deleting", "error");
       }
     }
   };
@@ -526,7 +526,7 @@ export default function DetailView({ entityType }) {
           iconColor: "text-blue-600 dark:text-blue-400",
           bgColor: "bg-blue-100 dark:bg-blue-900/20",
           route: "/dossiers",
-          emptyMessage: "Aucun dossier pour ce client",
+          emptyMessage: "No dossiers for this client",
           getTitle: (item) => item.caseNumber,
           getSubtitle: (item) => `${item.title} • Catégorie: ${item.category || 'N/A'}`,
           getStatus: (item) => item.status,
@@ -555,14 +555,14 @@ export default function DetailView({ entityType }) {
           };
 
           entityConfig = {
-            title: "Procès",
+            title: "Lawsuits",
             icon: "fas fa-gavel",
             iconColor: "text-purple-600 dark:text-purple-400",
             bgColor: "bg-purple-100 dark:bg-purple-900/20",
             route: "/cases",
-            emptyMessage: "Aucun procès pour ce client",
+            emptyMessage: "No lawsuits for this client",
             getTitle: (item) => item.caseNumber,
-            getSubtitle: (item) => `${item.title} • Prochaine audience: ${item.nextHearing || 'Non programmée'}`,
+            getSubtitle: (item) => `${item.title} • Next hearing: ${item.nextHearing || 'Not scheduled'}`,
             getStatus: (item) => item.status,
           };
         } else if (isDossier) {
@@ -579,14 +579,14 @@ export default function DetailView({ entityType }) {
           getParentContext = null; // No parent context needed (direct children)
 
           entityConfig = {
-            title: "Procès",
+            title: "Lawsuits",
             icon: "fas fa-gavel",
             iconColor: "text-purple-600 dark:text-purple-400",
             bgColor: "bg-purple-100 dark:bg-purple-900/20",
             route: "/cases",
-            emptyMessage: "Aucun procès pour ce dossier",
+            emptyMessage: "No lawsuits for this dossier",
             getTitle: (item) => item.caseNumber,
-            getSubtitle: (item) => `${item.title} • Prochaine audience: ${item.nextHearing || 'Non programmée'}`,
+            getSubtitle: (item) => `${item.title} • Next hearing: ${item.nextHearing || 'Not scheduled'}`,
             getStatus: (item) => item.status,
           };
         }
@@ -624,13 +624,13 @@ export default function DetailView({ entityType }) {
           };
 
           entityConfig = {
-            title: "Audiences",
+            title: "Hearings",
             icon: "fas fa-calendar-alt",
             iconColor: "text-green-600 dark:text-green-400",
             bgColor: "bg-green-100 dark:bg-green-900/20",
             route: "/sessions",
             emptyMessage:
-              "Aucune Audiences programmAce pour ce client.\nPour ajouter une audience, creez un dossier ou un proces.",
+              "No hearings scheduled for this client.\nTo add a hearing, create a dossier or a lawsuit.",
             getTitle: (item) => item.title,
             getSubtitle: (item) => `${item.date} • ${item.time} • ${item.location}`,
             getStatus: (item) => item.status,
@@ -658,12 +658,12 @@ export default function DetailView({ entityType }) {
           };
 
           entityConfig = {
-            title: "Audiences",
+            title: "Hearings",
             icon: "fas fa-calendar-alt",
             iconColor: "text-green-600 dark:text-green-400",
             bgColor: "bg-green-100 dark:bg-green-900/20",
             route: "/sessions",
-            emptyMessage: "Aucune sAcance programmAce pour ce dossier",
+            emptyMessage: "No hearings scheduled for this dossier",
             getTitle: (item) => item.title,
             getSubtitle: (item) => `${item.date} • ${item.time} • ${item.location}`,
             getStatus: (item) => item.status,
@@ -678,12 +678,12 @@ export default function DetailView({ entityType }) {
           getParentContext = null; // No parent context needed (direct children)
 
           entityConfig = {
-            title: "Audiences",
+            title: "Hearings",
             icon: "fas fa-calendar-alt",
             iconColor: "text-green-600 dark:text-green-400",
             bgColor: "bg-green-100 dark:bg-green-900/20",
             route: "/sessions",
-            emptyMessage: "Aucune sAcance programmAce pour ce procA\"s",
+            emptyMessage: "No hearings scheduled for this lawsuit",
             getTitle: (item) => item.title,
             getSubtitle: (item) => `${item.date} • ${item.time} • ${item.location}`,
             getStatus: (item) => item.status,
@@ -734,14 +734,14 @@ export default function DetailView({ entityType }) {
           };
 
           entityConfig = {
-            title: "Tâches",
+            title: "Tasks",
             icon: "fas fa-tasks",
             iconColor: "text-amber-600 dark:text-amber-400",
             bgColor: "bg-amber-100 dark:bg-amber-900/20",
             route: "/tasks",
-            emptyMessage: "Aucune tâche pour ce client",
+            emptyMessage: "No tasks for this client",
             getTitle: (item) => item.title,
-            getSubtitle: (item) => `Échéance: ${item.dueDate} • Assigné à: ${item.assignedTo}`,
+            getSubtitle: (item) => `Due: ${item.dueDate} • Assigned to: ${item.assignedTo}`,
             getStatus: (item) => item.status,
           };
         } else if (isDossier) {
@@ -775,14 +775,14 @@ export default function DetailView({ entityType }) {
           };
 
           entityConfig = {
-            title: "Tâches",
+            title: "Tasks",
             icon: "fas fa-tasks",
             iconColor: "text-amber-600 dark:text-amber-400",
             bgColor: "bg-amber-100 dark:bg-amber-900/20",
             route: "/tasks",
-            emptyMessage: "Aucune tâche pour ce dossier",
+            emptyMessage: "No tasks for this dossier",
             getTitle: (item) => item.title,
-            getSubtitle: (item) => `Échéance: ${item.dueDate} • Assigné à: ${item.assignedTo}`,
+            getSubtitle: (item) => `Due: ${item.dueDate} • Assigned to: ${item.assignedTo}`,
             getStatus: (item) => item.status,
           };
         } else if (config.entityType === 'case') {
@@ -809,14 +809,14 @@ export default function DetailView({ entityType }) {
           };
 
           entityConfig = {
-            title: "Tâches",
+            title: "Tasks",
             icon: "fas fa-tasks",
             iconColor: "text-amber-600 dark:text-amber-400",
             bgColor: "bg-amber-100 dark:bg-amber-900/20",
             route: "/tasks",
-            emptyMessage: "Aucune tâche pour ce procès",
+            emptyMessage: "No tasks for this lawsuit",
             getTitle: (item) => item.title,
-            getSubtitle: (item) => `Échéance: ${item.dueDate} • Assigné à: ${item.assignedTo}`,
+            getSubtitle: (item) => `Due: ${item.dueDate} • Assigned to: ${item.assignedTo}`,
             getStatus: (item) => item.status,
           };
         }
@@ -829,17 +829,17 @@ export default function DetailView({ entityType }) {
           getParentContext = null;
 
           entityConfig = {
-            title: "Missions Huissier",
+            title: "Missions Bailiff",
             icon: "fas fa-clipboard-list",
             iconColor: "text-indigo-600 dark:text-indigo-400",
             bgColor: "bg-indigo-100 dark:bg-indigo-900/20",
             route: "/missions", // Navigate to mission detail
-            emptyMessage: "Aucune mission d'huissier pour ce dossier",
+            emptyMessage: "No bailiff missions for this dossier",
             getTitle: (item) => item.missionNumber,
             getSubtitle: (item) => {
               // Lookup officer name from officerId if not already set
               const officerName = item.officerName || (item.officerId ? (latestContextRef.current.officers || []).find(o => o.id === parseInt(item.officerId))?.name : null) || 'N/A';
-              return `${item.title} • ${item.missionType} • Huissier: ${officerName}`;
+              return `${item.title} • ${item.missionType} • Bailiff: ${officerName}`;
             },
             getStatus: (item) => item.status,
           };
@@ -848,17 +848,17 @@ export default function DetailView({ entityType }) {
           getParentContext = null;
 
           entityConfig = {
-            title: "Missions Huissier",
+            title: "Missions Bailiff",
             icon: "fas fa-clipboard-list",
             iconColor: "text-indigo-600 dark:text-indigo-400",
             bgColor: "bg-indigo-100 dark:bg-indigo-900/20",
             route: "/missions", // Navigate to mission detail
-            emptyMessage: "Aucune mission d'huissier pour ce procès",
+            emptyMessage: "No bailiff missions for this lawsuit",
             getTitle: (item) => item.missionNumber,
             getSubtitle: (item) => {
               // Lookup officer name from officerId if not already set
               const officerName = item.officerName || (item.officerId ? (latestContextRef.current.officers || []).find(o => o.id === parseInt(item.officerId))?.name : null) || 'N/A';
-              return `${item.title} • ${item.missionType} • Huissier: ${officerName}`;
+              return `${item.title} • ${item.missionType} • Bailiff: ${officerName}`;
             },
             getStatus: (item) => item.status,
           };
@@ -866,7 +866,7 @@ export default function DetailView({ entityType }) {
         break;
 
       default:
-        return <div className="p-6 text-slate-600 dark:text-slate-400">Type d'agrégation non reconnu</div>;
+        return <div className="p-6 text-slate-600 dark:text-slate-400">Unrecognized aggregation type</div>;
     }
 
     return (
@@ -896,7 +896,7 @@ export default function DetailView({ entityType }) {
               className="px-4 py-2 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-lg font-medium transition-colors duration-200"
             >
               <i className="fas fa-arrow-left mr-2"></i>
-              Retour
+              Back
             </button>
 
             {/* ✅ REMOVED: Top-level Modifier button - all sections now use structured edit mode with individual edit buttons */}
@@ -907,7 +907,7 @@ export default function DetailView({ entityType }) {
                 className="px-4 py-2 border border-red-300 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg font-medium transition-colors duration-200"
               >
                 <i className="fas fa-trash mr-2"></i>
-                Supprimer
+                Delete
               </button>
             )}
           </div>
@@ -988,7 +988,7 @@ export default function DetailView({ entityType }) {
       <BlockerModal
         isOpen={blockerModalOpen}
         onClose={() => setBlockerModalOpen(false)}
-        actionName="Supprimer"
+        actionName="Delete"
         blockers={validationResult?.blockers || []}
         warnings={validationResult?.warnings || []}
         entityName={config.getTitle ? config.getTitle(data) : ''}

@@ -5,7 +5,7 @@
 
 const LoadingScreen = ({
   variant = 'page',
-  message = 'Chargement des données...',
+  message = 'Loading data...',
   className = ''
 }) => {
 

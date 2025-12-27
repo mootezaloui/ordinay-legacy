@@ -51,7 +51,7 @@ export default function Officers() {
   const columns = [
     {
       id: "name",
-      label: "Nom",
+      label: "Name",
       sortable: true,
       locked: true,
       render: (officer) => (
@@ -65,7 +65,7 @@ export default function Officers() {
     },
     {
       id: "phone",
-      label: "Téléphone",
+      label: "Phone",
       sortable: true,
       render: (officer) => (
         <div className="flex items-center gap-2">
@@ -87,7 +87,7 @@ export default function Officers() {
     },
     {
       id: "location",
-      label: "Localisation",
+      label: "Location",
       sortable: true,
       render: (officer) => (
         <div className="flex items-center gap-2">
@@ -98,16 +98,16 @@ export default function Officers() {
     },
     {
       id: "status",
-      label: "Statut",
+      label: "Status",
       sortable: true,
       render: (officer) => (
         <InlineStatusSelector
           value={officer.status}
           onChange={(newStatus) => handleStatusChange(officer.id, newStatus)}
           statusOptions={[
-            { value: "Disponible", label: "Disponible", icon: "fas fa-check-circle", color: "green" },
-            { value: "Occupe", label: "Occupé", icon: "fas fa-clock", color: "amber" },
-            { value: "Inactif", label: "Inactif", icon: "fas fa-circle", color: "slate" },
+            { value: "Available", label: "Available", icon: "fas fa-check-circle", color: "green" },
+            { value: "Busy", label: "Busy", icon: "fas fa-clock", color: "amber" },
+            { value: "Inactive", label: "Inactive", icon: "fas fa-circle", color: "slate" },
           ]}
           entityType="officer"
           entityId={officer.id}
@@ -125,7 +125,7 @@ export default function Officers() {
           <IconButton
             icon="view"
             variant="view"
-            title="Voir détails"
+            title="View details"
             onClick={(e) => {
               e.stopPropagation();
               handleView(officer.id);
@@ -134,7 +134,7 @@ export default function Officers() {
           <IconButton
             icon="edit"
             variant="edit"
-            title="Modifier"
+            title="Edit"
             onClick={(e) => {
               e.stopPropagation();
               handleEdit(officer);
@@ -143,7 +143,7 @@ export default function Officers() {
           <IconButton
             icon="delete"
             variant="delete"
-            title="Supprimer"
+            title="Delete"
             onClick={(e) => {
               e.stopPropagation();
               handleDelete(officer.id);
@@ -157,9 +157,9 @@ export default function Officers() {
   // Calculate stats
   const stats = {
     total: officers.length,
-    available: officers.filter(o => o.status === "Disponible").length,
-    busy: officers.filter(o => o.status === "Occupé").length,
-    inactive: officers.filter(o => o.status === "Inactif").length,
+    available: officers.filter(o => o.status === "Available").length,
+    busy: officers.filter(o => o.status === "Busy").length,
+    inactive: officers.filter(o => o.status === "Inactive").length,
   };
 
   // Initialize advanced table
@@ -220,15 +220,15 @@ export default function Officers() {
     }
 
     if (await confirm({
-      title: "Supprimer l'huissier",
-      message: "Êtes-vous sûr de vouloir supprimer cet huissier ?",
-      confirmText: "Supprimer",
-      cancelText: "Annuler",
+      title: "Delete Officer",
+      message: "Are you sure you want to delete this officer?",
+      confirmText: "Delete",
+      cancelText: "Cancel",
       variant: "danger"
     })) {
       deleteOfficer(id);
-      showToast("Huissier supprimé", "warning", {
-        title: "Suppression",
+      showToast("Officer deleted", "warning", {
+        title: "Deletion Successful",
         context: "officer",
       });
     }
@@ -271,12 +271,11 @@ export default function Officers() {
         //     ? { ...formData, id: editingOfficer.id }
         //     : o
         // ));
-        showToast("Huissier modifié avec succès!", "success");
+        showToast("Bailiff updated successfully!", "success");
       } else {
         const creation = await addOfficer(formData);
         const createdOfficer = creation?.created || creation;
-        showToast("Huissier ajouté avec succès!", "success");
-
+        showToast("Bailiff added successfully!", "success");
         // ✅ Log creation event
         logEntityCreation('officer', createdOfficer.id, formData.name);
 
@@ -290,8 +289,8 @@ export default function Officers() {
       setIsModalOpen(false);
       setEditingOfficer(null);
     } catch (error) {
-      console.error("Error submitting officer:", error);
-      showToast("Erreur lors de l'enregistrement", "error");
+      console.error("Error submitting Bailiff:", error);
+      showToast("Error saving Bailiff", "error");
     } finally {
       setIsLoading(false);
     }
@@ -327,7 +326,7 @@ export default function Officers() {
   const officerFormFieldsBase = [
     {
       name: "name",
-      label: "Nom complet",
+      label: "Full Name",
       type: "text",
       required: true,
       placeholder: "Ex: Me. Ahmed Ben Salem",
@@ -335,14 +334,14 @@ export default function Officers() {
     },
     {
       name: "phone",
-      label: "Téléphone",
+      label: "Phone",
       type: "tel",
       required: true,
       placeholder: "+216 98 123 456"
     },
     {
       name: "alternatePhone",
-      label: "Téléphone alternatif",
+      label: "Alternate Phone",
       type: "tel",
       required: false,
       placeholder: "+216 71 234 567"
@@ -352,34 +351,34 @@ export default function Officers() {
       label: "Email",
       type: "email",
       required: true,
-      placeholder: "email@exemple.com"
+      placeholder: "email@example.com"
     },
     {
       name: "location",
-      label: "Localisation",
+      label: "Location",
       type: "text",
       required: true,
       placeholder: "Ex: Tunis"
     },
     {
       name: "address",
-      label: "Adresse complète",
+      label: "Full Address",
       type: "textarea",
       required: false,
-      placeholder: "Adresse du cabinet/étude",
+      placeholder: "Office/Study Address",
       fullWidth: true,
       rows: 2,
     },
     {
       name: "status",
-      label: "Statut",
+      label: "Status",
       type: "select",
       required: true,
-      defaultValue: "Disponible",
+      defaultValue: "Available",
       options: [
-        { value: "Disponible", label: "Disponible" },
-        { value: "Occupé", label: "Occupé" },
-        { value: "Inactif", label: "Inactif" },
+        { value: "Available", label: "Available" },
+        { value: "Busy", label: "Busy" },
+        { value: "Inactive", label: "Inactive" },
       ]
     },
     {
@@ -387,7 +386,7 @@ export default function Officers() {
       label: "Notes",
       type: "textarea",
       required: false,
-      placeholder: "Notes sur cet huissier...",
+      placeholder: "Notes about this Bailiff...",
       fullWidth: true,
       rows: 3,
     },
@@ -401,7 +400,7 @@ export default function Officers() {
           ...field,
           type: 'readonly',
           displayValue: editingOfficer.status,
-          helpText: 'Le statut ne peut être modifié que via le sélecteur dans la liste'
+          helpText: 'Status can only be changed via the selector in the list'
         };
       }
       return field;
@@ -411,8 +410,8 @@ export default function Officers() {
   return (
     <PageLayout>
       <PageHeader
-        title="Huissiers de Justice"
-        subtitle={`${table.originalTotalItems} huissiers au total${table.isFiltering ? ` • ${table.totalItems} affichés` : ""}`}
+        title="Bailiffs"
+        subtitle={`${table.originalTotalItems} bailiffs in total${table.isFiltering ? ` • ${table.totalItems} displayed` : ""}`}
         icon="fas fa-user-tie"
         actions={
           <button
@@ -420,7 +419,7 @@ export default function Officers() {
             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center gap-2"
           >
             <i className="fas fa-plus"></i>
-            Nouveau Huissier
+            New Bailiff
           </button>
         }
       />
@@ -428,25 +427,25 @@ export default function Officers() {
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <StatCard
-          label="Total Huissiers"
+          label="Total Bailiffs"
           value={stats.total}
           icon="fas fa-user-tie"
           color="blue"
         />
         <StatCard
-          label="Disponibles"
+          label="Available"
           value={stats.available}
           icon="fas fa-check-circle"
           color="green"
         />
         <StatCard
-          label="Occupés"
+          label="Busy"
           value={stats.busy}
           icon="fas fa-business-time"
           color="amber"
         />
         <StatCard
-          label="Inactifs"
+          label="Inactive"
           value={stats.inactive}
           icon="fas fa-pause-circle"
           color="red"
@@ -476,7 +475,7 @@ export default function Officers() {
             onReorder={table.reorderColumns}
             enableReorder={true}
           />
-          <TableBody isEmpty={table.data.length === 0} emptyMessage={table.isFiltering ? "Aucun résultat trouvé" : "Aucun huissier trouvé"}>
+          <TableBody isEmpty={table.data.length === 0} emptyMessage={table.isFiltering ? "No results found" : "No Bailiff available"}>
             {table.data.map((officer) => (
               <TableRow
                 key={officer.id}
@@ -510,8 +509,8 @@ export default function Officers() {
           setEditingOfficer(null);
         }}
         onSubmit={handleSubmit}
-        title={editingOfficer ? "Modifier Huissier" : "Nouveau Huissier"}
-        subtitle={editingOfficer ? "Modifier les informations de l'huissier" : "Ajouter un nouvel huissier de justice"}
+        title={editingOfficer ? "Edit Bailiff" : "New Bailiff"}
+        subtitle={editingOfficer ? "Edit Bailiff information" : "Add a new Bailiff"}
         fields={officerFormFields}
         initialData={editingOfficer}
         isLoading={isLoading}
@@ -523,10 +522,10 @@ export default function Officers() {
       <BlockerModal
         isOpen={blockerModalOpen}
         onClose={() => setBlockerModalOpen(false)}
-        actionName="Modifier/Supprimer l'huissier"
+        actionName="Edit/Delete Bailiff"
         blockers={validationResult?.blockers || []}
         warnings={validationResult?.warnings || []}
-        entityName={validationResult?.entityData?.name || "Huissier"}
+        entityName={validationResult?.entityData?.name || "Bailiff"}
       />
     </PageLayout>
   );

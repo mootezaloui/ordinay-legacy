@@ -10,8 +10,8 @@ export default function ConfirmDialog({
   onConfirm,
   title = "Confirmation",
   message,
-  confirmText = "Confirmer",
-  cancelText = "Annuler",
+  confirmText = "Confirm",
+  cancelText = "Cancel",
   variant = "warning", // 'warning' | 'danger' | 'info'
 }) {
   if (!isOpen) return null;
@@ -68,7 +68,7 @@ export default function ConfirmDialog({
         <button
           onClick={handleCancel}
           className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-          aria-label="Fermer"
+          aria-label="Close"
         >
           <X size={20} />
         </button>

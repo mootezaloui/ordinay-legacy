@@ -55,11 +55,11 @@ export default function Cases() {
   const [pendingDeleteId, setPendingDeleteId] = useState(null);
 
   const statusLabelMap = {
-    "En cours": "In Progress",
-    "En attente": "On Hold",
-    "Suspendu": "Suspended",
-    "Clos": "Closed",
-    "Terminé": "Completed",
+    "In Progress": "In Progress",
+    "On Hold": "On Hold",
+    "Suspended": "Suspended",
+    "Closed": "Closed",
+    "Completed": "Completed",
   };
 
   const getStatusLabel = (status) => statusLabelMap[status] || status;
@@ -85,7 +85,7 @@ export default function Cases() {
     },
     {
       id: "dossier",
-      label: "Case File",
+      label: "Dossier",
       sortable: true,
       render: (caseItem) => (
         <span className="font-mono text-xs text-blue-600 dark:text-blue-400">
@@ -134,10 +134,9 @@ export default function Cases() {
           value={caseItem.status}
           onChange={(newStatus) => handleStatusChange(caseItem.id, newStatus)}
           statusOptions={[
-            { value: "En cours", label: "In Progress", icon: "fas fa-hourglass-half", color: "blue" },
-            { value: "En attente", label: "On Hold", icon: "fas fa-clock", color: "amber" },
-            { value: "Suspendu", label: "Suspended", icon: "fas fa-pause-circle", color: "orange" },
-            { value: "Clos", label: "Closed", icon: "fas fa-gavel", color: "slate" },
+            { value: "In Progress", label: "In Progress", icon: "fas fa-hourglass-half", color: "blue" },
+            { value: "On Hold", label: "On Hold", icon: "fas fa-pause-circle", color: "amber" },
+            { value: "Closed", label: "Closed", icon: "fas fa-gavel", color: "slate" },
           ]}
           entityType="case"
           entityId={caseItem.id}
@@ -187,7 +186,7 @@ export default function Cases() {
   // Calculate stats
   const stats = {
     total: enhancedCases.length,
-    active: enhancedCases.filter(c => c.status === "En cours").length,
+    active: enhancedCases.filter(c => c.status === "In Progress").length,
     upcoming: enhancedCases.filter(c => {
       const hearing = c.computedNextHearing;
       if (!hearing) return false;
@@ -196,7 +195,7 @@ export default function Cases() {
       nextWeek.setDate(nextWeek.getDate() + 7);
       return hearingDate <= nextWeek && hearingDate >= new Date();
     }).length,
-    closed: enhancedCases.filter(c => c.status === "TerminÃ©").length,
+    closed: enhancedCases.filter(c => c.status === "Completed").length,
   };
 
   // Initialize advanced table
@@ -218,7 +217,7 @@ export default function Cases() {
             </div>
           </ContentSection>
         )}
-        <LoadingScreen variant="page" message="Chargement des cases..." />
+        <LoadingScreen variant="page" message="Loading Lawsuits..." />
       </PageLayout>
     );
   }

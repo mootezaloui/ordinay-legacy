@@ -65,7 +65,7 @@ export default function ClientNotificationPrompt({
                   Notification Client
                 </h2>
                 <p className="text-sm text-slate-600 dark:text-slate-400">
-                  Souhaitez-vous notifier le client de ce changement ?
+                  Do you want to notify client about this update ?
                 </p>
               </div>
             </div>
@@ -86,7 +86,7 @@ export default function ClientNotificationPrompt({
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-slate-600 dark:text-slate-400">
-                      Destinataire
+                      Recipient
                     </p>
                     <p className="font-medium text-slate-900 dark:text-slate-100">
                       {emailPreview.clientName}
@@ -102,12 +102,12 @@ export default function ClientNotificationPrompt({
                     {showPreview ? (
                       <>
                         <EyeOff className="w-4 h-4" />
-                        Masquer
+                        Hide
                       </>
                     ) : (
                       <>
                         <Eye className="w-4 h-4" />
-                        Aperçu
+                        Preview
                       </>
                     )}
                   </button>
@@ -118,7 +118,7 @@ export default function ClientNotificationPrompt({
                   <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700 space-y-3">
                     <div>
                       <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">
-                        Objet
+                        Subject
                       </p>
                       <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
                         {emailPreview.subject}
@@ -142,8 +142,8 @@ export default function ClientNotificationPrompt({
             {/* Information Note */}
             <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
               <p className="text-sm text-blue-900 dark:text-blue-100 break-words whitespace-normal">
-                📧 Un email sera envoyé au client pour l'informer de cette mise à jour.
-                Vous pouvez choisir de ne pas notifier le client si cette action est interne.
+                📧 An email will be sent to the client to inform them of this update.
+                You can choose not to notify the client if this action is internal.
               </p>
             </div>
           </div>
@@ -155,7 +155,7 @@ export default function ClientNotificationPrompt({
               disabled={isSending}
               className="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Non, ne pas notifier
+              No, do not notify
             </button>
             <button
               onClick={handleConfirm}
@@ -165,12 +165,12 @@ export default function ClientNotificationPrompt({
               {isSending ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Envoi en cours...
+                  Sending...
                 </>
               ) : (
                 <>
                   <Send className="w-4 h-4" />
-                  Oui, envoyer un email
+                  Yes, send an email
                 </>
               )}
             </button>

@@ -9,13 +9,13 @@ import { getStatusColor } from "./statusColors";
 export const sessionConfig = {
   // Basic info
   entityType: "session",
-  entityName: "Séance",
+  entityName: "Hearing",
   icon: "fas fa-calendar",
   listRoute: "/sessions",
 
   // Messages
-  notFoundMessage: "Séance non trouvée",
-  deleteConfirmMessage: "Êtes-vous sûr de vouloir supprimer cette séance ?",
+  notFoundMessage: "Hearing not found",
+  deleteConfirmMessage: "Are you sure you want to delete this hearing?",
 
   // Permissions
   allowDelete: true,
@@ -127,15 +127,15 @@ export const sessionConfig = {
   quickActions: [
     {
       key: "status",
-      label: "Statut",
+      label: "Status",
       icon: "fas fa-info-circle",
       colorMap: true,
       options: [
-        { value: "Programmée", label: "Programmée", color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" },
-        { value: "Confirmée", label: "Confirmée", color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" },
-        { value: "En attente", label: "En attente", color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
-        { value: "Terminée", label: "Terminée", color: "bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300" },
-        { value: "Annulée", label: "Annulée", color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" },
+        { value: "Scheduled", label: "Scheduled", color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" },
+        { value: "Confirmed", label: "Confirmed", color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" },
+        { value: "Pending", label: "Pending", color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
+        { value: "Completed", label: "Completed", color: "bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300" },
+        { value: "Cancelled", label: "Cancelled", color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" },
       ]
     },
     {
@@ -145,11 +145,11 @@ export const sessionConfig = {
       colorMap: true,
       options: [
         { value: "Consultation", label: "Consultation", color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" },
-        { value: "Audience", label: "Audience", color: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400" },
+        { value: "Hearing", label: "Hearing", color: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400" },
         { value: "Expertise", label: "Expertise", color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" },
-        { value: "Médiation", label: "Médiation", color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
-        { value: "Téléphone", label: "Téléphone", color: "bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300" },
-        { value: "Autre", label: "Autre", color: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300" },
+        { value: "Mediation", label: "Mediation", color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
+        { value: "Telephone", label: "Telephone", color: "bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300" },
+        { value: "Other", label: "Other", color: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300" },
       ]
     }
   ],
@@ -158,18 +158,18 @@ export const sessionConfig = {
   renderHeader: (data) => {
     const typeIcons = {
       "Consultation": "fas fa-comments",
-      "Audience": "fas fa-gavel",
+      "Hearing": "fas fa-gavel",
       "Expertise": "fas fa-microscope",
-      "Médiation": "fas fa-handshake",
-      "Téléphone": "fas fa-phone",
+      "Mediation": "fas fa-handshake",
+      "Telephone": "fas fa-phone",
     };
 
     const typeColors = {
       "Consultation": "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
-      "Audience": "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400",
+      "Hearing": "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400",
       "Expertise": "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
-      "Médiation": "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
-      "Téléphone": "bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300",
+      "Mediation": "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
+      "Telephone": "bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300",
     };
 
     return (
@@ -197,9 +197,9 @@ export const sessionConfig = {
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <InfoCard icon="fas fa-calendar" label="Date" value={data.date} color="blue" />
-            <InfoCard icon="fas fa-clock" label="Heure" value={data.time} color="purple" />
-            <InfoCard icon="fas fa-hourglass-half" label="Durée" value={data.duration} color="green" />
-            <InfoCard icon="fas fa-map-marker-alt" label="Lieu" value={data.location} color="amber" />
+            <InfoCard icon="fas fa-clock" label="Time" value={data.time} color="purple" />
+            <InfoCard icon="fas fa-hourglass-half" label="Duration" value={data.duration} color="green" />
+            <InfoCard icon="fas fa-map-marker-alt" label="Location" value={data.location} color="amber" />
           </div>
         </div>
       </ContentSection>
@@ -220,7 +220,7 @@ export const sessionConfig = {
       iconColor: "text-purple-600 dark:text-purple-400",
       bgColor: "bg-purple-100 dark:bg-purple-900/20",
       value: data.time,
-      label: "Heure"
+      label: "Time"
     },
     {
       icon: "fas fa-users",
@@ -235,7 +235,7 @@ export const sessionConfig = {
   tabs: [
     {
       id: "overview",
-      label: "Vue d'ensemble",
+      label: "Overview",
       icon: "fas fa-eye",
       component: "overview",
     },
@@ -247,7 +247,7 @@ export const sessionConfig = {
       getCount: (data) => data.participants?.length || 0,
 
       itemsKey: "participants",
-      emptyMessage: "Aucun participant",
+      emptyMessage: "No participants",
       renderItem: (item) => ({
         title: item.name,
         subtitle: item.role,
@@ -255,24 +255,24 @@ export const sessionConfig = {
 
       allowAdd: true,
       allowDelete: true,
-      entityName: "un participant",
+      entityName: "a participant",
       formFields: [
         {
           name: "name",
-          label: "Nom",
+          label: "Name",
           type: "text",
           required: true,
         },
         {
           name: "role",
-          label: "Rôle",
+          label: "Role",
           type: "select",
           required: true,
           options: [
-            { value: "Avocat", label: "Avocat" },
+            { value: "Lawyer", label: "Lawyer" },
             { value: "Client", label: "Client" },
-            { value: "Juge", label: "Juge" },
-            { value: "Témoin", label: "Témoin" },
+            { value: "Judge", label: "Judge" },
+            { value: "Witness", label: "Witness" },
             { value: "Expert", label: "Expert" },
           ]
         },
@@ -283,7 +283,7 @@ export const sessionConfig = {
         },
         {
           name: "phone",
-          label: "Téléphone",
+          label: "Phone",
           type: "tel",
         },
       ],
@@ -296,14 +296,14 @@ export const sessionConfig = {
       getCount: (data) => data.documents?.length || 0,
     },
     {
-      id: "Compte-rendu",
-      label: "Compte-rendu",
+      id: "Report",
+      label: "Report",
       icon: "fas fa-sticky-note",
       component: "notes",
     },
     {
       id: "timeline",
-      label: "Historique",
+      label: "History",
       icon: "fas fa-history",
       component: "history",
     },
@@ -312,12 +312,12 @@ export const sessionConfig = {
   // ✅ UPDATED: Overview sections with editStrategy
   overviewSections: [
     {
-      title: "Informations générales",
+      title: "General Information",
       editStrategy: "structured",
       fields: [
         {
           key: "title",
-          label: "Titre de la séance",
+          label: "Session Title",
           value: (data) => data.title,
           icon: "fas fa-file-alt",
           type: "text",
@@ -325,7 +325,7 @@ export const sessionConfig = {
         },
         {
           key: "linkType",
-          label: "Lié à",
+          label: "Linked To",
           value: (data) => {
             // Return the actual value, not the label
             if (data.linkType) return data.linkType;
@@ -338,34 +338,34 @@ export const sessionConfig = {
           editable: true,
           required: true,
           options: [
-            { value: "case", label: "Procès" },
-            { value: "dossier", label: "Dossier directement" },
+            { value: "case", label: "Lawsuit" },
+            { value: "dossier", label: "Dossier" },
           ],
-          helpText: "Une audience peut être liée à un procès ou directement à un dossier"
+          helpText: "A session can be linked to a lawsuit or directly to a dossier"
         },
         {
           key: "caseId",
-          label: "Procès",
+          label: "Lawsuit",
           value: (data) => data.caseId || "",
-          displayValue: (data) => data.case ? `${data.case.caseNumber} - ${data.case.title}` : "Aucun",
+          displayValue: (data) => data.case ? `${data.case.caseNumber} - ${data.case.title}` : "None",
           icon: "fas fa-gavel",
           type: "searchable-select",
           editable: true,
           options: [
-            { value: "", label: "Sélectionner un procès..." },
+            { value: "", label: "Select a lawsuit..." },
             ...[].map(c => ({
               value: c.id,
               label: `${c.caseNumber} - ${c.title}`
             }))
           ],
           getOptions: () => ([
-            { value: "", label: "Sélectionner un procès..." },
+            { value: "", label: "Select a lawsuit..." },
             ...[].map(c => ({
               value: c.id,
               label: `${c.caseNumber} - ${c.title}`
             }))
           ]),
-          helpText: "Sélectionner le procès concerné"
+          helpText: "Select the relevant lawsuit"
         },
         {
           key: "dossierId",
@@ -402,31 +402,31 @@ export const sessionConfig = {
                 return `${dossier.caseNumber} - ${dossier.title}`;
               }
             }
-            return "Aucun";
+            return "None";
           },
           icon: "fas fa-folder",
           type: "searchable-select",
           editable: true,
           options: [
-            { value: "", label: "Sélectionner un dossier..." },
+            { value: "", label: "Select a dossier..." },
             ...[].map(d => ({
               value: d.id,
               label: `${d.caseNumber} - ${d.title}`
             }))
           ],
           getOptions: () => ([
-            { value: "", label: "Sélectionner un dossier..." },
+            { value: "", label: "Select a dossier..." },
             ...[].map(d => ({
               value: d.id,
               label: `${d.caseNumber} - ${d.title}`
             }))
           ]),
-          helpText: "Sélectionner le dossier concerné"
+          helpText: "Select the relevant dossier"
         },
       ],
     },
     {
-      title: "Détails de la séance",
+      title: "Session Details",
       editStrategy: "structured",
       fields: [
         {
@@ -439,12 +439,12 @@ export const sessionConfig = {
         },
         {
           key: "time",
-          label: "Heure",
+          label: "Time",
           value: (data) => data.time,
           icon: "fas fa-clock",
           type: "select",
           editable: true,
-          helpText: "Sélectionnez l'heure de début",
+          helpText: "Select the start time of the session",
           options: [
             { value: "08:00", label: "08:00" },
             { value: "08:30", label: "08:30" },
@@ -471,7 +471,7 @@ export const sessionConfig = {
         },
         {
           key: "duration",
-          label: "Durée estimée",
+          label: "Estimated Duration",
           value: (data) => data.duration,
           icon: "fas fa-hourglass-half",
           type: "select",
@@ -480,18 +480,18 @@ export const sessionConfig = {
             { value: "00:15", label: "15 minutes" },
             { value: "00:30", label: "30 minutes" },
             { value: "00:45", label: "45 minutes" },
-            { value: "01:00", label: "1 heure" },
+            { value: "01:00", label: "1 hour" },
             { value: "01:30", label: "1h30" },
-            { value: "02:00", label: "2 heures" },
+            { value: "02:00", label: "2 hours" },
             { value: "02:30", label: "2h30" },
-            { value: "03:00", label: "3 heures" },
-            { value: "04:00", label: "4 heures" },
+            { value: "03:00", label: "3 hours" },
+            { value: "04:00", label: "4 hours" },
           ],
-          helpText: "Durée prévue de la séance"
+          helpText: "Estimated duration of the session"
         },
         {
           key: "location",
-          label: "Lieu",
+          label: "Location",
           value: (data) => data.location,
           icon: "fas fa-map-marker-alt",
           type: "text",
@@ -504,14 +504,14 @@ export const sessionConfig = {
       editStrategy: "structured",
       type: "description",
       fieldKey: "description",
-      content: (data) => data.description || "Aucune description",
+      content: (data) => data.description || "No description",
     },
     {
       title: "Notes",
       editStrategy: "structured",
       type: "notes",
       fieldKey: "notes",
-      content: (data) => data.notes || "Aucune notes",
+      content: (data) => data.notes || "No notes",
     },
   ],
 };

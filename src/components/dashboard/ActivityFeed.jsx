@@ -30,10 +30,10 @@ export default function ActivityFeed({ activities, maxItems = 5 }) {
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
 
-    if (diffMins < 1) return "À l'instant";
-    if (diffMins < 60) return `Il y a ${diffMins} min`;
-    if (diffHours < 24) return `Il y a ${diffHours}h`;
-    if (diffDays < 7) return `Il y a ${diffDays}j`;
+    if (diffMins < 1) return "Now";
+    if (diffMins < 60) return `${diffMins} min ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
     return formatDate(date);
   };
 
@@ -48,9 +48,8 @@ export default function ActivityFeed({ activities, maxItems = 5 }) {
         return (
           <div
             key={activity.id}
-            className={`flex items-start gap-4 ${
-              !isLast ? "pb-4 border-b border-slate-200 dark:border-slate-700" : ""
-            }`}
+            className={`flex items-start gap-4 ${!isLast ? "pb-4 border-b border-slate-200 dark:border-slate-700" : ""
+              }`}
           >
             {/* Icon */}
             <div className={`flex-shrink-0 w-10 h-10 rounded-full bg-${color}-100 dark:bg-${color}-900/20 flex items-center justify-center`}>
@@ -101,7 +100,7 @@ export default function ActivityFeed({ activities, maxItems = 5 }) {
             <i className="fas fa-inbox text-slate-400 text-xl"></i>
           </div>
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            Aucune activité récente
+            No recent activities to display.
           </p>
         </div>
       )}

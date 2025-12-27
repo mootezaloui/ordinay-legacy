@@ -32,7 +32,7 @@ export default function Login() {
         // Success - navigate to dashboard
         navigate("/dashboard");
       } else {
-        setError("Veuillez remplir tous les champs");
+        setError("Please enter both email and password.");
         setIsLoading(false);
       }
     }, 1000);
@@ -55,10 +55,10 @@ export default function Login() {
             <i className="fas fa-scale-balanced text-white text-2xl"></i>
           </div>
           <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">
-            Bienvenue
+            Welcome
           </h1>
           <p className="text-slate-600 dark:text-slate-400">
-            Connectez-vous à votre compte
+            Log in to your account
           </p>
         </div>
 
@@ -88,7 +88,7 @@ export default function Login() {
                   value={formData.email}
                   onChange={handleChange}
                   className="w-full pl-10 pr-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                  placeholder="votre.email@exemple.com"
+                  placeholder="your.email@example.com"
                   required
                 />
               </div>
@@ -97,7 +97,7 @@ export default function Login() {
             {/* Password Input */}
             <div>
               <label className="block text-sm font-medium text-slate-900 dark:text-white mb-2">
-                Mot de passe
+                Password
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -126,14 +126,14 @@ export default function Login() {
                   className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
                 />
                 <span className="ml-2 text-sm text-slate-600 dark:text-slate-400">
-                  Se souvenir de moi
+                  Remember me
                 </span>
               </label>
               <Link
                 to="/forgot-password"
                 className="text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
               >
-                Mot de passe oublié ?
+                Forgot password?
               </Link>
             </div>
 
@@ -146,12 +146,12 @@ export default function Login() {
               {isLoading ? (
                 <>
                   <i className="fas fa-spinner fa-spin"></i>
-                  Connexion...
+                  Logging in...
                 </>
               ) : (
                 <>
                   <i className="fas fa-sign-in-alt"></i>
-                  Se connecter
+                  Log in
                 </>
               )}
             </button>
@@ -164,7 +164,7 @@ export default function Login() {
             </div>
             <div className="relative flex justify-center text-sm">
               <span className="px-4 bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400">
-                Ou continuer avec
+                Or continue with
               </span>
             </div>
           </div>
@@ -183,19 +183,19 @@ export default function Login() {
 
           {/* Sign Up Link */}
           <p className="mt-6 text-center text-sm text-slate-600 dark:text-slate-400">
-            Vous n'avez pas de compte ?{" "}
+            Don't have an account?{" "}
             <Link
               to="/signup"
               className="font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
             >
-              Créer un compte
+              Create an account
             </Link>
           </p>
         </div>
 
         {/* Footer */}
         <p className="mt-8 text-center text-xs text-slate-500 dark:text-slate-400">
-          © 2025 Organia. Tous droits réservés.
+          © 2025 Organia. All rights reserved.
         </p>
       </div>
     </div>

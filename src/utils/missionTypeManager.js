@@ -27,12 +27,12 @@ export function getCustomMissionTypes() {
  */
 export function addCustomMissionType(name) {
   if (!name || typeof name !== "string") {
-    throw new Error("Le nom du type de mission est requis");
+    throw new Error("Mission type name is required");
   }
 
   const trimmedName = name.trim();
   if (!trimmedName) {
-    throw new Error("Le nom du type de mission ne peut pas être vide");
+    throw new Error("Name cannot be empty");
   }
 
   const customTypes = getCustomMissionTypes();
@@ -43,7 +43,7 @@ export function addCustomMissionType(name) {
   );
 
   if (exists) {
-    throw new Error("Ce type de mission existe déjà dans la liste");
+    throw new Error("This mission type already exists");
   }
 
   const newType = {
@@ -59,7 +59,7 @@ export function addCustomMissionType(name) {
     return newType;
   } catch (error) {
     console.error("Error saving custom mission type:", error);
-    throw new Error("Erreur lors de l'enregistrement");
+    throw new Error("Error saving");
   }
 }
 
@@ -75,7 +75,7 @@ export function removeCustomMissionType(value) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
   } catch (error) {
     console.error("Error removing custom mission type:", error);
-    throw new Error("Erreur lors de la suppression");
+    throw new Error("Error deleting");
   }
 }
 

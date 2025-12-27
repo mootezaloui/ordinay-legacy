@@ -43,7 +43,7 @@ export function addCustomAssignee(name) {
   );
 
   if (exists) {
-    throw new Error("Cette personne existe déjà dans la liste");
+    throw new Error("This assignee already exists");
   }
 
   const newAssignee = {
@@ -59,7 +59,7 @@ export function addCustomAssignee(name) {
     return newAssignee;
   } catch (error) {
     console.error("Error saving custom assignee:", error);
-    throw new Error("Erreur lors de l'enregistrement");
+    throw new Error("Error saving");
   }
 }
 
@@ -77,7 +77,7 @@ export function removeCustomAssignee(value) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
   } catch (error) {
     console.error("Error removing custom assignee:", error);
-    throw new Error("Erreur lors de la suppression");
+    throw new Error("Error deleting");
   }
 }
 

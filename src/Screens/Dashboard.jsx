@@ -41,12 +41,12 @@ export default function Dashboard() {
   // Calculate real stats from mock data
   const stats = useMemo(() => {
     const activeClients = clients.filter(c => c.status === "Active").length;
-    const activeDossiers = dossiers.filter(d => d.status === "Ouvert").length;
-    const pendingTasks = tasks.filter(t => t.status !== "Terminé").length;
+    const activeDossiers = dossiers.filter(d => d.status === "Open").length;
+    const pendingTasks = tasks.filter(t => t.status !== "Completed").length;
     const todayTasks = tasks.filter(t => t.dueDate === new Date().toISOString().split('T')[0]).length;
 
     // Calculate revenue (sum of paid invoices)
-    const paidInvoices = financialEntries.filter(i => i.status === "Payée");
+    const paidInvoices = financialEntries.filter(i => i.status === "Paid");
     const revenue = paidInvoices.reduce((sum, inv) => {
       const amount = parseFloat(inv.amount.replace(/[^0-9.]/g, '')) || 0;
       return sum + amount;
@@ -84,7 +84,7 @@ export default function Dashboard() {
       activities.push({
         id: `client-${client.id}`,
         type: "client",
-        title: `Nouveau client: ${client.name}`,
+        title: `New client: ${client.name}`,
         description: client.email,
         timestamp: client.joinDate || new Date().toISOString(),
         user: "Me. Hammami",
@@ -110,7 +110,7 @@ export default function Dashboard() {
       activities.push({
         id: `session-${session.id}`,
         type: "session",
-        title: `Scheduled Session: ${session.title}`,
+        title: `Scheduled Hearings: ${session.title}`,
         description: `${session.date} at ${session.time}`,
         timestamp: new Date().toISOString(),
         user: "Me. Cherif",
@@ -133,7 +133,7 @@ export default function Dashboard() {
         events.push({
           id: `session-${session.id}`,
           type: session.type === "Audience" ? "hearing" : "session",
-          title: session.title,
+          title: `Scheduled Hearings: ${session.title}`,
           date: sessionDate.toISOString(),
           location: session.location,
           link: `/sessions/${session.id}`,
@@ -159,11 +159,11 @@ export default function Dashboard() {
     // Task deadlines
     tasks.forEach(task => {
       const dueDate = new Date(task.dueDate);
-      if (dueDate > new Date() && task.status !== "Terminé") {
+      if (dueDate > new Date() && task.status !== "Completed") {
         events.push({
           id: `task-${task.id}`,
           type: "deadline",
-          title: `Échéance: ${task.title}`,
+          title: `Deadline: ${task.title}`,
           date: dueDate.toISOString(),
           link: `/tasks/${task.id}`,
         });
@@ -183,13 +183,13 @@ export default function Dashboard() {
       .filter(task => {
         const dueDate = new Date(task.dueDate);
         return (
-          task.status !== "Terminé" &&
-          (task.priority === "Haute" || dueDate <= threeDaysFromNow)
+          task.status !== "Completed" &&
+          (task.priority === "High" || dueDate <= threeDaysFromNow)
         );
       })
       .sort((a, b) => {
         // Sort by priority then due date
-        const priorityOrder = { Haute: 0, Moyenne: 1, Basse: 2 };
+        const priorityOrder = { High: 0, Medium: 1, Low: 2 };
         const priorityDiff = priorityOrder[a.priority] - priorityOrder[b.priority];
         if (priorityDiff !== 0) return priorityDiff;
         return new Date(a.dueDate) - new Date(b.dueDate);
@@ -339,8 +339,8 @@ export default function Dashboard() {
   return (
     <PageLayout>
       <PageHeader
-        title="Tableau de Bord"
-        subtitle="Vue d'ensemble de votre cabinet"
+        title="Dashboard"
+        subtitle="Overview of your law firm's performance and activities"
         icon="fas fa-chart-line"
       />
 
@@ -349,7 +349,7 @@ export default function Dashboard() {
         <ContentSection>
           <div className="p-6">
             <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
-              Actions Rapides
+              Quick Actions
             </h2>
             <QuickActions />
           </div>
@@ -363,35 +363,35 @@ export default function Dashboard() {
             icon="fas fa-users"
             color="blue"
             trend={stats.clients.trend}
-            trendLabel="vs mois dernier"
+            trendLabel="vs last month"
             onClick={() => navigate("/clients")}
           />
 
           <StatCard
-            label="Dossiers Actifs"
+            label="Active Dossiers"
             value={stats.dossiers.active}
             icon="fas fa-folder-open"
             color="purple"
-            trendLabel={`${stats.dossiers.newThisWeek} nouveaux cette semaine`}
+            trendLabel={`${stats.dossiers.newThisWeek} new this week`}
             onClick={() => navigate("/dossiers")}
           />
 
           <StatCard
-            label="Tasks en Attente"
+            label="Pending Tasks"
             value={stats.tasks.pending}
             icon="fas fa-tasks"
             color="amber"
-            trendLabel={`${stats.tasks.dueToday} à faire aujourd'hui`}
+            trendLabel={`${stats.tasks.dueToday} due today`}
             onClick={() => navigate("/tasks")}
           />
 
           <StatCard
-            label="Revenu"
+            label="Revenue"
             value={`${stats.revenue.total.toLocaleString('fr-TN')} TND`}
             icon="fas fa-dollar-sign"
             color="green"
             trend={stats.revenue.trend}
-            trendLabel="vs mois dernier"
+            trendLabel="vs last month"
             onClick={() => navigate("/accounting")}
           />
         </div>
@@ -424,7 +424,7 @@ export default function Dashboard() {
                   onClick={() => setProjectionCollapsed(!isProjectionCollapsed)}
                   className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
                 >
-                  {isProjectionCollapsed ? "Voir la projection" : "Masquer"}
+                  {isProjectionCollapsed ? "Show Projection" : "Hide"}
                 </button>
               }
             >
@@ -439,7 +439,7 @@ export default function Dashboard() {
                       >
                         <div className="flex items-center justify-between mb-2">
                           <span className="text-sm font-semibold text-slate-800 dark:text-white">
-                            {win.days} jours
+                            {win.days} days
                           </span>
                           <span className="text-sm px-2 py-1 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
                             {win.count}
@@ -532,7 +532,7 @@ export default function Dashboard() {
                   onClick={() => setLoadMapCollapsed(!isLoadMapCollapsed)}
                   className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
                 >
-                  {isLoadMapCollapsed ? "Voir la charge" : "Masquer"}
+                  {isLoadMapCollapsed ? "Show Load" : "Hide Load"}
                 </button>
               }
             >
@@ -600,14 +600,14 @@ export default function Dashboard() {
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                    Dossiers par Statut
+                    Dossiers by status
                   </span>
                 </div>
                 <div className="space-y-2">
                   {[
-                    { label: "En cours", value: stats.dossiers.active, color: "blue" },
-                    { label: "En attente", value: dossiers.filter(d => d.status === "En attente").length, color: "amber" },
-                    { label: "Fermés", value: dossiers.filter(d => d.status === "Terminé").length, color: "green" },
+                    { label: "In Progress", value: stats.dossiers.active, color: "blue" },
+                    { label: "Pending", value: dossiers.filter(d => d.status === "En Pending").length, color: "amber" },
+                    { label: "Closed", value: dossiers.filter(d => d.status === "Closed").length, color: "green" },
                   ].map((item) => (
                     <div key={item.label} className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
@@ -633,9 +633,9 @@ export default function Dashboard() {
                 </div>
                 <div className="space-y-2">
                   {[
-                    { label: "Haute", value: tasks.filter(t => t.priority === "Haute" && t.status !== "Terminé").length, color: "red" },
-                    { label: "Moyenne", value: tasks.filter(t => t.priority === "Moyenne" && t.status !== "Terminé").length, color: "amber" },
-                    { label: "Basse", value: tasks.filter(t => t.priority === "Basse" && t.status !== "Terminé").length, color: "blue" },
+                    { label: "High", value: tasks.filter(t => t.priority === "High" && t.status !== "Completed").length, color: "red" },
+                    { label: "Medium", value: tasks.filter(t => t.priority === "Medium" && t.status !== "Completed").length, color: "amber" },
+                    { label: "Low", value: tasks.filter(t => t.priority === "Low" && t.status !== "Completed").length, color: "blue" },
                   ].map((item) => (
                     <div key={item.label} className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
@@ -656,14 +656,14 @@ export default function Dashboard() {
               <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                    â”œÃ«tat des Paiements
+                    Payment Status
                   </span>
                 </div>
                 <div className="space-y-2">
                   {[
-                    { label: "Payé", value: financialEntries.filter(i => i.status === "Payé").length, color: "green" },
-                    { label: "En attente", value: financialEntries.filter(i => i.status === "En attente").length, color: "amber" },
-                    { label: "En retard", value: financialEntries.filter(i => i.status === "En retard").length, color: "red" },
+                    { label: "Paid", value: financialEntries.filter(i => i.status === "Paid").length, color: "green" },
+                    { label: "Pending", value: financialEntries.filter(i => i.status === "Pending").length, color: "amber" },
+                    { label: "Overdue", value: financialEntries.filter(i => i.status === "Overdue").length, color: "red" },
                   ].map((item) => (
                     <div key={item.label} className="flex items-center justify-between">
                       <div className="flex items-center gap-2">

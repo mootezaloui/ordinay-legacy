@@ -84,7 +84,7 @@ export default function RelatedItemsTab({ data, config, tabConfig, onItemsChange
 
       setIsAddModalOpen(false);
       setFormData({}); // Reset form data
-      showToast(`${tabConfig.entityName || 'Item'} ajouté avec succès!`, "success");
+      showToast(`${tabConfig.entityName || 'Item'} added successfully!`, "success");
 
       // ✅ Navigate to the new entity's detail view
       // Map itemsKey to entity type for routing
@@ -106,7 +106,7 @@ export default function RelatedItemsTab({ data, config, tabConfig, onItemsChange
 
     } catch (error) {
       console.error("Error adding item:", error);
-      showToast("Erreur lors de l'ajout", "error");
+      showToast("Error adding item", "error");
     } finally {
       setIsLoading(false);
     }
@@ -114,10 +114,10 @@ export default function RelatedItemsTab({ data, config, tabConfig, onItemsChange
 
   const handleDeleteItem = async (itemId) => {
     if (await confirm({
-      title: `Supprimer ${tabConfig.entityName?.toLowerCase() || 'l\'élément'}`,
-      message: `Êtes-vous sûr de vouloir supprimer ce ${tabConfig.entityName?.toLowerCase() || 'élément'} ?`,
-      confirmText: "Supprimer",
-      cancelText: "Annuler",
+      title: `Delete ${tabConfig.entityName?.toLowerCase() || 'item'}`,
+      message: `Are you sure you want to delete this ${tabConfig.entityName?.toLowerCase() || 'item'}?`,
+      confirmText: "Delete",
+      cancelText: "Cancel",
       variant: "danger"
     })) {
       const updatedItems = items.filter(item => item.id !== itemId);
@@ -157,7 +157,7 @@ export default function RelatedItemsTab({ data, config, tabConfig, onItemsChange
               <i className={`${tabConfig.icon} text-slate-400 dark:text-slate-600 text-2xl`}></i>
             </div>
             <p className="text-slate-600 dark:text-slate-400 mb-4">
-              {tabConfig.emptyMessage || "Aucun élément"}
+              {tabConfig.emptyMessage || "No items"}
             </p>
 
             {/* ADD BUTTON - Empty State */}
@@ -167,7 +167,7 @@ export default function RelatedItemsTab({ data, config, tabConfig, onItemsChange
                 className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors inline-flex items-center gap-2"
               >
                 <i className="fas fa-plus"></i>
-                Ajouter {tabConfig.entityName || 'un élément'}
+                Add {tabConfig.entityName || 'an item'}
               </button>
             )}
           </div>
@@ -179,8 +179,8 @@ export default function RelatedItemsTab({ data, config, tabConfig, onItemsChange
             isOpen={isAddModalOpen}
             onClose={handleModalClose}
             onSubmit={handleAddItem}
-            title={`Ajouter ${tabConfig.entityName || 'un élément'}`}
-            subtitle={tabConfig.addSubtitle || `Créer un nouveau ${tabConfig.entityName?.toLowerCase() || 'élément'}`}
+            title={`Add ${tabConfig.entityName || 'an item'}`}
+            subtitle={tabConfig.addSubtitle || `Create a new ${tabConfig.entityName?.toLowerCase() || 'item'} for ${config.getTitle(data)}`}
             fields={processedFormFields}
             isLoading={isLoading}
             // ✅ Pass formData state handlers for dynamic updates
@@ -204,7 +204,7 @@ export default function RelatedItemsTab({ data, config, tabConfig, onItemsChange
               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors text-sm inline-flex items-center gap-2"
             >
               <i className="fas fa-plus"></i>
-              Ajouter
+              Add {tabConfig.entityName || 'an item'}
             </button>
           )
         }
@@ -272,7 +272,7 @@ export default function RelatedItemsTab({ data, config, tabConfig, onItemsChange
                           handleDeleteItem(item.id);
                         }}
                         className="p-2 hover:bg-red-100 dark:hover:bg-red-900/20 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
-                        title="Supprimer"
+                        title="Delete"
                       >
                         <i className="fas fa-trash text-red-600 dark:text-red-400 text-sm"></i>
                       </button>
@@ -296,7 +296,7 @@ export default function RelatedItemsTab({ data, config, tabConfig, onItemsChange
               className="w-full py-3 border-2 border-dashed border-slate-300 dark:border-slate-600 hover:border-blue-500 dark:hover:border-blue-500 rounded-lg text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors font-medium"
             >
               <i className="fas fa-plus mr-2"></i>
-              Ajouter {tabConfig.entityName || 'un élément'}
+              Add {tabConfig.entityName || 'an item'}
             </button>
           </div>
         )}
@@ -308,8 +308,8 @@ export default function RelatedItemsTab({ data, config, tabConfig, onItemsChange
           isOpen={isAddModalOpen}
           onClose={handleModalClose}
           onSubmit={handleAddItem}
-          title={`Ajouter ${tabConfig.entityName || 'un élément'}`}
-          subtitle={tabConfig.addSubtitle || `Créer un nouveau ${tabConfig.entityName?.toLowerCase() || 'élément'} pour ${config.getTitle(data)}`}
+          title={`Add ${tabConfig.entityName || 'an item'}`}
+          subtitle={tabConfig.addSubtitle || `Create a new ${tabConfig.entityName?.toLowerCase() || 'item'} for ${config.getTitle(data)}`}
           fields={processedFormFields}
           isLoading={isLoading}
           // ✅ Pass formData state handlers for dynamic updates

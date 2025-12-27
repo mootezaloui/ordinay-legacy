@@ -45,7 +45,7 @@ export default function HistoryTab({ entityType, entityId }) {
             <div className="flex flex-col items-center justify-center p-12 text-center">
                 <Clock className="w-16 h-16 text-slate-300 dark:text-slate-600 mb-4 animate-pulse" />
                 <h3 className="text-lg font-medium text-slate-700 dark:text-slate-300 mb-2">
-                    Chargement de l'historique...
+                    Loading history...
                 </h3>
             </div>
         );
@@ -56,10 +56,10 @@ export default function HistoryTab({ entityType, entityId }) {
             <div className="flex flex-col items-center justify-center p-12 text-center">
                 <Clock className="w-16 h-16 text-slate-300 dark:text-slate-600 mb-4" />
                 <h3 className="text-lg font-medium text-slate-700 dark:text-slate-300 mb-2">
-                    Aucun historique pour le moment
+                    No history available yet
                 </h3>
                 <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md">
-                    Les événements importants apparaîtront ici : créations, modifications de statut, affectations, et actions importantes.
+                    Important events will appear here: creations, status changes, assignments, and significant actions.
                 </p>
             </div>
         );
@@ -222,12 +222,12 @@ function getEventIcon(eventType, metadata = {}) {
  */
 function EventTypeBadge({ eventType }) {
     const badges = {
-        lifecycle: { label: 'Cycle de vie', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' },
-        status: { label: 'Statut', color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' },
-        assignment: { label: 'Affectation', color: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300' },
-        finance: { label: 'Finance', color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' },
-        system: { label: 'Système', color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300' },
-        relation: { label: 'Relation', color: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300' },
+        lifecycle: { label: 'lifecycle', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' },
+        status: { label: 'status', color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' },
+        assignment: { label: 'assignment', color: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300' },
+        finance: { label: 'finance', color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' },
+        system: { label: 'system', color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300' },
+        relation: { label: 'relation', color: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300' },
     };
 
     const badge = badges[eventType] || { label: eventType, color: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300' };
@@ -278,11 +278,11 @@ function MetadataDisplay({ metadata }) {
  */
 function formatMetadataKey(key) {
     const keyMap = {
-        oldStatus: 'Ancien statut',
-        newStatus: 'Nouveau statut',
-        assignedTo: 'Affecté à',
-        previousAssignee: 'Précédent',
-        amount: 'Montant',
+        oldStatus: 'Old status',
+        newStatus: 'New status',
+        assignedTo: 'Assigned to',
+        previousAssignee: 'Previous',
+        amount: 'Amount',
         actionType: 'Type',
     };
 
@@ -294,7 +294,7 @@ function formatMetadataKey(key) {
  */
 function formatMetadataValue(value) {
     if (typeof value === 'number') {
-        return value.toLocaleString('fr-FR');
+        return value.toLocaleString('en-US', { style: 'currency', currency: 'TND' });
     }
     return String(value);
 }
@@ -312,20 +312,20 @@ function formatTimestamp(timestamp) {
 
     // Relative time for recent events
     if (diffMins < 1) {
-        return "À l'instant";
+        return "Now";
     }
     if (diffMins < 60) {
-        return `Il y a ${diffMins} minute${diffMins > 1 ? 's' : ''}`;
+        return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
     }
     if (diffHours < 24) {
-        return `Il y a ${diffHours} heure${diffHours > 1 ? 's' : ''}`;
+        return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
     }
     if (diffDays < 7) {
-        return `Il y a ${diffDays} jour${diffDays > 1 ? 's' : ''}`;
+        return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
     }
 
     // Absolute time for older events
-    return new Intl.DateTimeFormat('fr-FR', {
+    return new Intl.DateTimeFormat('en-US', {
         year: 'numeric',
         month: 'long',
         day: 'numeric',

@@ -1,70 +1,67 @@
 // Map backend payloads to frontend shapes while keeping display labels in French.
 
 const statusMapClient: Record<string, string> = {
-  active: "Actif",
-  inactive: "Inactif",
+  active: "Active",
+  inactive: "Inactive",
 };
 
 const statusMapCommon: Record<string, string> = {
-  open: "Ouvert",
-  in_progress: "En cours",
-  on_hold: "En attente",
-  closed: "Fermé",
+  open: "Open",
+  in_progress: "In Progress",
+  on_hold: "On Hold",
+  closed: "Closed",
 };
 
 const caseStatusMap: Record<string, string> = {
-  open: "En cours",
-  in_progress: "En cours",
-  on_hold: "En attente",
-  closed: "Clos",
-  Suspendu: "Suspendu",
-  "En cours": "En cours",
-  "En attente": "En attente",
-  "Clos": "Clos",
+  open: "Open",
+  in_progress: "In Progress",
+  on_hold: "On Hold",
+  closed: "Closed",
+  Suspended: "Suspended",
+ 
 };
 
 const priorityMap: Record<string, string> = {
-  "Basse": "Basse",
-  "Moyenne": "Moyenne",
-  "Haute": "Haute",
+  "Low": "Low",
+  "Medium": "Medium",
+  "High": "High",
   "Urgent": "Urgent",
   // Fallbacks for English values
-  low: "Basse",
-  medium: "Moyenne",
-  high: "Haute",
+  low: "Low",
+  medium: "Medium",
+  high: "High",
   urgent: "Urgent",
 };
 
 const taskStatusMap: Record<string, string> = {
-  "Non commencee": "Non commencée",
-  "En cours": "En cours",
-  "Bloqué": "Bloqué",
-  "Terminee": "Terminée",
-  "Annulé": "Annulé",
-  "En attente": "En attente",
-  "Planifiee": "Planifiée",
-  // Fallbacks for English values
-  todo: "Non commencée",
-  in_progress: "En cours",
-  blocked: "Bloqué",
-  done: "Terminée",
-  cancelled: "Annulé",
+  "Not Started": "Not Started",
+  "In Progress": "In Progress",
+  "Blocked": "Blocked",
+  "Done": "Done",
+  "Cancelled": "Cancelled",
+  // Database values
+  todo: "Not Started",
+  in_progress: "In Progress",
+  blocked: "Blocked",
+  done: "Done",
+  cancelled: "Cancelled",
 };
 
 const sessionStatusMap: Record<string, string> = {
-  scheduled: "Programmée",
-  completed: "Terminée",
-  cancelled: "Annulée",
-  postponed: "Reportée",
+  scheduled: "Scheduled",
+  confirmed: "Confirmed",
+  pending: "Pending",
+  completed: "Completed",
+  cancelled: "Cancelled",
 };
 
 const sessionTypeMap: Record<string, string> = {
-  hearing: "Audience",
+  hearing: "Hearing",
   consultation: "Consultation",
-  mediation: "Médiation",
+  mediation: "Mediation",
   expertise: "Expertise",
-  phone: "Téléphone",
-  other: "Autre",
+  phone: "Phone",
+  other: "Other",
 };
 
 const dateOnly = (value?: string | null) =>
@@ -76,10 +73,9 @@ const formatDateTime = (value?: string | null) => {
 };
 
 const officerStatusMap: Record<string, string> = {
-  active: "Disponible",
-  busy: "Occupé",
-  inactive: "Inactif",
-  suspended: "Suspendu",
+  active: "Available",
+  busy: "Busy",
+  inactive: "Inactive",
 };
 
 const financialStatusMap: Record<string, string> = {
@@ -90,10 +86,10 @@ const financialStatusMap: Record<string, string> = {
 };
 
 const missionStatusMap: Record<string, string> = {
-  planned: "Programmée",
-  in_progress: "En cours",
-  completed: "Terminée",
-  cancelled: "Annulée",
+  planned: "Planned",
+  in_progress: "In Progress",
+  completed: "Completed",
+  cancelled: "Cancelled",
 };
 
 export function adaptClient(api: any) {
@@ -316,17 +312,11 @@ export function adaptMission(
 }
 
 const personalTaskStatusMap: Record<string, string> = {
-  "Non commencée": "Non commencée",
-  "En attente": "En attente",
-  "En cours": "En cours",
-  "Planifiée": "Planifiée",
-  "Terminée": "Terminée",
-  // Fallbacks for English values
-  todo: "Non commencée",
-  in_progress: "En cours",
-  blocked: "Bloqué",
-  done: "Terminé",
-  cancelled: "Annulé",
+  todo: "Not Started",
+  in_progress: "In Progress",
+  blocked: "Blocked",
+  done: "Done",
+  cancelled: "Cancelled",
 };
 
 export function adaptPersonalTask(api: any) {

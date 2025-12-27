@@ -13,7 +13,7 @@
 import { formatDateValue } from "../utils/dateFormat";
 
 // Helper to render sender signature with a future user name (fallback to firm name)
-const getSenderName = (eventData) => eventData?.senderName || "Votre Cabinet d'avocats";
+const getSenderName = (eventData) => eventData?.senderName || "Your Law Firm";
 const formatEmailDate = (value) => formatDateValue(value);
 
 // ========================================
@@ -21,25 +21,22 @@ const formatEmailDate = (value) => formatDateValue(value);
 // ========================================
 
 function dossierCreatedTemplate(eventData) {
-  const {
-    dossierNumber,
-    dossierTitle,
-    clientName,
-    joinDate,
-  } = eventData;
+  const { dossierNumber, dossierTitle, clientName, joinDate } = eventData;
 
-  const subject = `Ouverture de votre dossier ${dossierTitle} (${dossierNumber})`;
+  const subject = `Opening of Your Dossier ${dossierTitle} (${dossierNumber})`;
 
-  const body = `Madame, Monsieur ${clientName},
+  const body = `Dear ${clientName},
 
-Nous vous confirmons l'ouverture de votre dossier.
+We confirm the opening of your Dossier.
 
-Dossier : ${dossierTitle} (${dossierNumber})
-Date d'inscription : ${joinDate ? formatEmailDate(joinDate) : formatEmailDate(new Date())}
+Dossier: ${dossierTitle} (${dossierNumber})
+Registration Date: ${
+    joinDate ? formatEmailDate(joinDate) : formatEmailDate(new Date())
+  }
 
-Nous restons à votre disposition pour toute question.
+We remain at your disposal for any questions.
 
-Cordialement,
+Sincerely,
 ${getSenderName(eventData)}`;
 
   return { subject, body };
@@ -60,32 +57,32 @@ function dossierStatusChangedTemplate(eventData) {
   } = eventData;
 
   const statusExplanations = {
-    Fermé:
-      "Votre dossier est désormais clôturé. Tous les éléments du dossier ont été traités.",
-    Suspendu:
-      "Votre dossier est temporairement suspendu en raison de circonstances nécessitant une pause dans le traitement.",
-    Ouvert: isReopening
-      ? "Votre dossier a été rouvert pour traitement suite à de nouveaux développements."
-      : "Votre dossier est désormais actif et en cours de traitement.",
+    Closed:
+      "Your Dossier is now closed. All elements of the case have been processed.",
+    Suspended:
+      "Your Dossier is temporarily suspended due to circumstances requiring a pause in processing.",
+    Open: isReopening
+      ? "Your Dossier has been reopened for processing following new developments."
+      : "Your Dossier is now active and being processed.",
   };
 
   const explanation = statusExplanations[newStatus] || "";
 
-  const subject = `Mise à jour de votre dossier ${dossierTitle} (${dossierNumber})`;
+  const subject = `Dossier Update ${dossierTitle} (${dossierNumber})`;
 
-  const body = `Madame, Monsieur ${clientName},
+  const body = `Dear ${clientName},
 
-Nous vous informons que le statut de votre dossier a été modifié.
+We inform you that the status of your Dossier has been modified.
 
-Dossier : ${dossierTitle} (${dossierNumber})
-Nouveau statut : ${newStatus}
-Date : ${formatEmailDate(new Date())}
+Dossier: ${dossierTitle} (${dossierNumber})
+New Status: ${newStatus}
+Date: ${formatEmailDate(new Date())}
 
 ${explanation}
 
-Pour toute question, n'hésitez pas à nous contacter.
+For any questions, please do not hesitate to contact us.
 
-Cordialement,
+Sincerely,
 ${getSenderName(eventData)}`;
 
   return { subject, body };
@@ -110,25 +107,25 @@ function dossierDeadlineChangedTemplate(eventData) {
 
   const impactNote =
     diffDays > 30
-      ? "représente un changement significatif dans le calendrier de votre dossier"
-      : "pourra impacter le calendrier de traitement de votre dossier";
+      ? "represents a significant change in your Dossier timeline"
+      : "may impact the processing timeline of your Dossier";
 
-  const subject = `Modification d'échéance - ${dossierTitle} (${dossierNumber})`;
+  const subject = `Deadline Modification - ${dossierTitle} (${dossierNumber})`;
 
-  const body = `Madame, Monsieur ${clientName},
+  const body = `Dear ${clientName},
 
-Nous vous informons d'une modification d'échéance concernant votre dossier.
+We inform you of a deadline modification concerning your Dossier.
 
-Dossier : ${dossierTitle} (${dossierNumber})
+Dossier: ${dossierTitle} (${dossierNumber})
 
-Ancienne échéance : ${oldDate}
-Nouvelle échéance : ${newDate}
+Previous Deadline: ${oldDate}
+New Deadline: ${newDate}
 
-Cette modification ${impactNote}.
+This modification ${impactNote}.
 
-Pour toute question, n'hésitez pas à nous contacter.
+For any questions, please do not hesitate to contact us.
 
-Cordialement,
+Sincerely,
 ${getSenderName(eventData)}`;
 
   return { subject, body };
@@ -143,29 +140,29 @@ function caseStatusChangedTemplate(eventData) {
     eventData;
 
   const statusExplanations = {
-    Clos: "Votre procès est désormais clos. Une décision définitive a été rendue.",
+    Clos: "Your case is now closed. A final decision has been rendered.",
     Suspendu:
-      "Votre procès a été suspendu par le tribunal. Nous vous tiendrons informé de la reprise des procédures.",
+      "Your case has been suspended by the court. We will keep you informed of the resumption of proceedings.",
   };
 
   const explanation = statusExplanations[newStatus] || "";
 
-  const subject = `Évolution de votre procès ${caseTitle} (${caseNumber})`;
+  const subject = `Case Progress Update ${caseTitle} (${caseNumber})`;
 
-  const body = `Madame, Monsieur ${clientName},
+  const body = `Dear ${clientName},
 
-Nous vous informons d'une évolution concernant votre procès.
+We inform you of a development concerning your case.
 
-Procès : ${caseTitle} (${caseNumber})
-Tribunal : ${court}
-Nouveau statut : ${newStatus}
-Date : ${formatEmailDate(new Date())}
+Case: ${caseTitle} (${caseNumber})
+Court: ${court}
+New Status: ${newStatus}
+Date: ${formatEmailDate(new Date())}
 
 ${explanation}
 
-Nous restons à votre disposition pour tout complément d'information.
+We remain at your disposal for any additional information.
 
-Cordialement,
+Sincerely,
 ${getSenderName(eventData)}`;
 
   return { subject, body };
@@ -176,25 +173,20 @@ ${getSenderName(eventData)}`;
 // ========================================
 
 function caseCreatedTemplate(eventData) {
-  const {
-    caseNumber,
-    caseTitle,
-    court,
-    clientName,
-  } = eventData;
+  const { caseNumber, caseTitle, court, clientName } = eventData;
 
-  const subject = `Ouverture de votre procès ${caseTitle} (${caseNumber})`;
+  const subject = `Opening of Your Case ${caseTitle} (${caseNumber})`;
 
-  const body = `Madame, Monsieur ${clientName},
+  const body = `Dear ${clientName},
 
-Nous vous confirmons l'ouverture d'un nouveau procès vous concernant.
+We confirm the opening of a new case concerning you.
 
-Procès : ${caseTitle} (${caseNumber})
-Juridiction : ${court || 'N/A'}
+Case: ${caseTitle} (${caseNumber})
+Jurisdiction: ${court || "N/A"}
 
-Nous vous tiendrons informé de chaque étape.
+We will keep you informed of each step.
 
-Cordialement,
+Sincerely,
 ${getSenderName(eventData)}`;
 
   return { subject, body };
@@ -208,30 +200,26 @@ function caseHearingChangedTemplate(eventData) {
   const { caseNumber, caseTitle, court, clientName, oldDate, newDate } =
     eventData;
 
-  const oldDateFormatted = oldDate
-    ? formatEmailDate(oldDate)
-    : "Non définie";
-  const newDateFormatted = newDate
-    ? formatEmailDate(newDate)
-    : "Non définie";
+  const oldDateFormatted = oldDate ? formatEmailDate(oldDate) : "Not defined";
+  const newDateFormatted = newDate ? formatEmailDate(newDate) : "Not defined";
 
-  const subject = `Modification de la date d'audience - ${caseTitle} (${caseNumber})`;
+  const subject = `Hearing Date Modification - ${caseTitle} (${caseNumber})`;
 
-  const body = `Madame, Monsieur ${clientName},
+  const body = `Dear ${clientName},
 
-Nous vous informons d'une modification concernant votre prochaine audience.
+We inform you of a modification concerning your upcoming hearing.
 
-Procès : ${caseTitle} (${caseNumber})
-Tribunal : ${court}
+Case: ${caseTitle} (${caseNumber})
+Court: ${court}
 
-Ancienne date : ${oldDateFormatted}
-Nouvelle date : ${newDateFormatted}
+Previous Date: ${oldDateFormatted}
+New Date: ${newDateFormatted}
 
-Veuillez prendre note de ce changement et vous organiser en conséquence.
+Please take note of this change and organize accordingly.
 
-Pour toute question, n'hésitez pas à nous contacter.
+For any questions, please do not hesitate to contact us.
 
-Cordialement,
+Sincerely,
 ${getSenderName(eventData)}`;
 
   return { subject, body };
@@ -256,25 +244,25 @@ function sessionScheduledTemplate(eventData) {
 
   const dateFormatted = formatEmailDate(date);
 
-  const subject = `Audience programmée - ${
-    sessionTitle || sessionType || "Audience"
+  const subject = `Hearing Scheduled - ${
+    sessionTitle || sessionType || "Hearing"
   } ${caseTitle ? `(${caseTitle})` : ""} ${caseNumber ? `(${caseNumber})` : ""}`
     .replace(/\s+/g, " ")
     .trim();
 
-  const body = `Madame, Monsieur ${clientName},
+  const body = `Dear ${clientName},
 
-Une audience a été programmée dans le cadre de votre dossier.
+A hearing has been scheduled for your Dossier.
 
-${caseNumber ? `Procès : ${caseTitle || "N/A"} (${caseNumber})` : ""}
-Type : ${sessionTitle}
-Date : ${dateFormatted} à ${time}
-Lieu : ${location}
-Durée estimée : ${duration}
+${caseNumber ? `Case: ${caseTitle || "N/A"} (${caseNumber})` : ""}
+Type: ${sessionTitle}
+Date: ${dateFormatted} at ${time}
+Location: ${location}
+Estimated Duration: ${duration}
 
-Nous vous tiendrons informé de toute évolution.
+We will keep you informed of any developments.
 
-Cordialement,
+Sincerely,
 ${getSenderName(eventData)}`;
 
   return { subject, body };
@@ -300,29 +288,29 @@ function sessionDateChangedTemplate(eventData) {
   const oldDateFormatted = formatEmailDate(oldDate);
   const newDateFormatted = formatEmailDate(newDate);
 
-  const subject = `Modification de la date d'audience - ${
-    sessionTitle || "Audience"
-  } ${caseTitle ? `(${caseTitle})` : ""} ${caseNumber ? `(${caseNumber})` : ""}`
+  const subject = `Hearing Date Modification - ${sessionTitle || "Hearing"} ${
+    caseTitle ? `(${caseTitle})` : ""
+  } ${caseNumber ? `(${caseNumber})` : ""}`
     .replace(/\s+/g, " ")
     .trim();
 
-  const body = `Madame, Monsieur ${clientName},
+  const body = `Dear ${clientName},
 
-Nous vous informons d'une modification concernant votre prochaine audience.
+We inform you of a modification concerning your upcoming hearing.
 
-${caseNumber ? `Procès : ${caseTitle || "N/A"} (${caseNumber})` : ""}
-Audience : ${sessionTitle}
+${caseNumber ? `Case: ${caseTitle || "N/A"} (${caseNumber})` : ""}
+Hearing: ${sessionTitle}
 
-Ancienne date : ${oldDateFormatted} à ${oldTime}
-Nouvelle date : ${newDateFormatted} à ${newTime}
+Previous Date: ${oldDateFormatted} at ${oldTime}
+New Date: ${newDateFormatted} at ${newTime}
 
-Lieu : ${location}
+Location: ${location}
 
-Veuillez prendre note de ce changement et vous organiser en conséquence.
+Please take note of this change and organize accordingly.
 
-Pour toute question, n'hésitez pas à nous contacter.
+For any questions, please do not hesitate to contact us.
 
-Cordialement,
+Sincerely,
 ${getSenderName(eventData)}`;
 
   return { subject, body };
@@ -345,20 +333,20 @@ function sessionCancelledTemplate(eventData) {
 
   const dateFormatted = formatEmailDate(date);
 
-  const subject = `Annulation d'audience - ${caseNumber || "Votre dossier"}`;
+  const subject = `Hearing Cancellation - ${caseNumber || "Your Dossier"}`;
 
-  const body = `Madame, Monsieur ${clientName},
+  const body = `Dear ${clientName},
 
-Nous vous informons de l'annulation de l'audience prévue.
+We inform you of the cancellation of the scheduled hearing.
 
-${caseNumber ? `Procès : ${caseNumber} - ${caseTitle}` : ""}
-Audience annulée : ${dateFormatted} à ${time}
-Lieu : ${location}
+${caseNumber ? `Case: ${caseNumber} - ${caseTitle}` : ""}
+Cancelled Hearing: ${dateFormatted} at ${time}
+Location: ${location}
 
-Une nouvelle date vous sera communiquée dès que possible.
+A new date will be communicated to you as soon as possible.
 
-Cordialement,
-${eventData?.senderName || "Votre Cabinet d'avocats"}`;
+Sincerely,
+${eventData?.senderName || "Your Law Firm"}`;
 
   return { subject, body };
 }
@@ -377,20 +365,20 @@ function financialEntryAddedTemplate(eventData) {
     clientBalance,
   } = eventData;
 
-  const subject = `Nouvelle écriture comptable concernant votre dossier`;
+  const subject = `New Financial Entry Concerning Your Dossier`;
 
-  const body = `Madame, Monsieur ${clientName},
+  const body = `Dear ${clientName},
 
-Une nouvelle écriture comptable a été enregistrée.
+A new financial entry has been recorded.
 
-Objet : ${description}
-Montant : ${amountWithSign || amount || "N/A"}
-${dueDate ? `Échéance : ${formatEmailDate(dueDate)}` : ""}
-${clientBalance ? `Solde client après écriture : ${clientBalance}` : ""}
+Description: ${description}
+Amount: ${amountWithSign || amount || "N/A"}
+${dueDate ? `Due Date: ${formatEmailDate(dueDate)}` : ""}
+${clientBalance ? `Client Balance After Entry: ${clientBalance}` : ""}
 
-Merci de prendre connaissance de cette mise à jour.
+Please take note of this update.
 
-Cordialement,
+Sincerely,
 ${getSenderName(eventData)}`;
 
   return { subject, body };

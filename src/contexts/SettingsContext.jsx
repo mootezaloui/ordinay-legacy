@@ -5,11 +5,10 @@ import { formatDateTimeValue, formatDateValue, getDefaultDateFormat } from "../u
 const STORAGE_KEY = "organia_settings";
 
 const DEFAULT_SETTINGS = {
-  language: "fr",
+  language: "en",
   timezone: "Africa/Tunis",
   dateFormat: getDefaultDateFormat(),
   theme: "system",
-  compactMode: false,
   desktopNotifications: true, // Simplified: just enable/disable all notifications
 };
 

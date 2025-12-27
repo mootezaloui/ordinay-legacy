@@ -27,12 +27,12 @@ export function getCustomCourts() {
  */
 export function addCustomCourt(name) {
   if (!name || typeof name !== "string") {
-    throw new Error("Le nom du tribunal est requis");
+    throw new Error("Court name is required");
   }
 
   const trimmedName = name.trim();
   if (!trimmedName) {
-    throw new Error("Le nom du tribunal ne peut pas être vide");
+    throw new Error("Name cannot be empty");
   }
 
   const customCourts = getCustomCourts();
@@ -43,7 +43,7 @@ export function addCustomCourt(name) {
   );
 
   if (exists) {
-    throw new Error("Ce tribunal existe déjà dans la liste");
+    throw new Error("This court already exists");
   }
 
   const newCourt = {
@@ -59,7 +59,7 @@ export function addCustomCourt(name) {
     return newCourt;
   } catch (error) {
     console.error("Error saving custom court:", error);
-    throw new Error("Erreur lors de l'enregistrement");
+    throw new Error("Error saving");
   }
 }
 
@@ -75,7 +75,7 @@ export function removeCustomCourt(value) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
   } catch (error) {
     console.error("Error removing custom court:", error);
-    throw new Error("Erreur lors de la suppression");
+    throw new Error("Error deleting");
   }
 }
 

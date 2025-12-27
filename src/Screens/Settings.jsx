@@ -47,14 +47,14 @@ export default function Settings() {
     updateNotificationPrefs(notificationPrefs);
     updateNotificationPreferences("default", notificationPrefs);
     setThemePreference(settings.theme);
-    showToast("Paramètres enregistrés avec succès!", "success");
+    showToast("Settings updated Successfully!", "success");
   };
 
   return (
     <PageLayout>
       <PageHeader
-        title="Paramètres"
-        subtitle="Configurer les préférences de votre application"
+        title="Settings"
+        subtitle="Configure your application preferences"
         icon="fas fa-cog"
       />
 
@@ -66,10 +66,10 @@ export default function Settings() {
             <div className="flex items-center justify-between">
               <div>
                 <label className="text-sm font-medium text-slate-900 dark:text-white">
-                  Langue
+                  Language
                 </label>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                  Choisissez la langue de l'interface
+                  Choose the interface language
                 </p>
               </div>
               <select
@@ -78,7 +78,7 @@ export default function Settings() {
                 className="px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="fr">Français</option>
-                <option value="ar">Arabe</option>
+                <option value="ar">العربية</option>
                 <option value="en">English</option>
               </select>
             </div>
@@ -87,10 +87,10 @@ export default function Settings() {
             <div className="flex items-center justify-between">
               <div>
                 <label className="text-sm font-medium text-slate-900 dark:text-white">
-                  Format de date
+                  Date Format
                 </label>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                  Comment afficher les dates
+                  How to display dates
                 </p>
               </div>
               <select
@@ -100,7 +100,13 @@ export default function Settings() {
               >
                 <option value="DD/MM/YYYY">DD/MM/YYYY</option>
                 <option value="MM/DD/YYYY">MM/DD/YYYY</option>
+                <option value="YYYY/MM/DD">YYYY/MM/DD</option>
                 <option value="YYYY-MM-DD">YYYY-MM-DD</option>
+                <option value="DD-MM-YYYY">DD-MM-YYYY</option>
+                <option value="MM-DD-YYYY">MM-DD-YYYY</option>
+                <option value="Localized">Localized Format</option>
+                <option value="Relative">Relative Format (e.g., "3 days ago")</option>
+                <option value="Custom">Custom Format</option>
               </select>
             </div>
           </div>
@@ -113,10 +119,10 @@ export default function Settings() {
             <div className="flex items-center justify-between py-3">
               <div>
                 <label className="text-sm font-medium text-slate-900 dark:text-white">
-                  Activer les notifications
+                  Enable Notifications
                 </label>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                  Afficher les notifications dans l'application
+                  Show notifications within the app
                 </p>
               </div>
               <button
@@ -141,7 +147,7 @@ export default function Settings() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <i className="fas fa-tasks text-blue-600"></i>
-                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Tâches</h3>
+                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Tasks</h3>
                 </div>
                 <button
                   onClick={() => handleNotificationPrefChange("tasks", "enabled", !notificationPrefs.tasks.enabled)}
@@ -161,10 +167,10 @@ export default function Settings() {
                         onChange={(e) => handleNotificationPrefChange("tasks", "overdueReminders", e.target.checked)}
                         className="rounded border-slate-300 dark:border-slate-600"
                       />
-                      <span className="text-slate-700 dark:text-slate-300">Rappels pour tâches en retard</span>
+                      <span className="text-slate-700 dark:text-slate-300">Reminders for overdue tasks</span>
                     </label>
                     <p className="text-slate-500 dark:text-slate-400 pl-6">
-                      Notification quotidienne pour les tâches en retard (jusqu'à 3 jours).
+                      Daily notification for overdue tasks (up to 3 days).
                     </p>
                   </div>
 
@@ -178,11 +184,11 @@ export default function Settings() {
                         className="rounded border-slate-300 dark:border-slate-600"
                       />
                       <span className="text-slate-700 dark:text-slate-300">
-                        Rappels avant échéance
+                        Upcoming deadline reminders
                       </span>
                     </label>
                     <p className="text-slate-500 dark:text-slate-400 pl-6">
-                      Rappels: {notificationPrefs.tasks.reminderDays.join(", ")} jours avant l'échéance.
+                      Reminders: {notificationPrefs.tasks.reminderDays.join(", ")} days before the deadline.
                     </p>
                   </div>
                 </div>
@@ -194,7 +200,7 @@ export default function Settings() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <i className="fas fa-user-check text-indigo-600"></i>
-                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Tâches Personnelles</h3>
+                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Personal Tasks</h3>
                 </div>
                 <button
                   onClick={() => handleNotificationPrefChange("personalTasks", "enabled", !notificationPrefs.personalTasks.enabled)}
@@ -215,11 +221,11 @@ export default function Settings() {
                         className="rounded border-slate-300 dark:border-slate-600"
                       />
                       <span className="text-slate-700 dark:text-slate-300">
-                        Rappels avant échéance
+                        Upcoming deadline reminders
                       </span>
                     </label>
                     <p className="text-slate-500 dark:text-slate-400 pl-6">
-                      Rappels: {notificationPrefs.personalTasks.reminderDays.join(", ")} jours avant l'échéance.
+                      Reminders: {notificationPrefs.personalTasks.reminderDays.join(", ")} days before the deadline.
                     </p>
                   </div>
 
@@ -232,10 +238,10 @@ export default function Settings() {
                         onChange={(e) => handleNotificationPrefChange("personalTasks", "completionReminders", e.target.checked)}
                         className="rounded border-slate-300 dark:border-slate-600"
                       />
-                      <span className="text-slate-700 dark:text-slate-300">Rappels de mise à jour après échéance</span>
+                      <span className="text-slate-700 dark:text-slate-300">Completion reminders after deadline</span>
                     </label>
                     <p className="text-slate-500 dark:text-slate-400 pl-6">
-                      Demande si la tâche a été accomplie après l'échéance.
+                      Asks if the task was completed after the deadline.
                     </p>
                   </div>
                 </div>
@@ -267,10 +273,10 @@ export default function Settings() {
                         onChange={(e) => handleNotificationPrefChange("sessions", "preparationReminders", e.target.checked)}
                         className="rounded border-slate-300 dark:border-slate-600"
                       />
-                      <span className="text-slate-700 dark:text-slate-300 font-medium">Rappels de préparation</span>
+                      <span className="text-slate-700 dark:text-slate-300 font-medium">Preparation reminders</span>
                     </label>
                     <p className="text-slate-500 dark:text-slate-400 ml-5">
-                      Rappels pour les audiences à venir: {notificationPrefs.sessions.reminderDays.join(", ")} jours avant l'audience.
+                      Reminders for upcoming sessions: {notificationPrefs.sessions.reminderDays.join(", ")} days before the session.
                     </p>
                   </div>
 
@@ -283,10 +289,10 @@ export default function Settings() {
                         onChange={(e) => handleNotificationPrefChange("sessions", "dayOfReminder", e.target.checked)}
                         className="rounded border-slate-300 dark:border-slate-600"
                       />
-                      <span className="text-slate-700 dark:text-slate-300 font-medium">Rappel le jour même</span>
+                      <span className="text-slate-700 dark:text-slate-300 font-medium">Day-of reminder</span>
                     </label>
                     <p className="text-slate-500 dark:text-slate-400 ml-5">
-                      Notification critique le jour de l'audience pour éviter tout oubli.
+                      Critical notification on the day of the session to prevent any oversight.
                     </p>
                   </div>
                 </div>
@@ -299,22 +305,22 @@ export default function Settings() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <i className="fas fa-balance-scale text-red-600"></i>
-                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Procès</h3>
+                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Lawsuits</h3>
                 </div>
                 <div className="text-xs text-slate-500 dark:text-slate-400 italic">
-                  Basé sur la priorité du dossier parent
+                  Based on parent case priority
                 </div>
               </div>
               <div className="ml-6 text-xs text-slate-600 dark:text-slate-400">
                 <p className="mb-2">
-                  <strong>Notifications automatiques:</strong>
+                  <strong>Automatic notifications:</strong>
                 </p>
                 <ul className="list-disc list-inside space-y-1 ml-2">
-                  <li>Rappel si aucune audience programmée (fréquence selon priorité du dossier)</li>
-                  <li>Suggestion de mise à jour après audiences/tâches terminées</li>
+                  <li>Reminder if no session scheduled (frequency based on parent case priority)</li>
+                  <li>Update suggestion after sessions/tasks completed</li>
                 </ul>
                 <p className="mt-2 text-slate-500 dark:text-slate-500 italic">
-                  Les procès héritent de la priorité de leur dossier parent pour déterminer la fréquence des rappels.
+                  Lawsuits inherit the priority of their parent case to determine the frequency of reminders.
                 </p>
               </div>
             </div>
@@ -324,7 +330,7 @@ export default function Settings() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <i className="fas fa-dollar-sign text-green-600"></i>
-                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Paiements</h3>
+                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Payments</h3>
                 </div>
                 <button
                   onClick={() => handleNotificationPrefChange("payments", "enabled", !notificationPrefs.payments.enabled)}
@@ -342,13 +348,13 @@ export default function Settings() {
                       onChange={(e) => handleNotificationPrefChange("payments", "overdueReminders", e.target.checked)}
                       className="rounded border-slate-300 dark:border-slate-600"
                     />
-                    <span className="text-slate-700 dark:text-slate-300">Relances pour paiements en retard</span>
+                    <span className="text-slate-700 dark:text-slate-300">Overdue payment reminders</span>
                   </label>
                   <p className="text-slate-500 dark:text-slate-400 ml-5">
-                    Rappels avant: {notificationPrefs.payments.reminderDays.join(", ")} jours
+                    Reminders before: {notificationPrefs.payments.reminderDays.join(", ")} days
                   </p>
                   <p className="text-slate-500 dark:text-slate-400 ml-5">
-                    Relances après retard: {notificationPrefs.payments.overdueReminderFrequency.join(", ")} jours
+                    Overdue reminders: {notificationPrefs.payments.overdueReminderFrequency.join(", ")} days
                   </p>
                 </div>
               )}
@@ -380,11 +386,11 @@ export default function Settings() {
                         className="rounded border-slate-300 dark:border-slate-600"
                       />
                       <span className="text-slate-700 dark:text-slate-300">
-                        Rappels avant échéance (Date limite)
+                        Reminders before mission deadlines
                       </span>
                     </label>
                     <p className="text-slate-500 dark:text-slate-400 pl-6">
-                      Rappels: {notificationPrefs.missions.reminderDays.join(", ")} jours avant l'échéance.
+                      Reminders: {notificationPrefs.missions.reminderDays.join(", ")} days before the deadline.
                     </p>
                   </div>
 
@@ -397,10 +403,10 @@ export default function Settings() {
                         onChange={(e) => handleNotificationPrefChange("missions", "completionReminders", e.target.checked)}
                         className="rounded border-slate-300 dark:border-slate-600"
                       />
-                      <span className="text-slate-700 dark:text-slate-300">Vérification après échéance</span>
+                      <span className="text-slate-700 dark:text-slate-300">VVerification after deadline</span>
                     </label>
                     <p className="text-slate-500 dark:text-slate-400 pl-6">
-                      Demande si l'huissier a accompli la mission après l'échéance.
+                      Request if the bailiff has completed the mission after the deadline.
                     </p>
                   </div>
                 </div>
@@ -433,11 +439,11 @@ export default function Settings() {
                         className="rounded border-slate-300 dark:border-slate-600"
                       />
                       <span className="text-slate-700 dark:text-slate-300">
-                        Rappel d'inactivité ({notificationPrefs.dossiers.inactivityDays} jours)
+                        Inactivity reminder ({notificationPrefs.dossiers.inactivityDays} days)
                       </span>
                     </label>
                     <p className="text-slate-500 dark:text-slate-400 pl-6">
-                      Notification si le dossier n'a pas été mis à jour depuis {notificationPrefs.dossiers.inactivityDays} jours.
+                      Notification if the case has not been updated for {notificationPrefs.dossiers.inactivityDays} days.
                     </p>
                   </div>
 
@@ -451,15 +457,15 @@ export default function Settings() {
                         className="rounded border-slate-300 dark:border-slate-600"
                       />
                       <span className="text-slate-700 dark:text-slate-300">
-                        Rappel de révision (basé sur priorité)
+                        Review reminder (based on priority)
                       </span>
                     </label>
                     <p className="text-slate-500 dark:text-slate-400 pl-6">
-                      Haute priorité: tous les {notificationPrefs.dossiers.reviewIntervalHigh} jours
+                      High priority: every {notificationPrefs.dossiers.reviewIntervalHigh} days
                       <br />
-                      Moyenne priorité: tous les {notificationPrefs.dossiers.reviewIntervalMedium} jours
+                      Medium priority: every {notificationPrefs.dossiers.reviewIntervalMedium} days
                       <br />
-                      Basse priorité: tous les {notificationPrefs.dossiers.reviewIntervalLow} jours
+                      Low priority: every {notificationPrefs.dossiers.reviewIntervalLow} days
                     </p>
                   </div>
 
@@ -473,11 +479,11 @@ export default function Settings() {
                         className="rounded border-slate-300 dark:border-slate-600"
                       />
                       <span className="text-slate-700 dark:text-slate-300">
-                        Prochaine échéance (next_deadline)
+                        Next deadline (next_deadline)
                       </span>
                     </label>
                     <p className="text-slate-500 dark:text-slate-400 pl-6">
-                      Rappels pour les échéances: 7 jours avant, 3 jours avant, le jour même, et en cas de retard.
+                      Reminders for deadlines: 7 days before, 3 days before, on the day, and in case of delay.
                     </p>
                   </div>
                 </div>
@@ -508,11 +514,11 @@ export default function Settings() {
                       className="rounded border-slate-300 dark:border-slate-600"
                     />
                     <span className="text-slate-700 dark:text-slate-300">
-                      Rappel d'inactivité ({notificationPrefs.clients.inactivityDays} jours sans activité)
+                      Inactivity reminder ({notificationPrefs.clients.inactivityDays} days without activity)
                     </span>
                   </label>
                   <p className="text-slate-500 dark:text-slate-400 pl-6">
-                    Notification si le client n'a eu aucune activité (dossiers, tâches, séances, paiements) pendant {notificationPrefs.clients.inactivityDays} jours.
+                    Notification if the client has had no activity (cases, tasks, sessions, payments) for {notificationPrefs.clients.inactivityDays} days.
                   </p>
                 </div>
               )}
@@ -527,10 +533,10 @@ export default function Settings() {
             <div className="flex items-center justify-between">
               <div>
                 <label className="text-sm font-medium text-slate-900 dark:text-white">
-                  Authentification à deux facteurs
+                  Two-Factor Authentication
                 </label>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                  Sécurité renforcée pour votre compte
+                  Enhanced security for your account
                 </p>
               </div>
               <button
@@ -549,10 +555,10 @@ export default function Settings() {
             <div className="flex items-center justify-between">
               <div>
                 <label className="text-sm font-medium text-slate-900 dark:text-white">
-                  Expiration de session
+                  Session Timeout
                 </label>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                  Déconnexion automatique après inactivité
+                  Automatic logout after inactivity
                 </p>
               </div>
               <select
@@ -562,8 +568,8 @@ export default function Settings() {
               >
                 <option value="15">15 minutes</option>
                 <option value="30">30 minutes</option>
-                <option value="60">1 heure</option>
-                <option value="120">2 heures</option>
+                <option value="60">1 hour</option>
+                <option value="120">2 hours</option>
               </select>
             </div>
 
@@ -571,7 +577,7 @@ export default function Settings() {
             <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
               <button className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-white rounded-lg font-medium transition-colors duration-200">
                 <i className="fas fa-key mr-2"></i>
-                Changer le mot de passe
+                Change Password
               </button>
             </div>
           </div>
@@ -584,10 +590,10 @@ export default function Settings() {
             <div className="flex items-center justify-between">
               <div>
                 <label className="text-sm font-medium text-slate-900 dark:text-white">
-                  Thème
+                  Theme
                 </label>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                  Choisissez le thème de l'application
+                  Choose the app's theme
                 </p>
               </div>
               <select
@@ -595,9 +601,9 @@ export default function Settings() {
                 onChange={(e) => handleChange("theme", e.target.value)}
                 className="px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="light">Clair</option>
-                <option value="dark">Sombre</option>
-                <option value="system">Système</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+                <option value="system">System</option>
               </select>
             </div>
           </div>
@@ -609,14 +615,14 @@ export default function Settings() {
             onClick={handleCancel}
             className="px-6 py-2.5 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-lg font-medium transition-colors duration-200"
           >
-            Annuler
+            Cancel
           </button>
           <button
             onClick={handleSave}
             className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center gap-2"
           >
             <i className="fas fa-save"></i>
-            Enregistrer les modifications
+            Save Changes
           </button>
         </div>
       </div>

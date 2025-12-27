@@ -14,13 +14,13 @@ import { calculateNextHearing, formatDate, getDeadlineUrgency } from "../../../u
 export const caseConfig = {
   // Basic info
   entityType: "case",
-  entityName: "Procès",
+  entityName: "lawsuit",
   icon: "fas fa-gavel",
   listRoute: "/cases",
 
   // Messages
-  notFoundMessage: "Procès non trouvé",
-  deleteConfirmMessage: "Êtes-vous sûr de vouloir supprimer ce procès ?",
+  notFoundMessage: "Lawsuit not found",
+  deleteConfirmMessage: "Are you sure you want to delete this lawsuit?",
 
   // Permissions
   allowDelete: true,
@@ -68,7 +68,7 @@ export const caseConfig = {
 
     return {
       ...caseData,
-      dossier: dossier || { id: null, caseNumber: 'N/A', title: 'Dossier inconnu' },
+      dossier: dossier || { id: null, caseNumber: 'N/A', title: 'Unknown Dossier' },
       // Always derive related collections from live context (avoid stale embedded arrays)
       sessions: caseSessions,
       tasks: tasks.filter((t) => t.parentType === "case" && t.caseId === numericId),
@@ -131,14 +131,13 @@ export const caseConfig = {
   quickActions: [
     {
       key: "status",
-      label: "Statut",
+      label: "status",
       icon: "fas fa-info-circle",
       colorMap: true,
       options: [
-        { value: "En cours", label: "En cours", color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" },
-        { value: "En attente", label: "En attente", color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
-        { value: "Suspendu", label: "Suspendu", color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" },
-        { value: "Clos", label: "Clos", color: "bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300" },
+        { value: "In Progress", label: "In Progress", color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" },
+        { value: "On Hold", label: "On Hold", color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
+        { value: "Closed", label: "Closed", color: "bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300" },
       ]
     }
   ],
@@ -164,7 +163,7 @@ export const caseConfig = {
               ) : (
                 <span className="text-slate-500 dark:text-slate-400 flex items-center gap-2">
                   <i className="fas fa-folder-open"></i>
-                  {data.dossier?.title || 'Dossier non assigné'}
+                  {data.dossier?.title || 'No Dossier Assigned'}
                 </span>
               )}
             </div>
@@ -174,11 +173,11 @@ export const caseConfig = {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <InfoCard icon="fas fa-landmark" label="Tribunal" value={data.court} color="purple" />
+            <InfoCard icon="fas fa-landmark" label="Court" value={data.court} color="purple" />
             {(() => {
               const hearing = data.computedNextHearing;
               if (!hearing) {
-                return <InfoCard icon="fas fa-calendar-alt" label="Prochaine audience" value="Aucune audience" color="amber" />;
+                return <InfoCard icon="fas fa-calendar-alt" label="Next hearing" value="No hearings" color="amber" />;
               }
 
               const formattedDate = formatDate(hearing.date);
@@ -205,7 +204,7 @@ export const caseConfig = {
               return (
                 <InfoCard
                   icon="fas fa-calendar-alt"
-                  label="Prochaine audience"
+                  label="Next hearing"
                   value={formattedDate}
                   subtitle={subtitle}
                   color={urgencyColors[urgency]}
@@ -213,8 +212,8 @@ export const caseConfig = {
                 />
               );
             })()}
-            <InfoCard icon="fas fa-balance-scale" label="Juge" value={data.judge} color="blue" />
-            <InfoCard icon="fas fa-user-tie" label="Avocat adverse" value={data.adversaryLawyer} color="amber" />
+            <InfoCard icon="fas fa-balance-scale" label="Judge" value={data.judge} color="blue" />
+            <InfoCard icon="fas fa-user-tie" label="Adversary Lawyer" value={data.adversaryLawyer} color="amber" />
           </div>
         </div>
       </ContentSection>
@@ -224,7 +223,7 @@ export const caseConfig = {
   // Stats cards
   getStats: (data) => {
     const hearing = data.computedNextHearing;
-    const hearingValue = hearing ? formatDate(hearing.date) : "Aucune audience";
+    const hearingValue = hearing ? formatDate(hearing.date) : "No hearings";
 
     return [
       {
@@ -232,22 +231,22 @@ export const caseConfig = {
         iconColor: "text-red-600 dark:text-red-400",
         bgColor: "bg-red-100 dark:bg-red-900/20",
         value: hearingValue,
-        label: "Prochaine Audience"
+        label: "Next hearing"
       },
-    {
-      icon: "fas fa-file",
-      iconColor: "text-purple-600 dark:text-purple-400",
-      bgColor: "bg-purple-100 dark:bg-purple-900/20",
-      value: data.documents?.length || 0,
-      label: "Documents"
-    },
-    {
-      icon: "fas fa-history",
-      iconColor: "text-blue-600 dark:text-blue-400",
-      bgColor: "bg-blue-100 dark:bg-blue-900/20",
-      value: data.sessions?.length || 0,
-      label: "Audiences"
-    },
+      {
+        icon: "fas fa-file",
+        iconColor: "text-purple-600 dark:text-purple-400",
+        bgColor: "bg-purple-100 dark:bg-purple-900/20",
+        value: data.documents?.length || 0,
+        label: "Documents"
+      },
+      {
+        icon: "fas fa-history",
+        iconColor: "text-blue-600 dark:text-blue-400",
+        bgColor: "bg-blue-100 dark:bg-blue-900/20",
+        value: data.sessions?.length || 0,
+        label: "Hearings"
+      },
     ];
   },
 
@@ -255,13 +254,13 @@ export const caseConfig = {
   tabs: [
     {
       id: "overview",
-      label: "Vue d'ensemble",
+      label: "Overview",
       icon: "fas fa-eye",
       component: "overview",
     },
     {
       id: "sessions",
-      label: "Audiences",
+      label: "Hearings",
       icon: "fas fa-calendar-alt",
       component: "aggregatedRelated",
       aggregationType: "sessions",
@@ -269,8 +268,8 @@ export const caseConfig = {
       itemsKey: "sessions",
       allowAdd: true,
       allowDelete: false,
-      entityName: "une séance",
-      addSubtitle: "Créer une nouvelle séance juridique pour ce procès",
+      entityName: "a hearing",
+      addSubtitle: "Create a new legal hearing for this case",
 
       // Dynamic form fields - caseId pre-filled and disabled since we're in case context
       getFormFields: (caseData) => {
@@ -289,7 +288,7 @@ export const caseConfig = {
                 value: caseData.id,
                 label: `${caseData.caseNumber} - ${caseData.title}`
               }],
-              helpText: "Cette séance sera rattachée à ce procès",
+              helpText: "This hearing will be linked to this case",
             };
           }
           // Make linkType field non-editable - always linked to case
@@ -298,7 +297,7 @@ export const caseConfig = {
               ...field,
               disabled: true, // Make it read-only
               defaultValue: 'case',
-              helpText: "Cette séance est liée à ce procès",
+              helpText: "This hearing is linked to this case",
             };
           }
           // Hide dossierId field - not needed when adding to case
@@ -319,7 +318,7 @@ export const caseConfig = {
           if (field.name === 'location') {
             return {
               ...field,
-              placeholder: "Salle d'audience / Lieu de rendez-vous",
+              placeholder: "Hearing room / Meeting location",
             };
           }
           return field;
@@ -328,7 +327,7 @@ export const caseConfig = {
     },
     {
       id: "tasks",
-      label: "Tâches",
+      label: "Tasks",
       icon: "fas fa-tasks",
       component: "aggregatedRelated",
       aggregationType: "tasks",
@@ -336,8 +335,8 @@ export const caseConfig = {
       itemsKey: "tasks",
       allowAdd: true,
       allowDelete: false,
-      entityName: "une tâche",
-      addSubtitle: "Créer une nouvelle tâche pour ce procès",
+      entityName: "a task",
+      addSubtitle: "Create a new task for this case",
       // Dynamic form fields - caseId and dossierId pre-filled based on context
       getFormFields: (caseData) => {
         // Get parent dossier data
@@ -349,10 +348,10 @@ export const caseConfig = {
             return {
               ...field,
               defaultValue: 'case',
-              helpText: "Choisir si cette tâche concerne le procès ou le dossier parent"
+              helpText: "Choose if this task concerns the lawsuit or the parent dossier"
             };
           } else if (field.name === 'caseId') {
-            // Show this procès (disabled/read-only)
+            // Show this case (disabled/read-only)
             return {
               ...field,
               defaultValue: caseData.id,
@@ -361,7 +360,7 @@ export const caseConfig = {
                 value: caseData.id,
                 label: `${caseData.caseNumber} - ${caseData.title}`
               }],
-              helpText: "Cette tâche sera rattachée à ce procès",
+              helpText: "This task will be linked to this lawsuit",
               // Override getOptions to use this case only when parentType is 'case'
               getOptions: (formData) => {
                 if (formData.parentType !== "case") return [];
@@ -381,7 +380,7 @@ export const caseConfig = {
                 value: parentDossier.id,
                 label: `${parentDossier.caseNumber} - ${parentDossier.title}`
               }] : [],
-              helpText: "Cette tâche sera rattachée au dossier parent",
+              helpText: "This task will be linked to the parent dossier",
               // Override getOptions to use parent dossier only when parentType is 'dossier'
               getOptions: (formData) => {
                 if (formData.parentType !== "dossier") return [];
@@ -406,8 +405,8 @@ export const caseConfig = {
       itemsKey: "missions",
       allowAdd: true,
       allowDelete: false,
-      entityName: "une mission",
-      addSubtitle: "Créer une nouvelle mission d'huissier pour ce procès",
+      entityName: "mission",
+      addSubtitle: "Create a new bailiff mission for this lawsuit",
       // Dynamic form fields - entityType and entityReference pre-filled
       getFormFields: (caseData, contextData) => {
         // Generate a default mission number
@@ -427,7 +426,7 @@ export const caseConfig = {
               ...field,
               defaultValue: caseData.caseNumber,
               disabled: true,
-              helpText: `Cette mission sera liée au procès ${caseData.caseNumber}`,
+              helpText: `This mission will be linked to the lawsuit ${caseData.caseNumber}`,
             };
           } else if (field.name === 'missionNumber') {
             return {
@@ -450,7 +449,7 @@ export const caseConfig = {
     },
     {
       id: "financial",
-      label: "Comptabilité",
+      label: "Accounting",
       icon: "fas fa-calculator",
       component: "financial",
     },
@@ -469,7 +468,7 @@ export const caseConfig = {
     },
     {
       id: "timeline",
-      label: "Historique",
+      label: "History",
       icon: "fas fa-history",
       component: "history",
     },
@@ -478,12 +477,12 @@ export const caseConfig = {
   // ✅ UPDATED: Overview sections with editStrategy
   overviewSections: [
     {
-      title: "Informations générales",
+      title: "General Information",
       editStrategy: "structured",
       fields: [
         {
           key: "caseNumber",
-          label: "Numéro de procès",
+          label: "Lawsuit Number",
           value: (data) => data.caseNumber,
           icon: "fas fa-hashtag",
           type: "text",
@@ -491,7 +490,7 @@ export const caseConfig = {
         },
         {
           key: "title",
-          label: "Titre du procès",
+          label: "Lawsuit Title",
           value: (data) => data.title,
           icon: "fas fa-file-alt",
           type: "text",
@@ -500,32 +499,32 @@ export const caseConfig = {
       ],
     },
     {
-      title: "Description du procès",
+      title: "Lawsuit Description",
       editStrategy: "structured",
       type: "description",
       fieldKey: "description",
-      content: (data) => data.description || "Aucune description",
+      content: (data) => data.description || "No description",
     },
     {
-      title: "Informations du tribunal",
+      title: "Court Information",
       editStrategy: "structured",
       fields: [
         {
           key: "court",
-          label: "Tribunal",
+          label: "Court",
           value: (data) => data.court,
           icon: "fas fa-landmark",
           type: "select",
           editable: true,
           options: [
-            { value: "Tribunal de première instance", label: "Tribunal de première instance" },
-            { value: "Cour d'appel", label: "Cour d'appel" },
-            { value: "Cour de cassation", label: "Cour de cassation" },
+            { value: "Court of First Instance", label: "Court of First Instance" },
+            { value: "Court of Appeal", label: "Court of Appeal" },
+            { value: "Court of Cassation", label: "Court of Cassation" },
           ]
         },
         {
           key: "judge",
-          label: "Juge",
+          label: "Judge",
           value: (data) => data.judge,
           icon: "fas fa-balance-scale",
           type: "text",
@@ -533,7 +532,7 @@ export const caseConfig = {
         },
         {
           key: "courtRoom",
-          label: "Salle",
+          label: "Court Room",
           value: (data) => data.courtRoom,
           icon: "fas fa-door-open",
           type: "text",
@@ -541,7 +540,7 @@ export const caseConfig = {
         },
         {
           key: "referenceNumber",
-          label: "Numéro de référence",
+          label: "Reference Number",
           value: (data) => data.referenceNumber,
           icon: "fas fa-hashtag",
           type: "text",
@@ -550,12 +549,12 @@ export const caseConfig = {
       ],
     },
     {
-      title: "Dates importantes",
+      title: "Important Dates",
       editStrategy: "structured",
       fields: [
         {
           key: "filingDate",
-          label: "Date de dépôt",
+          label: "Filing Date",
           value: (data) => data.filingDate,
           icon: "fas fa-calendar-plus",
           type: "date",
@@ -563,10 +562,10 @@ export const caseConfig = {
         },
         {
           key: "nextHearing",
-          label: "Prochaine audience",
+          label: "Next Hearing",
           value: (data) => {
             const hearing = data.computedNextHearing;
-            if (!hearing) return "Aucune audience";
+            if (!hearing) return "No hearings scheduled";
             return formatDate(hearing.date);
           },
           icon: "fas fa-calendar-alt",
@@ -577,7 +576,7 @@ export const caseConfig = {
             if (!hearing) {
               return (
                 <div className="text-slate-500 dark:text-slate-400 text-sm">
-                  Aucune audience programmée
+                  No hearings scheduled
                 </div>
               );
             }
@@ -595,10 +594,10 @@ export const caseConfig = {
             };
 
             const urgencyLabels = {
-              critical: "Aujourd'hui",
+              critical: "Today",
               urgent: "Urgent",
-              soon: "Bientôt",
-              normal: "Programmé",
+              soon: "Soon",
+              normal: "Scheduled",
             };
 
             // Build full label
@@ -640,7 +639,7 @@ export const caseConfig = {
                       to={linkTo}
                       className="text-sm text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-1 mt-1"
                     >
-                      Voir les détails de l'audience
+                      View Hearing Details
                       <i className="fas fa-arrow-right text-xs"></i>
                     </Link>
                   )}
@@ -657,7 +656,7 @@ export const caseConfig = {
       fields: [
         {
           key: "adversaryParty",
-          label: "Partie adverse",
+          label: "Adversary Party",
           value: (data) => data.adversaryParty,
           icon: "fas fa-user",
           type: "text",
@@ -665,7 +664,7 @@ export const caseConfig = {
         },
         {
           key: "adversaryLawyer",
-          label: "Avocat adverse",
+          label: "Adversary Lawyer",
           value: (data) => data.adversaryLawyer,
           icon: "fas fa-user-tie",
           type: "text",
@@ -674,24 +673,24 @@ export const caseConfig = {
       ],
     },
     {
-      title: "Dossier lié",
+      title: "Related Dossier",
       editStrategy: "structured",
       fields: [
         {
           key: "dossierId",
-          label: "Dossier associé",
+          label: "Associated Dossier",
           value: (data) => {
             // Return the dossierId for the select, not the full object
             return data.dossierId || "";
           },
           displayValue: (data) => {
             // For display purposes, show the full dossier info
-            if (!data.dossierId) return "Aucun dossier";
+            if (!data.dossierId) return "No dossier";
             const dossier = [].find(d => d.id === data.dossierId);
             if (dossier) return `${dossier.caseNumber} - ${dossier.title}`;
             // Fallback to hydrated dossier object if available
             if (data.dossier?.caseNumber) return `${data.dossier.caseNumber} - ${data.dossier.title}`;
-            return "Aucun dossier";
+            return "No dossier";
           },
           icon: "fas fa-folder-open",
           type: "searchable-select",
@@ -701,8 +700,8 @@ export const caseConfig = {
             value: d.id,
             label: `${d.caseNumber} - ${d.title}`
           })),
-          helpText: "Sélectionnez le dossier auquel ce procès est associé",
-          placeholder: "Rechercher un dossier..."
+          helpText: "Select the dossier associated with this case",
+          placeholder: "Search for a dossier..."
         },
       ],
     },

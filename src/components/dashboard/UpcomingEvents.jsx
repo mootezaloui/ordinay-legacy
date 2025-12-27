@@ -27,10 +27,10 @@ export default function UpcomingEvents({ events, maxItems = 5 }) {
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
 
-    if (diffMs < 0) return "Passé";
-    if (diffHours < 1) return "Bientôt";
-    if (diffHours < 24) return `Dans ${diffHours}h`;
-    if (diffDays < 7) return `Dans ${diffDays}j`;
+    if (diffMs < 0) return "Passed";
+    if (diffHours < 1) return "Soon";
+    if (diffHours < 24) return `In ${diffHours}h`;
+    if (diffDays < 7) return `In ${diffDays}d`;
     return formatDate(eventDate);
   };
 
@@ -41,15 +41,14 @@ export default function UpcomingEvents({ events, maxItems = 5 }) {
       {displayedEvents.map((event) => {
         const colors = getEventColor(event.type);
         const timeUntil = getTimeUntil(event.date);
-        const isUrgent = timeUntil.includes("h") || timeUntil === "Bientôt";
+        const isUrgent = timeUntil.includes("h") || timeUntil === "Soon";
 
         return (
           <div
             key={event.id}
             onClick={() => event.link && navigate(event.link)}
-            className={`flex items-center justify-between p-4 ${colors.bg} rounded-lg ${
-              event.link ? "cursor-pointer hover:shadow-md" : ""
-            } transition-all`}
+            className={`flex items-center justify-between p-4 ${colors.bg} rounded-lg ${event.link ? "cursor-pointer hover:shadow-md" : ""
+              } transition-all`}
           >
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-slate-900 dark:text-white truncate">
@@ -72,9 +71,8 @@ export default function UpcomingEvents({ events, maxItems = 5 }) {
             </div>
 
             <span
-              className={`px-3 py-1 text-xs font-medium ${colors.badge} rounded-full whitespace-nowrap ml-3 ${
-                isUrgent ? "animate-pulse" : ""
-              }`}
+              className={`px-3 py-1 text-xs font-medium ${colors.badge} rounded-full whitespace-nowrap ml-3 ${isUrgent ? "animate-pulse" : ""
+                }`}
             >
               {timeUntil}
             </span>
@@ -88,7 +86,7 @@ export default function UpcomingEvents({ events, maxItems = 5 }) {
             <i className="fas fa-calendar-check text-slate-400 text-xl"></i>
           </div>
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            Aucun événement à venir
+            No upcoming events scheduled.
           </p>
         </div>
       )}

@@ -8,13 +8,48 @@
  */
 export function resolveEntityLink(entityType, context = {}) {
   const map = {
-    client: (ctx) => ctx.clientId ? `/clients/${ctx.clientId}` : ctx.entityId ? `/clients/${ctx.entityId}` : null,
-    dossier: (ctx) => ctx.dossierId ? `/dossiers/${ctx.dossierId}` : ctx.entityId ? `/dossiers/${ctx.entityId}` : null,
-    case: (ctx) => ctx.caseId ? `/cases/${ctx.caseId}` : ctx.entityId ? `/cases/${ctx.entityId}` : null,
-    task: (ctx) => ctx.taskId ? `/tasks/${ctx.taskId}` : ctx.entityId ? `/tasks/${ctx.entityId}` : null,
-    session: (ctx) => ctx.sessionId ? `/sessions/${ctx.sessionId}` : ctx.entityId ? `/sessions/${ctx.entityId}` : null,
-    mission: (ctx) => ctx.missionId ? `/missions/${ctx.missionId}` : ctx.entityId ? `/missions/${ctx.entityId}` : null,
-    officer: (ctx) => ctx.officerId ? `/officers/${ctx.officerId}` : ctx.entityId ? `/officers/${ctx.entityId}` : null,
+    client: (ctx) =>
+      ctx.clientId
+        ? `/clients/${ctx.clientId}`
+        : ctx.entityId
+        ? `/clients/${ctx.entityId}`
+        : null,
+    dossier: (ctx) =>
+      ctx.dossierId
+        ? `/dossiers/${ctx.dossierId}`
+        : ctx.entityId
+        ? `/dossiers/${ctx.entityId}`
+        : null,
+    case: (ctx) =>
+      ctx.caseId
+        ? `/cases/${ctx.caseId}`
+        : ctx.entityId
+        ? `/cases/${ctx.entityId}`
+        : null,
+    task: (ctx) =>
+      ctx.taskId
+        ? `/tasks/${ctx.taskId}`
+        : ctx.entityId
+        ? `/tasks/${ctx.entityId}`
+        : null,
+    session: (ctx) =>
+      ctx.sessionId
+        ? `/sessions/${ctx.sessionId}`
+        : ctx.entityId
+        ? `/sessions/${ctx.entityId}`
+        : null,
+    mission: (ctx) =>
+      ctx.missionId
+        ? `/missions/${ctx.missionId}`
+        : ctx.entityId
+        ? `/missions/${ctx.entityId}`
+        : null,
+    officer: (ctx) =>
+      ctx.officerId
+        ? `/officers/${ctx.officerId}`
+        : ctx.entityId
+        ? `/officers/${ctx.entityId}`
+        : null,
     financialEntry: (ctx) => {
       if (ctx.dossierId) return `/dossiers/${ctx.dossierId}`;
       if (ctx.caseId) return `/cases/${ctx.caseId}`;
@@ -35,56 +70,66 @@ export const taskNotificationTemplates = {
   // Before deadline
   upcoming: [
     {
-      title: "Rappel de Tâche",
+      title: "Task Reminder",
       getMessage: (task, daysLeft) =>
-        `La tâche "${task.title}" arrive à échéance dans ${daysLeft} jour${daysLeft > 1 ? 's' : ''}. Avez-vous commencé ?`,
+        `The task "${task.title}" is due in ${daysLeft} day${
+          daysLeft > 1 ? "s" : ""
+        }. Have you started?`,
     },
     {
-      title: "Tâche à Venir",
+      title: "Upcoming Task",
       getMessage: (task, daysLeft) =>
-        `N'oubliez pas : "${task.title}" doit être terminée dans ${daysLeft} jour${daysLeft > 1 ? 's' : ''}.`,
+        `Don't forget: "${task.title}" must be completed in ${daysLeft} day${
+          daysLeft > 1 ? "s" : ""
+        }.`,
     },
   ],
 
   // Due today
   dueToday: [
     {
-      title: "Échéance Aujourd'hui",
+      title: "Due Today",
       getMessage: (task) =>
-        `La tâche "${task.title}" doit être terminée aujourd'hui. Avez-vous fini ?`,
+        `The task "${task.title}" must be completed today. Have you finished?`,
     },
     {
-      title: "Action Requise",
+      title: "Action Required",
       getMessage: (task) =>
-        `"${task.title}" - L'échéance est aujourd'hui ! Quel est votre avancement ?`,
+        `"${task.title}" - The deadline is today! What is your progress?`,
     },
   ],
 
   // Overdue
   overdue: [
     {
-      title: "Tâche en Retard",
+      title: "Task Overdue",
       getMessage: (task, daysOverdue) =>
-        `"${task.title}" est en retard de ${daysOverdue} jour${daysOverdue > 1 ? 's' : ''}. Pouvez-vous la finaliser ?`,
+        `"${task.title}" is overdue by ${daysOverdue} day${
+          daysOverdue > 1 ? "s" : ""
+        }. Can you finalize it?`,
     },
     {
-      title: "Attention - Retard",
+      title: "Attention - Overdue",
       getMessage: (task, daysOverdue) =>
-        `La tâche "${task.title}" devait être terminée il y a ${daysOverdue} jour${daysOverdue > 1 ? 's' : ''}.`,
+        `The task "${
+          task.title
+        }" should have been completed ${daysOverdue} day${
+          daysOverdue > 1 ? "s" : ""
+        } ago.`,
     },
   ],
 
   // Status check
   statusCheck: [
     {
-      title: "Suivi de Tâche",
+      title: "Task Follow-up",
       getMessage: (task) =>
-        `Avez-vous terminé la tâche "${task.title}" ? Échéance : ${task.dueDate}`,
+        `Have you completed the task "${task.title}"? Deadline: ${task.dueDate}`,
     },
     {
-      title: "Point d'Avancement",
+      title: "Progress Check",
       getMessage: (task) =>
-        `Où en êtes-vous avec "${task.title}" ? Deadline : ${task.dueDate}`,
+        `Where are you with "${task.title}"? Deadline: ${task.dueDate}`,
     },
   ],
 };
@@ -96,42 +141,48 @@ export const sessionNotificationTemplates = {
   // Before session
   preparation: [
     {
-      title: "Préparation de Séance",
+      title: "Session Preparation",
       getMessage: (session, daysLeft) =>
-        `Séance "${session.title}" dans ${daysLeft} jour${daysLeft > 1 ? 's' : ''}. Avez-vous préparé votre plaidoirie ?`,
+        `Session "${session.title}" in ${daysLeft} day${
+          daysLeft > 1 ? "s" : ""
+        }. Have you prepared your pleading?`,
     },
     {
-      title: "Audience Prochaine",
+      title: "Upcoming Hearing",
       getMessage: (session, daysLeft) =>
-        `L'audience "${session.title}" est dans ${daysLeft} jour${daysLeft > 1 ? 's' : ''}. Avez-vous préparé votre argumentaire ?`,
+        `The hearing "${session.title}" is in ${daysLeft} day${
+          daysLeft > 1 ? "s" : ""
+        }. Have you prepared your arguments?`,
     },
     {
-      title: "Rappel de Préparation",
+      title: "Preparation Reminder",
       getMessage: (session, daysLeft) =>
-        `Séance "${session.title}" le ${session.date}. Avez-vous rassemblé tous les documents nécessaires ?`,
+        `Session "${session.title}" on ${session.date}. Have you gathered all necessary documents?`,
     },
   ],
 
   // Day before
   tomorrow: [
     {
-      title: "Séance Demain",
+      title: "Session Tomorrow",
       getMessage: (session) =>
-        `L'audience "${session.title}" a lieu demain. Êtes-vous prêt(e) ?`,
+        `The hearing "${session.title}" takes place tomorrow. Are you ready?`,
     },
     {
-      title: "Dernière Vérification",
+      title: "Final Check",
       getMessage: (session) =>
-        `Séance demain : "${session.title}". Avez-vous vérifié tous les dossiers ?`,
+        `Session tomorrow: "${session.title}". Have you checked all the files?`,
     },
   ],
 
   // Same day
   today: [
     {
-      title: "Séance Aujourd'hui",
+      title: "Session Today",
       getMessage: (session) =>
-        `Audience "${session.title}" aujourd'hui à ${session.time || 'l\'heure prévue'}. Bon courage !`,
+        `Hearing "${session.title}" today at ${
+          session.time || "the scheduled time"
+        }. Good luck!`,
     },
   ],
 };
@@ -143,42 +194,48 @@ export const paymentNotificationTemplates = {
   // Due soon
   upcoming: [
     {
-      title: "Paiement à Recevoir",
+      title: "Payment Receivable",
       getMessage: (payment) =>
-        `Le paiement de ${payment.client} (${payment.amount} TND) arrive à échéance dans ${payment.daysLeft} jour${payment.daysLeft > 1 ? 's' : ''}.`,
+        `The payment from ${payment.client} (${payment.amount} TND) is due in ${
+          payment.daysLeft
+        } day${payment.daysLeft > 1 ? "s" : ""}.`,
     },
     {
-      title: "Échéance de Paiement",
+      title: "Payment Due",
       getMessage: (payment) =>
-        `${payment.client} doit vous payer ${payment.amount} TND dans ${payment.daysLeft} jour${payment.daysLeft > 1 ? 's' : ''}. Avez-vous envoyé un rappel ?`,
+        `${payment.client} must pay you ${payment.amount} TND in ${
+          payment.daysLeft
+        } day${payment.daysLeft > 1 ? "s" : ""}. Have you sent a reminder?`,
     },
   ],
 
   // Due today
   dueToday: [
     {
-      title: "Paiement Dû Aujourd'hui",
+      title: "Payment Due Today",
       getMessage: (payment) =>
-        `${payment.client} doit vous payer ${payment.amount} TND aujourd'hui. Avez-vous reçu le paiement ?`,
+        `${payment.client} must pay you ${payment.amount} TND today. Have you received the payment?`,
     },
     {
-      title: "Échéance de Paiement",
+      title: "Payment Due",
       getMessage: (payment) =>
-        `Paiement attendu de ${payment.client} : ${payment.amount} TND. A-t-il/elle payé ?`,
+        `Payment expected from ${payment.client}: ${payment.amount} TND. Have they paid?`,
     },
   ],
 
   // Overdue
   overdue: [
     {
-      title: "Paiement en Retard",
+      title: "Payment Overdue",
       getMessage: (payment) =>
-        `${payment.client} a un paiement en retard de ${payment.daysOverdue} jour${payment.daysOverdue > 1 ? 's' : ''} (${payment.amount} TND). Contacté(e) ?`,
+        `${payment.client} has a payment overdue by ${payment.daysOverdue} day${
+          payment.daysOverdue > 1 ? "s" : ""
+        } (${payment.amount} TND). Contacted?`,
     },
     {
-      title: "Relance Nécessaire",
+      title: "Follow-up Required",
       getMessage: (payment) =>
-        `Le paiement de ${payment.client} (${payment.amount} TND) est en retard. Avez-vous envoyé une relance ?`,
+        `The payment from ${payment.client} (${payment.amount} TND) is overdue. Have you sent a follow-up?`,
     },
   ],
 };
@@ -189,30 +246,32 @@ export const paymentNotificationTemplates = {
 export const missionNotificationTemplates = {
   upcoming: [
     {
-      title: "Mission Prochaine",
+      title: "Upcoming Mission",
       getMessage: (mission, daysLeft) =>
-        `Mission "${mission.title}" prévue dans ${daysLeft} jour${daysLeft > 1 ? 's' : ''}. Tout est prêt ?`,
+        `Mission "${mission.title}" scheduled in ${daysLeft} day${
+          daysLeft > 1 ? "s" : ""
+        }. Is everything ready?`,
     },
     {
-      title: "Rappel de Mission",
+      title: "Mission Reminder",
       getMessage: (mission, daysLeft) =>
-        `Mission "${mission.title}" le ${mission.date}. Avez-vous préparé les documents ?`,
+        `Mission "${mission.title}" on ${mission.date}. Have you prepared the documents?`,
     },
   ],
 
   dueToday: [
     {
-      title: "Mission Aujourd'hui",
+      title: "Mission Today",
       getMessage: (mission) =>
-        `Mission "${mission.title}" aujourd'hui. Confirmé avec l'huissier ?`,
+        `Mission "${mission.title}" today. Confirmed with the bailiff?`,
     },
   ],
 
   completion: [
     {
-      title: "Suivi de Mission",
+      title: "Mission Follow-up",
       getMessage: (mission) =>
-        `Mission "${mission.title}" terminée ? Avez-vous reçu le rapport de l'huissier ?`,
+        `Mission "${mission.title}" completed? Have you received the bailiff's report?`,
     },
   ],
 };
@@ -223,30 +282,38 @@ export const missionNotificationTemplates = {
 export const deadlineNotificationTemplates = {
   urgent: [
     {
-      title: "Échéance Critique",
+      title: "Critical Deadline",
       getMessage: (item, hours) =>
-        `URGENT : "${item.title}" - Plus que ${hours} heure${hours > 1 ? 's' : ''} !`,
+        `URGENT: "${item.title}" - Only ${hours} hour${
+          hours > 1 ? "s" : ""
+        } left!`,
     },
   ],
 
   approaching: [
     {
-      title: "Échéance Approchante",
+      title: "Approaching Deadline",
       getMessage: (item, daysLeft) =>
-        `"${item.title}" doit être finalisé dans ${daysLeft} jour${daysLeft > 1 ? 's' : ''}.`,
+        `"${item.title}" must be finalized in ${daysLeft} day${
+          daysLeft > 1 ? "s" : ""
+        }.`,
     },
     {
-      title: "Date Limite Proche",
+      title: "Deadline Approaching",
       getMessage: (item, daysLeft) =>
-        `Attention : Il reste ${daysLeft} jour${daysLeft > 1 ? 's' : ''} pour "${item.title}".`,
+        `Attention: ${daysLeft} day${daysLeft > 1 ? "s" : ""} remaining for "${
+          item.title
+        }".`,
     },
   ],
 
   missed: [
     {
-      title: "Échéance Dépassée",
+      title: "Deadline Exceeded",
       getMessage: (item, daysOverdue) =>
-        `"${item.title}" a dépassé son échéance de ${daysOverdue} jour${daysOverdue > 1 ? 's' : ''}.`,
+        `"${item.title}" has exceeded its deadline by ${daysOverdue} day${
+          daysOverdue > 1 ? "s" : ""
+        }.`,
     },
   ],
 };
@@ -257,17 +324,17 @@ export const deadlineNotificationTemplates = {
 export const dossierNotificationTemplates = {
   statusUpdate: [
     {
-      title: "Mise à Jour Nécessaire",
+      title: "Update Required",
       getMessage: (dossier) =>
-        `Le dossier ${dossier.caseNumber} n'a pas été mis à jour depuis ${dossier.daysSinceUpdate} jours. Des nouvelles ?`,
+        `The Dossier ${dossier.caseNumber} has not been updated for ${dossier.daysSinceUpdate} days. Any news?`,
     },
   ],
 
   review: [
     {
-      title: "Revue de Dossier",
+      title: "Dossier Review",
       getMessage: (dossier) =>
-        `Le dossier ${dossier.caseNumber} est ouvert depuis ${dossier.daysOpen} jours. Tout avance bien ?`,
+        `The Dossier ${dossier.caseNumber} has been open for ${dossier.daysOpen} days. Is everything progressing well?`,
     },
   ],
 };
@@ -281,43 +348,61 @@ export const domainEventTemplates = {
     type: "client",
     priority: "warning",
     icon: "fas fa-box-archive",
-    title: "Client archivé",
-    getMessage: (ctx) => `Le client ${ctx.name || ctx.entityName || "inconnu"} a été archivé.`,
+    title: "Client archived",
+    getMessage: (ctx) =>
+      `The client ${
+        ctx.name || ctx.entityName || "unknown"
+      } has been archived.`,
   },
   clientReactivated: {
     type: "client",
     priority: "success",
     icon: "fas fa-user-check",
-    title: "Client réactivé",
-    getMessage: (ctx) => `Le client ${ctx.name || ctx.entityName || "inconnu"} a été réactivé.`,
+    title: "Client reactivated",
+    getMessage: (ctx) =>
+      `The client ${
+        ctx.name || ctx.entityName || "unknown"
+      } has been reactivated.`,
   },
   dossierClosed: {
     type: "dossier",
     priority: "info",
     icon: "fas fa-folder-minus",
-    title: "Dossier fermé",
-    getMessage: (ctx) => `Le dossier ${ctx.caseNumber || ctx.entityName || ctx.entityId} a été fermé.`,
+    title: "Dossier closed",
+    getMessage: (ctx) =>
+      `The Dossier ${
+        ctx.caseNumber || ctx.entityName || ctx.entityId
+      } has been closed.`,
   },
   dossierReopened: {
     type: "dossier",
     priority: "success",
     icon: "fas fa-folder-open",
-    title: "Dossier rouvert",
-    getMessage: (ctx) => `Le dossier ${ctx.caseNumber || ctx.entityName || ctx.entityId} a été rouvert.`,
+    title: "Dossier reopened",
+    getMessage: (ctx) =>
+      `The Dossier ${
+        ctx.caseNumber || ctx.entityName || ctx.entityId
+      } has been reopened.`,
   },
   caseClosed: {
     type: "case",
     priority: "info",
     icon: "fas fa-gavel",
-    title: "Procès clos",
-    getMessage: (ctx) => `Le procès ${ctx.caseNumber || ctx.entityName || ctx.entityId} a été clos.`,
+    title: "Case closed",
+    getMessage: (ctx) =>
+      `The case ${
+        ctx.caseNumber || ctx.entityName || ctx.entityId
+      } has been closed.`,
   },
   caseReopened: {
     type: "case",
     priority: "success",
     icon: "fas fa-gavel",
-    title: "Procès rouvert",
-    getMessage: (ctx) => `Le procès ${ctx.caseNumber || ctx.entityName || ctx.entityId} a été rouvert.`,
+    title: "Case reopened",
+    getMessage: (ctx) =>
+      `The case ${
+        ctx.caseNumber || ctx.entityName || ctx.entityId
+      } has been reopened.`,
   },
 
   // Tasks
@@ -325,29 +410,34 @@ export const domainEventTemplates = {
     type: "task",
     priority: "info",
     icon: "fas fa-user-check",
-    title: "Tâche assignée",
-    getMessage: (ctx) => `La tâche "${ctx.title}" a été assignée à ${ctx.assignee || "vous"}.`,
+    title: "Task assigned",
+    getMessage: (ctx) =>
+      `The task "${ctx.title}" has been assigned to ${ctx.assignee || "you"}.`,
   },
   taskStatusChanged: {
     type: "task",
     priority: "info",
     icon: "fas fa-arrows-rotate",
-    title: "Statut de tâche mis à jour",
-    getMessage: (ctx) => `La tâche "${ctx.title}" est passée à "${ctx.status}".`,
+    title: "Task status updated",
+    getMessage: (ctx) =>
+      `The task "${ctx.title}" has changed to "${ctx.status}".`,
   },
   taskOverdue: {
     type: "task",
     priority: "urgent",
     icon: "fas fa-exclamation-circle",
-    title: "Tâche en retard",
-    getMessage: (ctx) => `La tâche "${ctx.title}" est en retard depuis ${ctx.daysOverdue || 0} jour(s).`,
+    title: "Task overdue",
+    getMessage: (ctx) =>
+      `The task "${ctx.title}" has been overdue for ${
+        ctx.daysOverdue || 0
+      } day(s).`,
   },
   taskDueSoon: {
     type: "task",
     priority: "high",
     icon: "fas fa-clock",
-    title: "Tâche à échéance proche",
-    getMessage: (ctx) => `La tâche "${ctx.title}" arrive à échéance le ${ctx.dueDate}.`,
+    title: "Task deadline approaching",
+    getMessage: (ctx) => `The task "${ctx.title}" is due on ${ctx.dueDate}.`,
   },
 
   // Sessions
@@ -355,29 +445,33 @@ export const domainEventTemplates = {
     type: "session",
     priority: "info",
     icon: "fas fa-calendar-plus",
-    title: "Audience programmée",
-    getMessage: (ctx) => `Audience "${ctx.title}" programmée le ${ctx.date} à ${ctx.time || "heure à confirmer"}.`,
+    title: "Hearing scheduled",
+    getMessage: (ctx) =>
+      `Hearing "${ctx.title}" scheduled on ${ctx.date} at ${
+        ctx.time || "time to be confirmed"
+      }.`,
   },
   sessionUpcoming24h: {
     type: "session",
     priority: "high",
     icon: "fas fa-bell",
-    title: "Audience dans 24h",
-    getMessage: (ctx) => `Audience "${ctx.title}" dans 24h. Préparation finale requise.`,
+    title: "Hearing in 24 hours",
+    getMessage: (ctx) =>
+      `Hearing "${ctx.title}" in 24 hours. Final preparation required.`,
   },
   sessionUpcoming1h: {
     type: "session",
     priority: "urgent",
     icon: "fas fa-hourglass-half",
-    title: "Audience imminente",
-    getMessage: (ctx) => `Audience "${ctx.title}" dans 1 heure.`,
+    title: "Imminent hearing",
+    getMessage: (ctx) => `Hearing "${ctx.title}" in 1 hour.`,
   },
   sessionCompleted: {
     type: "session",
     priority: "success",
     icon: "fas fa-check-circle",
-    title: "Audience terminée",
-    getMessage: (ctx) => `Audience "${ctx.title}" est marquée terminée.`,
+    title: "Hearing completed",
+    getMessage: (ctx) => `Hearing "${ctx.title}" is marked completed.`,
   },
 
   // Financial
@@ -385,36 +479,45 @@ export const domainEventTemplates = {
     type: "financial",
     priority: "info",
     icon: "fas fa-receipt",
-    title: "Dépense ajoutée",
-    getMessage: (ctx) => `Nouvelle dépense ${ctx.amount ? `${ctx.amount} TND` : ""} enregistrée${ctx.category ? ` (${ctx.category})` : ""}.`,
+    title: "Expense added",
+    getMessage: (ctx) =>
+      `New expense ${ctx.amount ? `${ctx.amount} TND` : ""} recorded${
+        ctx.category ? ` (${ctx.category})` : ""
+      }.`,
   },
   clientAdvanceReceived: {
     type: "financial",
     priority: "success",
     icon: "fas fa-hand-holding-usd",
-    title: "Avance client reçue",
-    getMessage: (ctx) => `Avance reçue de ${ctx.clientName || "client"} (${ctx.amount || ""} TND).`,
+    title: "Client advance received",
+    getMessage: (ctx) =>
+      `Advance received from ${ctx.clientName || "client"} (${
+        ctx.amount || ""
+      } TND).`,
   },
   clientBalanceOverdue: {
     type: "financial",
     priority: "warning",
     icon: "fas fa-exclamation-triangle",
-    title: "Solde client en retard",
-    getMessage: (ctx) => `Le solde de ${ctx.clientName || "client"} est en retard de paiement.`,
+    title: "Client balance overdue",
+    getMessage: (ctx) =>
+      `The balance of ${ctx.clientName || "client"} is overdue for payment.`,
   },
   financialValidated: {
     type: "financial",
     priority: "info",
     icon: "fas fa-check",
-    title: "Écriture validée",
-    getMessage: (ctx) => `L'écriture "${ctx.description || ctx.entryId}" est validée.`,
+    title: "Entry validated",
+    getMessage: (ctx) =>
+      `The entry "${ctx.description || ctx.entryId}" is validated.`,
   },
   financialPaid: {
     type: "financial",
     priority: "success",
     icon: "fas fa-check-double",
-    title: "Paiement confirmé",
-    getMessage: (ctx) => `Le paiement pour "${ctx.description || ctx.entryId}" est marqué payé.`,
+    title: "Payment confirmed",
+    getMessage: (ctx) =>
+      `The payment for "${ctx.description || ctx.entryId}" is marked paid.`,
   },
 
   // Missions / Officers
@@ -422,22 +525,31 @@ export const domainEventTemplates = {
     type: "mission",
     priority: "info",
     icon: "fas fa-user-tag",
-    title: "Mission assignée",
-    getMessage: (ctx) => `La mission "${ctx.title}" a été assignée à ${ctx.officerName || "un huissier"}.`,
+    title: "Mission assigned",
+    getMessage: (ctx) =>
+      `The mission "${ctx.title}" has been assigned to ${
+        ctx.officerName || "a bailiff"
+      }.`,
   },
   missionReassigned: {
     type: "mission",
     priority: "warning",
     icon: "fas fa-people-arrows",
-    title: "Mission réassignée",
-    getMessage: (ctx) => `La mission "${ctx.title}" passe de ${ctx.oldOfficer || "ancien huissier"} à ${ctx.newOfficer || "nouvel huissier"}.`,
+    title: "Mission reassigned",
+    getMessage: (ctx) =>
+      `The mission "${ctx.title}" is transferred from ${
+        ctx.oldOfficer || "previous bailiff"
+      } to ${ctx.newOfficer || "new bailiff"}.`,
   },
   missionOverdue: {
     type: "mission",
     priority: "high",
     icon: "fas fa-exclamation-circle",
-    title: "Mission en retard",
-    getMessage: (ctx) => `La mission "${ctx.title}" est en retard.${ctx.daysOverdue ? ` (${ctx.daysOverdue} jour(s))` : ""}`,
+    title: "Mission overdue",
+    getMessage: (ctx) =>
+      `The mission "${ctx.title}" is overdue.${
+        ctx.daysOverdue ? ` (${ctx.daysOverdue} day(s))` : ""
+      }`,
   },
 
   // System / Integrity
@@ -445,15 +557,16 @@ export const domainEventTemplates = {
     type: "system",
     priority: "info",
     icon: "fas fa-shield-alt",
-    title: "Action bloquée",
-    getMessage: (ctx) => ctx.reason || "Action bloquée par les règles métier.",
+    title: "Action blocked",
+    getMessage: (ctx) => ctx.reason || "Action blocked by business rules.",
   },
   impactConfirmed: {
     type: "system",
     priority: "info",
     icon: "fas fa-check-circle",
-    title: "Impact relationnel confirmé",
-    getMessage: (ctx) => ctx.summary || "Modification confirmée après avertissement d'impact.",
+    title: "Relational impact confirmed",
+    getMessage: (ctx) =>
+      ctx.summary || "Modification confirmed after impact warning.",
   },
 };
 

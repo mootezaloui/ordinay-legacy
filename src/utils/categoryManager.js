@@ -27,12 +27,12 @@ export function getCustomCategories() {
  */
 export function addCustomCategory(name) {
   if (!name || typeof name !== "string") {
-    throw new Error("Le nom de la catégorie est requis");
+    throw new Error("Category name is required");
   }
 
   const trimmedName = name.trim();
   if (!trimmedName) {
-    throw new Error("Le nom de la catégorie ne peut pas être vide");
+    throw new Error("Category name cannot be empty");
   }
 
   const customCategories = getCustomCategories();
@@ -43,7 +43,7 @@ export function addCustomCategory(name) {
   );
 
   if (exists) {
-    throw new Error("Cette catégorie existe déjà dans la liste");
+    throw new Error("This category already exists in the list");
   }
 
   const newCategory = {
@@ -59,7 +59,7 @@ export function addCustomCategory(name) {
     return newCategory;
   } catch (error) {
     console.error("Error saving custom category:", error);
-    throw new Error("Erreur lors de l'enregistrement");
+    throw new Error("Error saving");
   }
 }
 
@@ -77,7 +77,7 @@ export function removeCustomCategory(value) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
   } catch (error) {
     console.error("Error removing custom category:", error);
-    throw new Error("Erreur lors de la suppression");
+    throw new Error("Error deleting");
   }
 }
 

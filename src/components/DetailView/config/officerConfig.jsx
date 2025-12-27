@@ -11,13 +11,13 @@ import { missionFormFields } from "../../FormModal/formConfigs";
 export const officerConfig = {
   // Basic info
   entityType: "officer",
-  entityName: "Huissier",
+  entityName: "Bailiff",
   icon: "fas fa-user-tie",
   listRoute: "/officers",
 
   // Messages
-  notFoundMessage: "Huissier non trouvé",
-  deleteConfirmMessage: "Êtes-vous sûr de vouloir supprimer cet huissier ?",
+  notFoundMessage: "Bailiff not found",
+  deleteConfirmMessage: "Are you sure you want to delete this bailiff?",
 
   // Permissions
   allowDelete: true,
@@ -99,7 +99,7 @@ export const officerConfig = {
     }
 
     if (!hasOfficerFields) {
-      console.log('[officerConfig.updateData] No officer fields to update, skipping');
+      console.log('[officerConfig.updateData] No Bailiff fields to update, skipping');
       return;
     }
 
@@ -137,13 +137,13 @@ export const officerConfig = {
   quickActions: [
     {
       key: "status",
-      label: "Statut",
+      label: "Status",
       icon: "fas fa-flag",
       colorMap: true,
       options: [
-        { value: "Disponible", label: "Disponible", color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" },
-        { value: "Occupe", label: "Occupé", color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
-        { value: "Inactif", label: "Inactif", color: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300" },
+        { value: "Available", label: "Available", color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" },
+        { value: "Busy", label: "Busy", color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
+        { value: "Inactive", label: "Inactive", color: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300" },
       ]
     }
   ],
@@ -167,7 +167,7 @@ export const officerConfig = {
                     {data.name}
                   </h2>
                   <p className="text-slate-600 dark:text-slate-400 mt-1">
-                    Huissier de Justice
+                    {data.agency || "Independent Bailiff"}
                   </p>
                 </div>
                 <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(data.status)}`}>
@@ -179,7 +179,7 @@ export const officerConfig = {
                 <div className="flex items-center gap-3">
                   <i className="fas fa-phone text-green-600 dark:text-green-400"></i>
                   <div>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">Téléphone</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Phone</p>
                     <p className="text-sm text-slate-900 dark:text-white">{data.phone}</p>
                   </div>
                 </div>
@@ -193,7 +193,7 @@ export const officerConfig = {
                 <div className="flex items-center gap-3">
                   <i className="fas fa-map-marker-alt text-red-600 dark:text-red-400"></i>
                   <div>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">Localisation</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Location</p>
                     <p className="text-sm text-slate-900 dark:text-white">{data.location}</p>
                   </div>
                 </div>
@@ -218,15 +218,15 @@ export const officerConfig = {
       icon: "fas fa-spinner",
       iconColor: "text-amber-600 dark:text-amber-400",
       bgColor: "bg-amber-100 dark:bg-amber-900/20",
-      value: data.missions?.filter(m => m.status === "En cours" || m.status === "Programmée").length || 0,
-      label: "En cours"
+      value: data.missions?.filter(m => m.status === "In Progress" || m.status === "Scheduled").length || 0,
+      label: "In Progress"
     },
     {
       icon: "fas fa-check-circle",
       iconColor: "text-green-600 dark:text-green-400",
       bgColor: "bg-green-100 dark:bg-green-900/20",
-      value: data.missions?.filter(m => m.status === "Terminée").length || 0,
-      label: "Terminées"
+      value: data.missions?.filter(m => m.status === "Completed").length || 0,
+      label: "Completed"
     },
   ],
 
@@ -234,7 +234,7 @@ export const officerConfig = {
   tabs: [
     {
       id: "overview",
-      label: "Vue d'ensemble",
+      label: "Overview",
       icon: "fas fa-eye",
       component: "overview",
     },
@@ -246,12 +246,12 @@ export const officerConfig = {
       getCount: (data) => data.missions?.length || 0,
 
       itemsKey: "missions",
-      emptyMessage: "Aucune mission assignée à cet huissier",
+      emptyMessage: "No missions assigned to this bailiff",
 
       allowAdd: true,
       allowDelete: true,
-      entityName: "une mission",
-      addSubtitle: "Assigner une nouvelle mission à cet huissier",
+      entityName: "a mission",
+      addSubtitle: "Assign a new mission to this bailiff",
 
       // ✅ UPDATED: Use same getFormFields pattern as dossier and case
       getFormFields: (officerData, contextData) => {
@@ -267,7 +267,7 @@ export const officerConfig = {
               ...field,
               defaultValue: officerData.id,
               disabled: true,
-              helpText: `Cette mission sera assignée à ${officerData.name}`,
+              helpText: `This mission will be assigned to ${officerData.name}`,
             };
           }
           // Auto-generate mission number
@@ -283,7 +283,7 @@ export const officerConfig = {
             return {
               ...field,
               disabled: false, // Allow selection for officers
-              helpText: "Sélectionner si cette mission concerne un dossier ou un procès",
+              helpText: "Select if this mission concerns a dossier or a case",
             };
           }
           // Enable entityReference (not disabled) for officer selection
@@ -292,7 +292,7 @@ export const officerConfig = {
               ...field,
               disabled: false, // Allow selection for officers
               type: 'searchable-select', // Make it searchable
-              helpText: "Sélectionnez le dossier ou procès pour cette mission",
+              helpText: "Select the dossier or case for this mission",
               getOptions: (formData) => {
                 const entityType = formData.entityType;
 
@@ -320,13 +320,13 @@ export const officerConfig = {
     },
     {
       id: "cases",
-      label: "Affaires liées",
+      label: "Related Lawsuits/Dossiers",
       icon: "fas fa-folder-open",
       component: "relatedItems",
       getCount: (data) => data.cases?.length || 0,
 
       itemsKey: "cases",
-      emptyMessage: "Aucune affaire associée",
+      emptyMessage: "No related lawsuits/dossiers for this bailiff",
       itemRoute: (item) => {
         // Determine if it's a dossier or case based on caseNumber prefix
         if (item.caseNumber.startsWith('DOS-')) {
@@ -356,10 +356,10 @@ export const officerConfig = {
     },
     {
       id: "financial",
-      label: "Comptabilité",
+      label: "Accounting",
       icon: "fas fa-coins",
       component: "financial",
-      description: "Suivi financier de toutes les missions de cet huissier"
+      description: "Financial tracking of all missions for this bailiff"
     },
     {
       id: "documents",
@@ -370,7 +370,7 @@ export const officerConfig = {
     },
     {
       id: "timeline",
-      label: "Historique",
+      label: "History",
       icon: "fas fa-history",
       component: "history",
     },
@@ -379,12 +379,12 @@ export const officerConfig = {
   // ✅ UPDATED: Overview sections with editStrategy
   overviewSections: [
     {
-      title: "Informations générales",
+      title: "General Information",
       editStrategy: "structured",
       fields: [
         {
           key: "name",
-          label: "Nom complet",
+          label: "Full Name",
           value: (data) => data.name,
           icon: "fas fa-user",
           type: "text",
@@ -394,7 +394,7 @@ export const officerConfig = {
         },
         {
           key: "status",
-          label: "Statut",
+          label: "Status",
           value: (data) => data.status,
           displayValue: (data) => data.status || "N/A",
           icon: "fas fa-flag",
@@ -402,15 +402,15 @@ export const officerConfig = {
           editable: true,
           required: true,
           options: [
-            { value: "Disponible", label: "Disponible" },
-            { value: "Occupé", label: "Occupé" },
-            { value: "Inactif", label: "Inactif" },
+            { value: "Available", label: "Available" },
+            { value: "Busy", label: "Busy" },
+            { value: "Inactive", label: "Inactive" },
           ]
         },
       ],
     },
     {
-      title: "Coordonnées",
+      title: "Contact Information",
       editStrategy: "structured",
       fields: [
         {
@@ -425,7 +425,7 @@ export const officerConfig = {
         },
         {
           key: "phone",
-          label: "Téléphone",
+          label: "Phone",
           value: (data) => data.phone,
           icon: "fas fa-phone",
           type: "tel",
@@ -435,7 +435,7 @@ export const officerConfig = {
         },
         {
           key: "alternatePhone",
-          label: "Téléphone alternatif",
+          label: "Alternate Phone",
           value: (data) => data.alternatePhone || "N/A",
           icon: "fas fa-phone-alt",
           type: "tel",
@@ -444,7 +444,7 @@ export const officerConfig = {
         },
         {
           key: "location",
-          label: "Localisation",
+          label: "Location",
           value: (data) => data.location,
           icon: "fas fa-map-marker-alt",
           type: "text",
@@ -454,13 +454,13 @@ export const officerConfig = {
         },
         {
           key: "address",
-          label: "Adresse complète",
+          label: "Full Address",
           value: (data) => data.address || "N/A",
           icon: "fas fa-map",
           type: "textarea",
           editable: true,
           rows: 2,
-          placeholder: "Adresse du cabinet/étude"
+          placeholder: "Office/Study Address"
         },
       ],
     },
@@ -469,7 +469,7 @@ export const officerConfig = {
       editStrategy: "structured",
       type: "notes",
       fieldKey: "notes",
-      content: (data) => data.notes || "Aucune note",
+      content: (data) => data.notes || "No note",
     },
   ],
 };

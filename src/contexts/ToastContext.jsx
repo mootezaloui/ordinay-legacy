@@ -32,9 +32,9 @@ export function ToastProvider({ children }) {
       : "info";
 
     const titleMap = {
-      success: "Succes",
-      error: "Erreur",
-      warning: "Attention",
+      success: "Success",
+      error: "Error",
+      warning: "Warning",
       info: "Information",
     };
 
@@ -49,7 +49,7 @@ export function ToastProvider({ children }) {
   }, [notify]);
 
   // Kept for backward compatibility with previous API (no-op now that notifications are centralized)
-  const removeToast = useCallback(() => {}, []);
+  const removeToast = useCallback(() => { }, []);
 
   return (
     <ToastContext.Provider value={{ showToast, removeToast }}>

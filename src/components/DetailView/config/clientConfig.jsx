@@ -13,8 +13,8 @@ export const clientConfig = {
   entityName: "Client",
   icon: "fas fa-user-circle",
   listRoute: "/clients",
-  notFoundMessage: "Client non trouvé",
-  deleteConfirmMessage: "Êtes-vous sûr de vouloir supprimer ce client ?",
+  notFoundMessage: "No client found.",
+  deleteConfirmMessage: "Are you sure you want to delete this client?",
   allowDelete: true,
   allowEdit: true,
 
@@ -112,18 +112,18 @@ export const clientConfig = {
   },
 
   getTitle: (data) => data.name,
-  getSubtitle: (data) => `Client depuis le ${data.joinDate}`,
+  getSubtitle: (data) => `Client since ${data.joinDate}`,
 
   // ✅ NEW: Quick Actions Configuration
   quickActions: [
     {
       key: "status",
-      label: "Statut",
+      label: "status",
       icon: "fas fa-flag",
       colorMap: true,
       options: [
-        { value: "Actif", label: "Actif", color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" },
-        { value: "Inactif", label: "Inactif", color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300" },
+        { value: "Active", label: "Active", color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" },
+        { value: "Inactive", label: "Inactive", color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300" },
       ],
     }
   ],
@@ -162,14 +162,14 @@ export const clientConfig = {
               <div className="flex items-center gap-3">
                 <i className="fas fa-phone text-green-600 dark:text-green-400"></i>
                 <div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Téléphone</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Phone</p>
                   <p className="text-sm text-slate-900 dark:text-white">{data.phone}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
                 <i className="fas fa-map-marker-alt text-red-600 dark:text-red-400"></i>
                 <div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Adresse</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Address</p>
                   <p className="text-sm text-slate-900 dark:text-white">{data.address}</p>
                 </div>
               </div>
@@ -200,7 +200,7 @@ export const clientConfig = {
   tabs: [
     {
       id: "overview",
-      label: "Vue d'ensemble",
+      label: "Overview",
       icon: "fas fa-eye",
       component: "overview",
     },
@@ -214,13 +214,13 @@ export const clientConfig = {
       itemsKey: "relatedDossiers",
       allowAdd: true,
       allowDelete: true,
-      entityName: "un dossier",
-      addSubtitle: "Créer un nouveau dossier pour ce client",
+      entityName: "dossier",
+      addSubtitle: "Create a new dossier for this client",
       formFields: dossierFormFields.filter(field => field.name !== 'clientId'),
     },
     {
       id: "cases",
-      label: "Procès",
+      label: "Lawsuits",
       icon: "fas fa-gavel",
       component: "aggregatedRelated",
       aggregationType: "cases",
@@ -228,10 +228,10 @@ export const clientConfig = {
       getCount: (data) => data.relatedCases?.length || 0,
       allowAdd: true,
       addEnabled: (clientData) => (clientData.relatedDossiers || []).length > 0,
-      addDisabledText: "Ajoutez d'abord un dossier avant de créer un procès pour ce client.",
+      addDisabledText: "Please add a dossier first before creating a lawsuit for this client.",
       allowDelete: false,
-      entityName: "un procès",
-      addSubtitle: "Créer un nouveau procès pour ce client",
+      entityName: "lawsuit",
+      addSubtitle: "Create a new lawsuit for this client",
       // Dynamic form fields - dossierId options filtered to client's dossiers
       getFormFields: (clientData) => {
         const relatedDossiers = clientData.relatedDossiers || [];
@@ -244,8 +244,8 @@ export const clientConfig = {
                 label: `${dossier.caseNumber} - ${dossier.title}`
               })),
               helpText: relatedDossiers.length === 0
-                ? "Aucun dossier disponible. Veuillez d'abord créer un dossier."
-                : "Sélectionner le dossier auquel ce procès sera rattaché"
+                ? "No dossiers available. Please create a dossier first."
+                : "Select the dossier to which this lawsuit will be linked"
             };
           }
           return field;
@@ -254,7 +254,7 @@ export const clientConfig = {
     },
     {
       id: "sessions",
-      label: "Audiences",
+      label: "Hearings",
       icon: "fas fa-calendar-alt",
       component: "aggregatedRelated",
       aggregationType: "sessions",
@@ -262,11 +262,11 @@ export const clientConfig = {
       getCount: (data) => data.relatedSessions?.length || 0,
       allowAdd: true,
       addEnabled: (clientData) => (clientData.relatedDossiers || []).length > 0,
-      addDisabledText: "Ajoutez d'abord un dossier avant de programmer une audience.",
+      addDisabledText: "Please add a dossier first before scheduling a hearing.",
       allowDelete: false,
-      entityName: "une séance",
-      addSubtitle: "Créer une nouvelle séance pour ce client",
-      // Dynamic form fields - allow linking to either dossier or procès
+      entityName: "a hearing",
+      addSubtitle: "Create a new hearing for this client",
+      // Dynamic form fields - allow linking to either dossier or lawsuit
       getFormFields: (clientData) => {
         const relatedDossiers = clientData.relatedDossiers || [];
         const relatedCases = clientData.relatedCases || [];
@@ -279,8 +279,8 @@ export const clientConfig = {
               // Not disabled - user can choose
               defaultValue: 'case', // Default to case if available
               helpText: relatedCases.length > 0
-                ? "Choisir si cette séance est liée à un dossier ou à un procès spécifique"
-                : "Choisir si cette séance est liée à un dossier"
+                ? "Choose if this hearing is linked to a dossier or a specific lawsuit"
+                : "Choose if this hearing is linked to a dossier"
             };
           }
           if (field.name === 'caseId') {
@@ -295,8 +295,8 @@ export const clientConfig = {
                 };
               }),
               helpText: relatedCases.length === 0
-                ? "Aucun procès disponible. Veuillez d'abord créer un procès."
-                : "Sélectionner le procès auquel cette séance sera rattachée",
+                ? "No lawsuits available. Please create a lawsuit first."
+                : "Select the lawsuit to which this hearing will be linked",
               // Only show this field when linkType is 'case'
               getOptions: (formData) => {
                 if (formData.linkType !== "case") return [];
@@ -319,8 +319,8 @@ export const clientConfig = {
                 label: `${dossier.caseNumber} - ${dossier.title}`
               })),
               helpText: relatedDossiers.length === 0
-                ? "Aucun dossier disponible."
-                : "Sélectionner le dossier auquel cette séance sera rattachée",
+                ? "No dossiers available. Please create a dossier first."
+                : "Select the dossier to which this hearing will be linked",
               // Only show this field when linkType is 'dossier'
               getOptions: (formData) => {
                 if (formData.linkType !== "dossier") return [];
@@ -337,7 +337,7 @@ export const clientConfig = {
     },
     {
       id: "tasks",
-      label: "Tâches",
+      label: "Tasks",
       icon: "fas fa-tasks",
       component: "aggregatedRelated",
       aggregationType: "tasks",
@@ -345,10 +345,10 @@ export const clientConfig = {
       getCount: (data) => data.relatedTasks?.length || 0,
       allowAdd: true,
       addEnabled: (clientData) => (clientData.relatedDossiers || []).length > 0,
-      addDisabledText: "Ajoutez d'abord un dossier avant de créer une tâche pour ce client.",
+      addDisabledText: "Please add a dossier first before creating a task for this client.",
       allowDelete: false,
-      entityName: "une tâche",
-      addSubtitle: "Créer une nouvelle tâche pour ce client",
+      entityName: "a task",
+      addSubtitle: "Create a new task for this client",
       // Dynamic form fields - dossierId and caseId options filtered to client's entities
       getFormFields: (clientData) => {
         const relatedDossiers = clientData.relatedDossiers || [];
@@ -364,8 +364,8 @@ export const clientConfig = {
                 label: `${dossier.caseNumber} - ${dossier.title}`
               })),
               helpText: relatedDossiers.length === 0
-                ? "Aucun dossier disponible. Veuillez d'abord créer un dossier."
-                : "Sélectionner le dossier auquel cette tâche sera rattachée",
+                ? "No Dossiers available. Please create a Dossier first."
+                : "Select the Dossier to which this task will be linked",
               // Override getOptions to use filtered options
               getOptions: (formData) => {
                 if (formData.parentType !== "dossier") return [];
@@ -387,8 +387,8 @@ export const clientConfig = {
                 };
               }),
               helpText: relatedCases.length === 0
-                ? "Aucun procès disponible. Veuillez d'abord créer un procès."
-                : "Sélectionner le procès auquel cette tâche sera rattachée",
+                ? "No lawsuits available. Please create a lawsuit first."
+                : "Select the lawsuit to which this task will be attached",
               // Override getOptions to use filtered options
               getOptions: (formData) => {
                 if (formData.parentType !== "case") return [];
@@ -408,7 +408,7 @@ export const clientConfig = {
     },
     {
       id: "financial",
-      label: "Comptabilité",
+      label: "Accounting",
       icon: "fas fa-calculator",
       component: "financial",
     },
@@ -421,7 +421,7 @@ export const clientConfig = {
     },
     {
       id: "history",
-      label: "Historique",
+      label: "History",
       icon: "fas fa-history",
       component: "history",
     },
@@ -430,12 +430,12 @@ export const clientConfig = {
   // ✅ UPDATED: Overview sections with editStrategy
   overviewSections: [
     {
-      title: "Informations Personnelles",
+      title: "Personal Information",
       editStrategy: "structured",
       fields: [
         {
           key: "name",
-          label: "Nom complet",
+          label: "Full Name",
           value: (data) => data.name,
           icon: "fas fa-user",
           type: "text",
@@ -452,7 +452,7 @@ export const clientConfig = {
         },
         {
           key: "dateOfBirth",
-          label: "Date de naissance",
+          label: "Date of Birth",
           value: (data) => data.dateOfBirth,
           icon: "fas fa-birthday-cake",
           type: "date",
@@ -468,7 +468,7 @@ export const clientConfig = {
         },
         {
           key: "company",
-          label: "Entreprise",
+          label: "Company",
           value: (data) => data.company,
           icon: "fas fa-building",
           type: "text",
@@ -476,7 +476,7 @@ export const clientConfig = {
         },
         {
           key: "taxId",
-          label: "Matricule Fiscal",
+          label: "Tax ID",
           value: (data) => data.taxId,
           icon: "fas fa-file-alt",
           type: "text",
@@ -485,7 +485,7 @@ export const clientConfig = {
       ],
     },
     {
-      title: "Coordonnées",
+      title: "Contact Information",
       editStrategy: "structured",
       fields: [
         {
@@ -499,7 +499,7 @@ export const clientConfig = {
         },
         {
           key: "phone",
-          label: "Téléphone",
+          label: "Phone",
           value: (data) => data.phone,
           icon: "fas fa-phone",
           type: "tel",
@@ -508,7 +508,7 @@ export const clientConfig = {
         },
         {
           key: "alternatePhone",
-          label: "Téléphone alternatif",
+          label: "Alternate Phone",
           value: (data) => data.alternatePhone,
           icon: "fas fa-phone-alt",
           type: "tel",
@@ -516,7 +516,7 @@ export const clientConfig = {
         },
         {
           key: "address",
-          label: "Adresse",
+          label: "Address",
           value: (data) => data.address,
           icon: "fas fa-map-marker-alt",
           type: "textarea",
@@ -526,12 +526,12 @@ export const clientConfig = {
       ],
     },
     {
-      title: "Informations d'inscription",
+      title: "Registration Information",
       editStrategy: "structured",
       fields: [
         {
           key: "joinDate",
-          label: "Date d'inscription",
+          label: "Registration Date",
           value: (data) => data.joinDate,
           icon: "fas fa-calendar",
           type: "date",
@@ -544,7 +544,7 @@ export const clientConfig = {
       editStrategy: "structured",
       type: "notes",
       fieldKey: "notes",
-      content: (data) => data.notes || "Aucune note",
+      content: (data) => data.notes || "No notes",
     },
   ],
 };

@@ -8,53 +8,53 @@ export default function TimelineTab({ data, config }) {
   const timeline = data.timeline || [];
 
   const typeConfig = {
-    created: { 
-      bg: "bg-green-100 dark:bg-green-900/20", 
-      icon: "fas fa-plus text-green-600 dark:text-green-400" 
+    created: {
+      bg: "bg-green-100 dark:bg-green-900/20",
+      icon: "fas fa-plus text-green-600 dark:text-green-400"
     },
-    document: { 
-      bg: "bg-purple-100 dark:bg-purple-900/20", 
-      icon: "fas fa-file text-purple-600 dark:text-purple-400" 
+    document: {
+      bg: "bg-purple-100 dark:bg-purple-900/20",
+      icon: "fas fa-file text-purple-600 dark:text-purple-400"
     },
-    meeting: { 
-      bg: "bg-amber-100 dark:bg-amber-900/20", 
-      icon: "fas fa-handshake text-amber-600 dark:text-amber-400" 
+    meeting: {
+      bg: "bg-amber-100 dark:bg-amber-900/20",
+      icon: "fas fa-handshake text-amber-600 dark:text-amber-400"
     },
     call: {
       bg: "bg-slate-100 dark:bg-slate-800",
       icon: "fas fa-phone text-slate-600 dark:text-slate-400"
     },
-    hearing: { 
-      bg: "bg-blue-100 dark:bg-blue-900/20", 
-      icon: "fas fa-gavel text-blue-600 dark:text-blue-400" 
+    hearing: {
+      bg: "bg-blue-100 dark:bg-blue-900/20",
+      icon: "fas fa-gavel text-blue-600 dark:text-blue-400"
     },
-    payment: { 
-      bg: "bg-green-100 dark:bg-green-900/20", 
-      icon: "fas fa-dollar-sign text-green-600 dark:text-green-400" 
+    payment: {
+      bg: "bg-green-100 dark:bg-green-900/20",
+      icon: "fas fa-dollar-sign text-green-600 dark:text-green-400"
     },
     invoice: {
       bg: "bg-blue-100 dark:bg-blue-900/20",
       icon: "fas fa-file-invoice text-blue-600 dark:text-blue-400"
     },
-    action: { 
-      bg: "bg-slate-100 dark:bg-slate-800", 
-      icon: "fas fa-bolt text-slate-600 dark:text-slate-400" 
+    action: {
+      bg: "bg-slate-100 dark:bg-slate-800",
+      icon: "fas fa-bolt text-slate-600 dark:text-slate-400"
     },
-    mediation: { 
-      bg: "bg-cyan-100 dark:bg-cyan-900/20", 
-      icon: "fas fa-balance-scale text-cyan-600 dark:text-cyan-400" 
+    mediation: {
+      bg: "bg-cyan-100 dark:bg-cyan-900/20",
+      icon: "fas fa-balance-scale text-cyan-600 dark:text-cyan-400"
     },
   };
 
   if (timeline.length === 0) {
     return (
-      <ContentSection title="Historique">
+      <ContentSection title="History">
         <div className="p-12 text-center">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-800 mb-4">
             <i className="fas fa-history text-slate-400 dark:text-slate-600 text-2xl"></i>
           </div>
           <p className="text-slate-600 dark:text-slate-400">
-            Aucun événement dans l'historique
+            No events in history
           </p>
         </div>
       </ContentSection>
@@ -62,7 +62,7 @@ export default function TimelineTab({ data, config }) {
   }
 
   return (
-    <ContentSection title="Historique">
+    <ContentSection title="History">
       <div className="p-6">
         <div className="space-y-6">
           {timeline.map((event, index) => {

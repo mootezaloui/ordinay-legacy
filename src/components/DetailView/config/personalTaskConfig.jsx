@@ -9,11 +9,11 @@ import { getStatusColor } from "./statusColors";
 
 export const personalTaskConfig = {
   entityType: "personalTask",
-  entityName: "Tâche Personnelle",
+  entityName: "Personal Task",
   icon: "fas fa-sticky-note",
   listRoute: "/personal-tasks",
-  notFoundMessage: "Tâche personnelle non trouvée",
-  deleteConfirmMessage: "Êtes-vous sûr de vouloir supprimer cette tâche personnelle ?",
+  notFoundMessage: "Personal task not found",
+  deleteConfirmMessage: "Are you sure you want to delete this personal task?",
   allowDelete: true,
   allowEdit: true,
 
@@ -62,63 +62,63 @@ export const personalTaskConfig = {
   },
 
   getTitle: (data) => data.title,
-  getSubtitle: (data) => `Créée le ${data.createdDate} • ${data.category}`,
+  getSubtitle: (data) => `Created on ${data.createdDate} • ${data.category}`,
 
   // ✅ NEW: Quick Actions Configuration
   quickActions: [
     {
       key: "status",
-      label: "Statut",
+      label: "Status",
       icon: "fas fa-info-circle",
       colorMap: true,
       options: [
-        { value: "Non commencée", label: "Non commencée", color: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300" },
-        { value: "En attente", label: "En attente", color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
-        { value: "En cours", label: "En cours", color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" },
-        { value: "Planifiée", label: "Planifiée", color: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400" },
-        { value: "Terminée", label: "Terminée", color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" },
+        { value: "Not Started", label: "Not Started", color: "bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300" },
+        { value: "In Progress", label: "In Progress", color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" },
+        { value: "Blocked", label: "Blocked", color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" },
+        { value: "Done", label: "Done", color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" },
+        { value: "Cancelled", label: "Cancelled", color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
       ]
     },
     {
       key: "priority",
-      label: "Priorité",
+      label: "Priority",
       icon: "fas fa-flag",
       colorMap: true,
       options: [
-        { value: "Haute", label: "Haute", color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" },
-        { value: "Moyenne", label: "Moyenne", color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
-        { value: "Basse", label: "Basse", color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" },
+        { value: "High", label: "High", color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" },
+        { value: "Medium", label: "Medium", color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
+        { value: "Low", label: "Low", color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" },
       ]
     },
     {
       key: "category",
-      label: "Catégorie",
+      label: "Category",
       icon: "fas fa-tag",
       colorMap: false,
       options: [
-        { value: "Factures", label: "Factures" },
-        { value: "Bureau", label: "Bureau" },
-        { value: "Personnel", label: "Personnel" },
-        { value: "Informatique", label: "Informatique" },
-        { value: "Administratif", label: "Administratif" },
-        { value: "Autre", label: "Autre" },
+        { value: "Invoices", label: "Invoices" },
+        { value: "Office", label: "Office" },
+        { value: "Personal", label: "Personal" },
+        { value: "IT", label: "IT" },
+        { value: "Administrative", label: "Administrative" },
+        { value: "Other", label: "Other" },
       ]
     }
   ],
 
   renderHeader: (data) => {
     const priorityConfig = {
-      "Haute": {
+      "High": {
         bg: "bg-red-100 dark:bg-red-900/30",
         text: "text-red-800 dark:text-red-400",
         icon: "fas fa-arrow-up",
       },
-      "Moyenne": {
+      "Medium": {
         bg: "bg-amber-100 dark:bg-amber-900/30",
         text: "text-amber-800 dark:text-amber-400",
         icon: "fas fa-minus",
       },
-      "Basse": {
+      "Low": {
         bg: "bg-green-100 dark:bg-green-900/30",
         text: "text-green-800 dark:text-green-400",
         icon: "fas fa-arrow-down",
@@ -126,12 +126,12 @@ export const personalTaskConfig = {
     };
 
     const categoryIcons = {
-      "Factures": "fas fa-file-invoice-dollar text-green-600",
-      "Bureau": "fas fa-briefcase text-blue-600",
-      "Personnel": "fas fa-user text-purple-600",
-      "Informatique": "fas fa-laptop text-indigo-600",
-      "Administratif": "fas fa-clipboard text-slate-600",
-      "Autre": "fas fa-sticky-note text-amber-600",
+      "Invoices": "fas fa-file-invoice-dollar text-green-600",
+      "Office": "fas fa-briefcase text-blue-600",
+      "Personal": "fas fa-user text-purple-600",
+      "IT": "fas fa-laptop text-indigo-600",
+      "Administrative": "fas fa-clipboard text-slate-600",
+      "Other": "fas fa-sticky-note text-amber-600",
     };
 
     const priority = priorityConfig[data.priority];
@@ -157,7 +157,7 @@ export const personalTaskConfig = {
             <div className="flex items-center gap-3">
               <span className={`px-3 py-1 rounded-full text-sm font-medium flex items-center gap-2 ${priority.bg} ${priority.text}`}>
                 <i className={priority.icon}></i>
-                Priorité {data.priority}
+                Priority {data.priority}
               </span>
               <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(data.status)}`}>
                 {data.status}
@@ -168,19 +168,19 @@ export const personalTaskConfig = {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <InfoCard
               icon="fas fa-calendar-alt"
-              label="Date limite"
+              label="Due Date"
               value={data.dueDate || "N/A"}
               color="blue"
             />
             <InfoCard
               icon="fas fa-flag"
-              label="Priorité"
+              label="Priority"
               value={data.priority}
-              color={data.priority === "Haute" ? "red" : data.priority === "Moyenne" ? "amber" : "green"}
+              color={data.priority === "High" ? "red" : data.priority === "Medium" ? "amber" : "green"}
             />
             <InfoCard
               icon="fas fa-info-circle"
-              label="Statut"
+              label="Status"
               value={data.status}
               color="purple"
             />
@@ -196,41 +196,41 @@ export const personalTaskConfig = {
       iconColor: "text-blue-600 dark:text-blue-400",
       bgColor: "bg-blue-100 dark:bg-blue-900/20",
       value: data.dueDate || "N/A",
-      label: "Échéance"
+      label: "Due Date"
     },
     {
       icon: "fas fa-tag",
       iconColor: "text-purple-600 dark:text-purple-400",
       bgColor: "bg-purple-100 dark:bg-purple-900/20",
       value: data.category,
-      label: "Catégorie"
+      label: "Category"
     },
     {
       icon: "fas fa-flag",
-      iconColor: data.priority === "Haute" ? "text-red-600 dark:text-red-400" :
-        data.priority === "Moyenne" ? "text-amber-600 dark:text-amber-400" :
+      iconColor: data.priority === "High" ? "text-red-600 dark:text-red-400" :
+        data.priority === "Medium" ? "text-amber-600 dark:text-amber-400" :
           "text-green-600 dark:text-green-400",
-      bgColor: data.priority === "Haute" ? "bg-red-100 dark:bg-red-900/20" :
-        data.priority === "Moyenne" ? "bg-amber-100 dark:bg-amber-900/20" :
+      bgColor: data.priority === "High" ? "bg-red-100 dark:bg-red-900/20" :
+        data.priority === "Medium" ? "bg-amber-100 dark:bg-amber-900/20" :
           "bg-green-100 dark:bg-green-900/20",
       value: data.priority,
-      label: "Priorité"
+      label: "Priority"
     },
   ],
 
   tabs: [
     {
       id: "overview",
-      label: "Vue d'ensemble",
+      label: "Overview",
       icon: "fas fa-eye",
       component: "overview",
     },
     {
       id: "financial",
-      label: "Comptabilité",
+      label: "Accounting",
       icon: "fas fa-coins",
       component: "financial",
-      description: "Frais de bureau et dépenses internes liés à cette tâche"
+      description: "Office fees and internal expenses related to this task"
     },
     {
       id: "documents",
@@ -241,7 +241,7 @@ export const personalTaskConfig = {
     },
     {
       id: "timeline",
-      label: "Historique",
+      label: "History",
       icon: "fas fa-history",
       component: "history",
     },
@@ -250,12 +250,12 @@ export const personalTaskConfig = {
   // ✅ UPDATED: Overview sections with editStrategy
   overviewSections: [
     {
-      title: "Informations générales",
+      title: "General Information",
       editStrategy: "structured",
       fields: [
         {
           key: "title",
-          label: "Titre de la tâche",
+          label: "Task Title",
           value: (data) => data.title,
           icon: "fas fa-sticky-note",
           type: "text",
@@ -265,7 +265,7 @@ export const personalTaskConfig = {
         },
         {
           key: "dueDate",
-          label: "Date limite",
+          label: "Due Date",
           value: (data) => data.dueDate,
           icon: "fas fa-calendar",
           type: "date",
@@ -274,18 +274,18 @@ export const personalTaskConfig = {
       ],
     },
     {
-      title: "Description de la tâche",
+      title: "Task Description",
       editStrategy: "structured",
       type: "description",
       fieldKey: "description",
-      content: (data) => data.description || "Aucune description",
+      content: (data) => data.description || "No description",
     },
     {
       title: "Notes",
       editStrategy: "structured",
       type: "notes",
       fieldKey: "notes",
-      content: (data) => data.notes || "Aucune note",
+      content: (data) => data.notes || "No notes",
     },
   ],
 };

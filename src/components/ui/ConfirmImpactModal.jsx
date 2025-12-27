@@ -70,10 +70,10 @@ export default function ConfirmImpactModal({
               </div>
               <div className="flex-1 min-w-0">
                 <h3 className="text-lg font-bold text-amber-900 dark:text-amber-100">
-                  ⚠️ Changement de rattachement
+                  ⚠️ Linking Impact Warning
                 </h3>
                 <p className="text-sm text-amber-700 dark:text-amber-300 mt-0.5 break-words overflow-wrap-anywhere">
-                  Vous êtes sur le point de {actionName.toLowerCase()}
+                  You are about to {actionName.toLowerCase()}
                   {entityName && ` ${entityName}`}
                 </p>
               </div>
@@ -140,10 +140,10 @@ export default function ConfirmImpactModal({
           <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800 rounded-lg">
             <p className="text-sm text-blue-900 dark:text-blue-100 font-medium flex items-center gap-2">
               <i className="fas fa-question-circle text-blue-600 dark:text-blue-400"></i>
-              Souhaitez-vous continuer ?
+              Do you want to continue?
             </p>
             <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
-              Cette action modifiera les relations entre entités. Assurez-vous de bien comprendre l'impact avant de confirmer.
+              This action will modify the relationships between entities. Make sure you fully understand the impact before confirming.
             </p>
           </div>
         </div>
@@ -156,14 +156,14 @@ export default function ConfirmImpactModal({
               className="px-4 py-2 border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg transition-colors font-medium"
             >
               <i className="fas fa-times mr-2"></i>
-              Annuler
+              Cancel
             </button>
             <button
               onClick={onConfirm}
               className="px-4 py-2 bg-amber-600 hover:bg-amber-700 dark:bg-amber-700 dark:hover:bg-amber-600 text-white rounded-lg transition-colors font-medium"
             >
               <i className="fas fa-check mr-2"></i>
-              Confirmer le changement
+              Confirm Change
             </button>
           </div>
         </div>

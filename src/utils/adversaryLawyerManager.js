@@ -27,12 +27,12 @@ export function getCustomAdversaryLawyers() {
  */
 export function addCustomAdversaryLawyer(name) {
   if (!name || typeof name !== "string") {
-    throw new Error("Le nom de l'avocat adverse est requis");
+    throw new Error("Opposing lawyer name is required");
   }
 
   const trimmedName = name.trim();
   if (!trimmedName) {
-    throw new Error("Le nom de l'avocat adverse ne peut pas être vide");
+    throw new Error("Name cannot be empty");
   }
 
   const customLawyers = getCustomAdversaryLawyers();
@@ -43,7 +43,7 @@ export function addCustomAdversaryLawyer(name) {
   );
 
   if (exists) {
-    throw new Error("Cet avocat adverse existe déjà dans la liste");
+    throw new Error("This lawyer already exists");
   }
 
   const newLawyer = {
@@ -59,7 +59,7 @@ export function addCustomAdversaryLawyer(name) {
     return newLawyer;
   } catch (error) {
     console.error("Error saving custom adversary lawyer:", error);
-    throw new Error("Erreur lors de l'enregistrement");
+    throw new Error("Error saving");
   }
 }
 
@@ -75,7 +75,7 @@ export function removeCustomAdversaryLawyer(value) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
   } catch (error) {
     console.error("Error removing custom adversary lawyer:", error);
-    throw new Error("Erreur lors de la suppression");
+    throw new Error("Error deleting");
   }
 }
 

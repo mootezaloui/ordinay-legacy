@@ -40,16 +40,16 @@ export default function ForgotPassword() {
             </div>
 
             <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
-              Email envoyé !
+              Email sent!
             </h2>
             <p className="text-slate-600 dark:text-slate-400 mb-6">
-              Nous avons envoyé un lien de réinitialisation à <strong>{email}</strong>
+              We have sent a reset link to <strong>{email}</strong>
             </p>
 
             <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg mb-6">
               <p className="text-sm text-blue-800 dark:text-blue-300">
                 <i className="fas fa-info-circle mr-2"></i>
-                Vérifiez votre boîte de réception et suivez les instructions. Le lien expire dans 1 heure.
+                Check your inbox and follow the instructions. The link expires in 1 hour.
               </p>
             </div>
 
@@ -58,16 +58,16 @@ export default function ForgotPassword() {
               className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-lg hover:shadow-xl transition-all duration-200"
             >
               <i className="fas fa-arrow-left"></i>
-              Retour à la connexion
+              Back to login
             </Link>
 
             <p className="mt-6 text-sm text-slate-600 dark:text-slate-400">
-              Vous n'avez pas reçu l'email ?{" "}
+              Didn't receive the email?{" "}
               <button
                 onClick={() => setIsSubmitted(false)}
                 className="font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
               >
-                Renvoyer
+                Resend
               </button>
             </p>
           </div>
@@ -93,10 +93,10 @@ export default function ForgotPassword() {
             <i className="fas fa-key text-white text-2xl"></i>
           </div>
           <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">
-            Mot de passe oublié ?
+            Forgot password?
           </h1>
           <p className="text-slate-600 dark:text-slate-400">
-            Pas de problème ! Entrez votre email et nous vous enverrons un lien de réinitialisation.
+            No problem! Enter your email and we'll send you a reset link.
           </p>
         </div>
 
@@ -114,7 +114,7 @@ export default function ForgotPassword() {
             {/* Email Input */}
             <div>
               <label className="block text-sm font-medium text-slate-900 dark:text-white mb-2">
-                Adresse email
+                Email address
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -130,7 +130,7 @@ export default function ForgotPassword() {
                 />
               </div>
               <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                Entrez l'email associé à votre compte
+                please enter the email associated with your account.
               </p>
             </div>
 
@@ -143,12 +143,12 @@ export default function ForgotPassword() {
               {isLoading ? (
                 <>
                   <i className="fas fa-spinner fa-spin"></i>
-                  Envoi en cours...
+                  Sending...
                 </>
               ) : (
                 <>
                   <i className="fas fa-paper-plane"></i>
-                  Envoyer le lien
+                  Send link
                 </>
               )}
             </button>
@@ -161,14 +161,14 @@ export default function ForgotPassword() {
               className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
             >
               <i className="fas fa-arrow-left"></i>
-              Retour à la connexion
+              Back to login
             </Link>
           </div>
         </div>
 
         {/* Footer */}
         <p className="mt-8 text-center text-xs text-slate-500 dark:text-slate-400">
-          © 2025 Organia. Tous droits réservés.
+          © 2025 Organia. All rights reserved.
         </p>
       </div>
     </div>

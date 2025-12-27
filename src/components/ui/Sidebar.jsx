@@ -20,12 +20,12 @@ export default function Sidebar() {
     { icon: "fas fa-th-large", label: "Dashboard", route: "/dashboard" },
     { icon: "fas fa-users", label: "Clients", route: "/clients" },
     { icon: "fas fa-folder-open", label: "Dossiers", route: "/dossiers" },
-    { icon: "fas fa-tasks", label: "Tâches", route: "/tasks" },
-    { icon: "fas fa-gavel", label: "Procès", route: "/cases" },
-    { icon: "fas fa-calendar", label: "Audience ", route: "/sessions" },
-    { icon: "fas fa-sticky-note", label: "Corvées", route: "/personal-tasks" },
-    { icon: "fas fa-user-tie", label: "Huissier", route: "/officers" },
-    { icon: "fas fa-calculator", label: "Comptabilité", route: "/accounting" },
+    { icon: "fas fa-tasks", label: "Tasks", route: "/tasks" },
+    { icon: "fas fa-gavel", label: "Lawsuits", route: "/cases" },
+    { icon: "fas fa-calendar", label: "Hearings", route: "/sessions" },
+    { icon: "fas fa-sticky-note", label: "Chores", route: "/personal-tasks" },
+    { icon: "fas fa-user-tie", label: "Bailiff", route: "/officers" },
+    { icon: "fas fa-calculator", label: "Accounting", route: "/accounting" },
     { icon: "fas fa-robot", label: "ChatBot", route: "/chatbot" },
   ];
 
@@ -75,14 +75,14 @@ export default function Sidebar() {
                     className={`absolute left-0 top-1/2 h-8 w-1 -translate-y-1/2 rounded-r-full bg-blue-500 transition-all duration-300 ease-out ${isActive
                       ? "scale-y-100 opacity-100"
                       : "scale-y-0 opacity-0 group-hover:scale-y-100 group-hover:opacity-80"
-                    }`}
+                      }`}
                   ></span>
                   <span className="flex-shrink-0">
                     <i
                       className={`${item.icon} transition-colors duration-200 ${isActive
                         ? "text-blue-600 dark:text-blue-300"
                         : "text-slate-500 group-hover:text-slate-700 dark:text-slate-400 dark:group-hover:text-slate-200"
-                      }`}
+                        }`}
                     ></i>
                   </span>
                   {!isCollapsed && (
@@ -90,7 +90,7 @@ export default function Sidebar() {
                       className={`text-sm font-medium transition-colors duration-200 ${isActive
                         ? "text-blue-700 dark:text-blue-100"
                         : "text-slate-700 group-hover:text-slate-900 dark:text-slate-200 dark:group-hover:text-white"
-                      } ${isActive && activeFlash ? "animate-pop" : ""}`}
+                        } ${isActive && activeFlash ? "animate-pop" : ""}`}
                     >
                       {item.label}
                     </span>

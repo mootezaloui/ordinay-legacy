@@ -97,7 +97,7 @@ export default function GlobalSearch() {
       <div className="relative">
         <input
           type="text"
-          placeholder="Rechercher clients, dossiers, tâches..."
+          placeholder="Search clients, dossiers, tasks..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
@@ -149,17 +149,17 @@ export default function GlobalSearch() {
                 {getTotalResults() > 0 ? (
                   <>
                     <i className="fas fa-check-circle text-green-500 mr-2"></i>
-                    {getTotalResults()} résultat{getTotalResults() > 1 ? "s" : ""} trouvé{getTotalResults() > 1 ? "s" : ""}
+                    {getTotalResults()} Results {getTotalResults() > 1 ? "s" : ""} Found
                   </>
                 ) : (
                   <>
                     <i className="fas fa-info-circle text-slate-400 mr-2"></i>
-                    Aucun résultat trouvé
+                    No results found
                   </>
                 )}
               </span>
               <span className="text-xs text-slate-500 dark:text-slate-400">
-                ESC pour fermer
+                ESC to close
               </span>
             </div>
           </div>
@@ -206,7 +206,7 @@ export default function GlobalSearch() {
               {/* Tasks */}
               {results.tasks?.length > 0 && (
                 <SearchSection
-                  title="Tâches"
+                  title="Tasks"
                   icon="fas fa-tasks"
                   iconColor="text-green-600 dark:text-green-400"
                   bgColor="bg-green-100 dark:bg-green-900/20"
@@ -214,7 +214,7 @@ export default function GlobalSearch() {
                   onItemClick={(item) => handleResultClick("task", item.id)}
                   renderItem={(item) => ({
                     title: item.title,
-                    subtitle: `Assigné à: ${item.assignedTo}`,
+                    subtitle: `Assigned to: ${item.assignedTo}`,
                     extra: item.dueDate,
                     status: item.status,
                   })}
@@ -224,7 +224,7 @@ export default function GlobalSearch() {
               {/* Cases */}
               {results.cases?.length > 0 && (
                 <SearchSection
-                  title="Procès"
+                  title="Lawsuits"
                   icon="fas fa-gavel"
                   iconColor="text-red-600 dark:text-red-400"
                   bgColor="bg-red-100 dark:bg-red-900/20"
@@ -242,7 +242,7 @@ export default function GlobalSearch() {
               {/* Sessions */}
               {results.sessions?.length > 0 && (
                 <SearchSection
-                  title="Audiences"
+                  title="Hearings"
                   icon="fas fa-calendar"
                   iconColor="text-amber-600 dark:text-amber-400"
                   bgColor="bg-amber-100 dark:bg-amber-900/20"
@@ -260,7 +260,7 @@ export default function GlobalSearch() {
               {/* Officers */}
               {results.officers?.length > 0 && (
                 <SearchSection
-                  title="Huissiers"
+                  title="Bailiffs"
                   icon="fas fa-user-tie"
                   iconColor="text-indigo-600 dark:text-indigo-400"
                   bgColor="bg-indigo-100 dark:bg-indigo-900/20"
@@ -279,10 +279,10 @@ export default function GlobalSearch() {
             <div className="py-12 text-center">
               <i className="fas fa-search text-4xl text-slate-300 dark:text-slate-600 mb-3"></i>
               <p className="text-slate-600 dark:text-slate-400">
-                Aucun résultat pour "{query}"
+                No results for "{query}"
               </p>
               <p className="text-sm text-slate-500 dark:text-slate-500 mt-1">
-                Essayez un autre terme de recherche
+                Try another search term
               </p>
             </div>
           )}
@@ -314,7 +314,7 @@ function SearchSection({ title, icon, iconColor, bgColor, items, onItemClick, re
               {title}
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              {items.length} résultat{items.length > 1 ? "s" : ""}
+              {items.length} result{items.length > 1 ? "s" : ""}
             </p>
           </div>
         </div>

@@ -60,16 +60,16 @@ export default function Dossiers() {
   // Calculate stats
   const stats = {
     total: dossiers.length,
-    open: dossiers.filter(d => d.status === "Ouvert").length,
-    closed: dossiers.filter(d => d.status === "Fermé").length,
-    highPriority: dossiers.filter(d => d.priority === "Haute").length,
+    open: dossiers.filter(d => d.status === "Open").length,
+    closed: dossiers.filter(d => d.status === "Closed").length,
+    highPriority: dossiers.filter(d => d.priority === "High").length,
   };
 
   // Define table columns
   const columns = [
     {
       id: "caseNumber",
-      label: "Numéro",
+      label: "Number",
       sortable: true,
       locked: true,
       render: (dossier) => (
@@ -80,7 +80,7 @@ export default function Dossiers() {
     },
     {
       id: "title",
-      label: "Titre",
+      label: "Title",
       sortable: true,
       render: (dossier) => <span className="font-medium">{dossier.title}</span>,
     },
@@ -92,23 +92,23 @@ export default function Dossiers() {
     },
     {
       id: "category",
-      label: "Catégorie",
+      label: "Category",
       sortable: true,
       render: (dossier) => dossier.category,
     },
     {
       id: "status",
-      label: "Statut",
+      label: "Status",
       sortable: true,
       render: (dossier) => (
         <InlineStatusSelector
           value={dossier.status}
           onChange={(newStatus) => handleStatusChange(dossier.id, newStatus)}
           statusOptions={[
-            { value: "Ouvert", label: "Ouvert", icon: "fas fa-folder-open", color: "green" },
-            { value: "En attente", label: "En attente", icon: "fas fa-clock", color: "amber" },
-            { value: "Fermé", label: "Fermé", icon: "fas fa-check-circle", color: "slate" },
-            { value: "Suspendu", label: "Suspendu", icon: "fas fa-pause-circle", color: "red" },
+            { value: "Open", label: "Open", icon: "fas fa-folder-open", color: "green" },
+            { value: "In Progress", label: "In Progress", icon: "fas fa-spinner", color: "blue" },
+            { value: "On Hold", label: "On Hold", icon: "fas fa-pause-circle", color: "amber" },
+            { value: "Closed", label: "Closed", icon: "fas fa-check-circle", color: "slate" },
           ]}
           entityType="dossier"
           entityId={dossier.id}
@@ -118,13 +118,13 @@ export default function Dossiers() {
     },
     {
       id: "openDate",
-      label: "Date d'ouverture",
+      label: "Open Date",
       sortable: true,
       render: (dossier) => dossier.openDate,
     },
     {
       id: "priority",
-      label: "Priorité",
+      label: "Priority",
       sortable: true,
       render: (dossier) => (
         <InlinePrioritySelector
@@ -146,7 +146,7 @@ export default function Dossiers() {
           <IconButton
             icon="view"
             variant="view"
-            title="Voir détails"
+            title="View details"
             onClick={(e) => {
               e.stopPropagation();
               handleView(dossier.id);
@@ -155,7 +155,7 @@ export default function Dossiers() {
           <IconButton
             icon="edit"
             variant="edit"
-            title="Modifier"
+            title="Edit"
             onClick={(e) => {
               e.stopPropagation();
               handleEdit(dossier);
@@ -164,7 +164,7 @@ export default function Dossiers() {
           <IconButton
             icon="delete"
             variant="delete"
-            title="Supprimer"
+            title="Delete"
             onClick={(e) => {
               e.stopPropagation();
               handleDelete(dossier.id);
@@ -194,7 +194,7 @@ export default function Dossiers() {
             </div>
           </ContentSection>
         )}
-        <LoadingScreen variant="page" message="Chargement des dossiers..." />
+        <LoadingScreen variant="page" message="Loading dossiers..." />
       </PageLayout>
     );
   }
@@ -237,15 +237,15 @@ export default function Dossiers() {
     }
 
     if (await confirm({
-      title: "Supprimer le dossier",
-      message: "Êtes-vous sûr de vouloir supprimer ce dossier ?",
-      confirmText: "Supprimer",
-      cancelText: "Annuler",
+      title: "Delete Dossier",
+      message: "Are you sure you want to delete this dossier?",
+      confirmText: "Delete",
+      cancelText: "Cancel",
       variant: "danger"
     })) {
       deleteDossier(id);
-      showToast("Dossier supprimé", "warning", {
-        title: "Suppression",
+      showToast("Dossier deleted", "warning", {
+        title: "Deletion Successful",
         context: "dossier",
       });
     }
@@ -261,12 +261,12 @@ export default function Dossiers() {
 
       if (!result || !result.ok) {
         console.error('[Dossiers.handleForceDelete] Cascade delete failed:', result);
-        showToast("Erreur lors de la suppression en cascade", "error");
+        showToast("Error during cascade deletion", "error");
         return;
       }
 
-      showToast("Dossier et toutes les entités liées supprimés", "success", {
-        title: "Suppression en cascade",
+      showToast("Dossier and all related entities deleted", "success", {
+        title: "Cascade Deletion",
         context: "dossier",
       });
 
@@ -275,22 +275,22 @@ export default function Dossiers() {
       navigate("/dossiers");
     } catch (error) {
       console.error('[Dossiers.handleForceDelete] Error:', error);
-      showToast("Erreur lors de la suppression en cascade", "error");
+      showToast("Error during cascade deletion", "error");
     }
   };
 
   const handleStatusChange = (id, newStatus) => {
     updateDossier(id, { status: newStatus });
-    showToast(`Statut mis a jour: ${newStatus}`, "info", {
-      title: "Statut du dossier",
+    showToast(`Status updated: ${newStatus}`, "info", {
+      title: "Dossier Status",
       context: "dossier",
     });
   };
 
   const handlePriorityChange = (id, newPriority) => {
     updateDossier(id, { priority: newPriority });
-    showToast(`Priorite mise a jour: ${newPriority}`, "info", {
-      title: "Priorite du dossier",
+    showToast(`Priority updated: ${newPriority}`, "info", {
+      title: "Dossier Priority",
       context: "dossier",
     });
   };
@@ -350,14 +350,14 @@ export default function Dossiers() {
 
       if (editingDossier) {
         updateDossier(editingDossier.id, formData);
-        showToast("Dossier modifie avec succes!", "success");
+        showToast("Dossier updated successfully!", "success");
       } else {
         const creation = await addDossier(formData);
         const createdEntity = creation?.created || creation;
         const createdId = createdEntity?.id;
         const createdCaseNumber = createdEntity?.caseNumber || createdEntity?.reference || formData.caseNumber;
-        if (!createdId) throw new Error("Identifiant du dossier manquant");
-        showToast("Dossier ajoute avec succes!", "success");
+        if (!createdId) throw new Error("Missing dossier identifier");
+        showToast("Dossier added successfully!", "success");
 
         logEntityCreation('dossier', createdId, createdCaseNumber);
 
@@ -371,7 +371,7 @@ export default function Dossiers() {
       setEditingDossier(null);
     } catch (error) {
       console.error("Error submitting dossier:", error);
-      showToast("Erreur lors de l'enregistrement", "error");
+      showToast("Error during saving", "error");
     } finally {
       setIsLoading(false);
     }
@@ -426,7 +426,7 @@ export default function Dossiers() {
         ...field,
         type: 'readonly',
         displayValue: editingDossier.status,
-        helpText: 'Le statut ne peut être modifié que via le sélecteur dans la liste'
+        helpText: 'The status can only be changed via the selector in the list'
       };
     }
     return field;
@@ -446,10 +446,10 @@ export default function Dossiers() {
               ? "bg-gray-400 cursor-not-allowed text-gray-200"
               : "bg-blue-600 hover:bg-blue-700 text-white"
               }`}
-            title={clients.length === 0 ? "Ajoutez d'abord un client avant de créer un dossier." : ""}
+            title={clients.length === 0 ? "Add a client first before creating a dossier." : ""}
           >
             <i className="fas fa-plus"></i>
-            Nouveau Dossier
+            New Dossier
           </button>
         }
       />
@@ -463,19 +463,19 @@ export default function Dossiers() {
           color="blue"
         />
         <StatCard
-          label="Dossiers Ouverts"
+          label="Open Dossiers"
           value={stats.open}
           icon="fas fa-folder"
           color="green"
         />
         <StatCard
-          label="Dossiers Fermés"
+          label="Closed Dossiers"
           value={stats.closed}
           icon="fas fa-check-circle"
           color="amber"
         />
         <StatCard
-          label="Priorité Haute"
+          label="High Priority"
           value={stats.highPriority}
           icon="fas fa-exclamation-triangle"
           color="red"
@@ -505,7 +505,7 @@ export default function Dossiers() {
             onReorder={table.reorderColumns}
             enableReorder={true}
           />
-          <TableBody isEmpty={table.data.length === 0} emptyMessage={table.isFiltering ? "Aucun résultat trouvé" : clients.length === 0 ? "Ajoutez d'abord un client avant de créer un dossier." : "Aucun dossier trouvé"}>
+          <TableBody isEmpty={table.data.length === 0} emptyMessage={table.isFiltering ? "No results found" : clients.length === 0 ? "Add a client first before creating a dossier." : "No dossiers found"}>
             {table.data.map((dossier) => (
               <TableRow
                 key={dossier.id}
@@ -540,7 +540,7 @@ export default function Dossiers() {
         }}
         onSubmit={handleSubmit}
         title={getFormTitle("dossier", !!editingDossier)}
-        subtitle={editingDossier ? "Modifier les informations du dossier" : "Ajouter un nouveau dossier"}
+        subtitle={editingDossier ? "Edit Dossier's informations" : "Create a new Dossier"}
         fields={dossierFields}
         initialData={editingDossier}
         isLoading={isLoading}
@@ -557,7 +557,7 @@ export default function Dossiers() {
           setPendingDeleteId(null);
           setValidationResult(null);
         }}
-        actionName="Modifier/Supprimer le dossier"
+        actionName="Edit/Delete dossier"
         blockers={validationResult?.blockers || []}
         warnings={validationResult?.warnings || []}
         entityName={validationResult?.entityData?.caseNumber || "Dossier"}
@@ -574,7 +574,7 @@ export default function Dossiers() {
           setPendingFormData(null);
         }}
         onConfirm={handleConfirmImpact}
-        actionName="modifier le rattachement du dossier"
+        actionName="Edit dossier attachment"
         impactSummary={validationResult?.impactSummary || []}
         entityName={editingDossier?.caseNumber || ""}
       />

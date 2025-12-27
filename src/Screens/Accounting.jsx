@@ -153,18 +153,18 @@ export default function Accounting() {
     }
 
     if (await confirm({
-      title: "Supprimer l'écriture",
-      message: "Êtes-vous sûr de vouloir supprimer cette écriture comptable ?",
-      confirmText: "Supprimer",
-      cancelText: "Annuler",
+      title: "Delete Financial Entry",
+      message: "Are you sure you want to delete this financial entry?",
+      confirmText: "Delete",
+      cancelText: "Cancel",
       variant: "danger"
     })) {
       try {
         await deleteFinancialEntry(id);
-        showToast("Écriture supprimée", "warning");
+        showToast("Financial entry deleted", "warning");
         setRefreshKey((k) => k + 1); // Trigger re-render
       } catch (error) {
-        showToast("Erreur lors de la suppression", "error");
+        showToast("Error deleting financial entry", "error");
       }
     }
   };
@@ -226,7 +226,7 @@ export default function Accounting() {
             </span>
             {entry.scope === 'internal' && (
               <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300">
-                Bureau
+                Office
               </span>
             )}
           </div>
@@ -256,7 +256,7 @@ export default function Accounting() {
           )}
           {!entry.clientName && (
             <span className="text-xs text-slate-400 dark:text-slate-500">
-              Interne
+              Internal
             </span>
           )}
         </div>
@@ -271,13 +271,13 @@ export default function Accounting() {
           ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300"
           : "bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300"
           }`}>
-          {entry.type === "revenue" ? "Recette" : "Dépense"}
+          {entry.type === "revenue" ? "Revenue" : "Expense"}
         </span>
       ),
     },
     {
       id: "amount",
-      label: "Montant",
+      label: "Amount",
       sortable: true,
       render: (entry) => (
         <span className={`font-semibold ${entry.type === "revenue"
@@ -290,17 +290,17 @@ export default function Accounting() {
     },
     {
       id: "status",
-      label: "Statut",
+      label: "Status",
       sortable: true,
       render: (entry) => (
         <InlineStatusSelector
           value={entry.status}
           onChange={(newStatus) => handleStatusChange(entry.id, newStatus)}
           statusOptions={[
-            { value: "draft", label: "Brouillon", icon: "fas fa-file", color: "slate" },
-            { value: "confirmed", label: "Confirmé", icon: "fas fa-check-circle", color: "blue" },
-            { value: "paid", label: "Payé", icon: "fas fa-check-double", color: "green" },
-            { value: "void", label: "Annulé", icon: "fas fa-times-circle", color: "red" },
+            { value: "draft", label: "Draft", icon: "fas fa-file", color: "slate" },
+            { value: "confirmed", label: "Confirmed", icon: "fas fa-check-circle", color: "blue" },
+            { value: "paid", label: "Paid", icon: "fas fa-check-double", color: "green" },
+            { value: "cancelled", label: "Cancelled", icon: "fas fa-times-circle", color: "red" },
           ]}
           entityType="financialEntry"
           entityId={entry.id}
@@ -318,7 +318,7 @@ export default function Accounting() {
           <IconButton
             icon="edit"
             variant="edit"
-            title="Modifier"
+            title="Edit"
             onClick={(e) => {
               e.stopPropagation();
               handleEdit(entry);
@@ -384,7 +384,7 @@ export default function Accounting() {
           setIsLoading(false);
           return;
         }
-        showToast("Écriture modifiée avec succès!", "success");
+        showToast("Financial entry Updated successfully !", "success");
 
         const changedFields = Object.entries(formData || {}).reduce((acc, [key, value]) => {
           if (previous[key] !== value) {
@@ -417,7 +417,7 @@ export default function Accounting() {
           return;
         }
 
-        showToast("Écriture ajoutée avec succès!", "success");
+        showToast("Financial entry Added successfully!", "success");
 
         // ✅ Log creation event using the returned entry's ID
         logEntityCreation('financialEntry', createdEntry.id, createdEntry.description || `${createdEntry.type} - ${formatCurrency(createdEntry.amount)}`);
@@ -434,7 +434,7 @@ export default function Accounting() {
       setEditingEntry(null);
     } catch (error) {
       console.error("Error submitting entry:", error);
-      showToast("Erreur lors de l'enregistrement", "error");
+      showToast("Error saving entry", "error");
     } finally {
       setIsLoading(false);
     }
@@ -452,7 +452,7 @@ export default function Accounting() {
         .map(col => {
           let value = entry[col.id] || "";
           if (col.id === "amount") value = entry.amount;
-          if (col.id === "type") value = entry.type === "revenue" ? "Recette" : "Dépense";
+          if (col.id === "type") value = entry.type === "revenue" ? "Revenue" : "Expense";
           return `"${value}"`;
         })
         .join(",")
@@ -478,8 +478,8 @@ export default function Accounting() {
   return (
     <PageLayout>
       <PageHeader
-        title="Comptabilité"
-        subtitle={`${table.originalTotalItems} écritures au total${table.isFiltering ? ` • ${table.totalItems} affichées` : ""}`}
+        title="Accounting"
+        subtitle={`${table.originalTotalItems} entries in total${table.isFiltering ? ` • ${table.totalItems} displayed` : ""}`}
         icon="fas fa-calculator"
         actions={
           <button
@@ -487,7 +487,7 @@ export default function Accounting() {
             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center gap-2"
           >
             <i className="fas fa-plus"></i>
-            Nouvelle Écriture
+            New Entry
           </button>
         }
       />
@@ -495,32 +495,32 @@ export default function Accounting() {
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <StatCard
-          label="Recettes totales"
+          label="Total Revenue"
           value={formatCurrency(stats.totalClientRevenue)}
           icon="fas fa-arrow-down"
           color="emerald"
           trendLabel="Clients"
         />
         <StatCard
-          label="Dépenses clients"
+          label="Client Expenses"
           value={formatCurrency(stats.totalClientExpense)}
           icon="fas fa-arrow-up"
           color="blue"
-          trendLabel="Remboursables"
+          trendLabel="Reimbursable"
         />
         <StatCard
-          label="Dépenses bureau"
+          label="Office Expenses"
           value={formatCurrency(stats.totalInternalExpense)}
           icon="fas fa-building"
           color="orange"
-          trendLabel="Internes"
+          trendLabel="Internal"
         />
         <StatCard
-          label="Solde net"
+          label="Net Balance"
           value={formatCurrency(stats.netProfit)}
           icon="fas fa-balance-scale"
           color={stats.netProfit >= 0 ? "green" : "red"}
-          trendLabel={stats.netProfit >= 0 ? "Positif" : "Négatif"}
+          trendLabel={stats.netProfit >= 0 ? "Positive" : "Negative"}
         />
       </div>
 
@@ -533,7 +533,7 @@ export default function Accounting() {
             : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
             }`}
         >
-          Toutes
+          All
         </button>
         <button
           onClick={() => setFilterScope("client")}
@@ -551,7 +551,7 @@ export default function Accounting() {
             : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
             }`}
         >
-          Bureau
+          Office
         </button>
       </div>
 
@@ -605,7 +605,7 @@ export default function Accounting() {
             {priorityItems.length > 5 && (
               <div className="mt-4 text-center">
                 <span className="text-sm text-slate-500 dark:text-slate-400">
-                  Et {priorityItems.length - 5} autres éléments...
+                  and {priorityItems.length - 5} other elements...
                 </span>
               </div>
             )}
@@ -637,7 +637,7 @@ export default function Accounting() {
             onReorder={table.reorderColumns}
             enableReorder={true}
           />
-          <TableBody isEmpty={table.data.length === 0} emptyMessage={table.isFiltering ? "Aucun résultat trouvé" : "Aucune écriture trouvée"}>
+          <TableBody isEmpty={table.data.length === 0} emptyMessage={table.isFiltering ? "No results found" : "No financial entries available"}>
             {table.data.map((entry) => (
               <TableRow
                 key={entry.id}
@@ -672,7 +672,7 @@ export default function Accounting() {
         }}
         onSubmit={handleSubmit}
         title={getFormTitle("financialEntry", !!editingEntry)}
-        subtitle={editingEntry ? "Modifier l'écriture comptable" : "Créer une nouvelle écriture"}
+        subtitle={editingEntry ? "Edit Financial Entry" : "Create New Entry"}
         fields={entryFields}
         initialData={editingEntry}
         isLoading={isLoading}
@@ -681,10 +681,10 @@ export default function Accounting() {
       <BlockerModal
         isOpen={blockerModalOpen}
         onClose={() => setBlockerModalOpen(false)}
-        actionName="Modifier/Supprimer l'écriture financière"
+        actionName="Edit/Delete Financial Entry"
         blockers={validationResult?.blockers || []}
         warnings={validationResult?.warnings || []}
-        entityName={validationResult?.entityData?.description || "Écriture"}
+        entityName={validationResult?.entityData?.description || "Entry"}
       />
     </PageLayout>
   );

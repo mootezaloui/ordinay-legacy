@@ -54,24 +54,24 @@ export default function Sessions() {
     "Consultation": "fas fa-comments",
     "Audience": "fas fa-gavel",
     "Expertise": "fas fa-microscope",
-    "Médiation": "fas fa-handshake",
-    "Téléphone": "fas fa-phone",
+    "Mediation": "fas fa-handshake",
+    "Phone": "fas fa-phone",
   };
 
   const statusLabelMap = {
-    "Programmée": "Scheduled",
-    "Confirmée": "Confirmed",
-    "En attente": "On Hold",
-    "Terminée": "Completed",
-    "Annulée": "Cancelled",
+    "Scheduled": "Scheduled",
+    "Confirmed": "Confirmed",
+    "On Hold": "On Hold",
+    "Completed": "Completed",
+    "Cancelled": "Cancelled",
   };
 
   const typeLabelMap = {
     "Consultation": "Consultation",
     "Audience": "Hearing",
     "Expertise": "Expert Review",
-    "Médiation": "Mediation",
-    "Téléphone": "Phone",
+    "Mediation": "Mediation",
+    "Phone": "Phone",
   };
 
   const getStatusLabel = (status) => statusLabelMap[status] || status;
@@ -149,11 +149,11 @@ export default function Sessions() {
           value={session.status}
           onChange={(newStatus) => handleStatusChange(session.id, newStatus)}
           statusOptions={[
-            { value: "Programmée", label: "Scheduled", icon: "fas fa-calendar", color: "blue" },
-            { value: "Confirmée", label: "Confirmed", icon: "fas fa-check", color: "green" },
-            { value: "En attente", label: "On Hold", icon: "fas fa-clock", color: "amber" },
-            { value: "Terminée", label: "Completed", icon: "fas fa-check-circle", color: "slate" },
-            { value: "Annulée", label: "Cancelled", icon: "fas fa-times-circle", color: "red" },
+            { value: "Scheduled", label: "Scheduled", icon: "fas fa-calendar", color: "blue" },
+            { value: "Confirmed", label: "Confirmed", icon: "fas fa-check", color: "green" },
+            { value: "Pending", label: "Pending", icon: "fas fa-clock", color: "amber" },
+            { value: "Completed", label: "Completed", icon: "fas fa-check-circle", color: "slate" },
+            { value: "Cancelled", label: "Cancelled", icon: "fas fa-times-circle", color: "red" },
           ]}
           entityType="session"
           entityId={session.id}

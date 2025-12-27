@@ -58,16 +58,16 @@ export default function Tasks() {
   const [pendingFormData, setPendingFormData] = useState(null);
 
   const statusLabelMap = {
-    "Non commencee": "Not Started",
-    "En cours": "In Progress",
-    "En attente": "On Hold",
-    "Terminee": "Completed",
+    "Not Started": "Not Started",
+    "In Progress": "In Progress",
+    "On Hold": "On Hold",
+    "Completed": "Completed",
   };
 
   const priorityLabelMap = {
-    Haute: "High",
-    Moyenne: "Medium",
-    Basse: "Low",
+    High: "High",
+    Medium: "Medium",
+    Low: "Low",
   };
 
   const getStatusLabel = (status) => statusLabelMap[status] || status;
@@ -76,11 +76,11 @@ export default function Tasks() {
   // Calculate stats
   const stats = {
     total: tasks.length,
-    completed: tasks.filter(t => t.status === "Terminee").length,
-    inProgress: tasks.filter(t => t.status === "En cours").length,
+    completed: tasks.filter(t => t.status === "Completed").length,
+    inProgress: tasks.filter(t => t.status === "In Progress").length,
     overdue: tasks.filter(t => {
       const dueDate = new Date(t.dueDate);
-      return dueDate < new Date() && t.status !== "Terminee";
+      return dueDate < new Date() && t.status !== "Completed";
     }).length,
   };
 
@@ -109,7 +109,7 @@ export default function Tasks() {
       locked: true,
       render: (task) => (
         <div className="flex items-center gap-3">
-          <span className={task.status === "Terminee" ? "line-through text-slate-500 dark:text-slate-400" : ""}>
+          <span className={task.status === "Completed" ? "line-through text-slate-500 dark:text-slate-400" : ""}>
             {task.title}
           </span>
         </div>
@@ -161,10 +161,36 @@ export default function Tasks() {
           value={task.status}
           onChange={(newStatus) => handleStatusChange(task.id, newStatus)}
           statusOptions={[
-            { value: "Non commencee", label: "Not Started", color: "slate" },
-            { value: "En cours", label: "In Progress", color: "blue" },
-            { value: "En attente", label: "On Hold", color: "amber" },
-            { value: "Terminee", label: "Completed", color: "green" },
+            {
+              value: "Not Started",
+              label: "Not Started",
+              icon: "fas fa-circle",
+              color: "slate"
+            },
+            {
+              value: "In Progress",
+              label: "In Progress",
+              icon: "fas fa-spinner",
+              color: "blue"
+            },
+            {
+              value: "Blocked",
+              label: "Blocked",
+              icon: "fas fa-ban",
+              color: "red"
+            },
+            {
+              value: "Done",
+              label: "Done",
+              icon: "fas fa-check-circle",
+              color: "green"
+            },
+            {
+              value: "Cancelled",
+              label: "Cancelled",
+              icon: "fas fa-times-circle",
+              color: "amber"
+            },
           ]}
           entityType="task"
           entityId={task.id}
@@ -244,7 +270,7 @@ export default function Tasks() {
             </div>
           </ContentSection>
         )}
-        <LoadingScreen variant="page" message="Chargement des tâches..." />
+        <LoadingScreen variant="page" message="Loading tasks..." />
       </PageLayout>
     );
   }

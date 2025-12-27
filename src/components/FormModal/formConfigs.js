@@ -30,56 +30,56 @@ import {
 
 // Default assignees that are always available
 const DEFAULT_ASSIGNEES = [
-  { value: "Moi-même", label: "Moi-même" },
-  { value: "Stagiaire", label: "Stagiaire" },
+  { value: "Myself", label: "Myself" },
+  { value: "Intern", label: "Intern" },
 ];
 
 // Default courts that are always available
 const DEFAULT_COURTS = [
   {
-    value: "Tribunal de première instance",
-    label: "Tribunal de première instance",
+    value: "Court of First Instance",
+    label: "Court of First Instance",
   },
-  { value: "Tribunal de première instance - Tunis", label: "TPI Tunis" },
-  { value: "Tribunal de première instance - Ariana", label: "TPI Ariana" },
+  { value: "Court of First Instance - Tunis", label: "CFI Tunis" },
+  { value: "Court of First Instance - Ariana", label: "CFI Ariana" },
   {
-    value: "Tribunal de première instance - Ben Arous",
-    label: "TPI Ben Arous",
+    value: "Court of First Instance - Ben Arous",
+    label: "CFI Ben Arous",
   },
-  { value: "Cour d'appel", label: "Cour d'appel" },
-  { value: "Cour d'Appel - Tunis", label: "Cour d'Appel Tunis" },
-  { value: "Cour de cassation", label: "Cour de cassation" },
-  { value: "Tribunal administratif", label: "Tribunal administratif" },
+  { value: "Court of Appeal", label: "Court of Appeal" },
+  { value: "Court of Appeal - Tunis", label: "Court of Appeal Tunis" },
+  { value: "Supreme Court", label: "Supreme Court" },
+  { value: "Administrative Court", label: "Administrative Court" },
 ];
 
 // Default phases that are always available
 const DEFAULT_PHASES = [
-  { value: "Ouverture", label: "Ouverture" },
-  { value: "Instruction", label: "Instruction" },
-  { value: "Négociation", label: "Négociation" },
-  { value: "Plaidoirie", label: "Plaidoirie" },
-  { value: "Jugement", label: "Jugement" },
-  { value: "Exécution", label: "Exécution" },
+  { value: "Opening", label: "Opening" },
+  { value: "Investigation", label: "Investigation" },
+  { value: "Negotiation", label: "Negotiation" },
+  { value: "Pleading", label: "Pleading" },
+  { value: "Judgment", label: "Judgment" },
+  { value: "Execution", label: "Execution" },
 ];
 
 // Default categories for dossiers
 const DEFAULT_CATEGORIES = [
-  { value: "Commercial", label: "Droit Commercial" },
-  { value: "Famille", label: "Droit de la Famille" },
-  { value: "Pénal", label: "Droit Pénal" },
-  { value: "Travail", label: "Droit du Travail" },
-  { value: "Immobilier", label: "Droit Immobilier" },
-  { value: "Administratif", label: "Droit Administratif" },
-  { value: "Fiscal", label: "Droit Fiscal" },
+  { value: "Commercial Law", label: "Commercial Law" },
+  { value: "Family Law", label: "Family Law" },
+  { value: "Criminal Law", label: "Criminal Law" },
+  { value: "Labor Law", label: "Labor Law" },
+  { value: "Real Estate Law", label: "Real Estate Law" },
+  { value: "Administrative Law", label: "Administrative Law" },
+  { value: "Tax Law", label: "Tax Law" },
 ];
 
 // Default mission types
 const DEFAULT_MISSION_TYPES = [
-  { value: "Signification", label: "Signification" },
-  { value: "Exécution", label: "Exécution" },
-  { value: "Constat", label: "Constat" },
-  { value: "Saisie", label: "Saisie" },
-  { value: "Enquête", label: "Enquête" },
+  { value: "Service", label: "Service" },
+  { value: "Execution", label: "Execution" },
+  { value: "Observation", label: "Observation" },
+  { value: "Seizure", label: "Seizure" },
+  { value: "Investigation", label: "Investigation" },
 ];
 
 // ========================================
@@ -89,7 +89,7 @@ const DEFAULT_MISSION_TYPES = [
 export const clientFormFields = [
   {
     name: "name",
-    label: "Nom complet",
+    label: "Full Name",
     type: "text",
     placeholder: "Ex: Ahmed Ben Ali",
     required: true,
@@ -99,45 +99,45 @@ export const clientFormFields = [
     name: "email",
     label: "Email",
     type: "email",
-    placeholder: "exemple@email.com",
+    placeholder: "example@email.com",
     required: true,
     validate: (value) => {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      return emailRegex.test(value) ? null : "Email invalide";
+      return emailRegex.test(value) ? null : "Invalid email";
     },
   },
   {
     name: "phone",
-    label: "Téléphone",
+    label: "Phone",
     type: "tel",
     placeholder: "+216 98 123 456",
     required: true,
   },
   {
     name: "alternatePhone",
-    label: "Téléphone alternatif",
+    label: "Alternate Phone",
     type: "tel",
     placeholder: "+216 71 234 567",
     required: false,
   },
   {
     name: "cin",
-    label: "CIN",
+    label: "ID Number",
     type: "text",
     placeholder: "12345678",
     required: true,
   },
   {
     name: "dateOfBirth",
-    label: "Date de naissance",
+    label: "Date of Birth",
     type: "date",
     required: false,
   },
   {
     name: "address",
-    label: "Adresse",
+    label: "Address",
     type: "textarea",
-    placeholder: "Adresse complète",
+    placeholder: "Full address",
     required: false,
     fullWidth: true,
     rows: 2,
@@ -151,34 +151,34 @@ export const clientFormFields = [
   },
   {
     name: "company",
-    label: "Entreprise",
+    label: "Company",
     type: "text",
-    placeholder: "Nom de l'entreprise",
+    placeholder: "Company name",
     required: false,
   },
   {
     name: "taxId",
-    label: "Matricule Fiscal",
+    label: "Tax ID",
     type: "text",
     placeholder: "1234567X",
     required: false,
   },
   {
     name: "status",
-    label: "Statut",
+    label: "Status",
     type: "inline-status",
     required: true,
-    defaultValue: "Actif",
+    defaultValue: "Active",
     statusOptions: [
-      { value: "Actif", label: "Actif", color: "green" },
-      { value: "Inactif", label: "Inactif", color: "red" },
+      { value: "Active", label: "Active", color: "green" },
+      { value: "Inactive", label: "Inactive", color: "red" },
     ],
   },
   {
     name: "notes",
     label: "Notes",
     type: "textarea",
-    placeholder: "Notes importantes sur le client...",
+    placeholder: "Important notes about the client...",
     required: false,
     fullWidth: true,
     rows: 3,
@@ -192,18 +192,17 @@ export const clientFormFields = [
 export const dossierFormFields = [
   {
     name: "caseNumber",
-    label: "Référence / Numéro",
+    label: "Reference / Number",
     type: "text",
-    placeholder: "Ex: DOS-2025-001 (auto-généré si vide)",
+    placeholder: "Ex: DOS-2025-001 (auto-generated if empty)",
     required: false,
-    helpText:
-      "Facultatif - Laissez vide pour génération automatique (DOS-ANNÉE-XXX)",
+    helpText: "Optional - Leave blank for automatic generation (DOS-YEAR-XXX)",
   },
   {
     name: "title",
-    label: "Titre du dossier",
+    label: "Dossier Title",
     type: "text",
-    placeholder: "Ex: Affaire Commerciale - Contrat",
+    placeholder: "Ex: Commercial Case - Contract",
     required: true,
     fullWidth: true,
   },
@@ -214,11 +213,11 @@ export const dossierFormFields = [
     type: "searchable-select", // ✅ Use searchable select for scalability
     required: true,
     options: [], // ← Will be populated dynamically with []
-    helpText: "Sélectionner le client concerné",
+    helpText: "Select the concerned client",
   },
   {
     name: "category",
-    label: "Catégorie",
+    label: "Category",
     type: "searchable-select",
     required: true,
     getOptions: () => getAllCategories(DEFAULT_CATEGORIES),
@@ -235,17 +234,17 @@ export const dossierFormFields = [
   },
   {
     name: "priority",
-    label: "Priorité",
+    label: "Priority",
     type: "inline-priority",
     required: true,
-    defaultValue: "Moyenne",
+    defaultValue: "Medium",
   },
   {
     name: "phase",
     label: "Phase",
     type: "searchable-select",
     required: true,
-    defaultValue: "Instruction",
+    defaultValue: "Investigation",
     getOptions: () => getAllPhases(DEFAULT_PHASES),
     allowCreate: true,
     onCreateOption: async (name) => {
@@ -260,20 +259,20 @@ export const dossierFormFields = [
   },
   {
     name: "status",
-    label: "Statut",
+    label: "Status",
     type: "inline-status",
     required: true,
-    defaultValue: "Ouvert",
+    defaultValue: "Open",
     statusOptions: [
-      { value: "Ouvert", label: "Ouvert", color: "green" },
-      { value: "En attente", label: "En attente", color: "amber" },
-      { value: "Fermé", label: "Fermé", color: "slate" },
-      { value: "Suspendu", label: "Suspendu", color: "red" },
+      { value: "Open", label: "Open", color: "green" },
+      { value: "In Progress", label: "In Progress", color: "blue" },
+      { value: "On Hold", label: "On Hold", color: "amber" },
+      { value: "Closed", label: "Closed", color: "slate" },
     ],
   },
   {
     name: "openDate",
-    label: "Date d'ouverture",
+    label: "Opening Date",
     type: "date",
     required: true,
     defaultValue: new Date().toISOString().split("T")[0],
@@ -282,23 +281,23 @@ export const dossierFormFields = [
     name: "description",
     label: "Description",
     type: "textarea",
-    placeholder: "Description détaillée du dossier...",
+    placeholder: "Detailed description of the Dossier...",
     required: true,
     fullWidth: true,
     rows: 4,
   },
   {
     name: "adversaryParty",
-    label: "Partie adverse",
+    label: "Opposing Party",
     type: "text",
-    placeholder: "Nom de la partie adverse",
+    placeholder: "Name of opposing party",
     required: false,
   },
   {
     name: "adversaryLawyer",
-    label: "Avocat adverse",
+    label: "Opposing Lawyer",
     type: "searchable-select",
-    placeholder: "Me. Nom de l'avocat",
+    placeholder: "Me. Lawyer's name",
     required: false,
     getOptions: () => getAllAdversaryLawyers([]),
     allowCreate: true,
@@ -314,14 +313,14 @@ export const dossierFormFields = [
   },
   {
     name: "estimatedValue",
-    label: "Valeur estimée",
+    label: "Estimated Value",
     type: "text",
     placeholder: "Ex: 50,000 TND",
     required: false,
   },
   {
     name: "courtReference",
-    label: "Référence tribunal",
+    label: "Court Reference",
     type: "text",
     placeholder: "Ex: TPI-2024-1234",
     required: false,
@@ -336,18 +335,17 @@ export const dossierFormFields = [
 export const caseFormFields = [
   {
     name: "caseNumber",
-    label: "Référence / Numéro",
+    label: "Reference / Number",
     type: "text",
-    placeholder: "Ex: PRO-2025-001 (auto-généré si vide)",
+    placeholder: "Ex: PRO-2025-001 (auto-generated if empty)",
     required: false,
-    helpText:
-      "Facultatif - Laissez vide pour génération automatique (PRO-ANNÉE-XXX)",
+    helpText: "Optional - Leave blank for automatic generation (PRO-YEAR-XXX)",
   },
   {
     name: "title",
-    label: "Titre du procès",
+    label: "Case Title",
     type: "text",
-    placeholder: "Ex: Litige commercial - Audience",
+    placeholder: "Ex: Commercial Dispute - Hearing",
     required: true,
     fullWidth: true,
   },
@@ -358,11 +356,11 @@ export const caseFormFields = [
     type: "searchable-select", // ✅ Use searchable select for scalability
     required: true,
     options: [], // ← Will be populated dynamically with []
-    helpText: "Obligatoire - Chaque procès doit être lié à un dossier",
+    helpText: "Required - Each case must be linked to a Dossier",
   },
   {
     name: "court",
-    label: "Tribunal",
+    label: "Court",
     type: "searchable-select",
     required: true,
     getOptions: () => getAllCourts(DEFAULT_COURTS),
@@ -376,20 +374,20 @@ export const caseFormFields = [
         throw error;
       }
     },
-    createLabel: "Ajouter",
+    createLabel: "Add",
   },
   {
     name: "courtRoom",
-    label: "Salle",
+    label: "Court Room",
     type: "text",
-    placeholder: "Ex: Salle 3",
+    placeholder: "Ex: Room 3",
     required: false,
   },
   {
     name: "judge",
-    label: "Juge",
+    label: "Judge",
     type: "searchable-select",
-    placeholder: "Nom du juge",
+    placeholder: "Judge's name",
     required: false,
     getOptions: () => getAllJudges([]),
     allowCreate: true,
@@ -405,7 +403,7 @@ export const caseFormFields = [
   },
   {
     name: "filingDate",
-    label: "Date de dépôt",
+    label: "Filing Date",
     type: "date",
     required: true,
     defaultValue: new Date().toISOString().split("T")[0],
@@ -413,23 +411,23 @@ export const caseFormFields = [
   // ✅ REMOVED: nextHearing - now auto-calculated from related sessions
   {
     name: "referenceNumber",
-    label: "Numéro de référence",
+    label: "Reference Number",
     type: "text",
     placeholder: "Ex: TPI-2024-COM-1234",
     required: false,
   },
   {
     name: "adversaryParty",
-    label: "Partie adverse",
+    label: "Opposing Party",
     type: "text",
-    placeholder: "Nom de la partie adverse",
+    placeholder: "Name of opposing party",
     required: false,
   },
   {
     name: "adversaryLawyer",
-    label: "Avocat adverse",
+    label: "Opposing Lawyer",
     type: "searchable-select",
-    placeholder: "Me. Nom de l'avocat",
+    placeholder: "Me. Lawyer's name",
     required: false,
     getOptions: () => getAllAdversaryLawyers([]),
     allowCreate: true,
@@ -445,22 +443,21 @@ export const caseFormFields = [
   },
   {
     name: "status",
-    label: "Statut du procès",
+    label: "Case Status",
     type: "inline-status",
     required: true,
-    defaultValue: "En cours",
+    defaultValue: "In Progress",
     statusOptions: [
-      { value: "En cours", label: "En cours", color: "blue" },
-      { value: "En attente", label: "En attente", color: "amber" },
-      { value: "Suspendu", label: "Suspendu", color: "orange" },
-      { value: "Clos", label: "Clos", color: "slate" },
+      { value: "In Progress", label: "In Progress", color: "blue" },
+      { value: "On Hold", label: "On Hold", color: "amber" },
+      { value: "Closed", label: "Closed", color: "slate" },
     ],
   },
   {
     name: "description",
     label: "Description",
     type: "textarea",
-    placeholder: "Description du procès...",
+    placeholder: "Description of the case...",
     required: false,
     fullWidth: true,
     rows: 3,
@@ -474,9 +471,9 @@ export const caseFormFields = [
 export const sessionFormFields = [
   {
     name: "title",
-    label: "Titre de la séance",
+    label: "Session Title",
     type: "text",
-    placeholder: "Ex: Audience préliminaire",
+    placeholder: "Ex: Preliminary hearing",
     required: true,
     fullWidth: true,
   },
@@ -485,29 +482,28 @@ export const sessionFormFields = [
     label: "Type",
     type: "select",
     required: true,
-    defaultValue: "Audience",
+    defaultValue: "Hearing",
     options: [
-      { value: "Audience", label: "Audience" },
+      { value: "Hearing", label: "Hearing" },
       { value: "Consultation", label: "Consultation" },
-      { value: "Médiation", label: "Médiation" },
-      { value: "Expertise", label: "Expertise" },
-      { value: "Téléphone", label: "Téléphone" },
-      { value: "Autre", label: "Autre" },
+      { value: "Mediation", label: "Mediation" },
+      { value: "Expert Assessment", label: "Expert Assessment" },
+      { value: "Phone Call", label: "Phone Call" },
+      { value: "Other", label: "Other" },
     ],
   },
   {
     // ✅ NEW: Choose between linking to Procès or Dossier
     name: "linkType",
-    label: "Lié à",
+    label: "Linked to",
     type: "select",
     required: true,
     defaultValue: "case",
     options: [
-      { value: "case", label: "Procès" },
-      { value: "dossier", label: "Dossier directement" },
+      { value: "case", label: "Lawsuit" },
+      { value: "dossier", label: "Dossier" },
     ],
-    helpText:
-      "Une audience peut être liée à un procès ou directement à un dossier",
+    helpText: "A hearing can be linked to a case or directly to a Dossier",
     onChange: (value, formData, setFormData) => {
       // Clear the other field when type changes
       setFormData({
@@ -521,11 +517,11 @@ export const sessionFormFields = [
   {
     // ✅ RELATIONSHIP FIELD - Procès (shown when linkType is "case")
     name: "caseId",
-    label: "Procès",
+    label: "Case",
     type: "searchable-select", // ✅ Use searchable select for scalability
     required: false,
     options: [], // ← Will be populated dynamically with []
-    helpText: "Sélectionner le procès concerné",
+    helpText: "Select the concerned case",
     hideIf: (formData) => formData.linkType !== "case",
   },
   {
@@ -535,7 +531,7 @@ export const sessionFormFields = [
     type: "searchable-select", // ✅ Use searchable select for scalability
     required: false,
     options: [], // ← Will be populated dynamically with []
-    helpText: "Sélectionner le dossier concerné",
+    helpText: "Select the concerned Dossier",
     hideIf: (formData) => formData.linkType !== "dossier",
   },
   {
@@ -546,10 +542,10 @@ export const sessionFormFields = [
   },
   {
     name: "time",
-    label: "Heure",
+    label: "Time",
     type: "select",
     required: true,
-    helpText: "Sélectionnez l'heure de début",
+    helpText: "Select start time",
     options: [
       { value: "08:00", label: "08:00" },
       { value: "08:15", label: "08:15" },
@@ -596,7 +592,7 @@ export const sessionFormFields = [
   },
   {
     name: "duration",
-    label: "Durée estimée",
+    label: "Estimated Duration",
     type: "select",
     required: true,
     defaultValue: "01:00",
@@ -604,41 +600,41 @@ export const sessionFormFields = [
       { value: "00:15", label: "15 minutes" },
       { value: "00:30", label: "30 minutes" },
       { value: "00:45", label: "45 minutes" },
-      { value: "01:00", label: "1 heure" },
+      { value: "01:00", label: "1 hour" },
       { value: "01:30", label: "1h30" },
-      { value: "02:00", label: "2 heures" },
+      { value: "02:00", label: "2 hours" },
       { value: "02:30", label: "2h30" },
-      { value: "03:00", label: "3 heures" },
-      { value: "04:00", label: "4 heures" },
+      { value: "03:00", label: "3 hours" },
+      { value: "04:00", label: "4 hours" },
     ],
-    helpText: "Durée prévue de la séance",
+    helpText: "Expected duration of the session",
   },
   {
     name: "location",
-    label: "Lieu",
+    label: "Location",
     type: "text",
-    placeholder: "Cabinet, Tribunal, etc.",
+    placeholder: "Office, Court, etc.",
     required: true,
   },
   {
     name: "status",
-    label: "Statut",
+    label: "Status",
     type: "inline-status",
     required: true,
-    defaultValue: "Programmée",
+    defaultValue: "Scheduled",
     statusOptions: [
-      { value: "Programmée", label: "Programmée", color: "blue" },
-      { value: "Confirmée", label: "Confirmée", color: "green" },
-      { value: "En attente", label: "En attente", color: "amber" },
-      { value: "Terminée", label: "Terminée", color: "slate" },
-      { value: "Annulée", label: "Annulée", color: "red" },
+      { value: "Scheduled", label: "Scheduled", color: "blue" },
+      { value: "Confirmed", label: "Confirmed", color: "green" },
+      { value: "Pending", label: "Pending", color: "amber" },
+      { value: "Completed", label: "Completed", color: "slate" },
+      { value: "Cancelled", label: "Cancelled", color: "red" },
     ],
   },
   {
     name: "description",
     label: "Description",
     type: "textarea",
-    placeholder: "Description de la séance...",
+    placeholder: "Description of the session...",
     required: false,
     fullWidth: true,
     rows: 3,
@@ -652,24 +648,24 @@ export const sessionFormFields = [
 export const taskFormFields = [
   {
     name: "title",
-    label: "Titre de la tâche",
+    label: "Task Title",
     type: "text",
-    placeholder: "Ex: Préparer dossier plaidoirie",
+    placeholder: "Ex: Prepare pleading file",
     required: true,
     fullWidth: true,
   },
   {
     // ✅ PARENT TYPE - Choose between Dossier or Case
     name: "parentType",
-    label: "Lié à",
+    label: "Linked to",
     type: "select",
     required: true,
     defaultValue: "dossier",
     options: [
       { value: "dossier", label: "Dossier" },
-      { value: "case", label: "Procès" },
+      { value: "case", label: "Case" },
     ],
-    helpText: "Une tâche peut être liée à un dossier ou à un procès",
+    helpText: "A task can be linked to a Dossier or a case",
   },
   {
     // ✅ RELATIONSHIP FIELD - Dossier (conditionally shown)
@@ -684,7 +680,7 @@ export const taskFormFields = [
   {
     // ✅ RELATIONSHIP FIELD - Case (conditionally shown)
     name: "caseId",
-    label: "Procès",
+    label: "Case",
     type: "searchable-select",
     required: false, // Will be conditionally required
     options: [], // Will be populated by parent component (Tasks.jsx)
@@ -693,7 +689,7 @@ export const taskFormFields = [
   },
   {
     name: "assignedTo",
-    label: "Assigné à",
+    label: "Assigned to",
     type: "searchable-select",
     required: true,
     getOptions: () => getAllAssignees(DEFAULT_ASSIGNEES),
@@ -707,66 +703,66 @@ export const taskFormFields = [
         throw error;
       }
     },
-    createLabel: "Ajouter",
+    createLabel: "Add",
   },
   {
     name: "dueDate",
-    label: "Date d'échéance",
+    label: "Due Date",
     type: "date",
     required: true,
   },
   {
     name: "priority",
-    label: "Priorité",
+    label: "Priority",
     type: "inline-priority",
     required: true,
-    defaultValue: "Moyenne",
+    defaultValue: "Medium",
   },
   {
     name: "status",
-    label: "Statut",
+    label: "Status",
     type: "inline-status",
     required: true,
-    defaultValue: "Non commencee",
+    defaultValue: "Not Started",
     statusOptions: [
-      { value: "Non commencee", label: "Non commencée", color: "slate" },
-      { value: "En attente", label: "En attente", color: "amber" },
-      { value: "Planifiee", label: "Planifiée", color: "purple" },
-      { value: "En cours", label: "En cours", color: "blue" },
-      { value: "Terminee", label: "Terminée", color: "green" },
+      { value: "Not Started", label: "Not Started", color: "slate" },
+      { value: "In Progress", label: "In Progress", color: "blue" },
+      { value: "Blocked", label: "Blocked", color: "red" },
+      { value: "Done", label: "Done", color: "green" },
+      { value: "Cancelled", label: "Cancelled", color: "amber" },
     ],
   },
   {
     name: "description",
     label: "Description",
     type: "textarea",
-    placeholder: "Description détaillée de la tâche...",
+    placeholder: "Detailed description of the task...",
     required: false,
     fullWidth: true,
     rows: 4,
   },
   {
     name: "estimatedTime",
-    label: "Temps estimé",
+    label: "Estimated Time",
     type: "select",
     required: false,
     options: [
       { value: "0.5h", label: "30 minutes" },
-      { value: "1h", label: "1 heure" },
+      { value: "1h", label: "1 hour" },
       { value: "1.5h", label: "1h30" },
-      { value: "2h", label: "2 heures" },
-      { value: "3h", label: "3 heures" },
-      { value: "4h", label: "4 heures" },
-      { value: "6h", label: "6 heures" },
-      { value: "8h", label: "8 heures" },
-      { value: "12h", label: "12 heures" },
-      { value: "16h", label: "16 heures" },
-      { value: "20h", label: "20 heures" },
-      { value: "24h", label: "1 journée" },
-      { value: "40h", label: "2 jours" },
-      { value: "80h", label: "1 semaine" },
+      { value: "2h", label: "2 hours" },
+      { value: "3h", label: "3 hours" },
+      { value: "4h", label: "4 hours" },
+      { value: "6h", label: "6 hours" },
+      { value: "8h", label: "8 hours" },
+      { value: "12h", label: "12 hours" },
+      { value: "16h", label: "16 hours" },
+      { value: "20h", label: "20 hours" },
+      { value: "24h", label: "1 day" },
+      { value: "40h", label: "2 days" },
+      { value: "80h", label: "1 week" },
     ],
-    helpText: "Durée estimée pour compléter la tâche",
+    helpText: "Estimated duration to complete the task",
   },
 ];
 
@@ -777,58 +773,58 @@ export const taskFormFields = [
 export const personalTaskFormFields = [
   {
     name: "title",
-    label: "Titre de la tâche",
+    label: "Task Title",
     type: "text",
-    placeholder: "Ex: Payer facture électricité",
+    placeholder: "Ex: Pay electricity bill",
     required: true,
     fullWidth: true,
   },
   {
     name: "category",
-    label: "Catégorie",
+    label: "Category",
     type: "select",
     required: true,
     options: [
-      { value: "Factures", label: "Factures" },
-      { value: "Bureau", label: "Bureau" },
-      { value: "Personnel", label: "Personnel" },
-      { value: "Informatique", label: "Informatique" },
-      { value: "Administratif", label: "Administratif" },
-      { value: "Autre", label: "Autre" },
+      { value: "Bills", label: "Bills" },
+      { value: "Office", label: "Office" },
+      { value: "Personal", label: "Personal" },
+      { value: "IT", label: "IT" },
+      { value: "Administrative", label: "Administrative" },
+      { value: "Other", label: "Other" },
     ],
   },
   {
     name: "dueDate",
-    label: "Date limite",
+    label: "Due Date",
     type: "date",
     required: true,
   },
   {
     name: "priority",
-    label: "Priorité",
+    label: "Priority",
     type: "inline-priority",
     required: true,
-    defaultValue: "Moyenne",
+    defaultValue: "Medium",
   },
   {
     name: "status",
-    label: "Statut",
+    label: "Status",
     type: "inline-status",
     required: true,
-    defaultValue: "Non commencée",
+    defaultValue: "Not Started",
     statusOptions: [
-      { value: "Non commencée", label: "Non commencée", color: "slate" },
-      { value: "En attente", label: "En attente", color: "amber" },
-      { value: "En cours", label: "En cours", color: "blue" },
-      { value: "Planifiée", label: "Planifiée", color: "purple" },
-      { value: "Terminée", label: "Terminée", color: "green" },
+      { value: "Not Started", label: "Not Started", color: "slate" },
+      { value: "In Progress", label: "In Progress", color: "blue" },
+      { value: "Blocked", label: "Blocked", color: "red" },
+      { value: "Done", label: "Done", color: "green" },
+      { value: "Cancelled", label: "Cancelled", color: "amber" },
     ],
   },
   {
     name: "description",
     label: "Description",
     type: "textarea",
-    placeholder: "Description détaillée de la tâche...",
+    placeholder: "Detailed description of the task...",
     required: false,
     fullWidth: true,
     rows: 4,
@@ -837,7 +833,7 @@ export const personalTaskFormFields = [
     name: "notes",
     label: "Notes",
     type: "textarea",
-    placeholder: "Notes supplémentaires...",
+    placeholder: "Additional notes...",
     required: false,
     fullWidth: true,
     rows: 3,
@@ -851,38 +847,38 @@ export const personalTaskFormFields = [
 export const officerAssignmentFormFields = [
   {
     name: "missionNumber",
-    label: "Numéro de mission",
+    label: "Mission Number",
     type: "text",
     placeholder: "MIS-2024-001",
     required: true,
-    helpText: "Format: MIS-ANNÉE-NUMÉRO",
+    helpText: "Format: MIS-YEAR-NUMBER",
   },
   {
     name: "title",
-    label: "Titre de la mission",
+    label: "Mission Title",
     type: "text",
-    placeholder: "Ex: Signification acte judiciaire",
+    placeholder: "Ex: Service of judicial act",
     required: true,
     fullWidth: true,
   },
   {
     // ✅ RELATIONSHIP FIELD - Officer
     name: "officerId",
-    label: "Huissier",
+    label: "Bailiff",
     type: "searchable-select", // ✅ Use searchable select for scalability
     required: true,
     options: [], // ← Will be populated dynamically with []
   },
   {
     name: "entityType",
-    label: "Lié à",
+    label: "Linked to",
     type: "select",
     required: true,
     options: [
       { value: "dossier", label: "Dossier" },
-      { value: "case", label: "Procès" },
+      { value: "case", label: "Lawsuite" },
     ],
-    helpText: "Cette mission concerne un dossier ou un procès",
+    helpText: "This mission concerns a Dossier or a Lawsuite",
     // ✅ This field triggers the entityReference field update
     onChange: (value, formData, setFormData) => {
       // Clear entityReference when type changes
@@ -895,11 +891,11 @@ export const officerAssignmentFormFields = [
   },
   {
     name: "entityReference",
-    label: "Référence (Dossier/Procès)",
+    label: "Reference (Dossier/Lawsuite)",
     type: "searchable-select", // ✅ NEW: Searchable dropdown
-    placeholder: "Rechercher ou saisir: DOS-2024-001 ou PRO-2024-001",
+    placeholder: "Search or enter: DOS-2024-001 or PRO-2024-001",
     required: true,
-    helpText: "Sélectionnez dans la liste ou saisissez manuellement",
+    helpText: "Select from the list or enter manually",
     // ✅ Dynamic options based on entityType
     getOptions: (formData) => {
       const entityType = formData.entityType;
@@ -917,7 +913,7 @@ export const officerAssignmentFormFields = [
   },
   {
     name: "missionType",
-    label: "Type de mission",
+    label: "Mission Type",
     type: "searchable-select",
     required: true,
     getOptions: () => getAllMissionTypes(DEFAULT_MISSION_TYPES),
@@ -934,52 +930,52 @@ export const officerAssignmentFormFields = [
   },
   {
     name: "assignDate",
-    label: "Date d'assignation",
+    label: "Assignment Date",
     type: "date",
     required: true,
     defaultValue: new Date().toISOString().split("T")[0],
   },
   {
     name: "dueDate",
-    label: "Date d'échéance",
+    label: "Due Date",
     type: "date",
     required: false,
-    helpText: "Optionnel - date limite pour compléter la mission",
+    helpText: "Optional - deadline to complete the mission",
   },
   {
     name: "priority",
-    label: "Priorité",
+    label: "Priority",
     type: "inline-priority",
     required: true,
-    defaultValue: "Moyenne",
+    defaultValue: "Medium",
   },
   {
     name: "status",
-    label: "Statut",
+    label: "Status",
     type: "inline-status",
     required: true,
-    defaultValue: "Programmée",
+    defaultValue: "Planned",
     statusOptions: [
-      { value: "Programmée", label: "Programmée", color: "blue" },
-      { value: "En cours", label: "En cours", color: "amber" },
-      { value: "Terminée", label: "Terminée", color: "green" },
-      { value: "Annulée", label: "Annulée", color: "red" },
+      { value: "Planned", label: "Planned", color: "blue" },
+      { value: "In Progress", label: "In Progress", color: "amber" },
+      { value: "Completed", label: "Completed", color: "green" },
+      { value: "Cancelled", label: "Cancelled", color: "red" },
     ],
   },
   {
     name: "description",
     label: "Description",
     type: "textarea",
-    placeholder: "Description détaillée de la mission...",
+    placeholder: "Detailed description of the mission...",
     required: false,
     fullWidth: true,
     rows: 3,
   },
   {
     name: "notes",
-    label: "Notes internes",
+    label: "Internal Notes",
     type: "textarea",
-    placeholder: "Notes internes sur cette mission...",
+    placeholder: "Internal notes about this mission...",
     required: false,
     fullWidth: true,
     rows: 2,
@@ -993,7 +989,7 @@ export const officerAssignmentFormFields = [
 export const invoiceFormFields = [
   {
     name: "invoiceNumber",
-    label: "Numéro de facture",
+    label: "Invoice Number",
     type: "text",
     placeholder: "FACT-2024-001",
     required: true,
@@ -1009,11 +1005,11 @@ export const invoiceFormFields = [
   {
     // ✅ RELATIONSHIP FIELD - Dossier (optional)
     name: "dossierId",
-    label: "Dossier (optionnel)",
+    label: "Dossier (optional)",
     type: "searchable-select", // ✅ Use searchable select for scalability
     required: false,
     options: [], // ← Will be populated dynamically with []
-    helpText: "Lier la facture à un dossier spécifique",
+    helpText: "Link the invoice to a specific Dossier",
   },
   {
     name: "type",
@@ -1021,49 +1017,49 @@ export const invoiceFormFields = [
     type: "select",
     required: true,
     options: [
-      { value: "Honoraires", label: "Honoraires" },
+      { value: "Fees", label: "Fees" },
       { value: "Consultation", label: "Consultation" },
-      { value: "Frais", label: "Frais" },
+      { value: "Expenses", label: "Expenses" },
     ],
   },
   {
     name: "amount",
-    label: "Montant TTC",
+    label: "Amount TTC",
     type: "text",
     placeholder: "Ex: 1,500 TND",
     required: true,
   },
   {
     name: "date",
-    label: "Date d'émission",
+    label: "Issue Date",
     type: "date",
     required: true,
     defaultValue: new Date().toISOString().split("T")[0],
   },
   {
     name: "dueDate",
-    label: "Date d'échéance",
+    label: "Due Date",
     type: "date",
     required: true,
   },
   {
     name: "status",
-    label: "Statut",
+    label: "Status",
     type: "inline-status",
     required: true,
-    defaultValue: "En attente",
+    defaultValue: "Pending",
     statusOptions: [
-      { value: "Payée", label: "Payée", color: "green" },
-      { value: "En attente", label: "En attente", color: "amber" },
-      { value: "En retard", label: "En retard", color: "red" },
-      { value: "Annulée", label: "Annulée", color: "slate" },
+      { value: "Paid", label: "Paid", color: "green" },
+      { value: "Pending", label: "Pending", color: "amber" },
+      { value: "Overdue", label: "Overdue", color: "red" },
+      { value: "Cancelled", label: "Cancelled", color: "slate" },
     ],
   },
   {
     name: "notes",
     label: "Notes",
     type: "textarea",
-    placeholder: "Notes sur la facture...",
+    placeholder: "Notes about the invoice...",
     required: false,
     fullWidth: true,
     rows: 2,
@@ -1077,52 +1073,51 @@ export const invoiceFormFields = [
 export const missionFormFields = [
   {
     name: "officerId",
-    label: "Huissier",
+    label: "Bailiff",
     type: "searchable-select",
     required: true,
-    placeholder: "Sélectionner un huissier...",
+    placeholder: "Select a bailiff...",
     options: [], // Will be populated dynamically
   },
   {
     name: "entityType",
-    label: "Type d'entité",
+    label: "Entity Type",
     type: "select",
     required: true,
     disabled: true, // Will be set based on context
     options: [
       { value: "dossier", label: "Dossier" },
-      { value: "case", label: "Procès" },
+      { value: "case", label: "Case" },
     ],
   },
   {
     name: "entityReference",
-    label: "Référence",
+    label: "Reference",
     type: "text",
     required: true,
     disabled: true, // Will be pre-filled based on context
-    helpText: "Référence du dossier ou procès",
+    helpText: "Reference of the Dossier or case",
   },
   {
     name: "missionNumber",
-    label: "Référence / Numéro",
+    label: "Reference / Number",
     type: "text",
     required: false,
     disabled: false, // Allow user input
-    placeholder: "Ex: MIS-2025-001 (auto-généré si vide)",
-    helpText:
-      "Facultatif - Laissez vide pour génération automatique (MIS-ANNÉE-XXX)",
+    placeholder: "Ex: MIS-2025-001 (auto-generated if empty)",
+    helpText: "Optional - Leave blank for automatic generation (MIS-YEAR-XXX)",
   },
   {
     name: "title",
-    label: "Titre de la mission",
+    label: "Mission Title",
     type: "text",
     required: true,
     fullWidth: true,
-    placeholder: "Ex: Signification acte judiciaire",
+    placeholder: "Ex: Service of judicial act",
   },
   {
     name: "missionType",
-    label: "Type de mission",
+    label: "Mission Type",
     type: "searchable-select",
     required: true,
     getOptions: () => getAllMissionTypes(DEFAULT_MISSION_TYPES),
@@ -1139,35 +1134,35 @@ export const missionFormFields = [
   },
   {
     name: "priority",
-    label: "Priorité",
+    label: "Priority",
     type: "inline-priority",
     required: true,
-    defaultValue: "Moyenne",
+    defaultValue: "Medium",
   },
   {
     name: "assignDate",
-    label: "Date d'assignation",
+    label: "Assignment Date",
     type: "date",
     required: true,
     defaultValue: new Date().toISOString().split("T")[0],
   },
   {
     name: "dueDate",
-    label: "Date limite",
+    label: "Due Date",
     type: "date",
     required: true,
   },
   {
     name: "status",
-    label: "Statut",
+    label: "Status",
     type: "inline-status",
     required: true,
-    defaultValue: "Programmée",
+    defaultValue: "Planned",
     statusOptions: [
-      { value: "Programmée", label: "Programmée", color: "blue" },
-      { value: "En cours", label: "En cours", color: "amber" },
-      { value: "Terminée", label: "Terminée", color: "green" },
-      { value: "Annulée", label: "Annulée", color: "red" },
+      { value: "Planned", label: "Planned", color: "blue" },
+      { value: "In Progress", label: "In Progress", color: "amber" },
+      { value: "Completed", label: "Completed", color: "green" },
+      { value: "Cancelled", label: "Cancelled", color: "red" },
     ],
   },
   {
@@ -1177,24 +1172,24 @@ export const missionFormFields = [
     required: true,
     fullWidth: true,
     rows: 3,
-    placeholder: "Description détaillée de la mission...",
+    placeholder: "Detailed description of the mission...",
   },
   {
     name: "result",
-    label: "Compte Rendu / Résultat",
+    label: "Report / Result",
     type: "textarea",
     required: false,
     fullWidth: true,
     rows: 3,
-    placeholder: "Compte rendu détaillé de l'exécution de la mission...",
-    helpText: "À remplir une fois la mission terminée",
+    placeholder: "Detailed report of the mission execution...",
+    helpText: "To be filled once the mission is completed",
   },
   {
     name: "completionDate",
-    label: "Date d'achèvement",
+    label: "Completion Date",
     type: "date",
     required: false,
-    helpText: "Date d'achèvement de la mission (si terminée)",
+    helpText: "Completion date of the mission (if completed)",
   },
   {
     name: "notes",
@@ -1203,7 +1198,7 @@ export const missionFormFields = [
     required: false,
     fullWidth: true,
     rows: 2,
-    placeholder: "Notes additionnelles...",
+    placeholder: "Additional notes...",
   },
   {
     name: "documents",
@@ -1215,16 +1210,16 @@ export const missionFormFields = [
     accept:
       ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.gif,.zip,.rar,.txt",
     helpText:
-      "Ajoutez des documents liés à cette mission (PDF, DOC, XLS, PPT, Images, Archives)",
+      "Add documents related to this mission (PDF, DOC, XLS, PPT, Images, Archives)",
   },
   {
     name: "financialEntries",
-    label: "Frais d'huissier",
+    label: "Bailiff Fees",
     type: "financial-entries",
     required: false,
     fullWidth: true,
     helpText:
-      "Ajoutez les frais liés à cette mission. Ces frais seront automatiquement liés à la mission et au client.",
+      "Add fees related to this mission. These fees will be automatically linked to the mission and client.",
     // Financial entries will be an array of objects with: amount, date, description
     defaultValue: [],
   },
@@ -1237,16 +1232,16 @@ export const missionFormFields = [
 export const financialEntryFormFields = [
   {
     name: "scope",
-    label: "Portée financière",
+    label: "Financial Scope",
     type: "select",
     required: true,
     defaultValue: "client",
     options: [
-      { value: "client", label: "Client (affecte le solde client)" },
-      { value: "internal", label: "Interne (frais de bureau)" },
+      { value: "client", label: "Client (affects client balance)" },
+      { value: "internal", label: "Internal (office expenses)" },
     ],
     helpText:
-      "Choisir 'Client' pour les opérations liées aux clients, 'Interne' pour les frais de bureau",
+      "Choose 'Client' for client-related operations, 'Internal' for office expenses",
     onChange: (value, formData, setFormData) => {
       // Clear client/dossier/case when switching to internal
       if (value === "internal") {
@@ -1267,13 +1262,13 @@ export const financialEntryFormFields = [
   },
   {
     name: "type",
-    label: "Type d'opération",
+    label: "Operation Type",
     type: "select",
     required: true,
     defaultValue: "expense",
     options: [
-      { value: "revenue", label: "Recette (argent reçu)" },
-      { value: "expense", label: "Dépense (argent payé)" },
+      { value: "revenue", label: "Revenue (money received)" },
+      { value: "expense", label: "Expense (money paid)" },
     ],
     onChange: (value, formData, setFormData) => {
       // Auto-suggest category based on type
@@ -1292,7 +1287,7 @@ export const financialEntryFormFields = [
   },
   {
     name: "category",
-    label: "Catégorie",
+    label: "Category",
     type: "select",
     required: true,
     getOptions: (formData) => {
@@ -1302,24 +1297,24 @@ export const financialEntryFormFields = [
       // Revenue categories
       if (type === "revenue") {
         return [
-          { value: "honoraires", label: "Honoraires" },
-          { value: "advance", label: "Avance client" },
-          { value: "other", label: "Autre recette" },
+          { value: "honoraires", label: "Fees" },
+          { value: "advance", label: "Client advance" },
+          { value: "other", label: "Other revenue" },
         ];
       }
 
       // Expense categories
       if (scope === "internal") {
         return [
-          { value: "frais_bureau", label: "Frais de bureau" },
-          { value: "other", label: "Autre dépense" },
+          { value: "frais_bureau", label: "Office expenses" },
+          { value: "other", label: "Other expense" },
         ];
       }
 
       return [
-        { value: "frais_judiciaires", label: "Frais judiciaires" },
-        { value: "frais_huissier", label: "Frais d'huissier" },
-        { value: "other", label: "Autre dépense" },
+        { value: "frais_judiciaires", label: "Court fees" },
+        { value: "frais_huissier", label: "Bailiff fees" },
+        { value: "other", label: "Other expense" },
       ];
     },
     onChange: (value, formData, setFormData) => {
@@ -1340,7 +1335,7 @@ export const financialEntryFormFields = [
   },
   {
     name: "amount",
-    label: "Montant (TND)",
+    label: "Amount (TND)",
     type: "number",
     required: true,
     placeholder: "0.00",
@@ -1349,7 +1344,7 @@ export const financialEntryFormFields = [
     validate: (value) => {
       const amount = parseFloat(value);
       if (isNaN(amount) || amount <= 0) {
-        return "Le montant doit être supérieur à 0";
+        return "Amount must be greater than 0";
       }
       return null;
     },
@@ -1363,14 +1358,14 @@ export const financialEntryFormFields = [
   },
   {
     name: "status",
-    label: "Statut",
+    label: "Status",
     type: "inline-status",
     required: true,
     defaultValue: "confirmed",
     statusOptions: [
-      { value: "draft", label: "Brouillon", color: "slate" },
-      { value: "confirmed", label: "Confirmé", color: "blue" },
-      { value: "paid", label: "Payé", color: "green" },
+      { value: "draft", label: "Draft", color: "slate" },
+      { value: "confirmed", label: "Confirmed", color: "blue" },
+      { value: "paid", label: "Paid", color: "green" },
     ],
   },
   {
@@ -1380,7 +1375,7 @@ export const financialEntryFormFields = [
     required: true,
     fullWidth: true,
     rows: 3,
-    placeholder: "Description de l'opération financière...",
+    placeholder: "Description of the financial operation...",
   },
   {
     name: "clientId",
@@ -1389,11 +1384,10 @@ export const financialEntryFormFields = [
     required: false,
     options: [], // Will be populated dynamically
     hideIf: (formData) => formData.scope === "internal",
-    helpText:
-      "Client concerné par cette opération (obligatoire si portée = Client)",
+    helpText: "Client concerned by this operation (required if scope = Client)",
     validate: (value, formData) => {
       if (formData.scope === "client" && (!value || value === "")) {
-        return "Le client est requis lorsque la portée est 'Client'.";
+        return "Client is required when scope is 'Client'.";
       }
       return null;
     },
@@ -1409,7 +1403,7 @@ export const financialEntryFormFields = [
   },
   {
     name: "dossierId",
-    label: "Dossier (optionnel)",
+    label: "Dossier (optional)",
     type: "searchable-select",
     required: false,
     options: [], // Base options - will be filtered by getOptions
@@ -1424,7 +1418,7 @@ export const financialEntryFormFields = [
         .map((d) => ({ value: d.id, label: `${d.caseNumber} - ${d.title}` }));
     },
     hideIf: (formData) => formData.scope === "internal",
-    helpText: "Dossier concerné (optionnel)",
+    helpText: "Concerned Dossier (optional)",
     onChange: (value, formData, setFormData) => {
       // Clear case when dossier changes
       setFormData({
@@ -1436,7 +1430,7 @@ export const financialEntryFormFields = [
   },
   {
     name: "caseId",
-    label: "Procès (optionnel)",
+    label: "Case (optional)",
     type: "searchable-select",
     required: false,
     options: [], // Base options - will be filtered by getOptions
@@ -1466,11 +1460,11 @@ export const financialEntryFormFields = [
       }));
     },
     hideIf: (formData) => formData.scope === "internal",
-    helpText: "Procès concerné (optionnel)",
+    helpText: "Concerned case (optional)",
   },
   {
     name: "missionId",
-    label: "Mission associée **",
+    label: "Associated Mission **",
     type: "searchable-select",
     required: false,
     options: [], // Base options - will be filtered by getOptions
@@ -1480,7 +1474,7 @@ export const financialEntryFormFields = [
       const caseId = formData.caseId;
 
       if (!allOptions?.missions) {
-        return [{ value: "", label: "Aucune mission disponible" }];
+        return [{ value: "", label: "No mission available" }];
       }
 
       let filteredMissions = allOptions.missions;
@@ -1499,28 +1493,28 @@ export const financialEntryFormFields = [
         return [
           {
             value: "",
-            label: "Veuillez d'abord sélectionner un dossier ou procès",
+            label: "Please first select a Dossier or case",
           },
         ];
       }
 
       if (filteredMissions.length === 0) {
-        return [{ value: "", label: "Aucune mission pour ce dossier/procès" }];
+        return [{ value: "", label: "No mission for this Dossier/case" }];
       }
 
       return [
-        { value: "", label: "Sélectionnez la mission liée à ces frais" },
+        { value: "", label: "Select the mission related to these fees" },
         ...filteredMissions.map((m) => ({
           value: m.id,
           label: `${m.missionNumber} - ${m.title} (${
-            m.officerName || "Huissier non défini"
+            m.officerName || "Bailiff not defined"
           }) - ${m.status}`,
         })),
       ];
     },
     hideIf: (formData) =>
       formData.scope === "internal" || formData.category !== "frais_huissier",
-    helpText: "Sélectionnez la mission d'huissier liée à ces frais",
+    helpText: "Select the bailiff mission related to these fees",
     onChange: (value, formData, setFormData, allOptions) => {
       // Auto-populate description when mission is selected
       if (value && allOptions?.missions) {
@@ -1529,7 +1523,7 @@ export const financialEntryFormFields = [
           setFormData({
             ...formData,
             missionId: value,
-            description: `Frais d'huissier - ${selectedMission.missionNumber} - ${selectedMission.title}`,
+            description: `Bailiff fees - ${selectedMission.missionNumber} - ${selectedMission.title}`,
           });
           return;
         }
@@ -1571,23 +1565,19 @@ export function getFormFields(entityType) {
  */
 export function getFormTitle(entityType, isEdit = false) {
   const titles = {
-    client: isEdit ? "Modifier Client" : "Nouveau Client",
-    dossier: isEdit ? "Modifier Dossier" : "Nouveau Dossier",
-    case: isEdit ? "Modifier Procès" : "Nouveau Procès",
-    session: isEdit ? "Modifier Séance" : "Nouvelle Séance",
-    task: isEdit ? "Modifier Tâche" : "Nouvelle Tâche",
-    personalTask: isEdit
-      ? "Modifier Tâche Personnelle"
-      : "Nouvelle Tâche Personnelle",
-    invoice: isEdit ? "Modifier Facture" : "Nouvelle Facture",
-    officerAssignment: isEdit ? "Modifier Mission" : "Assigner Huissier",
-    mission: isEdit ? "Modifier Mission Huissier" : "Nouvelle Mission Huissier",
-    financialEntry: isEdit
-      ? "Modifier Écriture Comptable"
-      : "Nouvelle Écriture Comptable",
+    client: isEdit ? "Edit Client" : "New Client",
+    dossier: isEdit ? "Edit Dossier" : "New Dossier",
+    case: isEdit ? "Edit Case" : "New Case",
+    session: isEdit ? "Edit Session" : "New Session",
+    task: isEdit ? "Edit Task" : "New Task",
+    personalTask: isEdit ? "Edit Personal Task" : "New Personal Task",
+    invoice: isEdit ? "Edit Invoice" : "New Invoice",
+    officerAssignment: isEdit ? "Edit Mission" : "Assign Bailiff",
+    mission: isEdit ? "Edit Bailiff Mission" : "New Bailiff Mission",
+    financialEntry: isEdit ? "Edit Financial Entry" : "New Financial Entry",
   };
 
-  return titles[entityType] || "Formulaire";
+  return titles[entityType] || "Form";
 }
 
 /**
@@ -1630,7 +1620,7 @@ export function populateRelationshipOptions(fields, data) {
       return {
         ...field,
         options: [
-          { value: null, label: "Aucun (consultation)" },
+          { value: null, label: "None (consultation)" },
           ...cases.map((c) => ({
             value: c.id,
             label: `${c.caseNumber} - ${c.title}`,

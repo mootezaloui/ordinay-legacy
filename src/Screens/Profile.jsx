@@ -12,11 +12,11 @@ export default function Profile() {
     lastName: "Hammami",
     email: "m.hammami@lawfirm.tn",
     phone: "+216 98 123 456",
-    title: "Avocat Principal",
-    specialization: "Droit Commercial",
+    title: "Principal Lawyer",
+    specialization: "Commercial Law",
     barNumber: "TUN-2015-4567",
-    office: "Cabinet Principal - Tunis",
-    bio: "Avocat spécialisé en droit commercial avec plus de 8 ans d'expérience. Expert en contentieux commercial, droit des sociétés et arbitrage.",
+    office: "Principal Office - Tunis",
+    bio: "Lawyer specialized in commercial law with over 8 years of experience. Expert in commercial litigation, corporate law, and arbitration.",
   });
 
   const [stats] = useState({
@@ -34,7 +34,7 @@ export default function Profile() {
     console.log("Profile saved:", profile);
     setIsEditing(false);
     // TODO: API call to save profile
-    showToast("Profil mis à jour avec succès!", "success");
+    showToast("Profile updated successfully!", "success");
   };
 
   const handleCancel = () => {
@@ -45,8 +45,8 @@ export default function Profile() {
   return (
     <PageLayout>
       <PageHeader
-        title="Mon Profil"
-        subtitle="Gérer vos informations personnelles et professionnelles"
+        title="My Profile"
+        subtitle="Manage your personal and professional information"
         icon="fas fa-user-circle"
         actions={
           !isEditing && (
@@ -55,7 +55,7 @@ export default function Profile() {
               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center gap-2"
             >
               <i className="fas fa-edit"></i>
-              Modifier le profil
+              Edit Profile
             </button>
           )
         }
@@ -112,7 +112,7 @@ export default function Profile() {
           <div className="p-6 bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-slate-500 dark:text-slate-400">Dossiers Actifs</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400">Active Dossiers</p>
                 <p className="text-3xl font-bold text-slate-900 dark:text-white mt-2">
                   {stats.activeCases}
                 </p>
@@ -140,7 +140,7 @@ export default function Profile() {
           <div className="p-6 bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-slate-500 dark:text-slate-400">Dossiers Résolus</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400">Resolved Dossiers</p>
                 <p className="text-3xl font-bold text-slate-900 dark:text-white mt-2">
                   {stats.completedCases}
                 </p>
@@ -154,7 +154,7 @@ export default function Profile() {
           <div className="p-6 bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-slate-500 dark:text-slate-400">Taux de Réussite</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400">Success Rate</p>
                 <p className="text-3xl font-bold text-slate-900 dark:text-white mt-2">
                   {stats.successRate}%
                 </p>
@@ -173,7 +173,7 @@ export default function Profile() {
               {/* First Name */}
               <div>
                 <label className="block text-sm font-medium text-slate-900 dark:text-white mb-2">
-                  Prénom
+                  First Name
                 </label>
                 {isEditing ? (
                   <input
@@ -190,7 +190,7 @@ export default function Profile() {
               {/* Last Name */}
               <div>
                 <label className="block text-sm font-medium text-slate-900 dark:text-white mb-2">
-                  Nom
+                  Last Name
                 </label>
                 {isEditing ? (
                   <input
@@ -224,7 +224,7 @@ export default function Profile() {
               {/* Phone */}
               <div>
                 <label className="block text-sm font-medium text-slate-900 dark:text-white mb-2">
-                  Téléphone
+                  Phone
                 </label>
                 {isEditing ? (
                   <input
@@ -265,7 +265,7 @@ export default function Profile() {
               {/* Specialization */}
               <div>
                 <label className="block text-sm font-medium text-slate-900 dark:text-white mb-2">
-                  Spécialisation
+                  Specialization
                 </label>
                 {isEditing ? (
                   <input
@@ -282,7 +282,7 @@ export default function Profile() {
               {/* Bar Number */}
               <div>
                 <label className="block text-sm font-medium text-slate-900 dark:text-white mb-2">
-                  Numéro au Barreau
+                  Bar Number
                 </label>
                 {isEditing ? (
                   <input
@@ -299,7 +299,7 @@ export default function Profile() {
               {/* Office */}
               <div>
                 <label className="block text-sm font-medium text-slate-900 dark:text-white mb-2">
-                  Bureau
+                  Office
                 </label>
                 {isEditing ? (
                   <input
@@ -317,7 +317,7 @@ export default function Profile() {
             {/* Bio */}
             <div>
               <label className="block text-sm font-medium text-slate-900 dark:text-white mb-2">
-                Biographie
+                Biography
               </label>
               {isEditing ? (
                 <textarea
@@ -340,14 +340,14 @@ export default function Profile() {
               onClick={handleCancel}
               className="px-6 py-2.5 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-lg font-medium transition-colors duration-200"
             >
-              Annuler
+              Cancel
             </button>
             <button
               onClick={handleSave}
               className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center gap-2"
             >
               <i className="fas fa-save"></i>
-              Enregistrer les modifications
+              Save Changes
             </button>
           </div>
         )}

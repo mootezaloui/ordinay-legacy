@@ -21,7 +21,7 @@ export const menuItems = [
   },
   {
     icon: "fas fa-folder-open",
-    label: "Case Files",
+    label: "Dossiers",
     route: "/dossiers",
   },
   {

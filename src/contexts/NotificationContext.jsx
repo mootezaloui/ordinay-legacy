@@ -431,8 +431,8 @@ export function NotificationProvider({ children }) {
     return addNotification({
       type: "client",
       priority: "info",
-      title: "Nouveau Client",
-      message: `Le client "${clientName}" a été ajouté avec succès.`,
+      title: "New Client Added",
+      message: `Client "${clientName}" has been successfully added.`,
       icon: "fas fa-user-plus",
       link: "/clients",
     });
@@ -442,8 +442,8 @@ export function NotificationProvider({ children }) {
     return addNotification({
       type: "dossier",
       priority: "info",
-      title: "Nouveau Dossier",
-      message: `Le dossier ${dossierNumber} a été créé pour ${clientName}.`,
+      title: "New Dossier Created",
+      message: `Dossier ${dossierNumber} has been created for ${clientName}.`,
       icon: "fas fa-folder-plus",
       link: "/dossiers",
     });
@@ -453,8 +453,8 @@ export function NotificationProvider({ children }) {
     return addNotification({
       type: "task",
       priority: "high",
-      title: "Tâche Urgente",
-      message: `"${taskTitle}" doit être terminée le ${dueDate}.`,
+      title: "Urgent Task Due",
+      message: `"${taskTitle}" is due on ${dueDate}.`,
       icon: "fas fa-exclamation-triangle",
       link: "/tasks",
     });
@@ -464,8 +464,8 @@ export function NotificationProvider({ children }) {
     return addNotification({
       type: "hearing",
       priority: "high",
-      title: "Audience Prochaine",
-      message: `L'audience pour ${caseNumber} est prévue le ${hearingDate}.`,
+      title: "Upcoming Hearing",
+      message: `The hearing for ${caseNumber} is scheduled on ${hearingDate}.`,
       icon: "fas fa-gavel",
       link: "/cases",
     });
@@ -475,8 +475,8 @@ export function NotificationProvider({ children }) {
     return addNotification({
       type: "payment",
       priority: "success",
-      title: "Paiement Reçu",
-      message: `${clientName} a effectué un paiement de ${amount}.`,
+      title: "Payment Received",
+      message: `${clientName} has made a payment of ${amount}.`,
       icon: "fas fa-dollar-sign",
       link: "/accounting",
     });
@@ -486,8 +486,8 @@ export function NotificationProvider({ children }) {
     return addNotification({
       type: "document",
       priority: "info",
-      title: "Document Ajouté",
-      message: `"${documentName}" a été ajouté au dossier ${dossierNumber}.`,
+      title: "Document Uploaded",
+      message: `"${documentName}" has been uploaded to dossier ${dossierNumber}.`,
       icon: "fas fa-file-upload",
       link: `/dossiers/${dossierNumber}`,
     });
@@ -497,8 +497,8 @@ export function NotificationProvider({ children }) {
     return addNotification({
       type: "session",
       priority: "info",
-      title: "Séance Programmée",
-      message: `"${sessionTitle}" est programmée pour le ${date}.`,
+      title: "Hearing Scheduled",
+      message: `"${sessionTitle}" is scheduled for ${date}.`,
       icon: "fas fa-calendar-check",
       link: "/sessions",
     });
@@ -508,18 +508,18 @@ export function NotificationProvider({ children }) {
     return addNotification({
       type: "deadline",
       priority: daysLeft <= 2 ? "urgent" : "high",
-      title: "Échéance Approchante",
-      message: `La date limite pour ${dossierNumber} est dans ${daysLeft} jour${daysLeft > 1 ? 's' : ''}.`,
+      title: "Deadline Approaching",
+      message: `The deadline for ${dossierNumber} is in ${daysLeft} day${daysLeft > 1 ? 's' : ''}.`,
       icon: "fas fa-clock",
       link: `/dossiers/${dossierNumber}`,
     });
   }, [addNotification]);
 
   const severityConfig = useMemo(() => ({
-    success: { icon: "fas fa-check-circle", title: "Succes", duration: 3500 },
+    success: { icon: "fas fa-check-circle", title: "Success", duration: 3500 },
     info: { icon: "fas fa-info-circle", title: "Info", duration: 4000 },
-    warning: { icon: "fas fa-exclamation-triangle", title: "Attention", duration: 8500 },
-    error: { icon: "fas fa-exclamation-circle", title: "Erreur", duration: 0 }, // 0 => require manual dismissal
+    warning: { icon: "fas fa-exclamation-triangle", title: "Warning", duration: 8500 },
+    error: { icon: "fas fa-exclamation-circle", title: "Error", duration: 0 }, // 0 => require manual dismissal
   }), []);
 
   const buildNotification = useCallback((severity, payload = {}) => {

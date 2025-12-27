@@ -99,8 +99,8 @@ export default function NotificationCenter() {
   return (
     <PageLayout>
       <PageHeader
-        title="Centre de Notifications"
-        subtitle={`${notifications.length} notification${notifications.length > 1 ? "s" : ""} au total · ${unreadCount} non lue${unreadCount > 1 ? "s" : ""}`}
+        title="Notification Center"
+        subtitle={`${notifications.length} notification${notifications.length > 1 ? "s" : ""} in total · ${unreadCount} unread${unreadCount > 1 ? "s" : ""}`}
         icon="fas fa-bell"
         actions={
           <div className="flex items-center gap-3">
@@ -109,17 +109,17 @@ export default function NotificationCenter() {
                 onClick={markAllAsRead}
                 className="px-4 py-2 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-lg font-medium transition-colors"
               >
-                Tout marquer comme lu
+                Mark all as read
               </button>
             )}
             {notifications.length > 0 && (
               <button
                 onClick={async () => {
                   if (await confirm({
-                    title: "Supprimer toutes les notifications",
-                    message: "Cette action supprimera définitivement toutes les notifications.",
-                    confirmText: "Supprimer",
-                    cancelText: "Annuler",
+                    title: "Delete all notifications",
+                    message: "This action will permanently delete all notifications.",
+                    confirmText: "Delete",
+                    cancelText: "Cancel",
                     variant: "danger",
                   })) {
                     clearAll();
@@ -127,7 +127,7 @@ export default function NotificationCenter() {
                 }}
                 className="px-4 py-2 border border-red-300 dark:border-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg font-medium transition-colors"
               >
-                Tout supprimer
+                Clear all
               </button>
             )}
           </div>
@@ -138,18 +138,17 @@ export default function NotificationCenter() {
         <div className="p-6 space-y-4">
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Statut:</span>
+              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Status:</span>
               {["all", "unread", "read"].map((value) => (
                 <button
                   key={value}
                   onClick={() => setFilter(value)}
-                  className={`px-3 py-1.5 rounded-full text-sm border ${
-                    filter === value
+                  className={`px-3 py-1.5 rounded-full text-sm border ${filter === value
                       ? "bg-blue-600 text-white border-blue-600"
                       : "border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300"
-                  }`}
+                    }`}
                 >
-                  {value === "all" ? "Toutes" : value === "unread" ? "Non lues" : "Lues"}
+                  {value === "all" ? "All" : value === "unread" ? "Unread" : "Read"}
                 </button>
               ))}
             </div>
@@ -161,7 +160,7 @@ export default function NotificationCenter() {
                 onChange={(e) => setTypeFilter(e.target.value)}
                 className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm"
               >
-                <option value="all">Tous</option>
+                <option value="all">All</option>
                 {notificationTypes.map((type) => (
                   <option key={type} value={type}>
                     {type}
@@ -174,7 +173,7 @@ export default function NotificationCenter() {
           <div className="divide-y divide-slate-200 dark:divide-slate-700">
             {filteredNotifications.length === 0 && (
               <p className="text-sm text-slate-500 dark:text-slate-400 py-6 text-center">
-                Aucune notification à afficher
+                No notifications to display
               </p>
             )}
             {filteredNotifications.map((notification) => {
@@ -204,7 +203,7 @@ export default function NotificationCenter() {
                               onClick={() => handleNotificationClick(notification)}
                               className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
                             >
-                              Ouvrir
+                              View Details
                             </button>
                           )}
                         </div>
@@ -216,7 +215,7 @@ export default function NotificationCenter() {
                         <button
                           onClick={() => deleteNotification(notification.id)}
                           className="text-slate-400 hover:text-red-500 transition-colors"
-                          title="Supprimer"
+                          title="Delete"
                         >
                           <i className="fas fa-times"></i>
                         </button>

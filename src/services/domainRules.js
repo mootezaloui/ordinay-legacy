@@ -174,7 +174,7 @@ export function canPerformAction(entityType, entityId, action, context = {}) {
       console.error(`Error validating ${entityType}.${action}:`, error);
       return {
         allowed: false,
-        blockers: ["Une erreur inattendue s'est produite. Veuillez réessayer."],
+        blockers: ["An unexpected error occurred. Please try again."],
         warnings: [],
       };
     }
@@ -299,9 +299,9 @@ function detectMissionImpact(currentData, newData) {
       from: currentData[referenceField],
       to: newData[referenceField],
       impact: [
-        "• La référence de la mission sera modifiée",
-        "• Tous les documents et rapports devront être mis à jour",
-        "• Les écritures comptables conserveront la nouvelle référence",
+        "• The mission reference will be modified",
+        "• All documents and reports will need to be updated",
+        "• Financial entries will retain the new reference",
       ],
     });
   }
@@ -329,9 +329,9 @@ function detectMissionImpact(currentData, newData) {
         from: oldOfficer?.name,
         to: newOfficer?.name,
         impact: [
-          "• La mission sera retirée de l'huissier actuel",
-          "• La responsabilité de suivi changera",
-          "• L'historique de la mission sera préservé",
+          "• The mission will be removed from the current bailiff",
+          "• Follow-up responsibility will change",
+          "• Mission history will be preserved",
         ],
       });
     }
@@ -381,10 +381,10 @@ function detectDossierImpact(currentData, newData) {
       from: currentData[referenceField],
       to: newData[referenceField],
       impact: [
-        "• La référence du dossier sera modifiée",
-        "• Tous les procès liés conserveront leur lien avec ce dossier",
-        "• Les documents et rapports devront être mis à jour",
-        "• Les écritures comptables conserveront la nouvelle référence",
+        "• The Dossier reference will be modified",
+        "• All linked cases will retain their link with this Dossier",
+        "• Documents and reports will need to be updated",
+        "• Financial entries will retain the new reference",
       ],
     });
   }
@@ -404,10 +404,10 @@ function detectDossierImpact(currentData, newData) {
         from: oldClient?.name,
         to: newClient?.name,
         impact: [
-          "• Tous les procès liés resteront attachés à ce dossier",
-          "• Les écritures comptables resteront associées au dossier",
-          "• Le dossier apparaîtra désormais sous le nouveau client",
-          "• Les indicateurs de suivi seront recalculés",
+          "• All linked cases will remain attached to this Dossier",
+          "• Financial entries will remain associated with the Dossier",
+          "• The Dossier will now appear under the new client",
+          "• Tracking indicators will be recalculated",
         ],
       });
     }
@@ -457,10 +457,10 @@ function detectCaseImpact(currentData, newData) {
       from: currentData[referenceField],
       to: newData[referenceField],
       impact: [
-        "• La référence du procès sera modifiée",
-        "• Toutes les séances liées conserveront leur lien avec ce procès",
-        "• Les documents et rapports devront être mis à jour",
-        "• Les écritures comptables conserveront la nouvelle référence",
+        "• The case reference will be modified",
+        "• All linked sessions will retain their link with this case",
+        "• Documents and reports will need to be updated",
+        "• Financial entries will retain the new reference",
       ],
     });
   }
@@ -484,10 +484,10 @@ function detectCaseImpact(currentData, newData) {
           newDossier?.title || ""
         }`,
         impact: [
-          "• Le client de rattachement pourra changer",
-          "• Les écritures comptables seront agrégées sous le nouveau dossier",
-          "• Les tâches et séances liées au procès seront déplacées",
-          "• Les indicateurs de suivi seront recalculés",
+          "• The linked client may change",
+          "• Financial entries will be aggregated under the new Dossier",
+          "• Tasks and sessions linked to the case will be moved",
+          "• Tracking indicators will be recalculated",
         ],
       });
     }
@@ -551,8 +551,8 @@ function detectTaskImpact(currentData, newData) {
   }
 
   // Determine old and new parent info
-  let oldParentLabel = "Non assignée";
-  let newParentLabel = "Non assignée";
+  let oldParentLabel = "Not assigned";
+  let newParentLabel = "Not assigned";
 
   if (currentData.parentType === "dossier" && currentData.dossierId) {
     const dossier = [].find((d) => d.id == currentData.dossierId);
@@ -579,13 +579,13 @@ function detectTaskImpact(currentData, newData) {
   }
 
   const impactSummary = [
-    `**Parent actuel** : ${oldParentLabel}`,
-    `**Nouveau parent** : ${newParentLabel}`,
+    `**Current parent** : ${oldParentLabel}`,
+    `**New parent** : ${newParentLabel}`,
     "",
     "**Impact** :",
-    "• La tâche sera retirée de son contexte actuel",
-    "• Les indicateurs de suivi seront recalculés",
-    "• L'historique de la tâche sera préservé",
+    "• The task will be removed from its current context",
+    "• Tracking indicators will be recalculated",
+    "• Task history will be preserved",
   ];
 
   return {
@@ -622,8 +622,8 @@ function detectSessionImpact(currentData, newData) {
   }
 
   // Determine old and new parent info
-  let oldParentLabel = "Non assignée";
-  let newParentLabel = "Non assignée";
+  let oldParentLabel = "Not assigned";
+  let newParentLabel = "Not assigned";
 
   if (currentData.caseId) {
     const caseData = [].find((c) => c.id == currentData.caseId);
@@ -650,13 +650,13 @@ function detectSessionImpact(currentData, newData) {
   }
 
   const impactSummary = [
-    `**Rattachement actuel** : ${oldParentLabel}`,
-    `**Nouveau rattachement** : ${newParentLabel}`,
+    `**Current attachment** : ${oldParentLabel}`,
+    `**New attachment** : ${newParentLabel}`,
     "",
     "**Impact** :",
-    "• L'audience sera retirée de son contexte actuel",
-    "• Les indicateurs de suivi seront recalculés",
-    "• L'historique de l'audience sera préservé",
+    "• The session will be removed from its current context",
+    "• Tracking indicators will be recalculated",
+    "• Session history will be preserved",
   ];
 
   return {
@@ -756,23 +756,23 @@ function validateDossierAdd(dossierId, context = {}) {
   const formData = context?.formData || context?.data || {};
 
   // 🐛 DEBUG: Log to see what we're receiving
-  console.log('🔍 validateDossierAdd DEBUG:', {
+  console.log("🔍 validateDossierAdd DEBUG:", {
     clientsCount: clients.length,
     formData,
     clientIdInForm: formData.clientId,
     contextKeys: Object.keys(context),
-    fullContext: context
+    fullContext: context,
   });
 
   // Check if any clients exist in the system
   if (clients.length === 0) {
-    blockers.push("Ajoutez d'abord un client avant de créer un dossier.");
+    blockers.push("Please add a client before creating a Dossier.");
     return { allowed: false, blockers, warnings: [] };
   }
 
   // Check if a client was actually selected in the form
   if (!formData.clientId || formData.clientId === "") {
-    blockers.push("Veuillez sélectionner un client pour ce dossier.");
+    blockers.push("Please select a client for this Dossier.");
     return { allowed: false, blockers, warnings: [] };
   }
 
@@ -802,10 +802,12 @@ function validateDossierClose(dossierId, context = {}) {
     context.currentData ||
     mockDossiersExtended[dossierId] ||
     mockDossiersExtended[Number(dossierId)] ||
-    (context.dossiers || context.entities?.dossiers || []).find((d) => String(d.id) === String(dossierId));
+    (context.dossiers || context.entities?.dossiers || []).find(
+      (d) => String(d.id) === String(dossierId)
+    );
 
   if (!dossier) {
-    return { allowed: false, blockers: ["Dossier introuvable"], warnings: [] };
+    return { allowed: false, blockers: ["Dossier not found"], warnings: [] };
   }
 
   // Rule 1: Check for open tasks
@@ -822,15 +824,15 @@ function validateDossierClose(dossierId, context = {}) {
 
   if (incompleteTasks.length > 0) {
     blockers.push(
-      `${incompleteTasks.length} tâche${
+      `${incompleteTasks.length} incomplete task${
         incompleteTasks.length > 1 ? "s" : ""
-      } non terminée${incompleteTasks.length > 1 ? "s" : ""} :` +
+      } :` +
         incompleteTasks
           .slice(0, 3)
           .map((t) => `\n  • ${t.title} (${t.status})`)
           .join("") +
         (incompleteTasks.length > 3
-          ? `\n  • ... et ${incompleteTasks.length - 3} autre${
+          ? `\n  • ... and ${incompleteTasks.length - 3} other${
               incompleteTasks.length - 3 > 1 ? "s" : ""
             }`
           : "")
@@ -839,20 +841,22 @@ function validateDossierClose(dossierId, context = {}) {
 
   // Rule 2: Check for open Procès (cases)
   const allCases = context.cases || context.entities?.cases || mockCases || [];
-  const dossierCases = allCases.filter((c) => String(c.dossierId) === String(dossierId));
+  const dossierCases = allCases.filter(
+    (c) => String(c.dossierId) === String(dossierId)
+  );
   const openCases = dossierCases.filter(
     (proc) => proc.status !== "Clos" && proc.status !== "Terminé"
   );
 
   if (openCases.length > 0) {
     blockers.push(
-      `${openCases.length} procès non clos :` +
+      `${openCases.length} open case${openCases.length > 1 ? "s" : ""} :` +
         openCases
           .slice(0, 3)
           .map((c) => `\n  • ${c.caseNumber} - ${c.title} (${c.status})`)
           .join("") +
         (openCases.length > 3
-          ? `\n  • ... et ${openCases.length - 3} autre${
+          ? `\n  • ... and ${openCases.length - 3} other${
               openCases.length - 3 > 1 ? "s" : ""
             }`
           : "")
@@ -861,7 +865,10 @@ function validateDossierClose(dossierId, context = {}) {
 
   // Rule 3: Check for unpaid client balance
   const allFinancialEntries =
-    context.financialEntries || context.entities?.financialEntries || financialLedger || [];
+    context.financialEntries ||
+    context.entities?.financialEntries ||
+    financialLedger ||
+    [];
   const clientEntries = allFinancialEntries.filter(
     (entry) =>
       entry.clientId === dossier.clientId &&
@@ -885,11 +892,12 @@ function validateDossierClose(dossierId, context = {}) {
 
   const balance = totalPaid - totalInvoiced;
   if (balance < 0) {
-    blockers.push(`Solde client impayé : ${Math.abs(balance).toFixed(2)} TND`);
+    blockers.push(`Unpaid client balance: ${Math.abs(balance).toFixed(2)} TND`);
   }
 
   // Rule 4: Check for active Huissier missions
-  const allMissions = context.missions || context.entities?.missions || missionsCache || [];
+  const allMissions =
+    context.missions || context.entities?.missions || missionsCache || [];
   const dossierMissions = allMissions.filter(
     (mission) =>
       mission.entityType === "dossier" &&
@@ -900,15 +908,15 @@ function validateDossierClose(dossierId, context = {}) {
 
   if (dossierMissions.length > 0) {
     blockers.push(
-      `${dossierMissions.length} mission${
+      `${dossierMissions.length} active bailiff mission${
         dossierMissions.length > 1 ? "s" : ""
-      } d'huissier en cours :` +
+      } :` +
         dossierMissions
           .slice(0, 3)
           .map((m) => `\n  • ${m.missionNumber} - ${m.title} (${m.status})`)
           .join("") +
         (dossierMissions.length > 3
-          ? `\n  • ... et ${dossierMissions.length - 3} autre${
+          ? `\n  • ... and ${dossierMissions.length - 3} other${
               dossierMissions.length - 3 > 1 ? "s" : ""
             }`
           : "")
@@ -917,7 +925,7 @@ function validateDossierClose(dossierId, context = {}) {
 
   // Warnings (non-blocking)
   if (dossier.documents && dossier.documents.length === 0) {
-    warnings.push("Aucun document n'a été ajouté à ce dossier");
+    warnings.push("No documents have been added to this Dossier");
   }
 
   const allowed = blockers.length === 0;
@@ -951,9 +959,12 @@ function validateDossierDelete(dossierId, context = {}) {
     context.financialEntries || context.entities?.financialEntries || [];
 
   // Use enriched data from mockDossiersExtended if available, otherwise fallback to context
-  const dossier = mockDossiersExtended[dossierId] ||
+  const dossier =
+    mockDossiersExtended[dossierId] ||
     mockDossiersExtended[Number(dossierId)] ||
-    (context.dossiers || context.entities?.dossiers || []).find((d) => String(d.id) === String(dossierId));
+    (context.dossiers || context.entities?.dossiers || []).find(
+      (d) => String(d.id) === String(dossierId)
+    );
 
   if (!dossier) {
     // Allow deletion if dossier is already missing (e.g., local-only app, already deleted)
@@ -961,41 +972,47 @@ function validateDossierDelete(dossierId, context = {}) {
   }
 
   // Check for related Procès (cases)
-  const dossierCases = cases.filter((c) => String(c.dossierId) === String(dossierId));
+  const dossierCases = cases.filter(
+    (c) => String(c.dossierId) === String(dossierId)
+  );
   if (dossierCases.length > 0) {
     affectedEntities.push({
-      type: 'cases',
+      type: "cases",
       count: dossierCases.length,
-      items: dossierCases.slice(0, 5).map(c => ({
+      items: dossierCases.slice(0, 5).map((c) => ({
         id: c.id,
-        label: `${c.caseNumber} - ${c.title}`
-      }))
+        label: `${c.caseNumber} - ${c.title}`,
+      })),
     });
 
     warnings.push(
-      `Ce dossier contient ${dossierCases.length} procès qui ${dossierCases.length > 1 ? "seront supprimés" : "sera supprimé"}.`
+      `This Dossier contains ${dossierCases.length} case${
+        dossierCases.length > 1 ? "s" : ""
+      } that will be deleted.`
     );
   }
 
   // Check for related Tasks
   const dossierTasks = tasks.filter(
-    (task) => task.parentType === "dossier" && String(task.dossierId) === String(dossierId)
+    (task) =>
+      task.parentType === "dossier" &&
+      String(task.dossierId) === String(dossierId)
   );
 
   if (dossierTasks.length > 0) {
     affectedEntities.push({
-      type: 'tasks',
+      type: "tasks",
       count: dossierTasks.length,
-      items: dossierTasks.slice(0, 5).map(t => ({
+      items: dossierTasks.slice(0, 5).map((t) => ({
         id: t.id,
-        label: t.title
-      }))
+        label: t.title,
+      })),
     });
 
     warnings.push(
-      `Ce dossier contient ${dossierTasks.length} tâche${
+      `This Dossier contains ${dossierTasks.length} task${
         dossierTasks.length > 1 ? "s" : ""
-      } qui ${dossierTasks.length > 1 ? "seront supprimées" : "sera supprimée"}.`
+      } that will be deleted.`
     );
   }
 
@@ -1006,42 +1023,41 @@ function validateDossierDelete(dossierId, context = {}) {
 
   if (dossierSessions.length > 0) {
     affectedEntities.push({
-      type: 'sessions',
+      type: "sessions",
       count: dossierSessions.length,
-      items: dossierSessions.slice(0, 5).map(s => ({
+      items: dossierSessions.slice(0, 5).map((s) => ({
         id: s.id,
-        label: `${s.type} - ${s.date}`
-      }))
+        label: `${s.type} - ${s.date}`,
+      })),
     });
 
     warnings.push(
-      `Ce dossier contient ${dossierSessions.length} séance${
+      `This Dossier contains ${dossierSessions.length} session${
         dossierSessions.length > 1 ? "s" : ""
-      } qui ${dossierSessions.length > 1 ? "seront supprimées" : "sera supprimée"}.`
+      } that will be deleted.`
     );
   }
 
   // Check for financial entries
   const dossierFinancials = financialEntries.filter(
-    (entry) => String(entry.dossierId) === String(dossierId) && entry.status !== "void"
+    (entry) =>
+      String(entry.dossierId) === String(dossierId) && entry.status !== "void"
   );
 
   if (dossierFinancials.length > 0) {
     affectedEntities.push({
-      type: 'financialEntries',
+      type: "financialEntries",
       count: dossierFinancials.length,
-      items: dossierFinancials.slice(0, 5).map(e => ({
+      items: dossierFinancials.slice(0, 5).map((e) => ({
         id: e.id,
-        label: `${e.description} - ${e.amount} TND`
-      }))
+        label: `${e.description} - ${e.amount} TND`,
+      })),
     });
 
     warnings.push(
-      `Ce dossier a ${dossierFinancials.length} écriture${
-        dossierFinancials.length > 1 ? "s" : ""
-      } comptable${
-        dossierFinancials.length > 1 ? "s" : ""
-      } qui ${dossierFinancials.length > 1 ? "seront supprimées" : "sera supprimée"}.`
+      `This Dossier has ${dossierFinancials.length} financial ${
+        dossierFinancials.length > 1 ? "entries" : "entry"
+      } that will be deleted.`
     );
   }
 
@@ -1054,7 +1070,9 @@ function validateDossierDelete(dossierId, context = {}) {
       warnings,
       requiresForceDelete: true,
       affectedEntities,
-      forceDeleteMessage: `⚠️ Attention : Supprimer ce dossier supprimera également ${totalCount} entité${totalCount > 1 ? "s" : ""} liée${totalCount > 1 ? "s" : ""} (procès, tâches, séances, écritures comptables). Cette action est irréversible.`
+      forceDeleteMessage: `⚠️ Warning: Deleting this Dossier will also delete ${totalCount} linked entit${
+        totalCount > 1 ? "ies" : "y"
+      } (cases, tasks, sessions, financial entries). This action is irreversible.`,
     };
   }
 
@@ -1100,7 +1118,7 @@ function validateCaseAdd(caseId, context = {}) {
   if (!dossierId) {
     // No dossier specified - check if there are any dossiers available
     if (dossiers.length === 0) {
-      blockers.push("Ajoutez d'abord un dossier avant de créer un procès.");
+      blockers.push("Please add a Dossier before creating a case.");
       return { allowed: false, blockers, warnings: [] };
     }
     // No parent validation needed if dossier will be selected
@@ -1108,7 +1126,9 @@ function validateCaseAdd(caseId, context = {}) {
   }
 
   // Check if parent dossier exists
-  const dossier = dossiers.find(d => d.id === parseInt(dossierId)) || mockDossiersExtended[dossierId];
+  const dossier =
+    dossiers.find((d) => d.id === parseInt(dossierId)) ||
+    mockDossiersExtended[dossierId];
   if (!dossier) {
     // If no dossiers are loaded, don't block (data might not be loaded yet)
     if (dossiers.length === 0) {
@@ -1116,7 +1136,7 @@ function validateCaseAdd(caseId, context = {}) {
     }
     return {
       allowed: false,
-      blockers: ["Dossier parent introuvable"],
+      blockers: ["Parent Dossier not found"],
       warnings: [],
     };
   }
@@ -1124,9 +1144,9 @@ function validateCaseAdd(caseId, context = {}) {
   // Check if parent dossier is closed
   if (dossier.status === "Fermé" || dossier.status === "Archivé") {
     blockers.push(
-      `Impossible de créer un procès sous un dossier ${dossier.status.toLowerCase()}`,
+      `Cannot create a case under a ${dossier.status.toLowerCase()} Dossier`,
       `Dossier: ${dossier.caseNumber} - ${dossier.title}`,
-      `Vous devez d'abord rouvrir le dossier pour ajouter des procès`
+      `You must first reopen the Dossier to add cases`
     );
   }
 
@@ -1145,20 +1165,26 @@ function validateCaseClose(caseId, context = {}) {
   const blockers = [];
   const warnings = [];
 
-  const sessions = context.sessions || context.entities?.sessions || mockSessions || [];
+  const sessions =
+    context.sessions || context.entities?.sessions || mockSessions || [];
   const tasks = context.tasks || context.entities?.tasks || mockTasks || [];
 
   // Fetch case data
-  const caseData = mockCasesExtended[caseId] ||
+  const caseData =
+    mockCasesExtended[caseId] ||
     mockCasesExtended[Number(caseId)] ||
-    (context.cases || context.entities?.cases || []).find((c) => String(c.id) === String(caseId));
+    (context.cases || context.entities?.cases || []).find(
+      (c) => String(c.id) === String(caseId)
+    );
 
   if (!caseData) {
-    return { allowed: false, blockers: ["Procès introuvable"], warnings: [] };
+    return { allowed: false, blockers: ["Case not found"], warnings: [] };
   }
 
   // Rule 1: Check for upcoming or incomplete Séances
-  const caseSessions = sessions.filter((session) => String(session.caseId) === String(caseId));
+  const caseSessions = sessions.filter(
+    (session) => String(session.caseId) === String(caseId)
+  );
 
   const today = new Date();
   const upcomingSessions = caseSessions.filter((session) => {
@@ -1172,15 +1198,15 @@ function validateCaseClose(caseId, context = {}) {
 
   if (upcomingSessions.length > 0) {
     blockers.push(
-      `${upcomingSessions.length} séance${
+      `${upcomingSessions.length} upcoming or incomplete session${
         upcomingSessions.length > 1 ? "s" : ""
-      } à venir ou non terminée${upcomingSessions.length > 1 ? "s" : ""} :` +
+      } :` +
         upcomingSessions
           .slice(0, 3)
-          .map((s) => `\n  • ${s.title} le ${s.date} (${s.status})`)
+          .map((s) => `\n  • ${s.title} on ${s.date} (${s.status})`)
           .join("") +
         (upcomingSessions.length > 3
-          ? `\n  • ... et ${upcomingSessions.length - 3} autre${
+          ? `\n  • ... and ${upcomingSessions.length - 3} other${
               upcomingSessions.length - 3 > 1 ? "s" : ""
             }`
           : "")
@@ -1189,7 +1215,8 @@ function validateCaseClose(caseId, context = {}) {
 
   // Rule 2: Check for open tasks
   const caseTasks = tasks.filter(
-    (task) => task.parentType === "case" && String(task.caseId) === String(caseId)
+    (task) =>
+      task.parentType === "case" && String(task.caseId) === String(caseId)
   );
 
   const incompleteTasks = caseTasks.filter(
@@ -1198,15 +1225,15 @@ function validateCaseClose(caseId, context = {}) {
 
   if (incompleteTasks.length > 0) {
     blockers.push(
-      `${incompleteTasks.length} tâche${
+      `${incompleteTasks.length} incomplete task${
         incompleteTasks.length > 1 ? "s" : ""
-      } non terminée${incompleteTasks.length > 1 ? "s" : ""} :` +
+      } :` +
         incompleteTasks
           .slice(0, 3)
           .map((t) => `\n  • ${t.title} (${t.status})`)
           .join("") +
         (incompleteTasks.length > 3
-          ? `\n  • ... et ${incompleteTasks.length - 3} autre${
+          ? `\n  • ... and ${incompleteTasks.length - 3} other${
               incompleteTasks.length - 3 > 1 ? "s" : ""
             }`
           : "")
@@ -1225,15 +1252,15 @@ function validateCaseClose(caseId, context = {}) {
 
   if (caseMissions.length > 0) {
     blockers.push(
-      `${caseMissions.length} mission${
+      `${caseMissions.length} active bailiff mission${
         caseMissions.length > 1 ? "s" : ""
-      } d'huissier en cours :` +
+      } :` +
         caseMissions
           .slice(0, 3)
           .map((m) => `\n  • ${m.missionNumber} - ${m.title} (${m.status})`)
           .join("") +
         (caseMissions.length > 3
-          ? `\n  • ... et ${caseMissions.length - 3} autre${
+          ? `\n  • ... and ${caseMissions.length - 3} other${
               caseMissions.length - 3 > 1 ? "s" : ""
             }`
           : "")
@@ -1256,9 +1283,12 @@ function validateCaseDelete(caseId, context = {}) {
   const sessions = context.sessions || context.entities?.sessions || [];
   const tasks = context.tasks || context.entities?.tasks || [];
 
-  const caseData = mockCasesExtended[caseId] ||
+  const caseData =
+    mockCasesExtended[caseId] ||
     mockCasesExtended[Number(caseId)] ||
-    (context.cases || context.entities?.cases || []).find((c) => String(c.id) === String(caseId));
+    (context.cases || context.entities?.cases || []).find(
+      (c) => String(c.id) === String(caseId)
+    );
 
   if (!caseData) {
     // Allow deletion if case is already missing (e.g., local-only app, already deleted)
@@ -1266,44 +1296,47 @@ function validateCaseDelete(caseId, context = {}) {
   }
 
   // Check for related Séances
-  const caseSessions = sessions.filter((session) => String(session.caseId) === String(caseId));
+  const caseSessions = sessions.filter(
+    (session) => String(session.caseId) === String(caseId)
+  );
 
   if (caseSessions.length > 0) {
     affectedEntities.push({
-      type: 'sessions',
+      type: "sessions",
       count: caseSessions.length,
-      items: caseSessions.slice(0, 5).map(s => ({
+      items: caseSessions.slice(0, 5).map((s) => ({
         id: s.id,
-        label: `${s.type} - ${s.date}`
-      }))
+        label: `${s.type} - ${s.date}`,
+      })),
     });
 
     warnings.push(
-      `Ce procès contient ${caseSessions.length} séance${
+      `This case contains ${caseSessions.length} session${
         caseSessions.length > 1 ? "s" : ""
-      } qui ${caseSessions.length > 1 ? "seront supprimées" : "sera supprimée"}.`
+      } that will be deleted.`
     );
   }
 
   // Check for related Tasks
   const caseTasks = tasks.filter(
-    (task) => task.parentType === "case" && String(task.caseId) === String(caseId)
+    (task) =>
+      task.parentType === "case" && String(task.caseId) === String(caseId)
   );
 
   if (caseTasks.length > 0) {
     affectedEntities.push({
-      type: 'tasks',
+      type: "tasks",
       count: caseTasks.length,
-      items: caseTasks.slice(0, 5).map(t => ({
+      items: caseTasks.slice(0, 5).map((t) => ({
         id: t.id,
-        label: t.title
-      }))
+        label: t.title,
+      })),
     });
 
     warnings.push(
-      `Ce procès contient ${caseTasks.length} tâche${
+      `This case contains ${caseTasks.length} task${
         caseTasks.length > 1 ? "s" : ""
-      } qui ${caseTasks.length > 1 ? "seront supprimées" : "sera supprimée"}.`
+      } that will be deleted.`
     );
   }
 
@@ -1316,7 +1349,9 @@ function validateCaseDelete(caseId, context = {}) {
       warnings,
       requiresForceDelete: true,
       affectedEntities,
-      forceDeleteMessage: `⚠️ Attention : Supprimer ce procès supprimera également ${totalCount} entité${totalCount > 1 ? "s" : ""} liée${totalCount > 1 ? "s" : ""} (séances, tâches). Cette action est irréversible.`
+      forceDeleteMessage: `⚠️ Warning: Deleting this case will also delete ${totalCount} linked entit${
+        totalCount > 1 ? "ies" : "y"
+      } (sessions, tasks). This action is irreversible.`,
     };
   }
 
@@ -1361,7 +1396,7 @@ function validateClientArchive(clientId, context = {}) {
     [].find((c) => c.id == clientId);
 
   if (!client) {
-    return { allowed: false, blockers: ["Client introuvable"], warnings: [] };
+    return { allowed: false, blockers: ["Client not found"], warnings: [] };
   }
 
   // Rule 1: Check for open Dossiers
@@ -1372,15 +1407,15 @@ function validateClientArchive(clientId, context = {}) {
 
   if (openDossiers.length > 0) {
     blockers.push(
-      `${openDossiers.length} dossier${
+      `${openDossiers.length} open Dossier${
         openDossiers.length > 1 ? "s" : ""
-      } encore ouvert${openDossiers.length > 1 ? "s" : ""} :` +
+      } :` +
         openDossiers
           .slice(0, 3)
           .map((d) => `\n  • ${d.caseNumber} - ${d.title} (${d.status})`)
           .join("") +
         (openDossiers.length > 3
-          ? `\n  • ... et ${openDossiers.length - 3} autre${
+          ? `\n  • ... and ${openDossiers.length - 3} other${
               openDossiers.length - 3 > 1 ? "s" : ""
             }`
           : "")
@@ -1391,7 +1426,7 @@ function validateClientArchive(clientId, context = {}) {
   const clientFinancials = getClientFinancials(clientId);
   if (clientFinancials.balance < 0) {
     blockers.push(
-      `Solde impayé : ${Math.abs(clientFinancials.balance).toFixed(2)} TND`
+      `Unpaid balance: ${Math.abs(clientFinancials.balance).toFixed(2)} TND`
     );
   }
 
@@ -1418,18 +1453,18 @@ function validateClientDelete(clientId, context = {}) {
   const clientDossiers = client.dossiers || [];
   if (clientDossiers.length > 0) {
     affectedEntities.push({
-      type: 'dossiers',
+      type: "dossiers",
       count: clientDossiers.length,
-      items: clientDossiers.slice(0, 5).map(d => ({
+      items: clientDossiers.slice(0, 5).map((d) => ({
         id: d.id,
-        label: `${d.caseNumber} - ${d.title}`
-      }))
+        label: `${d.caseNumber} - ${d.title}`,
+      })),
     });
 
     warnings.push(
-      `Ce client a ${clientDossiers.length} dossier${
+      `This client has ${clientDossiers.length} Dossier${
         clientDossiers.length > 1 ? "s" : ""
-      } qui ${clientDossiers.length > 1 ? "seront supprimés" : "sera supprimé"}.`
+      } that will be deleted.`
     );
   }
 
@@ -1440,20 +1475,18 @@ function validateClientDelete(clientId, context = {}) {
 
   if (clientFinancials.length > 0) {
     affectedEntities.push({
-      type: 'financialEntries',
+      type: "financialEntries",
       count: clientFinancials.length,
-      items: clientFinancials.slice(0, 5).map(e => ({
+      items: clientFinancials.slice(0, 5).map((e) => ({
         id: e.id,
-        label: `${e.description} - ${e.amount} TND`
-      }))
+        label: `${e.description} - ${e.amount} TND`,
+      })),
     });
 
     warnings.push(
-      `Ce client a ${clientFinancials.length} écriture${
-        clientFinancials.length > 1 ? "s" : ""
-      } comptable${
-        clientFinancials.length > 1 ? "s" : ""
-      } qui ${clientFinancials.length > 1 ? "seront supprimées" : "sera supprimée"}.`
+      `This client has ${clientFinancials.length} financial ${
+        clientFinancials.length > 1 ? "entries" : "entry"
+      } that will be deleted.`
     );
   }
 
@@ -1465,7 +1498,13 @@ function validateClientDelete(clientId, context = {}) {
       warnings,
       requiresForceDelete: true,
       affectedEntities,
-      forceDeleteMessage: `⚠️ Attention : Supprimer ce client supprimera également toutes les entités liées (${clientDossiers.length} dossier${clientDossiers.length > 1 ? "s" : ""}, ${clientFinancials.length} écriture${clientFinancials.length > 1 ? "s" : ""} comptable${clientFinancials.length > 1 ? "s" : ""}). Cette action est irréversible.`
+      forceDeleteMessage: `⚠️ Warning: Deleting this client will also delete all linked entities (${
+        clientDossiers.length
+      } Dossier${clientDossiers.length > 1 ? "s" : ""}, ${
+        clientFinancials.length
+      } financial ${
+        clientFinancials.length > 1 ? "entries" : "entry"
+      }). This action is irreversible.`,
     };
   }
 
@@ -1478,7 +1517,7 @@ function validateClientDelete(clientId, context = {}) {
 function validateClientStatusChange(clientId, context = {}) {
   const { newValue } = context;
 
-  if (newValue === "Inactif" || newValue === "Archivé") {
+  if (newValue === "inActive" || newValue === "Archivé") {
     return validateClientArchive(clientId, context);
   }
 
@@ -1501,7 +1540,7 @@ function validateAccountingEditRestriction(entityId, context = {}) {
   return {
     allowed: false,
     blockers: [
-      "Modification interdite depuis l'écran Comptabilité\n\nL'écran Comptabilité est une surface de consultation et de réconciliation.\nLes modifications doivent être effectuées depuis l'écran de l'entité concernée :\n  • Clients → Menu Clients\n  • Dossiers → Menu Dossiers\n  • Procès → Menu Procès\n  • Huissiers → Menu Huissiers\n\nVous pouvez cliquer sur le nom de l'entité pour y accéder directement.",
+      "Modification prohibited from Accounting screen\n\nThe Accounting screen is a read-only reconciliation surface.\nModifications must be made from the entity's dedicated screen:\n  • Clients → Clients Menu\n  • Dossiers → Dossiers Menu\n  • Cases → Cases Menu\n  • Bailiffs → Bailiffs Menu\n\nYou can click on the entity name to access it directly.",
     ],
     warnings: [],
   };
@@ -1533,17 +1572,17 @@ function validateTaskAdd(taskId, context = {}) {
 
   // If no parent specified and no dossiers exist, block creation
   if (!dossierId && !caseId && dossiers.length === 0) {
-    blockers.push("Ajoutez d'abord un dossier avant de créer une tâche.");
+    blockers.push("Please add a Dossier before creating a task.");
     return { allowed: false, blockers, warnings: [] };
   }
 
   // Check parent based on type
   if (parentType === "dossier" && dossierId) {
-    const dossier = dossiers.find(d => d.id === parseInt(dossierId)) || mockDossiersExtended[dossierId];
+    const dossier =
+      dossiers.find((d) => d.id === parseInt(dossierId)) ||
+      mockDossiersExtended[dossierId];
     if (!dossier) {
-      warnings.push(
-        "Dossier parent non résolu (vérifiez après enregistrement)."
-      );
+      warnings.push("Parent Dossier not resolved (check after saving).");
     }
 
     if (
@@ -1551,17 +1590,16 @@ function validateTaskAdd(taskId, context = {}) {
       (dossier.status === "Fermé" || dossier.status === "Archivé")
     ) {
       blockers.push(
-        `Impossible de créer une tâche sous un dossier ${dossier.status.toLowerCase()}`,
+        `Cannot create a task under a ${dossier.status.toLowerCase()} Dossier`,
         `Dossier: ${dossier.caseNumber} - ${dossier.title}`,
-        `Vous devez d'abord rouvrir le dossier pour ajouter des tâches`
+        `You must first reopen the Dossier to add tasks`
       );
     }
   } else if (parentType === "case" && caseId) {
-    const caseData = cases.find(c => c.id === parseInt(caseId)) || mockCasesExtended[caseId];
+    const caseData =
+      cases.find((c) => c.id === parseInt(caseId)) || mockCasesExtended[caseId];
     if (!caseData) {
-      warnings.push(
-        "Procès parent non résolu (vérifiez après enregistrement)."
-      );
+      warnings.push("Parent case not resolved (check after saving).");
     }
 
     if (
@@ -1569,9 +1607,9 @@ function validateTaskAdd(taskId, context = {}) {
       (caseData.status === "Clos" || caseData.status === "Terminé")
     ) {
       blockers.push(
-        `Impossible de créer une tâche sous un procès ${caseData.status.toLowerCase()}`,
-        `Procès: ${caseData.caseNumber} - ${caseData.title}`,
-        `Vous devez d'abord rouvrir le procès pour ajouter des tâches`
+        `Cannot create a task under a ${caseData.status.toLowerCase()} case`,
+        `Case: ${caseData.caseNumber} - ${caseData.title}`,
+        `You must first reopen the case to add tasks`
       );
     }
   }
@@ -1594,7 +1632,7 @@ function validateTaskEdit(taskId, context = {}) {
   // ✅ Use provided task data if available, otherwise look it up
   const task = context.data || [].find((t) => t.id === taskId);
   if (!task) {
-    return { allowed: false, blockers: ["Tâche introuvable"], warnings: [] };
+    return { allowed: false, blockers: ["Task not found"], warnings: [] };
   }
 
   // Check parent entity status
@@ -1602,16 +1640,16 @@ function validateTaskEdit(taskId, context = {}) {
     const dossier = mockDossiersExtended[task.dossierId];
     if (dossier && (dossier.status === "Fermé" || dossier.status === "Clos")) {
       blockers.push(
-        `Cette tâche appartient au dossier "${
+        `This task belongs to Dossier "${
           dossier.caseNumber
-        }" qui est ${dossier.status.toLowerCase()}.\n\nLes modifications ne sont plus autorisées sur les dossiers fermés.`
+        }" which is ${dossier.status.toLowerCase()}.\n\nModifications are no longer allowed on closed Dossiers.`
       );
     }
   } else if (task.parentType === "case" && task.caseId) {
     const caseData = mockCasesExtended[task.caseId];
     if (caseData && caseData.status === "Clos") {
       blockers.push(
-        `Cette tâche appartient au procès "${caseData.caseNumber}" qui est clos.\n\nLes modifications ne sont plus autorisées sur les procès clos.`
+        `This task belongs to case "${caseData.caseNumber}" which is closed.\n\nModifications are no longer allowed on closed cases.`
       );
     }
   }
@@ -1662,18 +1700,18 @@ function validateSessionAdd(sessionId, context = {}) {
 
   // If no parent specified and no dossiers exist, block creation
   if (!dossierId && !caseId && dossiers.length === 0) {
-    blockers.push("Ajoutez d'abord un dossier avant de programmer une audience.");
+    blockers.push("Please add a Dossier before scheduling a hearing.");
     return { allowed: false, blockers, warnings: [] };
   }
 
   // Check based on link type
   if (linkType === "dossier" && dossierId) {
-    const dossier = dossiers.find(d => d.id === parseInt(dossierId)) || mockDossiersExtended[dossierId];
+    const dossier =
+      dossiers.find((d) => d.id === parseInt(dossierId)) ||
+      mockDossiersExtended[dossierId];
     if (!dossier) {
       // Allow submit to avoid blocking on newly created/unsynced dossier ids
-      warnings.push(
-        "Dossier parent non résolu (vérifiez après enregistrement)."
-      );
+      warnings.push("Parent Dossier not resolved (check after saving).");
     }
 
     if (
@@ -1681,17 +1719,16 @@ function validateSessionAdd(sessionId, context = {}) {
       (dossier.status === "Fermé" || dossier.status === "Archivé")
     ) {
       blockers.push(
-        `Impossible de créer une séance sous un dossier ${dossier.status.toLowerCase()}`,
+        `Cannot create a session under a ${dossier.status.toLowerCase()} Dossier`,
         `Dossier: ${dossier.caseNumber} - ${dossier.title}`,
-        `Vous devez d'abord rouvrir le dossier pour ajouter des séances`
+        `You must first reopen the Dossier to add sessions`
       );
     }
   } else if (linkType === "case" && caseId) {
-    const caseData = cases.find(c => c.id === parseInt(caseId)) || mockCasesExtended[caseId];
+    const caseData =
+      cases.find((c) => c.id === parseInt(caseId)) || mockCasesExtended[caseId];
     if (!caseData) {
-      warnings.push(
-        "Procès parent non résolu (vérifiez après enregistrement)."
-      );
+      warnings.push("Parent case not resolved (check after saving).");
     }
 
     if (
@@ -1699,9 +1736,9 @@ function validateSessionAdd(sessionId, context = {}) {
       (caseData.status === "Clos" || caseData.status === "Terminé")
     ) {
       blockers.push(
-        `Impossible de créer une séance sous un procès ${caseData.status.toLowerCase()}`,
-        `Procès: ${caseData.caseNumber} - ${caseData.title}`,
-        `Vous devez d'abord rouvrir le procès pour ajouter des séances`
+        `Cannot create a session under a ${caseData.status.toLowerCase()} case`,
+        `Case: ${caseData.caseNumber} - ${caseData.title}`,
+        `You must first reopen the case to add sessions`
       );
     }
   }
@@ -1724,7 +1761,7 @@ function validateSessionEdit(sessionId, context = {}) {
   // ✅ Use provided session data if available, otherwise look it up
   const session = context.data || [].find((s) => s.id === sessionId);
   if (!session) {
-    return { allowed: false, blockers: ["Séance introuvable"], warnings: [] };
+    return { allowed: false, blockers: ["Session not found"], warnings: [] };
   }
 
   // Check if linked to a Procès
@@ -1732,7 +1769,7 @@ function validateSessionEdit(sessionId, context = {}) {
     const caseData = mockCasesExtended[session.caseId];
     if (caseData && caseData.status === "Clos") {
       blockers.push(
-        `Cette séance appartient au procès "${caseData.caseNumber}" qui est clos.\n\nLes modifications ne sont plus autorisées sur les procès clos.`
+        `This session belongs to case "${caseData.caseNumber}" which is closed.\n\nModifications are no longer allowed on closed cases.`
       );
     }
   }
@@ -1742,9 +1779,9 @@ function validateSessionEdit(sessionId, context = {}) {
     const dossier = mockDossiersExtended[session.dossierId];
     if (dossier && (dossier.status === "Fermé" || dossier.status === "Clos")) {
       blockers.push(
-        `Cette séance appartient au dossier "${
+        `This session belongs to Dossier "${
           dossier.caseNumber
-        }" qui est ${dossier.status.toLowerCase()}.\n\nLes modifications ne sont plus autorisées sur les dossiers fermés.`
+        }" which is ${dossier.status.toLowerCase()}.\n\nModifications are no longer allowed on closed Dossiers.`
       );
     }
   }
@@ -1787,16 +1824,16 @@ function validateMissionAdd(missionId, context = {}) {
     if (!dossier) {
       return {
         allowed: false,
-        blockers: ["Dossier parent introuvable"],
+        blockers: ["Parent Dossier not found"],
         warnings: [],
       };
     }
 
     if (dossier.status === "Fermé" || dossier.status === "Archivé") {
       blockers.push(
-        `Impossible de créer une mission sous un dossier ${dossier.status.toLowerCase()}`,
+        `Cannot create a mission under a ${dossier.status.toLowerCase()} Dossier`,
         `Dossier: ${dossier.caseNumber} - ${dossier.title}`,
-        `Vous devez d'abord rouvrir le dossier pour créer des missions`
+        `You must first reopen the Dossier to create missions`
       );
     }
   } else if (entityType === "case" && caseId) {
@@ -1804,16 +1841,16 @@ function validateMissionAdd(missionId, context = {}) {
     if (!caseData) {
       return {
         allowed: false,
-        blockers: ["Procès parent introuvable"],
+        blockers: ["Parent case not found"],
         warnings: [],
       };
     }
 
     if (caseData.status === "Clos" || caseData.status === "Terminé") {
       blockers.push(
-        `Impossible de créer une mission sous un procès ${caseData.status.toLowerCase()}`,
-        `Procès: ${caseData.caseNumber} - ${caseData.title}`,
-        `Vous devez d'abord rouvrir le procès pour créer des missions`
+        `Cannot create a mission under a ${caseData.status.toLowerCase()} case`,
+        `Case: ${caseData.caseNumber} - ${caseData.title}`,
+        `You must first reopen the case to create missions`
       );
     }
   }
@@ -1841,7 +1878,7 @@ function validateMissionEdit(missionId, context = {}) {
   }
 
   if (!mission) {
-    return { allowed: false, blockers: ["Mission introuvable"], warnings: [] };
+    return { allowed: false, blockers: ["Mission not found"], warnings: [] };
   }
 
   // Check parent entity based on entityType
@@ -1853,9 +1890,9 @@ function validateMissionEdit(missionId, context = {}) {
 
     if (dossier && (dossier.status === "Fermé" || dossier.status === "Clos")) {
       blockers.push(
-        `Cette mission est liée au dossier "${
+        `This mission is linked to Dossier "${
           dossier.caseNumber
-        }" qui est ${dossier.status.toLowerCase()}.\n\nLes modifications ne sont plus autorisées sur les dossiers fermés.`
+        }" which is ${dossier.status.toLowerCase()}.\n\nModifications are no longer allowed on closed Dossiers.`
       );
     }
   } else if (mission.entityType === "case") {
@@ -1866,7 +1903,7 @@ function validateMissionEdit(missionId, context = {}) {
 
     if (caseData && caseData.status === "Clos") {
       blockers.push(
-        `Cette mission est liée au procès "${caseData.caseNumber}" qui est clos.\n\nLes modifications ne sont plus autorisées sur les procès clos.`
+        `This mission is linked to case "${caseData.caseNumber}" which is closed.\n\nModifications are no longer allowed on closed cases.`
       );
     }
   }
@@ -1909,9 +1946,9 @@ function validateFinancialEntryAdd(entryId, context = {}) {
     const dossier = mockDossiersExtended[data.dossierId];
     if (dossier && (dossier.status === "Fermé" || dossier.status === "Clos")) {
       blockers.push(
-        `Le dossier "${
+        `Dossier "${
           dossier.caseNumber
-        }" est ${dossier.status.toLowerCase()}.\n\nAucune nouvelle écriture comptable ne peut être ajoutée aux dossiers fermés.`
+        }" is ${dossier.status.toLowerCase()}.\n\nNo new financial entries can be added to closed Dossiers.`
       );
     }
   }
@@ -1921,7 +1958,7 @@ function validateFinancialEntryAdd(entryId, context = {}) {
     const caseData = mockCasesExtended[data.caseId];
     if (caseData && caseData.status === "Clos") {
       blockers.push(
-        `Le procès "${caseData.caseNumber}" est clos.\n\nAucune nouvelle écriture comptable ne peut être ajoutée aux procès clos.`
+        `Case "${caseData.caseNumber}" is closed.\n\nNo new financial entries can be added to closed cases.`
       );
     }
   }
@@ -1956,7 +1993,7 @@ function validateFinancialEntryEdit(entryId, context = {}) {
   if (!entry) {
     return {
       allowed: false,
-      blockers: ["Écriture comptable introuvable"],
+      blockers: ["Financial entry not found"],
       warnings: [],
     };
   }
@@ -1964,7 +2001,7 @@ function validateFinancialEntryEdit(entryId, context = {}) {
   // Rule 1: Cannot edit paid/validated entries
   if (entry.status === "Payée" || entry.status === "paid") {
     blockers.push(
-      "Cette écriture comptable est déjà payée.\n\nLes écritures payées ne peuvent plus être modifiées pour garantir l'intégrité financière."
+      "This financial entry is already paid.\n\nPaid entries cannot be modified to ensure financial integrity."
     );
   }
 
@@ -1973,9 +2010,9 @@ function validateFinancialEntryEdit(entryId, context = {}) {
     const dossier = mockDossiersExtended[entry.dossierId];
     if (dossier && (dossier.status === "Fermé" || dossier.status === "Clos")) {
       blockers.push(
-        `Cette écriture est liée au dossier "${
+        `This entry is linked to Dossier "${
           dossier.caseNumber
-        }" qui est ${dossier.status.toLowerCase()}.\n\nLes écritures des dossiers fermés ne peuvent plus être modifiées.`
+        }" which is ${dossier.status.toLowerCase()}.\n\nEntries from closed Dossiers cannot be modified.`
       );
     }
   }
@@ -1985,7 +2022,7 @@ function validateFinancialEntryEdit(entryId, context = {}) {
     const caseData = mockCasesExtended[entry.caseId];
     if (caseData && caseData.status === "Clos") {
       blockers.push(
-        `Cette écriture est liée au procès "${caseData.caseNumber}" qui est clos.\n\nLes écritures des procès clos ne peuvent plus être modifiées.`
+        `This entry is linked to case "${caseData.caseNumber}" which is closed.\n\nEntries from closed cases cannot be modified.`
       );
     }
   }
@@ -2012,7 +2049,7 @@ function validateFinancialEntryDelete(entryId, context = {}) {
   if (!entry) {
     return {
       allowed: false,
-      blockers: ["Écriture comptable introuvable"],
+      blockers: ["Financial entry not found"],
       warnings: [],
     };
   }
@@ -2020,7 +2057,7 @@ function validateFinancialEntryDelete(entryId, context = {}) {
   // Rule 1: Cannot delete paid entries
   if (entry.status === "Payée" || entry.status === "paid") {
     blockers.push(
-      "Cette écriture comptable est payée.\n\nLes écritures payées ne peuvent pas être supprimées. Vous devez créer une écriture de correction."
+      "This financial entry is paid.\n\nPaid entries cannot be deleted. You must create a corrective entry."
     );
   }
 
@@ -2052,7 +2089,7 @@ function validateFinancialEntryStatusChange(entryId, context = {}) {
   if (!entry) {
     return {
       allowed: false,
-      blockers: ["Écriture comptable introuvable"],
+      blockers: ["Financial entry not found"],
       warnings: [],
     };
   }
@@ -2063,7 +2100,7 @@ function validateFinancialEntryStatusChange(entryId, context = {}) {
   if (entry.status === "Payée" || entry.status === "paid") {
     if (newValue !== "Payée" && newValue !== "paid") {
       blockers.push(
-        "Cette écriture est déjà marquée comme payée.\n\nLes écritures payées ne peuvent pas être ramenées à un statut antérieur."
+        "This entry is already marked as paid.\n\nPaid entries cannot be reverted to a previous status."
       );
     }
   }
@@ -2112,7 +2149,7 @@ function validateOfficerDelete(officerId, context = {}) {
 
   if (activeMissions.length > 0) {
     blockers.push(
-      `Cet huissier a ${activeMissions.length} mission(s) active(s).\n\nVous devez d'abord terminer ou réassigner ces missions avant de supprimer l'huissier.`
+      `This bailiff has ${activeMissions.length} active mission(s).\n\nYou must first complete or reassign these missions before deleting the bailiff.`
     );
   }
 
@@ -2126,7 +2163,9 @@ function validateOfficerDelete(officerId, context = {}) {
   );
   if (financialEntries.length > 0) {
     blockers.push(
-      `Cet huissier est lié à ${financialEntries.length} écriture(s) comptable(s) via ses missions.\n\nLa suppression d'un huissier avec des écritures existantes compromettrait l'intégrité des données.`
+      `This bailiff is linked to ${financialEntries.length} financial entr${
+        financialEntries.length > 1 ? "ies" : "y"
+      } via their missions.\n\nDeleting a bailiff with existing entries would compromise data integrity.`
     );
   }
 
@@ -2239,7 +2278,7 @@ export function formatBlockerMessage(blockers) {
   }
 
   const header =
-    "Cette action ne peut pas être effectuée pour les raisons suivantes :\n\n";
+    "This action cannot be performed for the following reasons:\n\n";
   const body = blockers
     .map((blocker, index) => {
       // If blocker already has bullet points, keep formatting
@@ -2265,7 +2304,7 @@ export function formatWarningMessage(warnings) {
     return "";
   }
 
-  const header = "Attention :\n\n";
+  const header = "Warning:\n\n";
   const body = warnings.map((warning) => `⚠ ${warning}`).join("\n");
 
   return header + body;

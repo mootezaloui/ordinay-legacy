@@ -20,7 +20,7 @@ export default function NotesTab({ data, config, onUpdate }) {
   const handleSave = async () => {
     if (!onUpdate) {
       console.error('[NotesTab] onUpdate callback not provided');
-      showToast("Impossible de sauvegarder les notes", "error");
+      showToast("Impossible to save notes", "error");
       return;
     }
 
@@ -29,10 +29,10 @@ export default function NotesTab({ data, config, onUpdate }) {
       // Call the onUpdate callback to save notes to backend
       await onUpdate({ notes });
       setIsEditing(false);
-      showToast("Notes sauvegardées", "success");
+      showToast("Notes saved", "success");
     } catch (error) {
       console.error('[NotesTab] Error saving notes:', error);
-      showToast("Erreur lors de la sauvegarde des notes", "error");
+      showToast("Error saving notes", "error");
     } finally {
       setIsSaving(false);
     }
@@ -51,14 +51,14 @@ export default function NotesTab({ data, config, onUpdate }) {
             <i className="fas fa-sticky-note text-amber-500 dark:text-amber-400 text-2xl"></i>
           </div>
           <p className="text-slate-600 dark:text-slate-400 mb-4">
-            Aucune note
+            No notes
           </p>
           <button
             onClick={() => setIsEditing(true)}
             className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-medium transition-colors"
           >
             <i className="fas fa-plus mr-2"></i>
-            Ajouter une note
+            Add a note
           </button>
         </div>
       </ContentSection>
@@ -89,12 +89,12 @@ export default function NotesTab({ data, config, onUpdate }) {
                 {isSaving ? (
                   <>
                     <i className="fas fa-spinner fa-spin"></i>
-                    Enregistrement...
+                    Saving...
                   </>
                 ) : (
                   <>
                     <i className="fas fa-save"></i>
-                    Enregistrer
+                    Save
                   </>
                 )}
               </button>
@@ -103,7 +103,7 @@ export default function NotesTab({ data, config, onUpdate }) {
                 disabled={isSaving}
                 className="px-4 py-2 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50 text-slate-700 dark:text-slate-200 rounded-lg font-medium transition-colors"
               >
-                Annuler
+                Cancel
               </button>
             </div>
           </div>
@@ -129,7 +129,7 @@ export default function NotesTab({ data, config, onUpdate }) {
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 text-center">
               <i className="fas fa-info-circle mr-1"></i>
-              Cliquez sur l'icône d'édition pour modifier vos notes
+              Click the edit icon to modify your notes
             </p>
           </div>
         )}

@@ -27,12 +27,12 @@ export function getCustomJudges() {
  */
 export function addCustomJudge(name) {
   if (!name || typeof name !== "string") {
-    throw new Error("Le nom du juge est requis");
+    throw new Error("Judge name is required");
   }
 
   const trimmedName = name.trim();
   if (!trimmedName) {
-    throw new Error("Le nom du juge ne peut pas être vide");
+    throw new Error("Name cannot be empty");
   }
 
   const customJudges = getCustomJudges();
@@ -43,7 +43,7 @@ export function addCustomJudge(name) {
   );
 
   if (exists) {
-    throw new Error("Ce juge existe déjà dans la liste");
+    throw new Error("This judge already exists");
   }
 
   const newJudge = {
@@ -59,7 +59,7 @@ export function addCustomJudge(name) {
     return newJudge;
   } catch (error) {
     console.error("Error saving custom judge:", error);
-    throw new Error("Erreur lors de l'enregistrement");
+    throw new Error("Error saving");
   }
 }
 
@@ -75,7 +75,7 @@ export function removeCustomJudge(value) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
   } catch (error) {
     console.error("Error removing custom judge:", error);
-    throw new Error("Erreur lors de la suppression");
+    throw new Error("Error deleting");
   }
 }
 

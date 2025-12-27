@@ -174,7 +174,7 @@ export default function SearchableSelect({
               onClick={handleClear}
               className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
               tabIndex={-1}
-              aria-label="Effacer la sélection"
+              aria-label="Clear selection"
             >
               <i className={`fas fa-times ${compact ? 'text-xs' : 'text-sm'}`}></i>
             </button>
@@ -216,10 +216,10 @@ export default function SearchableSelect({
           ) : (
             <div className={`px-3 ${compact ? 'py-4' : 'py-6'} text-center text-slate-500 dark:text-slate-400 text-sm`}>
               <i className={`fas fa-search ${compact ? 'text-xl' : 'text-2xl'} mb-2 opacity-50`}></i>
-              <p>Aucun résultat trouvé</p>
+              <p>No results found</p>
               {searchTerm && (
                 <p className="text-xs mt-1">
-                  pour "{searchTerm}"
+                  for "{searchTerm}"
                 </p>
               )}
             </div>

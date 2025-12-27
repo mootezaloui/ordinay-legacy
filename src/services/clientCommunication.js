@@ -75,7 +75,7 @@ export function shouldPromptClientNotification(
 // Helper: resolve client info from ids or nested data
 function resolveClientInfo(data = {}, entities) {
   // Handle null or undefined entities
-  if (!entities || typeof entities !== 'object') {
+  if (!entities || typeof entities !== "object") {
     entities = {};
   }
 
@@ -173,15 +173,15 @@ function detectDossierStatusChange(context, entities) {
   const { oldValue, newValue, data } = context;
 
   // Client-relevant status changes
-  const relevantStatuses = ["Fermé", "Suspendu", "Ouvert"];
+  const relevantStatuses = ["Closed", "Suspended", "Open"];
 
   // Only trigger if status actually changed AND is client-relevant
   if (oldValue === newValue || !relevantStatuses.includes(newValue)) {
     return null;
   }
 
-  // Special case: Reopening (Fermé → Ouvert)
-  const isReopening = oldValue === "Fermé" && newValue === "Ouvert";
+  // Special case: Reopening (Closed → Open)
+  const isReopening = oldValue === "Closed" && newValue === "Open";
 
   const { clientId, clientName } = resolveClientInfo(data, entities);
 

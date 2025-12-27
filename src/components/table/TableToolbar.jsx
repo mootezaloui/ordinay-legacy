@@ -7,11 +7,11 @@ import { useState, useRef, useEffect } from "react";
 
 export default function TableToolbar({
   searchQuery = "",
-  onSearchChange = () => {},
+  onSearchChange = () => { },
   columns = [],
   visibleColumns = [],
-  onToggleColumn = () => {},
-  onResetColumns = () => {},
+  onToggleColumn = () => { },
+  onResetColumns = () => { },
   onExport = null,
   totalItems = 0,
   filteredItems = 0,
@@ -40,7 +40,7 @@ export default function TableToolbar({
           <div className="relative">
             <input
               type="text"
-              placeholder="Rechercher..."
+              placeholder="Searching..."
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
               className="w-full pl-10 pr-10 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
@@ -69,7 +69,7 @@ export default function TableToolbar({
               </button>
             )}
           </div>
-          
+
           {/* Search results info */}
           {isFiltering && (
             <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
@@ -89,7 +89,7 @@ export default function TableToolbar({
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
               </svg>
-              Colonnes
+              Columns
               <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-xs rounded">
                 {visibleColumns.length}/{columns.length}
               </span>
@@ -101,13 +101,13 @@ export default function TableToolbar({
                 <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-semibold text-slate-900 dark:text-white">
-                      Gérer les colonnes
+                      Manage Columns
                     </span>
                     <button
                       onClick={onResetColumns}
                       className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
                     >
-                      Réinitialiser
+                      Reset
                     </button>
                   </div>
                 </div>
@@ -138,7 +138,7 @@ export default function TableToolbar({
                 </div>
 
                 <div className="px-4 py-3 border-t border-slate-200 dark:border-slate-700 text-xs text-slate-500 dark:text-slate-400">
-                  💡 Glissez-déposez les colonnes pour les réorganiser
+                  💡 Drag and drop columns to reorder
                 </div>
               </div>
             )}
@@ -153,7 +153,7 @@ export default function TableToolbar({
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
-              Exporter
+              Export
             </button>
           )}
 
@@ -161,7 +161,7 @@ export default function TableToolbar({
           <button
             onClick={() => window.location.reload()}
             className="p-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors text-slate-700 dark:text-slate-300"
-            title="Actualiser"
+            title="Refresh"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />

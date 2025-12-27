@@ -39,8 +39,8 @@ export function ConfirmProvider({ children }) {
     isOpen: false,
     title: "Confirmation",
     message: "",
-    confirmText: "Confirmer",
-    cancelText: "Annuler",
+    confirmText: "Confirm",
+    cancelText: "Cancel",
     variant: "warning",
     resolve: null,
   });
@@ -56,8 +56,8 @@ export function ConfirmProvider({ children }) {
         isOpen: true,
         title: config.title || "Confirmation",
         message: config.message || "",
-        confirmText: config.confirmText || "Confirmer",
-        cancelText: config.cancelText || "Annuler",
+        confirmText: config.confirmText || "Confirm",
+        cancelText: config.cancelText || "Cancel",
         variant: config.variant || "warning",
         resolve,
       });

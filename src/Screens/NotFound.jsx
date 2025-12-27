@@ -40,20 +40,20 @@ export default function NotFound() {
         {/* Text Content */}
         <div className="mb-8">
           <h1 className="text-4xl md:text-5xl font-bold text-slate-900 dark:text-white mb-4">
-            Page introuvable
+            Oups ! Page not found.
           </h1>
           <p className="text-lg text-slate-600 dark:text-slate-400 mb-2">
-            Désolé, la page que vous recherchez n'existe pas ou a été déplacée.
+            Sorry, the page you are looking for does not exist or has been moved.
           </p>
           <p className="text-slate-500 dark:text-slate-500">
-            Elle a peut-être été archivée dans nos dossiers perdus... 📁
+            It might have been archived in our lost files... 📁
           </p>
         </div>
 
         {/* Suggestions */}
         <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 p-8 mb-8">
           <h2 className="text-xl font-semibold text-slate-900 dark:text-white mb-4">
-            Que voulez-vous faire ?
+            What would you like to do?
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Home Button */}
@@ -65,8 +65,8 @@ export default function NotFound() {
                 <i className="fas fa-home text-blue-600 dark:text-blue-400 text-xl"></i>
               </div>
               <div>
-                <p className="font-medium text-slate-900 dark:text-white">Accueil</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">Retour au dashboard</p>
+                <p className="font-medium text-slate-900 dark:text-white">Home</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Back to dashboard</p>
               </div>
             </Link>
 
@@ -80,7 +80,7 @@ export default function NotFound() {
               </div>
               <div>
                 <p className="font-medium text-slate-900 dark:text-white">Clients</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">Voir mes clients</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">View my clients</p>
               </div>
             </Link>
 
@@ -94,7 +94,7 @@ export default function NotFound() {
               </div>
               <div>
                 <p className="font-medium text-slate-900 dark:text-white">Dossiers</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">Voir mes dossiers</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">View my dossiers</p>
               </div>
             </Link>
           </div>
@@ -102,25 +102,25 @@ export default function NotFound() {
 
         {/* Error Code */}
         <p className="text-sm text-slate-500 dark:text-slate-400">
-          Code d'erreur : 404 | Page non trouvée
+          Error code: 404 | Page not found
         </p>
 
         {/* Contact Support */}
         <div className="mt-6">
           <p className="text-sm text-slate-600 dark:text-slate-400">
-            Besoin d'aide ?{" "}
+            Need help?{" "}
             <Link
               to="/support"
               className="font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
             >
-              Contactez le support
+              Contact support
             </Link>
           </p>
         </div>
 
         {/* Footer */}
         <p className="mt-12 text-xs text-slate-500 dark:text-slate-400">
-          © 2025 Organia. Tous droits réservés.
+          © 2025 Organia. All rights reserved.
         </p>
       </div>
     </div>

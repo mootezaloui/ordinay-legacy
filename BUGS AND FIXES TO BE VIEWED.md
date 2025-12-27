@@ -16,9 +16,11 @@ check notifications, its not normally behaving, why not creating notification wh
 
 do the same as client detail screen tabs to not add tasks, dossiers, proces, unless we have the parent entity
 
+Check for types of missions in mission config
+
 ### 👤 Client
 
-- [x] **Client can be set to `Inactive` from table inline edit**
+- [x] **Client can be set to `inActive` from table inline edit**
   - Issue: This bypasses lifecycle/domain rules
   - Expected: Status change must respect domain rules and confirmations
 

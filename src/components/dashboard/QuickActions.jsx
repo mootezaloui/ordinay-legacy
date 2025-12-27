@@ -88,7 +88,7 @@ export default function QuickActions({ onDataChange }) {
           const createdEntity = creation?.created || creation;
           const createdId = createdEntity?.id;
           const createdName = createdEntity?.name || formData.name;
-          if (!createdId) throw new Error("Identifiant du client manquant");
+          if (!createdId) throw new Error("client ID is missing");
           newEntity = { ...createdEntity };
           logEntityCreation("client", createdId, createdName);
           break;
@@ -97,7 +97,7 @@ export default function QuickActions({ onDataChange }) {
           const creation = await addDossier(formData);
           const createdEntity = creation?.created || creation;
           const createdId = createdEntity?.id;
-          if (!createdId) throw new Error("Identifiant du dossier manquant");
+          if (!createdId) throw new Error("dossier ID is missing");
           newEntity = { ...createdEntity };
           logEntityCreation("dossier", createdId, createdEntity?.caseNumber);
           break;
@@ -130,16 +130,16 @@ export default function QuickActions({ onDataChange }) {
       }
 
       const messages = {
-        client: `Client "${formData.name}" créé avec succès !`,
-        dossier: `Dossier "${formData.caseNumber || formData.title}" créé avec succès !`,
-        task: `Tâche "${formData.title}" créée avec succès !`,
-        session: `Séance "${formData.title}" programmée avec succès !`,
+        client: `Client "${formData.name}" created successfully !`,
+        dossier: `Dossier "${formData.caseNumber || formData.title}" created successfully !`,
+        task: `Task "${formData.title}" created successfully !`,
+        session: `Session "${formData.title}" scheduled successfully !`,
       };
 
       notify.success({
         context: entityType,
         title: getFormTitle(entityType, false),
-        message: messages[entityType] || "Cree avec succes!",
+        message: messages[entityType] || "created susccessfully !",
       });
 
       navigateToDetail(entityType, newEntity?.id);
@@ -149,8 +149,8 @@ export default function QuickActions({ onDataChange }) {
       console.error(`Error creating ${entityType}:`, error);
       notify.error({
         context: entityType,
-        title: "Création impossible",
-        message: `Erreur lors de la création : ${error.message}`,
+        title: "Creation Failed",
+        message: `Error during creation: ${error.message}`,
       });
     } finally {
       setIsLoading(false);
@@ -177,7 +177,7 @@ export default function QuickActions({ onDataChange }) {
             return {
               ...field,
               options: [
-                { value: "", label: "Sélectionner un dossier..." },
+                { value: "", label: "Select a dossier..." },
                 ...dossierOptions,
               ],
             };
@@ -186,7 +186,7 @@ export default function QuickActions({ onDataChange }) {
             return {
               ...field,
               options: [
-                { value: "", label: "Sélectionner un procès..." },
+                { value: "", label: "Select a case..." },
                 ...caseOptions,
               ],
             };
@@ -203,7 +203,7 @@ export default function QuickActions({ onDataChange }) {
             return {
               ...field,
               options: [
-                { value: "", label: "Sélectionner un procès..." },
+                { value: "", label: "Select a case..." },
                 ...caseOptions,
               ],
             };
@@ -212,7 +212,7 @@ export default function QuickActions({ onDataChange }) {
             return {
               ...field,
               options: [
-                { value: "", label: "Sélectionner un dossier..." },
+                { value: "", label: "Select a dossier..." },
                 ...dossierOptions,
               ],
             };
@@ -227,10 +227,10 @@ export default function QuickActions({ onDataChange }) {
 
   const getSubtitle = (type) => {
     const subtitles = {
-      client: "Ajouter un nouveau client à votre base",
-      dossier: "Créer un nouveau dossier juridique",
-      task: "Créer une nouvelle tâche à effectuer",
-      session: "Programmer une nouvelle séance",
+      client: "Add a new client to your database",
+      dossier: "Create a new legal dossier",
+      task: "Create a new task to be performed",
+      session: "Schedule a new session or appointment",
     };
     return subtitles[type] || "";
   };
@@ -239,28 +239,28 @@ export default function QuickActions({ onDataChange }) {
     {
       id: 1,
       type: "client",
-      label: "Nouveau client",
+      label: "New client",
       icon: "fas fa-user-plus",
       color: "blue",
     },
     {
       id: 2,
       type: "dossier",
-      label: "Nouveau dossier",
+      label: "New dossier",
       icon: "fas fa-folder-plus",
       color: "purple",
     },
     {
       id: 3,
       type: "task",
-      label: "Nouvelle tâche",
+      label: "New task",
       icon: "fas fa-plus-circle",
       color: "amber",
     },
     {
       id: 4,
       type: "session",
-      label: "Programmer séance",
+      label: "New session",
       icon: "fas fa-calendar-plus",
       color: "green",
     },

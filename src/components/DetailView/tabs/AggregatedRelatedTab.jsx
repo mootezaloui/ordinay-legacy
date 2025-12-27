@@ -137,15 +137,15 @@ export default function AggregatedRelatedTab({
   const getCreatedLabel = () => {
     switch (tabConfig?.aggregationType) {
       case "dossiers":
-        return "Dossier créé";
+        return "Dossier Created";
       case "cases":
-        return "Procès créé";
+        return "Lawsuit Created";
       case "sessions":
-        return "Séance créée";
+        return "Hearing Created";
       case "tasks":
-        return "Tâche créée";
+        return "Task Created";
       default:
-        return "Élément créé";
+        return "Item Created";
     }
   };
 
@@ -242,7 +242,7 @@ export default function AggregatedRelatedTab({
             const creation = await addDossier({ ...normalizedFormData, ...relationshipFields });
             if (!creation.ok) {
               console.error("Dossier creation failed:", creation.result);
-              showToast("Erreur lors de la création du dossier", "error");
+              showToast("Erreur creating a dossier", "error");
               return;
             }
             const created = creation.created || creation;
@@ -254,7 +254,7 @@ export default function AggregatedRelatedTab({
             const creation = await addCase({ ...normalizedFormData, ...relationshipFields });
             if (!creation.ok) {
               console.error("Case creation failed:", creation.result);
-              showToast("Erreur lors de la création du procès", "error");
+              showToast("Erreur creating a lawsuit", "error");
               return;
             }
             const created = creation.created || creation;
@@ -266,7 +266,7 @@ export default function AggregatedRelatedTab({
             const creation = await addSession({ ...normalizedFormData, ...relationshipFields });
             if (!creation.ok) {
               console.error("Session creation failed:", creation.result);
-              showToast("Erreur lors de la création de la séance", "error");
+              showToast("Erreur creating a session", "error");
               return;
             }
             const created = creation.created || creation;
@@ -278,7 +278,7 @@ export default function AggregatedRelatedTab({
             const creation = await addTask({ ...normalizedFormData, ...relationshipFields });
             if (!creation.ok) {
               console.error("Task creation failed:", creation.result);
-              showToast("Erreur lors de la création de la tâche", "error");
+              showToast("Erreur creating a task", "error");
               return;
             }
             const created = creation.created || creation;
@@ -318,7 +318,7 @@ export default function AggregatedRelatedTab({
       await new Promise(resolve => setTimeout(resolve, 500));
 
       setIsAddModalOpen(false);
-      showToast(`${tabConfig?.entityName || 'Élément'} ajouté avec succès!`, "success");
+      showToast(`${tabConfig?.entityName || 'Element'} added successfully!`, "success");
 
       // Navigate to the newly created entity detail view
       if (entityConfig?.route) {
@@ -327,7 +327,7 @@ export default function AggregatedRelatedTab({
 
     } catch (error) {
       console.error("Error adding item:", error);
-      showToast("Erreur lors de l'ajout", "error");
+      showToast("Error adding item", "error");
     } finally {
       setIsLoading(false);
     }
@@ -335,10 +335,10 @@ export default function AggregatedRelatedTab({
 
   const handleDeleteItem = async (itemId) => {
     if (await confirm({
-      title: "Supprimer l'élément",
-      message: "Êtes-vous sûr de vouloir supprimer cet élément ?",
-      confirmText: "Supprimer",
-      cancelText: "Annuler",
+      title: "Delete Item",
+      message: "Are you sure you want to delete this item?",
+      confirmText: "Delete",
+      cancelText: "Cancel",
       variant: "danger"
     })) {
       const updatedItems = localItems.filter(item => item.id !== itemId);
@@ -374,7 +374,7 @@ export default function AggregatedRelatedTab({
   const allowAdd = tabConfig?.allowAdd !== false;
   const allowDelete = tabConfig?.allowDelete !== false;
   const isAddEnabled = tabConfig?.addEnabled ? tabConfig.addEnabled(data) : true;
-  const disabledReason = tabConfig?.addDisabledText || "Action indisponible pour le moment.";
+  const disabledReason = tabConfig?.addDisabledText || "Action unavailable at the moment.";
 
   // Get form fields - support both static formFields and dynamic getFormFields
   const formFields = tabConfig?.getFormFields
@@ -426,7 +426,7 @@ export default function AggregatedRelatedTab({
                 className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors inline-flex items-center gap-2"
               >
                 <i className="fas fa-plus"></i>
-                Ajouter {tabConfig.entityName || 'un élément'}
+                Add {tabConfig.entityName || 'element'}
               </button>
             )}
           </div>
@@ -439,8 +439,8 @@ export default function AggregatedRelatedTab({
             onClose={() => setIsAddModalOpen(false)}
             onSubmit={handleAddItem}
             initialData={prefillContext}
-            title={`Ajouter ${tabConfig.entityName || 'un élément'}`}
-            subtitle={tabConfig.addSubtitle || `Créer un nouveau ${tabConfig.entityName?.toLowerCase() || 'élément'}`}
+            title={`Add ${tabConfig.entityName || 'element'}`}
+            subtitle={tabConfig.addSubtitle || `Create a new ${tabConfig.entityName?.toLowerCase() || 'element'}`}
             fields={formFields}
             isLoading={isLoading}
             entityType={referenceEntityType}
@@ -464,7 +464,7 @@ export default function AggregatedRelatedTab({
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors text-sm inline-flex items-center gap-2"
               >
                 <i className="fas fa-plus"></i>
-                Ajouter
+                Add {tabConfig.entityName || 'Item'}
               </button>
             ) : (
               <span className="text-xs text-slate-500 dark:text-slate-400">
@@ -500,7 +500,7 @@ export default function AggregatedRelatedTab({
                 className="w-full py-3 border-2 border-dashed border-slate-300 dark:border-slate-600 hover:border-blue-500 dark:hover:border-blue-500 rounded-lg text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors font-medium"
               >
                 <i className="fas fa-plus mr-2"></i>
-                Ajouter {tabConfig.entityName || 'un élément'}
+                Add {tabConfig.entityName || 'an element'}
               </button>
             ) : (
               <div className="text-center text-sm text-slate-500 dark:text-slate-400">
@@ -600,7 +600,7 @@ function ItemRow({ item, parentContext, entityConfig, allowDelete, onDelete, cur
                   onDelete(item.id);
                 }}
                 className="p-2 hover:bg-red-100 dark:hover:bg-red-900/20 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
-                title="Supprimer"
+                title="Delete"
               >
                 <i className="fas fa-trash text-red-600 dark:text-red-400 text-sm"></i>
               </button>

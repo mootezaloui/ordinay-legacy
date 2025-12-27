@@ -43,11 +43,41 @@ function StatusDropdown({ task, onStatusChange }) {
   const [menuPosition, setMenuPosition] = useState(null); // null until computed to avoid flash at (0,0)
 
   const statusOptions = [
-    { value: "Non commencée", label: "Non commencée", color: "slate" },
-    { value: "En attente", label: "En attente", color: "amber" },
-    { value: "En cours", label: "En cours", color: "blue" },
-    { value: "Planifiée", label: "Planifiée", color: "purple" },
-    { value: "Terminée", label: "Terminée", color: "green" },
+    {
+      value: "Not Started",
+      label: "Not Started",
+      icon: "fas fa-circle",
+      color: "text-slate-600 dark:text-slate-400",
+      bgColor: "bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300"
+    },
+    {
+      value: "In Progress",
+      label: "In Progress",
+      icon: "fas fa-spinner",
+      color: "text-blue-600 dark:text-blue-400",
+      bgColor: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400"
+    },
+    {
+      value: "Blocked",
+      label: "Blocked",
+      icon: "fas fa-ban",
+      color: "text-red-600 dark:text-red-400",
+      bgColor: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
+    },
+    {
+      value: "Done",
+      label: "Done",
+      icon: "fas fa-check-circle",
+      color: "text-green-600 dark:text-green-400",
+      bgColor: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
+    },
+    {
+      value: "Cancelled",
+      label: "Cancelled",
+      icon: "fas fa-times-circle",
+      color: "text-amber-600 dark:text-amber-400",
+      bgColor: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400"
+    },
   ];
 
   const currentStatus = statusOptions.find(s => s.value === task.status) || statusOptions[0];
@@ -183,7 +213,7 @@ function StatusDropdown({ task, onStatusChange }) {
       <button
         ref={buttonRef}
         onClick={handleToggle}
-        className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium transition-all hover:ring-2 hover:ring-blue-300 dark:hover:ring-blue-700 ${getStatusColor(task.status)}`}
+        className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium transition-all hover:ring-2 hover:ring-blue-300 dark:hover:ring-blue-700 ${currentStatus.bgColor}`}
       >
         <i className={`${currentStatus.icon} text-xs`}></i>
         <span>{currentStatus.label}</span>
@@ -207,7 +237,7 @@ function StatusDropdown({ task, onStatusChange }) {
               className={`w-full text-left px-4 py-2 text-sm flex items-center gap-3 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors ${status.value === task.status ? 'bg-blue-50 dark:bg-blue-900/20' : ''
                 }`}
             >
-              <i className={`${status.icon} ${status.color} dark:${status.color} w-4`}></i>
+              <i className={`${status.icon} ${status.color} w-4`}></i>
               <span className="text-slate-900 dark:text-white">{status.label}</span>
               {status.value === task.status && (
                 <i className="fas fa-check text-blue-600 dark:text-blue-400 ml-auto text-xs"></i>
@@ -231,9 +261,9 @@ function PriorityDropdown({ task, onPriorityChange }) {
   const [menuPosition, setMenuPosition] = useState(null); // null until computed to avoid flash at (0,0)
 
   const priorityOptions = [
-    { value: "Haute", label: "Haute", icon: "fas fa-arrow-up", color: "text-red-600 dark:text-red-400", bgColor: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" },
-    { value: "Moyenne", label: "Moyenne", icon: "fas fa-minus", color: "text-amber-600 dark:text-amber-400", bgColor: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
-    { value: "Basse", label: "Basse", icon: "fas fa-arrow-down", color: "text-green-600 dark:text-green-400", bgColor: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" },
+    { value: "High", label: "High", icon: "fas fa-arrow-up", color: "text-red-600 dark:text-red-400", bgColor: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" },
+    { value: "Medium", label: "Medium", icon: "fas fa-minus", color: "text-amber-600 dark:text-amber-400", bgColor: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
+    { value: "Low", label: "Low", icon: "fas fa-arrow-down", color: "text-green-600 dark:text-green-400", bgColor: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" },
   ];
 
   const currentPriority = priorityOptions.find(p => p.value === task.priority) || priorityOptions[1];
@@ -419,17 +449,17 @@ export default function PersonalTasks() {
   const [isLoading, setIsLoading] = useState(false);
 
   const priorityConfig = {
-    "Haute": {
+    "High": {
       icon: "fas fa-arrow-up",
       color: "text-red-600 dark:text-red-400",
       bgColor: "bg-red-100 dark:bg-red-900/30",
     },
-    "Moyenne": {
+    "Medium": {
       icon: "fas fa-minus",
       color: "text-amber-600 dark:text-amber-400",
       bgColor: "bg-amber-100 dark:bg-amber-900/30",
     },
-    "Basse": {
+    "Low": {
       icon: "fas fa-arrow-down",
       color: "text-green-600 dark:text-green-400",
       bgColor: "bg-green-100 dark:bg-green-900/30",
@@ -437,26 +467,26 @@ export default function PersonalTasks() {
   };
 
   const categoryIcons = {
-    "Factures": "fas fa-file-invoice-dollar text-green-600 dark:text-green-400",
-    "Bureau": "fas fa-briefcase text-blue-600 dark:text-blue-400",
-    "Personnel": "fas fa-user text-purple-600 dark:text-purple-400",
-    "Informatique": "fas fa-laptop text-indigo-600 dark:text-indigo-400",
-    "Administratif": "fas fa-clipboard text-slate-600 dark:text-slate-400",
-    "Autre": "fas fa-sticky-note text-amber-600 dark:text-amber-400",
+    "Invoices": "fas fa-file-invoice-dollar text-green-600 dark:text-green-400",
+    "Office": "fas fa-briefcase text-blue-600 dark:text-blue-400",
+    "Personal": "fas fa-user text-purple-600 dark:text-purple-400",
+    "IT": "fas fa-laptop text-indigo-600 dark:text-indigo-400",
+    "Administrative": "fas fa-clipboard text-slate-600 dark:text-slate-400",
+    "Other": "fas fa-sticky-note text-amber-600 dark:text-amber-400",
   };
 
   const handleStatusChange = (taskId, newStatus) => {
     updatePersonalTask(taskId, { status: newStatus });
-    showToast(`Statut mis a jour: ${newStatus}`, "info", {
-      title: "Mise a jour du statut",
+    showToast(`Status updated: ${newStatus}`, "info", {
+      title: "Status Update",
       context: "personal-task",
     });
   };
 
   const handlePriorityChange = (taskId, newPriority) => {
     updatePersonalTask(taskId, { priority: newPriority });
-    showToast(`Priorite mise a jour: ${newPriority}`, "info", {
-      title: "Priorite mise a jour",
+    showToast(`Priority updated: ${newPriority}`, "info", {
+      title: "Priority Update",
       context: "personal-task",
     });
   };
@@ -466,12 +496,12 @@ export default function PersonalTasks() {
   const columns = [
     {
       id: "title",
-      label: "Tâche",
+      label: "Task",
       sortable: true,
       locked: true,
       render: (task) => (
         <div className="flex items-center gap-3">
-          <span className={`font-medium ${task.status === "Terminee" ? "line-through text-slate-500 dark:text-slate-400" : "text-slate-900 dark:text-white"}`}>
+          <span className={`font-medium ${task.status === "Completed" ? "line-through text-slate-500 dark:text-slate-400" : "text-slate-900 dark:text-white"}`}>
             {task.title}
           </span>
         </div>
@@ -479,18 +509,18 @@ export default function PersonalTasks() {
     },
     {
       id: "category",
-      label: "Catégorie",
+      label: "Category",
       sortable: true,
       render: (task) => (
         <div className="flex items-center gap-2">
-          <i className={categoryIcons[task.category] || categoryIcons["Autre"]}></i>
+          <i className={categoryIcons[task.category] || categoryIcons["Other"]}></i>
           <span className="text-sm">{task.category}</span>
         </div>
       ),
     },
     {
       id: "dueDate",
-      label: "Date limite",
+      label: "Due Date",
       sortable: true,
       render: (task) => {
         if (task.dueDate === null) {
@@ -514,7 +544,7 @@ export default function PersonalTasks() {
     },
     {
       id: "priority",
-      label: "Priorité",
+      label: "Priority",
       sortable: true,
       render: (task) => (
         <PriorityDropdown
@@ -525,7 +555,7 @@ export default function PersonalTasks() {
     },
     {
       id: "status",
-      label: "Statut",
+      label: "Status",
       sortable: true,
       render: (task) => (
         <StatusDropdown
@@ -544,7 +574,7 @@ export default function PersonalTasks() {
           <IconButton
             icon="view"
             variant="view"
-            title="Voir détails"
+            title="View details"
             onClick={(e) => {
               e.stopPropagation();
               handleView(task.id);
@@ -553,7 +583,7 @@ export default function PersonalTasks() {
           <IconButton
             icon="edit"
             variant="edit"
-            title="Modifier"
+            title="Edit"
             onClick={(e) => {
               e.stopPropagation();
               handleEdit(task);
@@ -562,7 +592,7 @@ export default function PersonalTasks() {
           <IconButton
             icon="delete"
             variant="delete"
-            title="Supprimer"
+            title="Delete"
             onClick={(e) => {
               e.stopPropagation();
               handleDelete(task.id);
@@ -592,15 +622,15 @@ export default function PersonalTasks() {
 
   const handleDelete = async (id) => {
     if (await confirm({
-      title: "Supprimer la tâche",
-      message: "Êtes-vous sûr de vouloir supprimer cette tâche ?",
-      confirmText: "Supprimer",
-      cancelText: "Annuler",
+      title: "Delete Task",
+      message: "Are you sure you want to delete this task?",
+      confirmText: "Delete",
+      cancelText: "Cancel",
       variant: "danger"
     })) {
       deletePersonalTask(id);
-      showToast("Tâche personnelle supprimée", "warning", {
-        title: "Suppression",
+      showToast("Personal task deleted", "warning", {
+        title: "Deletion Successful",
         context: "personal-task",
       });
     }
@@ -619,13 +649,13 @@ export default function PersonalTasks() {
 
       if (editingTask) {
         updatePersonalTask(editingTask.id, formData);
-        showToast("Tâche modifiée avec succès!", "success");
+        showToast("Task successfully updated!", "success");
       } else {
         console.log('[PersonalTasks.handleSubmit] Creating personal task with formData:', formData);
 
         const creation = await addPersonalTask(formData);
         const createdTask = creation?.created || creation;
-        showToast("Tâche ajoutée avec succès!", "success");
+        showToast("Task added Successfully!", "success");
 
         // ✅ Log creation event
         logEntityCreation('personalTask', createdTask.id, formData.title);
@@ -641,7 +671,7 @@ export default function PersonalTasks() {
       setEditingTask(null);
     } catch (error) {
       console.error("Error submitting task:", error);
-      showToast("Erreur lors de l'enregistrement", "error");
+      showToast("Error saving task", "error");
     } finally {
       setIsLoading(false);
     }
@@ -677,56 +707,56 @@ export default function PersonalTasks() {
   const personalTaskFormFields = [
     {
       name: "title",
-      label: "Titre de la tâche",
+      label: "Task Title",
       type: "text",
       required: true,
       fullWidth: true,
-      placeholder: "Ex: Payer facture électricité"
+      placeholder: "Ex: Pay electricity bill"
     },
     {
       name: "category",
-      label: "Catégorie",
+      label: "Category",
       type: "select",
       required: true,
       options: [
-        { value: "Factures", label: "💰 Factures" },
-        { value: "Bureau", label: "💼 Bureau" },
-        { value: "Personnel", label: "👤 Personnel" },
-        { value: "Informatique", label: "💻 Informatique" },
-        { value: "Administratif", label: "📋 Administratif" },
-        { value: "Autre", label: "📌 Autre" },
+        { value: "Invoices", label: "💰 Invoices" },
+        { value: "Office", label: "💼 Office" },
+        { value: "Personal", label: "👤 Personal" },
+        { value: "IT", label: "💻 IT" },
+        { value: "Administrative", label: "📋 Administrative" },
+        { value: "Other", label: "📌 Other" },
       ]
     },
     {
       name: "dueDate",
-      label: "Date limite",
+      label: "Due Date",
       type: "date",
       required: true,
     },
     {
       name: "priority",
-      label: "Priorité",
+      label: "Priority",
       type: "select",
       required: true,
-      defaultValue: "Moyenne",
+      defaultValue: "Medium",
       options: [
-        { value: "Haute", label: "🔴 Haute" },
-        { value: "Moyenne", label: "🟡 Moyenne" },
-        { value: "Basse", label: "🟢 Basse" },
+        { value: "High", label: "🔴 High" },
+        { value: "Medium", label: "🟡 Medium" },
+        { value: "Low", label: "🟢 Low" },
       ]
     },
     {
       name: "status",
-      label: "Statut",
+      label: "Status",
       type: "select",
       required: true,
-      defaultValue: "En attente",
+      defaultValue: "Pending",
       options: [
-        { value: "Non commencee", label: "Non commencée" },
-        { value: "En attente", label: "En attente" },
-        { value: "En cours", label: "En cours" },
-        { value: "Planifiee", label: "Planifiée" },
-        { value: "Terminee", label: "Terminée" },
+        { value: "Not Started", label: "Not Started" },
+        { value: "Pending", label: "Pending" },
+        { value: "In Progress", label: "In Progress" },
+        { value: "Scheduled", label: "Scheduled" },
+        { value: "Completed", label: "Completed" },
       ]
     },
     {
@@ -735,7 +765,7 @@ export default function PersonalTasks() {
       type: "textarea",
       fullWidth: true,
       rows: 3,
-      placeholder: "Notes additionnelles..."
+      placeholder: "Additional notes..."
     },
   ];
 
@@ -747,7 +777,7 @@ export default function PersonalTasks() {
           ...field,
           type: 'readonly',
           displayValue: editingTask.status,
-          helpText: 'Le statut ne peut être modifié que via le sélecteur dans la liste'
+          helpText: 'Status can only be changed via the selector in the list view.',
         };
       }
       return field;
@@ -757,19 +787,19 @@ export default function PersonalTasks() {
   // Calculate stats
   const stats = {
     total: tasks.length,
-    completed: tasks.filter(t => t.status === "Terminee").length,
-    pending: tasks.filter(t => t.status !== "Terminee").length,
+    completed: tasks.filter(t => t.status === "Completed").length,
+    pending: tasks.filter(t => t.status !== "Completed").length,
     overdue: tasks.filter(t => {
       const dueDate = new Date(t.dueDate);
-      return dueDate < new Date() && t.status !== "Terminee";
+      return dueDate < new Date() && t.status !== "Completed";
     }).length,
   };
 
   return (
     <PageLayout>
       <PageHeader
-        title="Tâches Personnelles"
-        subtitle={`${table.originalTotalItems} tâches personnelles${table.isFiltering ? ` • ${table.totalItems} affichées` : ""}`}
+        title="Personal Tasks"
+        subtitle={`${table.originalTotalItems} personal tasks${table.isFiltering ? ` • ${table.totalItems} displayed` : ""}`}
         icon="fas fa-sticky-note"
         actions={
           <button
@@ -777,7 +807,7 @@ export default function PersonalTasks() {
             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center gap-2"
           >
             <i className="fas fa-plus"></i>
-            Nouvelle Tâche
+            New Task
           </button>
         }
       />
@@ -803,7 +833,7 @@ export default function PersonalTasks() {
             </div>
             <div>
               <p className="text-2xl font-bold text-slate-900 dark:text-white">{stats.pending}</p>
-              <p className="text-sm text-slate-500 dark:text-slate-400">En attente</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">Pending</p>
             </div>
           </div>
         </div>
@@ -815,7 +845,7 @@ export default function PersonalTasks() {
             </div>
             <div>
               <p className="text-2xl font-bold text-slate-900 dark:text-white">{stats.completed}</p>
-              <p className="text-sm text-slate-500 dark:text-slate-400">Terminées</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">Completed</p>
             </div>
           </div>
         </div>
@@ -827,7 +857,7 @@ export default function PersonalTasks() {
             </div>
             <div>
               <p className="text-2xl font-bold text-slate-900 dark:text-white">{stats.overdue}</p>
-              <p className="text-sm text-slate-500 dark:text-slate-400">En retard</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">Over Due</p>
             </div>
           </div>
         </div>
@@ -856,7 +886,7 @@ export default function PersonalTasks() {
             onReorder={table.reorderColumns}
             enableReorder={true}
           />
-          <TableBody isEmpty={table.data.length === 0} emptyMessage={table.isFiltering ? "Aucun résultat trouvé" : "Aucune tâche personnelle"}>
+          <TableBody isEmpty={table.data.length === 0} emptyMessage={table.isFiltering ? "No results found" : "No personal tasks available"}>
             {table.data.map((task) => (
               <TableRow
                 key={task.id}
@@ -890,8 +920,8 @@ export default function PersonalTasks() {
           setEditingTask(null);
         }}
         onSubmit={handleSubmit}
-        title={editingTask ? "Modifier Tâche" : "Nouvelle Tâche Personnelle"}
-        subtitle={editingTask ? "Modifier la tâche personnelle" : "Ajouter une tâche non liée aux dossiers"}
+        title={editingTask ? "Edit Task" : "New Personal Task"}
+        subtitle={editingTask ? "Edit the personal task" : "Add a task not linked to cases or clients"}
         fields={dynamicPersonalTaskFormFields}
         initialData={editingTask}
         isLoading={isLoading}

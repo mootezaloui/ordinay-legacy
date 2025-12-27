@@ -5,8 +5,8 @@ import { getAllAssignees, addCustomAssignee } from "../../../utils/assigneeManag
 
 // Default assignees that are always available
 const DEFAULT_ASSIGNEES = [
-  { value: "Moi-même", label: "Moi-même" },
-  { value: "Stagiaire", label: "Stagiaire" },
+  { value: "Myself", label: "Myself" },
+  { value: "Intern", label: "Intern" },
 ];
 
 // Helper function to convert estimated time value to label
@@ -14,19 +14,19 @@ const getEstimatedTimeLabel = (value) => {
   if (!value) return "N/A";
   const timeMap = {
     "0.5h": "30 minutes",
-    "1h": "1 heure",
+    "1h": "1 hour",
     "1.5h": "1h30",
-    "2h": "2 heures",
-    "3h": "3 heures",
-    "4h": "4 heures",
-    "6h": "6 heures",
-    "8h": "8 heures",
-    "12h": "12 heures",
-    "16h": "16 heures",
-    "20h": "20 heures",
-    "24h": "1 journée",
-    "40h": "2 jours",
-    "80h": "1 semaine",
+    "2h": "2 hours",
+    "3h": "3 hours",
+    "4h": "4 hours",
+    "6h": "6 hours",
+    "8h": "8 hours",
+    "12h": "12 hours",
+    "16h": "16 hours",
+    "20h": "20 hours",
+    "24h": "1 day",
+    "40h": "2 days",
+    "80h": "1 week",
   };
   return timeMap[value] || value;
 };
@@ -40,13 +40,13 @@ const getEstimatedTimeLabel = (value) => {
 export const taskConfig = {
   // Basic info
   entityType: "task",
-  entityName: "Tâche",
+  entityName: "Task",
   icon: "fas fa-tasks",
   listRoute: "/tasks",
 
   // Messages
-  notFoundMessage: "Tâche non trouvée",
-  deleteConfirmMessage: "Êtes-vous sûr de vouloir supprimer cette tâche ?",
+  notFoundMessage: "Task not found",
+  deleteConfirmMessage: "Are you sure you want to delete this task ?",
 
   // Permissions
   allowDelete: true,
@@ -148,36 +148,37 @@ export const taskConfig = {
 
   // Header display
   getTitle: (data) => data.title,
-  getSubtitle: (data) => `Créée le ${data.createdDate}`,
+  getSubtitle: (data) => `Created on ${data.createdDate}`,
 
   // ✅ NEW: Quick Actions Configuration
   quickActions: [
     {
       key: "status",
-      label: "Statut",
+      label: "Status",
       icon: "fas fa-info-circle",
       colorMap: true,
       options: [
-        { value: "Non commencee", label: "Non commencée", color: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300" },
-        { value: "En cours", label: "En cours", color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" },
-        { value: "En attente", label: "En attente", color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
-        { value: "Terminee", label: "Terminée", color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" },
+        { value: "Not Started", label: "Not Started", color: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300" },
+        { value: "In Progress", label: "In Progress", color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" },
+        { value: "Blocked", label: "Blocked", color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" },
+        { value: "Done", label: "Done", color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" },
+        { value: "Cancelled", label: "Cancelled", color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
       ]
     },
     {
       key: "priority",
-      label: "Priorité",
+      label: "Priority",
       icon: "fas fa-flag",
       colorMap: true,
       options: [
-        { value: "Haute", label: "Haute", color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" },
-        { value: "Moyenne", label: "Moyenne", color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
-        { value: "Basse", label: "Basse", color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" },
+        { value: "High", label: "High", color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" },
+        { value: "Medium", label: "Medium", color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
+        { value: "Low", label: "Low", color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" },
       ]
     },
     {
       key: "assignedTo",
-      label: "Assigné à",
+      label: "Assigned to",
       icon: "fas fa-user",
       colorMap: false,
       getOptions: () => getAllAssignees(DEFAULT_ASSIGNEES),
@@ -191,16 +192,16 @@ export const taskConfig = {
           throw error;
         }
       },
-      createLabel: "Ajouter"
+      createLabel: "Add"
     }
   ],
 
   // Custom header rendering
   renderHeader: (data) => {
     const priorityColor = {
-      "Haute": "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
-      "Moyenne": "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
-      "Basse": "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+      "High": "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+      "Medium": "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
+      "Low": "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
     };
 
     // Determine parent link based on parentType
@@ -238,7 +239,7 @@ export const taskConfig = {
             </div>
             <div className="flex items-center gap-3">
               <span className={`px-3 py-1 rounded-full text-sm font-medium ${priorityColor[data.priority]}`}>
-                Priorité {data.priority}
+                Priority {data.priority}
               </span>
               <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(data.status)}`}>
                 {data.status}
@@ -247,9 +248,9 @@ export const taskConfig = {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <InfoCard icon="fas fa-user" label="Assigné à" value={data.assignedTo} color="blue" />
-            <InfoCard icon="fas fa-calendar" label="Date limite" value={data.dueDate} color="red" />
-            <InfoCard icon="fas fa-clock" label="Temps estimé" value={getEstimatedTimeLabel(data.estimatedTime)} color="purple" />
+            <InfoCard icon="fas fa-user" label="Assigned to" value={data.assignedTo} color="blue" />
+            <InfoCard icon="fas fa-calendar" label="Due Date" value={data.dueDate} color="red" />
+            <InfoCard icon="fas fa-clock" label="Estimated Time" value={getEstimatedTimeLabel(data.estimatedTime)} color="purple" />
           </div>
         </div>
       </ContentSection>
@@ -263,14 +264,14 @@ export const taskConfig = {
       iconColor: "text-blue-600 dark:text-blue-400",
       bgColor: "bg-blue-100 dark:bg-blue-900/20",
       value: data.dueDate,
-      label: "Échéance"
+      label: "Due Date"
     },
     {
       icon: "fas fa-user-check",
       iconColor: "text-green-600 dark:text-green-400",
       bgColor: "bg-green-100 dark:bg-green-900/20",
       value: data.assignedTo,
-      label: "Assigné"
+      label: "Assigned to"
     },
   ],
 
@@ -278,16 +279,16 @@ export const taskConfig = {
   tabs: [
     {
       id: "overview",
-      label: "Vue d'ensemble",
+      label: "Overview",
       icon: "fas fa-eye",
       component: "overview",
     },
     {
       id: "financial",
-      label: "Comptabilité",
+      label: "Accounting",
       icon: "fas fa-coins",
       component: "financial",
-      description: "Suivi financier lié à cette tâche"
+      description: "Financial tracking related to this task"
     },
     {
       id: "documents",
@@ -298,14 +299,14 @@ export const taskConfig = {
     },
     {
       id: "comments",
-      label: "Commentaires",
+      label: "Comments",
       icon: "fas fa-comments",
       component: "notes",
       getCount: (data) => data.comments?.length || 0,
     },
     {
       id: "timeline",
-      label: "Historique",
+      label: "History",
       icon: "fas fa-history",
       component: "history",
     },
@@ -314,19 +315,19 @@ export const taskConfig = {
   // ✅ UPDATED: Overview sections with editStrategy and parent selection
   overviewSections: [
     {
-      title: "Description de la tâche",
+      title: "Task Description",
       editStrategy: "structured",
       type: "description",
       fieldKey: "description",
-      content: (data) => data.description || "Aucune description",
+      content: (data) => data.description || "No description",
     },
     {
-      title: "Détails de la tâche",
+      title: "Task Details",
       editStrategy: "structured",
       fields: [
         {
           key: "dueDate",
-          label: "Date d'échéance",
+          label: "Due Date",
           value: (data) => data.dueDate,
           icon: "fas fa-calendar",
           type: "date",
@@ -334,111 +335,111 @@ export const taskConfig = {
         },
         {
           key: "estimatedTime",
-          label: "Temps estimé",
+          label: "Estimated Time",
           value: (data) => getEstimatedTimeLabel(data.estimatedTime),
           icon: "fas fa-clock",
           type: "select",
           editable: true,
           options: [
             { value: "0.5h", label: "30 minutes" },
-            { value: "1h", label: "1 heure" },
+            { value: "1h", label: "1 hour" },
             { value: "1.5h", label: "1h30" },
-            { value: "2h", label: "2 heures" },
-            { value: "3h", label: "3 heures" },
-            { value: "4h", label: "4 heures" },
-            { value: "6h", label: "6 heures" },
-            { value: "8h", label: "8 heures" },
-            { value: "12h", label: "12 heures" },
-            { value: "16h", label: "16 heures" },
-            { value: "20h", label: "20 heures" },
-            { value: "24h", label: "1 journée" },
-            { value: "40h", label: "2 jours" },
-            { value: "80h", label: "1 semaine" },
+            { value: "2h", label: "2 hours" },
+            { value: "3h", label: "3 hours" },
+            { value: "4h", label: "4 hours" },
+            { value: "6h", label: "6 hours" },
+            { value: "8h", label: "8 hours" },
+            { value: "12h", label: "12 hours" },
+            { value: "16h", label: "16 hours" },
+            { value: "20h", label: "20 hours" },
+            { value: "24h", label: "1 day" },
+            { value: "40h", label: "2 days" },
+            { value: "80h", label: "1 week" },
           ],
         },
       ],
     },
     {
-      title: "Entité associée",
+      title: "Associated Entity",
       editStrategy: "structured",
       fields: [
-        {
-          key: "parentType",
-          label: "Type de lien",
-          value: (data) => data.parentType || "dossier",
-          icon: "fas fa-link",
-          type: "select",
-          editable: true,
-          required: true,
-          options: [
-            { value: "dossier", label: "Dossier" },
-            { value: "case", label: "Procès" },
-          ],
-          helpText: "Une tâche peut être liée à un dossier ou à un procès"
+      {
+        key: "parentType",
+        label: "Link Type",
+        value: (data) => data.parentType || "dossier",
+        icon: "fas fa-link",
+        type: "select",
+        editable: true,
+        required: true,
+        options: [
+          { value: "dossier", label: "Dossier" },
+          { value: "case", label: "Lawsuit" },
+        ],
+        helpText: "A task can be linked to either a Dossier or a Lawsuite",
+      },
+      {
+        key: "dossierId",
+        label: "Dossier",
+        value: (data) => data.dossierId || "",
+        displayValue: (data) => {
+          if (!data.dossierId) return "None";
+          const dossier = [].find(d => d.id === data.dossierId);
+          if (dossier) return `${dossier.caseNumber} - ${dossier.title}`;
+          // Fallback to hydrated dossier object if available
+          if (data.dossier?.caseNumber) return `${data.dossier.caseNumber} - ${data.dossier.title}`;
+          return "None";
         },
-        {
-          key: "dossierId",
-          label: "Dossier",
-          value: (data) => data.dossierId || "",
-          displayValue: (data) => {
-            if (!data.dossierId) return "Aucun";
-            const dossier = [].find(d => d.id === data.dossierId);
-            if (dossier) return `${dossier.caseNumber} - ${dossier.title}`;
-            // Fallback to hydrated dossier object if available
-            if (data.dossier?.caseNumber) return `${data.dossier.caseNumber} - ${data.dossier.title}`;
-            return "Aucun";
-          },
-          icon: "fas fa-folder-open",
-          type: "searchable-select",
-          editable: true,
-          options: [
-            { value: "", label: "Sélectionner un dossier..." },
-            ...[].map(d => ({
-              value: d.id,
-              label: `${d.caseNumber} - ${d.title}`
-            }))
-          ],
-          getOptions: () => ([
-            { value: "", label: "SAclectionner un dossier..." },
-            ...[].map(d => ({
-              value: d.id,
-              label: `${d.caseNumber} - ${d.title}`
-            }))
-          ]),
-          helpText: "Sélectionner le dossier concerné"
+        icon: "fas fa-folder-open",
+        type: "searchable-select",
+        editable: true,
+        options: [
+          { value: "", label: "Select a dossier..." },
+          ...[].map(d => ({
+            value: d.id,
+            label: `${d.caseNumber} - ${d.title}`
+          }))
+        ],
+        getOptions: () => ([
+          { value: "", label: "Select a dossier..." },
+          ...[].map(d => ({
+            value: d.id,
+            label: `${d.caseNumber} - ${d.title}`
+          }))
+        ]),
+        helpText: "Select the relevant dossier"
+      },
+      {
+        key: "caseId",
+        label: "Lawsuite",
+        value: (data) => data.caseId || "",
+        displayValue: (data) => {
+          if (!data.caseId) return "None";
+          const caseObj = [].find(c => c.id === data.caseId);
+          if (caseObj) return `${caseObj.caseNumber} - ${caseObj.title}`;
+          // Fallback to hydrated case object if available
+          if (data.case?.caseNumber) return `${data.case.caseNumber} - ${data.case.title}`;
+          return "None";
         },
-        {
-          key: "caseId",
-          label: "Procès",
-          value: (data) => data.caseId || "",
-          displayValue: (data) => {
-            if (!data.caseId) return "Aucun";
-            const caseObj = [].find(c => c.id === data.caseId);
-            if (caseObj) return `${caseObj.caseNumber} - ${caseObj.title}`;
-            // Fallback to hydrated case object if available
-            if (data.case?.caseNumber) return `${data.case.caseNumber} - ${data.case.title}`;
-            return "Aucun";
-          },
-          icon: "fas fa-gavel",
-          type: "searchable-select",
-          editable: true,
-          options: [
-            { value: "", label: "Sélectionner un procès..." },
-            ...[].map(c => ({
-              value: c.id,
-              label: `${c.caseNumber} - ${c.title}`
-            }))
-          ],
-          getOptions: () => ([
-            { value: "", label: "Sélectionner un procès..." },
-            ...[].map(c => ({
-              value: c.id,
-              label: `${c.caseNumber} - ${c.title}`
-            }))
-          ]),
-          helpText: "Sélectionner le procès concerné"
-        },
-      ],
+        icon: "fas fa-gavel",
+        type: "searchable-select",
+        editable: true,
+        options: [
+          { value: "", label: "Select a lawsuite..." },
+          ...[].map(c => ({
+            value: c.id,
+            label: `${c.caseNumber} - ${c.title}`
+          }))
+        ],
+        getOptions: () => ([
+          { value: "", label: "Select a lawsuit..." },
+          ...[].map(c => ({
+            value: c.id,
+            label: `${c.caseNumber} - ${c.title}`
+          }))
+        ]),
+        helpText: "Select the relevant lawsuit"
+      },
+    ],
     },
   ],
 };

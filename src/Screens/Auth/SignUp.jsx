@@ -31,12 +31,12 @@ export default function SignUp() {
 
     // Validation
     if (formData.password !== formData.confirmPassword) {
-      setError("Les mots de passe ne correspondent pas");
+      setError("passwords do not match");
       return;
     }
 
     if (!formData.acceptTerms) {
-      setError("Veuillez accepter les conditions d'utilisation");
+      setError("Please accept the terms of use");
       return;
     }
 
@@ -67,10 +67,10 @@ export default function SignUp() {
             <i className="fas fa-scale-balanced text-white text-2xl"></i>
           </div>
           <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">
-            Créer un compte
+            Create an account
           </h1>
           <p className="text-slate-600 dark:text-slate-400">
-            Rejoignez-nous et commencez à gérer vos affaires juridiques
+            Join us and start managing your legal cases efficiently.
           </p>
         </div>
 
@@ -90,7 +90,7 @@ export default function SignUp() {
               {/* First Name */}
               <div>
                 <label className="block text-sm font-medium text-slate-900 dark:text-white mb-2">
-                  Prénom
+                  First Name
                 </label>
                 <input
                   type="text"
@@ -106,7 +106,7 @@ export default function SignUp() {
               {/* Last Name */}
               <div>
                 <label className="block text-sm font-medium text-slate-900 dark:text-white mb-2">
-                  Nom
+                  Last Name
                 </label>
                 <input
                   type="text"
@@ -123,7 +123,7 @@ export default function SignUp() {
             {/* Email Input */}
             <div>
               <label className="block text-sm font-medium text-slate-900 dark:text-white mb-2">
-                Email professionnel
+                Professional Email
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -144,7 +144,7 @@ export default function SignUp() {
             {/* Phone Input */}
             <div>
               <label className="block text-sm font-medium text-slate-900 dark:text-white mb-2">
-                Téléphone
+                Phone
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -167,7 +167,7 @@ export default function SignUp() {
               {/* Password */}
               <div>
                 <label className="block text-sm font-medium text-slate-900 dark:text-white mb-2">
-                  Mot de passe
+                  Password
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -188,7 +188,7 @@ export default function SignUp() {
               {/* Confirm Password */}
               <div>
                 <label className="block text-sm font-medium text-slate-900 dark:text-white mb-2">
-                  Confirmer le mot de passe
+                  Confirm Password
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -218,13 +218,13 @@ export default function SignUp() {
                 required
               />
               <label className="ml-2 text-sm text-slate-600 dark:text-slate-400">
-                J'accepte les{" "}
+                I accept the{" "}
                 <Link to="/terms" className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300">
-                  conditions d'utilisation
+                  terms of use
                 </Link>
-                {" "}et la{" "}
+                {" "}and the{" "}
                 <Link to="/privacy" className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300">
-                  politique de confidentialité
+                  privacy policy
                 </Link>
               </label>
             </div>
@@ -238,12 +238,12 @@ export default function SignUp() {
               {isLoading ? (
                 <>
                   <i className="fas fa-spinner fa-spin"></i>
-                  Création du compte...
+                  Creating account...
                 </>
               ) : (
                 <>
                   <i className="fas fa-user-plus"></i>
-                  Créer mon compte
+                  Create my account
                 </>
               )}
             </button>
@@ -251,19 +251,19 @@ export default function SignUp() {
 
           {/* Login Link */}
           <p className="mt-6 text-center text-sm text-slate-600 dark:text-slate-400">
-            Vous avez déjà un compte ?{" "}
+            Already have an account?{" "}
             <Link
               to="/login"
               className="font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
             >
-              Se connecter
+              Log in
             </Link>
           </p>
         </div>
 
         {/* Footer */}
         <p className="mt-8 text-center text-xs text-slate-500 dark:text-slate-400">
-          © 2025 Organia. Tous droits réservés.
+          © 2025 Organia. All rights reserved.
         </p>
       </div>
     </div>

@@ -67,6 +67,14 @@ function daysSinceUpdate(entityDate, currentDate = new Date()) {
 }
 
 /**
+ * Calculate days until a target date (alias for calculateDaysDifference)
+ * Positive = future, Negative = past
+ */
+function daysUntilDate(targetDate, fromDate = new Date()) {
+  return calculateDaysDifference(targetDate, fromDate);
+}
+
+/**
  * Check if entity was recently accessed/modified
  * (In production, this would check actual user activity logs)
  */
@@ -169,7 +177,11 @@ export const TaskRules = {
    * Shows clear overdue status with days count
    */
   overdueReminder(task) {
-    if (!task.dueDate || task.status === "Terminée" || task.status === "Completed") {
+    if (
+      !task.dueDate ||
+      task.status === "Terminée" ||
+      task.status === "Completed"
+    ) {
       return new RuleResult(false);
     }
 
@@ -183,8 +195,14 @@ export const TaskRules = {
         priority: "urgent",
         frequency: daysOverdue <= 3 ? "daily" : "once",
         subType: "overdue",
-        title: `Tâche en Retard - ${daysOverdue} jour${daysOverdue > 1 ? "s" : ""}`,
-        message: `La tâche "${task.title}" est en retard de ${daysOverdue} jour${daysOverdue > 1 ? "s" : ""}. Action requise.`,
+        title: `Tâche en Retard - ${daysOverdue} jour${
+          daysOverdue > 1 ? "s" : ""
+        }`,
+        message: `La tâche "${
+          task.title
+        }" est en retard de ${daysOverdue} jour${
+          daysOverdue > 1 ? "s" : ""
+        }. Action requise.`,
         metadata: {
           taskId: task.id,
           taskTitle: task.title,
@@ -208,7 +226,11 @@ export const TaskRules = {
    * For example, if created today with deadline in 2 days, don't send the "7 days before" notification.
    */
   upcomingDeadline(task) {
-    if (!task.dueDate || task.status === "Terminée" || task.status === "Completed") {
+    if (
+      !task.dueDate ||
+      task.status === "Terminée" ||
+      task.status === "Completed"
+    ) {
       return new RuleResult(false);
     }
 
@@ -244,7 +266,9 @@ export const TaskRules = {
         frequency: "once",
         subType: "upcomingDeadline",
         title: `Échéance dans ${daysLeft} jour${daysLeft > 1 ? "s" : ""}`,
-        message: `La tâche "${task.title}" doit être terminée dans ${daysLeft} jour${daysLeft > 1 ? "s" : ""}.`,
+        message: `La tâche "${
+          task.title
+        }" doit être terminée dans ${daysLeft} jour${daysLeft > 1 ? "s" : ""}.`,
         metadata: {
           taskId: task.id,
           taskTitle: task.title,
@@ -310,8 +334,12 @@ export const PersonalTaskRules = {
         priority: notificationPriority,
         frequency: "once",
         subType: "upcomingDeadline",
-        title: `Tâche Personnelle - Échéance dans ${daysLeft} jour${daysLeft > 1 ? "s" : ""}`,
-        message: `La tâche personnelle "${personalTask.title}" doit être terminée dans ${daysLeft} jour${daysLeft > 1 ? "s" : ""}.`,
+        title: `Tâche Personnelle - Échéance dans ${daysLeft} jour${
+          daysLeft > 1 ? "s" : ""
+        }`,
+        message: `La tâche personnelle "${
+          personalTask.title
+        }" doit être terminée dans ${daysLeft} jour${daysLeft > 1 ? "s" : ""}.`,
         metadata: {
           taskId: personalTask.id,
           taskTitle: personalTask.title,
@@ -362,7 +390,11 @@ export const PersonalTaskRules = {
         frequency,
         subType: "completionReminder",
         title: "Tâche Personnelle - Mise à Jour Requise",
-        message: `La tâche personnelle "${personalTask.title}" avait une échéance il y a ${daysPastDeadline} jour${daysPastDeadline > 1 ? "s" : ""}. La tâche a-t-elle été accomplie ?`,
+        message: `La tâche personnelle "${
+          personalTask.title
+        }" avait une échéance il y a ${daysPastDeadline} jour${
+          daysPastDeadline > 1 ? "s" : ""
+        }. La tâche a-t-elle été accomplie ?`,
         metadata: {
           taskId: personalTask.id,
           taskTitle: personalTask.title,
@@ -439,15 +471,15 @@ export const SessionRules = {
 
       // Try to find parent via case first
       if (session.case_id) {
-        const parentCase = cases.find(c => c.id === session.case_id);
+        const parentCase = cases.find((c) => c.id === session.case_id);
         if (parentCase && parentCase.dossier_id) {
-          parentDossier = dossiers.find(d => d.id === parentCase.dossier_id);
+          parentDossier = dossiers.find((d) => d.id === parentCase.dossier_id);
         }
       }
 
       // Or directly via dossier_id
       if (!parentDossier && session.dossier_id) {
-        parentDossier = dossiers.find(d => d.id === session.dossier_id);
+        parentDossier = dossiers.find((d) => d.id === session.dossier_id);
       }
 
       if (parentDossier) {
@@ -479,7 +511,13 @@ export const SessionRules = {
         frequency: "once",
         subType: "upcomingHearing",
         title: `Audience dans ${daysLeft} jour${daysLeft > 1 ? "s" : ""}`,
-        message: `Audience prévue pour le procès "${caseNumber}" dans ${daysLeft} jour${daysLeft > 1 ? "s" : ""}. ${session.location ? `Lieu: ${session.location}` : "Vérifier les documents et préparation."}`,
+        message: `Audience prévue pour le procès "${caseNumber}" dans ${daysLeft} jour${
+          daysLeft > 1 ? "s" : ""
+        }. ${
+          session.location
+            ? `Lieu: ${session.location}`
+            : "Vérifier les documents et préparation."
+        }`,
         metadata: {
           sessionId: session.id,
           caseNumber,
@@ -543,7 +581,9 @@ export const SessionRules = {
         frequency: "once",
         subType: "hearingToday",
         title: "🔴 Audience Aujourd'hui",
-        message: `Audience aujourd'hui pour le procès "${caseNumber}" à ${time}. ${session.location ? `Lieu: ${session.location}` : ""}`,
+        message: `Audience aujourd'hui pour le procès "${caseNumber}" à ${time}. ${
+          session.location ? `Lieu: ${session.location}` : ""
+        }`,
         metadata: {
           sessionId: session.id,
           caseNumber,
@@ -608,15 +648,15 @@ export const SessionRules = {
 
       // Try to find parent via case first
       if (session.case_id) {
-        const parentCase = cases.find(c => c.id === session.case_id);
+        const parentCase = cases.find((c) => c.id === session.case_id);
         if (parentCase && parentCase.dossier_id) {
-          parentDossier = dossiers.find(d => d.id === parentCase.dossier_id);
+          parentDossier = dossiers.find((d) => d.id === parentCase.dossier_id);
         }
       }
 
       // Or directly via dossier_id
       if (!parentDossier && session.dossier_id) {
-        parentDossier = dossiers.find(d => d.id === session.dossier_id);
+        parentDossier = dossiers.find((d) => d.id === session.dossier_id);
       }
 
       if (parentDossier) {
@@ -637,7 +677,9 @@ export const SessionRules = {
         frequency: daysSinceHearing <= 7 ? "once" : "weekly",
         subType: "hearingOutcome",
         title: "Résultat d'Audience - Documentation Requise",
-        message: `L'audience pour le procès "${caseNumber}" a eu lieu il y a ${daysSinceHearing} jour${daysSinceHearing > 1 ? "s" : ""}. Quel est le résultat de l'audience ?`,
+        message: `L'audience pour le procès "${caseNumber}" a eu lieu il y a ${daysSinceHearing} jour${
+          daysSinceHearing > 1 ? "s" : ""
+        }. Quel est le résultat de l'audience ?`,
         metadata: {
           sessionId: session.id,
           caseNumber,
@@ -679,10 +721,13 @@ export const CaseRules = {
 
     // Check if case has any upcoming hearings
     const caseId = caseItem.id;
-    const hasUpcomingHearings = sessions.some(session => {
+    const hasUpcomingHearings = sessions.some((session) => {
       const belongsToCase = session.case_id === caseId;
-      const isHearing = session.session_type === "hearing" || session.session_type === "Audience";
-      const isNotCancelled = session.status !== "cancelled" && session.status !== "Annulee";
+      const isHearing =
+        session.session_type === "hearing" ||
+        session.session_type === "Audience";
+      const isNotCancelled =
+        session.status !== "cancelled" && session.status !== "Annulee";
 
       // Check if session is in the future
       const sessionDate = new Date(session.scheduled_at);
@@ -708,7 +753,7 @@ export const CaseRules = {
     }
 
     // Inherit priority from parent dossier (cases don't have their own priority)
-    const parentDossier = dossiers.find(d => d.id === caseItem.dossier_id);
+    const parentDossier = dossiers.find((d) => d.id === caseItem.dossier_id);
     const priority = parentDossier?.priority || "Moyenne";
     const priorityWeight = getPriorityWeight(priority);
 
@@ -730,7 +775,8 @@ export const CaseRules = {
     const shouldRemind = daysSinceOpened % reminderIntervalDays === 0;
 
     if (shouldRemind) {
-      const caseTitle = caseItem.title || caseItem.case_number || caseItem.reference;
+      const caseTitle =
+        caseItem.title || caseItem.case_number || caseItem.reference;
 
       return new RuleResult(true, {
         priority: priorityWeight >= 3 ? "high" : "medium",
@@ -772,22 +818,27 @@ export const CaseRules = {
     }
 
     // Check for completed hearings for this case
-    const completedHearings = sessions.filter(session => {
+    const completedHearings = sessions.filter((session) => {
       const belongsToCase = session.case_id === caseItem.id;
-      const isHearing = session.session_type === "hearing" || session.session_type === "Audience";
-      const isCompleted = session.status === "completed" || session.status === "Terminee";
+      const isHearing =
+        session.session_type === "hearing" ||
+        session.session_type === "Audience";
+      const isCompleted =
+        session.status === "completed" || session.status === "Terminee";
       return belongsToCase && isHearing && isCompleted;
     });
 
     // Check for completed tasks for this case
-    const completedTasks = tasks.filter(task => {
+    const completedTasks = tasks.filter((task) => {
       const belongsToCase = task.case_id === caseItem.id;
-      const isCompleted = task.status === "Terminée" || task.status === "completed";
+      const isCompleted =
+        task.status === "Terminée" || task.status === "completed";
       return belongsToCase && isCompleted;
     });
 
     // Only remind if there's been some activity (at least 1 completed hearing or 2 completed tasks)
-    const hasSignificantActivity = completedHearings.length >= 1 || completedTasks.length >= 2;
+    const hasSignificantActivity =
+      completedHearings.length >= 1 || completedTasks.length >= 2;
 
     if (!hasSignificantActivity) {
       return new RuleResult(false);
@@ -800,7 +851,7 @@ export const CaseRules = {
     const daysSinceLastUpdate = daysSinceUpdate(lastUpdate);
 
     // Inherit priority from parent dossier (cases don't have their own priority)
-    const parentDossier = dossiers.find(d => d.id === caseItem.dossier_id);
+    const parentDossier = dossiers.find((d) => d.id === caseItem.dossier_id);
     const priority = parentDossier?.priority || "Moyenne";
     const priorityWeight = getPriorityWeight(priority);
 
@@ -816,7 +867,8 @@ export const CaseRules = {
 
     // Only remind if enough time has passed since last update
     if (daysSinceLastUpdate >= reminderIntervalDays) {
-      const caseTitle = caseItem.title || caseItem.case_number || caseItem.reference;
+      const caseTitle =
+        caseItem.title || caseItem.case_number || caseItem.reference;
 
       // Build activity summary
       let activitySummary = "";
@@ -886,7 +938,12 @@ export const MissionRules = {
     }
 
     if (reminderDays.includes(daysLeft)) {
-      const priorityLabel = priorityWeight >= 3 ? "Haute" : priorityWeight === 2 ? "Moyenne" : "Basse";
+      const priorityLabel =
+        priorityWeight >= 3
+          ? "Haute"
+          : priorityWeight === 2
+          ? "Moyenne"
+          : "Basse";
 
       // Priority-aware notification urgency
       let notificationPriority = "medium";
@@ -898,14 +955,19 @@ export const MissionRules = {
         notificationPriority = priorityWeight >= 2 ? "medium" : "low";
       }
 
-      const missionDescription = mission.description || mission.title || "Mission";
+      const missionDescription =
+        mission.description || mission.title || "Mission";
 
       return new RuleResult(true, {
         priority: notificationPriority,
         frequency: "once",
         subType: "upcomingDeadline",
-        title: `Mission - Échéance dans ${daysLeft} jour${daysLeft > 1 ? "s" : ""}`,
-        message: `La mission "${missionDescription}" (priorité ${priorityLabel}) a une échéance dans ${daysLeft} jour${daysLeft > 1 ? "s" : ""} (${new Date(dueDate).toLocaleDateString("fr-FR")}).`,
+        title: `Mission - Échéance dans ${daysLeft} jour${
+          daysLeft > 1 ? "s" : ""
+        }`,
+        message: `La mission "${missionDescription}" (priorité ${priorityLabel}) a une échéance dans ${daysLeft} jour${
+          daysLeft > 1 ? "s" : ""
+        } (${new Date(dueDate).toLocaleDateString("fr-FR")}).`,
         metadata: {
           missionId: mission.id,
           dueDate,
@@ -939,7 +1001,8 @@ export const MissionRules = {
     // Trigger only if deadline has passed (1+ days overdue)
     if (daysLeft < -1) {
       const daysPastDeadline = Math.abs(daysLeft);
-      const missionDescription = mission.description || mission.title || "Mission";
+      const missionDescription =
+        mission.description || mission.title || "Mission";
 
       // Priority-based frequency
       let frequency = "once";
@@ -956,7 +1019,9 @@ export const MissionRules = {
         frequency,
         subType: "completionReminder",
         title: "Mission - Mise à Jour Requise",
-        message: `La mission "${missionDescription}" avait une échéance il y a ${daysPastDeadline} jour${daysPastDeadline > 1 ? "s" : ""}. La mission a-t-elle été accomplie par l'huissier ?`,
+        message: `La mission "${missionDescription}" avait une échéance il y a ${daysPastDeadline} jour${
+          daysPastDeadline > 1 ? "s" : ""
+        }. La mission a-t-elle été accomplie par l'huissier ?`,
         metadata: {
           missionId: mission.id,
           dueDate,
@@ -993,10 +1058,7 @@ export const FinancialRules = {
     if (!isPaymentExpected) return new RuleResult(false);
 
     // Skip if already paid or voided
-    if (
-      financialEntry.status === "paid" ||
-      financialEntry.status === "void"
-    ) {
+    if (financialEntry.status === "paid" || financialEntry.status === "void") {
       return new RuleResult(false);
     }
 
@@ -1026,7 +1088,7 @@ export const FinancialRules = {
 
       // Try to get client directly
       if (financialEntry.client_id) {
-        const client = clients.find(c => c.id === financialEntry.client_id);
+        const client = clients.find((c) => c.id === financialEntry.client_id);
         if (client) {
           clientName = client.name;
         }
@@ -1034,12 +1096,16 @@ export const FinancialRules = {
 
       // Try to get dossier context
       if (financialEntry.dossier_id) {
-        const dossier = dossiers.find(d => d.id === financialEntry.dossier_id);
+        const dossier = dossiers.find(
+          (d) => d.id === financialEntry.dossier_id
+        );
         if (dossier) {
-          contextInfo = ` - Dossier: ${dossier.case_number || dossier.reference}`;
+          contextInfo = ` - Dossier: ${
+            dossier.case_number || dossier.reference
+          }`;
           // If no client found yet, get from dossier
           if (clientName === "Client" && dossier.client_id) {
-            const client = clients.find(c => c.id === dossier.client_id);
+            const client = clients.find((c) => c.id === dossier.client_id);
             if (client) clientName = client.name;
           }
         }
@@ -1047,14 +1113,16 @@ export const FinancialRules = {
 
       // Try to get case context
       if (financialEntry.case_id) {
-        const caseItem = cases.find(c => c.id === financialEntry.case_id);
+        const caseItem = cases.find((c) => c.id === financialEntry.case_id);
         if (caseItem) {
-          contextInfo = ` - Procès: ${caseItem.case_number || caseItem.reference}`;
+          contextInfo = ` - Procès: ${
+            caseItem.case_number || caseItem.reference
+          }`;
           // Get dossier from case to find client
           if (clientName === "Client" && caseItem.dossier_id) {
-            const dossier = dossiers.find(d => d.id === caseItem.dossier_id);
+            const dossier = dossiers.find((d) => d.id === caseItem.dossier_id);
             if (dossier && dossier.client_id) {
-              const client = clients.find(c => c.id === dossier.client_id);
+              const client = clients.find((c) => c.id === dossier.client_id);
               if (client) clientName = client.name;
             }
           }
@@ -1077,7 +1145,9 @@ export const FinancialRules = {
         frequency: "once",
         subType: "upcomingPayment",
         title: `Paiement Attendu - ${daysLeft} jour${daysLeft > 1 ? "s" : ""}`,
-        message: `Paiement de ${amount} ${currency} attendu de "${clientName}"${contextInfo} dans ${daysLeft} jour${daysLeft > 1 ? "s" : ""}. ${financialEntry.description || ""}`,
+        message: `Paiement de ${amount} ${currency} attendu de "${clientName}"${contextInfo} dans ${daysLeft} jour${
+          daysLeft > 1 ? "s" : ""
+        }. ${financialEntry.description || ""}`,
         metadata: {
           financialEntryId: financialEntry.id,
           clientName,
@@ -1112,10 +1182,7 @@ export const FinancialRules = {
     if (!isPaymentExpected) return new RuleResult(false);
 
     // Skip if already paid or voided
-    if (
-      financialEntry.status === "paid" ||
-      financialEntry.status === "void"
-    ) {
+    if (financialEntry.status === "paid" || financialEntry.status === "void") {
       return new RuleResult(false);
     }
 
@@ -1138,7 +1205,7 @@ export const FinancialRules = {
 
         // Try to get client directly
         if (financialEntry.client_id) {
-          const client = clients.find(c => c.id === financialEntry.client_id);
+          const client = clients.find((c) => c.id === financialEntry.client_id);
           if (client) {
             clientName = client.name;
           }
@@ -1146,12 +1213,16 @@ export const FinancialRules = {
 
         // Try to get dossier context
         if (financialEntry.dossier_id) {
-          const dossier = dossiers.find(d => d.id === financialEntry.dossier_id);
+          const dossier = dossiers.find(
+            (d) => d.id === financialEntry.dossier_id
+          );
           if (dossier) {
-            contextInfo = ` - Dossier: ${dossier.case_number || dossier.reference}`;
+            contextInfo = ` - Dossier: ${
+              dossier.case_number || dossier.reference
+            }`;
             // If no client found yet, get from dossier
             if (clientName === "Client" && dossier.client_id) {
-              const client = clients.find(c => c.id === dossier.client_id);
+              const client = clients.find((c) => c.id === dossier.client_id);
               if (client) clientName = client.name;
             }
           }
@@ -1159,14 +1230,18 @@ export const FinancialRules = {
 
         // Try to get case context
         if (financialEntry.case_id) {
-          const caseItem = cases.find(c => c.id === financialEntry.case_id);
+          const caseItem = cases.find((c) => c.id === financialEntry.case_id);
           if (caseItem) {
-            contextInfo = ` - Procès: ${caseItem.case_number || caseItem.reference}`;
+            contextInfo = ` - Procès: ${
+              caseItem.case_number || caseItem.reference
+            }`;
             // Get dossier from case to find client
             if (clientName === "Client" && caseItem.dossier_id) {
-              const dossier = dossiers.find(d => d.id === caseItem.dossier_id);
+              const dossier = dossiers.find(
+                (d) => d.id === caseItem.dossier_id
+              );
               if (dossier && dossier.client_id) {
-                const client = clients.find(c => c.id === dossier.client_id);
+                const client = clients.find((c) => c.id === dossier.client_id);
                 if (client) clientName = client.name;
               }
             }
@@ -1186,8 +1261,12 @@ export const FinancialRules = {
           priority: notificationPriority,
           frequency: "once",
           subType: "overduePayment",
-          title: `Paiement en Retard - ${daysOverdue} jour${daysOverdue > 1 ? "s" : ""}`,
-          message: `Le paiement de ${amount} ${currency} de "${clientName}"${contextInfo} est en retard de ${daysOverdue} jour${daysOverdue > 1 ? "s" : ""}. Relance recommandée.`,
+          title: `Paiement en Retard - ${daysOverdue} jour${
+            daysOverdue > 1 ? "s" : ""
+          }`,
+          message: `Le paiement de ${amount} ${currency} de "${clientName}"${contextInfo} est en retard de ${daysOverdue} jour${
+            daysOverdue > 1 ? "s" : ""
+          }. Relance recommandée.`,
           metadata: {
             financialEntryId: financialEntry.id,
             clientName,
@@ -1239,11 +1318,14 @@ export const DossierRules = {
         priority: "medium",
         frequency: "once",
         subType: "inactivityReminder",
-        title: "Dossier Inactif - 7+ Jours",
-        message: `Le dossier "${dossier.case_number || dossier.caseNumber || dossier.reference}" n'a pas été mis à jour depuis ${daysSinceLastUpdate} jours. Une révision est recommandée.`,
+        title: "Dossier inActive - 7+ Jours",
+        message: `Le dossier "${
+          dossier.case_number || dossier.caseNumber || dossier.reference
+        }" n'a pas été mis à jour depuis ${daysSinceLastUpdate} jours. Une révision est recommandée.`,
         metadata: {
           dossierId: dossier.id,
-          dossierNumber: dossier.case_number || dossier.caseNumber || dossier.reference,
+          dossierNumber:
+            dossier.case_number || dossier.caseNumber || dossier.reference,
           daysSinceLastUpdate,
         },
       });
@@ -1278,23 +1360,31 @@ export const DossierRules = {
     // Review thresholds based on priority
     const reviewThreshold =
       priorityWeight >= 3
-        ? 7  // High priority: review every 7 days
+        ? 7 // High priority: review every 7 days
         : priorityWeight === 2
         ? 15 // Medium priority: review every 15 days
         : 30; // Low priority: review every 30 days
 
     if (daysSinceLastUpdate >= reviewThreshold) {
-      const priorityLabel = priorityWeight >= 3 ? "Haute" : priorityWeight === 2 ? "Moyenne" : "Basse";
+      const priorityLabel =
+        priorityWeight >= 3
+          ? "Haute"
+          : priorityWeight === 2
+          ? "Moyenne"
+          : "Basse";
 
       return new RuleResult(true, {
         priority: priorityWeight >= 3 ? "high" : "medium",
         frequency: "once",
         subType: "reviewReminder",
         title: `Révision Dossier - Priorité ${priorityLabel}`,
-        message: `Le dossier "${dossier.case_number || dossier.caseNumber || dossier.reference}" (priorité ${priorityLabel}) nécessite une révision. Dernière mise à jour il y a ${daysSinceLastUpdate} jours.`,
+        message: `Le dossier "${
+          dossier.case_number || dossier.caseNumber || dossier.reference
+        }" (priorité ${priorityLabel}) nécessite une révision. Dernière mise à jour il y a ${daysSinceLastUpdate} jours.`,
         metadata: {
           dossierId: dossier.id,
-          dossierNumber: dossier.case_number || dossier.caseNumber || dossier.reference,
+          dossierNumber:
+            dossier.case_number || dossier.caseNumber || dossier.reference,
           daysSinceLastUpdate,
           priority: dossier.priority,
           reviewThreshold,
@@ -1324,11 +1414,10 @@ export const DossierRules = {
 
     // DUPLICATE PREVENTION: Check if any task has the same deadline
     const tasks = entities.tasks || [];
-    const hasTaskWithSameDeadline = tasks.some(task => {
+    const hasTaskWithSameDeadline = tasks.some((task) => {
       // Check if task belongs to this dossier
       const taskBelongsToDossier =
-        task.dossier_id === dossier.id ||
-        task.dossierId === dossier.id;
+        task.dossier_id === dossier.id || task.dossierId === dossier.id;
 
       if (!taskBelongsToDossier) return false;
 
@@ -1346,8 +1435,12 @@ export const DossierRules = {
       if (!taskDeadline) return false;
 
       // Normalize dates to compare (remove time component)
-      const dossierDeadlineNormalized = new Date(deadlineDate).toISOString().split('T')[0];
-      const taskDeadlineNormalized = new Date(taskDeadline).toISOString().split('T')[0];
+      const dossierDeadlineNormalized = new Date(deadlineDate)
+        .toISOString()
+        .split("T")[0];
+      const taskDeadlineNormalized = new Date(taskDeadline)
+        .toISOString()
+        .split("T")[0];
 
       return dossierDeadlineNormalized === taskDeadlineNormalized;
     });
@@ -1367,11 +1460,18 @@ export const DossierRules = {
         priority: "urgent",
         frequency: daysOverdue <= 3 ? "daily" : "once",
         subType: "deadlineOverdue",
-        title: `Échéance Dépassée - ${daysOverdue} jour${daysOverdue > 1 ? "s" : ""}`,
-        message: `L'échéance du dossier "${dossier.case_number || dossier.caseNumber || dossier.reference}" est dépassée de ${daysOverdue} jour${daysOverdue > 1 ? "s" : ""}. Action urgente requise.`,
+        title: `Échéance Dépassée - ${daysOverdue} jour${
+          daysOverdue > 1 ? "s" : ""
+        }`,
+        message: `L'échéance du dossier "${
+          dossier.case_number || dossier.caseNumber || dossier.reference
+        }" est dépassée de ${daysOverdue} jour${
+          daysOverdue > 1 ? "s" : ""
+        }. Action urgente requise.`,
         metadata: {
           dossierId: dossier.id,
-          dossierNumber: dossier.case_number || dossier.caseNumber || dossier.reference,
+          dossierNumber:
+            dossier.case_number || dossier.caseNumber || dossier.reference,
           deadline: deadlineDate,
           daysOverdue,
         },
@@ -1385,10 +1485,13 @@ export const DossierRules = {
         frequency: "once",
         subType: "deadlineToday",
         title: "Échéance Aujourd'hui",
-        message: `L'échéance du dossier "${dossier.case_number || dossier.caseNumber || dossier.reference}" est aujourd'hui. Merci de finaliser les actions nécessaires.`,
+        message: `L'échéance du dossier "${
+          dossier.case_number || dossier.caseNumber || dossier.reference
+        }" est aujourd'hui. Merci de finaliser les actions nécessaires.`,
         metadata: {
           dossierId: dossier.id,
-          dossierNumber: dossier.case_number || dossier.caseNumber || dossier.reference,
+          dossierNumber:
+            dossier.case_number || dossier.caseNumber || dossier.reference,
           deadline: deadlineDate,
           daysLeft: 0,
         },
@@ -1413,10 +1516,15 @@ export const DossierRules = {
           frequency: "daily",
           subType: "deadlineUpcoming",
           title: `Échéance Proche - ${daysLeft} jour${daysLeft > 1 ? "s" : ""}`,
-          message: `L'échéance du dossier "${dossier.case_number || dossier.caseNumber || dossier.reference}" arrive dans ${daysLeft} jour${daysLeft > 1 ? "s" : ""}. Préparation recommandée.`,
+          message: `L'échéance du dossier "${
+            dossier.case_number || dossier.caseNumber || dossier.reference
+          }" arrive dans ${daysLeft} jour${
+            daysLeft > 1 ? "s" : ""
+          }. Préparation recommandée.`,
           metadata: {
             dossierId: dossier.id,
-            dossierNumber: dossier.case_number || dossier.caseNumber || dossier.reference,
+            dossierNumber:
+              dossier.case_number || dossier.caseNumber || dossier.reference,
             deadline: deadlineDate,
             daysLeft,
           },
@@ -1435,10 +1543,13 @@ export const DossierRules = {
           frequency: "once",
           subType: "deadlineWeek",
           title: "Échéance dans 7 jours",
-          message: `L'échéance du dossier "${dossier.case_number || dossier.caseNumber || dossier.reference}" est dans 7 jours. Planification recommandée.`,
+          message: `L'échéance du dossier "${
+            dossier.case_number || dossier.caseNumber || dossier.reference
+          }" est dans 7 jours. Planification recommandée.`,
           metadata: {
             dossierId: dossier.id,
-            dossierNumber: dossier.case_number || dossier.caseNumber || dossier.reference,
+            dossierNumber:
+              dossier.case_number || dossier.caseNumber || dossier.reference,
             deadline: deadlineDate,
             daysLeft: 7,
           },
@@ -1456,11 +1567,11 @@ export const DossierRules = {
 
 export const ClientRules = {
   /**
-   * RULE: Client Inactive (60+ Days)
+   * RULE: Client inActive (60+ Days)
    * Triggers: When client hasn't had ANY activity for 60+ days
    * Checks: dossier updates, tasks, sessions, payments
    */
-  inactiveClient(client, context = {}) {
+  inActiveClient(client, context = {}) {
     if (!client.updated_at && !client.updatedAt) {
       return new RuleResult(false);
     }
@@ -1469,7 +1580,7 @@ export const ClientRules = {
     const daysSinceLastUpdate = daysSinceUpdate(lastUpdate);
 
     // Only check active clients
-    const isActive = client.status === "Actif" || client.status === "active";
+    const isActive = client.status === "Active" || client.status === "active";
     if (!isActive) {
       return new RuleResult(false);
     }
@@ -1483,52 +1594,58 @@ export const ClientRules = {
       const financialEntries = entities.financialEntries || [];
 
       // Find any recent activity related to this client
-      const hasRecentDossierActivity = dossiers.some(d => {
+      const hasRecentDossierActivity = dossiers.some((d) => {
         if (d.client_id !== clientId && d.clientId !== clientId) return false;
         const dossierDays = daysSinceUpdate(d.updated_at || d.updatedAt);
         return dossierDays < 60;
       });
 
-      const hasRecentTaskActivity = tasks.some(t => {
-        const relatedDossier = dossiers.find(d =>
-          (d.id === t.dossier_id || d.id === t.dossierId) &&
-          (d.client_id === clientId || d.clientId === clientId)
+      const hasRecentTaskActivity = tasks.some((t) => {
+        const relatedDossier = dossiers.find(
+          (d) =>
+            (d.id === t.dossier_id || d.id === t.dossierId) &&
+            (d.client_id === clientId || d.clientId === clientId)
         );
         if (!relatedDossier) return false;
         const taskDays = daysSinceUpdate(t.updated_at || t.updatedAt);
         return taskDays < 60;
       });
 
-      const hasRecentSessionActivity = sessions.some(s => {
-        const relatedDossier = dossiers.find(d =>
-          (d.id === s.dossier_id || d.id === s.dossierId) &&
-          (d.client_id === clientId || d.clientId === clientId)
+      const hasRecentSessionActivity = sessions.some((s) => {
+        const relatedDossier = dossiers.find(
+          (d) =>
+            (d.id === s.dossier_id || d.id === s.dossierId) &&
+            (d.client_id === clientId || d.clientId === clientId)
         );
         if (!relatedDossier) return false;
         const sessionDays = daysSinceUpdate(s.updated_at || s.updatedAt);
         return sessionDays < 60;
       });
 
-      const hasRecentFinancialActivity = financialEntries.some(f => {
+      const hasRecentFinancialActivity = financialEntries.some((f) => {
         if (f.client_id !== clientId && f.clientId !== clientId) return false;
         const financialDays = daysSinceUpdate(f.updated_at || f.updatedAt);
         return financialDays < 60;
       });
 
       // If no recent activity found, trigger notification
-      if (!hasRecentDossierActivity && !hasRecentTaskActivity &&
-          !hasRecentSessionActivity && !hasRecentFinancialActivity) {
+      if (
+        !hasRecentDossierActivity &&
+        !hasRecentTaskActivity &&
+        !hasRecentSessionActivity &&
+        !hasRecentFinancialActivity
+      ) {
         return new RuleResult(true, {
           priority: "medium",
           frequency: "once",
-          subType: "inactiveClient",
-          title: "Client Inactif - 60+ Jours",
-          message: `Le client "${client.name}" n'a eu aucune activité depuis ${daysSinceLastUpdate} jours (dossiers, tâches, séances, paiements). Souhaitez-vous marquer ce client comme inactif ?`,
+          subType: "inActiveClient",
+          title: "Client inActive - 60+ Jours",
+          message: `Le client "${client.name}" n'a eu aucune activité depuis ${daysSinceLastUpdate} jours (dossiers, tâches, séances, paiements). Souhaitez-vous marquer ce client comme inActive ?`,
           metadata: {
             clientId: client.id,
             clientName: client.name,
             daysSinceLastUpdate,
-            suggestAction: "mark_inactive"
+            suggestAction: "mark_inActive",
           },
         });
       }
@@ -1536,7 +1653,6 @@ export const ClientRules = {
 
     return new RuleResult(false);
   },
-
 };
 
 // ============================================
@@ -1634,13 +1750,21 @@ export function evaluateAllRules(currentDate = new Date(), context = {}) {
 
   // Evaluate personal task rules (upcoming deadlines, completion reminders)
   personalTasks.forEach((personalTask) => {
-    const personalTaskNotifications = evaluateEntityRules("personalTask", personalTask, context);
+    const personalTaskNotifications = evaluateEntityRules(
+      "personalTask",
+      personalTask,
+      context
+    );
     allNotifications.push(...personalTaskNotifications);
   });
 
   // Evaluate session rules (upcoming hearings, hearing today)
   sessions.forEach((session) => {
-    const sessionNotifications = evaluateEntityRules("session", session, context);
+    const sessionNotifications = evaluateEntityRules(
+      "session",
+      session,
+      context
+    );
     allNotifications.push(...sessionNotifications);
   });
 
@@ -1652,19 +1776,31 @@ export function evaluateAllRules(currentDate = new Date(), context = {}) {
 
   // Evaluate mission rules (upcoming deadlines, completion reminders)
   missions.forEach((mission) => {
-    const missionNotifications = evaluateEntityRules("mission", mission, context);
+    const missionNotifications = evaluateEntityRules(
+      "mission",
+      mission,
+      context
+    );
     allNotifications.push(...missionNotifications);
   });
 
   // Evaluate financial rules (upcoming payments, overdue payments)
   financialEntries.forEach((financialEntry) => {
-    const financialNotifications = evaluateEntityRules("financial", financialEntry, context);
+    const financialNotifications = evaluateEntityRules(
+      "financial",
+      financialEntry,
+      context
+    );
     allNotifications.push(...financialNotifications);
   });
 
   // Evaluate dossier rules (inactivity, review, deadline)
   dossiers.forEach((dossier) => {
-    const dossierNotifications = evaluateEntityRules("dossier", dossier, context);
+    const dossierNotifications = evaluateEntityRules(
+      "dossier",
+      dossier,
+      context
+    );
     allNotifications.push(...dossierNotifications);
   });
 

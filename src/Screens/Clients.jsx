@@ -58,8 +58,8 @@ export default function Clients() {
   // Calculate stats
   const stats = {
     total: clients.length,
-    active: clients.filter(c => c.status === "Actif").length,
-    inactive: clients.filter(c => c.status === "Inactif").length,
+    active: clients.filter(c => c.status === "Active").length,
+    inactive: clients.filter(c => c.status === "Inactive").length,
     newThisMonth: clients.filter(c => {
       const joinDate = new Date(c.joinDate);
       const now = new Date();
@@ -71,7 +71,7 @@ export default function Clients() {
   const columns = [
     {
       id: "name",
-      label: "Nom",
+      label: "Name",
       sortable: true,
       locked: true,
       render: (client) => (
@@ -93,21 +93,21 @@ export default function Clients() {
     },
     {
       id: "phone",
-      label: "Téléphone",
+      label: "Phone",
       sortable: true,
       render: (client) => client.phone,
     },
     {
       id: "status",
-      label: "Statut",
+      label: "Status",
       sortable: true,
       render: (client) => (
         <InlineStatusSelector
           value={client.status}
           onChange={(newStatus) => handleStatusChange(client.id, newStatus)}
           statusOptions={[
-            { value: "Actif", label: "Actif", icon: "fas fa-circle-check", color: "green" },
-            { value: "Inactif", label: "Inactif", icon: "fas fa-circle-xmark", color: "red" },
+            { value: "Active", label: "Active", icon: "fas fa-circle-check", color: "green" },
+            { value: "Inactive", label: "Inactive", icon: "fas fa-circle-xmark", color: "red" },
           ]}
           entityType="client"
           entityId={client.id}
@@ -117,7 +117,7 @@ export default function Clients() {
     },
     {
       id: "joinDate",
-      label: "Date d'inscription",
+      label: "Join Date",
       sortable: true,
       render: (client) => client.joinDate,
     },
@@ -131,7 +131,7 @@ export default function Clients() {
           <IconButton
             icon="view"
             variant="view"
-            title="Voir détails"
+            title="View Details"
             onClick={(e) => {
               e.stopPropagation();
               handleView(client.id);
@@ -140,7 +140,7 @@ export default function Clients() {
           <IconButton
             icon="edit"
             variant="edit"
-            title="Modifier"
+            title="Edit"
             onClick={(e) => {
               e.stopPropagation();
               handleEdit(client);
@@ -149,7 +149,7 @@ export default function Clients() {
           <IconButton
             icon="delete"
             variant="delete"
-            title="Supprimer"
+            title="Delete"
             onClick={(e) => {
               e.stopPropagation();
               handleDelete(client.id);
@@ -179,7 +179,7 @@ export default function Clients() {
             </div>
           </ContentSection>
         )}
-        <LoadingScreen variant="page" message="Chargement des données..." />
+        <LoadingScreen variant="page" message="Loading data..." />
       </PageLayout>
     );
   }
@@ -192,12 +192,12 @@ export default function Clients() {
   const handleStatusChange = async (id, newStatus) => {
     try {
       await updateClient(id, { status: newStatus });
-      showToast(`Statut mis a jour: ${newStatus}`, "info", {
-        title: "Client mis a jour",
+      showToast(`Status updated: ${newStatus}`, "info", {
+        title: "Client updated",
         context: "client",
       });
     } catch (error) {
-      showToast("Erreur lors de la mise à jour du statut", "error");
+      showToast("Error updating status", "error");
     }
   };
 
@@ -231,10 +231,10 @@ export default function Clients() {
     }
 
     if (await confirm({
-      title: "Supprimer le client",
-      message: "Êtes-vous sûr de vouloir supprimer ce client ?",
-      confirmText: "Supprimer",
-      cancelText: "Annuler",
+      title: "Delete Client",
+      message: "Are you sure you want to delete this client?",
+      confirmText: "Delete",
+      cancelText: "Cancel",
       variant: "danger"
     })) {
       try {
@@ -242,19 +242,19 @@ export default function Clients() {
 
         if (!result || !result.ok) {
           console.error('[Clients.handleDelete] Delete failed with result:', result);
-          showToast("Erreur lors de la suppression du client", "error");
+          showToast("Error deleting client", "error");
           return;
         }
 
-        showToast("Client supprimé", "warning", {
-          title: "Suppression",
+        showToast("Client deleted", "warning", {
+          title: "Deletion successful",
           context: "client",
         });
         // Redirect to clients list after deletion
         navigate("/clients");
       } catch (error) {
         console.error('[Clients.handleDelete] Delete error:', error);
-        showToast("Erreur lors de la suppression du client", "error");
+        showToast("Error deleting client", "error");
       }
     }
   };
@@ -272,12 +272,12 @@ export default function Clients() {
 
       if (!result || !result.ok) {
         console.error('[Clients.handleForceDelete] Cascade delete failed:', result);
-        showToast("Erreur lors de la suppression en cascade", "error");
+        showToast("Error during cascade delete", "error");
         return;
       }
 
-      showToast("Client et toutes les entités liées supprimés", "success", {
-        title: "Suppression en cascade",
+      showToast("Client and all related entities deleted", "success", {
+        title: "Cascade deletion",
         context: "client",
       });
 
@@ -286,7 +286,7 @@ export default function Clients() {
       navigate("/clients");
     } catch (error) {
       console.error('[Clients.handleForceDelete] Error:', error);
-      showToast("Erreur lors de la suppression en cascade", "error");
+      showToast("Error during cascade delete", "error");
     }
   };
 
@@ -343,10 +343,10 @@ export default function Clients() {
         const createdId = createdEntity?.id;
         const createdName = createdEntity?.name || formData.name;
         if (!createdId) {
-          showToast("Client crAcA, mais l'identifiant renvoyA n'est pas disponible", "warning");
+          showToast("Client created, but returned ID is not available", "warning");
           return;
         }
-        showToast("Client ajouté avec succès!", "success");
+        showToast("Client added successfully!", "success");
         logEntityCreation('client', createdId, createdName);
         const detailRoute = resolveDetailRoute('client', createdId);
         if (detailRoute) {
@@ -357,7 +357,7 @@ export default function Clients() {
       setEditingClient(null);
     } catch (error) {
       console.error("Error submitting client:", error);
-      showToast("Erreur lors de l'enregistrement", "error");
+      showToast("Error saving client", "error");
     } finally {
       setIsLoading(false);
     }
@@ -377,7 +377,7 @@ export default function Clients() {
           ...field,
           type: 'readonly',
           displayValue: editingClient.status,
-          helpText: 'Le statut ne peut être modifié que via le sélecteur dans la liste'
+          helpText: 'Status can only be changed via the selector in the list view.'
         };
       }
       return field;
@@ -414,7 +414,7 @@ export default function Clients() {
     <PageLayout>
       <PageHeader
         title="Clients"
-        subtitle={`${table.originalTotalItems} clients au total${table.isFiltering ? ` • ${table.totalItems} affichés` : ""}`}
+        subtitle={`${table.originalTotalItems} clients in total${table.isFiltering ? ` • ${table.totalItems} displayed` : ""}`}
         icon="fas fa-users"
         actions={
           <button
@@ -422,7 +422,7 @@ export default function Clients() {
             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center gap-2"
           >
             <i className="fas fa-plus"></i>
-            Nouveau Client
+            New Client
           </button>
         }
       />
@@ -436,23 +436,23 @@ export default function Clients() {
           color="blue"
         />
         <StatCard
-          label="Clients Actifs"
+          label="Active Clients"
           value={stats.active}
           icon="fas fa-user-check"
           color="green"
         />
         <StatCard
-          label="Clients Inactifs"
+          label="Inactive Clients"
           value={stats.inactive}
           icon="fas fa-user-slash"
           color="amber"
         />
         <StatCard
-          label="Nouveaux ce mois"
+          label="New This Month"
           value={stats.newThisMonth}
           icon="fas fa-user-plus"
           color="purple"
-          trendLabel="depuis le début du mois"
+          trendLabel="since the beginning of the month"
         />
       </div>
 
@@ -479,7 +479,7 @@ export default function Clients() {
             onReorder={table.reorderColumns}
             enableReorder={true}
           />
-          <TableBody isEmpty={table.data.length === 0} emptyMessage={table.isFiltering ? "Aucun résultat trouvé" : "Aucun client trouvé"}>
+          <TableBody isEmpty={table.data.length === 0} emptyMessage={table.isFiltering ? "No results found" : "No clients found"}>
             {table.data.map((client) => (
               <TableRow
                 key={client.id}
@@ -514,7 +514,7 @@ export default function Clients() {
         }}
         onSubmit={handleSubmit}
         title={getFormTitle("client", !!editingClient)}
-        subtitle={editingClient ? "Modifier les informations du client" : "Ajouter un nouveau client à votre base"}
+        subtitle={editingClient ? "Edit client information" : "Add a new client to your database"}
         fields={dynamicClientFormFields}
         initialData={editingClient}
         isLoading={isLoading}
@@ -530,7 +530,7 @@ export default function Clients() {
           setPendingDeleteId(null);
           setValidationResult(null);
         }}
-        actionName="Modifier/Supprimer le client"
+        actionName="Edit/Delete Client"
         blockers={validationResult?.blockers || []}
         warnings={validationResult?.warnings || []}
         entityName={validationResult?.entityData?.name || "Client"}
@@ -547,7 +547,7 @@ export default function Clients() {
           setPendingFormData(null);
         }}
         onConfirm={handleConfirmImpact}
-        actionName="confirmer la modification"
+        actionName="confirm modification"
         impactSummary={validationResult?.impactSummary || []}
         entityName={pendingFormData?.name || editingClient?.name || ""}
       />

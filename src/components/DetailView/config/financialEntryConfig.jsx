@@ -8,11 +8,11 @@ import { financialCategories } from "../../../utils/financialConstants";
  */
 export const financialEntryConfig = {
     entityType: "financialEntry",
-    entityName: "Écriture Comptable",
+    entityName: "Accounting Entry",
     icon: "fas fa-file-invoice-dollar",
     listRoute: "/accounting",
-    notFoundMessage: "Écriture comptable non trouvée",
-    deleteConfirmMessage: "Êtes-vous sûr de vouloir supprimer cette écriture comptable ?",
+    notFoundMessage: "Accounting entry not found",
+    deleteConfirmMessage: "Are you sure you want to delete this accounting entry?",
     allowDelete: true,
     allowEdit: true,
 
@@ -60,14 +60,34 @@ export const financialEntryConfig = {
     quickActions: [
         {
             key: "status",
-            label: "Statut",
+            label: "Status",
             icon: "fas fa-flag",
             colorMap: true,
             options: [
-                { value: "draft", label: "Brouillon", color: "slate", icon: "fas fa-file" },
-                { value: "confirmed", label: "Confirmé", color: "blue", icon: "fas fa-check-circle" },
-                { value: "paid", label: "Payé", color: "green", icon: "fas fa-check-double" },
-                { value: "void", label: "Annulé", color: "red", icon: "fas fa-times-circle" },
+                {
+                    value: "draft",
+                    label: "Draft",
+                    color: "bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300",
+                    icon: "fas fa-file"
+                },
+                {
+                    value: "confirmed",
+                    label: "Confirmed",
+                    color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+                    icon: "fas fa-check-circle"
+                },
+                {
+                    value: "paid",
+                    label: "Paid",
+                    color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+                    icon: "fas fa-check-double"
+                },
+                {
+                    value: "cancelled",
+                    label: "Cancelled",
+                    color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+                    icon: "fas fa-times-circle"
+                },
             ],
         }
     ],
@@ -100,7 +120,7 @@ export const financialEntryConfig = {
                                         : 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300'
                                         }`}>
                                         <i className={`fas ${data.type === 'revenue' ? 'fa-arrow-trend-down' : 'fa-arrow-trend-up'}`}></i>
-                                        {data.type === 'revenue' ? 'Recette' : 'Dépense'}
+                                        {data.type === 'revenue' ? 'Revenue' : 'Expense'}
                                     </span>
                                     <span className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-bold bg-${data.categoryColor}-100 text-${data.categoryColor}-700 dark:bg-${data.categoryColor}-900/30 dark:text-${data.categoryColor}-300`}>
                                         <i className="fas fa-tag"></i>
@@ -111,7 +131,7 @@ export const financialEntryConfig = {
                                         : 'bg-slate-100 text-slate-700 dark:bg-slate-900/30 dark:text-slate-300'
                                         }`}>
                                         <i className={`fas ${data.scope === 'client' ? 'fa-user' : 'fa-building'}`}></i>
-                                        {data.scope === 'client' ? 'Client' : 'Bureau'}
+                                        {data.scope === 'client' ? 'Client' : 'Office'}
                                     </span>
                                 </div>
                             </div>
@@ -164,7 +184,7 @@ export const financialEntryConfig = {
                                             <i className="fas fa-gavel text-white"></i>
                                         </div>
                                         <div className="min-w-0 flex-1">
-                                            <p className="text-xs font-medium text-red-600 dark:text-red-400">Procès</p>
+                                            <p className="text-xs font-medium text-red-600 dark:text-red-400">Lawsuit</p>
                                             <p className="text-sm font-bold text-red-900 dark:text-red-100 truncate">{data.caseReference}</p>
                                         </div>
                                     </div>
@@ -177,7 +197,7 @@ export const financialEntryConfig = {
                                             <i className="fas fa-clock text-white"></i>
                                         </div>
                                         <div className="min-w-0 flex-1">
-                                            <p className="text-xs font-medium text-orange-600 dark:text-orange-400">Échéance</p>
+                                            <p className="text-xs font-medium text-orange-600 dark:text-orange-400">Due Date</p>
                                             <p className="text-sm font-bold text-orange-900 dark:text-orange-100 truncate">
                                                 {formatDateValue(data.dueDate)}
                                             </p>
@@ -195,7 +215,7 @@ export const financialEntryConfig = {
     // Overview sections configuration
     overviewSections: [
         {
-            title: "Détails Financiers",
+            title: "Financial Details",
             editStrategy: "structured",
             fields: [
                 {
@@ -209,7 +229,7 @@ export const financialEntryConfig = {
                 },
                 {
                     key: "amount",
-                    label: "Montant",
+                    label: "Amount",
                     value: (data) => data.amount,
                     icon: "fas fa-money-bill-wave",
                     type: "number",
@@ -220,18 +240,18 @@ export const financialEntryConfig = {
                 {
                     key: "type",
                     label: "Type",
-                    value: (data) => data.type === 'revenue' ? 'Recette' : 'Dépense',
+                    value: (data) => data.type === 'revenue' ? 'Revenue' : 'Expense',
                     icon: "fas fa-exchange-alt",
                     type: "select",
                     editable: true,
                     options: [
-                        { value: "revenue", label: "Recette" },
-                        { value: "expense", label: "Dépense" },
+                        { value: "revenue", label: "Revenue" },
+                        { value: "expense", label: "Expense" },
                     ]
                 },
                 {
                     key: "category",
-                    label: "Catégorie",
+                    label: "Category",
                     value: (data) => data.category,
                     displayValue: (data) => {
                         // Use categoryLabel if available, otherwise compute from category
@@ -244,23 +264,23 @@ export const financialEntryConfig = {
                     type: "select",
                     editable: true,
                     options: [
-                        { value: "honoraires", label: "Honoraires" },
-                        { value: "frais_huissier", label: "Frais d'huissier" },
-                        { value: "frais_bureau", label: "Frais de bureau" },
-                        { value: "salaire", label: "Salaire" },
-                        { value: "autre", label: "Autre" },
+                        { value: "Fees", label: "Fees" },
+                        { value: "bailiff_fees", label: "Bailiff Fees" },
+                        { value: "office_expenses", label: "Office Expenses" },
+                        { value: "salary", label: "Salary" },
+                        { value: "other", label: "Other" },
                     ]
                 },
                 {
                     key: "status",
-                    label: "Statut",
+                    label: "Status",
                     value: (data) => data.status,
                     displayValue: (data) => {
                         const statusMap = {
-                            draft: "Brouillon",
-                            confirmed: "Confirmé",
-                            paid: "Payé",
-                            void: "Annulé"
+                            draft: "Draft",
+                            confirmed: "Confirmed",
+                            paid: "Paid",
+                            cancelled: "Cancelled"
                         };
                         return statusMap[data.status] || data.status;
                     },
@@ -268,22 +288,22 @@ export const financialEntryConfig = {
                     type: "select",
                     editable: true,
                     options: [
-                        { value: "draft", label: "Brouillon" },
-                        { value: "confirmed", label: "Confirmé" },
-                        { value: "paid", label: "Payé" },
-                        { value: "void", label: "Annulé" },
+                        { value: "draft", label: "Draft" },
+                        { value: "confirmed", label: "Confirmed" },
+                        { value: "paid", label: "Paid" },
+                        { value: "cancelled", label: "Cancelled" },
                     ]
                 },
                 {
                     key: "scope",
-                    label: "Portée",
-                    value: (data) => data.scope === 'client' ? 'Client' : 'Bureau',
+                    label: "Scope",
+                    value: (data) => data.scope === 'client' ? 'Client' : 'Office',
                     icon: "fas fa-layer-group",
                     type: "select",
                     editable: true,
                     options: [
                         { value: "client", label: "Client" },
-                        { value: "internal", label: "Bureau (Interne)" },
+                        { value: "internal", label: "Office (Internal)" },
                     ]
                 },
             ],
@@ -294,7 +314,7 @@ export const financialEntryConfig = {
             fields: [
                 {
                     key: "date",
-                    label: "Date de l'opération",
+                    label: "Transaction Date",
                     value: (data) => data.date,
                     icon: "fas fa-calendar",
                     type: "date",
@@ -302,7 +322,7 @@ export const financialEntryConfig = {
                 },
                 {
                     key: "dueDate",
-                    label: "Date d'échéance",
+                    label: "Due Date",
                     value: (data) => data.dueDate,
                     icon: "fas fa-clock",
                     type: "date",
@@ -311,32 +331,31 @@ export const financialEntryConfig = {
             ],
         },
         {
-            title: "Entités Liées",
+            title: "Related Entities",
             editStrategy: "structured",
             fields: [
                 {
                     key: "clientId",
                     label: "Client",
                     value: (data) => data.clientId || "",
-                    displayValue: (data) => data.clientName || "Aucun",
+                    displayValue: (data) => data.clientName || "None",
                     icon: "fas fa-user",
                     type: "searchable-select",
                     editable: true,
                     options: [
-                        { value: "", label: "Sélectionner un client..." },
+                        { value: "", label: "Select a client..." },
                         ...[].map(c => ({ value: c.id, label: c.name }))
                     ],
                     getOptions: () => ([
-                        { value: "", label: "SAclectionner un client..." },
+                        { value: "", label: "Select a client..." },
                         ...[].map(c => ({ value: c.id, label: c.name }))
                     ]),
-                    helpText: "Sélectionner le client concerné (cela filtrera les dossiers et procès disponibles)"
                 },
                 {
                     key: "dossierId",
                     label: "Dossier",
                     value: (data) => data.dossierId || "",
-                    displayValue: (data) => data.dossierReference || "Aucun",
+                    displayValue: (data) => data.dossierReference || "None",
                     icon: "fas fa-folder",
                     type: "searchable-select",
                     editable: true,
@@ -348,20 +367,20 @@ export const financialEntryConfig = {
                             : [];
 
                         return [
-                            { value: "", label: clientId ? "Sélectionner un dossier..." : "Sélectionner d'abord un client" },
+                            { value: "", label: clientId ? "Select a Dossier..." : "Select a client first" },
                             ...filteredDossiers.map(d => ({
                                 value: d.id,
                                 label: `${d.caseNumber} - ${d.title}`
                             }))
                         ];
                     },
-                    helpText: "Seuls les dossiers du client sélectionné sont affichés"
+                    helpText: "Only Dossiers of the selected client are displayed"
                 },
                 {
                     key: "caseId",
-                    label: "Procès",
+                    label: "Lawsuit",
                     value: (data) => data.caseId || "",
-                    displayValue: (data) => data.caseReference || "Aucun",
+                    displayValue: (data) => data.caseReference || "None",
                     icon: "fas fa-gavel",
                     type: "searchable-select",
                     editable: true,
@@ -373,14 +392,14 @@ export const financialEntryConfig = {
                             : [];
 
                         return [
-                            { value: "", label: dossierId ? "Sélectionner un procès..." : "Sélectionner d'abord un dossier" },
+                            { value: "", label: dossierId ? "Select a lawsuit..." : "Select a dossier first" },
                             ...filteredCases.map(c => ({
                                 value: c.id,
                                 label: `${c.caseNumber} - ${c.title}`
                             }))
                         ];
                     },
-                    helpText: "Seuls les procès du dossier sélectionné sont affichés"
+                    helpText: "Only lawsuits of the selected dossier are displayed"
                 },
             ],
         },
@@ -389,7 +408,7 @@ export const financialEntryConfig = {
             editStrategy: "structured",
             type: "notes",
             fieldKey: "notes",
-            content: (data) => data.notes || "Aucune note",
+            content: (data) => data.notes || "No notes",
         },
     ],
 
@@ -397,7 +416,7 @@ export const financialEntryConfig = {
     tabs: [
         {
             id: "overview",
-            label: "Vue d'ensemble",
+            label: "Overview",
             icon: "fas fa-eye",
             component: "overview",
         },
@@ -413,7 +432,7 @@ export const financialEntryConfig = {
                                 <i className="fas fa-link text-white text-xl"></i>
                             </div>
                             <h3 className="text-xl font-bold text-purple-900 dark:text-purple-100">
-                                Entités Liées
+                                Linked Entities
                             </h3>
                         </div>
 
@@ -464,7 +483,7 @@ export const financialEntryConfig = {
                                             <i className="fas fa-gavel text-white text-lg"></i>
                                         </div>
                                         <div>
-                                            <p className="text-sm font-medium text-red-600 dark:text-red-400">Procès</p>
+                                            <p className="text-sm font-medium text-red-600 dark:text-red-400">Lawsuit</p>
                                             <p className="text-base font-bold text-slate-900 dark:text-white">{data.caseReference}</p>
                                         </div>
                                     </div>
@@ -482,7 +501,7 @@ export const financialEntryConfig = {
                                             <i className="fas fa-user-tie text-white text-lg"></i>
                                         </div>
                                         <div>
-                                            <p className="text-sm font-medium text-teal-600 dark:text-teal-400">Huissier</p>
+                                            <p className="text-sm font-medium text-teal-600 dark:text-teal-400">Bailiff</p>
                                             <p className="text-base font-bold text-slate-900 dark:text-white">{data.officerName}</p>
                                         </div>
                                     </div>
@@ -493,7 +512,7 @@ export const financialEntryConfig = {
                             {!data.clientId && !data.dossierId && !data.caseId && !data.officerId && (
                                 <div className="text-center py-12">
                                     <i className="fas fa-unlink text-slate-300 dark:text-slate-600 text-4xl mb-3"></i>
-                                    <p className="text-slate-500 dark:text-slate-400">Aucune entité liée</p>
+                                    <p className="text-slate-500 dark:text-slate-400"> No entities linked </p>
                                 </div>
                             )}
                         </div>
@@ -503,7 +522,7 @@ export const financialEntryConfig = {
         },
         {
             id: "timeline",
-            label: "Historique",
+            label: "History",
             icon: "fas fa-history",
             component: "history",
         },

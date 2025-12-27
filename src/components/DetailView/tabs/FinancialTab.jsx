@@ -179,10 +179,10 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
       newData: null,
       mutate: async () => {
         if (await confirm({
-          title: "Supprimer l'écriture",
-          message: "Êtes-vous sûr de vouloir supprimer cette écriture ?",
-          confirmText: "Supprimer",
-          cancelText: "Annuler",
+          title: "Delete Financial Entry",
+          message: "Are you sure you want to delete this entry?",
+          confirmText: "Delete",
+          cancelText: "Cancel",
           variant: "danger"
         })) {
           const result = deleteFinancialEntry(id);
@@ -309,13 +309,13 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
             : "bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300"
             }`}
         >
-          {entry.type === "revenue" ? "Recette" : "Dépense"}
+          {entry.type === "revenue" ? "Revenue" : "Expense"}
         </span>
       ),
     },
     {
       id: "amount",
-      label: "Montant",
+      label: "Amount",
       sortable: true,
       render: (entry) => (
         <span
@@ -330,7 +330,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
     },
     {
       id: "status",
-      label: "Statut",
+      label: "Status",
       sortable: true,
       render: (entry) => (
         <InlineStatusSelector
@@ -342,25 +342,25 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
           statusOptions={[
             {
               value: "draft",
-              label: "Brouillon",
+              label: "Draft",
               icon: "fas fa-file",
               color: "slate",
             },
             {
               value: "confirmed",
-              label: "Confirmé",
+              label: "Confirmed",
               icon: "fas fa-check-circle",
               color: "blue",
             },
             {
               value: "paid",
-              label: "Payé",
+              label: "Paid",
               icon: "fas fa-check-double",
               color: "green",
             },
             {
-              value: "void",
-              label: "Annulé",
+              value: "Cancelled",
+              label: "Cancelled",
               icon: "fas fa-times-circle",
               color: "red",
             },
@@ -378,7 +378,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
           <IconButton
             icon="view"
             variant="view"
-            title="Voir détails"
+            title="View Details"
             onClick={(e) => {
               e.stopPropagation();
               handleView(entry);
@@ -389,7 +389,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               <IconButton
                 icon="edit"
                 variant="edit"
-                title="Modifier"
+                title="Edit"
                 onClick={(e) => {
                   e.stopPropagation();
                   handleEdit(entry);
@@ -398,7 +398,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               <IconButton
                 icon="delete"
                 variant="delete"
-                title="Supprimer"
+                title="Delete"
                 onClick={(e) => {
                   e.stopPropagation();
                   handleDelete(entry.id);
@@ -454,7 +454,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
           setIsLoading(false);
           return;
         }
-        showToast("Écriture modifiée avec succès!", "success");
+        showToast("Entry updated successfully!", "success");
       } else {
         const client = formData.clientId
           ? clients.find((c) => c.id === parseInt(formData.clientId))
@@ -533,7 +533,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
           setIsLoading(false);
           return;
         }
-        showToast("Écriture ajoutée avec succès!", "success");
+        showToast("Entry added successfully!", "success");
 
         // ✅ Navigate to the new financial entry's detail view
         if (savedEntry.entry && savedEntry.entry.id) {
@@ -551,7 +551,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
       if (onUpdate) onUpdate();
     } catch (error) {
       console.error("Error submitting entry:", error);
-      showToast("Erreur lors de l'enregistrement", "error");
+      showToast("Error saving entry", "error");
     } finally {
       setIsLoading(false);
     }
@@ -586,7 +586,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               ...field,
               type: "readonly",
               defaultValue: editingEntry?.scope || "internal",
-              displayValue: "Interne (frais de bureau)"
+              displayValue: "Internal (office expenses)"
             };
           }
           // Client, dossier, case, mission, officer are client-related expenses
@@ -594,7 +594,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
             ...field,
             type: "readonly",
             defaultValue: editingEntry?.scope || "client",
-            displayValue: "Client (affecte le solde client)"
+            displayValue: "Client (affects client balance)"
           };
         }
 
@@ -675,7 +675,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               ...field,
               type: "readonly",
               defaultValue: editingEntry?.clientId || (client ? client.id : null),
-              displayValue: client ? client.name : "Client inconnu"
+              displayValue: client ? client.name : "Unknown Client"
             };
           }
           if (field.name === "dossierId" && caseItem) {
@@ -684,7 +684,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               ...field,
               type: "readonly",
               defaultValue: editingEntry?.dossierId || caseItem.dossierId,
-              displayValue: dossier ? dossier.caseNumber : "Dossier inconnu"
+              displayValue: dossier ? dossier.caseNumber : "Unknown Dossier"
             };
           }
         }
@@ -724,15 +724,15 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               ...field,
               type: "readonly",
               defaultValue: "expense",
-              displayValue: "Dépense (frais huissier)",
-              helpText: "Les huissiers ne peuvent avoir que des dépenses"
+              displayValue: "Expenses (Bailiff fees)",
+              helpText: "Bailiffs can only have expenses"
             };
           }
-          // Pre-select category to "frais_huissier"
+          // Pre-select category to "bailiff_fees"
           if (field.name === "category") {
             return {
               ...field,
-              defaultValue: "frais_huissier"
+              defaultValue: "bailiff_fees"
             };
           }
           // Lock officer field to current officer
@@ -741,8 +741,8 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               ...field,
               type: "readonly",
               defaultValue: entityId,
-              displayValue: entityData?.name || "Huissier",
-              helpText: "Frais pour cet huissier"
+              displayValue: entityData?.name || "Bailiff",
+              helpText: "Expenses for this bailiff"
             };
           }
           // Add mission selector - show only this officer's missions
@@ -753,10 +753,10 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               hideIf: undefined,     // Remove the hideIf function
               type: "searchable-select",
               required: true,
-              label: "Mission associée *",
-              helpText: "Sélectionnez la mission liée à ces frais",
+              label: "Associated Mission *",
+              helpText: "Select the mission related to these expenses",
               options: [
-                { value: "", label: "Sélectionner une mission..." },
+                { value: "", label: "Select a mission..." },
                 ...missions.map((m) => ({
                   value: m.id,
                   label: `${m.missionNumber} - ${m.title} (${m.status})`,
@@ -810,7 +810,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
             return {
               ...field,
               options: [
-                { value: "", label: "Sélectionner un client..." },
+                { value: "", label: "Select a client..." },
                 ...clients.map(c => ({ value: c.id, label: c.name }))
               ]
             };
@@ -834,7 +834,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
             return {
               ...field,
               options: [
-                { value: "", label: "Sélectionner un procès..." },
+                { value: "", label: "Select a case..." },
                 ...cases.map(c => ({ value: c.id, label: c.caseNumber }))
               ]
             };
@@ -849,19 +849,19 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               ...field,
               type: "readonly",
               defaultValue: editingEntry?.type || "expense",
-              displayValue: "Dépense (frais huissier)",
-              helpText: "Les frais de mission sont toujours des dépenses"
+              displayValue: "Expense (bailiff fees)",
+              helpText: "Bailiff fees are always expenses"
             };
           }
 
-          // Lock category to "frais_huissier"
+          // Lock category to "bailiff_fees"
           if (field.name === "category") {
             return {
               ...field,
               type: "readonly",
-              defaultValue: editingEntry?.category || "frais_huissier",
-              displayValue: "Frais d'huissier",
-              helpText: "Catégorie automatique pour les frais de mission"
+              defaultValue: editingEntry?.category || "bailiff_fees",
+              displayValue: "Bailiff Fees",
+              helpText: "Automatic category for bailiff fees"
             };
           }
 
@@ -871,7 +871,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               ...field,
               type: "readonly",
               defaultValue: editingEntry?.scope || "client",
-              displayValue: "Client (affecte le solde client)",
+              displayValue: "Client (affects client balance)",
             };
           }
 
@@ -900,7 +900,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
           // Auto-fill client based on mission's entity
           if (field.name === "clientId") {
             let clientId = editingEntry?.clientId || null;
-            let clientName = "Client inconnu";
+            let clientName = "Unknown client";
 
             // If editing, use existing value, otherwise derive from mission
             if (!editingEntry) {
@@ -909,7 +909,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
                 if (dossier) {
                   clientId = dossier.clientId;
                   const client = [].find(c => c.id === dossier.clientId);
-                  clientName = client ? client.name : "Client inconnu";
+                  clientName = client ? client.name : "Unknown client";
                 }
               } else if (entityData.entityType === "case") {
                 const caseItem = [].find(c => c.id === entityData.entityId);
@@ -918,14 +918,14 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
                   if (dossier) {
                     clientId = dossier.clientId;
                     const client = [].find(c => c.id === dossier.clientId);
-                    clientName = client ? client.name : "Client inconnu";
+                    clientName = client ? client.name : "Unknown client";
                   }
                 }
               }
             } else {
               // When editing, get the display name from the stored clientId
               const client = [].find(c => c.id === clientId);
-              clientName = client ? client.name : "Client inconnu";
+              clientName = client ? client.name : "Unknown client";
             }
 
             return {
@@ -933,14 +933,14 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               type: "readonly",
               defaultValue: clientId,
               displayValue: clientName,
-              helpText: "Client lié à cette mission"
+              helpText: "Client linked to this mission"
             };
           }
 
           // Auto-fill dossier based on mission's entity
           if (field.name === "dossierId") {
             let dossierId = editingEntry?.dossierId || null;
-            let dossierRef = "Dossier inconnu";
+            let dossierRef = "Unknown dossier";
 
             // If editing, use existing value, otherwise derive from mission
             if (!editingEntry) {
@@ -955,13 +955,13 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
                 if (caseItem) {
                   dossierId = caseItem.dossierId;
                   const dossier = [].find(d => d.id === caseItem.dossierId);
-                  dossierRef = dossier ? dossier.caseNumber : "Dossier inconnu";
+                  dossierRef = dossier ? dossier.caseNumber : "Unknown dossier";
                 }
               }
             } else {
               // When editing, get the display name from the stored dossierId
               const dossier = [].find(d => d.id === dossierId);
-              dossierRef = dossier ? dossier.caseNumber : "Dossier inconnu";
+              dossierRef = dossier ? dossier.caseNumber : "Unknown dossier";
             }
 
             return {
@@ -969,7 +969,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               type: "readonly",
               defaultValue: dossierId,
               displayValue: dossierRef,
-              helpText: "Dossier lié à cette mission"
+              helpText: "Dossier linked to this mission"
             };
           }
 
@@ -991,7 +991,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               // When editing, get the display name from the stored caseId
               if (caseId) {
                 const caseItem = [].find(c => c.id === caseId);
-                caseRef = caseItem ? caseItem.caseNumber : "Procès inconnu";
+                caseRef = caseItem ? caseItem.caseNumber : "Unknown Lawsuit";
               }
             }
 
@@ -1001,7 +1001,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
                 type: "readonly",
                 defaultValue: caseId,
                 displayValue: caseRef,
-                helpText: "Procès lié à cette mission"
+                helpText: "Lawsuit linked to this mission"
               };
             } else {
               // Hide the field if mission is not linked to a case
@@ -1017,13 +1017,13 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
           if (field.name === "description" && !editingEntry) {
             return {
               ...field,
-              defaultValue: `Frais d'huissier - ${entityData.missionNumber} - ${entityData.title}`,
-              placeholder: `Ex: Frais de déplacement, frais de PV, etc.`
+              defaultValue: `Bailiff fees - ${entityData.missionNumber} - ${entityData.title}`,
+              placeholder: `Ex: Travel expenses, report fees, etc.`
             };
           }
         }
 
-        // For officer (huissier) detail view: lock type to "expense" since huissiers only have expenses
+        // For officer (bailiff) detail view: lock type to "expense" since bailiffs only have expenses
         if (entityType === "officer") {
           const missions = entityData?.missions || [];
 
@@ -1058,15 +1058,15 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               ...field,
               type: "readonly",
               defaultValue: "expense",
-              displayValue: "Dépense (frais huissier)",
-              helpText: "Les huissiers ne peuvent avoir que des dépenses"
+              displayValue: "Expense (bailiff fees)",
+              helpText: "Bailiffs can only have expenses"
             };
           }
-          // Pre-select category to "frais_huissier"
+          // Pre-select category to "bailiff_fees"
           if (field.name === "category") {
             return {
               ...field,
-              defaultValue: "frais_huissier"
+              defaultValue: "bailiff_fees"
             };
           }
           // Lock officer field to current officer
@@ -1075,8 +1075,8 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               ...field,
               type: "readonly",
               defaultValue: entityId,
-              displayValue: entityData?.name || "Huissier",
-              helpText: "Frais pour cet huissier"
+              displayValue: entityData?.name || "Bailiff",
+              helpText: "Fees for this bailiff"
             };
           }
           // Add mission selector - show only this officer's missions
@@ -1087,10 +1087,10 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               hideIf: undefined,     // Remove the hideIf function
               type: "searchable-select",
               required: true,
-              label: "Mission associée *",
-              helpText: "Sélectionnez la mission liée à ces frais",
+              label: "Associated Mission *",
+              helpText: "Select the mission linked to these fees",
               options: [
-                { value: "", label: "Sélectionner une mission..." },
+                { value: "", label: "Select a mission..." },
                 ...missions.map((m) => ({
                   value: m.id,
                   label: `${m.missionNumber} - ${m.title} (${m.status})`,
@@ -1107,7 +1107,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
 
                     // Auto-populate description if empty
                     if (!formData.description) {
-                      updates.description = `Frais d'huissier - ${selectedMission.missionNumber} - ${selectedMission.title}`;
+                      updates.description = `Bailiff fees - ${selectedMission.missionNumber} - ${selectedMission.title}`;
                     }
 
                     // Auto-populate related entities based on mission type
@@ -1148,11 +1148,11 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               displayValue: (formData) => {
                 if (formData.clientId) {
                   const client = filteredClients.find(c => c.id === formData.clientId);
-                  return client ? client.name : "Client inconnu";
+                  return client ? client.name : "Unknown client";
                 }
-                return "Sélectionnez d'abord une mission";
+                return "Select a mission first";
               },
-              helpText: "Client auto-rempli depuis la mission sélectionnée"
+              helpText: "Client auto-filled from the selected mission"
             };
           }
 
@@ -1165,7 +1165,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               displayValue: (formData) => {
                 if (formData.dossierId) {
                   const dossier = filteredDossiers.find(d => d.id === formData.dossierId);
-                  return dossier ? `${dossier.caseNumber} - ${dossier.title}` : "Dossier inconnu";
+                  return dossier ? `${dossier.caseNumber} - ${dossier.title}` : "Unknown Dossier";
                 }
                 return "Sélectionnez d'abord une mission";
               },
@@ -1182,11 +1182,11 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               displayValue: (formData) => {
                 if (formData.caseId) {
                   const caseItem = filteredCases.find(c => c.id === formData.caseId);
-                  return caseItem ? `${caseItem.caseNumber} - ${caseItem.title}` : "Procès inconnu";
+                  return caseItem ? `${caseItem.caseNumber} - ${caseItem.title}` : "Unknown case";
                 }
-                return "Aucun (dépend de la mission)";
+                return "None (depends on the mission)";
               },
-              helpText: "Procès auto-rempli depuis la mission sélectionnée (si applicable)"
+              helpText: "Case auto-filled from the selected mission (if applicable)"
             };
           }
         }
@@ -1199,15 +1199,15 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               ...field,
               type: "readonly",
               defaultValue: editingEntry?.scope || "internal",
-              displayValue: "Interne (frais de bureau)",
-              helpText: "Les tâches personnelles sont des dépenses internes uniquement"
+              displayValue: "Internal (office expenses)",
+              helpText: "Personal tasks are internal expenses only"
             };
           }
-          // Pre-select category to "frais_bureau"
+          // Pre-select category to "office_expenses"
           if (field.name === "category") {
             return {
               ...field,
-              defaultValue: editingEntry?.category || "frais_bureau"
+              defaultValue: editingEntry?.category || "office_expenses"
             };
           }
         }
@@ -1228,9 +1228,9 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
-                  Honoraires facturés
+                  Billed Fees
                 </span>
-                <i className="fas fa-info-circle text-slate-400 text-xs" title="Total des honoraires d'avocat facturés au client"></i>
+                <i className="fas fa-info-circle text-slate-400 text-xs" title="Total lawyer fees billed to the client"></i>
               </div>
               <i className="fas fa-money-bill-wave text-emerald-500"></i>
             </div>
@@ -1238,7 +1238,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               {formatCurrency(balanceDetails.honoraires)}
             </div>
             <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              Ce que vous avez facturé
+              What you have billed
             </div>
           </div>
 
@@ -1246,9 +1246,9 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
-                  Frais avancés
+                  Reimbursable Expenses
                 </span>
-                <i className="fas fa-info-circle text-slate-400 text-xs" title="Frais payés pour le client (timbres, expertise, etc.) à rembourser"></i>
+                <i className="fas fa-info-circle text-slate-400 text-xs" title="Expenses paid for the client (stamps, expertise, etc.) to be reimbursed"></i>
               </div>
               <i className="fas fa-file-invoice text-blue-500"></i>
             </div>
@@ -1256,7 +1256,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               {formatCurrency(balanceDetails.reimbursableExpenses)}
             </div>
             <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              Frais à récupérer du client
+              Expenses to recover from the client
             </div>
           </div>
 
@@ -1264,9 +1264,9 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
-                  Paiements reçus
+                  Payments Received
                 </span>
-                <i className="fas fa-info-circle text-slate-400 text-xs" title="Total des paiements et avances déjà reçus du client"></i>
+                <i className="fas fa-info-circle text-slate-400 text-xs" title="Total payments and advances already received from the client"></i>
               </div>
               <i className="fas fa-hand-holding-usd text-indigo-500"></i>
             </div>
@@ -1274,7 +1274,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               {formatCurrency(balanceDetails.totalPaid)}
             </div>
             <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              Ce que le client a déjà payé
+              What the client has already paid
             </div>
           </div>
 
@@ -1293,10 +1293,10 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
                 </span>
                 <i className="fas fa-info-circle text-slate-400 text-xs" title={
                   balanceDetails.balance > 0
-                    ? "Montant que le client doit encore payer"
+                    ? "Amount the client still needs to pay"
                     : balanceDetails.balance < 0
-                      ? "Montant à rembourser au client ou crédit disponible"
-                      : "Compte soldé"
+                      ? "Amount to be refunded to the client or available credit"
+                      : "Account settled"
                 }></i>
               </div>
               <i
@@ -1325,10 +1325,10 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
                 : "text-slate-500 dark:text-slate-400"
               }`}>
               {balanceDetails.balance > 0
-                ? "🔻 Client doit payer"
+                ? "🔻 Client still needs to pay"
                 : balanceDetails.balance < 0
-                  ? "🔻 Crédit client / À rembourser"
-                  : "✅ Compte équilibré"}
+                  ? "🔻 Client credit / To be refunded"
+                  : "✅ Account settled"}
             </div>
           </div>
         </div>
@@ -1340,7 +1340,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
           <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
-                Recettes
+                Revenue
               </span>
               <i className="fas fa-arrow-down text-emerald-500"></i>
             </div>
@@ -1352,7 +1352,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
           <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
-                Dépenses
+                Expenses
               </span>
               <i className="fas fa-arrow-up text-rose-500"></i>
             </div>
@@ -1364,7 +1364,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
           <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
-                Solde net
+                Net Balance
               </span>
               <i className="fas fa-balance-scale text-blue-500"></i>
             </div>
@@ -1384,14 +1384,14 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
       <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
         <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
           <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
-            Écritures comptables ({entries.length})
+            Accounting Entries ({entries.length})
           </h3>
           <button
             onClick={handleAddEntry}
             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors text-sm inline-flex items-center gap-2"
           >
             <i className="fas fa-plus"></i>
-            Nouvelle écriture
+            New Entry
           </button>
         </div>
 
@@ -1420,8 +1420,8 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
             isEmpty={table.data.length === 0}
             emptyMessage={
               table.isFiltering
-                ? "Aucun résultat trouvé"
-                : "Aucune écriture comptable"
+                ? "No results found"
+                : "No accounting entries available"
             }
           >
             {table.data.map((entry) => (
@@ -1461,8 +1461,8 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
         title={getFormTitle("financialEntry", !!editingEntry)}
         subtitle={
           editingEntry
-            ? "Modifier l'écriture comptable"
-            : "Créer une nouvelle écriture"
+            ? "Edit Accounting Entry"
+            : "Create a New Entry"
         }
         fields={entryFields}
         initialData={editingEntry}
@@ -1487,14 +1487,13 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-3 flex-wrap">
                     <span
-                      className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold tracking-wide ${
-                        selectedEntry.type === "revenue"
-                          ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
-                          : "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300"
-                      }`}
+                      className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold tracking-wide ${selectedEntry.type === "revenue"
+                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
+                        : "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300"
+                        }`}
                     >
                       <i className={`fas ${selectedEntry.type === "revenue" ? "fa-arrow-up" : "fa-arrow-down"} mr-1.5 text-xs`}></i>
-                      {selectedEntry.type === "revenue" ? "Recette" : "Dépense"}
+                      {selectedEntry.type === "revenue" ? "Revenue" : "Expense"}
                     </span>
                     <span
                       className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold tracking-wide bg-${selectedEntry.statusColor}-100 text-${selectedEntry.statusColor}-700 dark:bg-${selectedEntry.statusColor}-900/40 dark:text-${selectedEntry.statusColor}-300`}
@@ -1524,7 +1523,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               {/* Entry Details Grid */}
               <div>
                 <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-4 uppercase tracking-wider">
-                  Détails de l'écriture
+                  Entry Details
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <div className="space-y-1.5">
@@ -1537,7 +1536,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                      Catégorie
+                      Category
                     </label>
                     <p className="text-base text-slate-900 dark:text-white font-semibold flex items-center gap-2">
                       <i className={`${financialCategories[selectedEntry.category]?.icon} text-slate-400`}></i>
@@ -1546,7 +1545,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                      Statut
+                      Status
                     </label>
                     <div className="flex gap-2 mt-1">
                       <InlineStatusSelector
@@ -1562,14 +1561,13 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                      Montant
+                      Amount
                     </label>
                     <p
-                      className={`text-3xl font-bold ${
-                        selectedEntry.type === "revenue"
-                          ? "text-emerald-600 dark:text-emerald-400"
-                          : "text-rose-600 dark:text-rose-400"
-                      }`}
+                      className={`text-3xl font-bold ${selectedEntry.type === "revenue"
+                        ? "text-emerald-600 dark:text-emerald-400"
+                        : "text-rose-600 dark:text-rose-400"
+                        }`}
                     >
                       {selectedEntry.amountWithSign}
                     </p>
@@ -1597,7 +1595,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
                   {selectedEntry.caseReference && (
                     <div className="space-y-1.5">
                       <label className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                        Procès
+                        Lawsuit
                       </label>
                       <p className="text-base text-slate-900 dark:text-white font-semibold font-mono">
                         {selectedEntry.caseReference}
@@ -1607,7 +1605,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
                   {selectedEntry.createdBy && (
                     <div className="space-y-1.5">
                       <label className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                        Créé par
+                        Created by
                       </label>
                       <p className="text-base text-slate-900 dark:text-white font-semibold">
                         {selectedEntry.createdBy}
@@ -1642,14 +1640,14 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
                     className="flex-1 px-5 py-3 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-xl font-semibold transition-all duration-200 inline-flex items-center justify-center gap-2.5 shadow-lg shadow-blue-600/25 hover:shadow-xl hover:shadow-blue-600/30 hover:scale-[1.02] active:scale-[0.98]"
                   >
                     <i className="fas fa-edit text-sm"></i>
-                    <span>Modifier</span>
+                    <span>Edit</span>
                   </button>
                   <button
                     onClick={() => handleDelete(selectedEntry.id)}
                     className="px-5 py-3 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white rounded-xl font-semibold transition-all duration-200 inline-flex items-center justify-center gap-2.5 shadow-lg shadow-red-600/25 hover:shadow-xl hover:shadow-red-600/30 hover:scale-[1.02] active:scale-[0.98]"
                   >
                     <i className="fas fa-trash text-sm"></i>
-                    <span>Supprimer</span>
+                    <span>Delete</span>
                   </button>
                 </div>
               </div>
@@ -1662,10 +1660,10 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
       <BlockerModal
         isOpen={blockerModalOpen}
         onClose={() => setBlockerModalOpen(false)}
-        actionName="Modifier/Supprimer l'écriture financière"
+        actionName="Edit/Delete Financial Entry"
         blockers={validationResult?.blockers || []}
         warnings={validationResult?.warnings || []}
-        entityName={`Écriture #${validationResult?.entityId || ''}`}
+        entityName={`Entry #${validationResult?.entityId || ''}`}
       />
       <ConfirmImpactModal
         isOpen={confirmImpactModalOpen}

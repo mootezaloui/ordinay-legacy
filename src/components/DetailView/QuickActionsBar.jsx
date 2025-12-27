@@ -19,7 +19,7 @@ export default function QuickActionsBar({ data, config, onQuickAction, contextDa
     if (quickActions.length === 0) return null;
 
     return (
-        <ContentSection title="Actions rapides" allowOverflow={true}>
+        <ContentSection title="Quick Actions" allowOverflow={true}>
             <div className="p-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     {quickActions.map((action) => (
@@ -150,11 +150,11 @@ function QuickActionField({ action, value, onChange, entityType, entityId, entit
             title: "Modification enregistrée",
             context: entityType,
             action: {
-                label: "Annuler",
+                label: "Undo",
                 onClick: () => {
                     onChange(previousValue);
-                    showToast("Modification annulée", "info", {
-                        title: "Annulation",
+                    showToast("Modification Cancelled", "info", {
+                        title: "Undo Successful",
                         context: entityType,
                     });
                 }
@@ -190,7 +190,7 @@ function QuickActionField({ action, value, onChange, entityType, entityId, entit
                     placeholder={`Sélectionner ${action.label}...`}
                     allowCreate={action.allowCreate}
                     onCreateOption={handleCreateOption}
-                    createLabel={action.createLabel || "Ajouter"}
+                    createLabel={action.createLabel || "Add"}
                     compact={false}
                 />
             ) : (

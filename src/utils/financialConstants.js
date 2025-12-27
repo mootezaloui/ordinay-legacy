@@ -6,37 +6,37 @@
 // Category metadata
 export const financialCategories = {
   honoraires: {
-    label: "Honoraires",
+    label: "Fees",
     type: "revenue",
     icon: "fas fa-money-bill-wave",
     color: "emerald",
   },
   advance: {
-    label: "Avance client",
+    label: "Client Advance",
     type: "revenue",
     icon: "fas fa-hand-holding-usd",
     color: "blue",
   },
   frais_judiciaires: {
-    label: "Frais judiciaires",
+    label: "Court Fees",
     type: "expense",
     icon: "fas fa-gavel",
     color: "orange",
   },
   frais_huissier: {
-    label: "Frais d'huissier",
+    label: "Bailiff Fees",
     type: "expense",
     icon: "fas fa-file-invoice",
     color: "purple",
   },
   frais_bureau: {
-    label: "Frais de bureau",
+    label: "Office Expenses",
     type: "expense",
     icon: "fas fa-building",
     color: "gray",
   },
   other: {
-    label: "Autre",
+    label: "Other",
     type: "both",
     icon: "fas fa-ellipsis-h",
     color: "slate",
@@ -46,22 +46,22 @@ export const financialCategories = {
 // Status metadata
 export const financialStatuses = {
   draft: {
-    label: "Brouillon",
+    label: "Draft",
     color: "slate",
     icon: "fas fa-file",
   },
   confirmed: {
-    label: "Confirmé",
+    label: "Confirmed",
     color: "blue",
     icon: "fas fa-check-circle",
   },
   paid: {
-    label: "Payé",
+    label: "Paid",
     color: "green",
     icon: "fas fa-check-double",
   },
   void: {
-    label: "Annulé",
+    label: "Cancelled",
     color: "red",
     icon: "fas fa-times-circle",
   },

@@ -31,7 +31,7 @@ import { useToast } from '../../contexts/ToastContext';
 export default function BlockerModal({
   isOpen,
   onClose,
-  actionName = "effectuer cette action",
+  actionName = "Do action",
   blockers = [],
   warnings = [],
   entityName = "",
@@ -127,25 +127,25 @@ export default function BlockerModal({
           // Mark task or session as complete
           if (targetEntityType === 'task') {
             const result = canPerformAction(targetEntityType, targetEntityId, 'changeStatus', {
-              newValue: 'Terminée'
+              newValue: 'Completed'
             });
             if (result.allowed) {
               // In a real app, this would call an API
               // For now, we'll just show success
               success = true;
-              message = 'Tâche marquée comme terminée';
+              message = 'Task marked as completed';
             } else {
-              showToast('error', 'Impossible de marquer cette tâche comme terminée');
+              showToast('error', 'Unable to mark this task as completed');
             }
           } else if (targetEntityType === 'session') {
             const result = canPerformAction(targetEntityType, targetEntityId, 'edit', {
-              newData: { status: 'Terminée' }
+              newData: { status: 'Completed' }
             });
             if (result.allowed) {
               success = true;
-              message = 'Séance marquée comme terminée';
+              message = 'Session marked as completed';
             } else {
-              showToast('error', 'Impossible de marquer cette séance comme terminée');
+              showToast('error', 'Unable to mark this session as completed');
             }
           }
           break;
@@ -153,18 +153,18 @@ export default function BlockerModal({
         case 'markPaid':
           // Mark financial entry as paid
           const result = canPerformAction(targetEntityType, targetEntityId, 'changeStatus', {
-            newValue: 'Payée'
+            newValue: 'Paid'
           });
           if (result.allowed) {
             success = true;
-            message = 'Écriture marquée comme payée';
+            message = 'Entry marked as paid';
           } else {
-            showToast('error', 'Impossible de marquer cette écriture comme payée');
+            showToast('error', 'Unable to mark this entry as paid');
           }
           break;
 
         default:
-          showToast('error', 'Action non supportée');
+          showToast('error', 'Action not supported');
       }
 
       if (success) {
@@ -184,7 +184,7 @@ export default function BlockerModal({
       }
     } catch (error) {
       console.error('Error performing inline action:', error);
-      showToast('error', 'Une erreur est survenue');
+      showToast('error', 'An error occurred');
     } finally {
       setIsResolving(false);
     }
@@ -198,7 +198,7 @@ export default function BlockerModal({
 
     if (activeBlockers.length === 0 && onRetry) {
       // All blockers resolved - offer to retry
-      showToast('success', 'Tous les blocages ont été résolus !');
+      showToast('success', 'All blockers have been resolved!');
       // Could auto-retry here or show retry button
     }
   };
@@ -241,17 +241,17 @@ export default function BlockerModal({
               </div>
               <div className="flex-1 min-w-0">
                 <h3 className={`text-lg font-bold ${allResolved ? 'text-green-900 dark:text-green-100' : 'text-red-900 dark:text-red-100'}`}>
-                  {allResolved ? 'Blocages résolus !' : 'Action impossible'}
+                  {allResolved ? 'Blockers resolved!' : 'Action not possible'}
                 </h3>
                 <p className={`text-sm mt-0.5 break-words overflow-wrap-anywhere ${allResolved ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'}`}>
-                  {allResolved ? 'Vous pouvez maintenant réessayer l\'action' : `Impossible de ${actionName.toLowerCase()}${entityName ? ` ${entityName}` : ''}`}
+                  {allResolved ? 'You can now retry the action' : `Unable to ${actionName.toLowerCase()}${entityName ? ` ${entityName}` : ''}`}
                 </p>
               </div>
             </div>
             <button
               onClick={onClose}
               className={`transition-colors flex-shrink-0 ${allResolved ? 'text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-200' : 'text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-200'}`}
-              aria-label="Fermer"
+              aria-label="Close"
             >
               <i className="fas fa-times text-xl"></i>
             </button>
@@ -264,7 +264,7 @@ export default function BlockerModal({
             <div className="mb-6">
               <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
                 <i className="fas fa-ban text-red-500"></i>
-                Problèmes à résoudre :
+                Issues to resolve:
               </h4>
               <div className="space-y-4">
                 {enrichedBlockers.map((blocker, index) => {
@@ -291,7 +291,7 @@ export default function BlockerModal({
             <div className="mb-6">
               <h4 className="text-sm font-semibold text-green-900 dark:text-green-100 mb-3 flex items-center gap-2">
                 <i className="fas fa-check-circle text-green-500"></i>
-                Résolu ({resolvedBlockers.size}) :
+                Resolved ({resolvedBlockers.size}) :
               </h4>
               <div className="space-y-2">
                 {enrichedBlockers.map((blocker, index) => {
@@ -317,7 +317,7 @@ export default function BlockerModal({
             <div className="mb-6">
               <h4 className="text-sm font-semibold text-amber-900 dark:text-amber-100 mb-3 flex items-center gap-2">
                 <i className="fas fa-exclamation-circle text-amber-500"></i>
-                Avertissements :
+                Warnings:
               </h4>
               <div className="space-y-2">
                 {warnings.map((warning, index) => (
@@ -339,7 +339,7 @@ export default function BlockerModal({
             <div className="bg-red-50 dark:bg-red-900/10 border-2 border-red-300 dark:border-red-700 rounded-lg p-5 w-full mt-4">
               <h4 className="text-base font-bold text-red-900 dark:text-red-100 mb-3 flex items-center gap-2">
                 <i className="fas fa-exclamation-triangle text-red-600 dark:text-red-400"></i>
-                Supprimer quand même ?
+                Delete anyway?
               </h4>
 
               <p className="text-sm text-red-800 dark:text-red-200 mb-4 leading-relaxed">
@@ -365,7 +365,7 @@ export default function BlockerModal({
                         ))}
                         {entityGroup.count > entityGroup.items.length && (
                           <li className="text-xs text-red-600 dark:text-red-400 font-medium">
-                            • ... et {entityGroup.count - entityGroup.items.length} de plus
+                            • ... and {entityGroup.count - entityGroup.items.length} more
                           </li>
                         )}
                       </ul>
@@ -377,7 +377,7 @@ export default function BlockerModal({
               <div className="bg-red-100 dark:bg-red-950/40 border border-red-300 dark:border-red-800 rounded-lg p-3 mb-4">
                 <p className="text-xs text-red-900 dark:text-red-100 font-semibold flex items-center gap-2">
                   <i className="fas fa-info-circle"></i>
-                  Cette action est irréversible. Toutes les données seront définitivement supprimées.
+                  This action is irreversible. All data will be permanently deleted.
                 </p>
               </div>
 
@@ -390,7 +390,7 @@ export default function BlockerModal({
                 className="w-full px-4 py-3 bg-red-600 hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-700 text-white rounded-lg transition-colors font-semibold flex items-center justify-center gap-2"
               >
                 <i className="fas fa-trash-alt"></i>
-                Oui, supprimer tout définitivement
+                Yes, delete everything permanently
               </button>
             </div>
           )}
@@ -400,10 +400,10 @@ export default function BlockerModal({
             <div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800 rounded-lg p-4 w-full">
               <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-2 flex items-center gap-2">
                 <i className="fas fa-lightbulb text-blue-500"></i>
-                Comment résoudre ?
+                How to resolve?
               </h4>
               <p className="text-sm text-blue-800 dark:text-blue-200 whitespace-normal break-words max-w-full" style={{ wordWrap: 'break-word', overflowWrap: 'break-word' }}>
-                Utilisez les boutons d'action ci-dessus pour résoudre chaque problème. Vous pouvez naviguer vers les éléments bloquants ou les résoudre directement depuis cet écran.
+                Use the action buttons above to resolve each issue. You can navigate to the blocking items or resolve them directly from this screen.
               </p>
             </div>
           )}
@@ -418,7 +418,7 @@ export default function BlockerModal({
                 className="px-4 py-2 bg-green-600 hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700 text-white rounded-lg transition-colors font-medium"
               >
                 <i className="fas fa-redo mr-2"></i>
-                Réessayer l'action
+                Retry action
               </button>
             )}
             <button
@@ -429,7 +429,7 @@ export default function BlockerModal({
                 }`}
             >
               <i className="fas fa-times mr-2"></i>
-              {allResolved ? 'Fermer' : 'Annuler'}
+              {allResolved ? 'Close' : 'Cancel'}
             </button>
           </div>
         </div>
@@ -567,12 +567,12 @@ function getEntityTypeLabel(type, count = 1) {
   const labels = {
     clients: count > 1 ? 'clients' : 'client',
     dossiers: count > 1 ? 'dossiers' : 'dossier',
-    cases: count > 1 ? 'procès' : 'procès',
-    tasks: count > 1 ? 'tâches' : 'tâche',
-    sessions: count > 1 ? 'séances' : 'séance',
+    cases: count > 1 ? 'lawsuits' : 'lawsuit',
+    tasks: count > 1 ? 'tasks' : 'task',
+    sessions: count > 1 ? 'sessions' : 'session',
     missions: count > 1 ? 'missions' : 'mission',
-    financialEntries: count > 1 ? 'écritures comptables' : 'écriture comptable',
-    officers: count > 1 ? 'huissiers' : 'huissier'
+    financialEntries: count > 1 ? 'financial entries' : 'financial entry',
+    officers: count > 1 ? 'officers' : 'officer'
   };
   return labels[type] || type;
 }

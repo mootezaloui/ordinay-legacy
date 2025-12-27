@@ -58,7 +58,7 @@ const logUpdateHistory = (entityType, prevEntity, updates) => {
     entityType,
     entityId: prevEntity.id,
     eventType: EVENT_TYPES.SYSTEM,
-    label: "Mise a jour",
+    label: "Update",
     metadata: changedFields,
   });
 };
@@ -85,7 +85,7 @@ const logDeletionHistory = (entityType, entity) => {
     entityType,
     entityId: entity.id,
     eventType: EVENT_TYPES.LIFECYCLE,
-    label: "Suppression",
+    label: "Deletion",
     metadata: { deleted: { id: entity.id } },
   });
 };
@@ -93,7 +93,7 @@ const logDeletionHistory = (entityType, entity) => {
 const toTimelineEntries = (historyItems = []) =>
   historyItems.map((item) => item.timelineEntry || {
     type: item.action || "action",
-    event: item.description || item.action || "Événement",
+    event: item.description || item.action || "Event",
     date: item.createdAt || item.created_at || "",
   });
 
@@ -170,7 +170,7 @@ const reconcileEntities = (clients, dossiers, cases, tasks, sessions) => {
       issues.push({
         entityType: "dossier",
         entityId: normalized.id,
-        message: "Dossier sans client parent dans les donnÃ©es persistÃ©es.",
+        message: "Dossier with no parent client in persisted data.",
       });
     }
     return normalized;
@@ -186,7 +186,7 @@ const reconcileEntities = (clients, dossiers, cases, tasks, sessions) => {
       issues.push({
         entityType: "case",
         entityId: normalized.id,
-        message: "ProcÃ¨s sans dossier parent dans les donnÃ©es persistÃ©es.",
+        message: "Lawsuit with no parent dossier in persisted data.",
       });
     }
     return normalized;
@@ -203,14 +203,14 @@ const reconcileEntities = (clients, dossiers, cases, tasks, sessions) => {
       issues.push({
         entityType: "task",
         entityId: normalized.id,
-        message: "TÃ¢che liÃ©e Ã  un procÃ¨s introuvable (donnÃ©es persistÃ©es).",
+        message: "Task linked to a missing lawsuit (persisted data).",
       });
     }
     if (normalized.parentType === "dossier" && normalized.dossierId && !dossiersById.has(normalized.dossierId)) {
       issues.push({
         entityType: "task",
         entityId: normalized.id,
-        message: "TÃ¢che liÃ©e Ã  un dossier introuvable (donnÃ©es persistÃ©es).",
+        message: "Task linked to a missing dossier (persisted data).",
       });
     }
     return normalized;
@@ -227,14 +227,14 @@ const reconcileEntities = (clients, dossiers, cases, tasks, sessions) => {
       issues.push({
         entityType: "session",
         entityId: normalized.id,
-        message: "SÃ©ance liÃ©e Ã  un procÃ¨s introuvable (donnÃ©es persistÃ©es).",
+        message: "Hearing linked to a missing lawsuit (persisted data).",
       });
     }
     if (normalized.dossierId && !dossiersById.has(normalized.dossierId)) {
       issues.push({
         entityType: "session",
         entityId: normalized.id,
-        message: "SÃ©ance liÃ©e Ã  un dossier introuvable (donnÃ©es persistÃ©es).",
+        message: "Hearing linked to a missing dossier (persisted data).",
       });
     }
     return normalized;
@@ -397,8 +397,8 @@ export function DataProvider({ children }) {
       } catch (error) {
         if (cancelled) return;
         console.error("[DataContext] API load failed", error);
-        setLoadError(error.message || "Erreur de chargement");
-        showToast("Impossible de charger les donnees distantes (lecture seule).", "error");
+        setLoadError(error.message || "Loading Error");
+        showToast("Unable to load remote data (read-only).", "error");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -425,7 +425,7 @@ export function DataProvider({ children }) {
       phone: client.phone,
       alternate_phone: client.alternatePhone,
       address: client.address,
-      status: client.status === "Actif" ? "active" : client.status === "Inactif" ? "inactive" : client.status,
+      status: client.status === "Active" ? "active" : client.status === "inActive" ? "inActive" : client.status,
       cin: client.cin,
       date_of_birth: client.dateOfBirth,
       profession: client.profession,
@@ -472,7 +472,7 @@ export function DataProvider({ children }) {
       phone: updates.phone,
       alternate_phone: updates.alternatePhone,
       address: updates.address,
-      status: updates.status === "Actif" ? "active" : updates.status === "Inactif" ? "inactive" : updates.status,
+      status: updates.status === "Active" ? "active" : updates.status === "inActive" ? "inActive" : updates.status,
       cin: updates.cin,
       date_of_birth: updates.dateOfBirth,
       profession: updates.profession,
@@ -494,7 +494,7 @@ export function DataProvider({ children }) {
         entityType: "client",
         entityId: id,
         action: "updated",
-        description: "Client mis à jour",
+        description: "Client updated",
         changedFields: updates,
         actor: "system",
       });
@@ -584,10 +584,10 @@ export function DataProvider({ children }) {
       logDeletionHistory("client", prev);
 
       console.log('[DataContext.deleteClientCascade] Successfully deleted client and all related entities');
-      return { ok: true, result: { message: 'Client et toutes les entités liées supprimés avec succès' } };
+      return { ok: true, result: { message: 'Client and all child entities deleted successfully' } };
     } catch (error) {
       console.error('[DataContext.deleteClientCascade] Error during cascade delete:', error);
-      return { ok: false, result: { message: 'Erreur lors de la suppression en cascade' } };
+      return { ok: false, result: { message: 'Error during cascade delete' } };
     }
   };
 
@@ -613,8 +613,8 @@ export function DataProvider({ children }) {
       estimated_value: dossier.estimatedValue || dossier.estimated_value,
       court_reference: dossier.courtReference || dossier.court_reference,
       assigned_lawyer: dossier.assignedLawyer || dossier.assigned_lawyer,
-      status: dossier.status === "Ouvert" ? "open" : dossier.status === "En attente" ? "on_hold" : dossier.status === "FermAc" ? "closed" : dossier.status,
-      priority: dossier.priority === "Haute" ? "high" : dossier.priority === "Moyenne" ? "medium" : dossier.priority === "Basse" ? "low" : dossier.priority,
+      status: dossier.status === "Open" ? "open" : dossier.status === "On Hold" ? "on_hold" : dossier.status === "Closed" ? "closed" : dossier.status,
+      priority: dossier.priority === "High" ? "high" : dossier.priority === "Medium" ? "medium" : dossier.priority === "Low" ? "low" : dossier.priority,
       opened_at: dossier.openDate,
       next_deadline: dossier.nextDeadline || dossier.prochaineEcheance,
     };
@@ -673,10 +673,12 @@ export function DataProvider({ children }) {
       payload.assigned_lawyer = updates.assignedLawyer || updates.assigned_lawyer;
     }
     if (updates.status !== undefined) {
-      payload.status = updates.status === "Ouvert" ? "open" : updates.status === "En attente" ? "on_hold" : updates.status === "Fermé" ? "closed" : updates.status;
+      // ✅ Send display value as-is - backend normalizeData will transform it
+      payload.status = updates.status;
     }
     if (updates.priority !== undefined) {
-      payload.priority = updates.priority === "Haute" ? "high" : updates.priority === "Moyenne" ? "medium" : updates.priority === "Basse" ? "low" : updates.priority;
+      // ✅ Send display value as-is - backend normalizeData will transform it
+      payload.priority = updates.priority;
     }
     if (updates.openDate !== undefined) {
       payload.opened_at = updates.openDate;
@@ -791,10 +793,10 @@ export function DataProvider({ children }) {
       logDeletionHistory("dossier", prev);
 
       console.log('[DataContext.deleteDossierCascade] Successfully deleted dossier and all related entities');
-      return { ok: true, result: { message: 'Dossier et toutes les entités liées supprimés avec succès' } };
+      return { ok: true, result: { message: 'Dossier and all related entities deleted successfully' } };
     } catch (error) {
       console.error('[DataContext.deleteDossierCascade] Error during cascade delete:', error);
-      return { ok: false, result: { message: 'Erreur lors de la suppression en cascade' } };
+      return { ok: false, result: { message: 'Error during cascade delete' } };
     }
   };
 
@@ -824,7 +826,7 @@ export function DataProvider({ children }) {
       next_hearing: emptyToNull(caseItem.nextHearing),
       reference_number: emptyToNull(caseItem.referenceNumber),
       status: caseItem.status,
-      priority: caseItem.priority === "Haute" ? "high" : caseItem.priority === "Moyenne" ? "medium" : caseItem.priority === "Basse" ? "low" : caseItem.priority,
+      priority: caseItem.priority === "High" ? "high" : caseItem.priority === "Medium" ? "medium" : caseItem.priority === "Low" ? "low" : caseItem.priority,
       opened_at: emptyToNull(caseItem.openDate),
       reference: emptyToNull(caseItem.caseNumber || caseItem.referenceNumber),
       case_number: emptyToNull(caseItem.caseNumber || caseItem.referenceNumber),
@@ -908,7 +910,8 @@ export function DataProvider({ children }) {
       payload.status = updates.status;
     }
     if (updates.priority !== undefined) {
-      payload.priority = updates.priority === "Haute" ? "high" : updates.priority === "Moyenne" ? "medium" : updates.priority === "Basse" ? "low" : updates.priority;
+      // ✅ Send display value as-is - backend normalizeData will transform it
+      payload.priority = updates.priority;
     }
     if (updates.openDate !== undefined) {
       payload.opened_at = emptyToNull(updates.openDate);
@@ -1001,10 +1004,10 @@ export function DataProvider({ children }) {
       logDeletionHistory("case", prev);
 
       console.log('[DataContext.deleteCaseCascade] Successfully deleted case and all related entities');
-      return { ok: true, result: { message: 'Procès et toutes les entités liées supprimés avec succès' } };
+      return { ok: true, result: { message: 'Case and all related entities deleted successfully' } };
     } catch (error) {
       console.error('[DataContext.deleteCaseCascade] Error during cascade delete:', error);
-      return { ok: false, result: { message: 'Erreur lors de la suppression en cascade' } };
+      return { ok: false, result: { message: 'Error during cascade delete' } };
     }
   };
 
@@ -1126,14 +1129,8 @@ export function DataProvider({ children }) {
       payload.session_type = mapSessionType(updates.type || updates.session_type);
     }
     if (updates.status !== undefined) {
-      payload.status = (() => {
-        const st = normalizeTxt(updates.status);
-        if (["programmee", "programmee", "confirmee", "scheduled"].includes(st)) return "scheduled";
-        if (["terminee", "termine", "completed"].includes(st)) return "completed";
-        if (["annulee", "annule", "cancelled"].includes(st)) return "cancelled";
-        if (["reportee", "reporte", "postponed"].includes(st)) return "postponed";
-        return updates.status;
-      })();
+      // ✅ Send display value as-is - backend normalizeData will transform it
+      payload.status = updates.status;
     }
     if (updates.scheduledAt !== undefined || updates.scheduled_at !== undefined || updates.date !== undefined) {
       payload.scheduled_at =
@@ -1519,8 +1516,8 @@ export function DataProvider({ children }) {
           ? "active"
           : officer.status === "Occupé" || officer.status === "Occupe"
             ? "busy"
-            : officer.status === "Inactif"
-              ? "inactive"
+            : officer.status === "inActive"
+              ? "inActive"
               : officer.status,
       notes: emptyToNull(officer.notes),
     };
@@ -1578,7 +1575,7 @@ export function DataProvider({ children }) {
       payload.registration_number = emptyToNull(updates.registrationNumber || updates.registration_number);
     }
     if (updates.status !== undefined) {
-      // Database accepts French values directly: Disponible, Occupe, Inactif
+      // Database accepts French values directly: Disponible, Occupe, inActive
       payload.status = updates.status;
     }
     if (updates.notes !== undefined) {
@@ -1715,17 +1712,12 @@ export function DataProvider({ children }) {
       payload.mission_type = emptyToNull(updates.missionType || updates.mission_type);
     }
     if (updates.status !== undefined) {
-      payload.status = updates.status === "Programmée" || updates.status === "Programmee" || updates.status === "Planifiée" || updates.status === "Planifiee" ? "planned" :
-        updates.status === "En cours" ? "in_progress" :
-          updates.status === "Terminée" || updates.status === "Terminee" ? "completed" :
-            updates.status === "Annulée" || updates.status === "Annulee" ? "cancelled" :
-              updates.status;
+      // ✅ Send display value as-is - backend normalizeData will transform it
+      payload.status = updates.status;
     }
     if (updates.priority !== undefined) {
-      payload.priority = updates.priority === "Haute" ? "high" :
-        updates.priority === "Moyenne" ? "medium" :
-          updates.priority === "Basse" ? "low" :
-            updates.priority;
+      // ✅ Send display value as-is - backend normalizeData will transform it
+      payload.priority = updates.priority;
     }
     if (updates.assignDate !== undefined || updates.assign_date !== undefined) {
       payload.assign_date = emptyToNull(updates.assignDate || updates.assign_date);
@@ -1819,8 +1811,8 @@ export function DataProvider({ children }) {
       "confirmed": "posted",
       "Payé": "paid",
       "paid": "paid",
-      "Annulé": "void",
-      "cancelled": "void",
+      "Annulé": "cancelled",
+      "cancelled": "cancelled",
     };
 
     // Map type: frontend uses "revenue"/"expense", backend uses "income"/"expense"
@@ -1829,6 +1821,7 @@ export function DataProvider({ children }) {
 
     // Map frontend field names to backend expectations
     const payload = {
+      scope: entry.scope || "client", // Default to client scope if not specified
       client_id: emptyToNull(entry.clientId || entry.client_id),
       dossier_id: emptyToNull(entry.dossierId || entry.dossier_id),
       case_id: emptyToNull(entry.caseId || entry.case_id),

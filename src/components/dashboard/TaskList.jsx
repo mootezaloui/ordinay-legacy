@@ -5,27 +5,27 @@ import { useNavigate } from "react-router-dom";
  * Displays urgent/upcoming tasks with priorities
  * Status changes happen on full task detail page for intentional workflow
  */
-export default function TaskList({ tasks, title = "Tâches Urgentes", maxItems = 5 }) {
+export default function TaskList({ tasks, title = "Urgent Tasks", maxItems = 5 }) {
   const navigate = useNavigate();
 
   const getPriorityColor = (priority) => {
     const colors = {
-      Haute: { bg: "bg-red-100 dark:bg-red-900/20", text: "text-red-700 dark:text-red-400", icon: "fas fa-arrow-up" },
-      Moyenne: { bg: "bg-amber-100 dark:bg-amber-900/20", text: "text-amber-700 dark:text-amber-400", icon: "fas fa-minus" },
-      Basse: { bg: "bg-blue-100 dark:bg-blue-900/20", text: "text-blue-700 dark:text-blue-400", icon: "fas fa-arrow-down" },
+      High: { bg: "bg-red-100 dark:bg-red-900/20", text: "text-red-700 dark:text-red-400", icon: "fas fa-arrow-up" },
+      Medium: { bg: "bg-amber-100 dark:bg-amber-900/20", text: "text-amber-700 dark:text-amber-400", icon: "fas fa-minus" },
+      Low: { bg: "bg-blue-100 dark:bg-blue-900/20", text: "text-blue-700 dark:text-blue-400", icon: "fas fa-arrow-down" },
     };
-    return colors[priority] || colors.Basse;
+    return colors[priority] || colors.Low;
   };
 
   const getStatusColor = (status) => {
     const colors = {
-      "En cours": "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
-      "En attente": "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
-      "Terminée": "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
-      "Non commencee": "bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300",
-      "Planifiee": "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400",
+      "In Progress": "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+      "Pending": "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
+      "Completed": "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+      "Not Started": "bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300",
+      "Scheduled": "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400",
     };
-    return colors[status] || colors["Non commencee"];
+    return colors[status] || colors["Not Started"];
   };
 
   const displayedTasks = tasks.slice(0, maxItems);
@@ -45,7 +45,7 @@ export default function TaskList({ tasks, title = "Tâches Urgentes", maxItems =
             <div className="flex items-start gap-3">
               {/* Task Info */}
               <div className="flex-1 min-w-0">
-                <p className={`text-sm font-medium group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors ${task.status === "Terminée" ? "line-through text-slate-500 dark:text-slate-400" : "text-slate-900 dark:text-white"
+                <p className={`text-sm font-medium group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors ${task.status === "Completed" ? "line-through text-slate-500 dark:text-slate-400" : "text-slate-900 dark:text-white"
                   }`}>
                   {task.title}
                 </p>
@@ -99,7 +99,7 @@ export default function TaskList({ tasks, title = "Tâches Urgentes", maxItems =
             <i className="fas fa-check-circle text-slate-400 text-xl"></i>
           </div>
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            Aucune tâche urgente
+            No urgent tasks! Great job staying on top of things.
           </p>
         </div>
       )}
@@ -110,7 +110,7 @@ export default function TaskList({ tasks, title = "Tâches Urgentes", maxItems =
           onClick={() => navigate("/tasks")}
           className="w-full py-2 text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/10 rounded-lg transition-colors font-medium"
         >
-          Voir toutes les tâches ({tasks.length})
+          View all tasks ({tasks.length})
           <i className="fas fa-arrow-right ml-2 text-xs"></i>
         </button>
       )}

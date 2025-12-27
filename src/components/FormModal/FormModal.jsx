@@ -218,8 +218,8 @@ export default function FormModal({
     // Step 1: Field validation (required fields, custom validators)
     if (!validateForm()) {
       notify.warning({
-        title: "Champs requis",
-        message: "Merci de corriger les erreurs du formulaire avant de continuer.",
+        title: "Fields required",
+        message: "Please correct the form errors before continuing.",
         context: "form",
       });
       return;
@@ -254,7 +254,7 @@ export default function FormModal({
         const errorMessage = getDuplicateReferenceError(entityType, reference);
 
         notify.error({
-          title: "Référence déjà utilisée",
+          title: "RReference already used",
           message: errorMessage,
           context: "form",
         });
@@ -511,7 +511,7 @@ export default function FormModal({
       <BlockerModal
         isOpen={blockerModalOpen}
         onClose={() => setBlockerModalOpen(false)}
-        actionName={editingEntity ? "Modifier" : "Enregistrer"}
+        actionName={editingEntity ? "Edit" : "Save"}
         blockers={validationResult?.blockers || []}
         warnings={validationResult?.warnings || []}
         entityName={editingEntity?.title || editingEntity?.name || editingEntity?.caseNumber || ""}
@@ -600,7 +600,7 @@ function FormField({ field, value, onChange, error, formData, compact = false })
               value={value}
               onChange={(newValue) => onChange(field.name, newValue)}
               options={fieldOptions}
-              placeholder={field.placeholder || "Rechercher..."}
+              placeholder={field.placeholder || "Searching..."}
               disabled={field.disabled}
               error={error}
               compact={compact}
@@ -619,7 +619,7 @@ function FormField({ field, value, onChange, error, formData, compact = false })
               disabled={field.disabled}
               className={`${baseInputClass} appearance-none cursor-pointer pr-10 ${field.disabled ? 'bg-slate-50 dark:bg-slate-800 opacity-50' : ''}`}
             >
-              <option value="">Sélectionner...</option>
+              <option value="">Select...</option>
               {fieldOptions?.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
@@ -661,13 +661,13 @@ function FormField({ field, value, onChange, error, formData, compact = false })
             value={value}
             onChange={(newValue) => onChange(field.name, newValue)}
             options={searchableOptions}
-            placeholder={field.placeholder || "Rechercher..."}
+            placeholder={field.placeholder || "Searching..."}
             disabled={field.disabled}
             error={error}
             compact={compact}
             allowCreate={field.allowCreate || false}
             onCreateOption={handleCreateOption}
-            createLabel={field.createLabel || "Ajouter"}
+            createLabel={field.createLabel || "Add"}
           />
         );
 
@@ -776,10 +776,10 @@ function FormField({ field, value, onChange, error, formData, compact = false })
                 <i className="fas fa-cloud-upload-alt text-slate-400 text-2xl"></i>
                 <div className="text-left">
                   <p className="text-sm text-slate-700 dark:text-slate-300">
-                    Glissez-déposez vos fichiers ici ou
+                    Drag and drop files here, or
                   </p>
                   <label className="text-sm text-blue-600 dark:text-blue-400 hover:underline cursor-pointer">
-                    parcourir
+                    browse
                     <input
                       type="file"
                       id={field.name}
@@ -803,7 +803,7 @@ function FormField({ field, value, onChange, error, formData, compact = false })
             {selectedFiles.length > 0 && (
               <div className="space-y-2">
                 <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                  {selectedFiles.length} fichier{selectedFiles.length > 1 ? 's' : ''} sélectionné{selectedFiles.length > 1 ? 's' : ''}
+                  {selectedFiles.length} file{selectedFiles.length > 1 ? 's' : ''} selected
                 </p>
                 {selectedFiles.map((file, index) => (
                   <div
@@ -829,7 +829,7 @@ function FormField({ field, value, onChange, error, formData, compact = false })
                       type="button"
                       onClick={() => removeFile(index)}
                       className="p-2 hover:bg-red-100 dark:hover:bg-red-900/20 rounded-lg transition-colors flex-shrink-0"
-                      title="Supprimer"
+                      title="Delete"
                     >
                       <i className="fas fa-times text-red-600 dark:text-red-400 text-sm"></i>
                     </button>
@@ -878,10 +878,10 @@ function FormField({ field, value, onChange, error, formData, compact = false })
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-slate-900 dark:text-white">
-                    Frais d'huissier
+                    Bailiff Fees
                   </p>
                   <p className="text-xs text-slate-600 dark:text-slate-400">
-                    {entries.length} {entries.length === 1 ? 'entrée' : 'entrées'} • Total: {totalAmount.toFixed(2)} TND
+                    {entries.length} {entries.length === 1 ? 'entry' : 'entries'} • Total: {totalAmount.toFixed(2)} TND
                   </p>
                 </div>
               </div>
@@ -891,7 +891,7 @@ function FormField({ field, value, onChange, error, formData, compact = false })
                 className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 dark:bg-amber-700 dark:hover:bg-amber-600 text-white rounded-lg font-medium transition-colors text-sm inline-flex items-center gap-2 shadow-sm"
               >
                 <i className="fas fa-plus text-xs"></i>
-                Ajouter
+                Add
               </button>
             </div>
 
@@ -920,14 +920,14 @@ function FormField({ field, value, onChange, error, formData, compact = false })
                             ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
                             : 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300'
                           }`}>
-                          {entry.status === 'paid' ? 'Payé' : entry.status === 'confirmed' ? 'Confirmé' : 'Brouillon'}
+                          {entry.status === 'paid' ? 'Paid' : entry.status === 'confirmed' ? 'Confirmed' : 'Draft'}
                         </span>
                       </div>
                       <button
                         type="button"
                         onClick={() => removeEntry(entry.id)}
                         className="p-1.5 hover:bg-red-100 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                        title="Supprimer ce frais"
+                        title="Delete this fee"
                       >
                         <i className="fas fa-trash text-red-600 dark:text-red-400 text-sm"></i>
                       </button>
@@ -939,7 +939,7 @@ function FormField({ field, value, onChange, error, formData, compact = false })
                         <div>
                           <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                             <i className="fas fa-money-bill-wave mr-1 text-green-600 dark:text-green-400"></i>
-                            Montant (TND) *
+                            Amount (TND) *
                           </label>
                           <input
                             type="number"
@@ -971,7 +971,7 @@ function FormField({ field, value, onChange, error, formData, compact = false })
                       <div>
                         <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                           <i className="fas fa-flag mr-1 text-purple-600 dark:text-purple-400"></i>
-                          Statut *
+                          Status *
                         </label>
                         <select
                           value={entry.status}
@@ -979,9 +979,9 @@ function FormField({ field, value, onChange, error, formData, compact = false })
                           className="w-full px-3 py-2 border-2 border-slate-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:border-amber-500 dark:focus:border-amber-500 focus:ring-2 focus:ring-amber-200 dark:focus:ring-amber-900/50 outline-none transition-colors text-sm font-medium"
                           required
                         >
-                          <option value="draft">📝 Brouillon</option>
-                          <option value="confirmed">✅ Confirmé</option>
-                          <option value="paid">💰 Payé</option>
+                          <option value="draft">📝 Draft</option>
+                          <option value="confirmed">✅ Confirmed</option>
+                          <option value="paid">💰 Paid</option>
                         </select>
                       </div>
 
@@ -993,7 +993,7 @@ function FormField({ field, value, onChange, error, formData, compact = false })
                         <textarea
                           value={entry.description}
                           onChange={(e) => updateEntry(entry.id, "description", e.target.value)}
-                          placeholder="Ex: Frais de signification, déplacement..."
+                          placeholder="Ex: Service fees, travel expenses..."
                           rows={2}
                           className="w-full px-3 py-2 border-2 border-slate-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:border-amber-500 dark:focus:border-amber-500 focus:ring-2 focus:ring-amber-200 dark:focus:ring-amber-900/50 outline-none transition-colors text-sm resize-none"
                           required
@@ -1009,10 +1009,10 @@ function FormField({ field, value, onChange, error, formData, compact = false })
                   <i className="fas fa-coins text-2xl text-amber-600 dark:text-amber-400"></i>
                 </div>
                 <p className="text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">
-                  Aucun frais ajouté
+                  No fees added yet.
                 </p>
                 <p className="text-xs text-slate-500 dark:text-slate-500">
-                  Cliquez sur "Ajouter" pour enregistrer les frais de cette mission
+                  Click "Add" to save the fees for this mission
                 </p>
               </div>
             )}

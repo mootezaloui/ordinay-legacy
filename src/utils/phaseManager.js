@@ -27,12 +27,12 @@ export function getCustomPhases() {
  */
 export function addCustomPhase(name) {
   if (!name || typeof name !== "string") {
-    throw new Error("Le nom de phase est requis");
+    throw new Error("Phase name is required");
   }
 
   const trimmedName = name.trim();
   if (!trimmedName) {
-    throw new Error("Le nom de phase ne peut pas être vide");
+    throw new Error("Phase name cannot be empty");
   }
 
   const customPhases = getCustomPhases();
@@ -43,7 +43,7 @@ export function addCustomPhase(name) {
   );
 
   if (exists) {
-    throw new Error("Cette phase existe déjà dans la liste");
+    throw new Error("This phase already exists in the list");
   }
 
   const newPhase = {
@@ -59,7 +59,7 @@ export function addCustomPhase(name) {
     return newPhase;
   } catch (error) {
     console.error("Error saving custom phase:", error);
-    throw new Error("Erreur lors de l'enregistrement");
+    throw new Error("Error saving");
   }
 }
 
@@ -75,7 +75,7 @@ export function removeCustomPhase(value) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
   } catch (error) {
     console.error("Error removing custom phase:", error);
-    throw new Error("Erreur lors de la suppression");
+    throw new Error("Error deleting");
   }
 }
 

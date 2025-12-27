@@ -44,10 +44,10 @@ export default function NotificationDropdown({ isOpen, onToggle, onClose }) {
 
   const clearNotifications = async () => {
     if (await confirm({
-      title: "Supprimer les notifications",
-      message: "Êtes-vous sûr de vouloir supprimer toutes les notifications ?",
-      confirmText: "Supprimer tout",
-      cancelText: "Annuler",
+      title: "Delete notifications",
+      message: "Are you sure you want to delete all notifications?",
+      confirmText: "Delete all",
+      cancelText: "Cancel",
       variant: "danger"
     })) {
       clearAll();
@@ -77,10 +77,10 @@ export default function NotificationDropdown({ isOpen, onToggle, onClose }) {
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
 
-    if (diffMins < 1) return "À l'instant";
-    if (diffMins < 60) return `Il y a ${diffMins} min`;
-    if (diffHours < 24) return `Il y a ${diffHours}h`;
-    if (diffDays < 7) return `Il y a ${diffDays}j`;
+    if (diffMins < 1) return "Just now";
+    if (diffMins < 60) return `${diffMins} min ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
     return formatDate(date);
   };
 
@@ -112,8 +112,8 @@ export default function NotificationDropdown({ isOpen, onToggle, onClose }) {
         <svg
           xmlns="http://www.w3.org/2000/svg"
           className={`h-6 w-6 transition-colors duration-200 ${isOpen
-              ? "text-blue-600 dark:text-blue-400"
-              : "text-slate-600 dark:text-slate-200"
+            ? "text-blue-600 dark:text-blue-400"
+            : "text-slate-600 dark:text-slate-200"
             }`}
           fill="none"
           viewBox="0 0 24 24"
@@ -141,7 +141,7 @@ export default function NotificationDropdown({ isOpen, onToggle, onClose }) {
               <h3 className="text-lg font-semibold text-white">Notifications</h3>
               <div className="flex items-center gap-2">
                 <span className="text-sm text-blue-100 dark:text-blue-200">
-                  {unreadCount} non lue{unreadCount > 1 ? "s" : ""}
+                  {unreadCount} Unread {unreadCount > 1 ? "s" : ""}
                 </span>
                 {unreadCount > 0 && (
                   <button
@@ -150,9 +150,9 @@ export default function NotificationDropdown({ isOpen, onToggle, onClose }) {
                       markAllAsRead();
                     }}
                     className="text-xs text-white hover:text-blue-100 underline"
-                    title="Tout marquer comme lu"
+                    title="Mark all as read"
                   >
-                    Tout lire
+                    Mark all as read
                   </button>
                 )}
               </div>
@@ -199,7 +199,7 @@ export default function NotificationDropdown({ isOpen, onToggle, onClose }) {
                           deleteNotification(notification.id);
                         }}
                         className="p-2 hover:bg-red-100 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                        title="Supprimer"
+                        title="Delete notification"
                       >
                         <i className="fas fa-times text-red-600 dark:text-red-400 text-sm"></i>
                       </button>
@@ -214,10 +214,10 @@ export default function NotificationDropdown({ isOpen, onToggle, onClose }) {
                 <i className="fas fa-bell-slash text-slate-400 dark:text-slate-500 text-2xl"></i>
               </div>
               <p className="text-slate-600 dark:text-slate-400 font-medium">
-                Aucune notification
+                No notifications
               </p>
               <p className="text-sm text-slate-500 dark:text-slate-500 mt-1">
-                Vous êtes à jour!
+                You're all caught up!
               </p>
             </div>
           )}
@@ -228,7 +228,7 @@ export default function NotificationDropdown({ isOpen, onToggle, onClose }) {
               className="px-6 py-4 text-sm font-medium text-blue-600 dark:text-blue-400 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors duration-200 flex items-center justify-center gap-2"
             >
               <i className="fas fa-list"></i>
-              Voir tout
+              View all
             </button>
             <button
               onClick={clearNotifications}
@@ -236,7 +236,7 @@ export default function NotificationDropdown({ isOpen, onToggle, onClose }) {
               className="px-6 py-4 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <i className="fas fa-trash"></i>
-              Tout supprimer
+              Clear all
             </button>
           </div>
         </div>

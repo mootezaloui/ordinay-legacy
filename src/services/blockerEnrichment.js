@@ -43,13 +43,7 @@ export function enrichBlockers(
 
   return blockers.map((blocker) => {
     // Try to parse and enrich each blocker
-    const enriched = parseBlocker(
-      blocker,
-      entityType,
-      entityId,
-      action,
-      data
-    );
+    const enriched = parseBlocker(blocker, entityType, entityId, action, data);
 
     // If we couldn't enrich it, return as plain blocker
     if (!enriched) {
@@ -335,7 +329,9 @@ function parseMissionBlocker(blocker, entityType, entityId, data) {
 
   const items = missions.slice(0, 5).map((mission) => ({
     entityId: mission.id,
-    entityLabel: `${mission.missionNumber || mission.id} - ${mission.title || "Mission"}`,
+    entityLabel: `${mission.missionNumber || mission.id} - ${
+      mission.title || "Mission"
+    }`,
     entityType: "mission",
     status: mission.status,
     actions: [
@@ -388,7 +384,9 @@ function parseFinancialBlocker(blocker, entityType, entityId, data) {
 
   const items = entries.slice(0, 5).map((entry) => ({
     entityId: entry.id,
-    entityLabel: `${entry.description || "Écriture"} - ${entry.amount} ${entry.currency || "TND"}`,
+    entityLabel: `${entry.description || "Écriture"} - ${entry.amount} ${
+      entry.currency || "TND"
+    }`,
     entityType: "financialEntry",
     status: entry.status,
     actions: [
@@ -436,7 +434,9 @@ function parseClosedParentBlocker(blocker, entityType, entityId, data) {
           parentInfo = {
             entityType: "dossier",
             entityId: dossier.id,
-            entityLabel: `${dossier.caseNumber || dossier.id} - ${dossier.title}`,
+            entityLabel: `${dossier.caseNumber || dossier.id} - ${
+              dossier.title
+            }`,
             status: dossier.status,
           };
         }
@@ -446,7 +446,9 @@ function parseClosedParentBlocker(blocker, entityType, entityId, data) {
           parentInfo = {
             entityType: "case",
             entityId: caseData.id,
-            entityLabel: `${caseData.caseNumber || caseData.id} - ${caseData.title}`,
+            entityLabel: `${caseData.caseNumber || caseData.id} - ${
+              caseData.title
+            }`,
             status: caseData.status,
           };
         }
@@ -461,7 +463,9 @@ function parseClosedParentBlocker(blocker, entityType, entityId, data) {
           parentInfo = {
             entityType: "case",
             entityId: caseData.id,
-            entityLabel: `${caseData.caseNumber || caseData.id} - ${caseData.title}`,
+            entityLabel: `${caseData.caseNumber || caseData.id} - ${
+              caseData.title
+            }`,
             status: caseData.status,
           };
         }
@@ -471,7 +475,9 @@ function parseClosedParentBlocker(blocker, entityType, entityId, data) {
           parentInfo = {
             entityType: "dossier",
             entityId: dossier.id,
-            entityLabel: `${dossier.caseNumber || dossier.id} - ${dossier.title}`,
+            entityLabel: `${dossier.caseNumber || dossier.id} - ${
+              dossier.title
+            }`,
             status: dossier.status,
           };
         }
@@ -526,7 +532,7 @@ function parseCreateUnderClosedParentBlocker(blocker) {
         type: "inline-action",
         action: "changeParent",
         icon: "fas fa-edit",
-        description: "Vous devez sélectionner un parent actif",
+        description: "Vous devez sélectionner un parent Active",
       },
     ],
   };

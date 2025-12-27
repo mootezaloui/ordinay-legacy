@@ -261,7 +261,7 @@ function StructuredEditSection({ section, data, onSave, entityType, entityId, co
             className="px-3 py-1.5 text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors flex items-center gap-2"
           >
             <i className="fas fa-edit"></i>
-            Modifier
+            Edit
           </button>
         ) : (
           <div className="flex items-center gap-2">
@@ -270,7 +270,7 @@ function StructuredEditSection({ section, data, onSave, entityType, entityId, co
               className="px-3 py-1.5 text-sm border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700/50 text-slate-700 dark:text-slate-200 rounded-lg transition-colors"
             >
               <i className="fas fa-times mr-1"></i>
-              Annuler
+              Cancel
             </button>
             <button
               onClick={handleSave}
@@ -282,7 +282,7 @@ function StructuredEditSection({ section, data, onSave, entityType, entityId, co
               ) : (
                 <i className="fas fa-save"></i>
               )}
-              Enregistrer
+              Save
             </button>
           </div>
         )
@@ -415,12 +415,12 @@ function StructuredEditSection({ section, data, onSave, entityType, entityId, co
                             value={editedData[fieldKey] || ''}
                             onChange={(newValue) => handleFieldChange(fieldKey, newValue)}
                             options={fieldOptions}
-                            placeholder={field.placeholder || "Rechercher..."}
+                            placeholder={field.placeholder || "Searching..."}
                             disabled={false}
                             compact={false}
                             allowCreate={field.allowCreate || false}
                             onCreateOption={field.onCreateOption || null}
-                            createLabel={field.createLabel || "Ajouter"}
+                            createLabel={field.createLabel || "Add"}
                           />
                         );
                       }
@@ -433,7 +433,7 @@ function StructuredEditSection({ section, data, onSave, entityType, entityId, co
                             onChange={(e) => handleFieldChange(fieldKey, e.target.value)}
                             className="w-full px-3.5 py-2.5 pr-10 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 appearance-none cursor-pointer hover:border-slate-300 dark:hover:border-slate-600 hover:shadow"
                           >
-                            <option value="">Sélectionner...</option>
+                            <option value="">Select...</option>
                             {fieldOptions.map((option) => (
                               <option key={option.value} value={option.value}>
                                 {option.label}
@@ -498,7 +498,7 @@ function StructuredEditSection({ section, data, onSave, entityType, entityId, co
       <BlockerModal
         isOpen={blockerModalOpen}
         onClose={() => setBlockerModalOpen(false)}
-        actionName={section.title ? `Modifier ${section.title.toLowerCase()}` : "Modifier cette section"}
+        actionName={section.title ? `Edit ${section.title.toLowerCase()}` : "Edit this section"}
         blockers={validationResult?.blockers || []}
         warnings={validationResult?.warnings || []}
         entityName={data?.caseNumber || data?.title || data?.name || ""}
@@ -511,7 +511,7 @@ function StructuredEditSection({ section, data, onSave, entityType, entityId, co
           setPendingData(null);
         }}
         onConfirm={handleConfirmImpact}
-        actionName="modifier le rattachement"
+        actionName="edit attachment"
         impactSummary={validationResult?.impactSummary || []}
         entityName={data?.caseNumber || data?.title || data?.name || ""}
       />
@@ -678,7 +678,7 @@ function RegularSection({ section, data, isEditing, onDataChange, contextData = 
                             onChange={(e) => handleFieldChange(fieldKey, e.target.value)}
                             className="w-full px-3.5 py-2.5 pr-10 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 appearance-none cursor-pointer hover:border-slate-300 dark:hover:border-slate-600 hover:shadow"
                           >
-                            <option value="">Sélectionner...</option>
+                            <option value="">Select...</option>
                             {field.options.map((option) => (
                               <option key={option.value} value={option.value}>
                                 {option.label}
