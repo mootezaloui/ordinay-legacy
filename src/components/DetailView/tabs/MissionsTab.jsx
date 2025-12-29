@@ -18,6 +18,7 @@ import {
 } from "../../FormModal/formConfigs";
 import { logEntityCreation, logAssignment } from "../../../services/historyService";
 import { resolveDetailRoute } from "../../../utils/routeResolver";
+import { useSettings } from "../../../contexts/SettingsContext";
 
 /**
  * MissionsTab - Scalable mission list with document management
@@ -28,6 +29,7 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
   const location = useLocation();
   const { showToast } = useToast();
   const { confirm } = useConfirm();
+  const { formatDate } = useSettings();
   const {
     clients,
     dossiers,
@@ -811,12 +813,12 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
                       </span>
                       <span>
                         <i className="fas fa-calendar mr-1"></i>
-                        Assigned: {mission.assignDate}
+                        Assigned: {formatDate(mission.assignDate)}
                       </span>
                       {mission.dueDate && (
                         <span>
                           <i className="fas fa-clock mr-1"></i>
-                          Due Date: {mission.dueDate}
+                          Due Date: {formatDate(mission.dueDate)}
                         </span>
                       )}
                       {mission.documents && mission.documents.length > 0 && (
@@ -893,34 +895,31 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
           title="Add Bailiff Fees"
           subtitle={`Mission: ${selectedMissionForFinance.missionNumber} - ${selectedMissionForFinance.title}`}
           fields={(() => {
-            // Get base fields and populate with data
+            // Get base fields and populate with actual data
             const baseFields = populateRelationshipOptions(financialEntryFormFields, {
-              clients: [],
-              dossiers: [],
-              cases: [],
-              missions: []
+              clients,
+              dossiers,
+              cases,
+              missions: allMissions
             });
 
             // Auto-populate fields based on mission
+            // The mission object already has dossierId and caseId from the database
             let clientId = null;
-            let dossierId = null;
-            let caseId = null;
+            let dossierId = selectedMissionForFinance.dossierId || null;
+            let caseId = selectedMissionForFinance.caseId || null;
 
-            if (selectedMissionForFinance.entityType === "dossier") {
-              // Mission linked to a dossier
-              const dossier = [].find(d => d.caseNumber === selectedMissionForFinance.entityReference);
+            // Get client from dossier or case
+            if (dossierId) {
+              const dossier = dossiers.find(d => d.id === dossierId);
               if (dossier) {
-                dossierId = dossier.id;
                 clientId = dossier.clientId;
               }
-            } else if (selectedMissionForFinance.entityType === "case") {
-              // Mission linked to a case
-              const caseItem = [].find(c => c.caseNumber === selectedMissionForFinance.entityReference);
+            } else if (caseId) {
+              const caseItem = cases.find(c => c.id === caseId);
               if (caseItem) {
-                caseId = caseItem.id;
-                dossierId = caseItem.dossierId;
-                // Get client from the dossier
-                const dossier = [].find(d => d.id === caseItem.dossierId);
+                // Get dossier from case to find client
+                const dossier = dossiers.find(d => d.id === caseItem.dossierId);
                 if (dossier) {
                   clientId = dossier.clientId;
                 }
@@ -935,28 +934,32 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
                 return { ...field, type: "readonly", defaultValue: "expense", displayValue: "Expense (paid fees)" };
               }
               if (field.name === "category") {
-                return { ...field, type: "readonly", defaultValue: "Bailiff_fees", displayValue: "Bailiff Fees" };
+                return { ...field, type: "readonly", defaultValue: "frais_huissier", displayValue: "Bailiff Fees" };
               }
               if (field.name === "clientId") {
-                const client = [].find(c => c.id === clientId);
+                const client = clients.find(c => c.id === clientId);
                 return {
                   ...field,
                   type: "readonly",
                   defaultValue: clientId || "",
-                  displayValue: client ? client.name : "No client"
+                  displayValue: client ? client.name : "Unknown client",
+                  label: "Client",
+                  helpText: "Client linked to this mission"
                 };
               }
               if (field.name === "dossierId") {
-                const doss = [].find(d => d.id === dossierId);
+                const doss = dossiers.find(d => d.id === dossierId);
                 return {
                   ...field,
                   type: "readonly",
                   defaultValue: dossierId || "",
-                  displayValue: doss ? `${doss.caseNumber} - ${doss.title}` : "No dossier"
+                  displayValue: doss ? `${doss.caseNumber} - ${doss.title}` : "Unknown dossier",
+                  label: "Dossier (optional)",
+                  helpText: "Dossier linked to this mission"
                 };
               }
               if (field.name === "caseId") {
-                const caseItem = [].find(c => c.id === caseId);
+                const caseItem = cases.find(c => c.id === caseId);
                 return {
                   ...field,
                   type: "readonly",

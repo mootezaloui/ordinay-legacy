@@ -196,13 +196,13 @@ export function getReferenceFormat(entityType) {
 export function getDuplicateReferenceError(entityType, reference) {
   const entityNames = {
     dossier: "dossier",
-    case: "procès",
+    case: "lawsuit",
     mission: "mission",
   };
 
-  const entityName = entityNames[entityType] || "entité";
+  const entityName = entityNames[entityType] || "entity";
 
-  return `Cette référence "${reference}" est déjà utilisée pour un autre ${entityName}. Veuillez en choisir une autre.`;
+  return `This reference "${reference}" is already used for another ${entityName}. Please choose a different one.`;
 }
 
 /**

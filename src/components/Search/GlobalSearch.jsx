@@ -250,7 +250,7 @@ export default function GlobalSearch() {
                   onItemClick={(item) => handleResultClick("session", item.id)}
                   renderItem={(item) => ({
                     title: item.title,
-                    subtitle: `${item.date} à ${item.time}`,
+                    subtitle: `${item.date} at ${item.time}`,
                     extra: item.location,
                     status: item.status,
                   })}

@@ -20,6 +20,7 @@ import ClientNotificationPrompt from "../ui/ClientNotificationPrompt";
 import { shouldPromptClientNotification, sendClientNotification, getPendingNotification, clearPendingNotification, setPendingNotification } from "../../services/clientCommunication";
 import BlockerModal from "../ui/BlockerModal";
 import { canPerformAction } from "../../services/domainRules";
+import { useSettings } from "../../contexts/SettingsContext";
 
 /**
  * Generic DetailView component with modern inline editing UX
@@ -31,6 +32,7 @@ export default function DetailView({ entityType }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { formatDate } = useSettings();
   const { showToast } = useToast();
   const { confirm } = useConfirm();
   const contextData = useData(); // Get all data from context
@@ -45,6 +47,19 @@ export default function DetailView({ entityType }) {
     eventType: null,
     eventData: null,
   });
+
+  const formatSessionSubtitle = (item) => {
+    const parts = [formatDate(item.date)];
+    if (item.time) parts.push(item.time);
+    if (item.location) parts.push(item.location);
+    return parts.join(" • ");
+  };
+
+  const formatTaskSubtitle = (item) => {
+    const duePart = formatDate(item.dueDate);
+    const assignedPart = item.assignedTo ? ` • Assigned to: ${item.assignedTo}` : "";
+    return `Due: ${duePart}${assignedPart}`;
+  };
 
   // Get configuration for this entity type
   const config = getEntityConfig(entityType);
@@ -595,7 +610,7 @@ export default function DetailView({ entityType }) {
             route: "/cases",
             emptyMessage: "No lawsuits for this client",
             getTitle: (item) => item.caseNumber,
-            getSubtitle: (item) => `${item.title} • Next hearing: ${item.nextHearing || 'Not scheduled'}`,
+            getSubtitle: (item) => `${item.title} • Next hearing: ${item.nextHearing ? formatDate(item.nextHearing) : 'Not scheduled'}`,
             getStatus: (item) => item.status,
           };
         } else if (isDossier) {
@@ -619,7 +634,7 @@ export default function DetailView({ entityType }) {
             route: "/cases",
             emptyMessage: "No lawsuits for this dossier",
             getTitle: (item) => item.caseNumber,
-            getSubtitle: (item) => `${item.title} • Next hearing: ${item.nextHearing || 'Not scheduled'}`,
+            getSubtitle: (item) => `${item.title} • Next hearing: ${item.nextHearing ? formatDate(item.nextHearing) : 'Not scheduled'}`,
             getStatus: (item) => item.status,
           };
         }
@@ -665,7 +680,7 @@ export default function DetailView({ entityType }) {
             emptyMessage:
               "No hearings scheduled for this client.\nTo add a hearing, create a dossier or a lawsuit.",
             getTitle: (item) => item.title,
-            getSubtitle: (item) => `${item.date} • ${item.time} • ${item.location}`,
+            getSubtitle: formatSessionSubtitle,
             getStatus: (item) => item.status,
           };
         } else if (isDossier) {
@@ -698,7 +713,7 @@ export default function DetailView({ entityType }) {
             route: "/sessions",
             emptyMessage: "No hearings scheduled for this dossier",
             getTitle: (item) => item.title,
-            getSubtitle: (item) => `${item.date} • ${item.time} • ${item.location}`,
+            getSubtitle: formatSessionSubtitle,
             getStatus: (item) => item.status,
           };
         } else if (config.entityType === 'case') {
@@ -718,7 +733,7 @@ export default function DetailView({ entityType }) {
             route: "/sessions",
             emptyMessage: "No hearings scheduled for this lawsuit",
             getTitle: (item) => item.title,
-            getSubtitle: (item) => `${item.date} • ${item.time} • ${item.location}`,
+            getSubtitle: formatSessionSubtitle,
             getStatus: (item) => item.status,
           };
         }
@@ -774,7 +789,7 @@ export default function DetailView({ entityType }) {
             route: "/tasks",
             emptyMessage: "No tasks for this client",
             getTitle: (item) => item.title,
-            getSubtitle: (item) => `Due: ${item.dueDate} • Assigned to: ${item.assignedTo}`,
+            getSubtitle: formatTaskSubtitle,
             getStatus: (item) => item.status,
           };
         } else if (isDossier) {
@@ -815,7 +830,7 @@ export default function DetailView({ entityType }) {
             route: "/tasks",
             emptyMessage: "No tasks for this dossier",
             getTitle: (item) => item.title,
-            getSubtitle: (item) => `Due: ${item.dueDate} • Assigned to: ${item.assignedTo}`,
+            getSubtitle: formatTaskSubtitle,
             getStatus: (item) => item.status,
           };
         } else if (config.entityType === 'case') {
@@ -849,7 +864,7 @@ export default function DetailView({ entityType }) {
             route: "/tasks",
             emptyMessage: "No tasks for this lawsuit",
             getTitle: (item) => item.title,
-            getSubtitle: (item) => `Due: ${item.dueDate} • Assigned to: ${item.assignedTo}`,
+            getSubtitle: formatTaskSubtitle,
             getStatus: (item) => item.status,
           };
         }
@@ -1057,5 +1072,3 @@ export default function DetailView({ entityType }) {
     </PageLayout>
   );
 }
-
-

@@ -316,6 +316,7 @@ export const financialEntryConfig = {
                     key: "date",
                     label: "Transaction Date",
                     value: (data) => data.date,
+                    displayValue: (data) => formatDateValue(data.date),
                     icon: "fas fa-calendar",
                     type: "date",
                     editable: true
@@ -324,6 +325,7 @@ export const financialEntryConfig = {
                     key: "dueDate",
                     label: "Due Date",
                     value: (data) => data.dueDate,
+                    displayValue: (data) => data.dueDate ? formatDateValue(data.dueDate) : "N/A",
                     icon: "fas fa-clock",
                     type: "date",
                     editable: true

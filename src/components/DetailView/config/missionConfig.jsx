@@ -37,7 +37,7 @@ export const missionConfig = {
                             (mission.dossierId && entry.dossierId === mission.dossierId) ||
                             (mission.caseId && entry.caseId === mission.caseId)
                         )
-                    ) && entry.category === 'bailiff_fees'; // Only officer fees
+                    ) && entry.category === 'frais_huissier'; // Only bailiff fees
                 });
 
                 return {
@@ -268,8 +268,9 @@ export const missionConfig = {
             label: "Bailiff Fees",
             icon: "fas fa-coins",
             getCount: (data) => {
-                // Filter financial entries to only include those belonging to this specific mission
-                return data.financialEntries?.filter(entry => entry.missionId === data.id).length || 0;
+                // Count financial entries that were enriched in fetchData
+                // These are already filtered to only include bailiff fees for this mission
+                return data.financialEntries?.length || 0;
             },
             component: "financial",
         },

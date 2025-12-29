@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import ContentSection from "../../layout/ContentSection";
 import { getStatusColor } from "./statusColors";
 import { getAllAssignees, addCustomAssignee } from "../../../utils/assigneeManager";
+import { formatDateTimeValue, formatDateValue } from "../../../utils/dateFormat";
 
 // Default assignees that are always available
 const DEFAULT_ASSIGNEES = [
@@ -162,7 +163,7 @@ export const taskConfig = {
 
   // Header display
   getTitle: (data) => data.title,
-  getSubtitle: (data) => `Created on ${data.createdDate}`,
+  getSubtitle: (data) => `Created on ${formatDateTimeValue(data.createdDate)}`,
 
   // ✅ NEW: Quick Actions Configuration
   quickActions: [
@@ -263,7 +264,7 @@ export const taskConfig = {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <InfoCard icon="fas fa-user" label="Assigned to" value={data.assignedTo} color="blue" />
-            <InfoCard icon="fas fa-calendar" label="Due Date" value={data.dueDate} color="red" />
+            <InfoCard icon="fas fa-calendar" label="Due Date" value={formatDateValue(data.dueDate)} color="red" />
             <InfoCard icon="fas fa-clock" label="Estimated Time" value={getEstimatedTimeLabel(data.estimatedTime)} color="purple" />
           </div>
         </div>
@@ -277,7 +278,7 @@ export const taskConfig = {
       icon: "fas fa-calendar-check",
       iconColor: "text-blue-600 dark:text-blue-400",
       bgColor: "bg-blue-100 dark:bg-blue-900/20",
-      value: data.dueDate,
+      value: formatDateValue(data.dueDate),
       label: "Due Date"
     },
     {

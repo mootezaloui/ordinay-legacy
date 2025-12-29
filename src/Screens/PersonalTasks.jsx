@@ -20,6 +20,7 @@ import FormModal from "../components/FormModal/FormModal";
 import { resolveDetailRoute } from "../utils/routeResolver";
 import { getStatusColor } from "../components/DetailView/config/statusColors";
 import { logEntityCreation } from "../services/historyService";
+import { useSettings } from "../contexts/SettingsContext";
 
 
 // Global state to track which dropdown is currently open
@@ -442,6 +443,7 @@ export default function PersonalTasks() {
   const { showToast } = useToast();
   const { confirm } = useConfirm();
   const { personalTasks, addPersonalTask, updatePersonalTask, deletePersonalTask } = useData();
+  const { formatDate } = useSettings();
 
   const tasks = personalTasks;
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -537,7 +539,7 @@ export default function PersonalTasks() {
             isDueSoon ? "text-amber-600 dark:text-amber-400" :
               "text-slate-900 dark:text-white"
             }`}>
-            {task.dueDate}
+            {formatDate(task.dueDate)}
           </span>
         );
       },
@@ -687,7 +689,9 @@ export default function PersonalTasks() {
       table.columns
         .filter(col => col.id !== "actions")
         .map(col => {
-          const value = task[col.id] || "";
+          const value = col.id === "dueDate"
+            ? formatDate(task.dueDate)
+            : task[col.id] || "";
           return `"${value}"`;
         })
         .join(",")

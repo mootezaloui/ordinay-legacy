@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import ContentSection from "../../layout/ContentSection";
 import { getStatusColor } from "./statusColors";
 import { dossierFormFields, caseFormFields, sessionFormFields, taskFormFields } from "../../FormModal/formConfigs";
+import { formatDateValue } from "../../../utils/dateFormat";
 
 /**
  * Client Entity Configuration - UPDATED with Quick Actions
@@ -117,7 +118,7 @@ export const clientConfig = {
   },
 
   getTitle: (data) => data.name,
-  getSubtitle: (data) => `Client since ${data.joinDate}`,
+  getSubtitle: (data) => `Client since ${formatDateValue(data.joinDate)}`,
 
   // ✅ NEW: Quick Actions Configuration
   quickActions: [

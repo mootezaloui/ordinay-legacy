@@ -24,6 +24,7 @@ import ConfirmImpactModal from "../components/ui/ConfirmImpactModal";
 import { canPerformAction } from "../services/domainRules";
 import { resolveDetailRoute } from "../utils/routeResolver";
 import { logEntityCreation } from "../services/historyService";
+import { useSettings } from "../contexts/SettingsContext";
 
 export default function Sessions() {
   const navigate = useNavigate();
@@ -42,6 +43,7 @@ export default function Sessions() {
     updateSession,
     deleteSession
   } = useData();
+  const { formatDate } = useSettings();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSession, setEditingSession] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -115,7 +117,7 @@ export default function Sessions() {
       id: "date",
       label: "Date",
       sortable: true,
-      render: (session) => <span className="font-medium">{session.date}</span>,
+      render: (session) => <span className="font-medium">{formatDate(session.date)}</span>,
     },
     {
       id: "time",
@@ -369,7 +371,9 @@ export default function Sessions() {
       table.columns
         .filter(col => col.id !== "actions")
         .map(col => {
-          const value = session[col.id] || "";
+          const value = col.id === "date"
+            ? formatDate(session.date)
+            : session[col.id] || "";
           return `"${value}"`;
         })
         .join(",")

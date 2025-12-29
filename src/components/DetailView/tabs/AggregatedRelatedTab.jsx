@@ -7,6 +7,7 @@ import { getStatusColor } from "../config/statusColors";
 import ContentSection from "../../layout/ContentSection";
 import FormModal from "../../FormModal/FormModal";
 import { logEntityCreation, logHistoryEvent, EVENT_TYPES } from "../../../services/historyService";
+import { useSettings } from "../../../contexts/SettingsContext";
 
 /**
  * AggregatedRelatedTab - Generic tab for displaying aggregated related entities
@@ -37,15 +38,18 @@ export default function AggregatedRelatedTab({
   const navigate = useNavigate();
   const { showToast } = useToast();
   const { confirm } = useConfirm();
+  const { formatDate } = useSettings();
   const {
     addDossier,
     addCase,
     addSession,
     addTask,
+    addMission,
     deleteDossier,
     deleteCase,
     deleteSession,
     deleteTask,
+    deleteMission,
   } = useData();
   const [localItems, setLocalItems] = useState(items);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -175,15 +179,17 @@ export default function AggregatedRelatedTab({
       case "sessions": {
         const title = item.title || item.sessionType || item.description || "";
         const date = item.sessionDate || item.date || item.scheduledAt || "";
-        if (title && date) return `${title} (${date})`;
-        return title || date || tabConfig?.entityName || "Element";
+        const formattedDate = formatDate(date);
+        if (title && formattedDate) return `${title} (${formattedDate})`;
+        return title || formattedDate || tabConfig?.entityName || "Element";
       }
 
       case "tasks": {
         const title = item.title || item.description || "";
         const dueDate = item.dueDate || "";
-        if (title && dueDate) return `${title} (Due: ${dueDate})`;
-        return title || tabConfig?.entityName || "Element";
+        const formattedDate = formatDate(dueDate);
+        if (title && formattedDate) return `${title} (Due: ${formattedDate})`;
+        return title || formattedDate || tabConfig?.entityName || "Element";
       }
 
       case "missions": {
@@ -330,6 +336,18 @@ export default function AggregatedRelatedTab({
             newItem = { ...created };
           }
           break;
+        case "missions":
+          {
+            const creation = await addMission({ ...normalizedFormData, ...relationshipFields });
+            if (!creation.ok) {
+              console.error("Mission creation failed:", creation.result);
+              showToast("Error creating a mission", "error");
+              return;
+            }
+            const created = creation.created || creation;
+            newItem = { ...created };
+          }
+          break;
         default:
           break;
       }
@@ -411,6 +429,9 @@ export default function AggregatedRelatedTab({
         case "tasks":
           deleteTask(itemId);
           break;
+        case "missions":
+          deleteMission(itemId);
+          break;
         default:
           break;
       }
@@ -430,10 +451,40 @@ export default function AggregatedRelatedTab({
     ? tabConfig.getFormFields(data, contextData)
     : tabConfig?.formFields || [];
 
-  const hasFormFields = formFields && formFields.length > 0;
+  // Adjust task form when adding from a Lawsuit detail: lock linkage to the current case
+  const finalFormFields = formFields.map((field) => {
+    if (tabConfig?.aggregationType === "tasks" && config?.entityType === "case") {
+      if (field.name === "parentType") {
+        return {
+          ...field,
+          defaultValue: "case",
+          disabled: true,
+          helpText: "This task will be linked to this lawsuit",
+        };
+      }
+      if (field.name === "caseId") {
+        return {
+          ...field,
+          required: true,
+          disabled: true,
+          hideIf: () => false, // always show the locked lawsuit context
+          helpText: "This task will be linked to this lawsuit",
+        };
+      }
+      if (field.name === "dossierId") {
+        return {
+          ...field,
+          hideIf: () => true, // hide dossier selection to avoid re-routing tasks
+        };
+      }
+    }
+    return field;
+  });
+
+  const hasFormFields = finalFormFields && finalFormFields.length > 0;
 
   // Check if required parent entities exist (e.g., dossierId or caseId)
-  const canAdd = hasFormFields && formFields.every(field => {
+  const canAdd = hasFormFields && finalFormFields.every(field => {
     if (field.required && field.type === 'searchable-select') {
       // Check if field has static options or a getOptions function
       return (field.options && field.options.length > 0) || field.getOptions;
@@ -441,8 +492,8 @@ export default function AggregatedRelatedTab({
     return true;
   }) && (tabConfig.aggregationType !== 'tasks' || (() => {
     // Special logic for tasks: check if there are options for either dossierId or caseId
-    const dossierField = formFields.find(f => f.name === 'dossierId');
-    const caseField = formFields.find(f => f.name === 'caseId');
+    const dossierField = finalFormFields.find(f => f.name === 'dossierId');
+    const caseField = finalFormFields.find(f => f.name === 'caseId');
     // Check for static options or getOptions function
     const hasDossierOptions = (dossierField?.options && dossierField.options.length > 0) || dossierField?.getOptions;
     const hasCaseOptions = (caseField?.options && caseField.options.length > 0) || caseField?.getOptions;
@@ -490,7 +541,7 @@ export default function AggregatedRelatedTab({
             initialData={prefillContext}
             title={`Add ${tabConfig.entityName || 'element'}`}
             subtitle={tabConfig.addSubtitle || `Create a new ${tabConfig.entityName?.toLowerCase() || 'element'}`}
-            fields={formFields}
+            fields={finalFormFields}
             isLoading={isLoading}
             entityType={referenceEntityType}
             entities={contextData}
@@ -535,6 +586,7 @@ export default function AggregatedRelatedTab({
                 allowDelete={allowDelete}
                 onDelete={handleDeleteItem}
                 currentLocation={location}
+                formatDate={formatDate}
               />
             );
           })}
@@ -569,7 +621,7 @@ export default function AggregatedRelatedTab({
           initialData={prefillContext}
           title={`Ajouter ${tabConfig.entityName || 'un élément'}`}
           subtitle={tabConfig.addSubtitle || `Créer un nouveau ${tabConfig.entityName?.toLowerCase() || 'élément'}`}
-          fields={formFields}
+          fields={finalFormFields}
           isLoading={isLoading}
           entityType={referenceEntityType}
         />
@@ -581,7 +633,11 @@ export default function AggregatedRelatedTab({
 /**
  * ItemRow - Single item with parent context breadcrumb
  */
-function ItemRow({ item, parentContext, entityConfig, allowDelete, onDelete, currentLocation }) {
+function ItemRow({ item, parentContext, entityConfig, allowDelete, onDelete, currentLocation, formatDate }) {
+  const subtitle = entityConfig.getSubtitle
+    ? entityConfig.getSubtitle(item, formatDate)
+    : null;
+
   return (
     <div className="group">
       <Link
@@ -615,7 +671,7 @@ function ItemRow({ item, parentContext, entityConfig, allowDelete, onDelete, cur
             {/* Subtitle */}
             {entityConfig.getSubtitle && (
               <p className="text-sm text-slate-600 dark:text-slate-400 mb-2">
-                {entityConfig.getSubtitle(item)}
+                {subtitle}
               </p>
             )}
 
@@ -663,4 +719,3 @@ function ItemRow({ item, parentContext, entityConfig, allowDelete, onDelete, cur
     </div>
   );
 }
-

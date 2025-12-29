@@ -69,17 +69,17 @@ export function enrichBlockers(
  */
 function parseBlocker(blocker, entityType, entityId, action, data) {
   // Pattern 1: Incomplete tasks
-  if (blocker.includes("tâche") && blocker.includes("non terminée")) {
+  if (blocker.includes("task") && blocker.includes("not completed")) {
     return parseTaskBlocker(blocker, entityType, entityId, data);
   }
   if (blocker.includes("open Task")) {
     return parseTaskBlockerEnglish(blocker, entityType, entityId, data);
   }
 
-  // Pattern 2: Open cases (procès)
+  // Pattern 2: Open lawsuits
   if (
-    blocker.includes("procès non clos") ||
-    (blocker.includes("procès") && blocker.includes("qui est clos"))
+    blocker.includes("lawsuit not closed") ||
+    (blocker.includes("lawsuit") && blocker.includes("which is closed"))
   ) {
     return parseCaseBlocker(blocker, entityType, entityId, data);
   }
@@ -92,10 +92,10 @@ function parseBlocker(blocker, entityType, entityId, action, data) {
     return parseDossierBlockerEnglish(blocker, entityType, entityId, data);
   }
 
-  // Pattern 3: Upcoming/incomplete sessions
+  // Pattern 3: Upcoming/incomplete hearings
   if (
-    blocker.includes("séance") &&
-    (blocker.includes("à venir") || blocker.includes("non terminée"))
+    blocker.includes("hearing") &&
+    (blocker.includes("upcoming") || blocker.includes("not completed"))
   ) {
     return parseSessionBlocker(blocker, entityType, entityId, data);
   }
@@ -104,12 +104,12 @@ function parseBlocker(blocker, entityType, entityId, action, data) {
   }
 
   // Pattern 4: Active missions
-  if (blocker.includes("mission") && blocker.includes("en cours")) {
+  if (blocker.includes("mission") && blocker.includes("in progress")) {
     return parseMissionBlocker(blocker, entityType, entityId, data);
   }
 
   // Pattern 5: Unpaid financial balance
-  if (blocker.includes("Solde") && blocker.includes("impayé")) {
+  if (blocker.includes("Balance") && blocker.includes("unpaid")) {
     return parseFinancialBlocker(blocker, entityType, entityId, data);
   }
   const normalizedBlocker = blocker.toLowerCase();
@@ -130,22 +130,22 @@ function parseBlocker(blocker, entityType, entityId, action, data) {
 
   // Pattern 6: Parent is closed (edit restrictions)
   if (
-    blocker.includes("appartient") &&
-    (blocker.includes("fermé") || blocker.includes("clos"))
+    blocker.includes("belongs to") &&
+    (blocker.includes("closed"))
   ) {
     return parseClosedParentBlocker(blocker, entityType, entityId, data);
   }
 
   // Pattern 7: Cannot create under closed parent
   if (
-    blocker.includes("Impossible de créer") &&
-    (blocker.includes("fermé") || blocker.includes("clos"))
+    blocker.includes("Cannot create") &&
+    (blocker.includes("closed"))
   ) {
     return parseCreateUnderClosedParentBlocker(blocker, entityType, entityId);
   }
 
   // Pattern 8: Paid financial entry
-  if (blocker.includes("écriture") && blocker.includes("payée")) {
+  if (blocker.includes("entry") && blocker.includes("paid")) {
     return parsePaidFinancialEntryBlocker(blocker, entityType, entityId);
   }
 
@@ -153,12 +153,12 @@ function parseBlocker(blocker, entityType, entityId, action, data) {
   if (
     blocker.includes("date") ||
     blocker.includes("Date") ||
-    blocker.includes("échéance") ||
-    blocker.includes("audience") ||
-    blocker.includes("futur") ||
-    blocker.includes("passé") ||
-    blocker.includes("antérieure") ||
-    blocker.includes("postérieure")
+    blocker.includes("deadline") ||
+    blocker.includes("hearing") ||
+    blocker.includes("future") ||
+    blocker.includes("past") ||
+    blocker.includes("before") ||
+    blocker.includes("after")
   ) {
     return parseTemporalBlocker(blocker, entityType, entityId);
   }
@@ -247,7 +247,7 @@ function parseCaseBlocker(blocker, entityType, entityId, data) {
     }
   }
 
-  if (blocker.includes("appartient au procès")) {
+  if (blocker.includes("belongs to the lawsuit")) {
     return parseClosedParentBlocker(blocker, entityType, entityId, data);
   }
 
@@ -358,8 +358,8 @@ function parseMissionBlocker(blocker, entityType, entityId, data) {
         (mission) =>
           mission.entityType === "dossier" &&
           mission.entityId === dossier.id &&
-          mission.status !== "Terminée" &&
-          mission.status !== "Annulée"
+          mission.status !== "Completed" &&
+          mission.status !== "Cancelled"
       );
     }
   } else if (entityType === "case") {
@@ -369,8 +369,8 @@ function parseMissionBlocker(blocker, entityType, entityId, data) {
         (mission) =>
           mission.entityType === "case" &&
           mission.entityId === caseData.id &&
-          mission.status !== "Terminée" &&
-          mission.status !== "Annulée"
+          mission.status !== "Completed" &&
+          mission.status !== "Cancelled"
       );
     }
   }
@@ -430,7 +430,7 @@ function parseFinancialBlocker(blocker, entityType, entityId, data) {
         (entry) =>
           entry.clientId == dossier.clientId &&
           entry.status !== "paid" &&
-          entry.status !== "Payée" &&
+          entry.status !== "Paid" &&
           entry.status !== "void"
       );
     }
@@ -562,7 +562,7 @@ function parseClosedParentBlocker(blocker, entityType, entityId, data) {
       icon: "fas fa-external-link-alt",
     });
 
-    if (parentInfo.status === "Fermé" || parentInfo.status === "Clos") {
+    if (parentInfo.status === "Closed") {
       actions.push({
         label: `Reopen ${
           parentInfo.entityType === "dossier" ? "Dossier" : "Lawsuit"
@@ -647,7 +647,7 @@ function parseDossierBlockerEnglish(blocker, entityType, entityId, data) {
 
   if (entityType === "client") {
     dossiers = data.dossiers.filter(
-      (d) => d.clientId == entityId && d.status !== "Fermé" && d.status !== "Clos"
+      (d) => d.clientId == entityId && d.status !== "Closed"
     );
   }
 
@@ -687,7 +687,7 @@ function parseCaseBlockerEnglish(blocker, entityType, entityId, data) {
     const clientDossiers = data.dossiers.filter((d) => d.clientId == entityId);
     cases = data.cases.filter((c) =>
       clientDossiers.some((d) => d.id === c.dossierId) &&
-      c.status !== "Fermé" && c.status !== "Clos"
+      c.status !== "Closed"
     );
   } else if (entityType === "dossier") {
     const dossier = data.dossiers.find((d) => d.id == entityId);
@@ -959,7 +959,7 @@ function parseFinancialBlockerEnglish(blocker, entityType, entityId, data) {
         (entry) =>
           entry.clientId == dossier.clientId &&
           entry.status !== "paid" &&
-          entry.status !== "Payée" &&
+          entry.status !== "Paid" &&
           entry.status !== "void"
       );
       console.log('[parseFinancialBlockerEnglish] Filtered unpaid entries:', entries);

@@ -111,7 +111,7 @@ export default function Dashboard() {
         id: `session-${session.id}`,
         type: "session",
         title: `Scheduled Hearings: ${session.title}`,
-        description: `${session.date} at ${session.time}`,
+        description: `${formatDisplayDate(session.date)} at ${session.time}`,
         timestamp: new Date().toISOString(),
         user: "Me. Cherif",
         onClick: () => navigate(`/sessions/${session.id}`),
@@ -464,7 +464,7 @@ export default function Dashboard() {
                                   <span className="truncate">{item.label}</span>
                                 </div>
                                 <div className="text-xs text-slate-500 dark:text-slate-400">
-                                  {formatDate(item.date)} â”¬â•– {meta.label}
+                                  {formatDate(item.date)} • {meta.label}
                                 </div>
                               </button>
                             );

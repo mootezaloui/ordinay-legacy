@@ -11,7 +11,7 @@ import { useSettings } from "../../contexts/SettingsContext";
 export default function NotificationDropdown({ isOpen, onToggle, onClose }) {
   const navigate = useNavigate();
   const { confirm } = useConfirm();
-  const { formatDate } = useSettings();
+  const { formatDate, formatDateTime } = useSettings();
   const {
     notifications,
     unreadCount,
@@ -81,7 +81,7 @@ export default function NotificationDropdown({ isOpen, onToggle, onClose }) {
     if (diffMins < 60) return `${diffMins} min ago`;
     if (diffHours < 24) return `${diffHours}h ago`;
     if (diffDays < 7) return `${diffDays}d ago`;
-    return formatDate(date);
+    return formatDateTime(date);
   };
 
   const getPriorityColor = (priority) => {

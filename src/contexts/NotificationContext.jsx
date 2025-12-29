@@ -442,11 +442,21 @@ export function NotificationProvider({ children }) {
     }
   }, []);
 
-  // Clear all notifications
-  const clearAll = useCallback(() => {
-    setNotifications([]);
-    localStorage.removeItem("organia_notifications");
-  }, []);
+  // Clear all notifications (backend + local)
+  const clearAll = useCallback(async () => {
+    try {
+      // Best-effort delete each notification on the backend
+      const ids = notifications.map((n) => n.id).filter(Boolean);
+      if (ids.length > 0) {
+        await Promise.allSettled(ids.map((id) => notificationService.deleteNotification(id)));
+      }
+    } catch (error) {
+      console.error("Failed to clear notifications on backend:", error);
+    } finally {
+      setNotifications([]);
+      localStorage.removeItem("organia_notifications");
+    }
+  }, [notifications]);
 
   // Get unread count
   const unreadCount = notifications.filter(n => !n.read).length;

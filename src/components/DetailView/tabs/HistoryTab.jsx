@@ -12,6 +12,7 @@ import {
     Archive,
     RotateCcw,
 } from "lucide-react";
+import { useSettings } from "../../../contexts/SettingsContext";
 
 /**
  * History Tab - Read-only audit trail
@@ -27,6 +28,7 @@ import {
 export default function HistoryTab({ entityType, entityId }) {
     const [history, setHistory] = useState([]);
     const [loading, setLoading] = useState(true);
+    const { formatDateTime } = useSettings();
 
     // Fetch history from backend
     useEffect(() => {
@@ -81,6 +83,7 @@ export default function HistoryTab({ entityType, entityId }) {
                                 event={event}
                                 isFirst={index === 0}
                                 isLast={index === history.length - 1}
+                                formatDateTime={formatDateTime}
                             />
                         ))}
                     </div>
@@ -93,7 +96,7 @@ export default function HistoryTab({ entityType, entityId }) {
 /**
  * Single history event component
  */
-function HistoryEvent({ event, isFirst, isLast }) {
+function HistoryEvent({ event, isFirst, isLast, formatDateTime }) {
     const { icon, iconColor, bgColor } = getEventIcon(event.eventType, event.metadata);
 
     return (
@@ -112,7 +115,7 @@ function HistoryEvent({ event, isFirst, isLast }) {
                             {event.label}
                         </h4>
                         <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                            {formatTimestamp(event.timestamp)}
+                            {formatTimestamp(event.timestamp, formatDateTime)}
                         </p>
                     </div>
 
@@ -318,7 +321,7 @@ function formatMetadataValue(value) {
 /**
  * Format timestamp for display
  */
-function formatTimestamp(timestamp) {
+function formatTimestamp(timestamp, formatDateTimeFn) {
     // Parse timestamp as UTC (SQLite CURRENT_TIMESTAMP stores UTC)
     // SQLite format: "YYYY-MM-DD HH:MM:SS"
     let date;
@@ -350,6 +353,10 @@ function formatTimestamp(timestamp) {
     }
 
     // Absolute time for older events
+    if (formatDateTimeFn) {
+        return formatDateTimeFn(date);
+    }
+
     return new Intl.DateTimeFormat('en-US', {
         year: 'numeric',
         month: 'long',

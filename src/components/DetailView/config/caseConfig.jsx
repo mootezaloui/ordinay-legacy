@@ -87,7 +87,7 @@ export const caseConfig = {
 
     // Filter out relationship fields - case entity should only contain case-specific data
     const caseFields = [
-      'caseNumber', 'title', 'dossierId', 'court', 'courtRoom', 'judge',
+      'caseNumber', 'title', 'dossierId', 'court',
       'filingDate', 'nextHearing', 'referenceNumber', 'adversaryParty',
       'adversaryLawyer', 'status', 'description'
     ];
@@ -200,7 +200,7 @@ export const caseConfig = {
               // Format subtitle with time and location if available
               let subtitle = hearing.label;
               if (hearing.time) {
-                subtitle += ` à ${hearing.time}`;
+                subtitle += ` at ${hearing.time}`;
               }
               if (hearing.location) {
                 subtitle += ` - ${hearing.location}`;
@@ -217,7 +217,6 @@ export const caseConfig = {
                 />
               );
             })()}
-            <InfoCard icon="fas fa-balance-scale" label="Judge" value={data.judge} color="blue" />
             <InfoCard icon="fas fa-user-tie" label="Adversary Lawyer" value={data.adversaryLawyer} color="amber" />
           </div>
         </div>
@@ -535,22 +534,6 @@ export const caseConfig = {
           ]
         },
         {
-          key: "judge",
-          label: "Judge",
-          value: (data) => data.judge,
-          icon: "fas fa-balance-scale",
-          type: "text",
-          editable: true
-        },
-        {
-          key: "courtRoom",
-          label: "Court Room",
-          value: (data) => data.courtRoom,
-          icon: "fas fa-door-open",
-          type: "text",
-          editable: true
-        },
-        {
           key: "referenceNumber",
           label: "Reference Number",
           value: (data) => data.referenceNumber,
@@ -615,7 +598,7 @@ export const caseConfig = {
             // Build full label
             let fullLabel = hearing.label;
             if (hearing.time) {
-              fullLabel += ` à ${hearing.time}`;
+              fullLabel += ` at ${hearing.time}`;
             }
             if (hearing.location) {
               fullLabel += ` - ${hearing.location}`;

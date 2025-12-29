@@ -1,5 +1,6 @@
 import ContentSection from "../../layout/ContentSection";
 import { getStatusColor } from "./statusColors";
+import { formatDateValue } from "../../../utils/dateFormat";
 
 /**
  * Session Entity Configuration - UPDATED with Quick Actions
@@ -80,7 +81,7 @@ export const sessionConfig = {
     // Filter out any potential relationship fields - session entity should only contain session-specific data
     const sessionFields = [
       'title', 'type', 'linkType', 'caseId', 'dossierId', 'date', 'time',
-      'duration', 'location', 'status', 'description'
+      'duration', 'location', 'courtRoom', 'judge', 'status', 'description'
     ];
     const sessionData = Object.keys(data).reduce((acc, key) => {
       if (sessionFields.includes(key)) {
@@ -121,7 +122,7 @@ export const sessionConfig = {
 
   // Header display
   getTitle: (data) => data.title,
-  getSubtitle: (data) => `${data.type} - ${data.date} à ${data.time}`,
+  getSubtitle: (data) => `${data.type} - ${formatDateValue(data.date)} at ${data.time}`,
 
   // ✅ NEW: Quick Actions Configuration
   quickActions: [
@@ -196,10 +197,12 @@ export const sessionConfig = {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <InfoCard icon="fas fa-calendar" label="Date" value={data.date} color="blue" />
+            <InfoCard icon="fas fa-calendar" label="Date" value={formatDateValue(data.date)} color="blue" />
             <InfoCard icon="fas fa-clock" label="Time" value={data.time} color="purple" />
             <InfoCard icon="fas fa-hourglass-half" label="Duration" value={data.duration} color="green" />
             <InfoCard icon="fas fa-map-marker-alt" label="Location" value={data.location} color="amber" />
+            <InfoCard icon="fas fa-door-open" label="Court Room" value={data.courtRoom} color="blue" />
+            <InfoCard icon="fas fa-balance-scale" label="Judge" value={data.judge} color="purple" />
           </div>
         </div>
       </ContentSection>
@@ -212,7 +215,7 @@ export const sessionConfig = {
       icon: "fas fa-calendar-alt",
       iconColor: "text-blue-600 dark:text-blue-400",
       bgColor: "bg-blue-100 dark:bg-blue-900/20",
-      value: data.date,
+      value: formatDateValue(data.date),
       label: "Date"
     },
     {
@@ -496,6 +499,24 @@ export const sessionConfig = {
           icon: "fas fa-map-marker-alt",
           type: "text",
           editable: true
+        },
+        {
+          key: "courtRoom",
+          label: "Court Room",
+          value: (data) => data.courtRoom,
+          icon: "fas fa-door-open",
+          type: "text",
+          editable: true,
+          helpText: "Specific courtroom for this hearing"
+        },
+        {
+          key: "judge",
+          label: "Judge",
+          value: (data) => data.judge,
+          icon: "fas fa-balance-scale",
+          type: "text",
+          editable: true,
+          helpText: "Judge presiding over this hearing"
         },
       ],
     },

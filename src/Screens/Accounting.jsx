@@ -37,6 +37,7 @@ import {
   logStatusChange,
   EVENT_TYPES,
 } from "../services/historyService";
+import { useSettings } from "../contexts/SettingsContext";
 
 export default function Accounting() {
   const navigate = useNavigate();
@@ -57,6 +58,7 @@ export default function Accounting() {
     updateFinancialEntry,
     deleteFinancialEntry
   } = useData();
+  const { formatDate } = useSettings();
 
   // Use financial ledger as source of truth
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -207,7 +209,7 @@ export default function Accounting() {
       locked: true,
       render: (entry) => (
         <span className="text-sm font-medium text-slate-900 dark:text-white">
-          {entry.date}
+          {formatDate(entry.date)}
         </span>
       ),
     },
@@ -336,7 +338,7 @@ export default function Accounting() {
         </TableActions>
       ),
     },
-  ], [handleStatusChange, handleEdit, handleDelete]);
+  ], [handleStatusChange, handleEdit, handleDelete, formatDate]);
 
   // Initialize advanced table
   const table = useAdvancedTable(displayEntries, columns, {
@@ -397,7 +399,7 @@ export default function Accounting() {
             entityType: "financialEntry",
             entityId: editingEntry.id,
             eventType: EVENT_TYPES.SYSTEM,
-            label: "Mise à jour",
+            label: "Financial Entry Updated",
             metadata: changedFields,
           });
         }
@@ -451,6 +453,7 @@ export default function Accounting() {
         .filter(col => col.id !== "actions")
         .map(col => {
           let value = entry[col.id] || "";
+          if (col.id === "date") value = formatDate(entry.date);
           if (col.id === "amount") value = entry.amount;
           if (col.id === "type") value = entry.type === "revenue" ? "Revenue" : "Expense";
           return `"${value}"`;
@@ -473,6 +476,7 @@ export default function Accounting() {
     clients,
     dossiers,
     cases,
+    missions,
   });
 
   return (
@@ -557,7 +561,7 @@ export default function Accounting() {
 
       {/* Priority Items Section */}
       {priorityItems.length > 0 && (
-        <ContentSection title={`À Traiter en Priorité (${priorityItems.length})`}>
+        <ContentSection title={`Priority Items (${priorityItems.length})`}>
           <div className="p-6">
             <div className="space-y-3">
               {priorityItems.slice(0, 5).map((entry) => {
@@ -582,7 +586,7 @@ export default function Accounting() {
                             {entry.description}
                           </div>
                           <div className="text-sm text-slate-600 dark:text-slate-400">
-                            {entry.entityReference} • {entry.date}
+                            {entry.entityReference} - {formatDate(entry.date)}
                           </div>
                         </div>
                       </div>

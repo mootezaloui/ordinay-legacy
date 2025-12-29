@@ -195,14 +195,14 @@ export const TaskRules = {
         priority: "urgent",
         frequency: daysOverdue <= 3 ? "daily" : "once",
         subType: "overdue",
-        title: `Tâche en Retard - ${daysOverdue} jour${
+        title: `Task Overdue - ${daysOverdue} day${
           daysOverdue > 1 ? "s" : ""
         }`,
-        message: `La tâche "${
+        message: `Task "${
           task.title
-        }" est en retard de ${daysOverdue} jour${
+        }" is overdue by ${daysOverdue} day${
           daysOverdue > 1 ? "s" : ""
-        }. Action requise.`,
+        }. Action required.`,
         metadata: {
           taskId: task.id,
           taskTitle: task.title,
@@ -265,10 +265,10 @@ export const TaskRules = {
         priority: notificationPriority,
         frequency: "once",
         subType: "upcomingDeadline",
-        title: `Échéance dans ${daysLeft} jour${daysLeft > 1 ? "s" : ""}`,
-        message: `La tâche "${
+        title: `Deadline in ${daysLeft} day${daysLeft > 1 ? "s" : ""}`,
+        message: `The task "${
           task.title
-        }" doit être terminée dans ${daysLeft} jour${daysLeft > 1 ? "s" : ""}.`,
+        }" is due in ${daysLeft} day${daysLeft > 1 ? "s" : ""}.`,
         metadata: {
           taskId: task.id,
           taskTitle: task.title,
@@ -334,12 +334,12 @@ export const PersonalTaskRules = {
         priority: notificationPriority,
         frequency: "once",
         subType: "upcomingDeadline",
-        title: `Tâche Personnelle - Échéance dans ${daysLeft} jour${
+        title: `Personal task deadline in ${daysLeft} day${
           daysLeft > 1 ? "s" : ""
         }`,
-        message: `La tâche personnelle "${
+        message: `The personal Task "${
           personalTask.title
-        }" doit être terminée dans ${daysLeft} jour${daysLeft > 1 ? "s" : ""}.`,
+        }" is due in ${daysLeft} day${daysLeft > 1 ? "s" : ""}.`,
         metadata: {
           taskId: personalTask.id,
           taskTitle: personalTask.title,
@@ -389,12 +389,12 @@ export const PersonalTaskRules = {
         priority: priorityWeight >= 3 ? "high" : "medium",
         frequency,
         subType: "completionReminder",
-        title: "Tâche Personnelle - Mise à Jour Requise",
-        message: `La tâche personnelle "${
+        title: "Personal Task - Completion Reminder",
+        message: `The personal task "${
           personalTask.title
-        }" avait une échéance il y a ${daysPastDeadline} jour${
+        }" had a deadline ${daysPastDeadline} day${
           daysPastDeadline > 1 ? "s" : ""
-        }. La tâche a-t-elle été accomplie ?`,
+        } ago. Has the task been completed?`,
         metadata: {
           taskId: personalTask.id,
           taskTitle: personalTask.title,
@@ -510,13 +510,11 @@ export const SessionRules = {
         priority: notificationPriority,
         frequency: "once",
         subType: "upcomingHearing",
-        title: `Audience dans ${daysLeft} jour${daysLeft > 1 ? "s" : ""}`,
-        message: `Audience prévue pour le procès "${caseNumber}" dans ${daysLeft} jour${
-          daysLeft > 1 ? "s" : ""
-        }. ${
+        title: `Hearing in ${daysLeft} Day${daysLeft > 1 ? "s" : ""}`,
+        message: `Hearing scheduled for case "${caseNumber}" in ${daysLeft} day${daysLeft > 1 ? "s" : ""}. ${
           session.location
-            ? `Lieu: ${session.location}`
-            : "Vérifier les documents et préparation."
+            ? `Location: ${session.location}`
+            : "Check documents and preparation."
         }`,
         metadata: {
           sessionId: session.id,
@@ -580,9 +578,9 @@ export const SessionRules = {
         priority: "urgent",
         frequency: "once",
         subType: "hearingToday",
-        title: "🔴 Audience Aujourd'hui",
-        message: `Audience aujourd'hui pour le procès "${caseNumber}" à ${time}. ${
-          session.location ? `Lieu: ${session.location}` : ""
+        title: "🔴 Hearing Today",
+        message: `Hearing today for case "${caseNumber}" at ${time}. ${
+          session.location ? `Location: ${session.location}` : ""
         }`,
         metadata: {
           sessionId: session.id,
@@ -676,10 +674,8 @@ export const SessionRules = {
         priority: priorityWeight >= 3 ? "high" : "medium",
         frequency: daysSinceHearing <= 7 ? "once" : "weekly",
         subType: "hearingOutcome",
-        title: "Résultat d'Audience - Documentation Requise",
-        message: `L'audience pour le procès "${caseNumber}" a eu lieu il y a ${daysSinceHearing} jour${
-          daysSinceHearing > 1 ? "s" : ""
-        }. Quel est le résultat de l'audience ?`,
+        title: "Hearing Outcome - Documentation Required",
+        message: `The hearing for case "${caseNumber}" took place ${daysSinceHearing} day${daysSinceHearing > 1 ? "s" : ""} ago. What was the outcome of the hearing?`,
         metadata: {
           sessionId: session.id,
           caseNumber,
@@ -754,7 +750,7 @@ export const CaseRules = {
 
     // Inherit priority from parent dossier (cases don't have their own priority)
     const parentDossier = dossiers.find((d) => d.id === caseItem.dossier_id);
-    const priority = parentDossier?.priority || "Moyenne";
+    const priority = parentDossier?.priority || "Medium";
     const priorityWeight = getPriorityWeight(priority);
 
     let reminderIntervalDays;
@@ -762,13 +758,13 @@ export const CaseRules = {
 
     if (priorityWeight >= 3) {
       reminderIntervalDays = 3; // Every 3 days for high priority
-      priorityLabel = "Haute";
+      priorityLabel = "High";
     } else if (priorityWeight === 2) {
       reminderIntervalDays = 5; // Every 5 days for medium priority
-      priorityLabel = "Moyenne";
+      priorityLabel = "Medium";
     } else {
       reminderIntervalDays = 10; // Every 10 days for low priority
-      priorityLabel = "Basse";
+      priorityLabel = "Low";
     }
 
     // Check if enough time has passed since case opened (use modulo to trigger periodically)
@@ -781,8 +777,8 @@ export const CaseRules = {
       return new RuleResult(true, {
         priority: priorityWeight >= 3 ? "high" : "medium",
         subType: "missingHearing",
-        title: "Audience Manquante - Procès sans Audience",
-        message: `Le procès "${caseTitle}" (Priorité: ${priorityLabel}) n'a aucune audience programmée. Une audience a-t-elle été créée ?`,
+        title: "Missing Hearing - Case without Hearing",
+        message: `The Lawsuit "${caseTitle}" (Priority: ${priorityLabel}) has no scheduled hearings. Has a hearing been created?`,
         metadata: {
           caseNumber: caseItem.case_number || caseItem.reference,
           caseTitle,
@@ -873,18 +869,18 @@ export const CaseRules = {
       // Build activity summary
       let activitySummary = "";
       if (completedHearings.length > 0) {
-        activitySummary += `${completedHearings.length} audience(s) terminée(s)`;
+        activitySummary += `${completedHearings.length} hearing(s) completed`;
       }
       if (completedTasks.length > 0) {
-        if (activitySummary) activitySummary += " et ";
-        activitySummary += `${completedTasks.length} tâche(s) accomplie(s)`;
+        if (activitySummary) activitySummary += " and ";
+        activitySummary += `${completedTasks.length} task(s) completed`;
       }
 
       return new RuleResult(true, {
         priority: priorityWeight >= 3 ? "high" : "medium",
         subType: "statusUpdate",
-        title: "Mise à Jour de Statut - Procès",
-        message: `Le procès "${caseTitle}" a ${activitySummary}. Le statut du procès doit-il être mis à jour ? Y a-t-il eu un verdict ?`,
+        title: "Status Update - Lawsuit",
+        message: `The case "${caseTitle}" has ${activitySummary}. Should the case status be updated? Was there a verdict?`,
         metadata: {
           caseNumber: caseItem.case_number || caseItem.reference,
           caseTitle,
@@ -962,12 +958,8 @@ export const MissionRules = {
         priority: notificationPriority,
         frequency: "once",
         subType: "upcomingDeadline",
-        title: `Mission - Échéance dans ${daysLeft} jour${
-          daysLeft > 1 ? "s" : ""
-        }`,
-        message: `La mission "${missionDescription}" (priorité ${priorityLabel}) a une échéance dans ${daysLeft} jour${
-          daysLeft > 1 ? "s" : ""
-        } (${new Date(dueDate).toLocaleDateString("fr-FR")}).`,
+        title: `Mission - Deadline in ${daysLeft} day${daysLeft > 1 ? "s" : ""}`,
+        message: `The mission "${missionDescription}" (priority ${priorityLabel}) has a deadline in ${daysLeft} day${daysLeft > 1 ? "s" : ""} (${new Date(dueDate).toLocaleDateString("en-US")}).`,
         metadata: {
           missionId: mission.id,
           dueDate,
@@ -1018,10 +1010,8 @@ export const MissionRules = {
         priority: priorityWeight >= 3 ? "high" : "medium",
         frequency,
         subType: "completionReminder",
-        title: "Mission - Mise à Jour Requise",
-        message: `La mission "${missionDescription}" avait une échéance il y a ${daysPastDeadline} jour${
-          daysPastDeadline > 1 ? "s" : ""
-        }. La mission a-t-elle été accomplie par l'huissier ?`,
+        title: "Mission - Update Required",
+        message: `The mission "${missionDescription}" had a deadline ${daysPastDeadline} day${daysPastDeadline > 1 ? "s" : ""} ago. Has the mission been completed by the bailiff?`,
         metadata: {
           missionId: mission.id,
           dueDate,
@@ -1144,10 +1134,8 @@ export const FinancialRules = {
         priority: notificationPriority,
         frequency: "once",
         subType: "upcomingPayment",
-        title: `Paiement Attendu - ${daysLeft} jour${daysLeft > 1 ? "s" : ""}`,
-        message: `Paiement de ${amount} ${currency} attendu de "${clientName}"${contextInfo} dans ${daysLeft} jour${
-          daysLeft > 1 ? "s" : ""
-        }. ${financialEntry.description || ""}`,
+        title: `Expected Payment - ${daysLeft} day${daysLeft > 1 ? "s" : ""}`,
+        message: `Payment of ${amount} ${currency} expected from "${clientName}"${contextInfo} in ${daysLeft} day${daysLeft > 1 ? "s" : ""}. ${financialEntry.description || ""}`,
         metadata: {
           financialEntryId: financialEntry.id,
           clientName,
@@ -1261,12 +1249,8 @@ export const FinancialRules = {
           priority: notificationPriority,
           frequency: "once",
           subType: "overduePayment",
-          title: `Paiement en Retard - ${daysOverdue} jour${
-            daysOverdue > 1 ? "s" : ""
-          }`,
-          message: `Le paiement de ${amount} ${currency} de "${clientName}"${contextInfo} est en retard de ${daysOverdue} jour${
-            daysOverdue > 1 ? "s" : ""
-          }. Relance recommandée.`,
+          title: `Overdue Payment - ${daysOverdue} day${daysOverdue > 1 ? "s" : ""}`,
+          message: `The payment of ${amount} ${currency} from "${clientName}"${contextInfo} is overdue by ${daysOverdue} day${daysOverdue > 1 ? "s" : ""}. Reminder recommended.`,
           metadata: {
             financialEntryId: financialEntry.id,
             clientName,
@@ -1318,10 +1302,10 @@ export const DossierRules = {
         priority: "medium",
         frequency: "once",
         subType: "inactivityReminder",
-        title: "Dossier inActive - 7+ Jours",
-        message: `Le dossier "${
+        title: "Dossier Inactive - 7+ Days",
+        message: `The dossier "${
           dossier.case_number || dossier.caseNumber || dossier.reference
-        }" n'a pas été mis à jour depuis ${daysSinceLastUpdate} jours. Une révision est recommandée.`,
+        }" has not been updated for ${daysSinceLastUpdate} days. A review is recommended.`,
         metadata: {
           dossierId: dossier.id,
           dossierNumber:
@@ -1377,10 +1361,10 @@ export const DossierRules = {
         priority: priorityWeight >= 3 ? "high" : "medium",
         frequency: "once",
         subType: "reviewReminder",
-        title: `Révision Dossier - Priorité ${priorityLabel}`,
-        message: `Le dossier "${
+        title: `Dossier Review - Priority ${priorityLabel}`,
+        message: `The dossier "${
           dossier.case_number || dossier.caseNumber || dossier.reference
-        }" (priorité ${priorityLabel}) nécessite une révision. Dernière mise à jour il y a ${daysSinceLastUpdate} jours.`,
+        }" (priority ${priorityLabel}) requires a review. Last updated ${daysSinceLastUpdate} days ago.`,
         metadata: {
           dossierId: dossier.id,
           dossierNumber:
@@ -1460,14 +1444,14 @@ export const DossierRules = {
         priority: "urgent",
         frequency: daysOverdue <= 3 ? "daily" : "once",
         subType: "deadlineOverdue",
-        title: `Échéance Dépassée - ${daysOverdue} jour${
+        title: `Deadline Overdue - ${daysOverdue} day${
           daysOverdue > 1 ? "s" : ""
         }`,
-        message: `L'échéance du dossier "${
+        message: `Deadline of dossier "${
           dossier.case_number || dossier.caseNumber || dossier.reference
-        }" est dépassée de ${daysOverdue} jour${
+        }" is overdue by ${daysOverdue} day${
           daysOverdue > 1 ? "s" : ""
-        }. Action urgente requise.`,
+        }. Urgent action required.`,
         metadata: {
           dossierId: dossier.id,
           dossierNumber:
@@ -1484,10 +1468,10 @@ export const DossierRules = {
         priority: "urgent",
         frequency: "once",
         subType: "deadlineToday",
-        title: "Échéance Aujourd'hui",
-        message: `L'échéance du dossier "${
+        title: "Deadline Today",
+        message: `Deadline of dossier "${
           dossier.case_number || dossier.caseNumber || dossier.reference
-        }" est aujourd'hui. Merci de finaliser les actions nécessaires.`,
+        }" is today. Please complete the necessary actions.`,
         metadata: {
           dossierId: dossier.id,
           dossierNumber:
@@ -1515,12 +1499,10 @@ export const DossierRules = {
           priority: "high",
           frequency: "daily",
           subType: "deadlineUpcoming",
-          title: `Échéance Proche - ${daysLeft} jour${daysLeft > 1 ? "s" : ""}`,
-          message: `L'échéance du dossier "${
+          title: `Upcoming Deadline - ${daysLeft} day${daysLeft > 1 ? "s" : ""}`,
+          message: `Deadline of dossier "${
             dossier.case_number || dossier.caseNumber || dossier.reference
-          }" arrive dans ${daysLeft} jour${
-            daysLeft > 1 ? "s" : ""
-          }. Préparation recommandée.`,
+          }" is in ${daysLeft} day${daysLeft > 1 ? "s" : ""}. Preparation recommended.`,
           metadata: {
             dossierId: dossier.id,
             dossierNumber:
@@ -1542,10 +1524,10 @@ export const DossierRules = {
           priority: "medium",
           frequency: "once",
           subType: "deadlineWeek",
-          title: "Échéance dans 7 jours",
-          message: `L'échéance du dossier "${
+          title: "Deadline in 7 Days",
+          message: `Deadline of dossier "${
             dossier.case_number || dossier.caseNumber || dossier.reference
-          }" est dans 7 jours. Planification recommandée.`,
+          }" is in 7 days. Planning recommended.`,
           metadata: {
             dossierId: dossier.id,
             dossierNumber:
@@ -1639,13 +1621,13 @@ export const ClientRules = {
           priority: "medium",
           frequency: "once",
           subType: "inActiveClient",
-          title: "Client inActive - 60+ Jours",
-          message: `Le client "${client.name}" n'a eu aucune activité depuis ${daysSinceLastUpdate} jours (dossiers, tâches, séances, paiements). Souhaitez-vous marquer ce client comme inActive ?`,
+          title: "Client Inactive - 60+ Days",
+          message: `The client "${client.name}" has had no activity for ${daysSinceLastUpdate} days (dossiers, tasks, sessions, payments). Would you like to mark this client as inactive?`,
           metadata: {
             clientId: client.id,
             clientName: client.name,
             daysSinceLastUpdate,
-            suggestAction: "mark_inActive",
+            suggestAction: "mark_inactive",
           },
         });
       }

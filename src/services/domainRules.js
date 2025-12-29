@@ -983,6 +983,7 @@ function validateDossierDelete(dossierId, context = {}) {
   const tasks = context.tasks || context.entities?.tasks || [];
   const cases = context.cases || context.entities?.cases || [];
   const sessions = context.sessions || context.entities?.sessions || [];
+  const missions = context.missions || context.entities?.missions || [];
   const financialEntries =
     context.financialEntries || context.entities?.financialEntries || [];
 
@@ -1066,6 +1067,30 @@ function validateDossierDelete(dossierId, context = {}) {
     );
   }
 
+  // Check for related Missions
+  const dossierMissions = missions.filter(
+    (mission) =>
+      mission.entityType === "dossier" &&
+      String(mission.entityId) === String(dossierId)
+  );
+
+  if (dossierMissions.length > 0) {
+    affectedEntities.push({
+      type: "missions",
+      count: dossierMissions.length,
+      items: dossierMissions.slice(0, 5).map((m) => ({
+        id: m.id,
+        label: `${m.missionNumber} - ${m.title}`,
+      })),
+    });
+
+    warnings.push(
+      `This Dossier contains ${dossierMissions.length} mission${
+        dossierMissions.length > 1 ? "s" : ""
+      } that will be deleted.`
+    );
+  }
+
   // Check for financial entries
   const dossierFinancials = financialEntries.filter(
     (entry) =>
@@ -1100,7 +1125,7 @@ function validateDossierDelete(dossierId, context = {}) {
       affectedEntities,
       forceDeleteMessage: `⚠️ Warning: Deleting this Dossier will also delete ${totalCount} linked entit${
         totalCount > 1 ? "ies" : "y"
-      } (cases, tasks, sessions, financial entries). This action is irreversible.`,
+      } (cases, tasks, sessions, missions, financial entries). This action is irreversible.`,
     };
   }
 
@@ -1310,6 +1335,7 @@ function validateCaseDelete(caseId, context = {}) {
 
   const sessions = context.sessions || context.entities?.sessions || [];
   const tasks = context.tasks || context.entities?.tasks || [];
+  const missions = context.missions || context.entities?.missions || [];
 
   const caseData =
     mockCasesExtended[caseId] ||
@@ -1368,6 +1394,30 @@ function validateCaseDelete(caseId, context = {}) {
     );
   }
 
+  // Check for related Missions
+  const caseMissions = missions.filter(
+    (mission) =>
+      mission.entityType === "case" &&
+      String(mission.entityId) === String(caseId)
+  );
+
+  if (caseMissions.length > 0) {
+    affectedEntities.push({
+      type: "missions",
+      count: caseMissions.length,
+      items: caseMissions.slice(0, 5).map((m) => ({
+        id: m.id,
+        label: `${m.missionNumber} - ${m.title}`,
+      })),
+    });
+
+    warnings.push(
+      `This case contains ${caseMissions.length} mission${
+        caseMissions.length > 1 ? "s" : ""
+      } that will be deleted.`
+    );
+  }
+
   // If there are affected entities, require force delete instead of blocking
   if (affectedEntities.length > 0) {
     const totalCount = affectedEntities.reduce((sum, e) => sum + e.count, 0);
@@ -1379,7 +1429,7 @@ function validateCaseDelete(caseId, context = {}) {
       affectedEntities,
       forceDeleteMessage: `⚠️ Warning: Deleting this case will also delete ${totalCount} linked entit${
         totalCount > 1 ? "ies" : "y"
-      } (sessions, tasks). This action is irreversible.`,
+      } (sessions, tasks, missions). This action is irreversible.`,
     };
   }
 
@@ -1567,6 +1617,11 @@ function validateClientDelete(clientId, context = {}) {
     return { allowed: true, blockers: [], warnings: [] };
   }
 
+  const tasks = context.tasks || context.entities?.tasks || [];
+  const cases = context.cases || context.entities?.cases || [];
+  const sessions = context.sessions || context.entities?.sessions || [];
+  const missions = context.missions || context.entities?.missions || [];
+
   // Check for related Dossiers
   const clientDossiers = client.dossiers || [];
   if (clientDossiers.length > 0) {
@@ -1582,6 +1637,104 @@ function validateClientDelete(clientId, context = {}) {
     warnings.push(
       `This client has ${clientDossiers.length} Dossier${
         clientDossiers.length > 1 ? "s" : ""
+      } that will be deleted.`
+    );
+  }
+
+  // Check for cases (lawsuits) under client dossiers
+  const clientCases = cases.filter((c) =>
+    clientDossiers.some((d) => d.id === c.dossierId)
+  );
+
+  if (clientCases.length > 0) {
+    affectedEntities.push({
+      type: "cases",
+      count: clientCases.length,
+      items: clientCases.slice(0, 5).map((c) => ({
+        id: c.id,
+        label: `${c.caseNumber} - ${c.title}`,
+      })),
+    });
+
+    warnings.push(
+      `This client has ${clientCases.length} lawsuit${
+        clientCases.length > 1 ? "s" : ""
+      } that will be deleted.`
+    );
+  }
+
+  // Check for tasks under client dossiers/cases
+  const clientTasks = tasks.filter(
+    (task) =>
+      (task.parentType === "dossier" &&
+        clientDossiers.some((d) => d.id === task.dossierId)) ||
+      (task.parentType === "case" &&
+        clientCases.some((c) => c.id === task.caseId))
+  );
+
+  if (clientTasks.length > 0) {
+    affectedEntities.push({
+      type: "tasks",
+      count: clientTasks.length,
+      items: clientTasks.slice(0, 5).map((t) => ({
+        id: t.id,
+        label: t.title,
+      })),
+    });
+
+    warnings.push(
+      `This client has ${clientTasks.length} task${
+        clientTasks.length > 1 ? "s" : ""
+      } that will be deleted.`
+    );
+  }
+
+  // Check for sessions under client dossiers/cases
+  const clientSessions = sessions.filter(
+    (session) =>
+      clientDossiers.some((d) => d.id === session.dossierId) ||
+      clientCases.some((c) => c.id === session.caseId)
+  );
+
+  if (clientSessions.length > 0) {
+    affectedEntities.push({
+      type: "sessions",
+      count: clientSessions.length,
+      items: clientSessions.slice(0, 5).map((s) => ({
+        id: s.id,
+        label: `${s.type} - ${s.date}`,
+      })),
+    });
+
+    warnings.push(
+      `This client has ${clientSessions.length} session${
+        clientSessions.length > 1 ? "s" : ""
+      } that will be deleted.`
+    );
+  }
+
+  // Check for missions under client dossiers/cases
+  const clientMissions = missions.filter(
+    (mission) =>
+      (mission.entityType === "dossier" &&
+        clientDossiers.some((d) => d.id === mission.entityId)) ||
+      (mission.entityType === "case" &&
+        clientCases.some((c) => c.id === mission.entityId))
+  );
+
+  if (clientMissions.length > 0) {
+    affectedEntities.push({
+      type: "missions",
+      count: clientMissions.length,
+      items: clientMissions.slice(0, 5).map((m) => ({
+        id: m.id,
+        label: `${m.missionNumber} - ${m.title}`,
+      })),
+    });
+
+    warnings.push(
+      `This client has ${clientMissions.length} mission${
+        clientMissions.length > 1 ? "s" : ""
       } that will be deleted.`
     );
   }
@@ -1610,19 +1763,16 @@ function validateClientDelete(clientId, context = {}) {
 
   // If there are affected entities, require force delete instead of blocking
   if (affectedEntities.length > 0) {
+    const totalCount = affectedEntities.reduce((sum, e) => sum + e.count, 0);
     return {
       allowed: false,
       blockers: [],
       warnings,
       requiresForceDelete: true,
       affectedEntities,
-      forceDeleteMessage: `⚠️ Warning: Deleting this client will also delete all linked entities (${
-        clientDossiers.length
-      } Dossier${clientDossiers.length > 1 ? "s" : ""}, ${
-        clientFinancials.length
-      } financial ${
-        clientFinancials.length > 1 ? "entries" : "entry"
-      }). This action is irreversible.`,
+      forceDeleteMessage: `⚠️ Warning: Deleting this client will also delete ${totalCount} linked entit${
+        totalCount > 1 ? "ies" : "y"
+      } (dossiers, cases, tasks, sessions, missions, financial entries). This action is irreversible.`,
     };
   }
 

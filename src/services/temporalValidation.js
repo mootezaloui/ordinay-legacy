@@ -145,7 +145,7 @@ function combineDateAndTime(dateStr, timeStr) {
  */
 function formatDate(dateInput) {
   const date = parseDate(dateInput);
-  if (!date) return "date invalide";
+  if (!date) return "invalid date";
 
   return formatDateValue(date);
 }
@@ -314,9 +314,9 @@ function validateClientDates(clientData, action, context = {}) {
   if (clientData.dateOfBirth) {
     if (isInFuture(clientData.dateOfBirth)) {
       blockers.push(
-        `La date de naissance (${formatDate(
+        `The birth date (${formatDate(
           clientData.dateOfBirth
-        )}) ne peut pas être dans le futur.`
+        )}) cannot be in the future.`
       );
     }
 
@@ -325,14 +325,14 @@ function validateClientDates(clientData, action, context = {}) {
     const yearDiff = new Date().getFullYear() - birthDate.getFullYear();
     if (yearDiff > 120) {
       warnings.push(
-        `La date de naissance indique un âge de ${yearDiff} ans. Veuillez vérifier cette date.`
+        `The birth date indicates an age of ${yearDiff} years. Please verify this date.`
       );
     }
 
     // Warning: Minor client (under 18)
     if (yearDiff < 18) {
       warnings.push(
-        `Le client serait mineur (${yearDiff} ans). Vérifiez qu'un tuteur légal est enregistré.`
+        `The client would be a minor (${yearDiff} years old). Verify that a legal guardian is registered.`
       );
     }
   }
@@ -341,9 +341,9 @@ function validateClientDates(clientData, action, context = {}) {
   if (clientData.joinDate) {
     if (isInFuture(clientData.joinDate)) {
       blockers.push(
-        `La date d'inscription (${formatDate(
+        `The registration date (${formatDate(
           clientData.joinDate
-        )}) ne peut pas être dans le futur.`
+        )}) cannot be in the future.`
       );
     }
   }
@@ -366,9 +366,9 @@ function validateDossierDates(dossierData, action, context = {}) {
   if (dossierData.openDate) {
     if (isInFuture(dossierData.openDate)) {
       blockers.push(
-        `La date d'ouverture (${formatDate(
+        `The opening date (${formatDate(
           dossierData.openDate
-        )}) ne peut pas être dans le futur.`
+        )}) cannot be in the future.`
       );
     }
   }
@@ -379,9 +379,9 @@ function validateDossierDates(dossierData, action, context = {}) {
     if (client && client.joinDate) {
       if (compareDates(dossierData.openDate, client.joinDate) === -1) {
         blockers.push(
-          `La date d'ouverture du dossier (${formatDate(
+          `The dossier opening date (${formatDate(
             dossierData.openDate
-          )}) ne peut pas être antérieure à la date d'inscription du client (${formatDate(
+          )}) cannot be before the client's registration date (${formatDate(
             client.joinDate
           )}).`
         );
@@ -393,9 +393,9 @@ function validateDossierDates(dossierData, action, context = {}) {
   if (dossierData.nextDeadline) {
     if (isInPast(dossierData.nextDeadline)) {
       warnings.push(
-        `La prochaine échéance (${formatDate(
+        `The next deadline (${formatDate(
           dossierData.nextDeadline
-        )}) est dans le passé. Considérez la mise à jour.`
+        )}) is in the past. Consider updating it.`
       );
     }
   }
@@ -404,9 +404,9 @@ function validateDossierDates(dossierData, action, context = {}) {
   if (dossierData.closeDate && dossierData.openDate) {
     if (compareDates(dossierData.closeDate, dossierData.openDate) <= 0) {
       blockers.push(
-        `La date de clôture (${formatDate(
+        `The closing date (${formatDate(
           dossierData.closeDate
-        )}) doit être postérieure à la date d'ouverture (${formatDate(
+        )}) must be after the opening date (${formatDate(
           dossierData.openDate
         )}).`
       );
@@ -416,16 +416,16 @@ function validateDossierDates(dossierData, action, context = {}) {
   // Rule: If closing, check all child cases are closed
   if (
     action === "close" ||
-    (dossierData.status === "Fermé" && context.data?.status !== "Fermé")
+    (dossierData.status === "Closed" && context.data?.status !== "Closed")
   ) {
     const childCases = [].filter((c) => c.dossierId == dossierData.id);
     const openCases = childCases.filter(
-      (c) => c.status !== "Terminé" && c.status !== "Fermé"
+      (c) => c.status !== "Completed" && c.status !== "Closed"
     );
 
     if (openCases.length > 0) {
       blockers.push(
-        `Impossible de fermer le dossier : ${openCases.length} procès sont encore en cours.`
+        `Cannot close the dossier: ${openCases.length} lawsuit(s) are still in progress.`
       );
     }
   }
@@ -448,9 +448,9 @@ function validateCaseDates(caseData, action, context = {}) {
   if (caseData.filingDate) {
     if (isInFuture(caseData.filingDate)) {
       blockers.push(
-        `La date de dépôt (${formatDate(
+        `The filing date (${formatDate(
           caseData.filingDate
-        )}) ne peut pas être dans le futur.`
+        )}) cannot be in the future.`
       );
     }
   }
@@ -461,9 +461,9 @@ function validateCaseDates(caseData, action, context = {}) {
     if (dossier && dossier.openDate) {
       if (compareDates(caseData.filingDate, dossier.openDate) === -1) {
         blockers.push(
-          `La date de dépôt du procès (${formatDate(
+          `The lawsuit filing date (${formatDate(
             caseData.filingDate
-          )}) ne peut pas être antérieure à la date d'ouverture du dossier (${formatDate(
+          )}) cannot be before the dossier opening date (${formatDate(
             dossier.openDate
           )}).`
         );
@@ -475,9 +475,9 @@ function validateCaseDates(caseData, action, context = {}) {
   if (caseData.nextHearing) {
     if (isInPast(caseData.nextHearing)) {
       warnings.push(
-        `La prochaine audience (${formatDate(
+        `The next hearing (${formatDate(
           caseData.nextHearing
-        )}) est dans le passé. Mettez à jour cette date.`
+        )}) is in the past. Update this date.`
       );
     }
   }
@@ -486,11 +486,9 @@ function validateCaseDates(caseData, action, context = {}) {
   if (caseData.closeDate && caseData.filingDate) {
     if (compareDates(caseData.closeDate, caseData.filingDate) <= 0) {
       blockers.push(
-        `La date de clôture (${formatDate(
+        `The closing date (${formatDate(
           caseData.closeDate
-        )}) doit être postérieure à la date de dépôt (${formatDate(
-          caseData.filingDate
-        )}).`
+        )}) must be after the filing date (${formatDate(caseData.filingDate)}).`
       );
     }
   }
@@ -498,16 +496,18 @@ function validateCaseDates(caseData, action, context = {}) {
   // Rule: Cannot have sessions after case is closed
   if (
     action === "close" ||
-    (caseData.status === "Terminé" && context.data?.status !== "Terminé")
+    (caseData.status === "Completed" && context.data?.status !== "Completed")
   ) {
     const futureSessions = [].filter(
       (s) =>
-        s.caseId == caseData.id && isInFuture(s.date) && s.status !== "Annulée"
+        s.caseId == caseData.id &&
+        isInFuture(s.date) &&
+        s.status !== "Cancelled"
     );
 
     if (futureSessions.length > 0) {
       blockers.push(
-        `Impossible de clore le procès : ${futureSessions.length} séance(s) future(s) sont encore programmées.`
+        `Cannot close the lawsuit: ${futureSessions.length} future hearing(s) are still scheduled.`
       );
     }
   }
@@ -516,9 +516,9 @@ function validateCaseDates(caseData, action, context = {}) {
   if (caseData.judgmentDate && caseData.filingDate) {
     if (compareDates(caseData.judgmentDate, caseData.filingDate) === -1) {
       blockers.push(
-        `La date du jugement (${formatDate(
+        `The judgment date (${formatDate(
           caseData.judgmentDate
-        )}) ne peut pas être antérieure à la date de dépôt (${formatDate(
+        )}) cannot be before the filing date (${formatDate(
           caseData.filingDate
         )}).`
       );
@@ -543,13 +543,11 @@ function validateTaskDates(taskData, action, context = {}) {
   if (taskData.dueDate) {
     if (
       action === "create" ||
-      (taskData.status !== "Terminée" && taskData.status !== "Annulée")
+      (taskData.status !== "Completed" && taskData.status !== "Cancelled")
     ) {
       if (isInPast(taskData.dueDate)) {
         blockers.push(
-          `La date d'échéance (${formatDate(
-            taskData.dueDate
-          )}) est dans le passé.`
+          `The due date (${formatDate(taskData.dueDate)}) is in the past.`
         );
       }
     }
@@ -561,11 +559,11 @@ function validateTaskDates(taskData, action, context = {}) {
     if (parentCase && parentCase.nextHearing) {
       if (compareDates(taskData.dueDate, parentCase.nextHearing) === 1) {
         warnings.push(
-          `L'échéance de la tâche (${formatDate(
+          `The task due date (${formatDate(
             taskData.dueDate
-          )}) dépasse la prochaine audience du procès (${formatDate(
+          )}) is after the lawsuit's next hearing (${formatDate(
             parentCase.nextHearing
-          )}). Vérifiez la cohérence.`
+          )}). Verify consistency.`
         );
       }
     }
@@ -578,7 +576,7 @@ function validateTaskDates(taskData, action, context = {}) {
 
     if (taskData.parentType === "case" && taskData.caseId) {
       parent = findEntity("case", taskData.caseId);
-      parentType = "procès";
+      parentType = "lawsuit";
     } else if (taskData.parentType === "dossier" && taskData.dossierId) {
       parent = findEntity("dossier", taskData.dossierId);
       parentType = "dossier";
@@ -586,12 +584,12 @@ function validateTaskDates(taskData, action, context = {}) {
 
     if (parent) {
       const isClosed =
-        parent.status === "Fermé" ||
-        parent.status === "Terminé" ||
+        parent.status === "Closed" ||
+        parent.status === "Completed" ||
         parent.status === "Clos";
       if (isClosed) {
         blockers.push(
-          `Impossible de créer une tâche : le ${parentType} parent est déjà clos.`
+          `Cannot create a task: the ${parentType} parent is already closed.`
         );
       }
     }
@@ -601,9 +599,9 @@ function validateTaskDates(taskData, action, context = {}) {
   if (taskData.completionDate && taskData.createdDate) {
     if (compareDates(taskData.completionDate, taskData.createdDate) === -1) {
       blockers.push(
-        `La date d'achèvement (${formatDate(
+        `The completion date (${formatDate(
           taskData.completionDate
-        )}) ne peut pas être antérieure à la date de création (${formatDate(
+        )}) cannot be before the creation date (${formatDate(
           taskData.createdDate
         )}).`
       );
@@ -614,9 +612,9 @@ function validateTaskDates(taskData, action, context = {}) {
   if (taskData.startDate && taskData.dueDate) {
     if (compareDates(taskData.startDate, taskData.dueDate) === 1) {
       blockers.push(
-        `La date de début (${formatDate(
+        `The start date (${formatDate(
           taskData.startDate
-        )}) doit être antérieure à la date d'échéance (${formatDate(
+        )}) must be before the due date (${formatDate(
           taskData.dueDate
         )}).`
       );
@@ -639,12 +637,15 @@ function validateSessionDates(sessionData, action, context = {}) {
 
   // Rule: Session date should not be in the distant past (unless already completed)
   if (sessionData.date) {
-    if (sessionData.status !== "Terminée" && sessionData.status !== "Annulée") {
+    if (
+      sessionData.status !== "Completed" &&
+      sessionData.status !== "Cancelled"
+    ) {
       if (isInPast(sessionData.date)) {
         blockers.push(
-          `La date de la séance (${formatDate(
+          `The hearing date (${formatDate(
             sessionData.date
-          )}) est dans le passé, mais son statut n'est pas "Terminée".`
+          )}) is in the past, but its status is not "Completed".`
         );
       }
     }
@@ -663,7 +664,7 @@ function validateSessionDates(sessionData, action, context = {}) {
 
     if (startDateTime && endDateTime && endDateTime <= startDateTime) {
       blockers.push(
-        `L'heure de fin (${sessionData.endTime}) doit être postérieure à l'heure de début (${sessionData.time}).`
+        `The end time (${sessionData.endTime}) must be after the start time (${sessionData.time}).`
       );
     }
   }
@@ -673,12 +674,12 @@ function validateSessionDates(sessionData, action, context = {}) {
     const parentCase = findEntity("case", sessionData.caseId);
     if (parentCase) {
       const isClosed =
-        parentCase.status === "Terminé" || parentCase.status === "Fermé";
+        parentCase.status === "Completed" || parentCase.status === "Closed";
 
       if (isClosed && parentCase.closeDate && sessionData.date) {
         if (compareDates(sessionData.date, parentCase.closeDate) === 1) {
           blockers.push(
-            `La séance ne peut pas être programmée après la clôture du procès (${formatDate(
+            `The hearing cannot be scheduled after the lawsuit is closed (${formatDate(
               parentCase.closeDate
             )}).`
           );
@@ -688,7 +689,7 @@ function validateSessionDates(sessionData, action, context = {}) {
       // Create action
       if (action === "create" && isClosed) {
         blockers.push(
-          `Impossible de créer une séance : le procès parent est déjà clos.`
+          `Cannot create a hearing: the parent lawsuit is already closed.`
         );
       }
     }
@@ -698,12 +699,12 @@ function validateSessionDates(sessionData, action, context = {}) {
   if (sessionData.dossierId && !sessionData.caseId) {
     const parentDossier = findEntity("dossier", sessionData.dossierId);
     if (parentDossier) {
-      const isClosed = parentDossier.status === "Fermé";
+      const isClosed = parentDossier.status === "Closed";
 
       if (isClosed && parentDossier.closeDate && sessionData.date) {
         if (compareDates(sessionData.date, parentDossier.closeDate) === 1) {
           blockers.push(
-            `La séance ne peut pas être programmée après la clôture du dossier (${formatDate(
+            `The hearing cannot be scheduled after the dossier's closing date (${formatDate(
               parentDossier.closeDate
             )}).`
           );
@@ -713,7 +714,7 @@ function validateSessionDates(sessionData, action, context = {}) {
       // Create action
       if (action === "create" && isClosed) {
         blockers.push(
-          `Impossible de créer une séance : le dossier parent est déjà fermé.`
+          `Cannot create a hearing : the parent dossier is already closed.`
         );
       }
     }
@@ -725,9 +726,9 @@ function validateSessionDates(sessionData, action, context = {}) {
     if (parentCase && parentCase.filingDate) {
       if (compareDates(sessionData.date, parentCase.filingDate) === -1) {
         blockers.push(
-          `La date de la séance (${formatDate(
+          `The hearing date (${formatDate(
             sessionData.date
-          )}) ne peut pas être antérieure à la date de dépôt du procès (${formatDate(
+          )}) cannot be before the lawsuit's filing date (${formatDate(
             parentCase.filingDate
           )}).`
         );
@@ -753,9 +754,9 @@ function validateMissionDates(missionData, action, context = {}) {
   if (missionData.assignDate) {
     if (isInFuture(missionData.assignDate)) {
       blockers.push(
-        `La date d'assignation (${formatDate(
+        `The assignment date (${formatDate(
           missionData.assignDate
-        )}) ne peut pas être dans le futur.`
+        )}) cannot be in the future.`
       );
     }
   }
@@ -764,9 +765,9 @@ function validateMissionDates(missionData, action, context = {}) {
   if (missionData.dueDate && missionData.assignDate) {
     if (compareDates(missionData.dueDate, missionData.assignDate) <= 0) {
       blockers.push(
-        `La date d'échéance (${formatDate(
+        `The due date (${formatDate(
           missionData.dueDate
-        )}) doit être postérieure à la date d'assignation (${formatDate(
+        )}) must be after the assignment date (${formatDate(
           missionData.assignDate
         )}).`
       );
@@ -776,14 +777,14 @@ function validateMissionDates(missionData, action, context = {}) {
   // Rule: Due date in the past should trigger warning (unless completed)
   if (
     missionData.dueDate &&
-    missionData.status !== "Terminée" &&
-    missionData.status !== "Annulée"
+    missionData.status !== "Completed" &&
+    missionData.status !== "Cancelled"
   ) {
     if (isInPast(missionData.dueDate)) {
       warnings.push(
-        `L'échéance de la mission (${formatDate(
+        `The mission's due date (${formatDate(
           missionData.dueDate
-        )}) est dépassée. Statut actuel : ${missionData.status}.`
+        )}) is overdue. Current status: ${missionData.status}.`
       );
     }
   }
@@ -794,9 +795,9 @@ function validateMissionDates(missionData, action, context = {}) {
       compareDates(missionData.completionDate, missionData.assignDate) === -1
     ) {
       blockers.push(
-        `La date d'achèvement (${formatDate(
+        `The completion date (${formatDate(
           missionData.completionDate
-        )}) ne peut pas être antérieure à la date d'assignation (${formatDate(
+        )}) cannot be before the assignment date (${formatDate(
           missionData.assignDate
         )}).`
       );
@@ -810,17 +811,18 @@ function validateMissionDates(missionData, action, context = {}) {
 
     if (missionData.entityType === "case" && missionData.entityId) {
       parent = findEntity("case", missionData.entityId);
-      parentType = "procès";
+      parentType = "lawsuit";
     } else if (missionData.entityType === "dossier" && missionData.entityId) {
       parent = findEntity("dossier", missionData.entityId);
       parentType = "dossier";
     }
 
     if (parent) {
-      const isClosed = parent.status === "Fermé" || parent.status === "Terminé";
+      const isClosed =
+        parent.status === "Closed" || parent.status === "Completed";
       if (isClosed) {
         blockers.push(
-          `Impossible de créer une mission : le ${parentType} parent est déjà clos.`
+          `Cannot create a mission: the ${parentType} parent is already closed.`
         );
       }
     }
@@ -844,9 +846,9 @@ function validateFinancialDates(financialData, action, context = {}) {
   if (financialData.date) {
     if (isInFuture(financialData.date)) {
       blockers.push(
-        `La date de l'écriture (${formatDate(
+        `The entry date (${formatDate(
           financialData.date
-        )}) ne peut pas être dans le futur.`
+        )}) cannot be in the future.`
       );
     }
   }
@@ -855,9 +857,9 @@ function validateFinancialDates(financialData, action, context = {}) {
   if (financialData.dueDate && financialData.date) {
     if (compareDates(financialData.dueDate, financialData.date) === -1) {
       blockers.push(
-        `La date d'échéance (${formatDate(
+        `The due date (${formatDate(
           financialData.dueDate
-        )}) doit être postérieure ou égale à la date de l'écriture (${formatDate(
+        )}) need to be posterior or equal to the entry date (${formatDate(
           financialData.date
         )}).`
       );
@@ -868,9 +870,9 @@ function validateFinancialDates(financialData, action, context = {}) {
   if (financialData.paymentDate && financialData.date) {
     if (compareDates(financialData.paymentDate, financialData.date) === -1) {
       blockers.push(
-        `La date de paiement (${formatDate(
+        `The payment date (${formatDate(
           financialData.paymentDate
-        )}) ne peut pas être antérieure à la date de l'écriture (${formatDate(
+        )}) cannot be before the entry date (${formatDate(
           financialData.date
         )}).`
       );
@@ -881,11 +883,11 @@ function validateFinancialDates(financialData, action, context = {}) {
   if (
     financialData.dueDate &&
     financialData.status !== "paid" &&
-    financialData.status !== "Payée"
+    financialData.status !== "Paid"
   ) {
     if (isInPast(financialData.dueDate)) {
       warnings.push(
-        `Cette écriture est en retard. Échéance dépassée : ${formatDate(
+        `This entry is overdue. Due date passed: ${formatDate(
           financialData.dueDate
         )}.`
       );
@@ -898,9 +900,9 @@ function validateFinancialDates(financialData, action, context = {}) {
     if (client && client.joinDate) {
       if (compareDates(financialData.date, client.joinDate) === -1) {
         blockers.push(
-          `La date de l'écriture (${formatDate(
+          `The entry date (${formatDate(
             financialData.date
-          )}) ne peut pas être antérieure à la date d'inscription du client (${formatDate(
+          )}) cannot be before the client's registration date (${formatDate(
             client.joinDate
           )}).`
         );
@@ -914,9 +916,9 @@ function validateFinancialDates(financialData, action, context = {}) {
     if (dossier && dossier.closeDate) {
       if (compareDates(financialData.date, dossier.closeDate) === 1) {
         warnings.push(
-          `L'écriture est datée après la fermeture du dossier (${formatDate(
+          `The entry is dated after the dossier closure (${formatDate(
             dossier.closeDate
-          )}). Vérifiez la cohérence.`
+          )}). Verify consistency.`
         );
       }
     }
@@ -937,10 +939,10 @@ function validatePersonalTaskDates(personalTaskData, action, context = {}) {
   const warnings = [];
 
   // Rule: Due date in the past should block (unless completed)
-  if (personalTaskData.dueDate && personalTaskData.status !== "Terminée") {
+  if (personalTaskData.dueDate && personalTaskData.status !== "Completed") {
     if (isInPast(personalTaskData.dueDate)) {
       blockers.push(
-        `L'échéance (${formatDate(personalTaskData.dueDate)}) est dépassée.`
+        `The due date (${formatDate(personalTaskData.dueDate)}) is overdue.`
       );
     }
   }
@@ -949,9 +951,9 @@ function validatePersonalTaskDates(personalTaskData, action, context = {}) {
   if (personalTaskData.completionDate) {
     if (isInFuture(personalTaskData.completionDate)) {
       blockers.push(
-        `La date d'achèvement (${formatDate(
+        `The completion date (${formatDate(
           personalTaskData.completionDate
-        )}) ne peut pas être dans le futur.`
+        )}) cannot be in the future.`
       );
     }
   }
@@ -1012,7 +1014,7 @@ export function validateTemporalConstraints(
   } catch (error) {
     console.error(`Error in temporal validation for ${entityType}:`, error);
     return validationResult(false, [
-      `Erreur de validation temporelle. Veuillez vérifier les dates saisies.`,
+      `Temporal validation error. Please check the entered dates.`,
     ]);
   }
 }

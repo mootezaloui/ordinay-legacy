@@ -26,6 +26,7 @@ import ConfirmImpactModal from "../components/ui/ConfirmImpactModal";
 import { canPerformAction } from "../services/domainRules";
 import { resolveDetailRoute } from "../utils/routeResolver";
 import { logEntityCreation } from "../services/historyService";
+import { useSettings } from "../contexts/SettingsContext";
 
 export default function Tasks() {
   // Use DataContext for global tasks and actions
@@ -47,6 +48,7 @@ export default function Tasks() {
   const navigate = useNavigate();
   const { showToast } = useToast();
   const { confirm } = useConfirm();
+  const { formatDate } = useSettings();
 
   // Removed local tasks state; use context only
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -150,7 +152,7 @@ export default function Tasks() {
       id: "dueDate",
       label: "Due Date",
       sortable: true,
-      render: (task) => <span className="text-sm">{task.dueDate}</span>,
+      render: (task) => <span className="text-sm">{formatDate(task.dueDate)}</span>,
     },
     {
       id: "status",
@@ -424,7 +426,9 @@ export default function Tasks() {
       table.columns
         .filter(col => col.id !== "actions")
         .map(col => {
-          const value = task[col.id] || "";
+          const value = col.id === "dueDate"
+            ? formatDate(task.dueDate)
+            : task[col.id] || "";
           return `"${value}"`;
         })
         .join(",")

@@ -26,6 +26,7 @@ import ConfirmImpactModal from "../components/ui/ConfirmImpactModal";
 import { canPerformAction } from "../services/domainRules";
 import { resolveDetailRoute } from "../utils/routeResolver";
 import { logEntityCreation } from "../services/historyService";
+import { useSettings } from "../contexts/SettingsContext";
 
 export default function Dossiers() {
   const navigate = useNavigate();
@@ -47,6 +48,7 @@ export default function Dossiers() {
     loading,
     loadError
   } = useData();
+  const { formatDate } = useSettings();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingDossier, setEditingDossier] = useState(null);
@@ -120,7 +122,7 @@ export default function Dossiers() {
       id: "openDate",
       label: "Open Date",
       sortable: true,
-      render: (dossier) => dossier.openDate,
+      render: (dossier) => formatDate(dossier.openDate),
     },
     {
       id: "priority",
@@ -393,7 +395,9 @@ export default function Dossiers() {
       table.columns
         .filter(col => col.id !== "actions")
         .map(col => {
-          const value = dossier[col.id] || "";
+          const value = col.id === "openDate"
+            ? formatDate(dossier.openDate)
+            : dossier[col.id] || "";
           return `"${value}"`;
         })
         .join(",")
@@ -581,5 +585,3 @@ export default function Dossiers() {
     </PageLayout>
   );
 }
-
-

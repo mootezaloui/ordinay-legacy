@@ -104,9 +104,6 @@ export default function Settings() {
                 <option value="YYYY-MM-DD">YYYY-MM-DD</option>
                 <option value="DD-MM-YYYY">DD-MM-YYYY</option>
                 <option value="MM-DD-YYYY">MM-DD-YYYY</option>
-                <option value="Localized">Localized Format</option>
-                <option value="Relative">Relative Format (e.g., "3 days ago")</option>
-                <option value="Custom">Custom Format</option>
               </select>
             </div>
           </div>

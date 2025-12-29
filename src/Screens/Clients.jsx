@@ -25,6 +25,7 @@ import ConfirmImpactModal from "../components/ui/ConfirmImpactModal";
 import { canPerformAction } from "../services/domainRules";
 import { resolveDetailRoute } from "../utils/routeResolver";
 import { logEntityCreation, logStatusChange } from "../services/historyService";
+import { useSettings } from "../contexts/SettingsContext";
 
 export default function Clients() {
   const navigate = useNavigate();
@@ -46,6 +47,7 @@ export default function Clients() {
     loading,
     loadError
   } = useData();
+  const { formatDate } = useSettings();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClient, setEditingClient] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -121,7 +123,7 @@ export default function Clients() {
       id: "joinDate",
       label: "Join Date",
       sortable: true,
-      render: (client) => client.joinDate,
+      render: (client) => formatDate(client.joinDate),
     },
     {
       id: "actions",
@@ -422,7 +424,9 @@ export default function Clients() {
       table.columns
         .filter(col => col.id !== "actions")
         .map(col => {
-          const value = client[col.id] || "";
+          const value = col.id === "joinDate"
+            ? formatDate(client.joinDate)
+            : client[col.id] || "";
           return `"${value}"`;
         })
         .join(",")

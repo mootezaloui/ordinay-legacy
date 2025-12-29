@@ -34,6 +34,7 @@ import {
   getMissionFinancialSummary,
   getClientBalanceDetails,
 } from "../../../utils/financialUtils";
+import { formatDateValue } from "../../../utils/dateFormat";
 import InlineStatusSelector from "../../InlineSelectors/InlineStatusSelector";
 import BlockerModal from "../../ui/BlockerModal";
 import ConfirmImpactModal from "../../ui/ConfirmImpactModal";
@@ -278,7 +279,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
       locked: true,
       render: (entry) => (
         <span className="text-sm font-medium text-slate-900 dark:text-white">
-          {entry.date}
+          {formatDateValue(entry.date)}
         </span>
       ),
     },
@@ -929,27 +930,28 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
 
             // If editing, use existing value, otherwise derive from mission
             if (!editingEntry) {
-              if (entityData.entityType === "dossier") {
-                const dossier = [].find(d => d.id === entityData.entityId);
+              // Use dossierId or caseId directly from entityData instead of looking up by entityId
+              if (entityData.dossierId) {
+                const dossier = dossiers.find(d => d.id === entityData.dossierId);
                 if (dossier) {
                   clientId = dossier.clientId;
-                  const client = [].find(c => c.id === dossier.clientId);
+                  const client = clients.find(c => c.id === dossier.clientId);
                   clientName = client ? client.name : "Unknown client";
                 }
-              } else if (entityData.entityType === "case") {
-                const caseItem = [].find(c => c.id === entityData.entityId);
+              } else if (entityData.caseId) {
+                const caseItem = cases.find(c => c.id === entityData.caseId);
                 if (caseItem) {
-                  const dossier = [].find(d => d.id === caseItem.dossierId);
+                  const dossier = dossiers.find(d => d.id === caseItem.dossierId);
                   if (dossier) {
                     clientId = dossier.clientId;
-                    const client = [].find(c => c.id === dossier.clientId);
+                    const client = clients.find(c => c.id === dossier.clientId);
                     clientName = client ? client.name : "Unknown client";
                   }
                 }
               }
             } else {
               // When editing, get the display name from the stored clientId
-              const client = [].find(c => c.id === clientId);
+              const client = clients.find(c => c.id === clientId);
               clientName = client ? client.name : "Unknown client";
             }
 
@@ -969,24 +971,23 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
 
             // If editing, use existing value, otherwise derive from mission
             if (!editingEntry) {
-              if (entityData.entityType === "dossier") {
-                const dossier = [].find(d => d.id === entityData.entityId);
-                if (dossier) {
-                  dossierId = dossier.id;
-                  dossierRef = dossier.caseNumber;
-                }
-              } else if (entityData.entityType === "case") {
-                const caseItem = [].find(c => c.id === entityData.entityId);
+              // Use dossierId directly from entityData
+              if (entityData.dossierId) {
+                dossierId = entityData.dossierId;
+                const dossier = dossiers.find(d => d.id === entityData.dossierId);
+                dossierRef = dossier ? `${dossier.caseNumber} - ${dossier.title}` : "Unknown dossier";
+              } else if (entityData.caseId) {
+                const caseItem = cases.find(c => c.id === entityData.caseId);
                 if (caseItem) {
                   dossierId = caseItem.dossierId;
-                  const dossier = [].find(d => d.id === caseItem.dossierId);
-                  dossierRef = dossier ? dossier.caseNumber : "Unknown dossier";
+                  const dossier = dossiers.find(d => d.id === caseItem.dossierId);
+                  dossierRef = dossier ? `${dossier.caseNumber} - ${dossier.title}` : "Unknown dossier";
                 }
               }
             } else {
               // When editing, get the display name from the stored dossierId
-              const dossier = [].find(d => d.id === dossierId);
-              dossierRef = dossier ? dossier.caseNumber : "Unknown dossier";
+              const dossier = dossiers.find(d => d.id === dossierId);
+              dossierRef = dossier ? `${dossier.caseNumber} - ${dossier.title}` : "Unknown dossier";
             }
 
             return {
@@ -1005,18 +1006,17 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
 
             // If editing, use existing value, otherwise derive from mission
             if (!editingEntry) {
-              if (entityData.entityType === "case") {
-                const caseItem = [].find(c => c.id === entityData.entityId);
-                if (caseItem) {
-                  caseId = caseItem.id;
-                  caseRef = caseItem.caseNumber;
-                }
+              // Use caseId directly from entityData
+              if (entityData.caseId) {
+                caseId = entityData.caseId;
+                const caseItem = cases.find(c => c.id === entityData.caseId);
+                caseRef = caseItem ? `${caseItem.caseNumber} - ${caseItem.title}` : "Unknown Lawsuit";
               }
             } else {
               // When editing, get the display name from the stored caseId
               if (caseId) {
-                const caseItem = [].find(c => c.id === caseId);
-                caseRef = caseItem ? caseItem.caseNumber : "Unknown Lawsuit";
+                const caseItem = cases.find(c => c.id === caseId);
+                caseRef = caseItem ? `${caseItem.caseNumber} - ${caseItem.title}` : "Unknown Lawsuit";
               }
             }
 
@@ -1314,7 +1314,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
-                  {balanceDetails.balance > 0 ? "À recevoir" : balanceDetails.balance < 0 ? "Trop-perçu" : "Solde"}
+                  {balanceDetails.balance > 0 ? "To be received" : balanceDetails.balance < 0 ? "Overpaid" : "Balance"}
                 </span>
                 <i className="fas fa-info-circle text-slate-400 text-xs" title={
                   balanceDetails.balance > 0
@@ -1556,7 +1556,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
                       Date
                     </label>
                     <p className="text-base text-slate-900 dark:text-white font-semibold">
-                      {selectedEntry.date}
+                      {formatDateValue(selectedEntry.date)}
                     </p>
                   </div>
                   <div className="space-y-1.5">

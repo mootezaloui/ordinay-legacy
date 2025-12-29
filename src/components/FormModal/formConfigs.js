@@ -343,7 +343,7 @@ export const caseFormFields = [
   },
   {
     name: "title",
-    label: "Case Title",
+    label: "Lawsuit Title",
     type: "text",
     placeholder: "Ex: Commercial Dispute - Hearing",
     required: true,
@@ -375,31 +375,6 @@ export const caseFormFields = [
       }
     },
     createLabel: "Add",
-  },
-  {
-    name: "courtRoom",
-    label: "Court Room",
-    type: "text",
-    placeholder: "Ex: Room 3",
-    required: false,
-  },
-  {
-    name: "judge",
-    label: "Judge",
-    type: "searchable-select",
-    placeholder: "Judge's name",
-    required: false,
-    getOptions: () => getAllJudges([]),
-    allowCreate: true,
-    onCreateOption: async (name) => {
-      try {
-        addCustomJudge(name);
-        return true;
-      } catch (error) {
-        console.error("Error adding judge:", error);
-        return false;
-      }
-    },
   },
   {
     name: "filingDate",
@@ -615,6 +590,22 @@ export const sessionFormFields = [
     type: "text",
     placeholder: "Office, Court, etc.",
     required: true,
+  },
+  {
+    name: "courtRoom",
+    label: "Court Room",
+    type: "text",
+    required: false,
+    placeholder: "e.g., Courtroom 5A",
+    helpText: "The specific courtroom where this hearing takes place",
+  },
+  {
+    name: "judge",
+    label: "Judge",
+    type: "text",
+    required: false,
+    placeholder: "e.g., Judge Smith",
+    helpText: "The judge presiding over this hearing",
   },
   {
     name: "status",
@@ -1420,11 +1411,12 @@ export const financialEntryFormFields = [
     hideIf: (formData) => formData.scope === "internal",
     helpText: "Concerned Dossier (optional)",
     onChange: (value, formData, setFormData) => {
-      // Clear case when dossier changes
+      // Clear case when dossier changes (DB constraint: only one can be set)
+      // However, if the current case belongs to this dossier, we can keep both
       setFormData({
         ...formData,
         dossierId: value,
-        caseId: "",
+        caseId: "", // Always clear case when dossier changes to avoid constraint violation
       });
     },
   },
@@ -1461,6 +1453,15 @@ export const financialEntryFormFields = [
     },
     hideIf: (formData) => formData.scope === "internal",
     helpText: "Concerned case (optional)",
+    onChange: (value, formData, setFormData) => {
+      // Clear dossier when case is selected (DB constraint: only one can be set)
+      // The case already has a dossier_id in the cases table, so we don't need to duplicate it here
+      setFormData({
+        ...formData,
+        caseId: value,
+        dossierId: value ? "" : formData.dossierId, // Clear dossierId only if selecting a case
+      });
+    },
   },
   {
     name: "missionId",
@@ -1482,11 +1483,11 @@ export const financialEntryFormFields = [
       // Filter missions based on selected entity
       if (dossierId) {
         filteredMissions = filteredMissions.filter(
-          (m) => m.entityType === "dossier" && m.entityId === dossierId
+          (m) => m.entityType === "dossier" && String(m.entityId) === String(dossierId)
         );
       } else if (caseId) {
         filteredMissions = filteredMissions.filter(
-          (m) => m.entityType === "case" && m.entityId === caseId
+          (m) => m.entityType === "case" && String(m.entityId) === String(caseId)
         );
       } else {
         // No dossier or case selected - don't show missions

@@ -407,17 +407,17 @@ export const validateFinancialEntry = (entry) => {
   const errors = [];
 
   // Required fields
-  if (!entry.type) errors.push("Type est requis");
-  if (!entry.category) errors.push("Catégorie est requise");
+  if (!entry.type) errors.push("Type is required");
+  if (!entry.category) errors.push("Category is required");
   if (!entry.amount || entry.amount <= 0)
-    errors.push("Montant doit être supérieur à 0");
-  if (!entry.date) errors.push("Date est requise");
-  if (!entry.description) errors.push("Description est requise");
-  if (!entry.scope) errors.push("Portée (client/interne) est requise");
+    errors.push("Amount must be greater than 0");
+  if (!entry.date) errors.push("Date is required");
+  if (!entry.description) errors.push("Description is required");
+  if (!entry.scope) errors.push("Scope (client/internal) is required");
 
   // Client scope requires clientId
   if (entry.scope === "client" && !entry.clientId) {
-    errors.push("Client est requis pour les opérations client");
+    errors.push("Client is required for client operations");
   }
 
   // Type/Category compatibility
@@ -425,7 +425,7 @@ export const validateFinancialEntry = (entry) => {
   if (categoryMeta && categoryMeta.type !== "both") {
     if (categoryMeta.type !== entry.type) {
       errors.push(
-        `Catégorie ${categoryMeta.label} incompatible avec type ${entry.type}`
+        `Category ${categoryMeta.label} incompatible with type ${entry.type}`
       );
     }
   }

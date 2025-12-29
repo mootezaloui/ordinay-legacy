@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import { useSettings } from "../../contexts/SettingsContext";
 
 /**
  * TaskList Component
@@ -7,6 +8,7 @@ import { useNavigate } from "react-router-dom";
  */
 export default function TaskList({ tasks, title = "Urgent Tasks", maxItems = 5 }) {
   const navigate = useNavigate();
+  const { formatDate } = useSettings();
 
   const getPriorityColor = (priority) => {
     const colors = {
@@ -62,7 +64,7 @@ export default function TaskList({ tasks, title = "Urgent Tasks", maxItems = 5 }
                   <div className={`flex items-center gap-1 text-xs ${isOverdue ? "text-red-600 dark:text-red-400 font-medium" : "text-slate-500 dark:text-slate-400"
                     }`}>
                     <i className="fas fa-clock text-xs"></i>
-                    <span>{task.dueDate}</span>
+                    <span>{formatDate(task.dueDate)}</span>
                     {isOverdue && <i className="fas fa-exclamation-circle ml-1"></i>}
                   </div>
 

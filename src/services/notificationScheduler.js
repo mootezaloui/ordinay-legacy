@@ -290,11 +290,11 @@ class NotificationScheduler {
     });
 
     const messageMap = {
-      task: `Notification pour tâche #${scheduledNotif.entityId}`,
-      session: `Notification pour séance #${scheduledNotif.entityId}`,
-      payment: `Rappel de paiement #${scheduledNotif.entityId}`,
-      mission: `Notification pour mission #${scheduledNotif.entityId}`,
-      dossier: `Mise à jour nécessaire pour dossier #${scheduledNotif.entityId}`,
+      task: `Notification for task #${scheduledNotif.entityId}`,
+      session: `Notification for hearing #${scheduledNotif.entityId}`,
+      payment: `Payment reminder #${scheduledNotif.entityId}`,
+      mission: `Notification for mission #${scheduledNotif.entityId}`,
+      dossier: `Update required for dossier #${scheduledNotif.entityId}`,
     };
 
     const titleMap = {
@@ -335,12 +335,12 @@ class NotificationScheduler {
    */
   getTitleForTaskNotification(subType) {
     const titles = {
-      overdue: "Tâche en Retard",
-      dueToday: "Échéance Aujourd'hui",
-      upcoming: "Tâche à Venir",
-      statusCheck: "Suivi de Tâche",
+      overdue: "Task Overdue",
+      dueToday: "Due Today",
+      upcoming: "Upcoming Task",
+      statusCheck: "Task Follow-up",
     };
-    return titles[subType] || "Notification de Tâche";
+    return titles[subType] || "Task Notification";
   }
 
   /**
@@ -348,13 +348,13 @@ class NotificationScheduler {
    */
   getTitleForSessionNotification(subType) {
     const titles = {
-      today: "Séance Aujourd'hui",
-      tomorrow: "Séance Demain",
-      preparation: "Préparation de Séance",
-      statusUpdate: "Mise à Jour Séance",
-      postponed: "Séance Reportée",
+      today: "Hearing Today",
+      tomorrow: "Hearing Tomorrow",
+      preparation: "Hearing Preparation",
+      statusUpdate: "Hearing Update",
+      postponed: "Hearing Postponed",
     };
-    return titles[subType] || "Notification de Séance";
+    return titles[subType] || "Hearing Notification";
   }
 
   /**
@@ -362,11 +362,11 @@ class NotificationScheduler {
    */
   getTitleForPaymentNotification(subType) {
     const titles = {
-      overdue: "Paiement en Retard",
-      dueToday: "Paiement Dû Aujourd'hui",
-      upcoming: "Paiement à Recevoir",
+      overdue: "Payment Overdue",
+      dueToday: "Payment Due Today",
+      upcoming: "Upcoming Payment",
     };
-    return titles[subType] || "Notification de Paiement";
+    return titles[subType] || "Payment Notification";
   }
 
   /**
@@ -374,15 +374,15 @@ class NotificationScheduler {
    */
   getTitleForMissionNotification(subType) {
     const titles = {
-      today: "Mission Aujourd'hui",
-      upcoming: "Mission Prochaine",
-      completion: "Suivi de Mission",
-      dueToday: "Mission Échéance Aujourd'hui",
-      assigned: "Nouvelle Mission",
-      documentsCheck: "Documents Mission",
-      reassigned: "Mission Réassignée",
+      today: "Mission Today",
+      upcoming: "Upcoming Mission",
+      completion: "Mission Follow-up",
+      dueToday: "Mission Due Today",
+      assigned: "New Mission",
+      documentsCheck: "Mission Documents",
+      reassigned: "Mission Reassigned",
     };
-    return titles[subType] || "Notification de Mission";
+    return titles[subType] || "Mission Notification";
   }
 
   /**
@@ -390,10 +390,10 @@ class NotificationScheduler {
    */
   getTitleForDossierNotification(subType) {
     const titles = {
-      statusUpdate: "Mise à Jour Nécessaire",
-      review: "Revue de Dossier",
+      statusUpdate: "Update Required",
+      review: "Dossier Review",
     };
-    return titles[subType] || "Notification de Dossier";
+    return titles[subType] || "Dossier Notification";
   }
 
   /**

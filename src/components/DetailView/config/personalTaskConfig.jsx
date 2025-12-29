@@ -1,5 +1,6 @@
 import ContentSection from "../../layout/ContentSection";
 import { getStatusColor } from "./statusColors";
+import { formatDateTimeValue, formatDateValue } from "../../../utils/dateFormat";
 
 /**
  * Personal Task Configuration - UPDATED with Quick Actions
@@ -76,7 +77,7 @@ export const personalTaskConfig = {
   },
 
   getTitle: (data) => data.title,
-  getSubtitle: (data) => `Created on ${data.createdDate} • ${data.category}`,
+  getSubtitle: (data) => `Created on ${formatDateTimeValue(data.createdDate)} • ${data.category}`,
 
   // ✅ NEW: Quick Actions Configuration
   quickActions: [
@@ -183,7 +184,7 @@ export const personalTaskConfig = {
             <InfoCard
               icon="fas fa-calendar-alt"
               label="Due Date"
-              value={data.dueDate || "N/A"}
+              value={data.dueDate ? formatDateValue(data.dueDate) : "N/A"}
               color="blue"
             />
             <InfoCard
@@ -209,7 +210,7 @@ export const personalTaskConfig = {
       icon: "fas fa-calendar-check",
       iconColor: "text-blue-600 dark:text-blue-400",
       bgColor: "bg-blue-100 dark:bg-blue-900/20",
-      value: data.dueDate || "N/A",
+      value: data.dueDate ? formatDateValue(data.dueDate) : "N/A",
       label: "Due Date"
     },
     {

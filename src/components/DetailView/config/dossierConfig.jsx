@@ -4,6 +4,7 @@ import { getStatusColor } from "./statusColors";
 import { taskFormFields, caseFormFields, sessionFormFields, missionFormFields } from "../../FormModal/formConfigs";
 import { getAllPhases, addCustomPhase } from "../../../utils/phaseManager";
 import { calculateNextDeadline, formatDate, getDeadlineNavigationPath, getDeadlineUrgency } from "../../../utils/deadlineUtils";
+import { formatDateValue } from "../../../utils/dateFormat";
 
 // Default phases for dossiers
 const DEFAULT_PHASES = [
@@ -223,7 +224,7 @@ export const dossierConfig = {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <InfoCard icon="fas fa-calendar" label="Opening Date" value={data.openDate} color="blue" />
+            <InfoCard icon="fas fa-calendar" label="Opening Date" value={formatDateValue(data.openDate)} color="blue" />
             <InfoCard icon="fas fa-layer-group" label="Category" value={data.category} color="purple" />
             <InfoCard icon="fas fa-stream" label="Phase" value={data.phase || "Not defined"} color="green" />
             {(() => {

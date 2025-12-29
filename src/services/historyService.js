@@ -205,7 +205,7 @@ export const logStatusChange = (
     entityType,
     entityId,
     eventType: EVENT_TYPES.STATUS,
-    label: `Statut modifié : ${oldStatus} → ${newStatus}`,
+    label: `Status changed: ${oldStatus} → ${newStatus}`,
     details: reason || null,
     metadata: { oldStatus, newStatus },
   });
@@ -221,8 +221,8 @@ export const logAssignment = (
   previousAssignee = null
 ) => {
   const label = previousAssignee
-    ? `Réaffecté(e) : ${previousAssignee} → ${assignedTo}`
-    : `Affecté(e) à ${assignedTo}`;
+    ? `Reassigned to : ${previousAssignee} → ${assignedTo}`
+    : `Assigned to ${assignedTo}`;
 
   return logHistoryEvent({
     entityType,
@@ -285,7 +285,7 @@ export const logFinancialAction = (
     entityId,
     eventType: EVENT_TYPES.FINANCE,
     label: labels[actionType] || actionType,
-    details: description || `Montant : ${amount} TND`,
+    details: description || `Amount : ${amount} TND`,
     metadata: { actionType, amount },
   });
 };

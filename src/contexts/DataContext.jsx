@@ -747,6 +747,14 @@ export function DataProvider({ children }) {
         await deleteCaseCascade(caseItem.id);
       }
 
+      // Find and delete all missions for this dossier
+      const dossierMissions = missions.filter(m => String(m.dossierId) === String(id));
+      for (const mission of dossierMissions) {
+        await deleteMission(mission.id);
+        // Delete history for each mission
+        await deleteEntityHistory('mission', mission.id);
+      }
+
       // Find and delete all tasks for this dossier
       const dossierTasks = tasks.filter(t => t.parentType === 'dossier' && String(t.dossierId) === String(id));
       for (const task of dossierTasks) {
@@ -814,8 +822,6 @@ export function DataProvider({ children }) {
       adversary_party: emptyToNull(caseItem.adversaryParty || caseItem.adversary_party),
       adversary_lawyer: emptyToNull(caseItem.adversaryLawyer || caseItem.adversary_lawyer),
       court: emptyToNull(caseItem.court),
-      court_room: emptyToNull(caseItem.courtRoom || caseItem.court_room),
-      judge: emptyToNull(caseItem.judge),
       filing_date: emptyToNull(caseItem.filingDate),
       next_hearing: emptyToNull(caseItem.nextHearing),
       reference_number: emptyToNull(caseItem.referenceNumber),
@@ -887,12 +893,6 @@ export function DataProvider({ children }) {
     }
     if (updates.court !== undefined) {
       payload.court = emptyToNull(updates.court);
-    }
-    if (updates.courtRoom !== undefined || updates.court_room !== undefined) {
-      payload.court_room = emptyToNull(updates.courtRoom || updates.court_room);
-    }
-    if (updates.judge !== undefined) {
-      payload.judge = emptyToNull(updates.judge);
     }
     if (updates.filingDate !== undefined) {
       payload.filing_date = emptyToNull(updates.filingDate);
@@ -969,6 +969,14 @@ export function DataProvider({ children }) {
     console.log('[DataContext.deleteCaseCascade] Force deleting case and all related entities:', id);
 
     try {
+      // Find and delete all missions for this case
+      const caseMissions = missions.filter(m => String(m.caseId) === String(id));
+      for (const mission of caseMissions) {
+        await deleteMission(mission.id);
+        // Delete history for each mission
+        await deleteEntityHistory('mission', mission.id);
+      }
+
       // Find and delete all sessions for this case
       const caseSessions = sessions.filter(s => String(s.caseId) === String(id));
       for (const session of caseSessions) {
@@ -1035,8 +1043,8 @@ export function DataProvider({ children }) {
       if (["audience", "hearing"].includes(v)) return "hearing";
       if (["consultation"].includes(v)) return "consultation";
       if (["mediation"].includes(v)) return "mediation";
-      if (["expertise"].includes(v)) return "expertise";
-      if (["telephone", "tel", "phone"].includes(v)) return "phone";
+      if (["expertise", "expertassessment", "expert assessment"].includes(v)) return "expertise";
+      if (["telephone", "tel", "phone", "phonecall", "phone call"].includes(v)) return "phone";
       if (["autre", "other"].includes(v)) return "other";
       return v || "hearing";
     };
@@ -1057,6 +1065,8 @@ export function DataProvider({ children }) {
         sessionItem.scheduled_at ||
         (sessionItem.date ? `${sessionItem.date}T${sessionItem.time || "00:00"}:00` : null),
       location: emptyToNull(sessionItem.location),
+      court_room: emptyToNull(sessionItem.courtRoom || sessionItem.court_room),
+      judge: emptyToNull(sessionItem.judge),
       duration: emptyToNull(sessionItem.duration),
       outcome: emptyToNull(sessionItem.outcome),
       description: emptyToNull(sessionItem.description),
@@ -1064,12 +1074,13 @@ export function DataProvider({ children }) {
     };
 
     // Only include dossier_id OR case_id, not both (backend requires XOR)
-    const dossierId = emptyToNull(sessionItem.dossierId || sessionItem.dossier_id);
     const caseId = emptyToNull(sessionItem.caseId || sessionItem.case_id);
-    if (dossierId) {
-      payload.dossier_id = dossierId;
-    } else if (caseId) {
+    const dossierId = emptyToNull(sessionItem.dossierId || sessionItem.dossier_id);
+    // Prefer explicit case linkage when both exist (e.g., hearings added from a lawsuit tab)
+    if (caseId) {
       payload.case_id = caseId;
+    } else if (dossierId) {
+      payload.dossier_id = dossierId;
     }
 
     console.log('[DataContext.addSession] Sending payload:', payload);
@@ -1112,8 +1123,8 @@ export function DataProvider({ children }) {
       if (["audience", "hearing"].includes(v)) return "hearing";
       if (["consultation"].includes(v)) return "consultation";
       if (["mediation"].includes(v)) return "mediation";
-      if (["expertise"].includes(v)) return "expertise";
-      if (["telephone", "tel", "phone"].includes(v)) return "phone";
+      if (["expertise", "expertassessment", "expert assessment"].includes(v)) return "expertise";
+      if (["telephone", "tel", "phone", "phonecall", "phone call"].includes(v)) return "phone";
       if (["autre", "other"].includes(v)) return "other";
       return v || "hearing";
     };
@@ -1137,6 +1148,12 @@ export function DataProvider({ children }) {
     }
     if (updates.location !== undefined) {
       payload.location = emptyToNull(updates.location);
+    }
+    if (updates.courtRoom !== undefined || updates.court_room !== undefined) {
+      payload.court_room = emptyToNull(updates.courtRoom || updates.court_room);
+    }
+    if (updates.judge !== undefined) {
+      payload.judge = emptyToNull(updates.judge);
     }
     if (updates.duration !== undefined) {
       payload.duration = emptyToNull(updates.duration);
@@ -1227,12 +1244,13 @@ export function DataProvider({ children }) {
     };
 
     // Only include dossier_id OR case_id, not both (backend requires XOR)
-    const dossierId = emptyToNull(taskItem.dossierId || taskItem.dossier_id);
     const caseId = emptyToNull(taskItem.caseId || taskItem.case_id);
-    if (dossierId) {
-      payload.dossier_id = dossierId;
-    } else if (caseId) {
+    const dossierId = emptyToNull(taskItem.dossierId || taskItem.dossier_id);
+    // Prefer explicit case linkage when both exist (tasks added from a lawsuit tab)
+    if (caseId) {
       payload.case_id = caseId;
+    } else if (dossierId) {
+      payload.dossier_id = dossierId;
     }
 
     const created = await apiClient.post("/tasks", payload);
@@ -1357,38 +1375,49 @@ export function DataProvider({ children }) {
 
     console.log('[DataContext.addPersonalTask] Incoming task:', task);
 
-    // Map status from French to English
-    const statusMap = {
-      "À faire": "todo",
-      "todo": "todo",
-      "En cours": "in_progress",
-      "in_progress": "in_progress",
-      "Bloqué": "blocked",
-      "blocked": "blocked",
-      "Terminé": "done",
-      "done": "done",
-      "Annulé": "cancelled",
-      "cancelled": "cancelled",
+    // Map status from French to English (case-insensitive)
+    const normalizeStatus = (status) => {
+      const normalized = (status || "").toLowerCase().trim();
+      const statusMap = {
+        "todo": "todo",
+        "pending": "todo",
+        "en cours": "in_progress",
+        "in_progress": "in_progress",
+        "in progress": "in_progress",
+        "bloqué": "blocked",
+        "blocked": "blocked",
+        "terminé": "done",
+        "done": "done",
+        "completed": "done",
+        "annulé": "cancelled",
+        "cancelled": "cancelled",
+        "canceled": "cancelled",
+        "scheduled": "scheduled",
+      };
+      return statusMap[normalized] || "todo";
     };
 
-    // Map priority from French to English
-    const priorityMap = {
-      "Basse": "low",
-      "low": "low",
-      "Moyenne": "medium",
-      "medium": "medium",
-      "Haute": "high",
-      "high": "high",
-      "Urgent": "urgent",
-      "urgent": "urgent",
+    // Map priority from French to English (case-insensitive)
+    const normalizePriority = (priority) => {
+      const normalized = (priority || "").toLowerCase().trim();
+      const priorityMap = {
+        "basse": "low",
+        "low": "low",
+        "moyenne": "medium",
+        "medium": "medium",
+        "haute": "high",
+        "high": "high",
+        "urgent": "urgent",
+      };
+      return priorityMap[normalized] || "medium";
     };
 
     const payload = {
       title: task.title,
       description: emptyToNull(task.description),
       category: emptyToNull(task.category),
-      status: statusMap[task.status] || task.status || "todo",
-      priority: priorityMap[task.priority] || task.priority || "medium",
+      status: normalizeStatus(task.status),
+      priority: normalizePriority(task.priority),
       due_date: emptyToNull(task.dueDate || task.due_date),
       completed_at: emptyToNull(task.completedAt || task.completed_at),
       notes: emptyToNull(task.notes),
@@ -1418,6 +1447,43 @@ export function DataProvider({ children }) {
 
     const emptyToNull = (value) => (value === "" || value === undefined) ? null : value;
 
+    // Map status from French to English (case-insensitive)
+    const normalizeStatus = (status) => {
+      const normalized = (status || "").toLowerCase().trim();
+      const statusMap = {
+        "todo": "todo",
+        "pending": "todo",
+        "en cours": "in_progress",
+        "in_progress": "in_progress",
+        "in progress": "in_progress",
+        "bloqué": "blocked",
+        "blocked": "blocked",
+        "terminé": "done",
+        "done": "done",
+        "completed": "done",
+        "annulé": "cancelled",
+        "cancelled": "cancelled",
+        "canceled": "cancelled",
+        "scheduled": "scheduled",
+      };
+      return statusMap[normalized] || "todo";
+    };
+
+    // Map priority from French to English (case-insensitive)
+    const normalizePriority = (priority) => {
+      const normalized = (priority || "").toLowerCase().trim();
+      const priorityMap = {
+        "basse": "low",
+        "low": "low",
+        "moyenne": "medium",
+        "medium": "medium",
+        "haute": "high",
+        "high": "high",
+        "urgent": "urgent",
+      };
+      return priorityMap[normalized] || "medium";
+    };
+
     const payload = {};
 
     // Only include fields that are being updated
@@ -1431,12 +1497,10 @@ export function DataProvider({ children }) {
       payload.category = emptyToNull(updates.category);
     }
     if (updates.status !== undefined) {
-      // Database accepts both French and English, send as-is
-      payload.status = updates.status;
+      payload.status = normalizeStatus(updates.status);
     }
     if (updates.priority !== undefined) {
-      // Database accepts both French and English, send as-is
-      payload.priority = updates.priority;
+      payload.priority = normalizePriority(updates.priority);
     }
     if (updates.dueDate !== undefined || updates.due_date !== undefined) {
       payload.due_date = emptyToNull(updates.dueDate || updates.due_date);
@@ -1499,6 +1563,15 @@ export function DataProvider({ children }) {
 
     console.log('[DataContext.addOfficer] Incoming officer:', officer);
 
+    // Normalize status to match database constraint: 'active','busy','inActive'
+    const normalizeOfficerStatus = (status) => {
+      const normalized = (status || "").toLowerCase().trim();
+      if (normalized === "active" || normalized === "disponible") return "active";
+      if (normalized === "busy" || normalized === "occupe" || normalized === "occupé") return "busy";
+      if (normalized === "inactive" || normalized === "inactif") return "inActive";
+      return "active"; // default
+    };
+
     // Map frontend field names to backend expectations
     const payload = {
       name: officer.name,
@@ -1508,14 +1581,7 @@ export function DataProvider({ children }) {
       address: emptyToNull(officer.address),
       location: emptyToNull(officer.location),
       agency: emptyToNull(officer.agency),
-      status:
-        officer.status === "Disponible"
-          ? "active"
-          : officer.status === "Occupé" || officer.status === "Occupe"
-            ? "busy"
-            : officer.status === "inActive"
-              ? "inActive"
-              : officer.status,
+      status: normalizeOfficerStatus(officer.status),
       notes: emptyToNull(officer.notes),
     };
 
@@ -1572,8 +1638,15 @@ export function DataProvider({ children }) {
       payload.registration_number = emptyToNull(updates.registrationNumber || updates.registration_number);
     }
     if (updates.status !== undefined) {
-      // Database accepts French values directly: Disponible, Occupe, inActive
-      payload.status = updates.status;
+      // Normalize status to match database constraint: 'active','busy','inActive'
+      const normalizeOfficerStatus = (status) => {
+        const normalized = (status || "").toLowerCase().trim();
+        if (normalized === "active" || normalized === "disponible") return "active";
+        if (normalized === "busy" || normalized === "occupe" || normalized === "occupé") return "busy";
+        if (normalized === "inactive" || normalized === "inactif") return "inActive";
+        return "active"; // default
+      };
+      payload.status = normalizeOfficerStatus(updates.status);
     }
     if (updates.notes !== undefined) {
       payload.notes = emptyToNull(updates.notes);
@@ -1682,6 +1755,29 @@ export function DataProvider({ children }) {
       saveToStorage("missions", next);
       return next;
     });
+
+    // Update parent dossier or case with the new mission
+    if (adapted.entityType === "dossier" && adapted.dossierId) {
+      setDossiers((prev) => {
+        const next = prev.map((d) =>
+          d.id === adapted.dossierId
+            ? { ...d, missions: [...(d.missions || []), adapted] }
+            : d
+        );
+        saveToStorage("dossiers", next);
+        return next;
+      });
+    } else if (adapted.entityType === "case" && adapted.caseId) {
+      setCases((prev) => {
+        const next = prev.map((c) =>
+          c.id === adapted.caseId
+            ? { ...c, missions: [...(c.missions || []), adapted] }
+            : c
+        );
+        saveToStorage("cases", next);
+        return next;
+      });
+    }
 
     logCreationHistory("mission", created);
     return { ok: true, result: validation.result, created: adapted };

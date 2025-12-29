@@ -132,15 +132,15 @@ export function getNotificationsDueNow(scheduledNotifications, currentTime = new
 export const notificationFrequencySettings = {
   tasks: {
     enabled: true,
-    overdueReminders: true, // Rappels pour tâches en retard
-    upcomingReminders: true, // Rappels avant échéance
+    overdueReminders: true, // Reminders for overdue tasks
+    upcomingReminders: true, // Reminders before deadline
     reminderDays: [1, 3, 7], // Days before deadline to notify
   },
 
   personalTasks: {
     enabled: true,
-    upcomingReminders: true, // Rappels avant échéance
-    completionReminders: true, // Rappels après échéance pour mise à jour
+    upcomingReminders: true, // Reminders before deadline
+    completionReminders: true, // Reminders after deadline for update
     reminderDays: [1, 3, 7], // Days before deadline to notify
   },
 
@@ -160,8 +160,8 @@ export const notificationFrequencySettings = {
 
   missions: {
     enabled: true,
-    upcomingReminders: true, // Rappels avant échéance
-    completionReminders: true, // Rappels après échéance pour vérifier si mission accomplie
+    upcomingReminders: true, // Reminders before deadline
+    completionReminders: true, // Reminders after deadline to verify if mission accomplished
     reminderDays: [1, 3, 7], // Days before deadline to notify
   },
 
@@ -173,7 +173,7 @@ export const notificationFrequencySettings = {
     reviewIntervalHigh: 7, // High priority: review every 7 days
     reviewIntervalMedium: 15, // Medium priority: review every 15 days
     reviewIntervalLow: 30, // Low priority: review every 30 days
-    deadlineReminders: true, // For next_deadline field (prochaine échéance)
+    deadlineReminders: true, // For next_deadline field (next deadline)
   },
 
   clients: {

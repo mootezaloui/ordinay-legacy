@@ -59,10 +59,11 @@ export default function NotificationCenter() {
 
     if (diffHours < 24) {
       return formatDateTime(date);
-    } else if (diffDays < 7) {
-      return `${date.toLocaleDateString("fr-FR", { weekday: "long" })} · ${formatDateTime(date)}`;
     }
-    return formatDateTime(date);
+    if (diffDays < 7) {
+      return `${formatDate(date)} · ${formatDateTime(date)}`;
+    }
+    return formatDate(date);
   };
 
   const getPriorityBadge = (priority) => {

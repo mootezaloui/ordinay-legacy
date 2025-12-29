@@ -38,6 +38,15 @@ export const formatDateValue = (
 
   let formatted;
   switch (format) {
+    case "YYYY/MM/DD":
+      formatted = `${year}/${month}/${day}`;
+      break;
+    case "DD-MM-YYYY":
+      formatted = `${day}-${month}-${year}`;
+      break;
+    case "MM-DD-YYYY":
+      formatted = `${month}-${day}-${year}`;
+      break;
     case "MM/DD/YYYY":
       formatted = `${month}/${day}/${year}`;
       break;

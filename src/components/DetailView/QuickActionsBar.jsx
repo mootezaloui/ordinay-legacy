@@ -158,14 +158,14 @@ function QuickActionField({ action, value, onChange, entityType, entityId, entit
         const currentOption = options.find(opt => opt.value === newValue);
         const newLabel = currentOption?.label || newValue;
 
-        showToast(`${action.label} mis à jour: ${newLabel}`, "success", {
-            title: "Modification enregistrée",
+        showToast(`${action.label} Update: ${newLabel}`, "success", {
+            title: "Update Successful",
             context: entityType,
             action: {
                 label: "Undo",
                 onClick: () => {
                     onChange(previousValue);
-                    showToast("Modification Cancelled", "info", {
+                    showToast("Update Cancelled", "info", {
                         title: "Undo Successful",
                         context: entityType,
                     });
