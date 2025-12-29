@@ -4,8 +4,11 @@
 const STATUS_COLORS = {
   // Client/Officer statuses
   'Active': 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
+  'active': 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
   'Available': 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
-  'Inactive': 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300',
+  'Inactive': 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
+  'inactive': 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
+  'inActive': 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
   'Busy': 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
 
   // Dossier/Case statuses

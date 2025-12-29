@@ -39,6 +39,7 @@ export const clientConfig = {
     const cases = contextData?.cases || [];
     const sessions = contextData?.sessions || [];
     const tasks = contextData?.tasks || [];
+    const financialEntries = contextData?.financialEntries || [];
 
     const relatedDossiers = dossiers.filter(d => d.clientId === numericId);
     const relatedCases = cases.filter(cas =>
@@ -54,6 +55,9 @@ export const clientConfig = {
       relatedDossiers.some(d => d.id === task.dossierId) ||
       relatedCases.some(c => c.id === task.caseId)
     );
+    const relatedFinancialEntries = financialEntries.filter(entry =>
+      entry.clientId === numericId && entry.scope === 'client'
+    );
 
     return {
       ...client,
@@ -61,6 +65,7 @@ export const clientConfig = {
       relatedCases,
       relatedSessions,
       relatedTasks,
+      financialEntries: relatedFinancialEntries,
       // For tab count compatibility:
       sessions: relatedSessions,
     };
@@ -123,7 +128,7 @@ export const clientConfig = {
       colorMap: true,
       options: [
         { value: "Active", label: "Active", color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" },
-        { value: "Inactive", label: "Inactive", color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300" },
+        { value: "Inactive", label: "Inactive", color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" },
       ],
     }
   ],
@@ -411,6 +416,13 @@ export const clientConfig = {
       label: "Accounting",
       icon: "fas fa-calculator",
       component: "financial",
+      getCount: (data) => {
+        // Count financial entries (excluding void/cancelled)
+        if (!data.financialEntries) return 0;
+        return data.financialEntries.filter(e =>
+          e.status !== 'void' && e.status !== 'cancelled'
+        ).length;
+      },
     },
     {
       id: "documents",

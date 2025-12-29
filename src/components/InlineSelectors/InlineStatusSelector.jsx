@@ -9,6 +9,7 @@ import {
   sendClientNotification,
 } from "../../services/clientCommunication";
 import { useData } from "../../contexts/DataContext";
+import { getStatusColor } from "../DetailView/config/statusColors";
 
 // Global state to track which dropdown is currently open
 let currentOpenDropdown = null;
@@ -394,24 +395,36 @@ export default function InlineStatusSelector({
       <BlockerModal
         isOpen={blockerModalOpen}
         onClose={() => setBlockerModalOpen(false)}
-        actionName={`Changer le statut vers "${pendingValue}"`}
+        actionName={`change status to "${statusOptions.find(s => s.value === pendingValue)?.label || pendingValue} "for `}
         blockers={validationResult?.blockers || []}
         warnings={validationResult?.warnings || []}
-        entityName={entityData?.caseNumber || entityData?.title || `#${entityId}`}
+        entityName={
+          entityData?.name ||
+          entityData?.caseNumber ||
+          entityData?.title ||
+          entityData?.missionNumber ||
+          `${entityType} #${entityId}`
+        }
         entityType={entityType}
         entityId={entityId}
         action="changeStatus"
-        context={{ newValue: pendingValue, currentValue: value, data: entityData }}
+        context={{
+          newValue: pendingValue,
+          currentValue: value,
+          data: entityData,
+          entities: contextData
+        }}
         onRetry={() => {
           // Retry the status change after blockers are resolved
           onChange(pendingValue);
           setPendingValue(null);
           setValidationResult(null);
         }}
-        onUpdate={() => {
+        onUpdate={async () => {
           // Callback to refresh data when inline actions are performed
-          // In a real app, this would trigger a data refetch
-          console.log('Data updated, should refresh entity data');
+          if (contextData?.loadData) {
+            await contextData.loadData();
+          }
         }}
       />
 

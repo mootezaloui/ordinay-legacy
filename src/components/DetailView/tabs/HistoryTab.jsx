@@ -208,6 +208,20 @@ function getEventIcon(eventType, metadata = {}) {
                 bgColor: 'bg-cyan-100 dark:bg-cyan-900/30',
             };
 
+        case 'child_created':
+            return {
+                icon: <CheckCircle2 className={`${iconClass} text-green-600`} />,
+                iconColor: 'text-green-600',
+                bgColor: 'bg-green-100 dark:bg-green-900/30',
+            };
+
+        case 'child_deleted':
+            return {
+                icon: <XCircle className={`${iconClass} text-red-600`} />,
+                iconColor: 'text-red-600',
+                bgColor: 'bg-red-100 dark:bg-red-900/30',
+            };
+
         default:
             return {
                 icon: <Clock className={`${iconClass} text-slate-600`} />,
@@ -228,6 +242,8 @@ function EventTypeBadge({ eventType }) {
         finance: { label: 'finance', color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' },
         system: { label: 'system', color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300' },
         relation: { label: 'relation', color: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300' },
+        child_created: { label: 'child created', color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' },
+        child_deleted: { label: 'child deleted', color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' },
     };
 
     const badge = badges[eventType] || { label: eventType, color: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300' };
@@ -245,7 +261,7 @@ function EventTypeBadge({ eventType }) {
 function MetadataDisplay({ metadata }) {
     // Filter out internal/redundant metadata
     const relevantKeys = Object.keys(metadata).filter(key =>
-        !['action', 'confirmed', 'ruleType', 'impactType'].includes(key)
+        !['action', 'confirmed', 'ruleType', 'impactType', 'childType', 'childId', 'relatedType', 'relatedId'].includes(key)
     );
 
     if (relevantKeys.length === 0) {
@@ -303,7 +319,16 @@ function formatMetadataValue(value) {
  * Format timestamp for display
  */
 function formatTimestamp(timestamp) {
-    const date = new Date(timestamp);
+    // Parse timestamp as UTC (SQLite CURRENT_TIMESTAMP stores UTC)
+    // SQLite format: "YYYY-MM-DD HH:MM:SS"
+    let date;
+    if (timestamp.includes('T')) {
+        date = new Date(timestamp);
+    } else {
+        // Parse as UTC by appending 'Z' or using Date.UTC
+        const parts = timestamp.split(/[\s:-]/);
+        date = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2], parts[3] || 0, parts[4] || 0, parts[5] || 0));
+    }
     const now = new Date();
     const diffMs = now - date;
     const diffMins = Math.floor(diffMs / 60000);
@@ -312,15 +337,15 @@ function formatTimestamp(timestamp) {
 
     // Relative time for recent events
     if (diffMins < 1) {
-        return "Now";
+        return "Just now";
     }
     if (diffMins < 60) {
         return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
     }
-    if (diffHours < 24) {
+    if (diffHours >= 1 && diffHours < 24) {
         return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
     }
-    if (diffDays < 7) {
+    if (diffDays >= 1 && diffDays < 7) {
         return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
     }
 

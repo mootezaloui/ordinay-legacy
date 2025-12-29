@@ -29,7 +29,21 @@ export const personalTaskConfig = {
       // Fallback to mockPersonalTasksExtended (static data)
       personalTask = mockPersonalTasksExtended[numericId];
     }
-    return personalTask || null;
+
+    if (!personalTask) return null;
+
+    // ✅ Compute aggregated related entities from contextData if available
+    const financialEntries = contextData?.financialEntries || [];
+
+    // Filter financial entries for this personal task (internal expenses)
+    const relatedFinancialEntries = financialEntries.filter(entry =>
+      entry.personalTaskId === numericId && entry.scope === 'internal'
+    );
+
+    return {
+      ...personalTask,
+      financialEntries: relatedFinancialEntries,
+    };
   },
 
   updateData: async (id, data, contextData = null) => {
@@ -230,7 +244,14 @@ export const personalTaskConfig = {
       label: "Accounting",
       icon: "fas fa-coins",
       component: "financial",
-      description: "Office fees and internal expenses related to this task"
+      description: "Office fees and internal expenses related to this task",
+      getCount: (data) => {
+        // Count financial entries (excluding void/cancelled)
+        if (!data.financialEntries) return 0;
+        return data.financialEntries.filter(e =>
+          e.status !== 'void' && e.status !== 'cancelled'
+        ).length;
+      },
     },
     {
       id: "documents",

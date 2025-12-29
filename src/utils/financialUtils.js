@@ -354,7 +354,8 @@ export const getClientBalanceDetails = (clientId, allEntries = []) => {
   const totalOwed = summary.honoraires; // Honoraires are what client must pay
 
   // Reimbursable expenses (paid by firm on behalf of client)
-  const reimbursableExpenses = summary.fraisJudiciaires + summary.fraisHuissier;
+  // Include fraisJudiciaires, fraisHuissier, and otherExpense (for "Other" category expenses)
+  const reimbursableExpenses = summary.fraisJudiciaires + summary.fraisHuissier + summary.otherExpense;
 
   // Total client should pay
   const totalDue = totalOwed + reimbursableExpenses;
@@ -382,6 +383,7 @@ export const getClientBalanceDetails = (clientId, allEntries = []) => {
     advances: summary.advances,
     fraisJudiciaires: summary.fraisJudiciaires,
     fraisHuissier: summary.fraisHuissier,
+    otherExpense: summary.otherExpense,
   };
 };
 

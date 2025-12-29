@@ -22,6 +22,7 @@ import {
   financialStatuses,
 } from "../../../utils/financialConstants";
 import { useData } from "../../../contexts/DataContext";
+import { logEntityCreation, logHistoryEvent, EVENT_TYPES } from "../../../services/historyService";
 import {
   getFinancialEntriesForDisplay,
   formatCurrency,
@@ -524,8 +525,10 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
           scope: entityType === "personalTask" ? "internal" : (formData.scope || "client"),
         };
 
-        const savedEntry = addFinancialEntry(newEntry);
-        if (!savedEntry.entry) {
+        const savedEntry = await addFinancialEntry(newEntry);
+        const createdEntry = savedEntry?.created || savedEntry?.entry;
+
+        if (!createdEntry) {
           if (savedEntry.result) {
             setValidationResult(savedEntry.result);
             setBlockerModalOpen(true);
@@ -535,9 +538,31 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
         }
         showToast("Entry added successfully!", "success");
 
+        // ✅ Log creation event for the financial entry
+        if (createdEntry && createdEntry.id) {
+          logEntityCreation('financialEntry', createdEntry.id, createdEntry.description || `Financial entry - ${formatCurrency(createdEntry.amount)}`);
+
+          // ✅ Also log child_created event for the parent entity (client, dossier, case, etc.)
+          if (entityType && entityId) {
+            const entryDescription = createdEntry.description || `${formatCurrency(createdEntry.amount)} financial entry`;
+            logHistoryEvent({
+              entityType: entityType,
+              entityId: parseInt(entityId),
+              eventType: 'child_created',
+              label: `Financial entry "${entryDescription}" was added`,
+              details: `A new financial entry was created: ${entryDescription}`,
+              metadata: {
+                childType: 'financial_entry',
+                childId: createdEntry.id,
+                amount: createdEntry.amount
+              }
+            });
+          }
+        }
+
         // ✅ Navigate to the new financial entry's detail view
-        if (savedEntry.entry && savedEntry.entry.id) {
-          const detailRoute = resolveDetailRoute('financialEntry', savedEntry.entry.id);
+        if (createdEntry && createdEntry.id) {
+          const detailRoute = resolveDetailRoute('financialEntry', createdEntry.id);
           if (detailRoute) {
             setTimeout(() => navigate(detailRoute), 100);
             return; // Skip the remaining logic since we're navigating away

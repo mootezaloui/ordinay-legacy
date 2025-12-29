@@ -295,7 +295,7 @@ function detectMissionImpact(currentData, newData) {
   ) {
     changes.push({
       type: "reference_change",
-      field: "Numéro de mission",
+      field: "Mission Number",
       from: currentData[referenceField],
       to: newData[referenceField],
       impact: [
@@ -325,7 +325,7 @@ function detectMissionImpact(currentData, newData) {
 
       changes.push({
         type: "officer_reassignment",
-        field: "Huissier",
+        field: "Bailiff",
         from: oldOfficer?.name,
         to: newOfficer?.name,
         impact: [
@@ -453,7 +453,7 @@ function detectCaseImpact(currentData, newData) {
   ) {
     changes.push({
       type: "reference_change",
-      field: "Numéro de procès",
+      field: "Lawsuit Number",
       from: currentData[referenceField],
       to: newData[referenceField],
       impact: [
@@ -683,7 +683,7 @@ const VALIDATORS = {
     changeStatus: validateDossierStatusChange,
   },
   case: {
-    add: validateCaseAdd, // NEW: Prevent creating procès under closed dossier
+    add: validateCaseAdd, // NEW: Prevent creating lawsuit under closed dossier
     close: validateCaseClose,
     delete: validateCaseDelete,
     changeStatus: validateCaseStatusChange,
@@ -692,6 +692,7 @@ const VALIDATORS = {
     archive: validateClientArchive,
     delete: validateClientDelete,
     changeStatus: validateClientStatusChange,
+    edit: validateClientEdit,
   },
   accounting: {
     editClient: validateAccountingEditRestriction,
@@ -784,10 +785,10 @@ function validateDossierAdd(dossierId, context = {}) {
  * Validate closing a Dossier
  *
  * Business Rules:
- * - Cannot close if any related Task is not "Terminée"
- * - Cannot close if any related Procès is not "Clos"
+ * - Cannot close if any related Task is not "Done"
+ * - Cannot close if any related Lawsuit is not "Closed"
  * - Cannot close if client has unpaid balance
- * - Cannot close if any active Huissier mission exists
+ * - Cannot close if any active bailiff mission exists
  */
 function validateDossierClose(dossierId, context = {}) {
   const blockers = [];
@@ -819,14 +820,14 @@ function validateDossierClose(dossierId, context = {}) {
   );
 
   const incompleteTasks = dossierTasks.filter(
-    (task) => task.status !== "Terminée"
+    (task) => task.status !== "Done" && task.status !== "Cancelled"
   );
 
   if (incompleteTasks.length > 0) {
     blockers.push(
-      `${incompleteTasks.length} incomplete task${
+      `${incompleteTasks.length} open Task${
         incompleteTasks.length > 1 ? "s" : ""
-      } :` +
+      }:` +
         incompleteTasks
           .slice(0, 3)
           .map((t) => `\n  • ${t.title} (${t.status})`)
@@ -845,12 +846,12 @@ function validateDossierClose(dossierId, context = {}) {
     (c) => String(c.dossierId) === String(dossierId)
   );
   const openCases = dossierCases.filter(
-    (proc) => proc.status !== "Clos" && proc.status !== "Terminé"
+    (proc) => proc.status !== "Closed"
   );
 
   if (openCases.length > 0) {
     blockers.push(
-      `${openCases.length} open case${openCases.length > 1 ? "s" : ""} :` +
+      `${openCases.length} open Lawsuit${openCases.length > 1 ? "s" : ""}:` +
         openCases
           .slice(0, 3)
           .map((c) => `\n  • ${c.caseNumber} - ${c.title} (${c.status})`)
@@ -869,41 +870,68 @@ function validateDossierClose(dossierId, context = {}) {
     context.entities?.financialEntries ||
     financialLedger ||
     [];
-  const clientEntries = allFinancialEntries.filter(
-    (entry) =>
-      entry.clientId === dossier.clientId &&
-      entry.status !== "void" &&
-      entry.status !== "Annulé"
+  const clientFinancials = getClientFinancials(
+    dossier.clientId,
+    allFinancialEntries
   );
 
-  let totalInvoiced = 0;
-  let totalPaid = 0;
-
-  clientEntries.forEach((entry) => {
-    const amount = entry.amount || 0;
-    if (entry.type === "revenue" || entry.type === "income") {
-      if (entry.status === "paid" || entry.status === "Payé") {
-        totalPaid += amount;
-      } else {
-        totalInvoiced += amount;
-      }
-    }
-  });
-
-  const balance = totalPaid - totalInvoiced;
-  if (balance < 0) {
-    blockers.push(`Unpaid client balance: ${Math.abs(balance).toFixed(2)} TND`);
+  if (clientFinancials.balance < 0) {
+    blockers.push(
+      `Unpaid balance: ${Math.abs(clientFinancials.balance).toFixed(2)} TND`
+    );
   }
 
-  // Rule 4: Check for active Huissier missions
+  // Rule 4: Check for upcoming/incomplete sessions (hearings)
+  const allSessions =
+    context.sessions ||
+    context.entities?.sessions ||
+    mockSessions ||
+    [];
+
+  // Get sessions for this dossier and its related cases
+  const dossierSessions = allSessions.filter((session) => {
+    if (session.dossierId === dossierId) {
+      return true;
+    }
+    if (session.caseId && dossierCases.some((c) => c.id === session.caseId)) {
+      return true;
+    }
+    return false;
+  });
+
+  const openSessions = dossierSessions.filter(
+    (session) =>
+      session.status !== "Completed" && session.status !== "Cancelled"
+  );
+
+  if (openSessions.length > 0) {
+    blockers.push(
+      `${openSessions.length} open Hearing${
+        openSessions.length > 1 ? "s" : ""
+      }:` +
+        openSessions
+          .slice(0, 3)
+          .map(
+            (s) => `\n  - ${s.type || "Hearing"} on ${s.date} (${s.status})`
+          )
+          .join("") +
+        (openSessions.length > 3
+          ? `\n  - ... and ${openSessions.length - 3} other${
+              openSessions.length - 3 > 1 ? "s" : ""
+            }`
+          : "")
+    );
+  }
+
+  // Rule 5: Check for active Huissier missions
   const allMissions =
     context.missions || context.entities?.missions || missionsCache || [];
   const dossierMissions = allMissions.filter(
     (mission) =>
       mission.entityType === "dossier" &&
       mission.entityReference === dossier.caseNumber &&
-      mission.status !== "Terminée" &&
-      mission.status !== "Annulée"
+      mission.status !== "Completed" &&
+      mission.status !== "Cancelled"
   );
 
   if (dossierMissions.length > 0) {
@@ -1082,12 +1110,12 @@ function validateDossierDelete(dossierId, context = {}) {
 /**
  * Validate status change for Dossier
  *
- * Specific validation when changing status to "Fermé"
+ * Specific validation when changing status to "Closed"
  */
 function validateDossierStatusChange(dossierId, context = {}) {
   const { newValue } = context;
 
-  if (newValue === "Fermé" || newValue === "Clos") {
+  if (newValue === "Closed") {
     return validateDossierClose(dossierId, context);
   }
 
@@ -1142,7 +1170,7 @@ function validateCaseAdd(caseId, context = {}) {
   }
 
   // Check if parent dossier is closed
-  if (dossier.status === "Fermé" || dossier.status === "Archivé") {
+  if (dossier.status === "Closed") {
     blockers.push(
       `Cannot create a case under a ${dossier.status.toLowerCase()} Dossier`,
       `Dossier: ${dossier.caseNumber} - ${dossier.title}`,
@@ -1155,11 +1183,11 @@ function validateCaseAdd(caseId, context = {}) {
 }
 
 /**
- * Validate closing a Procès
+ * Validate closing a Lawsuit
  *
  * Business Rules:
- * - Cannot close if any related Séance is upcoming or not completed
- * - Cannot close if any related Task is not "Terminée"
+ * - Cannot close if any related Hearing is upcoming or not completed
+ * - Cannot close if any related Task is not "Done"
  */
 function validateCaseClose(caseId, context = {}) {
   const blockers = [];
@@ -1191,16 +1219,16 @@ function validateCaseClose(caseId, context = {}) {
     const sessionDate = new Date(session.date);
     return (
       sessionDate >= today &&
-      session.status !== "Terminée" &&
-      session.status !== "Annulée"
+      session.status !== "Completed" &&
+      session.status !== "Cancelled"
     );
   });
 
   if (upcomingSessions.length > 0) {
     blockers.push(
-      `${upcomingSessions.length} upcoming or incomplete session${
+      `${upcomingSessions.length} open Hearing${
         upcomingSessions.length > 1 ? "s" : ""
-      } :` +
+      }:` +
         upcomingSessions
           .slice(0, 3)
           .map((s) => `\n  • ${s.title} on ${s.date} (${s.status})`)
@@ -1220,14 +1248,14 @@ function validateCaseClose(caseId, context = {}) {
   );
 
   const incompleteTasks = caseTasks.filter(
-    (task) => task.status !== "Terminée"
+    (task) => task.status !== "Done" && task.status !== "Cancelled"
   );
 
   if (incompleteTasks.length > 0) {
     blockers.push(
-      `${incompleteTasks.length} incomplete task${
+      `${incompleteTasks.length} open Task${
         incompleteTasks.length > 1 ? "s" : ""
-      } :` +
+      }:` +
         incompleteTasks
           .slice(0, 3)
           .map((t) => `\n  • ${t.title} (${t.status})`)
@@ -1246,8 +1274,8 @@ function validateCaseClose(caseId, context = {}) {
     (mission) =>
       mission.entityType === "case" &&
       mission.entityReference === caseData.caseNumber &&
-      mission.status !== "Terminée" &&
-      mission.status !== "Annulée"
+      mission.status !== "Completed" &&
+      mission.status !== "Cancelled"
   );
 
   if (caseMissions.length > 0) {
@@ -1364,7 +1392,7 @@ function validateCaseDelete(caseId, context = {}) {
 function validateCaseStatusChange(caseId, context = {}) {
   const { newValue } = context;
 
-  if (newValue === "Clos" || newValue === "Terminé") {
+  if (newValue === "Closed") {
     return validateCaseClose(caseId, context);
   }
 
@@ -1386,30 +1414,25 @@ function validateClientArchive(clientId, context = {}) {
   const blockers = [];
   const warnings = [];
 
-  // Prefer live data from context (DetailView / Inline selectors), then fallback to store or mocks
-  const client =
-    context.data ||
-    context.currentData ||
-    (context.contextData?.clients || []).find((c) => c.id == clientId) ||
-    mockClientsExtended[clientId] ||
-    mockClientsExtended[Number(clientId)] ||
-    [].find((c) => c.id == clientId);
+  // Use extended client data (built by loadContextData) which includes related entities
+  const clientExtended =
+    mockClientsExtended[clientId] || mockClientsExtended[Number(clientId)];
 
-  if (!client) {
+  if (!clientExtended) {
     return { allowed: false, blockers: ["Client not found"], warnings: [] };
   }
 
   // Rule 1: Check for open Dossiers
-  const clientDossiers = client.dossiers || [];
+  const clientDossiers = clientExtended.dossiers || [];
   const openDossiers = clientDossiers.filter(
-    (d) => d.status !== "Fermé" && d.status !== "Clos"
+    (d) => d.status !== "Closed"
   );
 
   if (openDossiers.length > 0) {
     blockers.push(
       `${openDossiers.length} open Dossier${
         openDossiers.length > 1 ? "s" : ""
-      } :` +
+      }:` +
         openDossiers
           .slice(0, 3)
           .map((d) => `\n  • ${d.caseNumber} - ${d.title} (${d.status})`)
@@ -1422,8 +1445,103 @@ function validateClientArchive(clientId, context = {}) {
     );
   }
 
-  // Rule 2: Check for unpaid balance
-  const clientFinancials = getClientFinancials(clientId);
+  // Rule 2: Check for open Lawsuits (Cases)
+  const clientCases = clientExtended.proceedings || [];
+  const openCases = clientCases.filter(
+    (c) => c.status !== "Closed"
+  );
+
+  if (openCases.length > 0) {
+    blockers.push(
+      `${openCases.length} open Lawsuit${openCases.length > 1 ? "s" : ""}:` +
+        openCases
+          .slice(0, 3)
+          .map((c) => `\n  • ${c.caseNumber} - ${c.title} (${c.status})`)
+          .join("") +
+        (openCases.length > 3
+          ? `\n  • ... and ${openCases.length - 3} other${
+              openCases.length - 3 > 1 ? "s" : ""
+            }`
+          : "")
+    );
+  }
+
+  // Rule 3: Check for open Tasks
+  const clientTasks = mockTasks.filter((task) => {
+    // Tasks can be linked via dossier or case
+    if (task.dossierId) {
+      return clientDossiers.some((d) => d.id === task.dossierId);
+    }
+    if (task.caseId && task.parentType === "case") {
+      return clientCases.some((c) => c.id === task.caseId);
+    }
+    return false;
+  });
+
+  const openTasks = clientTasks.filter(
+    (t) => t.status !== "Done" && t.status !== "Cancelled"
+  );
+
+  if (openTasks.length > 0) {
+    blockers.push(
+      `${openTasks.length} open Task${openTasks.length > 1 ? "s" : ""}:` +
+        openTasks
+          .slice(0, 3)
+          .map((t) => `\n  • ${t.title} (${t.status})`)
+          .join("") +
+        (openTasks.length > 3
+          ? `\n  • ... and ${openTasks.length - 3} other${
+              openTasks.length - 3 > 1 ? "s" : ""
+            }`
+          : "")
+    );
+  }
+
+  // Rule 4: Check for open Hearings (Sessions)
+  const sessionsSource =
+    context.sessions ||
+    context.entities?.sessions ||
+    mockSessions ||
+    [];
+  const clientSessions = sessionsSource.filter((session) => {
+    // Sessions can be linked via dossier or case
+    if (session.dossierId) {
+      return clientDossiers.some((d) => d.id === session.dossierId);
+    }
+    if (session.caseId) {
+      return clientCases.some((c) => c.id === session.caseId);
+    }
+    return false;
+  });
+
+  const openSessions = clientSessions.filter(
+    (s) => s.status !== "Completed" && s.status !== "Cancelled"
+  );
+
+  if (openSessions.length > 0) {
+    blockers.push(
+      `${openSessions.length} open Hearing${
+        openSessions.length > 1 ? "s" : ""
+      }:` +
+        openSessions
+          .slice(0, 3)
+          .map((s) => `\n  • ${s.type || "Hearing"} on ${s.date} (${s.status})`)
+          .join("") +
+        (openSessions.length > 3
+          ? `\n  • ... and ${openSessions.length - 3} other${
+              openSessions.length - 3 > 1 ? "s" : ""
+            }`
+          : "")
+    );
+  }
+
+  // Rule 5: Check for unpaid balance
+  const clientFinancials = getClientFinancials(
+    clientId,
+    context.financialEntries ||
+      context.entities?.financialEntries ||
+      financialLedger
+  );
   if (clientFinancials.balance < 0) {
     blockers.push(
       `Unpaid balance: ${Math.abs(clientFinancials.balance).toFixed(2)} TND`
@@ -1517,8 +1635,30 @@ function validateClientDelete(clientId, context = {}) {
 function validateClientStatusChange(clientId, context = {}) {
   const { newValue } = context;
 
-  if (newValue === "inActive" || newValue === "Archivé") {
+  if (newValue === "Inactive" || newValue === "inactive") {
     return validateClientArchive(clientId, context);
+  }
+
+  return { allowed: true, blockers: [], warnings: [] };
+}
+
+/**
+ * Validate editing a client
+ *
+ * Business Rule:
+ * - If status is being changed to inActive, check if client has open dossiers
+ */
+function validateClientEdit(clientId, context = {}) {
+  const { data, newData } = context;
+
+  // If status is being changed, use the status change validator
+  if (
+    newData &&
+    data &&
+    newData.status !== undefined &&
+    newData.status !== data.status
+  ) {
+    return validateClientStatusChange(clientId, { newValue: newData.status });
   }
 
   return { allowed: true, blockers: [], warnings: [] };
@@ -1587,7 +1727,7 @@ function validateTaskAdd(taskId, context = {}) {
 
     if (
       dossier &&
-      (dossier.status === "Fermé" || dossier.status === "Archivé")
+      (dossier.status === "Closed")
     ) {
       blockers.push(
         `Cannot create a task under a ${dossier.status.toLowerCase()} Dossier`,
@@ -1604,7 +1744,7 @@ function validateTaskAdd(taskId, context = {}) {
 
     if (
       caseData &&
-      (caseData.status === "Clos" || caseData.status === "Terminé")
+      (caseData.status === "Closed")
     ) {
       blockers.push(
         `Cannot create a task under a ${caseData.status.toLowerCase()} case`,
@@ -1622,8 +1762,8 @@ function validateTaskAdd(taskId, context = {}) {
  * Validate editing a Task
  *
  * Business Rule (PHASE 2):
- * - Cannot edit if parent Dossier is Fermé
- * - Cannot edit if parent Procès is Clos
+ * - Cannot edit if parent Dossier is Closed
+ * - Cannot edit if parent Lawsuit is Closed
  */
 function validateTaskEdit(taskId, context = {}) {
   const blockers = [];
@@ -1638,7 +1778,7 @@ function validateTaskEdit(taskId, context = {}) {
   // Check parent entity status
   if (task.parentType === "dossier" && task.dossierId) {
     const dossier = mockDossiersExtended[task.dossierId];
-    if (dossier && (dossier.status === "Fermé" || dossier.status === "Clos")) {
+    if (dossier && dossier.status === "Closed") {
       blockers.push(
         `This task belongs to Dossier "${
           dossier.caseNumber
@@ -1647,7 +1787,7 @@ function validateTaskEdit(taskId, context = {}) {
     }
   } else if (task.parentType === "case" && task.caseId) {
     const caseData = mockCasesExtended[task.caseId];
-    if (caseData && caseData.status === "Clos") {
+    if (caseData && caseData.status === "Closed") {
       blockers.push(
         `This task belongs to case "${caseData.caseNumber}" which is closed.\n\nModifications are no longer allowed on closed cases.`
       );
@@ -1716,7 +1856,7 @@ function validateSessionAdd(sessionId, context = {}) {
 
     if (
       dossier &&
-      (dossier.status === "Fermé" || dossier.status === "Archivé")
+      (dossier.status === "Closed")
     ) {
       blockers.push(
         `Cannot create a session under a ${dossier.status.toLowerCase()} Dossier`,
@@ -1733,7 +1873,7 @@ function validateSessionAdd(sessionId, context = {}) {
 
     if (
       caseData &&
-      (caseData.status === "Clos" || caseData.status === "Terminé")
+      (caseData.status === "Closed")
     ) {
       blockers.push(
         `Cannot create a session under a ${caseData.status.toLowerCase()} case`,
@@ -1751,8 +1891,8 @@ function validateSessionAdd(sessionId, context = {}) {
  * Validate editing a Séance
  *
  * Business Rule (PHASE 2):
- * - Cannot edit if parent Procès is Clos
- * - Cannot edit if parent Dossier is Fermé
+ * - Cannot edit if parent Lawsuit is Closed
+ * - Cannot edit if parent Dossier is Closed
  */
 function validateSessionEdit(sessionId, context = {}) {
   const blockers = [];
@@ -1767,7 +1907,7 @@ function validateSessionEdit(sessionId, context = {}) {
   // Check if linked to a Procès
   if (session.caseId) {
     const caseData = mockCasesExtended[session.caseId];
-    if (caseData && caseData.status === "Clos") {
+    if (caseData && caseData.status === "Closed") {
       blockers.push(
         `This session belongs to case "${caseData.caseNumber}" which is closed.\n\nModifications are no longer allowed on closed cases.`
       );
@@ -1777,7 +1917,7 @@ function validateSessionEdit(sessionId, context = {}) {
   // Check if linked directly to a Dossier
   if (session.dossierId) {
     const dossier = mockDossiersExtended[session.dossierId];
-    if (dossier && (dossier.status === "Fermé" || dossier.status === "Clos")) {
+    if (dossier && dossier.status === "Closed") {
       blockers.push(
         `This session belongs to Dossier "${
           dossier.caseNumber
@@ -1829,7 +1969,7 @@ function validateMissionAdd(missionId, context = {}) {
       };
     }
 
-    if (dossier.status === "Fermé" || dossier.status === "Archivé") {
+    if (dossier.status === "Closed") {
       blockers.push(
         `Cannot create a mission under a ${dossier.status.toLowerCase()} Dossier`,
         `Dossier: ${dossier.caseNumber} - ${dossier.title}`,
@@ -1846,7 +1986,7 @@ function validateMissionAdd(missionId, context = {}) {
       };
     }
 
-    if (caseData.status === "Clos" || caseData.status === "Terminé") {
+    if (caseData.status === "Closed") {
       blockers.push(
         `Cannot create a mission under a ${caseData.status.toLowerCase()} case`,
         `Case: ${caseData.caseNumber} - ${caseData.title}`,
@@ -1863,8 +2003,8 @@ function validateMissionAdd(missionId, context = {}) {
  * Validate editing a Huissier Mission
  *
  * Business Rule (PHASE 2):
- * - Cannot edit if linked Dossier is Fermé
- * - Cannot edit if linked Procès is Clos
+ * - Cannot edit if linked Dossier is Closed
+ * - Cannot edit if linked Lawsuit is Closed
  */
 function validateMissionEdit(missionId, context = {}) {
   const blockers = [];
@@ -1888,7 +2028,7 @@ function validateMissionEdit(missionId, context = {}) {
       (d) => d.caseNumber === mission.entityReference
     );
 
-    if (dossier && (dossier.status === "Fermé" || dossier.status === "Clos")) {
+    if (dossier && dossier.status === "Closed") {
       blockers.push(
         `This mission is linked to Dossier "${
           dossier.caseNumber
@@ -1901,7 +2041,7 @@ function validateMissionEdit(missionId, context = {}) {
       (c) => c.caseNumber === mission.entityReference
     );
 
-    if (caseData && caseData.status === "Clos") {
+    if (caseData && caseData.status === "Closed") {
       blockers.push(
         `This mission is linked to case "${caseData.caseNumber}" which is closed.\n\nModifications are no longer allowed on closed cases.`
       );
@@ -1928,8 +2068,8 @@ function validateMissionDelete(missionId, context = {}) {
  * Validate adding a Financial Entry
  *
  * Business Rule (PHASE 2):
- * - Cannot add if related Dossier is Fermé
- * - Cannot add if related Procès is Clos
+ * - Cannot add if related Dossier is Closed
+ * - Cannot add if related Lawsuit is Closed
  */
 function validateFinancialEntryAdd(entryId, context = {}) {
   const blockers = [];
@@ -1944,7 +2084,7 @@ function validateFinancialEntryAdd(entryId, context = {}) {
   // Check if linked to a closed Dossier
   if (data.dossierId) {
     const dossier = mockDossiersExtended[data.dossierId];
-    if (dossier && (dossier.status === "Fermé" || dossier.status === "Clos")) {
+    if (dossier && dossier.status === "Closed") {
       blockers.push(
         `Dossier "${
           dossier.caseNumber
@@ -1956,7 +2096,7 @@ function validateFinancialEntryAdd(entryId, context = {}) {
   // Check if linked to a closed Procès
   if (data.caseId) {
     const caseData = mockCasesExtended[data.caseId];
-    if (caseData && caseData.status === "Clos") {
+    if (caseData && caseData.status === "Closed") {
       blockers.push(
         `Case "${caseData.caseNumber}" is closed.\n\nNo new financial entries can be added to closed cases.`
       );
@@ -2008,7 +2148,7 @@ function validateFinancialEntryEdit(entryId, context = {}) {
   // Rule 2: Check parent Dossier
   if (entry.dossierId) {
     const dossier = mockDossiersExtended[entry.dossierId];
-    if (dossier && (dossier.status === "Fermé" || dossier.status === "Clos")) {
+    if (dossier && dossier.status === "Closed") {
       blockers.push(
         `This entry is linked to Dossier "${
           dossier.caseNumber
@@ -2020,7 +2160,7 @@ function validateFinancialEntryEdit(entryId, context = {}) {
   // Rule 3: Check parent Procès
   if (entry.caseId) {
     const caseData = mockCasesExtended[entry.caseId];
-    if (caseData && caseData.status === "Clos") {
+    if (caseData && caseData.status === "Closed") {
       blockers.push(
         `This entry is linked to case "${caseData.caseNumber}" which is closed.\n\nEntries from closed cases cannot be modified.`
       );
@@ -2239,11 +2379,17 @@ function validatePersonalTaskStatusChange(taskId, context = {}) {
  * Calculate client financial balance
  *
  * @param {number} clientId - Client ID
+ * @param {Array} entriesOverride - Optional financial entries to use instead of the global ledger
  * @returns {object} { totalInvoiced, totalPaid, balance }
  */
-function getClientFinancials(clientId) {
-  const clientEntries = financialLedger.filter(
-    (entry) => entry.clientId === clientId && entry.status !== "void"
+function getClientFinancials(clientId, entriesOverride = null) {
+  const ledger = entriesOverride || financialLedger || [];
+  const paidStatuses = ["paid", "payé", "payée"];
+  const clientEntries = ledger.filter(
+    (entry) =>
+      entry.clientId === clientId &&
+      entry.status !== "void" &&
+      entry.status !== "cancelled"
   );
 
   let totalInvoiced = 0;
@@ -2252,7 +2398,7 @@ function getClientFinancials(clientId) {
   clientEntries.forEach((entry) => {
     const amount = entry.amount || 0;
 
-    if (entry.status === "paid") {
+    if (paidStatuses.includes((entry.status || "").toLowerCase())) {
       totalPaid += amount;
     }
 

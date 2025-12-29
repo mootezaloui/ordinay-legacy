@@ -437,16 +437,10 @@ export function DataProvider({ children }) {
 
     const created = await apiClient.post("/clients", payload);
     const adapted = adaptClient(created);
-    const timelineEntry = await recordHistoryEvent(apiClient, {
-      entityType: "client",
-      entityId: adapted.id,
-      action: "created",
-      description: `Client créé: ${adapted.name}`,
-      actor: "system",
-    });
+    // Note: History is logged by the calling screen (Clients.jsx, QuickActions.jsx)
     const adaptedWithTimeline = {
       ...adapted,
-      timeline: timelineEntry ? [timelineEntry] : [],
+      timeline: [],
     };
 
     setClients((prev) => {
@@ -839,15 +833,18 @@ export function DataProvider({ children }) {
       const next = [...prev, adapted];
       saveToStorage("cases", next);
       if (adapted.dossierId) {
+        const title = adapted.title || "";
+        const reference = adapted.caseNumber || "";
+        const caseDescription = title && reference ? `${title} (${reference})` : title || reference || "Lawsuit";
         logHistoryEvent({
           entityType: "dossier",
           entityId: adapted.dossierId,
           eventType: EVENT_TYPES.RELATION,
-          label: "Procès créé",
-          details: adapted.caseNumber || adapted.title || "Procès",
+          label: `Lawsuit Created: ${caseDescription}`,
+          details: `A new lawsuit was created: ${caseDescription}`,
           metadata: {
-            relatedType: "case",
-            relatedId: adapted.id,
+            childType: "case",
+            childId: adapted.id,
           },
         });
       }

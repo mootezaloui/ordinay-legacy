@@ -70,6 +70,7 @@ export const taskConfig = {
     // ✅ Always resolve dossier and case from IDs using latest context data
     const dossiers = contextData?.dossiers || [];
     const cases = contextData?.cases || [];
+    const financialEntries = contextData?.financialEntries || [];
 
     let dossier = null;
     if (task.dossierId) {
@@ -95,10 +96,23 @@ export const taskConfig = {
       }
     }
 
+    // Filter financial entries based on parent relationship
+    let relatedFinancialEntries = [];
+    if (task.parentType === "case" && task.caseId) {
+      relatedFinancialEntries = financialEntries.filter(entry =>
+        entry.caseId === task.caseId && entry.scope === 'client'
+      );
+    } else if (task.dossierId) {
+      relatedFinancialEntries = financialEntries.filter(entry =>
+        entry.dossierId === task.dossierId && entry.scope === 'client'
+      );
+    }
+
     return {
       ...task,
       dossier: dossier || null,
-      case: caseData || null
+      case: caseData || null,
+      financialEntries: relatedFinancialEntries,
     };
   },
 
@@ -288,7 +302,14 @@ export const taskConfig = {
       label: "Accounting",
       icon: "fas fa-coins",
       component: "financial",
-      description: "Financial tracking related to this task"
+      description: "Financial tracking related to this task",
+      getCount: (data) => {
+        // Count financial entries (excluding void/cancelled)
+        if (!data.financialEntries) return 0;
+        return data.financialEntries.filter(e =>
+          e.status !== 'void' && e.status !== 'cancelled'
+        ).length;
+      },
     },
     {
       id: "documents",

@@ -27,6 +27,19 @@ export const EVENT_TYPES = {
 };
 
 /**
+ * Normalize entity type to match backend format
+ */
+const normalizeEntityType = (entityType) => {
+  const map = {
+    financialEntry: "financial_entry",
+    financialentry: "financial_entry",
+    personalTask: "personal_task",
+    personaltask: "personal_task",
+  };
+  return map[entityType] || entityType.toLowerCase();
+};
+
+/**
  * Map backend event data to frontend format
  */
 const mapBackendEventToFrontend = (event) => {
@@ -85,7 +98,7 @@ export const logHistoryEvent = async ({
 
   try {
     const backendEvent = await apiClient.post("/history", {
-      entity_type: entityType,
+      entity_type: normalizeEntityType(entityType),
       entity_id: entityId,
       action: eventType,
       description: details || label,
@@ -108,7 +121,10 @@ export const logHistoryEvent = async ({
  */
 export const getEntityHistory = async (entityType, entityId) => {
   try {
-    const events = await apiClient.get(`/history?entity_type=${entityType}&entity_id=${entityId}`);
+    const normalizedType = normalizeEntityType(entityType);
+    const events = await apiClient.get(
+      `/history?entity_type=${normalizedType}&entity_id=${entityId}`
+    );
 
     // Map backend events to frontend format
     const mappedEvents = events.map(mapBackendEventToFrontend);
@@ -132,8 +148,15 @@ export const getEntityHistory = async (entityType, entityId) => {
  */
 export const deleteEntityHistory = async (entityType, entityId) => {
   try {
-    const result = await apiClient.delete(`/history/entity?entity_type=${entityType}&entity_id=${entityId}`);
-    console.log(`[historyService] Deleted ${result.deletedCount || 0} history entries for ${entityType} ${entityId}`);
+    const normalizedType = normalizeEntityType(entityType);
+    const result = await apiClient.delete(
+      `/history/entity?entity_type=${normalizedType}&entity_id=${entityId}`
+    );
+    console.log(
+      `[historyService] Deleted ${
+        result.deletedCount || 0
+      } history entries for ${entityType} ${entityId}`
+    );
     return result.deletedCount || 0;
   } catch (error) {
     console.error("[historyService] Failed to delete entity history", error);
@@ -148,7 +171,9 @@ export const deleteEntityHistory = async (entityType, entityId) => {
  * @param {number|string} entityId
  */
 export const clearEntityHistory = async (entityType, entityId) => {
-  console.warn("[historyService] clearEntityHistory is deprecated - use deleteEntityHistory instead");
+  console.warn(
+    "[historyService] clearEntityHistory is deprecated - use deleteEntityHistory instead"
+  );
   return deleteEntityHistory(entityType, entityId);
 };
 
@@ -160,8 +185,8 @@ export const logEntityCreation = (entityType, entityId, entityName = null) => {
     entityType,
     entityId,
     eventType: EVENT_TYPES.LIFECYCLE,
-    label: "Création",
-    details: entityName ? `${entityName} a été créé(e)` : "Entité créée",
+    label: "Creation",
+    details: entityName ? `${entityName} was added` : "Entity created",
     metadata: { action: "created" },
   });
 };
@@ -205,8 +230,8 @@ export const logAssignment = (
     eventType: EVENT_TYPES.ASSIGNMENT,
     label,
     details: previousAssignee
-      ? "Réaffectation effectuée"
-      : "Affectation initiale",
+      ? "Reassignment performed"
+      : "Initial assignment performed",
     metadata: { assignedTo, previousAssignee },
   });
 };
@@ -221,11 +246,11 @@ export const logLifecycleChange = (
   reason = null
 ) => {
   const labels = {
-    closed: "Clôture",
-    reopened: "Réouverture",
-    archived: "Archivage",
-    reactivated: "Réactivation",
-    deleted: "Suppression",
+    closed: "Closure",
+    reopened: "Reopening",
+    archived: "Archiving",
+    reactivated: "Reactivation",
+    deleted: "Deletion",
   };
 
   return logHistoryEvent({
@@ -249,10 +274,10 @@ export const logFinancialAction = (
   description = null
 ) => {
   const labels = {
-    advance: "Avance reçue",
-    payment: "Paiement effectué",
-    expense: "Dépense ajoutée",
-    invoice: "Facture générée",
+    advance: "Advance received",
+    payment: "Payment made",
+    expense: "Expense added",
+    invoice: "Invoice generated",
   };
 
   return logHistoryEvent({
@@ -278,7 +303,7 @@ export const logDomainRuleConfirmation = (
     entityType,
     entityId,
     eventType: EVENT_TYPES.SYSTEM,
-    label: confirmed ? "Confirmation de règle acceptée" : "Règle bloquée",
+    label: confirmed ? "Domain rule confirmed" : "Domain rule blocked",
     details: ruleDescription,
     metadata: { confirmed, ruleType: "domain" },
   });
@@ -298,8 +323,8 @@ export const logRelationalImpact = (
     entityId,
     eventType: EVENT_TYPES.RELATION,
     label: confirmed
-      ? "Impact relationnel confirmé"
-      : "Modification relationnelle annulée",
+      ? "Relational impact confirmed"
+      : "Relational modification cancelled",
     details: impactDescription,
     metadata: { confirmed, impactType: "relational" },
   });

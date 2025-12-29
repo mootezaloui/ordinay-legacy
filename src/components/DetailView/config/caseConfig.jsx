@@ -48,6 +48,7 @@ export const caseConfig = {
     const sessions = contextData?.sessions || [];
     const tasks = contextData?.tasks || [];
     const dossiers = contextData?.dossiers || [];
+    const financialEntries = contextData?.financialEntries || [];
     let dossier = null;
     if (caseData.dossierId) {
       const foundDossier = dossiers.find(d => d.id === parseInt(caseData.dossierId));
@@ -62,6 +63,9 @@ export const caseConfig = {
 
     // Aggregate all sessions related to this case (by caseId or dossierId)
     const caseSessions = sessions.filter((s) => s.caseId === numericId || s.dossierId === caseData.dossierId);
+    const relatedFinancialEntries = financialEntries.filter(entry =>
+      entry.caseId === numericId && entry.scope === 'client'
+    );
 
     // ✅ Calculate dynamic next hearing from all related sessions
     const nextHearingObj = calculateNextHearing(caseData, caseSessions);
@@ -72,6 +76,7 @@ export const caseConfig = {
       // Always derive related collections from live context (avoid stale embedded arrays)
       sessions: caseSessions,
       tasks: tasks.filter((t) => t.parentType === "case" && t.caseId === numericId),
+      financialEntries: relatedFinancialEntries,
       // ✅ Add computed next hearing
       computedNextHearing: nextHearingObj,
     };
@@ -452,6 +457,13 @@ export const caseConfig = {
       label: "Accounting",
       icon: "fas fa-calculator",
       component: "financial",
+      getCount: (data) => {
+        // Count financial entries (excluding void/cancelled)
+        if (!data.financialEntries) return 0;
+        return data.financialEntries.filter(e =>
+          e.status !== 'void' && e.status !== 'cancelled'
+        ).length;
+      },
     },
     {
       id: "documents",

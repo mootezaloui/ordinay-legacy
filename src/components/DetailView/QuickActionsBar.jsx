@@ -82,6 +82,18 @@ function QuickActionField({ action, value, onChange, entityType, entityId, entit
         ? currentOption.color
         : "bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white";
 
+    // DEBUG: Log to see what's happening with colors
+    if (action.key === 'status') {
+        console.log('[QuickActionsBar] Status field debug:', {
+            value,
+            options,
+            currentOption,
+            colorClass,
+            hasColorMap: action.colorMap,
+            hasColor: !!currentOption?.color
+        });
+    }
+
     const handleCreateOption = async (newOptionName) => {
         if (action.onCreateOption) {
             try {
@@ -266,10 +278,16 @@ function QuickActionField({ action, value, onChange, entityType, entityId, entit
             <BlockerModal
                 isOpen={blockerModalOpen}
                 onClose={() => setBlockerModalOpen(false)}
-                actionName={`Changer ${action.label} vers "${pendingValue}"`}
+                actionName={`Change ${action.label} to "${pendingValue}"`}
                 blockers={validationResult?.blockers || []}
                 warnings={validationResult?.warnings || []}
-                entityName={entityData?.caseNumber || entityData?.title || `#${entityId}`}
+                entityName={
+                    entityData?.name ||              // For clients
+                    entityData?.title ||             // For dossiers, tasks, sessions
+                    entityData?.caseNumber ||        // For cases
+                    entityData?.missionNumber ||     // For missions
+                    `#${entityId}`                   // Fallback
+                }
                 entityType={entityType}
                 entityId={entityId}
                 action={action.key === 'status' ? 'changeStatus' : 'edit'}
@@ -277,7 +295,8 @@ function QuickActionField({ action, value, onChange, entityType, entityId, entit
                     newValue: pendingValue,
                     currentValue: value,
                     data: entityData,
-                    newData: { ...(entityData || {}), [action.key]: pendingValue }
+                    newData: { ...(entityData || {}), [action.key]: pendingValue },
+                    entities: contextData
                 }}
                 onRetry={() => {
                     // Retry the action after blockers are resolved

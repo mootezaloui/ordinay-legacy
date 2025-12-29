@@ -144,6 +144,8 @@ export default function AggregatedRelatedTab({
         return "Hearing Created";
       case "tasks":
         return "Task Created";
+      case "missions":
+        return "Mission Created";
       default:
         return "Item Created";
     }
@@ -151,14 +153,57 @@ export default function AggregatedRelatedTab({
 
   const getItemTitle = (item) => {
     if (!item) return "";
-    return (
-      item.caseNumber ||
-      item.title ||
-      item.name ||
-      item.description ||
-      tabConfig?.entityName ||
-      "ElAment"
-    );
+
+    const aggregationType = tabConfig?.aggregationType;
+
+    // For entities with both title/name and reference, show both for clarity
+    switch (aggregationType) {
+      case "dossiers": {
+        const title = item.title || "";
+        const reference = item.caseNumber || item.reference || "";
+        if (title && reference) return `${title} (${reference})`;
+        return title || reference || tabConfig?.entityName || "Element";
+      }
+
+      case "cases": {
+        const title = item.title || "";
+        const reference = item.caseNumber || item.reference || "";
+        if (title && reference) return `${title} (${reference})`;
+        return title || reference || tabConfig?.entityName || "Element";
+      }
+
+      case "sessions": {
+        const title = item.title || item.sessionType || item.description || "";
+        const date = item.sessionDate || item.date || item.scheduledAt || "";
+        if (title && date) return `${title} (${date})`;
+        return title || date || tabConfig?.entityName || "Element";
+      }
+
+      case "tasks": {
+        const title = item.title || item.description || "";
+        const dueDate = item.dueDate || "";
+        if (title && dueDate) return `${title} (Due: ${dueDate})`;
+        return title || tabConfig?.entityName || "Element";
+      }
+
+      case "missions": {
+        const title = item.title || item.description || "";
+        const reference = item.reference || "";
+        if (title && reference) return `${title} (${reference})`;
+        return title || reference || tabConfig?.entityName || "Element";
+      }
+
+      default:
+        return (
+          item.title ||
+          item.name ||
+          item.description ||
+          item.caseNumber ||
+          item.reference ||
+          tabConfig?.entityName ||
+          "Element"
+        );
+    }
   };
 
   const handleAddItem = async (formData) => {
@@ -292,15 +337,19 @@ export default function AggregatedRelatedTab({
       // Log history for the created entity and its parent
       logEntityCreation(referenceEntityType, newItem.id, getItemTitle(newItem));
       if (data?.id && config?.entityType) {
+        const itemTitle = getItemTitle(newItem);
+        const entityDisplayName = referenceEntityType === 'case' ? 'lawsuit' :
+                                   referenceEntityType === 'session' ? 'hearing' :
+                                   referenceEntityType;
         logHistoryEvent({
           entityType: config.entityType,
           entityId: data.id,
           eventType: EVENT_TYPES.RELATION,
-          label: getCreatedLabel(),
-          details: getItemTitle(newItem),
+          label: `${getCreatedLabel()}: ${itemTitle}`,
+          details: `A new ${entityDisplayName} was created: ${itemTitle}`,
           metadata: {
-            relatedType: referenceEntityType,
-            relatedId: newItem.id,
+            childType: referenceEntityType,
+            childId: newItem.id,
           },
         });
       }

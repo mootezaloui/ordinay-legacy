@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { enrichBlockers, getEntityRoute } from '../../services/blockerEnrichment';
 import { canPerformAction } from '../../services/domainRules';
 import { useToast } from '../../contexts/ToastContext';
+import { useData } from '../../contexts/DataContext';
 
 /**
  * BlockerModal Component - ENHANCED with Interactive Actions
@@ -48,6 +49,7 @@ export default function BlockerModal({
 }) {
   const navigate = useNavigate();
   const { showToast } = useToast();
+  const { updateTask, updateSession, updateFinancialEntry, updateCase, updateDossier } = useData();
   const [enrichedBlockers, setEnrichedBlockers] = useState([]);
   const [resolvedBlockers, setResolvedBlockers] = useState(new Set());
   const [isResolving, setIsResolving] = useState(false);
@@ -115,7 +117,13 @@ export default function BlockerModal({
   /**
    * Handle inline resolution action
    */
-  const handleInlineAction = async (actionType, targetEntityType, targetEntityId, blockerIndex) => {
+  const handleInlineAction = async (
+    actionType,
+    targetEntityType,
+    targetEntityId,
+    blockerIndex,
+    item = null
+  ) => {
     setIsResolving(true);
 
     try {
@@ -126,55 +134,91 @@ export default function BlockerModal({
         case 'complete':
           // Mark task or session as complete
           if (targetEntityType === 'task') {
-            const result = canPerformAction(targetEntityType, targetEntityId, 'changeStatus', {
-              newValue: 'Completed'
-            });
-            if (result.allowed) {
-              // In a real app, this would call an API
-              // For now, we'll just show success
+            try {
+              await updateTask(targetEntityId, { status: 'Done' });
               success = true;
               message = 'Task marked as completed';
-            } else {
-              showToast('error', 'Unable to mark this task as completed');
+            } catch (error) {
+              console.error('Error updating task:', error);
+              showToast('Unable to mark this task as completed', 'error');
             }
           } else if (targetEntityType === 'session') {
-            const result = canPerformAction(targetEntityType, targetEntityId, 'edit', {
-              newData: { status: 'Completed' }
-            });
-            if (result.allowed) {
+            try {
+              await updateSession(targetEntityId, { status: 'Completed' });
               success = true;
-              message = 'Session marked as completed';
-            } else {
-              showToast('error', 'Unable to mark this session as completed');
+              message = 'Hearing marked as completed';
+            } catch (error) {
+              console.error('Error updating session:', error);
+              showToast('Unable to mark this hearing as completed', 'error');
             }
           }
           break;
 
         case 'markPaid':
           // Mark financial entry as paid
-          const result = canPerformAction(targetEntityType, targetEntityId, 'changeStatus', {
-            newValue: 'Paid'
-          });
-          if (result.allowed) {
+          try {
+            await updateFinancialEntry(targetEntityId, { status: 'paid' });
             success = true;
             message = 'Entry marked as paid';
-          } else {
-            showToast('error', 'Unable to mark this entry as paid');
+          } catch (error) {
+            console.error('Error updating financial entry:', error);
+            showToast('Unable to mark this entry as paid', 'error');
+          }
+          break;
+
+        case 'close':
+          // Close case or dossier
+          if (targetEntityType === 'case') {
+            try {
+              await updateCase(targetEntityId, { status: 'Closed' });
+              success = true;
+              message = 'Lawsuit closed';
+            } catch (error) {
+              console.error('Error closing case:', error);
+              showToast('Unable to close this lawsuit', 'error');
+            }
+          } else if (targetEntityType === 'dossier') {
+            try {
+              await updateDossier(targetEntityId, { status: 'Closed' });
+              success = true;
+              message = 'Dossier closed';
+            } catch (error) {
+              console.error('Error closing dossier:', error);
+              showToast('Unable to close this dossier', 'error');
+            }
           }
           break;
 
         default:
-          showToast('error', 'Action not supported');
+          showToast('Action not supported', 'error');
       }
 
       if (success) {
-        showToast('success', message);
-        // Mark this blocker as resolved
-        setResolvedBlockers(prev => new Set([...prev, blockerIndex]));
+        showToast(message, 'success');
+
+        // Update the specific blocker items so only the resolved item disappears
+        let shouldResolveBlocker = false;
+        setEnrichedBlockers(prev =>
+          prev.map((blocker, idx) => {
+            if (idx !== blockerIndex) return blocker;
+            const remainingItems = (blocker.items || []).filter(
+              (it) => String(it.entityId) !== String(targetEntityId)
+            );
+            if (remainingItems.length === 0) {
+              shouldResolveBlocker = true;
+            }
+            return { ...blocker, items: remainingItems };
+          })
+        );
+
+        // Mark blocker resolved only if no items remain
+        if (shouldResolveBlocker) {
+          setResolvedBlockers(prev => new Set([...prev, blockerIndex]));
+        }
 
         // Notify parent to update data
         if (onUpdate) {
-          onUpdate();
+          await onUpdate();
         }
 
         // Small delay to show success, then check if all blockers resolved
@@ -184,7 +228,7 @@ export default function BlockerModal({
       }
     } catch (error) {
       console.error('Error performing inline action:', error);
-      showToast('error', 'An error occurred');
+      showToast('An error occurred', 'error');
     } finally {
       setIsResolving(false);
     }
@@ -220,7 +264,14 @@ export default function BlockerModal({
 
   const hasBlockers = blockers && blockers.length > 0;
   const hasWarnings = warnings && warnings.length > 0;
-  const activeBlockers = enrichedBlockers.filter((_, idx) => !resolvedBlockers.has(idx));
+
+  const isBlockerResolved = (blocker, idx) =>
+    resolvedBlockers.has(idx) ||
+    ((blocker.items?.length || 0) === 0 && (!blocker.actions || blocker.actions.length === 0));
+
+  const activeBlockers = enrichedBlockers.filter(
+    (blocker, idx) => !isBlockerResolved(blocker, idx)
+  );
   const allResolved = hasBlockers && activeBlockers.length === 0;
 
   return (
@@ -530,7 +581,8 @@ function ActionButton({ action, item, blockerIndex, onNavigate, onInlineAction, 
         action.action,
         action.entityType || item?.entityType,
         action.entityId || item?.entityId,
-        blockerIndex
+        blockerIndex,
+        item
       );
     }
   };

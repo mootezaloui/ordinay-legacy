@@ -51,6 +51,8 @@ export default function Clients() {
   const [isLoading, setIsLoading] = useState(false);
   const [blockerModalOpen, setBlockerModalOpen] = useState(false);
   const [validationResult, setValidationResult] = useState(null);
+  const [blockedClient, setBlockedClient] = useState(null);
+  const [blockedAction, setBlockedAction] = useState(null);
   const [confirmImpactModalOpen, setConfirmImpactModalOpen] = useState(false);
   const [pendingFormData, setPendingFormData] = useState(null);
   const [pendingDeleteId, setPendingDeleteId] = useState(null);
@@ -104,7 +106,7 @@ export default function Clients() {
       render: (client) => (
         <InlineStatusSelector
           value={client.status}
-          onChange={(newStatus) => handleStatusChange(client.id, newStatus)}
+          onChange={(newStatus) => handleStatusChange(client.id, client, newStatus)}
           statusOptions={[
             { value: "Active", label: "Active", icon: "fas fa-circle-check", color: "green" },
             { value: "Inactive", label: "Inactive", icon: "fas fa-circle-xmark", color: "red" },
@@ -189,10 +191,32 @@ export default function Clients() {
     navigate(`/clients/${id}`);
   };
 
-  const handleStatusChange = async (id, newStatus) => {
+  const handleStatusChange = async (id, client, newStatus) => {
+    // ✅ Validate with domain rules before allowing status change
+    const validationResult = canPerformAction('client', id, 'edit', {
+      data: client,
+      newData: { ...client, status: newStatus },
+      entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
+    });
+
+    if (!validationResult.allowed) {
+      // Show blocker modal
+      console.log('[Clients] Blocked client:', client);
+      setValidationResult(validationResult);
+      setBlockedClient(client);
+      setBlockedAction('changeStatus');
+      setBlockerModalOpen(true);
+      return;
+    }
+
     try {
+      const oldStatus = client.status;
       await updateClient(id, { status: newStatus });
-      showToast(`Status updated: ${newStatus}`, "info", {
+
+      // Log status change
+      logStatusChange('client', id, oldStatus, newStatus);
+
+      showToast(`Status updated to ${newStatus === 'active' ? 'Active' : 'Inactive'}`, "info", {
         title: "Client updated",
         context: "client",
       });
@@ -207,6 +231,8 @@ export default function Clients() {
 
     if (!result.allowed) {
       setValidationResult(result);
+      setBlockedClient(client);
+      setBlockedAction('edit');
       setBlockerModalOpen(true);
       return;
     }
@@ -225,6 +251,8 @@ export default function Clients() {
 
     if (!result.allowed) {
       setValidationResult(result);
+      setBlockedClient(client);
+      setBlockedAction('delete');
       setPendingDeleteId(id); // Store ID for force delete
       setBlockerModalOpen(true);
       return;
@@ -529,11 +557,31 @@ export default function Clients() {
           setBlockerModalOpen(false);
           setPendingDeleteId(null);
           setValidationResult(null);
+          setBlockedClient(null);
+          setBlockedAction(null);
         }}
-        actionName="Edit/Delete Client"
+        actionName={
+          blockedAction === 'delete'
+            ? 'delete client'
+            : blockedAction === 'changeStatus'
+              ? `change status to "${blockedClient?.status === 'active' ? 'inactive' : 'active'}"`
+              : blockedAction === 'edit'
+                ? 'modify client'
+                : 'perform action on client'
+        }
         blockers={validationResult?.blockers || []}
         warnings={validationResult?.warnings || []}
-        entityName={validationResult?.entityData?.name || "Client"}
+        entityName={blockedClient?.name || "Client #" + blockedClient?.id || "Client"}
+        entityType="client"
+        entityId={blockedClient?.id}
+        action={blockedAction}
+        context={{
+          entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
+        }}
+        onUpdate={async () => {
+          // Refresh data after inline action
+          await loadData();
+        }}
         requiresForceDelete={validationResult?.requiresForceDelete || false}
         affectedEntities={validationResult?.affectedEntities || []}
         forceDeleteMessage={validationResult?.forceDeleteMessage || ""}

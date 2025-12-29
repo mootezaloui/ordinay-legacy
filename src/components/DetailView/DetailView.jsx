@@ -417,6 +417,39 @@ export default function DetailView({ entityType }) {
     }
   };
 
+  const handleForceDelete = async () => {
+    setBlockerModalOpen(false);
+
+    try {
+      // Get the cascade delete function from context
+      const cascadeDeleteFunction = contextData[`delete${entityType.charAt(0).toUpperCase() + entityType.slice(1)}Cascade`];
+
+      if (!cascadeDeleteFunction) {
+        showToast("Cascade delete not available for this entity", "error");
+        return;
+      }
+
+      const result = await cascadeDeleteFunction(parseInt(id));
+
+      if (!result || !result.ok) {
+        console.error('[DetailView.handleForceDelete] Cascade delete failed:', result);
+        showToast("Error during cascade deletion", "error");
+        return;
+      }
+
+      showToast(`${config.title} and all related entities deleted`, "success", {
+        title: "Cascade Deletion",
+        context: entityType,
+      });
+
+      setValidationResult(null);
+      navigate(config.listRoute);
+    } catch (error) {
+      console.error('[DetailView.handleForceDelete] Error:', error);
+      showToast("Error during cascade deletion", "error");
+    }
+  };
+
   const renderTabContent = () => {
     const tabConfig = config.tabs.find(t => t.id === activeTab);
 
@@ -987,15 +1020,18 @@ export default function DetailView({ entityType }) {
       {/* Domain rule blocker modal */}
       <BlockerModal
         isOpen={blockerModalOpen}
-        onClose={() => setBlockerModalOpen(false)}
+        onClose={() => {
+          setBlockerModalOpen(false);
+          setValidationResult(null);
+        }}
         actionName="Delete"
         blockers={validationResult?.blockers || []}
         warnings={validationResult?.warnings || []}
         entityName={config.getTitle ? config.getTitle(data) : ''}
-        entityType={entityType}
-        entityId={parseInt(id)}
-        action="delete"
-        onRetry={() => handleDelete()}
+        requiresForceDelete={validationResult?.requiresForceDelete || false}
+        affectedEntities={validationResult?.affectedEntities || []}
+        forceDeleteMessage={validationResult?.forceDeleteMessage || ""}
+        onForceDelete={handleForceDelete}
       />
       {/* Client notification prompt for inline changes */}
       <ClientNotificationPrompt

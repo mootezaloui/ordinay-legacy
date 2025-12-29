@@ -11,12 +11,13 @@
  */
 
 const getData = (context = {}) => ({
-  tasks: context.entities?.tasks || [],
-  sessions: context.entities?.sessions || [],
-  dossiers: context.entities?.dossiers || [],
-  cases: context.entities?.cases || [],
-  missions: context.entities?.missions || [],
-  financialEntries: context.entities?.financialEntries || [],
+  tasks: context.tasks || context.entities?.tasks || [],
+  sessions: context.sessions || context.entities?.sessions || [],
+  dossiers: context.dossiers || context.entities?.dossiers || [],
+  cases: context.cases || context.entities?.cases || [],
+  missions: context.missions || context.entities?.missions || [],
+  financialEntries:
+    context.financialEntries || context.entities?.financialEntries || [],
 });
 
 /**
@@ -37,13 +38,18 @@ export function enrichBlockers(
   context = {}
 ) {
   const data = getData(context);
+
+  console.log('[enrichBlockers] All blockers:', blockers);
+
   if (!blockers || blockers.length === 0) {
     return [];
   }
 
   return blockers.map((blocker) => {
+    console.log('[enrichBlockers] Processing blocker:', blocker);
     // Try to parse and enrich each blocker
     const enriched = parseBlocker(blocker, entityType, entityId, action, data);
+    console.log('[enrichBlockers] Enriched to:', enriched?.type);
 
     // If we couldn't enrich it, return as plain blocker
     if (!enriched) {
@@ -66,6 +72,9 @@ function parseBlocker(blocker, entityType, entityId, action, data) {
   if (blocker.includes("tâche") && blocker.includes("non terminée")) {
     return parseTaskBlocker(blocker, entityType, entityId, data);
   }
+  if (blocker.includes("open Task")) {
+    return parseTaskBlockerEnglish(blocker, entityType, entityId, data);
+  }
 
   // Pattern 2: Open cases (procès)
   if (
@@ -74,6 +83,14 @@ function parseBlocker(blocker, entityType, entityId, action, data) {
   ) {
     return parseCaseBlocker(blocker, entityType, entityId, data);
   }
+  if (blocker.includes("open Lawsuit")) {
+    return parseCaseBlockerEnglish(blocker, entityType, entityId, data);
+  }
+
+  // Pattern 2.5: Open Dossiers
+  if (blocker.includes("open Dossier")) {
+    return parseDossierBlockerEnglish(blocker, entityType, entityId, data);
+  }
 
   // Pattern 3: Upcoming/incomplete sessions
   if (
@@ -81,6 +98,9 @@ function parseBlocker(blocker, entityType, entityId, action, data) {
     (blocker.includes("à venir") || blocker.includes("non terminée"))
   ) {
     return parseSessionBlocker(blocker, entityType, entityId, data);
+  }
+  if (blocker.includes("open Hearing")) {
+    return parseSessionBlockerEnglish(blocker, entityType, entityId, data);
   }
 
   // Pattern 4: Active missions
@@ -91,6 +111,21 @@ function parseBlocker(blocker, entityType, entityId, action, data) {
   // Pattern 5: Unpaid financial balance
   if (blocker.includes("Solde") && blocker.includes("impayé")) {
     return parseFinancialBlocker(blocker, entityType, entityId, data);
+  }
+  const normalizedBlocker = blocker.toLowerCase();
+  const includesUnpaid = normalizedBlocker.includes("unpaid");
+  const includesBalance = normalizedBlocker.includes("balance");
+  const isEnglishFinancial = includesUnpaid && includesBalance;
+
+  console.log('[parseBlocker] Checking financial:', {
+    blocker,
+    includesUnpaid,
+    includesBalance,
+    includesUnpaidBalance: blocker.includes("Unpaid balance"),
+    includesUnpaidClientBalance: blocker.includes("Unpaid client balance")
+  });
+  if (isEnglishFinancial) {
+    return parseFinancialBlockerEnglish(blocker, entityType, entityId, data);
   }
 
   // Pattern 6: Parent is closed (edit restrictions)
@@ -148,14 +183,14 @@ function parseTaskBlocker(blocker, entityType, entityId, data) {
             (task.parentType === "case" &&
               proceedings.some((p) => p.id == task.caseId))
         )
-        .filter((task) => task.status !== "Terminée");
+        .filter((task) => task.status !== "Done");
     }
   } else if (entityType === "case") {
     tasks = data.tasks.filter(
       (task) =>
         task.parentType === "case" &&
         task.caseId == entityId &&
-        task.status !== "Terminée"
+        task.status !== "Done"
     );
   }
 
@@ -166,14 +201,14 @@ function parseTaskBlocker(blocker, entityType, entityId, data) {
     status: task.status,
     actions: [
       {
-        label: "Voir la tâche",
+        label: "View Task",
         type: "navigate",
         route: "/tasks",
         entityId: task.id,
         icon: "fas fa-external-link-alt",
       },
       {
-        label: "Marquer terminée",
+        label: "Mark Complete",
         type: "inline-action",
         action: "complete",
         entityType: "task",
@@ -188,9 +223,10 @@ function parseTaskBlocker(blocker, entityType, entityId, data) {
     type: "task",
     reason: blocker,
     items,
-    summary: `${tasks.length} tâche${tasks.length > 1 ? "s" : ""} non terminée${
-      tasks.length > 1 ? "s" : ""
-    }`,
+    summary: `${tasks.length} incomplete Task${tasks.length > 1 ? "s" : ""}`,
+    helpText: entityType === "dossier"
+      ? "To close this dossier, all related tasks must be completed first. You can mark tasks as complete individually."
+      : "To close this lawsuit, all related tasks must be completed first. You can mark tasks as complete individually.",
     actions: [],
   };
 }
@@ -206,7 +242,7 @@ function parseCaseBlocker(blocker, entityType, entityId, data) {
     if (dossier) {
       const proceedings = data.cases.filter((c) => c.dossierId === dossier.id);
       cases = proceedings.filter(
-        (proc) => proc.status !== "Clos" && proc.status !== "Terminé"
+        (proc) => proc.status !== "Closed"
       );
     }
   }
@@ -222,11 +258,21 @@ function parseCaseBlocker(blocker, entityType, entityId, data) {
     status: caseData.status,
     actions: [
       {
-        label: "Voir le procès",
+        label: "View Lawsuit",
         type: "navigate",
         route: "/cases",
         entityId: caseData.id,
         icon: "fas fa-external-link-alt",
+      },
+      {
+        label: "Close Lawsuit",
+        type: "inline-action",
+        action: "close",
+        entityType: "case",
+        entityId: caseData.id,
+        icon: "fas fa-times-circle",
+        safe: false,
+        requiresConfirmation: true,
       },
     ],
   }));
@@ -235,7 +281,8 @@ function parseCaseBlocker(blocker, entityType, entityId, data) {
     type: "case",
     reason: blocker,
     items,
-    summary: `${cases.length} procès non clos`,
+    summary: `${cases.length} open Lawsuit${cases.length > 1 ? "s" : ""}`,
+    helpText: "To close this dossier, all related lawsuits must be closed first. You can close each lawsuit individually.",
     actions: [],
   };
 }
@@ -254,8 +301,8 @@ function parseSessionBlocker(blocker, entityType, entityId, data) {
         const sessionDate = new Date(session.date);
         return (
           sessionDate >= today &&
-          session.status !== "Terminée" &&
-          session.status !== "Annulée"
+          session.status !== "Completed" &&
+          session.status !== "Cancelled"
         );
       });
   }
@@ -267,14 +314,14 @@ function parseSessionBlocker(blocker, entityType, entityId, data) {
     status: session.status,
     actions: [
       {
-        label: "Voir la séance",
+        label: "View Hearing",
         type: "navigate",
         route: "/sessions",
         entityId: session.id,
         icon: "fas fa-external-link-alt",
       },
       {
-        label: "Marquer terminée",
+        label: "Mark Complete",
         type: "inline-action",
         action: "complete",
         entityType: "session",
@@ -289,9 +336,10 @@ function parseSessionBlocker(blocker, entityType, entityId, data) {
     type: "session",
     reason: blocker,
     items,
-    summary: `${sessions.length} séance${
+    summary: `${sessions.length} upcoming Hearing${
       sessions.length > 1 ? "s" : ""
-    } à venir`,
+    }`,
+    helpText: "To close this lawsuit, all upcoming hearings must be completed or cancelled first. You can mark hearings as complete individually.",
     actions: [],
   };
 }
@@ -336,12 +384,21 @@ function parseMissionBlocker(blocker, entityType, entityId, data) {
     status: mission.status,
     actions: [
       {
-        label: "Voir la mission",
+        label: "View Mission",
         type: "navigate",
         route: `/officers/${mission.officerId}`,
         tab: "missions",
         entityId: mission.id,
         icon: "fas fa-external-link-alt",
+      },
+      {
+        label: "Complete Mission",
+        type: "navigate",
+        route: `/officers/${mission.officerId}`,
+        tab: "missions",
+        entityId: mission.id,
+        icon: "fas fa-check",
+        description: "Change the mission status to Completed",
       },
     ],
   }));
@@ -350,9 +407,12 @@ function parseMissionBlocker(blocker, entityType, entityId, data) {
     type: "mission",
     reason: blocker,
     items,
-    summary: `${missions.length} mission${
+    summary: `${missions.length} active Mission${
       missions.length > 1 ? "s" : ""
-    } en cours`,
+    }`,
+    helpText: entityType === "dossier"
+      ? "To close this dossier, all active missions must be completed or cancelled first. You can complete each mission individually."
+      : "To close this lawsuit, all active missions must be completed or cancelled first. You can complete each mission individually.",
     actions: [],
   };
 }
@@ -370,7 +430,8 @@ function parseFinancialBlocker(blocker, entityType, entityId, data) {
         (entry) =>
           entry.clientId == dossier.clientId &&
           entry.status !== "paid" &&
-          entry.status !== "Payée"
+          entry.status !== "Payée" &&
+          entry.status !== "void"
       );
     }
   } else if (entityType === "client") {
@@ -378,27 +439,28 @@ function parseFinancialBlocker(blocker, entityType, entityId, data) {
       (entry) =>
         entry.clientId == entityId &&
         entry.status !== "paid" &&
-        entry.status !== "Payée"
+        entry.status !== "Payée" &&
+        entry.status !== "void"
     );
   }
 
   const items = entries.slice(0, 5).map((entry) => ({
     entityId: entry.id,
-    entityLabel: `${entry.description || "Écriture"} - ${entry.amount} ${
+    entityLabel: `${entry.description || "Financial entry"} - ${entry.amount} ${
       entry.currency || "TND"
     }`,
     entityType: "financialEntry",
     status: entry.status,
     actions: [
       {
-        label: "Voir l'écriture",
+        label: "View Entry",
         type: "navigate",
         route: "/accounting",
         entityId: entry.id,
         icon: "fas fa-external-link-alt",
       },
       {
-        label: "Marquer payée",
+        label: "Mark as Paid",
         type: "inline-action",
         action: "markPaid",
         entityType: "financialEntry",
@@ -415,6 +477,9 @@ function parseFinancialBlocker(blocker, entityType, entityId, data) {
     reason: blocker,
     items,
     summary: blocker,
+    helpText: entityType === "dossier"
+      ? "To close this dossier, all financial balances must be settled. You can mark entries as paid or create new payment entries to balance the account."
+      : "To mark this client as inactive, all financial balances must be settled. You can mark entries as paid or create new payment entries to balance the account.",
     actions: [],
   };
 }
@@ -488,8 +553,8 @@ function parseClosedParentBlocker(blocker, entityType, entityId, data) {
   const actions = [];
   if (parentInfo) {
     actions.push({
-      label: `Aller au ${
-        parentInfo.entityType === "dossier" ? "dossier" : "procès"
+      label: `Go to ${
+        parentInfo.entityType === "dossier" ? "Dossier" : "Lawsuit"
       }`,
       type: "navigate",
       route: parentInfo.entityType === "dossier" ? "/dossiers" : "/cases",
@@ -499,14 +564,14 @@ function parseClosedParentBlocker(blocker, entityType, entityId, data) {
 
     if (parentInfo.status === "Fermé" || parentInfo.status === "Clos") {
       actions.push({
-        label: `Rouvrir le ${
-          parentInfo.entityType === "dossier" ? "dossier" : "procès"
+        label: `Reopen ${
+          parentInfo.entityType === "dossier" ? "Dossier" : "Lawsuit"
         }`,
         type: "navigate",
         route: parentInfo.entityType === "dossier" ? "/dossiers" : "/cases",
         entityId: parentInfo.entityId,
         icon: "fas fa-folder-open",
-        description: "Vous devez rouvrir le parent pour modifier cet élément",
+        description: "You must reopen the parent to edit this item",
       });
     }
   }
@@ -516,6 +581,7 @@ function parseClosedParentBlocker(blocker, entityType, entityId, data) {
     reason: blocker,
     parentInfo,
     actions,
+    helpText: "This item belongs to a closed parent entity and cannot be modified. You must reopen the parent first.",
   };
 }
 
@@ -528,13 +594,14 @@ function parseCreateUnderClosedParentBlocker(blocker) {
     reason: blocker,
     actions: [
       {
-        label: "Choisir un autre parent",
+        label: "Choose Another Parent",
         type: "inline-action",
         action: "changeParent",
         icon: "fas fa-edit",
-        description: "Vous devez sélectionner un parent Active",
+        description: "You must select an active parent",
       },
     ],
+    helpText: "You cannot create items under a closed parent entity. Please select an active parent or reopen the closed one.",
   };
 }
 
@@ -547,15 +614,15 @@ function parsePaidFinancialEntryBlocker(blocker, entityType, entityId) {
     reason: blocker,
     actions: [
       {
-        label: "Voir l'écriture",
+        label: "View Entry",
         type: "navigate",
         route: "/accounting",
         entityId: entityId,
         icon: "fas fa-external-link-alt",
       },
     ],
-    warning:
-      "Les écritures payées ne peuvent pas être modifiées pour garantir l'intégrité financière.",
+    warning: "Paid financial entries cannot be modified to ensure financial integrity.",
+    helpText: "This entry has been marked as paid and is locked to maintain financial records integrity. Create a new entry if you need to make adjustments.",
   };
 }
 
@@ -567,8 +634,389 @@ function parseTemporalBlocker(blocker, entityType, entityId) {
     type: "temporal",
     reason: blocker,
     actions: [],
-    warning:
-      "Veuillez corriger les dates pour respecter la chronologie légale.",
+    warning: "Please correct the dates to comply with legal chronology.",
+    helpText: "The dates entered violate temporal constraints. Ensure all dates follow proper chronological order and legal requirements.",
+  };
+}
+
+/**
+ * Parse open Dossiers blocker (English)
+ */
+function parseDossierBlockerEnglish(blocker, entityType, entityId, data) {
+  let dossiers = [];
+
+  if (entityType === "client") {
+    dossiers = data.dossiers.filter(
+      (d) => d.clientId == entityId && d.status !== "Fermé" && d.status !== "Clos"
+    );
+  }
+
+  const items = dossiers.slice(0, 5).map((dossier) => ({
+    entityId: dossier.id,
+    entityLabel: `${dossier.caseNumber} - ${dossier.title}`,
+    entityType: "dossier",
+    status: dossier.status,
+    actions: [
+      {
+        label: "View Dossier",
+        type: "navigate",
+        route: "/dossiers",
+        entityId: dossier.id,
+        icon: "fas fa-external-link-alt",
+      },
+    ],
+  }));
+
+  return {
+    type: "dossier",
+    reason: blocker,
+    items,
+    summary: `${dossiers.length} open Dossier${dossiers.length > 1 ? "s" : ""}`,
+    helpText: "To mark a client as inactive, all related dossiers must be closed first. You can close each dossier individually.",
+    actions: [],
+  };
+}
+
+/**
+ * Parse open Lawsuits blocker (English)
+ */
+function parseCaseBlockerEnglish(blocker, entityType, entityId, data) {
+  let cases = [];
+
+  if (entityType === "client") {
+    const clientDossiers = data.dossiers.filter((d) => d.clientId == entityId);
+    cases = data.cases.filter((c) =>
+      clientDossiers.some((d) => d.id === c.dossierId) &&
+      c.status !== "Fermé" && c.status !== "Clos"
+    );
+  } else if (entityType === "dossier") {
+    const dossier = data.dossiers.find((d) => d.id == entityId);
+    if (dossier) {
+      cases = data.cases.filter(
+        (c) => c.dossierId === dossier.id && c.status !== "Closed"
+      );
+    }
+  }
+
+  const items = cases.slice(0, 5).map((caseData) => ({
+    entityId: caseData.id,
+    entityLabel: `${caseData.caseNumber} - ${caseData.title}`,
+    entityType: "case",
+    status: caseData.status,
+    actions: [
+      {
+        label: "View Lawsuit",
+        type: "navigate",
+        route: "/cases",
+        entityId: caseData.id,
+        icon: "fas fa-external-link-alt",
+      },
+      {
+        label: "Close Lawsuit",
+        type: "inline-action",
+        action: "close",
+        entityType: "case",
+        entityId: caseData.id,
+        icon: "fas fa-times-circle",
+        safe: false,
+        requiresConfirmation: true,
+      },
+    ],
+  }));
+
+  // Context-aware helpText
+  let helpText = "All related lawsuits must be closed first...";
+  if (entityType === "dossier") {
+    helpText = "To close this dossier, all related lawsuits must be closed first. You can close each lawsuit individually.";
+  } else if (entityType === "client") {
+    helpText = "To mark this client as inactive, all related lawsuits must be closed first. You can close each lawsuit individually.";
+  }
+
+  return {
+    type: "case",
+    reason: blocker,
+    items,
+    summary: `${cases.length} open Lawsuit${cases.length > 1 ? "s" : ""}`,
+    helpText,
+    actions: [],
+  };
+}
+
+/**
+ * Parse open Tasks blocker (English)
+ */
+function parseTaskBlockerEnglish(blocker, entityType, entityId, data) {
+  let tasks = [];
+
+  if (entityType === "client") {
+    const clientDossiers = data.dossiers.filter((d) => d.clientId == entityId);
+    const clientCases = data.cases.filter((c) =>
+      clientDossiers.some((d) => d.id === c.dossierId)
+    );
+
+    tasks = data.tasks.filter((task) => {
+      if (task.dossierId) {
+        return clientDossiers.some((d) => d.id === task.dossierId) &&
+          task.status !== "Done" && task.status !== "Cancelled";
+      }
+      if (task.caseId && task.parentType === "case") {
+        return clientCases.some((c) => c.id === task.caseId) &&
+          task.status !== "Done" && task.status !== "Cancelled";
+      }
+      return false;
+    });
+  } else if (entityType === "dossier") {
+    const dossier = data.dossiers.find((d) => d.id == entityId);
+    if (dossier) {
+      const proceedings = data.cases.filter((c) => c.dossierId === dossier.id);
+      tasks = data.tasks
+        .filter(
+          (task) =>
+            (task.parentType === "dossier" && task.dossierId == entityId) ||
+            (task.parentType === "case" &&
+              proceedings.some((p) => p.id == task.caseId))
+        )
+        .filter((task) => task.status !== "Done" && task.status !== "Cancelled");
+    }
+  } else if (entityType === "case") {
+    tasks = data.tasks.filter(
+      (task) =>
+        task.parentType === "case" &&
+        task.caseId == entityId &&
+        task.status !== "Done" && task.status !== "Cancelled"
+    );
+  }
+
+  const items = tasks.slice(0, 5).map((task) => ({
+    entityId: task.id,
+    entityLabel: task.title,
+    entityType: "task",
+    status: task.status,
+    actions: [
+      {
+        label: "View Task",
+        type: "navigate",
+        route: "/tasks",
+        entityId: task.id,
+        icon: "fas fa-external-link-alt",
+      },
+      {
+        label: "Mark Complete",
+        type: "inline-action",
+        action: "complete",
+        entityType: "task",
+        entityId: task.id,
+        icon: "fas fa-check",
+        safe: true,
+      },
+    ],
+  }));
+
+  let helpText = "All related tasks must be completed first. You can mark tasks as complete individually.";
+  if (entityType === "dossier") {
+    helpText = "To close this dossier, all related tasks must be completed first. You can mark tasks as complete individually.";
+  } else if (entityType === "case") {
+    helpText = "To close this lawsuit, all related tasks must be completed first. You can mark tasks as complete individually.";
+  } else if (entityType === "client") {
+    helpText = "To mark this client as inactive, all related tasks must be completed first. You can mark tasks as complete individually.";
+  }
+
+  return {
+    type: "task",
+    reason: blocker,
+    items,
+    summary: `${tasks.length} open Task${tasks.length > 1 ? "s" : ""}`,
+    helpText,
+    actions: [],
+  };
+}
+
+/**
+ * Parse open Hearings blocker (English)
+ */
+function parseSessionBlockerEnglish(blocker, entityType, entityId, data) {
+  let sessions = [];
+
+  if (entityType === "client") {
+    const clientDossiers = data.dossiers.filter((d) => d.clientId == entityId);
+    const clientCases = data.cases.filter((c) =>
+      clientDossiers.some((d) => d.id === c.dossierId)
+    );
+
+    sessions = data.sessions.filter((session) => {
+      if (session.dossierId) {
+        return clientDossiers.some((d) => d.id === session.dossierId) &&
+          session.status !== "Completed" && session.status !== "Cancelled";
+      }
+      if (session.caseId) {
+        return clientCases.some((c) => c.id === session.caseId) &&
+          session.status !== "Completed" && session.status !== "Cancelled";
+      }
+      return false;
+    });
+  } else if (entityType === "dossier") {
+    const dossier = data.dossiers.find((d) => d.id == entityId);
+    if (dossier) {
+      const today = new Date();
+      const proceedings = data.cases.filter((c) => c.dossierId === dossier.id);
+
+      sessions = data.sessions.filter((session) => {
+        const sessionDate = new Date(session.date);
+        const isFuture = sessionDate >= today;
+        const isNotComplete = session.status !== "Completed" && session.status !== "Cancelled";
+
+        if (session.dossierId == entityId) {
+          return isFuture && isNotComplete;
+        }
+        if (session.caseId && proceedings.some((p) => p.id == session.caseId)) {
+          return isFuture && isNotComplete;
+        }
+        return false;
+      });
+    }
+  } else if (entityType === "case") {
+    const today = new Date();
+    sessions = data.sessions
+      .filter((session) => session.caseId == entityId)
+      .filter((session) => {
+        const sessionDate = new Date(session.date);
+        return (
+          sessionDate >= today &&
+          session.status !== "Completed" &&
+          session.status !== "Cancelled"
+        );
+      });
+  }
+
+  const items = sessions.slice(0, 5).map((session) => ({
+    entityId: session.id,
+    entityLabel: `${session.type || 'Hearing'} on ${session.date}`,
+    entityType: "session",
+    status: session.status,
+    actions: [
+      {
+        label: "View Hearing",
+        type: "navigate",
+        route: "/sessions",
+        entityId: session.id,
+        icon: "fas fa-external-link-alt",
+      },
+      {
+        label: "Mark Complete",
+        type: "inline-action",
+        action: "complete",
+        entityType: "session",
+        entityId: session.id,
+        icon: "fas fa-check",
+        safe: true,
+      },
+    ],
+  }));
+
+  let helpText = "All related hearings must be completed first. You can mark hearings as complete individually.";
+  if (entityType === "dossier") {
+    helpText = "To close this dossier, all upcoming hearings must be completed or cancelled first. You can mark hearings as complete individually.";
+  } else if (entityType === "case") {
+    helpText = "To close this lawsuit, all upcoming hearings must be completed or cancelled first. You can mark hearings as complete individually.";
+  } else if (entityType === "client") {
+    helpText = "To mark this client as inactive, all related hearings must be completed first. You can mark hearings as complete individually.";
+  }
+
+  return {
+    type: "session",
+    reason: blocker,
+    items,
+    summary: `${sessions.length} open Hearing${sessions.length > 1 ? "s" : ""}`,
+    helpText,
+    actions: [],
+  };
+}
+
+/**
+ * Parse unpaid balance blocker (English)
+ */
+function parseFinancialBlockerEnglish(blocker, entityType, entityId, data) {
+  let entries = [];
+
+  console.log('[parseFinancialBlockerEnglish] Called with:', {
+    blocker,
+    entityType,
+    entityId,
+    hasFinancialEntries: !!data.financialEntries,
+    financialEntriesCount: data.financialEntries?.length
+  });
+
+  if (entityType === "dossier") {
+    const dossier = data.dossiers.find((d) => d.id == entityId);
+    console.log('[parseFinancialBlockerEnglish] Dossier found:', dossier);
+    if (dossier) {
+      const allClientEntries = data.financialEntries.filter(
+        (entry) => entry.clientId == dossier.clientId
+      );
+      console.log('[parseFinancialBlockerEnglish] All client entries:', allClientEntries);
+
+      entries = data.financialEntries.filter(
+        (entry) =>
+          entry.clientId == dossier.clientId &&
+          entry.status !== "paid" &&
+          entry.status !== "Payée" &&
+          entry.status !== "void"
+      );
+      console.log('[parseFinancialBlockerEnglish] Filtered unpaid entries:', entries);
+    }
+  } else if (entityType === "client") {
+    entries = data.financialEntries.filter(
+      (entry) =>
+        entry.clientId == entityId &&
+        entry.status !== "paid" &&
+        entry.status !== "Payée" &&
+        entry.status !== "void"
+    );
+  }
+
+  const items = entries.slice(0, 5).map((entry) => ({
+    entityId: entry.id,
+    entityLabel: `${entry.description || "Financial entry"} - ${entry.amount} ${
+      entry.currency || "TND"
+    }`,
+    entityType: "financialEntry",
+    status: entry.status,
+    actions: [
+      {
+        label: "View Entry",
+        type: "navigate",
+        route: "/accounting",
+        entityId: entry.id,
+        icon: "fas fa-external-link-alt",
+      },
+      {
+        label: "Mark as Paid",
+        type: "inline-action",
+        action: "markPaid",
+        entityType: "financialEntry",
+        entityId: entry.id,
+        icon: "fas fa-check-circle",
+        safe: true,
+        requiresConfirmation: true,
+      },
+    ],
+  }));
+
+  // Context-aware helpText
+  let helpText = "All financial balances must be settled first...";
+  if (entityType === "dossier") {
+    helpText = "To close this dossier, all financial balances must be settled. You can mark entries as paid or create new payment entries to balance the account.";
+  } else if (entityType === "client") {
+    helpText = "To mark this client as inactive, all financial balances must be settled. You can mark entries as paid or create new payment entries to balance the account.";
+  }
+
+  return {
+    type: "financial",
+    reason: blocker,
+    items,
+    summary: blocker,
+    helpText,
+    actions: [],
   };
 }
 

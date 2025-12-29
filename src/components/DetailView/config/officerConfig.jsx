@@ -43,6 +43,7 @@ export const officerConfig = {
     const missions = contextData?.missions || [];
     const cases = contextData?.cases || [];
     const dossiers = contextData?.dossiers || [];
+    const financialEntries = contextData?.financialEntries || [];
 
     // Filter missions assigned to this officer
     const officerMissions = missions.filter(m => m.officerId === numericId);
@@ -63,11 +64,17 @@ export const officerConfig = {
     );
     const officerDossiers = dossiers.filter(d => relatedDossierIds.has(d.id));
 
+    // Filter financial entries for this officer (mission expenses)
+    const relatedFinancialEntries = financialEntries.filter(entry =>
+      entry.officerId === numericId && entry.scope === 'client'
+    );
+
     return {
       ...officer,
       missions: officerMissions,
       cases: officerCases,
       dossiers: officerDossiers,
+      financialEntries: relatedFinancialEntries,
     };
   },
 
@@ -359,7 +366,14 @@ export const officerConfig = {
       label: "Accounting",
       icon: "fas fa-coins",
       component: "financial",
-      description: "Financial tracking of all missions for this bailiff"
+      description: "Financial tracking of all missions for this bailiff",
+      getCount: (data) => {
+        // Count financial entries (excluding void/cancelled)
+        if (!data.financialEntries) return 0;
+        return data.financialEntries.filter(e =>
+          e.status !== 'void' && e.status !== 'cancelled'
+        ).length;
+      },
     },
     {
       id: "documents",

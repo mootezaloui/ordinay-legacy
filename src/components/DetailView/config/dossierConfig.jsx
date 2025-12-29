@@ -530,6 +530,13 @@ export const dossierConfig = {
       label: "Accounting",
       icon: "fas fa-calculator",
       component: "financial",
+      getCount: (data) => {
+        // Count financial entries (excluding void/cancelled)
+        if (!data.financialEntries) return 0;
+        return data.financialEntries.filter(e =>
+          e.status !== 'void' && e.status !== 'cancelled'
+        ).length;
+      },
     },
     {
       id: "documents",

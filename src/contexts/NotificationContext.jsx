@@ -102,6 +102,27 @@ export function NotificationProvider({ children }) {
         return 'info';
       };
 
+      // Map notification type to valid entity_type (database constraint)
+      const mapTypeToEntityType = (type) => {
+        const typeMap = {
+          'hearing': 'session',
+          'payment': 'financial_entry',
+          'deadline': 'dossier',
+          'proceeding': 'case',
+          // Valid types that map directly
+          'client': 'client',
+          'dossier': 'dossier',
+          'case': 'case',
+          'task': 'task',
+          'session': 'session',
+          'mission': 'mission',
+          'financial_entry': 'financial_entry',
+          'personal_task': 'personal_task',
+          'document': 'document',
+        };
+        return typeMap[type] || null;
+      };
+
       // Determine severity: use existing severity if valid, otherwise map from priority
       let severity = notification.severity || notification.priority || 'info';
       const validSeverities = ['info', 'warning', 'error'];
@@ -109,16 +130,25 @@ export function NotificationProvider({ children }) {
         severity = mapPriorityToSeverity(severity);
       }
 
-      // Only include entity_type and entity_id if BOTH are present
+      // Map notification type to valid entity_type for database
+      // Use explicit entityType if provided, otherwise map from type field
+      let mappedEntityType = null;
+      if (notification.entityType) {
+        mappedEntityType = mapTypeToEntityType(notification.entityType);
+      } else if (notification.type) {
+        mappedEntityType = mapTypeToEntityType(notification.type);
+      }
+
+      // Only include entity_type and entity_id if BOTH are present AND valid
       // Backend validation requires both or neither
-      const hasEntityType = notification.entityType !== undefined && notification.entityType !== null;
       const hasEntityId = notification.entityId !== undefined && notification.entityId !== null;
+      const hasValidEntityType = mappedEntityType !== null;
 
       // Check for duplicate notification before creating
       // Avoid creating duplicate notifications for the same entity
-      if (hasEntityType && hasEntityId) {
+      if (hasValidEntityType && hasEntityId) {
         const existingNotification = notifications.find(n =>
-          n.entityType === notification.entityType &&
+          n.entityType === mappedEntityType &&
           n.entityId === notification.entityId &&
           n.title === notification.title &&
           n.status !== 'archived' &&
@@ -140,8 +170,8 @@ export function NotificationProvider({ children }) {
         status: notification.read === true ? "read" : "unread",
       };
 
-      if (hasEntityType && hasEntityId) {
-        notificationData.entity_type = notification.entityType;
+      if (hasValidEntityType && hasEntityId) {
+        notificationData.entity_type = mappedEntityType;
         notificationData.entity_id = notification.entityId;
       }
 
@@ -162,6 +192,8 @@ export function NotificationProvider({ children }) {
         severity: createdNotification.severity,
         priority: createdNotification.severity,
         type: notification.type || "app",
+        entityType: createdNotification.entity_type,
+        entityId: createdNotification.entity_id,
         icon: notification.icon,
         link: notification.link,
         sticky: notification.sticky,
@@ -178,8 +210,10 @@ export function NotificationProvider({ children }) {
         id: Date.now() + Math.random(),
         timestamp: new Date().toISOString(),
         read: false,
-        severity: notification.severity || notification.priority || "info",
-        priority: notification.priority || notification.severity || "info",
+        severity: severity,
+        priority: notification.priority || severity || "info",
+        entityType: mappedEntityType,
+        entityId: notification.entityId,
         ...notification,
       };
       setNotifications(prev => [localNotification, ...prev]);

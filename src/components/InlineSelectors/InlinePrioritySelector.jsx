@@ -239,7 +239,7 @@ export default function InlinePrioritySelector({
       <BlockerModal
         isOpen={blockerModalOpen}
         onClose={() => setBlockerModalOpen(false)}
-        actionName={`Changer la priorité vers "${pendingPriority}"`}
+        actionName={`Change Priority to "${pendingPriority}"`}
         blockers={validationResult?.blockers || []}
         warnings={validationResult?.warnings || []}
         entityName={entityData?.title || entityData?.name || `#${entityId}`}
