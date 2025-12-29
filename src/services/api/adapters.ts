@@ -255,6 +255,7 @@ export function adaptFinancialEntry(
     amount: Number(api.amount || 0),
     currency: api.currency ?? "USD",
     date: dateOnly(api.due_date) || dateOnly(api.created_at) || "",
+    title: api.title ?? "",
     description: api.description ?? "",
     status: mappedStatus,
     scope: api.scope ?? "client",

@@ -975,16 +975,24 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
                   displayValue: `${selectedMissionForFinance.missionNumber} - ${selectedMissionForFinance.title}`
                 };
               }
+              if (field.name === "title") {
+                return {
+                  ...field,
+                  defaultValue: `Bailiff fees - ${selectedMissionForFinance.missionNumber}`
+                };
+              }
               if (field.name === "description") {
                 return {
                   ...field,
-                  defaultValue: `Bailiff Fees - ${selectedMissionForFinance.missionNumber} - ${selectedMissionForFinance.title}`
+                  defaultValue: `Mission: ${selectedMissionForFinance.title}`
                 };
               }
               return field;
             });
           })()}
           isLoading={false}
+          entityType="financialEntry"
+          entities={{ clients, dossiers, cases, missions: allMissions }}
         />
       )}
 

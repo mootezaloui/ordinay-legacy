@@ -81,6 +81,13 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
   const [confirmImpactModalOpen, setConfirmImpactModalOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState(null);
 
+  // Helper function to truncate text
+  const truncate = (text, max = 120) => {
+    if (!text) return "";
+    const str = String(text);
+    return str.length > max ? `${str.slice(0, max).trimEnd()}...` : str;
+  };
+
   // Get financial summary based on entity type
   const summary = useMemo(() => {
     if (entityType === "client") {
@@ -285,13 +292,18 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
     },
     {
       id: "description",
-      label: "Description",
+      label: "Entry",
       sortable: true,
       render: (entry) => (
-        <div className="flex flex-col">
-          <span className="font-medium text-slate-900 dark:text-white">
-            {entry.description}
+        <div className="flex flex-col max-w-md">
+          <span className="font-medium text-slate-900 dark:text-white truncate" title={entry.title || entry.description || "Untitled"}>
+            {truncate(entry.title || entry.description || "Untitled", 50)}
           </span>
+          {entry.description && entry.title && (
+            <span className="text-sm text-slate-600 dark:text-slate-400 mt-0.5 truncate" title={entry.description}>
+              {truncate(entry.description, 45)}
+            </span>
+          )}
           <span
             className={`mt-1 px-2 py-0.5 rounded-full text-xs font-medium inline-block w-fit bg-${entry.categoryColor}-100 text-${entry.categoryColor}-800 dark:bg-${entry.categoryColor}-900/30 dark:text-${entry.categoryColor}-300`}
           >
@@ -1038,11 +1050,17 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
             }
           }
 
-          // Auto-populate description with mission reference (only for new entries)
+          // Auto-populate title and description with mission reference (only for new entries)
+          if (field.name === "title" && !editingEntry) {
+            return {
+              ...field,
+              defaultValue: `Bailiff fees - ${entityData.missionNumber}`
+            };
+          }
           if (field.name === "description" && !editingEntry) {
             return {
               ...field,
-              defaultValue: `Bailiff fees - ${entityData.missionNumber} - ${entityData.title}`,
+              defaultValue: `Mission: ${entityData.title}`,
               placeholder: `Ex: Travel expenses, report fees, etc.`
             };
           }

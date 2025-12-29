@@ -1926,6 +1926,7 @@ export function DataProvider({ children }) {
       currency: entry.currency || "TND",
       due_date: emptyToNull(entry.dueDate || entry.due_date || entry.date),
       paid_at: emptyToNull(entry.paidAt || entry.paid_at),
+      title: emptyToNull(entry.title),
       description: emptyToNull(entry.description),
       reference: emptyToNull(entry.reference),
     };

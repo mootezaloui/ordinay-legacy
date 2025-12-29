@@ -68,6 +68,11 @@ export default function Accounting() {
   const [refreshKey, setRefreshKey] = useState(0); // Trigger re-renders on data changes
   const [blockerModalOpen, setBlockerModalOpen] = useState(false);
   const [validationResult, setValidationResult] = useState(null);
+  const truncate = (text, max = 120) => {
+    if (!text) return "";
+    const str = String(text);
+    return str.length > max ? `${str.slice(0, max).trimEnd()}...` : str;
+  };
 
   // Get display entries with computed fields
   const displayEntries = useMemo(() => {
@@ -215,13 +220,18 @@ export default function Accounting() {
     },
     {
       id: "description",
-      label: "Description",
+      label: "Entry",
       sortable: true,
       render: (entry) => (
-        <div className="flex flex-col">
-          <span className="font-medium text-slate-900 dark:text-white">
-            {entry.description}
+        <div className="flex flex-col max-w-md">
+          <span className="font-medium text-slate-900 dark:text-white truncate" title={entry.title || entry.description || "Untitled"}>
+            {truncate(entry.title || entry.description || "Untitled", 50)}
           </span>
+          {entry.description && entry.title && (
+            <span className="text-sm text-slate-600 dark:text-slate-400 mt-0.5 truncate" title={entry.description}>
+              {truncate(entry.description, 45)}
+            </span>
+          )}
           <div className="flex items-center gap-2 mt-1">
             <span className={`px-2 py-0.5 rounded-full text-xs font-medium bg-${entry.categoryColor}-100 text-${entry.categoryColor}-800 dark:bg-${entry.categoryColor}-900/30 dark:text-${entry.categoryColor}-300`}>
               {entry.categoryLabel}
@@ -422,7 +432,7 @@ export default function Accounting() {
         showToast("Financial entry Added successfully!", "success");
 
         // ✅ Log creation event using the returned entry's ID
-        logEntityCreation('financialEntry', createdEntry.id, createdEntry.description || `${createdEntry.type} - ${formatCurrency(createdEntry.amount)}`);
+        logEntityCreation('financialEntry', createdEntry.id, createdEntry.title || createdEntry.description || `${createdEntry.type} - ${formatCurrency(createdEntry.amount)}`);
 
         // ✅ Navigate to detail view after creation using the returned entry's ID
         const detailRoute = resolveDetailRoute('financialEntry', createdEntry.id);
@@ -578,15 +588,20 @@ export default function Accounting() {
                     onClick={() => handleView(entry)}
                   >
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-3 h-3 rounded-full ${isDraft ? "bg-amber-500" : "bg-blue-500"
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <div className={`w-3 h-3 rounded-full flex-shrink-0 ${isDraft ? "bg-amber-500" : "bg-blue-500"
                           }`} />
-                        <div>
-                          <div className="font-medium text-slate-900 dark:text-white">
-                            {entry.description}
+                        <div className="min-w-0 flex-1">
+                          <div className="font-medium text-slate-900 dark:text-white truncate" title={entry.title || entry.description || "Untitled"}>
+                            {truncate(entry.title || entry.description || "Untitled", 60)}
                           </div>
-                          <div className="text-sm text-slate-600 dark:text-slate-400">
-                            {entry.entityReference} - {formatDate(entry.date)}
+                          {entry.description && entry.title && (
+                            <div className="text-sm text-slate-600 dark:text-slate-400 mt-0.5 truncate" title={entry.description}>
+                              {truncate(entry.description, 55)}
+                            </div>
+                          )}
+                          <div className="text-sm text-slate-600 dark:text-slate-400 mt-0.5 truncate">
+                            {entry.entityReference} • {formatDate(entry.date)}
                           </div>
                         </div>
                       </div>
@@ -680,6 +695,10 @@ export default function Accounting() {
         fields={entryFields}
         initialData={editingEntry}
         isLoading={isLoading}
+        entityType="financialEntry"
+        entityId={editingEntry?.id}
+        editingEntity={editingEntry}
+        entities={{ clients, dossiers, cases, missions }}
       />
 
       <BlockerModal

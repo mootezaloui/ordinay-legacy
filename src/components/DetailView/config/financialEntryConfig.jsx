@@ -49,11 +49,12 @@ export const financialEntryConfig = {
         }
     },
 
-    getTitle: (data) => `#${data.id} - ${data.description}`,
+    getTitle: (data) => data.title || data.description || `Entry #${data.id}`,
     getSubtitle: (data) => {
         const date = formatDateValue(data.date);
         const categoryLabel = financialCategories[data.category]?.label || data.category;
-        return `${categoryLabel} • ${date}`;
+        const amount = formatCurrency(data.amount, data.currency);
+        return `${categoryLabel} • ${amount} • ${date}`;
     },
 
     // Quick Actions Configuration
@@ -219,9 +220,19 @@ export const financialEntryConfig = {
             editStrategy: "structured",
             fields: [
                 {
+                    key: "title",
+                    label: "Title",
+                    value: (data) => data.title || "",
+                    icon: "fas fa-heading",
+                    type: "text",
+                    editable: true,
+                    placeholder: "Ex: Court filing fee, Bailiff travel expenses..."
+                },
+                {
                     key: "description",
-                    label: "Description",
-                    value: (data) => data.description,
+                    label: "Additional Details",
+                    value: (data) => data.description || "",
+                    displayValue: (data) => data.description || "No additional details",
                     icon: "fas fa-file-text",
                     type: "textarea",
                     editable: true,

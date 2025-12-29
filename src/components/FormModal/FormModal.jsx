@@ -8,6 +8,7 @@ import BlockerModal from "../ui/BlockerModal";
 import ConfirmImpactModal from "../ui/ConfirmImpactModal";
 import ClientNotificationPrompt from "../ui/ClientNotificationPrompt";
 import { canPerformAction } from "../../services/domainRules";
+import ReadOnlyField from "./ReadOnlyField";
 import {
   generateEntityReference,
   isReferenceUnique,
@@ -549,8 +550,65 @@ function FormField({ field, value, onChange, error, formData, compact = false })
     ? "border-red-400 dark:border-red-500 focus:border-red-500 focus:ring-red-500/20"
     : "border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 hover:shadow"
     }`;
+  const isReadOnly = field.type === "readonly" || field.disabled;
+
+  const resolveDisplayValue = () => {
+    if (field.displayValue) {
+      return typeof field.displayValue === "function"
+        ? field.displayValue(formData, value)
+        : field.displayValue;
+    }
+
+    if (field.formatValue) {
+      return field.formatValue(value, formData);
+    }
+
+    const options = field.getOptions
+      ? field.getOptions(formData, field.allOptions)
+      : field.options;
+
+    if (options && options.length) {
+      const findLabel = (val) => {
+        const match = options.find((opt) => `${opt.value}` === `${val}`);
+        return match ? match.label : val;
+      };
+
+      if (Array.isArray(value)) {
+        return value.map((v) => findLabel(v)).filter(Boolean).join(", ");
+      }
+
+      const optionLabel = findLabel(value);
+      if (optionLabel !== undefined && optionLabel !== null) {
+        return optionLabel;
+      }
+    }
+
+    if (Array.isArray(value)) {
+      return value.filter((v) => v !== undefined && v !== null && v !== "").join(", ");
+    }
+
+    if (typeof value === "boolean") {
+      return value ? "Yes" : "No";
+    }
+
+    return value;
+  };
 
   const renderInput = () => {
+    if (isReadOnly) {
+      const displayValue = resolveDisplayValue();
+      return (
+        <ReadOnlyField
+          label={field.label}
+          value={displayValue}
+          hint={field.helpText}
+          icon={field.icon}
+          compact={compact}
+          placeholder={field.placeholder || "Not provided"}
+        />
+      );
+    }
+
     switch (field.type) {
       case "text":
       case "email":
@@ -1054,7 +1112,7 @@ function FormField({ field, value, onChange, error, formData, compact = false })
 
   return (
     <div>
-      {field.type !== "checkbox" && field.type !== "financial-entries" && (
+      {!isReadOnly && field.type !== "checkbox" && field.type !== "financial-entries" && (
         <label
           htmlFor={field.name}
           className={`block ${compact ? 'text-xs' : 'text-sm'} font-medium text-slate-700 dark:text-slate-300 ${compact ? 'mb-0.5' : 'mb-1'}`}
@@ -1071,12 +1129,12 @@ function FormField({ field, value, onChange, error, formData, compact = false })
         </div>
       )}
       {renderInput()}
-      {error && (
+      {!isReadOnly && error && (
         <p className={`${compact ? 'mt-0.5 text-xs' : 'mt-1 text-sm'} text-red-600 dark:text-red-400`}>
           {error}
         </p>
       )}
-      {field.helpText && !error && (
+      {!isReadOnly && field.helpText && !error && (
         <p className={`${compact ? 'mt-0.5 text-xs' : 'mt-1 text-sm'} text-slate-500 dark:text-slate-400`}>
           {field.helpText}
         </p>

@@ -233,7 +233,8 @@ export default function Dashboard() {
     // Financial entries: use dueDate if available, fallback to date
     financialEntries.forEach(entry => {
       const targetDate = entry.dueDate || entry.date;
-      pushItem(targetDate, "finance", entry.description, `/accounting/${entry.id}`);
+      const displayText = entry.title || entry.description || `Entry #${entry.id}`;
+      pushItem(targetDate, "finance", displayText, `/accounting/${entry.id}`);
     });
 
     // Missions with due dates (from officers)
