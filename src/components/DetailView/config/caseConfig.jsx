@@ -3,6 +3,7 @@ import ContentSection from "../../layout/ContentSection";
 import { getStatusColor } from "./statusColors";
 import { sessionFormFields, taskFormFields, missionFormFields } from "../../FormModal/formConfigs";
 import { calculateNextHearing, formatDate, getDeadlineUrgency } from "../../../utils/deadlineUtils";
+import { formatDateValue } from "../../../utils/dateFormat";
 
 /**
  * Case (Procès) Entity Configuration - UPDATED with Quick Actions
@@ -551,6 +552,7 @@ export const caseConfig = {
           key: "filingDate",
           label: "Filing Date",
           value: (data) => data.filingDate,
+          displayValue: (data) => data.filingDate ? formatDateValue(data.filingDate) : "N/A",
           icon: "fas fa-calendar-plus",
           type: "date",
           editable: true

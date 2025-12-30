@@ -436,6 +436,7 @@ export const sessionConfig = {
           key: "date",
           label: "Date",
           value: (data) => data.date,
+          displayValue: (data) => data.date ? formatDateValue(data.date) : "N/A",
           icon: "fas fa-calendar",
           type: "date",
           editable: true

@@ -115,7 +115,7 @@ const recordHistoryEvent = async (apiClientInstance, { entityType, entityId, act
   }
 };
 
-const validateMutation = (entityType, action, entityId, context = {}, integrityIssues = []) => {
+const validateMutation = (entityType, action, entityId, context = {}, integrityIssues = [], skipConfirmation = false) => {
   const relatedIssues = integrityIssues.filter(
     (issue) => issue.entityType === entityType && issue.entityId === entityId
   );
@@ -135,7 +135,9 @@ const validateMutation = (entityType, action, entityId, context = {}, integrityI
     ...context,
     entities: context.entities || {},
   });
-  if (!result.allowed || result.requiresConfirmation) {
+
+  // If skipConfirmation is true, allow actions that require confirmation
+  if (!result.allowed || (result.requiresConfirmation && !skipConfirmation)) {
     console.warn(`[DataContext] ${entityType}.${action} blocked`, result);
     return { ok: false, result };
   }
@@ -626,9 +628,9 @@ export function DataProvider({ children }) {
     return { ok: true, result: validation.result, created: adapted };
   };
 
-  const updateDossier = async (id, updates) => {
+  const updateDossier = async (id, updates, skipConfirmation = false) => {
     const prev = dossiers.find((d) => d.id === id);
-    const validation = validateMutation("dossier", "edit", id, { data: prev, newData: { ...prev, ...updates } }, integrityIssues);
+    const validation = validateMutation("dossier", "edit", id, { data: prev, newData: { ...prev, ...updates } }, integrityIssues, skipConfirmation);
     if (!validation.ok) return validation;
 
     console.log('[DataContext.updateDossier] Updating dossier ID:', id, 'with:', updates);
@@ -636,6 +638,11 @@ export function DataProvider({ children }) {
     // 🚨 CRITICAL FIX: Build payload with ONLY the fields present in updates (PATCH semantics)
     const payload = {};
 
+    if (updates.caseNumber !== undefined || updates.reference !== undefined) {
+      const refValue = updates.caseNumber || updates.reference;
+      payload.reference = refValue;
+      payload.case_number = refValue;
+    }
     if (updates.clientId !== undefined || updates.client_id !== undefined) {
       payload.client_id = updates.clientId || updates.client_id;
     }

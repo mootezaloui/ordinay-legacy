@@ -331,10 +331,10 @@ export default function DetailView({ entityType }) {
   };
 
   // ✅ Handle structured section saves (batched changes)
-  const handleSectionSave = async (sectionData) => {
+  const handleSectionSave = async (sectionData, options = {}) => {
     try {
       // Update context synchronously
-      await config.updateData(id, sectionData, latestContextRef.current);
+      await config.updateData(id, sectionData, latestContextRef.current, options);
       // Optimistically update local state
       setData(prev => ({ ...prev, ...sectionData }));
       setOriginalData(prev => ({ ...prev, ...sectionData }));
@@ -484,6 +484,7 @@ export default function DetailView({ entityType }) {
             isEditing={isEditing}
             onDataChange={handleDataChange}
             onSectionSave={handleSectionSave}
+            onSectionSaveWithOptions={handleSectionSave}
             entityType={config.entityType}
             entityId={parseInt(id)}
             contextData={contextData}

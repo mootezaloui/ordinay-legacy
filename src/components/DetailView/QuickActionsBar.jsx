@@ -82,17 +82,7 @@ function QuickActionField({ action, value, onChange, entityType, entityId, entit
         ? currentOption.color
         : "bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white";
 
-    // DEBUG: Log to see what's happening with colors
-    if (action.key === 'status') {
-        console.log('[QuickActionsBar] Status field debug:', {
-            value,
-            options,
-            currentOption,
-            colorClass,
-            hasColorMap: action.colorMap,
-            hasColor: !!currentOption?.color
-        });
-    }
+
 
     const handleCreateOption = async (newOptionName) => {
         if (action.onCreateOption) {
@@ -320,7 +310,7 @@ function QuickActionField({ action, value, onChange, entityType, entityId, entit
                     setPendingValue(null);
                     onChange(pendingValue);
                 }}
-                actionName={`modifier ${action.label}`}
+                actionName={`change ${action.label}`}
                 impactSummary={validationResult?.impactSummary || []}
                 entityName={entityData?.caseNumber || entityData?.title || `#${entityId}`}
             />

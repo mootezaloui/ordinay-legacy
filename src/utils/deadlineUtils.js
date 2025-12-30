@@ -10,6 +10,8 @@
  * - Navigation helpers for deadline sources
  */
 
+import { formatDateValue } from './dateFormat.js';
+
 /**
  * Calculate the next upcoming hearing/session for a case (procès)
  *
@@ -299,11 +301,8 @@ export function formatDate(date) {
   const d = date instanceof Date ? date : new Date(date);
   if (isNaN(d.getTime())) return '';
 
-  const day = String(d.getDate()).padStart(2, '0');
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const year = d.getFullYear();
-
-  return `${day}/${month}/${year}`;
+  // Use formatDateValue to respect user date format settings
+  return formatDateValue(d);
 }
 
 /**

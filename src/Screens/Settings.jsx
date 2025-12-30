@@ -1,5 +1,3 @@
-import { useEffect, useState } from "react";
-import { useToast } from "../contexts/ToastContext";
 import { useSettings } from "../contexts/SettingsContext";
 import { useTheme } from "../contexts/ThemeProvider";
 import { updateNotificationPreferences } from "../utils/scheduledNotifications";
@@ -8,46 +6,31 @@ import PageHeader from "../components/layout/PageHeader";
 import ContentSection from "../components/layout/ContentSection";
 
 export default function Settings() {
-  const { showToast } = useToast();
-  const { settings: savedSettings, notificationPrefs: savedNotificationPrefs, updateSettings, updateNotificationPrefs } = useSettings();
+  const { settings, notificationPrefs, updateSettings, updateNotificationPrefs } = useSettings();
   const { setThemePreference } = useTheme();
 
-  const [settings, setSettings] = useState(savedSettings);
-  const [notificationPrefs, setNotificationPrefs] = useState(savedNotificationPrefs);
-
-  useEffect(() => {
-    setSettings(savedSettings);
-  }, [savedSettings]);
-
-  useEffect(() => {
-    setNotificationPrefs(savedNotificationPrefs);
-  }, [savedNotificationPrefs]);
-
   const handleChange = (field, value) => {
-    setSettings(prev => ({ ...prev, [field]: value }));
+    // Immediately save to context (which auto-persists to localStorage)
+    updateSettings({ [field]: value });
+
+    // Apply theme immediately if changed
+    if (field === "theme") {
+      setThemePreference(value);
+    }
   };
 
   const handleNotificationPrefChange = (category, field, value) => {
-    setNotificationPrefs(prev => ({
-      ...prev,
+    // Immediately save to context
+    const updatedPrefs = {
+      ...notificationPrefs,
       [category]: {
-        ...prev[category],
+        ...notificationPrefs[category],
         [field]: value
       }
-    }));
-  };
+    };
 
-  const handleCancel = () => {
-    setSettings(savedSettings);
-    setNotificationPrefs(savedNotificationPrefs);
-  };
-
-  const handleSave = () => {
-    updateSettings(settings);
-    updateNotificationPrefs(notificationPrefs);
-    updateNotificationPreferences("default", notificationPrefs);
-    setThemePreference(settings.theme);
-    showToast("Settings updated Successfully!", "success");
+    updateNotificationPrefs(updatedPrefs);
+    updateNotificationPreferences("default", updatedPrefs);
   };
 
   return (
@@ -605,23 +588,6 @@ export default function Settings() {
             </div>
           </div>
         </ContentSection>
-
-        {/* Save Button */}
-        <div className="flex items-center justify-end gap-4">
-          <button
-            onClick={handleCancel}
-            className="px-6 py-2.5 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-lg font-medium transition-colors duration-200"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSave}
-            className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center gap-2"
-          >
-            <i className="fas fa-save"></i>
-            Save Changes
-          </button>
-        </div>
       </div>
     </PageLayout>
   );

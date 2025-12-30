@@ -395,8 +395,8 @@ function detectDossierImpact(currentData, newData) {
 
     if (clientIdChanged) {
       // Get client names for better UX
-      const oldClient = [].find((c) => c.id == currentData.clientId);
-      const newClient = [].find((c) => c.id == newData.clientId);
+      const oldClient = mockClients.find((c) => c.id == currentData.clientId);
+      const newClient = mockClients.find((c) => c.id == newData.clientId);
 
       changes.push({
         type: "client_reassignment",
@@ -421,13 +421,13 @@ function detectDossierImpact(currentData, newData) {
   const impactSummary = [];
   changes.forEach((change) => {
     impactSummary.push(
-      `**${change.field} actuel** : ${change.from || "Non défini"}`
+      `**Current ${change.field}**: ${change.from || "Unknown"}`
     );
     impactSummary.push(
-      `**${change.field} nouveau** : ${change.to || "Non défini"}`
+      `**New ${change.field}**: ${change.to || "Unknown"}`
     );
     impactSummary.push("");
-    impactSummary.push("**Impact** :");
+    impactSummary.push("**Impact**:");
     impactSummary.push(...change.impact);
     impactSummary.push("");
   });

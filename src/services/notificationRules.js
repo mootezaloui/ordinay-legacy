@@ -12,6 +12,8 @@
  * Philosophy: Think like a legal assistant, not a cron job.
  */
 
+import { formatDateValue } from '../utils/dateFormat.js';
+
 // Live entities are provided by callers (scheduler/context) via a context object.
 let entities = {
   tasks: [],
@@ -959,7 +961,7 @@ export const MissionRules = {
         frequency: "once",
         subType: "upcomingDeadline",
         title: `Mission - Deadline in ${daysLeft} day${daysLeft > 1 ? "s" : ""}`,
-        message: `The mission "${missionDescription}" (priority ${priorityLabel}) has a deadline in ${daysLeft} day${daysLeft > 1 ? "s" : ""} (${new Date(dueDate).toLocaleDateString("en-US")}).`,
+        message: `The mission "${missionDescription}" (priority ${priorityLabel}) has a deadline in ${daysLeft} day${daysLeft > 1 ? "s" : ""} (${formatDateValue(dueDate)}).`,
         metadata: {
           missionId: mission.id,
           dueDate,

@@ -23,30 +23,41 @@ export const useSettings = () => {
 };
 
 export function SettingsProvider({ children }) {
-  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
-  const [notificationPrefs, setNotificationPrefs] = useState(getNotificationPreferences());
-  const [hydrated, setHydrated] = useState(false);
-
-  // Load persisted settings on mount
-  useEffect(() => {
-    if (typeof window === "undefined") return;
+  // Initialize settings from localStorage synchronously (before first render)
+  const [settings, setSettings] = useState(() => {
+    if (typeof window === "undefined") return DEFAULT_SETTINGS;
     try {
       const raw = window.localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
         if (parsed?.settings) {
-          setSettings(prev => ({ ...prev, ...parsed.settings }));
-        }
-        if (parsed?.notificationPrefs) {
-          setNotificationPrefs(prev => ({ ...prev, ...parsed.notificationPrefs }));
+          return { ...DEFAULT_SETTINGS, ...parsed.settings };
         }
       }
     } catch (error) {
       console.warn("[Settings] Failed to load settings from storage", error);
-    } finally {
-      setHydrated(true);
     }
-  }, []);
+    return DEFAULT_SETTINGS;
+  });
+
+  // Initialize notification preferences synchronously
+  const [notificationPrefs, setNotificationPrefs] = useState(() => {
+    if (typeof window === "undefined") return getNotificationPreferences();
+    try {
+      const raw = window.localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed?.notificationPrefs) {
+          return { ...getNotificationPreferences(), ...parsed.notificationPrefs };
+        }
+      }
+    } catch (error) {
+      console.warn("[Settings] Failed to load notification preferences from storage", error);
+    }
+    return getNotificationPreferences();
+  });
+
+  const [hydrated, setHydrated] = useState(true);
 
   // Persist settings & preferences
   useEffect(() => {
@@ -131,6 +142,7 @@ export function SettingsProvider({ children }) {
     updateNotificationPrefs,
     notificationsEnabled,
     canNotifyType,
+    settings.dateFormat,
   ]);
 
   return (

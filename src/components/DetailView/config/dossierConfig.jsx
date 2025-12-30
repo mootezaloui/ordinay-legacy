@@ -3,17 +3,29 @@ import ContentSection from "../../layout/ContentSection";
 import { getStatusColor } from "./statusColors";
 import { taskFormFields, caseFormFields, sessionFormFields, missionFormFields } from "../../FormModal/formConfigs";
 import { getAllPhases, addCustomPhase } from "../../../utils/phaseManager";
+import { getAllCategories, addCustomCategory } from "../../../utils/categoryManager";
 import { calculateNextDeadline, formatDate, getDeadlineNavigationPath, getDeadlineUrgency } from "../../../utils/deadlineUtils";
 import { formatDateValue } from "../../../utils/dateFormat";
 
 // Default phases for dossiers
 const DEFAULT_PHASES = [
   { value: "Opening", label: "Opening" },
-  { value: "Instruction", label: "Instruction" },
+  { value: "Investigation", label: "Investigation" },
   { value: "Negotiation", label: "Negotiation" },
   { value: "Pleading", label: "Pleading" },
   { value: "Judgment", label: "Judgment" },
   { value: "Execution", label: "Execution" },
+];
+
+// Default categories for dossiers
+const DEFAULT_CATEGORIES = [
+  { value: "Commercial Law", label: "Commercial Law" },
+  { value: "Family Law", label: "Family Law" },
+  { value: "Criminal Law", label: "Criminal Law" },
+  { value: "Labor Law", label: "Labor Law" },
+  { value: "Real Estate Law", label: "Real Estate Law" },
+  { value: "Administrative Law", label: "Administrative Law" },
+  { value: "Tax Law", label: "Tax Law" },
 ];
 
 /**
@@ -104,8 +116,10 @@ export const dossierConfig = {
     };
   },
 
-  updateData: async (id, data, contextData = null) => {
+  updateData: async (id, data, contextData = null, options = {}) => {
     const numericId = parseInt(id);
+
+    console.log('[dossierConfig.updateData] Received:', { id, data, options, hasUpdateDossier: !!contextData?.updateDossier });
 
     // Filter out relationship fields - dossier entity should only contain dossier-specific data
     const dossierFields = [
@@ -119,10 +133,20 @@ export const dossierConfig = {
       return acc;
     }, {});
 
+    console.log('[dossierConfig.updateData] Filtered dossierData:', dossierData);
+
     // Only update if there are actual dossier fields to update
     if (Object.keys(dossierData).length > 0 && contextData?.updateDossier) {
       // Use DataContext to update (this persists to localStorage)
-      contextData.updateDossier(numericId, dossierData);
+      // Pass skipConfirmation only if explicitly set in options (when user confirmed via ConfirmImpactModal)
+      const skipConfirmation = options.skipConfirmation || false;
+      console.log('[dossierConfig.updateData] Calling updateDossier:', { numericId, dossierData, skipConfirmation });
+      contextData.updateDossier(numericId, dossierData, skipConfirmation);
+    } else {
+      console.log('[dossierConfig.updateData] Skipping update:', {
+        hasDossierData: Object.keys(dossierData).length > 0,
+        hasUpdateFunction: !!contextData?.updateDossier
+      });
     }
     // If no dossier fields to update, skip the update (this happens when only relationship fields change)
     await new Promise(resolve => setTimeout(resolve, 500));
@@ -612,21 +636,12 @@ export const dossierConfig = {
         },
         {
           key: "category",
-          label: "Catégorie",
+          label: "Category",
           value: (data) => data.category,
           icon: "fas fa-layer-group",
           type: "select",
           editable: true,
-          options: [
-            { value: "Commercial", label: "Commercial Law" },
-            { value: "Family", label: "Family Law" },
-            { value: "Criminal", label: "Criminal Law" },
-            { value: "Labor", label: "Labor Law" },
-            { value: "Real Estate", label: "Real Estate Law" },
-            { value: "Administrative", label: "Administrative Law" },
-            { value: "Tax", label: "Tax Law" },
-            { value: "Other", label: "Other" },
-          ]
+          getOptions: () => getAllCategories(DEFAULT_CATEGORIES),
         },
         {
           key: "phase",
@@ -635,19 +650,13 @@ export const dossierConfig = {
           icon: "fas fa-stream",
           type: "select",
           editable: true,
-          options: [
-            { value: "Opening", label: "Opening" },
-            { value: "Instruction", label: "Instruction" },
-            { value: "Negotiation", label: "Negotiation" },
-            { value: "Pleading", label: "Pleading" },
-            { value: "Judgment", label: "Judgment" },
-            { value: "Execution", label: "Execution" },
-          ]
+          getOptions: () => getAllPhases(DEFAULT_PHASES),
         },
         {
           key: "openDate",
           label: "Opening Date",
           value: (data) => data.openDate,
+          displayValue: (data) => data.openDate ? formatDateValue(data.openDate) : "N/A",
           icon: "fas fa-calendar",
           type: "date",
           editable: true

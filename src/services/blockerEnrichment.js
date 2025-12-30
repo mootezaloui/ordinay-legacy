@@ -633,6 +633,7 @@ function parseTemporalBlocker(blocker, entityType, entityId) {
   return {
     type: "temporal",
     reason: blocker,
+    items: [blocker], // Add items array so blocker isn't considered "resolved"
     actions: [],
     warning: "Please correct the dates to comply with legal chronology.",
     helpText: "The dates entered violate temporal constraints. Ensure all dates follow proper chronological order and legal requirements.",

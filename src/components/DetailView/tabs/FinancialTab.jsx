@@ -1715,7 +1715,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
           setPendingAction(null);
         }}
         onConfirm={handleConfirmImpact}
-        actionName="confirmer la modification"
+        actionName="confirm modification"
         impactSummary={validationResult?.impactSummary || []}
         entityName={pendingAction?.newData?.description || selectedEntry?.description || editingEntry?.description || ''}
       />

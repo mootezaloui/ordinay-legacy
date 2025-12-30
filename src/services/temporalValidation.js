@@ -374,7 +374,12 @@ function validateDossierDates(dossierData, action, context = {}) {
   }
 
   // Rule: Open date should not be before client's join date
-  if (dossierData.openDate && dossierData.clientId) {
+  // Skip this check if we're editing and only reassigning to a new client (openDate unchanged)
+  const isClientReassignment = action === 'edit' && context.data &&
+    context.data.openDate === dossierData.openDate &&
+    context.data.clientId !== dossierData.clientId;
+
+  if (dossierData.openDate && dossierData.clientId && !isClientReassignment) {
     const client = findEntity("client", dossierData.clientId);
     if (client && client.joinDate) {
       if (compareDates(dossierData.openDate, client.joinDate) === -1) {

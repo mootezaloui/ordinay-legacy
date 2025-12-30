@@ -451,6 +451,7 @@ export const missionConfig = {
                     key: "assignDate",
                     label: "Assign Date",
                     value: (data) => data.assignDate,
+                    displayValue: (data) => data.assignDate ? formatDateValue(data.assignDate) : "N/A",
                     icon: "fas fa-calendar-plus",
                     type: "date",
                     editable: true
@@ -459,6 +460,7 @@ export const missionConfig = {
                     key: "dueDate",
                     label: "Due Date",
                     value: (data) => data.dueDate,
+                    displayValue: (data) => data.dueDate ? formatDateValue(data.dueDate) : "N/A",
                     icon: "fas fa-calendar-times",
                     type: "date",
                     editable: true
@@ -467,6 +469,7 @@ export const missionConfig = {
                     key: "completionDate",
                     label: "Completion Date",
                     value: (data) => data.completionDate,
+                    displayValue: (data) => data.completionDate ? formatDateValue(data.completionDate) : "N/A",
                     icon: "fas fa-calendar-check",
                     type: "date",
                     editable: true

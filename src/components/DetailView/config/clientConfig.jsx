@@ -467,6 +467,7 @@ export const clientConfig = {
           key: "dateOfBirth",
           label: "Date of Birth",
           value: (data) => data.dateOfBirth,
+          displayValue: (data) => data.dateOfBirth ? formatDateValue(data.dateOfBirth) : "N/A",
           icon: "fas fa-birthday-cake",
           type: "date",
           editable: true
@@ -545,7 +546,7 @@ export const clientConfig = {
         {
           key: "joinDate",
           label: "Registration Date",
-          value: (data) => data.joinDate,
+          displayValue: (data) => data.joinDate ? formatDateValue(data.joinDate) : "N/A",
           icon: "fas fa-calendar",
           type: "date",
           editable: true

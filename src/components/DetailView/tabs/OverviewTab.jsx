@@ -9,7 +9,7 @@ import { canPerformAction } from "../../../services/domainRules";
  * Overview Tab - Displays general information
  * ✅ UPDATED: Supports both inline quick actions and structured edit sections
  */
-export default function OverviewTab({ data, config, isEditing, onDataChange, onSectionSave, entityType, entityId, contextData = {} }) {
+export default function OverviewTab({ data, config, isEditing, onDataChange, onSectionSave, entityType, entityId, contextData = {}, onSectionSaveWithOptions }) {
   if (!config.overviewSections) {
     return (
       <div className="p-6 text-center text-slate-600 dark:text-slate-400">
@@ -31,6 +31,7 @@ export default function OverviewTab({ data, config, isEditing, onDataChange, onS
               section={section}
               data={data}
               onSave={onSectionSave}
+              onSaveWithOptions={onSectionSaveWithOptions || onSectionSave}
               entityType={entityType}
               entityId={entityId}
               contextData={contextData}
@@ -57,7 +58,7 @@ export default function OverviewTab({ data, config, isEditing, onDataChange, onS
 /**
  * Structured Edit Section - Explicit Edit/Save buttons
  */
-function StructuredEditSection({ section, data, onSave, entityType, entityId, contextData = {} }) {
+function StructuredEditSection({ section, data, onSave, onSaveWithOptions, entityType, entityId, contextData = {} }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedData, setEditedData] = useState({});
   const [isSaving, setIsSaving] = useState(false);
@@ -121,7 +122,8 @@ function StructuredEditSection({ section, data, onSave, entityType, entityId, co
 
       const result = canPerformAction(entityType, entityId, 'edit', {
         data,
-        newData: editedData  // Only the changed fields
+        newData: editedData,  // Only the changed fields
+        entities: contextData  // Pass full context for client resolution
       });
 
       console.log("  Validation result:", result);
@@ -146,16 +148,20 @@ function StructuredEditSection({ section, data, onSave, entityType, entityId, co
     await performSave(editedData);
   };
 
-  const performSave = async (dataToSave) => {
+  const performSave = async (dataToSave, options = {}) => {
     setIsSaving(true);
-    await onSave(dataToSave);
+    if (options.skipConfirmation && onSaveWithOptions) {
+      await onSaveWithOptions(dataToSave, options);
+    } else {
+      await onSave(dataToSave);
+    }
     setIsSaving(false);
     setIsEditing(false);
   };
 
   const handleConfirmImpact = async () => {
     setConfirmImpactModalOpen(false);
-    await performSave(pendingData);
+    await performSave(pendingData, { skipConfirmation: true });
     setPendingData(null);
   };
 
