@@ -1,64 +1,212 @@
 import { useState, useEffect } from "react";
 import { useToast } from "../../../contexts/ToastContext";
+import { useConfirm } from "../../../contexts/ConfirmContext";
 import ContentSection from "../../layout/ContentSection";
 
 /**
- * Notes Tab - Displays and manages notes as a simple text field
+ * Notes Tab - Displays and manages multiple notes as post-its
  * Persists to backend via the onUpdate callback
+ * ✅ UPDATED: Now supports multiple notes with add/edit/delete
+ * ✅ FIXED: Supports different field names (notes, comments, etc.) via tabConfig
  */
-export default function NotesTab({ data, config, onUpdate }) {
+export default function NotesTab({ data, config, tabConfig, onUpdate }) {
   const { showToast } = useToast();
-  const [notes, setNotes] = useState(data.notes || "");
-  const [isEditing, setIsEditing] = useState(false);
+  const { confirm } = useConfirm();
+
+  // ✅ Determine which field to use based on tab configuration
+  // Default to "notes" for backward compatibility
+  const fieldKey = tabConfig?.fieldKey || tabConfig?.id || "notes";
+
+  console.log('[NotesTab] Component initialized:', {
+    fieldKey,
+    dataKeys: Object.keys(data),
+    notesData: data[fieldKey],
+    notesType: Array.isArray(data[fieldKey]) ? 'array' : typeof data[fieldKey],
+    notesLength: Array.isArray(data[fieldKey]) ? data[fieldKey].length : 'N/A'
+  });
+
+  // Parse notes: support both string (legacy) and array (new multi-note)
+  const parseNotes = (notesData) => {
+    console.log('[NotesTab.parseNotes] Parsing:', { notesData, isArray: Array.isArray(notesData) });
+    if (!notesData) return [];
+    if (Array.isArray(notesData)) return notesData;
+    // Legacy: single string note → convert to array with one note
+    return [{
+      id: Date.now(),
+      content: notesData,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }];
+  };
+
+  const [notesList, setNotesList] = useState(() => parseNotes(data[fieldKey]));
+  const [editingNoteId, setEditingNoteId] = useState(null);
+  const [editContent, setEditContent] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
   // Synchronize local notes state with parent data prop
   useEffect(() => {
-    setNotes(data.notes || "");
-  }, [data.notes]);
+    const parsed = parseNotes(data[fieldKey]);
+    console.log('[NotesTab.useEffect] Syncing notes:', {
+      raw: data[fieldKey],
+      parsed,
+      parsedIds: parsed.map(n => n.id)
+    });
+    setNotesList(parsed);
+  }, [data[fieldKey], fieldKey]);
 
-  const handleSave = async () => {
+  const handleAddNote = () => {
+    const newNote = {
+      id: Date.now(),
+      content: "",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    console.log('[NotesTab.handleAddNote] Adding new note:', newNote);
+    setEditingNoteId(newNote.id);
+    setEditContent("");
+    setNotesList([newNote, ...notesList]);
+  };
+
+  const handleEditNote = (note) => {
+    console.log('[NotesTab.handleEditNote] Editing note:', note);
+    setEditingNoteId(note.id);
+    setEditContent(note.content);
+  };
+
+  const handleSaveNote = async () => {
     if (!onUpdate) {
       console.error('[NotesTab] onUpdate callback not provided');
       showToast("Impossible to save notes", "error");
       return;
     }
 
+    // Validate: don't allow empty notes
+    if (!editContent.trim()) {
+      showToast("Note cannot be empty", "error");
+      return;
+    }
+
     setIsSaving(true);
     try {
-      // Call the onUpdate callback to save notes to backend
-      await onUpdate({ notes });
-      setIsEditing(false);
-      showToast("Notes saved", "success");
+      // Update the note in the list
+      const updatedNotes = notesList.map(note =>
+        note.id === editingNoteId
+          ? { ...note, content: editContent, updatedAt: new Date().toISOString() }
+          : note
+      );
+
+      console.log('[NotesTab.handleSaveNote] Saving notes:', {
+        editingNoteId,
+        notesList,
+        updatedNotes,
+        updatedNotesIds: updatedNotes.map(n => n.id)
+      });
+
+      // Call the onUpdate callback to save notes array to backend
+      // ✅ Use dynamic field key (notes, comments, etc.)
+      await onUpdate({ [fieldKey]: updatedNotes });
+
+      // ✅ DON'T update local state here - let useEffect sync from parent data
+      // This ensures we get the corrected database IDs from the backend response
+      // setNotesList(updatedNotes); // ❌ REMOVED
+
+      setEditingNoteId(null);
+      setEditContent("");
+      showToast("Note saved", "success");
     } catch (error) {
-      console.error('[NotesTab] Error saving notes:', error);
-      showToast("Error saving notes", "error");
+      console.error('[NotesTab] Error saving note:', error);
+      showToast("Error saving note", "error");
     } finally {
       setIsSaving(false);
     }
   };
 
-  const handleCancel = () => {
-    setNotes(data.notes || "");
-    setIsEditing(false);
+  const handleCancelEdit = () => {
+    // If it's a new note (empty content), remove it
+    const noteBeingEdited = notesList.find(n => n.id === editingNoteId);
+    if (noteBeingEdited && !noteBeingEdited.content) {
+      setNotesList(notesList.filter(n => n.id !== editingNoteId));
+    }
+    setEditingNoteId(null);
+    setEditContent("");
   };
 
-  if (!notes && !isEditing) {
+  const handleDeleteNote = async (noteId) => {
+    const confirmed = await confirm({
+      title: "Delete Note",
+      message: "Are you sure you want to delete this note?",
+      confirmText: "Delete",
+      cancelText: "Cancel",
+      variant: "danger"
+    });
+
+    if (!confirmed) return;
+
+    if (!onUpdate) {
+      console.error('[NotesTab] onUpdate callback not provided');
+      showToast("Impossible to delete note", "error");
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const updatedNotes = notesList.filter(note => note.id !== noteId);
+      // ✅ Use dynamic field key (notes, comments, etc.)
+      await onUpdate({ [fieldKey]: updatedNotes });
+
+      // ✅ DON'T update local state here - let useEffect sync from parent data
+      // setNotesList(updatedNotes); // ❌ REMOVED
+
+      showToast("Note deleted", "success");
+    } catch (error) {
+      console.error('[NotesTab] Error deleting note:', error);
+      showToast("Error deleting note", "error");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Helper to get post-it color based on index
+  const getPostItColor = (index) => {
+    const colors = [
+      { bg: "bg-amber-50 dark:bg-amber-900/10", border: "border-amber-300 dark:border-amber-700", text: "text-amber-700 dark:text-amber-300", icon: "text-amber-600 dark:text-amber-400" },
+      { bg: "bg-blue-50 dark:bg-blue-900/10", border: "border-blue-300 dark:border-blue-700", text: "text-blue-700 dark:text-blue-300", icon: "text-blue-600 dark:text-blue-400" },
+      { bg: "bg-green-50 dark:bg-green-900/10", border: "border-green-300 dark:border-green-700", text: "text-green-700 dark:text-green-300", icon: "text-green-600 dark:text-green-400" },
+      { bg: "bg-pink-50 dark:bg-pink-900/10", border: "border-pink-300 dark:border-pink-700", text: "text-pink-700 dark:text-pink-300", icon: "text-pink-600 dark:text-pink-400" },
+      { bg: "bg-purple-50 dark:bg-purple-900/10", border: "border-purple-300 dark:border-purple-700", text: "text-purple-700 dark:text-purple-300", icon: "text-purple-600 dark:text-purple-400" },
+    ];
+    return colors[index % colors.length];
+  };
+
+  const formatDate = (isoString) => {
+    if (!isoString) return "";
+    const date = new Date(isoString);
+    return date.toLocaleDateString("fr-FR", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+  };
+
+  if (notesList.length === 0) {
     return (
-      <ContentSection title="Notes">
+      <ContentSection title="Notes / Compte rendu">
         <div className="p-12 text-center">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-amber-100 dark:bg-amber-900/20 mb-4">
             <i className="fas fa-sticky-note text-amber-500 dark:text-amber-400 text-2xl"></i>
           </div>
           <p className="text-slate-600 dark:text-slate-400 mb-4">
-            No notes
+            No notes yet
           </p>
           <button
-            onClick={() => setIsEditing(true)}
+            onClick={handleAddNote}
             className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-medium transition-colors"
           >
             <i className="fas fa-plus mr-2"></i>
-            Add a note
+            Add a post-it
           </button>
         </div>
       </ContentSection>
@@ -66,73 +214,118 @@ export default function NotesTab({ data, config, onUpdate }) {
   }
 
   return (
-    <ContentSection title="Notes">
+    <ContentSection
+      title="Notes / Compte rendu"
+      actions={
+        <button
+          onClick={handleAddNote}
+          className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-medium transition-colors text-sm"
+        >
+          <i className="fas fa-plus mr-1.5"></i>
+          Add post-it
+        </button>
+      }
+    >
       <div className="p-6">
-        {isEditing ? (
-          <div className="space-y-4">
-            <div className="p-4 bg-amber-50 dark:bg-amber-900/10 border-2 border-amber-300 dark:border-amber-700 rounded-lg">
-              <textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Écrivez vos notes ici... (Post-it virtuel)"
-                className="w-full px-3 py-2 border border-amber-300 dark:border-amber-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none"
-                rows="12"
-                autoFocus
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handleSave}
-                disabled={isSaving}
-                className="px-4 py-2 bg-amber-500 hover:bg-amber-600 disabled:bg-amber-400 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {notesList.map((note, index) => {
+            const isEditing = editingNoteId === note.id;
+            const colors = getPostItColor(index);
+
+            return (
+              <div
+                key={note.id}
+                className={`p-4 ${colors.bg} border-2 ${colors.border} rounded-lg shadow-sm hover:shadow-md transition-shadow`}
               >
-                {isSaving ? (
-                  <>
-                    <i className="fas fa-spinner fa-spin"></i>
-                    Saving...
-                  </>
+                {isEditing ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <i className={`fas fa-sticky-note ${colors.icon}`}></i>
+                      <span className={`font-semibold text-sm ${colors.text}`}>Editing...</span>
+                    </div>
+                    <textarea
+                      value={editContent}
+                      onChange={(e) => setEditContent(e.target.value)}
+                      placeholder="Write your note here..."
+                      className={`w-full px-3 py-2 border ${colors.border} rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none`}
+                      rows="8"
+                      autoFocus
+                    />
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={handleSaveNote}
+                        disabled={isSaving}
+                        className="flex-1 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 disabled:bg-amber-400 text-white rounded-lg font-medium transition-colors text-sm"
+                      >
+                        {isSaving ? (
+                          <>
+                            <i className="fas fa-spinner fa-spin mr-1"></i>
+                            Saving...
+                          </>
+                        ) : (
+                          <>
+                            <i className="fas fa-save mr-1"></i>
+                            Save
+                          </>
+                        )}
+                      </button>
+                      <button
+                        onClick={handleCancelEdit}
+                        disabled={isSaving}
+                        className="flex-1 px-3 py-1.5 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50 text-slate-700 dark:text-slate-200 rounded-lg font-medium transition-colors text-sm"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
                 ) : (
-                  <>
-                    <i className="fas fa-save"></i>
-                    Save
-                  </>
+                  <div className="space-y-3">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-2">
+                        <i className={`fas fa-sticky-note ${colors.icon}`}></i>
+                        <span className={`font-semibold text-xs ${colors.text}`}>Post-it</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => handleEditNote(note)}
+                          className="p-1 hover:bg-white/50 dark:hover:bg-slate-800/50 rounded transition-colors"
+                          title="Edit"
+                        >
+                          <i className={`fas fa-edit text-sm ${colors.icon}`}></i>
+                        </button>
+                        <button
+                          onClick={() => handleDeleteNote(note.id)}
+                          className="p-1 hover:bg-white/50 dark:hover:bg-slate-800/50 rounded transition-colors"
+                          title="Delete"
+                        >
+                          <i className="fas fa-trash text-sm text-red-600 dark:text-red-400"></i>
+                        </button>
+                      </div>
+                    </div>
+                    <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed min-h-[120px]">
+                      {note.content}
+                    </p>
+                    <div className="pt-2 border-t border-slate-200 dark:border-slate-700">
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        {note.updatedAt && note.updatedAt !== note.createdAt ? (
+                          <>
+                            <i className="fas fa-clock mr-1"></i>
+                            Updated: {formatDate(note.updatedAt)}
+                          </>
+                        ) : (
+                          <>
+                            <i className="fas fa-calendar-plus mr-1"></i>
+                            Created: {formatDate(note.createdAt)}
+                          </>
+                        )}
+                      </p>
+                    </div>
+                  </div>
                 )}
-              </button>
-              <button
-                onClick={handleCancel}
-                disabled={isSaving}
-                className="px-4 py-2 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50 text-slate-700 dark:text-slate-200 rounded-lg font-medium transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <div className="p-6 bg-amber-50 dark:bg-amber-900/10 border-2 border-amber-300 dark:border-amber-700 rounded-lg shadow-sm">
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center gap-2 text-amber-700 dark:text-amber-300">
-                  <i className="fas fa-sticky-note"></i>
-                  <span className="font-semibold text-sm">Post-it</span>
-                </div>
-                <button
-                  onClick={() => setIsEditing(true)}
-                  className="p-1.5 hover:bg-amber-100 dark:hover:bg-amber-900/30 rounded transition-colors"
-                  title="Modifier"
-                >
-                  <i className="fas fa-edit text-amber-600 dark:text-amber-400"></i>
-                </button>
               </div>
-              <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed">
-                {notes}
-              </p>
-            </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 text-center">
-              <i className="fas fa-info-circle mr-1"></i>
-              Click the edit icon to modify your notes
-            </p>
-          </div>
-        )}
+            );
+          })}
+        </div>
       </div>
     </ContentSection>
   );

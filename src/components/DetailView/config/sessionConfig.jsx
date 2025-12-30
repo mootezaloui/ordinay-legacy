@@ -81,7 +81,7 @@ export const sessionConfig = {
     // Filter out any potential relationship fields - session entity should only contain session-specific data
     const sessionFields = [
       'title', 'type', 'linkType', 'caseId', 'dossierId', 'date', 'time',
-      'duration', 'location', 'courtRoom', 'judge', 'status', 'description'
+      'duration', 'location', 'courtRoom', 'judge', 'status', 'description', 'notes' // ✅ Added notes
     ];
     const sessionData = Object.keys(data).reduce((acc, key) => {
       if (sessionFields.includes(key)) {
@@ -303,6 +303,12 @@ export const sessionConfig = {
       label: "Report",
       icon: "fas fa-sticky-note",
       component: "notes",
+      fieldKey: "notes", // ✅ Explicitly set field key for clarity
+      getCount: (data) => {
+        if (!data.notes) return 0;
+        if (Array.isArray(data.notes)) return data.notes.length;
+        return 1; // Legacy single string note
+      },
     },
     {
       id: "timeline",
@@ -528,13 +534,7 @@ export const sessionConfig = {
       fieldKey: "description",
       content: (data) => data.description || "No description",
     },
-    {
-      title: "Notes",
-      editStrategy: "structured",
-      type: "notes",
-      fieldKey: "notes",
-      content: (data) => data.notes || "No notes",
-    },
+    
   ],
 };
 

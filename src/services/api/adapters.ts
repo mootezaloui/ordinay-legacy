@@ -92,6 +92,24 @@ const missionStatusMap: Record<string, string> = {
   cancelled: "Cancelled",
 };
 
+/**
+ * Adapt notes array from backend (snake_case) to frontend (camelCase)
+ */
+function adaptNotes(notes: any): any[] {
+  if (!notes) return [];
+  if (!Array.isArray(notes)) return [];
+
+  return notes.map((note) => ({
+    id: note.id,
+    content: note.content,
+    createdAt: note.created_at || note.createdAt,
+    updatedAt: note.updated_at || note.updatedAt,
+    createdBy: note.created_by || note.createdBy,
+    entityType: note.entity_type || note.entityType,
+    entityId: note.entity_id || note.entityId,
+  }));
+}
+
 export function adaptClient(api: any) {
   return {
     id: api.id,
@@ -107,7 +125,7 @@ export function adaptClient(api: any) {
     company: api.company ?? "",
     taxId: api.tax_id ?? "",
     address: api.address ?? "",
-    notes: api.notes ?? "",
+    notes: adaptNotes(api.notes), // ✅ Adapt notes with proper field names
   };
 }
 
@@ -133,6 +151,7 @@ export function adaptDossier(api: any, clientsById: Record<number, any>) {
     courtReference: api.court_reference ?? "",
     nextDeadline: dateOnly(api.next_deadline),
     relatedCases: api.relatedCases || [],
+    notes: adaptNotes(api.notes), // ✅ Adapt notes with proper field names
   };
 }
 
@@ -155,6 +174,7 @@ export function adaptCase(api: any, dossiersById: Record<number, any>) {
     nextHearing: dateOnly(api.next_hearing),
     referenceNumber: api.reference_number ?? "",
     description: api.description ?? "",
+    notes: adaptNotes(api.notes), // ✅ Adapt notes with proper field names
   };
 }
 
@@ -184,6 +204,7 @@ export function adaptTask(api: any, dossiersById: Record<number, any>, casesById
     priority: priorityMap[api.priority] ?? api.priority ?? "",
     description: api.description ?? "",
     createdDate: dateOnly(api.created_at),
+    notes: adaptNotes(api.notes), // ✅ Adapt notes with proper field names
   };
 }
 
@@ -213,8 +234,8 @@ export function adaptSession(api: any, dossiersById: Record<number, any>, casesB
     judge: api.judge ?? "",
     duration: api.duration ?? "",
     outcome: api.outcome ?? "",
-    notes: api.notes ?? "",
-    description: api.description ?? api.notes ?? "",
+    notes: adaptNotes(api.notes), // ✅ Adapt notes with proper field names
+    description: api.description ?? "",
   };
 }
 
@@ -231,7 +252,7 @@ export function adaptOfficer(api: any) {
     agency: api.agency ?? "",
     status: officerStatusMap[api.status] ?? api.status ?? "",
     registrationNumber: api.registration_number ?? "",
-    notes: api.notes ?? "",
+    notes: adaptNotes(api.notes), // ✅ Adapt notes with proper field names
     missions: [],
   };
 }
@@ -300,7 +321,7 @@ export function adaptMission(
     completionDate: dateOnly(api.completion_date),
     closedAt: dateOnly(api.closed_at),
     result: api.result ?? "",
-    notes: api.notes ?? "",
+    notes: adaptNotes(api.notes), // ✅ Adapt notes with proper field names
     description: api.description ?? "",
     dossierId: api.dossier_id ?? null,
     caseId: api.case_id ?? null,
@@ -330,7 +351,7 @@ export function adaptPersonalTask(api: any) {
     priority: priorityMap[api.priority] ?? api.priority ?? "",
     dueDate: dateOnly(api.due_date),
     completedAt: dateOnly(api.completed_at),
-    notes: api.notes ?? "",
+    notes: adaptNotes(api.notes), // ✅ Adapt notes with proper field names
     createdDate: dateOnly(api.created_at),
   };
 }

@@ -326,7 +326,17 @@ function StructuredEditSection({ section, data, onSave, onSaveWithOptions, entit
             ) : (
               <div className="p-4 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 rounded-lg">
                 <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">
-                  {typeof section.content === 'function' ? section.content(data) : section.content}
+                  {(() => {
+                    const content = typeof section.content === 'function' ? section.content(data) : section.content;
+                    // Handle notes array (new format)
+                    if (Array.isArray(content)) {
+                      return content.length > 0
+                        ? content.map(note => note.content).join('\n\n')
+                        : 'No notes';
+                    }
+                    // Handle string (legacy format)
+                    return content || 'No notes';
+                  })()}
                 </p>
               </div>
             )}
@@ -604,7 +614,17 @@ function RegularSection({ section, data, isEditing, onDataChange, contextData = 
             ) : (
               <div className="p-4 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 rounded-lg">
                 <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">
-                  {typeof section.content === 'function' ? section.content(data) : section.content}
+                  {(() => {
+                    const content = typeof section.content === 'function' ? section.content(data) : section.content;
+                    // Handle notes array (new format)
+                    if (Array.isArray(content)) {
+                      return content.length > 0
+                        ? content.map(note => note.content).join('\n\n')
+                        : 'No notes';
+                    }
+                    // Handle string (legacy format)
+                    return content || 'No notes';
+                  })()}
                 </p>
               </div>
             )}

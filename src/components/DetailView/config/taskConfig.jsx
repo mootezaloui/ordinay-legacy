@@ -123,7 +123,7 @@ export const taskConfig = {
     // Filter out any potential relationship fields - task entity should only contain task-specific data
     const taskFields = [
       'title', 'parentType', 'dossierId', 'caseId', 'assignedTo', 'dueDate',
-      'priority', 'status', 'description', 'estimatedTime'
+      'priority', 'status', 'description', 'estimatedTime', 'notes' // ✅ Added notes
     ];
     const taskData = Object.keys(data).reduce((acc, key) => {
       if (taskFields.includes(key)) {
@@ -324,7 +324,12 @@ export const taskConfig = {
       label: "Comments",
       icon: "fas fa-comments",
       component: "notes",
-      getCount: (data) => data.comments?.length || 0,
+      fieldKey: "notes", // ✅ Backend uses "notes" field for all entities
+      getCount: (data) => {
+        if (!data.notes) return 0; // ✅ Changed from data.comments to data.notes
+        if (Array.isArray(data.notes)) return data.notes.length;
+        return 1; // Legacy single string note
+      },
     },
     {
       id: "timeline",

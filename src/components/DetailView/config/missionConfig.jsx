@@ -53,12 +53,13 @@ export const missionConfig = {
         return null;
     },
 
-    updateData: async (id, data, contextData = null) => {
+    updateData: async (id, data, contextData = null, options = {}) => {
         const missionId = parseInt(id);
 
         if (contextData?.updateMission) {
             // Use DataContext to update (this persists to backend and localStorage)
-            await contextData.updateMission(missionId, data);
+            // Pass skipConfirmation option if provided
+            await contextData.updateMission(missionId, data, options.skipConfirmation);
         }
     },
 
@@ -104,7 +105,13 @@ export const missionConfig = {
             label: "Bailiff",
             icon: "fas fa-user-tie",
             displayValue: (data) => data.officerName || "Unassigned",
-            options: [],
+            getOptions: (formData, contextData) => {
+                const officers = contextData?.officers || [];
+                return officers.map(officer => ({
+                    value: officer.id,
+                    label: officer.name
+                }));
+            },
         }
     ],
 
@@ -280,6 +287,17 @@ export const missionConfig = {
             icon: "fas fa-file-alt",
             component: "documents",
             getCount: (data) => data.documents?.length || 0,
+        },
+        {
+            id: "notes",
+            label: "Notes",
+            icon: "fas fa-sticky-note",
+            component: "notes",
+            getCount: (data) => {
+                if (!data.notes) return 0;
+                if (Array.isArray(data.notes)) return data.notes.length;
+                return 1; // Legacy single string note
+            },
         },
         {
             id: "relations",
@@ -567,8 +585,13 @@ export const missionConfig = {
                     icon: "fas fa-user-tie",
                     type: "select",
                     editable: true,
-                    options: [],
-                    getOptions: () => [],
+                    getOptions: (formData, contextData) => {
+                        const officers = contextData?.officers || [];
+                        return officers.map(officer => ({
+                            value: officer.id,
+                            label: officer.name
+                        }));
+                    },
                     helpText: "Warning: Changing the bailiff will transfer the mission to another bailiff"
                 },
                 {
@@ -589,13 +612,7 @@ export const missionConfig = {
                 },
             ],
         },
-        {
-            title: "Notes",
-            editStrategy: "structured",
-            type: "notes",
-            fieldKey: "notes",
-            content: (data) => data.notes || "No notes",
-        },
+
     ],
 
     // Form configuration for editing

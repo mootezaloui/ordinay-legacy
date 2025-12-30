@@ -264,6 +264,7 @@ export default function BlockerModal({
 
   const hasBlockers = blockers && blockers.length > 0;
   const hasWarnings = warnings && warnings.length > 0;
+  const hasEnrichedBlockers = enrichedBlockers && enrichedBlockers.length > 0;
 
   const isBlockerResolved = (blocker, idx) =>
     resolvedBlockers.has(idx) ||
@@ -272,7 +273,7 @@ export default function BlockerModal({
   const activeBlockers = enrichedBlockers.filter(
     (blocker, idx) => !isBlockerResolved(blocker, idx)
   );
-  const allResolved = hasBlockers && activeBlockers.length === 0;
+  const allResolved = hasBlockers && hasEnrichedBlockers && activeBlockers.length === 0;
 
   return (
     <div
@@ -311,7 +312,7 @@ export default function BlockerModal({
 
         {/* Content */}
         <div className="px-6 py-5 overflow-y-auto overflow-x-hidden max-h-[calc(90vh-200px)]">
-          {hasBlockers && activeBlockers.length > 0 && (
+          {hasEnrichedBlockers && activeBlockers.length > 0 && (
             <div className="mb-6">
               <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
                 <i className="fas fa-ban text-red-500"></i>
@@ -319,7 +320,7 @@ export default function BlockerModal({
               </h4>
               <div className="space-y-4">
                 {enrichedBlockers.map((blocker, index) => {
-                  const isResolved = resolvedBlockers.has(index);
+                  const isResolved = isBlockerResolved(blocker, index);
                   if (isResolved) return null; // Don't show resolved blockers
 
                   return (
@@ -495,11 +496,12 @@ export default function BlockerModal({
 function BlockerItem({ blocker, blockerIndex, onNavigate, onInlineAction, isResolving }) {
   const hasItems = blocker.items && blocker.items.length > 0;
   const hasActions = blocker.actions && blocker.actions.length > 0;
+  const hasHelpText = !!blocker.helpText;
 
   return (
     <div className="bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800 rounded-lg p-4">
       {/* Main blocker reason */}
-      <div className="mb-3">
+      <div className="mb-3 space-y-2">
         <p className="text-sm font-medium text-red-900 dark:text-red-100 whitespace-pre-wrap break-words overflow-wrap-anywhere">
           {blocker.reason}
         </p>
@@ -508,45 +510,63 @@ function BlockerItem({ blocker, blockerIndex, onNavigate, onInlineAction, isReso
             {blocker.warning}
           </p>
         )}
+        {hasHelpText && (
+          <div className="flex items-start gap-2 bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+            <i className="fas fa-info-circle text-blue-500 mt-0.5"></i>
+            <p className="text-sm text-blue-900 dark:text-blue-100 whitespace-pre-wrap break-words">
+              {blocker.helpText}
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Blocker items (e.g., list of incomplete tasks) */}
       {hasItems && (
         <div className="space-y-2 mb-3">
-          {blocker.items.map((item, idx) => (
-            <div
-              key={idx}
-              className="bg-white dark:bg-slate-900 rounded-lg p-3 border border-red-100 dark:border-red-900"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-900 dark:text-white truncate">
-                    {item.entityLabel}
-                  </p>
-                  {item.status && (
-                    <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
-                      Statut: {item.status}
+          {blocker.items.map((item, idx) => {
+            const primaryText = item.entityLabel || item.label || item.message || `Item ${idx + 1}`;
+            const showMessageDetail = item.message && item.message !== primaryText;
+
+            return (
+              <div
+                key={idx}
+                className="bg-white dark:bg-slate-900 rounded-lg p-3 border border-red-100 dark:border-red-900"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-slate-900 dark:text-white break-words whitespace-pre-wrap">
+                      {primaryText}
                     </p>
+                    {item.status && (
+                      <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
+                        Statut: {item.status}
+                      </p>
+                    )}
+                    {showMessageDetail && (
+                      <p className="text-xs text-slate-700 dark:text-slate-300 mt-1 whitespace-pre-wrap break-words">
+                        {item.message}
+                      </p>
+                    )}
+                  </div>
+                  {item.actions && item.actions.length > 0 && (
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {item.actions.map((action, actionIdx) => (
+                        <ActionButton
+                          key={actionIdx}
+                          action={action}
+                          item={item}
+                          blockerIndex={blockerIndex}
+                          onNavigate={onNavigate}
+                          onInlineAction={onInlineAction}
+                          isResolving={isResolving}
+                        />
+                      ))}
+                    </div>
                   )}
                 </div>
-                {item.actions && item.actions.length > 0 && (
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    {item.actions.map((action, actionIdx) => (
-                      <ActionButton
-                        key={actionIdx}
-                        action={action}
-                        item={item}
-                        blockerIndex={blockerIndex}
-                        onNavigate={onNavigate}
-                        onInlineAction={onInlineAction}
-                        isResolving={isResolving}
-                      />
-                    ))}
-                  </div>
-                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

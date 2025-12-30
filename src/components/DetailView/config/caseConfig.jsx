@@ -90,7 +90,7 @@ export const caseConfig = {
     const caseFields = [
       'caseNumber', 'title', 'dossierId', 'court',
       'filingDate', 'nextHearing', 'referenceNumber', 'adversaryParty',
-      'adversaryLawyer', 'status', 'description'
+      'adversaryLawyer', 'status', 'description', 'notes' // ✅ Added notes
     ];
     const caseData = Object.keys(data).reduce((acc, key) => {
       if (caseFields.includes(key)) {
@@ -477,6 +477,12 @@ export const caseConfig = {
       label: "Notes",
       icon: "fas fa-sticky-note",
       component: "notes",
+      fieldKey: "notes", // ✅ Explicitly set field key for clarity
+      getCount: (data) => {
+        if (!data.notes) return 0;
+        if (Array.isArray(data.notes)) return data.notes.length;
+        return 1; // Legacy single string note
+      },
     },
     {
       id: "timeline",

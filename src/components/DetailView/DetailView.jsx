@@ -189,31 +189,33 @@ export default function DetailView({ entityType }) {
   }
 
   // ✅ Handle inline quick action changes
-  const handleQuickAction = async (field, value, validation) => {
-    // ✅ Validate with domain rules before allowing any change
-    const validationResult = canPerformAction(entityType, id, 'edit', {
-      data: data,
-      newData: { ...data, [field]: value },
-      entities: contextData
-    });
-
-    if (!validationResult.allowed) {
-      // Show blocker message with proper toast
-      let blockerMsg = "This modification is not allowed.";
-      if (validationResult.blockers && validationResult.blockers.length > 0) {
-        const firstBlocker = validationResult.blockers[0];
-        if (typeof firstBlocker === 'object' && firstBlocker !== null) {
-          blockerMsg = firstBlocker.reason || blockerMsg;
-        } else if (typeof firstBlocker === 'string') {
-          blockerMsg = firstBlocker;
-        }
-      }
-      showToast(blockerMsg, "error", {
-        title: "Modification blocked",
-        context: entityType,
+  const handleQuickAction = async (field, value, validation, skipValidation = false) => {
+    // ✅ Validate with domain rules before allowing any change (unless already validated)
+    if (!skipValidation) {
+      const validationResult = canPerformAction(entityType, id, 'edit', {
+        data: data,
+        newData: { ...data, [field]: value },
+        entities: contextData
       });
-      // Do not proceed with update or show success toast
-      return;
+
+      if (!validationResult.allowed) {
+        // Show blocker message with proper toast
+        let blockerMsg = "This modification is not allowed.";
+        if (validationResult.blockers && validationResult.blockers.length > 0) {
+          const firstBlocker = validationResult.blockers[0];
+          if (typeof firstBlocker === 'object' && firstBlocker !== null) {
+            blockerMsg = firstBlocker.reason || blockerMsg;
+          } else if (typeof firstBlocker === 'string') {
+            blockerMsg = firstBlocker;
+          }
+        }
+        showToast(blockerMsg, "error", {
+          title: "Modification blocked",
+          context: entityType,
+        });
+        // Do not proceed with update or show success toast
+        return;
+      }
     }
 
     // Run field-level validation if provided
@@ -236,7 +238,8 @@ export default function DetailView({ entityType }) {
 
     try {
       // Auto-save to backend and update context
-      await config.updateData(id, { [field]: value }, contextData);
+      // Pass skipConfirmation option if validation was already handled
+      await config.updateData(id, { [field]: value }, contextData, { skipConfirmation: skipValidation });
 
       // Create timeline entry
       const timelineEntry = {
@@ -506,6 +509,7 @@ export default function DetailView({ entityType }) {
         return <NotesTab
           data={data}
           config={config}
+          tabConfig={tabConfig}
           onUpdate={async (updates) => {
             try {
               await config.updateData(id, updates, latestContextRef.current);

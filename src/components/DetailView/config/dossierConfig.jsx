@@ -124,7 +124,7 @@ export const dossierConfig = {
     // Filter out relationship fields - dossier entity should only contain dossier-specific data
     const dossierFields = [
       'caseNumber', 'title', 'clientId', 'category', 'priority', 'phase',
-      'openDate', 'nextDeadline', 'description', 'status'
+      'openDate', 'nextDeadline', 'description', 'status', 'notes' // ✅ Added notes
     ];
     const dossierData = Object.keys(data).reduce((acc, key) => {
       if (dossierFields.includes(key)) {
@@ -575,7 +575,12 @@ export const dossierConfig = {
       label: "Notes",
       icon: "fas fa-sticky-note",
       component: "notes",
-      getCount: (data) => data.notes?.length || 0,
+      fieldKey: "notes", // ✅ Explicitly set field key for clarity
+      getCount: (data) => {
+        if (!data.notes) return 0;
+        if (Array.isArray(data.notes)) return data.notes.length;
+        return 1; // Legacy single string note
+      },
     },
     {
       id: "timeline",

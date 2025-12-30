@@ -31,7 +31,7 @@ export default function QuickActionsBar({ data, config, onQuickAction, contextDa
                             entityId={data.id}
                             entityData={data}
                             contextData={contextData}
-                            onChange={(value) => onQuickAction(action.key, value, action.validation)}
+                            onChange={(value, skipValidation) => onQuickAction(action.key, value, action.validation, skipValidation)}
                         />
                     ))}
                 </div>
@@ -58,22 +58,41 @@ function QuickActionField({ action, value, onChange, entityType, entityId, entit
     const [options, setOptions] = useState([]);
     const { showToast } = useToast();
 
-    // Get options - support both static options and getOptions function
-    const getActionOptions = () => {
-        if (typeof action.getOptions === 'function') {
-            return action.getOptions(entityData);
-        }
-        return action.options || [];
-    };
-
-    // Initialize options
+    // Initialize options - recalculate whenever contextData changes
     useEffect(() => {
-        setOptions(getActionOptions());
-    }, []);
+        const getOptions = () => {
+            if (typeof action.getOptions === 'function') {
+                // Try to call with both parameters (formData, contextData) for overview-style fields
+                // Fall back to single parameter for quick action style fields
+                try {
+                    const result = action.getOptions(entityData, contextData);
+                    return result;
+                } catch (error) {
+                    // If that fails, try with just entityData
+                    const result = action.getOptions(entityData);
+                    return result;
+                }
+            }
+            return action.options || [];
+        };
+
+        const newOptions = getOptions();
+        setOptions(newOptions);
+    }, [contextData, entityData, action]); // Refresh when contextData or entityData changes
 
     // Refresh options when needed
     const refreshOptions = () => {
-        setOptions(getActionOptions());
+        if (typeof action.getOptions === 'function') {
+            try {
+                const result = action.getOptions(entityData, contextData);
+                setOptions(result);
+            } catch (error) {
+                const result = action.getOptions(entityData);
+                setOptions(result);
+            }
+        } else {
+            setOptions(action.options || []);
+        }
     };
 
     const currentOption = options.find(opt => opt.value === value);
@@ -125,6 +144,7 @@ function QuickActionField({ action, value, onChange, entityType, entityId, entit
             }
 
             if (result.requiresConfirmation) {
+                console.log('[QuickActionsBar] Requires confirmation, opening modal with impact:', result.impactSummary);
                 setPendingValue(newValue);
                 setValidationResult(result);
                 setConfirmImpactModalOpen(true);
@@ -183,15 +203,15 @@ function QuickActionField({ action, value, onChange, entityType, entityId, entit
                 </span>
             </div>
 
-            {/* Use SearchableSelect for assignedTo field with create support */}
-            {action.allowCreate ? (
+            {/* Use SearchableSelect for fields with getOptions function or allowCreate */}
+            {action.allowCreate || typeof action.getOptions === 'function' ? (
                 <SearchableSelect
                     value={value || ''}
                     onChange={handleChange}
                     options={options}
-                    placeholder={`Sélectionner ${action.label}...`}
-                    allowCreate={action.allowCreate}
-                    onCreateOption={handleCreateOption}
+                    placeholder={`Select ${action.label}...`}
+                    allowCreate={action.allowCreate || false}
+                    onCreateOption={action.allowCreate ? handleCreateOption : undefined}
                     createLabel={action.createLabel || "Add"}
                     compact={false}
                 />
@@ -302,13 +322,52 @@ function QuickActionField({ action, value, onChange, entityType, entityId, entit
             <ConfirmImpactModal
                 isOpen={confirmImpactModalOpen}
                 onClose={() => {
+                    console.log('[QuickActionsBar] ConfirmImpactModal closed');
                     setConfirmImpactModalOpen(false);
                     setPendingValue(null);
+                    setValidationResult(null);
                 }}
-                onConfirm={() => {
+                onConfirm={async () => {
+                    console.log('[QuickActionsBar] ConfirmImpactModal confirmed, saving change:', pendingValue);
                     setConfirmImpactModalOpen(false);
+                    const valueToSave = pendingValue;
                     setPendingValue(null);
-                    onChange(pendingValue);
+                    setValidationResult(null);
+
+                    // Proceed with the save directly (bypass validation since user already confirmed)
+                    setPreviousValue(value);
+                    setIsSaving(true);
+
+                    // Simulate API delay
+                    await new Promise(resolve => setTimeout(resolve, 300));
+
+                    // Pass skipValidation=true to bypass the domain rules check in handleQuickAction
+                    onChange(valueToSave, true);
+                    setIsSaving(false);
+                    setShowSuccess(true);
+
+                    // Show success toast with undo option
+                    const currentOption = options.find(opt => opt.value === valueToSave);
+                    const newLabel = currentOption?.label || valueToSave;
+
+                    showToast(`${action.label} Update: ${newLabel}`, "success", {
+                        title: "Update Successful",
+                        context: entityType,
+                        action: {
+                            label: "Undo",
+                            onClick: () => {
+                                onChange(previousValue);
+                                showToast("Update Cancelled", "info", {
+                                    title: "Undo Successful",
+                                    context: entityType,
+                                });
+                            }
+                        },
+                        duration: 4000,
+                    });
+
+                    // Hide success indicator
+                    setTimeout(() => setShowSuccess(false), 1000);
                 }}
                 actionName={`change ${action.label}`}
                 impactSummary={validationResult?.impactSummary || []}

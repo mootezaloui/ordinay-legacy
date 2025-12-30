@@ -20,11 +20,38 @@ import {
 const DataContext = createContext(null);
 const STORAGE_PREFIX = "lawyer-app:data:";
 
+/**
+ * Convert notes array from frontend format (camelCase) to backend format (snake_case)
+ * This ensures the backend can properly identify existing notes by their IDs
+ */
+const notesToBackendFormat = (notes) => {
+  if (!notes || !Array.isArray(notes)) return notes;
+
+  return notes.map(note => ({
+    id: note.id,
+    content: note.content,
+    created_at: note.createdAt || note.created_at,
+    updated_at: note.updatedAt || note.updated_at,
+    created_by: note.createdBy || note.created_by,
+    entity_type: note.entityType || note.entity_type,
+    entity_id: note.entityId || note.entity_id,
+  }));
+};
+
 const loadFromStorage = (key, fallback) => {
   if (typeof window === "undefined") return fallback;
   try {
     const stored = window.localStorage.getItem(`${STORAGE_PREFIX}${key}`);
-    return stored ? JSON.parse(stored) : fallback;
+    const parsed = stored ? JSON.parse(stored) : fallback;
+
+    // Debug logging for dossiers to check if notes are loaded
+    if (key === "dossiers" && parsed.length > 0) {
+      console.log('[DataContext.loadFromStorage] Loading dossiers from localStorage:',
+        parsed.map(d => ({ id: d.id, title: d.title, notes: d.notes, notesCount: d.notes?.length }))
+      );
+    }
+
+    return parsed;
   } catch (error) {
     console.warn(`[DataContext] Failed to load ${key} from storage`, error);
     return fallback;
@@ -254,16 +281,16 @@ const reconcileEntities = (clients, dossiers, cases, tasks, sessions) => {
 
 export function DataProvider({ children }) {
   const { showToast } = useToast();
-  // State will be populated from backend on initial load
-  const [clients, setClients] = useState([]);
-  const [dossiers, setDossiers] = useState([]);
-  const [cases, setCases] = useState([]);
-  const [sessions, setSessions] = useState([]);
-  const [tasks, setTasks] = useState([]);
-  const [missions, setMissions] = useState([]);
-  const [personalTasks, setPersonalTasks] = useState([]);
-  const [officers, setOfficers] = useState([]);
-  const [financialEntries, setFinancialEntries] = useState([]);
+  // State is initialized from localStorage and then updated from backend
+  const [clients, setClients] = useState(() => loadFromStorage("clients", []));
+  const [dossiers, setDossiers] = useState(() => loadFromStorage("dossiers", []));
+  const [cases, setCases] = useState(() => loadFromStorage("cases", []));
+  const [sessions, setSessions] = useState(() => loadFromStorage("sessions", []));
+  const [tasks, setTasks] = useState(() => loadFromStorage("tasks", []));
+  const [missions, setMissions] = useState(() => loadFromStorage("missions", []));
+  const [personalTasks, setPersonalTasks] = useState(() => loadFromStorage("personalTasks", []));
+  const [officers, setOfficers] = useState(() => loadFromStorage("officers", []));
+  const [financialEntries, setFinancialEntries] = useState(() => loadFromStorage("financial", []));
   const [integrityIssues, setIntegrityIssues] = useState([]);
   const [reconciled, setReconciled] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -376,6 +403,11 @@ export function DataProvider({ children }) {
         }));
 
         if (cancelled) return;
+
+        console.log('[DataContext] Before saving to localStorage, dossiersWithMissions:',
+          dossiersWithMissions.map(d => ({ id: d.id, title: d.title, notes: d.notes }))
+        );
+
         setClients(clientsWithTimeline);
         setDossiers(dossiersWithMissions);
         setCases(casesWithMissions);
@@ -687,6 +719,10 @@ export function DataProvider({ children }) {
     if (updates.nextDeadline !== undefined || updates.prochaineEcheance !== undefined) {
       payload.next_deadline = updates.nextDeadline || updates.prochaineEcheance;
     }
+    if (updates.notes !== undefined) {
+      // ✅ Convert notes to backend format (camelCase → snake_case)
+      payload.notes = notesToBackendFormat(updates.notes);
+    }
 
     // Safety check: ensure we have at least one field to update
     if (Object.keys(payload).length === 0) {
@@ -924,6 +960,10 @@ export function DataProvider({ children }) {
       const refValue = updates.caseNumber || updates.referenceNumber;
       payload.reference = emptyToNull(refValue);
       payload.case_number = emptyToNull(refValue);
+    }
+    if (updates.notes !== undefined) {
+      // ✅ Convert notes to backend format (camelCase → snake_case)
+      payload.notes = notesToBackendFormat(updates.notes);
     }
 
     const updated = await apiClient.put(`/cases/${id}`, payload);
@@ -1172,7 +1212,8 @@ export function DataProvider({ children }) {
       payload.description = emptyToNull(updates.description);
     }
     if (updates.notes !== undefined) {
-      payload.notes = emptyToNull(updates.notes);
+      // ✅ Convert notes to backend format (camelCase → snake_case)
+      payload.notes = notesToBackendFormat(updates.notes);
     }
     if (updates.dossierId !== undefined || updates.dossier_id !== undefined) {
       payload.dossier_id = emptyToNull(updates.dossierId || updates.dossier_id);
@@ -1324,6 +1365,10 @@ export function DataProvider({ children }) {
     if (updates.priority !== undefined) {
       // Backend expects French priorities, send as-is
       payload.priority = updates.priority;
+    }
+    if (updates.notes !== undefined) {
+      // ✅ Convert notes to backend format (camelCase → snake_case)
+      payload.notes = notesToBackendFormat(updates.notes);
     }
 
     const updated = await apiClient.put(`/tasks/${id}`, payload);
@@ -1718,34 +1763,59 @@ export function DataProvider({ children }) {
 
     console.log('[DataContext.addMission] Incoming mission:', mission);
 
+    // Determine which entity to link based on entityType or which ID is provided
+    const entityType = mission.entityType;
+    const dossierId = mission.dossierId || mission.dossier_id;
+    const caseId = mission.caseId || mission.case_id;
+
+    // Backend requires EITHER dossier_id OR case_id (exclusive)
+    // Priority: if entityType is specified, use that; otherwise infer from IDs
+    let finalDossierId = null;
+    let finalCaseId = null;
+
+    if (entityType === "case" || (caseId && !entityType)) {
+      // Link to case only
+      finalCaseId = emptyToNull(caseId);
+      finalDossierId = null;
+    } else if (entityType === "dossier" || (dossierId && !caseId)) {
+      // Link to dossier only
+      finalDossierId = emptyToNull(dossierId);
+      finalCaseId = null;
+    } else if (caseId) {
+      // Default to case if both are provided
+      finalCaseId = emptyToNull(caseId);
+      finalDossierId = null;
+    }
+
     // Map frontend field names to backend expectations
     const payload = {
       title: mission.title,
       description: emptyToNull(mission.description),
       mission_type: emptyToNull(mission.missionType || mission.mission_type),
       status:
-        mission.status === "Programmée" || mission.status === "Programmee" || mission.status === "Planifiée" || mission.status === "Planifiee"
+        mission.status === "Programmée" || mission.status === "Programmee" || mission.status === "Planifiée" || mission.status === "Planifiee" || mission.status === "Planned" || mission.status === "Scheduled"
           ? "planned"
-          : mission.status === "En cours"
+          : mission.status === "En cours" || mission.status === "In Progress"
             ? "in_progress"
-            : mission.status === "Terminée" || mission.status === "Terminee"
+            : mission.status === "Terminée" || mission.status === "Terminee" || mission.status === "Completed"
               ? "completed"
-              : mission.status === "Annulée" || mission.status === "Annulee"
+              : mission.status === "Annulée" || mission.status === "Annulee" || mission.status === "Cancelled"
                 ? "cancelled"
-                : mission.status,
+                : mission.status?.toLowerCase(),
       priority:
-        mission.priority === "Haute" ? "high"
-          : mission.priority === "Moyenne" ? "medium"
-            : mission.priority === "Basse" ? "low"
-              : mission.priority,
+        mission.priority === "Haute" || mission.priority === "High" ? "high"
+          : mission.priority === "Moyenne" || mission.priority === "Medium" ? "medium"
+            : mission.priority === "Basse" || mission.priority === "Low" ? "low"
+              : mission.priority === "Urgent" ? "urgent"
+                : mission.priority?.toLowerCase(),
       assign_date: emptyToNull(mission.assignDate || mission.assign_date),
       due_date: emptyToNull(mission.dueDate || mission.due_date),
       completion_date: emptyToNull(mission.completionDate || mission.completion_date),
       closed_at: emptyToNull(mission.closedAt || mission.closed_at),
       result: emptyToNull(mission.result),
       notes: emptyToNull(mission.notes),
-      dossier_id: emptyToNull(mission.dossierId || mission.dossier_id),
-      case_id: emptyToNull(mission.caseId || mission.case_id),
+      dossier_id: finalDossierId,
+      case_id: finalCaseId,
       officer_id: emptyToNull(mission.officerId || mission.officer_id),
       reference: emptyToNull(mission.missionNumber || mission.reference),
     };
@@ -1790,9 +1860,9 @@ export function DataProvider({ children }) {
     return { ok: true, result: validation.result, created: adapted };
   };
 
-  const updateMission = async (id, updates) => {
+  const updateMission = async (id, updates, skipConfirmation = false) => {
     const prev = missions.find((m) => m.id === id);
-    const validation = validateMutation("mission", "edit", id, { data: prev, newData: { ...prev, ...updates } }, integrityIssues);
+    const validation = validateMutation("mission", "edit", id, { data: prev, newData: { ...prev, ...updates } }, integrityIssues, skipConfirmation);
     if (!validation.ok) return validation;
 
     console.log('[DataContext.updateMission] Updating mission ID:', id, 'with:', updates);
@@ -1835,7 +1905,8 @@ export function DataProvider({ children }) {
       payload.result = emptyToNull(updates.result);
     }
     if (updates.notes !== undefined) {
-      payload.notes = emptyToNull(updates.notes);
+      // ✅ Convert notes to backend format (camelCase → snake_case)
+      payload.notes = notesToBackendFormat(updates.notes);
     }
     if (updates.dossierId !== undefined || updates.dossier_id !== undefined) {
       payload.dossier_id = emptyToNull(updates.dossierId || updates.dossier_id);
