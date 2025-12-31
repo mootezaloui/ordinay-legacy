@@ -1,0 +1,195 @@
+{
+  "page": {
+    "title": "Lawsuits",
+    "subtitle": "{{total}} lawsuits in total",
+    "subtitleFiltered": "{{total}} lawsuits in total, {{displayed}} displayed",
+    "actions": {
+      "newCase": "New Lawsuit",
+      "newCaseDisabled": "Cannot create a lawsuit without dossiers. Please create a dossier first."
+    },
+    "loading": "Loading lawsuits..."
+  },
+  "stats": {
+    "total": "Total Lawsuits",
+    "inProgress": "In Progress",
+    "upcoming": "Upcoming Hearings",
+    "upcomingTrend": "within 7 days",
+    "completed": "Completed"
+  },
+  "table": {
+    "columns": {
+      "caseNumber": "Lawsuit #",
+      "title": "Title",
+      "dossier": "Dossier",
+      "court": "Court",
+      "nextHearing": "Next hearing",
+      "status": "Status",
+      "actions": "Actions"
+    },
+    "nextHearing": {
+      "none": "No hearing"
+    },
+    "status": {
+      "inProgress": "In Progress",
+      "onHold": "On Hold",
+      "suspended": "Suspended",
+      "closed": "Closed",
+      "completed": "Completed"
+    },
+    "actions": {
+      "view": "View details",
+      "edit": "Edit",
+      "delete": "Delete"
+    },
+    "empty": "No lawsuits found",
+    "emptyNoDossier": "Please add a dossier before adding a lawsuit.",
+    "emptyFiltered": "No results found"
+  },
+  "confirm": {
+    "delete": {
+      "title": "Delete case",
+      "message": "Are you sure you want to delete this case?",
+      "confirm": "Delete",
+      "cancel": "Cancel"
+    }
+  },
+  "form": {
+    "title": {
+      "edit": "Edit Lawsuit",
+      "create": "New Lawsuit"
+    },
+    "subtitle": {
+      "edit": "Edit Lawsuit information",
+      "create": "Add a new Lawsuit"
+    },
+    "help": {
+      "statusLocked": "Status can only be changed using the selector in the list"
+    }
+  },
+  "toasts": {
+    "statusTitle": "Case status",
+    "statusUpdated": "Status updated: {{status}}",
+    "deleteSuccess": {
+      "title": "Deleted",
+      "body": "Case deleted"
+    },
+    "cascadeError": "Error during cascade deletion",
+    "cascadeSuccess": {
+      "title": "Cascade deletion",
+      "body": "Case and all related entities deleted"
+    },
+    "updateSuccess": "Case updated successfully!",
+    "createSuccess": "Case added successfully!",
+    "saveError": "Error while saving",
+    "missingId": "Missing case identifier"
+  },
+  "blockerModal": {
+    "actionName": "Edit/Delete Lawsuit",
+    "entityFallback": "Lawsuit"
+  },
+  "confirmImpact": {
+    "action": "change Lawsuit linkage"
+  },
+  "detail": {
+    "entityName": "Lawsuit",
+    "notFound": "Lawsuit not found",
+    "deleteConfirm": "Are you sure you want to delete this lawsuit?",
+    "quickActions": {
+      "status": {
+        "label": "Status",
+        "inProgress": "In Progress",
+        "onHold": "On Hold",
+        "closed": "Closed"
+      }
+    },
+    "header": {
+      "court": "Court",
+      "nextHearing": "Next hearing",
+      "at": "at",
+      "adversaryLawyer": "Adversary Lawyer",
+      "noDossier": "No Dossier Assigned"
+    },
+    "fallback": {
+      "na": "N/A",
+      "unknownDossier": "Unknown Dossier",
+      "noHearings": "No hearings",
+      "noHearingsScheduled": "No hearings scheduled",
+      "noDescription": "No description",
+      "noDossier": "No dossier"
+    },
+    "tabs": {
+      "overview": "Overview",
+      "sessions": "Hearings",
+      "tasks": "Tasks",
+      "missions": "Missions",
+      "financial": "Accounting",
+      "documents": "Documents",
+      "notes": "Notes",
+      "history": "History"
+    },
+    "sessions": {
+      "entityName": "a hearing",
+      "addSubtitle": "Create a new legal hearing for this case",
+      "help": {
+        "caseLink": "This hearing will be linked to this case",
+        "linkType": "This hearing is linked to this case"
+      },
+      "placeholders": {
+        "location": "Hearing room / Meeting location"
+      }
+    },
+    "tasks": {
+      "entityName": "a task",
+      "addSubtitle": "Create a new task for this case",
+      "help": {
+        "parentType": "Choose if this task concerns the lawsuit or the parent dossier",
+        "caseLink": "This task will be linked to this lawsuit",
+        "dossierLink": "This task will be linked to the parent dossier"
+      }
+    },
+    "missions": {
+      "entityName": "mission",
+      "addSubtitle": "Create a new bailiff mission for this lawsuit",
+      "help": {
+        "caseLink": "This mission will be linked to the lawsuit {{caseNumber}}"
+      }
+    },
+    "overview": {
+      "general": "General Information",
+      "description": "Lawsuit Description",
+      "courtInfo": "Court Information",
+      "dates": "Important Dates",
+      "parties": "Parties",
+      "relatedDossier": "Related Dossier",
+      "fields": {
+        "caseNumber": "Lawsuit Number",
+        "title": "Lawsuit Title",
+        "court": "Court",
+        "referenceNumber": "Reference Number",
+        "filingDate": "Filing Date",
+        "adversaryParty": "Adversary Party",
+        "associatedDossier": "Associated Dossier"
+      },
+      "courtOptions": {
+        "firstInstance": "Court of First Instance",
+        "appeal": "Court of Appeal",
+        "cassation": "Court of Cassation"
+      },
+      "help": {
+        "associatedDossier": "Select the dossier associated with this case"
+      },
+      "placeholders": {
+        "associatedDossier": "Search for a dossier..."
+      }
+    },
+    "nextHearing": {
+      "badges": {
+        "today": "Today",
+        "urgent": "Urgent",
+        "soon": "Soon",
+        "scheduled": "Scheduled"
+      },
+      "viewDetails": "View Hearing Details"
+    }
+  }
+}

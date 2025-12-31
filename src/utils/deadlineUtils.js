@@ -10,7 +10,7 @@
  * - Navigation helpers for deadline sources
  */
 
-import { formatDateValue } from './dateFormat.js';
+import { formatDateValue } from "./dateFormat.js";
 
 /**
  * Calculate the next upcoming hearing/session for a case (procès)
@@ -26,17 +26,22 @@ export function calculateNextHearing(caseEntity, relatedSessions = []) {
   const candidates = [];
 
   // Extract upcoming sessions
-  relatedSessions.forEach(session => {
+  relatedSessions.forEach((session) => {
     if (session.date) {
       const sessionDate = parseDate(session.date);
       if (sessionDate && sessionDate >= now) {
         // Combine date and time for more accurate sorting
         let sessionDateTime = sessionDate;
         if (session.time) {
-          const timeParts = session.time.split(':');
+          const timeParts = session.time.split(":");
           if (timeParts.length === 2) {
             sessionDateTime = new Date(sessionDate);
-            sessionDateTime.setHours(parseInt(timeParts[0], 10), parseInt(timeParts[1], 10), 0, 0);
+            sessionDateTime.setHours(
+              parseInt(timeParts[0], 10),
+              parseInt(timeParts[1], 10),
+              0,
+              0
+            );
           }
         }
 
@@ -44,8 +49,8 @@ export function calculateNextHearing(caseEntity, relatedSessions = []) {
           date: sessionDate,
           datetime: sessionDateTime,
           time: session.time,
-          type: 'session',
-          label: session.title || 'Audience',
+          type: "session",
+          label: session.title || "Audience",
           location: session.location,
           entityId: session.id,
           entity: session,
@@ -63,8 +68,8 @@ export function calculateNextHearing(caseEntity, relatedSessions = []) {
         date: manualHearing,
         datetime: manualHearing,
         time: null,
-        type: 'manual',
-        label: 'Audience programmée',
+        type: "manual",
+        label: "Audience programmée",
         location: null,
         entityId: null,
         entity: null,
@@ -90,21 +95,26 @@ export function calculateNextHearing(caseEntity, relatedSessions = []) {
  * @param {Array} relatedFinancialEntries - Financial entries linked to this dossier
  * @returns {Object|null} - { date, type, label, entityId, entity } or null if no upcoming deadlines
  */
-export function calculateNextDeadline(dossier, relatedSessions = [], relatedTasks = [], relatedFinancialEntries = []) {
+export function calculateNextDeadline(
+  dossier,
+  relatedSessions = [],
+  relatedTasks = [],
+  relatedFinancialEntries = []
+) {
   const now = new Date();
   now.setHours(0, 0, 0, 0); // Start of today
 
   const candidates = [];
 
   // 1. Extract deadlines from sessions
-  relatedSessions.forEach(session => {
+  relatedSessions.forEach((session) => {
     if (session.date) {
       const sessionDate = parseDate(session.date);
       if (sessionDate && sessionDate >= now) {
         candidates.push({
           date: sessionDate,
-          type: 'session',
-          label: `Audience – ${session.title || 'Session'}`,
+          type: "session",
+          label: `Audience – ${session.title || "Session"}`,
           entityId: session.id,
           entity: session,
           sortKey: sessionDate.getTime(),
@@ -114,14 +124,14 @@ export function calculateNextDeadline(dossier, relatedSessions = [], relatedTask
   });
 
   // 2. Extract deadlines from tasks
-  relatedTasks.forEach(task => {
+  relatedTasks.forEach((task) => {
     if (task.dueDate) {
       const taskDate = parseDate(task.dueDate);
       if (taskDate && taskDate >= now) {
         candidates.push({
           date: taskDate,
-          type: 'task',
-          label: `Tâche – ${task.title || 'Task'}`,
+          type: "task",
+          label: `Tâche – ${task.title || "Task"}`,
           entityId: task.id,
           entity: task,
           sortKey: taskDate.getTime(),
@@ -131,14 +141,14 @@ export function calculateNextDeadline(dossier, relatedSessions = [], relatedTask
   });
 
   // 3. Extract deadlines from financial entries (payment deadlines)
-  relatedFinancialEntries.forEach(entry => {
-    if (entry.date && entry.type === 'expense' && entry.status !== 'paid') {
+  relatedFinancialEntries.forEach((entry) => {
+    if (entry.date && entry.type === "expense" && entry.status !== "paid") {
       const entryDate = parseDate(entry.date);
       if (entryDate && entryDate >= now) {
         candidates.push({
           date: entryDate,
-          type: 'financial',
-          label: `Échéance de paiement – ${entry.description || 'Payment'}`,
+          type: "financial",
+          label: `Échéance de paiement – ${entry.description || "Payment"}`,
           entityId: entry.id,
           entity: entry,
           sortKey: entryDate.getTime(),
@@ -153,8 +163,8 @@ export function calculateNextDeadline(dossier, relatedSessions = [], relatedTask
     if (manualDeadline && manualDeadline >= now) {
       candidates.push({
         date: manualDeadline,
-        type: 'manual',
-        label: 'Échéance manuelle',
+        type: "manual",
+        label: "Manual deadline",
         entityId: null,
         entity: null,
         sortKey: manualDeadline.getTime(),
@@ -182,21 +192,27 @@ export function calculateNextDeadline(dossier, relatedSessions = [], relatedTask
  * @param {number} limit - Maximum number of deadlines to return (default: 5)
  * @returns {Array} - Array of deadline objects sorted by date
  */
-export function getAllUpcomingDeadlines(dossier, relatedSessions = [], relatedTasks = [], relatedFinancialEntries = [], limit = 5) {
+export function getAllUpcomingDeadlines(
+  dossier,
+  relatedSessions = [],
+  relatedTasks = [],
+  relatedFinancialEntries = [],
+  limit = 5
+) {
   const now = new Date();
   now.setHours(0, 0, 0, 0);
 
   const candidates = [];
 
   // Extract all deadlines (same logic as calculateNextDeadline)
-  relatedSessions.forEach(session => {
+  relatedSessions.forEach((session) => {
     if (session.date) {
       const sessionDate = parseDate(session.date);
       if (sessionDate && sessionDate >= now) {
         candidates.push({
           date: sessionDate,
-          type: 'session',
-          label: `Audience – ${session.title || 'Session'}`,
+          type: "session",
+          label: `Audience – ${session.title || "Session"}`,
           entityId: session.id,
           entity: session,
           sortKey: sessionDate.getTime(),
@@ -205,14 +221,14 @@ export function getAllUpcomingDeadlines(dossier, relatedSessions = [], relatedTa
     }
   });
 
-  relatedTasks.forEach(task => {
+  relatedTasks.forEach((task) => {
     if (task.dueDate) {
       const taskDate = parseDate(task.dueDate);
       if (taskDate && taskDate >= now) {
         candidates.push({
           date: taskDate,
-          type: 'task',
-          label: `Tâche – ${task.title || 'Task'}`,
+          type: "task",
+          label: `Tâche – ${task.title || "Task"}`,
           entityId: task.id,
           entity: task,
           sortKey: taskDate.getTime(),
@@ -221,14 +237,14 @@ export function getAllUpcomingDeadlines(dossier, relatedSessions = [], relatedTa
     }
   });
 
-  relatedFinancialEntries.forEach(entry => {
-    if (entry.date && entry.type === 'expense' && entry.status !== 'paid') {
+  relatedFinancialEntries.forEach((entry) => {
+    if (entry.date && entry.type === "expense" && entry.status !== "paid") {
       const entryDate = parseDate(entry.date);
       if (entryDate && entryDate >= now) {
         candidates.push({
           date: entryDate,
-          type: 'financial',
-          label: `Échéance de paiement – ${entry.description || 'Payment'}`,
+          type: "financial",
+          label: `Échéance de paiement – ${entry.description || "Payment"}`,
           entityId: entry.id,
           entity: entry,
           sortKey: entryDate.getTime(),
@@ -242,8 +258,8 @@ export function getAllUpcomingDeadlines(dossier, relatedSessions = [], relatedTa
     if (manualDeadline && manualDeadline >= now) {
       candidates.push({
         date: manualDeadline,
-        type: 'manual',
-        label: 'Échéance manuelle',
+        type: "manual",
+        label: "Manual deadline",
         entityId: null,
         entity: null,
         sortKey: manualDeadline.getTime(),
@@ -268,7 +284,7 @@ function parseDate(dateValue) {
     return isNaN(dateValue.getTime()) ? null : dateValue;
   }
 
-  if (typeof dateValue === 'string') {
+  if (typeof dateValue === "string") {
     const parsed = new Date(dateValue);
     return isNaN(parsed.getTime()) ? null : parsed;
   }
@@ -283,7 +299,7 @@ function parseDate(dateValue) {
  * @returns {string} - Formatted string for display
  */
 export function formatDeadline(deadline) {
-  if (!deadline) return 'Aucune échéance';
+  if (!deadline) return "Aucune échéance";
 
   const dateStr = formatDate(deadline.date);
   return `${deadline.label} (${dateStr})`;
@@ -296,10 +312,10 @@ export function formatDeadline(deadline) {
  * @returns {string} - Formatted date string
  */
 export function formatDate(date) {
-  if (!date) return '';
+  if (!date) return "";
 
   const d = date instanceof Date ? date : new Date(date);
-  if (isNaN(d.getTime())) return '';
+  if (isNaN(d.getTime())) return "";
 
   // Use formatDateValue to respect user date format settings
   return formatDateValue(d);
@@ -316,13 +332,13 @@ export function getDeadlineNavigationPath(deadline, dossierId) {
   if (!deadline || !deadline.entityId) return null;
 
   switch (deadline.type) {
-    case 'session':
+    case "session":
       return `/sessions/${deadline.entityId}`;
-    case 'task':
+    case "task":
       return `/tasks/${deadline.entityId}`;
-    case 'financial':
+    case "financial":
       return `/financial/${deadline.entityId}`;
-    case 'manual':
+    case "manual":
       // Stay on current dossier, just switch to overview tab
       return `/dossiers/${dossierId}?tab=overview`;
     default:
@@ -342,7 +358,8 @@ export function isDeadlineOverdue(deadline) {
   const now = new Date();
   now.setHours(0, 0, 0, 0);
 
-  const deadlineDate = deadline.date instanceof Date ? deadline.date : new Date(deadline.date);
+  const deadlineDate =
+    deadline.date instanceof Date ? deadline.date : new Date(deadline.date);
   return deadlineDate < now;
 }
 
@@ -353,17 +370,18 @@ export function isDeadlineOverdue(deadline) {
  * @returns {string} - 'critical' | 'urgent' | 'soon' | 'normal'
  */
 export function getDeadlineUrgency(deadline) {
-  if (!deadline || !deadline.date) return 'normal';
+  if (!deadline || !deadline.date) return "normal";
 
   const now = new Date();
   now.setHours(0, 0, 0, 0);
 
-  const deadlineDate = deadline.date instanceof Date ? deadline.date : new Date(deadline.date);
+  const deadlineDate =
+    deadline.date instanceof Date ? deadline.date : new Date(deadline.date);
   const daysUntil = Math.ceil((deadlineDate - now) / (1000 * 60 * 60 * 24));
 
-  if (daysUntil < 0) return 'critical'; // Overdue
-  if (daysUntil === 0) return 'critical'; // Today
-  if (daysUntil <= 3) return 'urgent'; // Within 3 days
-  if (daysUntil <= 7) return 'soon'; // Within a week
-  return 'normal';
+  if (daysUntil < 0) return "critical"; // Overdue
+  if (daysUntil === 0) return "critical"; // Today
+  if (daysUntil <= 3) return "urgent"; // Within 3 days
+  if (daysUntil <= 7) return "soon"; // Within a week
+  return "normal";
 }

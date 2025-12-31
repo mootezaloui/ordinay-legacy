@@ -1,0 +1,28 @@
+{
+  "page": {
+    "title": "Oups ! Page introuvable.",
+    "subtitle": "Désolé, la page que vous cherchez n'existe pas ou a été déplacée.",
+    "detail": "Elle a peut-être été archivée dans nos dossiers perdus..."
+  },
+  "actions": {
+    "title": "Que souhaitez-vous faire ?",
+    "home": {
+      "title": "Accueil",
+      "subtitle": "Retour au tableau de bord"
+    },
+    "clients": {
+      "title": "Clients",
+      "subtitle": "Voir mes clients"
+    },
+    "dossiers": {
+      "title": "Dossiers",
+      "subtitle": "Voir mes dossiers"
+    }
+  },
+  "code": "Code erreur : 404 | Page introuvable",
+  "support": {
+    "prefix": "Besoin d'aide ?",
+    "link": "Contacter le support"
+  },
+  "footer": "© 2025 Organia. Tous droits réservés."
+}

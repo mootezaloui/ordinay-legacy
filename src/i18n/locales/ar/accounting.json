@@ -1,0 +1,184 @@
+{
+  "page": {
+    "title": "المحاسبة",
+    "subtitle": "{{total}} عملية إجمالية",
+    "subtitleFiltered": "{{total}} عملية إجمالية، {{displayed}} معروضة",
+    "actions": {
+      "new": "قيد جديد"
+    }
+  },
+  "stats": {
+    "totalRevenue": "إيرادات العملاء",
+    "clientExpenses": "مصروفات العملاء",
+    "officeExpenses": "مصروفات المكتب",
+    "netBalance": "الرصيد الصافي",
+    "trend": {
+      "clients": "تدفقات العملاء",
+      "reimbursable": "قابل للاسترداد",
+      "internal": "داخلي",
+      "positive": "رصيد إيجابي",
+      "negative": "رصيد سلبي"
+    }
+  },
+  "filters": {
+    "all": "الكل",
+    "clients": "العملاء",
+    "internal": "المكتب"
+  },
+  "priority": {
+    "title": "عناصر أولوية ({{count}})",
+    "more": "و {{count}} عناصر أخرى..."
+  },
+  "table": {
+    "columns": {
+      "date": "التاريخ",
+      "entry": "القيد",
+      "clientDossier": "العميل / الملف",
+      "type": "النوع",
+      "amount": "المبلغ",
+      "status": "الحالة",
+      "actions": "الإجراءات"
+    },
+    "type": {
+      "revenue": "إيراد",
+      "expense": "مصروف"
+    },
+    "status": {
+      "draft": "مسودة",
+      "confirmed": "مؤكد",
+      "paid": "مدفوع",
+      "cancelled": "ملغى"
+    },
+    "scope": {
+      "client": "عميل",
+      "internal": "مكتب",
+      "office": "مكتب"
+    },
+    "category": {
+      "honoraires": "أتعاب",
+      "advance": "دفعة مقدمة",
+      "other": "أخرى",
+      "frais_bureau": "مصاريف المكتب",
+      "frais_judiciaires": "رسوم قضائية",
+      "frais_huissier": "رسوم محضر"
+    },
+    "fallback": {
+      "untitled": "بلا عنوان"
+    },
+    "actions": {
+      "edit": "تعديل",
+      "delete": "حذف"
+    },
+    "empty": "لا توجد قيود محاسبية بعد",
+    "emptyFiltered": "لا توجد قيود مطابقة لمرشحاتك"
+  },
+  "confirm": {
+    "delete": {
+      "title": "حذف القيد",
+      "message": "هل أنت متأكد من حذف هذا القيد؟ لا يمكن التراجع.",
+      "confirm": "حذف",
+      "cancel": "إلغاء"
+    }
+  },
+  "toasts": {
+    "deleteSuccess": "تم حذف القيد",
+    "deleteError": "تعذر حذف القيد",
+    "updateSuccess": "تم تحديث القيد",
+    "createSuccess": "تم إنشاء القيد",
+    "saveError": "تعذر حفظ القيد"
+  },
+  "history": {
+    "updateLabel": "تم تحديث القيد المحاسبي"
+  },
+  "form": {
+    "title": {
+      "edit": "تعديل قيد مالي",
+      "create": "قيد مالي جديد"
+    },
+    "subtitle": {
+      "edit": "حدّث بيانات القيد أدناه",
+      "create": "أضف قيداً محاسبياً جديداً"
+    },
+    "fields": {
+      "scope": {
+        "label": "النطاق المالي",
+        "help": "اختر \"عميل\" للعمليات المتعلقة بالعملاء أو \"داخلي\" لمصاريف المكتب",
+        "options": {
+          "client": "عميل (يؤثر على رصيد العميل)",
+          "internal": "داخلي (مصاريف المكتب)"
+        }
+      },
+      "type": {
+        "label": "نوع العملية",
+        "help": "حدد ما إذا كان القيد إيراداً أو مصروفاً",
+        "options": {
+          "revenue": "إيراد (أموال مستلمة)",
+          "expense": "مصروف (أموال مدفوعة)"
+        }
+      },
+      "category": {
+        "label": "الفئة",
+        "placeholder": "اختر فئة",
+        "options": {
+          "honoraires": "أتعاب",
+          "advance": "دفعة مقدمة",
+          "other": "أخرى",
+          "frais_bureau": "مصاريف المكتب",
+          "frais_judiciaires": "رسوم قضائية",
+          "frais_huissier": "رسوم محضر"
+        }
+      },
+      "amount": {
+        "label": "المبلغ (د.ت)",
+        "placeholder": "0.00"
+      },
+      "date": {
+        "label": "التاريخ"
+      },
+      "status": {
+        "label": "الحالة"
+      },
+      "title": {
+        "label": "العنوان",
+        "placeholder": "مثال: رسوم إيداع، مصاريف انتقال محضر، استشارة...",
+        "help": "عنوان مختصر يصف القيد"
+      },
+      "description": {
+        "label": "تفاصيل إضافية (اختياري)",
+        "placeholder": "تفاصيل إضافية حول هذا القيد..."
+      },
+      "client": {
+        "label": "العميل",
+        "help": "العميل المعني (إلزامي إذا كان النطاق = عميل)",
+        "placeholder": "اختر العميل"
+      },
+      "dossier": {
+        "label": "الملف (اختياري)",
+        "help": "الملف المعني (اختياري)",
+        "placeholder": "اختر الملف"
+      },
+      "case": {
+        "label": "القضية (اختياري)",
+        "help": "القضية المعنية (اختياري)",
+        "placeholder": "اختر القضية"
+      },
+      "mission": {
+        "label": "المهمة المرتبطة",
+        "help": "اختر مهمة المحضر المرتبطة بهذه الرسوم",
+        "selectPrerequisite": "يرجى اختيار ملف أو قضية أولاً",
+        "noneForEntity": "لا توجد مهمة لهذا الملف/القضية",
+        "selectMission": "اختر المهمة المرتبطة بهذه الرسوم",
+        "noneAvailable": "لا توجد مهام متاحة",
+        "fallbackOfficer": "المحضر غير محدد",
+        "autoDescription": "رسوم محضر - {{missionNumber}} - {{title}}"
+      }
+    }
+  },
+  "blocker": {
+    "action": "تعديل/حذف القيد",
+    "entityFallback": "قيد"
+  },
+  "export": {
+    "filename": "mohasaba-{{date}}.csv"
+  }
+}

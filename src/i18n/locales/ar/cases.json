@@ -1,0 +1,195 @@
+{
+  "page": {
+    "title": "القضايا",
+    "subtitle": "{{total}} قضية إجمالاً",
+    "subtitleFiltered": "{{total}} قضية إجمالاً، المعروض {{displayed}}",
+    "actions": {
+      "newCase": "قضية جديدة",
+      "newCaseDisabled": "لا يمكن إنشاء قضية بدون ملفات. يُرجى إنشاء ملف أولاً."
+    },
+    "loading": "جارٍ تحميل القضايا..."
+  },
+  "stats": {
+    "total": "إجمالي القضايا",
+    "inProgress": "قيد التنفيذ",
+    "upcoming": "جلسات قادمة",
+    "upcomingTrend": "خلال 7 أيام",
+    "completed": "مكتملة"
+  },
+  "table": {
+    "columns": {
+      "caseNumber": "رقم القضية",
+      "title": "العنوان",
+      "dossier": "الملف",
+      "court": "المحكمة",
+      "nextHearing": "الجلسة القادمة",
+      "status": "الحالة",
+      "actions": "إجراءات"
+    },
+    "nextHearing": {
+      "none": "لا توجد جلسة"
+    },
+    "status": {
+      "inProgress": "قيد التنفيذ",
+      "onHold": "معلقة",
+      "suspended": "موقوفة",
+      "closed": "مغلقة",
+      "completed": "مكتملة"
+    },
+    "actions": {
+      "view": "عرض التفاصيل",
+      "edit": "تعديل",
+      "delete": "حذف"
+    },
+    "empty": "لا توجد قضايا",
+    "emptyNoDossier": "يرجى إضافة ملف قبل إضافة قضية.",
+    "emptyFiltered": "لا توجد نتائج"
+  },
+  "confirm": {
+    "delete": {
+      "title": "حذف القضية",
+      "message": "هل أنت متأكد من حذف هذه القضية؟",
+      "confirm": "حذف",
+      "cancel": "إلغاء"
+    }
+  },
+  "form": {
+    "title": {
+      "edit": "تعديل القضية",
+      "create": "قضية جديدة"
+    },
+    "subtitle": {
+      "edit": "تعديل بيانات القضية",
+      "create": "إضافة قضية جديدة"
+    },
+    "help": {
+      "statusLocked": "يمكن تغيير الحالة فقط عبر المحدد في القائمة"
+    }
+  },
+  "toasts": {
+    "statusTitle": "حالة القضية",
+    "statusUpdated": "تم تحديث الحالة: {{status}}",
+    "deleteSuccess": {
+      "title": "تم الحذف",
+      "body": "تم حذف القضية"
+    },
+    "cascadeError": "خطأ أثناء الحذف المتسلسل",
+    "cascadeSuccess": {
+      "title": "حذف متسلسل",
+      "body": "تم حذف القضية وجميع الكيانات المرتبطة"
+    },
+    "updateSuccess": "تم تحديث القضية بنجاح!",
+    "createSuccess": "تمت إضافة القضية بنجاح!",
+    "saveError": "خطأ أثناء الحفظ",
+    "missingId": "معرّف القضية غير متوفر"
+  },
+  "blockerModal": {
+    "actionName": "تعديل/حذف القضية",
+    "entityFallback": "قضية"
+  },
+  "confirmImpact": {
+    "action": "تغيير ربط القضية"
+  },
+  "detail": {
+    "entityName": "قضية",
+    "notFound": "القضية غير موجودة",
+    "deleteConfirm": "هل تريد حذف هذه القضية؟",
+    "quickActions": {
+      "status": {
+        "label": "الحالة",
+        "inProgress": "قيد التنفيذ",
+        "onHold": "معلقة",
+        "closed": "مغلقة"
+      }
+    },
+    "header": {
+      "court": "المحكمة",
+      "nextHearing": "الجلسة القادمة",
+      "at": "في",
+      "adversaryLawyer": "محامي الخصم",
+      "noDossier": "لا يوجد ملف مرتبط"
+    },
+    "fallback": {
+      "na": "غير متوفر",
+      "unknownDossier": "ملف غير معروف",
+      "noHearings": "لا توجد جلسات",
+      "noHearingsScheduled": "لا توجد جلسات مجدولة",
+      "noDescription": "لا يوجد وصف",
+      "noDossier": "لا يوجد ملف"
+    },
+    "tabs": {
+      "overview": "نظرة عامة",
+      "sessions": "الجلسات",
+      "tasks": "المهام",
+      "missions": "المهام الميدانية",
+      "financial": "الحسابات",
+      "documents": "المستندات",
+      "notes": "الملاحظات",
+      "history": "السجل"
+    },
+    "sessions": {
+      "entityName": "جلسة",
+      "addSubtitle": "إنشاء جلسة جديدة لهذه القضية",
+      "help": {
+        "caseLink": "سترتبط هذه الجلسة بهذه القضية",
+        "linkType": "هذه الجلسة مرتبطة بهذه القضية"
+      },
+      "placeholders": {
+        "location": "قاعة الجلسة / مكان الاجتماع"
+      }
+    },
+    "tasks": {
+      "entityName": "مهمة",
+      "addSubtitle": "إنشاء مهمة جديدة لهذه القضية",
+      "help": {
+        "parentType": "اختر ما إذا كانت المهمة تخص القضية أو الملف الأب",
+        "caseLink": "سترتبط هذه المهمة بهذه القضية",
+        "dossierLink": "سترتبط هذه المهمة بالملف الأب"
+      }
+    },
+    "missions": {
+      "entityName": "مهمة",
+      "addSubtitle": "إنشاء مهمة محضر جديدة لهذه القضية",
+      "help": {
+        "caseLink": "سترتبط هذه المهمة بالقضية {{caseNumber}}"
+      }
+    },
+    "overview": {
+      "general": "معلومات عامة",
+      "description": "وصف القضية",
+      "courtInfo": "بيانات المحكمة",
+      "dates": "تواريخ مهمة",
+      "parties": "الأطراف",
+      "relatedDossier": "الملف المرتبط",
+      "fields": {
+        "caseNumber": "رقم القضية",
+        "title": "عنوان القضية",
+        "court": "المحكمة",
+        "referenceNumber": "رقم المرجع",
+        "filingDate": "تاريخ الإيداع",
+        "adversaryParty": "الخصم",
+        "associatedDossier": "الملف المرتبط"
+      },
+      "courtOptions": {
+        "firstInstance": "محكمة الدرجة الأولى",
+        "appeal": "محكمة الاستئناف",
+        "cassation": "محكمة التعقيب"
+      },
+      "help": {
+        "associatedDossier": "اختر الملف المرتبط بهذه القضية"
+      },
+      "placeholders": {
+        "associatedDossier": "ابحث عن ملف..."
+      }
+    },
+    "nextHearing": {
+      "badges": {
+        "today": "اليوم",
+        "urgent": "عاجلة",
+        "soon": "قريباً",
+        "scheduled": "مجدولة"
+      },
+      "viewDetails": "عرض تفاصيل الجلسة"
+    }
+  }
+}

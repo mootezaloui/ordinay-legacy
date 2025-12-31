@@ -1,0 +1,35 @@
+{
+  "page": {
+    "title": "My Profile",
+    "subtitle": "Manage your personal and professional information"
+  },
+  "actions": {
+    "edit": "Edit Profile",
+    "cancel": "Cancel",
+    "save": "Save Changes"
+  },
+  "stats": {
+    "activeDossiers": "Active Dossiers",
+    "totalClients": "Total Clients",
+    "resolvedDossiers": "Resolved Dossiers",
+    "successRate": "Success Rate"
+  },
+  "sections": {
+    "personal": "Personal Information",
+    "professional": "Professional Information"
+  },
+  "fields": {
+    "firstName": "First Name",
+    "lastName": "Last Name",
+    "email": "Email",
+    "phone": "Phone",
+    "title": "Title",
+    "specialization": "Specialization",
+    "barNumber": "Bar Number",
+    "office": "Office",
+    "bio": "Biography"
+  },
+  "toasts": {
+    "saveSuccess": "Profile updated successfully!"
+  }
+}

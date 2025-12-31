@@ -1,0 +1,28 @@
+{
+  "page": {
+    "title": "Oops! Page not found.",
+    "subtitle": "Sorry, the page you are looking for does not exist or has been moved.",
+    "detail": "It might have been archived in our lost files..."
+  },
+  "actions": {
+    "title": "What would you like to do?",
+    "home": {
+      "title": "Home",
+      "subtitle": "Back to dashboard"
+    },
+    "clients": {
+      "title": "Clients",
+      "subtitle": "View my clients"
+    },
+    "dossiers": {
+      "title": "Dossiers",
+      "subtitle": "View my dossiers"
+    }
+  },
+  "code": "Error code: 404 | Page not found",
+  "support": {
+    "prefix": "Need help?",
+    "link": "Contact support"
+  },
+  "footer": "© 2025 Organia. All rights reserved."
+}

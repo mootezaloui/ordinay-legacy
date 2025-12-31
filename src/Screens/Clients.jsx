@@ -18,7 +18,7 @@ import FormModal from "../components/FormModal/FormModal";
 import StatCard from "../components/dashboard/StatCard";
 import InlineStatusSelector from "../components/InlineSelectors/InlineStatusSelector";
 import LoadingScreen from "../components/loading/LoadingScreen";
-import { clientFormFields, getFormTitle } from "../components/FormModal/formConfigs";
+import { clientFormFields } from "../components/FormModal/formConfigs";
 import { useData } from "../contexts/DataContext";
 import BlockerModal from "../components/ui/BlockerModal";
 import ConfirmImpactModal from "../components/ui/ConfirmImpactModal";
@@ -26,9 +26,11 @@ import { canPerformAction } from "../services/domainRules";
 import { resolveDetailRoute } from "../utils/routeResolver";
 import { logEntityCreation, logStatusChange } from "../services/historyService";
 import { useSettings } from "../contexts/SettingsContext";
+import { useTranslation } from "react-i18next";
 
 export default function Clients() {
   const navigate = useNavigate();
+  const { t } = useTranslation("clients");
   const { showToast } = useToast();
   const { confirm } = useConfirm();
   const {
@@ -75,7 +77,7 @@ export default function Clients() {
   const columns = [
     {
       id: "name",
-      label: "Name",
+      label: t("table.columns.name"),
       sortable: true,
       locked: true,
       render: (client) => (
@@ -91,27 +93,27 @@ export default function Clients() {
     },
     {
       id: "email",
-      label: "Email",
+      label: t("table.columns.email"),
       sortable: true,
       render: (client) => client.email,
     },
     {
       id: "phone",
-      label: "Phone",
+      label: t("table.columns.phone"),
       sortable: true,
       render: (client) => client.phone,
     },
     {
       id: "status",
-      label: "Status",
+      label: t("table.columns.status"),
       sortable: true,
       render: (client) => (
         <InlineStatusSelector
           value={client.status}
           onChange={(newStatus) => handleStatusChange(client.id, client, newStatus)}
           statusOptions={[
-            { value: "Active", label: "Active", icon: "fas fa-circle-check", color: "green" },
-            { value: "Inactive", label: "Inactive", icon: "fas fa-circle-xmark", color: "red" },
+            { value: "Active", label: t("table.status.active"), icon: "fas fa-circle-check", color: "green" },
+            { value: "Inactive", label: t("table.status.inactive"), icon: "fas fa-circle-xmark", color: "red" },
           ]}
           entityType="client"
           entityId={client.id}
@@ -121,13 +123,13 @@ export default function Clients() {
     },
     {
       id: "joinDate",
-      label: "Join Date",
+      label: t("table.columns.joinDate"),
       sortable: true,
       render: (client) => formatDate(client.joinDate),
     },
     {
       id: "actions",
-      label: "Actions",
+      label: t("table.columns.actions"),
       sortable: false,
       locked: true,
       render: (client) => (
@@ -135,7 +137,7 @@ export default function Clients() {
           <IconButton
             icon="view"
             variant="view"
-            title="View Details"
+            title={t("table.actions.view")}
             onClick={(e) => {
               e.stopPropagation();
               handleView(client.id);
@@ -144,7 +146,7 @@ export default function Clients() {
           <IconButton
             icon="edit"
             variant="edit"
-            title="Edit"
+            title={t("table.actions.edit")}
             onClick={(e) => {
               e.stopPropagation();
               handleEdit(client);
@@ -153,7 +155,7 @@ export default function Clients() {
           <IconButton
             icon="delete"
             variant="delete"
-            title="Delete"
+            title={t("table.actions.delete")}
             onClick={(e) => {
               e.stopPropagation();
               handleDelete(client.id);
@@ -175,7 +177,7 @@ export default function Clients() {
   if (loading) {
     return (
       <PageLayout>
-        <PageHeader title="Clients" />
+        <PageHeader title={t("page.title")} />
         {loadError && (
           <ContentSection>
             <div className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-red-700">
@@ -183,7 +185,7 @@ export default function Clients() {
             </div>
           </ContentSection>
         )}
-        <LoadingScreen variant="page" message="Loading data..." />
+        <LoadingScreen variant="page" message={t("page.loading")} />
       </PageLayout>
     );
   }
@@ -218,12 +220,21 @@ export default function Clients() {
       // Log status change
       logStatusChange('client', id, oldStatus, newStatus);
 
-      showToast(`Status updated to ${newStatus === 'active' ? 'Active' : 'Inactive'}`, "info", {
-        title: "Client updated",
-        context: "client",
-      });
+      showToast(
+        t("toasts.statusUpdated", {
+          status:
+            newStatus === 'active'
+              ? t("table.status.active")
+              : t("table.status.inactive"),
+        }),
+        "info",
+        {
+          title: t("toasts.clientUpdated"),
+          context: "client",
+        }
+      );
     } catch (error) {
-      showToast("Error updating status", "error");
+      showToast(t("toasts.statusError"), "error");
     }
   };
 
@@ -261,10 +272,10 @@ export default function Clients() {
     }
 
     if (await confirm({
-      title: "Delete Client",
-      message: "Are you sure you want to delete this client?",
-      confirmText: "Delete",
-      cancelText: "Cancel",
+      title: t("confirm.delete.title"),
+      message: t("confirm.delete.message"),
+      confirmText: t("confirm.delete.confirm"),
+      cancelText: t("confirm.delete.cancel"),
       variant: "danger"
     })) {
       try {
@@ -272,19 +283,19 @@ export default function Clients() {
 
         if (!result || !result.ok) {
           console.error('[Clients.handleDelete] Delete failed with result:', result);
-          showToast("Error deleting client", "error");
+          showToast(t("toasts.deleteError"), "error");
           return;
         }
 
-        showToast("Client deleted", "warning", {
-          title: "Deletion successful",
+        showToast(t("toasts.deleteSuccess.body"), "warning", {
+          title: t("toasts.deleteSuccess.title"),
           context: "client",
         });
         // Redirect to clients list after deletion
         navigate("/clients");
       } catch (error) {
         console.error('[Clients.handleDelete] Delete error:', error);
-        showToast("Error deleting client", "error");
+        showToast(t("toasts.deleteError"), "error");
       }
     }
   };
@@ -302,12 +313,12 @@ export default function Clients() {
 
       if (!result || !result.ok) {
         console.error('[Clients.handleForceDelete] Cascade delete failed:', result);
-        showToast("Error during cascade delete", "error");
+        showToast(t("toasts.cascadeError"), "error");
         return;
       }
 
-      showToast("Client and all related entities deleted", "success", {
-        title: "Cascade deletion",
+      showToast(t("toasts.cascadeSuccess.body"), "success", {
+        title: t("toasts.cascadeSuccess.title"),
         context: "client",
       });
 
@@ -316,7 +327,7 @@ export default function Clients() {
       navigate("/clients");
     } catch (error) {
       console.error('[Clients.handleForceDelete] Error:', error);
-      showToast("Error during cascade delete", "error");
+      showToast(t("toasts.cascadeError"), "error");
     }
   };
 
@@ -362,7 +373,7 @@ export default function Clients() {
       await new Promise((resolve) => setTimeout(resolve, 500));
       if (editingClient) {
         await updateClient(editingClient.id, formData);
-        showToast("Client modifié avec succès!", "success");
+        showToast(t("toasts.updateSuccess"), "success");
       } else {
         const newClient = {
           ...formData,
@@ -373,10 +384,10 @@ export default function Clients() {
         const createdId = createdEntity?.id;
         const createdName = createdEntity?.name || formData.name;
         if (!createdId) {
-          showToast("Client created, but returned ID is not available", "warning");
+          showToast(t("toasts.createMissingId"), "warning");
           return;
         }
-        showToast("Client added successfully!", "success");
+        showToast(t("toasts.createSuccess"), "success");
         logEntityCreation('client', createdId, createdName);
         const detailRoute = resolveDetailRoute('client', createdId);
         if (detailRoute) {
@@ -387,7 +398,7 @@ export default function Clients() {
       setEditingClient(null);
     } catch (error) {
       console.error("Error submitting client:", error);
-      showToast("Error saving client", "error");
+      showToast(t("toasts.saveError"), "error");
     } finally {
       setIsLoading(false);
     }
@@ -407,7 +418,7 @@ export default function Clients() {
           ...field,
           type: 'readonly',
           displayValue: editingClient.status,
-          helpText: 'Status can only be changed via the selector in the list view.'
+          helpText: t("form.help.statusLocked"),
         };
       }
       return field;
@@ -442,11 +453,35 @@ export default function Clients() {
     window.URL.revokeObjectURL(url);
   };
 
+  const headerSubtitle = table.isFiltering
+    ? t("page.subtitleFiltered", {
+      total: table.originalTotalItems,
+      displayed: table.totalItems,
+    })
+    : t("page.subtitle", { total: table.originalTotalItems });
+
+  const nextStatusLabel =
+    blockedClient?.status === 'active'
+      ? t("table.status.inactive")
+      : t("table.status.active");
+
+  const blockerActionName =
+    blockedAction === 'delete'
+      ? t("blockerModal.actions.delete")
+      : blockedAction === 'changeStatus'
+        ? t("blockerModal.actions.changeStatus", { status: nextStatusLabel })
+        : blockedAction === 'edit'
+          ? t("blockerModal.actions.edit")
+          : t("blockerModal.actions.default");
+
+  const blockerEntityName = blockedClient?.name
+    || (blockedClient?.id ? t("blockerModal.entityWithId", { id: blockedClient.id }) : t("blockerModal.entityGeneric"));
+
   return (
     <PageLayout>
       <PageHeader
-        title="Clients"
-        subtitle={`${table.originalTotalItems} clients in total${table.isFiltering ? ` • ${table.totalItems} displayed` : ""}`}
+        title={t("page.title")}
+        subtitle={headerSubtitle}
         icon="fas fa-users"
         actions={
           <button
@@ -454,7 +489,7 @@ export default function Clients() {
             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center gap-2"
           >
             <i className="fas fa-plus"></i>
-            New Client
+            {t("page.actions.newClient")}
           </button>
         }
       />
@@ -462,29 +497,29 @@ export default function Clients() {
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <StatCard
-          label="Total Clients"
+          label={t("stats.total")}
           value={stats.total}
           icon="fas fa-users"
           color="blue"
         />
         <StatCard
-          label="Active Clients"
+          label={t("stats.active")}
           value={stats.active}
           icon="fas fa-user-check"
           color="green"
         />
         <StatCard
-          label="Inactive Clients"
+          label={t("stats.inactive")}
           value={stats.inactive}
           icon="fas fa-user-slash"
           color="amber"
         />
         <StatCard
-          label="New This Month"
+          label={t("stats.newThisMonth")}
           value={stats.newThisMonth}
           icon="fas fa-user-plus"
           color="purple"
-          trendLabel="since the beginning of the month"
+          trendLabel={t("stats.newThisMonthTrend")}
         />
       </div>
 
@@ -511,7 +546,14 @@ export default function Clients() {
             onReorder={table.reorderColumns}
             enableReorder={true}
           />
-          <TableBody isEmpty={table.data.length === 0} emptyMessage={table.isFiltering ? "No results found" : "No clients found"}>
+          <TableBody
+            isEmpty={table.data.length === 0}
+            emptyMessage={
+              table.isFiltering
+                ? t("table.emptyFiltered")
+                : t("table.empty")
+            }
+          >
             {table.data.map((client) => (
               <TableRow
                 key={client.id}
@@ -545,8 +587,12 @@ export default function Clients() {
           setEditingClient(null);
         }}
         onSubmit={handleSubmit}
-        title={getFormTitle("client", !!editingClient)}
-        subtitle={editingClient ? "Edit client information" : "Add a new client to your database"}
+        title={editingClient ? t("form.title.edit") : t("form.title.create")}
+        subtitle={
+          editingClient
+            ? t("form.subtitle.edit")
+            : t("form.subtitle.create")
+        }
         fields={dynamicClientFormFields}
         initialData={editingClient}
         isLoading={isLoading}
@@ -565,17 +611,11 @@ export default function Clients() {
           setBlockedAction(null);
         }}
         actionName={
-          blockedAction === 'delete'
-            ? 'delete client'
-            : blockedAction === 'changeStatus'
-              ? `change status to "${blockedClient?.status === 'active' ? 'inactive' : 'active'}"`
-              : blockedAction === 'edit'
-                ? 'modify client'
-                : 'perform action on client'
+          blockerActionName
         }
         blockers={validationResult?.blockers || []}
         warnings={validationResult?.warnings || []}
-        entityName={blockedClient?.name || "Client #" + blockedClient?.id || "Client"}
+        entityName={blockerEntityName}
         entityType="client"
         entityId={blockedClient?.id}
         action={blockedAction}
@@ -599,7 +639,7 @@ export default function Clients() {
           setPendingFormData(null);
         }}
         onConfirm={handleConfirmImpact}
-        actionName="confirm modification"
+        actionName={t("confirmImpact.action")}
         impactSummary={validationResult?.impactSummary || []}
         entityName={pendingFormData?.name || editingClient?.name || ""}
       />

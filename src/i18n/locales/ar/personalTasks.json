@@ -1,0 +1,188 @@
+{
+  "page": {
+    "title": "المهام الشخصية",
+    "subtitle": "{{total}} مهمة شخصية",
+    "subtitleFiltered": "{{total}} مهمة شخصية، المعروض {{displayed}}",
+    "actions": {
+      "newTask": "مهمة جديدة"
+    },
+    "loading": "جارٍ تحميل المهام الشخصية..."
+  },
+  "stats": {
+    "total": "الإجمالي",
+    "pending": "قيد الانتظار",
+    "completed": "مكتملة",
+    "overdue": "متأخرة"
+  },
+  "table": {
+    "columns": {
+      "title": "المهمة",
+      "category": "الفئة",
+      "dueDate": "تاريخ الاستحقاق",
+      "priority": "الأولوية",
+      "status": "الحالة",
+      "actions": "إجراءات"
+    },
+    "dueDate": {
+      "na": "غير متوفر"
+    },
+    "status": {
+      "notStarted": "لم تبدأ",
+      "pending": "قيد الانتظار",
+      "inProgress": "قيد التنفيذ",
+      "scheduled": "مجدولة",
+      "completed": "مكتملة",
+      "blocked": "محجوبة",
+      "done": "منتهية",
+      "cancelled": "ملغاة"
+    },
+    "priority": {
+      "high": "عالية",
+      "medium": "متوسطة",
+      "low": "منخفضة"
+    },
+    "categories": {
+      "invoices": "فواتير",
+      "office": "مكتب",
+      "personal": "شخصي",
+      "it": "تقني",
+      "administrative": "إداري",
+      "other": "أخرى"
+    },
+    "actions": {
+      "view": "عرض التفاصيل",
+      "edit": "تعديل",
+      "delete": "حذف"
+    },
+    "empty": "لا توجد مهام شخصية",
+    "emptyFiltered": "لا توجد نتائج"
+  },
+  "confirm": {
+    "delete": {
+      "title": "حذف المهمة",
+      "message": "هل أنت متأكد من حذف هذه المهمة؟",
+      "confirm": "حذف",
+      "cancel": "إلغاء"
+    }
+  },
+  "form": {
+    "title": {
+      "edit": "تعديل المهمة",
+      "create": "مهمة شخصية جديدة"
+    },
+    "subtitle": {
+      "edit": "تعديل المهمة الشخصية",
+      "create": "إضافة مهمة غير مرتبطة بقضايا أو عملاء"
+    },
+    "fields": {
+      "title": {
+        "label": "عنوان المهمة",
+        "placeholder": "مثال: دفع فاتورة الكهرباء"
+      },
+      "category": {
+        "label": "الفئة",
+        "options": {
+          "invoices": "فواتير",
+          "office": "مكتب",
+          "personal": "شخصي",
+          "it": "تقني",
+          "administrative": "إداري",
+          "other": "أخرى"
+        }
+      },
+      "dueDate": {
+        "label": "تاريخ الاستحقاق"
+      },
+      "priority": {
+        "label": "الأولوية",
+        "options": {
+          "high": "عالية",
+          "medium": "متوسطة",
+          "low": "منخفضة"
+        }
+      },
+      "status": {
+        "label": "الحالة"
+      },
+      "notes": {
+        "label": "ملاحظات",
+        "placeholder": "ملاحظات إضافية..."
+      }
+    },
+    "help": {
+      "statusLocked": "يمكن تغيير الحالة فقط عبر المحدد في قائمة المهام."
+    }
+  },
+  "toasts": {
+    "statusTitle": "تحديث الحالة",
+    "statusUpdated": "تم تحديث الحالة: {{status}}",
+    "priorityTitle": "تحديث الأولوية",
+    "priorityUpdated": "تم تحديث الأولوية: {{priority}}",
+    "deleteSuccess": {
+      "title": "تم الحذف",
+      "body": "تم حذف المهمة الشخصية"
+    },
+    "updateSuccess": "تم تحديث المهمة بنجاح!",
+    "createSuccess": "تمت إضافة المهمة بنجاح!",
+    "saveError": "خطأ أثناء الحفظ",
+    "missingId": "معرّف المهمة الشخصية غير متوفر"
+  },
+  "detail": {
+    "entityName": "المهمة الشخصية",
+    "notFound": "المهمة الشخصية غير موجودة",
+    "deleteConfirm": "هل تريد حذف هذه المهمة الشخصية؟",
+    "subtitle": "أُنشئت في {{date}} · {{category}}",
+    "quickActions": {
+      "status": {
+        "label": "الحالة",
+        "notStarted": "لم تبدأ",
+        "inProgress": "قيد التنفيذ",
+        "blocked": "محجوبة",
+        "done": "منتهية",
+        "cancelled": "ملغاة"
+      },
+      "priority": {
+        "label": "الأولوية",
+        "high": "عالية",
+        "medium": "متوسطة",
+        "low": "منخفضة"
+      },
+      "category": {
+        "label": "الفئة",
+        "invoices": "فواتير",
+        "office": "مكتب",
+        "personal": "شخصي",
+        "it": "تقني",
+        "administrative": "إداري",
+        "other": "أخرى"
+      }
+    },
+    "header": {
+      "priority": "الأولوية",
+      "status": "الحالة",
+      "dueDate": "تاريخ الاستحقاق",
+      "category": "الفئة"
+    },
+    "tabs": {
+      "overview": "نظرة عامة",
+      "financial": "المالي",
+      "financialDescription": "قيود مالية داخلية مرتبطة بهذه المهمة",
+      "documents": "المستندات",
+      "history": "السجل"
+    },
+    "overview": {
+      "general": "عام",
+      "description": "الوصف",
+      "notes": "الملاحظات",
+      "fields": {
+        "title": "العنوان",
+        "dueDate": "تاريخ الاستحقاق"
+      }
+    },
+    "fallback": {
+      "na": "غير متوفر",
+      "noDescription": "لا يوجد وصف",
+      "noNotes": "لا توجد ملاحظات."
+    }
+  }
+}

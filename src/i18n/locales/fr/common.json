@@ -1,1 +1,90 @@
-{}
+{
+  "dashboard": {
+    "title": "Tableau de bord",
+    "subtitle": "Vue d'ensemble des performances et activités du cabinet",
+    "quickActions": "Actions rapides",
+    "stats": {
+      "totalClients": "Total clients",
+      "activeDossiers": "Dossiers actifs",
+      "pendingTasks": "Tâches en attente",
+      "revenue": "Recettes",
+      "currency": "TND",
+      "trendVsLastMonth": "par rapport au mois dernier",
+      "newThisWeek_one": "{{count}} nouveau cette semaine",
+      "newThisWeek_other": "{{count}} nouveaux cette semaine",
+      "dueToday_one": "{{count}} échéance aujourd'hui",
+      "dueToday_other": "{{count}} échéances aujourd'hui"
+    },
+    "urgentTasks": {
+      "title": "Tâches urgentes ({{count}})"
+    },
+    "upcomingEvents": {
+      "title": "Événements à venir ({{count}})"
+    },
+    "projection": {
+      "title": "Projection (30-90 jours)",
+      "show": "Afficher la projection",
+      "hide": "Masquer",
+      "daysLabel_one": "{{count}} jour",
+      "daysLabel_other": "{{count}} jours",
+      "nothing": "Rien à signaler",
+      "itemMeta": "{{date}} - {{label}}"
+    },
+    "planningLane": {
+      "title": "Couloir de planification",
+      "subtitle": "Événements à venir (8-12 éléments)",
+      "empty": "Aucun événement à venir détecté."
+    },
+    "loadMap": {
+      "title": "Charge à venir (par semaine)",
+      "show": "Afficher la charge",
+      "hide": "Masquer la charge",
+      "empty": "Aucune charge à venir détectée.",
+      "weekLabel": "Semaine {{week}}",
+      "itemsCount_one": "{{count}} élément",
+      "itemsCount_other": "{{count}} éléments",
+      "tooltipNone": "Aucune charge",
+      "tooltipType_one": "{{count}} {{type}}",
+      "tooltipType_other": "{{count}} {{type}}"
+    },
+    "recentActivity": "Activité récente",
+    "quickStats": {
+      "title": "Statistiques",
+      "dossiers": {
+        "title": "Dossiers par statut",
+        "inProgress": "En cours",
+        "pending": "En attente",
+        "closed": "Fermé"
+      },
+      "tasks": {
+        "title": "Tâches par priorité",
+        "high": "Haute",
+        "medium": "Moyenne",
+        "low": "Basse"
+      },
+      "payments": {
+        "title": "Statut des paiements",
+        "paid": "Payé",
+        "pending": "En attente",
+        "overdue": "En retard"
+      }
+    },
+    "activities": {
+      "newClient": "Nouveau client : {{name}}",
+      "dossierUpdated": "Dossier mis à jour : {{caseNumber}}",
+      "scheduledHearing": "Audience programmée : {{title}}",
+      "sessionDescription": "{{date}} à {{time}}",
+      "deadline": "Échéance : {{title}}",
+      "entryTitle": "Écriture n°{{id}}"
+    },
+    "types": {
+      "session": "Audience",
+      "task": "Tâches",
+      "case": "Procès",
+      "dossier": "Dossier",
+      "finance": "Finance",
+      "mission": "Mission",
+      "generic": "{{type}}"
+    }
+  }
+}

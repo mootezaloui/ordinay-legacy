@@ -1,0 +1,188 @@
+{
+  "page": {
+    "title": "Tâches personnelles",
+    "subtitle": "{{total}} tâches personnelles",
+    "subtitleFiltered": "{{total}} tâches personnelles, {{displayed}} affichées",
+    "actions": {
+      "newTask": "Nouvelle tâche"
+    },
+    "loading": "Chargement des tâches personnelles..."
+  },
+  "stats": {
+    "total": "Total",
+    "pending": "En attente",
+    "completed": "Terminées",
+    "overdue": "En retard"
+  },
+  "table": {
+    "columns": {
+      "title": "Tâche",
+      "category": "Catégorie",
+      "dueDate": "Date d'échéance",
+      "priority": "Priorité",
+      "status": "Statut",
+      "actions": "Actions"
+    },
+    "dueDate": {
+      "na": "N/D"
+    },
+    "status": {
+      "notStarted": "Non commencée",
+      "pending": "En attente",
+      "inProgress": "En cours",
+      "scheduled": "Planifiée",
+      "completed": "Terminée",
+      "blocked": "Bloquée",
+      "done": "Terminée",
+      "cancelled": "Annulée"
+    },
+    "priority": {
+      "high": "Haute",
+      "medium": "Moyenne",
+      "low": "Basse"
+    },
+    "categories": {
+      "invoices": "Factures",
+      "office": "Bureau",
+      "personal": "Personnel",
+      "it": "Informatique",
+      "administrative": "Administratif",
+      "other": "Autre"
+    },
+    "actions": {
+      "view": "Voir les détails",
+      "edit": "Modifier",
+      "delete": "Supprimer"
+    },
+    "empty": "Aucune tâche personnelle disponible",
+    "emptyFiltered": "Aucun résultat"
+  },
+  "confirm": {
+    "delete": {
+      "title": "Supprimer la tâche",
+      "message": "Êtes-vous sûr de vouloir supprimer cette tâche ?",
+      "confirm": "Supprimer",
+      "cancel": "Annuler"
+    }
+  },
+  "form": {
+    "title": {
+      "edit": "Modifier la tâche",
+      "create": "Nouvelle tâche personnelle"
+    },
+    "subtitle": {
+      "edit": "Modifier la tâche personnelle",
+      "create": "Ajouter une tâche non liée aux dossiers ou clients"
+    },
+    "fields": {
+      "title": {
+        "label": "Titre de la tâche",
+        "placeholder": "Ex : Payer la facture d'électricité"
+      },
+      "category": {
+        "label": "Catégorie",
+        "options": {
+          "invoices": "Factures",
+          "office": "Bureau",
+          "personal": "Personnel",
+          "it": "Informatique",
+          "administrative": "Administratif",
+          "other": "Autre"
+        }
+      },
+      "dueDate": {
+        "label": "Date d'échéance"
+      },
+      "priority": {
+        "label": "Priorité",
+        "options": {
+          "high": "Haute",
+          "medium": "Moyenne",
+          "low": "Basse"
+        }
+      },
+      "status": {
+        "label": "Statut"
+      },
+      "notes": {
+        "label": "Notes",
+        "placeholder": "Notes supplémentaires..."
+      }
+    },
+    "help": {
+      "statusLocked": "Le statut ne peut être modifié que via le sélecteur dans la liste."
+    }
+  },
+  "toasts": {
+    "statusTitle": "Mise à jour du statut",
+    "statusUpdated": "Statut mis à jour : {{status}}",
+    "priorityTitle": "Mise à jour de la priorité",
+    "priorityUpdated": "Priorité mise à jour : {{priority}}",
+    "deleteSuccess": {
+      "title": "Suppression réussie",
+      "body": "Tâche personnelle supprimée"
+    },
+    "updateSuccess": "Tâche mise à jour avec succès !",
+    "createSuccess": "Tâche ajoutée avec succès !",
+    "saveError": "Erreur lors de l'enregistrement",
+    "missingId": "Identifiant de tâche personnelle manquant"
+  },
+  "detail": {
+    "entityName": "Tâche personnelle",
+    "notFound": "Tâche personnelle introuvable",
+    "deleteConfirm": "Voulez-vous supprimer cette tâche personnelle ?",
+    "subtitle": "Créée le {{date}} · {{category}}",
+    "quickActions": {
+      "status": {
+        "label": "Statut",
+        "notStarted": "Non commencée",
+        "inProgress": "En cours",
+        "blocked": "Bloquée",
+        "done": "Terminée",
+        "cancelled": "Annulée"
+      },
+      "priority": {
+        "label": "Priorité",
+        "high": "Haute",
+        "medium": "Moyenne",
+        "low": "Basse"
+      },
+      "category": {
+        "label": "Catégorie",
+        "invoices": "Factures",
+        "office": "Bureau",
+        "personal": "Personnel",
+        "it": "Informatique",
+        "administrative": "Administratif",
+        "other": "Autre"
+      }
+    },
+    "header": {
+      "priority": "Priorité",
+      "status": "Statut",
+      "dueDate": "Date d'échéance",
+      "category": "Catégorie"
+    },
+    "tabs": {
+      "overview": "Aperçu",
+      "financial": "Financier",
+      "financialDescription": "Écritures financières internes liées à cette tâche",
+      "documents": "Documents",
+      "history": "Historique"
+    },
+    "overview": {
+      "general": "Général",
+      "description": "Description",
+      "notes": "Notes",
+      "fields": {
+        "title": "Titre",
+        "dueDate": "Date d'échéance"
+      }
+    },
+    "fallback": {
+      "na": "N/D",
+      "noDescription": "Aucune description",
+      "noNotes": "Aucune note pour le moment."
+    }
+  }
+}

@@ -1,0 +1,145 @@
+{
+  "page": {
+    "title": "Paramètres",
+    "subtitle": "Configurez les préférences de l'application"
+  },
+  "sections": {
+    "general": "Paramètres généraux",
+    "notifications": "Notifications",
+    "appointments": "Notifications de rendez-vous et d'échéances",
+    "security": "Sécurité",
+    "appearance": "Apparence"
+  },
+  "general": {
+    "language": {
+      "label": "Langue",
+      "description": "Choisissez la langue de l'interface"
+    },
+    "dateFormat": {
+      "label": "Format de date",
+      "description": "Comment afficher les dates"
+    }
+  },
+  "notifications": {
+    "desktop": {
+      "title": "Activer les notifications",
+      "description": "Afficher les notifications dans l'application"
+    }
+  },
+  "appointments": {
+    "tasks": {
+      "title": "Tâches",
+      "overdue": {
+        "label": "Rappels pour les tâches en retard",
+        "description": "Notification quotidienne pour les tâches en retard (jusqu'à 3 jours)."
+      },
+      "upcoming": {
+        "label": "Rappels d'échéances à venir",
+        "description": "Rappels : {{days}} jours avant l'échéance."
+      }
+    },
+    "personalTasks": {
+      "title": "Tâches personnelles",
+      "upcoming": {
+        "label": "Rappels d'échéances à venir",
+        "description": "Rappels : {{days}} jours avant l'échéance."
+      },
+      "completion": {
+        "label": "Rappels de complétion après échéance",
+        "description": "Demande si la tâche a été complétée après l'échéance."
+      }
+    },
+    "sessions": {
+      "title": "Audiences",
+      "preparation": {
+        "label": "Rappels de préparation",
+        "description": "Rappels pour les audiences à venir : {{days}} jours avant."
+      },
+      "dayOf": {
+        "label": "Rappel le jour même",
+        "description": "Notification critique le jour de l'audience pour éviter tout oubli."
+      }
+    },
+    "cases": {
+      "title": "Procès",
+      "basedOnPriority": "Selon la priorité du dossier parent",
+      "automaticTitle": "Notifications automatiques :",
+      "items": {
+        "noSession": "Rappel si aucune audience n'est planifiée (fréquence selon la priorité du dossier parent)",
+        "updateSuggestion": "Suggestion de mise à jour après les audiences/tâches effectuées"
+      },
+      "inherits": "Les procès héritent de la priorité de leur dossier parent pour déterminer la fréquence des rappels."
+    },
+    "payments": {
+      "title": "Paiements",
+      "overdue": {
+        "label": "Rappels de paiements en retard",
+        "before": "Rappels avant : {{days}} jours",
+        "frequency": "Rappels d'impayés : {{days}} jours"
+      }
+    },
+    "missions": {
+      "title": "Missions",
+      "upcoming": {
+        "label": "Rappels avant les échéances des missions",
+        "description": "Rappels : {{days}} jours avant l'échéance."
+      },
+      "completion": {
+        "label": "Vérification après échéance",
+        "description": "Demande si l'huissier a terminé la mission après l'échéance."
+      }
+    },
+    "dossiers": {
+      "title": "Dossiers",
+      "inactivity": {
+        "label": "Rappel d'inactivité ({{days}} jours)",
+        "description": "Notification si le dossier n'a pas été mis à jour depuis {{days}} jours."
+      },
+      "review": {
+        "label": "Rappel de revue (selon priorité)",
+        "high": "Haute priorité : tous les {{days}} jours",
+        "medium": "Priorité moyenne : tous les {{days}} jours",
+        "low": "Faible priorité : tous les {{days}} jours"
+      },
+      "deadline": {
+        "label": "Prochaine échéance (next_deadline)",
+        "description": "Rappels des échéances : 7 jours avant, 3 jours avant, le jour même, et en cas de retard."
+      }
+    },
+    "clients": {
+      "title": "Clients",
+      "inactivity": {
+        "label": "Rappel d'inactivité ({{days}} jours sans activité)",
+        "description": "Notification si le client n'a aucune activité (dossiers, tâches, audiences, paiements) pendant {{days}} jours."
+      }
+    }
+  },
+  "security": {
+    "twoFactor": {
+      "label": "Authentification à deux facteurs",
+      "description": "Sécurité renforcée pour votre compte"
+    },
+    "sessionTimeout": {
+      "label": "Délai d'expiration de session",
+      "description": "Déconnexion automatique en cas d'inactivité",
+      "options": {
+        "15": "15 minutes",
+        "30": "30 minutes",
+        "60": "1 heure",
+        "120": "2 heures"
+      }
+    },
+    "changePassword": "Changer le mot de passe"
+  },
+  "appearance": {
+    "theme": {
+      "label": "Thème",
+      "description": "Choisissez le thème de l'application",
+      "options": {
+        "light": "Clair",
+        "dark": "Sombre",
+        "system": "Système"
+      }
+    }
+  }
+}

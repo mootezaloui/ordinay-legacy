@@ -1,0 +1,173 @@
+{
+  "page": {
+    "title": "Huissiers",
+    "subtitle": "{{total}} huissiers au total",
+    "subtitleFiltered": "{{total}} huissiers au total, {{displayed}} affichés",
+    "actions": {
+      "new": "Nouvel huissier"
+    }
+  },
+  "stats": {
+    "total": "Total des huissiers",
+    "available": "Disponible",
+    "busy": "Occupé",
+    "inactive": "Inactif"
+  },
+  "table": {
+    "columns": {
+      "name": "Nom",
+      "phone": "Téléphone",
+      "email": "Email",
+      "location": "Localisation",
+      "status": "Statut",
+      "actions": "Actions"
+    },
+    "status": {
+      "available": "Disponible",
+      "busy": "Occupé",
+      "inactive": "Inactif"
+    },
+    "actions": {
+      "view": "Voir les détails",
+      "edit": "Modifier",
+      "delete": "Supprimer"
+    },
+    "empty": "Aucun huissier disponible",
+    "emptyFiltered": "Aucun résultat"
+  },
+  "confirm": {
+    "delete": {
+      "title": "Supprimer l'huissier",
+      "message": "Êtes-vous sûr de vouloir supprimer cet huissier ?",
+      "confirm": "Supprimer",
+      "cancel": "Annuler"
+    }
+  },
+  "form": {
+    "title": {
+      "edit": "Modifier l'huissier",
+      "create": "Nouvel huissier"
+    },
+    "subtitle": {
+      "edit": "Modifier les informations de l'huissier",
+      "create": "Ajouter un nouvel huissier"
+    },
+    "fields": {
+      "name": {
+        "label": "Nom complet",
+        "placeholder": "Ex : Me. Ahmed Ben Salem"
+      },
+      "phone": {
+        "label": "Téléphone",
+        "placeholder": "+216 98 123 456"
+      },
+      "alternatePhone": {
+        "label": "Téléphone secondaire",
+        "placeholder": "+216 71 234 567"
+      },
+      "email": {
+        "label": "Email",
+        "placeholder": "email@example.com"
+      },
+      "location": {
+        "label": "Localisation",
+        "placeholder": "Ex : Tunis"
+      },
+      "address": {
+        "label": "Adresse complète",
+        "placeholder": "Adresse du cabinet/étude"
+      },
+      "status": {
+        "label": "Statut"
+      },
+      "notes": {
+        "label": "Notes",
+        "placeholder": "Notes sur cet huissier..."
+      }
+    },
+    "help": {
+      "statusLocked": "Le statut ne peut être modifié que via le sélecteur dans la liste."
+    }
+  },
+  "toasts": {
+    "deleteSuccess": {
+      "title": "Suppression réussie",
+      "body": "Huissier supprimé"
+    },
+    "updateSuccess": "Huissier mis à jour avec succès !",
+    "createSuccess": "Huissier ajouté avec succès !",
+    "saveError": "Erreur lors de l'enregistrement de l'huissier"
+  },
+  "blockerModal": {
+    "actionName": "Modifier/Supprimer l'huissier",
+    "entityFallback": "Huissier"
+  },
+  "detail": {
+    "entityName": "Huissier",
+    "notFound": "Huissier introuvable",
+    "deleteConfirm": "Voulez-vous supprimer cet huissier ?",
+    "quickActions": {
+      "status": {
+        "label": "Statut",
+        "available": "Disponible",
+        "busy": "Occupé",
+        "inactive": "Inactif"
+      }
+    },
+    "header": {
+      "independent": "Huissier indépendant",
+      "phone": "Téléphone",
+      "email": "Email",
+      "location": "Localisation"
+    },
+    "stats": {
+      "totalMissions": "Total missions",
+      "inProgress": "En cours",
+      "completed": "Terminées"
+    },
+    "tabs": {
+      "overview": "Aperçu",
+      "missions": "Missions",
+      "cases": "Procès/Dossiers liés",
+      "financial": "Comptabilité",
+      "financialDescription": "Suivi financier de toutes les missions de cet huissier",
+      "documents": "Documents",
+      "history": "Historique"
+    },
+    "missions": {
+      "empty": "Aucune mission affectée à cet huissier",
+      "entityName": "une mission",
+      "addSubtitle": "Assigner une nouvelle mission à cet huissier",
+      "help": {
+        "assigned": "Cette mission sera assignée à {{name}}",
+        "entityType": "Sélectionnez si la mission concerne un dossier ou une affaire",
+        "entityReference": "Sélectionnez le dossier ou l'affaire pour cette mission"
+      }
+    },
+    "cases": {
+      "empty": "Aucun procès/dossier lié à cet huissier"
+    },
+    "overview": {
+      "general": "Informations générales",
+      "contact": "Coordonnées",
+      "notes": "Notes",
+      "fields": {
+        "name": "Nom complet",
+        "alternatePhone": "Téléphone secondaire",
+        "address": "Adresse complète"
+      },
+      "placeholders": {
+        "name": "Ex : Me. Ahmed Ben Salem",
+        "email": "email@example.com",
+        "phone": "+216 98 123 456",
+        "alternatePhone": "+216 71 234 567",
+        "location": "Ex : Tunis",
+        "address": "Adresse du cabinet/étude"
+      }
+    },
+    "fallback": {
+      "na": "N/D",
+      "noNotes": "Aucune note"
+    }
+  }
+}

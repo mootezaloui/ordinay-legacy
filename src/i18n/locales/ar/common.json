@@ -1,1 +1,90 @@
-{}
+{
+  "dashboard": {
+    "title": "لوحة التحكم",
+    "subtitle": "نظرة عامة على أداء وأنشطة مكتب المحاماة",
+    "quickActions": "إجراءات سريعة",
+    "stats": {
+      "totalClients": "إجمالي العملاء",
+      "activeDossiers": "الملفات النشطة",
+      "pendingTasks": "المهام المعلقة",
+      "revenue": "الإيرادات",
+      "currency": "د.ت",
+      "trendVsLastMonth": "مقارنة بالشهر الماضي",
+      "newThisWeek_one": "{{count}} جديد هذا الأسبوع",
+      "newThisWeek_other": "{{count}} جديد هذا الأسبوع",
+      "dueToday_one": "{{count}} مستحق اليوم",
+      "dueToday_other": "{{count}} مستحق اليوم"
+    },
+    "urgentTasks": {
+      "title": "مهام عاجلة ({{count}})"
+    },
+    "upcomingEvents": {
+      "title": "الأحداث القادمة ({{count}})"
+    },
+    "projection": {
+      "title": "توقع (30-90 يومًا)",
+      "show": "إظهار التوقع",
+      "hide": "إخفاء",
+      "daysLabel_one": "يوم واحد",
+      "daysLabel_other": "{{count}} يوم",
+      "nothing": "لا يوجد جديد",
+      "itemMeta": "{{date}} - {{label}}"
+    },
+    "planningLane": {
+      "title": "مسار التخطيط",
+      "subtitle": "الأحداث القادمة (8-12 عنصرًا)",
+      "empty": "لا توجد أحداث قادمة."
+    },
+    "loadMap": {
+      "title": "الحمولة القادمة (أسبوعيًا)",
+      "show": "إظهار الحمولة",
+      "hide": "إخفاء الحمولة",
+      "empty": "لا توجد حمولة قادمة.",
+      "weekLabel": "الأسبوع {{week}}",
+      "itemsCount_one": "عنصر واحد",
+      "itemsCount_other": "{{count}} عناصر",
+      "tooltipNone": "لا توجد حمولة",
+      "tooltipType_one": "{{count}} {{type}}",
+      "tooltipType_other": "{{count}} {{type}}"
+    },
+    "recentActivity": "النشاط الأخير",
+    "quickStats": {
+      "title": "إحصائيات",
+      "dossiers": {
+        "title": "الملفات حسب الحالة",
+        "inProgress": "قيد العمل",
+        "pending": "قيد الانتظار",
+        "closed": "مغلق"
+      },
+      "tasks": {
+        "title": "المهام حسب الأولوية",
+        "high": "عالية",
+        "medium": "متوسطة",
+        "low": "منخفضة"
+      },
+      "payments": {
+        "title": "حالة المدفوعات",
+        "paid": "مدفوع",
+        "pending": "قيد الانتظار",
+        "overdue": "متأخر"
+      }
+    },
+    "activities": {
+      "newClient": "عميل جديد: {{name}}",
+      "dossierUpdated": "تم تحديث الملف: {{caseNumber}}",
+      "scheduledHearing": "جلسة مجدولة: {{title}}",
+      "sessionDescription": "{{date}} في {{time}}",
+      "deadline": "موعد نهائي: {{title}}",
+      "entryTitle": "قيد #{{id}}"
+    },
+    "types": {
+      "session": "جلسة",
+      "task": "مهام",
+      "case": "دعوى",
+      "dossier": "ملف",
+      "finance": "مالية",
+      "mission": "مهمة",
+      "generic": "{{type}}"
+    }
+  }
+}

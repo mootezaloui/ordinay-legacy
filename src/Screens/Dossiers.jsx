@@ -16,7 +16,7 @@ import TableActions, { IconButton } from "../components/table/TableActions";
 import TableToolbar from "../components/table/TableToolbar";
 import Pagination from "../components/table/Pagination";
 import FormModal from "../components/FormModal/FormModal";
-import { dossierFormFields, getFormTitle } from "../components/FormModal/formConfigs";
+import { dossierFormFields } from "../components/FormModal/formConfigs";
 import StatCard from "../components/dashboard/StatCard";
 import InlineStatusSelector from "../components/InlineSelectors/InlineStatusSelector";
 import InlinePrioritySelector from "../components/InlineSelectors/InlinePrioritySelector";
@@ -27,11 +27,13 @@ import { canPerformAction } from "../services/domainRules";
 import { resolveDetailRoute } from "../utils/routeResolver";
 import { logEntityCreation } from "../services/historyService";
 import { useSettings } from "../contexts/SettingsContext";
+import { useTranslation } from "react-i18next";
 
 export default function Dossiers() {
   const navigate = useNavigate();
   const { showToast } = useToast();
   const { confirm } = useConfirm();
+  const { t } = useTranslation("dossiers");
   const {
     dossiers,
     clients,
@@ -67,11 +69,24 @@ export default function Dossiers() {
     highPriority: dossiers.filter(d => d.priority === "High").length,
   };
 
+  const statusLabelMap = {
+    Open: t("table.status.open"),
+    "In Progress": t("table.status.inProgress"),
+    "On Hold": t("table.status.onHold"),
+    Closed: t("table.status.closed"),
+  };
+
+  const priorityLabelMap = {
+    High: t("table.priority.high"),
+    Medium: t("table.priority.medium"),
+    Low: t("table.priority.low"),
+  };
+
   // Define table columns
   const columns = [
     {
       id: "caseNumber",
-      label: "Number",
+      label: t("table.columns.number"),
       sortable: true,
       locked: true,
       render: (dossier) => (
@@ -82,35 +97,35 @@ export default function Dossiers() {
     },
     {
       id: "title",
-      label: "Title",
+      label: t("table.columns.title"),
       sortable: true,
       render: (dossier) => <span className="font-medium">{dossier.title}</span>,
     },
     {
       id: "client",
-      label: "Client",
+      label: t("table.columns.client"),
       sortable: true,
       render: (dossier) => dossier.client,
     },
     {
       id: "category",
-      label: "Category",
+      label: t("table.columns.category"),
       sortable: true,
       render: (dossier) => dossier.category,
     },
     {
       id: "status",
-      label: "Status",
+      label: t("table.columns.status"),
       sortable: true,
       render: (dossier) => (
         <InlineStatusSelector
           value={dossier.status}
           onChange={(newStatus) => handleStatusChange(dossier.id, newStatus)}
           statusOptions={[
-            { value: "Open", label: "Open", icon: "fas fa-folder-open", color: "green" },
-            { value: "In Progress", label: "In Progress", icon: "fas fa-spinner", color: "blue" },
-            { value: "On Hold", label: "On Hold", icon: "fas fa-pause-circle", color: "amber" },
-            { value: "Closed", label: "Closed", icon: "fas fa-check-circle", color: "slate" },
+            { value: "Open", label: statusLabelMap.Open, icon: "fas fa-folder-open", color: "green" },
+            { value: "In Progress", label: statusLabelMap["In Progress"], icon: "fas fa-spinner", color: "blue" },
+            { value: "On Hold", label: statusLabelMap["On Hold"], icon: "fas fa-pause-circle", color: "amber" },
+            { value: "Closed", label: statusLabelMap.Closed, icon: "fas fa-check-circle", color: "slate" },
           ]}
           entityType="dossier"
           entityId={dossier.id}
@@ -120,13 +135,13 @@ export default function Dossiers() {
     },
     {
       id: "openDate",
-      label: "Open Date",
+      label: t("table.columns.openDate"),
       sortable: true,
       render: (dossier) => formatDate(dossier.openDate),
     },
     {
       id: "priority",
-      label: "Priority",
+      label: t("table.columns.priority"),
       sortable: true,
       render: (dossier) => (
         <InlinePrioritySelector
@@ -140,7 +155,7 @@ export default function Dossiers() {
     },
     {
       id: "actions",
-      label: "Actions",
+      label: t("table.columns.actions"),
       sortable: false,
       locked: true,
       render: (dossier) => (
@@ -148,7 +163,7 @@ export default function Dossiers() {
           <IconButton
             icon="view"
             variant="view"
-            title="View details"
+            title={t("table.actions.view")}
             onClick={(e) => {
               e.stopPropagation();
               handleView(dossier.id);
@@ -157,7 +172,7 @@ export default function Dossiers() {
           <IconButton
             icon="edit"
             variant="edit"
-            title="Edit"
+            title={t("table.actions.edit")}
             onClick={(e) => {
               e.stopPropagation();
               handleEdit(dossier);
@@ -166,7 +181,7 @@ export default function Dossiers() {
           <IconButton
             icon="delete"
             variant="delete"
-            title="Delete"
+            title={t("table.actions.delete")}
             onClick={(e) => {
               e.stopPropagation();
               handleDelete(dossier.id);
@@ -185,10 +200,17 @@ export default function Dossiers() {
     searchableFields: ["caseNumber", "title", "client", "category", "status"],
   });
 
+  const headerSubtitle = table.isFiltering
+    ? t("page.subtitleFiltered", {
+      total: table.originalTotalItems,
+      displayed: table.totalItems,
+    })
+    : t("page.subtitle", { total: table.originalTotalItems });
+
   if (loading) {
     return (
       <PageLayout>
-        <PageHeader title="Dossiers" />
+        <PageHeader title={t("page.title")} />
         {loadError && (
           <ContentSection>
             <div className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-red-700">
@@ -196,7 +218,7 @@ export default function Dossiers() {
             </div>
           </ContentSection>
         )}
-        <LoadingScreen variant="page" message="Loading dossiers..." />
+        <LoadingScreen variant="page" message={t("page.loading")} />
       </PageLayout>
     );
   }
@@ -239,15 +261,15 @@ export default function Dossiers() {
     }
 
     if (await confirm({
-      title: "Delete Dossier",
-      message: "Are you sure you want to delete this dossier?",
-      confirmText: "Delete",
-      cancelText: "Cancel",
+      title: t("confirm.delete.title"),
+      message: t("confirm.delete.message"),
+      confirmText: t("confirm.delete.confirm"),
+      cancelText: t("confirm.delete.cancel"),
       variant: "danger"
     })) {
       deleteDossier(id);
-      showToast("Dossier deleted", "warning", {
-        title: "Deletion Successful",
+      showToast(t("toasts.delete.body"), "warning", {
+        title: t("toasts.delete.title"),
         context: "dossier",
       });
     }
@@ -263,12 +285,12 @@ export default function Dossiers() {
 
       if (!result || !result.ok) {
         console.error('[Dossiers.handleForceDelete] Cascade delete failed:', result);
-        showToast("Error during cascade deletion", "error");
+        showToast(t("toasts.cascadeError"), "error");
         return;
       }
 
-      showToast("Dossier and all related entities deleted", "success", {
-        title: "Cascade Deletion",
+      showToast(t("toasts.cascadeSuccess.body"), "success", {
+        title: t("toasts.cascadeSuccess.title"),
         context: "dossier",
       });
 
@@ -277,22 +299,26 @@ export default function Dossiers() {
       navigate("/dossiers");
     } catch (error) {
       console.error('[Dossiers.handleForceDelete] Error:', error);
-      showToast("Error during cascade deletion", "error");
+      showToast(t("toasts.cascadeError"), "error");
     }
   };
 
   const handleStatusChange = (id, newStatus) => {
     updateDossier(id, { status: newStatus });
-    showToast(`Status updated: ${newStatus}`, "info", {
-      title: "Dossier Status",
+    showToast(t("toasts.statusUpdated", {
+      status: statusLabelMap[newStatus] || newStatus,
+    }), "info", {
+      title: t("toasts.statusTitle"),
       context: "dossier",
     });
   };
 
   const handlePriorityChange = (id, newPriority) => {
     updateDossier(id, { priority: newPriority });
-    showToast(`Priority updated: ${newPriority}`, "info", {
-      title: "Dossier Priority",
+    showToast(t("toasts.priorityUpdated", {
+      priority: priorityLabelMap[newPriority] || newPriority,
+    }), "info", {
+      title: t("toasts.priorityTitle"),
       context: "dossier",
     });
   };
@@ -352,14 +378,14 @@ export default function Dossiers() {
 
       if (editingDossier) {
         updateDossier(editingDossier.id, formData);
-        showToast("Dossier updated successfully!", "success");
+        showToast(t("toasts.updateSuccess"), "success");
       } else {
         const creation = await addDossier(formData);
         const createdEntity = creation?.created || creation;
         const createdId = createdEntity?.id;
         const createdCaseNumber = createdEntity?.caseNumber || createdEntity?.reference || formData.caseNumber;
-        if (!createdId) throw new Error("Missing dossier identifier");
-        showToast("Dossier added successfully!", "success");
+        if (!createdId) throw new Error(t("errors.missingId"));
+        showToast(t("toasts.createSuccess"), "success");
 
         logEntityCreation('dossier', createdId, createdCaseNumber);
 
@@ -373,7 +399,7 @@ export default function Dossiers() {
       setEditingDossier(null);
     } catch (error) {
       console.error("Error submitting dossier:", error);
-      showToast("Error during saving", "error");
+      showToast(t("toasts.saveError"), "error");
     } finally {
       setIsLoading(false);
     }
@@ -430,7 +456,7 @@ export default function Dossiers() {
         ...field,
         type: 'readonly',
         displayValue: editingDossier.status,
-        helpText: 'The status can only be changed via the selector in the list'
+        helpText: t("form.help.statusLocked"),
       };
     }
     return field;
@@ -439,8 +465,8 @@ export default function Dossiers() {
   return (
     <PageLayout>
       <PageHeader
-        title="Dossiers"
-        subtitle={`${table.originalTotalItems} dossiers au total${table.isFiltering ? ` • ${table.totalItems} affichés` : ""}`}
+        title={t("page.title")}
+        subtitle={headerSubtitle}
         icon="fas fa-folder-open"
         actions={
           <button
@@ -450,10 +476,10 @@ export default function Dossiers() {
               ? "bg-gray-400 cursor-not-allowed text-gray-200"
               : "bg-blue-600 hover:bg-blue-700 text-white"
               }`}
-            title={clients.length === 0 ? "Add a client first before creating a dossier." : ""}
+            title={clients.length === 0 ? t("actions.disabledTooltip") : ""}
           >
             <i className="fas fa-plus"></i>
-            New Dossier
+            {t("actions.new")}
           </button>
         }
       />
@@ -461,25 +487,25 @@ export default function Dossiers() {
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <StatCard
-          label="Total Dossiers"
+          label={t("stats.total")}
           value={stats.total}
           icon="fas fa-folder-open"
           color="blue"
         />
         <StatCard
-          label="Open Dossiers"
+          label={t("stats.open")}
           value={stats.open}
           icon="fas fa-folder"
           color="green"
         />
         <StatCard
-          label="Closed Dossiers"
+          label={t("stats.closed")}
           value={stats.closed}
           icon="fas fa-check-circle"
           color="amber"
         />
         <StatCard
-          label="High Priority"
+          label={t("stats.highPriority")}
           value={stats.highPriority}
           icon="fas fa-exclamation-triangle"
           color="red"
@@ -509,7 +535,16 @@ export default function Dossiers() {
             onReorder={table.reorderColumns}
             enableReorder={true}
           />
-          <TableBody isEmpty={table.data.length === 0} emptyMessage={table.isFiltering ? "No results found" : clients.length === 0 ? "Add a client first before creating a dossier." : "No dossiers found"}>
+          <TableBody
+            isEmpty={table.data.length === 0}
+            emptyMessage={
+              table.isFiltering
+                ? t("table.emptyFiltered")
+                : clients.length === 0
+                  ? t("table.emptyNoClients")
+                  : t("table.empty")
+            }
+          >
             {table.data.map((dossier) => (
               <TableRow
                 key={dossier.id}
@@ -543,8 +578,8 @@ export default function Dossiers() {
           setEditingDossier(null);
         }}
         onSubmit={handleSubmit}
-        title={getFormTitle("dossier", !!editingDossier)}
-        subtitle={editingDossier ? "Edit Dossier's informations" : "Create a new Dossier"}
+        title={editingDossier ? t("form.title.edit") : t("form.title.create")}
+        subtitle={editingDossier ? t("form.subtitle.edit") : t("form.subtitle.create")}
         fields={dossierFields}
         initialData={editingDossier}
         isLoading={isLoading}
@@ -561,10 +596,10 @@ export default function Dossiers() {
           setPendingDeleteId(null);
           setValidationResult(null);
         }}
-        actionName="Edit/Delete dossier"
+        actionName={t("blocker.action")}
         blockers={validationResult?.blockers || []}
         warnings={validationResult?.warnings || []}
-        entityName={validationResult?.entityData?.caseNumber || "Dossier"}
+        entityName={validationResult?.entityData?.caseNumber || t("blocker.entityFallback")}
         requiresForceDelete={validationResult?.requiresForceDelete || false}
         affectedEntities={validationResult?.affectedEntities || []}
         forceDeleteMessage={validationResult?.forceDeleteMessage || ""}
@@ -578,7 +613,7 @@ export default function Dossiers() {
           setPendingFormData(null);
         }}
         onConfirm={handleConfirmImpact}
-        actionName="Edit dossier attachment"
+        actionName={t("confirmImpact.action")}
         impactSummary={validationResult?.impactSummary || []}
         entityName={editingDossier?.caseNumber || ""}
       />

@@ -1,0 +1,173 @@
+{
+  "page": {
+    "title": "Bailiffs",
+    "subtitle": "{{total}} bailiffs in total",
+    "subtitleFiltered": "{{total}} bailiffs in total, {{displayed}} displayed",
+    "actions": {
+      "new": "New Bailiff"
+    }
+  },
+  "stats": {
+    "total": "Total Bailiffs",
+    "available": "Available",
+    "busy": "Busy",
+    "inactive": "Inactive"
+  },
+  "table": {
+    "columns": {
+      "name": "Name",
+      "phone": "Phone",
+      "email": "Email",
+      "location": "Location",
+      "status": "Status",
+      "actions": "Actions"
+    },
+    "status": {
+      "available": "Available",
+      "busy": "Busy",
+      "inactive": "Inactive"
+    },
+    "actions": {
+      "view": "View details",
+      "edit": "Edit",
+      "delete": "Delete"
+    },
+    "empty": "No bailiff available",
+    "emptyFiltered": "No results found"
+  },
+  "confirm": {
+    "delete": {
+      "title": "Delete Bailiff",
+      "message": "Are you sure you want to delete this bailiff?",
+      "confirm": "Delete",
+      "cancel": "Cancel"
+    }
+  },
+  "form": {
+    "title": {
+      "edit": "Edit Bailiff",
+      "create": "New Bailiff"
+    },
+    "subtitle": {
+      "edit": "Edit Bailiff information",
+      "create": "Add a new Bailiff"
+    },
+    "fields": {
+      "name": {
+        "label": "Full Name",
+        "placeholder": "Ex: Me. Ahmed Ben Salem"
+      },
+      "phone": {
+        "label": "Phone",
+        "placeholder": "+216 98 123 456"
+      },
+      "alternatePhone": {
+        "label": "Alternate Phone",
+        "placeholder": "+216 71 234 567"
+      },
+      "email": {
+        "label": "Email",
+        "placeholder": "email@example.com"
+      },
+      "location": {
+        "label": "Location",
+        "placeholder": "Ex: Tunis"
+      },
+      "address": {
+        "label": "Full Address",
+        "placeholder": "Office/Study Address"
+      },
+      "status": {
+        "label": "Status"
+      },
+      "notes": {
+        "label": "Notes",
+        "placeholder": "Notes about this Bailiff..."
+      }
+    },
+    "help": {
+      "statusLocked": "Status can only be changed via the selector in the list"
+    }
+  },
+  "toasts": {
+    "deleteSuccess": {
+      "title": "Deletion Successful",
+      "body": "Officer deleted"
+    },
+    "updateSuccess": "Bailiff updated successfully!",
+    "createSuccess": "Bailiff added successfully!",
+    "saveError": "Error saving Bailiff"
+  },
+  "blockerModal": {
+    "actionName": "Edit/Delete Bailiff",
+    "entityFallback": "Bailiff"
+  },
+  "detail": {
+    "entityName": "Bailiff",
+    "notFound": "Bailiff not found",
+    "deleteConfirm": "Are you sure you want to delete this bailiff?",
+    "quickActions": {
+      "status": {
+        "label": "Status",
+        "available": "Available",
+        "busy": "Busy",
+        "inactive": "Inactive"
+      }
+    },
+    "header": {
+      "independent": "Independent Bailiff",
+      "phone": "Phone",
+      "email": "Email",
+      "location": "Location"
+    },
+    "stats": {
+      "totalMissions": "Total missions",
+      "inProgress": "In Progress",
+      "completed": "Completed"
+    },
+    "tabs": {
+      "overview": "Overview",
+      "missions": "Missions",
+      "cases": "Related Lawsuits/Dossiers",
+      "financial": "Accounting",
+      "financialDescription": "Financial tracking of all missions for this bailiff",
+      "documents": "Documents",
+      "history": "History"
+    },
+    "missions": {
+      "empty": "No missions assigned to this bailiff",
+      "entityName": "a mission",
+      "addSubtitle": "Assign a new mission to this bailiff",
+      "help": {
+        "assigned": "This mission will be assigned to {{name}}",
+        "entityType": "Select if this mission concerns a dossier or a case",
+        "entityReference": "Select the dossier or case for this mission"
+      }
+    },
+    "cases": {
+      "empty": "No related lawsuits/dossiers for this bailiff"
+    },
+    "overview": {
+      "general": "General Information",
+      "contact": "Contact Information",
+      "notes": "Notes",
+      "fields": {
+        "name": "Full Name",
+        "alternatePhone": "Alternate Phone",
+        "address": "Full Address"
+      },
+      "placeholders": {
+        "name": "Ex: Me. Ahmed Ben Salem",
+        "email": "email@example.com",
+        "phone": "+216 98 123 456",
+        "alternatePhone": "+216 71 234 567",
+        "location": "Ex: Tunis",
+        "address": "Office/Study Address"
+      }
+    },
+    "fallback": {
+      "na": "N/A",
+      "noNotes": "No note"
+    }
+  }
+}

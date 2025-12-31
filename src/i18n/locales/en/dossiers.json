@@ -1,0 +1,231 @@
+{
+  "page": {
+    "title": "Dossiers",
+    "subtitle": "{{total}} dossiers in total",
+    "subtitleFiltered": "{{total}} dossiers in total • {{displayed}} shown",
+    "loading": "Loading dossiers..."
+  },
+  "actions": {
+    "new": "New Dossier",
+    "disabledTooltip": "Add a client first before creating a dossier."
+  },
+  "stats": {
+    "total": "Total Dossiers",
+    "open": "Open Dossiers",
+    "closed": "Closed Dossiers",
+    "highPriority": "High Priority"
+  },
+  "table": {
+    "columns": {
+      "number": "Number",
+      "title": "Title",
+      "client": "Client",
+      "category": "Category",
+      "status": "Status",
+      "openDate": "Open Date",
+      "priority": "Priority",
+      "actions": "Actions"
+    },
+    "status": {
+      "open": "Open",
+      "inProgress": "In Progress",
+      "onHold": "On Hold",
+      "closed": "Closed"
+    },
+    "priority": {
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low"
+    },
+    "actions": {
+      "view": "View details",
+      "edit": "Edit",
+      "delete": "Delete"
+    },
+    "empty": "No dossiers found",
+    "emptyFiltered": "No results found",
+    "emptyNoClients": "Add a client first before creating a dossier."
+  },
+  "confirm": {
+    "delete": {
+      "title": "Delete Dossier",
+      "message": "Are you sure you want to delete this dossier?",
+      "confirm": "Delete",
+      "cancel": "Cancel"
+    }
+  },
+  "toasts": {
+    "delete": {
+      "title": "Deletion successful",
+      "body": "Dossier deleted"
+    },
+    "cascadeError": "Error during cascade deletion",
+    "cascadeSuccess": {
+      "title": "Cascade deletion",
+      "body": "Dossier and all related entities deleted"
+    },
+    "statusUpdated": "Status updated: {{status}}",
+    "statusTitle": "Dossier Status",
+    "priorityUpdated": "Priority updated: {{priority}}",
+    "priorityTitle": "Dossier Priority",
+    "updateSuccess": "Dossier updated successfully!",
+    "createSuccess": "Dossier added successfully!",
+    "saveError": "Error during saving"
+  },
+  "form": {
+    "title": {
+      "edit": "Edit Dossier",
+      "create": "Create Dossier"
+    },
+    "subtitle": {
+      "edit": "Edit dossier information",
+      "create": "Create a new dossier"
+    },
+    "help": {
+      "statusLocked": "The status can only be changed via the selector in the list"
+    }
+  },
+  "blocker": {
+    "action": "Edit/Delete dossier",
+    "entityFallback": "Dossier"
+  },
+  "confirmImpact": {
+    "action": "Edit dossier attachment"
+  },
+  "errors": {
+    "missingId": "Missing dossier identifier"
+  },
+  "detail": {
+    "entityName": "Dossier",
+    "notFound": "Dossier not found",
+    "deleteConfirm": "Are you sure you want to delete this Dossier?",
+    "defaults": {
+      "phases": {
+        "opening": "Opening",
+        "investigation": "Investigation",
+        "negotiation": "Negotiation",
+        "pleading": "Pleading",
+        "judgment": "Judgment",
+        "execution": "Execution"
+      },
+      "categories": {
+        "commercial": "Commercial Law",
+        "family": "Family Law",
+        "criminal": "Criminal Law",
+        "labor": "Labor Law",
+        "realEstate": "Real Estate Law",
+        "administrative": "Administrative Law",
+        "tax": "Tax Law"
+      }
+    },
+    "fallback": {
+      "na": "N/A",
+      "noDeadlines": "No deadlines",
+      "notDefined": "Not defined",
+      "unknownClient": "Unknown Client",
+      "unassignedClient": "Client Not Assigned",
+      "nextDeadlineEmpty": "No upcoming deadlines"
+    },
+    "quickActions": {
+      "status": {
+        "label": "Status",
+        "open": "Open",
+        "inProgress": "In Progress",
+        "onHold": "On Hold",
+        "closed": "Closed"
+      },
+      "priority": {
+        "label": "Priority",
+        "high": "High",
+        "medium": "Medium",
+        "low": "Low"
+      },
+      "phase": {
+        "label": "Phase",
+        "create": "Add a phase"
+      }
+    },
+    "header": {
+      "priority": "Priority",
+      "openingDate": "Opening Date",
+      "category": "Category",
+      "phase": "Phase",
+      "nextDeadline": "Next deadline"
+    },
+    "deadlines": {
+      "urgency": {
+        "critical": "Critical",
+        "urgent": "Urgent",
+        "soon": "Soon",
+        "normal": "Planned"
+      },
+      "viewDetails": "View details"
+    },
+    "stats": {
+      "documents": "Documents",
+      "tasks": "Tasks",
+      "lawsuits": "Lawsuits",
+      "netProfit": "Net Profit"
+    },
+    "tabs": {
+      "overview": "Overview",
+      "proceedings": "Lawsuits",
+      "proceedingsEntity": "a lawsuit",
+      "proceedingsAddSubtitle": "Create a new lawsuit for this Dossier",
+      "sessions": "Hearings",
+      "sessionsEntity": "a hearing",
+      "sessionsAddSubtitle": "Create a new hearing for this Dossier",
+      "tasks": "Tasks",
+      "tasksEntity": "a task",
+      "tasksAddSubtitle": "Create a new task for this Dossier",
+      "missions": "Missions",
+      "missionsEntity": "a mission",
+      "missionsAddSubtitle": "Create a new officer mission for this Dossier",
+      "financial": "Accounting",
+      "documents": "Documents",
+      "notes": "Notes",
+      "history": "History"
+    },
+    "forms": {
+      "sessions": {
+        "linkHelpWithCases": "Choose if this hearing is linked to this Dossier or a specific lawsuit",
+        "linkHelpNoCases": "This hearing will be linked to this Dossier (no lawsuits available)",
+        "casesEmpty": "No lawsuits available. Please create a lawsuit first.",
+        "caseHelp": "Select the lawsuit to which this hearing will be linked",
+        "dossierHelp": "This hearing will be linked to this Dossier"
+      },
+      "tasks": {
+        "linkHelpWithCases": "Choose if this task concerns the Dossier in general or a specific lawsuit",
+        "linkHelpNoCases": "This task will be linked to the Dossier (no lawsuits available)",
+        "casesEmpty": "No lawsuits available. Please create a lawsuit first.",
+        "caseHelp": "Select the lawsuit to which this task will be linked",
+        "dossierHelp": "This task will be linked to this Dossier"
+      },
+      "missions": {
+        "linkedToDossier": "This mission will be linked to the Dossier {{caseNumber}}"
+      }
+    },
+    "overview": {
+      "general": "General Information",
+      "description": "Dossier Description",
+      "adverse": "Adverse Party",
+      "legal": "Legal Information",
+      "fields": {
+        "caseNumber": "Dossier Number",
+        "caseNumberHelp": "Format: DOS-YEAR-NUMBER",
+        "title": "Dossier Title",
+        "client": "Client",
+        "clientHelp": "Attention: Changing the client will transfer the file to another client",
+        "category": "Category",
+        "phase": "Phase",
+        "openDate": "Opening Date",
+        "nextDeadline": "Next Deadline",
+        "nextDeadlineEmpty": "No upcoming deadlines",
+        "adversaryParty": "Name",
+        "adversaryLawyer": "Lawyer",
+        "courtReference": "Court Reference",
+        "estimatedValue": "Estimated Value"
+      }
+    }
+  }
+}

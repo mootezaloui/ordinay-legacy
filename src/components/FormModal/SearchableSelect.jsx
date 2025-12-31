@@ -37,9 +37,10 @@ export default function SearchableSelect({
   const displayValue = selectedOption ? selectedOption.label : "";
 
   // Filter options based on search term
-  const filteredOptions = options.filter((option) =>
-    option.label.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredOptions = options.filter((option) => {
+    const label = option?.label ?? "";
+    return label.toString().toLowerCase().includes(searchTerm.toLowerCase());
+  });
 
   // Close dropdown when clicking outside
   useEffect(() => {

@@ -1,0 +1,184 @@
+{
+  "page": {
+    "title": "Accounting",
+    "subtitle": "{{total}} entries in total",
+    "subtitleFiltered": "{{total}} entries in total, {{displayed}} displayed",
+    "actions": {
+      "new": "New Entry"
+    }
+  },
+  "stats": {
+    "totalRevenue": "Client Revenue",
+    "clientExpenses": "Client Expenses",
+    "officeExpenses": "Office Expenses",
+    "netBalance": "Net Balance",
+    "trend": {
+      "clients": "Client flows",
+      "reimbursable": "Reimbursable",
+      "internal": "Internal",
+      "positive": "Positive balance",
+      "negative": "Negative balance"
+    }
+  },
+  "filters": {
+    "all": "All",
+    "clients": "Clients",
+    "internal": "Office"
+  },
+  "priority": {
+    "title": "Priority Items ({{count}})",
+    "more": "and {{count}} other items..."
+  },
+  "table": {
+    "columns": {
+      "date": "Date",
+      "entry": "Entry",
+      "clientDossier": "Client / Dossier",
+      "type": "Type",
+      "amount": "Amount",
+      "status": "Status",
+      "actions": "Actions"
+    },
+    "type": {
+      "revenue": "Revenue",
+      "expense": "Expense"
+    },
+    "status": {
+      "draft": "Draft",
+      "confirmed": "Confirmed",
+      "paid": "Paid",
+      "cancelled": "Cancelled"
+    },
+    "scope": {
+      "client": "Client",
+      "internal": "Office",
+      "office": "Office"
+    },
+    "category": {
+      "honoraires": "Fees",
+      "advance": "Client advance",
+      "other": "Other",
+      "frais_bureau": "Office expenses",
+      "frais_judiciaires": "Court fees",
+      "frais_huissier": "Bailiff fees"
+    },
+    "fallback": {
+      "untitled": "Untitled"
+    },
+    "actions": {
+      "edit": "Edit",
+      "delete": "Delete"
+    },
+    "empty": "No accounting entries yet",
+    "emptyFiltered": "No accounting entries match your filters"
+  },
+  "confirm": {
+    "delete": {
+      "title": "Delete entry",
+      "message": "Are you sure you want to delete this entry? This cannot be undone.",
+      "confirm": "Delete",
+      "cancel": "Cancel"
+    }
+  },
+  "toasts": {
+    "deleteSuccess": "Entry deleted",
+    "deleteError": "Unable to delete entry",
+    "updateSuccess": "Entry updated",
+    "createSuccess": "Entry created",
+    "saveError": "Unable to save entry"
+  },
+  "history": {
+    "updateLabel": "Accounting entry updated"
+  },
+  "form": {
+    "title": {
+      "edit": "Edit Financial Entry",
+      "create": "New Financial Entry"
+    },
+    "subtitle": {
+      "edit": "Update the accounting details below",
+      "create": "Add a new accounting entry"
+    },
+    "fields": {
+      "scope": {
+        "label": "Financial Scope",
+        "help": "Choose 'Client' for client-related operations, 'Internal' for office expenses",
+        "options": {
+          "client": "Client (affects client balance)",
+          "internal": "Internal (office expenses)"
+        }
+      },
+      "type": {
+        "label": "Operation Type",
+        "help": "Select whether this entry is revenue or expense",
+        "options": {
+          "revenue": "Revenue (money received)",
+          "expense": "Expense (money paid)"
+        }
+      },
+      "category": {
+        "label": "Category",
+        "placeholder": "Select a category",
+        "options": {
+          "honoraires": "Fees",
+          "advance": "Client advance",
+          "other": "Other",
+          "frais_bureau": "Office expenses",
+          "frais_judiciaires": "Court fees",
+          "frais_huissier": "Bailiff fees"
+        }
+      },
+      "amount": {
+        "label": "Amount (TND)",
+        "placeholder": "0.00"
+      },
+      "date": {
+        "label": "Date"
+      },
+      "status": {
+        "label": "Status"
+      },
+      "title": {
+        "label": "Title",
+        "placeholder": "Ex: Court filing fee, Bailiff travel expenses, Legal consultation...",
+        "help": "Short, descriptive title for this financial entry"
+      },
+      "description": {
+        "label": "Additional Details (optional)",
+        "placeholder": "Optional additional details about this financial entry..."
+      },
+      "client": {
+        "label": "Client",
+        "help": "Client concerned by this operation (required if scope = Client)",
+        "placeholder": "Select client"
+      },
+      "dossier": {
+        "label": "Dossier (optional)",
+        "help": "Concerned dossier (optional)",
+        "placeholder": "Select dossier"
+      },
+      "case": {
+        "label": "Case (optional)",
+        "help": "Concerned case (optional)",
+        "placeholder": "Select case"
+      },
+      "mission": {
+        "label": "Associated Mission",
+        "help": "Select the bailiff mission related to these fees",
+        "selectPrerequisite": "Please first select a dossier or case",
+        "noneForEntity": "No mission for this dossier/case",
+        "selectMission": "Select the mission related to these fees",
+        "noneAvailable": "No mission available",
+        "fallbackOfficer": "Bailiff not defined",
+        "autoDescription": "Bailiff fees - {{missionNumber}} - {{title}}"
+      }
+    }
+  },
+  "blocker": {
+    "action": "Edit/Delete Financial Entry",
+    "entityFallback": "Entry"
+  },
+  "export": {
+    "filename": "accounting-{{date}}.csv"
+  }
+}

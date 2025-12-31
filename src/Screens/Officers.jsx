@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useMemo, useState } from "react";
 import { useData } from "../contexts/DataContext";
 import { useNavigate } from "react-router-dom";
 import { useAdvancedTable } from "../hooks/useAdvancedTable";
@@ -22,6 +22,7 @@ import BlockerModal from "../components/ui/BlockerModal";
 import { canPerformAction } from "../services/domainRules";
 import { resolveDetailRoute } from "../utils/routeResolver";
 import { logEntityCreation } from "../services/historyService";
+import { useTranslation } from "react-i18next";
 
 export default function Officers() {
   const navigate = useNavigate();
@@ -46,12 +47,22 @@ export default function Officers() {
   const [isLoading, setIsLoading] = useState(false);
   const [blockerModalOpen, setBlockerModalOpen] = useState(false);
   const [validationResult, setValidationResult] = useState(null);
+  const { t } = useTranslation("officers");
+
+  const statusLabelMap = useMemo(
+    () => ({
+      Available: t("table.status.available"),
+      Busy: t("table.status.busy"),
+      Inactive: t("table.status.inactive"),
+    }),
+    [t]
+  );
 
   // Define table columns
   const columns = [
     {
       id: "name",
-      label: "Name",
+      label: t("table.columns.name"),
       sortable: true,
       locked: true,
       render: (officer) => (
@@ -65,7 +76,7 @@ export default function Officers() {
     },
     {
       id: "phone",
-      label: "Phone",
+      label: t("table.columns.phone"),
       sortable: true,
       render: (officer) => (
         <div className="flex items-center gap-2">
@@ -76,7 +87,7 @@ export default function Officers() {
     },
     {
       id: "email",
-      label: "Email",
+      label: t("table.columns.email"),
       sortable: true,
       render: (officer) => (
         <div className="flex items-center gap-2">
@@ -87,7 +98,7 @@ export default function Officers() {
     },
     {
       id: "location",
-      label: "Location",
+      label: t("table.columns.location"),
       sortable: true,
       render: (officer) => (
         <div className="flex items-center gap-2">
@@ -98,16 +109,16 @@ export default function Officers() {
     },
     {
       id: "status",
-      label: "Status",
+      label: t("table.columns.status"),
       sortable: true,
       render: (officer) => (
         <InlineStatusSelector
           value={officer.status}
           onChange={(newStatus) => handleStatusChange(officer.id, newStatus)}
           statusOptions={[
-            { value: "Available", label: "Available", icon: "fas fa-check-circle", color: "green" },
-            { value: "Busy", label: "Busy", icon: "fas fa-clock", color: "amber" },
-            { value: "Inactive", label: "Inactive", icon: "fas fa-circle", color: "slate" },
+            { value: "Available", label: statusLabelMap["Available"], icon: "fas fa-check-circle", color: "green" },
+            { value: "Busy", label: statusLabelMap["Busy"], icon: "fas fa-clock", color: "amber" },
+            { value: "Inactive", label: statusLabelMap["Inactive"], icon: "fas fa-circle", color: "slate" },
           ]}
           entityType="officer"
           entityId={officer.id}
@@ -117,7 +128,7 @@ export default function Officers() {
     },
     {
       id: "actions",
-      label: "Actions",
+      label: t("table.columns.actions"),
       sortable: false,
       locked: true,
       render: (officer) => (
@@ -125,7 +136,7 @@ export default function Officers() {
           <IconButton
             icon="view"
             variant="view"
-            title="View details"
+            title={t("table.actions.view")}
             onClick={(e) => {
               e.stopPropagation();
               handleView(officer.id);
@@ -134,7 +145,7 @@ export default function Officers() {
           <IconButton
             icon="edit"
             variant="edit"
-            title="Edit"
+            title={t("table.actions.edit")}
             onClick={(e) => {
               e.stopPropagation();
               handleEdit(officer);
@@ -143,7 +154,7 @@ export default function Officers() {
           <IconButton
             icon="delete"
             variant="delete"
-            title="Delete"
+            title={t("table.actions.delete")}
             onClick={(e) => {
               e.stopPropagation();
               handleDelete(officer.id);
@@ -169,6 +180,17 @@ export default function Officers() {
     initialItemsPerPage: 10,
     searchableFields: ["name", "phone", "email", "location", "status"],
   });
+
+  const headerSubtitle = table.isFiltering
+    ? t("page.subtitleFiltered", {
+        total: table.originalTotalItems,
+        displayed: table.totalItems,
+      })
+    : t("page.subtitle", { total: table.originalTotalItems });
+
+  const tableEmptyMessage = table.isFiltering
+    ? t("table.emptyFiltered")
+    : t("table.empty");
 
   const handleView = (id) => {
     navigate(`/officers/${id}`);
@@ -220,15 +242,15 @@ export default function Officers() {
     }
 
     if (await confirm({
-      title: "Delete Officer",
-      message: "Are you sure you want to delete this officer?",
-      confirmText: "Delete",
-      cancelText: "Cancel",
+      title: t("confirm.delete.title"),
+      message: t("confirm.delete.message"),
+      confirmText: t("confirm.delete.confirm"),
+      cancelText: t("confirm.delete.cancel"),
       variant: "danger"
     })) {
       deleteOfficer(id);
-      showToast("Officer deleted", "warning", {
-        title: "Deletion Successful",
+      showToast(t("toasts.deleteSuccess.body"), "warning", {
+        title: t("toasts.deleteSuccess.title"),
         context: "officer",
       });
     }
@@ -271,11 +293,11 @@ export default function Officers() {
         //     ? { ...formData, id: editingOfficer.id }
         //     : o
         // ));
-        showToast("Bailiff updated successfully!", "success");
+        showToast(t("toasts.updateSuccess"), "success");
       } else {
         const creation = await addOfficer(formData);
         const createdOfficer = creation?.created || creation;
-        showToast("Bailiff added successfully!", "success");
+        showToast(t("toasts.createSuccess"), "success");
         // ✅ Log creation event
         logEntityCreation('officer', createdOfficer.id, formData.name);
 
@@ -290,7 +312,7 @@ export default function Officers() {
       setEditingOfficer(null);
     } catch (error) {
       console.error("Error submitting Bailiff:", error);
-      showToast("Error saving Bailiff", "error");
+      showToast(t("toasts.saveError"), "error");
     } finally {
       setIsLoading(false);
     }
@@ -326,67 +348,67 @@ export default function Officers() {
   const officerFormFieldsBase = [
     {
       name: "name",
-      label: "Full Name",
+      label: t("form.fields.name.label"),
       type: "text",
       required: true,
-      placeholder: "Ex: Me. Ahmed Ben Salem",
+      placeholder: t("form.fields.name.placeholder"),
       fullWidth: false,
     },
     {
       name: "phone",
-      label: "Phone",
+      label: t("form.fields.phone.label"),
       type: "tel",
       required: true,
-      placeholder: "+216 98 123 456"
+      placeholder: t("form.fields.phone.placeholder")
     },
     {
       name: "alternatePhone",
-      label: "Alternate Phone",
+      label: t("form.fields.alternatePhone.label"),
       type: "tel",
       required: false,
-      placeholder: "+216 71 234 567"
+      placeholder: t("form.fields.alternatePhone.placeholder")
     },
     {
       name: "email",
-      label: "Email",
+      label: t("form.fields.email.label"),
       type: "email",
       required: true,
-      placeholder: "email@example.com"
+      placeholder: t("form.fields.email.placeholder")
     },
     {
       name: "location",
-      label: "Location",
+      label: t("form.fields.location.label"),
       type: "text",
       required: true,
-      placeholder: "Ex: Tunis"
+      placeholder: t("form.fields.location.placeholder")
     },
     {
       name: "address",
-      label: "Full Address",
+      label: t("form.fields.address.label"),
       type: "textarea",
       required: false,
-      placeholder: "Office/Study Address",
+      placeholder: t("form.fields.address.placeholder"),
       fullWidth: true,
       rows: 2,
     },
     {
       name: "status",
-      label: "Status",
+      label: t("form.fields.status.label"),
       type: "select",
       required: true,
       defaultValue: "Available",
       options: [
-        { value: "Available", label: "Available" },
-        { value: "Busy", label: "Busy" },
-        { value: "Inactive", label: "Inactive" },
+        { value: "Available", label: statusLabelMap["Available"] || "Available" },
+        { value: "Busy", label: statusLabelMap["Busy"] || "Busy" },
+        { value: "Inactive", label: statusLabelMap["Inactive"] || "Inactive" },
       ]
     },
     {
       name: "notes",
-      label: "Notes",
+      label: t("form.fields.notes.label"),
       type: "textarea",
       required: false,
-      placeholder: "Notes about this Bailiff...",
+      placeholder: t("form.fields.notes.placeholder"),
       fullWidth: true,
       rows: 3,
     },
@@ -399,8 +421,8 @@ export default function Officers() {
         return {
           ...field,
           type: 'readonly',
-          displayValue: editingOfficer.status,
-          helpText: 'Status can only be changed via the selector in the list'
+          displayValue: statusLabelMap[editingOfficer.status] || editingOfficer.status,
+          helpText: t("form.help.statusLocked")
         };
       }
       return field;
@@ -410,8 +432,8 @@ export default function Officers() {
   return (
     <PageLayout>
       <PageHeader
-        title="Bailiffs"
-        subtitle={`${table.originalTotalItems} bailiffs in total${table.isFiltering ? ` • ${table.totalItems} displayed` : ""}`}
+        title={t("page.title")}
+        subtitle={headerSubtitle}
         icon="fas fa-user-tie"
         actions={
           <button
@@ -419,7 +441,7 @@ export default function Officers() {
             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center gap-2"
           >
             <i className="fas fa-plus"></i>
-            New Bailiff
+            {t("page.actions.new")}
           </button>
         }
       />
@@ -427,25 +449,25 @@ export default function Officers() {
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <StatCard
-          label="Total Bailiffs"
+          label={t("stats.total")}
           value={stats.total}
           icon="fas fa-user-tie"
           color="blue"
         />
         <StatCard
-          label="Available"
+          label={t("stats.available")}
           value={stats.available}
           icon="fas fa-check-circle"
           color="green"
         />
         <StatCard
-          label="Busy"
+          label={t("stats.busy")}
           value={stats.busy}
           icon="fas fa-business-time"
           color="amber"
         />
         <StatCard
-          label="Inactive"
+          label={t("stats.inactive")}
           value={stats.inactive}
           icon="fas fa-pause-circle"
           color="red"
@@ -475,7 +497,7 @@ export default function Officers() {
             onReorder={table.reorderColumns}
             enableReorder={true}
           />
-          <TableBody isEmpty={table.data.length === 0} emptyMessage={table.isFiltering ? "No results found" : "No Bailiff available"}>
+          <TableBody isEmpty={table.data.length === 0} emptyMessage={tableEmptyMessage}>
             {table.data.map((officer) => (
               <TableRow
                 key={officer.id}
@@ -509,8 +531,8 @@ export default function Officers() {
           setEditingOfficer(null);
         }}
         onSubmit={handleSubmit}
-        title={editingOfficer ? "Edit Bailiff" : "New Bailiff"}
-        subtitle={editingOfficer ? "Edit Bailiff information" : "Add a new Bailiff"}
+        title={editingOfficer ? t("form.title.edit") : t("form.title.create")}
+        subtitle={editingOfficer ? t("form.subtitle.edit") : t("form.subtitle.create")}
         fields={officerFormFields}
         initialData={editingOfficer}
         isLoading={isLoading}
@@ -522,11 +544,12 @@ export default function Officers() {
       <BlockerModal
         isOpen={blockerModalOpen}
         onClose={() => setBlockerModalOpen(false)}
-        actionName="Edit/Delete Bailiff"
+        actionName={t("blockerModal.actionName")}
         blockers={validationResult?.blockers || []}
         warnings={validationResult?.warnings || []}
-        entityName={validationResult?.entityData?.name || "Bailiff"}
+        entityName={validationResult?.entityData?.name || t("blockerModal.entityFallback")}
       />
     </PageLayout>
   );
 }
+

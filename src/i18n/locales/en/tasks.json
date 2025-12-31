@@ -1,0 +1,183 @@
+{
+  "page": {
+    "title": "Tasks",
+    "subtitle": "{{total}} tasks in total",
+    "subtitleFiltered": "{{total}} tasks in total, {{displayed}} displayed",
+    "actions": {
+      "newTask": "New Task",
+      "newTaskDisabled": "Add a dossier first before creating a task."
+    },
+    "loading": "Loading tasks..."
+  },
+  "stats": {
+    "total": "Total Tasks",
+    "inProgress": "In Progress",
+    "completed": "Completed",
+    "overdue": "Overdue"
+  },
+  "table": {
+    "columns": {
+      "title": "Task",
+      "parent": "Linked to",
+      "assignedTo": "Assigned to",
+      "dueDate": "Due Date",
+      "status": "Status",
+      "priority": "Priority",
+      "actions": "Actions"
+    },
+    "status": {
+      "notStarted": "Not Started",
+      "inProgress": "In Progress",
+      "onHold": "On Hold",
+      "completed": "Completed",
+      "blocked": "Blocked",
+      "done": "Done",
+      "cancelled": "Cancelled"
+    },
+    "priority": {
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low"
+    },
+    "actions": {
+      "view": "View details",
+      "edit": "Edit",
+      "delete": "Delete"
+    },
+    "empty": "No tasks found",
+    "emptyNoDossier": "Add a dossier first before creating a task.",
+    "emptyFiltered": "No results found"
+  },
+  "confirm": {
+    "delete": {
+      "title": "Delete task",
+      "message": "Are you sure you want to delete this task?",
+      "confirm": "Delete",
+      "cancel": "Cancel"
+    }
+  },
+  "form": {
+    "title": {
+      "edit": "Edit task",
+      "create": "New task"
+    },
+    "subtitle": {
+      "edit": "Edit task information",
+      "create": "Add a new task"
+    },
+    "help": {
+      "statusLocked": "Status can only be changed using the selector in the list"
+    }
+  },
+  "toasts": {
+    "statusTitle": "Task status",
+    "statusUpdated": "Status updated: {{status}}",
+    "priorityTitle": "Task priority",
+    "priorityUpdated": "Priority updated: {{priority}}",
+    "deleteSuccess": {
+      "title": "Deleted",
+      "body": "Task deleted"
+    },
+    "updateSuccess": "Task updated successfully!",
+    "createSuccess": "Task added successfully!",
+    "saveError": "Error while saving",
+    "missingId": "Missing task identifier"
+  },
+  "blockerModal": {
+    "actionName": "Edit/Delete task",
+    "entityFallback": "Task"
+  },
+  "confirmImpact": {
+    "action": "change task linkage"
+  },
+  "detail": {
+    "entityName": "Task",
+    "notFound": "Task not found",
+    "deleteConfirm": "Are you sure you want to delete this task?",
+    "subtitle": "Created on {{date}}",
+    "defaults": {
+      "assignees": {
+        "myself": "Myself",
+        "intern": "Intern"
+      }
+    },
+    "fallback": {
+      "na": "N/A",
+      "none": "None",
+      "noDescription": "No description"
+    },
+    "quickActions": {
+      "status": {
+        "label": "Status",
+        "notStarted": "Not Started",
+        "inProgress": "In Progress",
+        "blocked": "Blocked",
+        "done": "Done",
+        "cancelled": "Cancelled"
+      },
+      "priority": {
+        "label": "Priority",
+        "high": "High",
+        "medium": "Medium",
+        "low": "Low"
+      },
+      "assignedTo": {
+        "label": "Assigned to",
+        "create": "Add"
+      }
+    },
+    "header": {
+      "priority": "Priority",
+      "assignedTo": "Assigned to",
+      "dueDate": "Due Date",
+      "estimatedTime": "Estimated Time"
+    },
+    "estimatedTime": {
+      "values": {
+        "0_5h": "30 minutes",
+        "1h": "1 hour",
+        "1_5h": "1h30",
+        "2h": "2 hours",
+        "3h": "3 hours",
+        "4h": "4 hours",
+        "6h": "6 hours",
+        "8h": "8 hours",
+        "12h": "12 hours",
+        "16h": "16 hours",
+        "20h": "20 hours",
+        "24h": "1 day",
+        "40h": "2 days",
+        "80h": "1 week"
+      }
+    },
+    "tabs": {
+      "overview": "Overview",
+      "financial": "Accounting",
+      "financialDescription": "Financial tracking related to this task",
+      "documents": "Documents",
+      "comments": "Comments",
+      "history": "History"
+    },
+    "overview": {
+      "description": "Task Description",
+      "details": "Task Details",
+      "association": "Associated Entity",
+      "fields": {
+        "dueDate": "Due Date",
+        "estimatedTime": "Estimated Time",
+        "parentType": "Link Type",
+        "parentTypeOptions": {
+          "dossier": "Dossier",
+          "case": "Lawsuit"
+        },
+        "parentTypeHelp": "A task can be linked to either a Dossier or a Lawsuit",
+        "dossier": "Dossier",
+        "dossierPlaceholder": "Select a dossier...",
+        "dossierHelp": "Select the relevant dossier",
+        "case": "Lawsuit",
+        "casePlaceholder": "Select a lawsuit...",
+        "caseHelp": "Select the relevant lawsuit"
+      }
+    }
+  }
+}

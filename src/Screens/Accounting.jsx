@@ -1,5 +1,7 @@
+
 import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useAdvancedTable } from "../hooks/useAdvancedTable";
 import { useToast } from "../contexts/ToastContext";
 import { useConfirm } from "../contexts/ConfirmContext";
@@ -16,12 +18,11 @@ import TableToolbar from "../components/table/TableToolbar";
 import Pagination from "../components/table/Pagination";
 import FormModal from "../components/FormModal/FormModal";
 import StatCard from "../components/dashboard/StatCard";
-import { financialEntryFormFields, getFormTitle, populateRelationshipOptions } from "../components/FormModal/formConfigs";
-import { useData } from "../contexts/DataContext";
 import {
-  financialCategories,
-  financialStatuses,
-} from "../utils/financialConstants";
+  financialEntryFormFields,
+  populateRelationshipOptions,
+} from "../components/FormModal/formConfigs";
+import { useData } from "../contexts/DataContext";
 import {
   getFinancialEntriesForDisplay,
   getAccountingStatistics,
@@ -56,83 +57,124 @@ export default function Accounting() {
     loadError,
     addFinancialEntry,
     updateFinancialEntry,
-    deleteFinancialEntry
+    deleteFinancialEntry,
   } = useData();
   const { formatDate } = useSettings();
+  const { t } = useTranslation("accounting");
 
-  // Use financial ledger as source of truth
+  const statusLabelMap = useMemo(
+    () => ({
+      draft: t("table.status.draft"),
+      confirmed: t("table.status.confirmed"),
+      paid: t("table.status.paid"),
+      cancelled: t("table.status.cancelled"),
+    }),
+    [t]
+  );
+
+  const typeLabelMap = useMemo(
+    () => ({
+      revenue: t("table.type.revenue"),
+      expense: t("table.type.expense"),
+    }),
+    [t]
+  );
+
+  const categoryLabelMap = useMemo(
+    () => ({
+      honoraires: t("table.category.honoraires"),
+      advance: t("table.category.advance"),
+      other: t("table.category.other"),
+      frais_bureau: t("table.category.frais_bureau"),
+      frais_judiciaires: t("table.category.frais_judiciaires"),
+      frais_huissier: t("table.category.frais_huissier"),
+    }),
+    [t]
+  );
+
+  const scopeLabelMap = useMemo(
+    () => ({
+      client: t("table.scope.client"),
+      internal: t("table.scope.internal"),
+      office: t("table.scope.office"),
+    }),
+    [t]
+  );
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [filterScope, setFilterScope] = useState("all"); // all, client, internal
-  const [refreshKey, setRefreshKey] = useState(0); // Trigger re-renders on data changes
+  const [filterScope, setFilterScope] = useState("all");
+  const [refreshKey, setRefreshKey] = useState(0);
   const [blockerModalOpen, setBlockerModalOpen] = useState(false);
   const [validationResult, setValidationResult] = useState(null);
+
   const truncate = (text, max = 120) => {
     if (!text) return "";
     const str = String(text);
     return str.length > max ? `${str.slice(0, max).trimEnd()}...` : str;
   };
 
-  // Get display entries with computed fields
   const displayEntries = useMemo(() => {
-    let filtered = getFinancialEntriesForDisplay({}, financialEntries);
+    let filtered = getFinancialEntriesForDisplay({}, financialEntries || []);
 
-    // Apply scope filter
     if (filterScope !== "all") {
-      filtered = filtered.filter(e => e.scope === filterScope);
+      filtered = filtered.filter((entry) => entry.scope === filterScope);
     }
 
     return filtered;
   }, [filterScope, refreshKey, financialEntries]);
 
-  // Calculate statistics from ledger
-  const stats = useMemo(() => {
-    return getAccountingStatistics(financialEntries);
-  }, [refreshKey, financialEntries]);
+  const stats = useMemo(
+    () => getAccountingStatistics(financialEntries || []),
+    [refreshKey, financialEntries]
+  );
 
-  // Get priority items (entries needing attention)
   const priorityItems = useMemo(() => {
     const today = new Date();
-    const threeDaysFromNow = new Date(today.getTime() + 3 * 24 * 60 * 60 * 1000);
+    const threeDaysFromNow = new Date(
+      today.getTime() + 3 * 24 * 60 * 60 * 1000
+    );
 
     return displayEntries
-      .filter(entry => {
-        // Show unpaid/unconfirmed entries
-        if (entry.status === 'paid') return false;
-
-        // Show recent or upcoming entries
+      .filter((entry) => {
+        if (entry.status === "paid") return false;
         const entryDate = new Date(entry.date);
         return entryDate <= threeDaysFromNow;
       })
       .sort((a, b) => {
-        // Sort by status priority (draft > confirmed > paid)
         const statusOrder = { draft: 0, confirmed: 1, paid: 2 };
-        const statusDiff = statusOrder[a.status] - statusOrder[b.status];
+        const statusDiff =
+          (statusOrder[a.status] || 0) - (statusOrder[b.status] || 0);
         if (statusDiff !== 0) return statusDiff;
         return new Date(a.date) - new Date(b.date);
       })
       .slice(0, 10);
   }, [displayEntries]);
 
-  // Re-render when backend financial entries load
   useEffect(() => {
     if (financialEntries && Array.isArray(financialEntries)) {
-      // Force downstream selectors to recompute by bumping refreshKey
       setRefreshKey((k) => k + 1);
     }
   }, [financialEntries]);
 
-  // Handler functions (defined before columns to avoid hoisting issues)
   const handleView = (entry) => {
     navigate(`/accounting/${entry.id}`);
   };
 
   const handleEdit = (entry) => {
-    // ✅ Validate before allowing edit
-    const result = canPerformAction('financialEntry', entry.id, 'edit', {
+    const result = canPerformAction("financialEntry", entry.id, "edit", {
       data: entry,
-      entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
+      entities: {
+        clients,
+        dossiers,
+        cases,
+        tasks,
+        sessions,
+        officers,
+        missions,
+        financialEntries,
+      },
     });
 
     if (!result.allowed) {
@@ -146,11 +188,19 @@ export default function Accounting() {
   };
 
   const handleDelete = async (id) => {
-    // ✅ Validate before allowing delete
-    const entry = displayEntries.find(e => e.id === id);
-    const result = canPerformAction('financialEntry', id, 'delete', {
+    const entry = displayEntries.find((e) => e.id === id);
+    const result = canPerformAction("financialEntry", id, "delete", {
       data: entry,
-      entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
+      entities: {
+        clients,
+        dossiers,
+        cases,
+        tasks,
+        sessions,
+        officers,
+        missions,
+        financialEntries,
+      },
     });
 
     if (!result.allowed) {
@@ -159,31 +209,41 @@ export default function Accounting() {
       return;
     }
 
-    if (await confirm({
-      title: "Delete Financial Entry",
-      message: "Are you sure you want to delete this financial entry?",
-      confirmText: "Delete",
-      cancelText: "Cancel",
-      variant: "danger"
-    })) {
+    if (
+      await confirm({
+        title: t("confirm.delete.title"),
+        message: t("confirm.delete.message"),
+        confirmText: t("confirm.delete.confirm"),
+        cancelText: t("confirm.delete.cancel"),
+        variant: "danger",
+      })
+    ) {
       try {
         await deleteFinancialEntry(id);
-        showToast("Financial entry deleted", "warning");
-        setRefreshKey((k) => k + 1); // Trigger re-render
+        showToast(t("toasts.deleteSuccess"), "warning");
+        setRefreshKey((k) => k + 1);
       } catch (error) {
-        showToast("Error deleting financial entry", "error");
+        showToast(t("toasts.deleteError"), "error");
       }
     }
   };
 
   const handleStatusChange = async (id, newStatus) => {
-    // ✅ Validate before allowing status change
-    const entry = displayEntries.find(e => e.id === id);
-    const result = canPerformAction('financialEntry', id, 'changeStatus', {
+    const entry = displayEntries.find((e) => e.id === id);
+    const result = canPerformAction("financialEntry", id, "changeStatus", {
       data: entry,
       newValue: newStatus,
       currentValue: entry?.status,
-      entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
+      entities: {
+        clients,
+        dossiers,
+        cases,
+        tasks,
+        sessions,
+        officers,
+        missions,
+        financialEntries,
+      },
     });
 
     if (!result.allowed) {
@@ -202,161 +262,238 @@ export default function Accounting() {
       return;
     }
     logStatusChange("financialEntry", id, oldStatus, newStatus);
-    setRefreshKey((k) => k + 1); // Trigger re-render
+    setRefreshKey((k) => k + 1);
   };
 
-  // Define table columns (memoized to ensure handler closures are stable)
-  const columns = useMemo(() => [
-    {
-      id: "date",
-      label: "Date",
-      sortable: true,
-      locked: true,
-      render: (entry) => (
-        <span className="text-sm font-medium text-slate-900 dark:text-white">
-          {formatDate(entry.date)}
-        </span>
-      ),
-    },
-    {
-      id: "description",
-      label: "Entry",
-      sortable: true,
-      render: (entry) => (
-        <div className="flex flex-col max-w-md">
-          <span className="font-medium text-slate-900 dark:text-white truncate" title={entry.title || entry.description || "Untitled"}>
-            {truncate(entry.title || entry.description || "Untitled", 50)}
+  const columns = useMemo(
+    () => [
+      {
+        id: "date",
+        label: t("table.columns.date"),
+        sortable: true,
+        locked: true,
+        render: (entry) => (
+          <span className="text-sm font-medium text-slate-900 dark:text-white">
+            {formatDate(entry.date)}
           </span>
-          {entry.description && entry.title && (
-            <span className="text-sm text-slate-600 dark:text-slate-400 mt-0.5 truncate" title={entry.description}>
-              {truncate(entry.description, 45)}
-            </span>
-          )}
-          <div className="flex items-center gap-2 mt-1">
-            <span className={`px-2 py-0.5 rounded-full text-xs font-medium bg-${entry.categoryColor}-100 text-${entry.categoryColor}-800 dark:bg-${entry.categoryColor}-900/30 dark:text-${entry.categoryColor}-300`}>
-              {entry.categoryLabel}
-            </span>
-            {entry.scope === 'internal' && (
-              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300">
-                Office
+        ),
+      },
+      {
+        id: "description",
+        label: t("table.columns.entry"),
+        sortable: true,
+        render: (entry) => {
+          const categoryLabel =
+            categoryLabelMap[entry.category] || entry.categoryLabel;
+          return (
+            <div className="flex flex-col max-w-md">
+              <span
+                className="font-medium text-slate-900 dark:text-white truncate"
+                title={
+                  entry.title ||
+                  entry.description ||
+                  t("table.fallback.untitled")
+                }
+              >
+                {truncate(
+                  entry.title ||
+                    entry.description ||
+                    t("table.fallback.untitled"),
+                  50
+                )}
+              </span>
+              {entry.description && entry.title && (
+                <span
+                  className="text-sm text-slate-600 dark:text-slate-400 mt-0.5 truncate"
+                  title={entry.description}
+                >
+                  {truncate(entry.description, 45)}
+                </span>
+              )}
+              <div className="flex items-center gap-2 mt-1">
+                <span
+                  className={`px-2 py-0.5 rounded-full text-xs font-medium bg-${entry.categoryColor}-100 text-${entry.categoryColor}-800 dark:bg-${entry.categoryColor}-900/30 dark:text-${entry.categoryColor}-300`}
+                >
+                  {categoryLabel}
+                </span>
+                {entry.scope === "internal" && (
+                  <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300">
+                    {t("table.scope.office")}
+                  </span>
+                )}
+              </div>
+            </div>
+          );
+        },
+      },
+      {
+        id: "entityReference",
+        label: t("table.columns.clientDossier"),
+        sortable: true,
+        render: (entry) => (
+          <div className="flex flex-col text-sm">
+            {entry.clientName && (
+              <span className="font-medium text-slate-900 dark:text-white">
+                {entry.clientName}
+              </span>
+            )}
+            {entry.dossierReference && (
+              <span className="text-xs text-slate-500 dark:text-slate-400">
+                {entry.dossierReference}
+              </span>
+            )}
+            {entry.caseReference && (
+              <span className="text-xs text-blue-600 dark:text-blue-400">
+                {entry.caseReference}
+              </span>
+            )}
+            {!entry.clientName && (
+              <span className="text-xs text-slate-400 dark:text-slate-500">
+                {scopeLabelMap[entry.scope] || t("table.scope.internal")}
               </span>
             )}
           </div>
-        </div>
-      ),
-    },
-    {
-      id: "entityReference",
-      label: "Client / Dossier",
-      sortable: true,
-      render: (entry) => (
-        <div className="flex flex-col text-sm">
-          {entry.clientName && (
-            <span className="font-medium text-slate-900 dark:text-white">
-              {entry.clientName}
-            </span>
-          )}
-          {entry.dossierReference && (
-            <span className="text-xs text-slate-500 dark:text-slate-400">
-              {entry.dossierReference}
-            </span>
-          )}
-          {entry.caseReference && (
-            <span className="text-xs text-blue-600 dark:text-blue-400">
-              {entry.caseReference}
-            </span>
-          )}
-          {!entry.clientName && (
-            <span className="text-xs text-slate-400 dark:text-slate-500">
-              Internal
-            </span>
-          )}
-        </div>
-      ),
-    },
-    {
-      id: "type",
-      label: "Type",
-      sortable: true,
-      render: (entry) => (
-        <span className={`px-2 py-1 rounded-full text-xs font-medium ${entry.type === "revenue"
-          ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300"
-          : "bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300"
-          }`}>
-          {entry.type === "revenue" ? "Revenue" : "Expense"}
-        </span>
-      ),
-    },
-    {
-      id: "amount",
-      label: "Amount",
-      sortable: true,
-      render: (entry) => (
-        <span className={`font-semibold ${entry.type === "revenue"
-          ? "text-emerald-600 dark:text-emerald-400"
-          : "text-rose-600 dark:text-rose-400"
-          }`}>
-          {entry.amountWithSign}
-        </span>
-      ),
-    },
-    {
-      id: "status",
-      label: "Status",
-      sortable: true,
-      render: (entry) => (
-        <InlineStatusSelector
-          value={entry.status}
-          onChange={(newStatus) => handleStatusChange(entry.id, newStatus)}
-          statusOptions={[
-            { value: "draft", label: "Draft", icon: "fas fa-file", color: "slate" },
-            { value: "confirmed", label: "Confirmed", icon: "fas fa-check-circle", color: "blue" },
-            { value: "paid", label: "Paid", icon: "fas fa-check-double", color: "green" },
-            { value: "cancelled", label: "Cancelled", icon: "fas fa-times-circle", color: "red" },
-          ]}
-          entityType="financialEntry"
-          entityId={entry.id}
-          entityData={entry}
-        />
-      ),
-    },
-    {
-      id: "actions",
-      label: "Actions",
-      sortable: false,
-      locked: true,
-      render: (entry) => (
-        <TableActions>
-          <IconButton
-            icon="edit"
-            variant="edit"
-            title="Edit"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleEdit(entry);
-            }}
+        ),
+      },
+      {
+        id: "type",
+        label: t("table.columns.type"),
+        sortable: true,
+        render: (entry) => (
+          <span
+            className={`px-2 py-1 rounded-full text-xs font-medium ${
+              entry.type === "revenue"
+                ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300"
+                : "bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300"
+            }`}
+          >
+            {entry.type === "revenue"
+              ? typeLabelMap.revenue
+              : typeLabelMap.expense}
+          </span>
+        ),
+      },
+      {
+        id: "amount",
+        label: t("table.columns.amount"),
+        sortable: true,
+        render: (entry) => (
+          <span
+            className={`font-semibold ${
+              entry.type === "revenue"
+                ? "text-emerald-600 dark:text-emerald-400"
+                : "text-rose-600 dark:text-rose-400"
+            }`}
+          >
+            {entry.amountWithSign}
+          </span>
+        ),
+      },
+      {
+        id: "status",
+        label: t("table.columns.status"),
+        sortable: true,
+        render: (entry) => (
+          <InlineStatusSelector
+            value={entry.status}
+            onChange={(newStatus) => handleStatusChange(entry.id, newStatus)}
+            statusOptions={[
+              {
+                value: "draft",
+                label: statusLabelMap.draft,
+                icon: "fas fa-file",
+                color: "slate",
+              },
+              {
+                value: "confirmed",
+                label: statusLabelMap.confirmed,
+                icon: "fas fa-check-circle",
+                color: "blue",
+              },
+              {
+                value: "paid",
+                label: statusLabelMap.paid,
+                icon: "fas fa-check-double",
+                color: "green",
+              },
+              {
+                value: "cancelled",
+                label: statusLabelMap.cancelled,
+                icon: "fas fa-times-circle",
+                color: "red",
+              },
+            ]}
+            entityType="financialEntry"
+            entityId={entry.id}
+            entityData={entry}
           />
-          <IconButton
-            icon="delete"
-            variant="delete"
-            title="Supprimer"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleDelete(entry.id);
-            }}
-          />
-        </TableActions>
-      ),
-    },
-  ], [handleStatusChange, handleEdit, handleDelete, formatDate]);
+        ),
+      },
+      {
+        id: "actions",
+        label: t("table.columns.actions"),
+        sortable: false,
+        locked: true,
+        render: (entry) => (
+          <TableActions>
+            <IconButton
+              icon="edit"
+              variant="edit"
+              title={t("table.actions.edit")}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleEdit(entry);
+              }}
+            />
+            <IconButton
+              icon="delete"
+              variant="delete"
+              title={t("table.actions.delete")}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDelete(entry.id);
+              }}
+            />
+          </TableActions>
+        ),
+      },
+    ],
+    [
+      t,
+      formatDate,
+      categoryLabelMap,
+      scopeLabelMap,
+      typeLabelMap,
+      statusLabelMap,
+      handleStatusChange,
+      handleEdit,
+      handleDelete,
+    ]
+  );
 
-  // Initialize advanced table
   const table = useAdvancedTable(displayEntries, columns, {
     initialSortBy: "date",
     initialSortDirection: "desc",
     initialItemsPerPage: 25,
-    searchableFields: ["description", "clientName", "dossierReference", "caseReference", "categoryLabel"],
+    searchableFields: [
+      "description",
+      "clientName",
+      "dossierReference",
+      "caseReference",
+      "categoryLabel",
+    ],
   });
+
+  const headerSubtitle = table.isFiltering
+    ? t("page.subtitleFiltered", {
+        total: table.originalTotalItems,
+        displayed: table.totalItems,
+      })
+    : t("page.subtitle", { total: table.originalTotalItems });
+
+  const tableEmptyMessage = table.isFiltering
+    ? t("table.emptyFiltered")
+    : t("table.empty");
 
   const handleAddEntry = () => {
     setEditingEntry(null);
@@ -364,13 +501,26 @@ export default function Accounting() {
   };
 
   const handleSubmit = async (formData) => {
-    // ✅ Validate before submitting (EDIT mode only)
     if (editingEntry) {
-      const result = canPerformAction('financialEntry', editingEntry.id, 'edit', {
-        data: editingEntry,
-        newData: formData,
-        entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
-      });
+      const result = canPerformAction(
+        "financialEntry",
+        editingEntry.id,
+        "edit",
+        {
+          data: editingEntry,
+          newData: formData,
+          entities: {
+            clients,
+            dossiers,
+            cases,
+            tasks,
+            sessions,
+            officers,
+            missions,
+            financialEntries,
+          },
+        }
+      );
 
       if (!result.allowed) {
         setValidationResult(result);
@@ -385,9 +535,11 @@ export default function Accounting() {
       await new Promise((resolve) => setTimeout(resolve, 500));
 
       if (editingEntry) {
-        // Update existing entry
         const previous = editingEntry;
-        const updateResult = await updateFinancialEntry(editingEntry.id, formData);
+        const updateResult = await updateFinancialEntry(
+          editingEntry.id,
+          formData
+        );
         if (!updateResult.ok) {
           if (updateResult.result) {
             setValidationResult(updateResult.result);
@@ -396,27 +548,27 @@ export default function Accounting() {
           setIsLoading(false);
           return;
         }
-        showToast("Financial entry Updated successfully !", "success");
+        showToast(t("toasts.updateSuccess"), "success");
 
-        const changedFields = Object.entries(formData || {}).reduce((acc, [key, value]) => {
-          if (previous[key] !== value) {
-            acc[key] = `${previous[key] ?? ""} -> ${value ?? ""}`;
-          }
-          return acc;
-        }, {});
+        const changedFields = Object.entries(formData || {}).reduce(
+          (acc, [key, value]) => {
+            if (previous[key] !== value) {
+              acc[key] = `${previous[key] ?? ""} -> ${value ?? ""}`;
+            }
+            return acc;
+          },
+          {}
+        );
         if (Object.keys(changedFields).length > 0) {
           logHistoryEvent({
             entityType: "financialEntry",
             entityId: editingEntry.id,
             eventType: EVENT_TYPES.SYSTEM,
-            label: "Financial Entry Updated",
+            label: t("history.updateLabel"),
             metadata: changedFields,
           });
         }
       } else {
-        // Add new entry
-        console.log('[Accounting.handleSubmit] Creating financial entry with formData:', formData);
-
         const creation = await addFinancialEntry(formData);
         const createdEntry = creation?.created || creation;
 
@@ -429,24 +581,34 @@ export default function Accounting() {
           return;
         }
 
-        showToast("Financial entry Added successfully!", "success");
+        showToast(t("toasts.createSuccess"), "success");
 
-        // ✅ Log creation event using the returned entry's ID
-        logEntityCreation('financialEntry', createdEntry.id, createdEntry.title || createdEntry.description || `${createdEntry.type} - ${formatCurrency(createdEntry.amount)}`);
+        logEntityCreation(
+          "financialEntry",
+          createdEntry.id,
+          createdEntry.title ||
+            createdEntry.description ||
+            `${createdEntry.type} - ${formatCurrency(createdEntry.amount)}`
+        );
 
-        // ✅ Navigate to detail view after creation using the returned entry's ID
-        const detailRoute = resolveDetailRoute('financialEntry', createdEntry.id);
+        const detailRoute = resolveDetailRoute(
+          "financialEntry",
+          createdEntry.id
+        );
         if (detailRoute) {
-          setTimeout(() => navigate(detailRoute, { state: { createdEntry } }), 100);
+          setTimeout(
+            () => navigate(detailRoute, { state: { createdEntry } }),
+            100
+          );
         }
       }
 
-      setRefreshKey((k) => k + 1); // Trigger re-render
+      setRefreshKey((k) => k + 1);
       setIsModalOpen(false);
       setEditingEntry(null);
     } catch (error) {
       console.error("Error submitting entry:", error);
-      showToast("Error saving entry", "error");
+      showToast(t("toasts.saveError"), "error");
     } finally {
       setIsLoading(false);
     }
@@ -454,18 +616,23 @@ export default function Accounting() {
 
   const handleExport = () => {
     const headers = table.columns
-      .filter(col => col.id !== "actions")
-      .map(col => col.label)
+      .filter((col) => col.id !== "actions")
+      .map((col) => col.label)
       .join(",");
 
-    const rows = table.allData.map(entry =>
+    const rows = table.allData.map((entry) =>
       table.columns
-        .filter(col => col.id !== "actions")
-        .map(col => {
+        .filter((col) => col.id !== "actions")
+        .map((col) => {
           let value = entry[col.id] || "";
           if (col.id === "date") value = formatDate(entry.date);
           if (col.id === "amount") value = entry.amount;
-          if (col.id === "type") value = entry.type === "revenue" ? "Revenue" : "Expense";
+          if (col.id === "type") {
+            value =
+              entry.type === "revenue"
+                ? typeLabelMap.revenue
+                : typeLabelMap.expense;
+          }
           return `"${value}"`;
         })
         .join(",")
@@ -475,25 +642,228 @@ export default function Accounting() {
     const blob = new Blob([csv], { type: "text/csv" });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
+    const date = new Date().toISOString().split("T")[0];
     a.href = url;
-    a.download = `comptabilite-${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = t("export.filename", { date });
     a.click();
     window.URL.revokeObjectURL(url);
   };
 
-  // Populate relationship options
-  const entryFields = populateRelationshipOptions(financialEntryFormFields, {
-    clients,
-    dossiers,
-    cases,
-    missions,
-  });
+  const entryFields = useMemo(
+    () =>
+      populateRelationshipOptions(financialEntryFormFields, {
+        clients,
+        dossiers,
+        cases,
+        missions,
+      }),
+    [clients, dossiers, cases, missions]
+  );
+
+  const localizedEntryFields = useMemo(() => {
+    const scopeOptions = [
+      { value: "client", label: t("form.fields.scope.options.client") },
+      { value: "internal", label: t("form.fields.scope.options.internal") },
+    ];
+    const typeOptions = [
+      { value: "revenue", label: t("form.fields.type.options.revenue") },
+      { value: "expense", label: t("form.fields.type.options.expense") },
+    ];
+    const statusOptions = [
+      { value: "draft", label: statusLabelMap.draft, color: "slate" },
+      { value: "confirmed", label: statusLabelMap.confirmed, color: "blue" },
+      { value: "paid", label: statusLabelMap.paid, color: "green" },
+    ];
+
+    return entryFields.map((field) => {
+      if (field.name === "scope") {
+        return {
+          ...field,
+          label: t("form.fields.scope.label"),
+          options: scopeOptions,
+          helpText: t("form.fields.scope.help"),
+        };
+      }
+      if (field.name === "type") {
+        return {
+          ...field,
+          label: t("form.fields.type.label"),
+          options: typeOptions,
+          helpText: t("form.fields.type.help"),
+        };
+      }
+      if (field.name === "category") {
+        const originalGetOptions = field.getOptions;
+        return {
+          ...field,
+          label: t("form.fields.category.label"),
+          placeholder: t("form.fields.category.placeholder"),
+          getOptions: (formData) => {
+            const options = originalGetOptions
+              ? originalGetOptions(formData)
+              : field.options;
+            return (options || []).map((option) => ({
+              ...option,
+              label:
+                categoryLabelMap[option.value] ||
+                option.label ||
+                option.value,
+            }));
+          },
+        };
+      }
+      if (field.name === "amount") {
+        return {
+          ...field,
+          label: t("form.fields.amount.label"),
+          placeholder: t("form.fields.amount.placeholder"),
+        };
+      }
+      if (field.name === "date") {
+        return { ...field, label: t("form.fields.date.label") };
+      }
+      if (field.name === "status") {
+        return {
+          ...field,
+          label: t("form.fields.status.label"),
+          statusOptions,
+        };
+      }
+      if (field.name === "title") {
+        return {
+          ...field,
+          label: t("form.fields.title.label"),
+          placeholder: t("form.fields.title.placeholder"),
+          helpText: t("form.fields.title.help"),
+        };
+      }
+      if (field.name === "description") {
+        return {
+          ...field,
+          label: t("form.fields.description.label"),
+          placeholder: t("form.fields.description.placeholder"),
+        };
+      }
+      if (field.name === "clientId") {
+        return {
+          ...field,
+          label: t("form.fields.client.label"),
+          helpText: t("form.fields.client.help"),
+          placeholder: t("form.fields.client.placeholder"),
+        };
+      }
+      if (field.name === "dossierId") {
+        return {
+          ...field,
+          label: t("form.fields.dossier.label"),
+          helpText: t("form.fields.dossier.help"),
+          placeholder: t("form.fields.dossier.placeholder"),
+        };
+      }
+      if (field.name === "caseId") {
+        return {
+          ...field,
+          label: t("form.fields.case.label"),
+          helpText: t("form.fields.case.help"),
+          placeholder: t("form.fields.case.placeholder"),
+        };
+      }
+      if (field.name === "missionId") {
+        const originalGetOptions = field.getOptions;
+        const originalOnChange = field.onChange;
+        return {
+          ...field,
+          label: t("form.fields.mission.label"),
+          helpText: t("form.fields.mission.help"),
+          getOptions: (formData, allOptions) => {
+            const dossierId = formData.dossierId;
+            const caseId = formData.caseId;
+
+            if (!allOptions?.missions) {
+              return [
+                { value: "", label: t("form.fields.mission.noneAvailable") },
+              ];
+            }
+
+            let filteredMissions = allOptions.missions;
+
+            if (dossierId) {
+              filteredMissions = filteredMissions.filter(
+                (m) =>
+                  m.entityType === "dossier" &&
+                  String(m.entityId) === String(dossierId)
+              );
+            } else if (caseId) {
+              filteredMissions = filteredMissions.filter(
+                (m) =>
+                  m.entityType === "case" &&
+                  String(m.entityId) === String(caseId)
+              );
+            } else {
+              return [
+                {
+                  value: "",
+                  label: t("form.fields.mission.selectPrerequisite"),
+                },
+              ];
+            }
+
+            if (filteredMissions.length === 0) {
+              return [
+                { value: "", label: t("form.fields.mission.noneForEntity") },
+              ];
+            }
+
+            return [
+              {
+                value: "",
+                label: t("form.fields.mission.selectMission"),
+              },
+              ...filteredMissions.map((m) => ({
+                value: m.id,
+                label: `${m.missionNumber} - ${m.title} (${
+                  m.officerName || t("form.fields.mission.fallbackOfficer")
+                }) - ${m.status}`,
+              })),
+            ];
+          },
+          onChange: (value, formData, setFormData, allOptions) => {
+            if (value && allOptions?.missions) {
+              const selectedMission = allOptions.missions.find(
+                (m) => m.id === value
+              );
+              if (selectedMission && !formData.description) {
+                setFormData({
+                  ...formData,
+                  missionId: value,
+                  description: t("form.fields.mission.autoDescription", {
+                    missionNumber: selectedMission.missionNumber,
+                    title: selectedMission.title,
+                  }),
+                });
+                return;
+              }
+            }
+            if (originalOnChange) {
+              originalOnChange(value, formData, setFormData, allOptions);
+              return;
+            }
+            setFormData({
+              ...formData,
+              missionId: value,
+            });
+          },
+        };
+      }
+      return field;
+    });
+  }, [entryFields, t, categoryLabelMap, statusLabelMap]);
 
   return (
     <PageLayout>
       <PageHeader
-        title="Accounting"
-        subtitle={`${table.originalTotalItems} entries in total${table.isFiltering ? ` • ${table.totalItems} displayed` : ""}`}
+        title={t("page.title")}
+        subtitle={headerSubtitle}
         icon="fas fa-calculator"
         actions={
           <button
@@ -501,119 +871,147 @@ export default function Accounting() {
             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center gap-2"
           >
             <i className="fas fa-plus"></i>
-            New Entry
+            {t("page.actions.new")}
           </button>
         }
       />
 
-      {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <StatCard
-          label="Total Revenue"
+          label={t("stats.totalRevenue")}
           value={formatCurrency(stats.totalClientRevenue)}
           icon="fas fa-arrow-down"
           color="emerald"
-          trendLabel="Clients"
+          trendLabel={t("stats.trend.clients")}
         />
         <StatCard
-          label="Client Expenses"
+          label={t("stats.clientExpenses")}
           value={formatCurrency(stats.totalClientExpense)}
           icon="fas fa-arrow-up"
           color="blue"
-          trendLabel="Reimbursable"
+          trendLabel={t("stats.trend.reimbursable")}
         />
         <StatCard
-          label="Office Expenses"
+          label={t("stats.officeExpenses")}
           value={formatCurrency(stats.totalInternalExpense)}
           icon="fas fa-building"
           color="orange"
-          trendLabel="Internal"
+          trendLabel={t("stats.trend.internal")}
         />
         <StatCard
-          label="Net Balance"
+          label={t("stats.netBalance")}
           value={formatCurrency(stats.netProfit)}
           icon="fas fa-balance-scale"
           color={stats.netProfit >= 0 ? "green" : "red"}
-          trendLabel={stats.netProfit >= 0 ? "Positive" : "Negative"}
+          trendLabel={
+            stats.netProfit >= 0
+              ? t("stats.trend.positive")
+              : t("stats.trend.negative")
+          }
         />
       </div>
 
-      {/* Scope Filter */}
       <div className="mb-4 flex gap-2">
         <button
           onClick={() => setFilterScope("all")}
-          className={`px-4 py-2 rounded-lg font-medium transition-colors ${filterScope === "all"
-            ? "bg-blue-600 text-white"
-            : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
-            }`}
+          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+            filterScope === "all"
+              ? "bg-blue-600 text-white"
+              : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+          }`}
         >
-          All
+          {t("filters.all")}
         </button>
         <button
           onClick={() => setFilterScope("client")}
-          className={`px-4 py-2 rounded-lg font-medium transition-colors ${filterScope === "client"
-            ? "bg-blue-600 text-white"
-            : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
-            }`}
+          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+            filterScope === "client"
+              ? "bg-blue-600 text-white"
+              : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+          }`}
         >
-          Clients
+          {t("filters.clients")}
         </button>
         <button
           onClick={() => setFilterScope("internal")}
-          className={`px-4 py-2 rounded-lg font-medium transition-colors ${filterScope === "internal"
-            ? "bg-blue-600 text-white"
-            : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
-            }`}
+          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+            filterScope === "internal"
+              ? "bg-blue-600 text-white"
+              : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+          }`}
         >
-          Office
+          {t("filters.internal")}
         </button>
       </div>
 
-      {/* Priority Items Section */}
       {priorityItems.length > 0 && (
-        <ContentSection title={`Priority Items (${priorityItems.length})`}>
+        <ContentSection
+          title={t("priority.title", { count: priorityItems.length })}
+        >
           <div className="p-6">
             <div className="space-y-3">
               {priorityItems.slice(0, 5).map((entry) => {
-                const isDraft = entry.status === 'draft';
-                const isConfirmed = entry.status === 'confirmed';
-
+                const isDraft = entry.status === "draft";
                 return (
                   <div
                     key={entry.id}
-                    className={`p-4 rounded-lg border cursor-pointer transition-colors ${isDraft
-                      ? "border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20"
-                      : "border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-900/20"
-                      }`}
+                    className={`p-4 rounded-lg border cursor-pointer transition-colors ${
+                      isDraft
+                        ? "border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20"
+                        : "border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-900/20"
+                    }`}
                     onClick={() => handleView(entry)}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <div className={`w-3 h-3 rounded-full flex-shrink-0 ${isDraft ? "bg-amber-500" : "bg-blue-500"
-                          }`} />
+                        <div
+                          className={`w-3 h-3 rounded-full flex-shrink-0 ${
+                            isDraft ? "bg-amber-500" : "bg-blue-500"
+                          }`}
+                        />
                         <div className="min-w-0 flex-1">
-                          <div className="font-medium text-slate-900 dark:text-white truncate" title={entry.title || entry.description || "Untitled"}>
-                            {truncate(entry.title || entry.description || "Untitled", 60)}
+                          <div
+                            className="font-medium text-slate-900 dark:text-white truncate"
+                            title={
+                              entry.title ||
+                              entry.description ||
+                              t("table.fallback.untitled")
+                            }
+                          >
+                            {truncate(
+                              entry.title ||
+                                entry.description ||
+                                t("table.fallback.untitled"),
+                              60
+                            )}
                           </div>
                           {entry.description && entry.title && (
-                            <div className="text-sm text-slate-600 dark:text-slate-400 mt-0.5 truncate" title={entry.description}>
+                            <div
+                              className="text-sm text-slate-600 dark:text-slate-400 mt-0.5 truncate"
+                              title={entry.description}
+                            >
                               {truncate(entry.description, 55)}
                             </div>
                           )}
                           <div className="text-sm text-slate-600 dark:text-slate-400 mt-0.5 truncate">
-                            {entry.entityReference} • {formatDate(entry.date)}
+                            {entry.entityReference} - {formatDate(entry.date)}
                           </div>
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className={`font-semibold ${entry.type === "revenue"
-                          ? "text-emerald-600 dark:text-emerald-400"
-                          : "text-rose-600 dark:text-rose-400"
-                          }`}>
+                        <div
+                          className={`font-semibold ${
+                            entry.type === "revenue"
+                              ? "text-emerald-600 dark:text-emerald-400"
+                              : "text-rose-600 dark:text-rose-400"
+                          }`}
+                        >
                           {entry.amountWithSign}
                         </div>
-                        <div className={`text-xs px-2 py-1 rounded-full inline-block bg-${entry.statusColor}-100 text-${entry.statusColor}-800 dark:bg-${entry.statusColor}-900/30 dark:text-${entry.statusColor}-300`}>
-                          {entry.statusLabel}
+                        <div
+                          className={`text-xs px-2 py-1 rounded-full inline-block bg-${entry.statusColor}-100 text-${entry.statusColor}-800 dark:bg-${entry.statusColor}-900/30 dark:text-${entry.statusColor}-300`}
+                        >
+                          {statusLabelMap[entry.status] || entry.statusLabel}
                         </div>
                       </div>
                     </div>
@@ -624,7 +1022,7 @@ export default function Accounting() {
             {priorityItems.length > 5 && (
               <div className="mt-4 text-center">
                 <span className="text-sm text-slate-500 dark:text-slate-400">
-                  and {priorityItems.length - 5} other elements...
+                  {t("priority.more", { count: priorityItems.length - 5 })}
                 </span>
               </div>
             )}
@@ -632,7 +1030,6 @@ export default function Accounting() {
         </ContentSection>
       )}
 
-      {/* Entries Table */}
       <ContentSection>
         <TableToolbar
           searchQuery={table.searchQuery}
@@ -656,7 +1053,10 @@ export default function Accounting() {
             onReorder={table.reorderColumns}
             enableReorder={true}
           />
-          <TableBody isEmpty={table.data.length === 0} emptyMessage={table.isFiltering ? "No results found" : "No financial entries available"}>
+          <TableBody
+            isEmpty={table.data.length === 0}
+            emptyMessage={tableEmptyMessage}
+          >
             {table.data.map((entry) => (
               <TableRow
                 key={entry.id}
@@ -690,9 +1090,11 @@ export default function Accounting() {
           setEditingEntry(null);
         }}
         onSubmit={handleSubmit}
-        title={getFormTitle("financialEntry", !!editingEntry)}
-        subtitle={editingEntry ? "Edit Financial Entry" : "Create New Entry"}
-        fields={entryFields}
+        title={editingEntry ? t("form.title.edit") : t("form.title.create")}
+        subtitle={
+          editingEntry ? t("form.subtitle.edit") : t("form.subtitle.create")
+        }
+        fields={localizedEntryFields}
         initialData={editingEntry}
         isLoading={isLoading}
         entityType="financialEntry"
@@ -704,10 +1106,13 @@ export default function Accounting() {
       <BlockerModal
         isOpen={blockerModalOpen}
         onClose={() => setBlockerModalOpen(false)}
-        actionName="Edit/Delete Financial Entry"
+        actionName={t("blocker.action")}
         blockers={validationResult?.blockers || []}
         warnings={validationResult?.warnings || []}
-        entityName={validationResult?.entityData?.description || "Entry"}
+        entityName={
+          validationResult?.entityData?.description ||
+          t("blocker.entityFallback")
+        }
       />
     </PageLayout>
   );

@@ -1,4 +1,4 @@
-import { useState, useRef, useLayoutEffect, useEffect } from "react";
+﻿import { useMemo, useState, useRef, useLayoutEffect, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { useAdvancedTable } from "../hooks/useAdvancedTable";
@@ -21,6 +21,7 @@ import { resolveDetailRoute } from "../utils/routeResolver";
 import { getStatusColor } from "../components/DetailView/config/statusColors";
 import { logEntityCreation } from "../services/historyService";
 import { useSettings } from "../contexts/SettingsContext";
+import { useTranslation } from "react-i18next";
 
 
 // Global state to track which dropdown is currently open
@@ -37,7 +38,7 @@ let currentOpenPersonalTaskPriorityDropdown = null;
  * StatusDropdown - Inline status selector for personal tasks
  * Uses portal to render dropdown menu above all containers
  */
-function StatusDropdown({ task, onStatusChange }) {
+function StatusDropdown({ task, onStatusChange, t }) {
   const [isOpen, setIsOpen] = useState(false);
   const buttonRef = useRef(null);
   const dropdownIdRef = useRef(Symbol('personal-task-status-dropdown'));
@@ -46,35 +47,35 @@ function StatusDropdown({ task, onStatusChange }) {
   const statusOptions = [
     {
       value: "Not Started",
-      label: "Not Started",
+      label: t("table.status.notStarted"),
       icon: "fas fa-circle",
       color: "text-slate-600 dark:text-slate-400",
       bgColor: "bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300"
     },
     {
       value: "In Progress",
-      label: "In Progress",
+      label: t("table.status.inProgress"),
       icon: "fas fa-spinner",
       color: "text-blue-600 dark:text-blue-400",
       bgColor: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400"
     },
     {
       value: "Blocked",
-      label: "Blocked",
+      label: t("table.status.blocked"),
       icon: "fas fa-ban",
       color: "text-red-600 dark:text-red-400",
       bgColor: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
     },
     {
       value: "Done",
-      label: "Done",
+      label: t("table.status.done"),
       icon: "fas fa-check-circle",
       color: "text-green-600 dark:text-green-400",
       bgColor: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
     },
     {
       value: "Cancelled",
-      label: "Cancelled",
+      label: t("table.status.cancelled"),
       icon: "fas fa-times-circle",
       color: "text-amber-600 dark:text-amber-400",
       bgColor: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400"
@@ -255,16 +256,16 @@ function StatusDropdown({ task, onStatusChange }) {
 /**
  * PriorityDropdown - Inline priority selector for personal tasks
  */
-function PriorityDropdown({ task, onPriorityChange }) {
+function PriorityDropdown({ task, onPriorityChange, t }) {
   const [isOpen, setIsOpen] = useState(false);
   const buttonRef = useRef(null);
   const dropdownIdRef = useRef(Symbol('personal-task-priority-dropdown'));
   const [menuPosition, setMenuPosition] = useState(null); // null until computed to avoid flash at (0,0)
 
   const priorityOptions = [
-    { value: "High", label: "High", icon: "fas fa-arrow-up", color: "text-red-600 dark:text-red-400", bgColor: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" },
-    { value: "Medium", label: "Medium", icon: "fas fa-minus", color: "text-amber-600 dark:text-amber-400", bgColor: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
-    { value: "Low", label: "Low", icon: "fas fa-arrow-down", color: "text-green-600 dark:text-green-400", bgColor: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" },
+    { value: "High", label: t("table.priority.high"), icon: "fas fa-arrow-up", color: "text-red-600 dark:text-red-400", bgColor: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" },
+    { value: "Medium", label: t("table.priority.medium"), icon: "fas fa-minus", color: "text-amber-600 dark:text-amber-400", bgColor: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
+    { value: "Low", label: t("table.priority.low"), icon: "fas fa-arrow-down", color: "text-green-600 dark:text-green-400", bgColor: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" },
   ];
 
   const currentPriority = priorityOptions.find(p => p.value === task.priority) || priorityOptions[1];
@@ -444,11 +445,35 @@ export default function PersonalTasks() {
   const { confirm } = useConfirm();
   const { personalTasks, addPersonalTask, updatePersonalTask, deletePersonalTask } = useData();
   const { formatDate } = useSettings();
+  const { t } = useTranslation("personalTasks");
 
   const tasks = personalTasks;
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  const statusLabelMap = useMemo(
+    () => ({
+      "Not Started": t("table.status.notStarted"),
+      "Pending": t("table.status.pending"),
+      "In Progress": t("table.status.inProgress"),
+      "Scheduled": t("table.status.scheduled"),
+      "Completed": t("table.status.completed"),
+      "Blocked": t("table.status.blocked"),
+      "Done": t("table.status.done"),
+      "Cancelled": t("table.status.cancelled"),
+    }),
+    [t]
+  );
+
+  const priorityLabelMap = useMemo(
+    () => ({
+      High: t("table.priority.high"),
+      Medium: t("table.priority.medium"),
+      Low: t("table.priority.low"),
+    }),
+    [t]
+  );
 
   const priorityConfig = {
     "High": {
@@ -477,18 +502,30 @@ export default function PersonalTasks() {
     "Other": "fas fa-sticky-note text-amber-600 dark:text-amber-400",
   };
 
+  const categoryLabelMap = useMemo(
+    () => ({
+      Invoices: t("table.categories.invoices"),
+      Office: t("table.categories.office"),
+      Personal: t("table.categories.personal"),
+      IT: t("table.categories.it"),
+      Administrative: t("table.categories.administrative"),
+      Other: t("table.categories.other"),
+    }),
+    [t]
+  );
+
   const handleStatusChange = (taskId, newStatus) => {
     updatePersonalTask(taskId, { status: newStatus });
-    showToast(`Status updated: ${newStatus}`, "info", {
-      title: "Status Update",
+    showToast(t("toasts.statusUpdated", { status: statusLabelMap[newStatus] || newStatus }), "info", {
+      title: t("toasts.statusTitle"),
       context: "personal-task",
     });
   };
 
   const handlePriorityChange = (taskId, newPriority) => {
     updatePersonalTask(taskId, { priority: newPriority });
-    showToast(`Priority updated: ${newPriority}`, "info", {
-      title: "Priority Update",
+    showToast(t("toasts.priorityUpdated", { priority: priorityLabelMap[newPriority] || newPriority }), "info", {
+      title: t("toasts.priorityTitle"),
       context: "personal-task",
     });
   };
@@ -498,7 +535,7 @@ export default function PersonalTasks() {
   const columns = [
     {
       id: "title",
-      label: "Task",
+      label: t("table.columns.title"),
       sortable: true,
       locked: true,
       render: (task) => (
@@ -511,22 +548,22 @@ export default function PersonalTasks() {
     },
     {
       id: "category",
-      label: "Category",
+      label: t("table.columns.category"),
       sortable: true,
       render: (task) => (
         <div className="flex items-center gap-2">
           <i className={categoryIcons[task.category] || categoryIcons["Other"]}></i>
-          <span className="text-sm">{task.category}</span>
+          <span className="text-sm">{categoryLabelMap[task.category] || task.category}</span>
         </div>
       ),
     },
     {
       id: "dueDate",
-      label: "Due Date",
+      label: t("table.columns.dueDate"),
       sortable: true,
       render: (task) => {
         if (task.dueDate === null) {
-          return <span className="text-sm text-slate-500 dark:text-slate-400">N/A</span>;
+          return <span className="text-sm text-slate-500 dark:text-slate-400">{t("table.dueDate.na")}</span>;
         }
 
         const today = new Date();
@@ -546,29 +583,31 @@ export default function PersonalTasks() {
     },
     {
       id: "priority",
-      label: "Priority",
+      label: t("table.columns.priority"),
       sortable: true,
       render: (task) => (
         <PriorityDropdown
           task={task}
           onPriorityChange={handlePriorityChange}
+          t={t}
         />
       ),
     },
     {
       id: "status",
-      label: "Status",
+      label: t("table.columns.status"),
       sortable: true,
       render: (task) => (
         <StatusDropdown
           task={task}
           onStatusChange={handleStatusChange}
+          t={t}
         />
       ),
     },
     {
       id: "actions",
-      label: "Actions",
+      label: t("table.columns.actions"),
       sortable: false,
       locked: true,
       render: (task) => (
@@ -576,7 +615,7 @@ export default function PersonalTasks() {
           <IconButton
             icon="view"
             variant="view"
-            title="View details"
+            title={t("table.actions.view")}
             onClick={(e) => {
               e.stopPropagation();
               handleView(task.id);
@@ -585,7 +624,7 @@ export default function PersonalTasks() {
           <IconButton
             icon="edit"
             variant="edit"
-            title="Edit"
+            title={t("table.actions.edit")}
             onClick={(e) => {
               e.stopPropagation();
               handleEdit(task);
@@ -594,7 +633,7 @@ export default function PersonalTasks() {
           <IconButton
             icon="delete"
             variant="delete"
-            title="Delete"
+            title={t("table.actions.delete")}
             onClick={(e) => {
               e.stopPropagation();
               handleDelete(task.id);
@@ -613,6 +652,17 @@ export default function PersonalTasks() {
     searchableFields: ["title", "category", "status", "priority"],
   });
 
+  const headerSubtitle = table.isFiltering
+    ? t("page.subtitleFiltered", {
+        total: table.originalTotalItems,
+        displayed: table.totalItems,
+      })
+    : t("page.subtitle", { total: table.originalTotalItems });
+
+  const tableEmptyMessage = table.isFiltering
+    ? t("table.emptyFiltered")
+    : t("table.empty");
+
   const handleView = (id) => {
     navigate(`/personal-tasks/${id}`);
   };
@@ -623,16 +673,16 @@ export default function PersonalTasks() {
   };
 
   const handleDelete = async (id) => {
-    if (await confirm({
-      title: "Delete Task",
-      message: "Are you sure you want to delete this task?",
-      confirmText: "Delete",
-      cancelText: "Cancel",
+  if (await confirm({
+      title: t("confirm.delete.title"),
+      message: t("confirm.delete.message"),
+      confirmText: t("confirm.delete.confirm"),
+      cancelText: t("confirm.delete.cancel"),
       variant: "danger"
     })) {
       deletePersonalTask(id);
-      showToast("Personal task deleted", "warning", {
-        title: "Deletion Successful",
+      showToast(t("toasts.deleteSuccess.body"), "warning", {
+        title: t("toasts.deleteSuccess.title"),
         context: "personal-task",
       });
     }
@@ -651,13 +701,14 @@ export default function PersonalTasks() {
 
       if (editingTask) {
         updatePersonalTask(editingTask.id, formData);
-        showToast("Task successfully updated!", "success");
+        showToast(t("toasts.updateSuccess"), "success");
       } else {
         console.log('[PersonalTasks.handleSubmit] Creating personal task with formData:', formData);
 
         const creation = await addPersonalTask(formData);
         const createdTask = creation?.created || creation;
-        showToast("Task added Successfully!", "success");
+        if (!createdTask?.id) throw new Error(t("toasts.missingId"));
+        showToast(t("toasts.createSuccess"), "success");
 
         // ✅ Log creation event
         logEntityCreation('personalTask', createdTask.id, formData.title);
@@ -673,7 +724,7 @@ export default function PersonalTasks() {
       setEditingTask(null);
     } catch (error) {
       console.error("Error submitting task:", error);
-      showToast("Error saving task", "error");
+      showToast(t("toasts.saveError"), "error");
     } finally {
       setIsLoading(false);
     }
@@ -708,68 +759,68 @@ export default function PersonalTasks() {
   };
 
   // Form fields for personal tasks
-  const personalTaskFormFields = [
+    const personalTaskFormFields = [
     {
       name: "title",
-      label: "Task Title",
+      label: t("form.fields.title.label"),
       type: "text",
       required: true,
       fullWidth: true,
-      placeholder: "Ex: Pay electricity bill"
+      placeholder: t("form.fields.title.placeholder")
     },
     {
       name: "category",
-      label: "Category",
+      label: t("form.fields.category.label"),
       type: "select",
       required: true,
       options: [
-        { value: "Invoices", label: "💰 Invoices" },
-        { value: "Office", label: "💼 Office" },
-        { value: "Personal", label: "👤 Personal" },
-        { value: "IT", label: "💻 IT" },
-        { value: "Administrative", label: "📋 Administrative" },
-        { value: "Other", label: "📌 Other" },
+        { value: "Invoices", label: t("form.fields.category.options.invoices") },
+        { value: "Office", label: t("form.fields.category.options.office") },
+        { value: "Personal", label: t("form.fields.category.options.personal") },
+        { value: "IT", label: t("form.fields.category.options.it") },
+        { value: "Administrative", label: t("form.fields.category.options.administrative") },
+        { value: "Other", label: t("form.fields.category.options.other") },
       ]
     },
     {
       name: "dueDate",
-      label: "Due Date",
+      label: t("form.fields.dueDate.label"),
       type: "date",
       required: true,
     },
     {
       name: "priority",
-      label: "Priority",
+      label: t("form.fields.priority.label"),
       type: "select",
       required: true,
       defaultValue: "Medium",
       options: [
-        { value: "High", label: "🔴 High" },
-        { value: "Medium", label: "🟡 Medium" },
-        { value: "Low", label: "🟢 Low" },
+        { value: "High", label: t("form.fields.priority.options.high") },
+        { value: "Medium", label: t("form.fields.priority.options.medium") },
+        { value: "Low", label: t("form.fields.priority.options.low") },
       ]
     },
     {
       name: "status",
-      label: "Status",
+      label: t("form.fields.status.label"),
       type: "select",
       required: true,
       defaultValue: "Pending",
       options: [
-        { value: "Not Started", label: "Not Started" },
-        { value: "Pending", label: "Pending" },
-        { value: "In Progress", label: "In Progress" },
-        { value: "Scheduled", label: "Scheduled" },
-        { value: "Completed", label: "Completed" },
+        { value: "Not Started", label: statusLabelMap["Not Started"] || "Not Started" },
+        { value: "Pending", label: statusLabelMap["Pending"] || "Pending" },
+        { value: "In Progress", label: statusLabelMap["In Progress"] || "In Progress" },
+        { value: "Scheduled", label: statusLabelMap["Scheduled"] || "Scheduled" },
+        { value: "Completed", label: statusLabelMap["Completed"] || "Completed" },
       ]
     },
     {
       name: "notes",
-      label: "Notes",
+      label: t("form.fields.notes.label"),
       type: "textarea",
       fullWidth: true,
       rows: 3,
-      placeholder: "Additional notes..."
+      placeholder: t("form.fields.notes.placeholder")
     },
   ];
 
@@ -780,8 +831,8 @@ export default function PersonalTasks() {
         return {
           ...field,
           type: 'readonly',
-          displayValue: editingTask.status,
-          helpText: 'Status can only be changed via the selector in the list view.',
+          displayValue: statusLabelMap[editingTask.status] || editingTask.status,
+          helpText: t("form.help.statusLocked"),
         };
       }
       return field;
@@ -802,8 +853,8 @@ export default function PersonalTasks() {
   return (
     <PageLayout>
       <PageHeader
-        title="Personal Tasks"
-        subtitle={`${table.originalTotalItems} personal tasks${table.isFiltering ? ` • ${table.totalItems} displayed` : ""}`}
+        title={t("page.title")}
+        subtitle={headerSubtitle}
         icon="fas fa-sticky-note"
         actions={
           <button
@@ -811,7 +862,7 @@ export default function PersonalTasks() {
             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center gap-2"
           >
             <i className="fas fa-plus"></i>
-            New Task
+            {t("page.actions.newTask")}
           </button>
         }
       />
@@ -825,7 +876,7 @@ export default function PersonalTasks() {
             </div>
             <div>
               <p className="text-2xl font-bold text-slate-900 dark:text-white">{stats.total}</p>
-              <p className="text-sm text-slate-500 dark:text-slate-400">Total</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">{t("stats.total")}</p>
             </div>
           </div>
         </div>
@@ -837,7 +888,7 @@ export default function PersonalTasks() {
             </div>
             <div>
               <p className="text-2xl font-bold text-slate-900 dark:text-white">{stats.pending}</p>
-              <p className="text-sm text-slate-500 dark:text-slate-400">Pending</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">{t("stats.pending")}</p>
             </div>
           </div>
         </div>
@@ -849,7 +900,7 @@ export default function PersonalTasks() {
             </div>
             <div>
               <p className="text-2xl font-bold text-slate-900 dark:text-white">{stats.completed}</p>
-              <p className="text-sm text-slate-500 dark:text-slate-400">Completed</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">{t("stats.completed")}</p>
             </div>
           </div>
         </div>
@@ -861,7 +912,7 @@ export default function PersonalTasks() {
             </div>
             <div>
               <p className="text-2xl font-bold text-slate-900 dark:text-white">{stats.overdue}</p>
-              <p className="text-sm text-slate-500 dark:text-slate-400">Over Due</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">{t("stats.overdue")}</p>
             </div>
           </div>
         </div>
@@ -890,7 +941,7 @@ export default function PersonalTasks() {
             onReorder={table.reorderColumns}
             enableReorder={true}
           />
-          <TableBody isEmpty={table.data.length === 0} emptyMessage={table.isFiltering ? "No results found" : "No personal tasks available"}>
+          <TableBody isEmpty={table.data.length === 0} emptyMessage={tableEmptyMessage}>
             {table.data.map((task) => (
               <TableRow
                 key={task.id}
@@ -924,8 +975,8 @@ export default function PersonalTasks() {
           setEditingTask(null);
         }}
         onSubmit={handleSubmit}
-        title={editingTask ? "Edit Task" : "New Personal Task"}
-        subtitle={editingTask ? "Edit the personal task" : "Add a task not linked to cases or clients"}
+        title={editingTask ? t("form.title.edit") : t("form.title.create")}
+        subtitle={editingTask ? t("form.subtitle.edit") : t("form.subtitle.create")}
         fields={dynamicPersonalTaskFormFields}
         initialData={editingTask}
         isLoading={isLoading}
@@ -936,3 +987,8 @@ export default function PersonalTasks() {
     </PageLayout>
   );
 }
+
+
+
+
+

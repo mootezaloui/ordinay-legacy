@@ -1,0 +1,184 @@
+{
+  "page": {
+    "title": "Comptabilité",
+    "subtitle": "{{total}} écritures au total",
+    "subtitleFiltered": "{{total}} écritures au total, {{displayed}} affichées",
+    "actions": {
+      "new": "Nouvelle écriture"
+    }
+  },
+  "stats": {
+    "totalRevenue": "Recettes clients",
+    "clientExpenses": "Dépenses clients",
+    "officeExpenses": "Dépenses bureau",
+    "netBalance": "Solde net",
+    "trend": {
+      "clients": "Flux clients",
+      "reimbursable": "Remboursable",
+      "internal": "Interne",
+      "positive": "Solde positif",
+      "negative": "Solde négatif"
+    }
+  },
+  "filters": {
+    "all": "Tous",
+    "clients": "Clients",
+    "internal": "Bureau"
+  },
+  "priority": {
+    "title": "Éléments prioritaires ({{count}})",
+    "more": "et {{count}} autres éléments..."
+  },
+  "table": {
+    "columns": {
+      "date": "Date",
+      "entry": "Écriture",
+      "clientDossier": "Client / Dossier",
+      "type": "Type",
+      "amount": "Montant",
+      "status": "Statut",
+      "actions": "Actions"
+    },
+    "type": {
+      "revenue": "Recette",
+      "expense": "Dépense"
+    },
+    "status": {
+      "draft": "Brouillon",
+      "confirmed": "Confirmé",
+      "paid": "Payé",
+      "cancelled": "Annulé"
+    },
+    "scope": {
+      "client": "Client",
+      "internal": "Bureau",
+      "office": "Bureau"
+    },
+    "category": {
+      "honoraires": "Honoraires",
+      "advance": "Avance client",
+      "other": "Autre",
+      "frais_bureau": "Frais de bureau",
+      "frais_judiciaires": "Frais judiciaires",
+      "frais_huissier": "Frais d'huissier"
+    },
+    "fallback": {
+      "untitled": "Sans titre"
+    },
+    "actions": {
+      "edit": "Modifier",
+      "delete": "Supprimer"
+    },
+    "empty": "Aucune écriture comptable pour le moment",
+    "emptyFiltered": "Aucune écriture ne correspond à vos filtres"
+  },
+  "confirm": {
+    "delete": {
+      "title": "Supprimer l'écriture",
+      "message": "Êtes-vous sûr de vouloir supprimer cette écriture ? Cette action est irréversible.",
+      "confirm": "Supprimer",
+      "cancel": "Annuler"
+    }
+  },
+  "toasts": {
+    "deleteSuccess": "Écriture supprimée",
+    "deleteError": "Impossible de supprimer l'écriture",
+    "updateSuccess": "Écriture mise à jour",
+    "createSuccess": "Écriture créée",
+    "saveError": "Impossible d'enregistrer l'écriture"
+  },
+  "history": {
+    "updateLabel": "Écriture comptable mise à jour"
+  },
+  "form": {
+    "title": {
+      "edit": "Modifier une écriture",
+      "create": "Nouvelle écriture"
+    },
+    "subtitle": {
+      "edit": "Mettez à jour les détails comptables ci-dessous",
+      "create": "Ajoutez une nouvelle écriture comptable"
+    },
+    "fields": {
+      "scope": {
+        "label": "Portée financière",
+        "help": "Choisissez \"Client\" pour les opérations clients, \"Interne\" pour les dépenses du cabinet",
+        "options": {
+          "client": "Client (impacte le solde client)",
+          "internal": "Interne (dépenses du bureau)"
+        }
+      },
+      "type": {
+        "label": "Type d'opération",
+        "help": "Indiquez s'il s'agit d'une recette ou d'une dépense",
+        "options": {
+          "revenue": "Recette (argent reçu)",
+          "expense": "Dépense (argent versé)"
+        }
+      },
+      "category": {
+        "label": "Catégorie",
+        "placeholder": "Sélectionnez une catégorie",
+        "options": {
+          "honoraires": "Honoraires",
+          "advance": "Avance client",
+          "other": "Autre",
+          "frais_bureau": "Frais de bureau",
+          "frais_judiciaires": "Frais judiciaires",
+          "frais_huissier": "Frais d'huissier"
+        }
+      },
+      "amount": {
+        "label": "Montant (TND)",
+        "placeholder": "0.00"
+      },
+      "date": {
+        "label": "Date"
+      },
+      "status": {
+        "label": "Statut"
+      },
+      "title": {
+        "label": "Titre",
+        "placeholder": "Ex : Frais de dépôt, frais de déplacement d'huissier, consultation...",
+        "help": "Titre court et descriptif de l'écriture"
+      },
+      "description": {
+        "label": "Détails complémentaires (optionnel)",
+        "placeholder": "Détails supplémentaires sur cette écriture..."
+      },
+      "client": {
+        "label": "Client",
+        "help": "Client concerné (obligatoire si portée = Client)",
+        "placeholder": "Sélectionnez un client"
+      },
+      "dossier": {
+        "label": "Dossier (optionnel)",
+        "help": "Dossier concerné (optionnel)",
+        "placeholder": "Sélectionnez un dossier"
+      },
+      "case": {
+        "label": "Affaire (optionnel)",
+        "help": "Affaire concernée (optionnel)",
+        "placeholder": "Sélectionnez une affaire"
+      },
+      "mission": {
+        "label": "Mission associée",
+        "help": "Sélectionnez la mission d'huissier liée à ces frais",
+        "selectPrerequisite": "Veuillez d'abord choisir un dossier ou une affaire",
+        "noneForEntity": "Aucune mission pour ce dossier/cette affaire",
+        "selectMission": "Sélectionnez la mission liée à ces frais",
+        "noneAvailable": "Aucune mission disponible",
+        "fallbackOfficer": "Huissier non défini",
+        "autoDescription": "Frais d'huissier - {{missionNumber}} - {{title}}"
+      }
+    }
+  },
+  "blocker": {
+    "action": "Modifier/Supprimer l'écriture",
+    "entityFallback": "Écriture"
+  },
+  "export": {
+    "filename": "comptabilite-{{date}}.csv"
+  }
+}

@@ -3,9 +3,11 @@ import { useToast } from "../contexts/ToastContext";
 import PageLayout from "../components/layout/PageLayout";
 import PageHeader from "../components/layout/PageHeader";
 import ContentSection from "../components/layout/ContentSection";
+import { useTranslation } from "react-i18next";
 
 export default function Profile() {
   const { showToast } = useToast();
+  const { t } = useTranslation("profile");
   const [isEditing, setIsEditing] = useState(false);
   const [profile, setProfile] = useState({
     firstName: "Mohamed",
@@ -34,7 +36,7 @@ export default function Profile() {
     console.log("Profile saved:", profile);
     setIsEditing(false);
     // TODO: API call to save profile
-    showToast("Profile updated successfully!", "success");
+    showToast(t("toasts.saveSuccess"), "success");
   };
 
   const handleCancel = () => {
@@ -45,8 +47,8 @@ export default function Profile() {
   return (
     <PageLayout>
       <PageHeader
-        title="My Profile"
-        subtitle="Manage your personal and professional information"
+        title={t("page.title")}
+        subtitle={t("page.subtitle")}
         icon="fas fa-user-circle"
         actions={
           !isEditing && (
@@ -55,7 +57,7 @@ export default function Profile() {
               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center gap-2"
             >
               <i className="fas fa-edit"></i>
-              Edit Profile
+              {t("actions.edit")}
             </button>
           )
         }
@@ -112,7 +114,7 @@ export default function Profile() {
           <div className="p-6 bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-slate-500 dark:text-slate-400">Active Dossiers</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400">{t("stats.activeDossiers")}</p>
                 <p className="text-3xl font-bold text-slate-900 dark:text-white mt-2">
                   {stats.activeCases}
                 </p>
@@ -126,7 +128,7 @@ export default function Profile() {
           <div className="p-6 bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-slate-500 dark:text-slate-400">Total Clients</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400">{t("stats.totalClients")}</p>
                 <p className="text-3xl font-bold text-slate-900 dark:text-white mt-2">
                   {stats.totalClients}
                 </p>
@@ -140,7 +142,7 @@ export default function Profile() {
           <div className="p-6 bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-slate-500 dark:text-slate-400">Resolved Dossiers</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400">{t("stats.resolvedDossiers")}</p>
                 <p className="text-3xl font-bold text-slate-900 dark:text-white mt-2">
                   {stats.completedCases}
                 </p>
@@ -154,7 +156,7 @@ export default function Profile() {
           <div className="p-6 bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-slate-500 dark:text-slate-400">Success Rate</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400">{t("stats.successRate")}</p>
                 <p className="text-3xl font-bold text-slate-900 dark:text-white mt-2">
                   {stats.successRate}%
                 </p>
@@ -167,13 +169,13 @@ export default function Profile() {
         </div>
 
         {/* Personal Information */}
-        <ContentSection title="Informations Personnelles">
+        <ContentSection title={t("sections.personal")}>
           <div className="p-6 space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* First Name */}
               <div>
                 <label className="block text-sm font-medium text-slate-900 dark:text-white mb-2">
-                  First Name
+                  {t("fields.firstName")}
                 </label>
                 {isEditing ? (
                   <input
@@ -190,7 +192,7 @@ export default function Profile() {
               {/* Last Name */}
               <div>
                 <label className="block text-sm font-medium text-slate-900 dark:text-white mb-2">
-                  Last Name
+                  {t("fields.lastName")}
                 </label>
                 {isEditing ? (
                   <input
@@ -207,7 +209,7 @@ export default function Profile() {
               {/* Email */}
               <div>
                 <label className="block text-sm font-medium text-slate-900 dark:text-white mb-2">
-                  Email
+                  {t("fields.email")}
                 </label>
                 {isEditing ? (
                   <input
@@ -224,7 +226,7 @@ export default function Profile() {
               {/* Phone */}
               <div>
                 <label className="block text-sm font-medium text-slate-900 dark:text-white mb-2">
-                  Phone
+                  {t("fields.phone")}
                 </label>
                 {isEditing ? (
                   <input
@@ -242,13 +244,13 @@ export default function Profile() {
         </ContentSection>
 
         {/* Professional Information */}
-        <ContentSection title="Informations Professionnelles">
+        <ContentSection title={t("sections.professional")}>
           <div className="p-6 space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Title */}
               <div>
                 <label className="block text-sm font-medium text-slate-900 dark:text-white mb-2">
-                  Titre
+                  {t("fields.title")}
                 </label>
                 {isEditing ? (
                   <input
@@ -265,7 +267,7 @@ export default function Profile() {
               {/* Specialization */}
               <div>
                 <label className="block text-sm font-medium text-slate-900 dark:text-white mb-2">
-                  Specialization
+                  {t("fields.specialization")}
                 </label>
                 {isEditing ? (
                   <input
@@ -282,7 +284,7 @@ export default function Profile() {
               {/* Bar Number */}
               <div>
                 <label className="block text-sm font-medium text-slate-900 dark:text-white mb-2">
-                  Bar Number
+                  {t("fields.barNumber")}
                 </label>
                 {isEditing ? (
                   <input
@@ -299,7 +301,7 @@ export default function Profile() {
               {/* Office */}
               <div>
                 <label className="block text-sm font-medium text-slate-900 dark:text-white mb-2">
-                  Office
+                  {t("fields.office")}
                 </label>
                 {isEditing ? (
                   <input
@@ -317,7 +319,7 @@ export default function Profile() {
             {/* Bio */}
             <div>
               <label className="block text-sm font-medium text-slate-900 dark:text-white mb-2">
-                Biography
+                {t("fields.bio")}
               </label>
               {isEditing ? (
                 <textarea
@@ -340,14 +342,14 @@ export default function Profile() {
               onClick={handleCancel}
               className="px-6 py-2.5 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-lg font-medium transition-colors duration-200"
             >
-              Cancel
+              {t("actions.cancel")}
             </button>
             <button
               onClick={handleSave}
               className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center gap-2"
             >
               <i className="fas fa-save"></i>
-              Save Changes
+              {t("actions.save")}
             </button>
           </div>
         )}

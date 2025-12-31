@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useAdvancedTable } from "../hooks/useAdvancedTable";
 import { useToast } from "../contexts/ToastContext";
 import { useConfirm } from "../contexts/ConfirmContext";
@@ -17,7 +18,7 @@ import TableToolbar from "../components/table/TableToolbar";
 import Pagination from "../components/table/Pagination";
 import FormModal from "../components/FormModal/FormModal";
 import StatCard from "../components/dashboard/StatCard";
-import { sessionFormFields, getFormTitle } from "../components/FormModal/formConfigs";
+import { sessionFormFields } from "../components/FormModal/formConfigs";
 import InlineStatusSelector from "../components/InlineSelectors/InlineStatusSelector";
 import BlockerModal from "../components/ui/BlockerModal";
 import ConfirmImpactModal from "../components/ui/ConfirmImpactModal";
@@ -27,6 +28,7 @@ import { logEntityCreation } from "../services/historyService";
 import { useSettings } from "../contexts/SettingsContext";
 
 export default function Sessions() {
+  const { t } = useTranslation("sessions");
   const navigate = useNavigate();
   const { showToast } = useToast();
   const { confirm } = useConfirm();
@@ -41,7 +43,7 @@ export default function Sessions() {
     financialEntries,
     addSession,
     updateSession,
-    deleteSession
+    deleteSession,
   } = useData();
   const { formatDate } = useSettings();
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -53,87 +55,99 @@ export default function Sessions() {
   const [pendingFormData, setPendingFormData] = useState(null);
 
   const typeIcons = {
-    "Consultation": "fas fa-comments",
-    "Audience": "fas fa-gavel",
-    "Expertise": "fas fa-microscope",
-    "Mediation": "fas fa-handshake",
-    "Phone": "fas fa-phone",
+    Consultation: "fas fa-comments",
+    Audience: "fas fa-gavel",
+    Expertise: "fas fa-microscope",
+    Mediation: "fas fa-handshake",
+    Phone: "fas fa-phone",
   };
 
-  const statusLabelMap = {
-    "Scheduled": "Scheduled",
-    "Confirmed": "Confirmed",
-    "On Hold": "On Hold",
-    "Completed": "Completed",
-    "Cancelled": "Cancelled",
-  };
+  const statusLabelMap = useMemo(
+    () => ({
+      Scheduled: t("table.status.scheduled"),
+      Confirmed: t("table.status.confirmed"),
+      Pending: t("table.status.pending"),
+      "On Hold": t("table.status.onHold"),
+      Completed: t("table.status.completed"),
+      Cancelled: t("table.status.cancelled"),
+    }),
+    [t]
+  );
 
-  const typeLabelMap = {
-    "Consultation": "Consultation",
-    "Audience": "Hearing",
-    "Expertise": "Expert Review",
-    "Mediation": "Mediation",
-    "Phone": "Phone",
-  };
+  const typeLabelMap = useMemo(
+    () => ({
+      Consultation: t("table.type.consultation"),
+      Audience: t("table.type.audience"),
+      Expertise: t("table.type.expertise"),
+      Mediation: t("table.type.mediation"),
+      Phone: t("table.type.phone"),
+    }),
+    [t]
+  );
 
   const getStatusLabel = (status) => statusLabelMap[status] || status;
   const getTypeLabel = (type) => typeLabelMap[type] || type;
 
-  // Calculate stats
   const stats = {
     total: sessions.length,
-    today: sessions.filter(s => s.date === new Date().toISOString().split('T')[0]).length,
-    thisWeek: sessions.filter(s => {
+    today: sessions.filter(
+      (s) => s.date === new Date().toISOString().split("T")[0]
+    ).length,
+    thisWeek: sessions.filter((s) => {
       const sessionDate = new Date(s.date);
       const now = new Date();
       const weekStart = new Date(now.setDate(now.getDate() - now.getDay()));
-      const weekEnd = new Date(now.setDate(weekStart.getDate() + 7));
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 7);
       return sessionDate >= weekStart && sessionDate <= weekEnd;
     }).length,
-    completed: sessions.filter(s => s.status === "Terminée").length,
+    completed: sessions.filter((s) => s.status === "TerminAce").length,
   };
 
-  // Define table columns
   const columns = [
     {
       id: "title",
-      label: "Title",
+      label: t("table.columns.title"),
       sortable: true,
       locked: true,
       render: (session) => <span className="font-medium">{session.title}</span>,
     },
     {
       id: "type",
-      label: "Type",
+      label: t("table.columns.type"),
       sortable: true,
       render: (session) => (
         <div className="flex items-center gap-2">
-          <i className={`${typeIcons[session.type]} text-blue-600 dark:text-blue-400 text-sm`}></i>
+          <i
+            className={`${typeIcons[session.type]} text-blue-600 dark:text-blue-400 text-sm`}
+          ></i>
           <span className="text-sm">{getTypeLabel(session.type)}</span>
         </div>
       ),
     },
     {
       id: "date",
-      label: "Date",
+      label: t("table.columns.date"),
       sortable: true,
       render: (session) => <span className="font-medium">{formatDate(session.date)}</span>,
     },
     {
       id: "time",
-      label: "Time",
+      label: t("table.columns.time"),
       sortable: true,
       render: (session) => session.time,
     },
     {
       id: "duration",
-      label: "Duration",
+      label: t("table.columns.duration"),
       sortable: true,
-      render: (session) => <span className="text-slate-600 dark:text-slate-400">{session.duration}</span>,
+      render: (session) => (
+        <span className="text-slate-600 dark:text-slate-400">{session.duration}</span>
+      ),
     },
     {
       id: "location",
-      label: "Location",
+      label: t("table.columns.location"),
       sortable: true,
       render: (session) => (
         <div className="flex items-center gap-2">
@@ -144,18 +158,18 @@ export default function Sessions() {
     },
     {
       id: "status",
-      label: "Status",
+      label: t("table.columns.status"),
       sortable: true,
       render: (session) => (
         <InlineStatusSelector
           value={session.status}
           onChange={(newStatus) => handleStatusChange(session.id, newStatus)}
           statusOptions={[
-            { value: "Scheduled", label: "Scheduled", icon: "fas fa-calendar", color: "blue" },
-            { value: "Confirmed", label: "Confirmed", icon: "fas fa-check", color: "green" },
-            { value: "Pending", label: "Pending", icon: "fas fa-clock", color: "amber" },
-            { value: "Completed", label: "Completed", icon: "fas fa-check-circle", color: "slate" },
-            { value: "Cancelled", label: "Cancelled", icon: "fas fa-times-circle", color: "red" },
+            { value: "Scheduled", label: statusLabelMap.Scheduled, icon: "fas fa-calendar", color: "blue" },
+            { value: "Confirmed", label: statusLabelMap.Confirmed, icon: "fas fa-check", color: "green" },
+            { value: "Pending", label: statusLabelMap.Pending, icon: "fas fa-clock", color: "amber" },
+            { value: "Completed", label: statusLabelMap.Completed, icon: "fas fa-check-circle", color: "slate" },
+            { value: "Cancelled", label: statusLabelMap.Cancelled, icon: "fas fa-times-circle", color: "red" },
           ]}
           entityType="session"
           entityId={session.id}
@@ -165,7 +179,7 @@ export default function Sessions() {
     },
     {
       id: "actions",
-      label: "Actions",
+      label: t("table.columns.actions"),
       sortable: false,
       locked: true,
       render: (session) => (
@@ -173,7 +187,7 @@ export default function Sessions() {
           <IconButton
             icon="view"
             variant="view"
-            title="View details"
+            title={t("table.actions.view")}
             onClick={(e) => {
               e.stopPropagation();
               handleView(session.id);
@@ -182,7 +196,7 @@ export default function Sessions() {
           <IconButton
             icon="edit"
             variant="edit"
-            title="Edit"
+            title={t("table.actions.edit")}
             onClick={(e) => {
               e.stopPropagation();
               handleEdit(session);
@@ -191,7 +205,7 @@ export default function Sessions() {
           <IconButton
             icon="delete"
             variant="delete"
-            title="Delete"
+            title={t("table.actions.delete")}
             onClick={(e) => {
               e.stopPropagation();
               handleDelete(session.id);
@@ -202,7 +216,6 @@ export default function Sessions() {
     },
   ];
 
-  // Initialize advanced table
   const table = useAdvancedTable(sessions, columns, {
     initialSortBy: "date",
     initialSortDirection: "asc",
@@ -215,10 +228,9 @@ export default function Sessions() {
   };
 
   const handleEdit = (session) => {
-    // ✅ Validate before allowing edit
-    const result = canPerformAction('session', session.id, 'edit', {
+    const result = canPerformAction("session", session.id, "edit", {
       data: session,
-      entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
+      entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries },
     });
 
     if (!result.allowed) {
@@ -227,18 +239,16 @@ export default function Sessions() {
       return;
     }
 
-    // Determine linkType based on existing data
     const linkType = session.caseId ? "case" : "dossier";
     setEditingSession({ ...session, linkType });
     setIsModalOpen(true);
   };
 
   const handleDelete = async (id) => {
-    // ✅ Validate before allowing delete
-    const session = sessions.find(s => s.id === id);
-    const result = canPerformAction('session', id, 'delete', {
+    const session = sessions.find((s) => s.id === id);
+    const result = canPerformAction("session", id, "delete", {
       data: session,
-      entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
+      entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries },
     });
 
     if (!result.allowed) {
@@ -247,29 +257,31 @@ export default function Sessions() {
       return;
     }
 
-    if (await confirm({
-      title: "Delete session",
-      message: "Are you sure you want to delete this session?",
-      confirmText: "Delete",
-      cancelText: "Cancel",
-      variant: "danger"
-    })) {
+    if (
+      await confirm({
+        title: t("confirm.delete.title"),
+        message: t("confirm.delete.message"),
+        confirmText: t("confirm.delete.confirm"),
+        cancelText: t("confirm.delete.cancel"),
+        variant: "danger",
+      })
+    ) {
       try {
         await deleteSession(id);
-        showToast("Session deleted", "warning", {
-          title: "Deleted",
+        showToast(t("toasts.deleteSuccess"), "warning", {
+          title: t("toasts.deletedTitle"),
           context: "session",
         });
       } catch (error) {
-        showToast("Error deleting session", "error");
+        showToast(t("toasts.deleteError"), "error");
       }
     }
   };
 
   const handleStatusChange = (id, newStatus) => {
     updateSession(id, { status: newStatus });
-    showToast(`Status updated: ${getStatusLabel(newStatus)}`, "info", {
-      title: "Session status",
+    showToast(t("toasts.statusUpdated", { status: getStatusLabel(newStatus) }), "info", {
+      title: t("toasts.statusTitle"),
       context: "session",
     });
   };
@@ -280,12 +292,11 @@ export default function Sessions() {
   };
 
   const handleSubmit = async (formData) => {
-    // ?. Validate before submitting
     if (editingSession) {
-      const result = canPerformAction('session', editingSession.id, 'edit', {
+      const result = canPerformAction("session", editingSession.id, "edit", {
         data: editingSession,
         newData: formData,
-        entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
+        entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries },
       });
 
       if (!result.allowed) {
@@ -301,9 +312,9 @@ export default function Sessions() {
         return;
       }
     } else {
-      const result = canPerformAction('session', null, 'add', {
+      const result = canPerformAction("session", null, "add", {
         formData,
-        entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
+        entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries },
       });
       if (!result.allowed) {
         setValidationResult(result);
@@ -329,17 +340,15 @@ export default function Sessions() {
 
       if (editingSession) {
         updateSession(editingSession.id, formData);
-        showToast("Session updated successfully!", "success");
+        showToast(t("toasts.updateSuccess"), "success");
       } else {
         const creation = await addSession(formData);
         const createdSession = creation?.created || creation;
-        showToast("Session added successfully!", "success");
+        showToast(t("toasts.createSuccess"), "success");
 
-        // ✅ Log creation event
-        logEntityCreation('session', createdSession.id, formData.type || 'Session');
+        logEntityCreation("session", createdSession.id, formData.type || "Session");
 
-        // ✅ Navigate to detail view after creation
-        const detailRoute = resolveDetailRoute('session', createdSession.id);
+        const detailRoute = resolveDetailRoute("session", createdSession.id);
         if (detailRoute) {
           setTimeout(() => navigate(detailRoute), 100);
         }
@@ -349,7 +358,7 @@ export default function Sessions() {
       setEditingSession(null);
     } catch (error) {
       console.error("Error submitting session:", error);
-      showToast("Error while saving", "error");
+      showToast(t("toasts.saveError"), "error");
     } finally {
       setIsLoading(false);
     }
@@ -363,17 +372,15 @@ export default function Sessions() {
 
   const handleExport = () => {
     const headers = table.columns
-      .filter(col => col.id !== "actions")
-      .map(col => col.label)
+      .filter((col) => col.id !== "actions")
+      .map((col) => col.label)
       .join(",");
 
-    const rows = table.allData.map(session =>
+    const rows = table.allData.map((session) =>
       table.columns
-        .filter(col => col.id !== "actions")
-        .map(col => {
-          const value = col.id === "date"
-            ? formatDate(session.date)
-            : session[col.id] || "";
+        .filter((col) => col.id !== "actions")
+        .map((col) => {
+          const value = col.id === "date" ? formatDate(session.date) : session[col.id] || "";
           return `"${value}"`;
         })
         .join(",")
@@ -384,38 +391,36 @@ export default function Sessions() {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `sessions-${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = t("export.filename", { date: new Date().toISOString().split("T")[0] });
     a.click();
     window.URL.revokeObjectURL(url);
   };
 
-  // ✅ Populate case and dossier options in the form fields
-  const populatedSessionFormFields = sessionFormFields.map(field => {
+  const populatedSessionFormFields = sessionFormFields.map((field) => {
     if (field.name === "caseId") {
       return {
         ...field,
-        options: cases.map(c => ({
+        options: cases.map((c) => ({
           value: c.id,
-          label: `${c.caseNumber} - ${c.title}`
-        }))
+          label: `${c.caseNumber} - ${c.title}`,
+        })),
       };
     }
     if (field.name === "dossierId") {
       return {
         ...field,
-        options: dossiers.map(d => ({
+        options: dossiers.map((d) => ({
           value: d.id,
-          label: `${d.caseNumber} - ${d.title}`
-        }))
+          label: `${d.caseNumber} - ${d.title}`,
+        })),
       };
     }
-    // Protect status field from direct edit to enforce domain rules
     if (field.name === "status" && editingSession) {
       return {
         ...field,
-        type: 'readonly',
+        type: "readonly",
         displayValue: editingSession.status,
-        helpText: 'Status can only be changed using the selector in the list'
+        helpText: t("form.statusReadonlyHelp"),
       };
     }
     return field;
@@ -424,50 +429,36 @@ export default function Sessions() {
   return (
     <PageLayout>
       <PageHeader
-        title="Sessions"
-        subtitle={`${table.originalTotalItems} sessions in total${table.isFiltering ? ` • ${table.totalItems} displayed` : ""}`}
+        title={t("page.title")}
+        subtitle=
+          {table.isFiltering
+            ? t("page.subtitleFiltered", {
+                total: table.originalTotalItems,
+                displayed: table.totalItems,
+              })
+            : t("page.subtitle", { total: table.originalTotalItems })}
         icon="fas fa-calendar"
         actions={
           <button
             onClick={handleAddSession}
             disabled={dossiers.length === 0}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors duration-200 flex items-center gap-2 ${dossiers.length === 0
-              ? "bg-gray-400 cursor-not-allowed text-gray-200"
-              : "bg-blue-600 hover:bg-blue-700 text-white"
-              }`}
-            title={dossiers.length === 0 ? "Ajoutez d'abord un dossier avant de programmer une audience." : ""}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors duration-200 flex items-center gap-2 ${
+              dossiers.length === 0
+                ? "bg-gray-400 cursor-not-allowed text-gray-200"
+                : "bg-blue-600 hover:bg-blue-700 text-white"
+            }`}
+            title={dossiers.length === 0 ? t("actions.disabledTooltip") : ""}
           >
             <i className="fas fa-plus"></i>
-            New Session
+            {t("actions.new")}
           </button>
         }
       />
-      {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard
-          label="Total Sessions"
-          value={stats.total}
-          icon="fas fa-calendar"
-          color="blue"
-        />
-        <StatCard
-          label="Today"
-          value={stats.today}
-          icon="fas fa-calendar-day"
-          color="purple"
-        />
-        <StatCard
-          label="This Week"
-          value={stats.thisWeek}
-          icon="fas fa-calendar-week"
-          color="amber"
-        />
-        <StatCard
-          label="Completed"
-          value={stats.completed}
-          icon="fas fa-check-circle"
-          color="green"
-        />
+        <StatCard label={t("stats.total")} value={stats.total} icon="fas fa-calendar" color="blue" />
+        <StatCard label={t("stats.today")} value={stats.today} icon="fas fa-calendar-day" color="purple" />
+        <StatCard label={t("stats.thisWeek")} value={stats.thisWeek} icon="fas fa-calendar-week" color="amber" />
+        <StatCard label={t("stats.completed")} value={stats.completed} icon="fas fa-check-circle" color="green" />
       </div>
       <ContentSection>
         <TableToolbar
@@ -492,7 +483,16 @@ export default function Sessions() {
             onReorder={table.reorderColumns}
             enableReorder={true}
           />
-          <TableBody isEmpty={table.data.length === 0} emptyMessage={table.isFiltering ? "No results found" : dossiers.length === 0 ? "Ajoutez d'abord un dossier avant de programmer une audience." : "No sessions found"}>
+          <TableBody
+            isEmpty={table.data.length === 0}
+            emptyMessage={
+              table.isFiltering
+                ? t("table.emptyFiltered")
+                : dossiers.length === 0
+                ? t("table.emptyNoDossiers")
+                : t("table.empty")
+            }
+          >
             {table.data.map((session) => (
               <TableRow
                 key={session.id}
@@ -526,8 +526,8 @@ export default function Sessions() {
           setEditingSession(null);
         }}
         onSubmit={handleSubmit}
-        title={getFormTitle("session", !!editingSession)}
-        subtitle={editingSession ? "Edit session" : "Add a new session"}
+        title={editingSession ? t("form.title.edit") : t("form.title.create")}
+        subtitle={editingSession ? t("form.subtitle.edit") : t("form.subtitle.create")}
         fields={populatedSessionFormFields}
         initialData={editingSession}
         isLoading={isLoading}
@@ -539,10 +539,14 @@ export default function Sessions() {
       <BlockerModal
         isOpen={blockerModalOpen}
         onClose={() => setBlockerModalOpen(false)}
-        actionName="Edit/Delete session"
+        actionName={t("blocker.action")}
         blockers={validationResult?.blockers || []}
         warnings={validationResult?.warnings || []}
-        entityName={`Session on ${validationResult?.entityData?.date || ''}`}
+        entityName={
+          validationResult?.entityData?.date
+            ? t("blocker.entityWithDate", { date: validationResult.entityData.date })
+            : t("blocker.entityFallback")
+        }
       />
       <ConfirmImpactModal
         isOpen={confirmImpactModalOpen}
@@ -551,11 +555,12 @@ export default function Sessions() {
           setPendingFormData(null);
         }}
         onConfirm={handleConfirmImpact}
-        actionName="confirm the change"
+        actionName={t("confirmImpact.action")}
         impactSummary={validationResult?.impactSummary || []}
-        entityName={pendingFormData?.title || editingSession?.title || ""}
+        entityName={
+          pendingFormData?.title || editingSession?.title || t("confirmImpact.entityFallback")
+        }
       />
-
     </PageLayout>
   );
 }

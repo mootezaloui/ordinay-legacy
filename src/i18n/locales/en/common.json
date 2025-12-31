@@ -1,1 +1,90 @@
-{}
+{
+  "dashboard": {
+    "title": "Dashboard",
+    "subtitle": "Overview of your law firm's performance and activities",
+    "quickActions": "Quick Actions",
+    "stats": {
+      "totalClients": "Total Clients",
+      "activeDossiers": "Active Dossiers",
+      "pendingTasks": "Pending Tasks",
+      "revenue": "Revenue",
+      "currency": "TND",
+      "trendVsLastMonth": "vs last month",
+      "newThisWeek_one": "{{count}} new this week",
+      "newThisWeek_other": "{{count}} new this week",
+      "dueToday_one": "{{count}} due today",
+      "dueToday_other": "{{count}} due today"
+    },
+    "urgentTasks": {
+      "title": "Urgent Tasks ({{count}})"
+    },
+    "upcomingEvents": {
+      "title": "Upcoming Events ({{count}})"
+    },
+    "projection": {
+      "title": "Projection (30-90 days)",
+      "show": "Show Projection",
+      "hide": "Hide",
+      "daysLabel_one": "{{count}} day",
+      "daysLabel_other": "{{count}} days",
+      "nothing": "Nothing to report",
+      "itemMeta": "{{date}} - {{label}}"
+    },
+    "planningLane": {
+      "title": "Planning Lane",
+      "subtitle": "Upcoming events (8-12 items)",
+      "empty": "No upcoming events detected."
+    },
+    "loadMap": {
+      "title": "Upcoming Load (per week)",
+      "show": "Show Load",
+      "hide": "Hide Load",
+      "empty": "No upcoming load detected.",
+      "weekLabel": "Week {{week}}",
+      "itemsCount_one": "{{count}} item",
+      "itemsCount_other": "{{count}} items",
+      "tooltipNone": "No load",
+      "tooltipType_one": "{{count}} {{type}}",
+      "tooltipType_other": "{{count}} {{type}}"
+    },
+    "recentActivity": "Recent Activity",
+    "quickStats": {
+      "title": "Statistics",
+      "dossiers": {
+        "title": "Dossiers by status",
+        "inProgress": "In Progress",
+        "pending": "Pending",
+        "closed": "Closed"
+      },
+      "tasks": {
+        "title": "Tasks by priority",
+        "high": "High",
+        "medium": "Medium",
+        "low": "Low"
+      },
+      "payments": {
+        "title": "Payment Status",
+        "paid": "Paid",
+        "pending": "Pending",
+        "overdue": "Overdue"
+      }
+    },
+    "activities": {
+      "newClient": "New client: {{name}}",
+      "dossierUpdated": "Dossier updated: {{caseNumber}}",
+      "scheduledHearing": "Scheduled hearings: {{title}}",
+      "sessionDescription": "{{date}} at {{time}}",
+      "deadline": "Deadline: {{title}}",
+      "entryTitle": "Entry #{{id}}"
+    },
+    "types": {
+      "session": "Hearing",
+      "task": "Tasks",
+      "case": "Lawsuit",
+      "dossier": "Dossier",
+      "finance": "Finance",
+      "mission": "Mission",
+      "generic": "{{type}}"
+    }
+  }
+}

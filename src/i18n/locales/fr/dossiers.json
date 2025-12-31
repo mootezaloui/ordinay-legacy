@@ -1,0 +1,231 @@
+{
+  "page": {
+    "title": "Dossiers",
+    "subtitle": "{{total}} dossiers au total",
+    "subtitleFiltered": "{{total}} dossiers au total • {{displayed}} affichés",
+    "loading": "Chargement des dossiers..."
+  },
+  "actions": {
+    "new": "Nouveau dossier",
+    "disabledTooltip": "Ajoutez d'abord un client avant de créer un dossier."
+  },
+  "stats": {
+    "total": "Total des dossiers",
+    "open": "Dossiers ouverts",
+    "closed": "Dossiers clôturés",
+    "highPriority": "Haute priorité"
+  },
+  "table": {
+    "columns": {
+      "number": "Numéro",
+      "title": "Titre",
+      "client": "Client",
+      "category": "Catégorie",
+      "status": "Statut",
+      "openDate": "Date d'ouverture",
+      "priority": "Priorité",
+      "actions": "Actions"
+    },
+    "status": {
+      "open": "Ouvert",
+      "inProgress": "En cours",
+      "onHold": "En attente",
+      "closed": "Clôturé"
+    },
+    "priority": {
+      "high": "Haute",
+      "medium": "Moyenne",
+      "low": "Basse"
+    },
+    "actions": {
+      "view": "Voir les détails",
+      "edit": "Modifier",
+      "delete": "Supprimer"
+    },
+    "empty": "Aucun dossier trouvé",
+    "emptyFiltered": "Aucun résultat trouvé",
+    "emptyNoClients": "Ajoutez d'abord un client avant de créer un dossier."
+  },
+  "confirm": {
+    "delete": {
+      "title": "Supprimer le dossier",
+      "message": "Êtes-vous sûr de vouloir supprimer ce dossier ?",
+      "confirm": "Supprimer",
+      "cancel": "Annuler"
+    }
+  },
+  "toasts": {
+    "delete": {
+      "title": "Suppression réussie",
+      "body": "Dossier supprimé"
+    },
+    "cascadeError": "Erreur lors de la suppression en cascade",
+    "cascadeSuccess": {
+      "title": "Suppression en cascade",
+      "body": "Dossier et entités liées supprimés"
+    },
+    "statusUpdated": "Statut mis à jour : {{status}}",
+    "statusTitle": "Statut du dossier",
+    "priorityUpdated": "Priorité mise à jour : {{priority}}",
+    "priorityTitle": "Priorité du dossier",
+    "updateSuccess": "Dossier mis à jour avec succès !",
+    "createSuccess": "Dossier ajouté avec succès !",
+    "saveError": "Erreur lors de l'enregistrement"
+  },
+  "form": {
+    "title": {
+      "edit": "Modifier le dossier",
+      "create": "Créer un dossier"
+    },
+    "subtitle": {
+      "edit": "Modifier les informations du dossier",
+      "create": "Créer un nouveau dossier"
+    },
+    "help": {
+      "statusLocked": "Le statut ne peut être changé que via le sélecteur dans la liste"
+    }
+  },
+  "blocker": {
+    "action": "Modifier/Supprimer un dossier",
+    "entityFallback": "Dossier"
+  },
+  "confirmImpact": {
+    "action": "Modifier la pièce jointe du dossier"
+  },
+  "errors": {
+    "missingId": "Identifiant de dossier manquant"
+  },
+  "detail": {
+    "entityName": "Dossier",
+    "notFound": "Dossier introuvable",
+    "deleteConfirm": "Êtes-vous sûr de vouloir supprimer ce dossier ?",
+    "defaults": {
+      "phases": {
+        "opening": "Ouverture",
+        "investigation": "Enquête",
+        "negotiation": "Négociation",
+        "pleading": "Plaidoirie",
+        "judgment": "Jugement",
+        "execution": "Exécution"
+      },
+      "categories": {
+        "commercial": "Droit commercial",
+        "family": "Droit de la famille",
+        "criminal": "Droit pénal",
+        "labor": "Droit du travail",
+        "realEstate": "Droit immobilier",
+        "administrative": "Droit administratif",
+        "tax": "Droit fiscal"
+      }
+    },
+    "fallback": {
+      "na": "N/A",
+      "noDeadlines": "Aucune échéance",
+      "notDefined": "Non défini",
+      "unknownClient": "Client inconnu",
+      "unassignedClient": "Client non assigné",
+      "nextDeadlineEmpty": "Aucune échéance à venir"
+    },
+    "quickActions": {
+      "status": {
+        "label": "Statut",
+        "open": "Ouvert",
+        "inProgress": "En cours",
+        "onHold": "En attente",
+        "closed": "Clôturé"
+      },
+      "priority": {
+        "label": "Priorité",
+        "high": "Haute",
+        "medium": "Moyenne",
+        "low": "Faible"
+      },
+      "phase": {
+        "label": "Phase",
+        "create": "Ajouter une phase"
+      }
+    },
+    "header": {
+      "priority": "Priorité",
+      "openingDate": "Date d'ouverture",
+      "category": "Catégorie",
+      "phase": "Phase",
+      "nextDeadline": "Prochaine échéance"
+    },
+    "deadlines": {
+      "urgency": {
+        "critical": "Critique",
+        "urgent": "Urgent",
+        "soon": "Prochain",
+        "normal": "Planifié"
+      },
+      "viewDetails": "Voir les détails"
+    },
+    "stats": {
+      "documents": "Documents",
+      "tasks": "Tâches",
+      "lawsuits": "Procès",
+      "netProfit": "Résultat net"
+    },
+    "tabs": {
+      "overview": "Vue d'ensemble",
+      "proceedings": "Procès",
+      "proceedingsEntity": "un procès",
+      "proceedingsAddSubtitle": "Créer un nouveau procès pour ce dossier",
+      "sessions": "Audiences",
+      "sessionsEntity": "une audience",
+      "sessionsAddSubtitle": "Créer une nouvelle audience pour ce dossier",
+      "tasks": "Tâches",
+      "tasksEntity": "une tâche",
+      "tasksAddSubtitle": "Créer une nouvelle tâche pour ce dossier",
+      "missions": "Missions",
+      "missionsEntity": "une mission",
+      "missionsAddSubtitle": "Créer une nouvelle mission d'huissier pour ce dossier",
+      "financial": "Comptabilité",
+      "documents": "Documents",
+      "notes": "Notes",
+      "history": "Historique"
+    },
+    "forms": {
+      "sessions": {
+        "linkHelpWithCases": "Choisissez si cette audience est liée au dossier ou à un procès spécifique",
+        "linkHelpNoCases": "Cette audience sera liée à ce dossier (aucun procès disponible)",
+        "casesEmpty": "Aucun procès disponible. Veuillez en créer un d'abord.",
+        "caseHelp": "Sélectionnez le procès auquel cette audience sera liée",
+        "dossierHelp": "Cette audience sera liée à ce dossier"
+      },
+      "tasks": {
+        "linkHelpWithCases": "Choisissez si cette tâche concerne le dossier en général ou un procès spécifique",
+        "linkHelpNoCases": "Cette tâche sera liée au dossier (aucun procès disponible)",
+        "casesEmpty": "Aucun procès disponible. Veuillez en créer un d'abord.",
+        "caseHelp": "Sélectionnez le procès auquel cette tâche sera liée",
+        "dossierHelp": "Cette tâche sera liée à ce dossier"
+      },
+      "missions": {
+        "linkedToDossier": "Cette mission sera liée au dossier {{caseNumber}}"
+      }
+    },
+    "overview": {
+      "general": "Informations générales",
+      "description": "Description du dossier",
+      "adverse": "Partie adverse",
+      "legal": "Informations légales",
+      "fields": {
+        "caseNumber": "Numéro de dossier",
+        "caseNumberHelp": "Format : DOS-ANNÉE-NUMÉRO",
+        "title": "Titre du dossier",
+        "client": "Client",
+        "clientHelp": "Attention : Changer le client transférera le dossier vers un autre client",
+        "category": "Catégorie",
+        "phase": "Phase",
+        "openDate": "Date d'ouverture",
+        "nextDeadline": "Prochaine échéance",
+        "nextDeadlineEmpty": "Aucune échéance à venir",
+        "adversaryParty": "Nom",
+        "adversaryLawyer": "Avocat",
+        "courtReference": "Référence du tribunal",
+        "estimatedValue": "Valeur estimée"
+      }
+    }
+  }
+}

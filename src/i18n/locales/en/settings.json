@@ -1,0 +1,145 @@
+{
+  "page": {
+    "title": "Settings",
+    "subtitle": "Configure your application preferences"
+  },
+  "sections": {
+    "general": "General Settings",
+    "notifications": "Notifications",
+    "appointments": "Appointment & Deadline Notifications",
+    "security": "Security Settings",
+    "appearance": "Appearance"
+  },
+  "general": {
+    "language": {
+      "label": "Language",
+      "description": "Choose the interface language"
+    },
+    "dateFormat": {
+      "label": "Date Format",
+      "description": "How to display dates"
+    }
+  },
+  "notifications": {
+    "desktop": {
+      "title": "Enable Notifications",
+      "description": "Show notifications within the app"
+    }
+  },
+  "appointments": {
+    "tasks": {
+      "title": "Tasks",
+      "overdue": {
+        "label": "Reminders for overdue tasks",
+        "description": "Daily notification for overdue tasks (up to 3 days)."
+      },
+      "upcoming": {
+        "label": "Upcoming deadline reminders",
+        "description": "Reminders: {{days}} days before the deadline."
+      }
+    },
+    "personalTasks": {
+      "title": "Personal Tasks",
+      "upcoming": {
+        "label": "Upcoming deadline reminders",
+        "description": "Reminders: {{days}} days before the deadline."
+      },
+      "completion": {
+        "label": "Completion reminders after deadline",
+        "description": "Asks if the task was completed after the deadline."
+      }
+    },
+    "sessions": {
+      "title": "Hearings",
+      "preparation": {
+        "label": "Preparation reminders",
+        "description": "Reminders for upcoming sessions: {{days}} days before the session."
+      },
+      "dayOf": {
+        "label": "Day-of reminder",
+        "description": "Critical notification on the day of the session to prevent any oversight."
+      }
+    },
+    "cases": {
+      "title": "Lawsuits",
+      "basedOnPriority": "Based on parent case priority",
+      "automaticTitle": "Automatic notifications:",
+      "items": {
+        "noSession": "Reminder if no session scheduled (frequency based on parent case priority)",
+        "updateSuggestion": "Update suggestion after sessions/tasks completed"
+      },
+      "inherits": "Lawsuits inherit the priority of their parent case to determine the frequency of reminders."
+    },
+    "payments": {
+      "title": "Payments",
+      "overdue": {
+        "label": "Overdue payment reminders",
+        "before": "Reminders before: {{days}} days",
+        "frequency": "Overdue reminders: {{days}} days"
+      }
+    },
+    "missions": {
+      "title": "Missions",
+      "upcoming": {
+        "label": "Reminders before mission deadlines",
+        "description": "Reminders: {{days}} days before the deadline."
+      },
+      "completion": {
+        "label": "Verification after deadline",
+        "description": "Request if the bailiff has completed the mission after the deadline."
+      }
+    },
+    "dossiers": {
+      "title": "Dossiers",
+      "inactivity": {
+        "label": "Inactivity reminder ({{days}} days)",
+        "description": "Notification if the case has not been updated for {{days}} days."
+      },
+      "review": {
+        "label": "Review reminder (based on priority)",
+        "high": "High priority: every {{days}} days",
+        "medium": "Medium priority: every {{days}} days",
+        "low": "Low priority: every {{days}} days"
+      },
+      "deadline": {
+        "label": "Next deadline (next_deadline)",
+        "description": "Reminders for deadlines: 7 days before, 3 days before, on the day, and in case of delay."
+      }
+    },
+    "clients": {
+      "title": "Clients",
+      "inactivity": {
+        "label": "Inactivity reminder ({{days}} days without activity)",
+        "description": "Notification if the client has had no activity (cases, tasks, sessions, payments) for {{days}} days."
+      }
+    }
+  },
+  "security": {
+    "twoFactor": {
+      "label": "Two-Factor Authentication",
+      "description": "Enhanced security for your account"
+    },
+    "sessionTimeout": {
+      "label": "Session Timeout",
+      "description": "Automatic logout after inactivity",
+      "options": {
+        "15": "15 minutes",
+        "30": "30 minutes",
+        "60": "1 hour",
+        "120": "2 hours"
+      }
+    },
+    "changePassword": "Change Password"
+  },
+  "appearance": {
+    "theme": {
+      "label": "Theme",
+      "description": "Choose the app's theme",
+      "options": {
+        "light": "Light",
+        "dark": "Dark",
+        "system": "System"
+      }
+    }
+  }
+}

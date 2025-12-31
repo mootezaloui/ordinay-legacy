@@ -1,0 +1,205 @@
+{
+  "page": {
+    "title": "Sessions",
+    "subtitle": "{{total}} sessions in total",
+    "subtitleFiltered": "{{total}} sessions in total, {{displayed}} displayed"
+  },
+  "actions": {
+    "new": "New Session",
+    "disabledTooltip": "Add a dossier before scheduling a session"
+  },
+  "stats": {
+    "total": "Total Sessions",
+    "today": "Today",
+    "thisWeek": "This Week",
+    "completed": "Completed"
+  },
+  "table": {
+    "columns": {
+      "title": "Title",
+      "type": "Type",
+      "date": "Date",
+      "time": "Time",
+      "duration": "Duration",
+      "location": "Location",
+      "status": "Status",
+      "actions": "Actions"
+    },
+    "type": {
+      "consultation": "Consultation",
+      "audience": "Hearing",
+      "expertise": "Expert Review",
+      "mediation": "Mediation",
+      "phone": "Phone"
+    },
+    "status": {
+      "scheduled": "Scheduled",
+      "confirmed": "Confirmed",
+      "pending": "Pending",
+      "onHold": "On Hold",
+      "completed": "Completed",
+      "cancelled": "Cancelled"
+    },
+    "actions": {
+      "view": "View details",
+      "edit": "Edit",
+      "delete": "Delete"
+    },
+    "empty": "No sessions found",
+    "emptyFiltered": "No results match your filters",
+    "emptyNoDossiers": "Add a dossier before scheduling a session"
+  },
+  "confirm": {
+    "delete": {
+      "title": "Delete session",
+      "message": "Are you sure you want to delete this session?",
+      "confirm": "Delete",
+      "cancel": "Cancel"
+    }
+  },
+  "toasts": {
+    "deleteSuccess": "Session deleted",
+    "deletedTitle": "Deleted",
+    "deleteError": "Error deleting session",
+    "statusUpdated": "Status updated: {{status}}",
+    "statusTitle": "Session status",
+    "updateSuccess": "Session updated successfully",
+    "createSuccess": "Session added successfully",
+    "saveError": "Error while saving"
+  },
+  "form": {
+    "title": {
+      "edit": "Edit session",
+      "create": "Add a new session"
+    },
+    "subtitle": {
+      "edit": "Update session details",
+      "create": "Create a new session"
+    },
+    "statusReadonlyHelp": "Status can only be changed using the selector in the list"
+  },
+  "blocker": {
+    "action": "Edit/Delete session",
+    "entityWithDate": "Session on {{date}}",
+    "entityFallback": "Session"
+  },
+  "confirmImpact": {
+    "action": "Confirm the change",
+    "entityFallback": "Session"
+  },
+  "export": {
+    "filename": "sessions-{{date}}.csv"
+  },
+  "detail": {
+    "entityName": "Hearing",
+    "notFound": "Hearing not found",
+    "deleteConfirm": "Are you sure you want to delete this hearing?",
+    "subtitle": "{{type}} - {{date}} at {{time}}",
+    "fallback": {
+      "na": "N/A",
+      "none": "None",
+      "noDescription": "No description"
+    },
+    "quickActions": {
+      "status": {
+        "label": "Status",
+        "scheduled": "Scheduled",
+        "confirmed": "Confirmed",
+        "pending": "Pending",
+        "completed": "Completed",
+        "cancelled": "Cancelled"
+      },
+      "type": {
+        "label": "Type",
+        "consultation": "Consultation",
+        "hearing": "Hearing",
+        "expertise": "Expertise",
+        "mediation": "Mediation",
+        "telephone": "Telephone",
+        "other": "Other"
+      }
+    },
+    "header": {
+      "date": "Date",
+      "time": "Time",
+      "duration": "Duration",
+      "location": "Location",
+      "courtRoom": "Court Room",
+      "judge": "Judge",
+      "participants": "Participants"
+    },
+    "tabs": {
+      "overview": "Overview",
+      "participants": "Participants",
+      "documents": "Documents",
+      "report": "Report",
+      "history": "History"
+    },
+    "participants": {
+      "empty": "No participants",
+      "entityName": "a participant",
+      "unnamed": "Unnamed participant",
+      "roles": {
+        "lawyer": "Lawyer",
+        "client": "Client",
+        "judge": "Judge",
+        "witness": "Witness",
+        "expert": "Expert",
+        "default": "Participant"
+      },
+      "form": {
+        "name": "Name",
+        "namePlaceholder": "Full name",
+        "nameHelp": "Who will attend this hearing?",
+        "role": "Role",
+        "rolePlaceholder": "Choose a role",
+        "email": "Email",
+        "emailPlaceholder": "name@email.com",
+        "phone": "Phone",
+        "phonePlaceholder": "+216 12 345 678",
+        "phoneHelp": "Optional contact number for day-of coordination"
+      }
+    },
+    "overview": {
+      "general": "General Information",
+      "details": "Session Details",
+      "description": "Description",
+      "fields": {
+        "title": "Session Title",
+        "linkType": "Linked To",
+        "linkTypeOptions": {
+          "case": "Lawsuit",
+          "dossier": "Dossier"
+        },
+        "linkTypeHelp": "A session can be linked to a lawsuit or directly to a dossier",
+        "case": "Lawsuit",
+        "casePlaceholder": "Select a lawsuit...",
+        "caseHelp": "Select the relevant lawsuit",
+        "dossier": "Dossier",
+        "dossierPlaceholder": "Select a dossier...",
+        "dossierHelp": "Select the relevant dossier",
+        "date": "Date",
+        "time": "Time",
+        "timeHelp": "Select the start time of the session",
+        "duration": "Estimated Duration",
+        "durationHelp": "Estimated duration of the session",
+        "durationOptions": {
+          "00_15": "15 minutes",
+          "00_30": "30 minutes",
+          "00_45": "45 minutes",
+          "01_00": "1 hour",
+          "01_30": "1h30",
+          "02_00": "2 hours",
+          "02_30": "2h30",
+          "03_00": "3 hours",
+          "04_00": "4 hours"
+        },
+        "location": "Location",
+        "courtRoom": "Court Room",
+        "courtRoomHelp": "Specific courtroom for this hearing",
+        "judge": "Judge",
+        "judgeHelp": "Judge presiding over this hearing"
+      }
+    }
+  }
+}

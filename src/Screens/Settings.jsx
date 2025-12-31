@@ -5,10 +5,12 @@ import PageLayout from "../components/layout/PageLayout";
 import PageHeader from "../components/layout/PageHeader";
 import ContentSection from "../components/layout/ContentSection";
 import { LANGUAGE_REGISTRY } from "../i18n/config";
+import { useTranslation } from "react-i18next";
 
 export default function Settings() {
   const { settings, notificationPrefs, updateSettings, updateNotificationPrefs } = useSettings();
   const { setThemePreference } = useTheme();
+  const { t } = useTranslation("settings");
 
   const handleChange = (field, value) => {
     // Immediately save to context (which auto-persists to localStorage)
@@ -37,23 +39,23 @@ export default function Settings() {
   return (
     <PageLayout>
       <PageHeader
-        title="Settings"
-        subtitle="Configure your application preferences"
+        title={t("page.title")}
+        subtitle={t("page.subtitle")}
         icon="fas fa-cog"
       />
 
       <div className="space-y-6">
         {/* General Settings */}
-        <ContentSection title="Paramètres généraux">
+        <ContentSection title={t("sections.general")}>
           <div className="p-6 space-y-6">
             {/* Language */}
             <div className="flex items-center justify-between">
               <div>
                 <label className="text-sm font-medium text-slate-900 dark:text-white">
-                  Language
+                  {t("general.language.label")}
                 </label>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                  Choose the interface language
+                  {t("general.language.description")}
                 </p>
               </div>
               <select
@@ -73,10 +75,10 @@ export default function Settings() {
             <div className="flex items-center justify-between">
               <div>
                 <label className="text-sm font-medium text-slate-900 dark:text-white">
-                  Date Format
+                  {t("general.dateFormat.label")}
                 </label>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                  How to display dates
+                  {t("general.dateFormat.description")}
                 </p>
               </div>
               <select
@@ -96,16 +98,16 @@ export default function Settings() {
         </ContentSection>
 
         {/* Notification Settings */}
-        <ContentSection title="Notifications">
+        <ContentSection title={t("sections.notifications")}>
           <div className="p-6 space-y-4">
             {/* Desktop Notifications Toggle */}
             <div className="flex items-center justify-between py-3">
               <div>
                 <label className="text-sm font-medium text-slate-900 dark:text-white">
-                  Enable Notifications
+                  {t("notifications.desktop.title")}
                 </label>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                  Show notifications within the app
+                  {t("notifications.desktop.description")}
                 </p>
               </div>
               <button
@@ -123,14 +125,16 @@ export default function Settings() {
         </ContentSection>
 
         {/* Date-Related Notification Preferences */}
-        <ContentSection title="Rappels Automatiques">
+        <ContentSection title={t("sections.appointments")}>
           <div className="p-6 space-y-6">
             {/* Tasks */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <i className="fas fa-tasks text-blue-600"></i>
-                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Tasks</h3>
+                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
+                    {t("appointments.tasks.title")}
+                  </h3>
                 </div>
                 <button
                   onClick={() => handleNotificationPrefChange("tasks", "enabled", !notificationPrefs.tasks.enabled)}
@@ -150,10 +154,12 @@ export default function Settings() {
                         onChange={(e) => handleNotificationPrefChange("tasks", "overdueReminders", e.target.checked)}
                         className="rounded border-slate-300 dark:border-slate-600"
                       />
-                      <span className="text-slate-700 dark:text-slate-300">Reminders for overdue tasks</span>
+                      <span className="text-slate-700 dark:text-slate-300">
+                        {t("appointments.tasks.overdue.label")}
+                      </span>
                     </label>
                     <p className="text-slate-500 dark:text-slate-400 pl-6">
-                      Daily notification for overdue tasks (up to 3 days).
+                      {t("appointments.tasks.overdue.description")}
                     </p>
                   </div>
 
@@ -167,11 +173,13 @@ export default function Settings() {
                         className="rounded border-slate-300 dark:border-slate-600"
                       />
                       <span className="text-slate-700 dark:text-slate-300">
-                        Upcoming deadline reminders
+                        {t("appointments.tasks.upcoming.label")}
                       </span>
                     </label>
                     <p className="text-slate-500 dark:text-slate-400 pl-6">
-                      Reminders: {notificationPrefs.tasks.reminderDays.join(", ")} days before the deadline.
+                      {t("appointments.tasks.upcoming.description", {
+                        days: notificationPrefs.tasks.reminderDays.join(", "),
+                      })}
                     </p>
                   </div>
                 </div>
@@ -183,7 +191,9 @@ export default function Settings() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <i className="fas fa-user-check text-indigo-600"></i>
-                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Personal Tasks</h3>
+                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
+                    {t("appointments.personalTasks.title")}
+                  </h3>
                 </div>
                 <button
                   onClick={() => handleNotificationPrefChange("personalTasks", "enabled", !notificationPrefs.personalTasks.enabled)}
@@ -204,11 +214,13 @@ export default function Settings() {
                         className="rounded border-slate-300 dark:border-slate-600"
                       />
                       <span className="text-slate-700 dark:text-slate-300">
-                        Upcoming deadline reminders
+                        {t("appointments.personalTasks.upcoming.label")}
                       </span>
                     </label>
                     <p className="text-slate-500 dark:text-slate-400 pl-6">
-                      Reminders: {notificationPrefs.personalTasks.reminderDays.join(", ")} days before the deadline.
+                      {t("appointments.personalTasks.upcoming.description", {
+                        days: notificationPrefs.personalTasks.reminderDays.join(", "),
+                      })}
                     </p>
                   </div>
 
@@ -221,10 +233,12 @@ export default function Settings() {
                         onChange={(e) => handleNotificationPrefChange("personalTasks", "completionReminders", e.target.checked)}
                         className="rounded border-slate-300 dark:border-slate-600"
                       />
-                      <span className="text-slate-700 dark:text-slate-300">Completion reminders after deadline</span>
+                      <span className="text-slate-700 dark:text-slate-300">
+                        {t("appointments.personalTasks.completion.label")}
+                      </span>
                     </label>
                     <p className="text-slate-500 dark:text-slate-400 pl-6">
-                      Asks if the task was completed after the deadline.
+                      {t("appointments.personalTasks.completion.description")}
                     </p>
                   </div>
                 </div>
@@ -236,7 +250,9 @@ export default function Settings() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <i className="fas fa-gavel text-purple-600"></i>
-                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Audiences</h3>
+                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
+                    {t("appointments.sessions.title")}
+                  </h3>
                 </div>
                 <button
                   onClick={() => handleNotificationPrefChange("sessions", "enabled", !notificationPrefs.sessions.enabled)}
@@ -256,10 +272,14 @@ export default function Settings() {
                         onChange={(e) => handleNotificationPrefChange("sessions", "preparationReminders", e.target.checked)}
                         className="rounded border-slate-300 dark:border-slate-600"
                       />
-                      <span className="text-slate-700 dark:text-slate-300 font-medium">Preparation reminders</span>
+                      <span className="text-slate-700 dark:text-slate-300 font-medium">
+                        {t("appointments.sessions.preparation.label")}
+                      </span>
                     </label>
                     <p className="text-slate-500 dark:text-slate-400 ml-5">
-                      Reminders for upcoming sessions: {notificationPrefs.sessions.reminderDays.join(", ")} days before the session.
+                      {t("appointments.sessions.preparation.description", {
+                        days: notificationPrefs.sessions.reminderDays.join(", "),
+                      })}
                     </p>
                   </div>
 
@@ -272,10 +292,12 @@ export default function Settings() {
                         onChange={(e) => handleNotificationPrefChange("sessions", "dayOfReminder", e.target.checked)}
                         className="rounded border-slate-300 dark:border-slate-600"
                       />
-                      <span className="text-slate-700 dark:text-slate-300 font-medium">Day-of reminder</span>
+                      <span className="text-slate-700 dark:text-slate-300 font-medium">
+                        {t("appointments.sessions.dayOf.label")}
+                      </span>
                     </label>
                     <p className="text-slate-500 dark:text-slate-400 ml-5">
-                      Critical notification on the day of the session to prevent any oversight.
+                      {t("appointments.sessions.dayOf.description")}
                     </p>
                   </div>
                 </div>
@@ -286,35 +308,39 @@ export default function Settings() {
             {/* Case notifications are controlled by parent dossier priority */}
             <div className="space-y-3 pt-4 border-t border-slate-200 dark:border-slate-700">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <i className="fas fa-balance-scale text-red-600"></i>
-                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Lawsuits</h3>
-                </div>
-                <div className="text-xs text-slate-500 dark:text-slate-400 italic">
-                  Based on parent case priority
-                </div>
+              <div className="flex items-center gap-2">
+                <i className="fas fa-balance-scale text-red-600"></i>
+                <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
+                  {t("appointments.cases.title")}
+                </h3>
               </div>
-              <div className="ml-6 text-xs text-slate-600 dark:text-slate-400">
-                <p className="mb-2">
-                  <strong>Automatic notifications:</strong>
-                </p>
-                <ul className="list-disc list-inside space-y-1 ml-2">
-                  <li>Reminder if no session scheduled (frequency based on parent case priority)</li>
-                  <li>Update suggestion after sessions/tasks completed</li>
-                </ul>
-                <p className="mt-2 text-slate-500 dark:text-slate-500 italic">
-                  Lawsuits inherit the priority of their parent case to determine the frequency of reminders.
-                </p>
+              <div className="text-xs text-slate-500 dark:text-slate-400 italic">
+                {t("appointments.cases.basedOnPriority")}
               </div>
+            </div>
+            <div className="ml-6 text-xs text-slate-600 dark:text-slate-400">
+              <p className="mb-2">
+                <strong>{t("appointments.cases.automaticTitle")}</strong>
+              </p>
+              <ul className="list-disc list-inside space-y-1 ml-2">
+                <li>{t("appointments.cases.items.noSession")}</li>
+                <li>{t("appointments.cases.items.updateSuggestion")}</li>
+              </ul>
+              <p className="mt-2 text-slate-500 dark:text-slate-500 italic">
+                {t("appointments.cases.inherits")}
+              </p>
+            </div>
             </div>
 
             {/* Payments */}
             <div className="space-y-3 pt-4 border-t border-slate-200 dark:border-slate-700">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <i className="fas fa-dollar-sign text-green-600"></i>
-                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Payments</h3>
-                </div>
+              <div className="flex items-center gap-2">
+                <i className="fas fa-dollar-sign text-green-600"></i>
+                <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
+                  {t("appointments.payments.title")}
+                </h3>
+              </div>
                 <button
                   onClick={() => handleNotificationPrefChange("payments", "enabled", !notificationPrefs.payments.enabled)}
                   className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${notificationPrefs.payments.enabled ? "bg-blue-600" : "bg-slate-300 dark:bg-slate-600"}`}
@@ -324,21 +350,27 @@ export default function Settings() {
               </div>
               {notificationPrefs.payments.enabled && (
                 <div className="ml-6 space-y-2 text-xs">
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={notificationPrefs.payments.overdueReminders}
-                      onChange={(e) => handleNotificationPrefChange("payments", "overdueReminders", e.target.checked)}
-                      className="rounded border-slate-300 dark:border-slate-600"
-                    />
-                    <span className="text-slate-700 dark:text-slate-300">Overdue payment reminders</span>
-                  </label>
-                  <p className="text-slate-500 dark:text-slate-400 ml-5">
-                    Reminders before: {notificationPrefs.payments.reminderDays.join(", ")} days
-                  </p>
-                  <p className="text-slate-500 dark:text-slate-400 ml-5">
-                    Overdue reminders: {notificationPrefs.payments.overdueReminderFrequency.join(", ")} days
-                  </p>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={notificationPrefs.payments.overdueReminders}
+                    onChange={(e) => handleNotificationPrefChange("payments", "overdueReminders", e.target.checked)}
+                    className="rounded border-slate-300 dark:border-slate-600"
+                  />
+                  <span className="text-slate-700 dark:text-slate-300">
+                    {t("appointments.payments.overdue.label")}
+                  </span>
+                </label>
+                <p className="text-slate-500 dark:text-slate-400 ml-5">
+                  {t("appointments.payments.overdue.before", {
+                    days: notificationPrefs.payments.reminderDays.join(", "),
+                  })}
+                </p>
+                <p className="text-slate-500 dark:text-slate-400 ml-5">
+                  {t("appointments.payments.overdue.frequency", {
+                    days: notificationPrefs.payments.overdueReminderFrequency.join(", "),
+                  })}
+                </p>
                 </div>
               )}
             </div>
@@ -346,10 +378,12 @@ export default function Settings() {
             {/* Missions */}
             <div className="space-y-3 pt-4 border-t border-slate-200 dark:border-slate-700">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <i className="fas fa-briefcase text-orange-600"></i>
-                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Missions</h3>
-                </div>
+              <div className="flex items-center gap-2">
+                <i className="fas fa-briefcase text-orange-600"></i>
+                <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
+                  {t("appointments.missions.title")}
+                </h3>
+              </div>
                 <button
                   onClick={() => handleNotificationPrefChange("missions", "enabled", !notificationPrefs.missions.enabled)}
                   className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${notificationPrefs.missions.enabled ? "bg-blue-600" : "bg-slate-300 dark:bg-slate-600"}`}
@@ -369,11 +403,13 @@ export default function Settings() {
                         className="rounded border-slate-300 dark:border-slate-600"
                       />
                       <span className="text-slate-700 dark:text-slate-300">
-                        Reminders before mission deadlines
+                        {t("appointments.missions.upcoming.label")}
                       </span>
                     </label>
                     <p className="text-slate-500 dark:text-slate-400 pl-6">
-                      Reminders: {notificationPrefs.missions.reminderDays.join(", ")} days before the deadline.
+                      {t("appointments.missions.upcoming.description", {
+                        days: notificationPrefs.missions.reminderDays.join(", "),
+                      })}
                     </p>
                   </div>
 
@@ -386,10 +422,12 @@ export default function Settings() {
                         onChange={(e) => handleNotificationPrefChange("missions", "completionReminders", e.target.checked)}
                         className="rounded border-slate-300 dark:border-slate-600"
                       />
-                      <span className="text-slate-700 dark:text-slate-300">VVerification after deadline</span>
+                      <span className="text-slate-700 dark:text-slate-300">
+                        {t("appointments.missions.completion.label")}
+                      </span>
                     </label>
                     <p className="text-slate-500 dark:text-slate-400 pl-6">
-                      Request if the bailiff has completed the mission after the deadline.
+                      {t("appointments.missions.completion.description")}
                     </p>
                   </div>
                 </div>
@@ -401,7 +439,9 @@ export default function Settings() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <i className="fas fa-folder-open text-amber-600"></i>
-                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Dossiers</h3>
+                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
+                    {t("appointments.dossiers.title")}
+                  </h3>
                 </div>
                 <button
                   onClick={() => handleNotificationPrefChange("dossiers", "enabled", !notificationPrefs.dossiers.enabled)}
@@ -422,11 +462,15 @@ export default function Settings() {
                         className="rounded border-slate-300 dark:border-slate-600"
                       />
                       <span className="text-slate-700 dark:text-slate-300">
-                        Inactivity reminder ({notificationPrefs.dossiers.inactivityDays} days)
+                        {t("appointments.dossiers.inactivity.label", {
+                          days: notificationPrefs.dossiers.inactivityDays,
+                        })}
                       </span>
                     </label>
                     <p className="text-slate-500 dark:text-slate-400 pl-6">
-                      Notification if the case has not been updated for {notificationPrefs.dossiers.inactivityDays} days.
+                      {t("appointments.dossiers.inactivity.description", {
+                        days: notificationPrefs.dossiers.inactivityDays,
+                      })}
                     </p>
                   </div>
 
@@ -440,15 +484,21 @@ export default function Settings() {
                         className="rounded border-slate-300 dark:border-slate-600"
                       />
                       <span className="text-slate-700 dark:text-slate-300">
-                        Review reminder (based on priority)
+                        {t("appointments.dossiers.review.label")}
                       </span>
                     </label>
                     <p className="text-slate-500 dark:text-slate-400 pl-6">
-                      High priority: every {notificationPrefs.dossiers.reviewIntervalHigh} days
+                      {t("appointments.dossiers.review.high", {
+                        days: notificationPrefs.dossiers.reviewIntervalHigh,
+                      })}
                       <br />
-                      Medium priority: every {notificationPrefs.dossiers.reviewIntervalMedium} days
+                      {t("appointments.dossiers.review.medium", {
+                        days: notificationPrefs.dossiers.reviewIntervalMedium,
+                      })}
                       <br />
-                      Low priority: every {notificationPrefs.dossiers.reviewIntervalLow} days
+                      {t("appointments.dossiers.review.low", {
+                        days: notificationPrefs.dossiers.reviewIntervalLow,
+                      })}
                     </p>
                   </div>
 
@@ -462,11 +512,11 @@ export default function Settings() {
                         className="rounded border-slate-300 dark:border-slate-600"
                       />
                       <span className="text-slate-700 dark:text-slate-300">
-                        Next deadline (next_deadline)
+                        {t("appointments.dossiers.deadline.label")}
                       </span>
                     </label>
                     <p className="text-slate-500 dark:text-slate-400 pl-6">
-                      Reminders for deadlines: 7 days before, 3 days before, on the day, and in case of delay.
+                      {t("appointments.dossiers.deadline.description")}
                     </p>
                   </div>
                 </div>
@@ -476,10 +526,12 @@ export default function Settings() {
             {/* Clients */}
             <div className="space-y-3 pt-4 border-t border-slate-200 dark:border-slate-700">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <i className="fas fa-users text-purple-600"></i>
-                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Clients</h3>
-                </div>
+              <div className="flex items-center gap-2">
+                <i className="fas fa-users text-purple-600"></i>
+                <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
+                  {t("appointments.clients.title")}
+                </h3>
+              </div>
                 <button
                   onClick={() => handleNotificationPrefChange("clients", "enabled", !notificationPrefs.clients.enabled)}
                   className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${notificationPrefs.clients.enabled ? "bg-blue-600" : "bg-slate-300 dark:bg-slate-600"}`}
@@ -496,30 +548,34 @@ export default function Settings() {
                       onChange={(e) => handleNotificationPrefChange("clients", "inactivityReminder", e.target.checked)}
                       className="rounded border-slate-300 dark:border-slate-600"
                     />
-                    <span className="text-slate-700 dark:text-slate-300">
-                      Inactivity reminder ({notificationPrefs.clients.inactivityDays} days without activity)
-                    </span>
-                  </label>
-                  <p className="text-slate-500 dark:text-slate-400 pl-6">
-                    Notification if the client has had no activity (cases, tasks, sessions, payments) for {notificationPrefs.clients.inactivityDays} days.
-                  </p>
-                </div>
-              )}
+                  <span className="text-slate-700 dark:text-slate-300">
+                    {t("appointments.clients.inactivity.label", {
+                      days: notificationPrefs.clients.inactivityDays,
+                    })}
+                  </span>
+                </label>
+                <p className="text-slate-500 dark:text-slate-400 pl-6">
+                  {t("appointments.clients.inactivity.description", {
+                    days: notificationPrefs.clients.inactivityDays,
+                  })}
+                </p>
+              </div>
+            )}
             </div>
           </div>
         </ContentSection>
 
         {/* Security Settings */}
-        <ContentSection title="Sécurité">
+        <ContentSection title={t("sections.security")}>
           <div className="p-6 space-y-6">
             {/* Two Factor Auth */}
             <div className="flex items-center justify-between">
               <div>
                 <label className="text-sm font-medium text-slate-900 dark:text-white">
-                  Two-Factor Authentication
+                  {t("security.twoFactor.label")}
                 </label>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                  Enhanced security for your account
+                  {t("security.twoFactor.description")}
                 </p>
               </div>
               <button
@@ -538,10 +594,10 @@ export default function Settings() {
             <div className="flex items-center justify-between">
               <div>
                 <label className="text-sm font-medium text-slate-900 dark:text-white">
-                  Session Timeout
+                  {t("security.sessionTimeout.label")}
                 </label>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                  Automatic logout after inactivity
+                  {t("security.sessionTimeout.description")}
                 </p>
               </div>
               <select
@@ -549,10 +605,10 @@ export default function Settings() {
                 onChange={(e) => handleChange("sessionTimeout", e.target.value)}
                 className="px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="15">15 minutes</option>
-                <option value="30">30 minutes</option>
-                <option value="60">1 hour</option>
-                <option value="120">2 hours</option>
+                <option value="15">{t("security.sessionTimeout.options.15")}</option>
+                <option value="30">{t("security.sessionTimeout.options.30")}</option>
+                <option value="60">{t("security.sessionTimeout.options.60")}</option>
+                <option value="120">{t("security.sessionTimeout.options.120")}</option>
               </select>
             </div>
 
@@ -560,23 +616,23 @@ export default function Settings() {
             <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
               <button className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-white rounded-lg font-medium transition-colors duration-200">
                 <i className="fas fa-key mr-2"></i>
-                Change Password
+                {t("security.changePassword")}
               </button>
             </div>
           </div>
         </ContentSection>
 
         {/* Appearance Settings */}
-        <ContentSection title="Apparence">
+        <ContentSection title={t("sections.appearance")}>
           <div className="p-6 space-y-6">
             {/* Theme */}
             <div className="flex items-center justify-between">
               <div>
                 <label className="text-sm font-medium text-slate-900 dark:text-white">
-                  Theme
+                  {t("appearance.theme.label")}
                 </label>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                  Choose the app's theme
+                  {t("appearance.theme.description")}
                 </p>
               </div>
               <select
@@ -584,9 +640,9 @@ export default function Settings() {
                 onChange={(e) => handleChange("theme", e.target.value)}
                 className="px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="light">Light</option>
-                <option value="dark">Dark</option>
-                <option value="system">System</option>
+                <option value="light">{t("appearance.theme.options.light")}</option>
+                <option value="dark">{t("appearance.theme.options.dark")}</option>
+                <option value="system">{t("appearance.theme.options.system")}</option>
               </select>
             </div>
           </div>

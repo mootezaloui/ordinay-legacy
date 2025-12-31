@@ -1,0 +1,162 @@
+﻿{
+    "page":  {
+                 "title":  "Clients",
+                 "subtitle":  "{{total}} clients au total",
+                 "subtitleFiltered":  "{{total}} clients au total a {{displayed}} affichés",
+                 "actions":  {
+                                 "newClient":  "Nouveau client"
+                             },
+                 "loading":  "Chargement des données..."
+             },
+    "stats":  {
+                  "total":  "Total clients",
+                  "active":  "Clients actifs",
+                  "inactive":  "Clients inactifs",
+                  "newThisMonth":  "Nouveaux ce mois-ci",
+                  "newThisMonthTrend":  "depuis le debut du mois"
+              },
+    "table":  {
+                  "columns":  {
+                                  "name":  "Nom",
+                                  "email":  "Email",
+                                  "phone":  "Téléphone",
+                                  "status":  "Statut",
+                                  "joinDate":  "Date d\u0027inscription",
+                                  "actions":  "Actions"
+                              },
+                  "status":  {
+                                 "active":  "Actif",
+                                 "inactive":  "Inactif"
+                             },
+                  "actions":  {
+                                  "view":  "Voir les détails",
+                                  "edit":  "Modifier",
+                                  "delete":  "Supprimer"
+                              },
+                  "empty":  "Aucun client trouvé",
+                  "emptyFiltered":  "Aucun résultat trouvé"
+              },
+    "confirm":  {
+                    "delete":  {
+                                   "title":  "Supprimer le client",
+                                   "message":  "Êtes-vous sûr de vouloir supprimer ce client ?",
+                                   "confirm":  "Supprimer",
+                                   "cancel":  "Annuler"
+                               }
+                },
+    "form":  {
+                 "title":  {
+                               "edit":  "Modifier un client",
+                               "create":  "Ajouter un client"
+                           },
+                 "subtitle":  {
+                                  "edit":  "Mettre à jour les informations du client",
+                                  "create":  "Ajouter un nouveau client à votre base de données"
+                              },
+                 "help":  {
+                              "statusLocked":  "Le statut ne peut être changé que via le sélecteur dans la liste."
+                          }
+             },
+    "toasts":  {
+                   "statusUpdated":  "Statut mis à jour en {{status}}",
+                   "clientUpdated":  "Client mis à jour",
+                   "statusError":  "Erreur lors de la mise à jour du statut",
+                   "deleteError":  "Erreur lors de la suppression du client",
+                   "deleteSuccess":  {
+                                         "title":  "Suppression réussie",
+                                         "body":  "Client supprimé avec succès"
+                                     },
+                   "cascadeError":  "Erreur lors de la suppression en cascade",
+                   "cascadeSuccess":  {
+                                          "title":  "Suppression en cascade",
+                                          "body":  "Client et entités liées supprimés"
+                                      },
+                   "updateSuccess":  "Client modifié avec succès !",
+                   "createMissingId":  "Client créé, mais l\u0027identifiant retourné est indisponible",
+                   "createSuccess":  "Client ajouté avec succès !",
+                   "saveError":  "Erreur lors de l\u0027enregistrement du client"
+               },
+    "confirmImpact":  {
+                          "action":  "confirmer la modification"
+                      },
+    "blockerModal":  {
+                         "actions":  {
+                                         "delete":  "supprimer le client",
+                                         "changeStatus":  "changer le statut en « {{status}} »",
+                                         "edit":  "modifier le client",
+                                         "default":  "effectuer une action sur le client"
+                                     },
+                         "entityWithId":  "Client n°{{id}}",
+                         "entityGeneric":  "Client"
+                     },
+    "detail":  {
+                   "entityName":  "Client",
+                   "notFound":  "Aucun client trouvé.",
+                   "deleteConfirm":  "Êtes-vous sûr de vouloir supprimer ce client ?",
+                   "subtitle":  "Client depuis le {{date}}",
+                   "quickActions":  {
+                                        "status":  {
+                                                       "label":  "Statut",
+                                                       "active":  "Actif",
+                                                       "inactive":  "Inactif"
+                                                   }
+                                    },
+                   "stats":  {
+                                 "documents":  "Documents",
+                                 "dossiers":  "Dossiers"
+                             },
+                   "tabs":  {
+                                "tasksAddSubtitle":  "Créer une nouvelle tâche pour ce client",
+                                "sessionsDisabled":  "Ajoutez d\u0027abord un dossier avant de programmer une audience.",
+                                "sessionsAddSubtitle":  "Créer une nouvelle audience pour ce client",
+                                "dossiers":  "Dossiers",
+                                "casesAddSubtitle":  "Créer un nouveau procès pour ce client",
+                                "sessions":  "Audiences",
+                                "dossiersAddSubtitle":  "Créer un nouveau dossier pour ce client",
+                                "cases":  "Procès",
+                                "tasksEntity":  "une tâche",
+                                "tasksDisabled":  "Ajoutez d\u0027abord un dossier avant de créer une tâche pour ce client.",
+                                "casesDisabled":  "Ajoutez d\u0027abord un dossier avant de créer un procès pour ce client.",
+                                "tasks":  "Tâches",
+                                "sessionsEntity":  "une audience",
+                                "overview":  "Vue d’ensemble",
+                                "financial":  "Comptabilité",
+                                "documents":  "Documents",
+                                "history":  "Historique"
+                            },
+                   "forms":  {
+                                 "sessionLinkHelpNoCases":  "Choisissez si cette audience est liée à un dossier",
+                                 "sessionLinkHelpWithCases":  "Choisissez si cette audience est liée à un dossier ou à un procès spécifique",
+                                 "taskCaseHelp":  "Sélectionnez le procès auquel cette tâche sera rattachée",
+                                 "casesEmpty":  "Aucun procès disponible. Veuillez créer un procès d\u0027abord.",
+                                 "sessionCaseHelp":  "Sélectionnez le procès auquel cette audience sera liée",
+                                 "taskDossierHelp":  "Sélectionnez le dossier auquel cette tâche sera liée",
+                                 "sessionDossierHelp":  "Sélectionnez le dossier auquel cette audience sera liée",
+                                 "dossiersEmpty":  "Aucun dossier disponible. Veuillez créer un dossier d\u0027abord.",
+                                 "casesDossierHelp":  "Sélectionnez le dossier auquel ce procès sera lié"
+                             },
+                   "overview":  {
+                                    "fields":  {
+                                                   "taxId":  "Identifiant fiscal",
+                                                   "company":  "Entreprise",
+                                                   "joinDate":  "Date d\u0027inscription",
+                                                   "cin":  "CIN",
+                                                   "address":  "Adresse",
+                                                   "profession":  "Profession",
+                                                   "name":  "Nom complet",
+                                                   "dob":  "Date de naissance",
+                                                   "alternatePhone":  "Téléphone alternatif",
+                                                   "phone":  "Téléphone",
+                                                   "email":  "Email"
+                                               },
+                                    "contact":  "Informations de contact",
+                                    "registration":  "Informations d\u0027inscription",
+                                    "notesEmpty":  "Aucune note",
+                                    "personal":  "Informations personnelles",
+                                    "notes":  "Notes"
+                                },
+                   "fallback":  {
+                                    "na":  "N/A"
+                                }
+               }
+}

@@ -10,9 +10,11 @@ import QuickActions from "../components/dashboard/QuickActions";
 import TaskList from "../components/dashboard/TaskList";
 import { useSettings } from "../contexts/SettingsContext";
 import { useData } from "../contexts/DataContext";
+import { useTranslation } from "react-i18next";
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [isProjectionCollapsed, setProjectionCollapsed] = useState(false);
   const [isLoadMapCollapsed, setLoadMapCollapsed] = useState(false);
   const { formatDate: formatDisplayDate } = useSettings();
@@ -36,7 +38,7 @@ export default function Dashboard() {
       setProjectionCollapsed(true);
       setLoadMapCollapsed(true);
     }
-  }, []);
+  }, [sessions, cases, tasks, t]);
 
   // Calculate real stats from mock data
   const stats = useMemo(() => {
@@ -73,7 +75,7 @@ export default function Dashboard() {
         trend: 23, // Mock trend
       },
     };
-  }, []);
+  }, [clients, dossiers, tasks, financialEntries]);
 
   // Generate recent activities from data
   const recentActivities = useMemo(() => {
@@ -84,7 +86,7 @@ export default function Dashboard() {
       activities.push({
         id: `client-${client.id}`,
         type: "client",
-        title: `New client: ${client.name}`,
+        title: t("dashboard.activities.newClient", { name: client.name }),
         description: client.email,
         timestamp: client.joinDate || new Date().toISOString(),
         user: "Me. Hammami",
@@ -97,7 +99,7 @@ export default function Dashboard() {
       activities.push({
         id: `dossier-${dossier.id}`,
         type: "dossier",
-        title: `Dossier updated: ${dossier.caseNumber}`,
+        title: t("dashboard.activities.dossierUpdated", { caseNumber: dossier.caseNumber }),
         description: dossier.title,
         timestamp: dossier.openDate || new Date().toISOString(),
         user: "Me. Sassi",
@@ -110,8 +112,11 @@ export default function Dashboard() {
       activities.push({
         id: `session-${session.id}`,
         type: "session",
-        title: `Scheduled Hearings: ${session.title}`,
-        description: `${formatDisplayDate(session.date)} at ${session.time}`,
+        title: t("dashboard.activities.scheduledHearing", { title: session.title }),
+        description: t("dashboard.activities.sessionDescription", {
+          date: formatDisplayDate(session.date),
+          time: session.time,
+        }),
         timestamp: new Date().toISOString(),
         user: "Me. Cherif",
         onClick: () => navigate(`/sessions/${session.id}`),
@@ -120,7 +125,7 @@ export default function Dashboard() {
 
     // Sort by timestamp
     return activities.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-  }, [navigate]);
+  }, [clients, dossiers, sessions, formatDisplayDate, navigate, t]);
 
   // Get upcoming events
   const upcomingEvents = useMemo(() => {
@@ -133,7 +138,7 @@ export default function Dashboard() {
         events.push({
           id: `session-${session.id}`,
           type: session.type === "Audience" ? "hearing" : "session",
-          title: `Scheduled Hearings: ${session.title}`,
+          title: t("dashboard.activities.scheduledHearing", { title: session.title }),
           date: sessionDate.toISOString(),
           location: session.location,
           link: `/sessions/${session.id}`,
@@ -163,7 +168,7 @@ export default function Dashboard() {
         events.push({
           id: `task-${task.id}`,
           type: "deadline",
-          title: `Deadline: ${task.title}`,
+          title: t("dashboard.activities.deadline", { title: task.title }),
           date: dueDate.toISOString(),
           link: `/tasks/${task.id}`,
         });
@@ -194,7 +199,7 @@ export default function Dashboard() {
         if (priorityDiff !== 0) return priorityDiff;
         return new Date(a.dueDate) - new Date(b.dueDate);
       });
-  }, []);
+  }, [tasks]);
 
   // Projection data: aggregate next-dated items across entities
   const projectionItems = useMemo(() => {
@@ -233,7 +238,7 @@ export default function Dashboard() {
     // Financial entries: use dueDate if available, fallback to date
     financialEntries.forEach(entry => {
       const targetDate = entry.dueDate || entry.date;
-      const displayText = entry.title || entry.description || `Entry #${entry.id}`;
+      const displayText = entry.title || entry.description || t("dashboard.activities.entryTitle", { id: entry.id });
       pushItem(targetDate, "finance", displayText, `/accounting/${entry.id}`);
     });
 
@@ -247,7 +252,7 @@ export default function Dashboard() {
     });
 
     return items.sort((a, b) => a.date - b.date);
-  }, []);
+  }, [sessions, tasks, cases, dossiers, financialEntries, missions, t]);
 
   const laneItems = projectionItems.slice(0, 12);
 
@@ -269,14 +274,20 @@ export default function Dashboard() {
 
   const getTypeMeta = (type) => {
     const map = {
-      session: { label: "Audience", icon: "fas fa-gavel", color: "text-purple-600" },
-      task: { label: "Tasks", icon: "fas fa-tasks", color: "text-amber-600" },
-      case: { label: "Lawsuite", icon: "fas fa-scale-balanced", color: "text-blue-600" },
-      dossier: { label: "Dossier", icon: "fas fa-folder-open", color: "text-green-600" },
-      finance: { label: "Finance", icon: "fas fa-file-invoice-dollar", color: "text-emerald-600" },
-      mission: { label: "Mission", icon: "fas fa-user-tie", color: "text-teal-600" },
+      session: { key: "session", icon: "fas fa-gavel", color: "text-purple-600" },
+      task: { key: "task", icon: "fas fa-tasks", color: "text-amber-600" },
+      case: { key: "case", icon: "fas fa-scale-balanced", color: "text-blue-600" },
+      dossier: { key: "dossier", icon: "fas fa-folder-open", color: "text-green-600" },
+      finance: { key: "finance", icon: "fas fa-file-invoice-dollar", color: "text-emerald-600" },
+      mission: { key: "mission", icon: "fas fa-user-tie", color: "text-teal-600" },
     };
-    return map[type] || { label: type, icon: "fas fa-calendar", color: "text-slate-500" };
+    const base = map[type] || { key: "generic", icon: "fas fa-calendar", color: "text-slate-500" };
+    const labelKey = `dashboard.types.${base.key}`;
+    const label =
+      base.key === "generic"
+        ? t(labelKey, { type })
+        : t(labelKey);
+    return { ...base, label };
   };
 
   // Load Map: group projection items by ISO week for the next 8 weeks
@@ -340,8 +351,8 @@ export default function Dashboard() {
   return (
     <PageLayout>
       <PageHeader
-        title="Dashboard"
-        subtitle="Overview of your law firm's performance and activities"
+        title={t("dashboard.title")}
+        subtitle={t("dashboard.subtitle")}
         icon="fas fa-chart-line"
       />
 
@@ -350,7 +361,7 @@ export default function Dashboard() {
         <ContentSection>
           <div className="p-6">
             <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
-              Quick Actions
+              {t("dashboard.quickActions")}
             </h2>
             <QuickActions />
           </div>
@@ -359,40 +370,40 @@ export default function Dashboard() {
         {/* Stats Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
-            label="Total Clients"
+            label={t("dashboard.stats.totalClients")}
             value={stats.clients.total}
             icon="fas fa-users"
             color="blue"
             trend={stats.clients.trend}
-            trendLabel="vs last month"
+            trendLabel={t("dashboard.stats.trendVsLastMonth")}
             onClick={() => navigate("/clients")}
           />
 
           <StatCard
-            label="Active Dossiers"
+            label={t("dashboard.stats.activeDossiers")}
             value={stats.dossiers.active}
             icon="fas fa-folder-open"
             color="purple"
-            trendLabel={`${stats.dossiers.newThisWeek} new this week`}
+            trendLabel={t("dashboard.stats.newThisWeek", { count: stats.dossiers.newThisWeek })}
             onClick={() => navigate("/dossiers")}
           />
 
           <StatCard
-            label="Pending Tasks"
+            label={t("dashboard.stats.pendingTasks")}
             value={stats.tasks.pending}
             icon="fas fa-tasks"
             color="amber"
-            trendLabel={`${stats.tasks.dueToday} due today`}
+            trendLabel={t("dashboard.stats.dueToday", { count: stats.tasks.dueToday })}
             onClick={() => navigate("/tasks")}
           />
 
           <StatCard
-            label="Revenue"
-            value={`${stats.revenue.total.toLocaleString('fr-TN')} TND`}
+            label={t("dashboard.stats.revenue")}
+            value={`${stats.revenue.total.toLocaleString('fr-TN')} ${t("dashboard.stats.currency")}`}
             icon="fas fa-dollar-sign"
             color="green"
             trend={stats.revenue.trend}
-            trendLabel="vs last month"
+            trendLabel={t("dashboard.stats.trendVsLastMonth")}
             onClick={() => navigate("/accounting")}
           />
         </div>
@@ -400,14 +411,14 @@ export default function Dashboard() {
         {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Urgent Tasks */}
-          <ContentSection title={`Urgent Tasks (${urgentTasks.length})`}>
+          <ContentSection title={t("dashboard.urgentTasks.title", { count: urgentTasks.length })}>
             <div className="p-6">
               <TaskList tasks={urgentTasks} maxItems={5} />
             </div>
           </ContentSection>
 
           {/* Upcoming Events */}
-          <ContentSection title={`Upcoming Events (${upcomingEvents.length})`}>
+          <ContentSection title={t("dashboard.upcomingEvents.title", { count: upcomingEvents.length })}>
             <div className="p-6">
               <UpcomingEvents events={upcomingEvents} maxItems={5} />
             </div>
@@ -419,13 +430,13 @@ export default function Dashboard() {
           {/* Projection Section */}
           <div className="lg:col-span-3">
             <ContentSection
-              title="Projection (30–90 days)"
+              title={t("dashboard.projection.title")}
               actions={
                 <button
                   onClick={() => setProjectionCollapsed(!isProjectionCollapsed)}
                   className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
                 >
-                  {isProjectionCollapsed ? "Show Projection" : "Hide"}
+                  {isProjectionCollapsed ? t("dashboard.projection.show") : t("dashboard.projection.hide")}
                 </button>
               }
             >
@@ -440,7 +451,7 @@ export default function Dashboard() {
                       >
                         <div className="flex items-center justify-between mb-2">
                           <span className="text-sm font-semibold text-slate-800 dark:text-white">
-                            {win.days} days
+                            {t("dashboard.projection.daysLabel", { count: win.days })}
                           </span>
                           <span className="text-sm px-2 py-1 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
                             {win.count}
@@ -449,7 +460,7 @@ export default function Dashboard() {
                         <div className="space-y-2">
                           {win.highlights.length === 0 && (
                             <p className="text-xs text-slate-500 dark:text-slate-400">
-                              Nothing to report
+                              {t("dashboard.projection.nothing")}
                             </p>
                           )}
                           {win.highlights.map((item, idx) => {
@@ -465,7 +476,10 @@ export default function Dashboard() {
                                   <span className="truncate">{item.label}</span>
                                 </div>
                                 <div className="text-xs text-slate-500 dark:text-slate-400">
-                                  {formatDate(item.date)} • {meta.label}
+                                  {t("dashboard.projection.itemMeta", {
+                                    date: formatDate(item.date),
+                                    label: meta.label,
+                                  })}
                                 </div>
                               </button>
                             );
@@ -479,15 +493,15 @@ export default function Dashboard() {
                   <div className="lg:col-span-2">
                     <div className="flex items-center justify-between mb-3">
                       <h3 className="text-sm font-semibold text-slate-800 dark:text-white">
-                        Planning Lane
+                        {t("dashboard.planningLane.title")}
                       </h3>
                       <span className="text-xs text-slate-500 dark:text-slate-400">
-                        Upcoming events (8–12 items)
+                        {t("dashboard.planningLane.subtitle")}
                       </span>
                     </div>
                     {laneItems.length === 0 ? (
                       <p className="text-sm text-slate-500 dark:text-slate-400">
-                        No upcoming events detected.
+                        {t("dashboard.planningLane.empty")}
                       </p>
                     ) : (
                       <div className="overflow-x-auto">
@@ -527,13 +541,13 @@ export default function Dashboard() {
           {/* Load Map */}
           <div className="lg:col-span-3">
             <ContentSection
-              title="Upcoming Load (per week)"
+              title={t("dashboard.loadMap.title")}
               actions={
                 <button
                   onClick={() => setLoadMapCollapsed(!isLoadMapCollapsed)}
                   className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
                 >
-                  {isLoadMapCollapsed ? "Show Load" : "Hide Load"}
+                  {isLoadMapCollapsed ? t("dashboard.loadMap.show") : t("dashboard.loadMap.hide")}
                 </button>
               }
             >
@@ -541,7 +555,7 @@ export default function Dashboard() {
                 <div className="p-6">
                   {loadMapWeeks.length === 0 ? (
                     <p className="text-sm text-slate-500 dark:text-slate-400">
-                      No upcoming load detected.
+                      {t("dashboard.loadMap.empty")}
                     </p>
                   ) : (
                     <div className="flex gap-3 overflow-x-auto">
@@ -555,9 +569,15 @@ export default function Dashboard() {
                               ? "bg-amber-400"
                               : "bg-emerald-400";
                         const titleParts = Object.entries(week.byType)
-                          .map(([t, c]) => `${c} ${getTypeMeta(t).label.toLowerCase()}${c > 1 ? "s" : ""}`)
+                          .map(([typeKey, count]) =>
+                            t("dashboard.loadMap.tooltipType", {
+                              count,
+                              type: getTypeMeta(typeKey).label,
+                            })
+                          )
                           .join(", ");
-                        const label = `Semaine ${week.key.split("W")[1]}`;
+                        const tooltip = titleParts || t("dashboard.loadMap.tooltipNone");
+                        const label = t("dashboard.loadMap.weekLabel", { week: week.key.split("W")[1] });
                         return (
                           <div key={week.key} className="flex flex-col items-center min-w-[80px]">
                             <div
@@ -566,14 +586,14 @@ export default function Dashboard() {
                             >
                               <div
                                 className={`w-full h-full rounded-full ${intensityClasses}`}
-                                title={titleParts || "Aucune charge"}
+                                title={tooltip}
                               ></div>
                             </div>
                             <div className="mt-2 text-xs font-semibold text-slate-700 dark:text-slate-300">
                               {label}
                             </div>
                             <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                              {week.count} item{week.count > 1 ? "s" : ""}
+                              {t("dashboard.loadMap.itemsCount", { count: week.count })}
                             </div>
                           </div>
                         );
@@ -587,7 +607,7 @@ export default function Dashboard() {
 
           {/* Recent Activity - takes 2 columns */}
           <div className="lg:col-span-2">
-            <ContentSection title="Recent Activity">
+            <ContentSection title={t("dashboard.recentActivity")}>
               <div className="p-6">
                 <ActivityFeed activities={recentActivities} maxItems={6} />
               </div>
@@ -595,20 +615,20 @@ export default function Dashboard() {
           </div>
 
           {/* Quick Stats Panel */}
-          <ContentSection title="Statistiques">
+          <ContentSection title={t("dashboard.quickStats.title")}>
             <div className="p-6 space-y-4">
               {/* Dossiers by Status */}
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                    Dossiers by status
+                    {t("dashboard.quickStats.dossiers.title")}
                   </span>
                 </div>
                 <div className="space-y-2">
                   {[
-                    { label: "In Progress", value: stats.dossiers.active, color: "blue" },
-                    { label: "Pending", value: dossiers.filter(d => d.status === "En Pending").length, color: "amber" },
-                    { label: "Closed", value: dossiers.filter(d => d.status === "Closed").length, color: "green" },
+                    { label: t("dashboard.quickStats.dossiers.inProgress"), value: stats.dossiers.active, color: "blue" },
+                    { label: t("dashboard.quickStats.dossiers.pending"), value: dossiers.filter(d => d.status === "En Pending").length, color: "amber" },
+                    { label: t("dashboard.quickStats.dossiers.closed"), value: dossiers.filter(d => d.status === "Closed").length, color: "green" },
                   ].map((item) => (
                     <div key={item.label} className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
@@ -629,14 +649,14 @@ export default function Dashboard() {
               <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                    Tasks by priority
+                    {t("dashboard.quickStats.tasks.title")}
                   </span>
                 </div>
                 <div className="space-y-2">
                   {[
-                    { label: "High", value: tasks.filter(t => t.priority === "High" && t.status !== "Completed").length, color: "red" },
-                    { label: "Medium", value: tasks.filter(t => t.priority === "Medium" && t.status !== "Completed").length, color: "amber" },
-                    { label: "Low", value: tasks.filter(t => t.priority === "Low" && t.status !== "Completed").length, color: "blue" },
+                    { label: t("dashboard.quickStats.tasks.high"), value: tasks.filter(t => t.priority === "High" && t.status !== "Completed").length, color: "red" },
+                    { label: t("dashboard.quickStats.tasks.medium"), value: tasks.filter(t => t.priority === "Medium" && t.status !== "Completed").length, color: "amber" },
+                    { label: t("dashboard.quickStats.tasks.low"), value: tasks.filter(t => t.priority === "Low" && t.status !== "Completed").length, color: "blue" },
                   ].map((item) => (
                     <div key={item.label} className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
@@ -657,14 +677,14 @@ export default function Dashboard() {
               <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                    Payment Status
+                    {t("dashboard.quickStats.payments.title")}
                   </span>
                 </div>
                 <div className="space-y-2">
                   {[
-                    { label: "Paid", value: financialEntries.filter(i => i.status === "Paid").length, color: "green" },
-                    { label: "Pending", value: financialEntries.filter(i => i.status === "Pending").length, color: "amber" },
-                    { label: "Overdue", value: financialEntries.filter(i => i.status === "Overdue").length, color: "red" },
+                    { label: t("dashboard.quickStats.payments.paid"), value: financialEntries.filter(i => i.status === "Paid").length, color: "green" },
+                    { label: t("dashboard.quickStats.payments.pending"), value: financialEntries.filter(i => i.status === "Pending").length, color: "amber" },
+                    { label: t("dashboard.quickStats.payments.overdue"), value: financialEntries.filter(i => i.status === "Overdue").length, color: "red" },
                   ].map((item) => (
                     <div key={item.label} className="flex items-center justify-between">
                       <div className="flex items-center gap-2">

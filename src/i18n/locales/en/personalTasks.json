@@ -1,0 +1,188 @@
+{
+  "page": {
+    "title": "Personal Tasks",
+    "subtitle": "{{total}} personal tasks",
+    "subtitleFiltered": "{{total}} personal tasks, {{displayed}} displayed",
+    "actions": {
+      "newTask": "New Task"
+    },
+    "loading": "Loading personal tasks..."
+  },
+  "stats": {
+    "total": "Total",
+    "pending": "Pending",
+    "completed": "Completed",
+    "overdue": "Overdue"
+  },
+  "table": {
+    "columns": {
+      "title": "Task",
+      "category": "Category",
+      "dueDate": "Due Date",
+      "priority": "Priority",
+      "status": "Status",
+      "actions": "Actions"
+    },
+    "dueDate": {
+      "na": "N/A"
+    },
+    "status": {
+      "notStarted": "Not Started",
+      "pending": "Pending",
+      "inProgress": "In Progress",
+      "scheduled": "Scheduled",
+      "completed": "Completed",
+      "blocked": "Blocked",
+      "done": "Done",
+      "cancelled": "Cancelled"
+    },
+    "priority": {
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low"
+    },
+    "categories": {
+      "invoices": "Invoices",
+      "office": "Office",
+      "personal": "Personal",
+      "it": "IT",
+      "administrative": "Administrative",
+      "other": "Other"
+    },
+    "actions": {
+      "view": "View details",
+      "edit": "Edit",
+      "delete": "Delete"
+    },
+    "empty": "No personal tasks available",
+    "emptyFiltered": "No results found"
+  },
+  "confirm": {
+    "delete": {
+      "title": "Delete Task",
+      "message": "Are you sure you want to delete this task?",
+      "confirm": "Delete",
+      "cancel": "Cancel"
+    }
+  },
+  "form": {
+    "title": {
+      "edit": "Edit Task",
+      "create": "New Personal Task"
+    },
+    "subtitle": {
+      "edit": "Edit the personal task",
+      "create": "Add a task not linked to cases or clients"
+    },
+    "fields": {
+      "title": {
+        "label": "Task Title",
+        "placeholder": "Ex: Pay electricity bill"
+      },
+      "category": {
+        "label": "Category",
+        "options": {
+          "invoices": "Invoices",
+          "office": "Office",
+          "personal": "Personal",
+          "it": "IT",
+          "administrative": "Administrative",
+          "other": "Other"
+        }
+      },
+      "dueDate": {
+        "label": "Due Date"
+      },
+      "priority": {
+        "label": "Priority",
+        "options": {
+          "high": "High",
+          "medium": "Medium",
+          "low": "Low"
+        }
+      },
+      "status": {
+        "label": "Status"
+      },
+      "notes": {
+        "label": "Notes",
+        "placeholder": "Additional notes..."
+      }
+    },
+    "help": {
+      "statusLocked": "Status can only be changed via the selector in the list view."
+    }
+  },
+  "toasts": {
+    "statusTitle": "Status Update",
+    "statusUpdated": "Status updated: {{status}}",
+    "priorityTitle": "Priority Update",
+    "priorityUpdated": "Priority updated: {{priority}}",
+    "deleteSuccess": {
+      "title": "Deletion Successful",
+      "body": "Personal task deleted"
+    },
+    "updateSuccess": "Task successfully updated!",
+    "createSuccess": "Task added successfully!",
+    "saveError": "Error saving task",
+    "missingId": "Personal task identifier missing"
+  },
+  "detail": {
+    "entityName": "Personal Task",
+    "notFound": "Personal task not found",
+    "deleteConfirm": "Are you sure you want to delete this personal task?",
+    "subtitle": "Created on {{date}} \u00b7 {{category}}",
+    "quickActions": {
+      "status": {
+        "label": "Status",
+        "notStarted": "Not Started",
+        "inProgress": "In Progress",
+        "blocked": "Blocked",
+        "done": "Done",
+        "cancelled": "Cancelled"
+      },
+      "priority": {
+        "label": "Priority",
+        "high": "High",
+        "medium": "Medium",
+        "low": "Low"
+      },
+      "category": {
+        "label": "Category",
+        "invoices": "Invoices",
+        "office": "Office",
+        "personal": "Personal",
+        "it": "IT",
+        "administrative": "Administrative",
+        "other": "Other"
+      }
+    },
+    "header": {
+      "priority": "Priority",
+      "status": "Status",
+      "dueDate": "Due Date",
+      "category": "Category"
+    },
+    "tabs": {
+      "overview": "Overview",
+      "financial": "Financial",
+      "financialDescription": "Internal financial entries linked to this task",
+      "documents": "Documents",
+      "history": "History"
+    },
+    "overview": {
+      "general": "General",
+      "description": "Description",
+      "notes": "Notes",
+      "fields": {
+        "title": "Title",
+        "dueDate": "Due Date"
+      }
+    },
+    "fallback": {
+      "na": "N/A",
+      "noDescription": "No description provided.",
+      "noNotes": "No notes yet."
+    }
+  }
+}

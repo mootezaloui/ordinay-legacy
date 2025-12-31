@@ -1,8 +1,10 @@
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useTheme } from "../contexts/theme";
 
 export default function NotFound() {
   const { isDark, toggleTheme } = useTheme();
+  const { t } = useTranslation("notFound");
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900 px-4 py-12 transition-colors duration-200">
@@ -40,20 +42,20 @@ export default function NotFound() {
         {/* Text Content */}
         <div className="mb-8">
           <h1 className="text-4xl md:text-5xl font-bold text-slate-900 dark:text-white mb-4">
-            Oups ! Page not found.
+            {t("page.title")}
           </h1>
           <p className="text-lg text-slate-600 dark:text-slate-400 mb-2">
-            Sorry, the page you are looking for does not exist or has been moved.
+            {t("page.subtitle")}
           </p>
           <p className="text-slate-500 dark:text-slate-500">
-            It might have been archived in our lost files... 📁
+            {t("page.detail")}
           </p>
         </div>
 
         {/* Suggestions */}
         <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 p-8 mb-8">
           <h2 className="text-xl font-semibold text-slate-900 dark:text-white mb-4">
-            What would you like to do?
+            {t("actions.title")}
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Home Button */}
@@ -65,8 +67,8 @@ export default function NotFound() {
                 <i className="fas fa-home text-blue-600 dark:text-blue-400 text-xl"></i>
               </div>
               <div>
-                <p className="font-medium text-slate-900 dark:text-white">Home</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">Back to dashboard</p>
+                <p className="font-medium text-slate-900 dark:text-white">{t("actions.home.title")}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">{t("actions.home.subtitle")}</p>
               </div>
             </Link>
 
@@ -79,8 +81,8 @@ export default function NotFound() {
                 <i className="fas fa-users text-purple-600 dark:text-purple-400 text-xl"></i>
               </div>
               <div>
-                <p className="font-medium text-slate-900 dark:text-white">Clients</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">View my clients</p>
+                <p className="font-medium text-slate-900 dark:text-white">{t("actions.clients.title")}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">{t("actions.clients.subtitle")}</p>
               </div>
             </Link>
 
@@ -93,8 +95,8 @@ export default function NotFound() {
                 <i className="fas fa-folder-open text-green-600 dark:text-green-400 text-xl"></i>
               </div>
               <div>
-                <p className="font-medium text-slate-900 dark:text-white">Dossiers</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">View my dossiers</p>
+                <p className="font-medium text-slate-900 dark:text-white">{t("actions.dossiers.title")}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">{t("actions.dossiers.subtitle")}</p>
               </div>
             </Link>
           </div>
@@ -102,25 +104,25 @@ export default function NotFound() {
 
         {/* Error Code */}
         <p className="text-sm text-slate-500 dark:text-slate-400">
-          Error code: 404 | Page not found
+          {t("code")}
         </p>
 
         {/* Contact Support */}
         <div className="mt-6">
           <p className="text-sm text-slate-600 dark:text-slate-400">
-            Need help?{" "}
+            {t("support.prefix")} {" "}
             <Link
               to="/support"
               className="font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
             >
-              Contact support
+              {t("support.link")}
             </Link>
           </p>
         </div>
 
         {/* Footer */}
         <p className="mt-12 text-xs text-slate-500 dark:text-slate-400">
-          © 2025 Organia. All rights reserved.
+          {t("footer")}
         </p>
       </div>
     </div>

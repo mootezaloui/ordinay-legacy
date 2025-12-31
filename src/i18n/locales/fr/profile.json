@@ -1,0 +1,35 @@
+{
+  "page": {
+    "title": "Mon profil",
+    "subtitle": "Gérez vos informations personnelles et professionnelles"
+  },
+  "actions": {
+    "edit": "Modifier le profil",
+    "cancel": "Annuler",
+    "save": "Enregistrer les modifications"
+  },
+  "stats": {
+    "activeDossiers": "Dossiers actifs",
+    "totalClients": "Total clients",
+    "resolvedDossiers": "Dossiers résolus",
+    "successRate": "Taux de réussite"
+  },
+  "sections": {
+    "personal": "Informations personnelles",
+    "professional": "Informations professionnelles"
+  },
+  "fields": {
+    "firstName": "Prénom",
+    "lastName": "Nom",
+    "email": "Email",
+    "phone": "Téléphone",
+    "title": "Titre",
+    "specialization": "Spécialisation",
+    "barNumber": "Numéro d'inscription au barreau",
+    "office": "Bureau",
+    "bio": "Biographie"
+  },
+  "toasts": {
+    "saveSuccess": "Profil mis à jour avec succès !"
+  }
+}
