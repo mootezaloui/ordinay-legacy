@@ -4,6 +4,7 @@ import { updateNotificationPreferences } from "../utils/scheduledNotifications";
 import PageLayout from "../components/layout/PageLayout";
 import PageHeader from "../components/layout/PageHeader";
 import ContentSection from "../components/layout/ContentSection";
+import { LANGUAGE_REGISTRY } from "../i18n/config";
 
 export default function Settings() {
   const { settings, notificationPrefs, updateSettings, updateNotificationPrefs } = useSettings();
@@ -60,9 +61,11 @@ export default function Settings() {
                 onChange={(e) => handleChange("language", e.target.value)}
                 className="px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="fr">Français</option>
-                <option value="ar">العربية</option>
-                <option value="en">English</option>
+                {LANGUAGE_REGISTRY.map((language) => (
+                  <option key={language.code} value={language.code}>
+                    {language.label}
+                  </option>
+                ))}
               </select>
             </div>
 

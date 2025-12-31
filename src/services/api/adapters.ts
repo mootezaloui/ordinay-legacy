@@ -110,6 +110,17 @@ function adaptNotes(notes: any): any[] {
   }));
 }
 
+const parseParticipants = (value: any): any[] => {
+  if (!value) return [];
+  if (Array.isArray(value)) return value;
+  try {
+    const parsed = typeof value === "string" ? JSON.parse(value) : value;
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (_err) {
+    return [];
+  }
+};
+
 export function adaptClient(api: any) {
   return {
     id: api.id,
@@ -236,6 +247,7 @@ export function adaptSession(api: any, dossiersById: Record<number, any>, casesB
     outcome: api.outcome ?? "",
     notes: adaptNotes(api.notes), // ✅ Adapt notes with proper field names
     description: api.description ?? "",
+    participants: parseParticipants(api.participants),
   };
 }
 

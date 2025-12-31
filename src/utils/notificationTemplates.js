@@ -63,6 +63,16 @@ export function resolveEntityLink(entityType, context = {}) {
   return resolver ? resolver(context) : null;
 }
 
+export function getMissionDisplayTitle(mission = {}) {
+  return (
+    mission.title ||
+    mission.description ||
+    mission.reference ||
+    mission.missionNumber ||
+    "Mission"
+  );
+}
+
 /**
  * TASK NOTIFICATIONS - 6 varieties (date-based)
  */
@@ -247,31 +257,39 @@ export const missionNotificationTemplates = {
   upcoming: [
     {
       title: "Upcoming Mission",
-      getMessage: (mission, daysLeft) =>
-        `Mission "${mission.title}" scheduled in ${daysLeft} day${
+      getMessage: (mission, daysLeft) => {
+        const title = getMissionDisplayTitle(mission);
+        return `Mission "${title}" scheduled in ${daysLeft} day${
           daysLeft > 1 ? "s" : ""
-        }. Is everything ready?`,
+        }. Is everything ready?`;
+      },
     },
     {
       title: "Mission Reminder",
-      getMessage: (mission, daysLeft) =>
-        `Mission "${mission.title}" on ${mission.date}. Have you prepared the documents?`,
+      getMessage: (mission, daysLeft) => {
+        const title = getMissionDisplayTitle(mission);
+        return `Mission "${title}" on ${mission.date}. Have you prepared the documents?`;
+      },
     },
   ],
 
   dueToday: [
     {
       title: "Mission Today",
-      getMessage: (mission) =>
-        `Mission "${mission.title}" today. Confirmed with the bailiff?`,
+      getMessage: (mission) => {
+        const title = getMissionDisplayTitle(mission);
+        return `Mission "${title}" today. Confirmed with the bailiff?`;
+      },
     },
   ],
 
   completion: [
     {
       title: "Mission Follow-up",
-      getMessage: (mission) =>
-        `Mission "${mission.title}" completed? Have you received the bailiff's report?`,
+      getMessage: (mission) => {
+        const title = getMissionDisplayTitle(mission);
+        return `Mission "${title}" completed? Have you received the bailiff's report?`;
+      },
     },
   ],
 };
@@ -526,30 +544,36 @@ export const domainEventTemplates = {
     priority: "info",
     icon: "fas fa-user-tag",
     title: "Mission assigned",
-    getMessage: (ctx) =>
-      `The mission "${ctx.title}" has been assigned to ${
+    getMessage: (ctx) => {
+      const title = getMissionDisplayTitle(ctx);
+      return `The mission "${title}" has been assigned to ${
         ctx.officerName || "a bailiff"
-      }.`,
+      }.`;
+    },
   },
   missionReassigned: {
     type: "mission",
     priority: "warning",
     icon: "fas fa-people-arrows",
     title: "Mission reassigned",
-    getMessage: (ctx) =>
-      `The mission "${ctx.title}" is transferred from ${
+    getMessage: (ctx) => {
+      const title = getMissionDisplayTitle(ctx);
+      return `The mission "${title}" is transferred from ${
         ctx.oldOfficer || "previous bailiff"
-      } to ${ctx.newOfficer || "new bailiff"}.`,
+      } to ${ctx.newOfficer || "new bailiff"}.`;
+    },
   },
   missionOverdue: {
     type: "mission",
     priority: "high",
     icon: "fas fa-exclamation-circle",
     title: "Mission overdue",
-    getMessage: (ctx) =>
-      `The mission "${ctx.title}" is overdue.${
+    getMessage: (ctx) => {
+      const title = getMissionDisplayTitle(ctx);
+      return `The mission "${title}" is overdue.${
         ctx.daysOverdue ? ` (${ctx.daysOverdue} day(s))` : ""
-      }`,
+      }`;
+    },
   },
 
   // System / Integrity

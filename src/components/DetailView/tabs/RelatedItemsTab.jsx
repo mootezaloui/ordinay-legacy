@@ -20,6 +20,7 @@ export default function RelatedItemsTab({ data, config, tabConfig, onItemsChange
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({});
+  const [editingItem, setEditingItem] = useState(null);
 
   // ✅ Synchronize local items state with parent data prop
   useEffect(() => {
@@ -42,18 +43,21 @@ export default function RelatedItemsTab({ data, config, tabConfig, onItemsChange
     });
   }, [tabConfig.formFields, formData]);
 
-  const handleAddItem = async (submittedFormData) => {
+  const handleSaveItem = async (submittedFormData) => {
     setIsLoading(true);
 
     try {
+      const isEdit = Boolean(editingItem);
       // Create new item
-      const newItem = {
-        id: Date.now(),
-        ...submittedFormData,
-        // Add parent reference if needed
-        [config.entityType + 'Id']: data.id,
-        createdDate: new Date().toISOString().split('T')[0],
-      };
+      const newItem = isEdit
+        ? { ...editingItem, ...submittedFormData }
+        : {
+          id: Date.now(),
+          ...submittedFormData,
+          // Add parent reference if needed
+          [config.entityType + 'Id']: data.id,
+          createdDate: new Date().toISOString().split('T')[0],
+        };
 
       // ✅ Special handling for tasks: set parentType based on parent entity
       if (tabConfig.itemsKey === 'tasks') {
@@ -70,7 +74,9 @@ export default function RelatedItemsTab({ data, config, tabConfig, onItemsChange
       }
 
       // Add to local state
-      const updatedItems = [newItem, ...items];
+      const updatedItems = isEdit
+        ? items.map((item) => (item.id === newItem.id ? newItem : item))
+        : [newItem, ...items];
       setItems(updatedItems);
 
       // Notify parent component
@@ -79,12 +85,13 @@ export default function RelatedItemsTab({ data, config, tabConfig, onItemsChange
       }
 
       // TODO: Save to backend
-      console.log("Adding new item:", newItem);
+      console.log(isEdit ? "Updating item:" : "Adding new item:", newItem);
       await new Promise(resolve => setTimeout(resolve, 500));
 
       setIsAddModalOpen(false);
+      setEditingItem(null);
       setFormData({}); // Reset form data
-      showToast(`${tabConfig.entityName || 'Item'} added successfully!`, "success");
+      showToast(`${tabConfig.entityName || 'Item'} ${isEdit ? 'updated' : 'added'} successfully!`, "success");
 
       // ✅ Navigate to the new entity's detail view
       // Map itemsKey to entity type for routing
@@ -132,19 +139,26 @@ export default function RelatedItemsTab({ data, config, tabConfig, onItemsChange
     }
   };
 
-  const handleModalOpen = () => {
+  const handleModalOpen = (item = null) => {
     // Initialize with defaults when opening
     const defaults = {};
     tabConfig.formFields?.forEach((field) => {
       defaults[field.name] = field.defaultValue || "";
     });
-    setFormData(defaults);
+    if (item) {
+      setEditingItem(item);
+      setFormData({ ...defaults, ...item });
+    } else {
+      setEditingItem(null);
+      setFormData(defaults);
+    }
     setIsAddModalOpen(true);
   };
 
   const handleModalClose = () => {
     // Clear form data on close
     setFormData({});
+    setEditingItem(null);
     setIsAddModalOpen(false);
   };
 
@@ -163,7 +177,7 @@ export default function RelatedItemsTab({ data, config, tabConfig, onItemsChange
             {/* ADD BUTTON - Empty State */}
             {tabConfig.allowAdd !== false && (
               <button
-                onClick={handleModalOpen}
+                onClick={() => handleModalOpen()}
                 className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors inline-flex items-center gap-2"
               >
                 <i className="fas fa-plus"></i>
@@ -176,16 +190,18 @@ export default function RelatedItemsTab({ data, config, tabConfig, onItemsChange
         {/* Add Modal */}
         {tabConfig.formFields && (
           <FormModal
+            key={`${tabConfig.itemsKey}-${editingItem?.id || 'new'}`}
             isOpen={isAddModalOpen}
             onClose={handleModalClose}
-            onSubmit={handleAddItem}
-            title={`Add ${tabConfig.entityName || 'an item'}`}
-            subtitle={tabConfig.addSubtitle || `Create a new ${tabConfig.entityName?.toLowerCase() || 'item'} for ${config.getTitle(data)}`}
+            onSubmit={handleSaveItem}
+            title={`${editingItem ? 'Edit' : 'Add'} ${tabConfig.entityName || 'an item'}`}
+            subtitle={editingItem ? tabConfig.editSubtitle || `Update this ${tabConfig.entityName?.toLowerCase() || 'item'}` : tabConfig.addSubtitle || `Create a new ${tabConfig.entityName?.toLowerCase() || 'item'} for ${config.getTitle(data)}`}
             fields={processedFormFields}
             isLoading={isLoading}
             // ✅ Pass formData state handlers for dynamic updates
             formData={formData}
             onFormDataChange={setFormData}
+            initialData={editingItem || undefined}
           />
         )}
       </>
@@ -263,6 +279,21 @@ export default function RelatedItemsTab({ data, config, tabConfig, onItemsChange
                       </span>
                     )}
 
+                    {/* Edit Button */}
+                    {tabConfig.allowEdit !== false && (
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleModalOpen(item);
+                        }}
+                        className="p-2 hover:bg-blue-100 dark:hover:bg-blue-900/20 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                        title="Edit"
+                      >
+                        <i className="fas fa-pen text-blue-600 dark:text-blue-300 text-sm"></i>
+                      </button>
+                    )}
+
                     {/* Delete Button */}
                     {tabConfig.allowDelete !== false && (
                       <button
@@ -307,15 +338,16 @@ export default function RelatedItemsTab({ data, config, tabConfig, onItemsChange
         <FormModal
           isOpen={isAddModalOpen}
           onClose={handleModalClose}
-          onSubmit={handleAddItem}
+          onSubmit={handleSaveItem}
           title={`Add ${tabConfig.entityName || 'an item'}`}
-          subtitle={tabConfig.addSubtitle || `Create a new ${tabConfig.entityName?.toLowerCase() || 'item'} for ${config.getTitle(data)}`}
+          subtitle={editingItem ? tabConfig.editSubtitle || `Update this ${tabConfig.entityName?.toLowerCase() || 'item'}` : tabConfig.addSubtitle || `Create a new ${tabConfig.entityName?.toLowerCase() || 'item'} for ${config.getTitle(data)}`}
           fields={processedFormFields}
           isLoading={isLoading}
           // ✅ Pass formData state handlers for dynamic updates
           formData={formData}
           onFormDataChange={setFormData}
-        />
+            initialData={editingItem || undefined}
+          />
       )}
     </>
   );

@@ -15,6 +15,7 @@ import {
   calculateDaysDifference,
   calculateHoursDifference,
   resolveEntityLink,
+  getMissionDisplayTitle,
 } from './notificationTemplates';
 
 /**
@@ -349,6 +350,7 @@ export function generateMissionNotifications(missions) {
     if (!mission.scheduledDate || mission.status === "Terminée") return;
 
     const daysLeft = calculateDaysDifference(mission.scheduledDate, now);
+    const missionTitle = getMissionDisplayTitle(mission);
 
     // Mission today
     if (daysLeft === 0) {
@@ -366,7 +368,7 @@ export function generateMissionNotifications(missions) {
         linkOverride: resolveEntityLink("mission", { missionId: mission.id }) || resolveEntityLink("officer", { officerId: mission.officerId }),
         metadata: {
           missionId: mission.id,
-          missionTitle: mission.title,
+          missionTitle,
           date: mission.scheduledDate,
           officerId: mission.officerId,
         },
@@ -388,7 +390,7 @@ export function generateMissionNotifications(missions) {
         linkOverride: resolveEntityLink("mission", { missionId: mission.id }) || resolveEntityLink("officer", { officerId: mission.officerId }),
         metadata: {
           missionId: mission.id,
-          missionTitle: mission.title,
+          missionTitle,
           daysLeft,
           date: mission.scheduledDate,
           officerId: mission.officerId,
@@ -412,7 +414,7 @@ export function generateMissionNotifications(missions) {
         linkOverride: resolveEntityLink("mission", { missionId: mission.id }) || resolveEntityLink("officer", { officerId: mission.officerId }),
         metadata: {
           missionId: mission.id,
-          missionTitle: mission.title,
+          missionTitle,
           officerId: mission.officerId,
         },
       }));

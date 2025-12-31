@@ -953,15 +953,15 @@ export const MissionRules = {
         notificationPriority = priorityWeight >= 2 ? "medium" : "low";
       }
 
-      const missionDescription =
-        mission.description || mission.title || "Mission";
+      const missionTitle =
+        mission.title || mission.description || mission.reference || "Mission";
 
       return new RuleResult(true, {
         priority: notificationPriority,
         frequency: "once",
         subType: "upcomingDeadline",
         title: `Mission - Deadline in ${daysLeft} day${daysLeft > 1 ? "s" : ""}`,
-        message: `The mission "${missionDescription}" (priority ${priorityLabel}) has a deadline in ${daysLeft} day${daysLeft > 1 ? "s" : ""} (${formatDateValue(dueDate)}).`,
+        message: `The mission "${missionTitle}" (priority ${priorityLabel}) has a deadline in ${daysLeft} day${daysLeft > 1 ? "s" : ""} (${formatDateValue(dueDate)}).`,
         metadata: {
           missionId: mission.id,
           dueDate,
@@ -995,8 +995,8 @@ export const MissionRules = {
     // Trigger only if deadline has passed (1+ days overdue)
     if (daysLeft < -1) {
       const daysPastDeadline = Math.abs(daysLeft);
-      const missionDescription =
-        mission.description || mission.title || "Mission";
+      const missionTitle =
+        mission.title || mission.description || mission.reference || "Mission";
 
       // Priority-based frequency
       let frequency = "once";
@@ -1013,7 +1013,7 @@ export const MissionRules = {
         frequency,
         subType: "completionReminder",
         title: "Mission - Update Required",
-        message: `The mission "${missionDescription}" had a deadline ${daysPastDeadline} day${daysPastDeadline > 1 ? "s" : ""} ago. Has the mission been completed by the bailiff?`,
+        message: `The mission "${missionTitle}" had a deadline ${daysPastDeadline} day${daysPastDeadline > 1 ? "s" : ""} ago. Has the mission been completed by the bailiff?`,
         metadata: {
           missionId: mission.id,
           dueDate,
@@ -1487,8 +1487,8 @@ export const DossierRules = {
     // Edge case check: For upcoming deadlines, verify the deadline wasn't just set
     const lastUpdate = dossier.updated_at || dossier.updatedAt;
     if (lastUpdate && daysLeft > 0) {
-      const daysSinceUpdate = daysSinceUpdate(lastUpdate);
-      const totalDaysUntilDeadline = daysLeft + daysSinceUpdate;
+      const daysSinceLastUpdate = daysSinceUpdate(lastUpdate);
+      const totalDaysUntilDeadline = daysLeft + daysSinceLastUpdate;
 
       // Due in 1-3 days (daily reminders)
       if (daysLeft >= 1 && daysLeft <= 3) {

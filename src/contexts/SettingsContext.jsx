@@ -1,11 +1,12 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { getNotificationPreferences } from "../utils/scheduledNotifications";
 import { formatDateTimeValue, formatDateValue, getDefaultDateFormat } from "../utils/dateFormat";
+import { DEFAULT_LANGUAGE, SUPPORTED_LANGUAGE_CODES } from "../i18n/config";
 
 const STORAGE_KEY = "organia_settings";
 
-const DEFAULT_SETTINGS = {
-  language: "en",
+export const DEFAULT_SETTINGS = {
+  language: DEFAULT_LANGUAGE,
   timezone: "Africa/Tunis",
   dateFormat: getDefaultDateFormat(),
   theme: "system",
@@ -31,7 +32,11 @@ export function SettingsProvider({ children }) {
       if (raw) {
         const parsed = JSON.parse(raw);
         if (parsed?.settings) {
-          return { ...DEFAULT_SETTINGS, ...parsed.settings };
+          const parsedSettings = { ...DEFAULT_SETTINGS, ...parsed.settings };
+          if (!SUPPORTED_LANGUAGE_CODES.includes(parsedSettings.language)) {
+            parsedSettings.language = DEFAULT_LANGUAGE;
+          }
+          return parsedSettings;
         }
       }
     } catch (error) {
@@ -77,7 +82,13 @@ export function SettingsProvider({ children }) {
   }, [settings, notificationPrefs]);
 
   const updateSettings = useCallback((patch) => {
-    setSettings(prev => ({ ...prev, ...patch }));
+    setSettings(prev => {
+      const next = { ...prev, ...(typeof patch === "function" ? patch(prev) : patch) };
+      if (!SUPPORTED_LANGUAGE_CODES.includes(next.language)) {
+        next.language = DEFAULT_LANGUAGE;
+      }
+      return next;
+    });
   }, []);
 
   const updateNotificationPrefs = useCallback((patch) => {

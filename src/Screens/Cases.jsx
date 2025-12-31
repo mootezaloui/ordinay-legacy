@@ -68,7 +68,7 @@ export default function Cases() {
   const columns = [
     {
       id: "caseNumber",
-      label: "Case #",
+      label: "Lawsuit #",
       sortable: true,
       locked: true,
       render: (caseItem) => (
@@ -452,8 +452,8 @@ export default function Cases() {
   return (
     <PageLayout>
       <PageHeader
-        title="Cases"
-        subtitle={`${table.originalTotalItems} cases in total${table.isFiltering ? ` • ${table.totalItems} displayed` : ""}`}
+        title="Lawsuits"
+        subtitle={`${table.originalTotalItems} Lawsuits in total${table.isFiltering ? ` • ${table.totalItems} displayed` : ""}`}
         icon="fas fa-gavel"
         actions={
           <button
@@ -463,10 +463,10 @@ export default function Cases() {
               ? "bg-gray-400 cursor-not-allowed text-gray-200"
               : "bg-blue-600 hover:bg-blue-700 text-white"
               }`}
-            title={dossiers.length === 0 ? "Cannot create a case without dossiers. Please create a dossier first." : ""}
+            title={dossiers.length === 0 ? "Cannot create a Lawsuit without dossiers. Please create a dossier first." : ""}
           >
             <i className="fas fa-plus"></i>
-            New Case
+            New Lawsuit
           </button>
         }
       />
@@ -480,7 +480,7 @@ export default function Cases() {
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <StatCard
-          label="Total Cases"
+          label="Total Lawsuits"
           value={stats.total}
           icon="fas fa-gavel"
           color="purple"
@@ -529,7 +529,7 @@ export default function Cases() {
             onReorder={table.reorderColumns}
             enableReorder={true}
           />
-          <TableBody isEmpty={table.data.length === 0} emptyMessage={table.isFiltering ? "No results found" : dossiers.length === 0 ? "Ajoutez d'abord un dossier avant de créer un procès." : "No cases found"}>
+          <TableBody isEmpty={table.data.length === 0} emptyMessage={table.isFiltering ? "No results found" : dossiers.length === 0 ? "Please add a dossier before adding a lawsuit." : "No lawsuits found"}>
             {table.data.map((caseItem) => (
               <TableRow
                 key={caseItem.id}
@@ -563,12 +563,12 @@ export default function Cases() {
           setEditingCase(null);
         }}
         onSubmit={handleSubmit}
-        title={editingCase ? "Edit Case" : "New Case"}
-        subtitle={editingCase ? "Edit case information" : "Add a new case"}
+        title={editingCase ? "Edit Lawsuit" : "New Lawsuit"}
+        subtitle={editingCase ? "Edit Lawsuit information" : "Add a new Lawsuit"}
         fields={populatedCaseFormFields}
         initialData={editingCase}
         isLoading={isLoading}
-        entityType="case"
+        entityType="lawsuit"
         entityId={editingCase?.id}
         editingEntity={editingCase}
         entities={{ clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }}
@@ -581,10 +581,10 @@ export default function Cases() {
           setPendingDeleteId(null);
           setValidationResult(null);
         }}
-        actionName="Edit/Delete case"
+        actionName="Edit/Delete Lawsuit"
         blockers={validationResult?.blockers || []}
         warnings={validationResult?.warnings || []}
-        entityName={validationResult?.entityData?.caseNumber || "Case"}
+        entityName={validationResult?.entityData?.caseNumber || "Lawsuit"}
         requiresForceDelete={validationResult?.requiresForceDelete || false}
         affectedEntities={validationResult?.affectedEntities || []}
         forceDeleteMessage={validationResult?.forceDeleteMessage || ""}
@@ -598,7 +598,7 @@ export default function Cases() {
           setPendingFormData(null);
         }}
         onConfirm={handleConfirmImpact}
-        actionName="change case linkage"
+        actionName="change Lawsuit linkage"
         impactSummary={validationResult?.impactSummary || []}
         entityName={editingCase?.caseNumber || ""}
       />

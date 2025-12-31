@@ -75,13 +75,13 @@ export const sessionConfig = {
     };
   },
 
-  updateData: async (id, data, contextData = null) => {
+  updateData: async (id, data, contextData = null, options = {}) => {
     const numericId = parseInt(id);
 
     // Filter out any potential relationship fields - session entity should only contain session-specific data
     const sessionFields = [
       'title', 'type', 'linkType', 'caseId', 'dossierId', 'date', 'time',
-      'duration', 'location', 'courtRoom', 'judge', 'status', 'description', 'notes' // ✅ Added notes
+      'duration', 'location', 'courtRoom', 'judge', 'status', 'description', 'notes', 'participants'
     ];
     const sessionData = Object.keys(data).reduce((acc, key) => {
       if (sessionFields.includes(key)) {
@@ -94,7 +94,7 @@ export const sessionConfig = {
     if (Object.keys(sessionData).length > 0) {
       if (contextData?.updateSession) {
         // Use DataContext to update (this persists to localStorage)
-        contextData.updateSession(numericId, sessionData);
+        await contextData.updateSession(numericId, sessionData, options);
       } else {
         // Fallback to updating null
         if (null[numericId]) {
@@ -251,10 +251,40 @@ export const sessionConfig = {
 
       itemsKey: "participants",
       emptyMessage: "No participants",
-      renderItem: (item) => ({
-        title: item.name,
-        subtitle: item.role,
-      }),
+      allowEdit: true,
+      renderItem: (item) => {
+        const roleColors = {
+          Lawyer: { icon: "fas fa-gavel", bgColor: "bg-purple-100 dark:bg-purple-900/30", iconColor: "text-purple-700 dark:text-purple-300" },
+          Client: { icon: "fas fa-user", bgColor: "bg-blue-100 dark:bg-blue-900/30", iconColor: "text-blue-700 dark:text-blue-300" },
+          Judge: { icon: "fas fa-scale-balanced", bgColor: "bg-amber-100 dark:bg-amber-900/30", iconColor: "text-amber-700 dark:text-amber-300" },
+          Witness: { icon: "fas fa-eye", bgColor: "bg-green-100 dark:bg-green-900/30", iconColor: "text-green-700 dark:text-green-300" },
+          Expert: { icon: "fas fa-microscope", bgColor: "bg-teal-100 dark:bg-teal-900/30", iconColor: "text-teal-700 dark:text-teal-300" },
+          default: { icon: "fas fa-user", bgColor: "bg-slate-100 dark:bg-slate-800/60", iconColor: "text-slate-600 dark:text-slate-300" }
+        };
+        const roleEmojis = {
+          Lawyer: "⚖️",
+          Client: "🧑‍💼",
+          Judge: "👩‍⚖️",
+          Witness: "👀",
+          Expert: "🔬",
+        };
+        const roleStyle = roleColors[item.role] || roleColors.default;
+        const emoji = roleEmojis[item.role] || "🧑";
+        const detailChips = [
+          `${emoji} ${item.role}`,
+          item.email,
+          item.phone,
+          item.createdDate,
+        ].filter(Boolean).join(" • ");
+
+        return {
+          title: `${emoji} ${item.name || "Unnamed participant"}`,
+          subtitle: detailChips,
+          icon: roleStyle.icon,
+          bgColor: roleStyle.bgColor,
+          iconColor: roleStyle.iconColor,
+        };
+      },
 
       allowAdd: true,
       allowDelete: true,
@@ -265,29 +295,36 @@ export const sessionConfig = {
           label: "Name",
           type: "text",
           required: true,
+          placeholder: "Full name",
+          helpText: "Who will attend this hearing?"
         },
         {
           name: "role",
           label: "Role",
-          type: "select",
+          type: "searchable-select",
+          placement: "bottom",
           required: true,
+          placeholder: "Choose a role",
           options: [
-            { value: "Lawyer", label: "Lawyer" },
-            { value: "Client", label: "Client" },
-            { value: "Judge", label: "Judge" },
-            { value: "Witness", label: "Witness" },
-            { value: "Expert", label: "Expert" },
+            { value: "Lawyer", label: "⚖️ Lawyer" },
+            { value: "Client", label: "🧑‍💼 Client" },
+            { value: "Judge", label: "👩‍⚖️ Judge" },
+            { value: "Witness", label: "👀 Witness" },
+            { value: "Expert", label: "🔬 Expert" },
           ]
         },
         {
           name: "email",
           label: "Email",
           type: "email",
+          placeholder: "name@email.com"
         },
         {
           name: "phone",
           label: "Phone",
           type: "tel",
+          placeholder: "+216 12 345 678",
+          helpText: "Optional contact number for day-of coordination"
         },
       ],
     },
@@ -327,7 +364,7 @@ export const sessionConfig = {
         {
           key: "title",
           label: "Session Title",
-          value: (data) => data.title,
+          value: (data, contextData) => data.title,
           icon: "fas fa-file-alt",
           type: "text",
           editable: true
@@ -335,12 +372,14 @@ export const sessionConfig = {
         {
           key: "linkType",
           label: "Linked To",
-          value: (data) => {
-            // Return the actual value, not the label
-            if (data.linkType) return data.linkType;
-            if (data.dossierId || data.dossier) return "dossier";
-            if (data.caseId || data.case) return "case";
-            return "case";
+          value: (data, contextData) => data.linkType || (data.dossierId || data.dossier ? "dossier" : "case"),
+          displayValue: (data, contextData) => {
+            const linkTypeOptions = {
+              "case": "Lawsuit",
+              "dossier": "Dossier"
+            };
+            const rawValue = data.linkType || (data.dossierId || data.dossier ? "dossier" : "case");
+            return linkTypeOptions[rawValue] || "Lawsuit";
           },
           icon: "fas fa-link",
           type: "select",
@@ -355,21 +394,15 @@ export const sessionConfig = {
         {
           key: "caseId",
           label: "Lawsuit",
-          value: (data) => data.caseId || "",
+          value: (data, contextData) => data.caseId || "",
           displayValue: (data) => data.case ? `${data.case.caseNumber} - ${data.case.title}` : "None",
           icon: "fas fa-gavel",
           type: "searchable-select",
           editable: true,
-          options: [
+          options: [],
+          getOptions: (editedData, contextData) => ([
             { value: "", label: "Select a lawsuit..." },
-            ...[].map(c => ({
-              value: c.id,
-              label: `${c.caseNumber} - ${c.title}`
-            }))
-          ],
-          getOptions: () => ([
-            { value: "", label: "Select a lawsuit..." },
-            ...[].map(c => ({
+            ...(contextData?.cases || []).map(c => ({
               value: c.id,
               label: `${c.caseNumber} - ${c.title}`
             }))
@@ -379,10 +412,10 @@ export const sessionConfig = {
         {
           key: "dossierId",
           label: "Dossier",
-          value: (data) => {
+          value: (data, contextData) => {
             // If linked to a case, get the parent dossier
             if (data.caseId) {
-              const parentCase = [].find(c => c.id === data.caseId);
+              const parentCase = (contextData?.cases || []).find(c => c.id === parseInt(data.caseId));
               if (parentCase && parentCase.dossierId) {
                 return parentCase.dossierId;
               }
@@ -390,12 +423,12 @@ export const sessionConfig = {
             // Otherwise use direct dossier link
             return data.dossierId || "";
           },
-          displayValue: (data) => {
+          displayValue: (data, contextData) => {
             // If linked to a case, show the parent dossier
             if (data.caseId) {
-              const parentCase = [].find(c => c.id === data.caseId);
+              const parentCase = (contextData?.cases || []).find(c => c.id === parseInt(data.caseId));
               if (parentCase && parentCase.dossierId) {
-                const parentDossier = [].find(d => d.id === parentCase.dossierId);
+                const parentDossier = (contextData?.dossiers || []).find(d => d.id === parseInt(parentCase.dossierId));
                 if (parentDossier) {
                   return `${parentDossier.caseNumber} - ${parentDossier.title}`;
                 }
@@ -406,7 +439,7 @@ export const sessionConfig = {
               return `${data.dossier.caseNumber} - ${data.dossier.title}`;
             }
             if (data.dossierId) {
-              const dossier = [].find(d => d.id === data.dossierId);
+              const dossier = (contextData?.dossiers || []).find(d => d.id === parseInt(data.dossierId));
               if (dossier) {
                 return `${dossier.caseNumber} - ${dossier.title}`;
               }
@@ -416,16 +449,10 @@ export const sessionConfig = {
           icon: "fas fa-folder",
           type: "searchable-select",
           editable: true,
-          options: [
+          options: [],
+          getOptions: (editedData, contextData) => ([
             { value: "", label: "Select a dossier..." },
-            ...[].map(d => ({
-              value: d.id,
-              label: `${d.caseNumber} - ${d.title}`
-            }))
-          ],
-          getOptions: () => ([
-            { value: "", label: "Select a dossier..." },
-            ...[].map(d => ({
+            ...(contextData?.dossiers || []).map(d => ({
               value: d.id,
               label: `${d.caseNumber} - ${d.title}`
             }))
@@ -441,7 +468,7 @@ export const sessionConfig = {
         {
           key: "date",
           label: "Date",
-          value: (data) => data.date,
+          value: (data, contextData) => data.date,
           displayValue: (data) => data.date ? formatDateValue(data.date) : "N/A",
           icon: "fas fa-calendar",
           type: "date",
@@ -450,7 +477,7 @@ export const sessionConfig = {
         {
           key: "time",
           label: "Time",
-          value: (data) => data.time,
+          value: (data, contextData) => data.time,
           icon: "fas fa-clock",
           type: "select",
           editable: true,
@@ -482,7 +509,7 @@ export const sessionConfig = {
         {
           key: "duration",
           label: "Estimated Duration",
-          value: (data) => data.duration,
+          value: (data, contextData) => data.duration,
           icon: "fas fa-hourglass-half",
           type: "select",
           editable: true,
@@ -502,7 +529,7 @@ export const sessionConfig = {
         {
           key: "location",
           label: "Location",
-          value: (data) => data.location,
+          value: (data, contextData) => data.location,
           icon: "fas fa-map-marker-alt",
           type: "text",
           editable: true
@@ -510,7 +537,7 @@ export const sessionConfig = {
         {
           key: "courtRoom",
           label: "Court Room",
-          value: (data) => data.courtRoom,
+          value: (data, contextData) => data.courtRoom,
           icon: "fas fa-door-open",
           type: "text",
           editable: true,
@@ -519,7 +546,7 @@ export const sessionConfig = {
         {
           key: "judge",
           label: "Judge",
-          value: (data) => data.judge,
+          value: (data, contextData) => data.judge,
           icon: "fas fa-balance-scale",
           type: "text",
           editable: true,
@@ -534,7 +561,7 @@ export const sessionConfig = {
       fieldKey: "description",
       content: (data) => data.description || "No description",
     },
-    
+
   ],
 };
 
@@ -559,3 +586,4 @@ function InfoCard({ icon, label, value, color }) {
     </div >
   );
 }
+

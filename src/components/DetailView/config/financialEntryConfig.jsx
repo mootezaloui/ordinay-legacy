@@ -222,7 +222,7 @@ export const financialEntryConfig = {
                 {
                     key: "title",
                     label: "Title",
-                    value: (data) => data.title || "",
+                    value: (data, contextData) => data.title || "",
                     icon: "fas fa-heading",
                     type: "text",
                     editable: true,
@@ -231,7 +231,7 @@ export const financialEntryConfig = {
                 {
                     key: "description",
                     label: "Additional Details",
-                    value: (data) => data.description || "",
+                    value: (data, contextData) => data.description || "",
                     displayValue: (data) => data.description || "No additional details",
                     icon: "fas fa-file-text",
                     type: "textarea",
@@ -241,7 +241,7 @@ export const financialEntryConfig = {
                 {
                     key: "amount",
                     label: "Amount",
-                    value: (data) => data.amount,
+                    value: (data, contextData) => data.amount,
                     icon: "fas fa-money-bill-wave",
                     type: "number",
                     editable: true,
@@ -251,7 +251,8 @@ export const financialEntryConfig = {
                 {
                     key: "type",
                     label: "Type",
-                    value: (data) => data.type === 'revenue' ? 'Revenue' : 'Expense',
+                    value: (data, contextData) => data.type || "expense",
+                    displayValue: (data) => data.type === 'revenue' ? 'Revenue' : 'Expense',
                     icon: "fas fa-exchange-alt",
                     type: "select",
                     editable: true,
@@ -263,7 +264,7 @@ export const financialEntryConfig = {
                 {
                     key: "category",
                     label: "Category",
-                    value: (data) => data.category,
+                    value: (data, contextData) => data.category,
                     displayValue: (data) => {
                         // Use categoryLabel if available, otherwise compute from category
                         if (data.categoryLabel) {
@@ -285,7 +286,7 @@ export const financialEntryConfig = {
                 {
                     key: "status",
                     label: "Status",
-                    value: (data) => data.status,
+                    value: (data, contextData) => data.status,
                     displayValue: (data) => {
                         const statusMap = {
                             draft: "Draft",
@@ -308,7 +309,8 @@ export const financialEntryConfig = {
                 {
                     key: "scope",
                     label: "Scope",
-                    value: (data) => data.scope === 'client' ? 'Client' : 'Office',
+                    value: (data, contextData) => data.scope || "internal",
+                    displayValue: (data) => data.scope === 'client' ? 'Client' : 'Office',
                     icon: "fas fa-layer-group",
                     type: "select",
                     editable: true,
@@ -326,7 +328,7 @@ export const financialEntryConfig = {
                 {
                     key: "date",
                     label: "Transaction Date",
-                    value: (data) => data.date,
+                    value: (data, contextData) => data.date,
                     displayValue: (data) => formatDateValue(data.date),
                     icon: "fas fa-calendar",
                     type: "date",
@@ -335,7 +337,7 @@ export const financialEntryConfig = {
                 {
                     key: "dueDate",
                     label: "Due Date",
-                    value: (data) => data.dueDate,
+                    value: (data, contextData) => data.dueDate,
                     displayValue: (data) => data.dueDate ? formatDateValue(data.dueDate) : "N/A",
                     icon: "fas fa-clock",
                     type: "date",
@@ -350,37 +352,44 @@ export const financialEntryConfig = {
                 {
                     key: "clientId",
                     label: "Client",
-                    value: (data) => data.clientId || "",
-                    displayValue: (data) => data.clientName || "None",
+                    value: (data, contextData) => data.clientId || "",
+                    displayValue: (data, contextData) => {
+                        if (!data.clientId) return "None";
+                        const client = (contextData?.clients || []).find(c => c.id === parseInt(data.clientId));
+                        if (client) return client.name;
+                        return data.clientName || "None";
+                    },
                     icon: "fas fa-user",
                     type: "searchable-select",
                     editable: true,
-                    options: [
+                    options: [],
+                    getOptions: (editedData, contextData) => ([
                         { value: "", label: "Select a client..." },
-                        ...[].map(c => ({ value: c.id, label: c.name }))
-                    ],
-                    getOptions: () => ([
-                        { value: "", label: "Select a client..." },
-                        ...[].map(c => ({ value: c.id, label: c.name }))
+                        ...(contextData?.clients || []).map(c => ({ value: c.id, label: c.name }))
                     ]),
                 },
                 {
                     key: "dossierId",
                     label: "Dossier",
-                    value: (data) => data.dossierId || "",
-                    displayValue: (data) => data.dossierReference || "None",
+                    value: (data, contextData) => data.dossierId || "",
+                    displayValue: (data, contextData) => {
+                        if (!data.dossierId) return "None";
+                        const dossier = (contextData?.dossiers || []).find(d => d.id === parseInt(data.dossierId));
+                        if (dossier) return `${dossier.caseNumber} - ${dossier.title}`;
+                        return data.dossierReference || "None";
+                    },
                     icon: "fas fa-folder",
                     type: "searchable-select",
                     editable: true,
-                    getOptions: (editedData) => {
-                        // ✅ Filter dossiers by selected client
+                    getOptions: (editedData = {}, contextData) => {
                         const clientId = editedData?.clientId;
+                        const dossiers = contextData?.dossiers || [];
                         const filteredDossiers = clientId
-                            ? [].filter(d => d.clientId === parseInt(clientId))
-                            : [];
+                            ? dossiers.filter(d => d.clientId === parseInt(clientId))
+                            : dossiers;
 
                         return [
-                            { value: "", label: clientId ? "Select a Dossier..." : "Select a client first" },
+                            { value: "", label: "Select a dossier..." },
                             ...filteredDossiers.map(d => ({
                                 value: d.id,
                                 label: `${d.caseNumber} - ${d.title}`
@@ -392,20 +401,26 @@ export const financialEntryConfig = {
                 {
                     key: "caseId",
                     label: "Lawsuit",
-                    value: (data) => data.caseId || "",
-                    displayValue: (data) => data.caseReference || "None",
+                    value: (data, contextData) => data.caseId || "",
+                    displayValue: (data, contextData) => {
+                        if (!data.caseId) return "None";
+                        const cases = contextData?.cases || [];
+                        const caseItem = cases.find(c => c.id === parseInt(data.caseId));
+                        if (caseItem) return `${caseItem.caseNumber} - ${caseItem.title}`;
+                        return data.caseReference || "None";
+                    },
                     icon: "fas fa-gavel",
                     type: "searchable-select",
                     editable: true,
-                    getOptions: (editedData) => {
-                        // ✅ Filter cases by selected dossier
+                    getOptions: (editedData = {}, contextData) => {
                         const dossierId = editedData?.dossierId;
+                        const cases = contextData?.cases || [];
                         const filteredCases = dossierId
-                            ? [].filter(c => c.dossierId === parseInt(dossierId))
-                            : [];
+                            ? cases.filter(c => c.dossierId === parseInt(dossierId))
+                            : cases;
 
                         return [
-                            { value: "", label: dossierId ? "Select a lawsuit..." : "Select a dossier first" },
+                            { value: "", label: "Select a lawsuit..." },
                             ...filteredCases.map(c => ({
                                 value: c.id,
                                 label: `${c.caseNumber} - ${c.title}`

@@ -228,6 +228,19 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
           ...relationshipFields,
         };
 
+        // Preserve the user's relationship selection when creating from officer context
+        if (!missionData.entityType) {
+          missionData.entityType = entityType || config?.entityType;
+        }
+
+        // Enforce dossier/case XOR before hitting the API (case wins conflicts, like tasks)
+        const normalizedCaseId = missionData.caseId ?? missionData.case_id;
+        const normalizedDossierId = missionData.dossierId ?? missionData.dossier_id;
+        if (normalizedCaseId && normalizedDossierId) {
+          missionData.dossierId = null;
+          missionData.dossier_id = null;
+        }
+
         console.log("✨ Sending mission to backend:", missionData);
 
         // ✅ Call backend API to create mission

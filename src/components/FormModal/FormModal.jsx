@@ -726,6 +726,7 @@ function FormField({ field, value, onChange, error, formData, compact = false })
             allowCreate={field.allowCreate || false}
             onCreateOption={handleCreateOption}
             createLabel={field.createLabel || "Add"}
+            placement={field.placement || "bottom"}
           />
         );
 

@@ -6,6 +6,7 @@ import { SidebarProvider } from "./contexts/SidebarContext";
 import { ToastProvider } from "./contexts/ToastContext";
 import { ConfirmProvider } from "./contexts/ConfirmContext";
 import { DataProvider } from "./contexts/DataContext";
+import { I18nProvider } from "./contexts/I18nProvider";
 import "@fortawesome/fontawesome-free/css/all.min.css";
 import { NotificationProvider } from "./contexts/NotificationContext";
 import AlertBanner from "./components/notifications/AlertBanner";
@@ -16,22 +17,24 @@ import App from "./App";
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <SettingsProvider>
-      <ThemeProvider>
-        <NotificationProvider>
-          <ToastProvider>
-            <DataProvider>
-              <AlertBanner />
-              <SidebarProvider>
-                <ConfirmProvider>
-                  <BrowserRouter>
-                    <App />
-                  </BrowserRouter>
-                </ConfirmProvider>
-              </SidebarProvider>
-            </DataProvider>
-          </ToastProvider>
-        </NotificationProvider>
-      </ThemeProvider>
+      <I18nProvider>
+        <ThemeProvider>
+          <NotificationProvider>
+            <ToastProvider>
+              <DataProvider>
+                <AlertBanner />
+                <SidebarProvider>
+                  <ConfirmProvider>
+                    <BrowserRouter>
+                      <App />
+                    </BrowserRouter>
+                  </ConfirmProvider>
+                </SidebarProvider>
+              </DataProvider>
+            </ToastProvider>
+          </NotificationProvider>
+        </ThemeProvider>
+      </I18nProvider>
     </SettingsProvider>
   </StrictMode>
 );

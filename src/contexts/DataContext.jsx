@@ -1118,6 +1118,7 @@ export function DataProvider({ children }) {
       outcome: emptyToNull(sessionItem.outcome),
       description: emptyToNull(sessionItem.description),
       notes: emptyToNull(sessionItem.notes),
+      participants: Array.isArray(sessionItem.participants) ? sessionItem.participants : emptyToNull(sessionItem.participants),
     };
 
     // Only include dossier_id OR case_id, not both (backend requires XOR)
@@ -1147,9 +1148,10 @@ export function DataProvider({ children }) {
     return { ok: true, result: validation.result, created: adapted };
   };
 
-  const updateSession = async (id, updates) => {
+  const updateSession = async (id, updates, options = {}) => {
+    const { skipConfirmation = false } = options;
     const prev = sessions.find((s) => s.id === id);
-    const validation = validateMutation("session", "edit", id, { data: prev, newData: { ...prev, ...updates } }, integrityIssues);
+    const validation = validateMutation("session", "edit", id, { data: prev, newData: { ...prev, ...updates } }, integrityIssues, skipConfirmation);
     if (!validation.ok) return validation;
 
     console.log('[DataContext.updateSession] Updating session ID:', id, 'with:', updates);
@@ -1210,6 +1212,9 @@ export function DataProvider({ children }) {
     }
     if (updates.description !== undefined) {
       payload.description = emptyToNull(updates.description);
+    }
+    if (updates.participants !== undefined) {
+      payload.participants = updates.participants;
     }
     if (updates.notes !== undefined) {
       // ✅ Convert notes to backend format (camelCase → snake_case)
@@ -1316,9 +1321,10 @@ export function DataProvider({ children }) {
     return { ok: true, result: validation.result, created: adapted };
   };
 
-  const updateTask = async (id, updates) => {
+  const updateTask = async (id, updates, options = {}) => {
+    const { skipConfirmation = false } = options;
     const prev = tasks.find((t) => t.id === id);
-    const validation = validateMutation("task", "edit", id, { data: prev, newData: { ...prev, ...updates } }, integrityIssues);
+    const validation = validateMutation("task", "edit", id, { data: prev, newData: { ...prev, ...updates } }, integrityIssues, skipConfirmation);
     if (!validation.ok) return validation;
 
     console.log('[DataContext.updateTask] Updating task ID:', id, 'with:', updates);
@@ -1765,26 +1771,31 @@ export function DataProvider({ children }) {
 
     // Determine which entity to link based on entityType or which ID is provided
     const entityType = mission.entityType;
-    const dossierId = mission.dossierId || mission.dossier_id;
-    const caseId = mission.caseId || mission.case_id;
+    const dossierId = emptyToNull(mission.dossierId ?? mission.dossier_id);
+    const caseId = emptyToNull(mission.caseId ?? mission.case_id);
 
     // Backend requires EITHER dossier_id OR case_id (exclusive)
-    // Priority: if entityType is specified, use that; otherwise infer from IDs
+    // Prefer the explicit entityType, otherwise mirror the task XOR rule (case wins ties)
     let finalDossierId = null;
     let finalCaseId = null;
 
-    if (entityType === "case" || (caseId && !entityType)) {
-      // Link to case only
-      finalCaseId = emptyToNull(caseId);
-      finalDossierId = null;
-    } else if (entityType === "dossier" || (dossierId && !caseId)) {
-      // Link to dossier only
-      finalDossierId = emptyToNull(dossierId);
-      finalCaseId = null;
+    if (entityType === "case") {
+      finalCaseId = caseId || null;
+      if (!finalCaseId && dossierId) {
+        finalDossierId = dossierId;
+      }
+    } else if (entityType === "dossier") {
+      finalDossierId = dossierId || null;
+      if (!finalDossierId && caseId) {
+        finalCaseId = caseId;
+      }
+    } else if (caseId && dossierId) {
+      // Ambiguous: default to case linkage to align with tasks
+      finalCaseId = caseId;
     } else if (caseId) {
-      // Default to case if both are provided
-      finalCaseId = emptyToNull(caseId);
-      finalDossierId = null;
+      finalCaseId = caseId;
+    } else if (dossierId) {
+      finalDossierId = dossierId;
     }
 
     // Map frontend field names to backend expectations

@@ -356,7 +356,7 @@ export const caseFormFields = [
     type: "searchable-select", // ✅ Use searchable select for scalability
     required: true,
     options: [], // ← Will be populated dynamically with []
-    helpText: "Required - Each case must be linked to a Dossier",
+    helpText: "Required - Each lawsuit must be linked to a Dossier",
   },
   {
     name: "court",
@@ -478,7 +478,7 @@ export const sessionFormFields = [
       { value: "case", label: "Lawsuit" },
       { value: "dossier", label: "Dossier" },
     ],
-    helpText: "A hearing can be linked to a case or directly to a Dossier",
+    helpText: "A hearing can be linked to a lawsuit or directly to a Dossier",
     onChange: (value, formData, setFormData) => {
       // Clear the other field when type changes
       setFormData({
@@ -492,11 +492,11 @@ export const sessionFormFields = [
   {
     // ✅ RELATIONSHIP FIELD - Procès (shown when linkType is "case")
     name: "caseId",
-    label: "Case",
+    label: "Lawsuit",
     type: "searchable-select", // ✅ Use searchable select for scalability
     required: false,
     options: [], // ← Will be populated dynamically with []
-    helpText: "Select the concerned case",
+    helpText: "Select the concerned lawsuit",
     hideIf: (formData) => formData.linkType !== "case",
   },
   {
@@ -654,9 +654,9 @@ export const taskFormFields = [
     defaultValue: "dossier",
     options: [
       { value: "dossier", label: "Dossier" },
-      { value: "case", label: "Case" },
+      { value: "case", label: "Lawsuit" },
     ],
-    helpText: "A task can be linked to a Dossier or a case",
+    helpText: "A task can be linked to a Dossier or a Lawsuit",
   },
   {
     // ✅ RELATIONSHIP FIELD - Dossier (conditionally shown)
@@ -671,7 +671,7 @@ export const taskFormFields = [
   {
     // ✅ RELATIONSHIP FIELD - Case (conditionally shown)
     name: "caseId",
-    label: "Case",
+    label: "Lawsuit",
     type: "searchable-select",
     required: false, // Will be conditionally required
     options: [], // Will be populated by parent component (Tasks.jsx)
@@ -1365,7 +1365,8 @@ export const financialEntryFormFields = [
     type: "text",
     required: true,
     fullWidth: true,
-    placeholder: "Ex: Court filing fee, Bailiff travel expenses, Legal consultation...",
+    placeholder:
+      "Ex: Court filing fee, Bailiff travel expenses, Legal consultation...",
     helpText: "Short, descriptive title for this financial entry",
   },
   {
@@ -1492,11 +1493,14 @@ export const financialEntryFormFields = [
       // Filter missions based on selected entity
       if (dossierId) {
         filteredMissions = filteredMissions.filter(
-          (m) => m.entityType === "dossier" && String(m.entityId) === String(dossierId)
+          (m) =>
+            m.entityType === "dossier" &&
+            String(m.entityId) === String(dossierId)
         );
       } else if (caseId) {
         filteredMissions = filteredMissions.filter(
-          (m) => m.entityType === "case" && String(m.entityId) === String(caseId)
+          (m) =>
+            m.entityType === "case" && String(m.entityId) === String(caseId)
         );
       } else {
         // No dossier or case selected - don't show missions

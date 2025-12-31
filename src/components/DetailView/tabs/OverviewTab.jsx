@@ -97,7 +97,7 @@ function StructuredEditSection({ section, data, onSave, onSaveWithOptions, entit
       section.fields.forEach(field => {
         const fieldKey = field.key || field.label.toLowerCase().replace(/\s+/g, '_');
         const resolvedFromField = typeof field.value === 'function'
-          ? field.value(data)
+          ? field.value(data, contextData)
           : undefined;
         const resolvedValue = resolvedFromField !== undefined ? resolvedFromField : data[fieldKey];
         initialData[fieldKey] = resolvedValue ?? '';
@@ -348,7 +348,7 @@ function StructuredEditSection({ section, data, onSave, onSaveWithOptions, entit
           <div className={isEditing ? "space-y-6" : "space-y-4"}>
             {section.fields.map((field, fieldIndex) => {
               const fieldKey = field.key || field.label.toLowerCase().replace(/\s+/g, '_');
-              const value = typeof field.value === 'function' ? field.value(data) : data[fieldKey];
+              const value = typeof field.value === 'function' ? field.value(data, contextData) : data[fieldKey];
               const fieldType = field.type || 'text';
 
               // ✅ Conditional visibility for session form fields (linkType)
@@ -635,7 +635,7 @@ function RegularSection({ section, data, isEditing, onDataChange, contextData = 
           <div className={isEditing ? "space-y-6" : "space-y-4"}>
             {section.fields.map((field, fieldIndex) => {
               const fieldKey = field.key || field.label.toLowerCase().replace(/\s+/g, '_');
-              const value = typeof field.value === 'function' ? field.value(data) : data[fieldKey];
+              const value = typeof field.value === 'function' ? field.value(data, contextData) : data[fieldKey];
               const fieldType = field.type || 'text';
 
               const hasLinkType = "linkType" in editedData;

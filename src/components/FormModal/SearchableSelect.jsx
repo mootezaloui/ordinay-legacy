@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 
 /**
  * SearchableSelect - A searchable dropdown component
@@ -20,13 +21,16 @@ export default function SearchableSelect({
   allowCreate = false, // ✅ NEW: Allow creating new options
   onCreateOption = null, // ✅ NEW: Callback when creating new option
   createLabel = "Ajouter", // ✅ NEW: Label for create button
+  placement = "bottom", // NEW: allow opening above when dropdown would be clipped
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [highlightedIndex, setHighlightedIndex] = useState(0);
+  const [dropdownStyle, setDropdownStyle] = useState({});
   const containerRef = useRef(null);
   const inputRef = useRef(null);
   const listRef = useRef(null);
+  const dropdownRef = useRef(null);
 
   // Get the label for the selected value
   const selectedOption = options.find((opt) => opt.value === value);
@@ -40,6 +44,10 @@ export default function SearchableSelect({
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
+      // Ignore clicks inside the dropdown portal
+      if (dropdownRef.current && dropdownRef.current.contains(event.target)) {
+        return;
+      }
       if (containerRef.current && !containerRef.current.contains(event.target)) {
         setIsOpen(false);
         setSearchTerm("");
@@ -143,6 +151,37 @@ export default function SearchableSelect({
     inputRef.current?.focus();
   };
 
+  // Position dropdown relative to viewport to avoid clipping inside modal overflow
+  useEffect(() => {
+    const updatePosition = () => {
+      if (!isOpen || !inputRef.current) return;
+      const rect = inputRef.current.getBoundingClientRect();
+      const scrollY = window.scrollY || document.documentElement.scrollTop || 0;
+      const scrollX = window.scrollX || document.documentElement.scrollLeft || 0;
+      const offset = 4; // small gap between input and dropdown
+      const top = placement === "top"
+        ? rect.top + scrollY - offset
+        : rect.bottom + scrollY + offset;
+      const left = rect.left + scrollX;
+      setDropdownStyle({
+        position: "absolute",
+        top,
+        left,
+        width: rect.width,
+        zIndex: 9999,
+        transform: placement === "top" ? "translateY(-100%)" : "none",
+      });
+    };
+
+    updatePosition();
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+    return () => {
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+    };
+  }, [isOpen, placement]);
+
   // ✅ UNIFIED STYLING: Matches native select exactly
   const baseInputClass = `w-full ${compact ? 'px-2.5 py-1.5 text-sm' : 'px-3 py-2'} pr-20 border rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${error
     ? "border-red-500 dark:border-red-500"
@@ -187,8 +226,12 @@ export default function SearchableSelect({
       </div>
 
       {/* Dropdown List - Modern/Minimal: Clean, professional */}
-      {isOpen && !disabled && (
-        <div className="absolute z-[100] w-full mt-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg max-h-60 overflow-y-auto animate-in fade-in slide-in-from-top-1 duration-150">
+      {isOpen && !disabled && createPortal(
+        <div
+          ref={dropdownRef}
+          className={`bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg max-h-60 overflow-y-auto animate-in fade-in ${placement === "top" ? "slide-in-from-bottom-1" : "slide-in-from-top-1"} duration-150`}
+          style={dropdownStyle}
+        >
           {filteredOptions.length > 0 ? (
             <ul ref={listRef} className="py-1">
               {filteredOptions.map((option, index) => (
@@ -238,7 +281,8 @@ export default function SearchableSelect({
               </button>
             </div>
           )}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

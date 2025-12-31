@@ -117,7 +117,7 @@ export const taskConfig = {
     };
   },
 
-  updateData: async (id, data, contextData = null) => {
+  updateData: async (id, data, contextData = null, options = {}) => {
     const numericId = parseInt(id);
 
     // Filter out any potential relationship fields - task entity should only contain task-specific data
@@ -136,7 +136,7 @@ export const taskConfig = {
     if (Object.keys(taskData).length > 0) {
       if (contextData?.updateTask) {
         // Use DataContext to update (this persists to localStorage and API)
-        await contextData.updateTask(numericId, taskData);
+        await contextData.updateTask(numericId, taskData, options);
       } else {
         // Fallback to updating null
         if (null[numericId]) {
@@ -355,7 +355,7 @@ export const taskConfig = {
         {
           key: "dueDate",
           label: "Due Date",
-          value: (data) => data.dueDate,
+          value: (data, contextData) => data.dueDate,
           displayValue: (data) => data.dueDate ? formatDateValue(data.dueDate) : "N/A",
           icon: "fas fa-calendar",
           type: "date",
@@ -364,7 +364,7 @@ export const taskConfig = {
         {
           key: "estimatedTime",
           label: "Estimated Time",
-          value: (data) => getEstimatedTimeLabel(data.estimatedTime),
+          value: (data, contextData) => getEstimatedTimeLabel(data.estimatedTime),
           icon: "fas fa-clock",
           type: "select",
           editable: true,
@@ -391,83 +391,74 @@ export const taskConfig = {
       title: "Associated Entity",
       editStrategy: "structured",
       fields: [
-      {
-        key: "parentType",
-        label: "Link Type",
-        value: (data) => data.parentType || "dossier",
-        icon: "fas fa-link",
-        type: "select",
-        editable: true,
-        required: true,
-        options: [
-          { value: "dossier", label: "Dossier" },
-          { value: "case", label: "Lawsuit" },
-        ],
-        helpText: "A task can be linked to either a Dossier or a Lawsuite",
-      },
-      {
-        key: "dossierId",
-        label: "Dossier",
-        value: (data) => data.dossierId || "",
-        displayValue: (data) => {
-          if (!data.dossierId) return "None";
-          const dossier = [].find(d => d.id === data.dossierId);
-          if (dossier) return `${dossier.caseNumber} - ${dossier.title}`;
-          // Fallback to hydrated dossier object if available
-          if (data.dossier?.caseNumber) return `${data.dossier.caseNumber} - ${data.dossier.title}`;
-          return "None";
+        {
+          key: "parentType",
+          label: "Link Type",
+          value: (data, contextData) => data.parentType || "dossier",
+          displayValue: (data, contextData) => {
+            const parentTypeOptions = {
+              "dossier": "Dossier",
+              "case": "Lawsuit"
+            };
+            return parentTypeOptions[data.parentType] || "Dossier";
+          },
+          icon: "fas fa-link",
+          type: "select",
+          editable: true,
+          required: true,
+          options: [
+            { value: "dossier", label: "Dossier" },
+            { value: "case", label: "Lawsuit" },
+          ],
+          helpText: "A task can be linked to either a Dossier or a Lawsuite",
         },
-        icon: "fas fa-folder-open",
-        type: "searchable-select",
-        editable: true,
-        options: [
-          { value: "", label: "Select a dossier..." },
-          ...[].map(d => ({
-            value: d.id,
-            label: `${d.caseNumber} - ${d.title}`
-          }))
-        ],
-        getOptions: () => ([
-          { value: "", label: "Select a dossier..." },
-          ...[].map(d => ({
-            value: d.id,
-            label: `${d.caseNumber} - ${d.title}`
-          }))
-        ]),
-        helpText: "Select the relevant dossier"
-      },
-      {
-        key: "caseId",
-        label: "Lawsuite",
-        value: (data) => data.caseId || "",
-        displayValue: (data) => {
-          if (!data.caseId) return "None";
-          const caseObj = [].find(c => c.id === data.caseId);
-          if (caseObj) return `${caseObj.caseNumber} - ${caseObj.title}`;
-          // Fallback to hydrated case object if available
-          if (data.case?.caseNumber) return `${data.case.caseNumber} - ${data.case.title}`;
-          return "None";
+        {
+          key: "dossierId",
+          label: "Dossier",
+          value: (data, contextData) => data.dossierId || "",
+          displayValue: (data) => {
+            if (!data.dossierId) return "None";
+            // Use hydrated dossier object if available
+            if (data.dossier?.caseNumber) return `${data.dossier.caseNumber} - ${data.dossier.title}`;
+            return "None";
+          },
+          icon: "fas fa-folder-open",
+          type: "searchable-select",
+          editable: true,
+          options: [],
+          getOptions: (editedData, contextData) => ([
+            { value: "", label: "Select a dossier..." },
+            ...(contextData?.dossiers || []).map(d => ({
+              value: d.id,
+              label: `${d.caseNumber} - ${d.title}`
+            }))
+          ]),
+          helpText: "Select the relevant dossier"
         },
-        icon: "fas fa-gavel",
-        type: "searchable-select",
-        editable: true,
-        options: [
-          { value: "", label: "Select a lawsuite..." },
-          ...[].map(c => ({
-            value: c.id,
-            label: `${c.caseNumber} - ${c.title}`
-          }))
-        ],
-        getOptions: () => ([
-          { value: "", label: "Select a lawsuit..." },
-          ...[].map(c => ({
-            value: c.id,
-            label: `${c.caseNumber} - ${c.title}`
-          }))
-        ]),
-        helpText: "Select the relevant lawsuit"
-      },
-    ],
+        {
+          key: "caseId",
+          label: "Lawsuite",
+          value: (data, contextData) => data.caseId || "",
+          displayValue: (data) => {
+            if (!data.caseId) return "None";
+            // Use hydrated case object if available
+            if (data.case?.caseNumber) return `${data.case.caseNumber} - ${data.case.title}`;
+            return "None";
+          },
+          icon: "fas fa-gavel",
+          type: "searchable-select",
+          editable: true,
+          options: [],
+          getOptions: (editedData, contextData) => ([
+            { value: "", label: "Select a lawsuit..." },
+            ...(contextData?.cases || []).map(c => ({
+              value: c.id,
+              label: `${c.caseNumber} - ${c.title}`
+            }))
+          ]),
+          helpText: "Select the relevant lawsuit"
+        },
+      ],
     },
   ],
 };

@@ -682,14 +682,12 @@ export const caseConfig = {
         {
           key: "dossierId",
           label: "Associated Dossier",
-          value: (data) => {
-            // Return the dossierId for the select, not the full object
-            return data.dossierId || "";
-          },
-          displayValue: (data) => {
+          value: (data, contextData) => data.dossierId || "",
+          displayValue: (data, contextData) => {
             // For display purposes, show the full dossier info
             if (!data.dossierId) return "No dossier";
-            const dossier = [].find(d => d.id === data.dossierId);
+            const dossiers = contextData?.dossiers || [];
+            const dossier = dossiers.find(d => d.id === parseInt(data.dossierId));
             if (dossier) return `${dossier.caseNumber} - ${dossier.title}`;
             // Fallback to hydrated dossier object if available
             if (data.dossier?.caseNumber) return `${data.dossier.caseNumber} - ${data.dossier.title}`;
@@ -699,7 +697,7 @@ export const caseConfig = {
           type: "searchable-select",
           editable: true,
           required: true,
-          getOptions: () => [].map(d => ({
+          getOptions: (editedData, contextData) => (contextData?.dossiers || []).map(d => ({
             value: d.id,
             label: `${d.caseNumber} - ${d.title}`
           })),

@@ -401,7 +401,7 @@ export const missionConfig = {
                 {
                     key: "missionNumber",
                     label: "Mission Number",
-                    value: (data) => data.missionNumber,
+                    value: (data, contextData) => data.missionNumber,
                     icon: "fas fa-hashtag",
                     type: "text",
                     editable: false // Auto-generated
@@ -409,7 +409,7 @@ export const missionConfig = {
                 {
                     key: "title",
                     label: "Title",
-                    value: (data) => data.title,
+                    value: (data, contextData) => data.title,
                     icon: "fas fa-heading",
                     type: "text",
                     editable: true
@@ -417,7 +417,7 @@ export const missionConfig = {
                 {
                     key: "missionType",
                     label: "Mission Type",
-                    value: (data) => data.missionType,
+                    value: (data, contextData) => data.missionType,
                     icon: "fas fa-briefcase",
                     type: "select",
                     editable: true,
@@ -432,7 +432,7 @@ export const missionConfig = {
                 {
                     key: "status",
                     label: "Status",
-                    value: (data) => data.status,
+                    value: (data, contextData) => data.status,
                     displayValue: (data) => data.status || "N/A",
                     icon: "fas fa-flag",
                     type: "select",
@@ -447,7 +447,7 @@ export const missionConfig = {
                 {
                     key: "priority",
                     label: "Priority",
-                    value: (data) => data.priority,
+                    value: (data, contextData) => data.priority,
                     displayValue: (data) => data.priority || "N/A",
                     icon: "fas fa-exclamation-circle",
                     type: "select",
@@ -468,7 +468,7 @@ export const missionConfig = {
                 {
                     key: "assignDate",
                     label: "Assign Date",
-                    value: (data) => data.assignDate,
+                    value: (data, contextData) => data.assignDate,
                     displayValue: (data) => data.assignDate ? formatDateValue(data.assignDate) : "N/A",
                     icon: "fas fa-calendar-plus",
                     type: "date",
@@ -477,7 +477,7 @@ export const missionConfig = {
                 {
                     key: "dueDate",
                     label: "Due Date",
-                    value: (data) => data.dueDate,
+                    value: (data, contextData) => data.dueDate,
                     displayValue: (data) => data.dueDate ? formatDateValue(data.dueDate) : "N/A",
                     icon: "fas fa-calendar-times",
                     type: "date",
@@ -486,7 +486,7 @@ export const missionConfig = {
                 {
                     key: "completionDate",
                     label: "Completion Date",
-                    value: (data) => data.completionDate,
+                    value: (data, contextData) => data.completionDate,
                     displayValue: (data) => data.completionDate ? formatDateValue(data.completionDate) : "N/A",
                     icon: "fas fa-calendar-check",
                     type: "date",
@@ -515,7 +515,7 @@ export const missionConfig = {
                 {
                     key: "entityType",
                     label: "Entity Type",
-                    value: (data) => data.entityType || "dossier",
+                    value: (data, contextData) => data.entityType || "dossier",
                     icon: "fas fa-link",
                     type: "select",
                     editable: true,
@@ -528,13 +528,20 @@ export const missionConfig = {
                 {
                     key: "entityId",
                     label: "Entity",
-                    value: (data) => data?.entityId || "",
-                    displayValue: (data) => {
+                    value: (data, contextData) => data?.entityId || "",
+                    displayValue: (data, contextData) => {
                         if (!data?.entityId) return "None";
-                        if (data.entityType === "dossier") {
+                        const entityType = data.entityType || "dossier";
+                        const dossiers = contextData?.dossiers || [];
+                        const cases = contextData?.cases || [];
+                        if (entityType === "dossier") {
+                            const dossier = dossiers.find(d => d.id === parseInt(data.entityId));
+                            if (dossier) return `${dossier.caseNumber} - ${dossier.title}`;
                             return data.entityReference || `Dossier #${data.entityId}`;
                         }
-                        if (data.entityType === "case") {
+                        if (entityType === "case") {
+                            const caseItem = cases.find(c => c.id === parseInt(data.entityId));
+                            if (caseItem) return `${caseItem.caseNumber} - ${caseItem.title}`;
                             return data.entityReference || `Lawsuit #${data.entityId}`;
                         }
                         return data.entityReference || `#${data.entityId}`;
@@ -542,17 +549,18 @@ export const missionConfig = {
                     icon: (data) => (data?.entityType === "dossier" ? "fas fa-folder" : "fas fa-gavel"),
                     type: "searchable-select",
                     editable: true,
-                    getOptions: (data = {}) => {
+                    getOptions: (editedData = {}, contextData) => {
+                        const dossiers = contextData?.dossiers || [];
+                        const cases = contextData?.cases || [];
+                        const currentType = editedData.entityType || "dossier";
                         const emptyOption = {
                             value: "",
                             label:
-                                data.entityType === "case"
+                                currentType === "case"
                                     ? "Select a lawsuit..."
                                     : "Select a dossier...",
                         };
-                        const dossiers = data.dossiers || [];
-                        const cases = data.cases || [];
-                        if (data.entityType === "case") {
+                        if (currentType === "case") {
                             return [
                                 emptyOption,
                                 ...cases.map((c) => ({
@@ -580,7 +588,7 @@ export const missionConfig = {
                 {
                     key: "officerId",
                     label: "Assigned Bailiff",
-                    value: (data) => data.officerId,
+                    value: (data, contextData) => data.officerId,
                     displayValue: (data) => data.officerName || "Not assigned",
                     icon: "fas fa-user-tie",
                     type: "select",
@@ -597,7 +605,7 @@ export const missionConfig = {
                 {
                     key: "officerPhone",
                     label: "Phone",
-                    value: (data) => data.officerPhone,
+                    value: (data, contextData) => data.officerPhone,
                     icon: "fas fa-phone",
                     type: "tel",
                     editable: false
@@ -605,7 +613,7 @@ export const missionConfig = {
                 {
                     key: "officerLocation",
                     label: "Location",
-                    value: (data) => data.officerLocation,
+                    value: (data, contextData) => data.officerLocation,
                     icon: "fas fa-map-marker-alt",
                     type: "text",
                     editable: false

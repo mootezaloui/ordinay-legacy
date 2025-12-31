@@ -423,9 +423,7 @@ function detectDossierImpact(currentData, newData) {
     impactSummary.push(
       `**Current ${change.field}**: ${change.from || "Unknown"}`
     );
-    impactSummary.push(
-      `**New ${change.field}**: ${change.to || "Unknown"}`
-    );
+    impactSummary.push(`**New ${change.field}**: ${change.to || "Unknown"}`);
     impactSummary.push("");
     impactSummary.push("**Impact**:");
     impactSummary.push(...change.impact);
@@ -555,25 +553,25 @@ function detectTaskImpact(currentData, newData) {
   let newParentLabel = "Not assigned";
 
   if (currentData.parentType === "dossier" && currentData.dossierId) {
-    const dossier = [].find((d) => d.id == currentData.dossierId);
+    const dossier = mockDossiers.find((d) => d.id == currentData.dossierId);
     oldParentLabel = `Dossier ${dossier?.caseNumber || ""} - ${
       dossier?.title || ""
     }`;
   } else if (currentData.parentType === "case" && currentData.caseId) {
-    const caseData = [].find((c) => c.id == currentData.caseId);
-    oldParentLabel = `Procès ${caseData?.caseNumber || ""} - ${
+    const caseData = mockCases.find((c) => c.id == currentData.caseId);
+    oldParentLabel = `Lawsuit ${caseData?.caseNumber || ""} - ${
       caseData?.title || ""
     }`;
   }
 
   if (newData.parentType === "dossier" && newData.dossierId) {
-    const dossier = [].find((d) => d.id == newData.dossierId);
+    const dossier = mockDossiers.find((d) => d.id == newData.dossierId);
     newParentLabel = `Dossier ${dossier?.caseNumber || ""} - ${
       dossier?.title || ""
     }`;
   } else if (newData.parentType === "case" && newData.caseId) {
-    const caseData = [].find((c) => c.id == newData.caseId);
-    newParentLabel = `Procès ${caseData?.caseNumber || ""} - ${
+    const caseData = mockCases.find((c) => c.id == newData.caseId);
+    newParentLabel = `Lawsuit ${caseData?.caseNumber || ""} - ${
       caseData?.title || ""
     }`;
   }
@@ -626,24 +624,24 @@ function detectSessionImpact(currentData, newData) {
   let newParentLabel = "Not assigned";
 
   if (currentData.caseId) {
-    const caseData = [].find((c) => c.id == currentData.caseId);
-    oldParentLabel = `Procès ${caseData?.caseNumber || ""} - ${
+    const caseData = mockCases.find((c) => c.id == currentData.caseId);
+    oldParentLabel = `Lawsuit ${caseData?.caseNumber || ""} - ${
       caseData?.title || ""
     }`;
   } else if (currentData.dossierId) {
-    const dossier = [].find((d) => d.id == currentData.dossierId);
+    const dossier = mockDossiers.find((d) => d.id == currentData.dossierId);
     oldParentLabel = `Dossier ${dossier?.caseNumber || ""} - ${
       dossier?.title || ""
     }`;
   }
 
   if (newData.caseId) {
-    const caseData = [].find((c) => c.id == newData.caseId);
-    newParentLabel = `Procès ${caseData?.caseNumber || ""} - ${
+    const caseData = mockCases.find((c) => c.id == newData.caseId);
+    newParentLabel = `Lawsuit ${caseData?.caseNumber || ""} - ${
       caseData?.title || ""
     }`;
   } else if (newData.dossierId) {
-    const dossier = [].find((d) => d.id == newData.dossierId);
+    const dossier = mockDossiers.find((d) => d.id == newData.dossierId);
     newParentLabel = `Dossier ${dossier?.caseNumber || ""} - ${
       dossier?.title || ""
     }`;
@@ -845,9 +843,7 @@ function validateDossierClose(dossierId, context = {}) {
   const dossierCases = allCases.filter(
     (c) => String(c.dossierId) === String(dossierId)
   );
-  const openCases = dossierCases.filter(
-    (proc) => proc.status !== "Closed"
-  );
+  const openCases = dossierCases.filter((proc) => proc.status !== "Closed");
 
   if (openCases.length > 0) {
     blockers.push(
@@ -883,10 +879,7 @@ function validateDossierClose(dossierId, context = {}) {
 
   // Rule 4: Check for upcoming/incomplete sessions (hearings)
   const allSessions =
-    context.sessions ||
-    context.entities?.sessions ||
-    mockSessions ||
-    [];
+    context.sessions || context.entities?.sessions || mockSessions || [];
 
   // Get sessions for this dossier and its related cases
   const dossierSessions = allSessions.filter((session) => {
@@ -911,9 +904,7 @@ function validateDossierClose(dossierId, context = {}) {
       }:` +
         openSessions
           .slice(0, 3)
-          .map(
-            (s) => `\n  - ${s.type || "Hearing"} on ${s.date} (${s.status})`
-          )
+          .map((s) => `\n  - ${s.type || "Hearing"} on ${s.date} (${s.status})`)
           .join("") +
         (openSessions.length > 3
           ? `\n  - ... and ${openSessions.length - 3} other${
@@ -1474,9 +1465,7 @@ function validateClientArchive(clientId, context = {}) {
 
   // Rule 1: Check for open Dossiers
   const clientDossiers = clientExtended.dossiers || [];
-  const openDossiers = clientDossiers.filter(
-    (d) => d.status !== "Closed"
-  );
+  const openDossiers = clientDossiers.filter((d) => d.status !== "Closed");
 
   if (openDossiers.length > 0) {
     blockers.push(
@@ -1497,9 +1486,7 @@ function validateClientArchive(clientId, context = {}) {
 
   // Rule 2: Check for open Lawsuits (Cases)
   const clientCases = clientExtended.proceedings || [];
-  const openCases = clientCases.filter(
-    (c) => c.status !== "Closed"
-  );
+  const openCases = clientCases.filter((c) => c.status !== "Closed");
 
   if (openCases.length > 0) {
     blockers.push(
@@ -1549,10 +1536,7 @@ function validateClientArchive(clientId, context = {}) {
 
   // Rule 4: Check for open Hearings (Sessions)
   const sessionsSource =
-    context.sessions ||
-    context.entities?.sessions ||
-    mockSessions ||
-    [];
+    context.sessions || context.entities?.sessions || mockSessions || [];
   const clientSessions = sessionsSource.filter((session) => {
     // Sessions can be linked via dossier or case
     if (session.dossierId) {
@@ -1875,10 +1859,7 @@ function validateTaskAdd(taskId, context = {}) {
       warnings.push("Parent Dossier not resolved (check after saving).");
     }
 
-    if (
-      dossier &&
-      (dossier.status === "Closed")
-    ) {
+    if (dossier && dossier.status === "Closed") {
       blockers.push(
         `Cannot create a task under a ${dossier.status.toLowerCase()} Dossier`,
         `Dossier: ${dossier.caseNumber} - ${dossier.title}`,
@@ -1892,10 +1873,7 @@ function validateTaskAdd(taskId, context = {}) {
       warnings.push("Parent case not resolved (check after saving).");
     }
 
-    if (
-      caseData &&
-      (caseData.status === "Closed")
-    ) {
+    if (caseData && caseData.status === "Closed") {
       blockers.push(
         `Cannot create a task under a ${caseData.status.toLowerCase()} case`,
         `Case: ${caseData.caseNumber} - ${caseData.title}`,
@@ -2004,10 +1982,7 @@ function validateSessionAdd(sessionId, context = {}) {
       warnings.push("Parent Dossier not resolved (check after saving).");
     }
 
-    if (
-      dossier &&
-      (dossier.status === "Closed")
-    ) {
+    if (dossier && dossier.status === "Closed") {
       blockers.push(
         `Cannot create a session under a ${dossier.status.toLowerCase()} Dossier`,
         `Dossier: ${dossier.caseNumber} - ${dossier.title}`,
@@ -2021,10 +1996,7 @@ function validateSessionAdd(sessionId, context = {}) {
       warnings.push("Parent case not resolved (check after saving).");
     }
 
-    if (
-      caseData &&
-      (caseData.status === "Closed")
-    ) {
+    if (caseData && caseData.status === "Closed") {
       blockers.push(
         `Cannot create a session under a ${caseData.status.toLowerCase()} case`,
         `Case: ${caseData.caseNumber} - ${caseData.title}`,
