@@ -7,17 +7,18 @@ import { missionFormFields } from "../../FormModal/formConfigs";
  * ✅ Added inline quick actions for status
  * ✅ Added structured edit mode for overview sections
  * ✅ Dynamic entity selection based on "Lié à" dropdown
+ * ✅ Fully internationalized with i18n support
  */
-export const officerConfig = {
+export const createOfficerConfig = (t) => ({
   // Basic info
   entityType: "officer",
-  entityName: "Bailiff",
+  entityName: t('detail.entityName'),
   icon: "fas fa-user-tie",
   listRoute: "/officers",
 
   // Messages
-  notFoundMessage: "Bailiff not found",
-  deleteConfirmMessage: "Are you sure you want to delete this bailiff?",
+  notFoundMessage: t('detail.notFound'),
+  deleteConfirmMessage: t('detail.deleteConfirm'),
 
   // Permissions
   allowDelete: true,
@@ -144,13 +145,13 @@ export const officerConfig = {
   quickActions: [
     {
       key: "status",
-      label: "Status",
+      label: t('detail.quickActions.status.label'),
       icon: "fas fa-flag",
       colorMap: true,
       options: [
-        { value: "Available", label: "Available", color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" },
-        { value: "Busy", label: "Busy", color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
-        { value: "Inactive", label: "Inactive", color: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300" },
+        { value: "Available", label: t('detail.quickActions.status.available'), color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" },
+        { value: "Busy", label: t('detail.quickActions.status.busy'), color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
+        { value: "Inactive", label: t('detail.quickActions.status.inactive'), color: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300" },
       ]
     }
   ],
@@ -174,7 +175,7 @@ export const officerConfig = {
                     {data.name}
                   </h2>
                   <p className="text-slate-600 dark:text-slate-400 mt-1">
-                    {data.agency || "Independent Bailiff"}
+                    {data.agency || t('detail.header.independent')}
                   </p>
                 </div>
                 <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(data.status)}`}>
@@ -186,21 +187,21 @@ export const officerConfig = {
                 <div className="flex items-center gap-3">
                   <i className="fas fa-phone text-green-600 dark:text-green-400"></i>
                   <div>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">Phone</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">{t('detail.header.phone')}</p>
                     <p className="text-sm text-slate-900 dark:text-white">{data.phone}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
                   <i className="fas fa-envelope text-blue-600 dark:text-blue-400"></i>
                   <div>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">Email</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">{t('detail.header.email')}</p>
                     <p className="text-sm text-slate-900 dark:text-white">{data.email}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
                   <i className="fas fa-map-marker-alt text-red-600 dark:text-red-400"></i>
                   <div>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">Location</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">{t('detail.header.location')}</p>
                     <p className="text-sm text-slate-900 dark:text-white">{data.location}</p>
                   </div>
                 </div>
@@ -219,21 +220,21 @@ export const officerConfig = {
       iconColor: "text-blue-600 dark:text-blue-400",
       bgColor: "bg-blue-100 dark:bg-blue-900/20",
       value: data.missions?.length || 0,
-      label: "Total missions"
+      label: t('detail.stats.totalMissions')
     },
     {
       icon: "fas fa-spinner",
       iconColor: "text-amber-600 dark:text-amber-400",
       bgColor: "bg-amber-100 dark:bg-amber-900/20",
       value: data.missions?.filter(m => m.status === "In Progress" || m.status === "Scheduled").length || 0,
-      label: "In Progress"
+      label: t('detail.stats.inProgress')
     },
     {
       icon: "fas fa-check-circle",
       iconColor: "text-green-600 dark:text-green-400",
       bgColor: "bg-green-100 dark:bg-green-900/20",
       value: data.missions?.filter(m => m.status === "Completed").length || 0,
-      label: "Completed"
+      label: t('detail.stats.completed')
     },
   ],
 
@@ -241,24 +242,24 @@ export const officerConfig = {
   tabs: [
     {
       id: "overview",
-      label: "Overview",
+      label: t('detail.tabs.overview'),
       icon: "fas fa-eye",
       component: "overview",
     },
     {
       id: "missions",
-      label: "Missions",
+      label: t('detail.tabs.missions'),
       icon: "fas fa-clipboard-check",
       component: "missions",
       getCount: (data) => data.missions?.length || 0,
 
       itemsKey: "missions",
-      emptyMessage: "No missions assigned to this bailiff",
+      emptyMessage: t('detail.missions.empty'),
 
       allowAdd: true,
       allowDelete: true,
-      entityName: "a mission",
-      addSubtitle: "Assign a new mission to this bailiff",
+      entityName: t('detail.missions.entityName'),
+      addSubtitle: t('detail.missions.addSubtitle'),
 
       // ✅ UPDATED: Use same getFormFields pattern as dossier and case
       getFormFields: (officerData, contextData) => {
@@ -274,7 +275,7 @@ export const officerConfig = {
               ...field,
               defaultValue: officerData.id,
               disabled: true,
-              helpText: `This mission will be assigned to ${officerData.name}`,
+              helpText: t('detail.missions.help.assigned', { name: officerData.name }),
             };
           }
           // Auto-generate mission number
@@ -290,7 +291,7 @@ export const officerConfig = {
             return {
               ...field,
               disabled: false, // Allow selection for officers
-              helpText: "Select if this mission concerns a dossier or a case",
+              helpText: t('detail.missions.help.entityType'),
             };
           }
           // Enable entityReference (not disabled) for officer selection
@@ -299,7 +300,7 @@ export const officerConfig = {
               ...field,
               disabled: false, // Allow selection for officers
               type: 'searchable-select', // Make it searchable
-              helpText: "Select the dossier or case for this mission",
+              helpText: t('detail.missions.help.entityReference'),
               getOptions: (formData) => {
                 const entityType = formData.entityType;
 
@@ -327,13 +328,13 @@ export const officerConfig = {
     },
     {
       id: "cases",
-      label: "Related Lawsuits/Dossiers",
+      label: t('detail.tabs.cases'),
       icon: "fas fa-folder-open",
       component: "relatedItems",
       getCount: (data) => data.cases?.length || 0,
 
       itemsKey: "cases",
-      emptyMessage: "No related lawsuits/dossiers for this bailiff",
+      emptyMessage: t('detail.cases.empty'),
       itemRoute: (item) => {
         // Determine if it's a dossier or case based on caseNumber prefix
         if (item.caseNumber.startsWith('DOS-')) {
@@ -363,10 +364,10 @@ export const officerConfig = {
     },
     {
       id: "financial",
-      label: "Accounting",
+      label: t('detail.tabs.financial'),
       icon: "fas fa-coins",
       component: "financial",
-      description: "Financial tracking of all missions for this bailiff",
+      description: t('detail.tabs.financialDescription'),
       getCount: (data) => {
         // Count financial entries (excluding void/cancelled)
         if (!data.financialEntries) return 0;
@@ -377,14 +378,14 @@ export const officerConfig = {
     },
     {
       id: "documents",
-      label: "Documents",
+      label: t('detail.tabs.documents'),
       icon: "fas fa-file",
       component: "documents",
       getCount: (data) => data.documents?.length || 0,
     },
     {
       id: "timeline",
-      label: "History",
+      label: t('detail.tabs.history'),
       icon: "fas fa-history",
       component: "history",
     },
@@ -393,97 +394,97 @@ export const officerConfig = {
   // ✅ UPDATED: Overview sections with editStrategy
   overviewSections: [
     {
-      title: "General Information",
+      title: t('detail.overview.general'),
       editStrategy: "structured",
       fields: [
         {
           key: "name",
-          label: "Full Name",
+          label: t('detail.overview.fields.name'),
           value: (data) => data.name,
           icon: "fas fa-user",
           type: "text",
           editable: true,
           required: true,
-          placeholder: "Ex: Me. Ahmed Ben Salem"
+          placeholder: t('detail.overview.placeholders.name')
         },
         {
           key: "status",
-          label: "Status",
+          label: t('detail.quickActions.status.label'),
           value: (data) => data.status,
-          displayValue: (data) => data.status || "N/A",
+          displayValue: (data) => data.status || t('detail.fallback.na'),
           icon: "fas fa-flag",
           type: "select",
           editable: true,
           required: true,
           options: [
-            { value: "Available", label: "Available" },
-            { value: "Busy", label: "Busy" },
-            { value: "Inactive", label: "Inactive" },
+            { value: "Available", label: t('detail.quickActions.status.available') },
+            { value: "Busy", label: t('detail.quickActions.status.busy') },
+            { value: "Inactive", label: t('detail.quickActions.status.inactive') },
           ]
         },
       ],
     },
     {
-      title: "Contact Information",
+      title: t('detail.overview.contact'),
       editStrategy: "structured",
       fields: [
         {
           key: "email",
-          label: "Email",
+          label: t('detail.header.email'),
           value: (data) => data.email,
           icon: "fas fa-envelope",
           type: "email",
           editable: true,
           required: true,
-          placeholder: "email@exemple.com"
+          placeholder: t('detail.overview.placeholders.email')
         },
         {
           key: "phone",
-          label: "Phone",
+          label: t('detail.header.phone'),
           value: (data) => data.phone,
           icon: "fas fa-phone",
           type: "tel",
           editable: true,
           required: true,
-          placeholder: "+216 98 123 456"
+          placeholder: t('detail.overview.placeholders.phone')
         },
         {
           key: "alternatePhone",
-          label: "Alternate Phone",
-          value: (data) => data.alternatePhone || "N/A",
+          label: t('detail.overview.fields.alternatePhone'),
+          value: (data) => data.alternatePhone || t('detail.fallback.na'),
           icon: "fas fa-phone-alt",
           type: "tel",
           editable: true,
-          placeholder: "+216 71 234 567"
+          placeholder: t('detail.overview.placeholders.alternatePhone')
         },
         {
           key: "location",
-          label: "Location",
+          label: t('detail.header.location'),
           value: (data) => data.location,
           icon: "fas fa-map-marker-alt",
           type: "text",
           editable: true,
           required: true,
-          placeholder: "Ex: Tunis"
+          placeholder: t('detail.overview.placeholders.location')
         },
         {
           key: "address",
-          label: "Full Address",
-          value: (data) => data.address || "N/A",
+          label: t('detail.overview.fields.address'),
+          value: (data) => data.address || t('detail.fallback.na'),
           icon: "fas fa-map",
           type: "textarea",
           editable: true,
           rows: 2,
-          placeholder: "Office/Study Address"
+          placeholder: t('detail.overview.placeholders.address')
         },
       ],
     },
     {
-      title: "Notes",
+      title: t('detail.overview.notes'),
       editStrategy: "structured",
       type: "notes",
       fieldKey: "notes",
-      content: (data) => data.notes || "No note",
+      content: (data) => data.notes || t('detail.fallback.noNotes'),
     },
   ],
-};
+});

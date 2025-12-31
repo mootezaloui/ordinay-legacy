@@ -1,24 +1,26 @@
-import { clientConfig } from "./clientConfig.jsx";
-import { dossierConfig } from "./dossierConfig.jsx";
-import { taskConfig } from "./taskConfig.jsx";
+import { createClientConfig } from "./clientConfig.jsx";
+import { createDossierConfig } from "./dossierConfig.jsx";
+import { createTaskConfig } from "./taskConfig.jsx";
 import { sessionConfig } from "./sessionConfig.jsx";
 import { caseConfig } from "./caseConfig.jsx";
-import { officerConfig } from "./officerConfig.jsx";
+import { createOfficerConfig } from "./officerConfig.jsx";
 import { personalTaskConfig } from "./personalTaskConfig.jsx";
 import { financialEntryConfig } from "./financialEntryConfig.jsx";
 import { missionConfig } from "./missionConfig.jsx";
+import { useTranslation } from "react-i18next";
 
 /**
  * Central registry for all entity configurations
  * Add new entity configs here as you create them
+ * Note: Some configs are factory functions that accept a translation function
  */
-const entityConfigs = {
-  client: clientConfig,
-  dossier: dossierConfig,
-  task: taskConfig,
+const entityConfigFactories = {
+  client: createClientConfig,
+  dossier: createDossierConfig,
+  task: createTaskConfig,
   session: sessionConfig,
   case: caseConfig,
-  officer: officerConfig,
+  officer: createOfficerConfig,
   personalTask: personalTaskConfig,
   financialEntry: financialEntryConfig,
   mission: missionConfig,
@@ -27,16 +29,27 @@ const entityConfigs = {
 /**
  * Get configuration for a specific entity type
  * @param {string} entityType - Type of entity (client, dossier, etc.)
+ * @param {function} t - Translation function (optional, required for internationalized configs)
  * @returns {object} Entity configuration object
  */
-export function getEntityConfig(entityType) {
-  const config = entityConfigs[entityType];
+export function getEntityConfig(entityType, t = null) {
+  const configOrFactory = entityConfigFactories[entityType];
 
-  if (!config) {
+  if (!configOrFactory) {
     throw new Error(`No configuration found for entity type: ${entityType}`);
   }
 
-  return config;
+  // If it's a factory function (like createClientConfig), call it with t
+  if (typeof configOrFactory === 'function') {
+    if (!t) {
+      // If no translation function provided, create a fallback that returns the key
+      t = (key) => key;
+    }
+    return configOrFactory(t);
+  }
+
+  // Otherwise, return the config directly (legacy configs)
+  return configOrFactory;
 }
 
 /**
@@ -45,7 +58,7 @@ export function getEntityConfig(entityType) {
  * @returns {boolean}
  */
 export function hasEntityConfig(entityType) {
-  return entityType in entityConfigs;
+  return entityType in entityConfigFactories;
 }
 
 /**
@@ -53,5 +66,5 @@ export function hasEntityConfig(entityType) {
  * @returns {string[]} Array of entity type names
  */
 export function getAllEntityTypes() {
-  return Object.keys(entityConfigs);
+  return Object.keys(entityConfigFactories);
 }

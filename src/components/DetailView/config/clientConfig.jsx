@@ -8,14 +8,15 @@ import { formatDateValue } from "../../../utils/dateFormat";
  * Client Entity Configuration - UPDATED with Quick Actions
  * ✅ Added inline quick actions for status
  * ✅ Added structured edit mode for overview sections
+ * ✅ Fully internationalized with i18n support
  */
-export const clientConfig = {
+export const createClientConfig = (t) => ({
   entityType: "client",
-  entityName: "Client",
+  entityName: t('detail.entityName'),
   icon: "fas fa-user-circle",
   listRoute: "/clients",
-  notFoundMessage: "No client found.",
-  deleteConfirmMessage: "Are you sure you want to delete this client?",
+  notFoundMessage: t('detail.notFound'),
+  deleteConfirmMessage: t('detail.deleteConfirm'),
   allowDelete: true,
   allowEdit: true,
 
@@ -118,18 +119,18 @@ export const clientConfig = {
   },
 
   getTitle: (data) => data.name,
-  getSubtitle: (data) => `Client since ${formatDateValue(data.joinDate)}`,
+  getSubtitle: (data) => t('detail.subtitle', { date: formatDateValue(data.joinDate) }),
 
   // ✅ NEW: Quick Actions Configuration
   quickActions: [
     {
       key: "status",
-      label: "status",
+      label: t('detail.quickActions.status.label'),
       icon: "fas fa-flag",
       colorMap: true,
       options: [
-        { value: "Active", label: "Active", color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" },
-        { value: "Inactive", label: "Inactive", color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" },
+        { value: "Active", label: t('detail.quickActions.status.active'), color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" },
+        { value: "Inactive", label: t('detail.quickActions.status.inactive'), color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" },
       ],
     }
   ],
@@ -161,21 +162,21 @@ export const clientConfig = {
               <div className="flex items-center gap-3">
                 <i className="fas fa-envelope text-blue-600 dark:text-blue-400"></i>
                 <div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Email</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">{t('detail.overview.fields.email')}</p>
                   <p className="text-sm text-slate-900 dark:text-white">{data.email}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
                 <i className="fas fa-phone text-green-600 dark:text-green-400"></i>
                 <div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Phone</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">{t('detail.overview.fields.phone')}</p>
                   <p className="text-sm text-slate-900 dark:text-white">{data.phone}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
                 <i className="fas fa-map-marker-alt text-red-600 dark:text-red-400"></i>
                 <div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Address</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">{t('detail.overview.fields.address')}</p>
                   <p className="text-sm text-slate-900 dark:text-white">{data.address}</p>
                 </div>
               </div>
@@ -192,27 +193,27 @@ export const clientConfig = {
       iconColor: "text-blue-600 dark:text-blue-400",
       bgColor: "bg-blue-100 dark:bg-blue-900/20",
       value: data.relatedDossiers?.length || 0,
-      label: "Dossiers"
+      label: t('detail.stats.dossiers')
     },
     {
       icon: "fas fa-file",
       iconColor: "text-purple-600 dark:text-purple-400",
       bgColor: "bg-purple-100 dark:bg-purple-900/20",
       value: data.documents?.length || 0,
-      label: "Documents"
+      label: t('detail.stats.documents')
     },
   ],
 
   tabs: [
     {
       id: "overview",
-      label: "Overview",
+      label: t('detail.tabs.overview'),
       icon: "fas fa-eye",
       component: "overview",
     },
     {
       id: "dossiers",
-      label: "Dossiers",
+      label: t('detail.tabs.dossiers'),
       icon: "fas fa-folder-open",
       component: "aggregatedRelated",
       aggregationType: "dossiers",
@@ -221,12 +222,12 @@ export const clientConfig = {
       allowAdd: true,
       allowDelete: true,
       entityName: "dossier",
-      addSubtitle: "Create a new dossier for this client",
+      addSubtitle: t('detail.tabs.dossiersAddSubtitle'),
       formFields: dossierFormFields.filter(field => field.name !== 'clientId'),
     },
     {
       id: "cases",
-      label: "Lawsuits",
+      label: t('detail.tabs.cases'),
       icon: "fas fa-gavel",
       component: "aggregatedRelated",
       aggregationType: "cases",
@@ -234,10 +235,10 @@ export const clientConfig = {
       getCount: (data) => data.relatedCases?.length || 0,
       allowAdd: true,
       addEnabled: (clientData) => (clientData.relatedDossiers || []).length > 0,
-      addDisabledText: "Please add a dossier first before creating a lawsuit for this client.",
+      addDisabledText: t('detail.tabs.casesDisabled'),
       allowDelete: false,
       entityName: "lawsuit",
-      addSubtitle: "Create a new lawsuit for this client",
+      addSubtitle: t('detail.tabs.casesAddSubtitle'),
       // Dynamic form fields - dossierId options filtered to client's dossiers
       getFormFields: (clientData) => {
         const relatedDossiers = clientData.relatedDossiers || [];
@@ -250,8 +251,8 @@ export const clientConfig = {
                 label: `${dossier.caseNumber} - ${dossier.title}`
               })),
               helpText: relatedDossiers.length === 0
-                ? "No dossiers available. Please create a dossier first."
-                : "Select the dossier to which this lawsuit will be linked"
+                ? t('detail.forms.dossiersEmpty')
+                : t('detail.forms.casesDossierHelp')
             };
           }
           return field;
@@ -260,7 +261,7 @@ export const clientConfig = {
     },
     {
       id: "sessions",
-      label: "Hearings",
+      label: t('detail.tabs.sessions'),
       icon: "fas fa-calendar-alt",
       component: "aggregatedRelated",
       aggregationType: "sessions",
@@ -268,10 +269,10 @@ export const clientConfig = {
       getCount: (data) => data.relatedSessions?.length || 0,
       allowAdd: true,
       addEnabled: (clientData) => (clientData.relatedDossiers || []).length > 0,
-      addDisabledText: "Please add a dossier first before scheduling a hearing.",
+      addDisabledText: t('detail.tabs.sessionsDisabled'),
       allowDelete: false,
-      entityName: "a hearing",
-      addSubtitle: "Create a new hearing for this client",
+      entityName: t('detail.tabs.sessionsEntity'),
+      addSubtitle: t('detail.tabs.sessionsAddSubtitle'),
       // Dynamic form fields - allow linking to either dossier or lawsuit
       getFormFields: (clientData) => {
         const relatedDossiers = clientData.relatedDossiers || [];
@@ -285,8 +286,8 @@ export const clientConfig = {
               // Not disabled - user can choose
               defaultValue: 'case', // Default to case if available
               helpText: relatedCases.length > 0
-                ? "Choose if this hearing is linked to a dossier or a specific lawsuit"
-                : "Choose if this hearing is linked to a dossier"
+                ? t('detail.forms.sessionLinkHelpWithCases')
+                : t('detail.forms.sessionLinkHelpNoCases')
             };
           }
           if (field.name === 'caseId') {
@@ -301,8 +302,8 @@ export const clientConfig = {
                 };
               }),
               helpText: relatedCases.length === 0
-                ? "No lawsuits available. Please create a lawsuit first."
-                : "Select the lawsuit to which this hearing will be linked",
+                ? t('detail.forms.casesEmpty')
+                : t('detail.forms.sessionCaseHelp'),
               // Only show this field when linkType is 'case'
               getOptions: (formData) => {
                 if (formData.linkType !== "case") return [];
@@ -325,8 +326,8 @@ export const clientConfig = {
                 label: `${dossier.caseNumber} - ${dossier.title}`
               })),
               helpText: relatedDossiers.length === 0
-                ? "No dossiers available. Please create a dossier first."
-                : "Select the dossier to which this hearing will be linked",
+                ? t('detail.forms.dossiersEmpty')
+                : t('detail.forms.sessionDossierHelp'),
               // Only show this field when linkType is 'dossier'
               getOptions: (formData) => {
                 if (formData.linkType !== "dossier") return [];
@@ -343,7 +344,7 @@ export const clientConfig = {
     },
     {
       id: "tasks",
-      label: "Tasks",
+      label: t('detail.tabs.tasks'),
       icon: "fas fa-tasks",
       component: "aggregatedRelated",
       aggregationType: "tasks",
@@ -351,10 +352,10 @@ export const clientConfig = {
       getCount: (data) => data.relatedTasks?.length || 0,
       allowAdd: true,
       addEnabled: (clientData) => (clientData.relatedDossiers || []).length > 0,
-      addDisabledText: "Please add a dossier first before creating a task for this client.",
+      addDisabledText: t('detail.tabs.tasksDisabled'),
       allowDelete: false,
-      entityName: "a task",
-      addSubtitle: "Create a new task for this client",
+      entityName: t('detail.tabs.tasksEntity'),
+      addSubtitle: t('detail.tabs.tasksAddSubtitle'),
       // Dynamic form fields - dossierId and caseId options filtered to client's entities
       getFormFields: (clientData) => {
         const relatedDossiers = clientData.relatedDossiers || [];
@@ -370,8 +371,8 @@ export const clientConfig = {
                 label: `${dossier.caseNumber} - ${dossier.title}`
               })),
               helpText: relatedDossiers.length === 0
-                ? "No Dossiers available. Please create a Dossier first."
-                : "Select the Dossier to which this task will be linked",
+                ? t('detail.forms.dossiersEmpty')
+                : t('detail.forms.taskDossierHelp'),
               // Override getOptions to use filtered options
               getOptions: (formData) => {
                 if (formData.parentType !== "dossier") return [];
@@ -393,8 +394,8 @@ export const clientConfig = {
                 };
               }),
               helpText: relatedCases.length === 0
-                ? "No lawsuits available. Please create a lawsuit first."
-                : "Select the lawsuit to which this task will be attached",
+                ? t('detail.forms.casesEmpty')
+                : t('detail.forms.taskCaseHelp'),
               // Override getOptions to use filtered options
               getOptions: (formData) => {
                 if (formData.parentType !== "case") return [];
@@ -414,7 +415,7 @@ export const clientConfig = {
     },
     {
       id: "financial",
-      label: "Accounting",
+      label: t('detail.tabs.financial'),
       icon: "fas fa-calculator",
       component: "financial",
       getCount: (data) => {
@@ -427,14 +428,14 @@ export const clientConfig = {
     },
     {
       id: "documents",
-      label: "Documents",
+      label: t('detail.tabs.documents'),
       icon: "fas fa-file",
       component: "documents",
       getCount: (data) => data.documents?.length || 0,
     },
     {
       id: "history",
-      label: "History",
+      label: t('detail.tabs.history'),
       icon: "fas fa-history",
       component: "history",
     },
@@ -443,12 +444,12 @@ export const clientConfig = {
   // ✅ UPDATED: Overview sections with editStrategy
   overviewSections: [
     {
-      title: "Personal Information",
+      title: t('detail.overview.personal'),
       editStrategy: "structured",
       fields: [
         {
           key: "name",
-          label: "Full Name",
+          label: t('detail.overview.fields.name'),
           value: (data) => data.name,
           icon: "fas fa-user",
           type: "text",
@@ -457,7 +458,7 @@ export const clientConfig = {
         },
         {
           key: "cin",
-          label: "CIN",
+          label: t('detail.overview.fields.cin'),
           value: (data) => data.cin,
           icon: "fas fa-id-card",
           type: "text",
@@ -465,16 +466,16 @@ export const clientConfig = {
         },
         {
           key: "dateOfBirth",
-          label: "Date of Birth",
+          label: t('detail.overview.fields.dob'),
           value: (data) => data.dateOfBirth,
-          displayValue: (data) => data.dateOfBirth ? formatDateValue(data.dateOfBirth) : "N/A",
+          displayValue: (data) => data.dateOfBirth ? formatDateValue(data.dateOfBirth) : t('detail.fallback.na'),
           icon: "fas fa-birthday-cake",
           type: "date",
           editable: true
         },
         {
           key: "profession",
-          label: "Profession",
+          label: t('detail.overview.fields.profession'),
           value: (data) => data.profession,
           icon: "fas fa-briefcase",
           type: "text",
@@ -482,7 +483,7 @@ export const clientConfig = {
         },
         {
           key: "company",
-          label: "Company",
+          label: t('detail.overview.fields.company'),
           value: (data) => data.company,
           icon: "fas fa-building",
           type: "text",
@@ -490,7 +491,7 @@ export const clientConfig = {
         },
         {
           key: "taxId",
-          label: "Tax ID",
+          label: t('detail.overview.fields.taxId'),
           value: (data) => data.taxId,
           icon: "fas fa-file-alt",
           type: "text",
@@ -499,12 +500,12 @@ export const clientConfig = {
       ],
     },
     {
-      title: "Contact Information",
+      title: t('detail.overview.contact'),
       editStrategy: "structured",
       fields: [
         {
           key: "email",
-          label: "Email",
+          label: t('detail.overview.fields.email'),
           value: (data) => data.email,
           icon: "fas fa-envelope",
           type: "email",
@@ -513,7 +514,7 @@ export const clientConfig = {
         },
         {
           key: "phone",
-          label: "Phone",
+          label: t('detail.overview.fields.phone'),
           value: (data) => data.phone,
           icon: "fas fa-phone",
           type: "tel",
@@ -522,7 +523,7 @@ export const clientConfig = {
         },
         {
           key: "alternatePhone",
-          label: "Alternate Phone",
+          label: t('detail.overview.fields.alternatePhone'),
           value: (data) => data.alternatePhone,
           icon: "fas fa-phone-alt",
           type: "tel",
@@ -530,7 +531,7 @@ export const clientConfig = {
         },
         {
           key: "address",
-          label: "Address",
+          label: t('detail.overview.fields.address'),
           value: (data) => data.address,
           icon: "fas fa-map-marker-alt",
           type: "textarea",
@@ -540,13 +541,13 @@ export const clientConfig = {
       ],
     },
     {
-      title: "Registration Information",
+      title: t('detail.overview.registration'),
       editStrategy: "structured",
       fields: [
         {
           key: "joinDate",
-          label: "Registration Date",
-          displayValue: (data) => data.joinDate ? formatDateValue(data.joinDate) : "N/A",
+          label: t('detail.overview.fields.joinDate'),
+          displayValue: (data) => data.joinDate ? formatDateValue(data.joinDate) : t('detail.fallback.na'),
           icon: "fas fa-calendar",
           type: "date",
           editable: true
@@ -554,11 +555,11 @@ export const clientConfig = {
       ],
     },
     {
-      title: "Notes",
+      title: t('detail.overview.notes'),
       editStrategy: "structured",
       type: "notes",
       fieldKey: "notes",
-      content: (data) => data.notes || "No notes",
+      content: (data) => data.notes || t('detail.overview.notesEmpty'),
     },
   ],
-};
+});

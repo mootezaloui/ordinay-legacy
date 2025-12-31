@@ -21,11 +21,13 @@ import { shouldPromptClientNotification, sendClientNotification, getPendingNotif
 import BlockerModal from "../ui/BlockerModal";
 import { canPerformAction } from "../../services/domainRules";
 import { useSettings } from "../../contexts/SettingsContext";
+import { useTranslation } from "react-i18next";
 
 /**
  * Generic DetailView component with modern inline editing UX
  * ✅ UPDATED: Inline quick actions + structured edit mode
  * ✅ UPDATED: Uses DataContext for dynamic data
+ * ✅ UPDATED: Supports internationalized configs
  */
 export default function DetailView({ entityType }) {
   const { id } = useParams();
@@ -36,6 +38,19 @@ export default function DetailView({ entityType }) {
   const { showToast } = useToast();
   const { confirm } = useConfirm();
   const contextData = useData(); // Get all data from context
+
+  // Map entity types to their i18n namespaces
+  const getTranslationNamespace = (type) => {
+    const namespaceMap = {
+      'client': 'clients',
+      'dossier': 'dossiers',
+      'task': 'tasks',
+      'officer': 'officers',
+    };
+    return namespaceMap[type] || type;
+  };
+
+  const { t } = useTranslation(getTranslationNamespace(entityType));
   const [isEditing, setIsEditing] = useState(false);
   const justSaved = useRef(false);
   const pendingNotificationRef = useRef(null);
@@ -61,8 +76,8 @@ export default function DetailView({ entityType }) {
     return `Due: ${duePart}${assignedPart}`;
   };
 
-  // Get configuration for this entity type
-  const config = getEntityConfig(entityType);
+  // Get configuration for this entity type (pass translation function for internationalized configs)
+  const config = getEntityConfig(entityType, t);
 
   // ✅ Read active tab from URL query parameter, fallback to first tab or state
   const tabFromUrl = searchParams.get('tab');

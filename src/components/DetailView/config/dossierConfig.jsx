@@ -32,14 +32,15 @@ const DEFAULT_CATEGORIES = [
  * Dossier Entity Configuration - UPDATED with Quick Actions
  * ✅ Added inline quick actions for status, priority, lawyer, phase
  * ✅ Added structured edit mode for overview sections
+ * ✅ Fully internationalized with i18n support
  */
-export const dossierConfig = {
+export const createDossierConfig = (t) => ({
   entityType: "dossier",
-  entityName: "Dossier",
+  entityName: t('detail.entityName'),
   icon: "fas fa-folder-open",
   listRoute: "/dossiers",
-  notFoundMessage: "Dossier not found",
-  deleteConfirmMessage: "Are you sure you want to delete this Dossier?",
+  notFoundMessage: t('detail.notFound'),
+  deleteConfirmMessage: t('detail.deleteConfirm'),
   allowDelete: true,
   allowEdit: true,
 
@@ -106,7 +107,7 @@ export const dossierConfig = {
 
     return {
       ...dossier,
-      client: client || { id: null, name: 'Client non assigné' },
+      client: client || { id: null, name: t('detail.fallback.unassignedClient') },
       sessions: relatedSessions,
       tasks: relatedTasks,
       proceedings: dossierCases,
@@ -170,36 +171,36 @@ export const dossierConfig = {
   quickActions: [
     {
       key: "status",
-      label: "Status",
+      label: t('detail.quickActions.status.label'),
       icon: "fas fa-info-circle",
       colorMap: true,
       options: [
-        { value: "Open", label: "Open", color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" },
-        { value: "In Progress", label: "In Progress", color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" },
-        { value: "On Hold", label: "On Hold", color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
-        { value: "Closed", label: "Closed", color: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300" },
+        { value: "Open", label: t('detail.quickActions.status.open'), color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" },
+        { value: "In Progress", label: t('detail.quickActions.status.inProgress'), color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" },
+        { value: "On Hold", label: t('detail.quickActions.status.onHold'), color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
+        { value: "Closed", label: t('detail.quickActions.status.closed'), color: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300" },
       ],
       // Validation now handled by domainRules service
     },
     {
       key: "priority",
-      label: "Priority",
+      label: t('detail.quickActions.priority.label'),
       icon: "fas fa-flag",
       colorMap: true,
       options: [
-        { value: "High", label: "High", color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" },
-        { value: "Medium", label: "Medium", color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
-        { value: "Low", label: "Low", color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" },
+        { value: "High", label: t('detail.quickActions.priority.high'), color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" },
+        { value: "Medium", label: t('detail.quickActions.priority.medium'), color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
+        { value: "Low", label: t('detail.quickActions.priority.low'), color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" },
       ]
     },
     {
       key: "phase",
-      label: "Phase",
+      label: t('detail.quickActions.phase.label'),
       icon: "fas fa-stream",
       colorMap: false,
       getOptions: () => getAllPhases(DEFAULT_PHASES),
       allowCreate: true,
-      createLabel: "Add a phase",
+      createLabel: t('detail.quickActions.phase.create'),
       onCreateOption: async (name) => {
         addCustomPhase(name);
         return true;
@@ -233,13 +234,13 @@ export const dossierConfig = {
               ) : (
                 <span className="text-slate-500 dark:text-slate-400 flex items-center gap-2">
                   <i className="fas fa-user"></i>
-                  {data.client?.name || "Client Not Assigned"}
+                  {data.client?.name || t('detail.fallback.unassignedClient')}
                 </span>
               )}
             </div>
             <div className="flex items-center gap-3">
               <span className={`px-3 py-1 rounded-full text-sm font-medium ${priorityColor[data.priority]}`}>
-                Priority {data.priority}
+                {t('detail.header.priority')} {data.priority}
               </span>
               <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(data.status)}`}>
                 {data.status}
@@ -248,13 +249,13 @@ export const dossierConfig = {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <InfoCard icon="fas fa-calendar" label="Opening Date" value={formatDateValue(data.openDate)} color="blue" />
-            <InfoCard icon="fas fa-layer-group" label="Category" value={data.category} color="purple" />
-            <InfoCard icon="fas fa-stream" label="Phase" value={data.phase || "Not defined"} color="green" />
+            <InfoCard icon="fas fa-calendar" label={t('detail.header.openingDate')} value={formatDateValue(data.openDate)} color="blue" />
+            <InfoCard icon="fas fa-layer-group" label={t('detail.header.category')} value={data.category} color="purple" />
+            <InfoCard icon="fas fa-stream" label={t('detail.header.phase')} value={data.phase || t('detail.fallback.notDefined')} color="green" />
             {(() => {
               const deadline = data.computedNextDeadline;
               if (!deadline) {
-                return <InfoCard icon="fas fa-clock" label="Next deadline" value="No deadlines" color="amber" />;
+                return <InfoCard icon="fas fa-clock" label={t('detail.header.nextDeadline')} value={t('detail.fallback.noDeadlines')} color="amber" />;
               }
 
               const formattedDate = formatDate(deadline.date);
@@ -272,7 +273,7 @@ export const dossierConfig = {
               return (
                 <InfoCard
                   icon="fas fa-clock"
-                  label="Next deadline"
+                  label={t('detail.header.nextDeadline')}
                   value={formattedDate}
                   subtitle={deadline.label}
                   color={urgencyColors[urgency]}
@@ -307,28 +308,28 @@ export const dossierConfig = {
         iconColor: "text-purple-600 dark:text-purple-400",
         bgColor: "bg-purple-100 dark:bg-purple-900/20",
         value: data.documents?.length || 0,
-        label: "Documents"
+        label: t('detail.stats.documents')
       },
       {
         icon: "fas fa-tasks",
         iconColor: "text-blue-600 dark:text-blue-400",
         bgColor: "bg-blue-100 dark:bg-blue-900/20",
         value: data.tasks?.length || 0,
-        label: "Tasks"
+        label: t('detail.stats.tasks')
       },
       {
         icon: "fas fa-gavel",
         iconColor: "text-green-600 dark:text-green-400",
         bgColor: "bg-green-100 dark:bg-green-900/20",
         value: data.proceedings?.length || 0,
-        label: "Lawsuits"
+        label: t('detail.stats.lawsuits')
       },
       {
         icon: "fas fa-chart-line",
         iconColor: totalRevenue >= totalExpenses ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400",
         bgColor: totalRevenue >= totalExpenses ? "bg-green-100 dark:bg-green-900/20" : "bg-red-100 dark:bg-red-900/20",
         value: `${(totalRevenue - totalExpenses).toFixed(0)} TND`,
-        label: "Net Profit"
+        label: t('detail.stats.netProfit')
       },
     ];
   },
@@ -336,13 +337,13 @@ export const dossierConfig = {
   tabs: [
     {
       id: "overview",
-      label: "Overview",
+      label: t('detail.tabs.overview'),
       icon: "fas fa-eye",
       component: "overview",
     },
     {
       id: "proceedings",
-      label: "Lawsuits",
+      label: t('detail.tabs.proceedings'),
       icon: "fas fa-gavel",
       component: "aggregatedRelated",
       aggregationType: "cases",
@@ -350,13 +351,13 @@ export const dossierConfig = {
       itemsKey: "proceedings",
       allowAdd: true,
       allowDelete: true,
-      entityName: "a lawsuit",
-      addSubtitle: "Create a new lawsuit for this Dossier",
+      entityName: t('detail.tabs.proceedingsEntity'),
+      addSubtitle: t('detail.tabs.proceedingsAddSubtitle'),
       formFields: caseFormFields.filter(field => field.name !== 'dossierId'),
     },
     {
       id: "sessions",
-      label: "Hearings",
+      label: t('detail.tabs.sessions'),
       icon: "fas fa-calendar-alt",
       component: "aggregatedRelated",
       aggregationType: "sessions",
@@ -364,8 +365,8 @@ export const dossierConfig = {
       itemsKey: "sessions",
       allowAdd: true,
       allowDelete: false,
-      entityName: "a hearing",
-      addSubtitle: "Create a new hearing for this Dossier",
+      entityName: t('detail.tabs.sessionsEntity'),
+      addSubtitle: t('detail.tabs.sessionsAddSubtitle'),
       // Dynamic form fields - allow linking to either this dossier or one of its procès
       getFormFields: (dossierData) => {
         const dossierCases = dossierData.proceedings || [];
@@ -378,8 +379,8 @@ export const dossierConfig = {
               // Not disabled - user can choose
               defaultValue: 'case', // Default to case if procès exist, else dossier
               helpText: dossierCases.length > 0
-                ? "Choose if this hearing is linked to this Dossier or a specific lawsuit"
-                : "This hearing will be linked to this Dossier (no lawsuits available)"
+                ? t('detail.forms.sessions.linkHelpWithCases')
+                : t('detail.forms.sessions.linkHelpNoCases')
             };
           }
           if (field.name === 'caseId') {
@@ -391,8 +392,8 @@ export const dossierConfig = {
                 label: `${cas.caseNumber} - ${cas.title}`
               })),
               helpText: dossierCases.length === 0
-                ? "No lawsuits available. Please create a lawsuit first."
-                : "Select the lawsuit to which this hearing will be linked",
+                ? t('detail.forms.sessions.casesEmpty')
+                : t('detail.forms.sessions.caseHelp'),
               // Only show this field when linkType is 'case'
               getOptions: (formData) => {
                 if (formData.linkType !== "case") return [];
@@ -413,7 +414,7 @@ export const dossierConfig = {
                 value: dossierData.id,
                 label: `${dossierData.caseNumber} - ${dossierData.title}`
               }],
-              helpText: "This hearing will be linked to this Dossier",
+              helpText: t('detail.forms.sessions.dossierHelp'),
               // Only show this field when linkType is 'dossier'
               hideIf: false, // Will be controlled by getOptions
               getOptions: (formData) => {
@@ -431,7 +432,7 @@ export const dossierConfig = {
     },
     {
       id: "tasks",
-      label: "Tasks",
+      label: t('detail.tabs.tasks'),
       icon: "fas fa-tasks",
       component: "aggregatedRelated",
       aggregationType: "tasks",
@@ -439,8 +440,8 @@ export const dossierConfig = {
       itemsKey: "tasks",
       allowAdd: true,
       allowDelete: false,
-      entityName: "a task",
-      addSubtitle: "Create a new task for this Dossier",
+      entityName: t('detail.tabs.tasksEntity'),
+      addSubtitle: t('detail.tabs.tasksAddSubtitle'),
       // Dynamic form fields - dossierId and caseId options filtered to this dossier
       getFormFields: (dossierData) => {
         const dossierCases = dossierData.proceedings || [];
@@ -452,8 +453,8 @@ export const dossierConfig = {
               ...field,
               defaultValue: 'dossier',
               helpText: dossierCases.length > 0
-                ? "Choose if this task concerns the Dossier in general or a specific lawsuit"
-                : "This task will be linked to the Dossier (no lawsuits available)"
+                ? t('detail.forms.tasks.linkHelpWithCases')
+                : t('detail.forms.tasks.linkHelpNoCases')
             };
           } else if (field.name === 'dossierId') {
             // Show this field as disabled/read-only with the current dossier pre-filled
@@ -465,7 +466,7 @@ export const dossierConfig = {
                 value: dossierData.id,
                 label: `${dossierData.caseNumber} - ${dossierData.title}`
               }],
-              helpText: "This task will be linked to this Dossier",
+              helpText: t('detail.forms.tasks.dossierHelp'),
               // Override getOptions to use this dossier only
               getOptions: (formData) => {
                 if (formData.parentType !== "dossier") return [];
@@ -483,8 +484,8 @@ export const dossierConfig = {
                 label: `${cas.caseNumber} - ${cas.title}`
               })),
               helpText: dossierCases.length === 0
-                ? "No lawsuits available. Please create a lawsuit first."
-                : "Select the lawsuit to which this task will be linked",
+                ? t('detail.forms.tasks.casesEmpty')
+                : t('detail.forms.tasks.caseHelp'),
               // Override getOptions to use filtered options
               getOptions: (formData) => {
                 if (formData.parentType !== "case") return [];
@@ -501,15 +502,15 @@ export const dossierConfig = {
     },
     {
       id: "missions",
-      label: "Missions",
+      label: t('detail.tabs.missions'),
       icon: "fas fa-clipboard-list",
       component: "aggregatedRelated",
       aggregationType: "missions",
       getCount: (data) => data.missions?.length || 0,
       allowAdd: true,
       allowDelete: false,
-      entityName: "a mission",
-      addSubtitle: "Create a new officer mission for this Dossier",
+      entityName: t('detail.tabs.missionsEntity'),
+      addSubtitle: t('detail.tabs.missionsAddSubtitle'),
       // Dynamic form fields - entityType and entityReference pre-filled
       getFormFields: (dossierData, contextData) => {
         // Generate a default mission number
@@ -529,7 +530,7 @@ export const dossierConfig = {
               ...field,
               defaultValue: dossierData.caseNumber,
               disabled: true,
-              helpText: `This mission will be linked to the Dossier ${dossierData.caseNumber}`,
+              helpText: t('detail.forms.missions.linkedToDossier', { caseNumber: dossierData.caseNumber }),
             };
           } else if (field.name === 'missionNumber') {
             return {
@@ -552,7 +553,7 @@ export const dossierConfig = {
     },
     {
       id: "financial",
-      label: "Accounting",
+      label: t('detail.tabs.financial'),
       icon: "fas fa-calculator",
       component: "financial",
       getCount: (data) => {
@@ -565,14 +566,14 @@ export const dossierConfig = {
     },
     {
       id: "documents",
-      label: "Documents",
+      label: t('detail.tabs.documents'),
       icon: "fas fa-file",
       component: "documents",
       getCount: (data) => data.documents?.length || 0,
     },
     {
       id: "notes",
-      label: "Notes",
+      label: t('detail.tabs.notes'),
       icon: "fas fa-sticky-note",
       component: "notes",
       fieldKey: "notes", // ✅ Explicitly set field key for clarity
@@ -584,7 +585,7 @@ export const dossierConfig = {
     },
     {
       id: "timeline",
-      label: "History",
+      label: t('detail.tabs.history'),
       icon: "fas fa-history",
       component: "history",
     },
@@ -593,21 +594,21 @@ export const dossierConfig = {
   // ✅ UPDATED: Overview sections with editStrategy
   overviewSections: [
     {
-      title: "General Information",
+      title: t('detail.overview.general'),
       editStrategy: "structured", // ✅ Requires explicit Edit button
       fields: [
         {
           key: "caseNumber",
-          label: "Dossier Number",
+          label: t('detail.overview.fields.caseNumber'),
           value: (data) => data.caseNumber,
           icon: "fas fa-hashtag",
           type: "text",
           editable: true,
-          helpText: "Format: DOS-YEAR-NUMBER"
+          helpText: t('detail.overview.fields.caseNumberHelp')
         },
         {
           key: "title",
-          label: "Dossier Title",
+          label: t('detail.overview.fields.title'),
           value: (data) => data.title,
           icon: "fas fa-heading",
           type: "text",
@@ -616,7 +617,7 @@ export const dossierConfig = {
         },
         {
           key: "clientId",
-          label: "Client",
+          label: t('detail.overview.fields.client'),
           value: (data) => {
             const clientId = data.clientId || data.client?.id;
             return clientId;
@@ -625,7 +626,7 @@ export const dossierConfig = {
             const clientId = data.clientId || data.client?.id;
             const clients = contextData?.clients || [];
             const client = clients.find(c => c.id == clientId);
-            return client ? client.name : "Unknown Client";
+            return client ? client.name : t('detail.fallback.unknownClient');
           },
           icon: "fas fa-user",
           type: "searchable-select",
@@ -637,11 +638,11 @@ export const dossierConfig = {
               label: client.name
             }));
           },
-          helpText: "Attention: Changing the client will transfer the file to another client"
+          helpText: t('detail.overview.fields.clientHelp')
         },
         {
           key: "category",
-          label: "Category",
+          label: t('detail.overview.fields.category'),
           value: (data) => data.category,
           icon: "fas fa-layer-group",
           type: "select",
@@ -650,7 +651,7 @@ export const dossierConfig = {
         },
         {
           key: "phase",
-          label: "Phase",
+          label: t('detail.overview.fields.phase'),
           value: (data) => data.phase,
           icon: "fas fa-stream",
           type: "select",
@@ -659,19 +660,19 @@ export const dossierConfig = {
         },
         {
           key: "openDate",
-          label: "Opening Date",
+          label: t('detail.overview.fields.openDate'),
           value: (data) => data.openDate,
-          displayValue: (data) => data.openDate ? formatDateValue(data.openDate) : "N/A",
+          displayValue: (data) => data.openDate ? formatDateValue(data.openDate) : t('detail.fallback.na'),
           icon: "fas fa-calendar",
           type: "date",
           editable: true
         },
         {
           key: "nextDeadline",
-          label: "Next Deadline",
+          label: t('detail.overview.fields.nextDeadline'),
           value: (data) => {
             const deadline = data.computedNextDeadline;
-            if (!deadline) return "No upcoming deadlines";
+            if (!deadline) return t('detail.overview.fields.nextDeadlineEmpty');
             return formatDate(deadline.date);
           },
           icon: "fas fa-clock",
@@ -682,7 +683,7 @@ export const dossierConfig = {
             if (!deadline) {
               return (
                 <div className="text-slate-500 dark:text-slate-400 text-sm">
-                  No upcoming deadlines
+                  {t('detail.overview.fields.nextDeadlineEmpty')}
                 </div>
               );
             }
@@ -700,10 +701,10 @@ export const dossierConfig = {
             };
 
             const urgencyLabels = {
-              critical: "Critical",
-              urgent: "Urgent",
-              soon: "Soon",
-              normal: "Planned",
+              critical: t('detail.deadlines.urgency.critical'),
+              urgent: t('detail.deadlines.urgency.urgent'),
+              soon: t('detail.deadlines.urgency.soon'),
+              normal: t('detail.deadlines.urgency.normal'),
             };
 
             return (
@@ -725,7 +726,7 @@ export const dossierConfig = {
                       to={linkTo}
                       className="text-sm text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-1 mt-1"
                     >
-                      View details
+                      {t('detail.deadlines.viewDetails')}
                       <i className="fas fa-arrow-right text-xs"></i>
                     </Link>
                   )}
@@ -737,19 +738,19 @@ export const dossierConfig = {
       ],
     },
     {
-      title: "Dossier Description",
+      title: t('detail.overview.description'),
       editStrategy: "structured", // ✅ Requires explicit Edit button
       type: "description",
       fieldKey: "description",
       content: (data) => data.description,
     },
     {
-      title: "Adverse Party",
+      title: t('detail.overview.adverse'),
       editStrategy: "structured", // ✅ Requires explicit Edit button
       fields: [
         {
           key: "adversaryParty",
-          label: "Name",
+          label: t('detail.overview.fields.adversaryParty'),
           value: (data) => data.adversaryParty,
           icon: "fas fa-user",
           type: "text",
@@ -757,7 +758,7 @@ export const dossierConfig = {
         },
         {
           key: "adversaryLawyer",
-          label: "Lawyer",
+          label: t('detail.overview.fields.adversaryLawyer'),
           value: (data) => data.adversaryLawyer,
           icon: "fas fa-gavel",
           type: "text",
@@ -766,12 +767,12 @@ export const dossierConfig = {
       ],
     },
     {
-      title: "Legal Information",
+      title: t('detail.overview.legal'),
       editStrategy: "structured", // ✅ Requires explicit Edit button
       fields: [
         {
           key: "courtReference",
-          label: "Court Reference",
+          label: t('detail.overview.fields.courtReference'),
           value: (data) => data.courtReference,
           icon: "fas fa-balance-scale",
           type: "text",
@@ -779,7 +780,7 @@ export const dossierConfig = {
         },
         {
           key: "estimatedValue",
-          label: "Estimated Value",
+          label: t('detail.overview.fields.estimatedValue'),
           value: (data) => data.estimatedValue,
           icon: "fas fa-money-bill-wave",
           type: "text",
@@ -788,7 +789,7 @@ export const dossierConfig = {
       ],
     },
   ],
-};
+});
 
 // Helper component
 function InfoCard({ icon, label, value, color, linkTo = null, subtitle = null }) {
