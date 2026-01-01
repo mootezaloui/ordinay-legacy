@@ -180,5 +180,110 @@
   },
   "export": {
     "filename": "comptabilite-{{date}}.csv"
+  },
+  "detail": {
+    "entityName": "Écriture comptable",
+    "notFound": "Écriture comptable introuvable",
+    "deleteConfirm": "Êtes-vous sûr de vouloir supprimer cette écriture comptable ?",
+    "subtitle": "{{category}} • {{amount}} • {{date}}",
+    "fallback": {
+      "na": "N/A",
+      "none": "Aucun",
+      "noAdditionalDetails": "Aucun détail supplémentaire",
+      "noNotes": "Aucune note",
+      "untitled": "Écriture #{{id}}"
+    },
+    "financial": {
+      "fallback": {
+        "unknownClient": "Client inconnu",
+        "unknownDossier": "Dossier inconnu",
+        "unknownCase": "Affaire inconnue"
+      },
+      "help": {
+        "currentMission": "Mission actuelle",
+        "missionOfficer": "Huissier de cette mission"
+      }
+    },
+    "quickActions": {
+      "status": {
+        "label": "Statut",
+        "draft": "Brouillon",
+        "confirmed": "Confirmé",
+        "paid": "Payé",
+        "cancelled": "Annulé"
+      }
+    },
+    "toast": {
+      "success": {
+        "update": "?criture mise ? jour avec succ?s !",
+        "create": "?criture ajout?e avec succ?s !"
+      },
+      "error": {
+        "save": "Erreur lors de l'enregistrement de l'?criture"
+      }
+    },
+
+    "header": {
+      "revenue": "Recette",
+      "expense": "Dépense",
+      "client": "Client",
+      "office": "Bureau",
+      "date": "Date",
+      "dueDate": "Date d'échéance",
+      "dossier": "Dossier",
+      "lawsuit": "Affaire",
+      "bailiff": "Huissier"
+    },
+    "tabs": {
+      "overview": "Aperçu",
+      "relations": "Relations",
+      "history": "Historique"
+    },
+    "relations": {
+      "title": "Entités liées",
+      "empty": "Aucune entité liée",
+      "client": "Client",
+      "dossier": "Dossier",
+      "lawsuit": "Affaire",
+      "bailiff": "Huissier"
+    },
+    "overview": {
+      "financial": "Détails financiers",
+      "dates": "Dates",
+      "entities": "Entités liées",
+      "notes": "Notes",
+      "fields": {
+        "title": "Titre",
+        "titlePlaceholder": "Ex : Frais de dépôt, frais de déplacement d'huissier...",
+        "description": "Détails complémentaires",
+        "noAdditionalDetails": "Aucun détail supplémentaire",
+        "amount": "Montant",
+        "type": "Type",
+        "typeRevenue": "Recette",
+        "typeExpense": "Dépense",
+        "category": "Catégorie",
+        "status": "Statut",
+        "scope": "Portée",
+        "scopeClient": "Client",
+        "scopeOffice": "Bureau (Interne)",
+        "date": "Date de transaction",
+        "dueDate": "Date d'échéance",
+        "client": "Client",
+        "clientPlaceholder": "Sélectionnez un client...",
+        "dossier": "Dossier",
+        "dossierPlaceholder": "Sélectionnez un dossier...",
+        "dossierHelp": "Seuls les dossiers du client sélectionné sont affichés",
+        "lawsuit": "Affaire",
+        "lawsuitPlaceholder": "Sélectionnez une affaire...",
+        "lawsuitHelp": "Seules les affaires du dossier sélectionné sont affichées"
+      },
+      "categories": {
+        "Fees": "Honoraires",
+        "bailiff_fees": "Frais d'huissier",
+        "office_expenses": "Dépenses de bureau",
+        "salary": "Salaire",
+        "other": "Autre"
+      }
+    }
   }
 }

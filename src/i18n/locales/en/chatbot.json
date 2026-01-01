@@ -1,0 +1,30 @@
+{
+  "page": {
+    "title": "AI Assistant Chatbot",
+    "subtitle": "Intelligent Legal Assistant for Your Legal Needs"
+  },
+  "hero": {
+    "title": "AI Legal Assistant",
+    "description": "Your intelligent assistant to help with legal questions, case law research, and document analysis."
+  },
+  "features": {
+    "research": {
+      "title": "Research",
+      "description": "Search case law and legal texts"
+    },
+    "analyze": {
+      "title": "Analyze",
+      "description": "Analyze legal documents"
+    },
+    "advice": {
+      "title": "Advice",
+      "description": "Get instant legal advice"
+    }
+  },
+  "cta": {
+    "start": "Start a Conversation"
+  },
+  "footer": {
+    "note": "All conversations are secure and confidential"
+  }
+}

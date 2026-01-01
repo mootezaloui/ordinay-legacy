@@ -6,15 +6,16 @@ import { formatDateTimeValue, formatDateValue } from "../../../utils/dateFormat"
  * Personal Task Configuration - UPDATED with Quick Actions
  * ✅ Added inline quick actions for status, priority, category
  * ✅ Added structured edit mode for overview sections
+ * ✅ Fully internationalized with i18n support
  */
 
-export const personalTaskConfig = {
+export const createPersonalTaskConfig = (t) => ({
   entityType: "personalTask",
-  entityName: "Personal Task",
+  entityName: t('detail.entityName'),
   icon: "fas fa-sticky-note",
   listRoute: "/personal-tasks",
-  notFoundMessage: "Personal task not found",
-  deleteConfirmMessage: "Are you sure you want to delete this personal task?",
+  notFoundMessage: t('detail.notFound'),
+  deleteConfirmMessage: t('detail.deleteConfirm'),
   allowDelete: true,
   allowEdit: true,
 
@@ -77,46 +78,46 @@ export const personalTaskConfig = {
   },
 
   getTitle: (data) => data.title,
-  getSubtitle: (data) => `Created on ${formatDateTimeValue(data.createdDate)} • ${data.category}`,
+  getSubtitle: (data) => t('detail.subtitle', { date: formatDateTimeValue(data.createdDate), category: data.category }),
 
   // ✅ NEW: Quick Actions Configuration
   quickActions: [
     {
       key: "status",
-      label: "Status",
+      label: t('detail.quickActions.status.label'),
       icon: "fas fa-info-circle",
       colorMap: true,
       options: [
-        { value: "Not Started", label: "Not Started", color: "bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300" },
-        { value: "In Progress", label: "In Progress", color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" },
-        { value: "Blocked", label: "Blocked", color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" },
-        { value: "Done", label: "Done", color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" },
-        { value: "Cancelled", label: "Cancelled", color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
+        { value: "Not Started", label: t('detail.quickActions.status.notStarted'), color: "bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300" },
+        { value: "In Progress", label: t('detail.quickActions.status.inProgress'), color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" },
+        { value: "Blocked", label: t('detail.quickActions.status.blocked'), color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" },
+        { value: "Done", label: t('detail.quickActions.status.done'), color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" },
+        { value: "Cancelled", label: t('detail.quickActions.status.cancelled'), color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
       ]
     },
     {
       key: "priority",
-      label: "Priority",
+      label: t('detail.quickActions.priority.label'),
       icon: "fas fa-flag",
       colorMap: true,
       options: [
-        { value: "High", label: "High", color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" },
-        { value: "Medium", label: "Medium", color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
-        { value: "Low", label: "Low", color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" },
+        { value: "High", label: t('detail.quickActions.priority.high'), color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" },
+        { value: "Medium", label: t('detail.quickActions.priority.medium'), color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
+        { value: "Low", label: t('detail.quickActions.priority.low'), color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" },
       ]
     },
     {
       key: "category",
-      label: "Category",
+      label: t('detail.quickActions.category.label'),
       icon: "fas fa-tag",
       colorMap: false,
       options: [
-        { value: "Invoices", label: "Invoices" },
-        { value: "Office", label: "Office" },
-        { value: "Personal", label: "Personal" },
-        { value: "IT", label: "IT" },
-        { value: "Administrative", label: "Administrative" },
-        { value: "Other", label: "Other" },
+        { value: "Invoices", label: t('detail.quickActions.category.invoices') },
+        { value: "Office", label: t('detail.quickActions.category.office') },
+        { value: "Personal", label: t('detail.quickActions.category.personal') },
+        { value: "IT", label: t('detail.quickActions.category.it') },
+        { value: "Administrative", label: t('detail.quickActions.category.administrative') },
+        { value: "Other", label: t('detail.quickActions.category.other') },
       ]
     }
   ],
@@ -172,7 +173,7 @@ export const personalTaskConfig = {
             <div className="flex items-center gap-3">
               <span className={`px-3 py-1 rounded-full text-sm font-medium flex items-center gap-2 ${priority.bg} ${priority.text}`}>
                 <i className={priority.icon}></i>
-                Priority {data.priority}
+                {t('detail.header.priority')} {data.priority}
               </span>
               <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(data.status)}`}>
                 {data.status}
@@ -183,19 +184,19 @@ export const personalTaskConfig = {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <InfoCard
               icon="fas fa-calendar-alt"
-              label="Due Date"
-              value={data.dueDate ? formatDateValue(data.dueDate) : "N/A"}
+              label={t('detail.header.dueDate')}
+              value={data.dueDate ? formatDateValue(data.dueDate) : t('detail.fallback.na')}
               color="blue"
             />
             <InfoCard
               icon="fas fa-flag"
-              label="Priority"
+              label={t('detail.header.priority')}
               value={data.priority}
               color={data.priority === "High" ? "red" : data.priority === "Medium" ? "amber" : "green"}
             />
             <InfoCard
               icon="fas fa-info-circle"
-              label="Status"
+              label={t('detail.header.status')}
               value={data.status}
               color="purple"
             />
@@ -210,15 +211,15 @@ export const personalTaskConfig = {
       icon: "fas fa-calendar-check",
       iconColor: "text-blue-600 dark:text-blue-400",
       bgColor: "bg-blue-100 dark:bg-blue-900/20",
-      value: data.dueDate ? formatDateValue(data.dueDate) : "N/A",
-      label: "Due Date"
+      value: data.dueDate ? formatDateValue(data.dueDate) : t('detail.fallback.na'),
+      label: t('detail.header.dueDate')
     },
     {
       icon: "fas fa-tag",
       iconColor: "text-purple-600 dark:text-purple-400",
       bgColor: "bg-purple-100 dark:bg-purple-900/20",
       value: data.category,
-      label: "Category"
+      label: t('detail.header.category')
     },
     {
       icon: "fas fa-flag",
@@ -229,23 +230,23 @@ export const personalTaskConfig = {
         data.priority === "Medium" ? "bg-amber-100 dark:bg-amber-900/20" :
           "bg-green-100 dark:bg-green-900/20",
       value: data.priority,
-      label: "Priority"
+      label: t('detail.header.priority')
     },
   ],
 
   tabs: [
     {
       id: "overview",
-      label: "Overview",
+      label: t('detail.tabs.overview'),
       icon: "fas fa-eye",
       component: "overview",
     },
     {
       id: "financial",
-      label: "Accounting",
+      label: t('detail.tabs.financial'),
       icon: "fas fa-coins",
       component: "financial",
-      description: "Office fees and internal expenses related to this task",
+      description: t('detail.tabs.financialDescription'),
       getCount: (data) => {
         // Count financial entries (excluding void/cancelled)
         if (!data.financialEntries) return 0;
@@ -256,14 +257,14 @@ export const personalTaskConfig = {
     },
     {
       id: "documents",
-      label: "Documents",
+      label: t('detail.tabs.documents'),
       icon: "fas fa-file",
       component: "documents",
       getCount: (data) => data.documents?.length || 0,
     },
     {
       id: "timeline",
-      label: "History",
+      label: t('detail.tabs.history'),
       icon: "fas fa-history",
       component: "history",
     },
@@ -272,12 +273,12 @@ export const personalTaskConfig = {
   // ✅ UPDATED: Overview sections with editStrategy
   overviewSections: [
     {
-      title: "General Information",
+      title: t('detail.overview.general'),
       editStrategy: "structured",
       fields: [
         {
           key: "title",
-          label: "Task Title",
+          label: t('detail.overview.fields.title'),
           value: (data) => data.title,
           icon: "fas fa-sticky-note",
           type: "text",
@@ -287,9 +288,9 @@ export const personalTaskConfig = {
         },
         {
           key: "dueDate",
-          label: "Due Date",
+          label: t('detail.overview.fields.dueDate'),
           value: (data) => data.dueDate,
-          displayValue: (data) => data.dueDate ? formatDateValue(data.dueDate) : "N/A",
+          displayValue: (data) => data.dueDate ? formatDateValue(data.dueDate) : t('detail.fallback.na'),
           icon: "fas fa-calendar",
           type: "date",
           editable: true
@@ -297,21 +298,21 @@ export const personalTaskConfig = {
       ],
     },
     {
-      title: "Task Description",
+      title: t('detail.overview.description'),
       editStrategy: "structured",
       type: "description",
       fieldKey: "description",
-      content: (data) => data.description || "No description",
+      content: (data) => data.description || t('detail.fallback.noDescription'),
     },
     {
-      title: "Notes",
+      title: t('detail.overview.notes'),
       editStrategy: "structured",
       type: "notes",
       fieldKey: "notes",
-      content: (data) => data.notes || "No notes",
+      content: (data) => data.notes || t('detail.fallback.noNotes'),
     },
   ],
-};
+});
 
 // Helper component
 function InfoCard({ icon, label, value, color }) {

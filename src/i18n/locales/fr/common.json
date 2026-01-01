@@ -86,5 +86,238 @@
       "mission": "Mission",
       "generic": "{{type}}"
     }
+  },
+  "actions": {
+    "close": "Fermer"
+  },
+  "detail": {
+    "toast": {
+      "success": {
+        "save": "Modifications enregistrées avec succès !",
+        "cascade": "{{entity}} et toutes les entités liées ont été supprimées"
+      },
+      "error": {
+        "save": "Erreur lors de l'enregistrement des modifications",
+        "saveInline": "Erreur lors de l'enregistrement",
+        "cascade": "Erreur lors de la suppression en cascade",
+        "cascadeUnavailable": "La suppression en cascade n'est pas disponible pour cette entité",
+        "delete": "Erreur lors de la suppression",
+        "notAllowed": "Cette modification n'est pas autorisée"
+      },
+      "title": {
+        "blocked": "Modification bloquée",
+        "validationFailed": "Validation échouée",
+        "saveError": "Erreur d'enregistrement",
+        "cascade": "Suppression en cascade"
+      }
+    },
+    "validation": {
+      "modificationNotAllowed": "Cette modification n'est pas autorisée"
+    },
+    "documents": {
+      "toast": {
+        "success": {
+          "upload": "{{count}} document(s) ajoutés avec succès !",
+          "downloadStart": "Téléchargement de {{name}}",
+          "delete": "Document supprimé",
+          "unlink": "Lien supprimé",
+          "relink": "Document relié avec succès"
+        },
+        "error": {
+          "uploadFailed": "{{count}} document(s) n'ont pas pu être téléversés",
+          "uploadError": "Erreur lors de l'ajout des documents",
+          "open": "Impossible d'ouvrir le document. Fichier manquant ?",
+          "download": "Erreur lors du téléchargement du document",
+          "reveal": "Impossible d'afficher le fichier",
+          "delete": "Erreur lors de la suppression du document",
+          "replace": "Erreur lors du remplacement du document"
+        }
+      }
+    },
+    "notes": {
+      "toast": {
+        "success": {
+          "save": "Note enregistrée",
+          "delete": "Note supprimée"
+        },
+        "error": {
+          "saveMissing": "Impossible d'enregistrer les notes",
+          "empty": "La note ne peut pas être vide",
+          "save": "Erreur lors de l'enregistrement de la note",
+          "deleteMissing": "Impossible de supprimer la note",
+          "delete": "Erreur lors de la suppression de la note"
+        }
+      }
+    },
+    "missions": {
+      "fallback": {
+        "unknownClient": "Client inconnu",
+        "unknownDossier": "Dossier inconnu"
+      }
+    },
+    "related": {
+      "help": {
+        "taskCaseLink": "Cette tâche sera liée à cette affaire"
+      },
+      "empty": {
+        "noItems": "Aucun élément"
+      },
+      "fallback": {
+        "entity": "Élément"
+      }
+    },
+    "quickActions": {
+      "toast": {
+        "success": {
+          "update": "{{label}} mis à jour : {{value}}"
+        },
+        "info": {
+          "cancel": "Mise à jour annulée"
+        },
+        "title": {
+          "updateSuccess": "Mise à jour réussie",
+          "undoSuccess": "Annulation réussie"
+        }
+      }
+    },
+    "blocker": {
+      "toast": {
+        "success": {
+          "taskComplete": "Tâche marquée comme terminée",
+          "hearingComplete": "Audience marquée comme terminée",
+          "entryPaid": "Écriture marquée comme payée",
+          "caseClosed": "Affaire clôturée",
+          "dossierClosed": "Dossier clôturé",
+          "resolved": "Tous les bloqueurs ont été résolus !"
+        },
+        "error": {
+          "taskComplete": "Impossible de marquer cette tâche comme terminée",
+          "hearingComplete": "Impossible de marquer cette audience comme terminée",
+          "entryPaid": "Impossible de marquer cette écriture comme payée",
+          "caseClosed": "Impossible de clôturer cette affaire",
+          "dossierClosed": "Impossible de clôturer ce dossier",
+          "unsupported": "Action non prise en charge",
+          "generic": "Une erreur est survenue"
+        }
+      }
+    }
+  },
+  "data": {
+    "toast": {
+      "error": {
+        "loadRemote": "Impossible de charger les données distantes (lecture seule)."
+      }
+    }
+  },
+  "form": {
+    "placeholder": {
+      "notProvided": "Non fourni"
+    },
+    "upload": {
+      "dropPrompt": "Glissez-déposez des fichiers ici, ou",
+      "browse": "parcourir"
+    }
+  },
+  "dialog": {
+    "confirm": {
+      "defaults": {
+        "title": "Confirmation",
+        "message": "Êtes-vous sûr ?",
+        "confirm": "Confirmer",
+        "cancel": "Annuler"
+      }
+    },
+    "form": {
+      "validation": {
+        "required": {
+          "title": "Champs requis",
+          "message": "Veuillez corriger les erreurs du formulaire avant de continuer."
+        }
+      }
+    },
+    "detail": {
+      "documents": {
+        "delete": {
+          "title": "Supprimer le document",
+          "message": "Souhaitez-vous supprimer uniquement le lien ou le fichier définitivement ?",
+          "confirm": "Supprimer le fichier",
+          "cancel": "Supprimer le lien"
+        },
+        "deleteSingle": {
+          "title": "Supprimer le document",
+          "message": "Êtes-vous sûr de vouloir supprimer ce document ?",
+          "confirm": "Supprimer",
+          "cancel": "Annuler"
+        }
+      },
+      "notes": {
+        "delete": {
+          "title": "Supprimer la note",
+          "message": "Êtes-vous sûr de vouloir supprimer cette note ?",
+          "confirm": "Supprimer",
+          "cancel": "Annuler"
+        }
+      },
+      "missions": {
+        "delete": {
+          "title": "Supprimer la mission",
+          "message": "Êtes-vous sûr de vouloir supprimer cette mission ?",
+          "confirm": "Supprimer",
+          "cancel": "Annuler"
+        }
+      },
+      "financial": {
+        "delete": {
+          "title": "Supprimer l'écriture comptable",
+          "message": "Êtes-vous sûr de vouloir supprimer cette écriture ?",
+          "confirm": "Supprimer",
+          "cancel": "Annuler"
+        }
+      },
+      "related": {
+        "delete": {
+          "title": "Supprimer {{entity}}",
+          "message": "Êtes-vous sûr de vouloir supprimer cet(te) {{entity}} ?",
+          "confirm": "Supprimer",
+          "cancel": "Annuler"
+        }
+      },
+      "impact": {
+        "change": {
+          "title": "Modification du rattachement",
+          "message": "Êtes-vous sûr de vouloir effectuer cette modification ?",
+          "confirm": "Confirmer la modification",
+          "cancel": "Annuler"
+        }
+      },
+      "entity": {
+        "delete": {
+          "title": "Supprimer {{entity}}",
+          "confirm": "Supprimer",
+          "cancel": "Annuler"
+        }
+      }
+    },
+    "impact": {
+      "warning": {
+        "title": "Alerte d'impact sur les liens",
+        "lead": "Vous êtes sur le point de {{action}}{{entityName}}",
+        "prompt": "Voulez-vous continuer ?",
+        "detail": "Cette action modifiera les relations entre les entités. Assurez-vous de bien comprendre l'impact avant de confirmer.",
+        "confirm": "Confirmer la modification",
+        "cancel": "Annuler"
+      }
+    }
+  },
+  "aria": {
+    "dialog": {
+      "close": "Fermer la fen?tre"
+    },
+    "search": {
+      "clearSelection": "Effacer la s?lection"
+    },
+    "userDropdown": {
+      "userMenu": "Menu utilisateur"
+    }
   }
 }

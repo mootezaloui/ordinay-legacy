@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
+import { useTranslation } from "react-i18next";
 
 /**
  * SearchableSelect - A searchable dropdown component
@@ -23,6 +24,7 @@ export default function SearchableSelect({
   createLabel = "Ajouter", // ✅ NEW: Label for create button
   placement = "bottom", // NEW: allow opening above when dropdown would be clipped
 }) {
+  const { t } = useTranslation("common");
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [highlightedIndex, setHighlightedIndex] = useState(0);
@@ -214,7 +216,7 @@ export default function SearchableSelect({
               onClick={handleClear}
               className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
               tabIndex={-1}
-              aria-label="Clear selection"
+              aria-label={t("search.aria.clearSelection", { ns: "common" })}
             >
               <i className={`fas fa-times ${compact ? 'text-xs' : 'text-sm'}`}></i>
             </button>

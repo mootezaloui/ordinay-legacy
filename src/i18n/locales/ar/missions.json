@@ -1,0 +1,125 @@
+{
+  "detail": {
+    "entityName": "مهمة",
+    "notFound": "المهمة غير موجودة.",
+    "deleteConfirm": "هل أنت متأكد من حذف هذه المهمة؟",
+    "subtitle": "{{title}}",
+    "fallback": {
+      "na": "غير متوفر",
+      "none": "لا شيء",
+      "noReport": "لا يوجد تقرير متاح",
+      "noLinkedEntity": "لا توجد جهة مرتبطة",
+      "notAssigned": "غير معين",
+      "unassigned": "غير معين",
+      "untitled": "مهمة #{{id}}"
+    },
+    "quickActions": {
+      "status": {
+        "label": "الحالة",
+        "planned": "مخطط لها",
+        "inProgress": "جارية",
+        "completed": "مكتملة",
+        "cancelled": "ملغاة"
+      },
+      "priority": {
+        "label": "الأولوية",
+        "high": "عالية",
+        "medium": "متوسطة",
+        "low": "منخفضة"
+      },
+      "bailiff": {
+        "label": "المحضر"
+      }
+    },
+    "header": {
+      "assignedOn": "تاريخ التعيين",
+      "dueDate": "تاريخ الاستحقاق",
+      "completedOn": "تاريخ الإكمال",
+      "bailiff": "المحضر",
+      "priority": "الأولوية"
+    },
+    "tabs": {
+      "overview": "نظرة عامة",
+      "fees": "رسوم المحضر",
+      "documents": "المستندات",
+      "notes": "الملاحظات",
+      "relations": "العلاقات",
+      "history": "السجل"
+    },
+    "relations": {
+      "title": "العلاقات",
+      "dossier": {
+        "label": "الملف",
+        "empty": "لا يوجد ملف مرتبط"
+      },
+      "client": {
+        "label": "العميل",
+        "empty": "لا يوجد عميل مرتبط"
+      },
+      "bailiff": {
+        "label": "المحضر",
+        "empty": "لا يوجد محضر معين"
+      }
+    },
+    "overview": {
+      "missionDetails": "تفاصيل المهمة",
+      "scheduling": "الجدولة",
+      "bailiffInfo": "معلومات المحضر",
+      "report": "التقرير",
+      "fields": {
+        "missionNumber": "رقم المهمة",
+        "missionNumberPlaceholder": "مثال: M-2024-001",
+        "missionNumberHelp": "معرف فريد لهذه المهمة",
+        "missionType": "نوع المهمة",
+        "missionTypeHelp": "نوع العمل الذي سيؤديه المحضر",
+        "missionTypeOptions": {
+          "Signification": "إعلان",
+          "Constat": "معاينة",
+          "Saisie": "حجز",
+          "Exécution": "تنفيذ"
+        },
+        "status": "الحالة",
+        "statusHelp": "الحالة الحالية للمهمة",
+        "statusOptions": {
+          "Planned": "مخطط لها",
+          "In Progress": "جارية",
+          "Completed": "مكتملة",
+          "Cancelled": "ملغاة"
+        },
+        "priority": "الأولوية",
+        "priorityHelp": "مستوى الأولوية لهذه المهمة",
+        "priorityOptions": {
+          "High": "عالية",
+          "Medium": "متوسطة",
+          "Low": "منخفضة"
+        },
+        "description": "الوصف",
+        "descriptionPlaceholder": "أدخل وصفاً مفصلاً للمهمة...",
+        "descriptionHelp": "تفاصيل حول ما يجب تنفيذه",
+        "assignedDate": "تاريخ التعيين",
+        "assignedDateHelp": "متى تم تعيين المهمة",
+        "dueDate": "تاريخ الاستحقاق",
+        "dueDateHelp": "الموعد النهائي لإكمال المهمة",
+        "completedDate": "تاريخ الإكمال",
+        "completedDateHelp": "متى تم إكمال المهمة",
+        "bailiff": "المحضر المعين",
+        "bailiffHelp": "المحضر المسؤول عن هذه المهمة",
+        "bailiffContact": "معلومات الاتصال",
+        "bailiffContactPlaceholder": "الهاتف، البريد الإلكتروني، إلخ.",
+        "bailiffContactHelp": "كيفية التواصل مع المحضر",
+        "reportStatus": "حالة التقرير",
+        "reportStatusHelp": "ما إذا كان المحضر قد أكمل تقريره",
+        "reportStatusOptions": {
+          "Pending": "قيد الانتظار",
+          "Submitted": "مقدم",
+          "Approved": "موافق عليه"
+        },
+        "reportFile": "ملف التقرير",
+        "reportFileHelp": "رفع تقرير المحضر النهائي",
+        "reportNotes": "ملاحظات التقرير",
+        "reportNotesPlaceholder": "أدخل ملاحظات إضافية حول التقرير...",
+        "reportNotesHelp": "أي تفاصيل إضافية حول التقرير"
+      }
+    }
+  }
+}

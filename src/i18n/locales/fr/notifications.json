@@ -1,0 +1,127 @@
+{
+  "dropdown": {
+    "aria": "Notifications",
+    "title": "Notifications",
+    "unreadCount_one": "{{count}} non lue",
+    "unreadCount_other": "{{count}} non lues",
+    "time": {
+      "justNow": "À l'instant",
+      "minutesAgo_one": "Il y a {{count}} minute",
+      "minutesAgo_other": "Il y a {{count}} minutes",
+      "hoursAgo_one": "Il y a {{count}} heure",
+      "hoursAgo_other": "Il y a {{count}} heures",
+      "daysAgo_one": "Il y a {{count}} jour",
+      "daysAgo_other": "Il y a {{count}} jours"
+    },
+    "empty": {
+      "title": "Aucune notification",
+      "subtitle": "Vous êtes à jour !"
+    },
+    "actions": {
+      "markAll": "Tout marquer comme lu",
+      "viewAll": "Voir tout",
+      "clear": "Tout effacer",
+      "deleteOne": "Supprimer la notification",
+      "clearAll": {
+        "title": "Supprimer les notifications",
+        "message": "Voulez-vous vraiment supprimer toutes les notifications ?",
+        "confirm": "Tout supprimer",
+        "cancel": "Annuler"
+      }
+    }
+  },
+  "center": {
+    "title": "Centre de notifications",
+    "subtitle": "{{total}} notifications / {{unread}} non lues",
+    "actions": {
+      "markAll": "Tout marquer comme lu",
+      "viewDetails": "Voir les détails",
+      "delete": "Supprimer",
+      "clearAll": {
+        "title": "Supprimer toutes les notifications",
+        "message": "Cette action supprimera définitivement toutes les notifications.",
+        "confirm": "Supprimer",
+        "cancel": "Annuler",
+        "label": "Tout effacer"
+      }
+    },
+    "filters": {
+      "status": {
+        "label": "Statut :",
+        "options": {
+          "all": "Toutes",
+          "unread": "Non lues",
+          "read": "Lues"
+        }
+      },
+      "type": {
+        "label": "Type :",
+        "options": {
+          "all": "Tous"
+        }
+      }
+    },
+    "types": {
+      "app": "Application",
+      "client": "Client",
+      "dossier": "Dossier",
+      "case": "Affaire",
+      "task": "Tâche",
+      "personalTask": "Tâche personnelle",
+      "session": "Audience",
+      "hearing": "Audience",
+      "payment": "Paiement",
+      "document": "Document",
+      "deadline": "Échéance",
+      "mission": "Mission",
+      "financialEntry": "Comptabilité",
+      "officer": "Huissier",
+      "success": "Succès",
+      "info": "Info",
+      "warning": "Alerte",
+      "error": "Erreur"
+    },
+    "empty": "Aucune notification à afficher",
+    "priority": {
+      "urgent": "Urgent",
+      "high": "Élevée",
+      "success": "Succès",
+      "info": "Info"
+    },
+    "time": {
+      "dateAndTime": "{{date}} à {{time}}"
+    }
+  },
+  "templates": {
+    "titles": {
+      "clientAdded": "Nouveau client ajouté",
+      "dossierCreated": "Nouveau dossier créé",
+      "taskDue": "Tâche urgente",
+      "hearingScheduled": "Audience programmée",
+      "paymentReceived": "Paiement reçu",
+      "documentUploaded": "Document téléversé",
+      "sessionScheduled": "Audience planifiée",
+      "deadlineApproaching": "Échéance imminente"
+    },
+    "clientAdded": "Le client \"{{clientName}}\" a été ajouté avec succès.",
+    "dossierCreated": "Le dossier {{dossierNumber}} a été créé pour {{clientName}}.",
+    "taskDue": "\"{{taskTitle}}\" est à rendre le {{dueDate}}.",
+    "hearingScheduled": "L'audience pour {{caseNumber}} est prévue le {{hearingDate}}.",
+    "paymentReceived": "{{clientName}} a effectué un paiement de {{amount}}.",
+    "documentUploaded": "\"{{documentName}}\" a été téléversé dans le dossier {{dossierNumber}}.",
+    "sessionScheduled": "\"{{sessionTitle}}\" est prévu pour le {{date}}.",
+    "deadlineApproaching_one": "L'échéance du dossier {{dossierNumber}} est dans {{count}} jour.",
+    "deadlineApproaching_other": "L'échéance du dossier {{dossierNumber}} est dans {{count}} jours."
+  },
+  "severity": {
+    "success": "Succès",
+    "info": "Info",
+    "warning": "Alerte",
+    "error": "Erreur"
+  },
+  "routes": {
+    "labels": {
+      "notifications": "Centre de notifications"
+    }
+  }
+}

@@ -83,6 +83,79 @@
     },
     "help": {
       "statusLocked": "The status can only be changed via the selector in the list"
+    },
+    "fields": {
+      "caseNumber": {
+        "label": "Reference / Number",
+        "placeholder": "Ex: DOS-2025-001 (auto-generated if empty)",
+        "helper": "Optional - Leave blank for automatic generation (DOS-YEAR-XXX)"
+      },
+      "title": {
+        "label": "Dossier Title",
+        "placeholder": "Ex: Commercial Case - Contract"
+      },
+      "clientId": {
+        "label": "Client",
+        "helper": "Select the concerned client"
+      },
+      "category": {
+        "label": "Category",
+        "options": {
+          "commercialLaw": "Commercial Law",
+          "familyLaw": "Family Law",
+          "criminalLaw": "Criminal Law",
+          "laborLaw": "Labor Law",
+          "realEstateLaw": "Real Estate Law",
+          "administrativeLaw": "Administrative Law",
+          "taxLaw": "Tax Law"
+        }
+      },
+      "priority": {
+        "label": "Priority"
+      },
+      "phase": {
+        "label": "Phase",
+        "options": {
+          "opening": "Opening",
+          "investigation": "Investigation",
+          "negotiation": "Negotiation",
+          "pleading": "Pleading",
+          "judgment": "Judgment",
+          "execution": "Execution"
+        }
+      },
+      "status": {
+        "label": "Status",
+        "options": {
+          "open": "Open",
+          "inProgress": "In Progress",
+          "onHold": "On Hold",
+          "closed": "Closed"
+        }
+      },
+      "openDate": {
+        "label": "Opening Date"
+      },
+      "description": {
+        "label": "Description",
+        "placeholder": "Detailed description of the dossier..."
+      },
+      "adversaryParty": {
+        "label": "Opposing Party",
+        "placeholder": "Name of opposing party"
+      },
+      "adversaryLawyer": {
+        "label": "Opposing Lawyer",
+        "placeholder": "Me. Lawyer's name"
+      },
+      "estimatedValue": {
+        "label": "Estimated Value",
+        "placeholder": "Ex: 50,000 TND"
+      },
+      "courtReference": {
+        "label": "Court Reference",
+        "placeholder": "Ex: TPI-2024-1234"
+      }
     }
   },
   "blocker": {

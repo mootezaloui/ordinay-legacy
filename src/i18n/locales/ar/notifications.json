@@ -1,0 +1,122 @@
+{
+  "dropdown": {
+    "aria": "الإشعارات",
+    "title": "الإشعارات",
+    "unreadCount_one": "{{count}} غير مقروء",
+    "unreadCount_other": "{{count}} غير مقروءة",
+    "time": {
+      "justNow": "الآن",
+      "minutesAgo_one": "قبل دقيقة",
+      "minutesAgo_other": "قبل {{count}} دقائق",
+      "hoursAgo_one": "قبل ساعة",
+      "hoursAgo_other": "قبل {{count}} ساعات",
+      "daysAgo_one": "قبل يوم",
+      "daysAgo_other": "قبل {{count}} أيام"
+    },
+    "empty": {
+      "title": "لا توجد إشعارات",
+      "subtitle": "أنت على اطلاع بكل شيء!"
+    },
+    "actions": {
+      "markAll": "تحديد الكل كمقروء",
+      "viewAll": "عرض الكل",
+      "clear": "مسح الكل",
+      "deleteOne": "حذف الإشعار",
+      "clearAll": {
+        "title": "حذف الإشعارات",
+        "message": "هل أنت متأكد من حذف جميع الإشعارات؟",
+        "confirm": "حذف الكل",
+        "cancel": "إلغاء"
+      }
+    }
+  },
+  "center": {
+    "title": "مركز الإشعارات",
+    "subtitle": "{{total}} إشعار / {{unread}} غير مقروء",
+    "actions": {
+      "markAll": "تحديد الكل كمقروء",
+      "viewDetails": "عرض التفاصيل",
+      "delete": "حذف",
+      "clearAll": {
+        "title": "حذف جميع الإشعارات",
+        "message": "سيتم حذف جميع الإشعارات نهائياً.",
+        "confirm": "حذف",
+        "cancel": "إلغاء",
+        "label": "مسح الكل"
+      }
+    },
+    "filters": {
+      "status": {
+        "label": "الحالة:",
+        "options": {
+          "all": "الكل",
+          "unread": "غير مقروءة",
+          "read": "مقروءة"
+        }
+      },
+      "type": {
+        "label": "النوع:",
+        "options": {
+          "all": "الكل"
+        }
+      }
+    },
+    "types": {
+      "app": "التطبيق",
+      "client": "عميل",
+      "dossier": "ملف",
+      "case": "قضية",
+      "task": "مهمة",
+      "personalTask": "مهمة شخصية",
+      "session": "جلسة",
+      "hearing": "جلسة",
+      "payment": "دفعة",
+      "document": "مستند",
+      "deadline": "موعد نهائي",
+      "mission": "مهمة خارجية",
+      "financialEntry": "محاسبة",
+      "officer": "محضر قضائي",
+      "success": "نجاح",
+      "info": "معلومة",
+      "warning": "تحذير",
+      "error": "خطأ"
+    },
+    "empty": "لا توجد إشعارات للعرض",
+    "priority": {
+      "urgent": "عاجل",
+      "high": "مرتفعة",
+      "success": "نجاح",
+      "info": "معلومة"
+    },
+    "time": {
+      "dateAndTime": "{{date}} عند {{time}}"
+    }
+  },
+  "templates": {
+    "titles": {
+      "clientAdded": "تم إضافة عميل جديد",
+      "dossierCreated": "تم إنشاء ملف جديد",
+      "taskDue": "مهمة عاجلة",
+      "hearingScheduled": "جلسة مجدولة",
+      "paymentReceived": "تم استلام دفعة",
+      "documentUploaded": "تم رفع مستند",
+      "sessionScheduled": "جلسة محددة",
+      "deadlineApproaching": "اقتراب الموعد النهائي"
+    },
+    "clientAdded": "تم إضافة العميل \"{{clientName}}\" بنجاح.",
+    "dossierCreated": "تم إنشاء الملف {{dossierNumber}} للعميل {{clientName}}.",
+    "taskDue": "\"{{taskTitle}}\" مستحقة في {{dueDate}}.",
+    "hearingScheduled": "جلسة القضية {{caseNumber}} مجدولة في {{hearingDate}}.",
+    "paymentReceived": "{{clientName}} دفع مبلغ {{amount}}.",
+    "documentUploaded": "\"{{documentName}}\" تم رفعه إلى الملف {{dossierNumber}}.",
+    "sessionScheduled": "\"{{sessionTitle}}\" مجدولة بتاريخ {{date}}.",
+    "deadlineApproaching_one": "الموعد النهائي للملف {{dossierNumber}} بعد {{count}} يوم.",
+    "deadlineApproaching_other": "الموعد النهائي للملف {{dossierNumber}} بعد {{count}} أيام."
+  },
+  "severity": {
+    "success": "نجاح",
+    "info": "معلومة",
+    "warning": "تحذير",
+    "error": "خطأ"
+  }
+}

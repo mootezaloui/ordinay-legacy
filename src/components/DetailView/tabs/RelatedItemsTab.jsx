@@ -5,6 +5,7 @@ import { useConfirm } from "../../../contexts/ConfirmContext";
 import ContentSection from "../../layout/ContentSection";
 import FormModal from "../../FormModal/FormModal";
 import { resolveDetailRoute } from "../../../utils/routeResolver";
+import { useTranslation } from "react-i18next";
 
 /**
  * RelatedItems Tab - Enhanced with dynamic field options
@@ -16,6 +17,7 @@ export default function RelatedItemsTab({ data, config, tabConfig, onItemsChange
   const navigate = useNavigate();
   const { showToast } = useToast();
   const { confirm } = useConfirm();
+  const { t } = useTranslation("common");
   const [items, setItems] = useState(data[tabConfig.itemsKey] || []);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -91,7 +93,9 @@ export default function RelatedItemsTab({ data, config, tabConfig, onItemsChange
       setIsAddModalOpen(false);
       setEditingItem(null);
       setFormData({}); // Reset form data
-      showToast(`${tabConfig.entityName || 'Item'} ${isEdit ? 'updated' : 'added'} successfully!`, "success");
+      const entityLabel = tabConfig.entityName || t("detail.related.fallback.entity");
+      const actionKey = isEdit ? "update" : "create";
+      showToast(t(`detail.related.toast.success.${actionKey}`, { entity: entityLabel }), "success");
 
       // ✅ Navigate to the new entity's detail view
       // Map itemsKey to entity type for routing
@@ -113,7 +117,7 @@ export default function RelatedItemsTab({ data, config, tabConfig, onItemsChange
 
     } catch (error) {
       console.error("Error adding item:", error);
-      showToast("Error adding item", "error");
+      showToast(t("detail.related.toast.error.add"), "error");
     } finally {
       setIsLoading(false);
     }
@@ -121,10 +125,10 @@ export default function RelatedItemsTab({ data, config, tabConfig, onItemsChange
 
   const handleDeleteItem = async (itemId) => {
     if (await confirm({
-      title: `Delete ${tabConfig.entityName?.toLowerCase() || 'item'}`,
-      message: `Are you sure you want to delete this ${tabConfig.entityName?.toLowerCase() || 'item'}?`,
-      confirmText: "Delete",
-      cancelText: "Cancel",
+      title: t("dialog.detail.related.delete.title", { entity: (tabConfig.entityName || t("detail.related.fallback.entity")).toLowerCase() }),
+      message: t("dialog.detail.related.delete.message", { entity: (tabConfig.entityName || t("detail.related.fallback.entity")).toLowerCase() }),
+      confirmText: t("dialog.detail.related.delete.confirm"),
+      cancelText: t("dialog.detail.related.delete.cancel"),
       variant: "danger"
     })) {
       const updatedItems = items.filter(item => item.id !== itemId);
@@ -171,7 +175,7 @@ export default function RelatedItemsTab({ data, config, tabConfig, onItemsChange
               <i className={`${tabConfig.icon} text-slate-400 dark:text-slate-600 text-2xl`}></i>
             </div>
             <p className="text-slate-600 dark:text-slate-400 mb-4">
-              {tabConfig.emptyMessage || "No items"}
+              {tabConfig.emptyMessage || t("detail.related.empty.noItems")}
             </p>
 
             {/* ADD BUTTON - Empty State */}

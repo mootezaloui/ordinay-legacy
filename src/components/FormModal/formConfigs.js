@@ -8,6 +8,7 @@
  * - Forms now properly handle entity relationships
  */
 
+import i18next from "i18next";
 import {
   getAllAssignees,
   addCustomAssignee,
@@ -27,6 +28,9 @@ import {
   getAllMissionTypes,
   addCustomMissionType,
 } from "../../utils/missionTypeManager";
+
+// Fallback translator for static configs defined at module scope
+const t = i18next.t.bind(i18next);
 
 // Default assignees that are always available
 const DEFAULT_ASSIGNEES = [
@@ -86,99 +90,107 @@ const DEFAULT_MISSION_TYPES = [
 // CLIENT FORM (No changes - clients are top level)
 // ========================================
 
-export const clientFormFields = [
+export const clientFormFields = (t) => [
   {
     name: "name",
-    label: "Full Name",
+    label: t("form.fields.name.label"),
     type: "text",
-    placeholder: "Ex: Ahmed Ben Ali",
+    placeholder: t("form.fields.name.placeholder"),
     required: true,
     fullWidth: false,
   },
   {
     name: "email",
-    label: "Email",
+    label: t("form.fields.email.label"),
     type: "email",
-    placeholder: "example@email.com",
+    placeholder: t("form.fields.email.placeholder"),
     required: true,
     validate: (value) => {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      return emailRegex.test(value) ? null : "Invalid email";
+      return emailRegex.test(value) ? null : t("form.errors.emailInvalid");
     },
   },
   {
     name: "phone",
-    label: "Phone",
+    label: t("form.fields.phone.label"),
     type: "tel",
-    placeholder: "+216 98 123 456",
+    placeholder: t("form.fields.phone.placeholder"),
     required: true,
   },
   {
     name: "alternatePhone",
-    label: "Alternate Phone",
+    label: t("form.fields.alternatePhone.label"),
     type: "tel",
-    placeholder: "+216 71 234 567",
+    placeholder: t("form.fields.alternatePhone.placeholder"),
     required: false,
   },
   {
     name: "cin",
-    label: "ID Number",
+    label: t("form.fields.cin.label"),
     type: "text",
-    placeholder: "12345678",
+    placeholder: t("form.fields.cin.placeholder"),
     required: true,
   },
   {
     name: "dateOfBirth",
-    label: "Date of Birth",
+    label: t("form.fields.dateOfBirth.label"),
     type: "date",
     required: false,
   },
   {
     name: "address",
-    label: "Address",
+    label: t("form.fields.address.label"),
     type: "textarea",
-    placeholder: "Full address",
+    placeholder: t("form.fields.address.placeholder"),
     required: false,
     fullWidth: true,
     rows: 2,
   },
   {
     name: "profession",
-    label: "Profession",
+    label: t("form.fields.profession.label"),
     type: "text",
-    placeholder: "Ex: Entrepreneur",
+    placeholder: t("form.fields.profession.placeholder"),
     required: false,
   },
   {
     name: "company",
-    label: "Company",
+    label: t("form.fields.company.label"),
     type: "text",
-    placeholder: "Company name",
+    placeholder: t("form.fields.company.placeholder"),
     required: false,
   },
   {
     name: "taxId",
-    label: "Tax ID",
+    label: t("form.fields.taxId.label"),
     type: "text",
-    placeholder: "1234567X",
+    placeholder: t("form.fields.taxId.placeholder"),
     required: false,
   },
   {
     name: "status",
-    label: "Status",
+    label: t("form.fields.status.label"),
     type: "inline-status",
     required: true,
     defaultValue: "Active",
     statusOptions: [
-      { value: "Active", label: "Active", color: "green" },
-      { value: "Inactive", label: "Inactive", color: "red" },
+      {
+        value: "Active",
+        label: t("form.fields.status.options.active"),
+        color: "green",
+      },
+      {
+        value: "Inactive",
+        label: t("form.fields.status.options.inactive"),
+        color: "red",
+      },
     ],
   },
   {
     name: "notes",
-    label: "Notes",
+    label: t("form.fields.notes.label"),
     type: "textarea",
-    placeholder: "Important notes about the client...",
+    placeholder: t("form.fields.notes.placeholder"),
     required: false,
     fullWidth: true,
     rows: 3,
@@ -189,178 +201,228 @@ export const clientFormFields = [
 // DOSSIER FORM
 // ========================================
 
-export const dossierFormFields = [
-  {
-    name: "caseNumber",
-    label: "Reference / Number",
-    type: "text",
-    placeholder: "Ex: DOS-2025-001 (auto-generated if empty)",
-    required: false,
-    helpText: "Optional - Leave blank for automatic generation (DOS-YEAR-XXX)",
-  },
-  {
-    name: "title",
-    label: "Dossier Title",
-    type: "text",
-    placeholder: "Ex: Commercial Case - Contract",
-    required: true,
-    fullWidth: true,
-  },
-  {
-    // ✅ RELATIONSHIP FIELD - Client
-    name: "clientId",
-    label: "Client",
-    type: "searchable-select", // ✅ Use searchable select for scalability
-    required: true,
-    options: [], // ← Will be populated dynamically with []
-    helpText: "Select the concerned client",
-  },
-  {
-    name: "category",
-    label: "Category",
-    type: "searchable-select",
-    required: true,
-    getOptions: () => getAllCategories(DEFAULT_CATEGORIES),
-    allowCreate: true,
-    onCreateOption: async (name) => {
-      try {
-        addCustomCategory(name);
-        return true;
-      } catch (error) {
-        console.error("Error adding category:", error);
-        return false;
-      }
+export const dossierFormFields = (t) => {
+  const categoryOptions = [
+    {
+      value: "Commercial Law",
+      label: t("form.fields.category.options.commercialLaw"),
     },
-  },
-  {
-    name: "priority",
-    label: "Priority",
-    type: "inline-priority",
-    required: true,
-    defaultValue: "Medium",
-  },
-  {
-    name: "phase",
-    label: "Phase",
-    type: "searchable-select",
-    required: true,
-    defaultValue: "Investigation",
-    getOptions: () => getAllPhases(DEFAULT_PHASES),
-    allowCreate: true,
-    onCreateOption: async (name) => {
-      try {
-        addCustomPhase(name);
-        return true;
-      } catch (error) {
-        console.error("Error adding phase:", error);
-        return false;
-      }
+    { value: "Family Law", label: t("form.fields.category.options.familyLaw") },
+    {
+      value: "Criminal Law",
+      label: t("form.fields.category.options.criminalLaw"),
     },
-  },
-  {
-    name: "status",
-    label: "Status",
-    type: "inline-status",
-    required: true,
-    defaultValue: "Open",
-    statusOptions: [
-      { value: "Open", label: "Open", color: "green" },
-      { value: "In Progress", label: "In Progress", color: "blue" },
-      { value: "On Hold", label: "On Hold", color: "amber" },
-      { value: "Closed", label: "Closed", color: "slate" },
-    ],
-  },
-  {
-    name: "openDate",
-    label: "Opening Date",
-    type: "date",
-    required: true,
-    defaultValue: new Date().toISOString().split("T")[0],
-  },
-  {
-    name: "description",
-    label: "Description",
-    type: "textarea",
-    placeholder: "Detailed description of the Dossier...",
-    required: true,
-    fullWidth: true,
-    rows: 4,
-  },
-  {
-    name: "adversaryParty",
-    label: "Opposing Party",
-    type: "text",
-    placeholder: "Name of opposing party",
-    required: false,
-  },
-  {
-    name: "adversaryLawyer",
-    label: "Opposing Lawyer",
-    type: "searchable-select",
-    placeholder: "Me. Lawyer's name",
-    required: false,
-    getOptions: () => getAllAdversaryLawyers([]),
-    allowCreate: true,
-    onCreateOption: async (name) => {
-      try {
-        addCustomAdversaryLawyer(name);
-        return true;
-      } catch (error) {
-        console.error("Error adding adversary lawyer:", error);
-        return false;
-      }
+    { value: "Labor Law", label: t("form.fields.category.options.laborLaw") },
+    {
+      value: "Real Estate Law",
+      label: t("form.fields.category.options.realEstateLaw"),
     },
-  },
-  {
-    name: "estimatedValue",
-    label: "Estimated Value",
-    type: "text",
-    placeholder: "Ex: 50,000 TND",
-    required: false,
-  },
-  {
-    name: "courtReference",
-    label: "Court Reference",
-    type: "text",
-    placeholder: "Ex: TPI-2024-1234",
-    required: false,
-  },
-  // ✅ REMOVED: nextDeadline - now auto-calculated from sessions/tasks/financial entries
-];
+    {
+      value: "Administrative Law",
+      label: t("form.fields.category.options.administrativeLaw"),
+    },
+    { value: "Tax Law", label: t("form.fields.category.options.taxLaw") },
+  ];
 
+  const phaseOptions = [
+    { value: "Opening", label: t("form.fields.phase.options.opening") },
+    {
+      value: "Investigation",
+      label: t("form.fields.phase.options.investigation"),
+    },
+    { value: "Negotiation", label: t("form.fields.phase.options.negotiation") },
+    { value: "Pleading", label: t("form.fields.phase.options.pleading") },
+    { value: "Judgment", label: t("form.fields.phase.options.judgment") },
+    { value: "Execution", label: t("form.fields.phase.options.execution") },
+  ];
+
+  return [
+    {
+      name: "caseNumber",
+      label: t("form.fields.caseNumber.label"),
+      type: "text",
+      placeholder: t("form.fields.caseNumber.placeholder"),
+      required: false,
+      helpText: t("form.fields.caseNumber.helper"),
+    },
+    {
+      name: "title",
+      label: t("form.fields.title.label"),
+      type: "text",
+      placeholder: t("form.fields.title.placeholder"),
+      required: true,
+      fullWidth: true,
+    },
+    {
+      // ?o. RELATIONSHIP FIELD - Client
+      name: "clientId",
+      label: t("form.fields.clientId.label"),
+      type: "searchable-select", // ?o. Use searchable select for scalability
+      required: true,
+      options: [], // ?+? Will be populated dynamically with []
+      helpText: t("form.fields.clientId.helper"),
+    },
+    {
+      name: "category",
+      label: t("form.fields.category.label"),
+      type: "searchable-select",
+      required: true,
+      getOptions: () => getAllCategories(categoryOptions),
+      allowCreate: true,
+      onCreateOption: async (name) => {
+        try {
+          addCustomCategory(name);
+          return true;
+        } catch (error) {
+          console.error("Error adding category:", error);
+          return false;
+        }
+      },
+    },
+    {
+      name: "priority",
+      label: t("form.fields.priority.label"),
+      type: "inline-priority",
+      required: true,
+      defaultValue: "Medium",
+    },
+    {
+      name: "phase",
+      label: t("form.fields.phase.label"),
+      type: "searchable-select",
+      required: true,
+      defaultValue: "Investigation",
+      getOptions: () => getAllPhases(phaseOptions),
+      allowCreate: true,
+      onCreateOption: async (name) => {
+        try {
+          addCustomPhase(name);
+          return true;
+        } catch (error) {
+          console.error("Error adding phase:", error);
+          return false;
+        }
+      },
+    },
+    {
+      name: "status",
+      label: t("form.fields.status.label"),
+      type: "inline-status",
+      required: true,
+      defaultValue: "Open",
+      statusOptions: [
+        {
+          value: "Open",
+          label: t("form.fields.status.options.open"),
+          color: "green",
+        },
+        {
+          value: "In Progress",
+          label: t("form.fields.status.options.inProgress"),
+          color: "blue",
+        },
+        {
+          value: "On Hold",
+          label: t("form.fields.status.options.onHold"),
+          color: "amber",
+        },
+        {
+          value: "Closed",
+          label: t("form.fields.status.options.closed"),
+          color: "slate",
+        },
+      ],
+    },
+    {
+      name: "openDate",
+      label: t("form.fields.openDate.label"),
+      type: "date",
+      required: true,
+      defaultValue: new Date().toISOString().split("T")[0],
+    },
+    {
+      name: "description",
+      label: t("form.fields.description.label"),
+      type: "textarea",
+      placeholder: t("form.fields.description.placeholder"),
+      required: true,
+      fullWidth: true,
+      rows: 4,
+    },
+    {
+      name: "adversaryParty",
+      label: t("form.fields.adversaryParty.label"),
+      type: "text",
+      placeholder: t("form.fields.adversaryParty.placeholder"),
+      required: false,
+    },
+    {
+      name: "adversaryLawyer",
+      label: t("form.fields.adversaryLawyer.label"),
+      type: "searchable-select",
+      placeholder: t("form.fields.adversaryLawyer.placeholder"),
+      required: false,
+      getOptions: () => getAllAdversaryLawyers([]),
+      allowCreate: true,
+      onCreateOption: async (name) => {
+        try {
+          addCustomAdversaryLawyer(name);
+          return true;
+        } catch (error) {
+          console.error("Error adding adversary lawyer:", error);
+          return false;
+        }
+      },
+    },
+    {
+      name: "estimatedValue",
+      label: t("form.fields.estimatedValue.label"),
+      type: "text",
+      placeholder: t("form.fields.estimatedValue.placeholder"),
+      required: false,
+    },
+    {
+      name: "courtReference",
+      label: t("form.fields.courtReference.label"),
+      type: "text",
+      placeholder: t("form.fields.courtReference.placeholder"),
+      required: false,
+    },
+    // ?o. REMOVED: nextDeadline - now auto-calculated from sessions/tasks/financial entries
+  ];
+};
 // ========================================
 // CASE (PROCÈS) FORM
 // ========================================
 
-export const caseFormFields = [
+export const caseFormFields = (t) => [
   {
     name: "caseNumber",
-    label: "Reference / Number",
+    label: t("form.fields.caseNumber.label"),
     type: "text",
-    placeholder: "Ex: PRO-2025-001 (auto-generated if empty)",
+    placeholder: t("form.fields.caseNumber.placeholder"),
     required: false,
-    helpText: "Optional - Leave blank for automatic generation (PRO-YEAR-XXX)",
+    helpText: t("form.fields.caseNumber.helper"),
   },
   {
     name: "title",
-    label: "Lawsuit Title",
+    label: t("form.fields.title.label"),
     type: "text",
-    placeholder: "Ex: Commercial Dispute - Hearing",
+    placeholder: t("form.fields.title.placeholder"),
     required: true,
     fullWidth: true,
   },
   {
-    // ✅ RELATIONSHIP FIELD - Dossier (MANDATORY - every procès needs a dossier/client)
     name: "dossierId",
-    label: "Dossier",
-    type: "searchable-select", // ✅ Use searchable select for scalability
+    label: t("form.fields.dossierId.label"),
+    type: "searchable-select",
     required: true,
-    options: [], // ← Will be populated dynamically with []
-    helpText: "Required - Each lawsuit must be linked to a Dossier",
+    options: [],
+    helpText: t("form.fields.dossierId.helper"),
   },
   {
     name: "court",
-    label: "Court",
+    label: t("form.fields.court.label"),
     type: "searchable-select",
     required: true,
     getOptions: () => getAllCourts(DEFAULT_COURTS),
@@ -374,35 +436,35 @@ export const caseFormFields = [
         throw error;
       }
     },
-    createLabel: "Add",
+    createLabel: t("form.fields.court.createLabel"),
   },
   {
     name: "filingDate",
-    label: "Filing Date",
+    label: t("form.fields.filingDate.label"),
     type: "date",
     required: true,
     defaultValue: new Date().toISOString().split("T")[0],
   },
-  // ✅ REMOVED: nextHearing - now auto-calculated from related sessions
   {
-    name: "referenceNumber",
-    label: "Reference Number",
+    name: "courtReference",
+    label: t("form.fields.courtReference.label"),
     type: "text",
-    placeholder: "Ex: TPI-2024-COM-1234",
+    placeholder: t("form.fields.courtReference.placeholder"),
     required: false,
+    helpText: t("form.fields.courtReference.helper"),
   },
   {
     name: "adversaryParty",
-    label: "Opposing Party",
+    label: t("form.fields.adversaryParty.label"),
     type: "text",
-    placeholder: "Name of opposing party",
+    placeholder: t("form.fields.adversaryParty.placeholder"),
     required: false,
   },
   {
     name: "adversaryLawyer",
-    label: "Opposing Lawyer",
+    label: t("form.fields.adversaryLawyer.label"),
     type: "searchable-select",
-    placeholder: "Me. Lawyer's name",
+    placeholder: t("form.fields.adversaryLawyer.placeholder"),
     required: false,
     getOptions: () => getAllAdversaryLawyers([]),
     allowCreate: true,
@@ -418,67 +480,83 @@ export const caseFormFields = [
   },
   {
     name: "status",
-    label: "Case Status",
+    label: t("form.fields.status.label"),
     type: "inline-status",
     required: true,
     defaultValue: "In Progress",
     statusOptions: [
-      { value: "In Progress", label: "In Progress", color: "blue" },
-      { value: "On Hold", label: "On Hold", color: "amber" },
-      { value: "Closed", label: "Closed", color: "slate" },
+      {
+        value: "In Progress",
+        label: t("form.fields.status.options.inProgress"),
+        color: "blue",
+      },
+      {
+        value: "On Hold",
+        label: t("form.fields.status.options.onHold"),
+        color: "amber",
+      },
+      {
+        value: "Closed",
+        label: t("form.fields.status.options.closed"),
+        color: "slate",
+      },
     ],
   },
   {
     name: "description",
-    label: "Description",
+    label: t("form.fields.description.label"),
     type: "textarea",
-    placeholder: "Description of the case...",
+    placeholder: t("form.fields.description.placeholder"),
     required: false,
     fullWidth: true,
     rows: 3,
   },
-];
-
-// ========================================
+]; // ========================================
 // SESSION (SÉANCE JUDICIAIRE) FORM
 // ========================================
 
-export const sessionFormFields = [
+export const sessionFormFields = (t) => [
   {
     name: "title",
-    label: "Session Title",
+    label: t("form.fields.title.label"),
     type: "text",
-    placeholder: "Ex: Preliminary hearing",
+    placeholder: t("form.fields.title.placeholder"),
     required: true,
     fullWidth: true,
   },
   {
     name: "type",
-    label: "Type",
+    label: t("form.fields.type.label"),
     type: "select",
     required: true,
     defaultValue: "Hearing",
     options: [
-      { value: "Hearing", label: "Hearing" },
-      { value: "Consultation", label: "Consultation" },
-      { value: "Mediation", label: "Mediation" },
-      { value: "Expert Assessment", label: "Expert Assessment" },
-      { value: "Phone Call", label: "Phone Call" },
-      { value: "Other", label: "Other" },
+      { value: "Hearing", label: t("form.fields.type.options.hearing") },
+      {
+        value: "Consultation",
+        label: t("form.fields.type.options.consultation"),
+      },
+      { value: "Mediation", label: t("form.fields.type.options.mediation") },
+      {
+        value: "Expert Assessment",
+        label: t("form.fields.type.options.expertAssessment"),
+      },
+      { value: "Phone Call", label: t("form.fields.type.options.phoneCall") },
+      { value: "Other", label: t("form.fields.type.options.other") },
     ],
   },
   {
     // ✅ NEW: Choose between linking to Procès or Dossier
     name: "linkType",
-    label: "Linked to",
+    label: t("form.fields.linkType.label"),
     type: "select",
     required: true,
     defaultValue: "case",
     options: [
-      { value: "case", label: "Lawsuit" },
-      { value: "dossier", label: "Dossier" },
+      { value: "case", label: t("form.fields.linkType.options.case") },
+      { value: "dossier", label: t("form.fields.linkType.options.dossier") },
     ],
-    helpText: "A hearing can be linked to a lawsuit or directly to a Dossier",
+    helpText: t("form.fields.linkType.helper"),
     onChange: (value, formData, setFormData) => {
       // Clear the other field when type changes
       setFormData({
@@ -492,35 +570,35 @@ export const sessionFormFields = [
   {
     // ✅ RELATIONSHIP FIELD - Procès (shown when linkType is "case")
     name: "caseId",
-    label: "Lawsuit",
+    label: t("form.fields.caseId.label"),
     type: "searchable-select", // ✅ Use searchable select for scalability
     required: false,
     options: [], // ← Will be populated dynamically with []
-    helpText: "Select the concerned lawsuit",
+    helpText: t("form.fields.caseId.helper"),
     hideIf: (formData) => formData.linkType !== "case",
   },
   {
     // ✅ RELATIONSHIP FIELD - Dossier (shown when linkType is "dossier")
     name: "dossierId",
-    label: "Dossier",
+    label: t("form.fields.dossierId.label"),
     type: "searchable-select", // ✅ Use searchable select for scalability
     required: false,
     options: [], // ← Will be populated dynamically with []
-    helpText: "Select the concerned Dossier",
+    helpText: t("form.fields.dossierId.helper"),
     hideIf: (formData) => formData.linkType !== "dossier",
   },
   {
     name: "date",
-    label: "Date",
+    label: t("form.fields.date.label"),
     type: "date",
     required: true,
   },
   {
     name: "time",
-    label: "Time",
+    label: t("form.fields.time.label"),
     type: "select",
     required: true,
-    helpText: "Select start time",
+    helpText: t("form.fields.time.helper"),
     options: [
       { value: "08:00", label: "08:00" },
       { value: "08:15", label: "08:15" },
@@ -567,65 +645,85 @@ export const sessionFormFields = [
   },
   {
     name: "duration",
-    label: "Estimated Duration",
+    label: t("form.fields.duration.label"),
     type: "select",
     required: true,
     defaultValue: "01:00",
     options: [
-      { value: "00:15", label: "15 minutes" },
-      { value: "00:30", label: "30 minutes" },
-      { value: "00:45", label: "45 minutes" },
-      { value: "01:00", label: "1 hour" },
-      { value: "01:30", label: "1h30" },
-      { value: "02:00", label: "2 hours" },
-      { value: "02:30", label: "2h30" },
-      { value: "03:00", label: "3 hours" },
-      { value: "04:00", label: "4 hours" },
+      { value: "00:15", label: t("form.fields.duration.options.00_15") },
+      { value: "00:30", label: t("form.fields.duration.options.00_30") },
+      { value: "00:45", label: t("form.fields.duration.options.00_45") },
+      { value: "01:00", label: t("form.fields.duration.options.01_00") },
+      { value: "01:30", label: t("form.fields.duration.options.01_30") },
+      { value: "02:00", label: t("form.fields.duration.options.02_00") },
+      { value: "02:30", label: t("form.fields.duration.options.02_30") },
+      { value: "03:00", label: t("form.fields.duration.options.03_00") },
+      { value: "04:00", label: t("form.fields.duration.options.04_00") },
     ],
-    helpText: "Expected duration of the session",
+    helpText: t("form.fields.duration.helper"),
   },
   {
     name: "location",
-    label: "Location",
+    label: t("form.fields.location.label"),
     type: "text",
-    placeholder: "Office, Court, etc.",
+    placeholder: t("form.fields.location.placeholder"),
     required: true,
   },
   {
     name: "courtRoom",
-    label: "Court Room",
+    label: t("form.fields.courtRoom.label"),
     type: "text",
     required: false,
-    placeholder: "e.g., Courtroom 5A",
-    helpText: "The specific courtroom where this hearing takes place",
+    placeholder: t("form.fields.courtRoom.placeholder"),
+    helpText: t("form.fields.courtRoom.helper"),
   },
   {
     name: "judge",
-    label: "Judge",
+    label: t("form.fields.judge.label"),
     type: "text",
     required: false,
-    placeholder: "e.g., Judge Smith",
-    helpText: "The judge presiding over this hearing",
+    placeholder: t("form.fields.judge.placeholder"),
+    helpText: t("form.fields.judge.helper"),
   },
   {
     name: "status",
-    label: "Status",
+    label: t("form.fields.status.label"),
     type: "inline-status",
     required: true,
     defaultValue: "Scheduled",
     statusOptions: [
-      { value: "Scheduled", label: "Scheduled", color: "blue" },
-      { value: "Confirmed", label: "Confirmed", color: "green" },
-      { value: "Pending", label: "Pending", color: "amber" },
-      { value: "Completed", label: "Completed", color: "slate" },
-      { value: "Cancelled", label: "Cancelled", color: "red" },
+      {
+        value: "Scheduled",
+        label: t("form.fields.status.options.scheduled"),
+        color: "blue",
+      },
+      {
+        value: "Confirmed",
+        label: t("form.fields.status.options.confirmed"),
+        color: "green",
+      },
+      {
+        value: "Pending",
+        label: t("form.fields.status.options.pending"),
+        color: "amber",
+      },
+      {
+        value: "Completed",
+        label: t("form.fields.status.options.completed"),
+        color: "slate",
+      },
+      {
+        value: "Cancelled",
+        label: t("form.fields.status.options.cancelled"),
+        color: "red",
+      },
     ],
   },
   {
     name: "description",
-    label: "Description",
+    label: t("form.fields.description.label"),
     type: "textarea",
-    placeholder: "Description of the session...",
+    placeholder: t("form.fields.description.placeholder"),
     required: false,
     fullWidth: true,
     rows: 3,
@@ -636,51 +734,49 @@ export const sessionFormFields = [
 // TASK FORM
 // ========================================
 
-export const taskFormFields = [
+export const taskFormFields = (t) => [
   {
     name: "title",
-    label: "Task Title",
+    label: t("form.fields.title.label"),
     type: "text",
-    placeholder: "Ex: Prepare pleading file",
+    placeholder: t("form.fields.title.placeholder"),
     required: true,
     fullWidth: true,
   },
   {
-    // ✅ PARENT TYPE - Choose between Dossier or Case
+    // ?. PARENT TYPE - Choose between Dossier or Case
     name: "parentType",
-    label: "Linked to",
+    label: t("form.fields.parentType.label"),
     type: "select",
     required: true,
     defaultValue: "dossier",
     options: [
-      { value: "dossier", label: "Dossier" },
-      { value: "case", label: "Lawsuit" },
+      { value: "dossier", label: t("form.fields.parentType.options.dossier") },
+      { value: "case", label: t("form.fields.parentType.options.case") },
     ],
-    helpText: "A task can be linked to a Dossier or a Lawsuit",
+    helpText: t("form.fields.parentType.helper"),
   },
   {
-    // ✅ RELATIONSHIP FIELD - Dossier (conditionally shown)
+    // ?. RELATIONSHIP FIELD - Dossier (conditionally shown)
     name: "dossierId",
-    label: "Dossier",
+    label: t("form.fields.dossierId.label"),
     type: "searchable-select",
-    required: false, // Will be conditionally required
-    options: [], // Will be populated by parent component (Tasks.jsx)
-    // ✅ Conditional visibility
+    required: false,
+    options: [],
     hideIf: (formData) => formData.parentType !== "dossier",
   },
   {
-    // ✅ RELATIONSHIP FIELD - Case (conditionally shown)
+    // ?. RELATIONSHIP FIELD - Case (conditionally shown)
     name: "caseId",
-    label: "Lawsuit",
+    label: t("form.fields.caseId.label"),
     type: "searchable-select",
-    required: false, // Will be conditionally required
-    options: [], // Will be populated by parent component (Tasks.jsx)
-    // ✅ Conditional visibility
+    required: false,
+    options: [],
     hideIf: (formData) => formData.parentType !== "case",
   },
   {
     name: "assignedTo",
-    label: "Assigned to",
+    label: t("form.fields.assignedTo.label"),
     type: "searchable-select",
     required: true,
     getOptions: () => getAllAssignees(DEFAULT_ASSIGNEES),
@@ -694,69 +790,88 @@ export const taskFormFields = [
         throw error;
       }
     },
-    createLabel: "Add",
+    createLabel: t("form.fields.assignedTo.createLabel"),
   },
   {
     name: "dueDate",
-    label: "Due Date",
+    label: t("form.fields.dueDate.label"),
     type: "date",
     required: true,
   },
   {
     name: "priority",
-    label: "Priority",
+    label: t("form.fields.priority.label"),
     type: "inline-priority",
     required: true,
     defaultValue: "Medium",
   },
   {
     name: "status",
-    label: "Status",
+    label: t("form.fields.status.label"),
     type: "inline-status",
     required: true,
     defaultValue: "Not Started",
     statusOptions: [
-      { value: "Not Started", label: "Not Started", color: "slate" },
-      { value: "In Progress", label: "In Progress", color: "blue" },
-      { value: "Blocked", label: "Blocked", color: "red" },
-      { value: "Done", label: "Done", color: "green" },
-      { value: "Cancelled", label: "Cancelled", color: "amber" },
+      {
+        value: "Not Started",
+        label: t("form.fields.status.options.notStarted"),
+        color: "slate",
+      },
+      {
+        value: "In Progress",
+        label: t("form.fields.status.options.inProgress"),
+        color: "blue",
+      },
+      {
+        value: "Blocked",
+        label: t("form.fields.status.options.blocked"),
+        color: "red",
+      },
+      {
+        value: "Done",
+        label: t("form.fields.status.options.done"),
+        color: "green",
+      },
+      {
+        value: "Cancelled",
+        label: t("form.fields.status.options.cancelled"),
+        color: "amber",
+      },
     ],
   },
   {
     name: "description",
-    label: "Description",
+    label: t("form.fields.description.label"),
     type: "textarea",
-    placeholder: "Detailed description of the task...",
+    placeholder: t("form.fields.description.placeholder"),
     required: false,
     fullWidth: true,
     rows: 4,
   },
   {
     name: "estimatedTime",
-    label: "Estimated Time",
+    label: t("form.fields.estimatedTime.label"),
     type: "select",
     required: false,
     options: [
-      { value: "0.5h", label: "30 minutes" },
-      { value: "1h", label: "1 hour" },
-      { value: "1.5h", label: "1h30" },
-      { value: "2h", label: "2 hours" },
-      { value: "3h", label: "3 hours" },
-      { value: "4h", label: "4 hours" },
-      { value: "6h", label: "6 hours" },
-      { value: "8h", label: "8 hours" },
-      { value: "12h", label: "12 hours" },
-      { value: "16h", label: "16 hours" },
-      { value: "20h", label: "20 hours" },
-      { value: "24h", label: "1 day" },
-      { value: "40h", label: "2 days" },
-      { value: "80h", label: "1 week" },
+      { value: "0.5h", label: t("form.fields.estimatedTime.options.0_5h") },
+      { value: "1h", label: t("form.fields.estimatedTime.options.1h") },
+      { value: "1.5h", label: t("form.fields.estimatedTime.options.1_5h") },
+      { value: "2h", label: t("form.fields.estimatedTime.options.2h") },
+      { value: "3h", label: t("form.fields.estimatedTime.options.3h") },
+      { value: "4h", label: t("form.fields.estimatedTime.options.4h") },
+      { value: "6h", label: t("form.fields.estimatedTime.options.6h") },
+      { value: "8h", label: t("form.fields.estimatedTime.options.8h") },
+      { value: "12h", label: t("form.fields.estimatedTime.options.12h") },
+      { value: "16h", label: t("form.fields.estimatedTime.options.16h") },
+      { value: "20h", label: t("form.fields.estimatedTime.options.20h") },
+      { value: "24h", label: t("form.fields.estimatedTime.options.24h") },
+      { value: "40h", label: t("form.fields.estimatedTime.options.40h") },
+      { value: "80h", label: t("form.fields.estimatedTime.options.80h") },
     ],
-    helpText: "Estimated duration to complete the task",
+    helpText: t("form.fields.estimatedTime.helper"),
   },
 ];
-
 // ========================================
 // PERSONAL TASK FORM
 // ========================================
@@ -781,7 +896,7 @@ export const personalTaskFormFields = [
       { value: "Personal", label: "Personal" },
       { value: "IT", label: "IT" },
       { value: "Administrative", label: "Administrative" },
-      { value: "Other", label: "Other" },
+      { value: "Other", label: t("form.fields.type.options.other") },
     ],
   },
   {
@@ -799,21 +914,41 @@ export const personalTaskFormFields = [
   },
   {
     name: "status",
-    label: "Status",
+    label: t("form.fields.status.label"),
     type: "inline-status",
     required: true,
     defaultValue: "Not Started",
     statusOptions: [
-      { value: "Not Started", label: "Not Started", color: "slate" },
-      { value: "In Progress", label: "In Progress", color: "blue" },
-      { value: "Blocked", label: "Blocked", color: "red" },
-      { value: "Done", label: "Done", color: "green" },
-      { value: "Cancelled", label: "Cancelled", color: "amber" },
+      {
+        value: "Not Started",
+        label: t("form.fields.status.options.notStarted"),
+        color: "slate",
+      },
+      {
+        value: "In Progress",
+        label: t("form.fields.status.options.inProgress"),
+        color: "blue",
+      },
+      {
+        value: "Blocked",
+        label: t("form.fields.status.options.blocked"),
+        color: "red",
+      },
+      {
+        value: "Done",
+        label: t("form.fields.status.options.done"),
+        color: "green",
+      },
+      {
+        value: "Cancelled",
+        label: t("form.fields.status.options.cancelled"),
+        color: "amber",
+      },
     ],
   },
   {
     name: "description",
-    label: "Description",
+    label: t("form.fields.description.label"),
     type: "textarea",
     placeholder: "Detailed description of the task...",
     required: false,
@@ -862,11 +997,11 @@ export const officerAssignmentFormFields = [
   },
   {
     name: "entityType",
-    label: "Linked to",
+    label: t("form.fields.linkType.label"),
     type: "select",
     required: true,
     options: [
-      { value: "dossier", label: "Dossier" },
+      { value: "dossier", label: t("form.fields.dossierId.label") },
       { value: "case", label: "Lawsuite" },
     ],
     helpText: "This mission concerns a Dossier or a Lawsuite",
@@ -942,20 +1077,32 @@ export const officerAssignmentFormFields = [
   },
   {
     name: "status",
-    label: "Status",
+    label: t("form.fields.status.label"),
     type: "inline-status",
     required: true,
     defaultValue: "Planned",
     statusOptions: [
       { value: "Planned", label: "Planned", color: "blue" },
-      { value: "In Progress", label: "In Progress", color: "amber" },
-      { value: "Completed", label: "Completed", color: "green" },
-      { value: "Cancelled", label: "Cancelled", color: "red" },
+      {
+        value: "In Progress",
+        label: t("form.fields.status.options.inProgress"),
+        color: "amber",
+      },
+      {
+        value: "Completed",
+        label: t("form.fields.status.options.completed"),
+        color: "green",
+      },
+      {
+        value: "Cancelled",
+        label: t("form.fields.status.options.cancelled"),
+        color: "red",
+      },
     ],
   },
   {
     name: "description",
-    label: "Description",
+    label: t("form.fields.description.label"),
     type: "textarea",
     placeholder: "Detailed description of the mission...",
     required: false,
@@ -1004,12 +1151,15 @@ export const invoiceFormFields = [
   },
   {
     name: "type",
-    label: "Type",
+    label: t("form.fields.type.label"),
     type: "select",
     required: true,
     options: [
       { value: "Fees", label: "Fees" },
-      { value: "Consultation", label: "Consultation" },
+      {
+        value: "Consultation",
+        label: t("form.fields.type.options.consultation"),
+      },
       { value: "Expenses", label: "Expenses" },
     ],
   },
@@ -1035,15 +1185,23 @@ export const invoiceFormFields = [
   },
   {
     name: "status",
-    label: "Status",
+    label: t("form.fields.status.label"),
     type: "inline-status",
     required: true,
     defaultValue: "Pending",
     statusOptions: [
       { value: "Paid", label: "Paid", color: "green" },
-      { value: "Pending", label: "Pending", color: "amber" },
+      {
+        value: "Pending",
+        label: t("form.fields.status.options.pending"),
+        color: "amber",
+      },
       { value: "Overdue", label: "Overdue", color: "red" },
-      { value: "Cancelled", label: "Cancelled", color: "slate" },
+      {
+        value: "Cancelled",
+        label: t("form.fields.status.options.cancelled"),
+        color: "slate",
+      },
     ],
   },
   {
@@ -1077,7 +1235,7 @@ export const missionFormFields = [
     required: true,
     disabled: true, // Will be set based on context
     options: [
-      { value: "dossier", label: "Dossier" },
+      { value: "dossier", label: t("form.fields.dossierId.label") },
       { value: "case", label: "Case" },
     ],
   },
@@ -1145,20 +1303,32 @@ export const missionFormFields = [
   },
   {
     name: "status",
-    label: "Status",
+    label: t("form.fields.status.label"),
     type: "inline-status",
     required: true,
     defaultValue: "Planned",
     statusOptions: [
       { value: "Planned", label: "Planned", color: "blue" },
-      { value: "In Progress", label: "In Progress", color: "amber" },
-      { value: "Completed", label: "Completed", color: "green" },
-      { value: "Cancelled", label: "Cancelled", color: "red" },
+      {
+        value: "In Progress",
+        label: t("form.fields.status.options.inProgress"),
+        color: "amber",
+      },
+      {
+        value: "Completed",
+        label: t("form.fields.status.options.completed"),
+        color: "green",
+      },
+      {
+        value: "Cancelled",
+        label: t("form.fields.status.options.cancelled"),
+        color: "red",
+      },
     ],
   },
   {
     name: "description",
-    label: "Description",
+    label: t("form.fields.description.label"),
     type: "textarea",
     required: true,
     fullWidth: true,
@@ -1342,20 +1512,24 @@ export const financialEntryFormFields = [
   },
   {
     name: "date",
-    label: "Date",
+    label: t("form.fields.date.label"),
     type: "date",
     required: true,
     defaultValue: new Date().toISOString().split("T")[0],
   },
   {
     name: "status",
-    label: "Status",
+    label: t("form.fields.status.label"),
     type: "inline-status",
     required: true,
     defaultValue: "confirmed",
     statusOptions: [
       { value: "draft", label: "Draft", color: "slate" },
-      { value: "confirmed", label: "Confirmed", color: "blue" },
+      {
+        value: "confirmed",
+        label: t("form.fields.status.options.confirmed"),
+        color: "blue",
+      },
       { value: "paid", label: "Paid", color: "green" },
     ],
   },
@@ -1561,8 +1735,8 @@ export function getFormFields(entityType) {
   const fieldsMap = {
     client: clientFormFields,
     dossier: dossierFormFields,
-    case: caseFormFields,
-    session: sessionFormFields,
+    case: caseFormFields(i18next.getFixedT("cases")),
+    session: sessionFormFields(i18next.getFixedT("sessions")),
     task: taskFormFields,
     personalTask: personalTaskFormFields,
     invoice: invoiceFormFields,

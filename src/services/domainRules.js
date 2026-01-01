@@ -52,6 +52,12 @@ const getAllMissions = () => missionsCache;
 
 import { validateTemporalConstraints } from "./temporalValidation";
 import { enrichBlockers } from "./blockerEnrichment";
+import { i18nInstance } from "../i18n";
+
+// Translation helper for domain rules
+const t = (key, options = {}) => {
+  return i18nInstance.t(key, { ns: "domain", ...options });
+};
 
 // Build in-memory snapshots from the live entities supplied in context.entities
 const loadContextData = (context = {}) => {
@@ -174,7 +180,7 @@ export function canPerformAction(entityType, entityId, action, context = {}) {
       console.error(`Error validating ${entityType}.${action}:`, error);
       return {
         allowed: false,
-        blockers: ["An unexpected error occurred. Please try again."],
+        blockers: [t("error.unexpected")],
         warnings: [],
       };
     }
@@ -295,13 +301,13 @@ function detectMissionImpact(currentData, newData) {
   ) {
     changes.push({
       type: "reference_change",
-      field: "Mission Number",
+      field: t("mission.impact.reference.field"),
       from: currentData[referenceField],
       to: newData[referenceField],
       impact: [
-        "• The mission reference will be modified",
-        "• All documents and reports will need to be updated",
-        "• Financial entries will retain the new reference",
+        t("mission.impact.reference.impact1"),
+        t("mission.impact.reference.impact2"),
+        t("mission.impact.reference.impact3"),
       ],
     });
   }
@@ -325,13 +331,13 @@ function detectMissionImpact(currentData, newData) {
 
       changes.push({
         type: "officer_reassignment",
-        field: "Bailiff",
+        field: t("mission.impact.officer.field"),
         from: oldOfficer?.name,
         to: newOfficer?.name,
         impact: [
-          "• The mission will be removed from the current bailiff",
-          "• Follow-up responsibility will change",
-          "• Mission history will be preserved",
+          t("mission.impact.officer.impact1"),
+          t("mission.impact.officer.impact2"),
+          t("mission.impact.officer.impact3"),
         ],
       });
     }

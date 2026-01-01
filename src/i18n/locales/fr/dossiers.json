@@ -83,6 +83,79 @@
     },
     "help": {
       "statusLocked": "Le statut ne peut être changé que via le sélecteur dans la liste"
+    },
+    "fields": {
+      "caseNumber": {
+        "label": "Reference / Numero",
+        "placeholder": "Ex : DOS-2025-001 (généré automatiquement si vide)",
+        "helper": "Optionnel - Laissez vide pour une génération automatique (DOS-ANNÉE-XXX)"
+      },
+      "title": {
+        "label": "Titre du dossier",
+        "placeholder": "Ex : Affaire commerciale - Contrat"
+      },
+      "clientId": {
+        "label": "Client",
+        "helper": "S?lectionnez le client concern?"
+      },
+      "category": {
+        "label": "Catégorie",
+        "options": {
+          "commercialLaw": "Droit commercial",
+          "familyLaw": "Droit de la famille",
+          "criminalLaw": "Droit pénal",
+          "laborLaw": "Droit du travail",
+          "realEstateLaw": "Droit immobilier",
+          "administrativeLaw": "Droit administratif",
+          "taxLaw": "Droit fiscal"
+        }
+      },
+      "priority": {
+        "label": "Priorit?"
+      },
+      "phase": {
+        "label": "Phase",
+        "options": {
+          "opening": "Ouverture",
+          "investigation": "Instruction",
+          "negotiation": "Négociation",
+          "pleading": "Plaidoirie",
+          "judgment": "Jugement",
+          "execution": "Exécution"
+        }
+      },
+      "status": {
+        "label": "Statut",
+        "options": {
+          "open": "Ouvert",
+          "inProgress": "En cours",
+          "onHold": "En attente",
+          "closed": "Clôturé"
+        }
+      },
+      "openDate": {
+        "label": "Date d'ouverture"
+      },
+      "description": {
+        "label": "Description",
+        "placeholder": "Description détaillée du dossier..."
+      },
+      "adversaryParty": {
+        "label": "Partie adverse",
+        "placeholder": "Nom de la partie adverse"
+      },
+      "adversaryLawyer": {
+        "label": "Avocat adverse",
+        "placeholder": "Nom de l'avocat adverse"
+      },
+      "estimatedValue": {
+        "label": "Valeur estimée",
+        "placeholder": "Ex : 50 000 TND"
+      },
+      "courtReference": {
+        "label": "Référence du tribunal",
+        "placeholder": "Ex : TPI-2024-1234"
+      }
     }
   },
   "blocker": {

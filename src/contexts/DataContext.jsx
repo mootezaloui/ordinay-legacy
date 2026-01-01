@@ -5,6 +5,7 @@ import { useToast } from "./ToastContext";
 import { logEntityCreation, logLifecycleChange, logStatusChange } from "../services/historyService";
 import { apiClient } from "../services/api/client";
 import { adaptHistory } from "../services/api/adapters";
+import { useTranslation } from "react-i18next";
 import {
   adaptCase,
   adaptClient,
@@ -281,6 +282,7 @@ const reconcileEntities = (clients, dossiers, cases, tasks, sessions) => {
 
 export function DataProvider({ children }) {
   const { showToast } = useToast();
+  const { t } = useTranslation("common");
   // State is initialized from localStorage and then updated from backend
   const [clients, setClients] = useState(() => loadFromStorage("clients", []));
   const [dossiers, setDossiers] = useState(() => loadFromStorage("dossiers", []));
@@ -432,7 +434,7 @@ export function DataProvider({ children }) {
         if (cancelled) return;
         console.error("[DataContext] API load failed", error);
         setLoadError(error.message || "Loading Error");
-        showToast("Unable to load remote data (read-only).", "error");
+        showToast(t("data.toast.error.loadRemote"), "error");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -867,12 +869,12 @@ export function DataProvider({ children }) {
       court: emptyToNull(caseItem.court),
       filing_date: emptyToNull(caseItem.filingDate),
       next_hearing: emptyToNull(caseItem.nextHearing),
-      reference_number: emptyToNull(caseItem.referenceNumber),
+      reference_number: emptyToNull(caseItem.courtReference || caseItem.reference_number),
       status: caseItem.status,
       priority: caseItem.priority === "High" ? "high" : caseItem.priority === "Medium" ? "medium" : caseItem.priority === "Low" ? "low" : caseItem.priority,
       opened_at: emptyToNull(caseItem.openDate),
-      reference: emptyToNull(caseItem.caseNumber || caseItem.referenceNumber),
-      case_number: emptyToNull(caseItem.caseNumber || caseItem.referenceNumber),
+      reference: emptyToNull(caseItem.caseNumber),
+      case_number: emptyToNull(caseItem.caseNumber),
     };
 
     const created = await apiClient.post("/cases", payload);
@@ -943,8 +945,8 @@ export function DataProvider({ children }) {
     if (updates.nextHearing !== undefined) {
       payload.next_hearing = emptyToNull(updates.nextHearing);
     }
-    if (updates.referenceNumber !== undefined) {
-      payload.reference_number = emptyToNull(updates.referenceNumber);
+    if (updates.courtReference !== undefined) {
+      payload.reference_number = emptyToNull(updates.courtReference);
     }
     if (updates.status !== undefined) {
       payload.status = updates.status;
@@ -956,10 +958,9 @@ export function DataProvider({ children }) {
     if (updates.openDate !== undefined) {
       payload.opened_at = emptyToNull(updates.openDate);
     }
-    if (updates.caseNumber !== undefined || updates.referenceNumber !== undefined) {
-      const refValue = updates.caseNumber || updates.referenceNumber;
-      payload.reference = emptyToNull(refValue);
-      payload.case_number = emptyToNull(refValue);
+    if (updates.caseNumber !== undefined) {
+      payload.reference = emptyToNull(updates.caseNumber);
+      payload.case_number = emptyToNull(updates.caseNumber);
     }
     if (updates.notes !== undefined) {
       // ✅ Convert notes to backend format (camelCase → snake_case)

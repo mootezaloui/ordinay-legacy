@@ -8,6 +8,7 @@ import ContentSection from "../../layout/ContentSection";
 import FormModal from "../../FormModal/FormModal";
 import { logEntityCreation, logHistoryEvent, EVENT_TYPES } from "../../../services/historyService";
 import { useSettings } from "../../../contexts/SettingsContext";
+import { useTranslation } from "react-i18next";
 
 /**
  * AggregatedRelatedTab - Generic tab for displaying aggregated related entities
@@ -39,6 +40,7 @@ export default function AggregatedRelatedTab({
   const { showToast } = useToast();
   const { confirm } = useConfirm();
   const { formatDate } = useSettings();
+  const { t } = useTranslation("common");
   const {
     addDossier,
     addCase,
@@ -293,7 +295,7 @@ export default function AggregatedRelatedTab({
             const creation = await addDossier({ ...normalizedFormData, ...relationshipFields });
             if (!creation.ok) {
               console.error("Dossier creation failed:", creation.result);
-              showToast("Erreur creating a dossier", "error");
+              showToast(t("detail.related.errors.createDossier"), "error");
               return;
             }
             const created = creation.created || creation;
@@ -305,7 +307,7 @@ export default function AggregatedRelatedTab({
             const creation = await addCase({ ...normalizedFormData, ...relationshipFields });
             if (!creation.ok) {
               console.error("Case creation failed:", creation.result);
-              showToast("Erreur creating a lawsuit", "error");
+              showToast(t("detail.related.errors.createCase"), "error");
               return;
             }
             const created = creation.created || creation;
@@ -317,7 +319,7 @@ export default function AggregatedRelatedTab({
             const creation = await addSession({ ...normalizedFormData, ...relationshipFields });
             if (!creation.ok) {
               console.error("Session creation failed:", creation.result);
-              showToast("Erreur creating a session", "error");
+              showToast(t("detail.related.errors.createSession"), "error");
               return;
             }
             const created = creation.created || creation;
@@ -329,7 +331,7 @@ export default function AggregatedRelatedTab({
             const creation = await addTask({ ...normalizedFormData, ...relationshipFields });
             if (!creation.ok) {
               console.error("Task creation failed:", creation.result);
-              showToast("Erreur creating a task", "error");
+              showToast(t("detail.related.errors.createTask"), "error");
               return;
             }
             const created = creation.created || creation;
@@ -341,7 +343,7 @@ export default function AggregatedRelatedTab({
             const creation = await addMission({ ...normalizedFormData, ...relationshipFields });
             if (!creation.ok) {
               console.error("Mission creation failed:", creation.result);
-              showToast("Error creating a mission", "error");
+              showToast(t("detail.related.toast.error.createMission"), "error");
               return;
             }
             const created = creation.created || creation;
@@ -402,10 +404,10 @@ export default function AggregatedRelatedTab({
 
   const handleDeleteItem = async (itemId) => {
     if (await confirm({
-      title: "Delete Item",
-      message: "Are you sure you want to delete this item?",
-      confirmText: "Delete",
-      cancelText: "Cancel",
+      title: t("dialog.detail.related.delete.title"),
+      message: t("dialog.detail.related.delete.message", { entity: t("detail.related.fallback.entity").toLowerCase() }),
+      confirmText: t("dialog.detail.related.delete.confirm"),
+      cancelText: t("dialog.detail.related.delete.cancel"),
       variant: "danger"
     })) {
       const updatedItems = localItems.filter(item => item.id !== itemId);
@@ -459,7 +461,7 @@ export default function AggregatedRelatedTab({
           ...field,
           defaultValue: "case",
           disabled: true,
-          helpText: "This task will be linked to this lawsuit",
+          helpText: t("detail.related.help.taskCaseLink"),
         };
       }
       if (field.name === "caseId") {
@@ -468,7 +470,7 @@ export default function AggregatedRelatedTab({
           required: true,
           disabled: true,
           hideIf: () => false, // always show the locked lawsuit context
-          helpText: "This task will be linked to this lawsuit",
+          helpText: t("detail.related.help.taskCaseLink"),
         };
       }
       if (field.name === "dossierId") {

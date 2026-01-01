@@ -4,10 +4,12 @@ import { useSidebar } from "../../contexts/SidebarContext";
 import NotificationDropDown from "../notifications/notificationdropdown";
 import UserDropdown from "../user/UserDropdown";
 import GlobalSearch from "../Search/GlobalSearch";
+import { useTranslation } from "react-i18next";
 
 export default function HeaderBar() {
   const { isCollapsed } = useSidebar();
   const [activeDropdown, setActiveDropdown] = useState(null);
+  const { t } = useTranslation("layout");
 
   const handleDropdownToggle = (dropdownName) => {
     setActiveDropdown(activeDropdown === dropdownName ? null : dropdownName);
@@ -28,7 +30,7 @@ export default function HeaderBar() {
               to="/dashboard"
               className="text-xl font-bold text-slate-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200"
             >
-              LawFirm
+              {t("header.brand")}
             </Link>
           </div>
 

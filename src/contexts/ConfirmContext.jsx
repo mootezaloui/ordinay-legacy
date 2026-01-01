@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback } from "react";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
+import { useTranslation } from "react-i18next";
 
 /**
  * Confirm Context
@@ -37,13 +38,14 @@ export function useConfirm() {
 export function ConfirmProvider({ children }) {
   const [confirmState, setConfirmState] = useState({
     isOpen: false,
-    title: "Confirmation",
+    title: "",
     message: "",
-    confirmText: "Confirm",
-    cancelText: "Cancel",
+    confirmText: "",
+    cancelText: "",
     variant: "warning",
     resolve: null,
   });
+  const { t } = useTranslation("common");
 
   const confirm = useCallback((options) => {
     return new Promise((resolve) => {
@@ -54,15 +56,15 @@ export function ConfirmProvider({ children }) {
 
       setConfirmState({
         isOpen: true,
-        title: config.title || "Confirmation",
+        title: config.title || t("dialog.confirm.defaults.title"),
         message: config.message || "",
-        confirmText: config.confirmText || "Confirm",
-        cancelText: config.cancelText || "Cancel",
+        confirmText: config.confirmText || t("dialog.confirm.defaults.confirm"),
+        cancelText: config.cancelText || t("dialog.confirm.defaults.cancel"),
         variant: config.variant || "warning",
         resolve,
       });
     });
-  }, []);
+  }, [t]);
 
   const handleConfirm = useCallback(() => {
     if (confirmState.resolve) {

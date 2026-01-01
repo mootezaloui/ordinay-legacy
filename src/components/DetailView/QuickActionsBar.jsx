@@ -5,6 +5,7 @@ import BlockerModal from "../ui/BlockerModal";
 import ConfirmImpactModal from "../ui/ConfirmImpactModal";
 import { useToast } from "../../contexts/ToastContext";
 import SearchableSelect from "../FormModal/SearchableSelect";
+import { useTranslation } from "react-i18next";
 
 /**
  * QuickActionsBar - Inline editable fields with auto-save
@@ -57,6 +58,7 @@ function QuickActionField({ action, value, onChange, entityType, entityId, entit
     const [confirmImpactModalOpen, setConfirmImpactModalOpen] = useState(false);
     const [options, setOptions] = useState([]);
     const { showToast } = useToast();
+    const { t } = useTranslation("common");
 
     // Initialize options - recalculate whenever contextData changes
     useEffect(() => {
@@ -168,15 +170,15 @@ function QuickActionField({ action, value, onChange, entityType, entityId, entit
         const currentOption = options.find(opt => opt.value === newValue);
         const newLabel = currentOption?.label || newValue;
 
-        showToast(`${action.label} Update: ${newLabel}`, "success", {
-            title: "Update Successful",
+        showToast(t("detail.quickActions.toast.success.update", { label: action.label, value: newLabel }), "success", {
+            title: t("detail.quickActions.toast.title.updateSuccess"),
             context: entityType,
             action: {
                 label: "Undo",
                 onClick: () => {
                     onChange(previousValue);
-                    showToast("Update Cancelled", "info", {
-                        title: "Undo Successful",
+                    showToast(t("detail.quickActions.toast.info.cancel"), "info", {
+                        title: t("detail.quickActions.toast.title.undoSuccess"),
                         context: entityType,
                     });
                 }
@@ -350,15 +352,15 @@ function QuickActionField({ action, value, onChange, entityType, entityId, entit
                     const currentOption = options.find(opt => opt.value === valueToSave);
                     const newLabel = currentOption?.label || valueToSave;
 
-                    showToast(`${action.label} Update: ${newLabel}`, "success", {
-                        title: "Update Successful",
+                    showToast(t("detail.quickActions.toast.success.update", { label: action.label, value: newLabel }), "success", {
+                        title: t("detail.quickActions.toast.title.updateSuccess"),
                         context: entityType,
                         action: {
                             label: "Undo",
                             onClick: () => {
                                 onChange(previousValue);
-                                showToast("Update Cancelled", "info", {
-                                    title: "Undo Successful",
+                                showToast(t("detail.quickActions.toast.info.cancel"), "info", {
+                                    title: t("detail.quickActions.toast.title.undoSuccess"),
                                     context: entityType,
                                 });
                             }

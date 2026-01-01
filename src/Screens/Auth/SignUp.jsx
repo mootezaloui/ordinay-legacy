@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useTheme } from "../../contexts/theme";
+import { useTranslation } from "react-i18next";
 
 export default function SignUp() {
   const navigate = useNavigate();
   const { isDark, toggleTheme } = useTheme();
+  const { t } = useTranslation('auth');
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -31,12 +33,12 @@ export default function SignUp() {
 
     // Validation
     if (formData.password !== formData.confirmPassword) {
-      setError("passwords do not match");
+      setError(t('signup.errors.passwordMismatch'));
       return;
     }
 
     if (!formData.acceptTerms) {
-      setError("Please accept the terms of use");
+      setError(t('signup.errors.acceptTerms'));
       return;
     }
 
@@ -67,10 +69,10 @@ export default function SignUp() {
             <i className="fas fa-scale-balanced text-white text-2xl"></i>
           </div>
           <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">
-            Create an account
+            {t('signup.title')}
           </h1>
           <p className="text-slate-600 dark:text-slate-400">
-            Join us and start managing your legal cases efficiently.
+            {t('signup.subtitle')}
           </p>
         </div>
 
@@ -90,7 +92,7 @@ export default function SignUp() {
               {/* First Name */}
               <div>
                 <label className="block text-sm font-medium text-slate-900 dark:text-white mb-2">
-                  First Name
+                  {t('signup.firstName')}
                 </label>
                 <input
                   type="text"
@@ -98,7 +100,7 @@ export default function SignUp() {
                   value={formData.firstName}
                   onChange={handleChange}
                   className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                  placeholder="Jean"
+                  placeholder={t('signup.firstNamePlaceholder')}
                   required
                 />
               </div>
@@ -106,7 +108,7 @@ export default function SignUp() {
               {/* Last Name */}
               <div>
                 <label className="block text-sm font-medium text-slate-900 dark:text-white mb-2">
-                  Last Name
+                  {t('signup.lastName')}
                 </label>
                 <input
                   type="text"
@@ -114,7 +116,7 @@ export default function SignUp() {
                   value={formData.lastName}
                   onChange={handleChange}
                   className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                  placeholder="Dupont"
+                  placeholder={t('signup.lastNamePlaceholder')}
                   required
                 />
               </div>
@@ -123,7 +125,7 @@ export default function SignUp() {
             {/* Email Input */}
             <div>
               <label className="block text-sm font-medium text-slate-900 dark:text-white mb-2">
-                Professional Email
+                {t('signup.email')}
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -135,7 +137,7 @@ export default function SignUp() {
                   value={formData.email}
                   onChange={handleChange}
                   className="w-full pl-10 pr-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                  placeholder="jean.dupont@cabinet.com"
+                  placeholder={t('signup.emailPlaceholder')}
                   required
                 />
               </div>
@@ -144,7 +146,7 @@ export default function SignUp() {
             {/* Phone Input */}
             <div>
               <label className="block text-sm font-medium text-slate-900 dark:text-white mb-2">
-                Phone
+                {t('signup.phone')}
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -156,7 +158,7 @@ export default function SignUp() {
                   value={formData.phone}
                   onChange={handleChange}
                   className="w-full pl-10 pr-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                  placeholder="+216 XX XXX XXX"
+                  placeholder={t('signup.phonePlaceholder')}
                   required
                 />
               </div>
@@ -167,7 +169,7 @@ export default function SignUp() {
               {/* Password */}
               <div>
                 <label className="block text-sm font-medium text-slate-900 dark:text-white mb-2">
-                  Password
+                  {t('signup.password')}
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -179,7 +181,7 @@ export default function SignUp() {
                     value={formData.password}
                     onChange={handleChange}
                     className="w-full pl-10 pr-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                    placeholder="••••••••"
+                    placeholder={t('signup.passwordPlaceholder')}
                     required
                   />
                 </div>
@@ -188,7 +190,7 @@ export default function SignUp() {
               {/* Confirm Password */}
               <div>
                 <label className="block text-sm font-medium text-slate-900 dark:text-white mb-2">
-                  Confirm Password
+                  {t('signup.confirmPassword')}
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -200,7 +202,7 @@ export default function SignUp() {
                     value={formData.confirmPassword}
                     onChange={handleChange}
                     className="w-full pl-10 pr-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                    placeholder="••••••••"
+                    placeholder={t('signup.confirmPasswordPlaceholder')}
                     required
                   />
                 </div>
@@ -218,13 +220,13 @@ export default function SignUp() {
                 required
               />
               <label className="ml-2 text-sm text-slate-600 dark:text-slate-400">
-                I accept the{" "}
+                {t('signup.acceptTermsPrefix')}{" "}
                 <Link to="/terms" className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300">
-                  terms of use
+                  {t('signup.termsOfUse')}
                 </Link>
-                {" "}and the{" "}
+                {" "}{t('signup.and')}{" "}
                 <Link to="/privacy" className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300">
-                  privacy policy
+                  {t('signup.privacyPolicy')}
                 </Link>
               </label>
             </div>
@@ -238,12 +240,12 @@ export default function SignUp() {
               {isLoading ? (
                 <>
                   <i className="fas fa-spinner fa-spin"></i>
-                  Creating account...
+                  {t('signup.creatingAccount')}
                 </>
               ) : (
                 <>
                   <i className="fas fa-user-plus"></i>
-                  Create my account
+                  {t('signup.createButton')}
                 </>
               )}
             </button>
@@ -251,19 +253,19 @@ export default function SignUp() {
 
           {/* Login Link */}
           <p className="mt-6 text-center text-sm text-slate-600 dark:text-slate-400">
-            Already have an account?{" "}
+            {t('signup.alreadyHaveAccount')}{" "}
             <Link
               to="/login"
               className="font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
             >
-              Log in
+              {t('signup.login')}
             </Link>
           </p>
         </div>
 
         {/* Footer */}
         <p className="mt-8 text-center text-xs text-slate-500 dark:text-slate-400">
-          © 2025 Organia. All rights reserved.
+          {t('signup.footer')}
         </p>
       </div>
     </div>

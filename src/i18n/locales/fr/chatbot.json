@@ -1,0 +1,30 @@
+{
+  "page": {
+    "title": "Chatbot Assistant IA",
+    "subtitle": "Assistant juridique intelligent pour vos besoins"
+  },
+  "hero": {
+    "title": "Assistant juridique IA",
+    "description": "Votre assistant intelligent pour vos questions juridiques, la recherche de jurisprudence et l'analyse de documents."
+  },
+  "features": {
+    "research": {
+      "title": "Recherche",
+      "description": "Rechercher de la jurisprudence et des textes juridiques"
+    },
+    "analyze": {
+      "title": "Analyser",
+      "description": "Analyser des documents juridiques"
+    },
+    "advice": {
+      "title": "Conseil",
+      "description": "Obtenir un conseil juridique instantané"
+    }
+  },
+  "cta": {
+    "start": "Démarrer une conversation"
+  },
+  "footer": {
+    "note": "Toutes les conversations sont sécurisées et confidentielles"
+  }
+}

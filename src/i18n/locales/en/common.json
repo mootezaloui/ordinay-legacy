@@ -86,5 +86,238 @@
       "mission": "Mission",
       "generic": "{{type}}"
     }
+  },
+  "actions": {
+    "close": "Close"
+  },
+  "detail": {
+    "toast": {
+      "success": {
+        "save": "Changes saved successfully!",
+        "cascade": "{{entity}} and all related entities deleted"
+      },
+      "error": {
+        "save": "Error saving changes",
+        "saveInline": "Error in the save",
+        "cascade": "Error during cascade deletion",
+        "cascadeUnavailable": "Cascade delete not available for this entity",
+        "delete": "Error deleting",
+        "notAllowed": "This modification is not allowed"
+      },
+      "title": {
+        "blocked": "Modification blocked",
+        "validationFailed": "Validation failed",
+        "saveError": "Save error",
+        "cascade": "Cascade Deletion"
+      }
+    },
+    "validation": {
+      "modificationNotAllowed": "This modification is not allowed"
+    },
+    "documents": {
+      "toast": {
+        "success": {
+          "upload": "{{count}} document(s) added successfully!",
+          "downloadStart": "Downloading {{name}}",
+          "delete": "Document deleted",
+          "unlink": "Link removed",
+          "relink": "Document relinked successfully"
+        },
+        "error": {
+          "uploadFailed": "{{count}} document(s) failed to upload",
+          "uploadError": "Error adding documents",
+          "open": "Unable to open document. File missing?",
+          "download": "Error downloading document",
+          "reveal": "Unable to reveal file",
+          "delete": "Error deleting document",
+          "replace": "Error replacing document"
+        }
+      }
+    },
+    "notes": {
+      "toast": {
+        "success": {
+          "save": "Note saved",
+          "delete": "Note deleted"
+        },
+        "error": {
+          "saveMissing": "Impossible to save notes",
+          "empty": "Note cannot be empty",
+          "save": "Error saving note",
+          "deleteMissing": "Impossible to delete note",
+          "delete": "Error deleting note"
+        }
+      }
+    },
+    "missions": {
+      "fallback": {
+        "unknownClient": "Unknown client",
+        "unknownDossier": "Unknown dossier"
+      }
+    },
+    "related": {
+      "help": {
+        "taskCaseLink": "This task will be linked to this lawsuit"
+      },
+      "empty": {
+        "noItems": "No items"
+      },
+      "fallback": {
+        "entity": "Item"
+      }
+    },
+    "quickActions": {
+      "toast": {
+        "success": {
+          "update": "{{label}} Update: {{value}}"
+        },
+        "info": {
+          "cancel": "Update Cancelled"
+        },
+        "title": {
+          "updateSuccess": "Update Successful",
+          "undoSuccess": "Undo Successful"
+        }
+      }
+    },
+    "blocker": {
+      "toast": {
+        "success": {
+          "taskComplete": "Task marked as completed",
+          "hearingComplete": "Hearing marked as completed",
+          "entryPaid": "Entry marked as paid",
+          "caseClosed": "Lawsuit closed",
+          "dossierClosed": "Dossier closed",
+          "resolved": "All blockers have been resolved!"
+        },
+        "error": {
+          "taskComplete": "Unable to mark this task as completed",
+          "hearingComplete": "Unable to mark this hearing as completed",
+          "entryPaid": "Unable to mark this entry as paid",
+          "caseClosed": "Unable to close this lawsuit",
+          "dossierClosed": "Unable to close this dossier",
+          "unsupported": "Action not supported",
+          "generic": "An error occurred"
+        }
+      }
+    }
+  },
+  "data": {
+    "toast": {
+      "error": {
+        "loadRemote": "Unable to load remote data (read-only)."
+      }
+    }
+  },
+  "form": {
+    "placeholder": {
+      "notProvided": "Not provided"
+    },
+    "upload": {
+      "dropPrompt": "Drag and drop files here, or",
+      "browse": "browse"
+    }
+  },
+  "dialog": {
+    "confirm": {
+      "defaults": {
+        "title": "Confirmation",
+        "message": "Are you sure?",
+        "confirm": "Confirm",
+        "cancel": "Cancel"
+      }
+    },
+    "form": {
+      "validation": {
+        "required": {
+          "title": "Fields required",
+          "message": "Please correct the form errors before continuing."
+        }
+      }
+    },
+    "detail": {
+      "documents": {
+        "delete": {
+          "title": "Delete document",
+          "message": "Do you want to delete the link only or the file permanently?",
+          "confirm": "Delete file",
+          "cancel": "Remove link"
+        },
+        "deleteSingle": {
+          "title": "Delete document",
+          "message": "Are you sure you want to delete this document?",
+          "confirm": "Delete",
+          "cancel": "Cancel"
+        }
+      },
+      "notes": {
+        "delete": {
+          "title": "Delete note",
+          "message": "Are you sure you want to delete this note?",
+          "confirm": "Delete",
+          "cancel": "Cancel"
+        }
+      },
+      "missions": {
+        "delete": {
+          "title": "Delete mission",
+          "message": "Are you sure you want to delete this mission?",
+          "confirm": "Delete",
+          "cancel": "Cancel"
+        }
+      },
+      "financial": {
+        "delete": {
+          "title": "Delete financial entry",
+          "message": "Are you sure you want to delete this entry?",
+          "confirm": "Delete",
+          "cancel": "Cancel"
+        }
+      },
+      "related": {
+        "delete": {
+          "title": "Delete {{entity}}",
+          "message": "Are you sure you want to delete this {{entity}}?",
+          "confirm": "Delete",
+          "cancel": "Cancel"
+        }
+      },
+      "impact": {
+        "change": {
+          "title": "Attachment change",
+          "message": "Are you sure you want to make this change?",
+          "confirm": "Confirm change",
+          "cancel": "Cancel"
+        }
+      },
+      "entity": {
+        "delete": {
+          "title": "Delete {{entity}}",
+          "confirm": "Delete",
+          "cancel": "Cancel"
+        }
+      }
+    },
+    "impact": {
+      "warning": {
+        "title": "Linking impact warning",
+        "lead": "You are about to {{action}}{{entityName}}",
+        "prompt": "Do you want to continue?",
+        "detail": "This action will modify the relationships between entities. Make sure you fully understand the impact before confirming.",
+        "confirm": "Confirm change",
+        "cancel": "Cancel"
+      }
+    }
+  },
+  "aria": {
+    "dialog": {
+      "close": "Close dialog"
+    },
+    "search": {
+      "clearSelection": "Clear selection"
+    },
+    "userDropdown": {
+      "userMenu": "User menu"
+    }
   }
 }

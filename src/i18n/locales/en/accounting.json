@@ -180,5 +180,109 @@
   },
   "export": {
     "filename": "accounting-{{date}}.csv"
+  },
+  "detail": {
+    "entityName": "Accounting Entry",
+    "notFound": "Accounting entry not found",
+    "deleteConfirm": "Are you sure you want to delete this accounting entry?",
+    "subtitle": "{{category}} • {{amount}} • {{date}}",
+    "fallback": {
+      "na": "N/A",
+      "none": "None",
+      "noAdditionalDetails": "No additional details",
+      "noNotes": "No notes",
+      "untitled": "Entry #{{id}}"
+    },
+    "financial": {
+      "fallback": {
+        "unknownClient": "Unknown client",
+        "unknownDossier": "Unknown dossier",
+        "unknownCase": "Unknown lawsuit"
+      },
+      "help": {
+        "currentMission": "Current mission",
+        "missionOfficer": "Bailiff for this mission"
+      }
+    },
+    "quickActions": {
+      "status": {
+        "label": "Status",
+        "draft": "Draft",
+        "confirmed": "Confirmed",
+        "paid": "Paid",
+        "cancelled": "Cancelled"
+      }
+    },
+    "toast": {
+      "success": {
+        "update": "Entry updated successfully!",
+        "create": "Entry added successfully!"
+      },
+      "error": {
+        "save": "Error saving entry"
+      }
+    },
+    "header": {
+      "revenue": "Revenue",
+      "expense": "Expense",
+      "client": "Client",
+      "office": "Office",
+      "date": "Date",
+      "dueDate": "Due Date",
+      "dossier": "Dossier",
+      "lawsuit": "Lawsuit",
+      "bailiff": "Bailiff"
+    },
+    "tabs": {
+      "overview": "Overview",
+      "relations": "Relations",
+      "history": "History"
+    },
+    "relations": {
+      "title": "Linked Entities",
+      "empty": "No entities linked",
+      "client": "Client",
+      "dossier": "Dossier",
+      "lawsuit": "Lawsuit",
+      "bailiff": "Bailiff"
+    },
+    "overview": {
+      "financial": "Financial Details",
+      "dates": "Dates",
+      "entities": "Related Entities",
+      "notes": "Notes",
+      "fields": {
+        "title": "Title",
+        "titlePlaceholder": "Ex: Court filing fee, Bailiff travel expenses...",
+        "description": "Additional Details",
+        "noAdditionalDetails": "No additional details",
+        "amount": "Amount",
+        "type": "Type",
+        "typeRevenue": "Revenue",
+        "typeExpense": "Expense",
+        "category": "Category",
+        "status": "Status",
+        "scope": "Scope",
+        "scopeClient": "Client",
+        "scopeOffice": "Office (Internal)",
+        "date": "Transaction Date",
+        "dueDate": "Due Date",
+        "client": "Client",
+        "clientPlaceholder": "Select a client...",
+        "dossier": "Dossier",
+        "dossierPlaceholder": "Select a dossier...",
+        "dossierHelp": "Only Dossiers of the selected client are displayed",
+        "lawsuit": "Lawsuit",
+        "lawsuitPlaceholder": "Select a lawsuit...",
+        "lawsuitHelp": "Only lawsuits of the selected dossier are displayed"
+      },
+      "categories": {
+        "Fees": "Fees",
+        "bailiff_fees": "Bailiff Fees",
+        "office_expenses": "Office Expenses",
+        "salary": "Salary",
+        "other": "Other"
+      }
+    }
   }
 }

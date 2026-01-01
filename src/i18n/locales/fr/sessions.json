@@ -76,7 +76,90 @@
       "edit": "Mettez à jour les détails de l'audience",
       "create": "Créez une nouvelle audience"
     },
-    "statusReadonlyHelp": "Le statut ne peut être modifié que via la liste"
+    "statusReadonlyHelp": "Le statut ne peut être modifié que via la liste",
+    "fields": {
+      "title": {
+        "label": "Titre de l'audience",
+        "placeholder": "Ex : Audience pr?liminaire"
+      },
+      "type": {
+        "label": "Type",
+        "options": {
+          "hearing": "Audience",
+          "consultation": "Consultation",
+          "mediation": "Médiation",
+          "expertAssessment": "Expertise",
+          "phoneCall": "Appel téléphonique",
+          "other": "Autre"
+        }
+      },
+      "linkType": {
+        "label": "Liée à",
+        "options": {
+          "case": "Procès",
+          "dossier": "Dossier"
+        },
+        "helper": "Une audience peut être liée à un procès ou directement à un dossier"
+      },
+      "caseId": {
+        "label": "Procès",
+        "helper": "Sélectionnez le procès concerné"
+      },
+      "dossierId": {
+        "label": "Dossier",
+        "helper": "Sélectionnez le dossier concerné"
+      },
+      "date": {
+        "label": "Date"
+      },
+      "time": {
+        "label": "Heure",
+        "helper": "Sélectionnez l'heure de début"
+      },
+      "duration": {
+        "label": "Durée estimée",
+        "helper": "Durée prévue de l'audience",
+        "options": {
+          "00_15": "15 minutes",
+          "00_30": "30 minutes",
+          "00_45": "45 minutes",
+          "01_00": "1 heure",
+          "01_30": "1h30",
+          "02_00": "2 heures",
+          "02_30": "2h30",
+          "03_00": "3 heures",
+          "04_00": "4 heures"
+        }
+      },
+      "location": {
+        "label": "Lieu",
+        "placeholder": "Cabinet, Tribunal, etc."
+      },
+      "courtRoom": {
+        "label": "Salle d'audience",
+        "placeholder": "ex. : Salle 5A",
+        "helper": "Salle précise où se tient l'audience"
+      },
+      "judge": {
+        "label": "Juge",
+        "placeholder": "ex. : Juge Dupont",
+        "helper": "Juge presidant cette audience"
+      },
+      "status": {
+        "label": "Statut",
+        "options": {
+          "scheduled": "Planifiée",
+          "confirmed": "Confirmée",
+          "pending": "En attente",
+          "completed": "Terminée",
+          "cancelled": "Annulée"
+        }
+      },
+      "description": {
+        "label": "Description",
+        "placeholder": "Description de l'audience..."
+      }
+    }
   },
   "blocker": {
     "action": "Modifier/Supprimer l'audience",

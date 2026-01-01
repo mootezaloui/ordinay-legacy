@@ -64,6 +64,53 @@
     },
     "help": {
       "statusLocked": "Le statut ne peut être modifié que via le sélecteur dans la liste"
+    },
+    "fields": {
+      "caseNumber": {
+        "label": "Référence / Numéro",
+        "placeholder": "Ex : PRO-2025-001 (généré automatiquement si vide)",
+        "helper": "Optionnel - laissez vide pour une génération automatique (PRO-ANNÉE-XXX)"
+      },
+      "title": {
+        "label": "Titre du procès",
+        "placeholder": "Ex : Litige commercial - Audience"
+      },
+      "dossierId": {
+        "label": "Dossier",
+        "helper": "Chaque procès doit être lié à un dossier"
+      },
+      "court": {
+        "label": "Tribunal",
+        "createLabel": "Ajouter"
+      },
+      "filingDate": {
+        "label": "Date de dépôt"
+      },
+      "courtReference": {
+        "label": "Numéro de référence du tribunal",
+        "placeholder": "Ex : TPI-2024-COM-1234",
+        "helper": "Numéro de référence du tribunal pour ce procès (optionnel)"
+      },
+      "adversaryParty": {
+        "label": "Partie adverse",
+        "placeholder": "Nom de la partie adverse"
+      },
+      "adversaryLawyer": {
+        "label": "Avocat adverse",
+        "placeholder": "Nom de l'avocat adverse"
+      },
+      "status": {
+        "label": "Statut du procès",
+        "options": {
+          "inProgress": "En cours",
+          "onHold": "En attente",
+          "closed": "Clôturé"
+        }
+      },
+      "description": {
+        "label": "Description",
+        "placeholder": "Description du procès..."
+      }
     }
   },
   "toasts": {
@@ -165,9 +212,10 @@
         "caseNumber": "Numéro du procès",
         "title": "Titre du procès",
         "court": "Tribunal",
-        "referenceNumber": "Numéro de référence",
+        "courtReference": "Numéro de référence du tribunal",
         "filingDate": "Date de dépôt",
         "adversaryParty": "Partie adverse",
+        "adversaryLawyer": "Avocat adverse",
         "associatedDossier": "Dossier associé"
       },
       "courtOptions": {

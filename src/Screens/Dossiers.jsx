@@ -440,7 +440,9 @@ export default function Dossiers() {
   };
 
   // Populate client options and protect status field in edit mode
-  const dossierFields = dossierFormFields.map(field => {
+  const translatedDossierFormFields = dossierFormFields(t);
+
+  const dossierFields = translatedDossierFormFields.map(field => {
     if (field.name === "clientId") {
       return {
         ...field,

@@ -1,4 +1,5 @@
 import { AlertTriangle, Info, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 /**
  * ConfirmDialog - Custom confirmation dialog matching the app's UI design
@@ -14,6 +15,7 @@ export default function ConfirmDialog({
   cancelText = "Cancel",
   variant = "warning", // 'warning' | 'danger' | 'info'
 }) {
+  const { t } = useTranslation("common");
   if (!isOpen) return null;
 
   const handleConfirm = () => {
@@ -68,7 +70,7 @@ export default function ConfirmDialog({
         <button
           onClick={handleCancel}
           className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-          aria-label="Close"
+          aria-label={t("actions.close")}
         >
           <X size={20} />
         </button>

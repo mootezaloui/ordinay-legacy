@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useTheme } from "../../contexts/theme";
+import { useTranslation } from "react-i18next";
 
 export default function ForgotPassword() {
   const { isDark, toggleTheme } = useTheme();
+  const { t } = useTranslation('auth');
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -40,16 +42,16 @@ export default function ForgotPassword() {
             </div>
 
             <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
-              Email sent!
+              {t('forgotPassword.success.title')}
             </h2>
             <p className="text-slate-600 dark:text-slate-400 mb-6">
-              We have sent a reset link to <strong>{email}</strong>
+              {t('forgotPassword.success.message')} <strong>{email}</strong>
             </p>
 
             <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg mb-6">
               <p className="text-sm text-blue-800 dark:text-blue-300">
                 <i className="fas fa-info-circle mr-2"></i>
-                Check your inbox and follow the instructions. The link expires in 1 hour.
+                {t('forgotPassword.success.info')}
               </p>
             </div>
 
@@ -58,16 +60,16 @@ export default function ForgotPassword() {
               className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-lg hover:shadow-xl transition-all duration-200"
             >
               <i className="fas fa-arrow-left"></i>
-              Back to login
+              {t('forgotPassword.success.backToLogin')}
             </Link>
 
             <p className="mt-6 text-sm text-slate-600 dark:text-slate-400">
-              Didn't receive the email?{" "}
+              {t('forgotPassword.success.didntReceive')}{" "}
               <button
                 onClick={() => setIsSubmitted(false)}
                 className="font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
               >
-                Resend
+                {t('forgotPassword.success.resend')}
               </button>
             </p>
           </div>
@@ -93,10 +95,10 @@ export default function ForgotPassword() {
             <i className="fas fa-key text-white text-2xl"></i>
           </div>
           <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">
-            Forgot password?
+            {t('forgotPassword.title')}
           </h1>
           <p className="text-slate-600 dark:text-slate-400">
-            No problem! Enter your email and we'll send you a reset link.
+            {t('forgotPassword.subtitle')}
           </p>
         </div>
 
@@ -114,7 +116,7 @@ export default function ForgotPassword() {
             {/* Email Input */}
             <div>
               <label className="block text-sm font-medium text-slate-900 dark:text-white mb-2">
-                Email address
+                {t('forgotPassword.emailLabel')}
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -125,12 +127,12 @@ export default function ForgotPassword() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full pl-10 pr-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                  placeholder="votre.email@exemple.com"
+                  placeholder={t('forgotPassword.emailPlaceholder')}
                   required
                 />
               </div>
               <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                please enter the email associated with your account.
+                {t('forgotPassword.emailHelp')}
               </p>
             </div>
 
@@ -143,12 +145,12 @@ export default function ForgotPassword() {
               {isLoading ? (
                 <>
                   <i className="fas fa-spinner fa-spin"></i>
-                  Sending...
+                  {t('forgotPassword.sending')}
                 </>
               ) : (
                 <>
                   <i className="fas fa-paper-plane"></i>
-                  Send link
+                  {t('forgotPassword.sendButton')}
                 </>
               )}
             </button>
@@ -161,14 +163,14 @@ export default function ForgotPassword() {
               className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
             >
               <i className="fas fa-arrow-left"></i>
-              Back to login
+              {t('forgotPassword.backToLogin')}
             </Link>
           </div>
         </div>
 
         {/* Footer */}
         <p className="mt-8 text-center text-xs text-slate-500 dark:text-slate-400">
-          © 2025 Organia. All rights reserved.
+          {t('forgotPassword.footer')}
         </p>
       </div>
     </div>

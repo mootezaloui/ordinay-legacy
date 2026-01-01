@@ -396,7 +396,9 @@ export default function Sessions() {
     window.URL.revokeObjectURL(url);
   };
 
-  const populatedSessionFormFields = sessionFormFields.map((field) => {
+  const translatedSessionFormFields = sessionFormFields(t);
+
+  const populatedSessionFormFields = translatedSessionFormFields.map((field) => {
     if (field.name === "caseId") {
       return {
         ...field,

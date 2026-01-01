@@ -3,6 +3,7 @@ import notificationScheduler from "../services/notificationScheduler";
 import { useSettings } from "./SettingsContext";
 import * as notificationService from "../services/notificationService";
 import { apiClient } from "../services/api/client";
+import { t } from "../i18n";
 
 /**
  * Notification Context
@@ -475,8 +476,8 @@ export function NotificationProvider({ children }) {
     return addNotification({
       type: "client",
       priority: "info",
-      title: "New Client Added",
-      message: `Client "${clientName}" has been successfully added.`,
+      title: t("notifications:templates.titles.clientAdded"),
+      message: t("notifications:templates.clientAdded", { clientName }),
       icon: "fas fa-user-plus",
       link: "/clients",
     });
@@ -486,8 +487,8 @@ export function NotificationProvider({ children }) {
     return addNotification({
       type: "dossier",
       priority: "info",
-      title: "New Dossier Created",
-      message: `Dossier ${dossierNumber} has been created for ${clientName}.`,
+      title: t("notifications:templates.titles.dossierCreated"),
+      message: t("notifications:templates.dossierCreated", { dossierNumber, clientName }),
       icon: "fas fa-folder-plus",
       link: "/dossiers",
     });
@@ -497,8 +498,8 @@ export function NotificationProvider({ children }) {
     return addNotification({
       type: "task",
       priority: "high",
-      title: "Urgent Task Due",
-      message: `"${taskTitle}" is due on ${dueDate}.`,
+      title: t("notifications:templates.titles.taskDue"),
+      message: t("notifications:templates.taskDue", { taskTitle, dueDate }),
       icon: "fas fa-exclamation-triangle",
       link: "/tasks",
     });
@@ -508,8 +509,8 @@ export function NotificationProvider({ children }) {
     return addNotification({
       type: "hearing",
       priority: "high",
-      title: "Upcoming Hearing",
-      message: `The hearing for ${caseNumber} is scheduled on ${hearingDate}.`,
+      title: t("notifications:templates.titles.hearingScheduled"),
+      message: t("notifications:templates.hearingScheduled", { caseNumber, hearingDate }),
       icon: "fas fa-gavel",
       link: "/cases",
     });
@@ -519,8 +520,8 @@ export function NotificationProvider({ children }) {
     return addNotification({
       type: "payment",
       priority: "success",
-      title: "Payment Received",
-      message: `${clientName} has made a payment of ${amount}.`,
+      title: t("notifications:templates.titles.paymentReceived"),
+      message: t("notifications:templates.paymentReceived", { clientName, amount }),
       icon: "fas fa-dollar-sign",
       link: "/accounting",
     });
@@ -530,8 +531,8 @@ export function NotificationProvider({ children }) {
     return addNotification({
       type: "document",
       priority: "info",
-      title: "Document Uploaded",
-      message: `"${documentName}" has been uploaded to dossier ${dossierNumber}.`,
+      title: t("notifications:templates.titles.documentUploaded"),
+      message: t("notifications:templates.documentUploaded", { documentName, dossierNumber }),
       icon: "fas fa-file-upload",
       link: `/dossiers/${dossierNumber}`,
     });
@@ -541,8 +542,8 @@ export function NotificationProvider({ children }) {
     return addNotification({
       type: "session",
       priority: "info",
-      title: "Hearing Scheduled",
-      message: `"${sessionTitle}" is scheduled for ${date}.`,
+      title: t("notifications:templates.titles.sessionScheduled"),
+      message: t("notifications:templates.sessionScheduled", { sessionTitle, date }),
       icon: "fas fa-calendar-check",
       link: "/sessions",
     });
@@ -552,18 +553,18 @@ export function NotificationProvider({ children }) {
     return addNotification({
       type: "deadline",
       priority: daysLeft <= 2 ? "urgent" : "high",
-      title: "Deadline Approaching",
-      message: `The deadline for ${dossierNumber} is in ${daysLeft} day${daysLeft > 1 ? 's' : ''}.`,
+      title: t("notifications:templates.titles.deadlineApproaching"),
+      message: t("notifications:templates.deadlineApproaching", { dossierNumber, count: daysLeft }),
       icon: "fas fa-clock",
       link: `/dossiers/${dossierNumber}`,
     });
   }, [addNotification]);
 
   const severityConfig = useMemo(() => ({
-    success: { icon: "fas fa-check-circle", title: "Success", duration: 3500 },
-    info: { icon: "fas fa-info-circle", title: "Info", duration: 4000 },
-    warning: { icon: "fas fa-exclamation-triangle", title: "Warning", duration: 8500 },
-    error: { icon: "fas fa-exclamation-circle", title: "Error", duration: 0 }, // 0 => require manual dismissal
+    success: { icon: "fas fa-check-circle", title: t("notifications:severity.success"), duration: 3500 },
+    info: { icon: "fas fa-info-circle", title: t("notifications:severity.info"), duration: 4000 },
+    warning: { icon: "fas fa-exclamation-triangle", title: t("notifications:severity.warning"), duration: 8500 },
+    error: { icon: "fas fa-exclamation-circle", title: t("notifications:severity.error"), duration: 0 }, // 0 => require manual dismissal
   }), []);
 
   const buildNotification = useCallback((severity, payload = {}) => {

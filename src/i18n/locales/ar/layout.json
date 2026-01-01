@@ -1,0 +1,24 @@
+{
+  "sidebar": {
+    "brand": "أورغانيا",
+    "dashboard": "لوحة التحكم",
+    "clients": "العملاء",
+    "dossiers": "الملفات",
+    "tasks": "المهام",
+    "cases": "الدعاوى",
+    "sessions": "الجلسات",
+    "personalTasks": "المهام الشخصية",
+    "officers": "المحضرون",
+    "accounting": "المحاسبة",
+    "chatbot": "المساعد الذكي",
+    "theme": {
+      "light": "وضع النهار",
+      "dark": "الوضع الداكن"
+    },
+    "logout": "تسجيل الخروج",
+    "footer": "© 2025 أورغانيا"
+  },
+  "header": {
+    "brand": "المكتب"
+  }
+}

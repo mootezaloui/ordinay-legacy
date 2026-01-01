@@ -64,6 +64,53 @@
     },
     "help": {
       "statusLocked": "يمكن تغيير الحالة فقط عبر المحدد في القائمة"
+    },
+    "fields": {
+      "caseNumber": {
+        "label": "المرجع / الرقم",
+        "placeholder": "مثال: PRO-2025-001 (يُنشأ تلقائيًا إذا تُرك فارغًا)",
+        "helper": "اختياري - اتركه فارغًا للإنشاء التلقائي (PRO-السنة-XXX)"
+      },
+      "title": {
+        "label": "عنوان الدعوى",
+        "placeholder": "مثال: نزاع تجاري - جلسة"
+      },
+      "dossierId": {
+        "label": "الملف",
+        "helper": "يجب ربط كل دعوى بملف"
+      },
+      "court": {
+        "label": "المحكمة",
+        "createLabel": "إضافة"
+      },
+      "filingDate": {
+        "label": "تاريخ الإيداع"
+      },
+      "courtReference": {
+        "label": "رقم مرجع المحكمة",
+        "placeholder": "مثال: TPI-2024-COM-1234",
+        "helper": "رقم مرجع المحكمة لهذه الدعوى (اختياري)"
+      },
+      "adversaryParty": {
+        "label": "الطرف الخصم",
+        "placeholder": "اسم الطرف الخصم"
+      },
+      "adversaryLawyer": {
+        "label": "المحامي الخصم",
+        "placeholder": "اسم المحامي الخصم"
+      },
+      "status": {
+        "label": "حالة الدعوى",
+        "options": {
+          "inProgress": "قيد المعالجة",
+          "onHold": "معلق",
+          "closed": "مغلق"
+        }
+      },
+      "description": {
+        "label": "الوصف",
+        "placeholder": "وصف الدعوى..."
+      }
     }
   },
   "toasts": {
@@ -165,9 +212,10 @@
         "caseNumber": "رقم القضية",
         "title": "عنوان القضية",
         "court": "المحكمة",
-        "referenceNumber": "رقم المرجع",
+        "courtReference": "رقم مرجع المحكمة",
         "filingDate": "تاريخ الإيداع",
         "adversaryParty": "الخصم",
+        "adversaryLawyer": "المحامي الخصم",
         "associatedDossier": "الملف المرتبط"
       },
       "courtOptions": {

@@ -20,7 +20,6 @@
  * const isValid = isReferenceUnique('dossier', 'DOS-2025-001', currentId);
  */
 
-
 /**
  * Reference format definitions
  */
@@ -50,7 +49,7 @@ const REFERENCE_FORMATS = {
  */
 function getExistingReferences(entityType, entities) {
   // Handle null or undefined entities
-  if (!entities || typeof entities !== 'object') {
+  if (!entities || typeof entities !== "object") {
     return [];
   }
 
@@ -206,15 +205,40 @@ export function getDuplicateReferenceError(entityType, reference) {
 }
 
 /**
- * Normalize reference (uppercase, trim whitespace)
+ * Normalize user input reference - uppercase, trim, and fix prefix if needed
+ * Ensures reference starts with correct prefix for entity type
  *
  * @param {string} reference - Reference to normalize
+ * @param {string} entityType - 'dossier', 'case', or 'mission' (optional - for prefix correction)
  * @returns {string} - Normalized reference
  */
-export function normalizeReference(reference) {
+export function normalizeReference(reference, entityType = null) {
   if (!reference) {
     return "";
   }
 
-  return reference.trim().toUpperCase();
+  let normalized = reference.trim().toUpperCase();
+
+  // If entityType provided, fix the prefix if user entered wrong one
+  if (entityType && REFERENCE_FORMATS[entityType]) {
+    const format = REFERENCE_FORMATS[entityType];
+    const expectedPrefix = format.prefix;
+
+    // Check if reference starts with wrong prefix (e.g., TRI instead of PRO)
+    // Pattern: extract prefix from reference (letters before first dash)
+    const prefixMatch = normalized.match(/^([A-Z]+)-/);
+    if (prefixMatch) {
+      const userPrefix = prefixMatch[1];
+      // If prefix is wrong, replace it with correct one
+      if (userPrefix !== expectedPrefix) {
+        console.warn(
+          `⚠️ Reference prefix mismatch: expected "${expectedPrefix}", got "${userPrefix}". Auto-correcting...`
+        );
+        // Replace wrong prefix with correct one
+        normalized = normalized.replace(/^[A-Z]+-/, `${expectedPrefix}-`);
+      }
+    }
+  }
+
+  return normalized;
 }

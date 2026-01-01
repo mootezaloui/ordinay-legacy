@@ -67,6 +67,70 @@
     },
     "help": {
       "statusLocked": "Status can only be changed using the selector in the list"
+    },
+    "fields": {
+      "title": {
+        "label": "Task Title",
+        "placeholder": "Ex: Prepare pleading file"
+      },
+      "parentType": {
+        "label": "Linked to",
+        "options": {
+          "dossier": "Dossier",
+          "case": "Lawsuit"
+        },
+        "helper": "Select whether this task is linked to a dossier or a lawsuit."
+      },
+      "dossierId": {
+        "label": "Dossier"
+      },
+      "caseId": {
+        "label": "Lawsuit"
+      },
+      "assignedTo": {
+        "label": "Assigned to",
+        "createLabel": "Add"
+      },
+      "dueDate": {
+        "label": "Due Date"
+      },
+      "priority": {
+        "label": "Priority"
+      },
+      "status": {
+        "label": "Status",
+        "options": {
+          "notStarted": "Not Started",
+          "inProgress": "In Progress",
+          "blocked": "Blocked",
+          "done": "Done",
+          "cancelled": "Cancelled"
+        }
+      },
+      "description": {
+        "label": "Description",
+        "placeholder": "Detailed description of the task..."
+      },
+      "estimatedTime": {
+        "label": "Estimated Time",
+        "helper": "Estimated duration to complete the task",
+        "options": {
+          "0_5h": "30 minutes",
+          "1h": "1 hour",
+          "1_5h": "1h30",
+          "2h": "2 hours",
+          "3h": "3 hours",
+          "4h": "4 hours",
+          "6h": "6 hours",
+          "8h": "8 hours",
+          "12h": "12 hours",
+          "16h": "16 hours",
+          "20h": "20 hours",
+          "24h": "1 day",
+          "40h": "2 days",
+          "80h": "1 week"
+        }
+      }
     }
   },
   "toasts": {

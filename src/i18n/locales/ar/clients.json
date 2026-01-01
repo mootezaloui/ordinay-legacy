@@ -1,162 +1,217 @@
-﻿{
-    "page":  {
-                 "title":  "Ø§Ù„Ø¹Ù…Ù„Ø§Ø¡",
-                 "subtitle":  "Ø¥Ø¬Ù…Ø§Ù„ÙŠ Ø§Ù„Ø¹Ù…Ù„Ø§Ø¡: {{total}}",
-                 "subtitleFiltered":  "Ø¥Ø¬Ù…Ø§Ù„ÙŠ Ø§Ù„Ø¹Ù…Ù„Ø§Ø¡: {{total}} â€¢ Ø§Ù„Ù…Ø¹Ø±ÙˆØ¶Ø©: {{displayed}}",
-                 "actions":  {
-                                 "newClient":  "Ø¹Ù…ÙŠÙ„ Ø¬Ø¯ÙŠØ¯"
-                             },
-                 "loading":  "Ø¬Ø§Ø±Ù ØªØ­Ù…ÙŠÙ„ Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª..."
-             },
-    "stats":  {
-                  "total":  "Ø¥Ø¬Ù…Ø§Ù„ÙŠ Ø§Ù„Ø¹Ù…Ù„Ø§Ø¡",
-                  "active":  "Ø¹Ù…Ù„Ø§Ø¡ Ù†Ø´Ø·ÙˆÙ†",
-                  "inactive":  "Ø¹Ù…Ù„Ø§Ø¡ ØºÙŠØ± Ù†Ø´Ø·ÙŠÙ†",
-                  "newThisMonth":  "Ø¹Ù…Ù„Ø§Ø¡ Ø¬Ø¯Ø¯ Ù‡Ø°Ø§ Ø§Ù„Ø´Ù‡Ø±",
-                  "newThisMonthTrend":  "Ù…Ù†Ø° Ø¨Ø¯Ø§ÙŠØ© Ø§Ù„Ø´Ù‡Ø±"
-              },
-    "table":  {
-                  "columns":  {
-                                  "name":  "Ø§Ù„Ø§Ø³Ù…",
-                                  "email":  "Ø§Ù„Ø¨Ø±ÙŠØ¯ Ø§Ù„Ø¥Ù„ÙƒØªØ±ÙˆÙ†ÙŠ",
-                                  "phone":  "Ø§Ù„Ù‡Ø§ØªÙ",
-                                  "status":  "Ø§Ù„Ø­Ø§Ù„Ø©",
-                                  "joinDate":  "ØªØ§Ø±ÙŠØ® Ø§Ù„Ø§Ù†Ø¶Ù…Ø§Ù…",
-                                  "actions":  "Ø§Ù„Ø¥Ø¬Ø±Ø§Ø¡Ø§Øª"
-                              },
-                  "status":  {
-                                 "active":  "Ù†Ø´Ø·",
-                                 "inactive":  "ØºÙŠØ± Ù†Ø´Ø·"
-                             },
-                  "actions":  {
-                                  "view":  "Ø¹Ø±Ø¶ Ø§Ù„ØªÙØ§ØµÙŠÙ„",
-                                  "edit":  "ØªØ¹Ø¯ÙŠÙ„",
-                                  "delete":  "Ø­Ø°Ù"
-                              },
-                  "empty":  "Ù„Ø§ ÙŠÙˆØ¬Ø¯ Ø¹Ù…Ù„Ø§Ø¡",
-                  "emptyFiltered":  "Ù„Ø§ ØªÙˆØ¬Ø¯ Ù†ØªØ§Ø¦Ø¬"
-              },
-    "confirm":  {
-                    "delete":  {
-                                   "title":  "Ø­Ø°Ù Ø§Ù„Ø¹Ù…ÙŠÙ„",
-                                   "message":  "Ù‡Ù„ Ø£Ù†Øª Ù…ØªØ£ÙƒØ¯ Ø£Ù†Ùƒ ØªØ±ÙŠØ¯ Ø­Ø°Ù Ù‡Ø°Ø§ Ø§Ù„Ø¹Ù…ÙŠÙ„ØŸ",
-                                   "confirm":  "Ø­Ø°Ù",
-                                   "cancel":  "Ø¥Ù„ØºØ§Ø¡"
-                               }
-                },
-    "form":  {
-                 "title":  {
-                               "edit":  "ØªØ¹Ø¯ÙŠÙ„ Ø¹Ù…ÙŠÙ„",
-                               "create":  "Ø¥Ø¶Ø§ÙØ© Ø¹Ù…ÙŠÙ„"
-                           },
-                 "subtitle":  {
-                                  "edit":  "ØªØ­Ø¯ÙŠØ« Ø¨ÙŠØ§Ù†Ø§Øª Ø§Ù„Ø¹Ù…ÙŠÙ„",
-                                  "create":  "Ø¥Ø¶Ø§ÙØ© Ø¹Ù…ÙŠÙ„ Ø¬Ø¯ÙŠØ¯ Ø¥Ù„Ù‰ Ù‚Ø§Ø¹Ø¯Ø© Ø¨ÙŠØ§Ù†Ø§ØªÙƒ"
-                              },
-                 "help":  {
-                              "statusLocked":  "Ù„Ø§ ÙŠÙ…ÙƒÙ† ØªØºÙŠÙŠØ± Ø§Ù„Ø­Ø§Ù„Ø© Ø¥Ù„Ø§ Ø¹Ø¨Ø± Ø§Ù„Ù…Ø­Ø¯Ø¯ ÙÙŠ Ù‚Ø§Ø¦Ù…Ø© Ø§Ù„Ø¹Ù…Ù„Ø§Ø¡."
-                          }
-             },
-    "toasts":  {
-                   "statusUpdated":  "ØªÙ… ØªØ­Ø¯ÙŠØ« Ø§Ù„Ø­Ø§Ù„Ø© Ø¥Ù„Ù‰ {{status}}",
-                   "clientUpdated":  "ØªÙ… ØªØ­Ø¯ÙŠØ« Ø§Ù„Ø¹Ù…ÙŠÙ„",
-                   "statusError":  "ØªØ¹Ø°Ø± ØªØ­Ø¯ÙŠØ« Ø§Ù„Ø­Ø§Ù„Ø©",
-                   "deleteError":  "ØªØ¹Ø°Ø± Ø­Ø°Ù Ø§Ù„Ø¹Ù…ÙŠÙ„",
-                   "deleteSuccess":  {
-                                         "title":  "ØªÙ… Ø§Ù„Ø­Ø°Ù Ø¨Ù†Ø¬Ø§Ø­",
-                                         "body":  "ØªÙ… Ø­Ø°Ù Ø§Ù„Ø¹Ù…ÙŠÙ„"
-                                     },
-                   "cascadeError":  "Ø®Ø·Ø£ Ø£Ø«Ù†Ø§Ø¡ Ø§Ù„Ø­Ø°Ù Ø§Ù„Ù…ØªØ³Ù„Ø³Ù„",
-                   "cascadeSuccess":  {
-                                          "title":  "Ø­Ø°Ù Ù…ØªØ³Ù„Ø³Ù„",
-                                          "body":  "ØªÙ… Ø­Ø°Ù Ø§Ù„Ø¹Ù…ÙŠÙ„ ÙˆØ¬Ù…ÙŠØ¹ Ø§Ù„ÙƒÙŠØ§Ù†Ø§Øª Ø§Ù„Ù…Ø±ØªØ¨Ø·Ø©"
-                                      },
-                   "updateSuccess":  "ØªÙ… ØªØ¹Ø¯ÙŠÙ„ Ø§Ù„Ø¹Ù…ÙŠÙ„ Ø¨Ù†Ø¬Ø§Ø­",
-                   "createMissingId":  "ØªÙ… Ø¥Ù†Ø´Ø§Ø¡ Ø§Ù„Ø¹Ù…ÙŠÙ„ Ù„ÙƒÙ† Ø§Ù„Ù…Ø¹Ø±Ù‘Ù ØºÙŠØ± Ù…ØªÙˆÙØ±",
-                   "createSuccess":  "ØªÙ…Øª Ø¥Ø¶Ø§ÙØ© Ø§Ù„Ø¹Ù…ÙŠÙ„ Ø¨Ù†Ø¬Ø§Ø­",
-                   "saveError":  "ØªØ¹Ø°Ø± Ø­ÙØ¸ Ø§Ù„Ø¹Ù…ÙŠÙ„"
-               },
-    "confirmImpact":  {
-                          "action":  "ØªØ£ÙƒÙŠØ¯ Ø§Ù„ØªØ¹Ø¯ÙŠÙ„"
-                      },
-    "blockerModal":  {
-                         "actions":  {
-                                         "delete":  "Ø­Ø°Ù Ø§Ù„Ø¹Ù…ÙŠÙ„",
-                                         "changeStatus":  "ØªØºÙŠÙŠØ± Ø§Ù„Ø­Ø§Ù„Ø© Ø¥Ù„Ù‰ \"{{status}}\"",
-                                         "edit":  "ØªØ¹Ø¯ÙŠÙ„ Ø§Ù„Ø¹Ù…ÙŠÙ„",
-                                         "default":  "ØªÙ†ÙÙŠØ° Ø¥Ø¬Ø±Ø§Ø¡ Ø¹Ù„Ù‰ Ø§Ù„Ø¹Ù…ÙŠÙ„"
-                                     },
-                         "entityWithId":  "Ø§Ù„Ø¹Ù…ÙŠÙ„ Ø±Ù‚Ù… {{id}}",
-                         "entityGeneric":  "Ø§Ù„Ø¹Ù…ÙŠÙ„"
-                     },
-    "detail":  {
-                   "entityName":  "العميل",
-                   "notFound":  "لم يتم العثور على عميل.",
-                   "deleteConfirm":  "هل أنت متأكد من حذف هذا العميل؟",
-                   "subtitle":  "عميل منذ {{date}}",
-                   "quickActions":  {
-                                        "status":  {
-                                                       "label":  "الحالة",
-                                                       "active":  "نشط",
-                                                       "inactive":  "غير نشط"
-                                                   }
-                                    },
-                   "stats":  {
-                                 "documents":  "المستندات",
-                                 "dossiers":  "الملفات"
-                             },
-                   "tabs":  {
-                                "tasksAddSubtitle":  "إنشاء مهمة جديدة لهذا العميل",
-                                "sessionsDisabled":  "أضف ملفاً أولاً قبل جدولة جلسة.",
-                                "sessionsAddSubtitle":  "إنشاء جلسة جديدة لهذا العميل",
-                                "dossiers":  "الملفات",
-                                "casesAddSubtitle":  "إنشاء دعوى جديدة لهذا العميل",
-                                "sessions":  "الجلسات",
-                                "dossiersAddSubtitle":  "إنشاء ملف جديد لهذا العميل",
-                                "cases":  "الدعاوى",
-                                "tasksEntity":  "مهمة",
-                                "tasksDisabled":  "أضف ملفاً أولاً قبل إنشاء مهمة لهذا العميل.",
-                                "casesDisabled":  "أضف ملفاً أولاً قبل إنشاء دعوى لهذا العميل.",
-                                "tasks":  "المهام",
-                                "sessionsEntity":  "جلسة",
-                                "overview":  "نظرة عامة",
-                                "financial":  "المحاسبة",
-                                "documents":  "المستندات",
-                                "history":  "السجل"
-                            },
-                   "forms":  {
-                                 "sessionLinkHelpNoCases":  "اختر ما إذا كانت هذه الجلسة مرتبطة بملف",
-                                 "sessionLinkHelpWithCases":  "اختر ما إذا كانت هذه الجلسة مرتبطة بملف أو بدعوى محددة",
-                                 "taskCaseHelp":  "اختر الدعوى المرتبطة بهذه المهمة",
-                                 "casesEmpty":  "لا توجد دعاوى متاحة. يرجى إنشاء دعوى أولاً.",
-                                 "sessionCaseHelp":  "اختر الدعوى المرتبطة بهذه الجلسة",
-                                 "taskDossierHelp":  "اختر الملف المرتبط بهذه المهمة",
-                                 "sessionDossierHelp":  "اختر الملف المرتبط بهذه الجلسة",
-                                 "dossiersEmpty":  "لا توجد ملفات متاحة. يرجى إنشاء ملف أولاً.",
-                                 "casesDossierHelp":  "اختر الملف المرتبطة به هذه الدعوى"
-                             },
-                   "overview":  {
-                                    "fields":  {
-                                                   "taxId":  "المعرف الضريبي",
-                                                   "company":  "الشركة",
-                                                   "joinDate":  "تاريخ التسجيل",
-                                                   "cin":  "الرقم الوطني",
-                                                   "address":  "العنوان",
-                                                   "profession":  "المهنة",
-                                                   "name":  "الاسم الكامل",
-                                                   "dob":  "تاريخ الميلاد",
-                                                   "alternatePhone":  "هاتف بديل",
-                                                   "phone":  "الهاتف",
-                                                   "email":  "البريد الإلكتروني"
-                                               },
-                                    "contact":  "معلومات الاتصال",
-                                    "registration":  "معلومات التسجيل",
-                                    "notesEmpty":  "لا توجد ملاحظات",
-                                    "personal":  "المعلومات الشخصية",
-                                    "notes":  "ملاحظات"
-                                },
-                   "fallback":  {
-                                    "na":  "لا يوجد"
-                                }
-               }
+{
+  "page": {
+    "title": "العملاء",
+    "subtitle": "إجمالي العملاء: {{total}}",
+    "subtitleFiltered": "إجمالي العملاء: {{total}} • المعروضة: {{displayed}}",
+    "actions": {
+      "newClient": "عميل جديد"
+    },
+    "loading": "جارٍ تحميل البيانات..."
+  },
+  "stats": {
+    "total": "إجمالي العملاء",
+    "active": "عملاء نشطون",
+    "inactive": "عملاء غير نشطين",
+    "newThisMonth": "عملاء جدد هذا الشهر",
+    "newThisMonthTrend": "منذ بداية الشهر"
+  },
+  "table": {
+    "columns": {
+      "name": "الاسم",
+      "email": "البريد الإلكتروني",
+      "phone": "الهاتف",
+      "status": "الحالة",
+      "joinDate": "تاريخ الانضمام",
+      "actions": "الإجراءات"
+    },
+    "status": {
+      "active": "نشط",
+      "inactive": "غير نشط"
+    },
+    "actions": {
+      "view": "عرض التفاصيل",
+      "edit": "تعديل",
+      "delete": "حذف"
+    },
+    "empty": "لا يوجد عملاء",
+    "emptyFiltered": "لا توجد نتائج"
+  },
+  "confirm": {
+    "delete": {
+      "title": "حذف العميل",
+      "message": "هل أنت متأكد أنك تريد حذف هذا العميل؟",
+      "confirm": "حذف",
+      "cancel": "إلغاء"
+    }
+  },
+  "form": {
+    "title": {
+      "edit": "تعديل عميل",
+      "create": "إضافة عميل"
+    },
+    "subtitle": {
+      "edit": "تحديث بيانات العميل",
+      "create": "إضافة عميل جديد إلى قاعدة بياناتك"
+    },
+    "help": {
+      "statusLocked": "لا يمكن تغيير الحالة إلا عبر المحدد في قائمة العملاء."
+    },
+    "fields": {
+      "name": {
+        "label": "????? ??????",
+        "placeholder": "????: ???? ?? ???"
+      },
+      "email": {
+        "label": "?????? ??????????",
+        "placeholder": "example@email.com"
+      },
+      "phone": {
+        "label": "??? ??????",
+        "placeholder": "+216 98 123 456"
+      },
+      "alternatePhone": {
+        "label": "???? ????",
+        "placeholder": "+216 71 234 567"
+      },
+      "cin": {
+        "label": "??? ??????",
+        "placeholder": "12345678"
+      },
+      "dateOfBirth": {
+        "label": "????? ???????"
+      },
+      "address": {
+        "label": "???????",
+        "placeholder": "??????? ??????"
+      },
+      "profession": {
+        "label": "??????",
+        "placeholder": "????: ???? ?????"
+      },
+      "company": {
+        "label": "??????",
+        "placeholder": "??? ??????"
+      },
+      "taxId": {
+        "label": "?????? ???????",
+        "placeholder": "1234567X"
+      },
+      "status": {
+        "label": "??????",
+        "options": {
+          "active": "???",
+          "inactive": "??? ???"
+        }
+      },
+      "notes": {
+        "label": "???????",
+        "placeholder": "??????? ???? ??? ??????..."
+      }
+    },
+    "errors": {
+      "emailInvalid": "???? ???????? ??? ????"
+    }
+  },
+  "toasts": {
+    "statusUpdated": "تم تحديث الحالة إلى {{status}}",
+    "clientUpdated": "تم تحديث العميل",
+    "statusError": "تعذر تحديث الحالة",
+    "deleteError": "تعذر حذف العميل",
+    "deleteSuccess": {
+      "title": "تم الحذف بنجاح",
+      "body": "تم حذف العميل"
+    },
+    "cascadeError": "خطأ أثناء الحذف المتسلسل",
+    "cascadeSuccess": {
+      "title": "حذف متسلسل",
+      "body": "تم حذف العميل وجميع الكيانات المرتبطة"
+    },
+    "updateSuccess": "تم تعديل العميل بنجاح",
+    "createMissingId": "تم إنشاء العميل لكن المعرّف غير متوفر",
+    "createSuccess": "تمت إضافة العميل بنجاح",
+    "saveError": "تعذر حفظ العميل"
+  },
+  "confirmImpact": {
+    "action": "تأكيد التعديل"
+  },
+  "blockerModal": {
+    "actions": {
+      "delete": "حذف العميل",
+      "changeStatus": "تغيير الحالة إلى \"{{status}}\"",
+      "edit": "تعديل العميل",
+      "default": "تنفيذ إجراء على العميل"
+    },
+    "entityWithId": "العميل رقم {{id}}",
+    "entityGeneric": "العميل"
+  },
+  "detail": {
+    "entityName": "العميل",
+    "notFound": "لم يتم العثور على عميل.",
+    "deleteConfirm": "هل أنت متأكد من حذف هذا العميل؟",
+    "subtitle": "عميل منذ {{date}}",
+    "quickActions": {
+      "status": {
+        "label": "الحالة",
+        "active": "نشط",
+        "inactive": "غير نشط"
+      }
+    },
+    "stats": {
+      "documents": "المستندات",
+      "dossiers": "الملفات"
+    },
+    "tabs": {
+      "tasksAddSubtitle": "إنشاء مهمة جديدة لهذا العميل",
+      "sessionsDisabled": "أضف ملفاً أولاً قبل جدولة جلسة.",
+      "sessionsAddSubtitle": "إنشاء جلسة جديدة لهذا العميل",
+      "dossiers": "الملفات",
+      "casesAddSubtitle": "إنشاء دعوى جديدة لهذا العميل",
+      "sessions": "الجلسات",
+      "dossiersAddSubtitle": "إنشاء ملف جديد لهذا العميل",
+      "cases": "الدعاوى",
+      "tasksEntity": "مهمة",
+      "tasksDisabled": "أضف ملفاً أولاً قبل إنشاء مهمة لهذا العميل.",
+      "casesDisabled": "أضف ملفاً أولاً قبل إنشاء دعوى لهذا العميل.",
+      "tasks": "المهام",
+      "sessionsEntity": "جلسة",
+      "overview": "نظرة عامة",
+      "financial": "المحاسبة",
+      "documents": "المستندات",
+      "history": "السجل"
+    },
+    "forms": {
+      "sessionLinkHelpNoCases": "اختر ما إذا كانت هذه الجلسة مرتبطة بملف",
+      "sessionLinkHelpWithCases": "اختر ما إذا كانت هذه الجلسة مرتبطة بملف أو بدعوى محددة",
+      "taskCaseHelp": "اختر الدعوى المرتبطة بهذه المهمة",
+      "casesEmpty": "لا توجد دعاوى متاحة. يرجى إنشاء دعوى أولاً.",
+      "sessionCaseHelp": "اختر الدعوى المرتبطة بهذه الجلسة",
+      "taskDossierHelp": "اختر الملف المرتبط بهذه المهمة",
+      "sessionDossierHelp": "اختر الملف المرتبط بهذه الجلسة",
+      "dossiersEmpty": "لا توجد ملفات متاحة. يرجى إنشاء ملف أولاً.",
+      "casesDossierHelp": "اختر الملف المرتبطة به هذه الدعوى"
+    },
+    "overview": {
+      "fields": {
+        "taxId": "المعرف الضريبي",
+        "company": "الشركة",
+        "joinDate": "تاريخ التسجيل",
+        "cin": "الرقم الوطني",
+        "address": "العنوان",
+        "profession": "المهنة",
+        "name": "الاسم الكامل",
+        "dob": "تاريخ الميلاد",
+        "alternatePhone": "هاتف بديل",
+        "phone": "الهاتف",
+        "email": "البريد الإلكتروني"
+      },
+      "contact": "معلومات الاتصال",
+      "registration": "معلومات التسجيل",
+      "notesEmpty": "لا توجد ملاحظات",
+      "personal": "المعلومات الشخصية",
+      "notes": "ملاحظات"
+    },
+    "fallback": {
+      "na": "لا يوجد"
+    }
+  }
 }

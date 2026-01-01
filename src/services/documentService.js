@@ -3,20 +3,25 @@
  *
  * Single source of truth for all document operations.
  * Entity-agnostic, storage-abstracted, desktop-first design.
+ *
+ * ARCHITECTURE:
+ * - File blobs: IndexedDB (via LocalStorageProvider)
+ * - Metadata: SQLite backend (via API)
+ * - Bridge: file_path (stored in both layers)
  */
 
 import {
   createDocument,
-  addDocumentLink,
-  removeDocumentLink,
-  getDocumentsForEntity,
-  softDeleteDocument,
-  restoreDocument,
   isValidFileType,
   isValidFileSize,
   getCategoryFromType,
+  formatFileSize,
+  getMimeType,
 } from "../models/Document.js";
 import { LocalStorageProvider } from "./storage/LocalStorageProvider.js";
+
+// API configuration
+const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:3000/api";
 
 /**
  * Document service class
@@ -24,14 +29,8 @@ import { LocalStorageProvider } from "./storage/LocalStorageProvider.js";
  */
 class DocumentService {
   constructor() {
-    // Default to local storage provider (can be swapped for cloud later)
+    // Default to local storage provider (file blobs only)
     this.storageProvider = new LocalStorageProvider();
-
-    // In-memory document registry (will be persisted to localStorage)
-    this.documents = [];
-
-    // Load documents from localStorage on init
-    this.loadDocuments();
   }
 
   /**
@@ -43,29 +42,33 @@ class DocumentService {
   }
 
   /**
-   * Loads documents from localStorage
+   * Creates metadata in backend
+   * @private
    */
-  loadDocuments() {
-    try {
-      const stored = localStorage.getItem("documents");
-      if (stored) {
-        this.documents = JSON.parse(stored);
-      }
-    } catch (error) {
-      console.error("DocumentService: Failed to load documents", error);
-      this.documents = [];
-    }
-  }
+  async createBackendMetadata({ title, file_path, mime_type, size_bytes, entityType, entityId, category }) {
+    const payload = {
+      title,
+      file_path,
+      mime_type,
+      size_bytes,
+      notes: category || null,
+    };
 
-  /**
-   * Persists documents to localStorage
-   */
-  saveDocuments() {
-    try {
-      localStorage.setItem("documents", JSON.stringify(this.documents));
-    } catch (error) {
-      console.error("DocumentService: Failed to save documents", error);
+    // Map entityType to backend foreign key field
+    const entityField = `${entityType}_id`;
+    payload[entityField] = parseInt(entityId, 10);
+
+    const response = await fetch(`${API_BASE}/documents`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Backend API error: ${response.status}`);
     }
+
+    return response.json();
   }
 
   /**
@@ -109,7 +112,7 @@ class DocumentService {
         return { success: false, error: validation.error };
       }
 
-      // Store file using storage provider
+      // 1. Store file blob in IndexedDB
       const extension = file.name.split(".").pop();
       const storageResult = await this.storageProvider.storeFile(file, {
         directory: entityType,
@@ -119,26 +122,21 @@ class DocumentService {
         return { success: false, error: storageResult.error };
       }
 
-      // Create document entity
-      const document = createDocument({
-        name: file.name,
-        type: extension,
-        sizeBytes: file.size,
-        storageProvider: this.storageProvider.getProviderId(),
-        storagePath: storageResult.path,
-        checksum: storageResult.checksum,
+      // 2. Store metadata in backend SQLite
+      const backendDoc = await this.createBackendMetadata({
+        title: file.name,
+        file_path: storageResult.path,
+        mime_type: file.type || getMimeType(extension),
+        size_bytes: file.size,
+        entityType,
+        entityId,
+        category,
       });
 
-      // Link to entity
-      addDocumentLink(document, entityType, entityId, category);
-
-      // Add to registry
-      this.documents.push(document);
-      this.saveDocuments();
-
+      // 3. Return frontend-compatible document structure
       return {
         success: true,
-        document,
+        document: this.transformBackendDocument(backendDoc),
       };
     } catch (error) {
       console.error("DocumentService: Upload failed", error);
@@ -184,122 +182,160 @@ class DocumentService {
    * Gets all documents for a specific entity
    * @param {string} entityType - Type of entity
    * @param {number|string} entityId - ID of entity
-   * @returns {Document[]} Documents linked to the entity
+   * @returns {Promise<Document[]>} Documents linked to the entity
    */
-  getEntityDocuments(entityType, entityId) {
-    return getDocumentsForEntity(this.documents, entityType, entityId);
+  async getEntityDocuments(entityType, entityId) {
+    try {
+      // Map entityType to backend query parameter
+      const entityField = `${entityType}_id`;
+      const response = await fetch(`${API_BASE}/documents?${entityField}=${entityId}`);
+
+      if (!response.ok) {
+        throw new Error(`Backend API error: ${response.status}`);
+      }
+
+      const backendDocs = await response.json();
+
+      // Transform backend documents to frontend format
+      return backendDocs.map((doc) => this.transformBackendDocument(doc));
+    } catch (error) {
+      console.error("DocumentService: Failed to fetch entity documents", error);
+      return [];
+    }
+  }
+
+  /**
+   * Transforms backend document to frontend format
+   * @private
+   */
+  transformBackendDocument(backendDoc) {
+    const extension = backendDoc.title.split(".").pop() || "";
+    return {
+      id: backendDoc.id.toString(),
+      name: backendDoc.title,
+      type: extension.toLowerCase(),
+      category: getCategoryFromType(extension),
+      sizeBytes: backendDoc.size_bytes || 0,
+      size: formatFileSize(backendDoc.size_bytes || 0),
+      uploadDate: backendDoc.uploaded_at || backendDoc.created_at,
+      modifiedDate: backendDoc.updated_at,
+      storagePath: backendDoc.file_path,
+      mimeType: backendDoc.mime_type,
+      // Note: backend doesn't store these, but UI may expect them
+      metadata: {
+        isDeleted: !!backendDoc.deleted_at,
+        deletedDate: backendDoc.deleted_at,
+      },
+    };
   }
 
   /**
    * Gets a document by ID
    * @param {string} documentId - Document ID
-   * @returns {Document|null}
+   * @returns {Promise<Document|null>}
    */
-  getDocumentById(documentId) {
-    return this.documents.find((doc) => doc.id === documentId) || null;
+  async getDocumentById(documentId) {
+    try {
+      const response = await fetch(`${API_BASE}/documents/${documentId}`);
+
+      if (response.status === 404) {
+        return null;
+      }
+
+      if (!response.ok) {
+        throw new Error(`Backend API error: ${response.status}`);
+      }
+
+      const backendDoc = await response.json();
+      return this.transformBackendDocument(backendDoc);
+    } catch (error) {
+      console.error("DocumentService: Failed to fetch document by ID", error);
+      return null;
+    }
   }
 
   /**
    * Links an existing document to an entity
+   * Creates a new backend row with same file_path (many-to-many via duplication)
    * @param {string} documentId - Document ID
    * @param {string} entityType - Type of entity
    * @param {number|string} entityId - ID of entity
    * @param {string} category - User-defined category
-   * @returns {boolean} Success status
+   * @returns {Promise<boolean>} Success status
    */
-  linkDocumentToEntity(documentId, entityType, entityId, category = "") {
-    const document = this.getDocumentById(documentId);
-    if (!document) return false;
+  async linkDocumentToEntity(documentId, entityType, entityId, category = "") {
+    try {
+      const document = await this.getDocumentById(documentId);
+      if (!document) return false;
 
-    addDocumentLink(document, entityType, entityId, category);
-    this.saveDocuments();
-    return true;
+      // Create duplicate backend row with same file_path
+      await this.createBackendMetadata({
+        title: document.name,
+        file_path: document.storagePath,
+        mime_type: document.mimeType,
+        size_bytes: document.sizeBytes,
+        entityType,
+        entityId,
+        category,
+      });
+
+      return true;
+    } catch (error) {
+      console.error("DocumentService: Link failed", error);
+      return false;
+    }
   }
 
   /**
-   * Unlinks a document from an entity (removes link only)
+   * Unlinks a document from an entity (soft-deletes the specific link row)
+   * Note: This is handled by deleteDocument() which soft-deletes the backend row
    * @param {string} documentId - Document ID
    * @param {string} entityType - Type of entity
    * @param {number|string} entityId - ID of entity
-   * @returns {boolean} Success status
+   * @returns {Promise<boolean>} Success status
    */
-  unlinkDocumentFromEntity(documentId, entityType, entityId) {
-    const document = this.getDocumentById(documentId);
-    if (!document) return false;
-
-    removeDocumentLink(document, entityType, entityId);
-    this.saveDocuments();
-    return true;
+  async unlinkDocumentFromEntity(documentId, entityType, entityId) {
+    // Same as deleteDocument with deleteFile=false
+    return this.deleteDocument(documentId, entityType, entityId, false);
   }
 
   /**
    * Deletes a document (user choice: link only or file too)
    * @param {string} documentId - Document ID
-   * @param {string} entityType - Type of entity (for link removal)
-   * @param {number|string} entityId - ID of entity (for link removal)
+   * @param {string} entityType - Type of entity (not used with backend)
+   * @param {number|string} entityId - ID of entity (not used with backend)
    * @param {boolean} deleteFile - Whether to delete the file itself
    * @returns {Promise<boolean>} Success status
    */
   async deleteDocument(documentId, entityType, entityId, deleteFile = false) {
     try {
-      const document = this.getDocumentById(documentId);
+      // Get document metadata to retrieve file_path
+      const document = await this.getDocumentById(documentId);
       if (!document) return false;
 
-      // Store original state for rollback
-      const originalLinks = [...document.links];
-      const originalDeleted = document.deleted;
+      // 1. Soft-delete metadata in backend (always happens)
+      const response = await fetch(`${API_BASE}/documents/${documentId}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+      });
 
-      // Remove link first
-      removeDocumentLink(document, entityType, entityId);
-      console.log(
-        `DocumentService: Link removed. Remaining links: ${document.links.length}`
-      );
-
-      // Determine if we should delete the file
-      const shouldDeleteFile = deleteFile || document.links.length === 0;
-
-      if (shouldDeleteFile) {
-        console.log(
-          `DocumentService: Will delete file (deleteFile=${deleteFile}, noMoreLinks=${
-            document.links.length === 0
-          })`
-        );
-
-        try {
-          // Delete from storage FIRST (atomic operation)
-          console.log(
-            `DocumentService: Deleting file from storage: ${document.storagePath}`
-          );
-          await this.storageProvider.deleteFile(document.storagePath);
-          console.log(
-            `DocumentService: File deleted from storage successfully: ${document.storagePath}`
-          );
-
-          // Only soft delete metadata after storage deletion succeeds
-          softDeleteDocument(document);
-          console.log(
-            `DocumentService: Document metadata marked as deleted: ${documentId}`
-          );
-        } catch (storageError) {
-          // Rollback: restore links and deleted state
-          document.links = originalLinks;
-          document.deleted = originalDeleted;
-          console.error(
-            "DocumentService: Storage deletion failed, rolling back metadata changes",
-            storageError
-          );
-          throw storageError;
-        }
-      } else {
-        console.log(
-          `DocumentService: File kept in storage (link removed only)`
-        );
+      if (!response.ok) {
+        throw new Error(`Backend API error: ${response.status}`);
       }
 
-      this.saveDocuments();
-      console.log(
-        `DocumentService: Documents saved to localStorage after deletion`
-      );
+      // 2. Optionally delete file blob from IndexedDB
+      if (deleteFile && document.storagePath) {
+        try {
+          console.log(`DocumentService: Deleting file from IndexedDB: ${document.storagePath}`);
+          await this.storageProvider.deleteFile(document.storagePath);
+          console.log(`DocumentService: File deleted successfully: ${document.storagePath}`);
+        } catch (storageError) {
+          console.error("DocumentService: Storage deletion failed", storageError);
+          // Don't fail the whole operation if file blob deletion fails
+          // Metadata is already soft-deleted in backend
+        }
+      }
+
       return true;
     } catch (error) {
       console.error("DocumentService: Delete failed", error);
@@ -314,7 +350,7 @@ class DocumentService {
    */
   async openDocument(documentId) {
     try {
-      const document = this.getDocumentById(documentId);
+      const document = await this.getDocumentById(documentId);
       if (!document || document.metadata.isDeleted) {
         throw new Error("Document not found");
       }
@@ -342,7 +378,7 @@ class DocumentService {
    */
   async revealDocument(documentId) {
     try {
-      const document = this.getDocumentById(documentId);
+      const document = await this.getDocumentById(documentId);
       if (!document || document.metadata.isDeleted) {
         throw new Error("Document not found");
       }
@@ -362,7 +398,7 @@ class DocumentService {
    */
   async downloadDocument(documentId) {
     try {
-      const document = this.getDocumentById(documentId);
+      const document = await this.getDocumentById(documentId);
       if (!document || document.metadata.isDeleted) {
         throw new Error("Document not found");
       }
@@ -382,7 +418,7 @@ class DocumentService {
    */
   async getPreviewUrl(documentId) {
     try {
-      const document = this.getDocumentById(documentId);
+      const document = await this.getDocumentById(documentId);
       if (!document || document.metadata.isDeleted) return null;
 
       return await this.storageProvider.getPreviewUrl(document.storagePath);
@@ -399,7 +435,7 @@ class DocumentService {
    */
   async documentFileExists(documentId) {
     try {
-      const document = this.getDocumentById(documentId);
+      const document = await this.getDocumentById(documentId);
       if (!document) return false;
 
       return await this.storageProvider.fileExists(document.storagePath);
@@ -417,7 +453,7 @@ class DocumentService {
    */
   async relinkDocument(documentId, newFile) {
     try {
-      const document = this.getDocumentById(documentId);
+      const document = await this.getDocumentById(documentId);
       if (!document) return false;
 
       // Delete old file if it exists
@@ -431,13 +467,21 @@ class DocumentService {
 
       if (!storageResult.success) return false;
 
-      // Update document metadata
-      document.storagePath = storageResult.path;
-      document.checksum = storageResult.checksum;
-      document.modifiedDate = new Date().toISOString();
-      document.metadata.isDeleted = false;
+      // Update document metadata in backend
+      const response = await fetch(`${API_BASE}/documents/${documentId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          file_path: storageResult.path,
+          mime_type: newFile.type || getMimeType(extension),
+          size_bytes: newFile.size,
+        }),
+      });
 
-      this.saveDocuments();
+      if (!response.ok) {
+        throw new Error(`Backend API error: ${response.status}`);
+      }
+
       return true;
     } catch (error) {
       console.error("DocumentService: Relink failed", error);
@@ -451,18 +495,6 @@ class DocumentService {
    */
   async getStorageStats() {
     return await this.storageProvider.getStorageStats();
-  }
-
-  /**
-   * Migrates legacy document data to new system
-   * @param {Object} legacyDocuments - Legacy documents from mockData
-   * @param {string} entityType - Type of entity
-   * @param {number|string} entityId - ID of entity
-   */
-  migrateLegacyDocuments(legacyDocuments, entityType, entityId) {
-    // This method helps migrate old document structures
-    // to the new centralized system without breaking existing data
-    console.warn("DocumentService: Legacy migration not yet implemented");
   }
 }
 

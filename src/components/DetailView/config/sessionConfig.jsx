@@ -6,17 +6,18 @@ import { formatDateValue } from "../../../utils/dateFormat";
  * Session Entity Configuration - UPDATED with Quick Actions
  * ✅ Added inline quick actions for status and type
  * ✅ Added structured edit mode for overview sections
+ * ✅ Fully internationalized with i18n support
  */
-export const sessionConfig = {
+export const createSessionConfig = (t) => ({
   // Basic info
   entityType: "session",
-  entityName: "Hearing",
+  entityName: t('detail.entityName'),
   icon: "fas fa-calendar",
   listRoute: "/sessions",
 
   // Messages
-  notFoundMessage: "Hearing not found",
-  deleteConfirmMessage: "Are you sure you want to delete this hearing?",
+  notFoundMessage: t('detail.notFound'),
+  deleteConfirmMessage: t('detail.deleteConfirm'),
 
   // Permissions
   allowDelete: true,
@@ -122,35 +123,35 @@ export const sessionConfig = {
 
   // Header display
   getTitle: (data) => data.title,
-  getSubtitle: (data) => `${data.type} - ${formatDateValue(data.date)} at ${data.time}`,
+  getSubtitle: (data) => t('detail.subtitle', { type: data.type, date: formatDateValue(data.date), time: data.time }),
 
   // ✅ NEW: Quick Actions Configuration
   quickActions: [
     {
       key: "status",
-      label: "Status",
+      label: t('detail.quickActions.status.label'),
       icon: "fas fa-info-circle",
       colorMap: true,
       options: [
-        { value: "Scheduled", label: "Scheduled", color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" },
-        { value: "Confirmed", label: "Confirmed", color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" },
-        { value: "Pending", label: "Pending", color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
-        { value: "Completed", label: "Completed", color: "bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300" },
-        { value: "Cancelled", label: "Cancelled", color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" },
+        { value: "Scheduled", label: t('detail.quickActions.status.scheduled'), color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" },
+        { value: "Confirmed", label: t('detail.quickActions.status.confirmed'), color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" },
+        { value: "Pending", label: t('detail.quickActions.status.pending'), color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
+        { value: "Completed", label: t('detail.quickActions.status.completed'), color: "bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300" },
+        { value: "Cancelled", label: t('detail.quickActions.status.cancelled'), color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" },
       ]
     },
     {
       key: "type",
-      label: "Type",
+      label: t('detail.quickActions.type.label'),
       icon: "fas fa-tag",
       colorMap: true,
       options: [
-        { value: "Consultation", label: "Consultation", color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" },
-        { value: "Hearing", label: "Hearing", color: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400" },
-        { value: "Expertise", label: "Expertise", color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" },
-        { value: "Mediation", label: "Mediation", color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
-        { value: "Telephone", label: "Telephone", color: "bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300" },
-        { value: "Other", label: "Other", color: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300" },
+        { value: "Consultation", label: t('detail.quickActions.type.consultation'), color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" },
+        { value: "Hearing", label: t('detail.quickActions.type.hearing'), color: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400" },
+        { value: "Expertise", label: t('detail.quickActions.type.expertise'), color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" },
+        { value: "Mediation", label: t('detail.quickActions.type.mediation'), color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
+        { value: "Telephone", label: t('detail.quickActions.type.telephone'), color: "bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300" },
+        { value: "Other", label: t('detail.quickActions.type.other'), color: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300" },
       ]
     }
   ],
@@ -197,12 +198,12 @@ export const sessionConfig = {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <InfoCard icon="fas fa-calendar" label="Date" value={formatDateValue(data.date)} color="blue" />
-            <InfoCard icon="fas fa-clock" label="Time" value={data.time} color="purple" />
-            <InfoCard icon="fas fa-hourglass-half" label="Duration" value={data.duration} color="green" />
-            <InfoCard icon="fas fa-map-marker-alt" label="Location" value={data.location} color="amber" />
-            <InfoCard icon="fas fa-door-open" label="Court Room" value={data.courtRoom} color="blue" />
-            <InfoCard icon="fas fa-balance-scale" label="Judge" value={data.judge} color="purple" />
+            <InfoCard icon="fas fa-calendar" label={t('detail.header.date')} value={formatDateValue(data.date)} color="blue" />
+            <InfoCard icon="fas fa-clock" label={t('detail.header.time')} value={data.time} color="purple" />
+            <InfoCard icon="fas fa-hourglass-half" label={t('detail.header.duration')} value={data.duration} color="green" />
+            <InfoCard icon="fas fa-map-marker-alt" label={t('detail.header.location')} value={data.location} color="amber" />
+            <InfoCard icon="fas fa-door-open" label={t('detail.header.courtRoom')} value={data.courtRoom} color="blue" />
+            <InfoCard icon="fas fa-balance-scale" label={t('detail.header.judge')} value={data.judge} color="purple" />
           </div>
         </div>
       </ContentSection>
@@ -216,21 +217,21 @@ export const sessionConfig = {
       iconColor: "text-blue-600 dark:text-blue-400",
       bgColor: "bg-blue-100 dark:bg-blue-900/20",
       value: formatDateValue(data.date),
-      label: "Date"
+      label: t('detail.header.date')
     },
     {
       icon: "fas fa-clock",
       iconColor: "text-purple-600 dark:text-purple-400",
       bgColor: "bg-purple-100 dark:bg-purple-900/20",
       value: data.time,
-      label: "Time"
+      label: t('detail.header.time')
     },
     {
       icon: "fas fa-users",
       iconColor: "text-green-600 dark:text-green-400",
       bgColor: "bg-green-100 dark:bg-green-900/20",
       value: data.participants?.length || 0,
-      label: "Participants"
+      label: t('detail.header.participants')
     },
   ],
 
@@ -238,19 +239,19 @@ export const sessionConfig = {
   tabs: [
     {
       id: "overview",
-      label: "Overview",
+      label: t('detail.tabs.overview'),
       icon: "fas fa-eye",
       component: "overview",
     },
     {
       id: "participants",
-      label: "Participants",
+      label: t('detail.tabs.participants'),
       icon: "fas fa-users",
       component: "relatedItems",
       getCount: (data) => data.participants?.length || 0,
 
       itemsKey: "participants",
-      emptyMessage: "No participants",
+      emptyMessage: t('detail.participants.empty'),
       allowEdit: true,
       renderItem: (item) => {
         const roleColors = {
@@ -278,7 +279,7 @@ export const sessionConfig = {
         ].filter(Boolean).join(" • ");
 
         return {
-          title: `${emoji} ${item.name || "Unnamed participant"}`,
+          title: `${emoji} ${item.name || t('detail.participants.unnamed')}`,
           subtitle: detailChips,
           icon: roleStyle.icon,
           bgColor: roleStyle.bgColor,
@@ -288,56 +289,56 @@ export const sessionConfig = {
 
       allowAdd: true,
       allowDelete: true,
-      entityName: "a participant",
+      entityName: t('detail.participants.entityName'),
       formFields: [
         {
           name: "name",
-          label: "Name",
+          label: t('detail.participants.form.name'),
           type: "text",
           required: true,
-          placeholder: "Full name",
-          helpText: "Who will attend this hearing?"
+          placeholder: t('detail.participants.form.namePlaceholder'),
+          helpText: t('detail.participants.form.nameHelp')
         },
         {
           name: "role",
-          label: "Role",
+          label: t('detail.participants.form.role'),
           type: "searchable-select",
           placement: "bottom",
           required: true,
-          placeholder: "Choose a role",
+          placeholder: t('detail.participants.form.rolePlaceholder'),
           options: [
-            { value: "Lawyer", label: "⚖️ Lawyer" },
-            { value: "Client", label: "🧑‍💼 Client" },
-            { value: "Judge", label: "👩‍⚖️ Judge" },
-            { value: "Witness", label: "👀 Witness" },
-            { value: "Expert", label: "🔬 Expert" },
+            { value: "Lawyer", label: `⚖️ ${t('detail.participants.roles.lawyer')}` },
+            { value: "Client", label: `🧑‍💼 ${t('detail.participants.roles.client')}` },
+            { value: "Judge", label: `👩‍⚖️ ${t('detail.participants.roles.judge')}` },
+            { value: "Witness", label: `👀 ${t('detail.participants.roles.witness')}` },
+            { value: "Expert", label: `🔬 ${t('detail.participants.roles.expert')}` },
           ]
         },
         {
           name: "email",
-          label: "Email",
+          label: t('detail.participants.form.email'),
           type: "email",
-          placeholder: "name@email.com"
+          placeholder: t('detail.participants.form.emailPlaceholder')
         },
         {
           name: "phone",
-          label: "Phone",
+          label: t('detail.participants.form.phone'),
           type: "tel",
-          placeholder: "+216 12 345 678",
-          helpText: "Optional contact number for day-of coordination"
+          placeholder: t('detail.participants.form.phonePlaceholder'),
+          helpText: t('detail.participants.form.phoneHelp')
         },
       ],
     },
     {
       id: "documents",
-      label: "Documents",
+      label: t('detail.tabs.documents'),
       icon: "fas fa-file",
       component: "documents",
       getCount: (data) => data.documents?.length || 0,
     },
     {
       id: "Report",
-      label: "Report",
+      label: t('detail.tabs.report'),
       icon: "fas fa-sticky-note",
       component: "notes",
       fieldKey: "notes", // ✅ Explicitly set field key for clarity
@@ -349,7 +350,7 @@ export const sessionConfig = {
     },
     {
       id: "timeline",
-      label: "History",
+      label: t('detail.tabs.history'),
       icon: "fas fa-history",
       component: "history",
     },
@@ -358,12 +359,12 @@ export const sessionConfig = {
   // ✅ UPDATED: Overview sections with editStrategy
   overviewSections: [
     {
-      title: "General Information",
+      title: t('detail.overview.general'),
       editStrategy: "structured",
       fields: [
         {
           key: "title",
-          label: "Session Title",
+          label: t('detail.overview.fields.title'),
           value: (data, contextData) => data.title,
           icon: "fas fa-file-alt",
           type: "text",
@@ -371,47 +372,47 @@ export const sessionConfig = {
         },
         {
           key: "linkType",
-          label: "Linked To",
+          label: t('detail.overview.fields.linkType'),
           value: (data, contextData) => data.linkType || (data.dossierId || data.dossier ? "dossier" : "case"),
           displayValue: (data, contextData) => {
             const linkTypeOptions = {
-              "case": "Lawsuit",
-              "dossier": "Dossier"
+              "case": t('detail.overview.fields.linkTypeOptions.case'),
+              "dossier": t('detail.overview.fields.linkTypeOptions.dossier')
             };
             const rawValue = data.linkType || (data.dossierId || data.dossier ? "dossier" : "case");
-            return linkTypeOptions[rawValue] || "Lawsuit";
+            return linkTypeOptions[rawValue] || t('detail.overview.fields.linkTypeOptions.case');
           },
           icon: "fas fa-link",
           type: "select",
           editable: true,
           required: true,
           options: [
-            { value: "case", label: "Lawsuit" },
-            { value: "dossier", label: "Dossier" },
+            { value: "case", label: t('detail.overview.fields.linkTypeOptions.case') },
+            { value: "dossier", label: t('detail.overview.fields.linkTypeOptions.dossier') },
           ],
-          helpText: "A session can be linked to a lawsuit or directly to a dossier"
+          helpText: t('detail.overview.fields.linkTypeHelp')
         },
         {
           key: "caseId",
-          label: "Lawsuit",
+          label: t('detail.overview.fields.case'),
           value: (data, contextData) => data.caseId || "",
-          displayValue: (data) => data.case ? `${data.case.caseNumber} - ${data.case.title}` : "None",
+          displayValue: (data) => data.case ? `${data.case.caseNumber} - ${data.case.title}` : t('detail.fallback.none'),
           icon: "fas fa-gavel",
           type: "searchable-select",
           editable: true,
           options: [],
           getOptions: (editedData, contextData) => ([
-            { value: "", label: "Select a lawsuit..." },
+            { value: "", label: t('detail.overview.fields.casePlaceholder') },
             ...(contextData?.cases || []).map(c => ({
               value: c.id,
               label: `${c.caseNumber} - ${c.title}`
             }))
           ]),
-          helpText: "Select the relevant lawsuit"
+          helpText: t('detail.overview.fields.caseHelp')
         },
         {
           key: "dossierId",
-          label: "Dossier",
+          label: t('detail.overview.fields.dossier'),
           value: (data, contextData) => {
             // If linked to a case, get the parent dossier
             if (data.caseId) {
@@ -444,44 +445,44 @@ export const sessionConfig = {
                 return `${dossier.caseNumber} - ${dossier.title}`;
               }
             }
-            return "None";
+            return t('detail.fallback.none');
           },
           icon: "fas fa-folder",
           type: "searchable-select",
           editable: true,
           options: [],
           getOptions: (editedData, contextData) => ([
-            { value: "", label: "Select a dossier..." },
+            { value: "", label: t('detail.overview.fields.dossierPlaceholder') },
             ...(contextData?.dossiers || []).map(d => ({
               value: d.id,
               label: `${d.caseNumber} - ${d.title}`
             }))
           ]),
-          helpText: "Select the relevant dossier"
+          helpText: t('detail.overview.fields.dossierHelp')
         },
       ],
     },
     {
-      title: "Session Details",
+      title: t('detail.overview.details'),
       editStrategy: "structured",
       fields: [
         {
           key: "date",
-          label: "Date",
+          label: t('detail.overview.fields.date'),
           value: (data, contextData) => data.date,
-          displayValue: (data) => data.date ? formatDateValue(data.date) : "N/A",
+          displayValue: (data) => data.date ? formatDateValue(data.date) : t('detail.fallback.na'),
           icon: "fas fa-calendar",
           type: "date",
           editable: true
         },
         {
           key: "time",
-          label: "Time",
+          label: t('detail.overview.fields.time'),
           value: (data, contextData) => data.time,
           icon: "fas fa-clock",
           type: "select",
           editable: true,
-          helpText: "Select the start time of the session",
+          helpText: t('detail.overview.fields.timeHelp'),
           options: [
             { value: "08:00", label: "08:00" },
             { value: "08:30", label: "08:30" },
@@ -508,27 +509,27 @@ export const sessionConfig = {
         },
         {
           key: "duration",
-          label: "Estimated Duration",
+          label: t('detail.overview.fields.duration'),
           value: (data, contextData) => data.duration,
           icon: "fas fa-hourglass-half",
           type: "select",
           editable: true,
           options: [
-            { value: "00:15", label: "15 minutes" },
-            { value: "00:30", label: "30 minutes" },
-            { value: "00:45", label: "45 minutes" },
-            { value: "01:00", label: "1 hour" },
-            { value: "01:30", label: "1h30" },
-            { value: "02:00", label: "2 hours" },
-            { value: "02:30", label: "2h30" },
-            { value: "03:00", label: "3 hours" },
-            { value: "04:00", label: "4 hours" },
+            { value: "00:15", label: t('detail.overview.fields.durationOptions.00_15') },
+            { value: "00:30", label: t('detail.overview.fields.durationOptions.00_30') },
+            { value: "00:45", label: t('detail.overview.fields.durationOptions.00_45') },
+            { value: "01:00", label: t('detail.overview.fields.durationOptions.01_00') },
+            { value: "01:30", label: t('detail.overview.fields.durationOptions.01_30') },
+            { value: "02:00", label: t('detail.overview.fields.durationOptions.02_00') },
+            { value: "02:30", label: t('detail.overview.fields.durationOptions.02_30') },
+            { value: "03:00", label: t('detail.overview.fields.durationOptions.03_00') },
+            { value: "04:00", label: t('detail.overview.fields.durationOptions.04_00') },
           ],
-          helpText: "Estimated duration of the session"
+          helpText: t('detail.overview.fields.durationHelp')
         },
         {
           key: "location",
-          label: "Location",
+          label: t('detail.overview.fields.location'),
           value: (data, contextData) => data.location,
           icon: "fas fa-map-marker-alt",
           type: "text",
@@ -536,34 +537,34 @@ export const sessionConfig = {
         },
         {
           key: "courtRoom",
-          label: "Court Room",
+          label: t('detail.overview.fields.courtRoom'),
           value: (data, contextData) => data.courtRoom,
           icon: "fas fa-door-open",
           type: "text",
           editable: true,
-          helpText: "Specific courtroom for this hearing"
+          helpText: t('detail.overview.fields.courtRoomHelp')
         },
         {
           key: "judge",
-          label: "Judge",
+          label: t('detail.overview.fields.judge'),
           value: (data, contextData) => data.judge,
           icon: "fas fa-balance-scale",
           type: "text",
           editable: true,
-          helpText: "Judge presiding over this hearing"
+          helpText: t('detail.overview.fields.judgeHelp')
         },
       ],
     },
     {
-      title: "Description",
+      title: t('detail.overview.description'),
       editStrategy: "structured",
       type: "description",
       fieldKey: "description",
-      content: (data) => data.description || "No description",
+      content: (data) => data.description || t('detail.fallback.noDescription'),
     },
 
   ],
-};
+});
 
 // Helper component
 function InfoCard({ icon, label, value, color }) {
@@ -586,4 +587,3 @@ function InfoCard({ icon, label, value, color }) {
     </div >
   );
 }
-

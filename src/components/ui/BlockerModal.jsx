@@ -4,6 +4,7 @@ import { enrichBlockers, getEntityRoute } from '../../services/blockerEnrichment
 import { canPerformAction } from '../../services/domainRules';
 import { useToast } from '../../contexts/ToastContext';
 import { useData } from '../../contexts/DataContext';
+import { useTranslation } from "react-i18next";
 
 /**
  * BlockerModal Component - ENHANCED with Interactive Actions
@@ -53,6 +54,7 @@ export default function BlockerModal({
   const [enrichedBlockers, setEnrichedBlockers] = useState([]);
   const [resolvedBlockers, setResolvedBlockers] = useState(new Set());
   const [isResolving, setIsResolving] = useState(false);
+  const { t } = useTranslation("common");
 
   // Enrich blockers when they change
   useEffect(() => {
@@ -137,19 +139,19 @@ export default function BlockerModal({
             try {
               await updateTask(targetEntityId, { status: 'Done' });
               success = true;
-              message = 'Task marked as completed';
+              message = t("detail.blocker.toast.success.taskComplete");
             } catch (error) {
               console.error('Error updating task:', error);
-              showToast('Unable to mark this task as completed', 'error');
+              showToast(t("detail.blocker.toast.error.taskComplete"), 'error');
             }
           } else if (targetEntityType === 'session') {
             try {
               await updateSession(targetEntityId, { status: 'Completed' });
               success = true;
-              message = 'Hearing marked as completed';
+              message = t("detail.blocker.toast.success.hearingComplete");
             } catch (error) {
               console.error('Error updating session:', error);
-              showToast('Unable to mark this hearing as completed', 'error');
+              showToast(t("detail.blocker.toast.error.hearingComplete"), 'error');
             }
           }
           break;
@@ -159,10 +161,10 @@ export default function BlockerModal({
           try {
             await updateFinancialEntry(targetEntityId, { status: 'paid' });
             success = true;
-            message = 'Entry marked as paid';
+            message = t("detail.blocker.toast.success.entryPaid");
           } catch (error) {
             console.error('Error updating financial entry:', error);
-            showToast('Unable to mark this entry as paid', 'error');
+            showToast(t("detail.blocker.toast.error.entryPaid"), 'error');
           }
           break;
 
@@ -172,25 +174,25 @@ export default function BlockerModal({
             try {
               await updateCase(targetEntityId, { status: 'Closed' });
               success = true;
-              message = 'Lawsuit closed';
+              message = t("detail.blocker.toast.success.caseClosed");
             } catch (error) {
               console.error('Error closing case:', error);
-              showToast('Unable to close this lawsuit', 'error');
+              showToast(t("detail.blocker.toast.error.caseClosed"), 'error');
             }
           } else if (targetEntityType === 'dossier') {
             try {
               await updateDossier(targetEntityId, { status: 'Closed' });
               success = true;
-              message = 'Dossier closed';
+              message = t("detail.blocker.toast.success.dossierClosed");
             } catch (error) {
               console.error('Error closing dossier:', error);
-              showToast('Unable to close this dossier', 'error');
+              showToast(t("detail.blocker.toast.error.dossierClosed"), 'error');
             }
           }
           break;
 
         default:
-          showToast('Action not supported', 'error');
+          showToast(t("detail.blocker.toast.error.unsupported"), 'error');
       }
 
       if (success) {
@@ -228,7 +230,7 @@ export default function BlockerModal({
       }
     } catch (error) {
       console.error('Error performing inline action:', error);
-      showToast('An error occurred', 'error');
+      showToast(t("detail.blocker.toast.error.generic"), 'error');
     } finally {
       setIsResolving(false);
     }
@@ -242,7 +244,7 @@ export default function BlockerModal({
 
     if (activeBlockers.length === 0 && onRetry) {
       // All blockers resolved - offer to retry
-      showToast('success', 'All blockers have been resolved!');
+      showToast(t("detail.blocker.toast.success.resolved"), 'success');
       // Could auto-retry here or show retry button
     }
   };
@@ -303,7 +305,7 @@ export default function BlockerModal({
             <button
               onClick={onClose}
               className={`transition-colors flex-shrink-0 ${allResolved ? 'text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-200' : 'text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-200'}`}
-              aria-label="Close"
+              aria-label={t("aria.dialog.close", { ns: "common" })}
             >
               <i className="fas fa-times text-xl"></i>
             </button>

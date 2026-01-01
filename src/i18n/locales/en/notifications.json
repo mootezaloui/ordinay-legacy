@@ -1,0 +1,127 @@
+{
+  "dropdown": {
+    "aria": "Notifications",
+    "title": "Notifications",
+    "unreadCount_one": "{{count}} unread",
+    "unreadCount_other": "{{count}} unread",
+    "time": {
+      "justNow": "Just now",
+      "minutesAgo_one": "{{count}} min ago",
+      "minutesAgo_other": "{{count}} mins ago",
+      "hoursAgo_one": "{{count}} hour ago",
+      "hoursAgo_other": "{{count}} hours ago",
+      "daysAgo_one": "{{count}} day ago",
+      "daysAgo_other": "{{count}} days ago"
+    },
+    "empty": {
+      "title": "No notifications",
+      "subtitle": "You're all caught up!"
+    },
+    "actions": {
+      "markAll": "Mark all as read",
+      "viewAll": "View all",
+      "clear": "Clear all",
+      "deleteOne": "Delete notification",
+      "clearAll": {
+        "title": "Delete notifications",
+        "message": "Are you sure you want to delete all notifications?",
+        "confirm": "Delete all",
+        "cancel": "Cancel"
+      }
+    }
+  },
+  "center": {
+    "title": "Notification Center",
+    "subtitle": "{{total}} notifications / {{unread}} unread",
+    "actions": {
+      "markAll": "Mark all as read",
+      "viewDetails": "View details",
+      "delete": "Delete",
+      "clearAll": {
+        "title": "Delete all notifications",
+        "message": "This action will permanently delete all notifications.",
+        "confirm": "Delete",
+        "cancel": "Cancel",
+        "label": "Clear all"
+      }
+    },
+    "filters": {
+      "status": {
+        "label": "Status:",
+        "options": {
+          "all": "All",
+          "unread": "Unread",
+          "read": "Read"
+        }
+      },
+      "type": {
+        "label": "Type:",
+        "options": {
+          "all": "All"
+        }
+      }
+    },
+    "types": {
+      "app": "Application",
+      "client": "Client",
+      "dossier": "Dossier",
+      "case": "Case",
+      "task": "Task",
+      "personalTask": "Personal task",
+      "session": "Session",
+      "hearing": "Hearing",
+      "payment": "Payment",
+      "document": "Document",
+      "deadline": "Deadline",
+      "mission": "Mission",
+      "financialEntry": "Accounting",
+      "officer": "Bailiff",
+      "success": "Success",
+      "info": "Info",
+      "warning": "Warning",
+      "error": "Error"
+    },
+    "empty": "No notifications to display",
+    "priority": {
+      "urgent": "Urgent",
+      "high": "High",
+      "success": "Success",
+      "info": "Info"
+    },
+    "time": {
+      "dateAndTime": "{{date}} at {{time}}"
+    }
+  },
+  "templates": {
+    "titles": {
+      "clientAdded": "New Client Added",
+      "dossierCreated": "New Dossier Created",
+      "taskDue": "Urgent Task Due",
+      "hearingScheduled": "Upcoming Hearing",
+      "paymentReceived": "Payment Received",
+      "documentUploaded": "Document Uploaded",
+      "sessionScheduled": "Hearing Scheduled",
+      "deadlineApproaching": "Deadline Approaching"
+    },
+    "clientAdded": "Client \"{{clientName}}\" has been successfully added.",
+    "dossierCreated": "Dossier {{dossierNumber}} has been created for {{clientName}}.",
+    "taskDue": "\"{{taskTitle}}\" is due on {{dueDate}}.",
+    "hearingScheduled": "The hearing for {{caseNumber}} is scheduled on {{hearingDate}}.",
+    "paymentReceived": "{{clientName}} has made a payment of {{amount}}.",
+    "documentUploaded": "\"{{documentName}}\" has been uploaded to dossier {{dossierNumber}}.",
+    "sessionScheduled": "\"{{sessionTitle}}\" is scheduled for {{date}}.",
+    "deadlineApproaching_one": "The deadline for {{dossierNumber}} is in {{count}} day.",
+    "deadlineApproaching_other": "The deadline for {{dossierNumber}} is in {{count}} days."
+  },
+  "severity": {
+    "success": "Success",
+    "info": "Info",
+    "warning": "Warning",
+    "error": "Error"
+  },
+  "routes": {
+    "labels": {
+      "notifications": "Notification Center"
+    }
+  }
+}

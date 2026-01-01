@@ -1,12 +1,12 @@
 import { createClientConfig } from "./clientConfig.jsx";
 import { createDossierConfig } from "./dossierConfig.jsx";
 import { createTaskConfig } from "./taskConfig.jsx";
-import { sessionConfig } from "./sessionConfig.jsx";
-import { caseConfig } from "./caseConfig.jsx";
+import { createSessionConfig } from "./sessionConfig.jsx";
+import { createCaseConfig } from "./caseConfig.jsx";
 import { createOfficerConfig } from "./officerConfig.jsx";
-import { personalTaskConfig } from "./personalTaskConfig.jsx";
-import { financialEntryConfig } from "./financialEntryConfig.jsx";
-import { missionConfig } from "./missionConfig.jsx";
+import { createPersonalTaskConfig } from "./personalTaskConfig.jsx";
+import { createFinancialEntryConfig } from "./financialEntryConfig.jsx";
+import { createMissionConfig } from "./missionConfig.jsx";
 import { useTranslation } from "react-i18next";
 
 /**
@@ -18,12 +18,12 @@ const entityConfigFactories = {
   client: createClientConfig,
   dossier: createDossierConfig,
   task: createTaskConfig,
-  session: sessionConfig,
-  case: caseConfig,
+  session: createSessionConfig,
+  case: createCaseConfig,
   officer: createOfficerConfig,
-  personalTask: personalTaskConfig,
-  financialEntry: financialEntryConfig,
-  mission: missionConfig,
+  personalTask: createPersonalTaskConfig,
+  financialEntry: createFinancialEntryConfig,
+  mission: createMissionConfig,
 };
 
 /**

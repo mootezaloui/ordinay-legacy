@@ -45,12 +45,17 @@ export default function DetailView({ entityType }) {
       'client': 'clients',
       'dossier': 'dossiers',
       'task': 'tasks',
+      'case': 'cases',
       'officer': 'officers',
+      'personalTask': 'personalTasks',
+      'session': 'sessions',
+      'financialEntry': 'accounting',
+      'mission': 'missions',
     };
     return namespaceMap[type] || type;
   };
 
-  const { t } = useTranslation(getTranslationNamespace(entityType));
+  const { t } = useTranslation([getTranslationNamespace(entityType), "common"]);
   const [isEditing, setIsEditing] = useState(false);
   const justSaved = useRef(false);
   const pendingNotificationRef = useRef(null);
@@ -215,7 +220,7 @@ export default function DetailView({ entityType }) {
 
       if (!validationResult.allowed) {
         // Show blocker message with proper toast
-        let blockerMsg = "This modification is not allowed.";
+      let blockerMsg = t("detail.toast.error.notAllowed", { ns: "common" });
         if (validationResult.blockers && validationResult.blockers.length > 0) {
           const firstBlocker = validationResult.blockers[0];
           if (typeof firstBlocker === 'object' && firstBlocker !== null) {
@@ -225,7 +230,7 @@ export default function DetailView({ entityType }) {
           }
         }
         showToast(blockerMsg, "error", {
-          title: "Modification blocked",
+          title: t("detail.toast.title.blocked", { ns: "common" }),
           context: entityType,
         });
         // Do not proceed with update or show success toast
@@ -238,7 +243,7 @@ export default function DetailView({ entityType }) {
       const error = validation(data, value);
       if (error) {
         showToast(error, "error", {
-          title: "Validation failed",
+          title: t("detail.toast.title.validationFailed", { ns: "common" }),
           context: entityType,
         });
         return;
@@ -301,8 +306,8 @@ export default function DetailView({ entityType }) {
       console.error("Error saving quick action:", error);
       // Rollback on error
       setData({ ...data, [field]: oldValue });
-      showToast("Error in the save", "error", {
-        title: "Save error",
+      showToast(t("detail.toast.error.saveInline", { ns: "common" }), "error", {
+        title: t("detail.toast.title.saveError", { ns: "common" }),
         context: entityType,
       });
     }
@@ -329,8 +334,8 @@ export default function DetailView({ entityType }) {
       console.error("Error saving items change:", error);
       // Rollback on error
       setData(data);
-      showToast("Error saving changes", "error", {
-        title: "Save error",
+      showToast(t("detail.toast.error.save", { ns: "common" }), "error", {
+        title: t("detail.toast.title.saveError", { ns: "common" }),
         context: entityType,
       });
     }
@@ -357,11 +362,11 @@ export default function DetailView({ entityType }) {
       setData(prev => ({ ...prev, ...sectionData }));
       setOriginalData(prev => ({ ...prev, ...sectionData }));
       setIsEditing(false);
-      showToast("Changes saved successfully!", "success");
+      showToast(t("detail.toast.success.save", { ns: "common" }), "success");
       justSaved.current = true;
     } catch (error) {
       console.error("Error saving:", error);
-      showToast("Error saving changes", "error");
+      showToast(t("detail.toast.error.save", { ns: "common" }), "error");
     }
   };
 
@@ -383,17 +388,17 @@ export default function DetailView({ entityType }) {
       });
 
       if (!validationResult.allowed) {
-        showToast(validationResult.blockers[0] || "This modification is not allowed", "error");
+        showToast(validationResult.blockers[0] || t("detail.validation.modificationNotAllowed", { ns: "common" }), "error");
         return;
       }
 
       // ✅ If requires confirmation for relational changes, show impact dialog
       if (validationResult.requiresConfirmation) {
         const confirmed = await confirm({
-          title: "⚠️ Attachment change",
-          message: validationResult.impactSummary?.join('\n') || "Are you sure you want to make this change?",
-          confirmText: "Confirm change",
-          cancelText: "Cancel",
+          title: t("dialog.detail.impact.change.title", { ns: "common" }),
+          message: validationResult.impactSummary?.join("\n") || t("dialog.detail.impact.change.message", { ns: "common" }),
+          confirmText: t("dialog.detail.impact.change.confirm", { ns: "common" }),
+          cancelText: t("dialog.detail.impact.change.cancel", { ns: "common" }),
           variant: "warning"
         });
 
@@ -407,13 +412,13 @@ export default function DetailView({ entityType }) {
       // Optimistically update local state
       setOriginalData({ ...data });
       setIsEditing(false);
-      showToast("Changes saved successfully!", "success");
+      showToast(t("detail.toast.success.save", { ns: "common" }), "success");
       justSaved.current = true;
       // Optionally refresh from backend for denormalized fields
       setTimeout(() => { handleDataRefresh(); }, 10);
     } catch (error) {
       console.error("Error saving:", error);
-      showToast("Error saving changes", "error");
+      showToast(t("detail.toast.error.save", { ns: "common" }), "error");
     }
   };
 
@@ -435,17 +440,17 @@ export default function DetailView({ entityType }) {
     }
 
     if (await confirm({
-      title: "Delete",
+      title: t("dialog.detail.entity.delete.title", { ns: "common", entity: config.title }),
       message: config.deleteConfirmMessage,
-      confirmText: "Delete",
-      cancelText: "Cancel",
+      confirmText: t("dialog.detail.entity.delete.confirm", { ns: "common" }),
+      cancelText: t("dialog.detail.entity.delete.cancel", { ns: "common" }),
       variant: "danger"
     })) {
       try {
         await config.deleteData(id, contextData);
         navigate(config.listRoute);
       } catch (error) {
-        showToast("Error deleting", "error");
+        showToast(t("detail.toast.error.delete", { ns: "common" }), "error");
       }
     }
   };
@@ -458,7 +463,7 @@ export default function DetailView({ entityType }) {
       const cascadeDeleteFunction = contextData[`delete${entityType.charAt(0).toUpperCase() + entityType.slice(1)}Cascade`];
 
       if (!cascadeDeleteFunction) {
-        showToast("Cascade delete not available for this entity", "error");
+        showToast(t("detail.toast.error.cascadeUnavailable", { ns: "common" }), "error");
         return;
       }
 
@@ -466,12 +471,12 @@ export default function DetailView({ entityType }) {
 
       if (!result || !result.ok) {
         console.error('[DetailView.handleForceDelete] Cascade delete failed:', result);
-        showToast("Error during cascade deletion", "error");
+        showToast(t("detail.toast.error.cascade", { ns: "common" }), "error");
         return;
       }
 
-      showToast(`${config.title} and all related entities deleted`, "success", {
-        title: "Cascade Deletion",
+      showToast(t("detail.toast.success.cascade", { ns: "common", entity: config.title }), "success", {
+        title: t("detail.toast.title.cascade", { ns: "common" }),
         context: entityType,
       });
 
@@ -479,7 +484,7 @@ export default function DetailView({ entityType }) {
       navigate(config.listRoute);
     } catch (error) {
       console.error('[DetailView.handleForceDelete] Error:', error);
-      showToast("Error during cascade deletion", "error");
+      showToast(t("detail.toast.error.cascade", { ns: "common" }), "error");
     }
   };
 

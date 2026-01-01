@@ -1,0 +1,24 @@
+{
+  "sidebar": {
+    "brand": "Organia",
+    "dashboard": "Dashboard",
+    "clients": "Clients",
+    "dossiers": "Dossiers",
+    "tasks": "Tasks",
+    "cases": "Lawsuits",
+    "sessions": "Hearings",
+    "personalTasks": "Chores",
+    "officers": "Bailiff",
+    "accounting": "Accounting",
+    "chatbot": "ChatBot",
+    "theme": {
+      "light": "Light Mode",
+      "dark": "Dark Mode"
+    },
+    "logout": "Logout",
+    "footer": "© 2025 Organia"
+  },
+  "header": {
+    "brand": "LawFirm"
+  }
+}

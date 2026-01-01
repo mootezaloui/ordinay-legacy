@@ -14,12 +14,14 @@ import {
   isReferenceUnique,
   getDuplicateReferenceError,
   normalizeReference,
+  isReferenceFormatValid,
 } from "../../utils/referenceUtils";
 import {
   shouldPromptClientNotification,
   sendClientNotification,
   setPendingNotification,
 } from "../../services/clientCommunication";
+import { useTranslation } from "react-i18next";
 
 /**
  * FormModal - Enhanced with improved responsive design and domain rule validation
@@ -63,6 +65,7 @@ export default function FormModal({
   const [errors, setErrors] = useState({});
   const [initialized, setInitialized] = useState(false);
   const { notify } = useNotifications();
+  const { t } = useTranslation(["common", "domain"]);
 
   // ✅ Domain rule validation state
   const [blockerModalOpen, setBlockerModalOpen] = useState(false);
@@ -219,8 +222,8 @@ export default function FormModal({
     // Step 1: Field validation (required fields, custom validators)
     if (!validateForm()) {
       notify.warning({
-        title: "Fields required",
-        message: "Please correct the form errors before continuing.",
+        title: t("dialog.form.validation.required.title", { ns: "common" }),
+        message: t("dialog.form.validation.required.message", { ns: "common" }),
         context: "form",
       });
       return;
@@ -243,9 +246,28 @@ export default function FormModal({
         formData[referenceField] = reference;
         console.log(`✅ Auto-generated reference for ${entityType}:`, reference);
       } else {
-        // Normalize user input (uppercase, trim)
-        reference = normalizeReference(reference);
+        // Normalize user input (uppercase, trim, and fix prefix if needed)
+        reference = normalizeReference(reference, entityType);
         formData[referenceField] = reference;
+
+        // Validate format after normalization
+        if (!isReferenceFormatValid(entityType, reference)) {
+          const errorMessage = `Invalid format. Expected: ${entityType === 'case' ? 'PRO-YYYY-XXX' : entityType === 'dossier' ? 'DOS-YYYY-XXX' : 'MIS-YYYY-XXX'} (e.g., ${entityType === 'case' ? 'PRO-2025-001' : entityType === 'dossier' ? 'DOS-2025-001' : 'MIS-2025-001'})`;
+
+          notify.error({
+            title: "Invalid Reference Format",
+            message: errorMessage,
+            context: "form",
+          });
+
+          // Set error on the field
+          setErrors({
+            ...errors,
+            [referenceField]: errorMessage,
+          });
+
+          return;
+        }
       }
 
       // Validate uniqueness (excluding current entity in edit mode)
@@ -255,7 +277,7 @@ export default function FormModal({
         const errorMessage = getDuplicateReferenceError(entityType, reference);
 
         notify.error({
-          title: "RReference already used",
+          title: "Reference already used",
           message: errorMessage,
           context: "form",
         });
@@ -424,7 +446,7 @@ export default function FormModal({
               <button
                 onClick={onClose}
                 className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors flex-shrink-0"
-                title="Fermer"
+                title={t("actions.close", { ns: "common" })}
               >
                 <i className="fas fa-times text-slate-500 dark:text-slate-400"></i>
               </button>
@@ -525,7 +547,7 @@ export default function FormModal({
           setPendingFormData(null);
         }}
         onConfirm={handleConfirmImpact}
-        actionName="modifier le rattachement"
+        actionName={t("impact.actions.changeLink", { ns: "domain" })}
         impactSummary={validationResult?.impactSummary || []}
         entityName={editingEntity?.title || editingEntity?.name || editingEntity?.caseNumber || ""}
       />
@@ -604,7 +626,7 @@ function FormField({ field, value, onChange, error, formData, compact = false })
           hint={field.helpText}
           icon={field.icon}
           compact={compact}
-          placeholder={field.placeholder || "Not provided"}
+          placeholder={field.placeholder || t("form.placeholder.notProvided", { ns: "common" })}
         />
       );
     }
@@ -835,10 +857,10 @@ function FormField({ field, value, onChange, error, formData, compact = false })
                 <i className="fas fa-cloud-upload-alt text-slate-400 text-2xl"></i>
                 <div className="text-left">
                   <p className="text-sm text-slate-700 dark:text-slate-300">
-                    Drag and drop files here, or
+                    {t("form.upload.dropPrompt", { ns: "common" })}
                   </p>
                   <label className="text-sm text-blue-600 dark:text-blue-400 hover:underline cursor-pointer">
-                    browse
+                    {t("form.upload.browse", { ns: "common" })}
                     <input
                       type="file"
                       id={field.name}

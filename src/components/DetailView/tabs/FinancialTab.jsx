@@ -41,6 +41,7 @@ import ConfirmImpactModal from "../../ui/ConfirmImpactModal";
 import { canPerformAction } from "../../../services/domainRules";
 import { resolveDetailRoute } from "../../../utils/routeResolver";
 import GlassModal from "../../ui/GlassModal";
+import { useTranslation } from "react-i18next";
 
 /**
  * FinancialTab Component
@@ -58,6 +59,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
   const navigate = useNavigate();
   const { showToast } = useToast();
   const { confirm } = useConfirm();
+  const { t } = useTranslation(["accounting", "common"]);
   const {
     clients = [],
     dossiers = [],
@@ -186,14 +188,14 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
       entryId: id,
       data: entry,
       newData: null,
-      mutate: async () => {
-        if (await confirm({
-          title: "Delete Financial Entry",
-          message: "Are you sure you want to delete this entry?",
-          confirmText: "Delete",
-          cancelText: "Cancel",
-          variant: "danger"
-        })) {
+    mutate: async () => {
+      if (await confirm({
+        title: t("dialog.detail.financial.delete.title", { ns: "common" }),
+        message: t("dialog.detail.financial.delete.message", { ns: "common" }),
+        confirmText: t("dialog.detail.financial.delete.confirm", { ns: "common" }),
+        cancelText: t("dialog.detail.financial.delete.cancel", { ns: "common" }),
+        variant: "danger"
+      })) {
           const result = deleteFinancialEntry(id);
           if (!result.success) {
             if (result.result) {
@@ -468,7 +470,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
           setIsLoading(false);
           return;
         }
-        showToast("Entry updated successfully!", "success");
+        showToast(t("detail.toast.success.update", { ns: "accounting" }), "success");
       } else {
         const client = formData.clientId
           ? clients.find((c) => c.id === parseInt(formData.clientId))
@@ -549,7 +551,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
           setIsLoading(false);
           return;
         }
-        showToast("Entry added successfully!", "success");
+        showToast(t("detail.toast.success.create", { ns: "accounting" }), "success");
 
         // ✅ Log creation event for the financial entry
         if (createdEntry && createdEntry.id) {
@@ -589,7 +591,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
       if (onUpdate) onUpdate();
     } catch (error) {
       console.error("Error submitting entry:", error);
-      showToast("Error saving entry", "error");
+      showToast(t("detail.toast.error.save", { ns: "accounting" }), "error");
     } finally {
       setIsLoading(false);
     }
@@ -681,7 +683,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               ...field,
               type: "readonly",
               defaultValue: editingEntry?.clientId || dossier.clientId,
-              displayValue: client ? client.name : "Client inconnu"
+              displayValue: client ? client.name : t("detail.financial.fallback.unknownClient", { ns: "accounting" })
             };
           }
           // Only allow cases from this dossier's client
@@ -713,7 +715,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               ...field,
               type: "readonly",
               defaultValue: editingEntry?.clientId || (client ? client.id : null),
-              displayValue: client ? client.name : "Unknown Client"
+              displayValue: client ? client.name : t("detail.financial.fallback.unknownClient", { ns: "accounting" })
             };
           }
           if (field.name === "dossierId" && caseItem) {
@@ -722,7 +724,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               ...field,
               type: "readonly",
               defaultValue: editingEntry?.dossierId || caseItem.dossierId,
-              displayValue: dossier ? dossier.caseNumber : "Unknown Dossier"
+              displayValue: dossier ? dossier.caseNumber : t("detail.financial.fallback.unknownDossier", { ns: "accounting" })
             };
           }
         }
@@ -763,7 +765,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               type: "readonly",
               defaultValue: "expense",
               displayValue: "Expenses (Bailiff fees)",
-              helpText: "Bailiffs can only have expenses"
+              helpText: t("detail.financial.help.bailiffExpensesOnly", { ns: "accounting" })
             };
           }
           // Pre-select category to "bailiff_fees"
@@ -780,7 +782,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               type: "readonly",
               defaultValue: entityId,
               displayValue: entityData?.name || "Bailiff",
-              helpText: "Expenses for this bailiff"
+              helpText: t("detail.financial.help.expensesForBailiff", { ns: "accounting" })
             };
           }
           // Add mission selector - show only this officer's missions
@@ -792,7 +794,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               type: "searchable-select",
               required: true,
               label: "Associated Mission *",
-              helpText: "Select the mission related to these expenses",
+              helpText: t("detail.financial.help.selectMissionExpenses", { ns: "accounting" }),
               options: [
                 { value: "", label: "Select a mission..." },
                 ...missions.map((m) => ({
@@ -888,7 +890,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               type: "readonly",
               defaultValue: editingEntry?.type || "expense",
               displayValue: "Expense (bailiff fees)",
-              helpText: "Bailiff fees are always expenses"
+              helpText: t("detail.financial.help.feesAreExpenses", { ns: "accounting" })
             };
           }
 
@@ -899,7 +901,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               type: "readonly",
               defaultValue: editingEntry?.category || "bailiff_fees",
               displayValue: "Bailiff Fees",
-              helpText: "Automatic category for bailiff fees"
+              helpText: t("detail.financial.help.autoCategoryBailiffFees", { ns: "accounting" })
             };
           }
 
@@ -920,7 +922,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               type: "readonly",
               defaultValue: editingEntry?.missionId || entityId,
               displayValue: `${entityData.missionNumber} - ${entityData.title}`,
-              helpText: "Mission actuelle"
+              helpText: t("detail.financial.help.currentMission")
             };
           }
 
@@ -931,14 +933,14 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               type: "readonly",
               defaultValue: editingEntry?.officerId || entityData.officerId,
               displayValue: entityData.officerName,
-              helpText: "Huissier de cette mission"
+              helpText: t("detail.financial.help.missionOfficer")
             };
           }
 
           // Auto-fill client based on mission's entity
           if (field.name === "clientId") {
             let clientId = editingEntry?.clientId || null;
-            let clientName = "Unknown client";
+            let clientName = t("detail.financial.fallback.unknownClient", { ns: "accounting" });
 
             // If editing, use existing value, otherwise derive from mission
             if (!editingEntry) {
@@ -948,7 +950,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
                 if (dossier) {
                   clientId = dossier.clientId;
                   const client = clients.find(c => c.id === dossier.clientId);
-                  clientName = client ? client.name : "Unknown client";
+                  clientName = client ? client.name : t("detail.financial.fallback.unknownClient", { ns: "accounting" });
                 }
               } else if (entityData.caseId) {
                 const caseItem = cases.find(c => c.id === entityData.caseId);
@@ -957,14 +959,14 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
                   if (dossier) {
                     clientId = dossier.clientId;
                     const client = clients.find(c => c.id === dossier.clientId);
-                    clientName = client ? client.name : "Unknown client";
+                    clientName = client ? client.name : t("detail.financial.fallback.unknownClient", { ns: "accounting" });
                   }
                 }
               }
             } else {
               // When editing, get the display name from the stored clientId
               const client = clients.find(c => c.id === clientId);
-              clientName = client ? client.name : "Unknown client";
+              clientName = client ? client.name : t("detail.financial.fallback.unknownClient", { ns: "accounting" });
             }
 
             return {
@@ -972,14 +974,14 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               type: "readonly",
               defaultValue: clientId,
               displayValue: clientName,
-              helpText: "Client linked to this mission"
+              helpText: t("detail.financial.help.missionClient", { ns: "accounting" })
             };
           }
 
           // Auto-fill dossier based on mission's entity
           if (field.name === "dossierId") {
             let dossierId = editingEntry?.dossierId || null;
-            let dossierRef = "Unknown dossier";
+            let dossierRef = t("detail.financial.fallback.unknownDossier", { ns: "accounting" });
 
             // If editing, use existing value, otherwise derive from mission
             if (!editingEntry) {
@@ -987,19 +989,19 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               if (entityData.dossierId) {
                 dossierId = entityData.dossierId;
                 const dossier = dossiers.find(d => d.id === entityData.dossierId);
-                dossierRef = dossier ? `${dossier.caseNumber} - ${dossier.title}` : "Unknown dossier";
+                dossierRef = dossier ? `${dossier.caseNumber} - ${dossier.title}` : t("detail.financial.fallback.unknownDossier", { ns: "accounting" });
               } else if (entityData.caseId) {
                 const caseItem = cases.find(c => c.id === entityData.caseId);
                 if (caseItem) {
                   dossierId = caseItem.dossierId;
                   const dossier = dossiers.find(d => d.id === caseItem.dossierId);
-                  dossierRef = dossier ? `${dossier.caseNumber} - ${dossier.title}` : "Unknown dossier";
+                  dossierRef = dossier ? `${dossier.caseNumber} - ${dossier.title}` : t("detail.financial.fallback.unknownDossier", { ns: "accounting" });
                 }
               }
             } else {
               // When editing, get the display name from the stored dossierId
               const dossier = dossiers.find(d => d.id === dossierId);
-              dossierRef = dossier ? `${dossier.caseNumber} - ${dossier.title}` : "Unknown dossier";
+              dossierRef = dossier ? `${dossier.caseNumber} - ${dossier.title}` : t("detail.financial.fallback.unknownDossier", { ns: "accounting" });
             }
 
             return {
@@ -1007,7 +1009,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               type: "readonly",
               defaultValue: dossierId,
               displayValue: dossierRef,
-              helpText: "Dossier linked to this mission"
+              helpText: t("detail.financial.help.missionDossier", { ns: "accounting" })
             };
           }
 
@@ -1022,13 +1024,13 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               if (entityData.caseId) {
                 caseId = entityData.caseId;
                 const caseItem = cases.find(c => c.id === entityData.caseId);
-                caseRef = caseItem ? `${caseItem.caseNumber} - ${caseItem.title}` : "Unknown Lawsuit";
+                caseRef = caseItem ? `${caseItem.caseNumber} - ${caseItem.title}` : t("detail.financial.fallback.unknownCase", { ns: "accounting" });
               }
             } else {
               // When editing, get the display name from the stored caseId
               if (caseId) {
                 const caseItem = cases.find(c => c.id === caseId);
-                caseRef = caseItem ? `${caseItem.caseNumber} - ${caseItem.title}` : "Unknown Lawsuit";
+                caseRef = caseItem ? `${caseItem.caseNumber} - ${caseItem.title}` : t("detail.financial.fallback.unknownCase", { ns: "accounting" });
               }
             }
 
@@ -1038,7 +1040,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
                 type: "readonly",
                 defaultValue: caseId,
                 displayValue: caseRef,
-                helpText: "Lawsuit linked to this mission"
+                helpText: t("detail.financial.help.missionCase", { ns: "accounting" })
               };
             } else {
               // Hide the field if mission is not linked to a case
@@ -1102,7 +1104,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               type: "readonly",
               defaultValue: "expense",
               displayValue: "Expense (bailiff fees)",
-              helpText: "Bailiffs can only have expenses"
+              helpText: t("detail.financial.help.bailiffExpensesOnly", { ns: "accounting" })
             };
           }
           // Pre-select category to "bailiff_fees"
@@ -1119,7 +1121,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               type: "readonly",
               defaultValue: entityId,
               displayValue: entityData?.name || "Bailiff",
-              helpText: "Fees for this bailiff"
+              helpText: t("detail.financial.help.feesForBailiff", { ns: "accounting" })
             };
           }
           // Add mission selector - show only this officer's missions
@@ -1131,7 +1133,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               type: "searchable-select",
               required: true,
               label: "Associated Mission *",
-              helpText: "Select the mission linked to these fees",
+              helpText: t("detail.financial.help.selectMissionFees", { ns: "accounting" }),
               options: [
                 { value: "", label: "Select a mission..." },
                 ...missions.map((m) => ({
@@ -1191,11 +1193,11 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               displayValue: (formData) => {
                 if (formData.clientId) {
                   const client = filteredClients.find(c => c.id === formData.clientId);
-                  return client ? client.name : "Unknown client";
+                  return client ? client.name : t("detail.financial.fallback.unknownClient", { ns: "accounting" });
                 }
                 return "Select a mission first";
               },
-              helpText: "Client auto-filled from the selected mission"
+              helpText: t("detail.financial.help.autoClientFromMission", { ns: "accounting" })
             };
           }
 
@@ -1208,7 +1210,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               displayValue: (formData) => {
                 if (formData.dossierId) {
                   const dossier = filteredDossiers.find(d => d.id === formData.dossierId);
-                  return dossier ? `${dossier.caseNumber} - ${dossier.title}` : "Unknown Dossier";
+                  return dossier ? `${dossier.caseNumber} - ${dossier.title}` : t("detail.financial.fallback.unknownDossier", { ns: "accounting" });
                 }
                 return "Sélectionnez d'abord une mission";
               },
@@ -1225,11 +1227,11 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               displayValue: (formData) => {
                 if (formData.caseId) {
                   const caseItem = filteredCases.find(c => c.id === formData.caseId);
-                  return caseItem ? `${caseItem.caseNumber} - ${caseItem.title}` : "Unknown case";
+                  return caseItem ? `${caseItem.caseNumber} - ${caseItem.title}` : t("detail.financial.fallback.unknownCase", { ns: "accounting" });
                 }
                 return "None (depends on the mission)";
               },
-              helpText: "Case auto-filled from the selected mission (if applicable)"
+              helpText: t("detail.financial.help.autoCaseFromMission", { ns: "accounting" })
             };
           }
         }
@@ -1243,7 +1245,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               type: "readonly",
               defaultValue: editingEntry?.scope || "internal",
               displayValue: "Internal (office expenses)",
-              helpText: "Personal tasks are internal expenses only"
+              helpText: t("detail.financial.help.personalTasksInternalOnly", { ns: "accounting" })
             };
           }
           // Pre-select category to "office_expenses"
@@ -1554,7 +1556,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
                 <button
                   onClick={handleCloseDetail}
                   className="flex-shrink-0 p-2.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all duration-200 hover:scale-105 active:scale-95"
-                  aria-label="Fermer"
+                  aria-label={t("actions.close", { ns: "common" })}
                 >
                   <i className="fas fa-times text-slate-500 dark:text-slate-400 text-lg"></i>
                 </button>

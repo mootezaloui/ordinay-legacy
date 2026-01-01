@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useToast } from "../../../contexts/ToastContext";
 import { useConfirm } from "../../../contexts/ConfirmContext";
 import ContentSection from "../../layout/ContentSection";
+import { useTranslation } from "react-i18next";
 
 /**
  * Notes Tab - Displays and manages multiple notes as post-its
@@ -12,6 +13,7 @@ import ContentSection from "../../layout/ContentSection";
 export default function NotesTab({ data, config, tabConfig, onUpdate }) {
   const { showToast } = useToast();
   const { confirm } = useConfirm();
+  const { t } = useTranslation("common");
 
   // ✅ Determine which field to use based on tab configuration
   // Default to "notes" for backward compatibility
@@ -77,13 +79,13 @@ export default function NotesTab({ data, config, tabConfig, onUpdate }) {
   const handleSaveNote = async () => {
     if (!onUpdate) {
       console.error('[NotesTab] onUpdate callback not provided');
-      showToast("Impossible to save notes", "error");
+      showToast(t("detail.notes.toast.error.saveMissing"), "error");
       return;
     }
 
     // Validate: don't allow empty notes
     if (!editContent.trim()) {
-      showToast("Note cannot be empty", "error");
+      showToast(t("detail.notes.toast.error.empty"), "error");
       return;
     }
 
@@ -113,10 +115,10 @@ export default function NotesTab({ data, config, tabConfig, onUpdate }) {
 
       setEditingNoteId(null);
       setEditContent("");
-      showToast("Note saved", "success");
+      showToast(t("detail.notes.toast.success.save"), "success");
     } catch (error) {
       console.error('[NotesTab] Error saving note:', error);
-      showToast("Error saving note", "error");
+      showToast(t("detail.notes.toast.error.save"), "error");
     } finally {
       setIsSaving(false);
     }
@@ -134,10 +136,10 @@ export default function NotesTab({ data, config, tabConfig, onUpdate }) {
 
   const handleDeleteNote = async (noteId) => {
     const confirmed = await confirm({
-      title: "Delete Note",
-      message: "Are you sure you want to delete this note?",
-      confirmText: "Delete",
-      cancelText: "Cancel",
+      title: t("dialog.detail.notes.delete.title"),
+      message: t("dialog.detail.notes.delete.message"),
+      confirmText: t("dialog.detail.notes.delete.confirm"),
+      cancelText: t("dialog.detail.notes.delete.cancel"),
       variant: "danger"
     });
 
@@ -145,7 +147,7 @@ export default function NotesTab({ data, config, tabConfig, onUpdate }) {
 
     if (!onUpdate) {
       console.error('[NotesTab] onUpdate callback not provided');
-      showToast("Impossible to delete note", "error");
+      showToast(t("detail.notes.toast.error.deleteMissing"), "error");
       return;
     }
 
@@ -158,10 +160,10 @@ export default function NotesTab({ data, config, tabConfig, onUpdate }) {
       // ✅ DON'T update local state here - let useEffect sync from parent data
       // setNotesList(updatedNotes); // ❌ REMOVED
 
-      showToast("Note deleted", "success");
+      showToast(t("detail.notes.toast.success.delete"), "success");
     } catch (error) {
       console.error('[NotesTab] Error deleting note:', error);
-      showToast("Error deleting note", "error");
+      showToast(t("detail.notes.toast.error.delete"), "error");
     } finally {
       setIsSaving(false);
     }

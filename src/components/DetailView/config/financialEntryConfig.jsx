@@ -5,14 +5,15 @@ import { financialCategories } from "../../../utils/financialConstants";
 
 /**
  * Financial Entry Entity Configuration - Enhanced with tabs and better UI
+ * ✅ Fully internationalized with i18n support
  */
-export const financialEntryConfig = {
+export const createFinancialEntryConfig = (t) => ({
     entityType: "financialEntry",
-    entityName: "Accounting Entry",
+    entityName: t('detail.entityName'),
     icon: "fas fa-file-invoice-dollar",
     listRoute: "/accounting",
-    notFoundMessage: "Accounting entry not found",
-    deleteConfirmMessage: "Are you sure you want to delete this accounting entry?",
+    notFoundMessage: t('detail.notFound'),
+    deleteConfirmMessage: t('detail.deleteConfirm'),
     allowDelete: true,
     allowEdit: true,
 
@@ -49,43 +50,43 @@ export const financialEntryConfig = {
         }
     },
 
-    getTitle: (data) => data.title || data.description || `Entry #${data.id}`,
+    getTitle: (data) => data.title || data.description || t('detail.fallback.untitled', { id: data.id }),
     getSubtitle: (data) => {
         const date = formatDateValue(data.date);
         const categoryLabel = financialCategories[data.category]?.label || data.category;
         const amount = formatCurrency(data.amount, data.currency);
-        return `${categoryLabel} • ${amount} • ${date}`;
+        return t('detail.subtitle', { category: categoryLabel, amount, date });
     },
 
     // Quick Actions Configuration
     quickActions: [
         {
             key: "status",
-            label: "Status",
+            label: t('detail.quickActions.status.label'),
             icon: "fas fa-flag",
             colorMap: true,
             options: [
                 {
                     value: "draft",
-                    label: "Draft",
+                    label: t('detail.quickActions.status.draft'),
                     color: "bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300",
                     icon: "fas fa-file"
                 },
                 {
                     value: "confirmed",
-                    label: "Confirmed",
+                    label: t('detail.quickActions.status.confirmed'),
                     color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
                     icon: "fas fa-check-circle"
                 },
                 {
                     value: "paid",
-                    label: "Paid",
+                    label: t('detail.quickActions.status.paid'),
                     color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
                     icon: "fas fa-check-double"
                 },
                 {
                     value: "cancelled",
-                    label: "Cancelled",
+                    label: t('detail.quickActions.status.cancelled'),
                     color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
                     icon: "fas fa-times-circle"
                 },
@@ -121,7 +122,7 @@ export const financialEntryConfig = {
                                         : 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300'
                                         }`}>
                                         <i className={`fas ${data.type === 'revenue' ? 'fa-arrow-trend-down' : 'fa-arrow-trend-up'}`}></i>
-                                        {data.type === 'revenue' ? 'Revenue' : 'Expense'}
+                                        {data.type === 'revenue' ? t('detail.header.revenue') : t('detail.header.expense')}
                                     </span>
                                     <span className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-bold bg-${data.categoryColor}-100 text-${data.categoryColor}-700 dark:bg-${data.categoryColor}-900/30 dark:text-${data.categoryColor}-300`}>
                                         <i className="fas fa-tag"></i>
@@ -132,7 +133,7 @@ export const financialEntryConfig = {
                                         : 'bg-slate-100 text-slate-700 dark:bg-slate-900/30 dark:text-slate-300'
                                         }`}>
                                         <i className={`fas ${data.scope === 'client' ? 'fa-user' : 'fa-building'}`}></i>
-                                        {data.scope === 'client' ? 'Client' : 'Office'}
+                                        {data.scope === 'client' ? t('detail.header.client') : t('detail.header.office')}
                                     </span>
                                 </div>
                             </div>
@@ -145,7 +146,7 @@ export const financialEntryConfig = {
                                         <i className="fas fa-calendar text-white"></i>
                                     </div>
                                     <div className="min-w-0 flex-1">
-                                        <p className="text-xs font-medium text-blue-600 dark:text-blue-400">Date</p>
+                                        <p className="text-xs font-medium text-blue-600 dark:text-blue-400">{t('detail.header.date')}</p>
                                         <p className="text-sm font-bold text-blue-900 dark:text-blue-100 truncate">
                                             {formatDateValue(data.date)}
                                         </p>
@@ -159,7 +160,7 @@ export const financialEntryConfig = {
                                             <i className="fas fa-user text-white"></i>
                                         </div>
                                         <div className="min-w-0 flex-1">
-                                            <p className="text-xs font-medium text-indigo-600 dark:text-indigo-400">Client</p>
+                                            <p className="text-xs font-medium text-indigo-600 dark:text-indigo-400">{t('detail.header.client')}</p>
                                             <p className="text-sm font-bold text-indigo-900 dark:text-indigo-100 truncate">{data.clientName}</p>
                                         </div>
                                     </div>
@@ -172,7 +173,7 @@ export const financialEntryConfig = {
                                             <i className="fas fa-folder text-white"></i>
                                         </div>
                                         <div className="min-w-0 flex-1">
-                                            <p className="text-xs font-medium text-amber-600 dark:text-amber-400">Dossier</p>
+                                            <p className="text-xs font-medium text-amber-600 dark:text-amber-400">{t('detail.header.dossier')}</p>
                                             <p className="text-sm font-bold text-amber-900 dark:text-amber-100 truncate">{data.dossierReference}</p>
                                         </div>
                                     </div>
@@ -185,7 +186,7 @@ export const financialEntryConfig = {
                                             <i className="fas fa-gavel text-white"></i>
                                         </div>
                                         <div className="min-w-0 flex-1">
-                                            <p className="text-xs font-medium text-red-600 dark:text-red-400">Lawsuit</p>
+                                            <p className="text-xs font-medium text-red-600 dark:text-red-400">{t('detail.header.lawsuit')}</p>
                                             <p className="text-sm font-bold text-red-900 dark:text-red-100 truncate">{data.caseReference}</p>
                                         </div>
                                     </div>
@@ -198,7 +199,7 @@ export const financialEntryConfig = {
                                             <i className="fas fa-clock text-white"></i>
                                         </div>
                                         <div className="min-w-0 flex-1">
-                                            <p className="text-xs font-medium text-orange-600 dark:text-orange-400">Due Date</p>
+                                            <p className="text-xs font-medium text-orange-600 dark:text-orange-400">{t('detail.header.dueDate')}</p>
                                             <p className="text-sm font-bold text-orange-900 dark:text-orange-100 truncate">
                                                 {formatDateValue(data.dueDate)}
                                             </p>
@@ -216,23 +217,23 @@ export const financialEntryConfig = {
     // Overview sections configuration
     overviewSections: [
         {
-            title: "Financial Details",
+            title: t('detail.overview.financial'),
             editStrategy: "structured",
             fields: [
                 {
                     key: "title",
-                    label: "Title",
+                    label: t('detail.overview.fields.title'),
                     value: (data, contextData) => data.title || "",
                     icon: "fas fa-heading",
                     type: "text",
                     editable: true,
-                    placeholder: "Ex: Court filing fee, Bailiff travel expenses..."
+                    placeholder: t('detail.overview.fields.titlePlaceholder')
                 },
                 {
                     key: "description",
-                    label: "Additional Details",
+                    label: t('detail.overview.fields.description'),
                     value: (data, contextData) => data.description || "",
-                    displayValue: (data) => data.description || "No additional details",
+                    displayValue: (data) => data.description || t('detail.fallback.noAdditionalDetails'),
                     icon: "fas fa-file-text",
                     type: "textarea",
                     editable: true,
@@ -240,7 +241,7 @@ export const financialEntryConfig = {
                 },
                 {
                     key: "amount",
-                    label: "Amount",
+                    label: t('detail.overview.fields.amount'),
                     value: (data, contextData) => data.amount,
                     icon: "fas fa-money-bill-wave",
                     type: "number",
@@ -250,49 +251,49 @@ export const financialEntryConfig = {
                 },
                 {
                     key: "type",
-                    label: "Type",
+                    label: t('detail.overview.fields.type'),
                     value: (data, contextData) => data.type || "expense",
-                    displayValue: (data) => data.type === 'revenue' ? 'Revenue' : 'Expense',
+                    displayValue: (data) => data.type === 'revenue' ? t('detail.overview.fields.typeRevenue') : t('detail.overview.fields.typeExpense'),
                     icon: "fas fa-exchange-alt",
                     type: "select",
                     editable: true,
                     options: [
-                        { value: "revenue", label: "Revenue" },
-                        { value: "expense", label: "Expense" },
+                        { value: "revenue", label: t('detail.overview.fields.typeRevenue') },
+                        { value: "expense", label: t('detail.overview.fields.typeExpense') },
                     ]
                 },
                 {
                     key: "category",
-                    label: "Category",
+                    label: t('detail.overview.fields.category'),
                     value: (data, contextData) => data.category,
                     displayValue: (data) => {
                         // Use categoryLabel if available, otherwise compute from category
                         if (data.categoryLabel) {
                             return data.categoryLabel;
                         }
-                        return financialCategories[data.category]?.label || data.category || "N/A";
+                        return financialCategories[data.category]?.label || data.category || t('detail.fallback.na');
                     },
                     icon: "fas fa-tag",
                     type: "select",
                     editable: true,
                     options: [
-                        { value: "Fees", label: "Fees" },
-                        { value: "bailiff_fees", label: "Bailiff Fees" },
-                        { value: "office_expenses", label: "Office Expenses" },
-                        { value: "salary", label: "Salary" },
-                        { value: "other", label: "Other" },
+                        { value: "Fees", label: t('detail.overview.categories.Fees') },
+                        { value: "bailiff_fees", label: t('detail.overview.categories.bailiff_fees') },
+                        { value: "office_expenses", label: t('detail.overview.categories.office_expenses') },
+                        { value: "salary", label: t('detail.overview.categories.salary') },
+                        { value: "other", label: t('detail.overview.categories.other') },
                     ]
                 },
                 {
                     key: "status",
-                    label: "Status",
+                    label: t('detail.overview.fields.status'),
                     value: (data, contextData) => data.status,
                     displayValue: (data) => {
                         const statusMap = {
-                            draft: "Draft",
-                            confirmed: "Confirmed",
-                            paid: "Paid",
-                            cancelled: "Cancelled"
+                            draft: t('detail.quickActions.status.draft'),
+                            confirmed: t('detail.quickActions.status.confirmed'),
+                            paid: t('detail.quickActions.status.paid'),
+                            cancelled: t('detail.quickActions.status.cancelled')
                         };
                         return statusMap[data.status] || data.status;
                     },
@@ -300,34 +301,34 @@ export const financialEntryConfig = {
                     type: "select",
                     editable: true,
                     options: [
-                        { value: "draft", label: "Draft" },
-                        { value: "confirmed", label: "Confirmed" },
-                        { value: "paid", label: "Paid" },
-                        { value: "cancelled", label: "Cancelled" },
+                        { value: "draft", label: t('detail.quickActions.status.draft') },
+                        { value: "confirmed", label: t('detail.quickActions.status.confirmed') },
+                        { value: "paid", label: t('detail.quickActions.status.paid') },
+                        { value: "cancelled", label: t('detail.quickActions.status.cancelled') },
                     ]
                 },
                 {
                     key: "scope",
-                    label: "Scope",
+                    label: t('detail.overview.fields.scope'),
                     value: (data, contextData) => data.scope || "internal",
-                    displayValue: (data) => data.scope === 'client' ? 'Client' : 'Office',
+                    displayValue: (data) => data.scope === 'client' ? t('detail.overview.fields.scopeClient') : t('detail.overview.fields.scopeOffice'),
                     icon: "fas fa-layer-group",
                     type: "select",
                     editable: true,
                     options: [
-                        { value: "client", label: "Client" },
-                        { value: "internal", label: "Office (Internal)" },
+                        { value: "client", label: t('detail.overview.fields.scopeClient') },
+                        { value: "internal", label: t('detail.overview.fields.scopeOffice') },
                     ]
                 },
             ],
         },
         {
-            title: "Dates",
+            title: t('detail.overview.dates'),
             editStrategy: "structured",
             fields: [
                 {
                     key: "date",
-                    label: "Transaction Date",
+                    label: t('detail.overview.fields.date'),
                     value: (data, contextData) => data.date,
                     displayValue: (data) => formatDateValue(data.date),
                     icon: "fas fa-calendar",
@@ -336,9 +337,9 @@ export const financialEntryConfig = {
                 },
                 {
                     key: "dueDate",
-                    label: "Due Date",
+                    label: t('detail.overview.fields.dueDate'),
                     value: (data, contextData) => data.dueDate,
-                    displayValue: (data) => data.dueDate ? formatDateValue(data.dueDate) : "N/A",
+                    displayValue: (data) => data.dueDate ? formatDateValue(data.dueDate) : t('detail.fallback.na'),
                     icon: "fas fa-clock",
                     type: "date",
                     editable: true
@@ -346,37 +347,37 @@ export const financialEntryConfig = {
             ],
         },
         {
-            title: "Related Entities",
+            title: t('detail.overview.entities'),
             editStrategy: "structured",
             fields: [
                 {
                     key: "clientId",
-                    label: "Client",
+                    label: t('detail.overview.fields.client'),
                     value: (data, contextData) => data.clientId || "",
                     displayValue: (data, contextData) => {
-                        if (!data.clientId) return "None";
+                        if (!data.clientId) return t('detail.fallback.none');
                         const client = (contextData?.clients || []).find(c => c.id === parseInt(data.clientId));
                         if (client) return client.name;
-                        return data.clientName || "None";
+                        return data.clientName || t('detail.fallback.none');
                     },
                     icon: "fas fa-user",
                     type: "searchable-select",
                     editable: true,
                     options: [],
                     getOptions: (editedData, contextData) => ([
-                        { value: "", label: "Select a client..." },
+                        { value: "", label: t('detail.overview.fields.clientPlaceholder') },
                         ...(contextData?.clients || []).map(c => ({ value: c.id, label: c.name }))
                     ]),
                 },
                 {
                     key: "dossierId",
-                    label: "Dossier",
+                    label: t('detail.overview.fields.dossier'),
                     value: (data, contextData) => data.dossierId || "",
                     displayValue: (data, contextData) => {
-                        if (!data.dossierId) return "None";
+                        if (!data.dossierId) return t('detail.fallback.none');
                         const dossier = (contextData?.dossiers || []).find(d => d.id === parseInt(data.dossierId));
                         if (dossier) return `${dossier.caseNumber} - ${dossier.title}`;
-                        return data.dossierReference || "None";
+                        return data.dossierReference || t('detail.fallback.none');
                     },
                     icon: "fas fa-folder",
                     type: "searchable-select",
@@ -389,25 +390,25 @@ export const financialEntryConfig = {
                             : dossiers;
 
                         return [
-                            { value: "", label: "Select a dossier..." },
+                            { value: "", label: t('detail.overview.fields.dossierPlaceholder') },
                             ...filteredDossiers.map(d => ({
                                 value: d.id,
                                 label: `${d.caseNumber} - ${d.title}`
                             }))
                         ];
                     },
-                    helpText: "Only Dossiers of the selected client are displayed"
+                    helpText: t('detail.overview.fields.dossierHelp')
                 },
                 {
                     key: "caseId",
-                    label: "Lawsuit",
+                    label: t('detail.overview.fields.lawsuit'),
                     value: (data, contextData) => data.caseId || "",
                     displayValue: (data, contextData) => {
-                        if (!data.caseId) return "None";
+                        if (!data.caseId) return t('detail.fallback.none');
                         const cases = contextData?.cases || [];
                         const caseItem = cases.find(c => c.id === parseInt(data.caseId));
                         if (caseItem) return `${caseItem.caseNumber} - ${caseItem.title}`;
-                        return data.caseReference || "None";
+                        return data.caseReference || t('detail.fallback.none');
                     },
                     icon: "fas fa-gavel",
                     type: "searchable-select",
@@ -420,23 +421,23 @@ export const financialEntryConfig = {
                             : cases;
 
                         return [
-                            { value: "", label: "Select a lawsuit..." },
+                            { value: "", label: t('detail.overview.fields.lawsuitPlaceholder') },
                             ...filteredCases.map(c => ({
                                 value: c.id,
                                 label: `${c.caseNumber} - ${c.title}`
                             }))
                         ];
                     },
-                    helpText: "Only lawsuits of the selected dossier are displayed"
+                    helpText: t('detail.overview.fields.lawsuitHelp')
                 },
             ],
         },
         {
-            title: "Notes",
+            title: t('detail.overview.notes'),
             editStrategy: "structured",
             type: "notes",
             fieldKey: "notes",
-            content: (data) => data.notes || "No notes",
+            content: (data) => data.notes || t('detail.fallback.noNotes'),
         },
     ],
 
@@ -444,13 +445,13 @@ export const financialEntryConfig = {
     tabs: [
         {
             id: "overview",
-            label: "Overview",
+            label: t('detail.tabs.overview'),
             icon: "fas fa-eye",
             component: "overview",
         },
         {
             id: "relations",
-            label: "Relations",
+            label: t('detail.tabs.relations'),
             icon: "fas fa-link",
             render: (data) => (
                 <div className="space-y-4">
@@ -460,7 +461,7 @@ export const financialEntryConfig = {
                                 <i className="fas fa-link text-white text-xl"></i>
                             </div>
                             <h3 className="text-xl font-bold text-purple-900 dark:text-purple-100">
-                                Linked Entities
+                                {t('detail.relations.title')}
                             </h3>
                         </div>
 
@@ -475,7 +476,7 @@ export const financialEntryConfig = {
                                             <i className="fas fa-user text-white text-lg"></i>
                                         </div>
                                         <div>
-                                            <p className="text-sm font-medium text-indigo-600 dark:text-indigo-400">Client</p>
+                                            <p className="text-sm font-medium text-indigo-600 dark:text-indigo-400">{t('detail.relations.client')}</p>
                                             <p className="text-base font-bold text-slate-900 dark:text-white">{data.clientName}</p>
                                         </div>
                                     </div>
@@ -493,7 +494,7 @@ export const financialEntryConfig = {
                                             <i className="fas fa-folder text-white text-lg"></i>
                                         </div>
                                         <div>
-                                            <p className="text-sm font-medium text-amber-600 dark:text-amber-400">Dossier</p>
+                                            <p className="text-sm font-medium text-amber-600 dark:text-amber-400">{t('detail.relations.dossier')}</p>
                                             <p className="text-base font-bold text-slate-900 dark:text-white">{data.dossierReference}</p>
                                         </div>
                                     </div>
@@ -511,7 +512,7 @@ export const financialEntryConfig = {
                                             <i className="fas fa-gavel text-white text-lg"></i>
                                         </div>
                                         <div>
-                                            <p className="text-sm font-medium text-red-600 dark:text-red-400">Lawsuit</p>
+                                            <p className="text-sm font-medium text-red-600 dark:text-red-400">{t('detail.relations.lawsuit')}</p>
                                             <p className="text-base font-bold text-slate-900 dark:text-white">{data.caseReference}</p>
                                         </div>
                                     </div>
@@ -529,7 +530,7 @@ export const financialEntryConfig = {
                                             <i className="fas fa-user-tie text-white text-lg"></i>
                                         </div>
                                         <div>
-                                            <p className="text-sm font-medium text-teal-600 dark:text-teal-400">Bailiff</p>
+                                            <p className="text-sm font-medium text-teal-600 dark:text-teal-400">{t('detail.relations.bailiff')}</p>
                                             <p className="text-base font-bold text-slate-900 dark:text-white">{data.officerName}</p>
                                         </div>
                                     </div>
@@ -540,7 +541,7 @@ export const financialEntryConfig = {
                             {!data.clientId && !data.dossierId && !data.caseId && !data.officerId && (
                                 <div className="text-center py-12">
                                     <i className="fas fa-unlink text-slate-300 dark:text-slate-600 text-4xl mb-3"></i>
-                                    <p className="text-slate-500 dark:text-slate-400"> No entities linked </p>
+                                    <p className="text-slate-500 dark:text-slate-400">{t('detail.relations.empty')}</p>
                                 </div>
                             )}
                         </div>
@@ -550,12 +551,12 @@ export const financialEntryConfig = {
         },
         {
             id: "timeline",
-            label: "History",
+            label: t('detail.tabs.history'),
             icon: "fas fa-history",
             component: "history",
         },
     ],
 
-};
+});
 
-export default financialEntryConfig;
+export default createFinancialEntryConfig;

@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import ContentSection from "../../layout/ContentSection";
+import i18next from "i18next";
 import { getStatusColor } from "./statusColors";
 import { taskFormFields, caseFormFields, sessionFormFields, missionFormFields } from "../../FormModal/formConfigs";
 import { getAllPhases, addCustomPhase } from "../../../utils/phaseManager";
@@ -34,7 +35,12 @@ const DEFAULT_CATEGORIES = [
  * ✅ Added structured edit mode for overview sections
  * ✅ Fully internationalized with i18n support
  */
-export const createDossierConfig = (t) => ({
+export const createDossierConfig = (t) => {
+  const tTasks = i18next.getFixedT("tasks");
+  const tCases = i18next.getFixedT("cases");
+  const tSessions = i18next.getFixedT("sessions");
+
+  return {
   entityType: "dossier",
   entityName: t('detail.entityName'),
   icon: "fas fa-folder-open",
@@ -353,7 +359,7 @@ export const createDossierConfig = (t) => ({
       allowDelete: true,
       entityName: t('detail.tabs.proceedingsEntity'),
       addSubtitle: t('detail.tabs.proceedingsAddSubtitle'),
-      formFields: caseFormFields.filter(field => field.name !== 'dossierId'),
+      formFields: caseFormFields(tCases).filter(field => field.name !== 'dossierId'),
     },
     {
       id: "sessions",
@@ -371,7 +377,7 @@ export const createDossierConfig = (t) => ({
       getFormFields: (dossierData) => {
         const dossierCases = dossierData.proceedings || [];
 
-        return sessionFormFields.map(field => {
+        return sessionFormFields(tSessions).map(field => {
           // Allow linkType to be editable - choose between dossier and case
           if (field.name === 'linkType') {
             return {
@@ -446,7 +452,7 @@ export const createDossierConfig = (t) => ({
       getFormFields: (dossierData) => {
         const dossierCases = dossierData.proceedings || [];
 
-        return taskFormFields.map(field => {
+        return taskFormFields(tTasks).map(field => {
           // Default parentType to 'dossier' since we're in dossier context
           if (field.name === 'parentType') {
             return {
@@ -789,7 +795,8 @@ export const createDossierConfig = (t) => ({
       ],
     },
   ],
-});
+  };
+};
 
 // Helper component
 function InfoCard({ icon, label, value, color, linkTo = null, subtitle = null }) {

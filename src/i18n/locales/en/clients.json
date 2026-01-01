@@ -55,6 +55,61 @@
     },
     "help": {
       "statusLocked": "Status can only be changed via the selector in the list view."
+    },
+    "fields": {
+      "name": {
+        "label": "Full Name",
+        "placeholder": "Ex: Ahmed Ben Ali"
+      },
+      "email": {
+        "label": "Email",
+        "placeholder": "example@email.com"
+      },
+      "phone": {
+        "label": "Phone",
+        "placeholder": "+216 98 123 456"
+      },
+      "alternatePhone": {
+        "label": "Alternate Phone",
+        "placeholder": "+216 71 234 567"
+      },
+      "cin": {
+        "label": "ID Number",
+        "placeholder": "12345678"
+      },
+      "dateOfBirth": {
+        "label": "Date of Birth"
+      },
+      "address": {
+        "label": "Address",
+        "placeholder": "Full address"
+      },
+      "profession": {
+        "label": "Profession",
+        "placeholder": "Ex: Entrepreneur"
+      },
+      "company": {
+        "label": "Company",
+        "placeholder": "Company name"
+      },
+      "taxId": {
+        "label": "Tax ID",
+        "placeholder": "1234567X"
+      },
+      "status": {
+        "label": "Status",
+        "options": {
+          "active": "Active",
+          "inactive": "Inactive"
+        }
+      },
+      "notes": {
+        "label": "Notes",
+        "placeholder": "Important notes about the client..."
+      }
+    },
+    "errors": {
+      "emailInvalid": "Invalid email"
     }
   },
   "toasts": {

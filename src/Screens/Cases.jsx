@@ -447,7 +447,9 @@ export default function Cases() {
   };
 
   // Populate dossier options and protect status field in edit mode
-  const populatedCaseFormFields = caseFormFields.map(field => {
+  const translatedCaseFormFields = caseFormFields(t);
+
+  const populatedCaseFormFields = translatedCaseFormFields.map(field => {
     if (field.name === "dossierId") {
       return {
         ...field,

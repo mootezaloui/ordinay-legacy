@@ -17,6 +17,9 @@ const namespaceLoaders: Record<LanguageCode, NamespaceLoader> = {
     accounting: (await import("./locales/en/accounting.json")).default,
     notFound: (await import("./locales/en/notFound.json")).default,
     sessions: (await import("./locales/en/sessions.json")).default,
+    chatbot: (await import("./locales/en/chatbot.json")).default,
+    layout: (await import("./locales/en/layout.json")).default,
+    notifications: (await import("./locales/en/notifications.json")).default,
   }),
   fr: async () => ({
     common: (await import("./locales/fr/common.json")).default,
@@ -31,6 +34,9 @@ const namespaceLoaders: Record<LanguageCode, NamespaceLoader> = {
     accounting: (await import("./locales/fr/accounting.json")).default,
     notFound: (await import("./locales/fr/notFound.json")).default,
     sessions: (await import("./locales/fr/sessions.json")).default,
+    chatbot: (await import("./locales/fr/chatbot.json")).default,
+    layout: (await import("./locales/fr/layout.json")).default,
+    notifications: (await import("./locales/fr/notifications.json")).default,
   }),
   ar: async () => ({
     common: (await import("./locales/ar/common.json")).default,
@@ -45,6 +51,9 @@ const namespaceLoaders: Record<LanguageCode, NamespaceLoader> = {
     accounting: (await import("./locales/ar/accounting.json")).default,
     notFound: (await import("./locales/ar/notFound.json")).default,
     sessions: (await import("./locales/ar/sessions.json")).default,
+    chatbot: (await import("./locales/ar/chatbot.json")).default,
+    layout: (await import("./locales/ar/layout.json")).default,
+    notifications: (await import("./locales/ar/notifications.json")).default,
   }),
 };
 

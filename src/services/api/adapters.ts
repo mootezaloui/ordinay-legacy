@@ -183,7 +183,7 @@ export function adaptCase(api: any, dossiersById: Record<number, any>) {
     court: api.court ?? "",
     filingDate: dateOnly(api.filing_date),
     nextHearing: dateOnly(api.next_hearing),
-    referenceNumber: api.reference_number ?? "",
+    courtReference: api.reference_number ?? "",
     description: api.description ?? "",
     notes: adaptNotes(api.notes), // ✅ Adapt notes with proper field names
   };

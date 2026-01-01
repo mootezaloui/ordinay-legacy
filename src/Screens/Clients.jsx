@@ -411,8 +411,10 @@ export default function Clients() {
   };
 
   // Dynamic form fields - disable status field in edit mode to prevent bypassing domain rules
+  const translatedClientFormFields = clientFormFields(t);
+
   const dynamicClientFormFields = editingClient
-    ? clientFormFields.map(field => {
+    ? translatedClientFormFields.map(field => {
       if (field.name === 'status') {
         return {
           ...field,
@@ -423,7 +425,7 @@ export default function Clients() {
       }
       return field;
     })
-    : clientFormFields;
+    : translatedClientFormFields;
 
   const handleExport = () => {
     const headers = table.columns

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useNotifications } from "../../contexts/NotificationContext";
 import { useConfirm } from "../../contexts/ConfirmContext";
 import { useSettings } from "../../contexts/SettingsContext";
+import { useTranslation } from "react-i18next";
 
 /**
  * NotificationDropdown (Enhanced with Context)
@@ -12,6 +13,7 @@ export default function NotificationDropdown({ isOpen, onToggle, onClose }) {
   const navigate = useNavigate();
   const { confirm } = useConfirm();
   const { formatDate, formatDateTime } = useSettings();
+  const { t } = useTranslation("notifications");
   const {
     notifications,
     unreadCount,
@@ -44,10 +46,10 @@ export default function NotificationDropdown({ isOpen, onToggle, onClose }) {
 
   const clearNotifications = async () => {
     if (await confirm({
-      title: "Delete notifications",
-      message: "Are you sure you want to delete all notifications?",
-      confirmText: "Delete all",
-      cancelText: "Cancel",
+      title: t("dropdown.actions.clearAll.title"),
+      message: t("dropdown.actions.clearAll.message"),
+      confirmText: t("dropdown.actions.clearAll.confirm"),
+      cancelText: t("dropdown.actions.clearAll.cancel"),
       variant: "danger"
     })) {
       clearAll();
@@ -77,10 +79,10 @@ export default function NotificationDropdown({ isOpen, onToggle, onClose }) {
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
 
-    if (diffMins < 1) return "Just now";
-    if (diffMins < 60) return `${diffMins} min ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
+    if (diffMins < 1) return t("dropdown.time.justNow");
+    if (diffMins < 60) return t("dropdown.time.minutesAgo", { count: diffMins });
+    if (diffHours < 24) return t("dropdown.time.hoursAgo", { count: diffHours });
+    if (diffDays < 7) return t("dropdown.time.daysAgo", { count: diffDays });
     return formatDateTime(date);
   };
 
@@ -107,7 +109,7 @@ export default function NotificationDropdown({ isOpen, onToggle, onClose }) {
         onClick={toggleDropdown}
         className={`relative p-3 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200 ${isOpen ? "bg-slate-100 dark:bg-slate-800" : ""
           }`}
-        aria-label="Notifications"
+        aria-label={t("dropdown.aria")}
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -138,10 +140,10 @@ export default function NotificationDropdown({ isOpen, onToggle, onClose }) {
         <div className="absolute right-0 mt-3 w-96 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 overflow-hidden z-50">
           <div className="px-6 py-4 bg-gradient-to-r from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-white">Notifications</h3>
+              <h3 className="text-lg font-semibold text-white">{t("dropdown.title")}</h3>
               <div className="flex items-center gap-2">
                 <span className="text-sm text-blue-100 dark:text-blue-200">
-                  {unreadCount} Unread {unreadCount > 1 ? "s" : ""}
+                  {t("dropdown.unreadCount", { count: unreadCount })}
                 </span>
                 {unreadCount > 0 && (
                   <button
@@ -150,9 +152,9 @@ export default function NotificationDropdown({ isOpen, onToggle, onClose }) {
                       markAllAsRead();
                     }}
                     className="text-xs text-white hover:text-blue-100 underline"
-                    title="Mark all as read"
+                    title={t("dropdown.actions.markAll")}
                   >
-                    Mark all as read
+                    {t("dropdown.actions.markAll")}
                   </button>
                 )}
               </div>
@@ -199,7 +201,7 @@ export default function NotificationDropdown({ isOpen, onToggle, onClose }) {
                           deleteNotification(notification.id);
                         }}
                         className="p-2 hover:bg-red-100 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                        title="Delete notification"
+                        title={t("dropdown.actions.deleteOne")}
                       >
                         <i className="fas fa-times text-red-600 dark:text-red-400 text-sm"></i>
                       </button>
@@ -214,10 +216,10 @@ export default function NotificationDropdown({ isOpen, onToggle, onClose }) {
                 <i className="fas fa-bell-slash text-slate-400 dark:text-slate-500 text-2xl"></i>
               </div>
               <p className="text-slate-600 dark:text-slate-400 font-medium">
-                No notifications
+                {t("dropdown.empty.title")}
               </p>
               <p className="text-sm text-slate-500 dark:text-slate-500 mt-1">
-                You're all caught up!
+                {t("dropdown.empty.subtitle")}
               </p>
             </div>
           )}
@@ -228,7 +230,7 @@ export default function NotificationDropdown({ isOpen, onToggle, onClose }) {
               className="px-6 py-4 text-sm font-medium text-blue-600 dark:text-blue-400 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors duration-200 flex items-center justify-center gap-2"
             >
               <i className="fas fa-list"></i>
-              View all
+              {t("dropdown.actions.viewAll")}
             </button>
             <button
               onClick={clearNotifications}
@@ -236,7 +238,7 @@ export default function NotificationDropdown({ isOpen, onToggle, onClose }) {
               className="px-6 py-4 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <i className="fas fa-trash"></i>
-              Clear all
+              {t("dropdown.actions.clear")}
             </button>
           </div>
         </div>

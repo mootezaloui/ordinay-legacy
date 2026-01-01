@@ -180,5 +180,89 @@
   },
   "export": {
     "filename": "mohasaba-{{date}}.csv"
+  },
+  "detail": {
+    "entityName": "قيد محاسبي",
+    "notFound": "القيد المحاسبي غير موجود",
+    "deleteConfirm": "هل أنت متأكد من حذف هذا القيد المحاسبي؟",
+    "subtitle": "{{category}} • {{amount}} • {{date}}",
+    "fallback": {
+      "na": "غير متوفر",
+      "none": "لا شيء",
+      "noAdditionalDetails": "لا توجد تفاصيل إضافية",
+      "noNotes": "لا توجد ملاحظات",
+      "untitled": "قيد #{{id}}"
+    },
+    "quickActions": {
+      "status": {
+        "label": "الحالة",
+        "draft": "مسودة",
+        "confirmed": "مؤكد",
+        "paid": "مدفوع",
+        "cancelled": "ملغى"
+      }
+    },
+    "header": {
+      "revenue": "إيراد",
+      "expense": "مصروف",
+      "client": "عميل",
+      "office": "مكتب",
+      "date": "التاريخ",
+      "dueDate": "تاريخ الاستحقاق",
+      "dossier": "ملف",
+      "lawsuit": "قضية",
+      "bailiff": "محضر"
+    },
+    "tabs": {
+      "overview": "نظرة عامة",
+      "relations": "العلاقات",
+      "history": "السجل"
+    },
+    "relations": {
+      "title": "الكيانات المرتبطة",
+      "empty": "لا توجد كيانات مرتبطة",
+      "client": "عميل",
+      "dossier": "ملف",
+      "lawsuit": "قضية",
+      "bailiff": "محضر"
+    },
+    "overview": {
+      "financial": "التفاصيل المالية",
+      "dates": "التواريخ",
+      "entities": "الكيانات ذات الصلة",
+      "notes": "ملاحظات",
+      "fields": {
+        "title": "العنوان",
+        "titlePlaceholder": "مثال: رسوم إيداع المحكمة، مصاريف انتقال المحضر...",
+        "description": "تفاصيل إضافية",
+        "noAdditionalDetails": "لا توجد تفاصيل إضافية",
+        "amount": "المبلغ",
+        "type": "النوع",
+        "typeRevenue": "إيراد",
+        "typeExpense": "مصروف",
+        "category": "الفئة",
+        "status": "الحالة",
+        "scope": "النطاق",
+        "scopeClient": "عميل",
+        "scopeOffice": "مكتب (داخلي)",
+        "date": "تاريخ المعاملة",
+        "dueDate": "تاريخ الاستحقاق",
+        "client": "العميل",
+        "clientPlaceholder": "اختر العميل...",
+        "dossier": "الملف",
+        "dossierPlaceholder": "اختر الملف...",
+        "dossierHelp": "تظهر فقط ملفات العميل المختار",
+        "lawsuit": "القضية",
+        "lawsuitPlaceholder": "اختر القضية...",
+        "lawsuitHelp": "تظهر فقط قضايا الملف المختار"
+      },
+      "categories": {
+        "Fees": "أتعاب",
+        "bailiff_fees": "رسوم محضر",
+        "office_expenses": "مصاريف المكتب",
+        "salary": "راتب",
+        "other": "أخرى"
+      }
+    }
   }
 }

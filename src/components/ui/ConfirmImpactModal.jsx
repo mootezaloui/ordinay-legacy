@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { useTranslation } from "react-i18next";
 
 /**
  * ConfirmImpactModal Component
@@ -20,10 +21,17 @@ export default function ConfirmImpactModal({
   isOpen,
   onClose,
   onConfirm,
-  actionName = "effectuer cette action",
+  actionName,
   impactSummary = [],
   entityName = ""
 }) {
+  const { t } = useTranslation(["domain", "common"]);
+  const resolvedActionName = actionName || t("impact.actions.perform", { ns: "domain" });
+  const leadText = t("dialog.impact.warning.lead", {
+    ns: "common",
+    action: resolvedActionName.toLowerCase(),
+    entityName: entityName ? ` ${entityName}` : "",
+  });
   // Close modal on Escape key
   useEffect(() => {
     const handleEscape = (e) => {
@@ -70,18 +78,17 @@ export default function ConfirmImpactModal({
               </div>
               <div className="flex-1 min-w-0">
                 <h3 className="text-lg font-bold text-amber-900 dark:text-amber-100">
-                  ⚠️ Linking Impact Warning
+                  {t("dialog.impact.warning.title", { ns: "common" })}
                 </h3>
                 <p className="text-sm text-amber-700 dark:text-amber-300 mt-0.5 break-words overflow-wrap-anywhere">
-                  You are about to {actionName.toLowerCase()}
-                  {entityName && ` ${entityName}`}
+                  {leadText}
                 </p>
               </div>
             </div>
             <button
               onClick={onClose}
               className="text-amber-600 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-200 transition-colors flex-shrink-0"
-              aria-label="Fermer"
+              aria-label={t("actions.close", { ns: "common" })}
             >
               <i className="fas fa-times text-xl"></i>
             </button>
@@ -140,10 +147,10 @@ export default function ConfirmImpactModal({
           <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800 rounded-lg">
             <p className="text-sm text-blue-900 dark:text-blue-100 font-medium flex items-center gap-2">
               <i className="fas fa-question-circle text-blue-600 dark:text-blue-400"></i>
-              Do you want to continue?
+              {t("dialog.impact.warning.prompt", { ns: "common" })}
             </p>
             <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
-              This action will modify the relationships between entities. Make sure you fully understand the impact before confirming.
+              {t("dialog.impact.warning.detail", { ns: "common" })}
             </p>
           </div>
         </div>
@@ -156,14 +163,14 @@ export default function ConfirmImpactModal({
               className="px-4 py-2 border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg transition-colors font-medium"
             >
               <i className="fas fa-times mr-2"></i>
-              Cancel
+              {t("dialog.impact.warning.cancel", { ns: "common" })}
             </button>
             <button
               onClick={onConfirm}
               className="px-4 py-2 bg-amber-600 hover:bg-amber-700 dark:bg-amber-700 dark:hover:bg-amber-600 text-white rounded-lg transition-colors font-medium"
             >
               <i className="fas fa-check mr-2"></i>
-              Confirm Change
+              {t("dialog.impact.warning.confirm", { ns: "common" })}
             </button>
           </div>
         </div>

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "../../contexts/ThemeProvider";
+import { useTranslation } from "react-i18next";
 
 /**
  * UserDropdown Component
@@ -10,6 +11,7 @@ export default function UserDropdown({ isOpen, onToggle, onClose }) {
     const navigate = useNavigate();
     const { theme, toggleTheme } = useTheme();
     const dropdownRef = useRef(null);
+    const { t } = useTranslation("common");
 
     const toggleDropdown = (e) => {
         e.stopPropagation();
@@ -73,7 +75,7 @@ export default function UserDropdown({ isOpen, onToggle, onClose }) {
                 onClick={toggleDropdown}
                 className={`relative p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200 ${isOpen ? "bg-slate-100 dark:bg-slate-800" : ""
                     }`}
-                aria-label="User menu"
+                aria-label={t("aria.userDropdown.userMenu", { ns: "common" })}
             >
                 <svg
                     xmlns="http://www.w3.org/2000/svg"

@@ -1,0 +1,116 @@
+{
+  "detail": {
+    "entityName": "Mission",
+    "notFound": "Mission not found.",
+    "deleteConfirm": "Are you sure you want to delete this mission?",
+    "subtitle": "{{title}}",
+    "fallback": {
+      "na": "N/A",
+      "none": "None",
+      "noReport": "No report available",
+      "noLinkedEntity": "No linked entity",
+      "notAssigned": "Not assigned",
+      "unassigned": "Unassigned",
+      "untitled": "Mission #{{id}}"
+    },
+    "quickActions": {
+      "status": {
+        "label": "Status",
+        "planned": "Planned",
+        "inProgress": "In Progress",
+        "completed": "Completed",
+        "cancelled": "Cancelled"
+      },
+      "priority": {
+        "label": "Priority",
+        "high": "High",
+        "medium": "Medium",
+        "low": "Low"
+      },
+      "bailiff": {
+        "label": "Bailiff"
+      }
+    },
+    "header": {
+      "assignedOn": "Assigned On",
+      "dueDate": "Due Date",
+      "completedOn": "Completed On",
+      "bailiff": "Bailiff",
+      "priority": "Priority"
+    },
+    "stats": {
+      "documents": "Documents",
+      "duration": "Duration"
+    },
+    "tabs": {
+      "overview": "Overview",
+      "fees": "Bailiff Fees",
+      "documents": "Documents",
+      "notes": "Notes",
+      "relations": "Relations",
+      "history": "History"
+    },
+    "relations": {
+      "title": "Linked Entities",
+      "bailiff": "Bailiff",
+      "dossier": "Dossier",
+      "lawsuit": "Lawsuit",
+      "empty": "No linked entity"
+    },
+    "overview": {
+      "missionDetails": "Mission Details",
+      "dates": "Dates",
+      "description": "Description",
+      "report": "Report / Result",
+      "linkedEntity": "Linked Entity",
+      "bailiffInfo": "Bailiff Information",
+      "fields": {
+        "missionNumber": "Mission Number",
+        "title": "Title",
+        "missionType": "Mission Type",
+        "status": "Status",
+        "priority": "Priority",
+        "assignDate": "Assign Date",
+        "dueDate": "Due Date",
+        "completionDate": "Completion Date",
+        "entityType": "Entity Type",
+        "entity": "Entity",
+        "assignedBailiff": "Assigned Bailiff",
+        "phone": "Phone",
+        "location": "Location"
+      },
+      "missionTypes": {
+        "service": "Service",
+        "inspection": "Inspection",
+        "seizure": "Seizure",
+        "execution": "Execution",
+        "other": "Other"
+      },
+      "statuses": {
+        "scheduled": "Scheduled",
+        "inProgress": "In Progress",
+        "completed": "Completed",
+        "cancelled": "Cancelled"
+      },
+      "priorities": {
+        "low": "Low",
+        "medium": "Medium",
+        "high": "High",
+        "urgent": "Urgent"
+      },
+      "entityTypes": {
+        "dossier": "Dossier",
+        "case": "Lawsuit"
+      },
+      "help": {
+        "entityType": "Select the type of entity this mission is linked to",
+        "entity": "Select the dossier or lawsuit concerned",
+        "bailiff": "Warning: Changing the bailiff will transfer the mission to another bailiff"
+      },
+      "placeholders": {
+        "selectCase": "Select a lawsuit...",
+        "selectDossier": "Select a dossier..."
+      }
+    }
+  }
+}

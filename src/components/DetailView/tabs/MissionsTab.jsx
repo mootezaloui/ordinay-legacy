@@ -19,6 +19,7 @@ import {
 import { logEntityCreation, logAssignment } from "../../../services/historyService";
 import { resolveDetailRoute } from "../../../utils/routeResolver";
 import { useSettings } from "../../../contexts/SettingsContext";
+import { useTranslation } from "react-i18next";
 
 /**
  * MissionsTab - Scalable mission list with document management
@@ -30,6 +31,7 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
   const { showToast } = useToast();
   const { confirm } = useConfirm();
   const { formatDate } = useSettings();
+  const { t } = useTranslation("common");
   const {
     clients,
     dossiers,
@@ -191,7 +193,7 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
           onItemsChange(tabConfig.itemsKey, updatedMissions);
         }
 
-        showToast("Mission updated successfully!", "success");
+        showToast(t("detail.missions.toast.success.update"), "success");
         setEditingMissionId(null);
       } else {
         // ADD NEW MISSION
@@ -282,9 +284,9 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
             }
           }
 
-          showToast(`Mission added with ${financialEntries.length} financial entries recorded!`, "success");
+          showToast(t("detail.missions.toast.success.addWithEntries", { count: financialEntries.length }), "success");
         } else {
-          showToast("Mission added successfully!", "success");
+          showToast(t("detail.missions.toast.success.add"), "success");
         }
 
         // Update local state with the created mission
@@ -307,7 +309,7 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
       setFormData({});
     } catch (error) {
       console.error("Error adding mission:", error);
-      showToast("Error adding mission", "error");
+      showToast(t("detail.missions.toast.error.add"), "error");
     } finally {
       setIsLoading(false);
     }
@@ -334,10 +336,10 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
     }
 
     if (await confirm({
-      title: "Delete Mission",
-      message: "Are you sure you want to delete this mission?",
-      confirmText: "Delete",
-      cancelText: "Cancel",
+      title: t("dialog.detail.missions.delete.title"),
+      message: t("dialog.detail.missions.delete.message"),
+      confirmText: t("dialog.detail.missions.delete.confirm"),
+      cancelText: t("dialog.detail.missions.delete.cancel"),
       variant: "danger"
     })) {
       try {
@@ -353,10 +355,10 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
           onItemsChange(tabConfig.itemsKey, updatedMissions);
         }
 
-        showToast("Mission deleted successfully!", "success");
+        showToast(t("detail.missions.toast.success.delete"), "success");
       } catch (error) {
         console.error("❌ Error deleting mission:", error);
-        showToast("Error deleting mission", "error");
+        showToast(t("detail.missions.toast.error.delete"), "error");
       }
     }
   };
@@ -451,9 +453,9 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
         onItemsChange(tabConfig.itemsKey, updatedMissions);
       }
 
-      setIsFinancialModalOpen(false);
-      setSelectedMissionForFinance(null);
-      showToast("Financial entry added successfully!", "success");
+    setIsFinancialModalOpen(false);
+    setSelectedMissionForFinance(null);
+    showToast(t("detail.missions.toast.success.financialAdd"), "success");
 
       // ✅ Navigate to the new financial entry's detail view
       if (savedEntry && savedEntry.id) {
@@ -462,11 +464,11 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
           setTimeout(() => navigate(detailRoute), 100);
         }
       }
-    } catch (error) {
-      console.error("Error adding financial entry:", error);
-      showToast("Error adding financial entry", "error");
-    }
-  };
+  } catch (error) {
+    console.error("Error adding financial entry:", error);
+    showToast(t("detail.missions.toast.error.financialAdd"), "error");
+  }
+};
 
   const handleAddDocument = (mission) => {
     setSelectedMissionForDoc(mission);
@@ -537,10 +539,10 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
       }
 
       await new Promise(resolve => setTimeout(resolve, 500));
-      showToast(`${newDocuments.length} document(s) added successfully!`, "success");
+      showToast(t("detail.documents.toast.success.upload", { count: newDocuments.length }), "success");
     } catch (error) {
       console.error("Error uploading documents:", error);
-      showToast("Error adding documents", "error");
+      showToast(t("detail.documents.toast.error.uploadError"), "error");
     } finally {
       setUploadingDocument(false);
       setSelectedMissionForDoc(null);
@@ -549,10 +551,10 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
 
   const handleDeleteDocument = async (missionId, documentId) => {
     if (await confirm({
-      title: "Delete Document",
-      message: "Are you sure you want to delete this document?",
-      confirmText: "Delete",
-      cancelText: "Cancel",
+      title: t("dialog.detail.documents.deleteSingle.title"),
+      message: t("dialog.detail.documents.deleteSingle.message"),
+      confirmText: t("dialog.detail.documents.deleteSingle.confirm"),
+      cancelText: t("dialog.detail.documents.deleteSingle.cancel"),
       variant: "danger"
     })) {
       const updatedMissions = missions.map((mission) => {
@@ -601,10 +603,10 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
       onItemsChange(tabConfig.itemsKey, updatedMissions);
     }
 
-    setEditingEntryId(null);
-    setEditingEntryData(null);
-    showToast("Financial entry updated successfully!", "success");
-  };
+  setEditingEntryId(null);
+  setEditingEntryData(null);
+  showToast(t("detail.missions.toast.success.financialUpdate"), "success");
+};
 
   const handleCancelEditFinancialEntry = () => {
     setEditingEntryId(null);
@@ -613,10 +615,10 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
 
   const handleDeleteFinancialEntry = async (missionId, entryId) => {
     if (await confirm({
-      title: "Delete Financial Entry",
-      message: "Are you sure you want to delete this financial entry?",
-      confirmText: "Delete",
-      cancelText: "Cancel",
+      title: t("dialog.detail.financial.delete.title"),
+      message: t("dialog.detail.financial.delete.message"),
+      confirmText: t("dialog.detail.financial.delete.confirm"),
+      cancelText: t("dialog.detail.financial.delete.cancel"),
       variant: "danger"
     })) {
       const updatedMissions = missions.map((mission) => {
@@ -635,7 +637,7 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
         onItemsChange(tabConfig.itemsKey, updatedMissions);
       }
 
-      showToast("Financial entry deleted successfully!", "success");
+      showToast(t("detail.missions.toast.success.financialDelete"), "success");
     }
   };
 
@@ -955,9 +957,9 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
                   ...field,
                   type: "readonly",
                   defaultValue: clientId || "",
-                  displayValue: client ? client.name : "Unknown client",
+                  displayValue: client ? client.name : t("detail.missions.fallback.unknownClient", { ns: "common" }),
                   label: "Client",
-                  helpText: "Client linked to this mission"
+                  helpText: t("detail.missions.help.clientLink", { ns: "common" })
                 };
               }
               if (field.name === "dossierId") {
@@ -966,9 +968,9 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
                   ...field,
                   type: "readonly",
                   defaultValue: dossierId || "",
-                  displayValue: doss ? `${doss.caseNumber} - ${doss.title}` : "Unknown dossier",
+                  displayValue: doss ? `${doss.caseNumber} - ${doss.title}` : t("detail.missions.fallback.unknownDossier", { ns: "common" }),
                   label: "Dossier (optional)",
-                  helpText: "Dossier linked to this mission"
+                  helpText: t("detail.missions.help.dossierLink", { ns: "common" })
                 };
               }
               if (field.name === "caseId") {

@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 
 /**
  * ReadOnlyField
@@ -10,8 +11,10 @@ export default function ReadOnlyField({
   hint,
   icon,
   compact = false,
-  placeholder = "Not provided",
+  placeholder,
 }) {
+  const { t } = useTranslation("common");
+  const resolvedPlaceholder = placeholder || t("form.placeholder.notProvided");
   const hasValue = value !== undefined && value !== null && value !== "";
   return (
     <div
@@ -34,7 +37,7 @@ export default function ReadOnlyField({
             </p>
           )}
           <p className="text-sm font-semibold text-slate-900 dark:text-white leading-snug break-words">
-            {hasValue ? value : <span className="text-slate-400 dark:text-slate-500">{placeholder}</span>}
+            {hasValue ? value : <span className="text-slate-400 dark:text-slate-500">{resolvedPlaceholder}</span>}
           </p>
           {hint && (
             <p className="text-xs text-slate-500 dark:text-slate-400 leading-tight">

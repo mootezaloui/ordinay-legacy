@@ -64,6 +64,53 @@
     },
     "help": {
       "statusLocked": "Status can only be changed using the selector in the list"
+    },
+    "fields": {
+      "caseNumber": {
+        "label": "Reference / Number",
+        "placeholder": "Ex: PRO-2025-001 (auto-generated if empty)",
+        "helper": "Optional - leave blank to auto-generate (PRO-YEAR-XXX)"
+      },
+      "title": {
+        "label": "Lawsuit Title",
+        "placeholder": "Ex: Commercial Dispute - Hearing"
+      },
+      "dossierId": {
+        "label": "Dossier",
+        "helper": "Each lawsuit must be linked to a dossier"
+      },
+      "court": {
+        "label": "Court",
+        "createLabel": "Add"
+      },
+      "filingDate": {
+        "label": "Filing Date"
+      },
+      "courtReference": {
+        "label": "Court Reference Number",
+        "placeholder": "Ex: TPI-2024-COM-1234",
+        "helper": "Court's reference number for this case (optional)"
+      },
+      "adversaryParty": {
+        "label": "Opposing Party",
+        "placeholder": "Name of opposing party"
+      },
+      "adversaryLawyer": {
+        "label": "Opposing Lawyer",
+        "placeholder": "Me. Lawyer's name"
+      },
+      "status": {
+        "label": "Case Status",
+        "options": {
+          "inProgress": "In Progress",
+          "onHold": "On Hold",
+          "closed": "Closed"
+        }
+      },
+      "description": {
+        "label": "Description",
+        "placeholder": "Description of the case..."
+      }
     }
   },
   "toasts": {
@@ -165,9 +212,10 @@
         "caseNumber": "Lawsuit Number",
         "title": "Lawsuit Title",
         "court": "Court",
-        "referenceNumber": "Reference Number",
+        "courtReference": "Court Reference Number",
         "filingDate": "Filing Date",
         "adversaryParty": "Adversary Party",
+        "adversaryLawyer": "Adversary Lawyer",
         "associatedDossier": "Associated Dossier"
       },
       "courtOptions": {

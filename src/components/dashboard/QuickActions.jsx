@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import FormModal from "../FormModal/FormModal";
 import { useNotifications } from "../../contexts/NotificationContext";
 import {
@@ -28,6 +29,11 @@ import { logEntityCreation } from "../../services/historyService";
 export default function QuickActions({ onDataChange }) {
   const [activeModal, setActiveModal] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const { t } = useTranslation(["clients", "dossiers", "cases", "tasks", "sessions"]);
+  const tClients = (key) => t(key, { ns: "clients" });
+  const tDossiers = (key) => t(key, { ns: "dossiers" });
+  const tTasks = (key) => t(key, { ns: "tasks" });
+  const tSessions = (key) => t(key, { ns: "sessions" });
   const { notify } = useNotifications();
   const navigate = useNavigate();
   const {
@@ -161,7 +167,7 @@ export default function QuickActions({ onDataChange }) {
   const getFormFields = (type) => {
     switch (type) {
       case "dossier":
-        return dossierFormFields.map((field) => {
+        return dossierFormFields(tDossiers).map((field) => {
           if (field.name === "clientId") {
             return {
               ...field,
@@ -172,7 +178,7 @@ export default function QuickActions({ onDataChange }) {
         });
 
       case "task":
-        return taskFormFields.map((field) => {
+        return taskFormFields(tTasks).map((field) => {
           if (field.name === "dossierId") {
             return {
               ...field,
@@ -195,10 +201,10 @@ export default function QuickActions({ onDataChange }) {
         });
 
       case "client":
-        return clientFormFields;
+        return clientFormFields(tClients);
 
       case "session":
-        return sessionFormFields.map((field) => {
+        return sessionFormFields(tSessions).map((field) => {
           if (field.name === "caseId") {
             return {
               ...field,

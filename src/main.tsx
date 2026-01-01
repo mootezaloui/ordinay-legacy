@@ -11,30 +11,33 @@ import "@fortawesome/fontawesome-free/css/all.min.css";
 import { NotificationProvider } from "./contexts/NotificationContext";
 import AlertBanner from "./components/notifications/AlertBanner";
 import { SettingsProvider } from "./contexts/SettingsContext";
+import ErrorBoundary from "./components/ErrorBoundary";
 import "./index.css";
 import App from "./App";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <SettingsProvider>
-      <I18nProvider>
-        <ThemeProvider>
-          <NotificationProvider>
-            <ToastProvider>
-              <DataProvider>
-                <AlertBanner />
-                <SidebarProvider>
-                  <ConfirmProvider>
-                    <BrowserRouter>
-                      <App />
-                    </BrowserRouter>
-                  </ConfirmProvider>
-                </SidebarProvider>
-              </DataProvider>
-            </ToastProvider>
-          </NotificationProvider>
-        </ThemeProvider>
-      </I18nProvider>
-    </SettingsProvider>
+    <ErrorBoundary>
+      <SettingsProvider>
+        <I18nProvider>
+          <ThemeProvider>
+            <NotificationProvider>
+              <ToastProvider>
+                <DataProvider>
+                  <AlertBanner />
+                  <SidebarProvider>
+                    <ConfirmProvider>
+                      <BrowserRouter>
+                        <App />
+                      </BrowserRouter>
+                    </ConfirmProvider>
+                  </SidebarProvider>
+                </DataProvider>
+              </ToastProvider>
+            </NotificationProvider>
+          </ThemeProvider>
+        </I18nProvider>
+      </SettingsProvider>
+    </ErrorBoundary>
   </StrictMode>
 );

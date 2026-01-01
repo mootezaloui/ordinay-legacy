@@ -4,6 +4,7 @@ import { useConfirm } from "../../../contexts/ConfirmContext";
 import { useSettings } from "../../../contexts/SettingsContext";
 import ContentSection from "../../layout/ContentSection";
 import documentService from "../../../services/documentService.js";
+import { useTranslation } from "react-i18next";
 
 /**
  * Documents Tab - Centralized document management
@@ -14,6 +15,7 @@ export default function DocumentsTab({ data, config, onDocumentsChange }) {
   const { showToast } = useToast();
   const { confirm } = useConfirm();
   const { formatDate } = useSettings();
+  const { t } = useTranslation("common");
 
   // Entity information for linking
   const entityType = config.entityType || 'unknown';
@@ -30,8 +32,8 @@ export default function DocumentsTab({ data, config, onDocumentsChange }) {
     loadDocuments();
   }, [entityType, entityId]);
 
-  const loadDocuments = () => {
-    const entityDocuments = documentService.getEntityDocuments(entityType, entityId);
+  const loadDocuments = async () => {
+    const entityDocuments = await documentService.getEntityDocuments(entityType, entityId);
     setDocuments(entityDocuments);
     checkMissingFiles(entityDocuments);
   };
@@ -86,20 +88,21 @@ export default function DocumentsTab({ data, config, onDocumentsChange }) {
 
       // Notify parent (for backward compatibility with legacy systems)
       if (onDocumentsChange) {
-        onDocumentsChange(documentService.getEntityDocuments(entityType, entityId));
+        const updatedDocs = await documentService.getEntityDocuments(entityType, entityId);
+        onDocumentsChange(updatedDocs);
       }
 
       // Show results
       if (results.successful.length > 0) {
         showToast(
-          `${results.successful.length} document(s) added successfully!`,
+          t("detail.documents.toast.success.upload", { count: results.successful.length }),
           "success"
         );
       }
 
       if (results.failed.length > 0) {
         showToast(
-          `${results.failed.length} document(s) failed to upload`,
+          t("detail.documents.toast.error.uploadFailed", { count: results.failed.length }),
           "error"
         );
         console.error("Failed uploads:", results.failed);
@@ -107,7 +110,7 @@ export default function DocumentsTab({ data, config, onDocumentsChange }) {
 
     } catch (error) {
       console.error("Error uploading files:", error);
-      showToast("Error adding documents", "error");
+      showToast(t("detail.documents.toast.error.uploadError"), "error");
     } finally {
       setUploading(false);
     }
@@ -119,7 +122,7 @@ export default function DocumentsTab({ data, config, onDocumentsChange }) {
     } catch (error) {
       console.error("Error opening document:", error);
       showToast(
-        "Unable to open document. File missing?",
+        t("detail.documents.toast.error.open"),
         "error"
       );
     }
@@ -128,10 +131,10 @@ export default function DocumentsTab({ data, config, onDocumentsChange }) {
   const handleDownload = async (doc) => {
     try {
       await documentService.downloadDocument(doc.id);
-      showToast(`Downloading ${doc.name}`, "success");
+      showToast(t("detail.documents.toast.success.downloadStart", { name: doc.name }), "success");
     } catch (error) {
       console.error("Error downloading document:", error);
-      showToast("Error downloading document", "error");
+      showToast(t("detail.documents.toast.error.download"), "error");
     }
   };
 
@@ -140,16 +143,16 @@ export default function DocumentsTab({ data, config, onDocumentsChange }) {
       await documentService.revealDocument(doc.id);
     } catch (error) {
       console.error("Error revealing document:", error);
-      showToast("Unable to reveal file", "error");
+      showToast(t("detail.documents.toast.error.reveal"), "error");
     }
   };
 
   const handleDelete = async (docId) => {
     const confirmed = await confirm({
-      title: "Delete document",
-      message: "Do you want to delete the link only or the file permanently?",
-      confirmText: "Delete file",
-      cancelText: "Remove link",
+      title: t("dialog.detail.documents.delete.title"),
+      message: t("dialog.detail.documents.delete.message"),
+      confirmText: t("dialog.detail.documents.delete.confirm"),
+      cancelText: t("dialog.detail.documents.delete.cancel"),
       variant: "danger"
     });
 
@@ -165,14 +168,15 @@ export default function DocumentsTab({ data, config, onDocumentsChange }) {
       if (success) {
         loadDocuments();
         if (onDocumentsChange) {
-          onDocumentsChange(documentService.getEntityDocuments(entityType, entityId));
+          const updatedDocs = await documentService.getEntityDocuments(entityType, entityId);
+          onDocumentsChange(updatedDocs);
         }
         showToast(
-          deleteFile ? "Document deleted" : "Link removed",
+          deleteFile ? t("detail.documents.toast.success.delete") : t("detail.documents.toast.success.unlink"),
           "success"
         );
       } else {
-        showToast("Error deleting document", "error");
+        showToast(t("detail.documents.toast.error.delete"), "error");
       }
     }
   };
@@ -188,9 +192,10 @@ export default function DocumentsTab({ data, config, onDocumentsChange }) {
         const success = await documentService.relinkDocument(docId, file);
         if (success) {
           loadDocuments();
-          showToast("Document relinked successfully", "success");
+          onDocumentsChange && onDocumentsChange(await documentService.getEntityDocuments(entityType, entityId));
+          showToast(t("detail.documents.toast.success.relink"), "success");
         } else {
-          showToast("Error replacing document", "error");
+          showToast(t("detail.documents.toast.error.replace"), "error");
         }
       }
     };

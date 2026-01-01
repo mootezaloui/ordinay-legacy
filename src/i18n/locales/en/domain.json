@@ -1,0 +1,327 @@
+{
+  "error": {
+    "unexpected": "An unexpected error occurred. Please try again."
+  },
+  "impact": {
+    "actions": {
+      "perform": "perform this action",
+      "changeLink": "change the attachment"
+    }
+  },
+  "dossier": {
+    "add": {
+      "blocked": {
+        "noClients": "Please add a client before creating a Dossier.",
+        "noClientSelected": "Please select a client for this Dossier."
+      }
+    },
+    "close": {
+      "blocked": {
+        "tasksOpen": "{{count}} open Task:",
+        "tasksOpen_plural": "{{count}} open Tasks:",
+        "casesOpen": "{{count}} open Lawsuit:",
+        "casesOpen_plural": "{{count}} open Lawsuits:",
+        "unpaidBalance": "Unpaid balance: {{amount}} TND",
+        "sessionsOpen": "{{count}} open Hearing:",
+        "sessionsOpen_plural": "{{count}} open Hearings:",
+        "missionsActive": "{{count}} active bailiff mission:",
+        "missionsActive_plural": "{{count}} active bailiff missions:",
+        "andMore": "... and {{count}} other",
+        "andMore_plural": "... and {{count}} others"
+      },
+      "warning": {
+        "noDocuments": "No documents have been added to this Dossier"
+      }
+    },
+    "delete": {
+      "blocked": {
+        "dossierNotFound": "Dossier not found"
+      },
+      "warning": {
+        "casesWillDelete": "This Dossier contains {{count}} case that will be deleted.",
+        "casesWillDelete_plural": "This Dossier contains {{count}} cases that will be deleted.",
+        "tasksWillDelete": "This Dossier contains {{count}} task that will be deleted.",
+        "tasksWillDelete_plural": "This Dossier contains {{count}} tasks that will be deleted.",
+        "sessionsWillDelete": "This Dossier contains {{count}} session that will be deleted.",
+        "sessionsWillDelete_plural": "This Dossier contains {{count}} sessions that will be deleted.",
+        "missionsWillDelete": "This Dossier contains {{count}} mission that will be deleted.",
+        "missionsWillDelete_plural": "This Dossier contains {{count}} missions that will be deleted.",
+        "financialsWillDelete": "This Dossier has {{count}} financial entry that will be deleted.",
+        "financialsWillDelete_plural": "This Dossier has {{count}} financial entries that will be deleted."
+      },
+      "forceDeleteMessage": "⚠️ Warning: Deleting this Dossier will also delete {{count}} linked entity (cases, tasks, sessions, missions, financial entries). This action is irreversible.",
+      "forceDeleteMessage_plural": "⚠️ Warning: Deleting this Dossier will also delete {{count}} linked entities (cases, tasks, sessions, missions, financial entries). This action is irreversible."
+    },
+    "impact": {
+      "reference": {
+        "field": "Dossier Number",
+        "current": "**Current Dossier Number**: {{value}}",
+        "new": "**New Dossier Number**: {{value}}",
+        "impact1": "• The Dossier reference will be modified",
+        "impact2": "• All linked cases will retain their link with this Dossier",
+        "impact3": "• Documents and reports will need to be updated",
+        "impact4": "• Financial entries will retain the new reference"
+      },
+      "client": {
+        "field": "Client",
+        "current": "**Current Client**: {{value}}",
+        "new": "**New Client**: {{value}}",
+        "unknown": "Unknown",
+        "impactTitle": "**Impact**:",
+        "impact1": "• All linked cases will remain attached to this Dossier",
+        "impact2": "• Financial entries will remain associated with the Dossier",
+        "impact3": "• The Dossier will now appear under the new client",
+        "impact4": "• Tracking indicators will be recalculated"
+      }
+    }
+  },
+  "case": {
+    "add": {
+      "blocked": {
+        "noDossiers": "Please add a Dossier before creating a case.",
+        "dossierNotFound": "Parent Dossier not found",
+        "dossierClosed": "Cannot create a case under a {{status}} Dossier",
+        "dossierDetails": "Dossier: {{caseNumber}} - {{title}}",
+        "reopenRequired": "You must first reopen the Dossier to add cases"
+      }
+    },
+    "close": {
+      "blocked": {
+        "caseNotFound": "Case not found",
+        "sessionsOpen": "{{count}} open Hearing:",
+        "sessionsOpen_plural": "{{count}} open Hearings:",
+        "tasksOpen": "{{count}} open Task:",
+        "tasksOpen_plural": "{{count}} open Tasks:",
+        "missionsActive": "{{count}} active bailiff mission:",
+        "missionsActive_plural": "{{count}} active bailiff missions:",
+        "andMore": "... and {{count}} other",
+        "andMore_plural": "... and {{count}} others"
+      }
+    },
+    "delete": {
+      "warning": {
+        "sessionsWillDelete": "This case contains {{count}} session that will be deleted.",
+        "sessionsWillDelete_plural": "This case contains {{count}} sessions that will be deleted.",
+        "tasksWillDelete": "This case contains {{count}} task that will be deleted.",
+        "tasksWillDelete_plural": "This case contains {{count}} tasks that will be deleted.",
+        "missionsWillDelete": "This case contains {{count}} mission that will be deleted.",
+        "missionsWillDelete_plural": "This case contains {{count}} missions that will be deleted."
+      },
+      "forceDeleteMessage": "⚠️ Warning: Deleting this case will also delete {{count}} linked entity (sessions, tasks, missions). This action is irreversible.",
+      "forceDeleteMessage_plural": "⚠️ Warning: Deleting this case will also delete {{count}} linked entities (sessions, tasks, missions). This action is irreversible."
+    },
+    "impact": {
+      "reference": {
+        "field": "Lawsuit Number",
+        "current": "**Current Lawsuit Number**: {{value}}",
+        "new": "**New Lawsuit Number**: {{value}}",
+        "impact1": "• The case reference will be modified",
+        "impact2": "• All linked sessions will retain their link with this case",
+        "impact3": "• Documents and reports will need to be updated",
+        "impact4": "• Financial entries will retain the new reference"
+      },
+      "dossier": {
+        "field": "Dossier",
+        "current": "**Current Dossier**: {{value}}",
+        "new": "**New Dossier**: {{value}}",
+        "notAssigned": "Not assigned",
+        "impactTitle": "**Impact**:",
+        "impact1": "• The linked client may change",
+        "impact2": "• Financial entries will be aggregated under the new Dossier",
+        "impact3": "• Tasks and sessions linked to the case will be moved",
+        "impact4": "• Tracking indicators will be recalculated"
+      }
+    }
+  },
+  "client": {
+    "archive": {
+      "blocked": {
+        "clientNotFound": "Client not found",
+        "dossiersOpen": "{{count}} open Dossier:",
+        "dossiersOpen_plural": "{{count}} open Dossiers:",
+        "casesOpen": "{{count}} open Lawsuit:",
+        "casesOpen_plural": "{{count}} open Lawsuits:",
+        "tasksOpen": "{{count}} open Task:",
+        "tasksOpen_plural": "{{count}} open Tasks:",
+        "sessionsOpen": "{{count}} open Hearing:",
+        "sessionsOpen_plural": "{{count}} open Hearings:",
+        "unpaidBalance": "Unpaid balance: {{amount}} TND",
+        "andMore": "... and {{count}} other",
+        "andMore_plural": "... and {{count}} others"
+      }
+    },
+    "delete": {
+      "warning": {
+        "dossiersWillDelete": "This client has {{count}} Dossier that will be deleted.",
+        "dossiersWillDelete_plural": "This client has {{count}} Dossiers that will be deleted.",
+        "casesWillDelete": "This client has {{count}} lawsuit that will be deleted.",
+        "casesWillDelete_plural": "This client has {{count}} lawsuits that will be deleted.",
+        "tasksWillDelete": "This client has {{count}} task that will be deleted.",
+        "tasksWillDelete_plural": "This client has {{count}} tasks that will be deleted.",
+        "sessionsWillDelete": "This client has {{count}} session that will be deleted.",
+        "sessionsWillDelete_plural": "This client has {{count}} sessions that will be deleted.",
+        "missionsWillDelete": "This client has {{count}} mission that will be deleted.",
+        "missionsWillDelete_plural": "This client has {{count}} missions that will be deleted.",
+        "financialsWillDelete": "This client has {{count}} financial entry that will be deleted.",
+        "financialsWillDelete_plural": "This client has {{count}} financial entries that will be deleted."
+      },
+      "forceDeleteMessage": "⚠️ Warning: Deleting this client will also delete {{count}} linked entity (dossiers, cases, tasks, sessions, missions, financial entries). This action is irreversible.",
+      "forceDeleteMessage_plural": "⚠️ Warning: Deleting this client will also delete {{count}} linked entities (dossiers, cases, tasks, sessions, missions, financial entries). This action is irreversible."
+    }
+  },
+  "accounting": {
+    "edit": {
+      "blocked": {
+        "readOnly": "Modification prohibited from Accounting screen\n\nThe Accounting screen is a read-only reconciliation surface.\nModifications must be made from the entity's dedicated screen:\n  • Clients → Clients Menu\n  • Dossiers → Dossiers Menu\n  • Cases → Cases Menu\n  • Bailiffs → Bailiffs Menu\n\nYou can click on the entity name to access it directly."
+      }
+    }
+  },
+  "task": {
+    "add": {
+      "blocked": {
+        "noDossiers": "Please add a Dossier before creating a task.",
+        "dossierClosed": "Cannot create a task under a {{status}} Dossier",
+        "dossierDetails": "Dossier: {{caseNumber}} - {{title}}",
+        "caseClosed": "Cannot create a task under a {{status}} case",
+        "caseDetails": "Case: {{caseNumber}} - {{title}}",
+        "reopenRequired": "You must first reopen the {{parentType}} to add tasks"
+      },
+      "warning": {
+        "parentNotResolved": "Parent {{parentType}} not resolved (check after saving)."
+      }
+    },
+    "edit": {
+      "blocked": {
+        "taskNotFound": "Task not found",
+        "dossierClosed": "This task belongs to Dossier \"{{caseNumber}}\" which is {{status}}.\n\nModifications are no longer allowed on closed Dossiers.",
+        "caseClosed": "This task belongs to case \"{{caseNumber}}\" which is closed.\n\nModifications are no longer allowed on closed cases."
+      }
+    },
+    "impact": {
+      "parent": {
+        "current": "**Current parent**: {{value}}",
+        "new": "**New parent**: {{value}}",
+        "notAssigned": "Not assigned",
+        "dossierLabel": "Dossier {{caseNumber}} - {{title}}",
+        "caseLabel": "Lawsuit {{caseNumber}} - {{title}}",
+        "impactTitle": "**Impact**:",
+        "impact1": "• The task will be removed from its current context",
+        "impact2": "• Tracking indicators will be recalculated",
+        "impact3": "• Task history will be preserved"
+      }
+    }
+  },
+  "session": {
+    "add": {
+      "blocked": {
+        "noDossiers": "Please add a Dossier before scheduling a hearing.",
+        "dossierClosed": "Cannot create a session under a {{status}} Dossier",
+        "dossierDetails": "Dossier: {{caseNumber}} - {{title}}",
+        "caseClosed": "Cannot create a session under a {{status}} case",
+        "caseDetails": "Case: {{caseNumber}} - {{title}}",
+        "reopenRequired": "You must first reopen the {{parentType}} to add sessions"
+      },
+      "warning": {
+        "parentNotResolved": "Parent {{parentType}} not resolved (check after saving)."
+      }
+    },
+    "edit": {
+      "blocked": {
+        "sessionNotFound": "Session not found",
+        "caseClosed": "This session belongs to case \"{{caseNumber}}\" which is closed.\n\nModifications are no longer allowed on closed cases.",
+        "dossierClosed": "This session belongs to Dossier \"{{caseNumber}}\" which is {{status}}.\n\nModifications are no longer allowed on closed Dossiers."
+      }
+    },
+    "impact": {
+      "parent": {
+        "current": "**Current attachment**: {{value}}",
+        "new": "**New attachment**: {{value}}",
+        "notAssigned": "Not assigned",
+        "dossierLabel": "Dossier {{caseNumber}} - {{title}}",
+        "caseLabel": "Lawsuit {{caseNumber}} - {{title}}",
+        "impactTitle": "**Impact**:",
+        "impact1": "• The session will be removed from its current context",
+        "impact2": "• Tracking indicators will be recalculated",
+        "impact3": "• Session history will be preserved"
+      }
+    }
+  },
+  "mission": {
+    "add": {
+      "blocked": {
+        "dossierNotFound": "Parent Dossier not found",
+        "caseNotFound": "Parent case not found",
+        "dossierClosed": "Cannot create a mission under a {{status}} Dossier",
+        "dossierDetails": "Dossier: {{caseNumber}} - {{title}}",
+        "caseClosed": "Cannot create a mission under a {{status}} case",
+        "caseDetails": "Case: {{caseNumber}} - {{title}}",
+        "reopenRequired": "You must first reopen the {{parentType}} to create missions"
+      }
+    },
+    "edit": {
+      "blocked": {
+        "missionNotFound": "Mission not found",
+        "dossierClosed": "This mission is linked to Dossier \"{{caseNumber}}\" which is {{status}}.\n\nModifications are no longer allowed on closed Dossiers.",
+        "caseClosed": "This mission is linked to case \"{{caseNumber}}\" which is closed.\n\nModifications are no longer allowed on closed cases."
+      }
+    },
+    "impact": {
+      "reference": {
+        "field": "Mission Number",
+        "current": "**Mission Number actuel**: {{value}}",
+        "new": "**Mission Number nouveau**: {{value}}",
+        "impactTitle": "**Impact**:",
+        "impact1": "• The mission reference will be modified",
+        "impact2": "• All documents and reports will need to be updated",
+        "impact3": "• Financial entries will retain the new reference"
+      },
+      "officer": {
+        "field": "Bailiff",
+        "current": "**Current Bailiff**: {{value}}",
+        "new": "**New Bailiff**: {{value}}",
+        "notDefined": "Not defined",
+        "impactTitle": "**Impact**:",
+        "impact1": "• The mission will be removed from the current bailiff",
+        "impact2": "• Follow-up responsibility will change",
+        "impact3": "• Mission history will be preserved"
+      }
+    }
+  },
+  "financialEntry": {
+    "add": {
+      "blocked": {
+        "dossierClosed": "Dossier \"{{caseNumber}}\" is {{status}}.\n\nNo new financial entries can be added to closed Dossiers.",
+        "caseClosed": "Case \"{{caseNumber}}\" is closed.\n\nNo new financial entries can be added to closed cases."
+      }
+    },
+    "edit": {
+      "blocked": {
+        "entryNotFound": "Financial entry not found",
+        "entryPaid": "This financial entry is already paid.\n\nPaid entries cannot be modified to ensure financial integrity.",
+        "dossierClosed": "This entry is linked to Dossier \"{{caseNumber}}\" which is {{status}}.\n\nEntries from closed Dossiers cannot be modified.",
+        "caseClosed": "This entry is linked to case \"{{caseNumber}}\" which is closed.\n\nEntries from closed cases cannot be modified."
+      }
+    },
+    "delete": {
+      "blocked": {
+        "entryNotFound": "Financial entry not found",
+        "entryPaid": "This financial entry is paid.\n\nPaid entries cannot be deleted. You must create a corrective entry."
+      }
+    },
+    "changeStatus": {
+      "blocked": {
+        "entryNotFound": "Financial entry not found",
+        "alreadyPaid": "This entry is already marked as paid.\n\nPaid entries cannot be reverted to a previous status."
+      }
+    }
+  },
+  "officer": {
+    "delete": {
+      "blocked": {
+        "activeMissions": "This bailiff has {{count}} active mission(s).\n\nYou must first complete or reassign these missions before deleting the bailiff.",
+        "financialEntries": "This bailiff is linked to {{count}} financial entry via their missions.\n\nDeleting a bailiff with existing entries would compromise data integrity.",
+        "financialEntries_plural": "This bailiff is linked to {{count}} financial entries via their missions.\n\nDeleting a bailiff with existing entries would compromise data integrity."
+      }
+    }
+  }
+}

@@ -6,6 +6,7 @@ import { useSettings } from "../../contexts/SettingsContext";
 import PageLayout from "../layout/PageLayout";
 import PageHeader from "../layout/PageHeader";
 import ContentSection from "../layout/ContentSection";
+import { useTranslation } from "react-i18next";
 
 /**
  * NotificationCenter Page
@@ -15,6 +16,7 @@ export default function NotificationCenter() {
   const navigate = useNavigate();
   const { confirm } = useConfirm();
   const { formatDate, formatDateTime } = useSettings();
+  const { t } = useTranslation("notifications");
   const {
     notifications,
     unreadCount,
@@ -61,7 +63,7 @@ export default function NotificationCenter() {
       return formatDateTime(date);
     }
     if (diffDays < 7) {
-      return `${formatDate(date)} · ${formatDateTime(date)}`;
+      return t("center.time.dateAndTime", { date: formatDate(date), time: formatDateTime(date) });
     }
     return formatDate(date);
   };
@@ -71,22 +73,22 @@ export default function NotificationCenter() {
       urgent: {
         bg: "bg-red-100 dark:bg-red-900/30",
         text: "text-red-700 dark:text-red-400",
-        label: "Urgent",
+        label: t("center.priority.urgent"),
       },
       high: {
         bg: "bg-orange-100 dark:bg-orange-900/30",
         text: "text-orange-700 dark:text-orange-400",
-        label: "Haute",
+        label: t("center.priority.high"),
       },
       success: {
         bg: "bg-green-100 dark:bg-green-900/30",
         text: "text-green-700 dark:text-green-400",
-        label: "Succès",
+        label: t("center.priority.success"),
       },
       info: {
         bg: "bg-blue-100 dark:bg-blue-900/30",
         text: "text-blue-700 dark:text-blue-400",
-        label: "Info",
+        label: t("center.priority.info"),
       },
     };
     return badges[priority] || badges.info;
@@ -100,8 +102,8 @@ export default function NotificationCenter() {
   return (
     <PageLayout>
       <PageHeader
-        title="Notification Center"
-        subtitle={`${notifications.length} notification${notifications.length > 1 ? "s" : ""} in total · ${unreadCount} unread${unreadCount > 1 ? "s" : ""}`}
+        title={t("center.title")}
+        subtitle={t("center.subtitle", { total: notifications.length, unread: unreadCount })}
         icon="fas fa-bell"
         actions={
           <div className="flex items-center gap-3">
@@ -110,17 +112,17 @@ export default function NotificationCenter() {
                 onClick={markAllAsRead}
                 className="px-4 py-2 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-lg font-medium transition-colors"
               >
-                Mark all as read
+                {t("center.actions.markAll")}
               </button>
             )}
             {notifications.length > 0 && (
               <button
                 onClick={async () => {
                   if (await confirm({
-                    title: "Delete all notifications",
-                    message: "This action will permanently delete all notifications.",
-                    confirmText: "Delete",
-                    cancelText: "Cancel",
+                    title: t("center.actions.clearAll.title"),
+                    message: t("center.actions.clearAll.message"),
+                    confirmText: t("center.actions.clearAll.confirm"),
+                    cancelText: t("center.actions.clearAll.cancel"),
                     variant: "danger",
                   })) {
                     clearAll();
@@ -128,7 +130,7 @@ export default function NotificationCenter() {
                 }}
                 className="px-4 py-2 border border-red-300 dark:border-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg font-medium transition-colors"
               >
-                Clear all
+                {t("center.actions.clearAll.label")}
               </button>
             )}
           </div>
@@ -139,32 +141,36 @@ export default function NotificationCenter() {
         <div className="p-6 space-y-4">
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Status:</span>
+              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{t("center.filters.status.label")}</span>
               {["all", "unread", "read"].map((value) => (
                 <button
                   key={value}
                   onClick={() => setFilter(value)}
                   className={`px-3 py-1.5 rounded-full text-sm border ${filter === value
-                      ? "bg-blue-600 text-white border-blue-600"
-                      : "border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300"
+                    ? "bg-blue-600 text-white border-blue-600"
+                    : "border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300"
                     }`}
                 >
-                  {value === "all" ? "All" : value === "unread" ? "Unread" : "Read"}
+                  {value === "all"
+                    ? t("center.filters.status.options.all")
+                    : value === "unread"
+                      ? t("center.filters.status.options.unread")
+                      : t("center.filters.status.options.read")}
                 </button>
               ))}
             </div>
 
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Type:</span>
+              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{t("center.filters.type.label")}</span>
               <select
                 value={typeFilter}
                 onChange={(e) => setTypeFilter(e.target.value)}
                 className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm"
               >
-                <option value="all">All</option>
+                <option value="all">{t("center.filters.type.options.all")}</option>
                 {notificationTypes.map((type) => (
                   <option key={type} value={type}>
-                    {type}
+                    {t(`center.types.${type}`, { defaultValue: type })}
                   </option>
                 ))}
               </select>
@@ -174,7 +180,7 @@ export default function NotificationCenter() {
           <div className="divide-y divide-slate-200 dark:divide-slate-700">
             {filteredNotifications.length === 0 && (
               <p className="text-sm text-slate-500 dark:text-slate-400 py-6 text-center">
-                No notifications to display
+                {t("center.empty")}
               </p>
             )}
             {filteredNotifications.map((notification) => {
@@ -204,7 +210,7 @@ export default function NotificationCenter() {
                               onClick={() => handleNotificationClick(notification)}
                               className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
                             >
-                              View Details
+                              {t("center.actions.viewDetails")}
                             </button>
                           )}
                         </div>
@@ -216,7 +222,7 @@ export default function NotificationCenter() {
                         <button
                           onClick={() => deleteNotification(notification.id)}
                           className="text-slate-400 hover:text-red-500 transition-colors"
-                          title="Delete"
+                          title={t("center.actions.delete")}
                         >
                           <i className="fas fa-times"></i>
                         </button>

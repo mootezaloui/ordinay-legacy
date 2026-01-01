@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import ContentSection from "../../layout/ContentSection";
 import { getStatusColor } from "./statusColors";
+import i18next from "i18next";
 import { dossierFormFields, caseFormFields, sessionFormFields, taskFormFields } from "../../FormModal/formConfigs";
 import { formatDateValue } from "../../../utils/dateFormat";
 
@@ -10,7 +11,13 @@ import { formatDateValue } from "../../../utils/dateFormat";
  * ✅ Added structured edit mode for overview sections
  * ✅ Fully internationalized with i18n support
  */
-export const createClientConfig = (t) => ({
+export const createClientConfig = (t) => {
+  const tDossiers = i18next.getFixedT("dossiers");
+  const tCases = i18next.getFixedT("cases");
+  const tTasks = i18next.getFixedT("tasks");
+  const tSessions = i18next.getFixedT("sessions");
+
+  return {
   entityType: "client",
   entityName: t('detail.entityName'),
   icon: "fas fa-user-circle",
@@ -223,7 +230,7 @@ export const createClientConfig = (t) => ({
       allowDelete: true,
       entityName: "dossier",
       addSubtitle: t('detail.tabs.dossiersAddSubtitle'),
-      formFields: dossierFormFields.filter(field => field.name !== 'clientId'),
+      formFields: dossierFormFields(tDossiers).filter(field => field.name !== 'clientId'),
     },
     {
       id: "cases",
@@ -242,7 +249,7 @@ export const createClientConfig = (t) => ({
       // Dynamic form fields - dossierId options filtered to client's dossiers
       getFormFields: (clientData) => {
         const relatedDossiers = clientData.relatedDossiers || [];
-        return caseFormFields.map(field => {
+        return caseFormFields(tCases).map(field => {
           if (field.name === 'dossierId') {
             return {
               ...field,
@@ -278,7 +285,7 @@ export const createClientConfig = (t) => ({
         const relatedDossiers = clientData.relatedDossiers || [];
         const relatedCases = clientData.relatedCases || [];
 
-        return sessionFormFields.map(field => {
+        return sessionFormFields(tSessions).map(field => {
           // Allow linkType to be editable - choose between dossier and case
           if (field.name === 'linkType') {
             return {
@@ -361,7 +368,7 @@ export const createClientConfig = (t) => ({
         const relatedDossiers = clientData.relatedDossiers || [];
         const relatedCases = clientData.relatedCases || [];
 
-        return taskFormFields.map(field => {
+        return taskFormFields(tTasks).map(field => {
           if (field.name === 'dossierId') {
             return {
               ...field,
@@ -562,4 +569,5 @@ export const createClientConfig = (t) => ({
       content: (data) => data.notes || t('detail.overview.notesEmpty'),
     },
   ],
-});
+  };
+};

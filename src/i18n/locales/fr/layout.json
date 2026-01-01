@@ -1,0 +1,24 @@
+{
+  "sidebar": {
+    "brand": "Organia",
+    "dashboard": "Tableau de bord",
+    "clients": "Clients",
+    "dossiers": "Dossiers",
+    "tasks": "Tâches",
+    "cases": "Procédures",
+    "sessions": "Audiences",
+    "personalTasks": "Corvées",
+    "officers": "Huissiers",
+    "accounting": "Comptabilité",
+    "chatbot": "ChatBot",
+    "theme": {
+      "light": "Mode clair",
+      "dark": "Mode sombre"
+    },
+    "logout": "Déconnexion",
+    "footer": "© 2025 Organia"
+  },
+  "header": {
+    "brand": "Cabinet"
+  }
+}

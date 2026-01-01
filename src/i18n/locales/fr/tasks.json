@@ -46,7 +46,7 @@
     },
     "empty": "Aucune tâche trouvée",
     "emptyNoDossier": "Ajoutez d'abord un dossier avant de créer une tâche.",
-    "emptyFiltered": "Aucun résultat"
+    "emptyFiltered": "Aucun résultat trouvé"
   },
   "confirm": {
     "delete": {
@@ -66,7 +66,71 @@
       "create": "Ajouter une nouvelle tâche"
     },
     "help": {
-      "statusLocked": "Le statut ne peut être modifié que via le sélecteur dans la liste."
+      "statusLocked": "Le statut ne peut être modifié qu'à l'aide du sélecteur dans la liste"
+    },
+    "fields": {
+      "title": {
+        "label": "Titre de la tâche",
+        "placeholder": "Ex : Préparer le dossier de plaidoirie"
+      },
+      "parentType": {
+        "label": "Lié à",
+        "options": {
+          "dossier": "Dossier",
+          "case": "Procès"
+        },
+        "helper": "Sélectionnez si cette tâche est liée à un dossier ou à un procès."
+      },
+      "dossierId": {
+        "label": "Dossier"
+      },
+      "caseId": {
+        "label": "Procès"
+      },
+      "assignedTo": {
+        "label": "Assigné à",
+        "createLabel": "Ajouter"
+      },
+      "dueDate": {
+        "label": "Date d'échéance"
+      },
+      "priority": {
+        "label": "Priorité"
+      },
+      "status": {
+        "label": "Statut",
+        "options": {
+          "notStarted": "Non démarrée",
+          "inProgress": "En cours",
+          "blocked": "Bloquée",
+          "done": "Terminée",
+          "cancelled": "Annulée"
+        }
+      },
+      "description": {
+        "label": "Description",
+        "placeholder": "Description détaillée de la tâche..."
+      },
+      "estimatedTime": {
+        "label": "Durée estimée",
+        "helper": "Durée estimée pour réaliser la tâche",
+        "options": {
+          "0_5h": "30 minutes",
+          "1h": "1 heure",
+          "1_5h": "1h30",
+          "2h": "2 heures",
+          "3h": "3 heures",
+          "4h": "4 heures",
+          "6h": "6 heures",
+          "8h": "8 heures",
+          "12h": "12 heures",
+          "16h": "16 heures",
+          "20h": "20 heures",
+          "24h": "1 jour",
+          "40h": "2 jours",
+          "80h": "1 semaine"
+        }
+      }
     }
   },
   "toasts": {

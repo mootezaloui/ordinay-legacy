@@ -469,7 +469,9 @@ export default function Tasks() {
   };
 
   // Populate dossier options and protect status field in edit mode
-  const taskFields = taskFormFields.map(field => {
+  const translatedTaskFields = taskFormFields(t);
+
+  const taskFields = translatedTaskFields.map(field => {
     if (field.name === "dossierId") {
       return {
         ...field,

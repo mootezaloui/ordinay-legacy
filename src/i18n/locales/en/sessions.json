@@ -76,7 +76,90 @@
       "edit": "Update session details",
       "create": "Create a new session"
     },
-    "statusReadonlyHelp": "Status can only be changed using the selector in the list"
+    "statusReadonlyHelp": "Status can only be changed using the selector in the list",
+    "fields": {
+      "title": {
+        "label": "Session Title",
+        "placeholder": "Ex: Preliminary hearing"
+      },
+      "type": {
+        "label": "Type",
+        "options": {
+          "hearing": "Hearing",
+          "consultation": "Consultation",
+          "mediation": "Mediation",
+          "expertAssessment": "Expert Assessment",
+          "phoneCall": "Phone Call",
+          "other": "Other"
+        }
+      },
+      "linkType": {
+        "label": "Linked to",
+        "options": {
+          "case": "Lawsuit",
+          "dossier": "Dossier"
+        },
+        "helper": "A hearing can be linked to a lawsuit or directly to a dossier"
+      },
+      "caseId": {
+        "label": "Lawsuit",
+        "helper": "Select the concerned lawsuit"
+      },
+      "dossierId": {
+        "label": "Dossier",
+        "helper": "Select the concerned dossier"
+      },
+      "date": {
+        "label": "Date"
+      },
+      "time": {
+        "label": "Time",
+        "helper": "Select start time"
+      },
+      "duration": {
+        "label": "Estimated Duration",
+        "helper": "Expected duration of the session",
+        "options": {
+          "00_15": "15 minutes",
+          "00_30": "30 minutes",
+          "00_45": "45 minutes",
+          "01_00": "1 hour",
+          "01_30": "1h30",
+          "02_00": "2 hours",
+          "02_30": "2h30",
+          "03_00": "3 hours",
+          "04_00": "4 hours"
+        }
+      },
+      "location": {
+        "label": "Location",
+        "placeholder": "Office, Court, etc."
+      },
+      "courtRoom": {
+        "label": "Court Room",
+        "placeholder": "e.g., Courtroom 5A",
+        "helper": "The specific courtroom where this hearing takes place"
+      },
+      "judge": {
+        "label": "Judge",
+        "placeholder": "e.g., Judge Smith",
+        "helper": "The judge presiding over this hearing"
+      },
+      "status": {
+        "label": "Status",
+        "options": {
+          "scheduled": "Scheduled",
+          "confirmed": "Confirmed",
+          "pending": "Pending",
+          "completed": "Completed",
+          "cancelled": "Cancelled"
+        }
+      },
+      "description": {
+        "label": "Description",
+        "placeholder": "Description of the session..."
+      }
+    }
   },
   "blocker": {
     "action": "Edit/Delete session",

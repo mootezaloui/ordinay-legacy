@@ -1,4 +1,5 @@
 import { useNotifications } from "../../contexts/NotificationContext";
+import { useTranslation } from "react-i18next";
 
 /**
  * AlertBanner Component
@@ -9,6 +10,7 @@ import { useNotifications } from "../../contexts/NotificationContext";
  */
 export default function AlertBanner() {
   const { alerts, removeAlert } = useNotifications();
+  const { t } = useTranslation("common");
 
   if (alerts.length === 0) return null;
 
@@ -98,7 +100,7 @@ export default function AlertBanner() {
               <button
                 onClick={() => removeAlert(alert.id)}
                 className={`${style.textColor} hover:bg-black/5 dark:hover:bg-white/5 w-8 h-8 rounded-lg transition-all flex items-center justify-center flex-shrink-0 active:scale-90`}
-                aria-label="Fermer"
+                aria-label={t("actions.close", { ns: "common" })}
               >
                 <i className="fas fa-times text-base"></i>
               </button>

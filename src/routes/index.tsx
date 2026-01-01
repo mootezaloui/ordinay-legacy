@@ -23,6 +23,7 @@ import SignUp from "../Screens/Auth/SignUp";
 import ForgotPassword from "../Screens/Auth/ForgetPassword";
 import NotificationCenter from "../components/notifications/NotificationCenter";
 import DetailView from "../components/DetailView/DetailView";
+import { t } from "../i18n";
 
 /**
  * Route configuration type
@@ -213,7 +214,7 @@ export const routes: RouteConfig[] = [
     component: NotificationCenter,
     name: "Notifications",
     icon: "fas fa-bell",
-    label: "Centre de Notifications",
+    label: t("routes.labels.notifications", { ns: "notifications" }),
   },
 
   {

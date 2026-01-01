@@ -1,0 +1,116 @@
+{
+  "detail": {
+    "entityName": "Mission",
+    "notFound": "Mission introuvable.",
+    "deleteConfirm": "Êtes-vous sûr de vouloir supprimer cette mission ?",
+    "subtitle": "{{title}}",
+    "fallback": {
+      "na": "N/A",
+      "none": "Aucun",
+      "noReport": "Aucun rapport disponible",
+      "noLinkedEntity": "Aucune entité liée",
+      "notAssigned": "Non assigné",
+      "unassigned": "Non assigné",
+      "untitled": "Mission #{{id}}"
+    },
+    "quickActions": {
+      "status": {
+        "label": "Statut",
+        "planned": "Planifiée",
+        "inProgress": "En cours",
+        "completed": "Terminée",
+        "cancelled": "Annulée"
+      },
+      "priority": {
+        "label": "Priorité",
+        "high": "Haute",
+        "medium": "Moyenne",
+        "low": "Basse"
+      },
+      "bailiff": {
+        "label": "Huissier"
+      }
+    },
+    "header": {
+      "assignedOn": "Assignée le",
+      "dueDate": "Date d'échéance",
+      "completedOn": "Terminée le",
+      "bailiff": "Huissier",
+      "priority": "Priorité"
+    },
+    "stats": {
+      "documents": "Documents",
+      "duration": "Durée"
+    },
+    "tabs": {
+      "overview": "Aperçu",
+      "fees": "Frais d'huissier",
+      "documents": "Documents",
+      "notes": "Notes",
+      "relations": "Relations",
+      "history": "Historique"
+    },
+    "relations": {
+      "title": "Entités liées",
+      "bailiff": "Huissier",
+      "dossier": "Dossier",
+      "lawsuit": "Affaire",
+      "empty": "Aucune entité liée"
+    },
+    "overview": {
+      "missionDetails": "Détails de la mission",
+      "dates": "Dates",
+      "description": "Description",
+      "report": "Rapport / Résultat",
+      "linkedEntity": "Entité liée",
+      "bailiffInfo": "Informations de l'huissier",
+      "fields": {
+        "missionNumber": "Numéro de mission",
+        "title": "Titre",
+        "missionType": "Type de mission",
+        "status": "Statut",
+        "priority": "Priorité",
+        "assignDate": "Date d'assignation",
+        "dueDate": "Date d'échéance",
+        "completionDate": "Date d'achèvement",
+        "entityType": "Type d'entité",
+        "entity": "Entité",
+        "assignedBailiff": "Huissier assigné",
+        "phone": "Téléphone",
+        "location": "Localisation"
+      },
+      "missionTypes": {
+        "service": "Signification",
+        "inspection": "Constat",
+        "seizure": "Saisie",
+        "execution": "Exécution",
+        "other": "Autre"
+      },
+      "statuses": {
+        "scheduled": "Planifiée",
+        "inProgress": "En cours",
+        "completed": "Terminée",
+        "cancelled": "Annulée"
+      },
+      "priorities": {
+        "low": "Basse",
+        "medium": "Moyenne",
+        "high": "Haute",
+        "urgent": "Urgente"
+      },
+      "entityTypes": {
+        "dossier": "Dossier",
+        "case": "Affaire"
+      },
+      "help": {
+        "entityType": "Sélectionnez le type d'entité auquel cette mission est liée",
+        "entity": "Sélectionnez le dossier ou l'affaire concerné(e)",
+        "bailiff": "Attention : Changer l'huissier transférera la mission à un autre huissier"
+      },
+      "placeholders": {
+        "selectCase": "Sélectionnez une affaire...",
+        "selectDossier": "Sélectionnez un dossier..."
+      }
+    }
+  }
+}

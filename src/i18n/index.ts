@@ -70,6 +70,10 @@ export const initI18n = async (language?: string) => {
           "accounting",
           "notFound",
           "sessions",
+          "chatbot",
+          "layout",
+          "notifications",
+          "domain",
         ],
         defaultNS: "common",
         interpolation: {
