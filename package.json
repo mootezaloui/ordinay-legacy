@@ -1,13 +1,21 @@
 {
   "name": "organia",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
+  "description": "Professional legal practice management application",
+  "author": "Organia Team",
+  "license": "UNLICENSED",
   "type": "module",
+  "main": "electron/main.cjs",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "electron:dev": "concurrently -k \"cross-env BROWSER=none npm run dev\" \"wait-on tcp:5173 && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electron .\"",
+    "electron:build": "npm run build && electron-builder",
+    "electron:build:win": "npm run build && electron-builder --win",
+    "electron:build:dir": "npm run build && electron-builder --dir"
   },
   "dependencies": {
     "@fortawesome/fontawesome-free": "^7.1.0",
@@ -53,6 +61,11 @@
     "tailwindcss": "^3.4.18",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.46.4",
-    "vite": "^7.2.4"
+    "vite": "^7.2.4",
+    "concurrently": "^9.1.2",
+    "cross-env": "^7.0.3",
+    "electron": "^33.3.1",
+    "electron-builder": "^25.1.8",
+    "wait-on": "^8.0.2"
   }
 }

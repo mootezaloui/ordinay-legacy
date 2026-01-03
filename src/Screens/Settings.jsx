@@ -20,6 +20,13 @@ export default function Settings() {
     if (field === "theme") {
       setThemePreference(value);
     }
+
+    // Reload page when language changes to re-initialize all static translations
+    if (field === "language") {
+      setTimeout(() => {
+        window.location.reload();
+      }, 100);
+    }
   };
 
   const handleNotificationPrefChange = (category, field, value) => {
@@ -308,39 +315,39 @@ export default function Settings() {
             {/* Case notifications are controlled by parent dossier priority */}
             <div className="space-y-3 pt-4 border-t border-slate-200 dark:border-slate-700">
               <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <i className="fas fa-balance-scale text-red-600"></i>
-                <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
-                  {t("appointments.cases.title")}
-                </h3>
+                <div className="flex items-center gap-2">
+                  <i className="fas fa-balance-scale text-red-600"></i>
+                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
+                    {t("appointments.cases.title")}
+                  </h3>
+                </div>
+                <div className="text-xs text-slate-500 dark:text-slate-400 italic">
+                  {t("appointments.cases.basedOnPriority")}
+                </div>
               </div>
-              <div className="text-xs text-slate-500 dark:text-slate-400 italic">
-                {t("appointments.cases.basedOnPriority")}
+              <div className="ml-6 text-xs text-slate-600 dark:text-slate-400">
+                <p className="mb-2">
+                  <strong>{t("appointments.cases.automaticTitle")}</strong>
+                </p>
+                <ul className="list-disc list-inside space-y-1 ml-2">
+                  <li>{t("appointments.cases.items.noSession")}</li>
+                  <li>{t("appointments.cases.items.updateSuggestion")}</li>
+                </ul>
+                <p className="mt-2 text-slate-500 dark:text-slate-500 italic">
+                  {t("appointments.cases.inherits")}
+                </p>
               </div>
-            </div>
-            <div className="ml-6 text-xs text-slate-600 dark:text-slate-400">
-              <p className="mb-2">
-                <strong>{t("appointments.cases.automaticTitle")}</strong>
-              </p>
-              <ul className="list-disc list-inside space-y-1 ml-2">
-                <li>{t("appointments.cases.items.noSession")}</li>
-                <li>{t("appointments.cases.items.updateSuggestion")}</li>
-              </ul>
-              <p className="mt-2 text-slate-500 dark:text-slate-500 italic">
-                {t("appointments.cases.inherits")}
-              </p>
-            </div>
             </div>
 
             {/* Payments */}
             <div className="space-y-3 pt-4 border-t border-slate-200 dark:border-slate-700">
               <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <i className="fas fa-dollar-sign text-green-600"></i>
-                <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
-                  {t("appointments.payments.title")}
-                </h3>
-              </div>
+                <div className="flex items-center gap-2">
+                  <i className="fas fa-dollar-sign text-green-600"></i>
+                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
+                    {t("appointments.payments.title")}
+                  </h3>
+                </div>
                 <button
                   onClick={() => handleNotificationPrefChange("payments", "enabled", !notificationPrefs.payments.enabled)}
                   className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${notificationPrefs.payments.enabled ? "bg-blue-600" : "bg-slate-300 dark:bg-slate-600"}`}
@@ -350,27 +357,27 @@ export default function Settings() {
               </div>
               {notificationPrefs.payments.enabled && (
                 <div className="ml-6 space-y-2 text-xs">
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={notificationPrefs.payments.overdueReminders}
-                    onChange={(e) => handleNotificationPrefChange("payments", "overdueReminders", e.target.checked)}
-                    className="rounded border-slate-300 dark:border-slate-600"
-                  />
-                  <span className="text-slate-700 dark:text-slate-300">
-                    {t("appointments.payments.overdue.label")}
-                  </span>
-                </label>
-                <p className="text-slate-500 dark:text-slate-400 ml-5">
-                  {t("appointments.payments.overdue.before", {
-                    days: notificationPrefs.payments.reminderDays.join(", "),
-                  })}
-                </p>
-                <p className="text-slate-500 dark:text-slate-400 ml-5">
-                  {t("appointments.payments.overdue.frequency", {
-                    days: notificationPrefs.payments.overdueReminderFrequency.join(", "),
-                  })}
-                </p>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={notificationPrefs.payments.overdueReminders}
+                      onChange={(e) => handleNotificationPrefChange("payments", "overdueReminders", e.target.checked)}
+                      className="rounded border-slate-300 dark:border-slate-600"
+                    />
+                    <span className="text-slate-700 dark:text-slate-300">
+                      {t("appointments.payments.overdue.label")}
+                    </span>
+                  </label>
+                  <p className="text-slate-500 dark:text-slate-400 ml-5">
+                    {t("appointments.payments.overdue.before", {
+                      days: notificationPrefs.payments.reminderDays.join(", "),
+                    })}
+                  </p>
+                  <p className="text-slate-500 dark:text-slate-400 ml-5">
+                    {t("appointments.payments.overdue.frequency", {
+                      days: notificationPrefs.payments.overdueReminderFrequency.join(", "),
+                    })}
+                  </p>
                 </div>
               )}
             </div>
@@ -378,12 +385,12 @@ export default function Settings() {
             {/* Missions */}
             <div className="space-y-3 pt-4 border-t border-slate-200 dark:border-slate-700">
               <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <i className="fas fa-briefcase text-orange-600"></i>
-                <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
-                  {t("appointments.missions.title")}
-                </h3>
-              </div>
+                <div className="flex items-center gap-2">
+                  <i className="fas fa-briefcase text-orange-600"></i>
+                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
+                    {t("appointments.missions.title")}
+                  </h3>
+                </div>
                 <button
                   onClick={() => handleNotificationPrefChange("missions", "enabled", !notificationPrefs.missions.enabled)}
                   className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${notificationPrefs.missions.enabled ? "bg-blue-600" : "bg-slate-300 dark:bg-slate-600"}`}
@@ -526,12 +533,12 @@ export default function Settings() {
             {/* Clients */}
             <div className="space-y-3 pt-4 border-t border-slate-200 dark:border-slate-700">
               <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <i className="fas fa-users text-purple-600"></i>
-                <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
-                  {t("appointments.clients.title")}
-                </h3>
-              </div>
+                <div className="flex items-center gap-2">
+                  <i className="fas fa-users text-purple-600"></i>
+                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
+                    {t("appointments.clients.title")}
+                  </h3>
+                </div>
                 <button
                   onClick={() => handleNotificationPrefChange("clients", "enabled", !notificationPrefs.clients.enabled)}
                   className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${notificationPrefs.clients.enabled ? "bg-blue-600" : "bg-slate-300 dark:bg-slate-600"}`}
@@ -548,19 +555,19 @@ export default function Settings() {
                       onChange={(e) => handleNotificationPrefChange("clients", "inactivityReminder", e.target.checked)}
                       className="rounded border-slate-300 dark:border-slate-600"
                     />
-                  <span className="text-slate-700 dark:text-slate-300">
-                    {t("appointments.clients.inactivity.label", {
+                    <span className="text-slate-700 dark:text-slate-300">
+                      {t("appointments.clients.inactivity.label", {
+                        days: notificationPrefs.clients.inactivityDays,
+                      })}
+                    </span>
+                  </label>
+                  <p className="text-slate-500 dark:text-slate-400 pl-6">
+                    {t("appointments.clients.inactivity.description", {
                       days: notificationPrefs.clients.inactivityDays,
                     })}
-                  </span>
-                </label>
-                <p className="text-slate-500 dark:text-slate-400 pl-6">
-                  {t("appointments.clients.inactivity.description", {
-                    days: notificationPrefs.clients.inactivityDays,
-                  })}
-                </p>
-              </div>
-            )}
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         </ContentSection>

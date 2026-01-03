@@ -5,6 +5,7 @@ import { canPerformAction } from '../../services/domainRules';
 import { useToast } from '../../contexts/ToastContext';
 import { useData } from '../../contexts/DataContext';
 import { useTranslation } from "react-i18next";
+import { translateStatus } from '../../utils/entityTranslations';
 
 /**
  * BlockerModal Component - ENHANCED with Interactive Actions
@@ -295,10 +296,10 @@ export default function BlockerModal({
               </div>
               <div className="flex-1 min-w-0">
                 <h3 className={`text-lg font-bold ${allResolved ? 'text-green-900 dark:text-green-100' : 'text-red-900 dark:text-red-100'}`}>
-                  {allResolved ? 'Blockers resolved!' : 'Action not possible'}
+                  {allResolved ? t("detail.blocker.title.blockersResolved") : t("detail.blocker.title.actionNotPossible")}
                 </h3>
                 <p className={`text-sm mt-0.5 break-words overflow-wrap-anywhere ${allResolved ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'}`}>
-                  {allResolved ? 'You can now retry the action' : `Unable to ${actionName.toLowerCase()}${entityName ? ` ${entityName}` : ''}`}
+                  {allResolved ? t("detail.blocker.subtitle.canRetry") : t("detail.blocker.subtitle.unableTo", { actionName: actionName.toLowerCase(), entityName: entityName ? ` ${entityName}` : '' })}
                 </p>
               </div>
             </div>
@@ -318,7 +319,7 @@ export default function BlockerModal({
             <div className="mb-6">
               <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
                 <i className="fas fa-ban text-red-500"></i>
-                Issues to resolve:
+                {t("detail.blocker.sections.issuesToResolve")}
               </h4>
               <div className="space-y-4">
                 {enrichedBlockers.map((blocker, index) => {
@@ -345,7 +346,7 @@ export default function BlockerModal({
             <div className="mb-6">
               <h4 className="text-sm font-semibold text-green-900 dark:text-green-100 mb-3 flex items-center gap-2">
                 <i className="fas fa-check-circle text-green-500"></i>
-                Resolved ({resolvedBlockers.size}) :
+                {t("detail.blocker.sections.resolved", { count: resolvedBlockers.size })}
               </h4>
               <div className="space-y-2">
                 {enrichedBlockers.map((blocker, index) => {
@@ -371,7 +372,7 @@ export default function BlockerModal({
             <div className="mb-6">
               <h4 className="text-sm font-semibold text-amber-900 dark:text-amber-100 mb-3 flex items-center gap-2">
                 <i className="fas fa-exclamation-circle text-amber-500"></i>
-                Warnings:
+                {t("detail.blocker.sections.warnings")}
               </h4>
               <div className="space-y-2">
                 {warnings.map((warning, index) => (
@@ -393,7 +394,7 @@ export default function BlockerModal({
             <div className="bg-red-50 dark:bg-red-900/10 border-2 border-red-300 dark:border-red-700 rounded-lg p-5 w-full mt-4">
               <h4 className="text-base font-bold text-red-900 dark:text-red-100 mb-3 flex items-center gap-2">
                 <i className="fas fa-exclamation-triangle text-red-600 dark:text-red-400"></i>
-                Delete anyway?
+                {t("detail.blocker.title.deleteAnyway")}
               </h4>
 
               <p className="text-sm text-red-800 dark:text-red-200 mb-4 leading-relaxed">
@@ -407,7 +408,7 @@ export default function BlockerModal({
                     <div className="flex items-center gap-2 mb-2">
                       <i className="fas fa-trash-alt text-red-500 text-xs"></i>
                       <span className="text-sm font-semibold text-red-900 dark:text-red-100">
-                        {entityGroup.count} {getEntityTypeLabel(entityGroup.type, entityGroup.count)} {entityGroup.count > 1 ? "seront supprimés" : "sera supprimé"}
+                        {entityGroup.count} {getEntityTypeLabel(entityGroup.type, entityGroup.count, t)} {entityGroup.count > 1 ? t("detail.blocker.forceDelete.willBeDeletedPlural") : t("detail.blocker.forceDelete.willBeDeleted")}
                       </span>
                     </div>
                     {entityGroup.items && entityGroup.items.length > 0 && (
@@ -419,7 +420,7 @@ export default function BlockerModal({
                         ))}
                         {entityGroup.count > entityGroup.items.length && (
                           <li className="text-xs text-red-600 dark:text-red-400 font-medium">
-                            • ... and {entityGroup.count - entityGroup.items.length} more
+                            • {t("detail.blocker.forceDelete.andMore", { count: entityGroup.count - entityGroup.items.length })}
                           </li>
                         )}
                       </ul>
@@ -431,7 +432,7 @@ export default function BlockerModal({
               <div className="bg-red-100 dark:bg-red-950/40 border border-red-300 dark:border-red-800 rounded-lg p-3 mb-4">
                 <p className="text-xs text-red-900 dark:text-red-100 font-semibold flex items-center gap-2">
                   <i className="fas fa-info-circle"></i>
-                  This action is irreversible. All data will be permanently deleted.
+                  {t("detail.blocker.forceDelete.irreversible")}
                 </p>
               </div>
 
@@ -444,7 +445,7 @@ export default function BlockerModal({
                 className="w-full px-4 py-3 bg-red-600 hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-700 text-white rounded-lg transition-colors font-semibold flex items-center justify-center gap-2"
               >
                 <i className="fas fa-trash-alt"></i>
-                Yes, delete everything permanently
+                {t("detail.blocker.forceDelete.confirmButton")}
               </button>
             </div>
           )}
@@ -454,10 +455,10 @@ export default function BlockerModal({
             <div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800 rounded-lg p-4 w-full">
               <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-2 flex items-center gap-2">
                 <i className="fas fa-lightbulb text-blue-500"></i>
-                How to resolve?
+                {t("detail.blocker.sections.howToResolve")}
               </h4>
               <p className="text-sm text-blue-800 dark:text-blue-200 whitespace-normal break-words max-w-full" style={{ wordWrap: 'break-word', overflowWrap: 'break-word' }}>
-                Use the action buttons above to resolve each issue. You can navigate to the blocking items or resolve them directly from this screen.
+                {t("detail.blocker.help.useButtons")}
               </p>
             </div>
           )}
@@ -472,7 +473,7 @@ export default function BlockerModal({
                 className="px-4 py-2 bg-green-600 hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700 text-white rounded-lg transition-colors font-medium"
               >
                 <i className="fas fa-redo mr-2"></i>
-                Retry action
+                {t("detail.blocker.actions.retryAction")}
               </button>
             )}
             <button
@@ -483,7 +484,7 @@ export default function BlockerModal({
                 }`}
             >
               <i className="fas fa-times mr-2"></i>
-              {allResolved ? 'Close' : 'Cancel'}
+              {allResolved ? t("detail.blocker.actions.close") : t("detail.blocker.actions.cancel")}
             </button>
           </div>
         </div>
@@ -496,6 +497,11 @@ export default function BlockerModal({
  * BlockerItem - Individual blocker with actions
  */
 function BlockerItem({ blocker, blockerIndex, onNavigate, onInlineAction, isResolving }) {
+  const { t } = useTranslation("common");
+  const { t: tDossiers } = useTranslation("dossiers");
+  const { t: tCases } = useTranslation("cases");
+  const { t: tTasks } = useTranslation("tasks");
+  const { t: tSessions } = useTranslation("sessions");
   const hasItems = blocker.items && blocker.items.length > 0;
   const hasActions = blocker.actions && blocker.actions.length > 0;
   const hasHelpText = !!blocker.helpText;
@@ -529,6 +535,47 @@ function BlockerItem({ blocker, blockerIndex, onNavigate, onInlineAction, isReso
             const primaryText = item.entityLabel || item.label || item.message || `Item ${idx + 1}`;
             const showMessageDetail = item.message && item.message !== primaryText;
 
+            // Translate status based on entity type
+            const getTranslatedStatus = () => {
+              if (!item.status) return null;
+
+              const statusKeyMap = {
+                'Open': 'open',
+                'In Progress': 'inProgress',
+                'On Hold': 'onHold',
+                'Closed': 'closed',
+                'Pending': 'pending',
+                'Done': 'done',
+                'Scheduled': 'scheduled',
+                'Completed': 'completed',
+                'Cancelled': 'cancelled'
+              };
+
+              const statusKey = statusKeyMap[item.status];
+              if (!statusKey) return item.status;
+
+              try {
+                switch (item.entityType) {
+                  case 'dossier':
+                    return tDossiers(`status.${statusKey}`, item.status);
+                  case 'case':
+                  case 'lawsuit':
+                    return tCases(`status.${statusKey}`, item.status);
+                  case 'task':
+                    return tTasks(`status.${statusKey}`, item.status);
+                  case 'session':
+                  case 'hearing':
+                    return tSessions(`status.${statusKey}`, item.status);
+                  default:
+                    return item.status;
+                }
+              } catch {
+                return item.status;
+              }
+            };
+
+            const translatedStatus = getTranslatedStatus();
+
             return (
               <div
                 key={idx}
@@ -539,9 +586,9 @@ function BlockerItem({ blocker, blockerIndex, onNavigate, onInlineAction, isReso
                     <p className="text-sm font-medium text-slate-900 dark:text-white break-words whitespace-pre-wrap">
                       {primaryText}
                     </p>
-                    {item.status && (
+                    {translatedStatus && (
                       <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
-                        Statut: {item.status}
+                        {t("detail.blocker.sections.status")} {translatedStatus}
                       </p>
                     )}
                     {showMessageDetail && (
@@ -637,16 +684,18 @@ function ActionButton({ action, item, blockerIndex, onNavigate, onInlineAction, 
 /**
  * Helper function to get localized entity type label
  */
-function getEntityTypeLabel(type, count = 1) {
-  const labels = {
+function getEntityTypeLabel(type, count = 1, t) {
+  const entityTypeMap = {
     clients: count > 1 ? 'clients' : 'client',
     dossiers: count > 1 ? 'dossiers' : 'dossier',
     cases: count > 1 ? 'lawsuits' : 'lawsuit',
     tasks: count > 1 ? 'tasks' : 'task',
     sessions: count > 1 ? 'sessions' : 'session',
     missions: count > 1 ? 'missions' : 'mission',
-    financialEntries: count > 1 ? 'financial entries' : 'financial entry',
+    financialEntries: count > 1 ? 'financialEntries' : 'financialEntry',
     officers: count > 1 ? 'officers' : 'officer'
   };
-  return labels[type] || type;
+
+  const entityKey = entityTypeMap[type] || type;
+  return t(`detail.blocker.entityTypes.${entityKey}`, { defaultValue: type });
 }

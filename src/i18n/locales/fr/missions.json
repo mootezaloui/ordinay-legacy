@@ -111,6 +111,76 @@
         "selectCase": "Sélectionnez une affaire...",
         "selectDossier": "Sélectionnez un dossier..."
       }
+    },
+    "missions": {
+      "empty": "Aucune mission pour le moment",
+      "entityName": "Mission"
+    }
+  },
+  "form": {
+    "title": {
+      "add": "Ajouter une mission",
+      "edit": "Modifier la mission"
+    },
+    "subtitle": {
+      "add": "Créer une nouvelle mission",
+      "addFor": "Créer une nouvelle mission pour {{entity}}"
+    },
+    "submit": {
+      "add": "Ajouter",
+      "edit": "Enregistrer"
+    },
+    "fields": {
+      "officer": "Huissier",
+      "entityType": "Type d'entité",
+      "entityReference": "Référence",
+      "missionNumber": "Référence / Numéro",
+      "title": "Titre de la mission",
+      "missionType": "Type de mission",
+      "priority": "Priorité",
+      "assignDate": "Date d'assignation",
+      "dueDate": "Date d'échéance",
+      "status": "Statut",
+      "description": "Description",
+      "result": "Rapport / Résultat",
+      "completionDate": "Date d'achèvement",
+      "notes": "Notes",
+      "documents": "Documents",
+      "financialEntries": "Frais d'huissier"
+    },
+    "placeholders": {
+      "officer": "Sélectionnez un huissier...",
+      "missionNumber": "Ex : MIS-2025-001 (généré automatiquement si vide)",
+      "title": "Ex : Signification d'acte judiciaire",
+      "description": "Description détaillée de la mission...",
+      "result": "Rapport détaillé de l'exécution de la mission...",
+      "notes": "Notes supplémentaires..."
+    },
+    "help": {
+      "entityReference": "Référence du dossier ou de l'affaire",
+      "missionNumber": "Optionnel - Laisser vide pour une génération automatique (MIS-ANNÉE-XXX)",
+      "result": "À remplir une fois la mission terminée",
+      "completionDate": "Date d'achèvement de la mission (si terminée)",
+      "documents": "Ajoutez des documents liés à cette mission (PDF, DOC, XLS, PPT, images, archives)",
+      "financialEntries": "Ajoutez les frais liés à cette mission. Ils seront automatiquement liés à la mission et au client.",
+      "bailiffAssigned": "Cette mission sera assignée à {{name}}",
+      "entityType": "Sélectionnez si la mission concerne un dossier ou une affaire",
+      "entityReferenceSelect": "Sélectionnez le dossier ou l'affaire pour cette mission"
+    },
+    "options": {
+      "missionType": {
+        "Service": "Signification",
+        "Execution": "Exécution",
+        "Observation": "Constat",
+        "Seizure": "Saisie",
+        "Investigation": "Enquête"
+      },
+      "status": {
+        "planned": "Planifiée",
+        "inProgress": "En cours",
+        "completed": "Terminée",
+        "cancelled": "Annulée"
+      }
     }
   }
 }

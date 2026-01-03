@@ -361,7 +361,7 @@ export default function Dashboard() {
         <ContentSection>
           <div className="p-6">
             <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
-              {t("dashboard.quickActions")}
+              {t("dashboard.quickActions.title")}
             </h2>
             <QuickActions />
           </div>
@@ -607,7 +607,7 @@ export default function Dashboard() {
 
           {/* Recent Activity - takes 2 columns */}
           <div className="lg:col-span-2">
-            <ContentSection title={t("dashboard.recentActivity")}>
+            <ContentSection title={t("dashboard.recentActivity.title")}>
               <div className="p-6">
                 <ActivityFeed activities={recentActivities} maxItems={6} />
               </div>

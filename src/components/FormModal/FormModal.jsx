@@ -568,6 +568,7 @@ export default function FormModal({
  * FormField - Compact & responsive design
  */
 function FormField({ field, value, onChange, error, formData, compact = false }) {
+  const { t } = useTranslation(["common", "domain"]);
   const baseInputClass = `w-full ${compact ? 'px-3 py-1.5 text-sm' : 'px-3.5 py-2.5'} border rounded-lg shadow-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 ${error
     ? "border-red-400 dark:border-red-500 focus:border-red-500 focus:ring-red-500/20"
     : "border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 hover:shadow"

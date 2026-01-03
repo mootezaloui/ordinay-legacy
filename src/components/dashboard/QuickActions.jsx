@@ -29,7 +29,7 @@ import { logEntityCreation } from "../../services/historyService";
 export default function QuickActions({ onDataChange }) {
   const [activeModal, setActiveModal] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
-  const { t } = useTranslation(["clients", "dossiers", "cases", "tasks", "sessions"]);
+  const { t } = useTranslation(["common", "clients", "dossiers", "cases", "tasks", "sessions"]);
   const tClients = (key) => t(key, { ns: "clients" });
   const tDossiers = (key) => t(key, { ns: "dossiers" });
   const tTasks = (key) => t(key, { ns: "tasks" });
@@ -232,41 +232,35 @@ export default function QuickActions({ onDataChange }) {
   };
 
   const getSubtitle = (type) => {
-    const subtitles = {
-      client: "Add a new client to your database",
-      dossier: "Create a new legal dossier",
-      task: "Create a new task to be performed",
-      session: "Schedule a new session or appointment",
-    };
-    return subtitles[type] || "";
+    return t(`dashboard.quickActions.subtitles.${type}`, { ns: "common" }) || "";
   };
 
   const actions = [
     {
       id: 1,
       type: "client",
-      label: "New client",
+      label: t("dashboard.quickActions.newClient", { ns: "common" }),
       icon: "fas fa-user-plus",
       color: "blue",
     },
     {
       id: 2,
       type: "dossier",
-      label: "New dossier",
+      label: t("dashboard.quickActions.newDossier", { ns: "common" }),
       icon: "fas fa-folder-plus",
       color: "purple",
     },
     {
       id: 3,
       type: "task",
-      label: "New task",
+      label: t("dashboard.quickActions.newTask", { ns: "common" }),
       icon: "fas fa-plus-circle",
       color: "amber",
     },
     {
       id: 4,
       type: "session",
-      label: "New session",
+      label: t("dashboard.quickActions.newSession", { ns: "common" }),
       icon: "fas fa-calendar-plus",
       color: "green",
     },

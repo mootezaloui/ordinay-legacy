@@ -53,6 +53,7 @@ const getAllMissions = () => missionsCache;
 import { validateTemporalConstraints } from "./temporalValidation";
 import { enrichBlockers } from "./blockerEnrichment";
 import { i18nInstance } from "../i18n";
+import { translateStatus } from "../utils/entityTranslations";
 
 // Translation helper for domain rules
 const t = (key, options = {}) => {
@@ -1474,19 +1475,25 @@ function validateClientArchive(clientId, context = {}) {
   const openDossiers = clientDossiers.filter((d) => d.status !== "Closed");
 
   if (openDossiers.length > 0) {
+    const dossierLabel = openDossiers.length > 1
+      ? t("client.blocker.openDossiers", { count: openDossiers.length })
+      : t("client.blocker.openDossier", { count: openDossiers.length });
+
+    const remainingCount = openDossiers.length - 3;
+    const andMoreText = remainingCount > 0
+      ? `\n  • ${t("client.archive.blocked.andMore", { count: remainingCount })}`
+      : "";
+
     blockers.push(
-      `${openDossiers.length} open Dossier${
-        openDossiers.length > 1 ? "s" : ""
-      }:` +
+      `${dossierLabel}:` +
         openDossiers
           .slice(0, 3)
-          .map((d) => `\n  • ${d.caseNumber} - ${d.title} (${d.status})`)
+          .map((d) => {
+            const translatedStatus = translateStatus(d.status, 'dossiers', (key, options) => i18nInstance.t(key, options));
+            return `\n  • ${d.caseNumber} - ${d.title} (${translatedStatus})`;
+          })
           .join("") +
-        (openDossiers.length > 3
-          ? `\n  • ... and ${openDossiers.length - 3} other${
-              openDossiers.length - 3 > 1 ? "s" : ""
-            }`
-          : "")
+        andMoreText
     );
   }
 

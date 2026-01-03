@@ -7,37 +7,55 @@ import { ToastProvider } from "./contexts/ToastContext";
 import { ConfirmProvider } from "./contexts/ConfirmContext";
 import { DataProvider } from "./contexts/DataContext";
 import { I18nProvider } from "./contexts/I18nProvider";
+import { OperatorProvider } from "./contexts/OperatorContext";
 import "@fortawesome/fontawesome-free/css/all.min.css";
 import { NotificationProvider } from "./contexts/NotificationContext";
 import AlertBanner from "./components/notifications/AlertBanner";
 import { SettingsProvider } from "./contexts/SettingsContext";
 import ErrorBoundary from "./components/ErrorBoundary";
+import { initializeApiConfig } from "./lib/apiConfig";
 import "./index.css";
 import App from "./App";
 
-createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    <ErrorBoundary>
-      <SettingsProvider>
-        <I18nProvider>
-          <ThemeProvider>
-            <NotificationProvider>
-              <ToastProvider>
-                <DataProvider>
-                  <AlertBanner />
-                  <SidebarProvider>
-                    <ConfirmProvider>
-                      <BrowserRouter>
-                        <App />
-                      </BrowserRouter>
-                    </ConfirmProvider>
-                  </SidebarProvider>
-                </DataProvider>
-              </ToastProvider>
-            </NotificationProvider>
-          </ThemeProvider>
-        </I18nProvider>
-      </SettingsProvider>
-    </ErrorBoundary>
-  </StrictMode>
-);
+// Initialize API configuration before rendering
+// This is critical for Electron where the backend port is dynamic
+async function bootstrap() {
+  try {
+    await initializeApiConfig();
+    console.log("[Organia] API configuration initialized");
+  } catch (error) {
+    console.error("[Organia] Failed to initialize API config:", error);
+    // Continue anyway - will use fallback URL
+  }
+
+  createRoot(document.getElementById("root")!).render(
+    <StrictMode>
+      <ErrorBoundary>
+        <SettingsProvider>
+          <I18nProvider>
+            <OperatorProvider>
+              <ThemeProvider>
+                <NotificationProvider>
+                  <ToastProvider>
+                    <DataProvider>
+                      <AlertBanner />
+                      <SidebarProvider>
+                        <ConfirmProvider>
+                          <BrowserRouter>
+                            <App />
+                          </BrowserRouter>
+                        </ConfirmProvider>
+                      </SidebarProvider>
+                    </DataProvider>
+                  </ToastProvider>
+                </NotificationProvider>
+              </ThemeProvider>
+            </OperatorProvider>
+          </I18nProvider>
+        </SettingsProvider>
+      </ErrorBoundary>
+    </StrictMode>
+  );
+}
+
+bootstrap();

@@ -1219,190 +1219,275 @@ export const invoiceFormFields = [
 // MISSION FORM (Huissier Mission)
 // ========================================
 
-export const missionFormFields = [
-  {
-    name: "officerId",
-    label: "Bailiff",
-    type: "searchable-select",
-    required: true,
-    placeholder: "Select a bailiff...",
-    options: [], // Will be populated dynamically
-  },
-  {
-    name: "entityType",
-    label: "Entity Type",
-    type: "select",
-    required: true,
-    disabled: true, // Will be set based on context
-    options: [
-      { value: "dossier", label: t("form.fields.dossierId.label") },
-      { value: "case", label: "Case" },
-    ],
-  },
-  {
-    name: "entityReference",
-    label: "Reference",
-    type: "text",
-    required: true,
-    disabled: true, // Will be pre-filled based on context
-    helpText: "Reference of the Dossier or case",
-  },
-  {
-    name: "missionNumber",
-    label: "Reference / Number",
-    type: "text",
-    required: false,
-    disabled: false, // Allow user input
-    placeholder: "Ex: MIS-2025-001 (auto-generated if empty)",
-    helpText: "Optional - Leave blank for automatic generation (MIS-YEAR-XXX)",
-  },
-  {
-    name: "title",
-    label: "Mission Title",
-    type: "text",
-    required: true,
-    fullWidth: true,
-    placeholder: "Ex: Service of judicial act",
-  },
-  {
-    name: "missionType",
-    label: "Mission Type",
-    type: "searchable-select",
-    required: true,
-    getOptions: () => getAllMissionTypes(DEFAULT_MISSION_TYPES),
-    allowCreate: true,
-    onCreateOption: async (name) => {
-      try {
-        addCustomMissionType(name);
-        return true;
-      } catch (error) {
-        console.error("Error adding mission type:", error);
-        return false;
-      }
+export const getMissionFormFields = () => {
+  // Use i18next.t directly to get translations in current language
+  const tMissions = (key, options = {}) =>
+    i18next.t(`missions:${key}`, options);
+
+  return [
+    {
+      name: "officerId",
+      label: tMissions("form.fields.officer", { defaultValue: "Bailiff" }),
+      type: "searchable-select",
+      required: true,
+      placeholder: tMissions("form.placeholders.officer", {
+        defaultValue: "Select a bailiff...",
+      }),
+      options: [], // Will be populated dynamically
     },
-  },
-  {
-    name: "priority",
-    label: "Priority",
-    type: "inline-priority",
-    required: true,
-    defaultValue: "Medium",
-  },
-  {
-    name: "assignDate",
-    label: "Assignment Date",
-    type: "date",
-    required: true,
-    defaultValue: new Date().toISOString().split("T")[0],
-  },
-  {
-    name: "dueDate",
-    label: "Due Date",
-    type: "date",
-    required: true,
-  },
-  {
-    name: "status",
-    label: t("form.fields.status.label"),
-    type: "inline-status",
-    required: true,
-    defaultValue: "Planned",
-    statusOptions: [
-      { value: "Planned", label: "Planned", color: "blue" },
-      {
-        value: "In Progress",
-        label: t("form.fields.status.options.inProgress"),
-        color: "amber",
+    {
+      name: "entityType",
+      label: tMissions("form.fields.entityType", {
+        defaultValue: "Entity Type",
+      }),
+      type: "select",
+      required: true,
+      disabled: true, // Will be set based on context
+      options: [
+        {
+          value: "dossier",
+          label: tMissions("detail.overview.entityTypes.dossier", {
+            defaultValue: "Dossier",
+          }),
+        },
+        {
+          value: "case",
+          label: tMissions("detail.overview.entityTypes.case", {
+            defaultValue: "Lawsuit",
+          }),
+        },
+      ],
+    },
+    {
+      name: "entityReference",
+      label: tMissions("form.fields.entityReference", {
+        defaultValue: "Reference",
+      }),
+      type: "text",
+      required: true,
+      disabled: true, // Will be pre-filled based on context
+      helpText: tMissions("form.help.entityReference", {
+        defaultValue: "Reference of the dossier or case",
+      }),
+    },
+    {
+      name: "missionNumber",
+      label: tMissions("form.fields.missionNumber", {
+        defaultValue: "Reference / Number",
+      }),
+      type: "text",
+      required: false,
+      disabled: false, // Allow user input
+      placeholder: tMissions("form.placeholders.missionNumber", {
+        defaultValue: "Ex: MIS-2025-001 (auto-generated if empty)",
+      }),
+      helpText: tMissions("form.help.missionNumber", {
+        defaultValue:
+          "Optional - Leave blank for automatic generation (MIS-YEAR-XXX)",
+      }),
+    },
+    {
+      name: "title",
+      label: tMissions("form.fields.title", { defaultValue: "Mission Title" }),
+      type: "text",
+      required: true,
+      fullWidth: true,
+      placeholder: tMissions("form.placeholders.title", {
+        defaultValue: "Ex: Service of judicial act",
+      }),
+    },
+    {
+      name: "missionType",
+      label: tMissions("form.fields.missionType", {
+        defaultValue: "Mission Type",
+      }),
+      type: "searchable-select",
+      required: true,
+      getOptions: () =>
+        getAllMissionTypes(DEFAULT_MISSION_TYPES).map((type) => ({
+          ...type,
+          label: tMissions(`form.options.missionType.${type.value}`, {
+            defaultValue: type.label,
+          }),
+        })),
+      allowCreate: true,
+      onCreateOption: async (name) => {
+        try {
+          addCustomMissionType(name);
+          return true;
+        } catch (error) {
+          console.error("Error adding mission type:", error);
+          return false;
+        }
       },
-      {
-        value: "Completed",
-        label: t("form.fields.status.options.completed"),
-        color: "green",
-      },
-      {
-        value: "Cancelled",
-        label: t("form.fields.status.options.cancelled"),
-        color: "red",
-      },
-    ],
-  },
-  {
-    name: "description",
-    label: t("form.fields.description.label"),
-    type: "textarea",
-    required: true,
-    fullWidth: true,
-    rows: 3,
-    placeholder: "Detailed description of the mission...",
-  },
-  {
-    name: "result",
-    label: "Report / Result",
-    type: "textarea",
-    required: false,
-    fullWidth: true,
-    rows: 3,
-    placeholder: "Detailed report of the mission execution...",
-    helpText: "To be filled once the mission is completed",
-  },
-  {
-    name: "completionDate",
-    label: "Completion Date",
-    type: "date",
-    required: false,
-    helpText: "Completion date of the mission (if completed)",
-  },
-  {
-    name: "notes",
-    label: "Notes",
-    type: "textarea",
-    required: false,
-    fullWidth: true,
-    rows: 2,
-    placeholder: "Additional notes...",
-  },
-  {
-    name: "documents",
-    label: "Documents",
-    type: "file",
-    required: false,
-    fullWidth: true,
-    multiple: true,
-    accept:
-      ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.gif,.zip,.rar,.txt",
-    helpText:
-      "Add documents related to this mission (PDF, DOC, XLS, PPT, Images, Archives)",
-  },
-  {
-    name: "financialEntries",
-    label: "Bailiff Fees",
-    type: "financial-entries",
-    required: false,
-    fullWidth: true,
-    helpText:
-      "Add fees related to this mission. These fees will be automatically linked to the mission and client.",
-    // Financial entries will be an array of objects with: amount, date, description
-    defaultValue: [],
-  },
-];
+    },
+    {
+      name: "priority",
+      label: tMissions("form.fields.priority", { defaultValue: "Priority" }),
+      type: "inline-priority",
+      required: true,
+      defaultValue: "Medium",
+    },
+    {
+      name: "assignDate",
+      label: tMissions("form.fields.assignDate", {
+        defaultValue: "Assignment Date",
+      }),
+      type: "date",
+      required: true,
+      defaultValue: new Date().toISOString().split("T")[0],
+    },
+    {
+      name: "dueDate",
+      label: tMissions("form.fields.dueDate", { defaultValue: "Due Date" }),
+      type: "date",
+      required: true,
+    },
+    {
+      name: "status",
+      label: tMissions("form.fields.status", { defaultValue: "Status" }),
+      type: "inline-status",
+      required: true,
+      defaultValue: "Planned",
+      statusOptions: [
+        {
+          value: "Planned",
+          label: tMissions("form.options.status.planned", {
+            defaultValue: "Planned",
+          }),
+          color: "blue",
+        },
+        {
+          value: "In Progress",
+          label: tMissions("form.options.status.inProgress", {
+            defaultValue: "In Progress",
+          }),
+          color: "amber",
+        },
+        {
+          value: "Completed",
+          label: tMissions("form.options.status.completed", {
+            defaultValue: "Completed",
+          }),
+          color: "green",
+        },
+        {
+          value: "Cancelled",
+          label: tMissions("form.options.status.cancelled", {
+            defaultValue: "Cancelled",
+          }),
+          color: "red",
+        },
+      ],
+    },
+    {
+      name: "description",
+      label: tMissions("form.fields.description", {
+        defaultValue: "Description",
+      }),
+      type: "textarea",
+      required: true,
+      fullWidth: true,
+      rows: 3,
+      placeholder: tMissions("form.placeholders.description", {
+        defaultValue: "Detailed description of the mission...",
+      }),
+    },
+    {
+      name: "result",
+      label: tMissions("form.fields.result", {
+        defaultValue: "Report / Result",
+      }),
+      type: "textarea",
+      required: false,
+      fullWidth: true,
+      rows: 3,
+      placeholder: tMissions("form.placeholders.result", {
+        defaultValue: "Detailed report of the mission execution...",
+      }),
+      helpText: tMissions("form.help.result", {
+        defaultValue: "To be filled once the mission is completed",
+      }),
+    },
+    {
+      name: "completionDate",
+      label: tMissions("form.fields.completionDate", {
+        defaultValue: "Completion Date",
+      }),
+      type: "date",
+      required: false,
+      helpText: tMissions("form.help.completionDate", {
+        defaultValue: "Completion date of the mission (if completed)",
+      }),
+    },
+    {
+      name: "notes",
+      label: tMissions("form.fields.notes", { defaultValue: "Notes" }),
+      type: "textarea",
+      required: false,
+      fullWidth: true,
+      rows: 2,
+      placeholder: tMissions("form.placeholders.notes", {
+        defaultValue: "Additional notes...",
+      }),
+    },
+    {
+      name: "documents",
+      label: tMissions("form.fields.documents", { defaultValue: "Documents" }),
+      type: "file",
+      required: false,
+      fullWidth: true,
+      multiple: true,
+      accept:
+        ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.gif,.zip,.rar,.txt",
+      helpText: tMissions("form.help.documents", {
+        defaultValue:
+          "Add documents related to this mission (PDF, DOC, XLS, PPT, Images, Archives)",
+      }),
+    },
+    {
+      name: "financialEntries",
+      label: tMissions("form.fields.financialEntries", {
+        defaultValue: "Bailiff Fees",
+      }),
+      type: "financial-entries",
+      required: false,
+      fullWidth: true,
+      helpText: tMissions("form.help.financialEntries", {
+        defaultValue:
+          "Add fees related to this mission. These fees will be automatically linked to the mission and client.",
+      }),
+      // Financial entries will be an array of objects with: amount, date, description
+      defaultValue: [],
+    },
+  ];
+};
+
+// For backward compatibility, export as static array but it will be evaluated at module load
+// Configs should call getMissionFormFields() to get fresh translations
+export const missionFormFields = getMissionFormFields();
 
 // ========================================
 // FINANCIAL ENTRY FORM
 // ========================================
 
-export const financialEntryFormFields = [
+export const getFinancialEntryFormFields = () => {
+  // Use i18next.t directly to get translations in current language
+  const tAccounting = (key, options = {}) =>
+    i18next.t(`accounting:${key}`, options);
+
+  return [
   {
     name: "scope",
-    label: "Financial Scope",
+    label: tAccounting("form.fields.scope.label", { defaultValue: "Financial Scope" }),
     type: "select",
     required: true,
     defaultValue: "client",
     options: [
-      { value: "client", label: "Client (affects client balance)" },
-      { value: "internal", label: "Internal (office expenses)" },
+      { value: "client", label: tAccounting("form.fields.scope.options.client", { defaultValue: "Client (affects client balance)" }) },
+      { value: "internal", label: tAccounting("form.fields.scope.options.internal", { defaultValue: "Internal (office expenses)" }) },
     ],
-    helpText:
-      "Choose 'Client' for client-related operations, 'Internal' for office expenses",
+    helpText: tAccounting("form.fields.scope.help", { defaultValue: "Choose 'Client' for client-related operations, 'Internal' for office expenses" }),
     onChange: (value, formData, setFormData) => {
       // Clear client/dossier/case when switching to internal
       if (value === "internal") {
@@ -1423,13 +1508,13 @@ export const financialEntryFormFields = [
   },
   {
     name: "type",
-    label: "Operation Type",
+    label: tAccounting("form.fields.type.label", { defaultValue: "Operation Type" }),
     type: "select",
     required: true,
     defaultValue: "expense",
     options: [
-      { value: "revenue", label: "Revenue (money received)" },
-      { value: "expense", label: "Expense (money paid)" },
+      { value: "revenue", label: tAccounting("form.fields.type.options.revenue", { defaultValue: "Revenue (money received)" }) },
+      { value: "expense", label: tAccounting("form.fields.type.options.expense", { defaultValue: "Expense (money paid)" }) },
     ],
     onChange: (value, formData, setFormData) => {
       // Auto-suggest category based on type
@@ -1448,7 +1533,7 @@ export const financialEntryFormFields = [
   },
   {
     name: "category",
-    label: "Category",
+    label: tAccounting("form.fields.category.label", { defaultValue: "Category" }),
     type: "select",
     required: true,
     getOptions: (formData) => {
@@ -1458,24 +1543,24 @@ export const financialEntryFormFields = [
       // Revenue categories
       if (type === "revenue") {
         return [
-          { value: "honoraires", label: "Fees" },
-          { value: "advance", label: "Client advance" },
-          { value: "other", label: "Other revenue" },
+          { value: "honoraires", label: tAccounting("form.fields.category.options.honoraires", { defaultValue: "Fees" }) },
+          { value: "advance", label: tAccounting("form.fields.category.options.advance", { defaultValue: "Client advance" }) },
+          { value: "other", label: tAccounting("form.fields.category.options.other", { defaultValue: "Other" }) },
         ];
       }
 
       // Expense categories
       if (scope === "internal") {
         return [
-          { value: "frais_bureau", label: "Office expenses" },
-          { value: "other", label: "Other expense" },
+          { value: "frais_bureau", label: tAccounting("form.fields.category.options.frais_bureau", { defaultValue: "Office expenses" }) },
+          { value: "other", label: tAccounting("form.fields.category.options.other", { defaultValue: "Other" }) },
         ];
       }
 
       return [
-        { value: "frais_judiciaires", label: "Court fees" },
-        { value: "frais_huissier", label: "Bailiff fees" },
-        { value: "other", label: "Other expense" },
+        { value: "frais_judiciaires", label: tAccounting("form.fields.category.options.frais_judiciaires", { defaultValue: "Court fees" }) },
+        { value: "frais_huissier", label: tAccounting("form.fields.category.options.frais_huissier", { defaultValue: "Bailiff fees" }) },
+        { value: "other", label: tAccounting("form.fields.category.options.other", { defaultValue: "Other" }) },
       ];
     },
     onChange: (value, formData, setFormData) => {
@@ -1496,10 +1581,10 @@ export const financialEntryFormFields = [
   },
   {
     name: "amount",
-    label: "Amount (TND)",
+    label: tAccounting("form.fields.amount.label", { defaultValue: "Amount (TND)" }),
     type: "number",
     required: true,
-    placeholder: "0.00",
+    placeholder: tAccounting("form.fields.amount.placeholder", { defaultValue: "0.00" }),
     min: 0,
     step: 0.01,
     validate: (value) => {
@@ -1512,54 +1597,53 @@ export const financialEntryFormFields = [
   },
   {
     name: "date",
-    label: t("form.fields.date.label"),
+    label: tAccounting("form.fields.date.label", { defaultValue: "Date" }),
     type: "date",
     required: true,
     defaultValue: new Date().toISOString().split("T")[0],
   },
   {
     name: "status",
-    label: t("form.fields.status.label"),
+    label: tAccounting("form.fields.status.label", { defaultValue: "Status" }),
     type: "inline-status",
     required: true,
     defaultValue: "confirmed",
     statusOptions: [
-      { value: "draft", label: "Draft", color: "slate" },
+      { value: "draft", label: tAccounting("form.options.status.draft", { defaultValue: "Draft" }), color: "slate" },
       {
         value: "confirmed",
-        label: t("form.fields.status.options.confirmed"),
+        label: tAccounting("form.options.status.confirmed", { defaultValue: "Confirmed" }),
         color: "blue",
       },
-      { value: "paid", label: "Paid", color: "green" },
+      { value: "paid", label: tAccounting("form.options.status.paid", { defaultValue: "Paid" }), color: "green" },
     ],
   },
   {
     name: "title",
-    label: "Title",
+    label: tAccounting("form.fields.title.label", { defaultValue: "Title" }),
     type: "text",
     required: true,
     fullWidth: true,
-    placeholder:
-      "Ex: Court filing fee, Bailiff travel expenses, Legal consultation...",
-    helpText: "Short, descriptive title for this financial entry",
+    placeholder: tAccounting("form.fields.title.placeholder", { defaultValue: "Ex: Court filing fee, Bailiff travel expenses, Legal consultation..." }),
+    helpText: tAccounting("form.fields.title.help", { defaultValue: "Short, descriptive title for this financial entry" }),
   },
   {
     name: "description",
-    label: "Additional Details (optional)",
+    label: tAccounting("form.fields.description.label", { defaultValue: "Additional Details (optional)" }),
     type: "textarea",
     required: false,
     fullWidth: true,
     rows: 3,
-    placeholder: "Optional additional details about this financial entry...",
+    placeholder: tAccounting("form.fields.description.placeholder", { defaultValue: "Optional additional details about this financial entry..." }),
   },
   {
     name: "clientId",
-    label: "Client",
+    label: tAccounting("form.fields.client.label", { defaultValue: "Client" }),
     type: "searchable-select",
     required: false,
     options: [], // Will be populated dynamically
     hideIf: (formData) => formData.scope === "internal",
-    helpText: "Client concerned by this operation (required if scope = Client)",
+    helpText: tAccounting("form.fields.client.help", { defaultValue: "Client concerned by this operation (required if scope = Client)" }),
     validate: (value, formData) => {
       if (formData.scope === "client" && (!value || value === "")) {
         return "Client is required when scope is 'Client'.";
@@ -1578,7 +1662,7 @@ export const financialEntryFormFields = [
   },
   {
     name: "dossierId",
-    label: "Dossier (optional)",
+    label: tAccounting("form.fields.dossier.label", { defaultValue: "Dossier (optional)" }),
     type: "searchable-select",
     required: false,
     options: [], // Base options - will be filtered by getOptions
@@ -1593,7 +1677,7 @@ export const financialEntryFormFields = [
         .map((d) => ({ value: d.id, label: `${d.caseNumber} - ${d.title}` }));
     },
     hideIf: (formData) => formData.scope === "internal",
-    helpText: "Concerned Dossier (optional)",
+    helpText: tAccounting("form.fields.dossier.help", { defaultValue: "Concerned dossier (optional)" }),
     onChange: (value, formData, setFormData) => {
       // Clear case when dossier changes (DB constraint: only one can be set)
       // However, if the current case belongs to this dossier, we can keep both
@@ -1606,7 +1690,7 @@ export const financialEntryFormFields = [
   },
   {
     name: "caseId",
-    label: "Case (optional)",
+    label: tAccounting("form.fields.case.label", { defaultValue: "Case (optional)" }),
     type: "searchable-select",
     required: false,
     options: [], // Base options - will be filtered by getOptions
@@ -1636,7 +1720,7 @@ export const financialEntryFormFields = [
       }));
     },
     hideIf: (formData) => formData.scope === "internal",
-    helpText: "Concerned case (optional)",
+    helpText: tAccounting("form.fields.case.help", { defaultValue: "Concerned case (optional)" }),
     onChange: (value, formData, setFormData) => {
       // Clear dossier when case is selected (DB constraint: only one can be set)
       // The case already has a dossier_id in the cases table, so we don't need to duplicate it here
@@ -1649,7 +1733,7 @@ export const financialEntryFormFields = [
   },
   {
     name: "missionId",
-    label: "Associated Mission **",
+    label: tAccounting("form.fields.mission.label", { defaultValue: "Associated Mission" }),
     type: "searchable-select",
     required: false,
     options: [], // Base options - will be filtered by getOptions
@@ -1659,7 +1743,7 @@ export const financialEntryFormFields = [
       const caseId = formData.caseId;
 
       if (!allOptions?.missions) {
-        return [{ value: "", label: "No mission available" }];
+        return [{ value: "", label: tAccounting("form.fields.mission.noneAvailable", { defaultValue: "No mission available" }) }];
       }
 
       let filteredMissions = allOptions.missions;
@@ -1681,28 +1765,28 @@ export const financialEntryFormFields = [
         return [
           {
             value: "",
-            label: "Please first select a Dossier or case",
+            label: tAccounting("form.fields.mission.selectPrerequisite", { defaultValue: "Please first select a dossier or case" }),
           },
         ];
       }
 
       if (filteredMissions.length === 0) {
-        return [{ value: "", label: "No mission for this Dossier/case" }];
+        return [{ value: "", label: tAccounting("form.fields.mission.noneForEntity", { defaultValue: "No mission for this dossier/case" }) }];
       }
 
       return [
-        { value: "", label: "Select the mission related to these fees" },
+        { value: "", label: tAccounting("form.fields.mission.selectMission", { defaultValue: "Select the mission related to these fees" }) },
         ...filteredMissions.map((m) => ({
           value: m.id,
           label: `${m.missionNumber} - ${m.title} (${
-            m.officerName || "Bailiff not defined"
+            m.officerName || tAccounting("form.fields.mission.fallbackOfficer", { defaultValue: "Bailiff not defined" })
           }) - ${m.status}`,
         })),
       ];
     },
     hideIf: (formData) =>
       formData.scope === "internal" || formData.category !== "frais_huissier",
-    helpText: "Select the bailiff mission related to these fees",
+    helpText: tAccounting("form.fields.mission.help", { defaultValue: "Select the bailiff mission related to these fees" }),
     onChange: (value, formData, setFormData, allOptions) => {
       // Auto-populate description when mission is selected
       if (value && allOptions?.missions) {
@@ -1711,7 +1795,11 @@ export const financialEntryFormFields = [
           setFormData({
             ...formData,
             missionId: value,
-            description: `Bailiff fees - ${selectedMission.missionNumber} - ${selectedMission.title}`,
+            description: tAccounting("form.fields.mission.autoDescription", {
+              defaultValue: "Bailiff fees - {{missionNumber}} - {{title}}",
+              missionNumber: selectedMission.missionNumber,
+              title: selectedMission.title
+            }),
           });
           return;
         }
@@ -1723,6 +1811,11 @@ export const financialEntryFormFields = [
     },
   },
 ];
+};
+
+// For backward compatibility, export as static array but it will be evaluated at module load
+// Configs should call getFinancialEntryFormFields() to get fresh translations
+export const financialEntryFormFields = getFinancialEntryFormFields();
 
 // ========================================
 // HELPER FUNCTIONS

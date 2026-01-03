@@ -16,11 +16,13 @@ import { useTranslation } from "react-i18next";
  */
 export default function QuickActionsBar({ data, config, onQuickAction, contextData }) {
     const quickActions = config.quickActions || [];
+    const { t } = useTranslation("common");
 
     if (quickActions.length === 0) return null;
 
     return (
-        <ContentSection title="Quick Actions" allowOverflow={true}>
+        <ContentSection title={t("detail.quickActions.title")}
+            allowOverflow={true}>
             <div className="p-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     {quickActions.map((action) => (

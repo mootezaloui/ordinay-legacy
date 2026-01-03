@@ -19,9 +19,7 @@ import {
   getMimeType,
 } from "../models/Document.js";
 import { LocalStorageProvider } from "./storage/LocalStorageProvider.js";
-
-// API configuration
-const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:3000/api";
+import { getApiBase } from "../lib/apiConfig";
 
 /**
  * Document service class
@@ -31,6 +29,14 @@ class DocumentService {
   constructor() {
     // Default to local storage provider (file blobs only)
     this.storageProvider = new LocalStorageProvider();
+  }
+
+  /**
+   * Gets the API base URL dynamically
+   * @private
+   */
+  getApiBase() {
+    return getApiBase();
   }
 
   /**
@@ -45,7 +51,15 @@ class DocumentService {
    * Creates metadata in backend
    * @private
    */
-  async createBackendMetadata({ title, file_path, mime_type, size_bytes, entityType, entityId, category }) {
+  async createBackendMetadata({
+    title,
+    file_path,
+    mime_type,
+    size_bytes,
+    entityType,
+    entityId,
+    category,
+  }) {
     const payload = {
       title,
       file_path,
@@ -58,7 +72,7 @@ class DocumentService {
     const entityField = `${entityType}_id`;
     payload[entityField] = parseInt(entityId, 10);
 
-    const response = await fetch(`${API_BASE}/documents`, {
+    const response = await fetch(`${this.getApiBase()}/documents`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -188,7 +202,9 @@ class DocumentService {
     try {
       // Map entityType to backend query parameter
       const entityField = `${entityType}_id`;
-      const response = await fetch(`${API_BASE}/documents?${entityField}=${entityId}`);
+      const response = await fetch(
+        `${this.getApiBase()}/documents?${entityField}=${entityId}`
+      );
 
       if (!response.ok) {
         throw new Error(`Backend API error: ${response.status}`);
@@ -236,7 +252,9 @@ class DocumentService {
    */
   async getDocumentById(documentId) {
     try {
-      const response = await fetch(`${API_BASE}/documents/${documentId}`);
+      const response = await fetch(
+        `${this.getApiBase()}/documents/${documentId}`
+      );
 
       if (response.status === 404) {
         return null;
@@ -314,10 +332,13 @@ class DocumentService {
       if (!document) return false;
 
       // 1. Soft-delete metadata in backend (always happens)
-      const response = await fetch(`${API_BASE}/documents/${documentId}`, {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-      });
+      const response = await fetch(
+        `${this.getApiBase()}/documents/${documentId}`,
+        {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+        }
+      );
 
       if (!response.ok) {
         throw new Error(`Backend API error: ${response.status}`);
@@ -326,11 +347,18 @@ class DocumentService {
       // 2. Optionally delete file blob from IndexedDB
       if (deleteFile && document.storagePath) {
         try {
-          console.log(`DocumentService: Deleting file from IndexedDB: ${document.storagePath}`);
+          console.log(
+            `DocumentService: Deleting file from IndexedDB: ${document.storagePath}`
+          );
           await this.storageProvider.deleteFile(document.storagePath);
-          console.log(`DocumentService: File deleted successfully: ${document.storagePath}`);
+          console.log(
+            `DocumentService: File deleted successfully: ${document.storagePath}`
+          );
         } catch (storageError) {
-          console.error("DocumentService: Storage deletion failed", storageError);
+          console.error(
+            "DocumentService: Storage deletion failed",
+            storageError
+          );
           // Don't fail the whole operation if file blob deletion fails
           // Metadata is already soft-deleted in backend
         }
@@ -468,15 +496,18 @@ class DocumentService {
       if (!storageResult.success) return false;
 
       // Update document metadata in backend
-      const response = await fetch(`${API_BASE}/documents/${documentId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          file_path: storageResult.path,
-          mime_type: newFile.type || getMimeType(extension),
-          size_bytes: newFile.size,
-        }),
-      });
+      const response = await fetch(
+        `${this.getApiBase()}/documents/${documentId}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            file_path: storageResult.path,
+            mime_type: newFile.type || getMimeType(extension),
+            size_bytes: newFile.size,
+          }),
+        }
+      );
 
       if (!response.ok) {
         throw new Error(`Backend API error: ${response.status}`);

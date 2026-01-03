@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useSettings } from "../../contexts/SettingsContext";
+import { useTranslation } from "react-i18next";
 
 /**
  * UpcomingEvents Component
@@ -8,6 +9,7 @@ import { useSettings } from "../../contexts/SettingsContext";
 export default function UpcomingEvents({ events, maxItems = 5 }) {
   const navigate = useNavigate();
   const { formatDate, formatDateTime } = useSettings();
+  const { t } = useTranslation("common");
 
   const getEventColor = (type) => {
     const colors = {
@@ -86,7 +88,7 @@ export default function UpcomingEvents({ events, maxItems = 5 }) {
             <i className="fas fa-calendar-check text-slate-400 text-xl"></i>
           </div>
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            No upcoming events scheduled.
+            {t("dashboard.upcomingEvents.empty")}
           </p>
         </div>
       )}

@@ -3,6 +3,23 @@ import { Link } from "react-router-dom";
 import { useTheme } from "../../contexts/theme";
 import { useTranslation } from "react-i18next";
 
+/**
+ * ⚠️ COSMETIC FORGOT PASSWORD SCREEN - NO REAL PASSWORD RESET
+ *
+ * This is a placeholder UI for visual consistency.
+ *
+ * IMPORTANT:
+ * - NO password reset logic
+ * - NO email sending
+ * - NO backend call
+ * - NO password recovery
+ * - Just shows success message
+ *
+ * Organia is a LOCAL DESKTOP APP with NO password management.
+ * Real authentication is FORBIDDEN per AUTH_FREEZE.md
+ *
+ * See: /AUTH_FREEZE.md for details
+ */
 export default function ForgotPassword() {
   const { isDark, toggleTheme } = useTheme();
   const { t } = useTranslation('auth');

@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useSettings } from "../../contexts/SettingsContext";
+import { useTranslation } from "react-i18next";
 
 /**
  * TaskList Component
@@ -9,6 +10,7 @@ import { useSettings } from "../../contexts/SettingsContext";
 export default function TaskList({ tasks, title = "Urgent Tasks", maxItems = 5 }) {
   const navigate = useNavigate();
   const { formatDate } = useSettings();
+  const { t } = useTranslation("common");
 
   const getPriorityColor = (priority) => {
     const colors = {
@@ -101,7 +103,7 @@ export default function TaskList({ tasks, title = "Urgent Tasks", maxItems = 5 }
             <i className="fas fa-check-circle text-slate-400 text-xl"></i>
           </div>
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            No urgent tasks! Great job staying on top of things.
+            {t("dashboard.urgentTasks.empty")}
           </p>
         </div>
       )}

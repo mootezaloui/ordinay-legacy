@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import ContentSection from "../../layout/ContentSection";
 import SearchableSelect from "../../FormModal/SearchableSelect";
 import BlockerModal from "../../ui/BlockerModal";
@@ -10,10 +11,12 @@ import { canPerformAction } from "../../../services/domainRules";
  * ✅ UPDATED: Supports both inline quick actions and structured edit sections
  */
 export default function OverviewTab({ data, config, isEditing, onDataChange, onSectionSave, entityType, entityId, contextData = {}, onSectionSaveWithOptions }) {
+  const { t } = useTranslation("common");
+
   if (!config.overviewSections) {
     return (
       <div className="p-6 text-center text-slate-600 dark:text-slate-400">
-        No overview configuration found
+        {t("detail.overview.noConfig")}
       </div>
     );
   }
@@ -59,6 +62,7 @@ export default function OverviewTab({ data, config, isEditing, onDataChange, onS
  * Structured Edit Section - Explicit Edit/Save buttons
  */
 function StructuredEditSection({ section, data, onSave, onSaveWithOptions, entityType, entityId, contextData = {} }) {
+  const { t } = useTranslation("common");
   const [isEditing, setIsEditing] = useState(false);
   const [editedData, setEditedData] = useState({});
   const [isSaving, setIsSaving] = useState(false);
@@ -267,7 +271,7 @@ function StructuredEditSection({ section, data, onSave, onSaveWithOptions, entit
             className="px-3 py-1.5 text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors flex items-center gap-2"
           >
             <i className="fas fa-edit"></i>
-            Edit
+            {t("actions.edit")}
           </button>
         ) : (
           <div className="flex items-center gap-2">
@@ -276,7 +280,7 @@ function StructuredEditSection({ section, data, onSave, onSaveWithOptions, entit
               className="px-3 py-1.5 text-sm border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700/50 text-slate-700 dark:text-slate-200 rounded-lg transition-colors"
             >
               <i className="fas fa-times mr-1"></i>
-              Cancel
+              {t("actions.cancel")}
             </button>
             <button
               onClick={handleSave}
@@ -288,7 +292,7 @@ function StructuredEditSection({ section, data, onSave, onSaveWithOptions, entit
               ) : (
                 <i className="fas fa-save"></i>
               )}
-              Save
+              {t("actions.save")}
             </button>
           </div>
         )
@@ -332,10 +336,10 @@ function StructuredEditSection({ section, data, onSave, onSaveWithOptions, entit
                     if (Array.isArray(content)) {
                       return content.length > 0
                         ? content.map(note => note.content).join('\n\n')
-                        : 'No notes';
+                        : t("detail.overview.noNotes");
                     }
                     // Handle string (legacy format)
-                    return content || 'No notes';
+                    return content || t("detail.overview.noNotes");
                   })()}
                 </p>
               </div>
@@ -431,12 +435,12 @@ function StructuredEditSection({ section, data, onSave, onSaveWithOptions, entit
                             value={editedData[fieldKey] || ''}
                             onChange={(newValue) => handleFieldChange(fieldKey, newValue)}
                             options={fieldOptions}
-                            placeholder={field.placeholder || "Searching..."}
+                            placeholder={field.placeholder || t("form.searching")}
                             disabled={false}
                             compact={false}
                             allowCreate={field.allowCreate || false}
                             onCreateOption={field.onCreateOption || null}
-                            createLabel={field.createLabel || "Add"}
+                            createLabel={field.createLabel || t("actions.add")}
                           />
                         );
                       }
@@ -449,7 +453,7 @@ function StructuredEditSection({ section, data, onSave, onSaveWithOptions, entit
                             onChange={(e) => handleFieldChange(fieldKey, e.target.value)}
                             className="w-full px-3.5 py-2.5 pr-10 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 appearance-none cursor-pointer hover:border-slate-300 dark:hover:border-slate-600 hover:shadow"
                           >
-                            <option value="">Select...</option>
+                            <option value="">{t("form.select")}</option>
                             {fieldOptions.map((option) => (
                               <option key={option.value} value={option.value}>
                                 {option.label}
@@ -514,7 +518,7 @@ function StructuredEditSection({ section, data, onSave, onSaveWithOptions, entit
       <BlockerModal
         isOpen={blockerModalOpen}
         onClose={() => setBlockerModalOpen(false)}
-        actionName={section.title ? `Edit ${section.title.toLowerCase()}` : "Edit this section"}
+        actionName={section.title ? `${t("actions.edit")} ${section.title}` : t("actions.edit")}
         blockers={validationResult?.blockers || []}
         warnings={validationResult?.warnings || []}
         entityName={data?.caseNumber || data?.title || data?.name || ""}
@@ -527,7 +531,7 @@ function StructuredEditSection({ section, data, onSave, onSaveWithOptions, entit
           setPendingData(null);
         }}
         onConfirm={handleConfirmImpact}
-        actionName="edit attachment"
+        actionName={t("detail.overview.editAttachment")}
         impactSummary={validationResult?.impactSummary || []}
         entityName={data?.caseNumber || data?.title || data?.name || ""}
       />
@@ -539,6 +543,7 @@ function StructuredEditSection({ section, data, onSave, onSaveWithOptions, entit
  * Regular Section - No explicit edit mode (for backwards compatibility)
  */
 function RegularSection({ section, data, isEditing, onDataChange, contextData = {} }) {
+  const { t } = useTranslation("common");
   const [editedData, setEditedData] = useState(data);
 
   const handleFieldChange = (fieldKey, value) => {
@@ -620,10 +625,10 @@ function RegularSection({ section, data, isEditing, onDataChange, contextData = 
                     if (Array.isArray(content)) {
                       return content.length > 0
                         ? content.map(note => note.content).join('\n\n')
-                        : 'No notes';
+                        : t("detail.overview.noNotes");
                     }
                     // Handle string (legacy format)
-                    return content || 'No notes';
+                    return content || t("detail.overview.noNotes");
                   })()}
                 </p>
               </div>
@@ -689,7 +694,7 @@ function RegularSection({ section, data, isEditing, onDataChange, contextData = 
                             value={editedData[fieldKey] || ''}
                             onChange={(newValue) => handleFieldChange(fieldKey, newValue)}
                             options={field.options}
-                            placeholder={field.placeholder || "Rechercher..."}
+                            placeholder={field.placeholder || t("form.searching")}
                             disabled={false}
                             compact={false}
                           />
@@ -704,7 +709,7 @@ function RegularSection({ section, data, isEditing, onDataChange, contextData = 
                             onChange={(e) => handleFieldChange(fieldKey, e.target.value)}
                             className="w-full px-3.5 py-2.5 pr-10 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 appearance-none cursor-pointer hover:border-slate-300 dark:hover:border-slate-600 hover:shadow"
                           >
-                            <option value="">Select...</option>
+                            <option value="">{t("form.select")}</option>
                             {field.options.map((option) => (
                               <option key={option.value} value={option.value}>
                                 {option.label}

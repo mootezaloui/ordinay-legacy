@@ -3,6 +3,23 @@ import { Link, useNavigate } from "react-router-dom";
 import { useTheme } from "../../contexts/theme";
 import { useTranslation } from "react-i18next";
 
+/**
+ * ⚠️ COSMETIC LOGIN SCREEN - NO REAL AUTHENTICATION
+ *
+ * This is a placeholder UI for visual consistency.
+ *
+ * IMPORTANT:
+ * - NO password validation
+ * - NO backend authentication
+ * - NO token generation
+ * - NO session creation
+ * - Just navigates to dashboard
+ *
+ * Organia is a LOCAL DESKTOP APP with implicit operator trust.
+ * Real authentication is FORBIDDEN per AUTH_FREEZE.md
+ *
+ * See: /AUTH_FREEZE.md for details
+ */
 export default function Login() {
   const navigate = useNavigate();
   const { isDark, toggleTheme } = useTheme();
@@ -28,10 +45,12 @@ export default function Login() {
     setError("");
     setIsLoading(true);
 
-    // Simulate API call
+    // ⚠️ COSMETIC ONLY - NO REAL AUTHENTICATION HAPPENS HERE
+    // This just simulates a login for UX consistency
+    // NO password validation, NO backend call, NO token generation
     setTimeout(() => {
       if (formData.email && formData.password) {
-        // Success - navigate to dashboard
+        // Success - navigate to dashboard (no auth check)
         navigate("/dashboard");
       } else {
         setError(t('login.errors.pleaseFillBoth'));

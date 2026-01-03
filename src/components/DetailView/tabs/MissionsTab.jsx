@@ -13,7 +13,7 @@ import {
   formatCurrency
 } from "../../../utils/financialUtils";
 import {
-  financialEntryFormFields,
+  getFinancialEntryFormFields,
   populateRelationshipOptions
 } from "../../FormModal/formConfigs";
 import { logEntityCreation, logAssignment } from "../../../services/historyService";
@@ -31,7 +31,7 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
   const { showToast } = useToast();
   const { confirm } = useConfirm();
   const { formatDate } = useSettings();
-  const { t } = useTranslation("common");
+  const { t } = useTranslation(["missions", "common"]);
   const {
     clients,
     dossiers,
@@ -68,6 +68,9 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
   const [validationResult, setValidationResult] = useState(null);
   const [pendingFormData, setPendingFormData] = useState(null);
   const [blockerModalOpen, setBlockerModalOpen] = useState(false);
+  const allowAdd = tabConfig.allowAdd !== false;
+  const hasParentEntities = (Array.isArray(dossiers) && dossiers.length > 0) || (Array.isArray(cases) && cases.length > 0);
+  const canAddMission = allowAdd && hasParentEntities;
 
   // Filter missions by status and search
   const filteredMissions = useMemo(() => {
@@ -364,6 +367,8 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
   };
 
   const handleModalOpen = () => {
+    if (!canAddMission) return;
+
     const defaults = {};
 
     // Get fields from either getFormFields function or formFields array
@@ -453,9 +458,9 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
         onItemsChange(tabConfig.itemsKey, updatedMissions);
       }
 
-    setIsFinancialModalOpen(false);
-    setSelectedMissionForFinance(null);
-    showToast(t("detail.missions.toast.success.financialAdd"), "success");
+      setIsFinancialModalOpen(false);
+      setSelectedMissionForFinance(null);
+      showToast(t("detail.missions.toast.success.financialAdd"), "success");
 
       // ✅ Navigate to the new financial entry's detail view
       if (savedEntry && savedEntry.id) {
@@ -464,11 +469,11 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
           setTimeout(() => navigate(detailRoute), 100);
         }
       }
-  } catch (error) {
-    console.error("Error adding financial entry:", error);
-    showToast(t("detail.missions.toast.error.financialAdd"), "error");
-  }
-};
+    } catch (error) {
+      console.error("Error adding financial entry:", error);
+      showToast(t("detail.missions.toast.error.financialAdd"), "error");
+    }
+  };
 
   const handleAddDocument = (mission) => {
     setSelectedMissionForDoc(mission);
@@ -603,10 +608,10 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
       onItemsChange(tabConfig.itemsKey, updatedMissions);
     }
 
-  setEditingEntryId(null);
-  setEditingEntryData(null);
-  showToast(t("detail.missions.toast.success.financialUpdate"), "success");
-};
+    setEditingEntryId(null);
+    setEditingEntryData(null);
+    showToast(t("detail.missions.toast.success.financialUpdate"), "success");
+  };
 
   const handleCancelEditFinancialEntry = () => {
     setEditingEntryId(null);
@@ -663,16 +668,23 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
               ></i>
             </div>
             <p className="text-slate-600 dark:text-slate-400 mb-4">
-              {tabConfig.emptyMessage || "No missions found."}
+              {tabConfig.emptyMessage || t("empty", { ns: "missions" })}
             </p>
 
-            {tabConfig.allowAdd !== false && (
+            {allowAdd && !hasParentEntities && (
+              <div className="mt-4 text-amber-600 dark:text-amber-400 font-medium flex flex-col items-center gap-2 text-center">
+                <i className="fas fa-info-circle text-2xl"></i>
+                <span>{t("blockers.missingParent", { ns: "common" })}</span>
+              </div>
+            )}
+
+            {canAddMission && (
               <button
                 onClick={handleModalOpen}
                 className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors inline-flex items-center gap-2"
               >
                 <i className="fas fa-plus"></i>
-                Add {tabConfig.entityName || 'a mission'}
+                {t("add", { ns: "missions", entityName: tabConfig.entityName || t("addDefault", { ns: "missions" }) })}
               </button>
             )}
           </div>
@@ -683,13 +695,13 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
             isOpen={isAddModalOpen}
             onClose={handleModalClose}
             onSubmit={handleAddMission}
-            title={editingMissionId ? "Edit Mission" : "Add Mission"}
-            subtitle={tabConfig.addSubtitle}
+            title={editingMissionId ? t("form.title.edit", { ns: "missions", defaultValue: "Edit Mission" }) : t("form.title.add", { ns: "missions", defaultValue: "Add Mission" })}
+            subtitle={tabConfig.addSubtitle || t("form.subtitle.add", { ns: "missions", defaultValue: "Create a new mission" })}
             fields={processedFormFields}
             isLoading={isLoading}
             formData={formData}
             onFormDataChange={setFormData}
-            submitText={editingMissionId ? "Edit" : "Add"}
+            submitText={editingMissionId ? t("form.submit.edit", { ns: "missions", defaultValue: "Save" }) : t("form.submit.add", { ns: "missions", defaultValue: "Add" })}
             entityType="mission"
             entities={contextData}
           />
@@ -703,14 +715,21 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
       <ContentSection
         title={`${tabConfig.label} (${missions.length})`}
         actions={
-          tabConfig.allowAdd !== false && (
-            <button
-              onClick={handleModalOpen}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors text-sm inline-flex items-center gap-2"
-            >
-              <i className="fas fa-plus"></i>
-              Add {tabConfig.entityName || 'a mission'}
-            </button>
+          allowAdd && (
+            hasParentEntities ? (
+              <button
+                onClick={handleModalOpen}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors text-sm inline-flex items-center gap-2"
+              >
+                <i className="fas fa-plus"></i>
+                {t("add", { ns: "missions", entityName: tabConfig.entityName || t("addDefault", { ns: "missions" }) })}
+              </button>
+            ) : (
+              <div className="text-amber-600 dark:text-amber-400 text-sm flex items-center gap-2">
+                <i className="fas fa-info-circle"></i>
+                <span>{t("blockers.missingParent", { ns: "common" })}</span>
+              </div>
+            )
           )
         }
       >
@@ -721,7 +740,7 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
             <i className="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
             <input
               type="text"
-              placeholder="Search by number, title, reference..."
+              placeholder={t("search.placeholder", { ns: "missions" })}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 outline-none"
@@ -737,7 +756,7 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
                 : "bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600"
                 }`}
             >
-              Toutes ({statusCounts.all})
+              {t("filter.all", { ns: "missions", count: statusCounts.all })}
             </button>
             <button
               onClick={() => setFilterStatus("Scheduled")}
@@ -746,7 +765,7 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
                 : "bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600"
                 }`}
             >
-              Scheduled ({statusCounts.Scheduled})
+              {t("filter.scheduled", { ns: "missions", count: statusCounts.Scheduled })}
             </button>
             <button
               onClick={() => setFilterStatus("In Progress")}
@@ -755,7 +774,7 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
                 : "bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600"
                 }`}
             >
-              In Progress ({statusCounts["In Progress"]})
+              {t("filter.inProgress", { ns: "missions", count: statusCounts["In Progress"] })}
             </button>
             <button
               onClick={() => setFilterStatus("Completed")}
@@ -764,7 +783,7 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
                 : "bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600"
                 }`}
             >
-              Completed ({statusCounts.Completed})
+              {t("filter.completed", { ns: "missions", count: statusCounts.Completed })}
             </button>
             <button
               onClick={() => setFilterStatus("Cancelled")}
@@ -773,7 +792,7 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
                 : "bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600"
                 }`}
             >
-              Cancelled ({statusCounts.Cancelled})
+              {t("filter.cancelled", { ns: "missions", count: statusCounts.Cancelled })}
             </button>
           </div>
         </div>
@@ -782,7 +801,7 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
         <div className="divide-y divide-slate-200 dark:divide-slate-700">
           {filteredMissions.length === 0 ? (
             <div className="p-8 text-center text-slate-500 dark:text-slate-400">
-              No mission found matching the criteria.
+              {t("search.empty", { ns: "missions" })}
             </div>
           ) : (
             filteredMissions.map((mission) => (
@@ -808,7 +827,7 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
                       {mission.priority === "High" && (
                         <span className="px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">
                           <i className="fas fa-exclamation-circle mr-1"></i>
-                          High Priority
+                          {t("priority.high", { ns: "missions" })}
                         </span>
                       )}
                     </div>
@@ -828,26 +847,24 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
                       </span>
                       <span>
                         <i className="fas fa-calendar mr-1"></i>
-                        Assigned: {formatDate(mission.assignDate)}
+                        {t("labels.assigned", { ns: "missions" })} {formatDate(mission.assignDate)}
                       </span>
                       {mission.dueDate && (
                         <span>
                           <i className="fas fa-clock mr-1"></i>
-                          Due Date: {formatDate(mission.dueDate)}
+                          {t("labels.dueDate", { ns: "missions" })} {formatDate(mission.dueDate)}
                         </span>
                       )}
                       {mission.documents && mission.documents.length > 0 && (
                         <span className="text-blue-600 dark:text-blue-400">
                           <i className="fas fa-paperclip mr-1"></i>
-                          {mission.documents.length} document(s)
+                          {t("labels.documents", { ns: "missions", count: mission.documents.length })}
                         </span>
                       )}
                       {mission.financialEntries && mission.financialEntries.length > 0 && (
                         <span className="text-amber-600 dark:text-amber-400 font-medium">
                           <i className="fas fa-coins mr-1"></i>
-                          {formatCurrency(
-                            mission.financialEntries.reduce((sum, e) => sum + parseFloat(e.amount || 0), 0)
-                          )} Fees
+                          {t("labels.fees", { ns: "missions", amount: formatCurrency(mission.financialEntries.reduce((sum, e) => sum + parseFloat(e.amount || 0), 0)) })}
                         </span>
                       )}
                     </div>
@@ -862,7 +879,7 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
                           handleDeleteMission(mission.id);
                         }}
                         className="p-2 hover:bg-red-100 dark:hover:bg-red-900/20 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
-                        title="Delete"
+                        title={t("actions.delete", { ns: "common" })}
                       >
                         <i className="fas fa-trash text-red-600 dark:text-red-400 text-sm"></i>
                       </button>
@@ -882,16 +899,16 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
           isOpen={isAddModalOpen}
           onClose={handleModalClose}
           onSubmit={handleAddMission}
-          title={editingMissionId ? "Edit Mission" : "Add Mission"}
+          title={editingMissionId ? t("form.title.edit", { ns: "missions" }) : t("form.title.add", { ns: "missions" })}
           subtitle={
             tabConfig.addSubtitle ||
-            `Create a new mission for ${config.getTitle(data)}`
+            t("form.subtitle.addFor", { ns: "missions", entity: config.getTitle(data) })
           }
           fields={processedFormFields}
           isLoading={isLoading}
           formData={formData}
           onFormDataChange={setFormData}
-          submitText={editingMissionId ? "Edit" : "Add"}
+          submitText={editingMissionId ? t("form.submit.edit", { ns: "missions" }) : t("form.submit.add", { ns: "missions" })}
           entityType="mission"
           entities={contextData}
         />
@@ -907,11 +924,11 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
             setSelectedMissionForFinance(null);
           }}
           onSubmit={handleAddFinancialEntry}
-          title="Add Bailiff Fees"
+          title={t("financial.addTitle", { ns: "missions" })}
           subtitle={`Mission: ${selectedMissionForFinance.missionNumber} - ${selectedMissionForFinance.title}`}
           fields={(() => {
             // Get base fields and populate with actual data
-            const baseFields = populateRelationshipOptions(financialEntryFormFields, {
+            const baseFields = populateRelationshipOptions(getFinancialEntryFormFields(), {
               clients,
               dossiers,
               cases,
@@ -943,13 +960,13 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
 
             return baseFields.map(field => {
               if (field.name === "scope") {
-                return { ...field, type: "readonly", defaultValue: "client", displayValue: "Client (affects client balance)" };
+                return { ...field, type: "readonly", defaultValue: "client", displayValue: t("scope.client", { ns: "common" }) };
               }
               if (field.name === "type") {
-                return { ...field, type: "readonly", defaultValue: "expense", displayValue: "Expense (paid fees)" };
+                return { ...field, type: "readonly", defaultValue: "expense", displayValue: t("financial.expenseType", { ns: "missions" }) };
               }
               if (field.name === "category") {
-                return { ...field, type: "readonly", defaultValue: "frais_huissier", displayValue: "Bailiff Fees" };
+                return { ...field, type: "readonly", defaultValue: "frais_huissier", displayValue: t("category.bailiffFees", { ns: "common" }) };
               }
               if (field.name === "clientId") {
                 const client = clients.find(c => c.id === clientId);
@@ -957,9 +974,7 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
                   ...field,
                   type: "readonly",
                   defaultValue: clientId || "",
-                  displayValue: client ? client.name : t("detail.missions.fallback.unknownClient", { ns: "common" }),
-                  label: "Client",
-                  helpText: t("detail.missions.help.clientLink", { ns: "common" })
+                  displayValue: client ? client.name : t("fallback.unknownClient", { ns: "missions" })
                 };
               }
               if (field.name === "dossierId") {
@@ -968,9 +983,7 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
                   ...field,
                   type: "readonly",
                   defaultValue: dossierId || "",
-                  displayValue: doss ? `${doss.caseNumber} - ${doss.title}` : t("detail.missions.fallback.unknownDossier", { ns: "common" }),
-                  label: "Dossier (optional)",
-                  helpText: t("detail.missions.help.dossierLink", { ns: "common" })
+                  displayValue: doss ? `${doss.caseNumber} - ${doss.title}` : t("fallback.unknownDossier", { ns: "missions" })
                 };
               }
               if (field.name === "caseId") {
@@ -979,7 +992,7 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
                   ...field,
                   type: "readonly",
                   defaultValue: caseId || "",
-                  displayValue: caseItem ? `${caseItem.caseNumber} - ${caseItem.title}` : "No lawsuit"
+                  displayValue: caseItem ? `${caseItem.caseNumber} - ${caseItem.title}` : t("fallback.noLawsuit", { ns: "missions" })
                 };
               }
               if (field.name === "missionId") {

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { getEntityHistory } from "../../../services/historyService";
 import {
     Clock,
@@ -26,6 +27,7 @@ import { useSettings } from "../../../contexts/SettingsContext";
  * - Relational impact confirmations
  */
 export default function HistoryTab({ entityType, entityId }) {
+    const { t } = useTranslation("common");
     const [history, setHistory] = useState([]);
     const [loading, setLoading] = useState(true);
     const { formatDateTime } = useSettings();
@@ -47,7 +49,7 @@ export default function HistoryTab({ entityType, entityId }) {
             <div className="flex flex-col items-center justify-center p-12 text-center">
                 <Clock className="w-16 h-16 text-slate-300 dark:text-slate-600 mb-4 animate-pulse" />
                 <h3 className="text-lg font-medium text-slate-700 dark:text-slate-300 mb-2">
-                    Loading history...
+                    {t("detail.history.loading")}
                 </h3>
             </div>
         );
@@ -58,10 +60,10 @@ export default function HistoryTab({ entityType, entityId }) {
             <div className="flex flex-col items-center justify-center p-12 text-center">
                 <Clock className="w-16 h-16 text-slate-300 dark:text-slate-600 mb-4" />
                 <h3 className="text-lg font-medium text-slate-700 dark:text-slate-300 mb-2">
-                    No history available yet
+                    {t("detail.history.empty.title")}
                 </h3>
                 <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md">
-                    Important events will appear here: creations, status changes, assignments, and significant actions.
+                    {t("detail.history.empty.description")}
                 </p>
             </div>
         );
@@ -97,6 +99,7 @@ export default function HistoryTab({ entityType, entityId }) {
  * Single history event component
  */
 function HistoryEvent({ event, isFirst, isLast, formatDateTime }) {
+    const { t, i18n } = useTranslation("common");
     const { icon, iconColor, bgColor } = getEventIcon(event.eventType, event.metadata);
 
     return (
@@ -115,7 +118,7 @@ function HistoryEvent({ event, isFirst, isLast, formatDateTime }) {
                             {event.label}
                         </h4>
                         <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                            {formatTimestamp(event.timestamp, formatDateTime)}
+                            {formatTimestamp(event.timestamp, formatDateTime, t, i18n)}
                         </p>
                     </div>
 
@@ -238,22 +241,25 @@ function getEventIcon(eventType, metadata = {}) {
  * Event type badge
  */
 function EventTypeBadge({ eventType }) {
+    const { t } = useTranslation("common");
+
     const badges = {
-        lifecycle: { label: 'lifecycle', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' },
-        status: { label: 'status', color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' },
-        assignment: { label: 'assignment', color: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300' },
-        finance: { label: 'finance', color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' },
-        system: { label: 'system', color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300' },
-        relation: { label: 'relation', color: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300' },
-        child_created: { label: 'child created', color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' },
-        child_deleted: { label: 'child deleted', color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' },
+        lifecycle: { labelKey: 'detail.history.badges.lifecycle', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' },
+        status: { labelKey: 'detail.history.badges.status', color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' },
+        assignment: { labelKey: 'detail.history.badges.assignment', color: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300' },
+        finance: { labelKey: 'detail.history.badges.finance', color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' },
+        system: { labelKey: 'detail.history.badges.system', color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300' },
+        relation: { labelKey: 'detail.history.badges.relation', color: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300' },
+        child_created: { labelKey: 'detail.history.badges.childCreated', color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' },
+        child_deleted: { labelKey: 'detail.history.badges.childDeleted', color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' },
     };
 
-    const badge = badges[eventType] || { label: eventType, color: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300' };
+    const badge = badges[eventType] || { labelKey: null, color: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300' };
+    const label = badge.labelKey ? t(badge.labelKey) : eventType;
 
     return (
         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${badge.color} flex-shrink-0`}>
-            {badge.label}
+            {label}
         </span>
     );
 }
@@ -262,6 +268,8 @@ function EventTypeBadge({ eventType }) {
  * Display metadata in a clean format
  */
 function MetadataDisplay({ metadata }) {
+    const { t } = useTranslation("common");
+
     // Filter out internal/redundant metadata
     const relevantKeys = Object.keys(metadata).filter(key =>
         !['action', 'confirmed', 'ruleType', 'impactType', 'childType', 'childId', 'relatedType', 'relatedId'].includes(key)
@@ -280,7 +288,7 @@ function MetadataDisplay({ metadata }) {
                 return (
                     <div key={key} className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded text-xs">
                         <span className="font-medium text-slate-500 dark:text-slate-400 capitalize">
-                            {formatMetadataKey(key)}:
+                            {formatMetadataKey(key, t)}:
                         </span>
                         <span className="text-slate-700 dark:text-slate-300">
                             {formatMetadataValue(value)}
@@ -295,17 +303,17 @@ function MetadataDisplay({ metadata }) {
 /**
  * Format metadata key for display
  */
-function formatMetadataKey(key) {
+function formatMetadataKey(key, t) {
     const keyMap = {
-        oldStatus: 'Old status',
-        newStatus: 'New status',
-        assignedTo: 'Assigned to',
-        previousAssignee: 'Previous',
-        amount: 'Amount',
-        actionType: 'Type',
+        oldStatus: 'detail.history.metadata.oldStatus',
+        newStatus: 'detail.history.metadata.newStatus',
+        assignedTo: 'detail.history.metadata.assignedTo',
+        previousAssignee: 'detail.history.metadata.previousAssignee',
+        amount: 'detail.history.metadata.amount',
+        actionType: 'detail.history.metadata.actionType',
     };
 
-    return keyMap[key] || key;
+    return keyMap[key] ? t(keyMap[key]) : key;
 }
 
 /**
@@ -321,7 +329,7 @@ function formatMetadataValue(value) {
 /**
  * Format timestamp for display
  */
-function formatTimestamp(timestamp, formatDateTimeFn) {
+function formatTimestamp(timestamp, formatDateTimeFn, t, i18n) {
     // Parse timestamp as UTC (SQLite CURRENT_TIMESTAMP stores UTC)
     // SQLite format: "YYYY-MM-DD HH:MM:SS"
     let date;
@@ -340,16 +348,16 @@ function formatTimestamp(timestamp, formatDateTimeFn) {
 
     // Relative time for recent events
     if (diffMins < 1) {
-        return "Just now";
+        return t("detail.history.time.justNow");
     }
     if (diffMins < 60) {
-        return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
+        return t("detail.history.time.minutesAgo", { count: diffMins });
     }
     if (diffHours >= 1 && diffHours < 24) {
-        return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+        return t("detail.history.time.hoursAgo", { count: diffHours });
     }
     if (diffDays >= 1 && diffDays < 7) {
-        return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+        return t("detail.history.time.daysAgo", { count: diffDays });
     }
 
     // Absolute time for older events
@@ -357,7 +365,9 @@ function formatTimestamp(timestamp, formatDateTimeFn) {
         return formatDateTimeFn(date);
     }
 
-    return new Intl.DateTimeFormat('en-US', {
+    // Use user's locale instead of hardcoded 'en-US'
+    const locale = i18n?.language || 'en';
+    return new Intl.DateTimeFormat(locale, {
         year: 'numeric',
         month: 'long',
         day: 'numeric',

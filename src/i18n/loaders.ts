@@ -20,6 +20,8 @@ const namespaceLoaders: Record<LanguageCode, NamespaceLoader> = {
     chatbot: (await import("./locales/en/chatbot.json")).default,
     layout: (await import("./locales/en/layout.json")).default,
     notifications: (await import("./locales/en/notifications.json")).default,
+    missions: (await import("./locales/en/missions.json")).default,
+    domain: (await import("./locales/en/domain.json")).default,
   }),
   fr: async () => ({
     common: (await import("./locales/fr/common.json")).default,
@@ -37,6 +39,8 @@ const namespaceLoaders: Record<LanguageCode, NamespaceLoader> = {
     chatbot: (await import("./locales/fr/chatbot.json")).default,
     layout: (await import("./locales/fr/layout.json")).default,
     notifications: (await import("./locales/fr/notifications.json")).default,
+    missions: (await import("./locales/fr/missions.json")).default,
+    domain: (await import("./locales/fr/domain.json")).default,
   }),
   ar: async () => ({
     common: (await import("./locales/ar/common.json")).default,
@@ -54,6 +58,8 @@ const namespaceLoaders: Record<LanguageCode, NamespaceLoader> = {
     chatbot: (await import("./locales/ar/chatbot.json")).default,
     layout: (await import("./locales/ar/layout.json")).default,
     notifications: (await import("./locales/ar/notifications.json")).default,
+    missions: (await import("./locales/ar/missions.json")).default,
+    domain: (await import("./locales/ar/domain.json")).default,
   }),
 };
 

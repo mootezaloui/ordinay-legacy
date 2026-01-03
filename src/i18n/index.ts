@@ -73,6 +73,7 @@ export const initI18n = async (language?: string) => {
           "chatbot",
           "layout",
           "notifications",
+          "missions",
           "domain",
         ],
         defaultNS: "common",

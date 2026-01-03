@@ -9,6 +9,7 @@ import FormModal from "../../FormModal/FormModal";
 import { logEntityCreation, logHistoryEvent, EVENT_TYPES } from "../../../services/historyService";
 import { useSettings } from "../../../contexts/SettingsContext";
 import { useTranslation } from "react-i18next";
+import { translateStatus } from "../../../utils/entityTranslations";
 
 /**
  * AggregatedRelatedTab - Generic tab for displaying aggregated related entities
@@ -143,17 +144,17 @@ export default function AggregatedRelatedTab({
   const getCreatedLabel = () => {
     switch (tabConfig?.aggregationType) {
       case "dossiers":
-        return "Dossier Created";
+        return t("detail.history.labels.dossierCreated");
       case "cases":
-        return "Lawsuit Created";
+        return t("detail.history.labels.lawsuitCreated");
       case "sessions":
-        return "Hearing Created";
+        return t("detail.history.labels.hearingCreated");
       case "tasks":
-        return "Task Created";
+        return t("detail.history.labels.taskCreated");
       case "missions":
-        return "Mission Created";
+        return t("detail.history.labels.missionCreated");
       default:
-        return "Item Created";
+        return t("detail.history.labels.itemCreated");
     }
   };
 
@@ -358,15 +359,12 @@ export default function AggregatedRelatedTab({
       logEntityCreation(referenceEntityType, newItem.id, getItemTitle(newItem));
       if (data?.id && config?.entityType) {
         const itemTitle = getItemTitle(newItem);
-        const entityDisplayName = referenceEntityType === 'case' ? 'lawsuit' :
-                                   referenceEntityType === 'session' ? 'hearing' :
-                                   referenceEntityType;
         logHistoryEvent({
           entityType: config.entityType,
           entityId: data.id,
           eventType: EVENT_TYPES.RELATION,
           label: `${getCreatedLabel()}: ${itemTitle}`,
-          details: `A new ${entityDisplayName} was created: ${itemTitle}`,
+          details: `${getCreatedLabel()}: ${itemTitle}`,
           metadata: {
             childType: referenceEntityType,
             childId: newItem.id,
@@ -528,7 +526,7 @@ export default function AggregatedRelatedTab({
                 className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors inline-flex items-center gap-2"
               >
                 <i className="fas fa-plus"></i>
-                Add {tabConfig.entityName || 'element'}
+                {t("detail.related.add", { entityName: tabConfig.entityName || t("detail.related.fallback.element") })}
               </button>
             )}
           </div>
@@ -566,7 +564,7 @@ export default function AggregatedRelatedTab({
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors text-sm inline-flex items-center gap-2"
               >
                 <i className="fas fa-plus"></i>
-                Add {tabConfig.entityName || 'Item'}
+                {t("actions.add")} {tabConfig.entityName || t("detail.related.fallback.element")}
               </button>
             ) : (
               <span className="text-xs text-slate-500 dark:text-slate-400">
@@ -585,6 +583,7 @@ export default function AggregatedRelatedTab({
                 item={item}
                 parentContext={parentContext}
                 entityConfig={entityConfig}
+                aggregationType={tabConfig?.aggregationType}
                 allowDelete={allowDelete}
                 onDelete={handleDeleteItem}
                 currentLocation={location}
@@ -603,7 +602,7 @@ export default function AggregatedRelatedTab({
                 className="w-full py-3 border-2 border-dashed border-slate-300 dark:border-slate-600 hover:border-blue-500 dark:hover:border-blue-500 rounded-lg text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors font-medium"
               >
                 <i className="fas fa-plus mr-2"></i>
-                Add {tabConfig.entityName || 'an element'}
+                {t("detail.related.add", { entityName: tabConfig.entityName || t("detail.related.fallback.element") })}
               </button>
             ) : (
               <div className="text-center text-sm text-slate-500 dark:text-slate-400">
@@ -621,8 +620,8 @@ export default function AggregatedRelatedTab({
           onClose={() => setIsAddModalOpen(false)}
           onSubmit={handleAddItem}
           initialData={prefillContext}
-          title={`Ajouter ${tabConfig.entityName || 'un élément'}`}
-          subtitle={tabConfig.addSubtitle || `Créer un nouveau ${tabConfig.entityName?.toLowerCase() || 'élément'}`}
+          title={t("detail.related.form.add", { entityName: tabConfig.entityName || t("detail.related.fallback.entity") })}
+          subtitle={tabConfig.addSubtitle || t("detail.related.form.create", { entityName: tabConfig.entityName?.toLowerCase() || t("detail.related.fallback.entity").toLowerCase() })}
           fields={finalFormFields}
           isLoading={isLoading}
           entityType={referenceEntityType}
@@ -635,10 +634,15 @@ export default function AggregatedRelatedTab({
 /**
  * ItemRow - Single item with parent context breadcrumb
  */
-function ItemRow({ item, parentContext, entityConfig, allowDelete, onDelete, currentLocation, formatDate }) {
+function ItemRow({ item, parentContext, entityConfig, aggregationType, allowDelete, onDelete, currentLocation, formatDate }) {
+  const { t } = useTranslation("common");
   const subtitle = entityConfig.getSubtitle
     ? entityConfig.getSubtitle(item, formatDate)
     : null;
+
+  // Get raw status and translate it
+  const rawStatus = entityConfig.getStatus ? entityConfig.getStatus(item) : null;
+  const translatedStatus = rawStatus ? translateStatus(rawStatus, aggregationType, t) : null;
 
   return (
     <div className="group">
@@ -663,9 +667,9 @@ function ItemRow({ item, parentContext, entityConfig, allowDelete, onDelete, cur
               <p className="font-semibold text-slate-900 dark:text-white truncate">
                 {entityConfig.getTitle(item)}
               </p>
-              {entityConfig.getStatus && (
-                <span className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${getStatusColor(entityConfig.getStatus(item))}`}>
-                  {entityConfig.getStatus(item)}
+              {translatedStatus && (
+                <span className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${getStatusColor(rawStatus)}`}>
+                  {translatedStatus}
                 </span>
               )}
             </div>

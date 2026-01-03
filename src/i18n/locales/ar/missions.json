@@ -120,6 +120,76 @@
         "reportNotesPlaceholder": "أدخل ملاحظات إضافية حول التقرير...",
         "reportNotesHelp": "أي تفاصيل إضافية حول التقرير"
       }
+    },
+    "missions": {
+      "empty": "لا توجد مهام بعد",
+      "entityName": "مهمة"
+    }
+  },
+  "form": {
+    "title": {
+      "add": "إضافة مهمة",
+      "edit": "تعديل المهمة"
+    },
+    "subtitle": {
+      "add": "إنشاء مهمة جديدة",
+      "addFor": "إنشاء مهمة جديدة لـ {{entity}}"
+    },
+    "submit": {
+      "add": "إضافة",
+      "edit": "حفظ"
+    },
+    "fields": {
+      "officer": "المحضر",
+      "entityType": "نوع الكيان",
+      "entityReference": "المرجع",
+      "missionNumber": "المرجع / الرقم",
+      "title": "عنوان المهمة",
+      "missionType": "نوع المهمة",
+      "priority": "الأولوية",
+      "assignDate": "تاريخ التعيين",
+      "dueDate": "تاريخ الاستحقاق",
+      "status": "الحالة",
+      "description": "الوصف",
+      "result": "التقرير / النتيجة",
+      "completionDate": "تاريخ الإكمال",
+      "notes": "ملاحظات",
+      "documents": "المستندات",
+      "financialEntries": "رسوم المحضر"
+    },
+    "placeholders": {
+      "officer": "اختر محضراً...",
+      "missionNumber": "مثال: MIS-2025-001 (يتم توليده تلقائياً إذا كان فارغاً)",
+      "title": "مثال: تبليغ حكم",
+      "description": "وصف تفصيلي للمهمة...",
+      "result": "تقرير تفصيلي عن تنفيذ المهمة...",
+      "notes": "ملاحظات إضافية..."
+    },
+    "help": {
+      "entityReference": "مرجع الملف أو القضية",
+      "missionNumber": "اختياري - اتركه فارغاً للتوليد التلقائي (MIS-YEAR-XXX)",
+      "result": "يُملأ بعد إكمال المهمة",
+      "completionDate": "تاريخ إكمال المهمة (إن وجد)",
+      "documents": "أضف المستندات المتعلقة بهذه المهمة (PDF, DOC, XLS, PPT, صور, أرشيف)",
+      "financialEntries": "أضف الرسوم المتعلقة بهذه المهمة، سيتم ربطها آلياً بالمهمة والعميل",
+      "bailiffAssigned": "سيتم تعيين هذه المهمة لـ {{name}}",
+      "entityType": "اختر ما إذا كانت المهمة تتعلق بملف أو قضية",
+      "entityReferenceSelect": "اختر الملف أو القضية لهذه المهمة"
+    },
+    "options": {
+      "missionType": {
+        "Service": "تبليغ",
+        "Execution": "تنفيذ",
+        "Observation": "معاينة",
+        "Seizure": "حجز",
+        "Investigation": "تحقيق"
+      },
+      "status": {
+        "planned": "مخطط لها",
+        "inProgress": "جارية",
+        "completed": "مكتملة",
+        "cancelled": "ملغاة"
+      }
     }
   }
 }

@@ -150,6 +150,10 @@
         "andMore_plural": "... and {{count}} others"
       }
     },
+    "blocker": {
+      "openDossier": "{{count}} open Dossier",
+      "openDossiers": "{{count}} open Dossiers"
+    },
     "delete": {
       "warning": {
         "dossiersWillDelete": "This client has {{count}} Dossier that will be deleted.",

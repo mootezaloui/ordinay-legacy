@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import i18next from "i18next";
 import ContentSection from "../../layout/ContentSection";
 import { getStatusColor } from "./statusColors";
-import { sessionFormFields, taskFormFields, missionFormFields } from "../../FormModal/formConfigs";
+import { sessionFormFields, taskFormFields, getMissionFormFields } from "../../FormModal/formConfigs";
 import { calculateNextHearing, formatDate, getDeadlineUrgency } from "../../../utils/deadlineUtils";
 import { formatDateValue } from "../../../utils/dateFormat";
 
@@ -425,7 +425,7 @@ export const createCaseConfig = (t) => {
           const randomNum = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
           const defaultMissionNumber = `MIS-${year}-${randomNum}`;
 
-          return missionFormFields.map(field => {
+          return getMissionFormFields().map(field => {
             if (field.name === 'entityType') {
               return {
                 ...field,

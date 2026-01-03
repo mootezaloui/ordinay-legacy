@@ -198,8 +198,14 @@ export default function RelatedItemsTab({ data, config, tabConfig, onItemsChange
             isOpen={isAddModalOpen}
             onClose={handleModalClose}
             onSubmit={handleSaveItem}
-            title={`${editingItem ? 'Edit' : 'Add'} ${tabConfig.entityName || 'an item'}`}
-            subtitle={editingItem ? tabConfig.editSubtitle || `Update this ${tabConfig.entityName?.toLowerCase() || 'item'}` : tabConfig.addSubtitle || `Create a new ${tabConfig.entityName?.toLowerCase() || 'item'} for ${config.getTitle(data)}`}
+            title={editingItem
+              ? t("detail.related.edit", { entityName: tabConfig.entityName || t("detail.related.fallback.entity") })
+              : t("detail.related.add", { entityName: tabConfig.entityName || t("detail.related.fallback.entity") })
+            }
+            subtitle={editingItem
+              ? (tabConfig.editSubtitle || t("detail.related.subtitle.edit", { entity: (tabConfig.entityName?.toLowerCase() || t("detail.related.fallback.element")) }))
+              : (tabConfig.addSubtitle || t("detail.related.subtitle.add", { entity: (tabConfig.entityName?.toLowerCase() || t("detail.related.fallback.element")), parent: config.getTitle(data) }))
+            }
             fields={processedFormFields}
             isLoading={isLoading}
             // ✅ Pass formData state handlers for dynamic updates
@@ -292,7 +298,7 @@ export default function RelatedItemsTab({ data, config, tabConfig, onItemsChange
                           handleModalOpen(item);
                         }}
                         className="p-2 hover:bg-blue-100 dark:hover:bg-blue-900/20 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
-                        title="Edit"
+                        title={t("actions.edit")}
                       >
                         <i className="fas fa-pen text-blue-600 dark:text-blue-300 text-sm"></i>
                       </button>
@@ -307,7 +313,7 @@ export default function RelatedItemsTab({ data, config, tabConfig, onItemsChange
                           handleDeleteItem(item.id);
                         }}
                         className="p-2 hover:bg-red-100 dark:hover:bg-red-900/20 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
-                        title="Delete"
+                        title={t("actions.delete")}
                       >
                         <i className="fas fa-trash text-red-600 dark:text-red-400 text-sm"></i>
                       </button>
@@ -343,8 +349,14 @@ export default function RelatedItemsTab({ data, config, tabConfig, onItemsChange
           isOpen={isAddModalOpen}
           onClose={handleModalClose}
           onSubmit={handleSaveItem}
-          title={`Add ${tabConfig.entityName || 'an item'}`}
-          subtitle={editingItem ? tabConfig.editSubtitle || `Update this ${tabConfig.entityName?.toLowerCase() || 'item'}` : tabConfig.addSubtitle || `Create a new ${tabConfig.entityName?.toLowerCase() || 'item'} for ${config.getTitle(data)}`}
+          title={editingItem
+            ? t("detail.related.edit", { entityName: tabConfig.entityName || t("detail.related.fallback.entity") })
+            : t("detail.related.add", { entityName: tabConfig.entityName || t("detail.related.fallback.entity") })
+          }
+          subtitle={editingItem
+            ? (tabConfig.editSubtitle || t("detail.related.subtitle.edit", { entity: (tabConfig.entityName?.toLowerCase() || t("detail.related.fallback.element")) }))
+            : (tabConfig.addSubtitle || t("detail.related.subtitle.add", { entity: (tabConfig.entityName?.toLowerCase() || t("detail.related.fallback.element")), parent: config.getTitle(data) }))
+          }
           fields={processedFormFields}
           isLoading={isLoading}
           // ✅ Pass formData state handlers for dynamic updates

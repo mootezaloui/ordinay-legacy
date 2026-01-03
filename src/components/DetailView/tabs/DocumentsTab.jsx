@@ -242,7 +242,7 @@ export default function DocumentsTab({ data, config, onDocumentsChange }) {
 
   if (documents.length === 0) {
     return (
-      <ContentSection title="Documents (0)">
+      <ContentSection title={t("detail.documents.title", { count: 0 })}>
         <div className="p-12">
           {/* Drag & Drop Zone */}
           <div
@@ -259,14 +259,14 @@ export default function DocumentsTab({ data, config, onDocumentsChange }) {
               <i className="fas fa-cloud-upload-alt text-slate-400 dark:text-slate-600 text-2xl"></i>
             </div>
             <p className="text-slate-900 dark:text-white font-medium mb-2">
-              Drag and drop your files here
+              {t("detail.documents.upload.dragDrop")}
             </p>
             <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
-              or
+              {t("detail.documents.upload.or")}
             </p>
             <label className="inline-block px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium cursor-pointer transition-colors">
               <i className="fas fa-plus mr-2"></i>
-              Browse files
+              {t("detail.documents.upload.browse")}
               <input
                 type="file"
                 multiple
@@ -276,7 +276,7 @@ export default function DocumentsTab({ data, config, onDocumentsChange }) {
               />
             </label>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-4">
-              PDF, DOC, XLS, PPT, Images, Archives (Max 10MB per file)
+              {t("detail.documents.upload.formats")}
             </p>
           </div>
         </div>
@@ -285,7 +285,7 @@ export default function DocumentsTab({ data, config, onDocumentsChange }) {
   }
 
   return (
-    <ContentSection title={`Documents (${documents.length})`}>
+    <ContentSection title={t("detail.documents.title", { count: documents.length })}>
       <div className="p-6">
         {/* Upload Zone */}
         <div
@@ -302,10 +302,10 @@ export default function DocumentsTab({ data, config, onDocumentsChange }) {
             <i className="fas fa-cloud-upload-alt text-slate-400 text-2xl"></i>
             <div className="text-left">
               <p className="text-sm text-slate-700 dark:text-slate-300">
-                Drag and drop your files here or
+                {t("detail.documents.upload.dragDropOr")}
               </p>
               <label className="text-sm text-blue-600 dark:text-blue-400 hover:underline cursor-pointer">
-                browse
+                {t("detail.documents.upload.browseLink")}
                 <input
                   type="file"
                   multiple
@@ -324,7 +324,7 @@ export default function DocumentsTab({ data, config, onDocumentsChange }) {
             <div className="flex items-center gap-3">
               <i className="fas fa-spinner fa-spin text-blue-600 dark:text-blue-400"></i>
               <span className="text-sm text-blue-900 dark:text-blue-300">
-                Uploading...
+                {t("detail.documents.status.uploading")}
               </span>
             </div>
           </div>
@@ -346,12 +346,12 @@ export default function DocumentsTab({ data, config, onDocumentsChange }) {
                 {isMissing && (
                   <div className="mb-3 p-2 bg-yellow-100 dark:bg-yellow-900/20 border border-yellow-300 dark:border-yellow-700 rounded text-xs text-yellow-800 dark:text-yellow-300 flex items-center gap-2">
                     <i className="fas fa-exclamation-triangle"></i>
-                    <span>Missing file</span>
+                    <span>{t("detail.documents.status.missingFile")}</span>
                     <button
                       onClick={() => handleRelink(doc.id)}
                       className="ml-auto text-yellow-700 dark:text-yellow-400 underline hover:no-underline"
                     >
-                      Relink
+                      {t("detail.documents.actions.relink")}
                     </button>
                   </div>
                 )}
@@ -364,7 +364,7 @@ export default function DocumentsTab({ data, config, onDocumentsChange }) {
                         : 'bg-slate-100 dark:bg-slate-700'
                       }`}
                     onClick={() => !isMissing && handleOpen(doc)}
-                    title={isMissing ? "Missing file" : "Open"}
+                    title={isMissing ? t("detail.documents.status.missingFile") : t("detail.documents.actions.open")}
                   >
                     <i className={`${getFileIcon(doc.type)} text-xl ${isMissing ? 'opacity-50' : ''}`}></i>
                   </div>
@@ -404,7 +404,7 @@ export default function DocumentsTab({ data, config, onDocumentsChange }) {
                         handleDownload(doc);
                       }}
                       className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
-                      title="Download"
+                      title={t("detail.documents.actions.download")}
                       disabled={isMissing}
                     >
                       <i className={`fas fa-download text-slate-600 dark:text-slate-400 ${isMissing ? 'opacity-30' : ''}`}></i>
@@ -415,7 +415,7 @@ export default function DocumentsTab({ data, config, onDocumentsChange }) {
                         handleReveal(doc);
                       }}
                       className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
-                      title="Reveal in folder"
+                      title={t("detail.documents.actions.reveal")}
                       disabled={isMissing}
                     >
                       <i className={`fas fa-folder-open text-slate-600 dark:text-slate-400 ${isMissing ? 'opacity-30' : ''}`}></i>
@@ -426,7 +426,7 @@ export default function DocumentsTab({ data, config, onDocumentsChange }) {
                         handleDelete(doc.id);
                       }}
                       className="p-2 hover:bg-red-100 dark:hover:bg-red-900/20 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
-                      title="Delete"
+                      title={t("detail.documents.actions.delete")}
                     >
                       <i className="fas fa-trash text-red-600 dark:text-red-400"></i>
                     </button>
@@ -445,7 +445,7 @@ export default function DocumentsTab({ data, config, onDocumentsChange }) {
                 {documents.length}
               </p>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Total documents
+                {t("detail.documents.stats.total")}
               </p>
             </div>
             <div>
@@ -453,7 +453,7 @@ export default function DocumentsTab({ data, config, onDocumentsChange }) {
                 {documents.filter(d => d.type === 'pdf').length}
               </p>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                PDF
+                {t("detail.documents.stats.pdf")}
               </p>
             </div>
             <div>
@@ -461,7 +461,7 @@ export default function DocumentsTab({ data, config, onDocumentsChange }) {
                 {documents.filter(d => ['jpg', 'jpeg', 'png', 'gif'].includes(d.type)).length}
               </p>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Images
+                {t("detail.documents.stats.images")}
               </p>
             </div>
             <div>
@@ -469,7 +469,7 @@ export default function DocumentsTab({ data, config, onDocumentsChange }) {
                 {(documents.reduce((sum, d) => sum + (d.sizeBytes || 0), 0) / (1024 * 1024)).toFixed(1)} MB
               </p>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Total size
+                {t("detail.documents.stats.size")}
               </p>
             </div>
           </div>

@@ -1,8 +1,20 @@
-{
+﻿{
   "dashboard": {
     "title": "Tableau de bord",
     "subtitle": "Vue d'ensemble des performances et activités du cabinet",
-    "quickActions": "Actions rapides",
+    "quickActions": {
+      "title": "Actions rapides",
+      "newClient": "Nouveau client",
+      "newDossier": "Nouveau dossier",
+      "newTask": "Nouvelle tâche",
+      "newSession": "Nouvelle séance",
+      "subtitles": {
+        "client": "Ajouter un nouveau client à votre base de données",
+        "dossier": "Créer un nouveau dossier juridique",
+        "task": "Créer une nouvelle tâche à effectuer",
+        "session": "Programmer une nouvelle séance ou un rendez-vous"
+      }
+    },
     "stats": {
       "totalClients": "Total clients",
       "activeDossiers": "Dossiers actifs",
@@ -16,10 +28,12 @@
       "dueToday_other": "{{count}} échéances aujourd'hui"
     },
     "urgentTasks": {
-      "title": "Tâches urgentes ({{count}})"
+      "title": "Tâches urgentes ({{count}})",
+      "empty": "Aucune tâche urgente ! Excellent travail pour rester à jour."
     },
     "upcomingEvents": {
-      "title": "Événements à venir ({{count}})"
+      "title": "Événements à venir ({{count}})",
+      "empty": "Aucun événement à venir programmé."
     },
     "projection": {
       "title": "Projection (30-90 jours)",
@@ -47,7 +61,10 @@
       "tooltipType_one": "{{count}} {{type}}",
       "tooltipType_other": "{{count}} {{type}}"
     },
-    "recentActivity": "Activité récente",
+    "recentActivity": {
+      "title": "Activité récente",
+      "empty": "Aucune activité récente à afficher."
+    },
     "quickStats": {
       "title": "Statistiques",
       "dossiers": {
@@ -88,7 +105,15 @@
     }
   },
   "actions": {
-    "close": "Fermer"
+    "close": "Fermer",
+    "back": "Retour",
+    "backToList": "Retour à la liste",
+    "edit": "Modifier",
+    "delete": "Supprimer",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "add": "Ajouter",
+    "view": "Voir"
   },
   "detail": {
     "toast": {
@@ -114,7 +139,106 @@
     "validation": {
       "modificationNotAllowed": "Cette modification n'est pas autorisée"
     },
+    "history": {
+      "loading": "Chargement de l'historique...",
+      "empty": {
+        "title": "Aucun historique disponible pour le moment",
+        "description": "Les événements importants apparaîtront ici : créations, changements de statut, affectations et actions significatives."
+      },
+      "badges": {
+        "lifecycle": "Cycle de vie",
+        "status": "Statut",
+        "assignment": "Affectation",
+        "finance": "Finance",
+        "system": "Système",
+        "relation": "Relation",
+        "childCreated": "Enfant créé",
+        "childDeleted": "Enfant supprimé"
+      },
+      "metadata": {
+        "oldStatus": "Ancien statut",
+        "newStatus": "Nouveau statut",
+        "assignedTo": "Assigné à",
+        "previousAssignee": "Précédent",
+        "amount": "Montant",
+        "actionType": "Type"
+      },
+      "time": {
+        "justNow": "À l'instant",
+        "minutesAgo_one": "Il y a {{count}} minute",
+        "minutesAgo_other": "Il y a {{count}} minutes",
+        "hoursAgo_one": "Il y a {{count}} heure",
+        "hoursAgo_other": "Il y a {{count}} heures",
+        "daysAgo_one": "Il y a {{count}} jour",
+        "daysAgo_other": "Il y a {{count}} jours"
+      },
+      "labels": {
+        "creation": "Création",
+        "entityAdded": "{{name}} a été ajouté",
+        "entityCreated": "Entité créée",
+        "statusChanged": "Statut modifié : {{oldStatus}} → {{newStatus}}",
+        "reassigned": "Réassigné à : {{previousAssignee}} → {{assignedTo}}",
+        "assigned": "Assigné à {{assignedTo}}",
+        "reassignmentPerformed": "Réassignation effectuée",
+        "initialAssignment": "Affectation initiale effectuée",
+        "closed": "Clôturé",
+        "reopened": "Rouvert",
+        "archived": "Archivé",
+        "activated": "Activé",
+        "completed": "Terminé",
+        "cancelled": "Annulé",
+        "dossierCreated": "Dossier créé",
+        "lawsuitCreated": "Procès créé",
+        "hearingCreated": "Audience créée",
+        "taskCreated": "Tâche créée",
+        "missionCreated": "Mission créée",
+        "itemCreated": "Élément créé",
+        "finance": {
+          "entryAdded": "Écriture financière ajoutée",
+          "entryUpdated": "Écriture financière mise à jour",
+          "entryDeleted": "Écriture financière supprimée",
+          "amount": "Montant : {{amount}} TND"
+        },
+        "domainRule": {
+          "confirmed": "Règle métier confirmée",
+          "rejected": "Règle métier rejetée"
+        },
+        "relationalImpact": {
+          "confirmed": "Impact relationnel confirmé",
+          "rejected": "Impact relationnel rejeté"
+        }
+      }
+    },
+    "timeline": {
+      "title": "Historique",
+      "empty": "Aucun événement dans l'historique"
+    },
     "documents": {
+      "title": "Documents ({{count}})",
+      "upload": {
+        "dragDrop": "Glissez et déposez vos fichiers ici",
+        "or": "ou",
+        "browse": "Parcourir les fichiers",
+        "browseLink": "parcourir",
+        "dragDropOr": "Glissez et déposez vos fichiers ici ou",
+        "formats": "PDF, DOC, XLS, PPT, Images, Archives (Max 10 Mo par fichier)",
+        "uploading": "Téléversement en cours..."
+      },
+      "status": {
+        "missing": "Fichier manquant"
+      },
+      "actions": {
+        "relink": "Relier",
+        "download": "Télécharger",
+        "reveal": "Révéler dans le dossier",
+        "delete": "Supprimer"
+      },
+      "stats": {
+        "total": "Total documents",
+        "pdf": "PDF",
+        "images": "Images",
+        "totalSize": "Taille totale"
+      },
       "toast": {
         "success": {
           "upload": "{{count}} document(s) ajoutés avec succès !",
@@ -135,6 +259,26 @@
       }
     },
     "notes": {
+      "title": "Notes / Compte rendu",
+      "empty": "Aucune note pour le moment",
+      "actions": {
+        "addPostit": "Ajouter un post-it",
+        "addPostitShort": "Ajouter post-it"
+      },
+      "status": {
+        "editing": "Édition...",
+        "saving": "Enregistrement..."
+      },
+      "placeholder": {
+        "content": "Rédigez votre note ici..."
+      },
+      "label": {
+        "postit": "Post-it"
+      },
+      "time": {
+        "updated": "Modifié :",
+        "created": "Créé :"
+      },
       "toast": {
         "success": {
           "save": "Note enregistrée",
@@ -150,12 +294,138 @@
       }
     },
     "missions": {
+      "empty": "Aucune mission trouvée.",
+      "add": "Ajouter {{entityName}}",
+      "addDefault": "Ajouter une mission",
+      "search": {
+        "placeholder": "Rechercher par numéro, titre, référence...",
+        "empty": "Aucune mission trouvée correspondant aux critères."
+      },
+      "filter": {
+        "all": "Toutes ({{count}})",
+        "scheduled": "Planifiée ({{count}})",
+        "inProgress": "En cours ({{count}})",
+        "completed": "Terminée ({{count}})",
+        "cancelled": "Annulée ({{count}})"
+      },
+      "priority": {
+        "high": "Priorité haute"
+      },
+      "labels": {
+        "assigned": "Assigné :",
+        "dueDate": "Date d'échéance :",
+        "documents": "{{count}} document(s)",
+        "fees": "{{amount}} Frais"
+      },
+      "financial": {
+        "addTitle": "Ajouter frais d'huissier",
+        "expenseType": "Dépense (frais payés)"
+      },
+      "fallback": {
+        "unknownClient": "Client inconnu",
+        "unknownDossier": "Dossier inconnu",
+        "noLawsuit": "Aucun procès"
+      },
+      "blockers": {
+        "missingParent": "Ajoutez d'abord un dossier ou un procès avant de créer une mission."
+      }
+    },
+    "financial": {
+      "title": "Écritures comptables ({{count}})",
+      "columns": {
+        "date": "Date",
+        "entry": "Écriture",
+        "type": "Type",
+        "amount": "Montant",
+        "status": "Statut",
+        "actions": "Actions"
+      },
+      "types": {
+        "revenue": "Recette",
+        "expense": "Dépense"
+      },
+      "status": {
+        "draft": "Brouillon",
+        "confirmed": "Confirmé",
+        "paid": "Payé",
+        "cancelled": "Annulé"
+      },
+      "summary": {
+        "billedFees": "Honoraires facturés",
+        "billedFeesHelp": "Total des honoraires d'avocat facturés au client",
+        "billedFeesDescription": "Ce que vous avez facturé",
+        "reimbursableExpenses": "Frais remboursables",
+        "reimbursableExpensesHelp": "Frais payés pour le client (frais de justice, huissier, etc.) à récupérer",
+        "reimbursableExpensesDescription": "Frais à récupérer auprès du client",
+        "paymentsReceived": "Paiements reçus",
+        "paymentsReceivedDescription": "Ce que le client a déjà payé",
+        "balance": {
+          "toReceive": "À recevoir",
+          "overpaid": "Trop-perçu",
+          "balanced": "Solde",
+          "clientOwes": "Le client vous doit {{amount}}",
+          "youOwe": "Vous devez au client {{amount}}",
+          "settled": "Tout est réglé !"
+        },
+        "revenue": "Recettes",
+        "expenses": "Dépenses",
+        "netBalance": "Solde net"
+      },
+      "table": {
+        "title": "Écritures comptables ({{count}})",
+        "empty": {
+          "search": "Aucun résultat trouvé",
+          "noData": "Aucune écriture comptable disponible"
+        }
+      },
+      "actions": {
+        "newEntry": "Nouvelle écriture"
+      },
+      "detail": {
+        "sectionTitle": "Détails de l'écriture",
+        "date": "Date",
+        "category": "Catégorie",
+        "status": "Statut",
+        "amount": "Montant",
+        "client": "Client",
+        "dossier": "Dossier",
+        "lawsuit": "Procès",
+        "createdBy": "Créé par",
+        "description": "Description"
+      },
+      "form": {
+        "title": {
+          "edit": "Modifier l'écriture comptable"
+        },
+        "subtitle": {
+          "add": "Créer une nouvelle écriture"
+        }
+      },
+      "blocker": {
+        "actionName": "Modifier/Supprimer l'écriture financière"
+      },
+      "scope": {
+        "internal": "Interne (frais de bureau)",
+        "client": "Client (affecte le solde client)"
+      },
+      "category": {
+        "bailiffFees": "Frais d'huissier",
+        "expenseBailiffFees": "Dépenses (Frais d'huissier)"
+      },
       "fallback": {
         "unknownClient": "Client inconnu",
         "unknownDossier": "Dossier inconnu"
       }
     },
+    "overview": {
+      "noConfig": "Aucune configuration d'aperçu trouvée",
+      "noNotes": "Aucune note",
+      "editAttachment": "modifier la pièce jointe"
+    },
     "related": {
+      "add": "Ajouter {{entityName}}",
+      "addDefault": "Ajouter un élément",
+      "edit": "Modifier",
       "help": {
         "taskCaseLink": "Cette tâche sera liée à cette affaire"
       },
@@ -163,10 +433,46 @@
         "noItems": "Aucun élément"
       },
       "fallback": {
-        "entity": "Élément"
+        "entity": "Élément",
+        "element": "Élément"
+      },
+      "labels": {
+        "due": "Échéance : {{date}}"
+      },
+      "form": {
+        "add": "Ajouter {{entityName}}",
+        "create": "Créer un nouveau {{entityName}}"
       }
     },
+    "aggregated": {
+      "empty": {
+        "dossiers": "Aucun dossier pour ce client",
+        "lawsuitsClient": "Aucune affaire pour ce client",
+        "lawsuitsDossier": "Aucune affaire pour ce dossier",
+        "hearingsClient": "Aucune audience prévue pour ce client.\nPour ajouter une audience, créez un dossier ou une affaire.",
+        "hearingsDossier": "Aucune audience prévue pour ce dossier",
+        "hearingsLawsuit": "Aucune audience prévue pour cette affaire",
+        "tasksClient": "Aucune tâche pour ce client",
+        "tasksDossier": "Aucune tâche pour ce dossier",
+        "tasksLawsuit": "Aucune tâche pour cette affaire",
+        "missionsDossier": "Aucune mission d'huissier pour ce dossier",
+        "missionsLawsuit": "Aucune mission d'huissier pour cette affaire"
+      },
+      "labels": {
+        "category": "Catégorie",
+        "nextHearing": "Prochaine audience",
+        "notScheduled": "Non planifié",
+        "due": "Échéance",
+        "assignedTo": "Assigné à",
+        "bailiff": "Huissier"
+      }
+    },
+    "errors": {
+      "tabNotFound": "Contenu de l'onglet introuvable",
+      "unrecognizedAggregation": "Type d'agrégation non reconnu"
+    },
     "quickActions": {
+      "title": "Actions rapides",
       "toast": {
         "success": {
           "update": "{{label}} mis à jour : {{value}}"
@@ -181,6 +487,56 @@
       }
     },
     "blocker": {
+      "title": {
+        "actionNotPossible": "Action impossible",
+        "blockersResolved": "Bloqueurs résolus !",
+        "deleteAnyway": "Supprimer quand même ?"
+      },
+      "subtitle": {
+        "unableTo": "Impossible de {{actionName}}{{entityName}}",
+        "canRetry": "Vous pouvez maintenant réessayer l'action"
+      },
+      "sections": {
+        "issuesToResolve": "Problèmes à résoudre :",
+        "resolved": "Résolu ({{count}}) :",
+        "warnings": "Avertissements :",
+        "howToResolve": "Comment résoudre ?",
+        "status": "Statut :"
+      },
+      "help": {
+        "useButtons": "Utilisez les boutons d'action ci-dessus pour résoudre chaque problème. Vous pouvez naviguer vers les éléments bloquants ou les résoudre directement depuis cet écran."
+      },
+      "forceDelete": {
+        "willBeDeleted": "sera supprimé",
+        "willBeDeletedPlural": "seront supprimés",
+        "andMore": "... et {{count}} de plus",
+        "irreversible": "Cette action est irréversible. Toutes les données seront définitivement supprimées.",
+        "confirmButton": "Oui, tout supprimer définitivement"
+      },
+      "actions": {
+        "retryAction": "Réessayer l'action",
+        "close": "Fermer",
+        "cancel": "Annuler",
+        "changeStatusTo": "changer le statut vers \"{{status}}\" pour"
+      },
+      "entityTypes": {
+        "client": "client",
+        "clients": "clients",
+        "dossier": "dossier",
+        "dossiers": "dossiers",
+        "lawsuit": "affaire",
+        "lawsuits": "affaires",
+        "task": "tâche",
+        "tasks": "tâches",
+        "session": "audience",
+        "sessions": "audiences",
+        "mission": "mission",
+        "missions": "missions",
+        "financialEntry": "écriture financière",
+        "financialEntries": "écritures financières",
+        "officer": "huissier",
+        "officers": "huissiers"
+      },
       "toast": {
         "success": {
           "taskComplete": "Tâche marquée comme terminée",
@@ -199,6 +555,55 @@
           "unsupported": "Action non prise en charge",
           "generic": "Une erreur est survenue"
         }
+      },
+      "enrichment": {
+        "actions": {
+          "viewTask": "Voir la tâche",
+          "markComplete": "Marquer comme terminée",
+          "viewLawsuit": "Voir l'affaire",
+          "closeLawsuit": "Clôturer l'affaire",
+          "viewHearing": "Voir l'audience",
+          "viewMission": "Voir la mission",
+          "completeMission": "Terminer la mission",
+          "viewEntry": "Voir l'écriture",
+          "markAsPaid": "Marquer comme payée",
+          "goTo": "Aller à {{entityType}}",
+          "reopen": "Rouvrir {{entityType}}",
+          "chooseAnotherParent": "Choisir un autre parent",
+          "viewDossier": "Voir le dossier"
+        },
+        "summary": {
+          "incompleteTask": "{{count}} tâche incomplète",
+          "incompleteTasks": "{{count}} tâches incomplètes",
+          "openLawsuit": "{{count}} affaire ouverte",
+          "openLawsuits": "{{count}} affaires ouvertes",
+          "upcomingHearing": "{{count}} audience à venir",
+          "upcomingHearings": "{{count}} audiences à venir",
+          "activeMission": "{{count}} mission active",
+          "activeMissions": "{{count}} missions actives",
+          "openDossier": "{{count}} dossier ouvert",
+          "openDossiers": "{{count}} dossiers ouverts",
+          "openTask": "{{count}} tâche ouverte",
+          "openTasks": "{{count}} tâches ouvertes"
+        },
+        "helpText": {
+          "closeDossierTasks": "Pour clôturer ce dossier, toutes les tâches associées doivent être terminées. Vous pouvez marquer les tâches comme terminées individuellement.",
+          "closeLawsuitTasks": "Pour clôturer cette affaire, toutes les tâches associées doivent être terminées. Vous pouvez marquer les tâches comme terminées individuellement.",
+          "closeDossierLawsuits": "Pour clôturer ce dossier, toutes les affaires associées doivent être clôturées. Vous pouvez clôturer chaque affaire individuellement.",
+          "closeLawsuitHearings": "Pour clôturer cette affaire, toutes les audiences à venir doivent être terminées ou annulées. Vous pouvez marquer les audiences comme terminées individuellement.",
+          "closeDossierMissions": "Pour clôturer ce dossier, toutes les missions d'huissier actives doivent être terminées.",
+          "closeLawsuitMissions": "Pour clôturer cette affaire, toutes les missions d'huissier actives doivent être terminées.",
+          "closeDossierFinancial": "Pour clôturer ce dossier, toutes les écritures financières impayées doivent être marquées comme payées.",
+          "closeLawsuitFinancial": "Pour clôturer cette affaire, toutes les écritures financières impayées doivent être marquées comme payées.",
+          "closedParent": "Cet élément appartient à une entité parente clôturée et ne peut pas être modifié. Vous devez d'abord rouvrir le parent.",
+          "cannotCreateUnderClosed": "Vous ne pouvez pas créer d'éléments sous une entité parente clôturée. Veuillez sélectionner un parent actif ou rouvrir le parent clôturé.",
+          "paidEntryLocked": "Cette écriture a été marquée comme payée et est verrouillée pour maintenir l'intégrité des registres financiers. Créez une nouvelle écriture si vous devez faire des ajustements.",
+          "temporalConstraints": "Les dates saisies violent les contraintes temporelles. Assurez-vous que toutes les dates suivent l'ordre chronologique approprié et les exigences légales.",
+          "inactivateClientDossiers": "Pour marquer un client comme inactif, tous les dossiers associés doivent être clôturés. Vous pouvez clôturer chaque dossier individuellement."
+        },
+        "warnings": {
+          "correctDates": "Veuillez corriger les dates pour respecter la chronologie légale."
+        }
       }
     }
   },
@@ -216,7 +621,15 @@
     "upload": {
       "dropPrompt": "Glissez-déposez des fichiers ici, ou",
       "browse": "parcourir"
-    }
+    },
+    "select": "Sélectionner...",
+    "searching": "Recherche..."
+  },
+  "table": {
+    "searching": "Recherche...",
+    "searchResults": "{{filtered}} résultat(s) sur {{total}}",
+    "columns": "Colonnes",
+    "manageColumns": "Gérer les colonnes"
   },
   "dialog": {
     "confirm": {
@@ -311,13 +724,62 @@
   },
   "aria": {
     "dialog": {
-      "close": "Fermer la fen?tre"
+      "close": "Fermer la fenêtre"
     },
     "search": {
-      "clearSelection": "Effacer la s?lection"
+      "clearSelection": "Effacer la sélection"
     },
     "userDropdown": {
       "userMenu": "Menu utilisateur"
     }
+  },
+  "search": {
+    "placeholder": "Rechercher clients, dossiers, tâches...",
+    "results": {
+      "found_one": "{{count}} Résultat trouvé",
+      "found_other": "{{count}} Résultats trouvés",
+      "none": "Aucun résultat trouvé",
+      "noneFor": "Aucun résultat pour \"{{query}}\"",
+      "tryAgain": "Essayez un autre terme de recherche",
+      "escHint": "ESC pour fermer"
+    },
+    "categories": {
+      "clients": "Clients",
+      "dossiers": "Dossiers",
+      "tasks": "Tâches",
+      "lawsuits": "Procès",
+      "hearings": "Audiences",
+      "bailiffs": "Huissiers"
+    },
+    "assignedTo": "Assigné à :",
+    "at": "à",
+    "result_one": "résultat",
+    "result_other": "résultats"
+  },
+  "header": {
+    "userMenu": {
+      "profile": "Profil",
+      "settings": "Paramètres",
+      "lightMode": "Mode clair",
+      "darkMode": "Mode sombre",
+      "logout": "Déconnexion"
+    },
+    "roles": {
+      "OWNER": "Propriétaire",
+      "ADMIN": "Administrateur",
+      "LAWYER": "Avocat",
+      "ASSISTANT": "Assistant"
+    }
+  },
+  "entities": {
+    "dossiers": "Dossiers",
+    "lawsuits": "Affaires",
+    "hearings": "Audiences",
+    "tasks": "Tâches",
+    "missionsBailiff": "Missions d'huissier"
+  },
+  "status": {
+    "loading": "Chargement..."
   }
 }
+

@@ -1,6 +1,6 @@
 import ContentSection from "../../layout/ContentSection";
 import { getStatusColor } from "./statusColors";
-import { missionFormFields } from "../../FormModal/formConfigs";
+import { getMissionFormFields } from "../../FormModal/formConfigs";
 
 /**
  * Officer (Huissier) Entity Configuration - UPDATED with Quick Actions
@@ -254,12 +254,12 @@ export const createOfficerConfig = (t) => ({
       getCount: (data) => data.missions?.length || 0,
 
       itemsKey: "missions",
-      emptyMessage: t('detail.missions.empty'),
+      emptyMessage: t('detail.missions.empty', { ns: 'missions', defaultValue: 'No missions yet' }),
 
       allowAdd: true,
       allowDelete: true,
-      entityName: t('detail.missions.entityName'),
-      addSubtitle: t('detail.missions.addSubtitle'),
+      entityName: t('detail.missions.entityName', { ns: 'missions', defaultValue: 'Mission' }),
+      addSubtitle: t('form.subtitle.add', { ns: 'missions', defaultValue: 'Create a new mission' }),
 
       // ✅ UPDATED: Use same getFormFields pattern as dossier and case
       getFormFields: (officerData, contextData) => {
@@ -268,14 +268,16 @@ export const createOfficerConfig = (t) => ({
         const randomNum = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
         const defaultMissionNumber = `MIS-${year}-${randomNum}`;
 
-        const fields = missionFormFields.map(field => {
+        const fields = getMissionFormFields().map(field => {
           // Pre-fill and disable officerId with current officer
           if (field.name === 'officerId') {
             return {
               ...field,
               defaultValue: officerData.id,
+              displayValue: officerData.name,
+              options: [{ value: officerData.id, label: officerData.name }],
               disabled: true,
-              helpText: t('detail.missions.help.assigned', { name: officerData.name }),
+              helpText: t('form.help.bailiffAssigned', { ns: 'missions', name: officerData.name, defaultValue: `This mission will be assigned to ${officerData.name}` }),
             };
           }
           // Auto-generate mission number
@@ -291,7 +293,7 @@ export const createOfficerConfig = (t) => ({
             return {
               ...field,
               disabled: false, // Allow selection for officers
-              helpText: t('detail.missions.help.entityType'),
+              helpText: t('form.help.entityType', { ns: 'missions', defaultValue: 'Select whether the mission concerns a dossier or a lawsuit' }),
             };
           }
           // Enable entityReference (not disabled) for officer selection
@@ -300,7 +302,7 @@ export const createOfficerConfig = (t) => ({
               ...field,
               disabled: false, // Allow selection for officers
               type: 'searchable-select', // Make it searchable
-              helpText: t('detail.missions.help.entityReference'),
+              helpText: t('form.help.entityReferenceSelect', { ns: 'missions', defaultValue: 'Select the dossier or lawsuit for this mission' }),
               getOptions: (formData) => {
                 const entityType = formData.entityType;
 

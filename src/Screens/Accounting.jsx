@@ -19,7 +19,7 @@ import Pagination from "../components/table/Pagination";
 import FormModal from "../components/FormModal/FormModal";
 import StatCard from "../components/dashboard/StatCard";
 import {
-  financialEntryFormFields,
+  getFinancialEntryFormFields,
   populateRelationshipOptions,
 } from "../components/FormModal/formConfigs";
 import { useData } from "../contexts/DataContext";
@@ -651,7 +651,7 @@ export default function Accounting() {
 
   const entryFields = useMemo(
     () =>
-      populateRelationshipOptions(financialEntryFormFields, {
+      populateRelationshipOptions(getFinancialEntryFormFields(), {
         clients,
         dossiers,
         cases,

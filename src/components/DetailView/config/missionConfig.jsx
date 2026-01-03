@@ -1,6 +1,6 @@
 import ContentSection from "../../layout/ContentSection";
 import { getStatusColor } from "./statusColors";
-import { missionFormFields } from "../../FormModal/formConfigs";
+import { getMissionFormFields } from "../../FormModal/formConfigs";
 import { formatDateValue } from "../../../utils/dateFormat";
 
 /**
@@ -626,7 +626,7 @@ export const createMissionConfig = (t) => ({
 
     // Form configuration for editing
     getFormFields: () => {
-        return missionFormFields;
+        return getMissionFormFields();
     },
 });
 

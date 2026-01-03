@@ -184,7 +184,9 @@ export default function NotesTab({ data, config, tabConfig, onUpdate }) {
   const formatDate = (isoString) => {
     if (!isoString) return "";
     const date = new Date(isoString);
-    return date.toLocaleDateString("fr-FR", {
+    // Use i18n language for date formatting instead of hardcoded 'fr-FR'
+    const locale = t("locale", { defaultValue: "en" });
+    return date.toLocaleDateString(locale, {
       year: "numeric",
       month: "short",
       day: "numeric",
@@ -195,20 +197,20 @@ export default function NotesTab({ data, config, tabConfig, onUpdate }) {
 
   if (notesList.length === 0) {
     return (
-      <ContentSection title="Notes / Compte rendu">
+      <ContentSection title={t("detail.notes.title")}>
         <div className="p-12 text-center">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-amber-100 dark:bg-amber-900/20 mb-4">
             <i className="fas fa-sticky-note text-amber-500 dark:text-amber-400 text-2xl"></i>
           </div>
           <p className="text-slate-600 dark:text-slate-400 mb-4">
-            No notes yet
+            {t("detail.notes.empty")}
           </p>
           <button
             onClick={handleAddNote}
             className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-medium transition-colors"
           >
             <i className="fas fa-plus mr-2"></i>
-            Add a post-it
+            {t("detail.notes.actions.addPostit")}
           </button>
         </div>
       </ContentSection>
@@ -217,14 +219,14 @@ export default function NotesTab({ data, config, tabConfig, onUpdate }) {
 
   return (
     <ContentSection
-      title="Notes / Compte rendu"
+      title={t("detail.notes.title")}
       actions={
         <button
           onClick={handleAddNote}
           className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-medium transition-colors text-sm"
         >
           <i className="fas fa-plus mr-1.5"></i>
-          Add post-it
+          {t("detail.notes.actions.addPostitShort")}
         </button>
       }
     >
@@ -243,12 +245,12 @@ export default function NotesTab({ data, config, tabConfig, onUpdate }) {
                   <div className="space-y-3">
                     <div className="flex items-center gap-2 mb-2">
                       <i className={`fas fa-sticky-note ${colors.icon}`}></i>
-                      <span className={`font-semibold text-sm ${colors.text}`}>Editing...</span>
+                      <span className={`font-semibold text-sm ${colors.text}`}>{t("detail.notes.status.editing")}</span>
                     </div>
                     <textarea
                       value={editContent}
                       onChange={(e) => setEditContent(e.target.value)}
-                      placeholder="Write your note here..."
+                      placeholder={t("detail.notes.placeholder.content")}
                       className={`w-full px-3 py-2 border ${colors.border} rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none`}
                       rows="8"
                       autoFocus
@@ -262,12 +264,12 @@ export default function NotesTab({ data, config, tabConfig, onUpdate }) {
                         {isSaving ? (
                           <>
                             <i className="fas fa-spinner fa-spin mr-1"></i>
-                            Saving...
+                            {t("detail.notes.status.saving")}
                           </>
                         ) : (
                           <>
                             <i className="fas fa-save mr-1"></i>
-                            Save
+                            {t("actions.save", { ns: "common" })}
                           </>
                         )}
                       </button>
@@ -276,7 +278,7 @@ export default function NotesTab({ data, config, tabConfig, onUpdate }) {
                         disabled={isSaving}
                         className="flex-1 px-3 py-1.5 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50 text-slate-700 dark:text-slate-200 rounded-lg font-medium transition-colors text-sm"
                       >
-                        Cancel
+                        {t("actions.cancel", { ns: "common" })}
                       </button>
                     </div>
                   </div>
@@ -285,20 +287,20 @@ export default function NotesTab({ data, config, tabConfig, onUpdate }) {
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-2">
                         <i className={`fas fa-sticky-note ${colors.icon}`}></i>
-                        <span className={`font-semibold text-xs ${colors.text}`}>Post-it</span>
+                        <span className={`font-semibold text-xs ${colors.text}`}>{t("detail.notes.label.postit")}</span>
                       </div>
                       <div className="flex items-center gap-1">
                         <button
                           onClick={() => handleEditNote(note)}
                           className="p-1 hover:bg-white/50 dark:hover:bg-slate-800/50 rounded transition-colors"
-                          title="Edit"
+                          title={t("actions.edit", { ns: "common" })}
                         >
                           <i className={`fas fa-edit text-sm ${colors.icon}`}></i>
                         </button>
                         <button
                           onClick={() => handleDeleteNote(note.id)}
                           className="p-1 hover:bg-white/50 dark:hover:bg-slate-800/50 rounded transition-colors"
-                          title="Delete"
+                          title={t("actions.delete", { ns: "common" })}
                         >
                           <i className="fas fa-trash text-sm text-red-600 dark:text-red-400"></i>
                         </button>
@@ -312,12 +314,12 @@ export default function NotesTab({ data, config, tabConfig, onUpdate }) {
                         {note.updatedAt && note.updatedAt !== note.createdAt ? (
                           <>
                             <i className="fas fa-clock mr-1"></i>
-                            Updated: {formatDate(note.updatedAt)}
+                            {t("detail.notes.time.updated")} {formatDate(note.updatedAt)}
                           </>
                         ) : (
                           <>
                             <i className="fas fa-calendar-plus mr-1"></i>
-                            Created: {formatDate(note.createdAt)}
+                            {t("detail.notes.time.created")} {formatDate(note.createdAt)}
                           </>
                         )}
                       </p>

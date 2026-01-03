@@ -13,6 +13,7 @@
  */
 
 import { apiClient } from "./api/client";
+import { i18nInstance } from "../i18n";
 
 /**
  * Event type constants
@@ -79,6 +80,7 @@ const mapBackendEventToFrontend = (event) => {
  * @param {string} params.label - Short human-readable title (in French)
  * @param {string} [params.details] - Optional description
  * @param {Object} [params.metadata] - Optional metadata (old/new values, related entities)
+ * @param {string} [params.actor] - Optional actor (operator name) who performed the action
  * @returns {Promise<Object>} The created history entry
  */
 export const logHistoryEvent = async ({
@@ -88,6 +90,7 @@ export const logHistoryEvent = async ({
   label,
   details = null,
   metadata = {},
+  actor = null,
 }) => {
   if (!entityType || !entityId || !eventType || !label) {
     console.warn(
@@ -103,6 +106,7 @@ export const logHistoryEvent = async ({
       action: eventType,
       description: details || label,
       changed_fields: Object.keys(metadata).length > 0 ? metadata : null,
+      actor: actor,
     });
 
     return mapBackendEventToFrontend(backendEvent);
@@ -180,14 +184,17 @@ export const clearEntityHistory = async (entityType, entityId) => {
 /**
  * Helper: Log entity creation
  */
-export const logEntityCreation = (entityType, entityId, entityName = null) => {
+export const logEntityCreation = (entityType, entityId, entityName = null, actor = null) => {
+  const t = (key, options) => i18nInstance.t(`common:${key}`, options);
+
   return logHistoryEvent({
     entityType,
     entityId,
     eventType: EVENT_TYPES.LIFECYCLE,
-    label: "Creation",
-    details: entityName ? `${entityName} was added` : "Entity created",
+    label: t("detail.history.labels.creation"),
+    details: entityName ? t("detail.history.labels.entityAdded", { name: entityName }) : t("detail.history.labels.entityCreated"),
     metadata: { action: "created" },
+    actor,
   });
 };
 
@@ -199,15 +206,19 @@ export const logStatusChange = (
   entityId,
   oldStatus,
   newStatus,
-  reason = null
+  reason = null,
+  actor = null
 ) => {
+  const t = (key, options) => i18nInstance.t(`common:${key}`, options);
+
   return logHistoryEvent({
     entityType,
     entityId,
     eventType: EVENT_TYPES.STATUS,
-    label: `Status changed: ${oldStatus} → ${newStatus}`,
+    label: t("detail.history.labels.statusChanged", { oldStatus, newStatus }),
     details: reason || null,
     metadata: { oldStatus, newStatus },
+    actor,
   });
 };
 
@@ -218,11 +229,14 @@ export const logAssignment = (
   entityType,
   entityId,
   assignedTo,
-  previousAssignee = null
+  previousAssignee = null,
+  actor = null
 ) => {
+  const t = (key, options) => i18nInstance.t(`common:${key}`, options);
+
   const label = previousAssignee
-    ? `Reassigned to : ${previousAssignee} → ${assignedTo}`
-    : `Assigned to ${assignedTo}`;
+    ? t("detail.history.labels.reassigned", { previousAssignee, assignedTo })
+    : t("detail.history.labels.assigned", { assignedTo });
 
   return logHistoryEvent({
     entityType,
@@ -230,9 +244,10 @@ export const logAssignment = (
     eventType: EVENT_TYPES.ASSIGNMENT,
     label,
     details: previousAssignee
-      ? "Reassignment performed"
-      : "Initial assignment performed",
+      ? t("detail.history.labels.reassignmentPerformed")
+      : t("detail.history.labels.initialAssignment"),
     metadata: { assignedTo, previousAssignee },
+    actor,
   });
 };
 
@@ -243,23 +258,29 @@ export const logLifecycleChange = (
   entityType,
   entityId,
   action,
-  reason = null
+  reason = null,
+  actor = null
 ) => {
-  const labels = {
-    closed: "Closure",
-    reopened: "Reopening",
-    archived: "Archiving",
-    reactivated: "Reactivation",
-    deleted: "Deletion",
+  const t = (key, options) => i18nInstance.t(`common:${key}`, options);
+
+  const labelMap = {
+    closed: "detail.history.labels.closed",
+    reopened: "detail.history.labels.reopened",
+    archived: "detail.history.labels.archived",
+    activated: "detail.history.labels.activated",
+    reactivated: "detail.history.labels.activated",
+    completed: "detail.history.labels.completed",
+    cancelled: "detail.history.labels.cancelled",
   };
 
   return logHistoryEvent({
     entityType,
     entityId,
     eventType: EVENT_TYPES.LIFECYCLE,
-    label: labels[action] || action,
+    label: labelMap[action] ? t(labelMap[action]) : action,
     details: reason || null,
     metadata: { action },
+    actor,
   });
 };
 
@@ -271,22 +292,25 @@ export const logFinancialAction = (
   entityId,
   actionType,
   amount,
-  description = null
+  description = null,
+  actor = null
 ) => {
-  const labels = {
-    advance: "Advance received",
-    payment: "Payment made",
-    expense: "Expense added",
-    invoice: "Invoice generated",
+  const t = (key, options) => i18nInstance.t(`common:${key}`, options);
+
+  const labelMap = {
+    entryAdded: "detail.history.labels.finance.entryAdded",
+    entryUpdated: "detail.history.labels.finance.entryUpdated",
+    entryDeleted: "detail.history.labels.finance.entryDeleted",
   };
 
   return logHistoryEvent({
     entityType,
     entityId,
     eventType: EVENT_TYPES.FINANCE,
-    label: labels[actionType] || actionType,
-    details: description || `Amount : ${amount} TND`,
+    label: labelMap[actionType] ? t(labelMap[actionType]) : actionType,
+    details: description || t("detail.history.labels.finance.amount", { amount }),
     metadata: { actionType, amount },
+    actor,
   });
 };
 
@@ -297,15 +321,19 @@ export const logDomainRuleConfirmation = (
   entityType,
   entityId,
   ruleDescription,
-  confirmed = true
+  confirmed = true,
+  actor = null
 ) => {
+  const t = (key, options) => i18nInstance.t(`common:${key}`, options);
+
   return logHistoryEvent({
     entityType,
     entityId,
     eventType: EVENT_TYPES.SYSTEM,
-    label: confirmed ? "Domain rule confirmed" : "Domain rule blocked",
+    label: confirmed ? t("detail.history.labels.domainRule.confirmed") : t("detail.history.labels.domainRule.rejected"),
     details: ruleDescription,
     metadata: { confirmed, ruleType: "domain" },
+    actor,
   });
 };
 
@@ -316,17 +344,21 @@ export const logRelationalImpact = (
   entityType,
   entityId,
   impactDescription,
-  confirmed = true
+  confirmed = true,
+  actor = null
 ) => {
+  const t = (key, options) => i18nInstance.t(`common:${key}`, options);
+
   return logHistoryEvent({
     entityType,
     entityId,
     eventType: EVENT_TYPES.RELATION,
     label: confirmed
-      ? "Relational impact confirmed"
-      : "Relational modification cancelled",
+      ? t("detail.history.labels.relationalImpact.confirmed")
+      : t("detail.history.labels.relationalImpact.rejected"),
     details: impactDescription,
     metadata: { confirmed, impactType: "relational" },
+    actor,
   });
 };
 

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "../../contexts/ThemeProvider";
 import { useTranslation } from "react-i18next";
+import { useOperator } from "../../contexts/OperatorContext";
 
 /**
  * UserDropdown Component
@@ -10,6 +11,7 @@ import { useTranslation } from "react-i18next";
 export default function UserDropdown({ isOpen, onToggle, onClose }) {
     const navigate = useNavigate();
     const { theme, toggleTheme } = useTheme();
+    const { operator } = useOperator();
     const dropdownRef = useRef(null);
     const { t } = useTranslation("common");
 
@@ -43,25 +45,25 @@ export default function UserDropdown({ isOpen, onToggle, onClose }) {
     const menuItems = [
         {
             icon: "fas fa-user",
-            label: "Profile",
+            label: t("header.userMenu.profile"),
             path: "/profile",
             color: "text-blue-600 dark:text-blue-400"
         },
         {
             icon: "fas fa-cog",
-            label: "Settings",
+            label: t("header.userMenu.settings"),
             path: "/settings",
             color: "text-slate-600 dark:text-slate-400"
         },
         {
             icon: theme === "dark" ? "fas fa-sun" : "fas fa-moon",
-            label: theme === "dark" ? "Light Mode" : "Dark Mode",
+            label: theme === "dark" ? t("header.userMenu.lightMode") : t("header.userMenu.darkMode"),
             action: toggleTheme,
             color: "text-amber-600 dark:text-amber-400"
         },
         {
             icon: "fas fa-sign-out-alt",
-            label: "Logout",
+            label: t("header.userMenu.logout"),
             action: handleLogout,
             color: "text-red-600 dark:text-red-400",
             divider: true
@@ -121,8 +123,10 @@ export default function UserDropdown({ isOpen, onToggle, onClose }) {
                                 <i className="fas fa-user text-white text-lg"></i>
                             </div>
                             <div>
-                                <h3 className="text-base font-semibold text-white">User Name</h3>
-                                <p className="text-xs text-blue-100 dark:text-blue-200">user@lawfirm.com</p>
+                                <h3 className="text-base font-semibold text-white">{operator?.name || "User Name"}</h3>
+                                <p className="text-xs text-blue-100 dark:text-blue-200">
+                                    {operator?.role ? t(`header.roles.${operator.role}`, { defaultValue: operator.role }) : "Operator"}
+                                </p>
                             </div>
                         </div>
                     </div>

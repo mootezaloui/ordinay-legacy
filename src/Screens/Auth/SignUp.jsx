@@ -3,6 +3,23 @@ import { Link, useNavigate } from "react-router-dom";
 import { useTheme } from "../../contexts/theme";
 import { useTranslation } from "react-i18next";
 
+/**
+ * ⚠️ COSMETIC SIGNUP SCREEN - NO REAL ACCOUNT CREATION
+ *
+ * This is a placeholder UI for visual consistency.
+ *
+ * IMPORTANT:
+ * - NO account creation
+ * - NO password storage
+ * - NO backend registration
+ * - NO email verification
+ * - Just navigates to login/dashboard
+ *
+ * Organia is a LOCAL DESKTOP APP with implicit operator trust.
+ * Real authentication is FORBIDDEN per AUTH_FREEZE.md
+ *
+ * See: /AUTH_FREEZE.md for details
+ */
 export default function SignUp() {
   const navigate = useNavigate();
   const { isDark, toggleTheme } = useTheme();

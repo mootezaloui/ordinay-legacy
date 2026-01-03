@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import ContentSection from "../../layout/ContentSection";
 import i18next from "i18next";
 import { getStatusColor } from "./statusColors";
-import { taskFormFields, caseFormFields, sessionFormFields, missionFormFields } from "../../FormModal/formConfigs";
+import { taskFormFields, caseFormFields, sessionFormFields, getMissionFormFields } from "../../FormModal/formConfigs";
 import { getAllPhases, addCustomPhase } from "../../../utils/phaseManager";
 import { getAllCategories, addCustomCategory } from "../../../utils/categoryManager";
 import { calculateNextDeadline, formatDate, getDeadlineNavigationPath, getDeadlineUrgency } from "../../../utils/deadlineUtils";
@@ -41,760 +41,764 @@ export const createDossierConfig = (t) => {
   const tSessions = i18next.getFixedT("sessions");
 
   return {
-  entityType: "dossier",
-  entityName: t('detail.entityName'),
-  icon: "fas fa-folder-open",
-  listRoute: "/dossiers",
-  notFoundMessage: t('detail.notFound'),
-  deleteConfirmMessage: t('detail.deleteConfirm'),
-  allowDelete: true,
-  allowEdit: true,
+    entityType: "dossier",
+    entityName: t('detail.entityName'),
+    icon: "fas fa-folder-open",
+    listRoute: "/dossiers",
+    notFoundMessage: t('detail.notFound'),
+    deleteConfirmMessage: t('detail.deleteConfirm'),
+    allowDelete: true,
+    allowEdit: true,
 
-  fetchData: async (id, contextData = null) => {
-    console.log('[dossierConfig] fetchData called with id:', id);
-    const numericId = parseInt(id);
+    fetchData: async (id, contextData = null) => {
+      console.log('[dossierConfig] fetchData called with id:', id);
+      const numericId = parseInt(id);
 
-    let dossier;
-    if (contextData?.dossiers) {
-      // Use contextData.dossiers from DataContext (this is the live data)
-      console.log('[dossierConfig] Using contextData.dossiers');
-      dossier = contextData.dossiers.find(d => d.id === numericId);
-    } else {
-      // Fallback to null (static data)
-      console.log('[dossierConfig] null keys:', Object.keys(null));
-      dossier = null[numericId];
-    }
-    console.log('[dossierConfig] Found dossier:', dossier);
-    if (!dossier) return null;
-
-    if (!dossier.transactions) {
-      dossier.transactions = [];
-    }
-
-    // ✅ Compute aggregated related entities from contextData if available
-    const sessions = contextData?.sessions || [];
-    const tasks = contextData?.tasks || [];
-    const cases = contextData?.cases || [];
-    const financialEntries = contextData?.financialEntries || [];
-
-    // Always derive proceedings from the live cases list to stay in sync with deletions
-    const dossierCases = cases.filter(c => c.dossierId === numericId);
-    // Aggregate all sessions related to this dossier (by dossierId or by caseId)
-    const relatedSessions = sessions.filter(session =>
-      session.dossierId === numericId ||
-      dossierCases.some(cas => cas.id === session.caseId)
-    );
-    const relatedTasks = tasks.filter(task =>
-      (task.parentType === 'dossier' && task.dossierId === numericId) ||
-      (task.parentType === 'case' && dossierCases.some(cas => cas.id === task.caseId))
-    );
-    const relatedFinancialEntries = financialEntries.filter(entry =>
-      entry.dossierId === numericId ||
-      dossierCases.some(cas => cas.id === entry.caseId)
-    );
-
-    // ✅ Calculate dynamic next deadline from all related entities
-    const nextDeadlineObj = calculateNextDeadline(dossier, relatedSessions, relatedTasks, relatedFinancialEntries);
-
-    // ✅ Always resolve client from clientId using latest context data
-    const clients = contextData?.clients || [];
-    let client = null;
-    if (dossier.clientId) {
-      const foundClient = clients.find(c => c.id === parseInt(dossier.clientId));
-      if (foundClient) {
-        client = {
-          id: foundClient.id,
-          name: foundClient.name,
-          email: foundClient.email,
-          phone: foundClient.phone
-        };
+      let dossier;
+      if (contextData?.dossiers) {
+        // Use contextData.dossiers from DataContext (this is the live data)
+        console.log('[dossierConfig] Using contextData.dossiers');
+        dossier = contextData.dossiers.find(d => d.id === numericId);
+      } else {
+        // Fallback to null (static data)
+        console.log('[dossierConfig] null keys:', Object.keys(null));
+        dossier = null[numericId];
       }
-    }
+      console.log('[dossierConfig] Found dossier:', dossier);
+      if (!dossier) return null;
 
-    return {
-      ...dossier,
-      client: client || { id: null, name: t('detail.fallback.unassignedClient') },
-      sessions: relatedSessions,
-      tasks: relatedTasks,
-      proceedings: dossierCases,
-      financialEntries: relatedFinancialEntries,
-      // ✅ Add computed next deadline
-      computedNextDeadline: nextDeadlineObj,
-    };
-  },
-
-  updateData: async (id, data, contextData = null, options = {}) => {
-    const numericId = parseInt(id);
-
-    console.log('[dossierConfig.updateData] Received:', { id, data, options, hasUpdateDossier: !!contextData?.updateDossier });
-
-    // Filter out relationship fields - dossier entity should only contain dossier-specific data
-    const dossierFields = [
-      'caseNumber', 'title', 'clientId', 'category', 'priority', 'phase',
-      'openDate', 'nextDeadline', 'description', 'status', 'notes' // ✅ Added notes
-    ];
-    const dossierData = Object.keys(data).reduce((acc, key) => {
-      if (dossierFields.includes(key)) {
-        acc[key] = data[key];
+      if (!dossier.transactions) {
+        dossier.transactions = [];
       }
-      return acc;
-    }, {});
 
-    console.log('[dossierConfig.updateData] Filtered dossierData:', dossierData);
+      // ✅ Compute aggregated related entities from contextData if available
+      const sessions = contextData?.sessions || [];
+      const tasks = contextData?.tasks || [];
+      const cases = contextData?.cases || [];
+      const financialEntries = contextData?.financialEntries || [];
 
-    // Only update if there are actual dossier fields to update
-    if (Object.keys(dossierData).length > 0 && contextData?.updateDossier) {
-      // Use DataContext to update (this persists to localStorage)
-      // Pass skipConfirmation only if explicitly set in options (when user confirmed via ConfirmImpactModal)
-      const skipConfirmation = options.skipConfirmation || false;
-      console.log('[dossierConfig.updateData] Calling updateDossier:', { numericId, dossierData, skipConfirmation });
-      contextData.updateDossier(numericId, dossierData, skipConfirmation);
-    } else {
-      console.log('[dossierConfig.updateData] Skipping update:', {
-        hasDossierData: Object.keys(dossierData).length > 0,
-        hasUpdateFunction: !!contextData?.updateDossier
-      });
-    }
-    // If no dossier fields to update, skip the update (this happens when only relationship fields change)
-    await new Promise(resolve => setTimeout(resolve, 500));
-  },
+      // Always derive proceedings from the live cases list to stay in sync with deletions
+      const dossierCases = cases.filter(c => c.dossierId === numericId);
+      // Aggregate all sessions related to this dossier (by dossierId or by caseId)
+      const relatedSessions = sessions.filter(session =>
+        session.dossierId === numericId ||
+        dossierCases.some(cas => cas.id === session.caseId)
+      );
+      const relatedTasks = tasks.filter(task =>
+        (task.parentType === 'dossier' && task.dossierId === numericId) ||
+        (task.parentType === 'case' && dossierCases.some(cas => cas.id === task.caseId))
+      );
+      const relatedFinancialEntries = financialEntries.filter(entry =>
+        entry.dossierId === numericId ||
+        dossierCases.some(cas => cas.id === entry.caseId)
+      );
 
-  deleteData: async (id, contextData = null) => {
-    const numericId = parseInt(id);
+      // ✅ Calculate dynamic next deadline from all related entities
+      const nextDeadlineObj = calculateNextDeadline(dossier, relatedSessions, relatedTasks, relatedFinancialEntries);
 
-    if (contextData?.deleteDossier) {
-      // Use DataContext to delete (this persists to localStorage)
-      contextData.deleteDossier(numericId);
-    } else {
-      console.log("Deleting dossier:", numericId);
-    }
-  },
+      // ✅ Always resolve client from clientId using latest context data
+      const clients = contextData?.clients || [];
+      let client = null;
+      if (dossier.clientId) {
+        const foundClient = clients.find(c => c.id === parseInt(dossier.clientId));
+        if (foundClient) {
+          client = {
+            id: foundClient.id,
+            name: foundClient.name,
+            email: foundClient.email,
+            phone: foundClient.phone
+          };
+        }
+      }
 
-  getTitle: (data) => data.caseNumber,
-  getSubtitle: (data) => data.title,
-
-  // ✅ NEW: Quick Actions Configuration
-  quickActions: [
-    {
-      key: "status",
-      label: t('detail.quickActions.status.label'),
-      icon: "fas fa-info-circle",
-      colorMap: true,
-      options: [
-        { value: "Open", label: t('detail.quickActions.status.open'), color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" },
-        { value: "In Progress", label: t('detail.quickActions.status.inProgress'), color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" },
-        { value: "On Hold", label: t('detail.quickActions.status.onHold'), color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
-        { value: "Closed", label: t('detail.quickActions.status.closed'), color: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300" },
-      ],
-      // Validation now handled by domainRules service
+      return {
+        ...dossier,
+        client: client || { id: null, name: t('detail.fallback.unassignedClient') },
+        sessions: relatedSessions,
+        tasks: relatedTasks,
+        proceedings: dossierCases,
+        financialEntries: relatedFinancialEntries,
+        // ✅ Add computed next deadline
+        computedNextDeadline: nextDeadlineObj,
+      };
     },
-    {
-      key: "priority",
-      label: t('detail.quickActions.priority.label'),
-      icon: "fas fa-flag",
-      colorMap: true,
-      options: [
-        { value: "High", label: t('detail.quickActions.priority.high'), color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" },
-        { value: "Medium", label: t('detail.quickActions.priority.medium'), color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
-        { value: "Low", label: t('detail.quickActions.priority.low'), color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" },
-      ]
-    },
-    {
-      key: "phase",
-      label: t('detail.quickActions.phase.label'),
-      icon: "fas fa-stream",
-      colorMap: false,
-      getOptions: () => getAllPhases(DEFAULT_PHASES),
-      allowCreate: true,
-      createLabel: t('detail.quickActions.phase.create'),
-      onCreateOption: async (name) => {
-        addCustomPhase(name);
-        return true;
+
+    updateData: async (id, data, contextData = null, options = {}) => {
+      const numericId = parseInt(id);
+
+      console.log('[dossierConfig.updateData] Received:', { id, data, options, hasUpdateDossier: !!contextData?.updateDossier });
+
+      // Filter out relationship fields - dossier entity should only contain dossier-specific data
+      const dossierFields = [
+        'caseNumber', 'title', 'clientId', 'category', 'priority', 'phase',
+        'openDate', 'nextDeadline', 'description', 'status', 'notes' // ✅ Added notes
+      ];
+      const dossierData = Object.keys(data).reduce((acc, key) => {
+        if (dossierFields.includes(key)) {
+          acc[key] = data[key];
+        }
+        return acc;
+      }, {});
+
+      console.log('[dossierConfig.updateData] Filtered dossierData:', dossierData);
+
+      // Only update if there are actual dossier fields to update
+      if (Object.keys(dossierData).length > 0 && contextData?.updateDossier) {
+        // Use DataContext to update (this persists to localStorage)
+        // Pass skipConfirmation only if explicitly set in options (when user confirmed via ConfirmImpactModal)
+        const skipConfirmation = options.skipConfirmation || false;
+        console.log('[dossierConfig.updateData] Calling updateDossier:', { numericId, dossierData, skipConfirmation });
+        contextData.updateDossier(numericId, dossierData, skipConfirmation);
+      } else {
+        console.log('[dossierConfig.updateData] Skipping update:', {
+          hasDossierData: Object.keys(dossierData).length > 0,
+          hasUpdateFunction: !!contextData?.updateDossier
+        });
       }
-    }
-  ],
+      // If no dossier fields to update, skip the update (this happens when only relationship fields change)
+      await new Promise(resolve => setTimeout(resolve, 500));
+    },
 
-  renderHeader: (data) => {
-    const priorityColor = {
-      "High": "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
-      "Medium": "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
-      "Low": "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
-    };
+    deleteData: async (id, contextData = null) => {
+      const numericId = parseInt(id);
 
-    return (
-      <ContentSection>
-        <div className="p-6">
-          <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
-            <div>
-              <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
-                {data.title}
-              </h2>
-              {data.client?.id ? (
-                <Link
-                  to={`/clients/${data.client.id}`}
-                  className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-2"
-                >
-                  <i className="fas fa-user"></i>
-                  {data.client.name}
-                </Link>
-              ) : (
-                <span className="text-slate-500 dark:text-slate-400 flex items-center gap-2">
-                  <i className="fas fa-user"></i>
-                  {data.client?.name || t('detail.fallback.unassignedClient')}
+      if (contextData?.deleteDossier) {
+        // Use DataContext to delete (this persists to localStorage)
+        contextData.deleteDossier(numericId);
+      } else {
+        console.log("Deleting dossier:", numericId);
+      }
+    },
+
+    getTitle: (data) => data.caseNumber,
+    getSubtitle: (data) => data.title,
+
+    // ✅ NEW: Quick Actions Configuration
+    quickActions: [
+      {
+        key: "status",
+        label: t('detail.quickActions.status.label'),
+        icon: "fas fa-info-circle",
+        colorMap: true,
+        options: [
+          { value: "Open", label: t('detail.quickActions.status.open'), color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" },
+          { value: "In Progress", label: t('detail.quickActions.status.inProgress'), color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" },
+          { value: "On Hold", label: t('detail.quickActions.status.onHold'), color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
+          { value: "Closed", label: t('detail.quickActions.status.closed'), color: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300" },
+        ],
+        // Validation now handled by domainRules service
+      },
+      {
+        key: "priority",
+        label: t('detail.quickActions.priority.label'),
+        icon: "fas fa-flag",
+        colorMap: true,
+        options: [
+          { value: "High", label: t('detail.quickActions.priority.high'), color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" },
+          { value: "Medium", label: t('detail.quickActions.priority.medium'), color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
+          { value: "Low", label: t('detail.quickActions.priority.low'), color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" },
+        ]
+      },
+      {
+        key: "phase",
+        label: t('detail.quickActions.phase.label'),
+        icon: "fas fa-stream",
+        colorMap: false,
+        getOptions: () => getAllPhases(DEFAULT_PHASES),
+        allowCreate: true,
+        createLabel: t('detail.quickActions.phase.create'),
+        onCreateOption: async (name) => {
+          addCustomPhase(name);
+          return true;
+        }
+      }
+    ],
+
+    renderHeader: (data) => {
+      const priorityColor = {
+        "High": "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+        "Medium": "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
+        "Low": "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+      };
+
+      return (
+        <ContentSection>
+          <div className="p-6">
+            <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
+              <div>
+                <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
+                  {data.title}
+                </h2>
+                {data.client?.id ? (
+                  <Link
+                    to={`/clients/${data.client.id}`}
+                    className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-2"
+                  >
+                    <i className="fas fa-user"></i>
+                    {data.client.name}
+                  </Link>
+                ) : (
+                  <span className="text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                    <i className="fas fa-user"></i>
+                    {data.client?.name || t('detail.fallback.unassignedClient')}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-3">
+                <span className={`px-3 py-1 rounded-full text-sm font-medium ${priorityColor[data.priority]}`}>
+                  {t('detail.header.priority')} {data.priority}
                 </span>
-              )}
+                <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(data.status)}`}>
+                  {data.status}
+                </span>
+              </div>
             </div>
-            <div className="flex items-center gap-3">
-              <span className={`px-3 py-1 rounded-full text-sm font-medium ${priorityColor[data.priority]}`}>
-                {t('detail.header.priority')} {data.priority}
-              </span>
-              <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(data.status)}`}>
-                {data.status}
-              </span>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <InfoCard icon="fas fa-calendar" label={t('detail.header.openingDate')} value={formatDateValue(data.openDate)} color="blue" />
+              <InfoCard icon="fas fa-layer-group" label={t('detail.header.category')} value={data.category} color="purple" />
+              <InfoCard icon="fas fa-stream" label={t('detail.header.phase')} value={data.phase || t('detail.fallback.notDefined')} color="green" />
+              {(() => {
+                const deadline = data.computedNextDeadline;
+                if (!deadline) {
+                  return <InfoCard icon="fas fa-clock" label={t('detail.header.nextDeadline')} value={t('detail.fallback.noDeadlines')} color="amber" />;
+                }
+
+                const formattedDate = formatDate(deadline.date);
+                const urgency = getDeadlineUrgency(deadline);
+                const linkTo = getDeadlineNavigationPath(deadline, data.id);
+
+                // Choose color based on urgency
+                const urgencyColors = {
+                  critical: "red",
+                  urgent: "amber",
+                  soon: "amber",
+                  normal: "amber",
+                };
+
+                return (
+                  <InfoCard
+                    icon="fas fa-clock"
+                    label={t('detail.header.nextDeadline')}
+                    value={formattedDate}
+                    subtitle={deadline.label}
+                    color={urgencyColors[urgency]}
+                    linkTo={linkTo}
+                  />
+                );
+              })()}
             </div>
           </div>
+        </ContentSection>
+      );
+    },
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <InfoCard icon="fas fa-calendar" label={t('detail.header.openingDate')} value={formatDateValue(data.openDate)} color="blue" />
-            <InfoCard icon="fas fa-layer-group" label={t('detail.header.category')} value={data.category} color="purple" />
-            <InfoCard icon="fas fa-stream" label={t('detail.header.phase')} value={data.phase || t('detail.fallback.notDefined')} color="green" />
-            {(() => {
+    getStats: (data) => {
+      const transactions = data.transactions || [];
+      const revenues = transactions.filter(t => t.type === 'revenue');
+      const expenses = transactions.filter(t => t.type === 'expense');
+
+      const totalRevenue = revenues.reduce((sum, t) => {
+        const amount = parseFloat(t.amount.replace(/[^\d.]/g, '')) || 0;
+        return sum + amount;
+      }, 0);
+
+      const totalExpenses = expenses.reduce((sum, t) => {
+        const amount = parseFloat(t.amount.replace(/[^\d.]/g, '')) || 0;
+        return sum + amount;
+      }, 0);
+
+      return [
+        {
+          icon: "fas fa-file",
+          iconColor: "text-purple-600 dark:text-purple-400",
+          bgColor: "bg-purple-100 dark:bg-purple-900/20",
+          value: data.documents?.length || 0,
+          label: t('detail.stats.documents')
+        },
+        {
+          icon: "fas fa-tasks",
+          iconColor: "text-blue-600 dark:text-blue-400",
+          bgColor: "bg-blue-100 dark:bg-blue-900/20",
+          value: data.tasks?.length || 0,
+          label: t('detail.stats.tasks')
+        },
+        {
+          icon: "fas fa-gavel",
+          iconColor: "text-green-600 dark:text-green-400",
+          bgColor: "bg-green-100 dark:bg-green-900/20",
+          value: data.proceedings?.length || 0,
+          label: t('detail.stats.lawsuits')
+        },
+        {
+          icon: "fas fa-chart-line",
+          iconColor: totalRevenue >= totalExpenses ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400",
+          bgColor: totalRevenue >= totalExpenses ? "bg-green-100 dark:bg-green-900/20" : "bg-red-100 dark:bg-red-900/20",
+          value: `${(totalRevenue - totalExpenses).toFixed(0)} TND`,
+          label: t('detail.stats.netProfit')
+        },
+      ];
+    },
+
+    tabs: [
+      {
+        id: "overview",
+        label: t('detail.tabs.overview'),
+        icon: "fas fa-eye",
+        component: "overview",
+      },
+      {
+        id: "proceedings",
+        label: t('detail.tabs.proceedings'),
+        icon: "fas fa-gavel",
+        component: "aggregatedRelated",
+        aggregationType: "cases",
+        getCount: (data) => data.proceedings?.length || 0,
+        itemsKey: "proceedings",
+        allowAdd: true,
+        allowDelete: true,
+        entityName: t('detail.tabs.proceedingsEntity'),
+        addSubtitle: t('detail.tabs.proceedingsAddSubtitle'),
+        getFormFields: () => {
+          const caseT = (key) => i18next.t(key, { ns: "cases" });
+          return caseFormFields(caseT).filter(field => field.name !== 'dossierId');
+        },
+      },
+      {
+        id: "sessions",
+        label: t('detail.tabs.sessions'),
+        icon: "fas fa-calendar-alt",
+        component: "aggregatedRelated",
+        aggregationType: "sessions",
+        getCount: (data) => data.sessions?.length || 0,
+        itemsKey: "sessions",
+        allowAdd: true,
+        allowDelete: false,
+        entityName: t('detail.tabs.sessionsEntity'),
+        addSubtitle: t('detail.tabs.sessionsAddSubtitle'),
+        // Dynamic form fields - allow linking to either this dossier or one of its procès
+        getFormFields: (dossierData) => {
+          const dossierCases = dossierData.proceedings || [];
+          const sessionT = (key) => i18next.t(key, { ns: "sessions" });
+
+          return sessionFormFields(sessionT).map(field => {
+            // Allow linkType to be editable - choose between dossier and case
+            if (field.name === 'linkType') {
+              return {
+                ...field,
+                // Not disabled - user can choose
+                defaultValue: 'case', // Default to case if procès exist, else dossier
+                helpText: dossierCases.length > 0
+                  ? t('detail.forms.sessions.linkHelpWithCases')
+                  : t('detail.forms.sessions.linkHelpNoCases')
+              };
+            }
+            if (field.name === 'caseId') {
+              return {
+                ...field,
+                type: 'select', // Use regular select for better display
+                options: dossierCases.map(cas => ({
+                  value: cas.id,
+                  label: `${cas.caseNumber} - ${cas.title}`
+                })),
+                helpText: dossierCases.length === 0
+                  ? t('detail.forms.sessions.casesEmpty')
+                  : t('detail.forms.sessions.caseHelp'),
+                // Only show this field when linkType is 'case'
+                getOptions: (formData) => {
+                  if (formData.linkType !== "case") return [];
+                  return dossierCases.map(cas => ({
+                    value: cas.id,
+                    label: `${cas.caseNumber} - ${cas.title}`
+                  }));
+                }
+              };
+            }
+            if (field.name === 'dossierId') {
+              return {
+                ...field,
+                type: 'select', // Use regular select for better display
+                defaultValue: dossierData.id,
+                disabled: true, // Make it read-only when shown
+                options: [{
+                  value: dossierData.id,
+                  label: `${dossierData.caseNumber} - ${dossierData.title}`
+                }],
+                helpText: t('detail.forms.sessions.dossierHelp'),
+                // Only show this field when linkType is 'dossier'
+                hideIf: false, // Will be controlled by getOptions
+                getOptions: (formData) => {
+                  if (formData.linkType !== "dossier") return [];
+                  return [{
+                    value: dossierData.id,
+                    label: `${dossierData.caseNumber} - ${dossierData.title}`
+                  }];
+                }
+              };
+            }
+            return field;
+          });
+        },
+      },
+      {
+        id: "tasks",
+        label: t('detail.tabs.tasks'),
+        icon: "fas fa-tasks",
+        component: "aggregatedRelated",
+        aggregationType: "tasks",
+        getCount: (data) => data.tasks?.length || 0,
+        itemsKey: "tasks",
+        allowAdd: true,
+        allowDelete: false,
+        entityName: t('detail.tabs.tasksEntity'),
+        addSubtitle: t('detail.tabs.tasksAddSubtitle'),
+        // Dynamic form fields - dossierId and caseId options filtered to this dossier
+        getFormFields: (dossierData) => {
+          const dossierCases = dossierData.proceedings || [];
+
+          return taskFormFields(tTasks).map(field => {
+            // Default parentType to 'dossier' since we're in dossier context
+            if (field.name === 'parentType') {
+              return {
+                ...field,
+                defaultValue: 'dossier',
+                helpText: dossierCases.length > 0
+                  ? t('detail.forms.tasks.linkHelpWithCases')
+                  : t('detail.forms.tasks.linkHelpNoCases')
+              };
+            } else if (field.name === 'dossierId') {
+              // Show this field as disabled/read-only with the current dossier pre-filled
+              return {
+                ...field,
+                defaultValue: dossierData.id, // Auto-fill with current dossier ID
+                disabled: true, // Make it read-only (unchangeable)
+                options: [{
+                  value: dossierData.id,
+                  label: `${dossierData.caseNumber} - ${dossierData.title}`
+                }],
+                helpText: t('detail.forms.tasks.dossierHelp'),
+                // Override getOptions to use this dossier only
+                getOptions: (formData) => {
+                  if (formData.parentType !== "dossier") return [];
+                  return [{
+                    value: dossierData.id,
+                    label: `${dossierData.caseNumber} - ${dossierData.title}`
+                  }];
+                }
+              };
+            } else if (field.name === 'caseId') {
+              return {
+                ...field,
+                options: dossierCases.map(cas => ({
+                  value: cas.id,
+                  label: `${cas.caseNumber} - ${cas.title}`
+                })),
+                helpText: dossierCases.length === 0
+                  ? t('detail.forms.tasks.casesEmpty')
+                  : t('detail.forms.tasks.caseHelp'),
+                // Override getOptions to use filtered options
+                getOptions: (formData) => {
+                  if (formData.parentType !== "case") return [];
+                  return dossierCases.map(cas => ({
+                    value: cas.id,
+                    label: `${cas.caseNumber} - ${cas.title}`
+                  }));
+                }
+              };
+            }
+            return field;
+          });
+        },
+      },
+      {
+        id: "missions",
+        label: t('detail.tabs.missions'),
+        icon: "fas fa-clipboard-list",
+        component: "aggregatedRelated",
+        aggregationType: "missions",
+        getCount: (data) => data.missions?.length || 0,
+        allowAdd: true,
+        allowDelete: false,
+        entityName: t('detail.tabs.missionsEntity'),
+        addSubtitle: t('detail.tabs.missionsAddSubtitle'),
+        // Dynamic form fields - entityType and entityReference pre-filled
+        getFormFields: (dossierData, contextData) => {
+          // Generate a default mission number
+          const year = new Date().getFullYear();
+          const randomNum = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+          const defaultMissionNumber = `MIS-${year}-${randomNum}`;
+
+          return getMissionFormFields().map(field => {
+            if (field.name === 'entityType') {
+              return {
+                ...field,
+                defaultValue: 'dossier',
+                disabled: true,
+              };
+            } else if (field.name === 'entityReference') {
+              return {
+                ...field,
+                defaultValue: dossierData.caseNumber,
+                disabled: true,
+                helpText: t('detail.forms.missions.linkedToDossier', { caseNumber: dossierData.caseNumber }),
+              };
+            } else if (field.name === 'missionNumber') {
+              return {
+                ...field,
+                defaultValue: defaultMissionNumber,
+                disabled: true,
+              };
+            } else if (field.name === 'officerId') {
+              return {
+                ...field,
+                options: (contextData?.officers || []).map(officer => ({
+                  value: officer.id,
+                  label: officer.name
+                })),
+              };
+            }
+            return field;
+          });
+        },
+      },
+      {
+        id: "financial",
+        label: t('detail.tabs.financial'),
+        icon: "fas fa-calculator",
+        component: "financial",
+        getCount: (data) => {
+          // Count financial entries (excluding void/cancelled)
+          if (!data.financialEntries) return 0;
+          return data.financialEntries.filter(e =>
+            e.status !== 'void' && e.status !== 'cancelled'
+          ).length;
+        },
+      },
+      {
+        id: "documents",
+        label: t('detail.tabs.documents'),
+        icon: "fas fa-file",
+        component: "documents",
+        getCount: (data) => data.documents?.length || 0,
+      },
+      {
+        id: "notes",
+        label: t('detail.tabs.notes'),
+        icon: "fas fa-sticky-note",
+        component: "notes",
+        fieldKey: "notes", // ✅ Explicitly set field key for clarity
+        getCount: (data) => {
+          if (!data.notes) return 0;
+          if (Array.isArray(data.notes)) return data.notes.length;
+          return 1; // Legacy single string note
+        },
+      },
+      {
+        id: "timeline",
+        label: t('detail.tabs.history'),
+        icon: "fas fa-history",
+        component: "history",
+      },
+    ],
+
+    // ✅ UPDATED: Overview sections with editStrategy
+    overviewSections: [
+      {
+        title: t('detail.overview.general'),
+        editStrategy: "structured", // ✅ Requires explicit Edit button
+        fields: [
+          {
+            key: "caseNumber",
+            label: t('detail.overview.fields.caseNumber'),
+            value: (data) => data.caseNumber,
+            icon: "fas fa-hashtag",
+            type: "text",
+            editable: true,
+            helpText: t('detail.overview.fields.caseNumberHelp')
+          },
+          {
+            key: "title",
+            label: t('detail.overview.fields.title'),
+            value: (data) => data.title,
+            icon: "fas fa-heading",
+            type: "text",
+            editable: true,
+            fullWidth: true
+          },
+          {
+            key: "clientId",
+            label: t('detail.overview.fields.client'),
+            value: (data) => {
+              const clientId = data.clientId || data.client?.id;
+              return clientId;
+            },
+            displayValue: (data, contextData) => {
+              const clientId = data.clientId || data.client?.id;
+              const clients = contextData?.clients || [];
+              const client = clients.find(c => c.id == clientId);
+              return client ? client.name : t('detail.fallback.unknownClient');
+            },
+            icon: "fas fa-user",
+            type: "searchable-select",
+            editable: true,
+            getOptions: (formData, contextData) => {
+              const clients = contextData?.clients || [];
+              return clients.map(client => ({
+                value: client.id,
+                label: client.name
+              }));
+            },
+            helpText: t('detail.overview.fields.clientHelp')
+          },
+          {
+            key: "category",
+            label: t('detail.overview.fields.category'),
+            value: (data) => data.category,
+            icon: "fas fa-layer-group",
+            type: "select",
+            editable: true,
+            getOptions: () => getAllCategories(DEFAULT_CATEGORIES),
+          },
+          {
+            key: "phase",
+            label: t('detail.overview.fields.phase'),
+            value: (data) => data.phase,
+            icon: "fas fa-stream",
+            type: "select",
+            editable: true,
+            getOptions: () => getAllPhases(DEFAULT_PHASES),
+          },
+          {
+            key: "openDate",
+            label: t('detail.overview.fields.openDate'),
+            value: (data) => data.openDate,
+            displayValue: (data) => data.openDate ? formatDateValue(data.openDate) : t('detail.fallback.na'),
+            icon: "fas fa-calendar",
+            type: "date",
+            editable: true
+          },
+          {
+            key: "nextDeadline",
+            label: t('detail.overview.fields.nextDeadline'),
+            value: (data) => {
+              const deadline = data.computedNextDeadline;
+              if (!deadline) return t('detail.overview.fields.nextDeadlineEmpty');
+              return formatDate(deadline.date);
+            },
+            icon: "fas fa-clock",
+            type: "custom",
+            editable: false,
+            customRender: (data) => {
               const deadline = data.computedNextDeadline;
               if (!deadline) {
-                return <InfoCard icon="fas fa-clock" label={t('detail.header.nextDeadline')} value={t('detail.fallback.noDeadlines')} color="amber" />;
+                return (
+                  <div className="text-slate-500 dark:text-slate-400 text-sm">
+                    {t('detail.overview.fields.nextDeadlineEmpty')}
+                  </div>
+                );
               }
 
               const formattedDate = formatDate(deadline.date);
               const urgency = getDeadlineUrgency(deadline);
               const linkTo = getDeadlineNavigationPath(deadline, data.id);
 
-              // Choose color based on urgency
-              const urgencyColors = {
-                critical: "red",
-                urgent: "amber",
-                soon: "amber",
-                normal: "amber",
+              // Urgency badge colors
+              const urgencyStyles = {
+                critical: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 border-red-300 dark:border-red-700",
+                urgent: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400 border-orange-300 dark:border-orange-700",
+                soon: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 border-amber-300 dark:border-amber-700",
+                normal: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 border-blue-300 dark:border-blue-700",
+              };
+
+              const urgencyLabels = {
+                critical: t('detail.deadlines.urgency.critical'),
+                urgent: t('detail.deadlines.urgency.urgent'),
+                soon: t('detail.deadlines.urgency.soon'),
+                normal: t('detail.deadlines.urgency.normal'),
               };
 
               return (
-                <InfoCard
-                  icon="fas fa-clock"
-                  label={t('detail.header.nextDeadline')}
-                  value={formattedDate}
-                  subtitle={deadline.label}
-                  color={urgencyColors[urgency]}
-                  linkTo={linkTo}
-                />
-              );
-            })()}
-          </div>
-        </div>
-      </ContentSection>
-    );
-  },
-
-  getStats: (data) => {
-    const transactions = data.transactions || [];
-    const revenues = transactions.filter(t => t.type === 'revenue');
-    const expenses = transactions.filter(t => t.type === 'expense');
-
-    const totalRevenue = revenues.reduce((sum, t) => {
-      const amount = parseFloat(t.amount.replace(/[^\d.]/g, '')) || 0;
-      return sum + amount;
-    }, 0);
-
-    const totalExpenses = expenses.reduce((sum, t) => {
-      const amount = parseFloat(t.amount.replace(/[^\d.]/g, '')) || 0;
-      return sum + amount;
-    }, 0);
-
-    return [
-      {
-        icon: "fas fa-file",
-        iconColor: "text-purple-600 dark:text-purple-400",
-        bgColor: "bg-purple-100 dark:bg-purple-900/20",
-        value: data.documents?.length || 0,
-        label: t('detail.stats.documents')
-      },
-      {
-        icon: "fas fa-tasks",
-        iconColor: "text-blue-600 dark:text-blue-400",
-        bgColor: "bg-blue-100 dark:bg-blue-900/20",
-        value: data.tasks?.length || 0,
-        label: t('detail.stats.tasks')
-      },
-      {
-        icon: "fas fa-gavel",
-        iconColor: "text-green-600 dark:text-green-400",
-        bgColor: "bg-green-100 dark:bg-green-900/20",
-        value: data.proceedings?.length || 0,
-        label: t('detail.stats.lawsuits')
-      },
-      {
-        icon: "fas fa-chart-line",
-        iconColor: totalRevenue >= totalExpenses ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400",
-        bgColor: totalRevenue >= totalExpenses ? "bg-green-100 dark:bg-green-900/20" : "bg-red-100 dark:bg-red-900/20",
-        value: `${(totalRevenue - totalExpenses).toFixed(0)} TND`,
-        label: t('detail.stats.netProfit')
-      },
-    ];
-  },
-
-  tabs: [
-    {
-      id: "overview",
-      label: t('detail.tabs.overview'),
-      icon: "fas fa-eye",
-      component: "overview",
-    },
-    {
-      id: "proceedings",
-      label: t('detail.tabs.proceedings'),
-      icon: "fas fa-gavel",
-      component: "aggregatedRelated",
-      aggregationType: "cases",
-      getCount: (data) => data.proceedings?.length || 0,
-      itemsKey: "proceedings",
-      allowAdd: true,
-      allowDelete: true,
-      entityName: t('detail.tabs.proceedingsEntity'),
-      addSubtitle: t('detail.tabs.proceedingsAddSubtitle'),
-      formFields: caseFormFields(tCases).filter(field => field.name !== 'dossierId'),
-    },
-    {
-      id: "sessions",
-      label: t('detail.tabs.sessions'),
-      icon: "fas fa-calendar-alt",
-      component: "aggregatedRelated",
-      aggregationType: "sessions",
-      getCount: (data) => data.sessions?.length || 0,
-      itemsKey: "sessions",
-      allowAdd: true,
-      allowDelete: false,
-      entityName: t('detail.tabs.sessionsEntity'),
-      addSubtitle: t('detail.tabs.sessionsAddSubtitle'),
-      // Dynamic form fields - allow linking to either this dossier or one of its procès
-      getFormFields: (dossierData) => {
-        const dossierCases = dossierData.proceedings || [];
-
-        return sessionFormFields(tSessions).map(field => {
-          // Allow linkType to be editable - choose between dossier and case
-          if (field.name === 'linkType') {
-            return {
-              ...field,
-              // Not disabled - user can choose
-              defaultValue: 'case', // Default to case if procès exist, else dossier
-              helpText: dossierCases.length > 0
-                ? t('detail.forms.sessions.linkHelpWithCases')
-                : t('detail.forms.sessions.linkHelpNoCases')
-            };
-          }
-          if (field.name === 'caseId') {
-            return {
-              ...field,
-              type: 'select', // Use regular select for better display
-              options: dossierCases.map(cas => ({
-                value: cas.id,
-                label: `${cas.caseNumber} - ${cas.title}`
-              })),
-              helpText: dossierCases.length === 0
-                ? t('detail.forms.sessions.casesEmpty')
-                : t('detail.forms.sessions.caseHelp'),
-              // Only show this field when linkType is 'case'
-              getOptions: (formData) => {
-                if (formData.linkType !== "case") return [];
-                return dossierCases.map(cas => ({
-                  value: cas.id,
-                  label: `${cas.caseNumber} - ${cas.title}`
-                }));
-              }
-            };
-          }
-          if (field.name === 'dossierId') {
-            return {
-              ...field,
-              type: 'select', // Use regular select for better display
-              defaultValue: dossierData.id,
-              disabled: true, // Make it read-only when shown
-              options: [{
-                value: dossierData.id,
-                label: `${dossierData.caseNumber} - ${dossierData.title}`
-              }],
-              helpText: t('detail.forms.sessions.dossierHelp'),
-              // Only show this field when linkType is 'dossier'
-              hideIf: false, // Will be controlled by getOptions
-              getOptions: (formData) => {
-                if (formData.linkType !== "dossier") return [];
-                return [{
-                  value: dossierData.id,
-                  label: `${dossierData.caseNumber} - ${dossierData.title}`
-                }];
-              }
-            };
-          }
-          return field;
-        });
-      },
-    },
-    {
-      id: "tasks",
-      label: t('detail.tabs.tasks'),
-      icon: "fas fa-tasks",
-      component: "aggregatedRelated",
-      aggregationType: "tasks",
-      getCount: (data) => data.tasks?.length || 0,
-      itemsKey: "tasks",
-      allowAdd: true,
-      allowDelete: false,
-      entityName: t('detail.tabs.tasksEntity'),
-      addSubtitle: t('detail.tabs.tasksAddSubtitle'),
-      // Dynamic form fields - dossierId and caseId options filtered to this dossier
-      getFormFields: (dossierData) => {
-        const dossierCases = dossierData.proceedings || [];
-
-        return taskFormFields(tTasks).map(field => {
-          // Default parentType to 'dossier' since we're in dossier context
-          if (field.name === 'parentType') {
-            return {
-              ...field,
-              defaultValue: 'dossier',
-              helpText: dossierCases.length > 0
-                ? t('detail.forms.tasks.linkHelpWithCases')
-                : t('detail.forms.tasks.linkHelpNoCases')
-            };
-          } else if (field.name === 'dossierId') {
-            // Show this field as disabled/read-only with the current dossier pre-filled
-            return {
-              ...field,
-              defaultValue: dossierData.id, // Auto-fill with current dossier ID
-              disabled: true, // Make it read-only (unchangeable)
-              options: [{
-                value: dossierData.id,
-                label: `${dossierData.caseNumber} - ${dossierData.title}`
-              }],
-              helpText: t('detail.forms.tasks.dossierHelp'),
-              // Override getOptions to use this dossier only
-              getOptions: (formData) => {
-                if (formData.parentType !== "dossier") return [];
-                return [{
-                  value: dossierData.id,
-                  label: `${dossierData.caseNumber} - ${dossierData.title}`
-                }];
-              }
-            };
-          } else if (field.name === 'caseId') {
-            return {
-              ...field,
-              options: dossierCases.map(cas => ({
-                value: cas.id,
-                label: `${cas.caseNumber} - ${cas.title}`
-              })),
-              helpText: dossierCases.length === 0
-                ? t('detail.forms.tasks.casesEmpty')
-                : t('detail.forms.tasks.caseHelp'),
-              // Override getOptions to use filtered options
-              getOptions: (formData) => {
-                if (formData.parentType !== "case") return [];
-                return dossierCases.map(cas => ({
-                  value: cas.id,
-                  label: `${cas.caseNumber} - ${cas.title}`
-                }));
-              }
-            };
-          }
-          return field;
-        });
-      },
-    },
-    {
-      id: "missions",
-      label: t('detail.tabs.missions'),
-      icon: "fas fa-clipboard-list",
-      component: "aggregatedRelated",
-      aggregationType: "missions",
-      getCount: (data) => data.missions?.length || 0,
-      allowAdd: true,
-      allowDelete: false,
-      entityName: t('detail.tabs.missionsEntity'),
-      addSubtitle: t('detail.tabs.missionsAddSubtitle'),
-      // Dynamic form fields - entityType and entityReference pre-filled
-      getFormFields: (dossierData, contextData) => {
-        // Generate a default mission number
-        const year = new Date().getFullYear();
-        const randomNum = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-        const defaultMissionNumber = `MIS-${year}-${randomNum}`;
-
-        return missionFormFields.map(field => {
-          if (field.name === 'entityType') {
-            return {
-              ...field,
-              defaultValue: 'dossier',
-              disabled: true,
-            };
-          } else if (field.name === 'entityReference') {
-            return {
-              ...field,
-              defaultValue: dossierData.caseNumber,
-              disabled: true,
-              helpText: t('detail.forms.missions.linkedToDossier', { caseNumber: dossierData.caseNumber }),
-            };
-          } else if (field.name === 'missionNumber') {
-            return {
-              ...field,
-              defaultValue: defaultMissionNumber,
-              disabled: true,
-            };
-          } else if (field.name === 'officerId') {
-            return {
-              ...field,
-              options: (contextData?.officers || []).map(officer => ({
-                value: officer.id,
-                label: officer.name
-              })),
-            };
-          }
-          return field;
-        });
-      },
-    },
-    {
-      id: "financial",
-      label: t('detail.tabs.financial'),
-      icon: "fas fa-calculator",
-      component: "financial",
-      getCount: (data) => {
-        // Count financial entries (excluding void/cancelled)
-        if (!data.financialEntries) return 0;
-        return data.financialEntries.filter(e =>
-          e.status !== 'void' && e.status !== 'cancelled'
-        ).length;
-      },
-    },
-    {
-      id: "documents",
-      label: t('detail.tabs.documents'),
-      icon: "fas fa-file",
-      component: "documents",
-      getCount: (data) => data.documents?.length || 0,
-    },
-    {
-      id: "notes",
-      label: t('detail.tabs.notes'),
-      icon: "fas fa-sticky-note",
-      component: "notes",
-      fieldKey: "notes", // ✅ Explicitly set field key for clarity
-      getCount: (data) => {
-        if (!data.notes) return 0;
-        if (Array.isArray(data.notes)) return data.notes.length;
-        return 1; // Legacy single string note
-      },
-    },
-    {
-      id: "timeline",
-      label: t('detail.tabs.history'),
-      icon: "fas fa-history",
-      component: "history",
-    },
-  ],
-
-  // ✅ UPDATED: Overview sections with editStrategy
-  overviewSections: [
-    {
-      title: t('detail.overview.general'),
-      editStrategy: "structured", // ✅ Requires explicit Edit button
-      fields: [
-        {
-          key: "caseNumber",
-          label: t('detail.overview.fields.caseNumber'),
-          value: (data) => data.caseNumber,
-          icon: "fas fa-hashtag",
-          type: "text",
-          editable: true,
-          helpText: t('detail.overview.fields.caseNumberHelp')
-        },
-        {
-          key: "title",
-          label: t('detail.overview.fields.title'),
-          value: (data) => data.title,
-          icon: "fas fa-heading",
-          type: "text",
-          editable: true,
-          fullWidth: true
-        },
-        {
-          key: "clientId",
-          label: t('detail.overview.fields.client'),
-          value: (data) => {
-            const clientId = data.clientId || data.client?.id;
-            return clientId;
-          },
-          displayValue: (data, contextData) => {
-            const clientId = data.clientId || data.client?.id;
-            const clients = contextData?.clients || [];
-            const client = clients.find(c => c.id == clientId);
-            return client ? client.name : t('detail.fallback.unknownClient');
-          },
-          icon: "fas fa-user",
-          type: "searchable-select",
-          editable: true,
-          getOptions: (formData, contextData) => {
-            const clients = contextData?.clients || [];
-            return clients.map(client => ({
-              value: client.id,
-              label: client.name
-            }));
-          },
-          helpText: t('detail.overview.fields.clientHelp')
-        },
-        {
-          key: "category",
-          label: t('detail.overview.fields.category'),
-          value: (data) => data.category,
-          icon: "fas fa-layer-group",
-          type: "select",
-          editable: true,
-          getOptions: () => getAllCategories(DEFAULT_CATEGORIES),
-        },
-        {
-          key: "phase",
-          label: t('detail.overview.fields.phase'),
-          value: (data) => data.phase,
-          icon: "fas fa-stream",
-          type: "select",
-          editable: true,
-          getOptions: () => getAllPhases(DEFAULT_PHASES),
-        },
-        {
-          key: "openDate",
-          label: t('detail.overview.fields.openDate'),
-          value: (data) => data.openDate,
-          displayValue: (data) => data.openDate ? formatDateValue(data.openDate) : t('detail.fallback.na'),
-          icon: "fas fa-calendar",
-          type: "date",
-          editable: true
-        },
-        {
-          key: "nextDeadline",
-          label: t('detail.overview.fields.nextDeadline'),
-          value: (data) => {
-            const deadline = data.computedNextDeadline;
-            if (!deadline) return t('detail.overview.fields.nextDeadlineEmpty');
-            return formatDate(deadline.date);
-          },
-          icon: "fas fa-clock",
-          type: "custom",
-          editable: false,
-          customRender: (data) => {
-            const deadline = data.computedNextDeadline;
-            if (!deadline) {
-              return (
-                <div className="text-slate-500 dark:text-slate-400 text-sm">
-                  {t('detail.overview.fields.nextDeadlineEmpty')}
+                <div className="flex items-start gap-3">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-slate-900 dark:text-white font-medium">
+                        {formattedDate}
+                      </span>
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${urgencyStyles[urgency]}`}>
+                        {urgencyLabels[urgency]}
+                      </span>
+                    </div>
+                    <div className="text-sm text-slate-600 dark:text-slate-400">
+                      {deadline.label}
+                    </div>
+                    {linkTo && (
+                      <Link
+                        to={linkTo}
+                        className="text-sm text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-1 mt-1"
+                      >
+                        {t('detail.deadlines.viewDetails')}
+                        <i className="fas fa-arrow-right text-xs"></i>
+                      </Link>
+                    )}
+                  </div>
                 </div>
               );
             }
-
-            const formattedDate = formatDate(deadline.date);
-            const urgency = getDeadlineUrgency(deadline);
-            const linkTo = getDeadlineNavigationPath(deadline, data.id);
-
-            // Urgency badge colors
-            const urgencyStyles = {
-              critical: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 border-red-300 dark:border-red-700",
-              urgent: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400 border-orange-300 dark:border-orange-700",
-              soon: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 border-amber-300 dark:border-amber-700",
-              normal: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 border-blue-300 dark:border-blue-700",
-            };
-
-            const urgencyLabels = {
-              critical: t('detail.deadlines.urgency.critical'),
-              urgent: t('detail.deadlines.urgency.urgent'),
-              soon: t('detail.deadlines.urgency.soon'),
-              normal: t('detail.deadlines.urgency.normal'),
-            };
-
-            return (
-              <div className="flex items-start gap-3">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-slate-900 dark:text-white font-medium">
-                      {formattedDate}
-                    </span>
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${urgencyStyles[urgency]}`}>
-                      {urgencyLabels[urgency]}
-                    </span>
-                  </div>
-                  <div className="text-sm text-slate-600 dark:text-slate-400">
-                    {deadline.label}
-                  </div>
-                  {linkTo && (
-                    <Link
-                      to={linkTo}
-                      className="text-sm text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-1 mt-1"
-                    >
-                      {t('detail.deadlines.viewDetails')}
-                      <i className="fas fa-arrow-right text-xs"></i>
-                    </Link>
-                  )}
-                </div>
-              </div>
-            );
-          }
-        },
-      ],
-    },
-    {
-      title: t('detail.overview.description'),
-      editStrategy: "structured", // ✅ Requires explicit Edit button
-      type: "description",
-      fieldKey: "description",
-      content: (data) => data.description,
-    },
-    {
-      title: t('detail.overview.adverse'),
-      editStrategy: "structured", // ✅ Requires explicit Edit button
-      fields: [
-        {
-          key: "adversaryParty",
-          label: t('detail.overview.fields.adversaryParty'),
-          value: (data) => data.adversaryParty,
-          icon: "fas fa-user",
-          type: "text",
-          editable: true
-        },
-        {
-          key: "adversaryLawyer",
-          label: t('detail.overview.fields.adversaryLawyer'),
-          value: (data) => data.adversaryLawyer,
-          icon: "fas fa-gavel",
-          type: "text",
-          editable: true
-        },
-      ],
-    },
-    {
-      title: t('detail.overview.legal'),
-      editStrategy: "structured", // ✅ Requires explicit Edit button
-      fields: [
-        {
-          key: "courtReference",
-          label: t('detail.overview.fields.courtReference'),
-          value: (data) => data.courtReference,
-          icon: "fas fa-balance-scale",
-          type: "text",
-          editable: true
-        },
-        {
-          key: "estimatedValue",
-          label: t('detail.overview.fields.estimatedValue'),
-          value: (data) => data.estimatedValue,
-          icon: "fas fa-money-bill-wave",
-          type: "text",
-          editable: true
-        },
-      ],
-    },
-  ],
+          },
+        ],
+      },
+      {
+        title: t('detail.overview.description'),
+        editStrategy: "structured", // ✅ Requires explicit Edit button
+        type: "description",
+        fieldKey: "description",
+        content: (data) => data.description,
+      },
+      {
+        title: t('detail.overview.adverse'),
+        editStrategy: "structured", // ✅ Requires explicit Edit button
+        fields: [
+          {
+            key: "adversaryParty",
+            label: t('detail.overview.fields.adversaryParty'),
+            value: (data) => data.adversaryParty,
+            icon: "fas fa-user",
+            type: "text",
+            editable: true
+          },
+          {
+            key: "adversaryLawyer",
+            label: t('detail.overview.fields.adversaryLawyer'),
+            value: (data) => data.adversaryLawyer,
+            icon: "fas fa-gavel",
+            type: "text",
+            editable: true
+          },
+        ],
+      },
+      {
+        title: t('detail.overview.legal'),
+        editStrategy: "structured", // ✅ Requires explicit Edit button
+        fields: [
+          {
+            key: "courtReference",
+            label: t('detail.overview.fields.courtReference'),
+            value: (data) => data.courtReference,
+            icon: "fas fa-balance-scale",
+            type: "text",
+            editable: true
+          },
+          {
+            key: "estimatedValue",
+            label: t('detail.overview.fields.estimatedValue'),
+            value: (data) => data.estimatedValue,
+            icon: "fas fa-money-bill-wave",
+            type: "text",
+            editable: true
+          },
+        ],
+      },
+    ],
   };
 };
 

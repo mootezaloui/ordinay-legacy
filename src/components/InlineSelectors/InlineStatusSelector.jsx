@@ -10,6 +10,7 @@ import {
 } from "../../services/clientCommunication";
 import { useData } from "../../contexts/DataContext";
 import { getStatusColor } from "../DetailView/config/statusColors";
+import { useTranslation } from "react-i18next";
 
 // Global state to track which dropdown is currently open
 let currentOpenDropdown = null;
@@ -53,6 +54,7 @@ export default function InlineStatusSelector({
   entityData = null,
   size = "sm",
 }) {
+  const { t } = useTranslation("common");
   const contextData = useData();
   const [isOpen, setIsOpen] = useState(false);
   const [blockerModalOpen, setBlockerModalOpen] = useState(false);
@@ -395,7 +397,7 @@ export default function InlineStatusSelector({
       <BlockerModal
         isOpen={blockerModalOpen}
         onClose={() => setBlockerModalOpen(false)}
-        actionName={`change status to "${statusOptions.find(s => s.value === pendingValue)?.label || pendingValue} "for `}
+        actionName={t("detail.blocker.actions.changeStatusTo", { status: statusOptions.find(s => s.value === pendingValue)?.label || pendingValue })}
         blockers={validationResult?.blockers || []}
         warnings={validationResult?.warnings || []}
         entityName={

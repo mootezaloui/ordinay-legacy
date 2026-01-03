@@ -2,7 +2,19 @@
   "dashboard": {
     "title": "لوحة التحكم",
     "subtitle": "نظرة عامة على أداء وأنشطة مكتب المحاماة",
-    "quickActions": "إجراءات سريعة",
+    "quickActions": {
+      "title": "إجراءات سريعة",
+      "newClient": "عميل جديد",
+      "newDossier": "ملف جديد",
+      "newTask": "مهمة جديدة",
+      "newSession": "جلسة جديدة",
+      "subtitles": {
+        "client": "إضافة عميل جديد إلى قاعدة البيانات",
+        "dossier": "إنشاء ملف قانوني جديد",
+        "task": "إنشاء مهمة جديدة لتنفيذها",
+        "session": "جدولة جلسة أو موعد جديد"
+      }
+    },
     "stats": {
       "totalClients": "إجمالي العملاء",
       "activeDossiers": "الملفات النشطة",
@@ -16,10 +28,12 @@
       "dueToday_other": "{{count}} مستحق اليوم"
     },
     "urgentTasks": {
-      "title": "مهام عاجلة ({{count}})"
+      "title": "مهام عاجلة ({{count}})",
+      "empty": "لا توجد مهام عاجلة! عمل رائع في البقاء على اطلاع."
     },
     "upcomingEvents": {
-      "title": "الأحداث القادمة ({{count}})"
+      "title": "الأحداث القادمة ({{count}})",
+      "empty": "لا توجد أحداث قادمة مجدولة."
     },
     "projection": {
       "title": "توقع (30-90 يومًا)",
@@ -47,7 +61,10 @@
       "tooltipType_one": "{{count}} {{type}}",
       "tooltipType_other": "{{count}} {{type}}"
     },
-    "recentActivity": "النشاط الأخير",
+    "recentActivity": {
+      "title": "النشاط الأخير",
+      "empty": "لا توجد أنشطة حديثة للعرض."
+    },
     "quickStats": {
       "title": "إحصائيات",
       "dossiers": {
@@ -85,6 +102,73 @@
       "finance": "مالية",
       "mission": "مهمة",
       "generic": "{{type}}"
+    }
+  },
+  "actions": {
+    "close": "إغلاق",
+    "back": "رجوع",
+    "edit": "تعديل",
+    "delete": "حذف",
+    "save": "حفظ",
+    "cancel": "إلغاء"
+  },
+  "aria": {
+    "dialog": {
+      "close": "إغلاق الحوار"
+    },
+    "search": {
+      "clearSelection": "مسح التحديد"
+    },
+    "userDropdown": {
+      "userMenu": "قائمة المستخدم"
+    }
+  },
+  "search": {
+    "placeholder": "البحث عن عملاء، ملفات، مهام...",
+    "results": {
+      "found_one": "{{count}} نتيجة",
+      "found_other": "{{count}} نتائج",
+      "none": "لا توجد نتائج",
+      "noneFor": "لا توجد نتائج لـ \"{{query}}\"",
+      "tryAgain": "جرب مصطلح بحث آخر",
+      "escHint": "ESC للإغلاق"
+    },
+    "categories": {
+      "clients": "العملاء",
+      "dossiers": "الملفات",
+      "tasks": "المهام",
+      "lawsuits": "الدعاوى",
+      "hearings": "الجلسات",
+      "bailiffs": "المحضرون"
+    },
+    "assignedTo": "مخصص لـ:",
+    "at": "في",
+    "result_one": "نتيجة",
+    "result_other": "نتائج"
+  },
+  "header": {
+    "userMenu": {
+      "profile": "الملف الشخصي",
+      "settings": "الإعدادات",
+      "lightMode": "الوضع الفاتح",
+      "darkMode": "الوضع الداكن",
+      "logout": "تسجيل الخروج"
+    },
+    "roles": {
+      "OWNER": "المالك",
+      "ADMIN": "المدير",
+      "LAWYER": "المحامي",
+      "ASSISTANT": "المساعد"
+    }
+  },
+  "detail": {
+    "quickActions": {
+      "title": "إجراءات سريعة"
+    },
+    "missions": {
+      "blockers": {
+        "missingParent": "أضف ملفاً أو قضية أولاً قبل إنشاء مهمة."
+      }
     }
   }
 }

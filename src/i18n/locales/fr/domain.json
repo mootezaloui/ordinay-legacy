@@ -150,6 +150,10 @@
         "andMore_plural": "... et {{count}} autres"
       }
     },
+    "blocker": {
+      "openDossier": "{{count}} dossier ouvert",
+      "openDossiers": "{{count}} dossiers ouverts"
+    },
     "delete": {
       "warning": {
         "dossiersWillDelete": "Ce client possède {{count}} dossier qui sera supprimé.",

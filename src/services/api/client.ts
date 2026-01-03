@@ -1,7 +1,15 @@
-const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:3000/api";
+/**
+ * API Client
+ * 
+ * Centralized HTTP client for backend API calls.
+ * Uses dynamic configuration for Electron desktop app.
+ */
+
+import { getApiBase } from '../../lib/apiConfig';
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const url = `${API_BASE}${path}`;
+  const apiBase = getApiBase();
+  const url = `${apiBase}${path}`;
   const res = await fetch(url, {
     headers: { "Content-Type": "application/json" },
     ...init,

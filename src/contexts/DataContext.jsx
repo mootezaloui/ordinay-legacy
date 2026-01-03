@@ -6,6 +6,7 @@ import { logEntityCreation, logLifecycleChange, logStatusChange } from "../servi
 import { apiClient } from "../services/api/client";
 import { adaptHistory } from "../services/api/adapters";
 import { useTranslation } from "react-i18next";
+import { useOperator } from "./OperatorContext";
 import {
   adaptCase,
   adaptClient,
@@ -70,7 +71,7 @@ const saveToStorage = (key, value) => {
 
 // Removed rebuild functions - no longer needed as state is backend-driven
 
-const logUpdateHistory = (entityType, prevEntity, updates) => {
+const logUpdateHistory = (entityType, prevEntity, updates, actor = null) => {
   if (!prevEntity) return;
 
   const changedFields = Object.entries(updates || {}).reduce((acc, [key, value]) => {
@@ -88,33 +89,35 @@ const logUpdateHistory = (entityType, prevEntity, updates) => {
     eventType: EVENT_TYPES.SYSTEM,
     label: "Update",
     metadata: changedFields,
+    actor,
   });
 };
 
-const logStatusHistory = (entityType, prevEntity, updates) => {
+const logStatusHistory = (entityType, prevEntity, updates, actor = null) => {
   if (!prevEntity) return;
   if (!Object.prototype.hasOwnProperty.call(updates, "status")) return;
   const oldStatus = prevEntity.status;
   const newStatus = updates.status;
   if (oldStatus === newStatus) return;
-  logStatusChange(entityType, prevEntity.id, oldStatus, newStatus);
+  logStatusChange(entityType, prevEntity.id, oldStatus, newStatus, null, actor);
 };
 
-const logCreationHistory = (entityType, entity) => {
+const logCreationHistory = (entityType, entity, actor = null) => {
   if (!entity?.id) return;
   const name = entity.name || entity.title || entity.caseNumber || entity.description || `#${entity.id}`;
-  logEntityCreation(entityType, entity.id, name);
+  logEntityCreation(entityType, entity.id, name, actor);
 };
 
-const logDeletionHistory = (entityType, entity) => {
+const logDeletionHistory = (entityType, entity, actor = null) => {
   if (!entity?.id) return;
-  logLifecycleChange(entityType, entity.id, "deleted");
+  logLifecycleChange(entityType, entity.id, "deleted", null, actor);
   logHistoryEvent({
     entityType,
     entityId: entity.id,
     eventType: EVENT_TYPES.LIFECYCLE,
     label: "Deletion",
     metadata: { deleted: { id: entity.id } },
+    actor,
   });
 };
 
@@ -283,6 +286,11 @@ const reconcileEntities = (clients, dossiers, cases, tasks, sessions) => {
 export function DataProvider({ children }) {
   const { showToast } = useToast();
   const { t } = useTranslation("common");
+  const { operator } = useOperator();
+
+  // Get operator name for history attribution
+  const actorName = operator?.name || null;
+
   // State is initialized from localStorage and then updated from backend
   const [clients, setClients] = useState(() => loadFromStorage("clients", []));
   const [dossiers, setDossiers] = useState(() => loadFromStorage("dossiers", []));
@@ -485,7 +493,7 @@ export function DataProvider({ children }) {
       return next;
     });
 
-    logCreationHistory("client", created);
+    logCreationHistory("client", created, actorName);
     return { ok: true, result: validation.result, created: adaptedWithTimeline };
   };
 
@@ -543,8 +551,8 @@ export function DataProvider({ children }) {
       saveToStorage("clients", next);
       return next;
     });
-    logUpdateHistory("client", prev, updates);
-    logStatusHistory("client", prev, updates);
+    logUpdateHistory("client", prev, updates, actorName);
+    logStatusHistory("client", prev, updates, actorName);
 
     return validation;
   };
@@ -570,7 +578,7 @@ export function DataProvider({ children }) {
       return next;
     });
 
-    logDeletionHistory("client", prev);
+    logDeletionHistory("client", prev, actorName);
     return { ok: true, result: validation.result };
   };
 
@@ -611,7 +619,7 @@ export function DataProvider({ children }) {
       });
 
       const prev = clients.find((c) => c.id === id);
-      logDeletionHistory("client", prev);
+      logDeletionHistory("client", prev, actorName);
 
       console.log('[DataContext.deleteClientCascade] Successfully deleted client and all related entities');
       return { ok: true, result: { message: 'Client and all child entities deleted successfully' } };
@@ -658,7 +666,7 @@ export function DataProvider({ children }) {
       return next;
     });
 
-    logCreationHistory("dossier", created);
+    logCreationHistory("dossier", created, actorName);
     return { ok: true, result: validation.result, created: adapted };
   };
 
@@ -745,8 +753,8 @@ export function DataProvider({ children }) {
       saveToStorage("dossiers", next);
       return next;
     });
-    logUpdateHistory("dossier", prev, updates);
-    logStatusHistory("dossier", prev, updates);
+    logUpdateHistory("dossier", prev, updates, actorName);
+    logStatusHistory("dossier", prev, updates, actorName);
 
     return validation;
   };
@@ -772,7 +780,7 @@ export function DataProvider({ children }) {
       return next;
     });
 
-    logDeletionHistory("dossier", prev);
+    logDeletionHistory("dossier", prev, actorName);
     return { ok: true, result: validation.result };
   };
 
@@ -837,7 +845,7 @@ export function DataProvider({ children }) {
       });
 
       const prev = dossiers.find((d) => d.id === id);
-      logDeletionHistory("dossier", prev);
+      logDeletionHistory("dossier", prev, actorName);
 
       console.log('[DataContext.deleteDossierCascade] Successfully deleted dossier and all related entities');
       return { ok: true, result: { message: 'Dossier and all related entities deleted successfully' } };
@@ -886,13 +894,13 @@ export function DataProvider({ children }) {
       if (adapted.dossierId) {
         const title = adapted.title || "";
         const reference = adapted.caseNumber || "";
-        const caseDescription = title && reference ? `${title} (${reference})` : title || reference || "Lawsuit";
+        const caseDescription = title && reference ? `${title} (${reference})` : title || reference || t("entities.lawsuits");
         logHistoryEvent({
           entityType: "dossier",
           entityId: adapted.dossierId,
           eventType: EVENT_TYPES.RELATION,
-          label: `Lawsuit Created: ${caseDescription}`,
-          details: `A new lawsuit was created: ${caseDescription}`,
+          label: `${t("detail.history.labels.lawsuitCreated")}: ${caseDescription}`,
+          details: `${t("detail.history.labels.lawsuitCreated")}: ${caseDescription}`,
           metadata: {
             childType: "case",
             childId: adapted.id,
@@ -902,7 +910,7 @@ export function DataProvider({ children }) {
       return next;
     });
 
-    logCreationHistory("case", created);
+    logCreationHistory("case", created, actorName);
     return { ok: true, result: validation.result, created: adapted };
   };
 
@@ -978,8 +986,8 @@ export function DataProvider({ children }) {
       saveToStorage("cases", next);
       return next;
     });
-    logUpdateHistory("case", prev, updates);
-    logStatusHistory("case", prev, updates);
+    logUpdateHistory("case", prev, updates, actorName);
+    logStatusHistory("case", prev, updates, actorName);
 
     return validation;
   };
@@ -1005,7 +1013,7 @@ export function DataProvider({ children }) {
       return next;
     });
 
-    logDeletionHistory("case", prev);
+    logDeletionHistory("case", prev, actorName);
     return { ok: true, result: validation.result };
   };
 
@@ -1054,7 +1062,7 @@ export function DataProvider({ children }) {
       });
 
       const prev = cases.find((c) => c.id === id);
-      logDeletionHistory("case", prev);
+      logDeletionHistory("case", prev, actorName);
 
       console.log('[DataContext.deleteCaseCascade] Successfully deleted case and all related entities');
       return { ok: true, result: { message: 'Case and all related entities deleted successfully' } };
@@ -1145,7 +1153,7 @@ export function DataProvider({ children }) {
       return next;
     });
 
-    logCreationHistory("session", created);
+    logCreationHistory("session", created, actorName);
     return { ok: true, result: validation.result, created: adapted };
   };
 
@@ -1243,8 +1251,8 @@ export function DataProvider({ children }) {
       saveToStorage("sessions", next);
       return next;
     });
-    logUpdateHistory("session", prev, updates);
-    logStatusHistory("session", prev, updates);
+    logUpdateHistory("session", prev, updates, actorName);
+    logStatusHistory("session", prev, updates, actorName);
 
     return validation;
   };
@@ -1270,7 +1278,7 @@ export function DataProvider({ children }) {
       return next;
     });
 
-    logDeletionHistory("session", prev);
+    logDeletionHistory("session", prev, actorName);
     return { ok: true, result: validation.result };
   };
 
@@ -1318,7 +1326,7 @@ export function DataProvider({ children }) {
       return next;
     });
 
-    logCreationHistory("task", created);
+    logCreationHistory("task", created, actorName);
     return { ok: true, result: validation.result, created: adapted };
   };
 
@@ -1390,8 +1398,8 @@ export function DataProvider({ children }) {
       saveToStorage("tasks", next);
       return next;
     });
-    logUpdateHistory("task", prev, updates);
-    logStatusHistory("task", prev, updates);
+    logUpdateHistory("task", prev, updates, actorName);
+    logStatusHistory("task", prev, updates, actorName);
 
     return validation;
   };
@@ -1417,7 +1425,7 @@ export function DataProvider({ children }) {
       return next;
     });
 
-    logDeletionHistory("task", prev);
+    logDeletionHistory("task", prev, actorName);
     return { ok: true, result: validation.result };
   };
 
@@ -1493,7 +1501,7 @@ export function DataProvider({ children }) {
       return next;
     });
 
-    logCreationHistory("personalTask", created);
+    logCreationHistory("personalTask", created, actorName);
     return { ok: true, result: validation.result, created: adapted };
   };
 
@@ -1581,8 +1589,8 @@ export function DataProvider({ children }) {
       saveToStorage("personalTasks", next);
       return next;
     });
-    logUpdateHistory("personalTask", prev, updates);
-    logStatusHistory("personalTask", prev, updates);
+    logUpdateHistory("personalTask", prev, updates, actorName);
+    logStatusHistory("personalTask", prev, updates, actorName);
 
     return validation;
   };
@@ -1605,7 +1613,7 @@ export function DataProvider({ children }) {
       return next;
     });
 
-    logDeletionHistory("personalTask", prev);
+    logDeletionHistory("personalTask", prev, actorName);
     return { ok: true, result: validation.result };
   };
 
@@ -1655,7 +1663,7 @@ export function DataProvider({ children }) {
       return next;
     });
 
-    logCreationHistory("officer", created);
+    logCreationHistory("officer", created, actorName);
     return { ok: true, result: validation.result, created: adapted };
   };
 
@@ -1729,8 +1737,8 @@ export function DataProvider({ children }) {
       saveToStorage("officers", next);
       return next;
     });
-    logUpdateHistory("officer", prev, updates);
-    logStatusHistory("officer", prev, updates);
+    logUpdateHistory("officer", prev, updates, actorName);
+    logStatusHistory("officer", prev, updates, actorName);
 
     return validation;
   };
@@ -1753,7 +1761,7 @@ export function DataProvider({ children }) {
       return next;
     });
 
-    logDeletionHistory("officer", prev);
+    logDeletionHistory("officer", prev, actorName);
     return { ok: true, result: validation.result };
   };
 
@@ -1868,7 +1876,7 @@ export function DataProvider({ children }) {
       });
     }
 
-    logCreationHistory("mission", created);
+    logCreationHistory("mission", created, actorName);
     return { ok: true, result: validation.result, created: adapted };
   };
 
@@ -1945,8 +1953,8 @@ export function DataProvider({ children }) {
       saveToStorage("missions", next);
       return next;
     });
-    logUpdateHistory("mission", prev, updates);
-    logStatusHistory("mission", prev, updates);
+    logUpdateHistory("mission", prev, updates, actorName);
+    logStatusHistory("mission", prev, updates, actorName);
 
     return adapted;
   };
@@ -1969,7 +1977,7 @@ export function DataProvider({ children }) {
       return next;
     });
 
-    logDeletionHistory("mission", prev);
+    logDeletionHistory("mission", prev, actorName);
     return { ok: true, result: validation.result };
   };
 
@@ -2035,7 +2043,7 @@ export function DataProvider({ children }) {
       return next;
     });
 
-    logCreationHistory("financialEntry", created);
+    logCreationHistory("financialEntry", created, actorName);
     return { ok: true, result: validation.result, created: adapted };
   };
 
@@ -2081,8 +2089,8 @@ export function DataProvider({ children }) {
       return next;
     });
 
-    logUpdateHistory("financialEntry", prev, updates);
-    logStatusHistory("financialEntry", prev, updates);
+    logUpdateHistory("financialEntry", prev, updates, actorName);
+    logStatusHistory("financialEntry", prev, updates, actorName);
 
     return validation;
   };
@@ -2108,7 +2116,7 @@ export function DataProvider({ children }) {
       return next;
     });
 
-    logDeletionHistory("financialEntry", prev);
+    logDeletionHistory("financialEntry", prev, actorName);
     return { ok: true, result: validation.result };
   };
 

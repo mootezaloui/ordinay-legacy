@@ -4,6 +4,7 @@
  */
 
 import { useState, useRef, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 
 export default function TableToolbar({
   searchQuery = "",
@@ -17,6 +18,7 @@ export default function TableToolbar({
   filteredItems = 0,
   isFiltering = false,
 }) {
+  const { t } = useTranslation("common");
   const [showColumnMenu, setShowColumnMenu] = useState(false);
   const columnMenuRef = useRef(null);
 
@@ -40,7 +42,7 @@ export default function TableToolbar({
           <div className="relative">
             <input
               type="text"
-              placeholder="Searching..."
+              placeholder={t("table.searching")}
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
               className="w-full pl-10 pr-10 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
@@ -73,7 +75,7 @@ export default function TableToolbar({
           {/* Search results info */}
           {isFiltering && (
             <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-              {filteredItems} résultat{filteredItems > 1 ? "s" : ""} sur {totalItems}
+              {t("table.searchResults", { filtered: filteredItems, total: totalItems })}
             </p>
           )}
         </div>
@@ -89,7 +91,7 @@ export default function TableToolbar({
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
               </svg>
-              Columns
+              {t("table.columns")}
               <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-xs rounded">
                 {visibleColumns.length}/{columns.length}
               </span>
@@ -101,13 +103,13 @@ export default function TableToolbar({
                 <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-semibold text-slate-900 dark:text-white">
-                      Manage Columns
+                      {t("table.manageColumns")}
                     </span>
                     <button
                       onClick={onResetColumns}
                       className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
                     >
-                      Reset
+                      {t("actions.reset")}
                     </button>
                   </div>
                 </div>

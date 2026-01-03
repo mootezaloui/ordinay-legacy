@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { searchAllData } from "../../utils/searchUtils";
 import { useData } from "../../contexts/DataContext";
+import { useTranslation } from "react-i18next";
 
 /**
  * GlobalSearch - Universal search component
@@ -9,6 +10,7 @@ import { useData } from "../../contexts/DataContext";
  */
 export default function GlobalSearch() {
   const navigate = useNavigate();
+  const { t } = useTranslation("common");
   const [query, setQuery] = useState("");
   const [results, setResults] = useState(null);
   const [isOpen, setIsOpen] = useState(false);
@@ -97,7 +99,7 @@ export default function GlobalSearch() {
       <div className="relative">
         <input
           type="text"
-          placeholder="Search clients, dossiers, tasks..."
+          placeholder={t("search.placeholder")}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
@@ -149,17 +151,17 @@ export default function GlobalSearch() {
                 {getTotalResults() > 0 ? (
                   <>
                     <i className="fas fa-check-circle text-green-500 mr-2"></i>
-                    {getTotalResults()} Results {getTotalResults() > 1 ? "s" : ""} Found
+                    {t("search.results.found", { count: getTotalResults() })}
                   </>
                 ) : (
                   <>
                     <i className="fas fa-info-circle text-slate-400 mr-2"></i>
-                    No results found
+                    {t("search.results.none")}
                   </>
                 )}
               </span>
               <span className="text-xs text-slate-500 dark:text-slate-400">
-                ESC to close
+                {t("search.results.escHint")}
               </span>
             </div>
           </div>
@@ -170,7 +172,7 @@ export default function GlobalSearch() {
               {/* Clients */}
               {results.clients?.length > 0 && (
                 <SearchSection
-                  title="Clients"
+                  title={t("search.categories.clients")}
                   icon="fas fa-users"
                   iconColor="text-blue-600 dark:text-blue-400"
                   bgColor="bg-blue-100 dark:bg-blue-900/20"
@@ -188,7 +190,7 @@ export default function GlobalSearch() {
               {/* Dossiers */}
               {results.dossiers?.length > 0 && (
                 <SearchSection
-                  title="Dossiers"
+                  title={t("search.categories.dossiers")}
                   icon="fas fa-folder-open"
                   iconColor="text-purple-600 dark:text-purple-400"
                   bgColor="bg-purple-100 dark:bg-purple-900/20"
@@ -206,7 +208,7 @@ export default function GlobalSearch() {
               {/* Tasks */}
               {results.tasks?.length > 0 && (
                 <SearchSection
-                  title="Tasks"
+                  title={t("search.categories.tasks")}
                   icon="fas fa-tasks"
                   iconColor="text-green-600 dark:text-green-400"
                   bgColor="bg-green-100 dark:bg-green-900/20"
@@ -214,7 +216,7 @@ export default function GlobalSearch() {
                   onItemClick={(item) => handleResultClick("task", item.id)}
                   renderItem={(item) => ({
                     title: item.title,
-                    subtitle: `Assigned to: ${item.assignedTo}`,
+                    subtitle: `${t("search.assignedTo")} ${item.assignedTo}`,
                     extra: item.dueDate,
                     status: item.status,
                   })}
@@ -224,7 +226,7 @@ export default function GlobalSearch() {
               {/* Cases */}
               {results.cases?.length > 0 && (
                 <SearchSection
-                  title="Lawsuits"
+                  title={t("search.categories.lawsuits")}
                   icon="fas fa-gavel"
                   iconColor="text-red-600 dark:text-red-400"
                   bgColor="bg-red-100 dark:bg-red-900/20"
@@ -242,7 +244,7 @@ export default function GlobalSearch() {
               {/* Sessions */}
               {results.sessions?.length > 0 && (
                 <SearchSection
-                  title="Hearings"
+                  title={t("search.categories.hearings")}
                   icon="fas fa-calendar"
                   iconColor="text-amber-600 dark:text-amber-400"
                   bgColor="bg-amber-100 dark:bg-amber-900/20"
@@ -250,7 +252,7 @@ export default function GlobalSearch() {
                   onItemClick={(item) => handleResultClick("session", item.id)}
                   renderItem={(item) => ({
                     title: item.title,
-                    subtitle: `${item.date} at ${item.time}`,
+                    subtitle: `${item.date} ${t("search.at")} ${item.time}`,
                     extra: item.location,
                     status: item.status,
                   })}
@@ -260,7 +262,7 @@ export default function GlobalSearch() {
               {/* Officers */}
               {results.officers?.length > 0 && (
                 <SearchSection
-                  title="Bailiffs"
+                  title={t("search.categories.bailiffs")}
                   icon="fas fa-user-tie"
                   iconColor="text-indigo-600 dark:text-indigo-400"
                   bgColor="bg-indigo-100 dark:bg-indigo-900/20"
@@ -279,10 +281,10 @@ export default function GlobalSearch() {
             <div className="py-12 text-center">
               <i className="fas fa-search text-4xl text-slate-300 dark:text-slate-600 mb-3"></i>
               <p className="text-slate-600 dark:text-slate-400">
-                No results for "{query}"
+                {t("search.results.noneFor", { query })}
               </p>
               <p className="text-sm text-slate-500 dark:text-slate-500 mt-1">
-                Try another search term
+                {t("search.results.tryAgain")}
               </p>
             </div>
           )}
@@ -297,6 +299,7 @@ export default function GlobalSearch() {
  */
 function SearchSection({ title, icon, iconColor, bgColor, items, onItemClick, renderItem }) {
   const [isExpanded, setIsExpanded] = useState(true);
+  const { t } = useTranslation("common");
 
   return (
     <div className="border-b border-slate-100 dark:border-slate-700 last:border-b-0">
@@ -314,7 +317,7 @@ function SearchSection({ title, icon, iconColor, bgColor, items, onItemClick, re
               {title}
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              {items.length} result{items.length > 1 ? "s" : ""}
+              {items.length} {t("search.result", { count: items.length })}
             </p>
           </div>
         </div>

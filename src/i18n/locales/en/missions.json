@@ -111,6 +111,76 @@
         "selectCase": "Select a lawsuit...",
         "selectDossier": "Select a dossier..."
       }
+    },
+    "missions": {
+      "empty": "No missions yet",
+      "entityName": "Mission"
+    }
+  },
+  "form": {
+    "title": {
+      "add": "Add Mission",
+      "edit": "Edit Mission"
+    },
+    "subtitle": {
+      "add": "Create a new mission",
+      "addFor": "Create a new mission for {{entity}}"
+    },
+    "submit": {
+      "add": "Add",
+      "edit": "Save"
+    },
+    "fields": {
+      "officer": "Bailiff",
+      "entityType": "Entity Type",
+      "entityReference": "Reference",
+      "missionNumber": "Reference / Number",
+      "title": "Mission Title",
+      "missionType": "Mission Type",
+      "priority": "Priority",
+      "assignDate": "Assignment Date",
+      "dueDate": "Due Date",
+      "status": "Status",
+      "description": "Description",
+      "result": "Report / Result",
+      "completionDate": "Completion Date",
+      "notes": "Notes",
+      "documents": "Documents",
+      "financialEntries": "Bailiff Fees"
+    },
+    "placeholders": {
+      "officer": "Select a bailiff...",
+      "missionNumber": "Ex: MIS-2025-001 (auto-generated if empty)",
+      "title": "Ex: Service of judicial act",
+      "description": "Detailed description of the mission...",
+      "result": "Detailed report of the mission execution...",
+      "notes": "Additional notes..."
+    },
+    "help": {
+      "entityReference": "Reference of the dossier or case",
+      "missionNumber": "Optional - Leave blank for automatic generation (MIS-YEAR-XXX)",
+      "result": "To be filled once the mission is completed",
+      "completionDate": "Completion date of the mission (if completed)",
+      "documents": "Add documents related to this mission (PDF, DOC, XLS, PPT, Images, Archives)",
+      "financialEntries": "Add fees related to this mission. These fees will be automatically linked to the mission and client.",
+      "bailiffAssigned": "This mission will be assigned to {{name}}",
+      "entityType": "Select whether the mission concerns a dossier or a lawsuit",
+      "entityReferenceSelect": "Select the dossier or lawsuit for this mission"
+    },
+    "options": {
+      "missionType": {
+        "Service": "Service",
+        "Execution": "Execution",
+        "Observation": "Observation",
+        "Seizure": "Seizure",
+        "Investigation": "Investigation"
+      },
+      "status": {
+        "planned": "Planned",
+        "inProgress": "In Progress",
+        "completed": "Completed",
+        "cancelled": "Cancelled"
+      }
     }
   }
 }

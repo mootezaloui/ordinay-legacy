@@ -1,4 +1,5 @@
 import { useSettings } from "../../contexts/SettingsContext";
+import { useTranslation } from "react-i18next";
 
 /**
  * ActivityFeed Component
@@ -6,6 +7,7 @@ import { useSettings } from "../../contexts/SettingsContext";
  */
 export default function ActivityFeed({ activities, maxItems = 5 }) {
   const { formatDate } = useSettings();
+  const { t } = useTranslation("common");
 
   const getActivityIcon = (type) => {
     const icons = {
@@ -100,7 +102,7 @@ export default function ActivityFeed({ activities, maxItems = 5 }) {
             <i className="fas fa-inbox text-slate-400 text-xl"></i>
           </div>
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            No recent activities to display.
+            {t("dashboard.recentActivity.empty")}
           </p>
         </div>
       )}

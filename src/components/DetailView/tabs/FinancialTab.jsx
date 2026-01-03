@@ -13,7 +13,7 @@ import TableToolbar from "../../table/TableToolbar";
 import Pagination from "../../table/Pagination";
 import FormModal from "../../FormModal/FormModal";
 import {
-  financialEntryFormFields,
+  getFinancialEntryFormFields,
   getFormTitle,
   populateRelationshipOptions,
 } from "../../FormModal/formConfigs";
@@ -283,7 +283,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
   const columns = useMemo(() => [
     {
       id: "date",
-      label: "Date",
+      label: t("detail.financial.columns.date", { ns: "common" }),
       sortable: true,
       locked: true,
       render: (entry) => (
@@ -294,7 +294,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
     },
     {
       id: "description",
-      label: "Entry",
+      label: t("detail.financial.columns.entry", { ns: "common" }),
       sortable: true,
       render: (entry) => (
         <div className="flex flex-col max-w-md">
@@ -316,7 +316,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
     },
     {
       id: "type",
-      label: "Type",
+      label: t("detail.financial.columns.type", { ns: "common" }),
       sortable: true,
       render: (entry) => (
         <span
@@ -325,13 +325,13 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
             : "bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300"
             }`}
         >
-          {entry.type === "revenue" ? "Revenue" : "Expense"}
+          {entry.type === "revenue" ? t("detail.financial.types.revenue", { ns: "common" }) : t("detail.financial.types.expense", { ns: "common" })}
         </span>
       ),
     },
     {
       id: "amount",
-      label: "Amount",
+      label: t("detail.financial.columns.amount", { ns: "common" }),
       sortable: true,
       render: (entry) => (
         <span
@@ -346,7 +346,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
     },
     {
       id: "status",
-      label: "Status",
+      label: t("detail.financial.columns.status", { ns: "common" }),
       sortable: true,
       render: (entry) => (
         <InlineStatusSelector
@@ -358,25 +358,25 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
           statusOptions={[
             {
               value: "draft",
-              label: "Draft",
+              label: t("detail.financial.status.draft", { ns: "common" }),
               icon: "fas fa-file",
               color: "slate",
             },
             {
               value: "confirmed",
-              label: "Confirmed",
+              label: t("detail.financial.status.confirmed", { ns: "common" }),
               icon: "fas fa-check-circle",
               color: "blue",
             },
             {
               value: "paid",
-              label: "Paid",
+              label: t("detail.financial.status.paid", { ns: "common" }),
               icon: "fas fa-check-double",
               color: "green",
             },
             {
               value: "Cancelled",
-              label: "Cancelled",
+              label: t("detail.financial.status.cancelled", { ns: "common" }),
               icon: "fas fa-times-circle",
               color: "red",
             },
@@ -386,7 +386,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
     },
     {
       id: "actions",
-      label: "Actions",
+      label: t("detail.financial.columns.actions", { ns: "common" }),
       sortable: false,
       locked: true,
       render: (entry) => (
@@ -394,7 +394,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
           <IconButton
             icon="view"
             variant="view"
-            title="View Details"
+            title={t("actions.view", { ns: "common" })}
             onClick={(e) => {
               e.stopPropagation();
               handleView(entry);
@@ -405,7 +405,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               <IconButton
                 icon="edit"
                 variant="edit"
-                title="Edit"
+                title={t("actions.edit", { ns: "common" })}
                 onClick={(e) => {
                   e.stopPropagation();
                   handleEdit(entry);
@@ -414,7 +414,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               <IconButton
                 icon="delete"
                 variant="delete"
-                title="Delete"
+                title={t("actions.delete", { ns: "common" })}
                 onClick={(e) => {
                   e.stopPropagation();
                   handleDelete(entry.id);
@@ -559,13 +559,13 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
 
           // ✅ Also log child_created event for the parent entity (client, dossier, case, etc.)
           if (entityType && entityId) {
-            const entryDescription = createdEntry.description || `${formatCurrency(createdEntry.amount)} financial entry`;
+            const entryDescription = createdEntry.description || `${formatCurrency(createdEntry.amount)}`;
             logHistoryEvent({
               entityType: entityType,
               entityId: parseInt(entityId),
               eventType: 'child_created',
-              label: `Financial entry "${entryDescription}" was added`,
-              details: `A new financial entry was created: ${entryDescription}`,
+              label: `${t("detail.history.labels.finance.entryAdded", { ns: "common" })}: ${entryDescription}`,
+              details: `${t("detail.history.labels.finance.entryAdded", { ns: "common" })}: ${entryDescription}`,
               metadata: {
                 childType: 'financial_entry',
                 childId: createdEntry.id,
@@ -608,7 +608,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
       }))
       : missions;
 
-    const fields = populateRelationshipOptions(financialEntryFormFields, {
+    const fields = populateRelationshipOptions(getFinancialEntryFormFields(), {
       clients,
       dossiers,
       cases,
@@ -1273,9 +1273,9 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
-                  Billed Fees
+                  {t("detail.financial.summary.billedFees", { ns: "common" })}
                 </span>
-                <i className="fas fa-info-circle text-slate-400 text-xs" title="Total lawyer fees billed to the client"></i>
+                <i className="fas fa-info-circle text-slate-400 text-xs" title={t("detail.financial.summary.billedFeesHelp", { ns: "common" })}></i>
               </div>
               <i className="fas fa-money-bill-wave text-emerald-500"></i>
             </div>
@@ -1283,7 +1283,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               {formatCurrency(balanceDetails.honoraires)}
             </div>
             <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              What you have billed
+              {t("detail.financial.summary.billedFeesDescription", { ns: "common" })}
             </div>
           </div>
 
@@ -1291,9 +1291,9 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
-                  Reimbursable Expenses
+                  {t("detail.financial.summary.reimbursableExpenses", { ns: "common" })}
                 </span>
-                <i className="fas fa-info-circle text-slate-400 text-xs" title="Expenses paid for the client (stamps, expertise, etc.) to be reimbursed"></i>
+                <i className="fas fa-info-circle text-slate-400 text-xs" title={t("detail.financial.summary.reimbursableExpensesHelp", { ns: "common" })}></i>
               </div>
               <i className="fas fa-file-invoice text-blue-500"></i>
             </div>
@@ -1301,7 +1301,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               {formatCurrency(balanceDetails.reimbursableExpenses)}
             </div>
             <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              Expenses to recover from the client
+              {t("detail.financial.summary.reimbursableExpensesDescription", { ns: "common" })}
             </div>
           </div>
 
@@ -1309,9 +1309,9 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
-                  Payments Received
+                  {t("detail.financial.summary.paymentsReceived", { ns: "common" })}
                 </span>
-                <i className="fas fa-info-circle text-slate-400 text-xs" title="Total payments and advances already received from the client"></i>
+                <i className="fas fa-info-circle text-slate-400 text-xs" title={t("detail.financial.summary.paymentsReceivedDescription", { ns: "common" })}></i>
               </div>
               <i className="fas fa-hand-holding-usd text-indigo-500"></i>
             </div>
@@ -1319,7 +1319,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               {formatCurrency(balanceDetails.totalPaid)}
             </div>
             <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              What the client has already paid
+              {t("detail.financial.summary.paymentsReceivedDescription", { ns: "common" })}
             </div>
           </div>
 
@@ -1334,14 +1334,14 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
-                  {balanceDetails.balance > 0 ? "To be received" : balanceDetails.balance < 0 ? "Overpaid" : "Balance"}
+                  {balanceDetails.balance > 0 ? t("detail.financial.summary.balance.toReceive", { ns: "common" }) : balanceDetails.balance < 0 ? t("detail.financial.summary.balance.overpaid", { ns: "common" }) : t("detail.financial.summary.balance.balanced", { ns: "common" })}
                 </span>
                 <i className="fas fa-info-circle text-slate-400 text-xs" title={
                   balanceDetails.balance > 0
-                    ? "Amount the client still needs to pay"
+                    ? t("detail.financial.summary.balance.toReceive", { ns: "common" })
                     : balanceDetails.balance < 0
-                      ? "Amount to be refunded to the client or available credit"
-                      : "Account settled"
+                      ? t("detail.financial.summary.balance.overpaid", { ns: "common" })
+                      : t("detail.financial.summary.balance.balanced", { ns: "common" })
                 }></i>
               </div>
               <i
@@ -1370,10 +1370,10 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
                 : "text-slate-500 dark:text-slate-400"
               }`}>
               {balanceDetails.balance > 0
-                ? "🔻 Client still needs to pay"
+                ? `🔻 ${t("detail.financial.summary.balance.clientOwes", { ns: "common", amount: formatCurrency(balanceDetails.balance) })}`
                 : balanceDetails.balance < 0
-                  ? "🔻 Client credit / To be refunded"
-                  : "✅ Account settled"}
+                  ? `🔻 ${t("detail.financial.summary.balance.youOwe", { ns: "common", amount: formatCurrency(Math.abs(balanceDetails.balance)) })}`
+                  : `✅ ${t("detail.financial.summary.balance.settled", { ns: "common" })}`}
             </div>
           </div>
         </div>
@@ -1385,7 +1385,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
           <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
-                Revenue
+                {t("detail.financial.summary.revenue", { ns: "common" })}
               </span>
               <i className="fas fa-arrow-down text-emerald-500"></i>
             </div>
@@ -1397,7 +1397,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
           <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
-                Expenses
+                {t("detail.financial.summary.expenses", { ns: "common" })}
               </span>
               <i className="fas fa-arrow-up text-rose-500"></i>
             </div>
@@ -1409,7 +1409,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
           <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
-                Net Balance
+                {t("detail.financial.summary.netBalance", { ns: "common" })}
               </span>
               <i className="fas fa-balance-scale text-blue-500"></i>
             </div>
@@ -1429,14 +1429,14 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
       <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
         <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
           <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
-            Accounting Entries ({entries.length})
+            {t("detail.financial.table.title", { ns: "common", count: entries.length })}
           </h3>
           <button
             onClick={handleAddEntry}
             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors text-sm inline-flex items-center gap-2"
           >
             <i className="fas fa-plus"></i>
-            New Entry
+            {t("page.actions.new")}
           </button>
         </div>
 
@@ -1465,8 +1465,8 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
             isEmpty={table.data.length === 0}
             emptyMessage={
               table.isFiltering
-                ? "No results found"
-                : "No accounting entries available"
+                ? t("detail.financial.table.empty.search", { ns: "common" })
+                : t("table.empty")
             }
           >
             {table.data.map((entry) => (
@@ -1506,8 +1506,8 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
         title={getFormTitle("financialEntry", !!editingEntry)}
         subtitle={
           editingEntry
-            ? "Edit Accounting Entry"
-            : "Create a New Entry"
+            ? t("form.subtitle.edit")
+            : t("form.subtitle.create")
         }
         fields={entryFields}
         initialData={editingEntry}

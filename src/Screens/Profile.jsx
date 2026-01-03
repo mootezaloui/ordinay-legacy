@@ -1,5 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useToast } from "../contexts/ToastContext";
+import { useOperator } from "../contexts/OperatorContext";
+import { updateOperator } from "../services/api/operators";
 import PageLayout from "../components/layout/PageLayout";
 import PageHeader from "../components/layout/PageHeader";
 import ContentSection from "../components/layout/ContentSection";
@@ -7,19 +9,42 @@ import { useTranslation } from "react-i18next";
 
 export default function Profile() {
   const { showToast } = useToast();
+  const { operator, refetchOperator } = useOperator();
   const { t } = useTranslation("profile");
   const [isEditing, setIsEditing] = useState(false);
   const [profile, setProfile] = useState({
-    firstName: "Mohamed",
-    lastName: "Hammami",
-    email: "m.hammami@lawfirm.tn",
-    phone: "+216 98 123 456",
-    title: "Principal Lawyer",
-    specialization: "Commercial Law",
-    barNumber: "TUN-2015-4567",
-    office: "Principal Office - Tunis",
-    bio: "Lawyer specialized in commercial law with over 8 years of experience. Expert in commercial litigation, corporate law, and arbitration.",
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    title: "",
+    specialization: "",
+    barNumber: "",
+    office: "",
+    bio: "",
   });
+
+  // Initialize profile from operator
+  useEffect(() => {
+    if (operator) {
+      // Parse operator name into first and last name
+      const nameParts = operator.name.split(' ');
+      const firstName = nameParts[0] || '';
+      const lastName = nameParts.slice(1).join(' ') || '';
+
+      setProfile({
+        firstName,
+        lastName,
+        email: operator.email || "",
+        phone: operator.phone || "",
+        title: operator.role === "OWNER" ? "Principal Lawyer" : operator.role,
+        specialization: operator.specialization || "",
+        barNumber: operator.bar_number || "",
+        office: operator.office || "",
+        bio: operator.bio || "",
+      });
+    }
+  }, [operator]);
 
   const [stats] = useState({
     activeCases: 24,
@@ -32,11 +57,36 @@ export default function Profile() {
     setProfile(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleSave = () => {
-    console.log("Profile saved:", profile);
-    setIsEditing(false);
-    // TODO: API call to save profile
-    showToast(t("toasts.saveSuccess"), "success");
+  const handleSave = async () => {
+    if (!operator) {
+      showToast(t("toasts.saveError"), "error");
+      return;
+    }
+
+    try {
+      // Convert profile data to backend format
+      const updates = {
+        name: `${profile.firstName} ${profile.lastName}`.trim(),
+        email: profile.email,
+        phone: profile.phone,
+        specialization: profile.specialization,
+        bar_number: profile.barNumber,
+        office: profile.office,
+        bio: profile.bio,
+      };
+
+      // Call backend API to update operator
+      await updateOperator(operator.id, updates);
+
+      // Refresh operator context to get updated data
+      await refetchOperator();
+
+      setIsEditing(false);
+      showToast(t("toasts.saveSuccess"), "success");
+    } catch (error) {
+      console.error("Failed to save profile:", error);
+      showToast(t("toasts.saveError"), "error");
+    }
   };
 
   const handleCancel = () => {

@@ -10,6 +10,10 @@
  * Note: All data comes from the live entities provided via the context argument.
  */
 
+import { i18nInstance } from "../i18n";
+
+const t = (key, options) => i18nInstance.t(key, { ns: "common", ...options });
+
 const getData = (context = {}) => ({
   tasks: context.tasks || context.entities?.tasks || [],
   sessions: context.sessions || context.entities?.sessions || [],
@@ -87,8 +91,8 @@ function parseBlocker(blocker, entityType, entityId, action, data) {
     return parseCaseBlockerEnglish(blocker, entityType, entityId, data);
   }
 
-  // Pattern 2.5: Open Dossiers
-  if (blocker.includes("open Dossier")) {
+  // Pattern 2.5: Open Dossiers (English and French)
+  if (blocker.includes("open Dossier") || blocker.includes("dossier ouvert") || blocker.includes("dossiers ouverts")) {
     return parseDossierBlockerEnglish(blocker, entityType, entityId, data);
   }
 
@@ -201,14 +205,14 @@ function parseTaskBlocker(blocker, entityType, entityId, data) {
     status: task.status,
     actions: [
       {
-        label: "View Task",
+        label: t("detail.blocker.enrichment.actions.viewTask"),
         type: "navigate",
         route: "/tasks",
         entityId: task.id,
         icon: "fas fa-external-link-alt",
       },
       {
-        label: "Mark Complete",
+        label: t("detail.blocker.enrichment.actions.markComplete"),
         type: "inline-action",
         action: "complete",
         entityType: "task",
@@ -223,10 +227,12 @@ function parseTaskBlocker(blocker, entityType, entityId, data) {
     type: "task",
     reason: blocker,
     items,
-    summary: `${tasks.length} incomplete Task${tasks.length > 1 ? "s" : ""}`,
+    summary: tasks.length > 1
+      ? t("detail.blocker.enrichment.summary.incompleteTasks", { count: tasks.length })
+      : t("detail.blocker.enrichment.summary.incompleteTask", { count: tasks.length }),
     helpText: entityType === "dossier"
-      ? "To close this dossier, all related tasks must be completed first. You can mark tasks as complete individually."
-      : "To close this lawsuit, all related tasks must be completed first. You can mark tasks as complete individually.",
+      ? t("detail.blocker.enrichment.helpText.closeDossierTasks")
+      : t("detail.blocker.enrichment.helpText.closeLawsuitTasks"),
     actions: [],
   };
 }
@@ -661,7 +667,7 @@ function parseDossierBlockerEnglish(blocker, entityType, entityId, data) {
     status: dossier.status,
     actions: [
       {
-        label: "View Dossier",
+        label: t("detail.blocker.enrichment.actions.viewDossier"),
         type: "navigate",
         route: "/dossiers",
         entityId: dossier.id,
@@ -674,8 +680,10 @@ function parseDossierBlockerEnglish(blocker, entityType, entityId, data) {
     type: "dossier",
     reason: blocker,
     items,
-    summary: `${dossiers.length} open Dossier${dossiers.length > 1 ? "s" : ""}`,
-    helpText: "To mark a client as inactive, all related dossiers must be closed first. You can close each dossier individually.",
+    summary: dossiers.length > 1
+      ? t("detail.blocker.enrichment.summary.openDossiers", { count: dossiers.length })
+      : t("detail.blocker.enrichment.summary.openDossier", { count: dossiers.length }),
+    helpText: t("detail.blocker.enrichment.helpText.inactivateClientDossiers"),
     actions: [],
   };
 }
