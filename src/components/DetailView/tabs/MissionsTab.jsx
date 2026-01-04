@@ -20,6 +20,7 @@ import { logEntityCreation, logAssignment } from "../../../services/historyServi
 import { resolveDetailRoute } from "../../../utils/routeResolver";
 import { useSettings } from "../../../contexts/SettingsContext";
 import { useTranslation } from "react-i18next";
+import documentService from "../../../services/documentService";
 
 /**
  * MissionsTab - Scalable mission list with document management
@@ -202,8 +203,8 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
         // ADD NEW MISSION
         console.log("📝 Mission creation - submittedFormData:", submittedFormData);
 
-        // Extract financial entries to create separately after mission creation
-        const { financialEntries, entityType, entityReference, ...restFormData } = submittedFormData;
+        // Extract financial entries, documents, and notes to create separately after mission creation
+        const { financialEntries, documents, notes, entityType, entityReference, ...restFormData } = submittedFormData;
 
         // Derive relational context based on parent entity (dossier, case, officer)
         const relationshipFields = (() => {
@@ -286,10 +287,128 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
               console.error("❌ Failed to create financial entry:", error);
             }
           }
+        }
 
-          showToast(t("detail.missions.toast.success.addWithEntries", { count: financialEntries.length }), "success");
+        // ✅ Upload documents if they exist
+        let documentsUploaded = 0;
+        if (documents && Array.isArray(documents) && documents.length > 0) {
+          console.log("📄 Uploading documents for mission:", documents);
+
+          const uploadResults = await documentService.uploadMultipleDocuments(
+            documents,
+            'mission',
+            createdMission.id,
+            'Mission Document'
+          );
+
+          if (uploadResults.successful.length > 0) {
+            console.log("✅ Documents uploaded successfully:", uploadResults.successful);
+            documentsUploaded = uploadResults.successful.length;
+            // Attach uploaded documents to the created mission
+            createdMission.documents = uploadResults.successful;
+          }
+
+          if (uploadResults.failed.length > 0) {
+            console.error("❌ Some documents failed to upload:", uploadResults.failed);
+            showToast(
+              t("detail.missions.toast.warning.partialDocUpload", {
+                successful: uploadResults.successful.length,
+                failed: uploadResults.failed.length,
+                defaultValue: `${uploadResults.successful.length} document(s) uploaded, ${uploadResults.failed.length} failed`
+              }),
+              "warning"
+            );
+          }
+        }
+
+        // ✅ Convert notes string to array format if present
+        let notesSaved = false;
+        if (notes && typeof notes === 'string' && notes.trim()) {
+          console.log("📝 Converting notes string to array format:", notes);
+
+          // Convert string to proper note object array
+          const noteObject = {
+            id: Date.now(),
+            content: notes.trim(),
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          };
+
+          try {
+            // Update the mission with notes in array format
+            await updateMission(createdMission.id, { notes: [noteObject] });
+            console.log("✅ Notes saved successfully:", noteObject);
+            createdMission.notes = [noteObject];
+            notesSaved = true;
+          } catch (error) {
+            console.error("❌ Failed to save notes:", error);
+          }
+        }
+
+        // Show consolidated success message
+        const hasFinancialEntries = financialEntries && financialEntries.length > 0;
+        const hasDocuments = documentsUploaded > 0;
+        const hasNotes = notesSaved;
+
+        if (hasFinancialEntries && hasDocuments && hasNotes) {
+          showToast(
+            t("detail.missions.toast.success.addComplete", {
+              entries: financialEntries.length,
+              docs: documentsUploaded,
+              defaultValue: `Mission created with ${financialEntries.length} fee(s), ${documentsUploaded} document(s), and notes`
+            }),
+            "success"
+          );
+        } else if (hasFinancialEntries && hasDocuments) {
+          showToast(
+            t("detail.missions.toast.success.addWithEntriesAndDocs", {
+              entries: financialEntries.length,
+              docs: documentsUploaded,
+              defaultValue: `Mission created with ${financialEntries.length} financial entry(ies) and ${documentsUploaded} document(s)`
+            }),
+            "success"
+          );
+        } else if (hasFinancialEntries && hasNotes) {
+          showToast(
+            t("detail.missions.toast.success.addWithEntriesAndNotes", {
+              count: financialEntries.length,
+              defaultValue: `Mission created with ${financialEntries.length} fee(s) and notes`
+            }),
+            "success"
+          );
+        } else if (hasDocuments && hasNotes) {
+          showToast(
+            t("detail.missions.toast.success.addWithDocsAndNotes", {
+              count: documentsUploaded,
+              defaultValue: `Mission created with ${documentsUploaded} document(s) and notes`
+            }),
+            "success"
+          );
+        } else if (hasFinancialEntries) {
+          showToast(
+            t("detail.missions.toast.success.addWithEntries", {
+              count: financialEntries.length,
+              defaultValue: `Mission created with ${financialEntries.length} financial entry(ies)`
+            }),
+            "success"
+          );
+        } else if (hasDocuments) {
+          showToast(
+            t("detail.missions.toast.success.addWithDocs", {
+              count: documentsUploaded,
+              defaultValue: `Mission created with ${documentsUploaded} document(s)`
+            }),
+            "success"
+          );
+        } else if (hasNotes) {
+          showToast(
+            t("detail.missions.toast.success.addWithNotes", {
+              defaultValue: "Mission created with notes"
+            }),
+            "success"
+          );
         } else {
-          showToast(t("detail.missions.toast.success.add"), "success");
+          showToast(t("detail.missions.toast.success.add", { defaultValue: "Mission created successfully" }), "success");
         }
 
         // Update local state with the created mission
@@ -338,15 +457,79 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
       return;
     }
 
-    if (await confirm({
-      title: t("dialog.detail.missions.delete.title"),
-      message: t("dialog.detail.missions.delete.message"),
-      confirmText: t("dialog.detail.missions.delete.confirm"),
-      cancelText: t("dialog.detail.missions.delete.cancel"),
-      variant: "danger"
-    })) {
-      try {
-        // ✅ Call backend API to delete mission
+    try {
+      // ✅ STEP 1: Check delete impact BEFORE showing confirmation
+      console.log("🔍 Checking delete impact for mission ID:", missionId);
+      const { apiClient } = await import('../../../services/api/client');
+      const impactResponse = await apiClient.get(`/missions/${missionId}/delete-impact`);
+
+      console.log("📊 Delete impact analysis:", impactResponse);
+
+      // ✅ STEP 2: Build impact summary for user
+      const { canDelete, impacts } = impactResponse;
+      const impactSummary = [];
+
+      if (impacts.financialEntries && impacts.financialEntries.length > 0) {
+        impactSummary.push({
+          type: 'cascade',
+          message: `${impacts.financialEntries.length} financial entry(ies) will be permanently deleted`,
+          details: impacts.financialEntries.map(e => `${e.title} (${e.amount} ${e.currency})`).join(', ')
+        });
+      }
+
+      if (impacts.documents && impacts.documents.length > 0) {
+        impactSummary.push({
+          type: 'cascade',
+          message: `${impacts.documents.length} document(s) will be permanently deleted`,
+          details: impacts.documents.map(d => d.title).join(', ')
+        });
+      }
+
+      if (impacts.notes && impacts.notes.length > 0) {
+        impactSummary.push({
+          type: 'cascade',
+          message: `${impacts.notes.length} note(s) will be permanently deleted`,
+          details: impacts.notes.map(n => n.content).join(', ')
+        });
+      }
+
+      if (impacts.notifications && impacts.notifications.length > 0) {
+        impactSummary.push({
+          type: 'cascade',
+          message: `${impacts.notifications.length} notification(s) will be permanently deleted`,
+          details: impacts.notifications.map(n => n.title).join(', ')
+        });
+      }
+
+      if (impacts.history && impacts.history.length > 0) {
+        impactSummary.push({
+          type: 'cascade',
+          message: `${impacts.history.length} history event(s) will be permanently deleted`,
+          details: impacts.history.map(h => h.description).join(', ')
+        });
+      }
+
+      // ✅ STEP 3: Show impact warning modal if there are dependencies
+      if (impactSummary.length > 0) {
+        setValidationResult({
+          allowed: true,
+          requiresConfirmation: true,
+          impactSummary,
+          message: `Deleting this mission will also delete all related data. This action cannot be undone.`,
+        });
+        setPendingFormData({ deleteId: missionId });
+        setConfirmImpactModalOpen(true);
+        return;
+      }
+
+      // ✅ STEP 4: No dependencies - show simple confirmation
+      if (await confirm({
+        title: t("dialog.detail.missions.delete.title"),
+        message: t("dialog.detail.missions.delete.message"),
+        confirmText: t("dialog.detail.missions.delete.confirm"),
+        cancelText: t("dialog.detail.missions.delete.cancel"),
+        variant: "danger"
+      })) {
         console.log("🗑️ Deleting mission ID:", missionId);
         await deleteMission(missionId);
 
@@ -359,9 +542,19 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
         }
 
         showToast(t("detail.missions.toast.success.delete"), "success");
-      } catch (error) {
-        console.error("❌ Error deleting mission:", error);
-        showToast(t("detail.missions.toast.error.delete"), "error");
+      }
+    } catch (error) {
+      console.error("❌ Error deleting mission:", error);
+      // Show user-friendly error message instead of 500
+      if (error.response && error.response.status === 500) {
+        showToast(
+          t("detail.missions.toast.error.deleteConflict", {
+            defaultValue: "Cannot delete mission due to data integrity constraints. Please contact support."
+          }),
+          "error"
+        );
+      } else {
+        showToast(t("detail.missions.toast.error.delete", { defaultValue: "Failed to delete mission" }), "error");
       }
     }
   };
@@ -1035,10 +1228,21 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
           setConfirmImpactModalOpen(false);
           if (pendingFormData?.deleteId) {
             const missionId = pendingFormData.deleteId;
-            const updatedMissions = missions.filter((m) => m.id !== missionId);
-            setMissions(updatedMissions);
-            if (onItemsChange) {
-              onItemsChange(tabConfig.itemsKey, updatedMissions);
+            try {
+              // ✅ Actually call the delete API
+              console.log("🗑️ Cascade deleting mission ID:", missionId);
+              await deleteMission(missionId);
+
+              // Update local state
+              const updatedMissions = missions.filter((m) => m.id !== missionId);
+              setMissions(updatedMissions);
+              if (onItemsChange) {
+                onItemsChange(tabConfig.itemsKey, updatedMissions);
+              }
+              showToast(t("detail.missions.toast.success.delete"), "success");
+            } catch (error) {
+              console.error("❌ Error cascade deleting mission:", error);
+              showToast(t("detail.missions.toast.error.delete", { defaultValue: "Failed to delete mission" }), "error");
             }
           } else {
             await performMissionSave(pendingFormData);
