@@ -169,6 +169,7 @@
       "sessions": "Audiences",
       "dossiersAddSubtitle": "Créer un nouveau dossier pour ce client",
       "cases": "Procès",
+      "casesEntity": "procès",
       "tasksEntity": "une tâche",
       "tasksDisabled": "Ajoutez d'abord un dossier avant de créer une tâche pour ce client.",
       "casesDisabled": "Ajoutez d'abord un dossier avant de créer un procès pour ce client.",

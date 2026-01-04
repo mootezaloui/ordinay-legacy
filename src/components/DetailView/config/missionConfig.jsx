@@ -2,6 +2,7 @@ import ContentSection from "../../layout/ContentSection";
 import { getStatusColor } from "./statusColors";
 import { getMissionFormFields } from "../../FormModal/formConfigs";
 import { formatDateValue } from "../../../utils/dateFormat";
+import { translateMissionStatus, translateMissionPriority, translateMissionType } from "../../../utils/entityTranslations";
 
 /**
  * Mission Entity Configuration
@@ -31,14 +32,9 @@ export const createMissionConfig = (t) => ({
                 // ✅ Enrich with financial entries linked to this mission
                 const financialEntries = contextData?.financialEntries || [];
                 const missionFinancialEntries = financialEntries.filter(entry => {
-                    // Match by mission_id (primary) or fallback to dossier/case relationship
-                    return (
-                        entry.missionId === missionId ||
-                        (
-                            (mission.dossierId && entry.dossierId === mission.dossierId) ||
-                            (mission.caseId && entry.caseId === mission.caseId)
-                        )
-                    ) && entry.category === 'frais_huissier'; // Only bailiff fees
+                    // Match by mission_id to align with FinancialTab filter logic
+                    // FinancialTab uses { scope: "client", missionId: entityId }
+                    return entry.missionId === missionId && entry.scope === 'client';
                 });
 
                 return {
@@ -154,11 +150,11 @@ export const createMissionConfig = (t) => ({
                                                 : 'bg-slate-100 text-slate-700 dark:bg-slate-900/30 dark:text-slate-300'
                                         }`}>
                                         <i className="fas fa-briefcase"></i>
-                                        {data.missionType}
+                                        {translateMissionType(data.missionType, t)}
                                     </span>
                                     <span className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-bold ${getStatusColor(data.priority)}`}>
                                         <i className="fas fa-exclamation-circle"></i>
-                                        {t('detail.header.priority')}: {data.priority}
+                                        {t('detail.header.priority')}: {translateMissionPriority(data.priority, t)}
                                     </span>
                                 </div>
                             </div>
@@ -419,6 +415,7 @@ export const createMissionConfig = (t) => ({
                     key: "missionType",
                     label: t('detail.overview.fields.missionType'),
                     value: (data, contextData) => data.missionType,
+                    displayValue: (data) => translateMissionType(data.missionType, t),
                     icon: "fas fa-briefcase",
                     type: "select",
                     editable: true,
@@ -434,7 +431,7 @@ export const createMissionConfig = (t) => ({
                     key: "status",
                     label: t('detail.overview.fields.status'),
                     value: (data, contextData) => data.status,
-                    displayValue: (data) => data.status || t('detail.fallback.na'),
+                    displayValue: (data) => translateMissionStatus(data.status, t) || t('detail.fallback.na'),
                     icon: "fas fa-flag",
                     type: "select",
                     editable: true,
@@ -449,7 +446,7 @@ export const createMissionConfig = (t) => ({
                     key: "priority",
                     label: t('detail.overview.fields.priority'),
                     value: (data, contextData) => data.priority,
-                    displayValue: (data) => data.priority || t('detail.fallback.na'),
+                    displayValue: (data) => translateMissionPriority(data.priority, t) || t('detail.fallback.na'),
                     icon: "fas fa-exclamation-circle",
                     type: "select",
                     editable: true,

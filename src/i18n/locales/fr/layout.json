@@ -15,7 +15,8 @@
       "light": "Mode clair",
       "dark": "Mode sombre"
     },
-    "logout": "Déconnexion",
+    "logout": "Quitter l'application",
+    "exitApp": "Quitter l'application",
     "footer": "© 2025 Organia"
   },
   "header": {

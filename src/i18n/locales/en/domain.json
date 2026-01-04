@@ -269,6 +269,18 @@
         "caseClosed": "This mission is linked to case \"{{caseNumber}}\" which is closed.\n\nModifications are no longer allowed on closed cases."
       }
     },
+    "delete": {
+      "warning": {
+        "financialEntriesWillDelete": "This mission has {{count}} financial entry that will be deleted.",
+        "financialEntriesWillDelete_plural": "This mission has {{count}} financial entries that will be deleted.",
+        "documentsWillDelete": "This mission has {{count}} document that will be deleted.",
+        "documentsWillDelete_plural": "This mission has {{count}} documents that will be deleted.",
+        "notesWillDelete": "This mission has {{count}} note that will be deleted.",
+        "notesWillDelete_plural": "This mission has {{count}} notes that will be deleted."
+      },
+      "forceDeleteMessage": "⚠️ Warning: Deleting this mission will also delete {{count}} linked entity (financial entries, documents, notes). This action is irreversible.",
+      "forceDeleteMessage_plural": "⚠️ Warning: Deleting this mission will also delete {{count}} linked entities (financial entries, documents, notes). This action is irreversible."
+    },
     "impact": {
       "reference": {
         "field": "Mission Number",

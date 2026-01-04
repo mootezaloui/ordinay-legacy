@@ -7,6 +7,7 @@ import { getAllPhases, addCustomPhase } from "../../../utils/phaseManager";
 import { getAllCategories, addCustomCategory } from "../../../utils/categoryManager";
 import { calculateNextDeadline, formatDate, getDeadlineNavigationPath, getDeadlineUrgency } from "../../../utils/deadlineUtils";
 import { formatDateValue } from "../../../utils/dateFormat";
+import { translateStatus, translateCategory } from "../../../utils/entityTranslations";
 
 // Default phases for dossiers
 const DEFAULT_PHASES = [
@@ -249,14 +250,14 @@ export const createDossierConfig = (t) => {
                   {t('detail.header.priority')} {data.priority}
                 </span>
                 <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(data.status)}`}>
-                  {data.status}
+                  {translateStatus(data.status, 'dossiers', t)}
                 </span>
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <InfoCard icon="fas fa-calendar" label={t('detail.header.openingDate')} value={formatDateValue(data.openDate)} color="blue" />
-              <InfoCard icon="fas fa-layer-group" label={t('detail.header.category')} value={data.category} color="purple" />
+              <InfoCard icon="fas fa-layer-group" label={t('detail.header.category')} value={translateCategory(data.category, t)} color="purple" />
               <InfoCard icon="fas fa-stream" label={t('detail.header.phase')} value={data.phase || t('detail.fallback.notDefined')} color="green" />
               {(() => {
                 const deadline = data.computedNextDeadline;

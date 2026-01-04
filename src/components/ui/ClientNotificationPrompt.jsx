@@ -10,6 +10,7 @@
 
 import React, { useState } from 'react';
 import { X, Mail, Send, Eye, EyeOff } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { generateClientEmail } from '../../services/clientCommunication';
 
 export default function ClientNotificationPrompt({
@@ -19,6 +20,7 @@ export default function ClientNotificationPrompt({
   eventType,
   eventData,
 }) {
+  const { t } = useTranslation('notifications');
   const [showPreview, setShowPreview] = useState(false);
   const [isSending, setIsSending] = useState(false);
 
@@ -62,10 +64,10 @@ export default function ClientNotificationPrompt({
               </div>
               <div>
                 <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                  Notification Client
+                  {t('clientEmail.modal.title')}
                 </h2>
                 <p className="text-sm text-slate-600 dark:text-slate-400">
-                  Do you want to notify client about this update ?
+                  {t('clientEmail.modal.description')}
                 </p>
               </div>
             </div>
@@ -86,7 +88,7 @@ export default function ClientNotificationPrompt({
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-slate-600 dark:text-slate-400">
-                      Recipient
+                      {t('clientEmail.modal.recipient')}
                     </p>
                     <p className="font-medium text-slate-900 dark:text-slate-100">
                       {emailPreview.clientName}
@@ -102,12 +104,12 @@ export default function ClientNotificationPrompt({
                     {showPreview ? (
                       <>
                         <EyeOff className="w-4 h-4" />
-                        Hide
+                        {t('clientEmail.modal.hide')}
                       </>
                     ) : (
                       <>
                         <Eye className="w-4 h-4" />
-                        Preview
+                        {t('clientEmail.modal.preview')}
                       </>
                     )}
                   </button>
@@ -118,7 +120,7 @@ export default function ClientNotificationPrompt({
                   <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700 space-y-3">
                     <div>
                       <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">
-                        Subject
+                        {t('clientEmail.modal.subject')}
                       </p>
                       <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
                         {emailPreview.subject}
@@ -126,7 +128,7 @@ export default function ClientNotificationPrompt({
                     </div>
                     <div>
                       <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">
-                        Message
+                        {t('clientEmail.modal.message')}
                       </p>
                       <div className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-slate-200 dark:border-slate-700">
                         <pre className="text-sm text-slate-900 dark:text-slate-100 whitespace-pre-wrap font-sans">
@@ -142,8 +144,7 @@ export default function ClientNotificationPrompt({
             {/* Information Note */}
             <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
               <p className="text-sm text-blue-900 dark:text-blue-100 break-words whitespace-normal">
-                📧 An email will be sent to the client to inform them of this update.
-                You can choose not to notify the client if this action is internal.
+                {t('clientEmail.modal.infoMessage')}
               </p>
             </div>
           </div>
@@ -155,7 +156,7 @@ export default function ClientNotificationPrompt({
               disabled={isSending}
               className="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              No, do not notify
+              {t('clientEmail.modal.actions.decline')}
             </button>
             <button
               onClick={handleConfirm}
@@ -165,12 +166,12 @@ export default function ClientNotificationPrompt({
               {isSending ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Sending...
+                  {t('clientEmail.modal.actions.sending')}
                 </>
               ) : (
                 <>
                   <Send className="w-4 h-4" />
-                  Yes, send an email
+                  {t('clientEmail.modal.actions.confirm')}
                 </>
               )}
             </button>

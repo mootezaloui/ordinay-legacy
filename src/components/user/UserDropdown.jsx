@@ -31,10 +31,14 @@ export default function UserDropdown({ isOpen, onToggle, onClose }) {
         navigate(path);
     };
 
-    const handleLogout = () => {
+    const handleExit = () => {
         onClose();
-        // Add your logout logic here
-        navigate("/login");
+        // Desktop-first: close the app if possible, otherwise route back to dashboard
+        if (typeof window !== "undefined" && typeof window.close === "function") {
+            window.close();
+        } else {
+            navigate("/dashboard");
+        }
     };
 
     useEffect(() => {
@@ -63,8 +67,8 @@ export default function UserDropdown({ isOpen, onToggle, onClose }) {
         },
         {
             icon: "fas fa-sign-out-alt",
-            label: t("header.userMenu.logout"),
-            action: handleLogout,
+            label: t("header.userMenu.exitApp"),
+            action: handleExit,
             color: "text-red-600 dark:text-red-400",
             divider: true
         }

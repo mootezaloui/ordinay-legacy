@@ -115,6 +115,20 @@
     "add": "Add",
     "view": "View"
   },
+  "forms": {
+    "titles": {
+      "client": { "new": "New Client", "edit": "Edit Client" },
+      "dossier": { "new": "New Dossier", "edit": "Edit Dossier" },
+      "case": { "new": "New Case", "edit": "Edit Case" },
+      "session": { "new": "New Session", "edit": "Edit Session" },
+      "task": { "new": "New Task", "edit": "Edit Task" },
+      "personalTask": { "new": "New Personal Task", "edit": "Edit Personal Task" },
+      "invoice": { "new": "New Invoice", "edit": "Edit Invoice" },
+      "officerAssignment": { "new": "Assign Bailiff", "edit": "Edit Mission" },
+      "mission": { "new": "New Bailiff Mission", "edit": "Edit Bailiff Mission" },
+      "financialEntry": { "new": "New Financial Entry", "edit": "Edit Financial Entry" }
+    }
+  },
   "detail": {
     "toast": {
       "success": {
@@ -376,6 +390,9 @@
         "empty": {
           "search": "No results found",
           "noData": "No accounting entries available"
+        },
+        "columns": {
+          "actions": "Actions"
         }
       },
       "actions": {
@@ -447,11 +464,11 @@
     "aggregated": {
       "empty": {
         "dossiers": "No dossiers for this client",
-        "lawsuitsClient": "No lawsuits for this client",
-        "lawsuitsDossier": "No lawsuits for this dossier",
-        "hearingsClient": "No hearings scheduled for this client.\nTo add a hearing, create a dossier or a lawsuit.",
+        "lawsuitsClient": "No cases for this client",
+        "lawsuitsDossier": "No cases for this dossier",
+        "hearingsClient": "No hearings scheduled for this client.\nTo add a hearing, create a dossier or a case.",
         "hearingsDossier": "No hearings scheduled for this dossier",
-        "hearingsLawsuit": "No hearings scheduled for this lawsuit",
+        "hearingsLawsuit": "No hearings scheduled for this case",
         "tasksClient": "No tasks for this client",
         "tasksDossier": "No tasks for this dossier",
         "tasksLawsuit": "No tasks for this lawsuit",
@@ -628,8 +645,36 @@
   "table": {
     "searching": "Searching...",
     "searchResults": "{{filtered}} result(s) out of {{total}}",
-    "columns": "Columns",
-    "manageColumns": "Manage Columns"
+    "toolbar": {
+      "columns": "Columns",
+      "manageColumns": "Manage Columns",
+      "export": "Export"
+    },
+    "pagination": {
+      "showing": "Showing {{from}} to {{to}} of {{total}} results",
+      "perPage": "{{count}} per page"
+    },
+    "empty": "No data available",
+    "columns": {
+      "actions": "Actions",
+      "joinDate": "Join Date",
+      "email": "Email",
+      "phone": "Phone",
+      "name": "Name",
+      "status": "Status",
+      "caseNumber": "Case Number",
+      "title": "Title",
+      "client": "Client",
+      "date": "Date",
+      "dueDate": "Due Date",
+      "priority": "Priority",
+      "assignedTo": "Assigned To"
+    },
+    "actions": {
+      "view": "View",
+      "edit": "Edit",
+      "delete": "Delete"
+    }
   },
   "dialog": {
     "confirm": {
@@ -762,7 +807,8 @@
       "settings": "Settings",
       "lightMode": "Light Mode",
       "darkMode": "Dark Mode",
-      "logout": "Logout"
+      "logout": "Exit application",
+      "exitApp": "Exit application"
     },
     "roles": {
       "OWNER": "Owner",

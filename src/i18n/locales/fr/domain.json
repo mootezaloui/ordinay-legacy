@@ -269,6 +269,18 @@
         "caseClosed": "Cette mission est liée au procès \"{{caseNumber}}\" qui est fermé.\n\nLes modifications ne sont plus autorisées sur les procès fermés."
       }
     },
+    "delete": {
+      "warning": {
+        "financialEntriesWillDelete": "Cette mission possède {{count}} écriture financière qui sera supprimée.",
+        "financialEntriesWillDelete_plural": "Cette mission possède {{count}} écritures financières qui seront supprimées.",
+        "documentsWillDelete": "Cette mission possède {{count}} document qui sera supprimé.",
+        "documentsWillDelete_plural": "Cette mission possède {{count}} documents qui seront supprimés.",
+        "notesWillDelete": "Cette mission possède {{count}} note qui sera supprimée.",
+        "notesWillDelete_plural": "Cette mission possède {{count}} notes qui seront supprimées."
+      },
+      "forceDeleteMessage": "⚠️ Avertissement : La suppression de cette mission entraînera également la suppression de {{count}} entité liée (écritures financières, documents, notes). Cette action est irréversible.",
+      "forceDeleteMessage_plural": "⚠️ Avertissement : La suppression de cette mission entraînera également la suppression de {{count}} entités liées (écritures financières, documents, notes). Cette action est irréversible."
+    },
     "impact": {
       "reference": {
         "field": "Numéro de mission",

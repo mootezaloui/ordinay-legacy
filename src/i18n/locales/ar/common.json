@@ -112,6 +112,53 @@
     "save": "حفظ",
     "cancel": "إلغاء"
   },
+  "forms": {
+    "titles": {
+      "client": { "new": "عميل جديد", "edit": "تعديل العميل" },
+      "dossier": { "new": "ملف جديد", "edit": "تعديل الملف" },
+      "case": { "new": "دعوى جديدة", "edit": "تعديل الدعوى" },
+      "session": { "new": "جلسة جديدة", "edit": "تعديل الجلسة" },
+      "task": { "new": "مهمة جديدة", "edit": "تعديل المهمة" },
+      "personalTask": { "new": "مهمة شخصية جديدة", "edit": "تعديل المهمة الشخصية" },
+      "invoice": { "new": "فاتورة جديدة", "edit": "تعديل الفاتورة" },
+      "officerAssignment": { "new": "تعيين محضر", "edit": "تعديل المهمة" },
+      "mission": { "new": "مهمة محضر جديدة", "edit": "تعديل مهمة المحضر" },
+      "financialEntry": { "new": "قيد مالي جديد", "edit": "تعديل القيد المالي" }
+    }
+  },
+  "table": {
+    "searching": "البحث...",
+    "toolbar": {
+      "columns": "الأعمدة",
+      "manageColumns": "إدارة الأعمدة",
+      "export": "تصدير"
+    },
+    "pagination": {
+      "showing": "عرض {{from}} إلى {{to}} من {{total}} النتائج",
+      "perPage": "{{count}} في الصفحة"
+    },
+    "empty": "لا توجد بيانات متاحة",
+    "columns": {
+      "actions": "الإجراءات",
+      "joinDate": "تاريخ الانضمام",
+      "email": "البريد الإلكتروني",
+      "phone": "الهاتف",
+      "name": "الاسم",
+      "status": "الحالة",
+      "caseNumber": "رقم القضية",
+      "title": "العنوان",
+      "client": "العميل",
+      "date": "التاريخ",
+      "dueDate": "تاريخ الاستحقاق",
+      "priority": "الأولوية",
+      "assignedTo": "مخصص لـ"
+    },
+    "actions": {
+      "view": "عرض",
+      "edit": "تعديل",
+      "delete": "حذف"
+    }
+  },
   "aria": {
     "dialog": {
       "close": "إغلاق الحوار"
@@ -152,7 +199,8 @@
       "settings": "الإعدادات",
       "lightMode": "الوضع الفاتح",
       "darkMode": "الوضع الداكن",
-      "logout": "تسجيل الخروج"
+      "logout": "إغلاق التطبيق",
+      "exitApp": "إغلاق التطبيق"
     },
     "roles": {
       "OWNER": "المالك",

@@ -169,6 +169,7 @@
       "sessions": "الجلسات",
       "dossiersAddSubtitle": "إنشاء ملف جديد لهذا العميل",
       "cases": "الدعاوى",
+      "casesEntity": "دعوى",
       "tasksEntity": "مهمة",
       "tasksDisabled": "أضف ملفاً أولاً قبل إنشاء مهمة لهذا العميل.",
       "casesDisabled": "أضف ملفاً أولاً قبل إنشاء دعوى لهذا العميل.",

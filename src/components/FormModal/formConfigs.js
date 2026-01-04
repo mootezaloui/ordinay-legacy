@@ -1477,340 +1477,485 @@ export const getFinancialEntryFormFields = () => {
     i18next.t(`accounting:${key}`, options);
 
   return [
-  {
-    name: "scope",
-    label: tAccounting("form.fields.scope.label", { defaultValue: "Financial Scope" }),
-    type: "select",
-    required: true,
-    defaultValue: "client",
-    options: [
-      { value: "client", label: tAccounting("form.fields.scope.options.client", { defaultValue: "Client (affects client balance)" }) },
-      { value: "internal", label: tAccounting("form.fields.scope.options.internal", { defaultValue: "Internal (office expenses)" }) },
-    ],
-    helpText: tAccounting("form.fields.scope.help", { defaultValue: "Choose 'Client' for client-related operations, 'Internal' for office expenses" }),
-    onChange: (value, formData, setFormData) => {
-      // Clear client/dossier/case when switching to internal
-      if (value === "internal") {
+    {
+      name: "scope",
+      label: tAccounting("form.fields.scope.label", {
+        defaultValue: "Financial Scope",
+      }),
+      type: "select",
+      required: true,
+      defaultValue: "client",
+      options: [
+        {
+          value: "client",
+          label: tAccounting("form.fields.scope.options.client", {
+            defaultValue: "Client (affects client balance)",
+          }),
+        },
+        {
+          value: "internal",
+          label: tAccounting("form.fields.scope.options.internal", {
+            defaultValue: "Internal (office expenses)",
+          }),
+        },
+      ],
+      helpText: tAccounting("form.fields.scope.help", {
+        defaultValue:
+          "Choose 'Client' for client-related operations, 'Internal' for office expenses",
+      }),
+      onChange: (value, formData, setFormData) => {
+        // Clear client/dossier/case when switching to internal
+        if (value === "internal") {
+          setFormData({
+            ...formData,
+            scope: value,
+            clientId: "",
+            dossierId: "",
+            caseId: "",
+          });
+        } else {
+          setFormData({
+            ...formData,
+            scope: value,
+          });
+        }
+      },
+    },
+    {
+      name: "type",
+      label: tAccounting("form.fields.type.label", {
+        defaultValue: "Operation Type",
+      }),
+      type: "select",
+      required: true,
+      defaultValue: "expense",
+      options: [
+        {
+          value: "revenue",
+          label: tAccounting("form.fields.type.options.revenue", {
+            defaultValue: "Revenue (money received)",
+          }),
+        },
+        {
+          value: "expense",
+          label: tAccounting("form.fields.type.options.expense", {
+            defaultValue: "Expense (money paid)",
+          }),
+        },
+      ],
+      onChange: (value, formData, setFormData) => {
+        // Auto-suggest category based on type
+        let suggestedCategory = formData.category;
+        if (value === "revenue" && formData.category === "frais_judiciaires") {
+          suggestedCategory = "honoraires";
+        } else if (value === "expense" && formData.category === "honoraires") {
+          suggestedCategory = "frais_judiciaires";
+        }
         setFormData({
           ...formData,
-          scope: value,
-          clientId: "",
+          type: value,
+          category: suggestedCategory,
+        });
+      },
+    },
+    {
+      name: "category",
+      label: tAccounting("form.fields.category.label", {
+        defaultValue: "Category",
+      }),
+      type: "select",
+      required: true,
+      getOptions: (formData) => {
+        const type = formData.type || "expense";
+        const scope = formData.scope || "client";
+
+        // Revenue categories
+        if (type === "revenue") {
+          return [
+            {
+              value: "honoraires",
+              label: tAccounting("form.fields.category.options.honoraires", {
+                defaultValue: "Fees",
+              }),
+            },
+            {
+              value: "advance",
+              label: tAccounting("form.fields.category.options.advance", {
+                defaultValue: "Client advance",
+              }),
+            },
+            {
+              value: "other",
+              label: tAccounting("form.fields.category.options.other", {
+                defaultValue: "Other",
+              }),
+            },
+          ];
+        }
+
+        // Expense categories
+        if (scope === "internal") {
+          return [
+            {
+              value: "frais_bureau",
+              label: tAccounting("form.fields.category.options.frais_bureau", {
+                defaultValue: "Office expenses",
+              }),
+            },
+            {
+              value: "other",
+              label: tAccounting("form.fields.category.options.other", {
+                defaultValue: "Other",
+              }),
+            },
+          ];
+        }
+
+        return [
+          {
+            value: "frais_judiciaires",
+            label: tAccounting(
+              "form.fields.category.options.frais_judiciaires",
+              { defaultValue: "Court fees" }
+            ),
+          },
+          {
+            value: "frais_huissier",
+            label: tAccounting("form.fields.category.options.frais_huissier", {
+              defaultValue: "Bailiff fees",
+            }),
+          },
+          {
+            value: "other",
+            label: tAccounting("form.fields.category.options.other", {
+              defaultValue: "Other",
+            }),
+          },
+        ];
+      },
+      onChange: (value, formData, setFormData) => {
+        // Clear mission when category is not frais_huissier
+        if (value !== "frais_huissier") {
+          setFormData({
+            ...formData,
+            category: value,
+            missionId: "",
+          });
+        } else {
+          setFormData({
+            ...formData,
+            category: value,
+          });
+        }
+      },
+    },
+    {
+      name: "amount",
+      label: tAccounting("form.fields.amount.label", {
+        defaultValue: "Amount (TND)",
+      }),
+      type: "number",
+      required: true,
+      placeholder: tAccounting("form.fields.amount.placeholder", {
+        defaultValue: "0.00",
+      }),
+      min: 0,
+      step: 0.01,
+      validate: (value) => {
+        const amount = parseFloat(value);
+        if (isNaN(amount) || amount <= 0) {
+          return "Amount must be greater than 0";
+        }
+        return null;
+      },
+    },
+    {
+      name: "date",
+      label: tAccounting("form.fields.date.label", { defaultValue: "Date" }),
+      type: "date",
+      required: true,
+      defaultValue: new Date().toISOString().split("T")[0],
+    },
+    {
+      name: "status",
+      label: tAccounting("form.fields.status.label", {
+        defaultValue: "Status",
+      }),
+      type: "inline-status",
+      required: true,
+      defaultValue: "confirmed",
+      statusOptions: [
+        {
+          value: "draft",
+          label: tAccounting("form.options.status.draft", {
+            defaultValue: "Draft",
+          }),
+          color: "slate",
+        },
+        {
+          value: "confirmed",
+          label: tAccounting("form.options.status.confirmed", {
+            defaultValue: "Confirmed",
+          }),
+          color: "blue",
+        },
+        {
+          value: "paid",
+          label: tAccounting("form.options.status.paid", {
+            defaultValue: "Paid",
+          }),
+          color: "green",
+        },
+      ],
+    },
+    {
+      name: "title",
+      label: tAccounting("form.fields.title.label", { defaultValue: "Title" }),
+      type: "text",
+      required: true,
+      fullWidth: true,
+      placeholder: tAccounting("form.fields.title.placeholder", {
+        defaultValue:
+          "Ex: Court filing fee, Bailiff travel expenses, Legal consultation...",
+      }),
+      helpText: tAccounting("form.fields.title.help", {
+        defaultValue: "Short, descriptive title for this financial entry",
+      }),
+    },
+    {
+      name: "description",
+      label: tAccounting("form.fields.description.label", {
+        defaultValue: "Additional Details (optional)",
+      }),
+      type: "textarea",
+      required: false,
+      fullWidth: true,
+      rows: 3,
+      placeholder: tAccounting("form.fields.description.placeholder", {
+        defaultValue:
+          "Optional additional details about this financial entry...",
+      }),
+    },
+    {
+      name: "clientId",
+      label: tAccounting("form.fields.client.label", {
+        defaultValue: "Client",
+      }),
+      type: "searchable-select",
+      required: false,
+      options: [], // Will be populated dynamically
+      hideIf: (formData) => formData.scope === "internal",
+      helpText: tAccounting("form.fields.client.help", {
+        defaultValue:
+          "Client concerned by this operation (required if scope = Client)",
+      }),
+      validate: (value, formData) => {
+        if (formData.scope === "client" && (!value || value === "")) {
+          return "Client is required when scope is 'Client'.";
+        }
+        return null;
+      },
+      onChange: (value, formData, setFormData) => {
+        // Clear dossier and case when client changes
+        setFormData({
+          ...formData,
+          clientId: value,
           dossierId: "",
           caseId: "",
         });
-      } else {
-        setFormData({
-          ...formData,
-          scope: value,
-        });
-      }
-    },
-  },
-  {
-    name: "type",
-    label: tAccounting("form.fields.type.label", { defaultValue: "Operation Type" }),
-    type: "select",
-    required: true,
-    defaultValue: "expense",
-    options: [
-      { value: "revenue", label: tAccounting("form.fields.type.options.revenue", { defaultValue: "Revenue (money received)" }) },
-      { value: "expense", label: tAccounting("form.fields.type.options.expense", { defaultValue: "Expense (money paid)" }) },
-    ],
-    onChange: (value, formData, setFormData) => {
-      // Auto-suggest category based on type
-      let suggestedCategory = formData.category;
-      if (value === "revenue" && formData.category === "frais_judiciaires") {
-        suggestedCategory = "honoraires";
-      } else if (value === "expense" && formData.category === "honoraires") {
-        suggestedCategory = "frais_judiciaires";
-      }
-      setFormData({
-        ...formData,
-        type: value,
-        category: suggestedCategory,
-      });
-    },
-  },
-  {
-    name: "category",
-    label: tAccounting("form.fields.category.label", { defaultValue: "Category" }),
-    type: "select",
-    required: true,
-    getOptions: (formData) => {
-      const type = formData.type || "expense";
-      const scope = formData.scope || "client";
-
-      // Revenue categories
-      if (type === "revenue") {
-        return [
-          { value: "honoraires", label: tAccounting("form.fields.category.options.honoraires", { defaultValue: "Fees" }) },
-          { value: "advance", label: tAccounting("form.fields.category.options.advance", { defaultValue: "Client advance" }) },
-          { value: "other", label: tAccounting("form.fields.category.options.other", { defaultValue: "Other" }) },
-        ];
-      }
-
-      // Expense categories
-      if (scope === "internal") {
-        return [
-          { value: "frais_bureau", label: tAccounting("form.fields.category.options.frais_bureau", { defaultValue: "Office expenses" }) },
-          { value: "other", label: tAccounting("form.fields.category.options.other", { defaultValue: "Other" }) },
-        ];
-      }
-
-      return [
-        { value: "frais_judiciaires", label: tAccounting("form.fields.category.options.frais_judiciaires", { defaultValue: "Court fees" }) },
-        { value: "frais_huissier", label: tAccounting("form.fields.category.options.frais_huissier", { defaultValue: "Bailiff fees" }) },
-        { value: "other", label: tAccounting("form.fields.category.options.other", { defaultValue: "Other" }) },
-      ];
-    },
-    onChange: (value, formData, setFormData) => {
-      // Clear mission when category is not frais_huissier
-      if (value !== "frais_huissier") {
-        setFormData({
-          ...formData,
-          category: value,
-          missionId: "",
-        });
-      } else {
-        setFormData({
-          ...formData,
-          category: value,
-        });
-      }
-    },
-  },
-  {
-    name: "amount",
-    label: tAccounting("form.fields.amount.label", { defaultValue: "Amount (TND)" }),
-    type: "number",
-    required: true,
-    placeholder: tAccounting("form.fields.amount.placeholder", { defaultValue: "0.00" }),
-    min: 0,
-    step: 0.01,
-    validate: (value) => {
-      const amount = parseFloat(value);
-      if (isNaN(amount) || amount <= 0) {
-        return "Amount must be greater than 0";
-      }
-      return null;
-    },
-  },
-  {
-    name: "date",
-    label: tAccounting("form.fields.date.label", { defaultValue: "Date" }),
-    type: "date",
-    required: true,
-    defaultValue: new Date().toISOString().split("T")[0],
-  },
-  {
-    name: "status",
-    label: tAccounting("form.fields.status.label", { defaultValue: "Status" }),
-    type: "inline-status",
-    required: true,
-    defaultValue: "confirmed",
-    statusOptions: [
-      { value: "draft", label: tAccounting("form.options.status.draft", { defaultValue: "Draft" }), color: "slate" },
-      {
-        value: "confirmed",
-        label: tAccounting("form.options.status.confirmed", { defaultValue: "Confirmed" }),
-        color: "blue",
       },
-      { value: "paid", label: tAccounting("form.options.status.paid", { defaultValue: "Paid" }), color: "green" },
-    ],
-  },
-  {
-    name: "title",
-    label: tAccounting("form.fields.title.label", { defaultValue: "Title" }),
-    type: "text",
-    required: true,
-    fullWidth: true,
-    placeholder: tAccounting("form.fields.title.placeholder", { defaultValue: "Ex: Court filing fee, Bailiff travel expenses, Legal consultation..." }),
-    helpText: tAccounting("form.fields.title.help", { defaultValue: "Short, descriptive title for this financial entry" }),
-  },
-  {
-    name: "description",
-    label: tAccounting("form.fields.description.label", { defaultValue: "Additional Details (optional)" }),
-    type: "textarea",
-    required: false,
-    fullWidth: true,
-    rows: 3,
-    placeholder: tAccounting("form.fields.description.placeholder", { defaultValue: "Optional additional details about this financial entry..." }),
-  },
-  {
-    name: "clientId",
-    label: tAccounting("form.fields.client.label", { defaultValue: "Client" }),
-    type: "searchable-select",
-    required: false,
-    options: [], // Will be populated dynamically
-    hideIf: (formData) => formData.scope === "internal",
-    helpText: tAccounting("form.fields.client.help", { defaultValue: "Client concerned by this operation (required if scope = Client)" }),
-    validate: (value, formData) => {
-      if (formData.scope === "client" && (!value || value === "")) {
-        return "Client is required when scope is 'Client'.";
-      }
-      return null;
     },
-    onChange: (value, formData, setFormData) => {
-      // Clear dossier and case when client changes
-      setFormData({
-        ...formData,
-        clientId: value,
-        dossierId: "",
-        caseId: "",
-      });
+    {
+      name: "dossierId",
+      label: tAccounting("form.fields.dossier.label", {
+        defaultValue: "Dossier (optional)",
+      }),
+      type: "searchable-select",
+      required: false,
+      options: [], // Base options - will be filtered by getOptions
+      getOptions: (formData, allOptions) => {
+        // Filter dossiers by selected client
+        const clientId = formData.clientId;
+        if (!clientId || !allOptions?.dossiers) {
+          return [];
+        }
+        return allOptions.dossiers
+          .filter((d) => d.clientId === clientId)
+          .map((d) => ({ value: d.id, label: `${d.caseNumber} - ${d.title}` }));
+      },
+      hideIf: (formData) => formData.scope === "internal",
+      helpText: tAccounting("form.fields.dossier.help", {
+        defaultValue: "Concerned dossier (optional)",
+      }),
+      onChange: (value, formData, setFormData) => {
+        // Clear case when dossier changes (DB constraint: only one can be set)
+        // However, if the current case belongs to this dossier, we can keep both
+        setFormData({
+          ...formData,
+          dossierId: value,
+          caseId: "", // Always clear case when dossier changes to avoid constraint violation
+        });
+      },
     },
-  },
-  {
-    name: "dossierId",
-    label: tAccounting("form.fields.dossier.label", { defaultValue: "Dossier (optional)" }),
-    type: "searchable-select",
-    required: false,
-    options: [], // Base options - will be filtered by getOptions
-    getOptions: (formData, allOptions) => {
-      // Filter dossiers by selected client
-      const clientId = formData.clientId;
-      if (!clientId || !allOptions?.dossiers) {
-        return [];
-      }
-      return allOptions.dossiers
-        .filter((d) => d.clientId === clientId)
-        .map((d) => ({ value: d.id, label: `${d.caseNumber} - ${d.title}` }));
+    {
+      name: "caseId",
+      label: tAccounting("form.fields.case.label", {
+        defaultValue: "Case (optional)",
+      }),
+      type: "searchable-select",
+      required: false,
+      options: [], // Base options - will be filtered by getOptions
+      getOptions: (formData, allOptions) => {
+        // Filter cases by selected client or dossier
+        const clientId = formData.clientId;
+        const dossierId = formData.dossierId;
+        if (!allOptions?.cases) {
+          return [];
+        }
+
+        let filteredCases = allOptions.cases;
+
+        // If dossier is selected, filter by dossier
+        if (dossierId) {
+          filteredCases = filteredCases.filter(
+            (c) => c.dossierId === dossierId
+          );
+        } else if (clientId) {
+          // If only client is selected, filter by client
+          filteredCases = filteredCases.filter((c) => c.clientId === clientId);
+        } else {
+          return [];
+        }
+
+        return filteredCases.map((c) => ({
+          value: c.id,
+          label: `${c.caseNumber} - ${c.title}`,
+        }));
+      },
+      hideIf: (formData) => formData.scope === "internal",
+      helpText: tAccounting("form.fields.case.help", {
+        defaultValue: "Concerned case (optional)",
+      }),
+      onChange: (value, formData, setFormData) => {
+        // Clear dossier when case is selected (DB constraint: only one can be set)
+        // The case already has a dossier_id in the cases table, so we don't need to duplicate it here
+        setFormData({
+          ...formData,
+          caseId: value,
+          dossierId: value ? "" : formData.dossierId, // Clear dossierId only if selecting a case
+        });
+      },
     },
-    hideIf: (formData) => formData.scope === "internal",
-    helpText: tAccounting("form.fields.dossier.help", { defaultValue: "Concerned dossier (optional)" }),
-    onChange: (value, formData, setFormData) => {
-      // Clear case when dossier changes (DB constraint: only one can be set)
-      // However, if the current case belongs to this dossier, we can keep both
-      setFormData({
-        ...formData,
-        dossierId: value,
-        caseId: "", // Always clear case when dossier changes to avoid constraint violation
-      });
-    },
-  },
-  {
-    name: "caseId",
-    label: tAccounting("form.fields.case.label", { defaultValue: "Case (optional)" }),
-    type: "searchable-select",
-    required: false,
-    options: [], // Base options - will be filtered by getOptions
-    getOptions: (formData, allOptions) => {
-      // Filter cases by selected client or dossier
-      const clientId = formData.clientId;
-      const dossierId = formData.dossierId;
-      if (!allOptions?.cases) {
-        return [];
-      }
+    {
+      name: "missionId",
+      label: tAccounting("form.fields.mission.label", {
+        defaultValue: "Associated Mission",
+      }),
+      type: "searchable-select",
+      required: false,
+      options: [], // Base options - will be filtered by getOptions
+      getOptions: (formData, allOptions) => {
+        // Only show missions related to selected dossier or case
+        const dossierId = formData.dossierId;
+        const caseId = formData.caseId;
 
-      let filteredCases = allOptions.cases;
+        if (!allOptions?.missions) {
+          return [
+            {
+              value: "",
+              label: tAccounting("form.fields.mission.noneAvailable", {
+                defaultValue: "No mission available",
+              }),
+            },
+          ];
+        }
 
-      // If dossier is selected, filter by dossier
-      if (dossierId) {
-        filteredCases = filteredCases.filter((c) => c.dossierId === dossierId);
-      } else if (clientId) {
-        // If only client is selected, filter by client
-        filteredCases = filteredCases.filter((c) => c.clientId === clientId);
-      } else {
-        return [];
-      }
+        let filteredMissions = allOptions.missions;
 
-      return filteredCases.map((c) => ({
-        value: c.id,
-        label: `${c.caseNumber} - ${c.title}`,
-      }));
-    },
-    hideIf: (formData) => formData.scope === "internal",
-    helpText: tAccounting("form.fields.case.help", { defaultValue: "Concerned case (optional)" }),
-    onChange: (value, formData, setFormData) => {
-      // Clear dossier when case is selected (DB constraint: only one can be set)
-      // The case already has a dossier_id in the cases table, so we don't need to duplicate it here
-      setFormData({
-        ...formData,
-        caseId: value,
-        dossierId: value ? "" : formData.dossierId, // Clear dossierId only if selecting a case
-      });
-    },
-  },
-  {
-    name: "missionId",
-    label: tAccounting("form.fields.mission.label", { defaultValue: "Associated Mission" }),
-    type: "searchable-select",
-    required: false,
-    options: [], // Base options - will be filtered by getOptions
-    getOptions: (formData, allOptions) => {
-      // Only show missions related to selected dossier or case
-      const dossierId = formData.dossierId;
-      const caseId = formData.caseId;
+        // Filter missions based on selected entity
+        if (dossierId) {
+          filteredMissions = filteredMissions.filter(
+            (m) =>
+              m.entityType === "dossier" &&
+              String(m.entityId) === String(dossierId)
+          );
+        } else if (caseId) {
+          filteredMissions = filteredMissions.filter(
+            (m) =>
+              m.entityType === "case" && String(m.entityId) === String(caseId)
+          );
+        } else {
+          // No dossier or case selected - don't show missions
+          return [
+            {
+              value: "",
+              label: tAccounting("form.fields.mission.selectPrerequisite", {
+                defaultValue: "Please first select a dossier or case",
+              }),
+            },
+          ];
+        }
 
-      if (!allOptions?.missions) {
-        return [{ value: "", label: tAccounting("form.fields.mission.noneAvailable", { defaultValue: "No mission available" }) }];
-      }
+        if (filteredMissions.length === 0) {
+          return [
+            {
+              value: "",
+              label: tAccounting("form.fields.mission.noneForEntity", {
+                defaultValue: "No mission for this dossier/case",
+              }),
+            },
+          ];
+        }
 
-      let filteredMissions = allOptions.missions;
-
-      // Filter missions based on selected entity
-      if (dossierId) {
-        filteredMissions = filteredMissions.filter(
-          (m) =>
-            m.entityType === "dossier" &&
-            String(m.entityId) === String(dossierId)
-        );
-      } else if (caseId) {
-        filteredMissions = filteredMissions.filter(
-          (m) =>
-            m.entityType === "case" && String(m.entityId) === String(caseId)
-        );
-      } else {
-        // No dossier or case selected - don't show missions
         return [
           {
             value: "",
-            label: tAccounting("form.fields.mission.selectPrerequisite", { defaultValue: "Please first select a dossier or case" }),
-          },
-        ];
-      }
-
-      if (filteredMissions.length === 0) {
-        return [{ value: "", label: tAccounting("form.fields.mission.noneForEntity", { defaultValue: "No mission for this dossier/case" }) }];
-      }
-
-      return [
-        { value: "", label: tAccounting("form.fields.mission.selectMission", { defaultValue: "Select the mission related to these fees" }) },
-        ...filteredMissions.map((m) => ({
-          value: m.id,
-          label: `${m.missionNumber} - ${m.title} (${
-            m.officerName || tAccounting("form.fields.mission.fallbackOfficer", { defaultValue: "Bailiff not defined" })
-          }) - ${m.status}`,
-        })),
-      ];
-    },
-    hideIf: (formData) =>
-      formData.scope === "internal" || formData.category !== "frais_huissier",
-    helpText: tAccounting("form.fields.mission.help", { defaultValue: "Select the bailiff mission related to these fees" }),
-    onChange: (value, formData, setFormData, allOptions) => {
-      // Auto-populate description when mission is selected
-      if (value && allOptions?.missions) {
-        const selectedMission = allOptions.missions.find((m) => m.id === value);
-        if (selectedMission && !formData.description) {
-          setFormData({
-            ...formData,
-            missionId: value,
-            description: tAccounting("form.fields.mission.autoDescription", {
-              defaultValue: "Bailiff fees - {{missionNumber}} - {{title}}",
-              missionNumber: selectedMission.missionNumber,
-              title: selectedMission.title
+            label: tAccounting("form.fields.mission.selectMission", {
+              defaultValue: "Select the mission related to these fees",
             }),
-          });
-          return;
+          },
+          ...filteredMissions.map((m) => ({
+            value: m.id,
+            label: `${m.missionNumber} - ${m.title} (${
+              m.officerName ||
+              tAccounting("form.fields.mission.fallbackOfficer", {
+                defaultValue: "Bailiff not defined",
+              })
+            }) - ${m.status}`,
+          })),
+        ];
+      },
+      hideIf: (formData) =>
+        formData.scope === "internal" || formData.category !== "frais_huissier",
+      helpText: tAccounting("form.fields.mission.help", {
+        defaultValue: "Select the bailiff mission related to these fees",
+      }),
+      onChange: (value, formData, setFormData, allOptions) => {
+        // Auto-populate description when mission is selected
+        if (value && allOptions?.missions) {
+          const selectedMission = allOptions.missions.find(
+            (m) => m.id === value
+          );
+          if (selectedMission && !formData.description) {
+            setFormData({
+              ...formData,
+              missionId: value,
+              description: tAccounting("form.fields.mission.autoDescription", {
+                defaultValue: "Bailiff fees - {{missionNumber}} - {{title}}",
+                missionNumber: selectedMission.missionNumber,
+                title: selectedMission.title,
+              }),
+            });
+            return;
+          }
         }
-      }
-      setFormData({
-        ...formData,
-        missionId: value,
-      });
+        setFormData({
+          ...formData,
+          missionId: value,
+        });
+      },
     },
-  },
-];
+  ];
 };
 
 // For backward compatibility, export as static array but it will be evaluated at module load
@@ -1845,20 +1990,29 @@ export function getFormFields(entityType) {
  * Get form title for entity type
  */
 export function getFormTitle(entityType, isEdit = false) {
-  const titles = {
-    client: isEdit ? "Edit Client" : "New Client",
-    dossier: isEdit ? "Edit Dossier" : "New Dossier",
-    case: isEdit ? "Edit Case" : "New Case",
-    session: isEdit ? "Edit Session" : "New Session",
-    task: isEdit ? "Edit Task" : "New Task",
-    personalTask: isEdit ? "Edit Personal Task" : "New Personal Task",
-    invoice: isEdit ? "Edit Invoice" : "New Invoice",
-    officerAssignment: isEdit ? "Edit Mission" : "Assign Bailiff",
-    mission: isEdit ? "Edit Bailiff Mission" : "New Bailiff Mission",
-    financialEntry: isEdit ? "Edit Financial Entry" : "New Financial Entry",
+  const defaultTitles = {
+    client: { new: "New Client", edit: "Edit Client" },
+    dossier: { new: "New Dossier", edit: "Edit Dossier" },
+    case: { new: "New Case", edit: "Edit Case" },
+    session: { new: "New Session", edit: "Edit Session" },
+    task: { new: "New Task", edit: "Edit Task" },
+    personalTask: { new: "New Personal Task", edit: "Edit Personal Task" },
+    invoice: { new: "New Invoice", edit: "Edit Invoice" },
+    officerAssignment: { new: "Assign Bailiff", edit: "Edit Mission" },
+    mission: { new: "New Bailiff Mission", edit: "Edit Bailiff Mission" },
+    financialEntry: {
+      new: "New Financial Entry",
+      edit: "Edit Financial Entry",
+    },
   };
 
-  return titles[entityType] || "Form";
+  const entityDefaults = defaultTitles[entityType];
+  const mode = isEdit ? "edit" : "new";
+  const defaultValue = entityDefaults ? entityDefaults[mode] : "Form";
+
+  return i18next.t(`common:forms.titles.${entityType}.${mode}`, {
+    defaultValue,
+  });
 }
 
 /**

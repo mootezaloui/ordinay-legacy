@@ -499,7 +499,7 @@ export function DataProvider({ children }) {
 
   const updateClient = async (id, updates) => {
     const prev = clients.find((c) => c.id === id);
-    const validation = validateMutation("client", "edit", id, { data: prev, newData: { ...prev, ...updates } }, integrityIssues);
+    const validation = validateMutation("client", "edit", id, { data: prev, newData: { ...prev, ...updates }, entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries } }, integrityIssues);
     if (!validation.ok) return validation;
 
     console.log('[DataContext.updateClient] Updating client ID:', id, 'with:', updates);
@@ -510,7 +510,7 @@ export function DataProvider({ children }) {
       phone: updates.phone,
       alternate_phone: updates.alternatePhone,
       address: updates.address,
-      status: updates.status === "Active" ? "active" : updates.status === "inActive" ? "inActive" : updates.status,
+      status: updates.status === "Active" ? "active" : updates.status === "Inactive" || updates.status === "inActive" ? "inActive" : updates.status,
       cin: updates.cin,
       date_of_birth: updates.dateOfBirth,
       profession: updates.profession,
@@ -1981,6 +1981,57 @@ export function DataProvider({ children }) {
     return { ok: true, result: validation.result };
   };
 
+  const deleteMissionCascade = async (id) => {
+    console.log('[DataContext.deleteMissionCascade] Force deleting mission and all related entities:', id);
+
+    try {
+      // Find all financial entries for this mission
+      const missionFinancials = financialEntries.filter(e => String(e.missionId) === String(id));
+      for (const entry of missionFinancials) {
+        await deleteFinancialEntry(entry.id);
+        // Delete history for each financial entry
+        await deleteEntityHistory('financial_entry', entry.id);
+      }
+
+      // Find and delete all documents for this mission
+      const missionDocuments = documents.filter(d => d.entityType === 'mission' && String(d.entityId) === String(id));
+      for (const doc of missionDocuments) {
+        await deleteDocument(doc.id);
+        // Delete history for each document
+        await deleteEntityHistory('document', doc.id);
+      }
+
+      // Find and delete all notes for this mission
+      const missionNotes = notes.filter(n => n.entityType === 'mission' && String(n.entityId) === String(id));
+      for (const note of missionNotes) {
+        await deleteNote(note.id);
+        // Delete history for each note
+        await deleteEntityHistory('note', note.id);
+      }
+
+      // Delete the mission from backend
+      await apiClient.delete(`/missions/${id}`);
+
+      // Delete all history for this mission
+      await deleteEntityHistory('mission', id);
+
+      setMissions((prev) => {
+        const next = prev.filter((mission) => mission.id !== id);
+        saveToStorage("missions", next);
+        return next;
+      });
+
+      const prev = missions.find((m) => m.id === id);
+      logDeletionHistory("mission", prev, actorName);
+
+      console.log('[DataContext.deleteMissionCascade] Successfully deleted mission and all related entities');
+      return { ok: true, result: { message: 'Mission and all related entities deleted successfully' } };
+    } catch (error) {
+      console.error('[DataContext.deleteMissionCascade] Error during cascade delete:', error);
+      return { ok: false, result: { message: 'Error during cascade delete' } };
+    }
+  };
+
   // --- Financial Entries ---
   const addFinancialEntry = async (entry) => {
     const validation = validateMutation("financialEntry", "add", entry?.id, {
@@ -2160,6 +2211,7 @@ export function DataProvider({ children }) {
       addMission,
       updateMission,
       deleteMission,
+      deleteMissionCascade,
       addFinancialEntry,
       updateFinancialEntry,
       deleteFinancialEntry,

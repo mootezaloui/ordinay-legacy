@@ -123,5 +123,108 @@
     "labels": {
       "notifications": "Centre de notifications"
     }
+  },
+  "clientEmail": {
+    "modal": {
+      "title": "Notification Client",
+      "description": "Souhaitez-vous informer le client de cette mise à jour ?",
+      "recipient": "Destinataire",
+      "subject": "Objet",
+      "message": "Message",
+      "preview": "Aperçu",
+      "hide": "Masquer",
+      "infoMessage": "📧 Un email sera envoyé au client pour l'informer de cette modification. Vous pouvez choisir de ne pas notifier le client si cette action est interne.",
+      "actions": {
+        "decline": "Non, ne pas notifier",
+        "confirm": "Oui, envoyer un email",
+        "sending": "Envoi en cours..."
+      }
+    },
+    "subjects": {
+      "dossierCreated": "Ouverture de votre dossier {{title}} ({{number}})",
+      "dossierStatusChanged": "Mise à jour du dossier {{title}} ({{number}})",
+      "dossierDeadlineChanged": "Modification d'échéance - {{title}} ({{number}})",
+      "caseCreated": "Ouverture de votre affaire {{title}} ({{number}})",
+      "caseStatusChanged": "Mise à jour de l'affaire {{title}} ({{number}})",
+      "caseHearingChanged": "Modification de date d'audience - {{title}} ({{number}})",
+      "sessionScheduled": "Audience planifiée - {{title}}",
+      "sessionDateChanged": "Modification de date d'audience - {{title}}",
+      "sessionCancelled": "Annulation d'audience - {{number}}",
+      "financialEntryAdded": "Nouvelle écriture financière concernant votre dossier"
+    },
+    "body": {
+      "greeting": "Cher/Chère {{name}},",
+      "closing": "Cordialement,\n{{senderName}}",
+      "dossierCreated": {
+        "confirmation": "Nous confirmons l'ouverture de votre dossier.",
+        "details": "Dossier : {{title}} ({{number}})\nDate d'inscription : {{date}}",
+        "footer": "Nous restons à votre disposition pour toute question."
+      },
+      "dossierStatusChanged": {
+        "intro": "Nous vous informons que le statut de votre dossier a été modifié.",
+        "details": "Dossier : {{title}} ({{number}})\nNouveau statut : {{newStatus}}\nDate : {{date}}",
+        "footer": "Pour toute question, n'hésitez pas à nous contacter.",
+        "statusExplanations": {
+          "Closed": "Votre dossier est maintenant fermé. Tous les éléments de l'affaire ont été traités.",
+          "Suspended": "Votre dossier est temporairement suspendu en raison de circonstances nécessitant une pause dans le traitement.",
+          "OpenAfterReopening": "Votre dossier a été rouvert pour traitement suite à de nouveaux développements.",
+          "Open": "Votre dossier est maintenant actif et en cours de traitement."
+        }
+      },
+      "dossierDeadlineChanged": {
+        "intro": "Nous vous informons d'une modification d'échéance concernant votre dossier.",
+        "details": "Dossier : {{title}} ({{number}})\n\nÉchéance précédente : {{oldDate}}\nNouvelle échéance : {{newDate}}",
+        "impact": "Cette modification {{impactNote}}.",
+        "impactNotes": {
+          "significant": "représente un changement significatif dans le calendrier de votre dossier",
+          "moderate": "peut impacter le calendrier de traitement de votre dossier"
+        },
+        "footer": "Pour toute question, n'hésitez pas à nous contacter."
+      },
+      "caseCreated": {
+        "confirmation": "Nous confirmons l'ouverture d'une nouvelle affaire vous concernant.",
+        "details": "Affaire : {{title}} ({{number}})\nJuridiction : {{court}}",
+        "footer": "Nous vous tiendrons informé(e) de chaque étape."
+      },
+      "caseStatusChanged": {
+        "intro": "Nous vous informons d'un développement concernant votre affaire.",
+        "details": "Affaire : {{title}} ({{number}})\nTribunal : {{court}}\nNouveau statut : {{newStatus}}\nDate : {{date}}",
+        "footer": "Nous restons à votre disposition pour toute information complémentaire.",
+        "statusExplanations": {
+          "Clos": "Votre affaire est maintenant clôturée. Une décision finale a été rendue.",
+          "Suspendu": "Votre affaire a été suspendue par le tribunal. Nous vous tiendrons informé(e) de la reprise de la procédure."
+        }
+      },
+      "caseHearingChanged": {
+        "intro": "Nous vous informons d'une modification concernant votre audience à venir.",
+        "details": "Affaire : {{title}} ({{number}})\nTribunal : {{court}}\n\nDate précédente : {{oldDate}}\nNouvelle date : {{newDate}}",
+        "footer": "Veuillez prendre note de ce changement et vous organiser en conséquence.\n\nPour toute question, n'hésitez pas à nous contacter."
+      },
+      "sessionScheduled": {
+        "intro": "Une audience a été planifiée pour votre dossier.",
+        "details": "Type : {{title}}\nDate : {{date}} à {{time}}\nLieu : {{location}}\nDurée estimée : {{duration}}",
+        "detailsWithCase": "Affaire : {{caseTitle}} ({{caseNumber}})\nType : {{title}}\nDate : {{date}} à {{time}}\nLieu : {{location}}\nDurée estimée : {{duration}}",
+        "footer": "Nous vous tiendrons informé(e) de tout développement."
+      },
+      "sessionDateChanged": {
+        "intro": "Nous vous informons d'une modification concernant votre audience à venir.",
+        "details": "Audience : {{title}}\n\nDate précédente : {{oldDate}} à {{oldTime}}\nNouvelle date : {{newDate}} à {{newTime}}\n\nLieu : {{location}}",
+        "detailsWithCase": "Affaire : {{caseTitle}} ({{caseNumber}})\nAudience : {{title}}\n\nDate précédente : {{oldDate}} à {{oldTime}}\nNouvelle date : {{newDate}} à {{newTime}}\n\nLieu : {{location}}",
+        "footer": "Veuillez prendre note de ce changement et vous organiser en conséquence.\n\nPour toute question, n'hésitez pas à nous contacter."
+      },
+      "sessionCancelled": {
+        "intro": "Nous vous informons de l'annulation de l'audience prévue.",
+        "details": "Audience annulée : {{date}} à {{time}}\nLieu : {{location}}",
+        "detailsWithCase": "Affaire : {{caseNumber}} - {{caseTitle}}\nAudience annulée : {{date}} à {{time}}\nLieu : {{location}}",
+        "footer": "Une nouvelle date vous sera communiquée dès que possible."
+      },
+      "financialEntryAdded": {
+        "intro": "Une nouvelle écriture financière a été enregistrée.",
+        "details": "Description : {{description}}\nMontant : {{amount}}",
+        "detailsWithDueDate": "Description : {{description}}\nMontant : {{amount}}\nDate d'échéance : {{dueDate}}",
+        "detailsWithBalance": "Description : {{description}}\nMontant : {{amount}}\nSolde client après écriture : {{clientBalance}}",
+        "footer": "Veuillez prendre note de cette mise à jour."
+      }
+    }
   }
 }

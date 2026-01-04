@@ -247,7 +247,7 @@ export const createClientConfig = (t) => {
         addEnabled: (clientData) => (clientData.relatedDossiers || []).length > 0,
         addDisabledText: t('detail.tabs.casesDisabled'),
         allowDelete: false,
-        entityName: "lawsuit",
+        entityName: t('detail.tabs.casesEntity'),
         addSubtitle: t('detail.tabs.casesAddSubtitle'),
         // Dynamic form fields - dossierId options filtered to client's dossiers
         getFormFields: (clientData) => {

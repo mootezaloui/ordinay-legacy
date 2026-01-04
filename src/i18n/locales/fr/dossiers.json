@@ -191,6 +191,12 @@
         "tax": "Droit fiscal"
       }
     },
+    "status": {
+      "open": "Ouvert",
+      "inProgress": "En cours",
+      "onHold": "En attente",
+      "closed": "Fermé"
+    },
     "fallback": {
       "na": "N/A",
       "noDeadlines": "Aucune échéance",
@@ -224,6 +230,17 @@
       "category": "Catégorie",
       "phase": "Phase",
       "nextDeadline": "Prochaine échéance"
+    },
+    "category": {
+      "options": {
+        "commercialLaw": "Droit commercial",
+        "familyLaw": "Droit familial",
+        "criminalLaw": "Droit pénal",
+        "laborLaw": "Droit du travail",
+        "realEstateLaw": "Droit immobilier",
+        "administrativeLaw": "Droit administratif",
+        "taxLaw": "Droit fiscal"
+      }
     },
     "deadlines": {
       "urgency": {

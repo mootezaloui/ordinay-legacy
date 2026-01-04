@@ -259,6 +259,18 @@
         "caseClosed": "هذه المهمة مرتبطة بالقضية \"{{caseNumber}}\" المغلقة.\n\nلم تعد التعديلات مسموحة على القضايا المغلقة."
       }
     },
+    "delete": {
+      "warning": {
+        "financialEntriesWillDelete": "هذه المهمة تحتوي على {{count}} قيد مالي سيتم حذفه.",
+        "financialEntriesWillDelete_plural": "هذه المهمة تحتوي على {{count}} قيود مالية سيتم حذفها.",
+        "documentsWillDelete": "هذه المهمة تحتوي على {{count}} مستند سيتم حذفه.",
+        "documentsWillDelete_plural": "هذه المهمة تحتوي على {{count}} مستندات سيتم حذفها.",
+        "notesWillDelete": "هذه المهمة تحتوي على {{count}} ملاحظة سيتم حذفها.",
+        "notesWillDelete_plural": "هذه المهمة تحتوي على {{count}} ملاحظات سيتم حذفها."
+      },
+      "forceDeleteMessage": "⚠️ تحذير: حذف هذه المهمة سيؤدي أيضاً إلى حذف {{count}} كيان مرتبط (قيود مالية، مستندات، ملاحظات). هذا الإجراء لا رجعة فيه.",
+      "forceDeleteMessage_plural": "⚠️ تحذير: حذف هذه المهمة سيؤدي أيضاً إلى حذف {{count}} كيانات مرتبطة (قيود مالية، مستندات، ملاحظات). هذا الإجراء لا رجعة فيه."
+    },
     "impact": {
       "reference": {
         "field": "رقم المهمة",

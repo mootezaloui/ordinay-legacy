@@ -4,11 +4,18 @@
  * Shows when no data is available
  */
 
+import { useTranslation } from "react-i18next";
+
 export default function TableEmpty({ 
   icon = "inbox",
-  message = "No data available",
+  message = null,
   action 
 }) {
+  const { t } = useTranslation("common");
+  
+  // Use default i18n message if no message provided
+  const displayMessage = message || t("table.empty");
+  
   const icons = {
     inbox: (
       <svg className="w-12 h-12 mx-auto text-slate-400 dark:text-slate-600 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -30,7 +37,7 @@ export default function TableEmpty({
   return (
     <div className="py-12 px-6 text-center bg-white dark:bg-slate-900">
       {icons[icon] || icons.inbox}
-      <p className="text-slate-600 dark:text-slate-400 mb-4">{message}</p>
+      <p className="text-slate-600 dark:text-slate-400 mb-4">{displayMessage}</p>
       {action && <div className="mt-4">{action}</div>}
     </div>
   );

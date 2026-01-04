@@ -163,9 +163,10 @@
     "tabs": {
       "dossiers": "Dossiers",
       "dossiersAddSubtitle": "Create a new dossier for this client",
-      "cases": "Lawsuits",
-      "casesDisabled": "Please add a dossier first before creating a lawsuit for this client.",
-      "casesAddSubtitle": "Create a new lawsuit for this client",
+      "cases": "Cases",
+      "casesEntity": "case",
+      "casesDisabled": "Please add a dossier first before creating a case for this client.",
+      "casesAddSubtitle": "Create a new case for this client",
       "sessions": "Hearings",
       "sessionsDisabled": "Please add a dossier first before scheduling a hearing.",
       "sessionsEntity": "a hearing",

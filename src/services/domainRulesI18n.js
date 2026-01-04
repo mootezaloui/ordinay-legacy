@@ -139,11 +139,15 @@ export const buildImpactSummary = (changes, entityType) => {
  */
 export const buildDeleteWarnings = (affectedEntities, entityType) => {
   const warnings = [];
+  const typeKeyMap = {
+    financialEntries: "financials",
+  };
 
   affectedEntities.forEach(entity => {
     const count = entity.count;
     const type = entity.type;
-    const key = count > 1 ? `${type}WillDelete_plural` : `${type}WillDelete`;
+    const translationType = typeKeyMap[type] || type;
+    const key = count > 1 ? `${translationType}WillDelete_plural` : `${translationType}WillDelete`;
     warnings.push(t(`${entityType}.delete.warning.${key}`, { count }));
   });
 

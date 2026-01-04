@@ -1,4 +1,39 @@
 {
+  "search": {
+    "placeholder": "Rechercher des missions...",
+    "empty": "Aucune mission trouvée"
+  },
+  "filter": {
+    "all": "Toutes ({{count}})",
+    "scheduled": "Planifiées ({{count}})",
+    "inProgress": "En cours ({{count}})",
+    "completed": "Terminées ({{count}})",
+    "cancelled": "Annulées ({{count}})"
+  },
+  "labels": {
+    "assigned": "Assignée le :",
+    "dueDate": "Échéance :",
+    "documents": "{{count}} documents",
+    "fees": "{{amount}} frais"
+  },
+  "priority": {
+    "high": "Haute priorité"
+  },
+  "add": "Ajouter {{entityName}}",
+  "addDefault": "Mission",
+  "empty": "Aucune mission pour le moment",
+  "dialog": {
+    "detail": {
+      "missions": {
+        "delete": {
+          "title": "Supprimer la mission",
+          "message": "Êtes-vous sûr de vouloir supprimer cette mission ? Cette action est irréversible.",
+          "confirm": "Supprimer",
+          "cancel": "Annuler"
+        }
+      }
+    }
+  },
   "detail": {
     "entityName": "Mission",
     "notFound": "Mission introuvable.",
@@ -114,8 +149,36 @@
     },
     "missions": {
       "empty": "Aucune mission pour le moment",
-      "entityName": "Mission"
+      "entityName": "Mission",
+      "toast": {
+        "success": {
+          "add": "Mission créée avec succès !",
+          "addWithEntries": "Mission créée avec {{count}} écritures financières !",
+          "update": "Mission mise à jour avec succès !",
+          "delete": "Mission supprimée avec succès !",
+          "financialAdd": "Écriture financière ajoutée avec succès !",
+          "financialUpdate": "Écriture financière mise à jour avec succès !",
+          "financialDelete": "Écriture financière supprimée avec succès !"
+        },
+        "error": {
+          "add": "Erreur lors de la création de la mission",
+          "delete": "Erreur lors de la suppression de la mission",
+          "financialAdd": "Erreur lors de l'ajout de l'écriture financière"
+        }
+      }
     }
+  },
+  "financial": {
+    "addTitle": "Ajouter des frais d'huissier",
+    "expenseType": "Dépense"
+  },
+  "scope": {
+    "client": "Client"
+  },
+  "fallback": {
+    "unknownClient": "Client inconnu",
+    "unknownDossier": "Dossier inconnu",
+    "noLawsuit": "Aucune affaire"
   },
   "form": {
     "title": {

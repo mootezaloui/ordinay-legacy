@@ -123,5 +123,108 @@
     "labels": {
       "notifications": "Notification Center"
     }
+  },
+  "clientEmail": {
+    "modal": {
+      "title": "Client Notification",
+      "description": "Do you want to notify client about this update?",
+      "recipient": "Recipient",
+      "subject": "Subject",
+      "message": "Message",
+      "preview": "Preview",
+      "hide": "Hide",
+      "infoMessage": "📧 An email will be sent to the client to inform them of this update. You can choose not to notify the client if this action is internal.",
+      "actions": {
+        "decline": "No, do not notify",
+        "confirm": "Yes, send an email",
+        "sending": "Sending..."
+      }
+    },
+    "subjects": {
+      "dossierCreated": "Opening of Your Dossier {{title}} ({{number}})",
+      "dossierStatusChanged": "Dossier Update {{title}} ({{number}})",
+      "dossierDeadlineChanged": "Deadline Modification - {{title}} ({{number}})",
+      "caseCreated": "Opening of Your Case {{title}} ({{number}})",
+      "caseStatusChanged": "Case Progress Update {{title}} ({{number}})",
+      "caseHearingChanged": "Hearing Date Modification - {{title}} ({{number}})",
+      "sessionScheduled": "Hearing Scheduled - {{title}}",
+      "sessionDateChanged": "Hearing Date Modification - {{title}}",
+      "sessionCancelled": "Hearing Cancellation - {{number}}",
+      "financialEntryAdded": "New Financial Entry Concerning Your Dossier"
+    },
+    "body": {
+      "greeting": "Dear {{name}},",
+      "closing": "Sincerely,\n{{senderName}}",
+      "dossierCreated": {
+        "confirmation": "We confirm the opening of your Dossier.",
+        "details": "Dossier: {{title}} ({{number}})\nRegistration Date: {{date}}",
+        "footer": "We remain at your disposal for any questions."
+      },
+      "dossierStatusChanged": {
+        "intro": "We inform you that the status of your Dossier has been modified.",
+        "details": "Dossier: {{title}} ({{number}})\nNew Status: {{newStatus}}\nDate: {{date}}",
+        "footer": "For any questions, please do not hesitate to contact us.",
+        "statusExplanations": {
+          "Closed": "Your Dossier is now closed. All elements of the case have been processed.",
+          "Suspended": "Your Dossier is temporarily suspended due to circumstances requiring a pause in processing.",
+          "OpenAfterReopening": "Your Dossier has been reopened for processing following new developments.",
+          "Open": "Your Dossier is now active and being processed."
+        }
+      },
+      "dossierDeadlineChanged": {
+        "intro": "We inform you of a deadline modification concerning your Dossier.",
+        "details": "Dossier: {{title}} ({{number}})\n\nPrevious Deadline: {{oldDate}}\nNew Deadline: {{newDate}}",
+        "impact": "This modification {{impactNote}}.",
+        "impactNotes": {
+          "significant": "represents a significant change in your Dossier timeline",
+          "moderate": "may impact the processing timeline of your Dossier"
+        },
+        "footer": "For any questions, please do not hesitate to contact us."
+      },
+      "caseCreated": {
+        "confirmation": "We confirm the opening of a new case concerning you.",
+        "details": "Case: {{title}} ({{number}})\nJurisdiction: {{court}}",
+        "footer": "We will keep you informed of each step."
+      },
+      "caseStatusChanged": {
+        "intro": "We inform you of a development concerning your case.",
+        "details": "Case: {{title}} ({{number}})\nCourt: {{court}}\nNew Status: {{newStatus}}\nDate: {{date}}",
+        "footer": "We remain at your disposal for any additional information.",
+        "statusExplanations": {
+          "Clos": "Your case is now closed. A final decision has been rendered.",
+          "Suspendu": "Your case has been suspended by the court. We will keep you informed of the resumption of proceedings."
+        }
+      },
+      "caseHearingChanged": {
+        "intro": "We inform you of a modification concerning your upcoming hearing.",
+        "details": "Case: {{title}} ({{number}})\nCourt: {{court}}\n\nPrevious Date: {{oldDate}}\nNew Date: {{newDate}}",
+        "footer": "Please take note of this change and organize accordingly.\n\nFor any questions, please do not hesitate to contact us."
+      },
+      "sessionScheduled": {
+        "intro": "A hearing has been scheduled for your Dossier.",
+        "details": "Type: {{title}}\nDate: {{date}} at {{time}}\nLocation: {{location}}\nEstimated Duration: {{duration}}",
+        "detailsWithCase": "Case: {{caseTitle}} ({{caseNumber}})\nType: {{title}}\nDate: {{date}} at {{time}}\nLocation: {{location}}\nEstimated Duration: {{duration}}",
+        "footer": "We will keep you informed of any developments."
+      },
+      "sessionDateChanged": {
+        "intro": "We inform you of a modification concerning your upcoming hearing.",
+        "details": "Hearing: {{title}}\n\nPrevious Date: {{oldDate}} at {{oldTime}}\nNew Date: {{newDate}} at {{newTime}}\n\nLocation: {{location}}",
+        "detailsWithCase": "Case: {{caseTitle}} ({{caseNumber}})\nHearing: {{title}}\n\nPrevious Date: {{oldDate}} at {{oldTime}}\nNew Date: {{newDate}} at {{newTime}}\n\nLocation: {{location}}",
+        "footer": "Please take note of this change and organize accordingly.\n\nFor any questions, please do not hesitate to contact us."
+      },
+      "sessionCancelled": {
+        "intro": "We inform you of the cancellation of the scheduled hearing.",
+        "details": "Cancelled Hearing: {{date}} at {{time}}\nLocation: {{location}}",
+        "detailsWithCase": "Case: {{caseNumber}} - {{caseTitle}}\nCancelled Hearing: {{date}} at {{time}}\nLocation: {{location}}",
+        "footer": "A new date will be communicated to you as soon as possible."
+      },
+      "financialEntryAdded": {
+        "intro": "A new financial entry has been recorded.",
+        "details": "Description: {{description}}\nAmount: {{amount}}",
+        "detailsWithDueDate": "Description: {{description}}\nAmount: {{amount}}\nDue Date: {{dueDate}}",
+        "detailsWithBalance": "Description: {{description}}\nAmount: {{amount}}\nClient Balance After Entry: {{clientBalance}}",
+        "footer": "Please take note of this update."
+      }
+    }
   }
 }

@@ -191,6 +191,12 @@
         "tax": "القانون الضريبي"
       }
     },
+    "status": {
+      "open": "مفتوح",
+      "inProgress": "قيد المعالجة",
+      "onHold": "معلق",
+      "closed": "مغلق"
+    },
     "fallback": {
       "na": "غير متوفر",
       "noDeadlines": "لا توجد مواعيد",
@@ -224,6 +230,17 @@
       "category": "الفئة",
       "phase": "المرحلة",
       "nextDeadline": "موعد قادم"
+    },
+    "category": {
+      "options": {
+        "commercialLaw": "القانون التجاري",
+        "familyLaw": "قانون الأسرة",
+        "criminalLaw": "القانون الجنائي",
+        "laborLaw": "قانون العمل",
+        "realEstateLaw": "قانون العقارات",
+        "administrativeLaw": "القانون الإداري",
+        "taxLaw": "قانون الضرائب"
+      }
     },
     "deadlines": {
       "urgency": {

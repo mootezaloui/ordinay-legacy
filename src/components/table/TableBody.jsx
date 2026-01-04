@@ -6,7 +6,7 @@
 
 import TableEmpty from "./TableEmpty";
 
-export default function TableBody({ children, isEmpty = false, emptyMessage = "No data available" }) {
+export default function TableBody({ children, isEmpty = false, emptyMessage = null }) {
   if (isEmpty || !children) {
     return (
       <tbody>

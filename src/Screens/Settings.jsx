@@ -572,59 +572,66 @@ export default function Settings() {
           </div>
         </ContentSection>
 
-        {/* Security Settings */}
-        <ContentSection title={t("sections.security")}>
+        {/* Account & Security (desktop honest messaging + future SaaS placeholders) */}
+        <ContentSection title={t("sections.accountSecurity")}>
           <div className="p-6 space-y-6">
-            {/* Two Factor Auth */}
-            <div className="flex items-center justify-between">
-              <div>
-                <label className="text-sm font-medium text-slate-900 dark:text-white">
-                  {t("security.twoFactor.label")}
-                </label>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                  {t("security.twoFactor.description")}
-                </p>
-              </div>
-              <button
-                onClick={() => handleChange("twoFactorAuth", !settings.twoFactorAuth)}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${settings.twoFactorAuth ? "bg-blue-600" : "bg-slate-300 dark:bg-slate-600"
-                  }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${settings.twoFactorAuth ? "translate-x-6" : "translate-x-1"
-                    }`}
-                />
-              </button>
+            {/* Current desktop reality */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
+                {t("security.current.title")}
+              </h3>
+              <ul className="space-y-2 text-sm text-slate-700 dark:text-slate-300">
+                <li className="flex items-start gap-2">
+                  <i className="fas fa-desktop text-blue-500 mt-0.5"></i>
+                  <span>{t("security.current.localOperator")}</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <i className="fas fa-globe text-slate-500 mt-0.5"></i>
+                  <span>{t("security.current.noOnlineAuth")}</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <i className="fas fa-user-shield text-emerald-600 mt-0.5"></i>
+                  <span>{t("security.current.osControlled")}</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <i className="fas fa-database text-amber-600 mt-0.5"></i>
+                  <span>{t("security.current.localData")}</span>
+                </li>
+              </ul>
             </div>
 
-            {/* Session Timeout */}
-            <div className="flex items-center justify-between">
-              <div>
-                <label className="text-sm font-medium text-slate-900 dark:text-white">
-                  {t("security.sessionTimeout.label")}
-                </label>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                  {t("security.sessionTimeout.description")}
-                </p>
+            {/* Future SaaS features, disabled for now */}
+            <div className="pt-4 border-t border-slate-200 dark:border-slate-700 space-y-3">
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
+                {t("security.comingSoon.title")}
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                {t("security.comingSoon.caption")}
+              </p>
+              <div className="space-y-3">
+                {[
+                  "twoFactor",
+                  "sessionTimeout",
+                  "changePassword",
+                ].map((item) => (
+                  <div
+                    key={item}
+                    className="flex items-center justify-between rounded-lg border border-slate-200 dark:border-slate-700 px-4 py-3 bg-slate-50 dark:bg-slate-800/40 opacity-60 cursor-not-allowed"
+                  >
+                    <div>
+                      <p className="text-sm font-medium text-slate-800 dark:text-slate-100">
+                        {t(`security.comingSoon.items.${item}.label`)}
+                      </p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        {t(`security.comingSoon.items.${item}.description`)}
+                      </p>
+                    </div>
+                    <span className="px-2 py-1 text-xs rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                      {t("security.comingSoon.badge")}
+                    </span>
+                  </div>
+                ))}
               </div>
-              <select
-                value={settings.sessionTimeout}
-                onChange={(e) => handleChange("sessionTimeout", e.target.value)}
-                className="px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="15">{t("security.sessionTimeout.options.15")}</option>
-                <option value="30">{t("security.sessionTimeout.options.30")}</option>
-                <option value="60">{t("security.sessionTimeout.options.60")}</option>
-                <option value="120">{t("security.sessionTimeout.options.120")}</option>
-              </select>
-            </div>
-
-            {/* Change Password Button */}
-            <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
-              <button className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-white rounded-lg font-medium transition-colors duration-200">
-                <i className="fas fa-key mr-2"></i>
-                {t("security.changePassword")}
-              </button>
             </div>
           </div>
         </ContentSection>

@@ -7,7 +7,7 @@
     "general": "Paramètres généraux",
     "notifications": "Notifications",
     "appointments": "Notifications de rendez-vous et d'échéances",
-    "security": "Sécurité",
+    "accountSecurity": "Compte & sécurité",
     "appearance": "Apparence"
   },
   "general": {
@@ -115,21 +115,32 @@
     }
   },
   "security": {
-    "twoFactor": {
-      "label": "Authentification à deux facteurs",
-      "description": "Sécurité renforcée pour votre compte"
+    "current": {
+      "title": "Actuel (MVP bureau)",
+      "localOperator": "Cette application de bureau utilise une identité opérateur locale sur cet appareil.",
+      "noOnlineAuth": "Aucune authentification par compte en ligne n'est encore activée.",
+      "osControlled": "L'accès est contrôlé par l'utilisateur de votre système d'exploitation.",
+      "localData": "Protégez vos données via les accès du système et les sauvegardes/export locaux."
     },
-    "sessionTimeout": {
-      "label": "Délai d'expiration de session",
-      "description": "Déconnexion automatique en cas d'inactivité",
-      "options": {
-        "15": "15 minutes",
-        "30": "30 minutes",
-        "60": "1 heure",
-        "120": "2 heures"
+    "comingSoon": {
+      "title": "À venir (compte SaaS)",
+      "caption": "Ces fonctions de compte arriveront avec la version cloud.",
+      "badge": "Bientôt disponible",
+      "items": {
+        "twoFactor": {
+          "label": "Authentification à deux facteurs (2FA)",
+          "description": "Sécuriser les comptes avec des codes de vérification."
+        },
+        "sessionTimeout": {
+          "label": "Expiration de session / déconnexion après inactivité",
+          "description": "Déconnexion automatique après une période d'inactivité."
+        },
+        "changePassword": {
+          "label": "Changer le mot de passe",
+          "description": "Gérer les identifiants depuis le compte cloud."
+        }
       }
-    },
-    "changePassword": "Changer le mot de passe"
+    }
   },
   "appearance": {
     "theme": {

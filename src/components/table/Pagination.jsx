@@ -4,6 +4,8 @@
  * Supports page navigation and items per page selection
  */
 
+import { useTranslation } from "react-i18next";
+
 export default function Pagination({
   currentPage = 1,
   totalPages = 1,
@@ -12,6 +14,7 @@ export default function Pagination({
   onPageChange = () => {},
   onItemsPerPageChange = () => {},
 }) {
+  const { t } = useTranslation("common");
   const pages = [];
   const maxPagesToShow = 5;
 
@@ -35,9 +38,11 @@ export default function Pagination({
       {/* Left side - Items info */}
       <div className="flex items-center gap-4">
         <p className="text-sm text-slate-700 dark:text-slate-300">
-          Showing <span className="font-medium">{startItem}</span> to{" "}
-          <span className="font-medium">{endItem}</span> of{" "}
-          <span className="font-medium">{totalItems}</span> results
+          {t("table.pagination.showing", {
+            from: startItem,
+            to: endItem,
+            total: totalItems,
+          })}
         </p>
 
         {/* Items per page selector */}
@@ -46,10 +51,10 @@ export default function Pagination({
           onChange={(e) => onItemsPerPageChange(Number(e.target.value))}
           className="px-3 py-1 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
-          <option value={5}>5 per page</option>
-          <option value={10}>10 per page</option>
-          <option value={25}>25 per page</option>
-          <option value={50}>50 per page</option>
+          <option value={5}>{t("table.pagination.perPage", { count: 5 })}</option>
+          <option value={10}>{t("table.pagination.perPage", { count: 10 })}</option>
+          <option value={25}>{t("table.pagination.perPage", { count: 25 })}</option>
+          <option value={50}>{t("table.pagination.perPage", { count: 50 })}</option>
         </select>
       </div>
 

@@ -1,4 +1,39 @@
 {
+  "search": {
+    "placeholder": "Search missions...",
+    "empty": "No missions found"
+  },
+  "filter": {
+    "all": "All ({{count}})",
+    "scheduled": "Scheduled ({{count}})",
+    "inProgress": "In Progress ({{count}})",
+    "completed": "Completed ({{count}})",
+    "cancelled": "Cancelled ({{count}})"
+  },
+  "labels": {
+    "assigned": "Assigned:",
+    "dueDate": "Due:",
+    "documents": "{{count}} documents",
+    "fees": "{{amount}} fees"
+  },
+  "priority": {
+    "high": "High Priority"
+  },
+  "add": "Add {{entityName}}",
+  "addDefault": "Mission",
+  "empty": "No missions yet",
+  "dialog": {
+    "detail": {
+      "missions": {
+        "delete": {
+          "title": "Delete mission",
+          "message": "Are you sure you want to delete this mission? This action cannot be undone.",
+          "confirm": "Delete",
+          "cancel": "Cancel"
+        }
+      }
+    }
+  },
   "detail": {
     "entityName": "Mission",
     "notFound": "Mission not found.",
@@ -114,8 +149,36 @@
     },
     "missions": {
       "empty": "No missions yet",
-      "entityName": "Mission"
+      "entityName": "Mission",
+      "toast": {
+        "success": {
+          "add": "Mission created successfully!",
+          "addWithEntries": "Mission created with {{count}} financial entries!",
+          "update": "Mission updated successfully!",
+          "delete": "Mission deleted successfully!",
+          "financialAdd": "Financial entry added successfully!",
+          "financialUpdate": "Financial entry updated successfully!",
+          "financialDelete": "Financial entry deleted successfully!"
+        },
+        "error": {
+          "add": "Error creating mission",
+          "delete": "Error deleting mission",
+          "financialAdd": "Error adding financial entry"
+        }
+      }
     }
+  },
+  "financial": {
+    "addTitle": "Add Bailiff Fees",
+    "expenseType": "Expense"
+  },
+  "scope": {
+    "client": "Client"
+  },
+  "fallback": {
+    "unknownClient": "Unknown client",
+    "unknownDossier": "Unknown dossier",
+    "noLawsuit": "No lawsuit"
   },
   "form": {
     "title": {

@@ -115,6 +115,20 @@
     "add": "Ajouter",
     "view": "Voir"
   },
+  "forms": {
+    "titles": {
+      "client": { "new": "Nouveau client", "edit": "Modifier le client" },
+      "dossier": { "new": "Nouveau dossier", "edit": "Modifier le dossier" },
+      "case": { "new": "Nouveau procès", "edit": "Modifier le procès" },
+      "session": { "new": "Nouvelle séance", "edit": "Modifier la séance" },
+      "task": { "new": "Nouvelle tâche", "edit": "Modifier la tâche" },
+      "personalTask": { "new": "Nouvelle tâche personnelle", "edit": "Modifier la tâche personnelle" },
+      "invoice": { "new": "Nouvelle facture", "edit": "Modifier la facture" },
+      "officerAssignment": { "new": "Affecter un huissier", "edit": "Modifier la mission" },
+      "mission": { "new": "Nouvelle mission d'huissier", "edit": "Modifier la mission d'huissier" },
+      "financialEntry": { "new": "Nouvelle écriture financière", "edit": "Modifier l'écriture financière" }
+    }
+  },
   "detail": {
     "toast": {
       "success": {
@@ -376,6 +390,9 @@
         "empty": {
           "search": "Aucun résultat trouvé",
           "noData": "Aucune écriture comptable disponible"
+        },
+        "columns": {
+          "actions": "Actions"
         }
       },
       "actions": {
@@ -628,8 +645,36 @@
   "table": {
     "searching": "Recherche...",
     "searchResults": "{{filtered}} résultat(s) sur {{total}}",
-    "columns": "Colonnes",
-    "manageColumns": "Gérer les colonnes"
+    "toolbar": {
+      "columns": "Colonnes",
+      "manageColumns": "Gérer les colonnes",
+      "export": "Exporter"
+    },
+    "pagination": {
+      "showing": "Affichage de {{from}} à {{to}} sur {{total}} résultats",
+      "perPage": "{{count}} par page"
+    },
+    "empty": "Aucune donnée disponible",
+    "columns": {
+      "actions": "Actions",
+      "joinDate": "Date d'adhésion",
+      "email": "E-mail",
+      "phone": "Téléphone",
+      "name": "Nom",
+      "status": "Statut",
+      "caseNumber": "Numéro de dossier",
+      "title": "Titre",
+      "client": "Client",
+      "date": "Date",
+      "dueDate": "Date d'échéance",
+      "priority": "Priorité",
+      "assignedTo": "Assigné à"
+    },
+    "actions": {
+      "view": "Voir",
+      "edit": "Modifier",
+      "delete": "Supprimer"
+    }
   },
   "dialog": {
     "confirm": {
@@ -762,7 +807,8 @@
       "settings": "Paramètres",
       "lightMode": "Mode clair",
       "darkMode": "Mode sombre",
-      "logout": "Déconnexion"
+      "logout": "Quitter l'application",
+      "exitApp": "Quitter l'application"
     },
     "roles": {
       "OWNER": "Propriétaire",

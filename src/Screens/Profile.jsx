@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useToast } from "../contexts/ToastContext";
 import { useOperator } from "../contexts/OperatorContext";
 import { updateOperator } from "../services/api/operators";
+import { getProfileStats } from "../services/api/profile";
 import PageLayout from "../components/layout/PageLayout";
 import PageHeader from "../components/layout/PageHeader";
 import ContentSection from "../components/layout/ContentSection";
@@ -23,6 +24,14 @@ export default function Profile() {
     office: "",
     bio: "",
   });
+
+  const [stats, setStats] = useState({
+    activeDossiers: 0,
+    totalClients: 0,
+    resolvedDossiers: 0,
+    successRate: 0,
+  });
+  const [isLoadingStats, setIsLoadingStats] = useState(true);
 
   // Initialize profile from operator
   useEffect(() => {
@@ -46,12 +55,23 @@ export default function Profile() {
     }
   }, [operator]);
 
-  const [stats] = useState({
-    activeCases: 24,
-    totalClients: 156,
-    completedCases: 89,
-    successRate: 94,
-  });
+  // Fetch real profile statistics
+  useEffect(() => {
+    async function fetchStats() {
+      try {
+        setIsLoadingStats(true);
+        const data = await getProfileStats();
+        setStats(data);
+      } catch (error) {
+        console.error("Failed to fetch profile stats:", error);
+        showToast(t("toasts.statsError") || "Failed to load statistics", "error");
+      } finally {
+        setIsLoadingStats(false);
+      }
+    }
+
+    fetchStats();
+  }, [showToast, t]);
 
   const handleChange = (field, value) => {
     setProfile(prev => ({ ...prev, [field]: value }));
@@ -166,7 +186,7 @@ export default function Profile() {
               <div>
                 <p className="text-sm text-slate-500 dark:text-slate-400">{t("stats.activeDossiers")}</p>
                 <p className="text-3xl font-bold text-slate-900 dark:text-white mt-2">
-                  {stats.activeCases}
+                  {isLoadingStats ? "—" : stats.activeDossiers}
                 </p>
               </div>
               <div className="p-3 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
@@ -180,7 +200,7 @@ export default function Profile() {
               <div>
                 <p className="text-sm text-slate-500 dark:text-slate-400">{t("stats.totalClients")}</p>
                 <p className="text-3xl font-bold text-slate-900 dark:text-white mt-2">
-                  {stats.totalClients}
+                  {isLoadingStats ? "—" : stats.totalClients}
                 </p>
               </div>
               <div className="p-3 bg-purple-100 dark:bg-purple-900/20 rounded-lg">
@@ -194,7 +214,7 @@ export default function Profile() {
               <div>
                 <p className="text-sm text-slate-500 dark:text-slate-400">{t("stats.resolvedDossiers")}</p>
                 <p className="text-3xl font-bold text-slate-900 dark:text-white mt-2">
-                  {stats.completedCases}
+                  {isLoadingStats ? "—" : stats.resolvedDossiers}
                 </p>
               </div>
               <div className="p-3 bg-green-100 dark:bg-green-900/20 rounded-lg">
@@ -208,7 +228,7 @@ export default function Profile() {
               <div>
                 <p className="text-sm text-slate-500 dark:text-slate-400">{t("stats.successRate")}</p>
                 <p className="text-3xl font-bold text-slate-900 dark:text-white mt-2">
-                  {stats.successRate}%
+                  {isLoadingStats ? "—" : `${stats.successRate}%`}
                 </p>
               </div>
               <div className="p-3 bg-amber-100 dark:bg-amber-900/20 rounded-lg">

@@ -1,43 +1,60 @@
 /**
- * Email Templates for Client Communication
+ * Email Templates for Client Communication (Internationalized)
  *
  * Professional, neutral legal tone
  * Clear and concise
  * No technical jargon
  * No sensitive internal data
  * Event-specific wording
+ * FULLY INTERNATIONALIZED (EN/FR/AR support)
  *
- * Each template is a function that takes eventData and returns { subject, body }
+ * Each template is a function that takes (eventData, t) and returns { subject, body }
+ * where t is the i18n translation function
  */
 
 import { formatDateValue } from "../utils/dateFormat";
+import { i18nInstance } from "../i18n/index";
+
+// Helper to get translation function
+// Can accept a custom t function or use the global i18n instance
+const getT = (customT) => customT || ((key, options) => i18nInstance.t(key, options));
 
 // Helper to render sender signature with a future user name (fallback to firm name)
-const getSenderName = (eventData) => eventData?.senderName || "Your Law Firm";
+const getSenderName = (eventData, t) => {
+  const fallback = t ? t('clientEmail.body.closing', { senderName: 'Your Law Firm' }) : "Your Law Firm";
+  return eventData?.senderName || fallback;
+};
+
 const formatEmailDate = (value) => formatDateValue(value);
 
 // ========================================
 // TEMPLATE: DOSSIER CREATED
 // ========================================
 
-function dossierCreatedTemplate(eventData) {
+function dossierCreatedTemplate(eventData, customT = null) {
+  const t = getT(customT);
   const { dossierNumber, dossierTitle, clientName, joinDate } = eventData;
 
-  const subject = `Opening of Your Dossier ${dossierTitle} (${dossierNumber})`;
+  const subject = t('notifications:clientEmail.subjects.dossierCreated', {
+    title: dossierTitle,
+    number: dossierNumber
+  });
 
-  const body = `Dear ${clientName},
+  const body = `${t('notifications:clientEmail.body.greeting', { name: clientName })}
 
-We confirm the opening of your Dossier.
+${t('notifications:clientEmail.body.dossierCreated.confirmation')}
 
-Dossier: ${dossierTitle} (${dossierNumber})
-Registration Date: ${
-    joinDate ? formatEmailDate(joinDate) : formatEmailDate(new Date())
-  }
+${t('notifications:clientEmail.body.dossierCreated.details', {
+    title: dossierTitle,
+    number: dossierNumber,
+    date: joinDate ? formatEmailDate(joinDate) : formatEmailDate(new Date())
+  })}
 
-We remain at your disposal for any questions.
+${t('notifications:clientEmail.body.dossierCreated.footer')}
 
-Sincerely,
-${getSenderName(eventData)}`;
+${t('notifications:clientEmail.body.closing', {
+    senderName: eventData?.senderName || t('notifications:clientEmail.body.defaultFirm', 'Your Law Firm')
+  })}`;
 
   return { subject, body };
 }
@@ -46,7 +63,8 @@ ${getSenderName(eventData)}`;
 // TEMPLATE: DOSSIER STATUS CHANGED
 // ========================================
 
-function dossierStatusChangedTemplate(eventData) {
+function dossierStatusChangedTemplate(eventData, customT = null) {
+  const t = getT(customT);
   const {
     dossierNumber,
     dossierTitle,
@@ -56,34 +74,37 @@ function dossierStatusChangedTemplate(eventData) {
     isReopening,
   } = eventData;
 
-  const statusExplanations = {
-    Closed:
-      "Your Dossier is now closed. All elements of the case have been processed.",
-    Suspended:
-      "Your Dossier is temporarily suspended due to circumstances requiring a pause in processing.",
-    Open: isReopening
-      ? "Your Dossier has been reopened for processing following new developments."
-      : "Your Dossier is now active and being processed.",
-  };
+  // Get status explanation based on the new status and reopening flag
+  let explanationKey = `notifications:clientEmail.body.dossierStatusChanged.statusExplanations.${newStatus}`;
+  if (newStatus === 'Open' && isReopening) {
+    explanationKey = 'notifications:clientEmail.body.dossierStatusChanged.statusExplanations.OpenAfterReopening';
+  }
 
-  const explanation = statusExplanations[newStatus] || "";
+  const explanation = t(explanationKey, '');
 
-  const subject = `Dossier Update ${dossierTitle} (${dossierNumber})`;
+  const subject = t('notifications:clientEmail.subjects.dossierStatusChanged', {
+    title: dossierTitle,
+    number: dossierNumber
+  });
 
-  const body = `Dear ${clientName},
+  const body = `${t('notifications:clientEmail.body.greeting', { name: clientName })}
 
-We inform you that the status of your Dossier has been modified.
+${t('notifications:clientEmail.body.dossierStatusChanged.intro')}
 
-Dossier: ${dossierTitle} (${dossierNumber})
-New Status: ${newStatus}
-Date: ${formatEmailDate(new Date())}
+${t('notifications:clientEmail.body.dossierStatusChanged.details', {
+    title: dossierTitle,
+    number: dossierNumber,
+    newStatus,
+    date: formatEmailDate(new Date())
+  })}
 
 ${explanation}
 
-For any questions, please do not hesitate to contact us.
+${t('notifications:clientEmail.body.dossierStatusChanged.footer')}
 
-Sincerely,
-${getSenderName(eventData)}`;
+${t('notifications:clientEmail.body.closing', {
+    senderName: eventData?.senderName || t('notifications:clientEmail.body.defaultFirm', 'Your Law Firm')
+  })}`;
 
   return { subject, body };
 }
@@ -92,7 +113,8 @@ ${getSenderName(eventData)}`;
 // TEMPLATE: DOSSIER DEADLINE CHANGED
 // ========================================
 
-function dossierDeadlineChangedTemplate(eventData) {
+function dossierDeadlineChangedTemplate(eventData, customT = null) {
+  const t = getT(customT);
   const {
     dossierNumber,
     dossierTitle,
@@ -105,28 +127,35 @@ function dossierDeadlineChangedTemplate(eventData) {
   const oldDate = formatEmailDate(oldDeadline);
   const newDate = formatEmailDate(newDeadline);
 
-  const impactNote =
-    diffDays > 30
-      ? "represents a significant change in your Dossier timeline"
-      : "may impact the processing timeline of your Dossier";
+  const impactNoteKey = diffDays > 30
+    ? 'notifications:clientEmail.body.dossierDeadlineChanged.impactNotes.significant'
+    : 'notifications:clientEmail.body.dossierDeadlineChanged.impactNotes.moderate';
 
-  const subject = `Deadline Modification - ${dossierTitle} (${dossierNumber})`;
+  const impactNote = t(impactNoteKey);
 
-  const body = `Dear ${clientName},
+  const subject = t('notifications:clientEmail.subjects.dossierDeadlineChanged', {
+    title: dossierTitle,
+    number: dossierNumber
+  });
 
-We inform you of a deadline modification concerning your Dossier.
+  const body = `${t('notifications:clientEmail.body.greeting', { name: clientName })}
 
-Dossier: ${dossierTitle} (${dossierNumber})
+${t('notifications:clientEmail.body.dossierDeadlineChanged.intro')}
 
-Previous Deadline: ${oldDate}
-New Deadline: ${newDate}
+${t('notifications:clientEmail.body.dossierDeadlineChanged.details', {
+    title: dossierTitle,
+    number: dossierNumber,
+    oldDate,
+    newDate
+  })}
 
-This modification ${impactNote}.
+${t('notifications:clientEmail.body.dossierDeadlineChanged.impact', { impactNote })}
 
-For any questions, please do not hesitate to contact us.
+${t('notifications:clientEmail.body.dossierDeadlineChanged.footer')}
 
-Sincerely,
-${getSenderName(eventData)}`;
+${t('notifications:clientEmail.body.closing', {
+    senderName: eventData?.senderName || t('notifications:clientEmail.body.defaultFirm', 'Your Law Firm')
+  })}`;
 
   return { subject, body };
 }
@@ -135,35 +164,38 @@ ${getSenderName(eventData)}`;
 // TEMPLATE: PROCÈS STATUS CHANGED
 // ========================================
 
-function caseStatusChangedTemplate(eventData) {
+function caseStatusChangedTemplate(eventData, customT = null) {
+  const t = getT(customT);
   const { caseNumber, caseTitle, court, clientName, oldStatus, newStatus } =
     eventData;
 
-  const statusExplanations = {
-    Clos: "Your case is now closed. A final decision has been rendered.",
-    Suspendu:
-      "Your case has been suspended by the court. We will keep you informed of the resumption of proceedings.",
-  };
+  const explanationKey = `notifications:clientEmail.body.caseStatusChanged.statusExplanations.${newStatus}`;
+  const explanation = t(explanationKey, '');
 
-  const explanation = statusExplanations[newStatus] || "";
+  const subject = t('notifications:clientEmail.subjects.caseStatusChanged', {
+    title: caseTitle,
+    number: caseNumber
+  });
 
-  const subject = `Case Progress Update ${caseTitle} (${caseNumber})`;
+  const body = `${t('notifications:clientEmail.body.greeting', { name: clientName })}
 
-  const body = `Dear ${clientName},
+${t('notifications:clientEmail.body.caseStatusChanged.intro')}
 
-We inform you of a development concerning your case.
-
-Case: ${caseTitle} (${caseNumber})
-Court: ${court}
-New Status: ${newStatus}
-Date: ${formatEmailDate(new Date())}
+${t('notifications:clientEmail.body.caseStatusChanged.details', {
+    title: caseTitle,
+    number: caseNumber,
+    court,
+    newStatus,
+    date: formatEmailDate(new Date())
+  })}
 
 ${explanation}
 
-We remain at your disposal for any additional information.
+${t('notifications:clientEmail.body.caseStatusChanged.footer')}
 
-Sincerely,
-${getSenderName(eventData)}`;
+${t('notifications:clientEmail.body.closing', {
+    senderName: eventData?.senderName || t('notifications:clientEmail.body.defaultFirm', 'Your Law Firm')
+  })}`;
 
   return { subject, body };
 }
@@ -172,22 +204,30 @@ ${getSenderName(eventData)}`;
 // TEMPLATE: PROCÈS CREATED
 // ========================================
 
-function caseCreatedTemplate(eventData) {
+function caseCreatedTemplate(eventData, customT = null) {
+  const t = getT(customT);
   const { caseNumber, caseTitle, court, clientName } = eventData;
 
-  const subject = `Opening of Your Case ${caseTitle} (${caseNumber})`;
+  const subject = t('notifications:clientEmail.subjects.caseCreated', {
+    title: caseTitle,
+    number: caseNumber
+  });
 
-  const body = `Dear ${clientName},
+  const body = `${t('notifications:clientEmail.body.greeting', { name: clientName })}
 
-We confirm the opening of a new case concerning you.
+${t('notifications:clientEmail.body.caseCreated.confirmation')}
 
-Case: ${caseTitle} (${caseNumber})
-Jurisdiction: ${court || "N/A"}
+${t('notifications:clientEmail.body.caseCreated.details', {
+    title: caseTitle,
+    number: caseNumber,
+    court: court || "N/A"
+  })}
 
-We will keep you informed of each step.
+${t('notifications:clientEmail.body.caseCreated.footer')}
 
-Sincerely,
-${getSenderName(eventData)}`;
+${t('notifications:clientEmail.body.closing', {
+    senderName: eventData?.senderName || t('notifications:clientEmail.body.defaultFirm', 'Your Law Firm')
+  })}`;
 
   return { subject, body };
 }
@@ -196,31 +236,36 @@ ${getSenderName(eventData)}`;
 // TEMPLATE: PROCÈS HEARING DATE CHANGED
 // ========================================
 
-function caseHearingChangedTemplate(eventData) {
+function caseHearingChangedTemplate(eventData, customT = null) {
+  const t = getT(customT);
   const { caseNumber, caseTitle, court, clientName, oldDate, newDate } =
     eventData;
 
-  const oldDateFormatted = oldDate ? formatEmailDate(oldDate) : "Not defined";
-  const newDateFormatted = newDate ? formatEmailDate(newDate) : "Not defined";
+  const oldDateFormatted = oldDate ? formatEmailDate(oldDate) : t('notifications:clientEmail.body.notDefined', 'Not defined');
+  const newDateFormatted = newDate ? formatEmailDate(newDate) : t('notifications:clientEmail.body.notDefined', 'Not defined');
 
-  const subject = `Hearing Date Modification - ${caseTitle} (${caseNumber})`;
+  const subject = t('notifications:clientEmail.subjects.caseHearingChanged', {
+    title: caseTitle,
+    number: caseNumber
+  });
 
-  const body = `Dear ${clientName},
+  const body = `${t('notifications:clientEmail.body.greeting', { name: clientName })}
 
-We inform you of a modification concerning your upcoming hearing.
+${t('notifications:clientEmail.body.caseHearingChanged.intro')}
 
-Case: ${caseTitle} (${caseNumber})
-Court: ${court}
+${t('notifications:clientEmail.body.caseHearingChanged.details', {
+    title: caseTitle,
+    number: caseNumber,
+    court,
+    oldDate: oldDateFormatted,
+    newDate: newDateFormatted
+  })}
 
-Previous Date: ${oldDateFormatted}
-New Date: ${newDateFormatted}
+${t('notifications:clientEmail.body.caseHearingChanged.footer')}
 
-Please take note of this change and organize accordingly.
-
-For any questions, please do not hesitate to contact us.
-
-Sincerely,
-${getSenderName(eventData)}`;
+${t('notifications:clientEmail.body.closing', {
+    senderName: eventData?.senderName || t('notifications:clientEmail.body.defaultFirm', 'Your Law Firm')
+  })}`;
 
   return { subject, body };
 }
@@ -229,7 +274,8 @@ ${getSenderName(eventData)}`;
 // TEMPLATE: SESSION SCHEDULED
 // ========================================
 
-function sessionScheduledTemplate(eventData) {
+function sessionScheduledTemplate(eventData, customT = null) {
+  const t = getT(customT);
   const {
     sessionTitle,
     sessionType,
@@ -244,26 +290,34 @@ function sessionScheduledTemplate(eventData) {
 
   const dateFormatted = formatEmailDate(date);
 
-  const subject = `Hearing Scheduled - ${
-    sessionTitle || sessionType || "Hearing"
-  } ${caseTitle ? `(${caseTitle})` : ""} ${caseNumber ? `(${caseNumber})` : ""}`
-    .replace(/\s+/g, " ")
-    .trim();
+  const subjectTitle = sessionTitle || sessionType || t('notifications:clientEmail.body.session.hearing', 'Hearing');
+  const subject = t('notifications:clientEmail.subjects.sessionScheduled', { title: subjectTitle });
 
-  const body = `Dear ${clientName},
+  const detailsKey = caseNumber
+    ? 'notifications:clientEmail.body.sessionScheduled.detailsWithCase'
+    : 'notifications:clientEmail.body.sessionScheduled.details';
 
-A hearing has been scheduled for your Dossier.
+  const details = t(detailsKey, {
+    caseTitle: caseTitle || 'N/A',
+    caseNumber,
+    title: sessionTitle,
+    date: dateFormatted,
+    time,
+    location,
+    duration
+  });
 
-${caseNumber ? `Case: ${caseTitle || "N/A"} (${caseNumber})` : ""}
-Type: ${sessionTitle}
-Date: ${dateFormatted} at ${time}
-Location: ${location}
-Estimated Duration: ${duration}
+  const body = `${t('notifications:clientEmail.body.greeting', { name: clientName })}
 
-We will keep you informed of any developments.
+${t('notifications:clientEmail.body.sessionScheduled.intro')}
 
-Sincerely,
-${getSenderName(eventData)}`;
+${details}
+
+${t('notifications:clientEmail.body.sessionScheduled.footer')}
+
+${t('notifications:clientEmail.body.closing', {
+    senderName: eventData?.senderName || t('notifications:clientEmail.body.defaultFirm', 'Your Law Firm')
+  })}`;
 
   return { subject, body };
 }
@@ -272,7 +326,8 @@ ${getSenderName(eventData)}`;
 // TEMPLATE: SESSION DATE CHANGED
 // ========================================
 
-function sessionDateChangedTemplate(eventData) {
+function sessionDateChangedTemplate(eventData, customT = null) {
+  const t = getT(customT);
   const {
     sessionTitle,
     location,
@@ -288,30 +343,34 @@ function sessionDateChangedTemplate(eventData) {
   const oldDateFormatted = formatEmailDate(oldDate);
   const newDateFormatted = formatEmailDate(newDate);
 
-  const subject = `Hearing Date Modification - ${sessionTitle || "Hearing"} ${
-    caseTitle ? `(${caseTitle})` : ""
-  } ${caseNumber ? `(${caseNumber})` : ""}`
-    .replace(/\s+/g, " ")
-    .trim();
+  const subject = t('notifications:clientEmail.subjects.sessionDateChanged', { title: sessionTitle || t('notifications:clientEmail.body.session.hearing', 'Hearing') });
 
-  const body = `Dear ${clientName},
+  const detailsKey = caseNumber
+    ? 'notifications:clientEmail.body.sessionDateChanged.detailsWithCase'
+    : 'notifications:clientEmail.body.sessionDateChanged.details';
 
-We inform you of a modification concerning your upcoming hearing.
+  const details = t(detailsKey, {
+    caseTitle: caseTitle || 'N/A',
+    caseNumber,
+    title: sessionTitle,
+    oldDate: oldDateFormatted,
+    oldTime,
+    newDate: newDateFormatted,
+    newTime,
+    location
+  });
 
-${caseNumber ? `Case: ${caseTitle || "N/A"} (${caseNumber})` : ""}
-Hearing: ${sessionTitle}
+  const body = `${t('notifications:clientEmail.body.greeting', { name: clientName })}
 
-Previous Date: ${oldDateFormatted} at ${oldTime}
-New Date: ${newDateFormatted} at ${newTime}
+${t('notifications:clientEmail.body.sessionDateChanged.intro')}
 
-Location: ${location}
+${details}
 
-Please take note of this change and organize accordingly.
+${t('notifications:clientEmail.body.sessionDateChanged.footer')}
 
-For any questions, please do not hesitate to contact us.
-
-Sincerely,
-${getSenderName(eventData)}`;
+${t('notifications:clientEmail.body.closing', {
+    senderName: eventData?.senderName || t('notifications:clientEmail.body.defaultFirm', 'Your Law Firm')
+  })}`;
 
   return { subject, body };
 }
@@ -320,7 +379,8 @@ ${getSenderName(eventData)}`;
 // TEMPLATE: SESSION CANCELLED
 // ========================================
 
-function sessionCancelledTemplate(eventData) {
+function sessionCancelledTemplate(eventData, customT = null) {
+  const t = getT(customT);
   const {
     sessionTitle,
     date,
@@ -333,20 +393,31 @@ function sessionCancelledTemplate(eventData) {
 
   const dateFormatted = formatEmailDate(date);
 
-  const subject = `Hearing Cancellation - ${caseNumber || "Your Dossier"}`;
+  const subject = t('notifications:clientEmail.subjects.sessionCancelled', { number: caseNumber || t('notifications:clientEmail.body.yourDossier', 'Your Dossier') });
 
-  const body = `Dear ${clientName},
+  const detailsKey = caseNumber
+    ? 'notifications:clientEmail.body.sessionCancelled.detailsWithCase'
+    : 'notifications:clientEmail.body.sessionCancelled.details';
 
-We inform you of the cancellation of the scheduled hearing.
+  const details = t(detailsKey, {
+    caseNumber,
+    caseTitle,
+    date: dateFormatted,
+    time,
+    location
+  });
 
-${caseNumber ? `Case: ${caseNumber} - ${caseTitle}` : ""}
-Cancelled Hearing: ${dateFormatted} at ${time}
-Location: ${location}
+  const body = `${t('notifications:clientEmail.body.greeting', { name: clientName })}
 
-A new date will be communicated to you as soon as possible.
+${t('notifications:clientEmail.body.sessionCancelled.intro')}
 
-Sincerely,
-${eventData?.senderName || "Your Law Firm"}`;
+${details}
+
+${t('notifications:clientEmail.body.sessionCancelled.footer')}
+
+${t('notifications:clientEmail.body.closing', {
+    senderName: eventData?.senderName || t('notifications:clientEmail.body.defaultFirm', 'Your Law Firm')
+  })}`;
 
   return { subject, body };
 }
@@ -355,7 +426,8 @@ ${eventData?.senderName || "Your Law Firm"}`;
 // TEMPLATE: FINANCIAL ENTRY ADDED (CLIENT-INVOICING)
 // ========================================
 
-function financialEntryAddedTemplate(eventData) {
+function financialEntryAddedTemplate(eventData, customT = null) {
+  const t = getT(customT);
   const {
     description,
     amountWithSign,
@@ -365,21 +437,33 @@ function financialEntryAddedTemplate(eventData) {
     clientBalance,
   } = eventData;
 
-  const subject = `New Financial Entry Concerning Your Dossier`;
+  const subject = t('notifications:clientEmail.subjects.financialEntryAdded');
 
-  const body = `Dear ${clientName},
+  let detailsKey = 'notifications:clientEmail.body.financialEntryAdded.details';
+  if (dueDate && clientBalance) {
+    detailsKey = 'notifications:clientEmail.body.financialEntryAdded.detailsWithBalance';
+  } else if (dueDate) {
+    detailsKey = 'notifications:clientEmail.body.financialEntryAdded.detailsWithDueDate';
+  }
 
-A new financial entry has been recorded.
+  const details = t(detailsKey, {
+    description,
+    amount: amountWithSign || amount || 'N/A',
+    dueDate: dueDate ? formatEmailDate(dueDate) : '',
+    clientBalance: clientBalance || ''
+  });
 
-Description: ${description}
-Amount: ${amountWithSign || amount || "N/A"}
-${dueDate ? `Due Date: ${formatEmailDate(dueDate)}` : ""}
-${clientBalance ? `Client Balance After Entry: ${clientBalance}` : ""}
+  const body = `${t('notifications:clientEmail.body.greeting', { name: clientName })}
 
-Please take note of this update.
+${t('notifications:clientEmail.body.financialEntryAdded.intro')}
 
-Sincerely,
-${getSenderName(eventData)}`;
+${details}
+
+${t('notifications:clientEmail.body.financialEntryAdded.footer')}
+
+${t('notifications:clientEmail.body.closing', {
+    senderName: eventData?.senderName || t('notifications:clientEmail.body.defaultFirm', 'Your Law Firm')
+  })}`;
 
   return { subject, body };
 }

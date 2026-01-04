@@ -7,7 +7,7 @@
     "general": "General Settings",
     "notifications": "Notifications",
     "appointments": "Appointment & Deadline Notifications",
-    "security": "Security Settings",
+    "accountSecurity": "Account & Security",
     "appearance": "Appearance"
   },
   "general": {
@@ -115,21 +115,32 @@
     }
   },
   "security": {
-    "twoFactor": {
-      "label": "Two-Factor Authentication",
-      "description": "Enhanced security for your account"
+    "current": {
+      "title": "Current (Desktop MVP)",
+      "localOperator": "This desktop app uses a local operator identity on this device.",
+      "noOnlineAuth": "No online account authentication is enabled yet.",
+      "osControlled": "Access is controlled by your operating system user.",
+      "localData": "Protect your data with OS-level access and local backups/exports."
     },
-    "sessionTimeout": {
-      "label": "Session Timeout",
-      "description": "Automatic logout after inactivity",
-      "options": {
-        "15": "15 minutes",
-        "30": "30 minutes",
-        "60": "1 hour",
-        "120": "2 hours"
+    "comingSoon": {
+      "title": "Coming later (SaaS account)",
+      "caption": "These account features will arrive with the cloud version.",
+      "badge": "Coming soon",
+      "items": {
+        "twoFactor": {
+          "label": "Two-factor authentication (2FA)",
+          "description": "Secure accounts with verification codes."
+        },
+        "sessionTimeout": {
+          "label": "Session timeout / inactivity logout",
+          "description": "Automatic sign-out after idle periods."
+        },
+        "changePassword": {
+          "label": "Change password",
+          "description": "Manage account credentials from the cloud account."
+        }
       }
-    },
-    "changePassword": "Change Password"
+    }
   },
   "appearance": {
     "theme": {

@@ -10,6 +10,14 @@ export default function Sidebar() {
   const location = useLocation();
   const [activeFlash, setActiveFlash] = useState(false);
   const { t } = useTranslation("layout");
+  const handleExit = () => {
+    if (typeof window !== "undefined" && typeof window.close === "function") {
+      window.close();
+    } else {
+      // Fallback for browser preview: return to dashboard instead of a fake logout
+      window.location.href = "/dashboard";
+    }
+  };
 
   // Brief pop animation when route changes so the active item feels responsive
   useEffect(() => {
@@ -116,14 +124,14 @@ export default function Sidebar() {
           </button>
 
           <button
-            onClick={() => console.log("Logout clicked")}
+            onClick={handleExit}
             className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800 ${isCollapsed ? "justify-center" : "justify-start"
               }`}
           >
             <span className="flex-shrink-0">
               <i className="fas fa-sign-out-alt text-red-500"></i>
             </span>
-            {!isCollapsed && <span className="text-sm font-medium text-red-500">{t("sidebar.logout")}</span>}
+            {!isCollapsed && <span className="text-sm font-medium text-red-500">{t("sidebar.exitApp")}</span>}
           </button>
         </div>
 

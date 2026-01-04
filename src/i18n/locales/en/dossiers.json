@@ -191,6 +191,12 @@
         "tax": "Tax Law"
       }
     },
+    "status": {
+      "open": "Open",
+      "inProgress": "In Progress",
+      "onHold": "On Hold",
+      "closed": "Closed"
+    },
     "fallback": {
       "na": "N/A",
       "noDeadlines": "No deadlines",
@@ -224,6 +230,17 @@
       "category": "Category",
       "phase": "Phase",
       "nextDeadline": "Next deadline"
+    },
+    "category": {
+      "options": {
+        "commercialLaw": "Commercial Law",
+        "familyLaw": "Family Law",
+        "criminalLaw": "Criminal Law",
+        "laborLaw": "Labor Law",
+        "realEstateLaw": "Real Estate Law",
+        "administrativeLaw": "Administrative Law",
+        "taxLaw": "Tax Law"
+      }
     },
     "deadlines": {
       "urgency": {

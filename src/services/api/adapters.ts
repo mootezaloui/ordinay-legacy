@@ -3,6 +3,7 @@
 const statusMapClient: Record<string, string> = {
   active: "Active",
   inactive: "Inactive",
+  inActive: "Inactive", // Handle mixed-case variant from legacy database
 };
 
 const statusMapCommon: Record<string, string> = {

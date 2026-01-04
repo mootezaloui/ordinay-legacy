@@ -59,6 +59,7 @@ export const initI18n = async (language?: string) => {
         supportedLngs: SUPPORTED_LANGUAGE_CODES,
         ns: [
           "common",
+          "auth",
           "clients",
           "settings",
           "profile",

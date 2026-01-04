@@ -54,6 +54,7 @@ import { validateTemporalConstraints } from "./temporalValidation";
 import { enrichBlockers } from "./blockerEnrichment";
 import { i18nInstance } from "../i18n";
 import { translateStatus } from "../utils/entityTranslations";
+import { buildDeleteWarnings, buildForceDeleteMessage, buildImpactSummary } from "./domainRulesI18n";
 
 // Translation helper for domain rules
 const t = (key, options = {}) => {
@@ -348,20 +349,7 @@ function detectMissionImpact(currentData, newData) {
     return { requiresConfirmation: false };
   }
 
-  // Build comprehensive impact summary
-  const impactSummary = [];
-  changes.forEach((change) => {
-    impactSummary.push(
-      `**${change.field} actuel** : ${change.from || "Non défini"}`
-    );
-    impactSummary.push(
-      `**${change.field} nouveau** : ${change.to || "Non défini"}`
-    );
-    impactSummary.push("");
-    impactSummary.push("**Impact** :");
-    impactSummary.push(...change.impact);
-    impactSummary.push("");
-  });
+  const impactSummary = buildImpactSummary(changes, "mission");
 
   return {
     requiresConfirmation: true,
@@ -376,7 +364,6 @@ function detectMissionImpact(currentData, newData) {
 function detectDossierImpact(currentData, newData) {
   const changes = [];
 
-  // Check for reference/number change
   const referenceField = "caseNumber";
   if (
     referenceField in newData &&
@@ -384,37 +371,33 @@ function detectDossierImpact(currentData, newData) {
   ) {
     changes.push({
       type: "reference_change",
-      field: "Numéro de dossier",
       from: currentData[referenceField],
       to: newData[referenceField],
       impact: [
-        "• The Dossier reference will be modified",
-        "• All linked cases will retain their link with this Dossier",
-        "• Documents and reports will need to be updated",
-        "• Financial entries will retain the new reference",
+        t("dossier.impact.reference.impact1"),
+        t("dossier.impact.reference.impact2"),
+        t("dossier.impact.reference.impact3"),
+        t("dossier.impact.reference.impact4"),
       ],
     });
   }
 
-  // Check for client reassignment
   if ("clientId" in newData) {
     const clientIdChanged = currentData.clientId != newData.clientId;
 
     if (clientIdChanged) {
-      // Get client names for better UX
       const oldClient = mockClients.find((c) => c.id == currentData.clientId);
       const newClient = mockClients.find((c) => c.id == newData.clientId);
 
       changes.push({
         type: "client_reassignment",
-        field: "Client",
-        from: oldClient?.name,
-        to: newClient?.name,
+        from: oldClient?.name || t("dossier.impact.client.unknown"),
+        to: newClient?.name || t("dossier.impact.client.unknown"),
         impact: [
-          "• All linked cases will remain attached to this Dossier",
-          "• Financial entries will remain associated with the Dossier",
-          "• The Dossier will now appear under the new client",
-          "• Tracking indicators will be recalculated",
+          t("dossier.impact.client.impact1"),
+          t("dossier.impact.client.impact2"),
+          t("dossier.impact.client.impact3"),
+          t("dossier.impact.client.impact4"),
         ],
       });
     }
@@ -424,18 +407,7 @@ function detectDossierImpact(currentData, newData) {
     return { requiresConfirmation: false };
   }
 
-  // Build comprehensive impact summary
-  const impactSummary = [];
-  changes.forEach((change) => {
-    impactSummary.push(
-      `**Current ${change.field}**: ${change.from || "Unknown"}`
-    );
-    impactSummary.push(`**New ${change.field}**: ${change.to || "Unknown"}`);
-    impactSummary.push("");
-    impactSummary.push("**Impact**:");
-    impactSummary.push(...change.impact);
-    impactSummary.push("");
-  });
+  const impactSummary = buildImpactSummary(changes, "dossier");
 
   return {
     requiresConfirmation: true,
@@ -443,14 +415,9 @@ function detectDossierImpact(currentData, newData) {
     changeDetails: changes[0], // Primary change for backward compatibility
   };
 }
-
-/**
- * Detect Procès (Case) → Dossier reassignment
- */
 function detectCaseImpact(currentData, newData) {
   const changes = [];
 
-  // Check for reference/number change
   const referenceField = "caseNumber";
   if (
     referenceField in newData &&
@@ -458,41 +425,39 @@ function detectCaseImpact(currentData, newData) {
   ) {
     changes.push({
       type: "reference_change",
-      field: "Lawsuit Number",
       from: currentData[referenceField],
       to: newData[referenceField],
       impact: [
-        "• The case reference will be modified",
-        "• All linked sessions will retain their link with this case",
-        "• Documents and reports will need to be updated",
-        "• Financial entries will retain the new reference",
+        t("case.impact.reference.impact1"),
+        t("case.impact.reference.impact2"),
+        t("case.impact.reference.impact3"),
+        t("case.impact.reference.impact4"),
       ],
     });
   }
 
-  // Check for dossier reassignment
   if ("dossierId" in newData) {
     const dossierIdChanged = currentData.dossierId != newData.dossierId;
 
     if (dossierIdChanged) {
-      // Get dossier info for better UX
-      const oldDossier = [].find((d) => d.id == currentData.dossierId);
-      const newDossier = [].find((d) => d.id == newData.dossierId);
+      const oldDossier = mockDossiers.find((d) => d.id == currentData.dossierId);
+      const newDossier = mockDossiers.find((d) => d.id == newData.dossierId);
+
+      const formatDossierLabel = (dossier) => {
+        if (!dossier) return t("case.impact.dossier.notAssigned");
+        const label = `${dossier.caseNumber || ""} - ${dossier.title || ""}`.trim();
+        return label || t("case.impact.dossier.notAssigned");
+      };
 
       changes.push({
         type: "dossier_reassignment",
-        field: "Dossier",
-        from: `${oldDossier?.caseNumber || "Non assigné"} - ${
-          oldDossier?.title || ""
-        }`,
-        to: `${newDossier?.caseNumber || "Non assigné"} - ${
-          newDossier?.title || ""
-        }`,
+        from: formatDossierLabel(oldDossier),
+        to: formatDossierLabel(newDossier),
         impact: [
-          "• The linked client may change",
-          "• Financial entries will be aggregated under the new Dossier",
-          "• Tasks and sessions linked to the case will be moved",
-          "• Tracking indicators will be recalculated",
+          t("case.impact.dossier.impact1"),
+          t("case.impact.dossier.impact2"),
+          t("case.impact.dossier.impact3"),
+          t("case.impact.dossier.impact4"),
         ],
       });
     }
@@ -502,20 +467,7 @@ function detectCaseImpact(currentData, newData) {
     return { requiresConfirmation: false };
   }
 
-  // Build comprehensive impact summary
-  const impactSummary = [];
-  changes.forEach((change) => {
-    impactSummary.push(
-      `**${change.field} actuel** : ${change.from || "Non défini"}`
-    );
-    impactSummary.push(
-      `**${change.field} nouveau** : ${change.to || "Non défini"}`
-    );
-    impactSummary.push("");
-    impactSummary.push("**Impact** :");
-    impactSummary.push(...change.impact);
-    impactSummary.push("");
-  });
+  const impactSummary = buildImpactSummary(changes, "case");
 
   return {
     requiresConfirmation: true,
@@ -523,26 +475,18 @@ function detectCaseImpact(currentData, newData) {
     changeDetails: changes[0], // Primary change for backward compatibility
   };
 }
-
-/**
- * Detect Task → Parent reassignment (Dossier or Procès)
- */
 function detectTaskImpact(currentData, newData) {
-  // ✅ Only check if parent fields are actually being changed (present in newData)
   const parentTypeInNewData = "parentType" in newData;
   const dossierIdInNewData = "dossierId" in newData;
   const caseIdInNewData = "caseId" in newData;
 
-  // If none of these fields are being changed, no impact
   if (!parentTypeInNewData && !dossierIdInNewData && !caseIdInNewData) {
     return { requiresConfirmation: false };
   }
 
-  // Check if parent type changed
   const parentTypeChanged =
     parentTypeInNewData && currentData.parentType !== newData.parentType;
 
-  // Check if parent ID changed (within same type)
   const dossierIdChanged =
     dossierIdInNewData && currentData.dossierId !== newData.dossierId;
   const caseIdChanged =
@@ -555,43 +499,54 @@ function detectTaskImpact(currentData, newData) {
     return { requiresConfirmation: false };
   }
 
-  // Determine old and new parent info
-  let oldParentLabel = "Not assigned";
-  let newParentLabel = "Not assigned";
+  const formatParentLabel = (entityType, entity) => {
+    if (!entity) return t("task.impact.parent.notAssigned");
+    if (entityType === "dossier") {
+      return t("task.impact.parent.dossierLabel", {
+        caseNumber: entity.caseNumber || "",
+        title: entity.title || "",
+      });
+    }
+    return t("task.impact.parent.caseLabel", {
+      caseNumber: entity.caseNumber || "",
+      title: entity.title || "",
+    });
+  };
+
+  let oldParentLabel = t("task.impact.parent.notAssigned");
+  let newParentLabel = t("task.impact.parent.notAssigned");
 
   if (currentData.parentType === "dossier" && currentData.dossierId) {
     const dossier = mockDossiers.find((d) => d.id == currentData.dossierId);
-    oldParentLabel = `Dossier ${dossier?.caseNumber || ""} - ${
-      dossier?.title || ""
-    }`;
+    oldParentLabel = formatParentLabel("dossier", dossier);
   } else if (currentData.parentType === "case" && currentData.caseId) {
     const caseData = mockCases.find((c) => c.id == currentData.caseId);
-    oldParentLabel = `Lawsuit ${caseData?.caseNumber || ""} - ${
-      caseData?.title || ""
-    }`;
+    oldParentLabel = formatParentLabel("case", caseData);
   }
 
   if (newData.parentType === "dossier" && newData.dossierId) {
     const dossier = mockDossiers.find((d) => d.id == newData.dossierId);
-    newParentLabel = `Dossier ${dossier?.caseNumber || ""} - ${
-      dossier?.title || ""
-    }`;
+    newParentLabel = formatParentLabel("dossier", dossier);
   } else if (newData.parentType === "case" && newData.caseId) {
     const caseData = mockCases.find((c) => c.id == newData.caseId);
-    newParentLabel = `Lawsuit ${caseData?.caseNumber || ""} - ${
-      caseData?.title || ""
-    }`;
+    newParentLabel = formatParentLabel("case", caseData);
   }
 
-  const impactSummary = [
-    `**Current parent** : ${oldParentLabel}`,
-    `**New parent** : ${newParentLabel}`,
-    "",
-    "**Impact** :",
-    "• The task will be removed from its current context",
-    "• Tracking indicators will be recalculated",
-    "• Task history will be preserved",
-  ];
+  const impactSummary = buildImpactSummary(
+    [
+      {
+        type: "parent_reassignment",
+        from: oldParentLabel,
+        to: newParentLabel,
+        impact: [
+          t("task.impact.parent.impact1"),
+          t("task.impact.parent.impact2"),
+          t("task.impact.parent.impact3"),
+        ],
+      },
+    ],
+    "task"
+  );
 
   return {
     requiresConfirmation: true,
@@ -603,21 +558,14 @@ function detectTaskImpact(currentData, newData) {
     },
   };
 }
-
-/**
- * Detect Session (Audience) → Parent reassignment (Case or Dossier)
- */
 function detectSessionImpact(currentData, newData) {
-  // ✅ Only check if parent fields are actually being changed (present in newData)
   const caseIdInNewData = "caseId" in newData;
   const dossierIdInNewData = "dossierId" in newData;
 
-  // If neither field is being changed, no impact
   if (!caseIdInNewData && !dossierIdInNewData) {
     return { requiresConfirmation: false };
   }
 
-  // Check if parent changed
   const caseIdChanged = caseIdInNewData && currentData.caseId != newData.caseId;
   const dossierIdChanged =
     dossierIdInNewData && currentData.dossierId != newData.dossierId;
@@ -626,43 +574,54 @@ function detectSessionImpact(currentData, newData) {
     return { requiresConfirmation: false };
   }
 
-  // Determine old and new parent info
-  let oldParentLabel = "Not assigned";
-  let newParentLabel = "Not assigned";
+  const formatParentLabel = (entityType, entity) => {
+    if (!entity) return t("session.impact.parent.notAssigned");
+    if (entityType === "dossier") {
+      return t("session.impact.parent.dossierLabel", {
+        caseNumber: entity.caseNumber || "",
+        title: entity.title || "",
+      });
+    }
+    return t("session.impact.parent.caseLabel", {
+      caseNumber: entity.caseNumber || "",
+      title: entity.title || "",
+    });
+  };
+
+  let oldParentLabel = t("session.impact.parent.notAssigned");
+  let newParentLabel = t("session.impact.parent.notAssigned");
 
   if (currentData.caseId) {
     const caseData = mockCases.find((c) => c.id == currentData.caseId);
-    oldParentLabel = `Lawsuit ${caseData?.caseNumber || ""} - ${
-      caseData?.title || ""
-    }`;
+    oldParentLabel = formatParentLabel("case", caseData);
   } else if (currentData.dossierId) {
     const dossier = mockDossiers.find((d) => d.id == currentData.dossierId);
-    oldParentLabel = `Dossier ${dossier?.caseNumber || ""} - ${
-      dossier?.title || ""
-    }`;
+    oldParentLabel = formatParentLabel("dossier", dossier);
   }
 
   if (newData.caseId) {
     const caseData = mockCases.find((c) => c.id == newData.caseId);
-    newParentLabel = `Lawsuit ${caseData?.caseNumber || ""} - ${
-      caseData?.title || ""
-    }`;
+    newParentLabel = formatParentLabel("case", caseData);
   } else if (newData.dossierId) {
     const dossier = mockDossiers.find((d) => d.id == newData.dossierId);
-    newParentLabel = `Dossier ${dossier?.caseNumber || ""} - ${
-      dossier?.title || ""
-    }`;
+    newParentLabel = formatParentLabel("dossier", dossier);
   }
 
-  const impactSummary = [
-    `**Current attachment** : ${oldParentLabel}`,
-    `**New attachment** : ${newParentLabel}`,
-    "",
-    "**Impact** :",
-    "• The session will be removed from its current context",
-    "• Tracking indicators will be recalculated",
-    "• Session history will be preserved",
-  ];
+  const impactSummary = buildImpactSummary(
+    [
+      {
+        type: "session_parent_reassignment",
+        from: oldParentLabel,
+        to: newParentLabel,
+        impact: [
+          t("session.impact.parent.impact1"),
+          t("session.impact.parent.impact2"),
+          t("session.impact.parent.impact3"),
+        ],
+      },
+    ],
+    "session"
+  );
 
   return {
     requiresConfirmation: true,
@@ -674,7 +633,6 @@ function detectSessionImpact(currentData, newData) {
     },
   };
 }
-
 // ========================================
 // VALIDATORS BY ENTITY TYPE
 // ========================================
@@ -975,7 +933,6 @@ function validateDossierArchive(dossierId, context = {}) {
  */
 function validateDossierDelete(dossierId, context = {}) {
   const blockers = [];
-  const warnings = [];
   const affectedEntities = [];
 
   const tasks = context.tasks || context.entities?.tasks || [];
@@ -985,7 +942,6 @@ function validateDossierDelete(dossierId, context = {}) {
   const financialEntries =
     context.financialEntries || context.entities?.financialEntries || [];
 
-  // Use enriched data from mockDossiersExtended if available, otherwise fallback to context
   const dossier =
     mockDossiersExtended[dossierId] ||
     mockDossiersExtended[Number(dossierId)] ||
@@ -994,11 +950,9 @@ function validateDossierDelete(dossierId, context = {}) {
     );
 
   if (!dossier) {
-    // Allow deletion if dossier is already missing (e.g., local-only app, already deleted)
     return { allowed: true, blockers: [], warnings: [] };
   }
 
-  // Check for related Procès (cases)
   const dossierCases = cases.filter(
     (c) => String(c.dossierId) === String(dossierId)
   );
@@ -1011,15 +965,8 @@ function validateDossierDelete(dossierId, context = {}) {
         label: `${c.caseNumber} - ${c.title}`,
       })),
     });
-
-    warnings.push(
-      `This Dossier contains ${dossierCases.length} case${
-        dossierCases.length > 1 ? "s" : ""
-      } that will be deleted.`
-    );
   }
 
-  // Check for related Tasks
   const dossierTasks = tasks.filter(
     (task) =>
       task.parentType === "dossier" &&
@@ -1035,15 +982,8 @@ function validateDossierDelete(dossierId, context = {}) {
         label: t.title,
       })),
     });
-
-    warnings.push(
-      `This Dossier contains ${dossierTasks.length} task${
-        dossierTasks.length > 1 ? "s" : ""
-      } that will be deleted.`
-    );
   }
 
-  // Check for related Sessions
   const dossierSessions = sessions.filter(
     (session) => String(session.dossierId) === String(dossierId)
   );
@@ -1057,15 +997,8 @@ function validateDossierDelete(dossierId, context = {}) {
         label: `${s.type} - ${s.date}`,
       })),
     });
-
-    warnings.push(
-      `This Dossier contains ${dossierSessions.length} session${
-        dossierSessions.length > 1 ? "s" : ""
-      } that will be deleted.`
-    );
   }
 
-  // Check for related Missions
   const dossierMissions = missions.filter(
     (mission) =>
       mission.entityType === "dossier" &&
@@ -1081,15 +1014,8 @@ function validateDossierDelete(dossierId, context = {}) {
         label: `${m.missionNumber} - ${m.title}`,
       })),
     });
-
-    warnings.push(
-      `This Dossier contains ${dossierMissions.length} mission${
-        dossierMissions.length > 1 ? "s" : ""
-      } that will be deleted.`
-    );
   }
 
-  // Check for financial entries
   const dossierFinancials = financialEntries.filter(
     (entry) =>
       String(entry.dossierId) === String(dossierId) && entry.status !== "void"
@@ -1104,37 +1030,23 @@ function validateDossierDelete(dossierId, context = {}) {
         label: `${e.description} - ${e.amount} TND`,
       })),
     });
-
-    warnings.push(
-      `This Dossier has ${dossierFinancials.length} financial ${
-        dossierFinancials.length > 1 ? "entries" : "entry"
-      } that will be deleted.`
-    );
   }
 
-  // If there are affected entities, require force delete instead of blocking
   if (affectedEntities.length > 0) {
     const totalCount = affectedEntities.reduce((sum, e) => sum + e.count, 0);
     return {
       allowed: false,
       blockers: [],
-      warnings,
+      warnings: buildDeleteWarnings(affectedEntities, "dossier"),
       requiresForceDelete: true,
       affectedEntities,
-      forceDeleteMessage: `⚠️ Warning: Deleting this Dossier will also delete ${totalCount} linked entit${
-        totalCount > 1 ? "ies" : "y"
-      } (cases, tasks, sessions, missions, financial entries). This action is irreversible.`,
+      forceDeleteMessage: buildForceDeleteMessage(totalCount, "dossier"),
     };
   }
 
   return { allowed: true, blockers: [], warnings: [] };
 }
 
-/**
- * Validate status change for Dossier
- *
- * Specific validation when changing status to "Closed"
- */
 function validateDossierStatusChange(dossierId, context = {}) {
   const { newValue } = context;
 
@@ -1328,7 +1240,6 @@ function validateCaseClose(caseId, context = {}) {
  */
 function validateCaseDelete(caseId, context = {}) {
   const blockers = [];
-  const warnings = [];
   const affectedEntities = [];
 
   const sessions = context.sessions || context.entities?.sessions || [];
@@ -1343,11 +1254,9 @@ function validateCaseDelete(caseId, context = {}) {
     );
 
   if (!caseData) {
-    // Allow deletion if case is already missing (e.g., local-only app, already deleted)
     return { allowed: true, blockers: [], warnings: [] };
   }
 
-  // Check for related Séances
   const caseSessions = sessions.filter(
     (session) => String(session.caseId) === String(caseId)
   );
@@ -1361,15 +1270,8 @@ function validateCaseDelete(caseId, context = {}) {
         label: `${s.type} - ${s.date}`,
       })),
     });
-
-    warnings.push(
-      `This case contains ${caseSessions.length} session${
-        caseSessions.length > 1 ? "s" : ""
-      } that will be deleted.`
-    );
   }
 
-  // Check for related Tasks
   const caseTasks = tasks.filter(
     (task) =>
       task.parentType === "case" && String(task.caseId) === String(caseId)
@@ -1384,15 +1286,8 @@ function validateCaseDelete(caseId, context = {}) {
         label: t.title,
       })),
     });
-
-    warnings.push(
-      `This case contains ${caseTasks.length} task${
-        caseTasks.length > 1 ? "s" : ""
-      } that will be deleted.`
-    );
   }
 
-  // Check for related Missions
   const caseMissions = missions.filter(
     (mission) =>
       mission.entityType === "case" &&
@@ -1408,35 +1303,23 @@ function validateCaseDelete(caseId, context = {}) {
         label: `${m.missionNumber} - ${m.title}`,
       })),
     });
-
-    warnings.push(
-      `This case contains ${caseMissions.length} mission${
-        caseMissions.length > 1 ? "s" : ""
-      } that will be deleted.`
-    );
   }
 
-  // If there are affected entities, require force delete instead of blocking
   if (affectedEntities.length > 0) {
     const totalCount = affectedEntities.reduce((sum, e) => sum + e.count, 0);
     return {
       allowed: false,
       blockers: [],
-      warnings,
+      warnings: buildDeleteWarnings(affectedEntities, "case"),
       requiresForceDelete: true,
       affectedEntities,
-      forceDeleteMessage: `⚠️ Warning: Deleting this case will also delete ${totalCount} linked entit${
-        totalCount > 1 ? "ies" : "y"
-      } (sessions, tasks, missions). This action is irreversible.`,
+      forceDeleteMessage: buildForceDeleteMessage(totalCount, "case"),
     };
   }
 
   return { allowed: true, blockers: [], warnings: [] };
 }
 
-/**
- * Validate status change for Procès
- */
 function validateCaseStatusChange(caseId, context = {}) {
   const { newValue } = context;
 
@@ -1605,11 +1488,9 @@ function validateClientArchive(clientId, context = {}) {
  */
 function validateClientDelete(clientId, context = {}) {
   const blockers = [];
-  const warnings = [];
   const affectedEntities = [];
 
   const client = mockClientsExtended[clientId];
-  // PATCH: Allow delete if client is not found (already deleted)
   if (!client) {
     return { allowed: true, blockers: [], warnings: [] };
   }
@@ -1619,7 +1500,6 @@ function validateClientDelete(clientId, context = {}) {
   const sessions = context.sessions || context.entities?.sessions || [];
   const missions = context.missions || context.entities?.missions || [];
 
-  // Check for related Dossiers
   const clientDossiers = client.dossiers || [];
   if (clientDossiers.length > 0) {
     affectedEntities.push({
@@ -1630,15 +1510,8 @@ function validateClientDelete(clientId, context = {}) {
         label: `${d.caseNumber} - ${d.title}`,
       })),
     });
-
-    warnings.push(
-      `This client has ${clientDossiers.length} Dossier${
-        clientDossiers.length > 1 ? "s" : ""
-      } that will be deleted.`
-    );
   }
 
-  // Check for cases (lawsuits) under client dossiers
   const clientCases = cases.filter((c) =>
     clientDossiers.some((d) => d.id === c.dossierId)
   );
@@ -1652,15 +1525,8 @@ function validateClientDelete(clientId, context = {}) {
         label: `${c.caseNumber} - ${c.title}`,
       })),
     });
-
-    warnings.push(
-      `This client has ${clientCases.length} lawsuit${
-        clientCases.length > 1 ? "s" : ""
-      } that will be deleted.`
-    );
   }
 
-  // Check for tasks under client dossiers/cases
   const clientTasks = tasks.filter(
     (task) =>
       (task.parentType === "dossier" &&
@@ -1678,15 +1544,8 @@ function validateClientDelete(clientId, context = {}) {
         label: t.title,
       })),
     });
-
-    warnings.push(
-      `This client has ${clientTasks.length} task${
-        clientTasks.length > 1 ? "s" : ""
-      } that will be deleted.`
-    );
   }
 
-  // Check for sessions under client dossiers/cases
   const clientSessions = sessions.filter(
     (session) =>
       clientDossiers.some((d) => d.id === session.dossierId) ||
@@ -1702,15 +1561,8 @@ function validateClientDelete(clientId, context = {}) {
         label: `${s.type} - ${s.date}`,
       })),
     });
-
-    warnings.push(
-      `This client has ${clientSessions.length} session${
-        clientSessions.length > 1 ? "s" : ""
-      } that will be deleted.`
-    );
   }
 
-  // Check for missions under client dossiers/cases
   const clientMissions = missions.filter(
     (mission) =>
       (mission.entityType === "dossier" &&
@@ -1728,15 +1580,8 @@ function validateClientDelete(clientId, context = {}) {
         label: `${m.missionNumber} - ${m.title}`,
       })),
     });
-
-    warnings.push(
-      `This client has ${clientMissions.length} mission${
-        clientMissions.length > 1 ? "s" : ""
-      } that will be deleted.`
-    );
   }
 
-  // Check for financial entries
   const clientFinancials = financialLedger.filter(
     (entry) => entry.clientId === clientId && entry.status !== "void"
   );
@@ -1750,35 +1595,23 @@ function validateClientDelete(clientId, context = {}) {
         label: `${e.description} - ${e.amount} TND`,
       })),
     });
-
-    warnings.push(
-      `This client has ${clientFinancials.length} financial ${
-        clientFinancials.length > 1 ? "entries" : "entry"
-      } that will be deleted.`
-    );
   }
 
-  // If there are affected entities, require force delete instead of blocking
   if (affectedEntities.length > 0) {
     const totalCount = affectedEntities.reduce((sum, e) => sum + e.count, 0);
     return {
       allowed: false,
       blockers: [],
-      warnings,
+      warnings: buildDeleteWarnings(affectedEntities, "client"),
       requiresForceDelete: true,
       affectedEntities,
-      forceDeleteMessage: `⚠️ Warning: Deleting this client will also delete ${totalCount} linked entit${
-        totalCount > 1 ? "ies" : "y"
-      } (dossiers, cases, tasks, sessions, missions, financial entries). This action is irreversible.`,
+      forceDeleteMessage: buildForceDeleteMessage(totalCount, "client"),
     };
   }
 
   return { allowed: true, blockers: [], warnings: [] };
 }
 
-/**
- * Validate status change for Client
- */
 function validateClientStatusChange(clientId, context = {}) {
   const { newValue } = context;
 
@@ -2189,10 +2022,87 @@ function validateMissionEdit(missionId, context = {}) {
 
 /**
  * Validate deleting a Mission
+ *
+ * Business Rule:
+ * - Cannot delete if mission has dependent entities (financial entries, documents, notes)
+ * - If dependencies exist, require force delete with cascade warning
  */
 function validateMissionDelete(missionId, context = {}) {
-  // Same rules as edit
-  return validateMissionEdit(missionId, context);
+  const blockers = [];
+  const affectedEntities = [];
+
+  const missions = context.missions || context.entities?.missions || [];
+  const financialEntries = context.financialEntries || context.entities?.financialEntries || [];
+  const documents = context.documents || context.entities?.documents || [];
+  const notes = context.notes || context.entities?.notes || [];
+
+  const mission = missions.find(m => m.id === missionId);
+  if (!mission) {
+    return { allowed: true, blockers: [], warnings: [] };
+  }
+
+  // Check for financial entries linked to this mission
+  const missionFinancials = financialEntries.filter(
+    (entry) => entry.missionId === missionId && entry.status !== "void"
+  );
+
+  if (missionFinancials.length > 0) {
+    affectedEntities.push({
+      type: "financialEntries",
+      count: missionFinancials.length,
+      items: missionFinancials.slice(0, 5).map((e) => ({
+        id: e.id,
+        label: `${e.description || e.title || 'Financial Entry'} - ${e.amount} ${e.currency || 'TND'}`,
+      })),
+    });
+  }
+
+  // Check for documents linked to this mission
+  const missionDocuments = documents.filter(
+    (doc) => doc.entityType === "mission" && doc.entityId === missionId
+  );
+
+  if (missionDocuments.length > 0) {
+    affectedEntities.push({
+      type: "documents",
+      count: missionDocuments.length,
+      items: missionDocuments.slice(0, 5).map((d) => ({
+        id: d.id,
+        label: d.name || d.fileName || `Document #${d.id}`,
+      })),
+    });
+  }
+
+  // Check for notes linked to this mission
+  const missionNotes = notes.filter(
+    (note) => note.entityType === "mission" && note.entityId === missionId
+  );
+
+  if (missionNotes.length > 0) {
+    affectedEntities.push({
+      type: "notes",
+      count: missionNotes.length,
+      items: missionNotes.slice(0, 5).map((n) => ({
+        id: n.id,
+        label: n.content?.substring(0, 50) || `Note #${n.id}`,
+      })),
+    });
+  }
+
+  // If there are affected entities, require force delete
+  if (affectedEntities.length > 0) {
+    const totalCount = affectedEntities.reduce((sum, e) => sum + e.count, 0);
+    return {
+      allowed: false,
+      blockers: [],
+      warnings: buildDeleteWarnings(affectedEntities, "mission"),
+      requiresForceDelete: true,
+      affectedEntities,
+      forceDeleteMessage: buildForceDeleteMessage(totalCount, "mission"),
+    };
+  }
+
+  return { allowed: true, blockers: [], warnings: [] };
 }
 
 // ========================================
@@ -2317,26 +2227,23 @@ function validateFinancialEntryDelete(entryId, context = {}) {
   const blockers = [];
   const warnings = [];
 
-  // Use the data from context if available, otherwise fall back to financialLedger
   const entry =
     context.data ||
     financialLedger.find((e) => e.id === normalizeFinancialEntryId(entryId));
   if (!entry) {
     return {
       allowed: false,
-      blockers: ["Financial entry not found"],
+      blockers: [t("financialEntry.delete.blocked.entryNotFound")],
       warnings: [],
     };
   }
 
-  // Rule 1: Cannot delete paid entries
-  if (entry.status === "Payée" || entry.status === "paid") {
-    blockers.push(
-      "This financial entry is paid.\n\nPaid entries cannot be deleted. You must create a corrective entry."
-    );
+  const statusValue = (entry.status || "").toLowerCase();
+  const paidStatuses = ["payée", "payee", "payé", "paye", "payace", "paid"];
+  if (paidStatuses.includes(statusValue)) {
+    blockers.push(t("financialEntry.delete.blocked.entryPaid"));
   }
 
-  // Use same parent checks as edit
   const editValidation = validateFinancialEntryEdit(entryId, context);
   if (!editValidation.allowed) {
     blockers.push(...editValidation.blockers);
@@ -2346,12 +2253,6 @@ function validateFinancialEntryDelete(entryId, context = {}) {
   return { allowed, blockers, warnings };
 }
 
-/**
- * Validate changing Financial Entry status
- *
- * Business Rule (PHASE 2):
- * - Same rules as edit
- */
 function validateFinancialEntryStatusChange(entryId, context = {}) {
   // Allow marking as paid even if parent is closed (business requirement)
   // But still check if entry is already paid
@@ -2417,18 +2318,16 @@ function validateOfficerDelete(officerId, context = {}) {
   const blockers = [];
   const warnings = [];
 
-  // Check for active missions
   const activeMissions = getAllMissions().filter(
-    (m) => m.officerId === officerId && m.status !== "Terminé"
+    (m) => m.officerId === officerId && m.status !== "TerminAc"
   );
 
   if (activeMissions.length > 0) {
     blockers.push(
-      `This bailiff has ${activeMissions.length} active mission(s).\n\nYou must first complete or reassign these missions before deleting the bailiff.`
+      t("officer.delete.blocked.activeMissions", { count: activeMissions.length })
     );
   }
 
-  // Check for financial entries linked to missions assigned to this officer
   const missionsWithOfficer = getAllMissions().filter(
     (m) => m.officerId === officerId
   );
@@ -2437,10 +2336,10 @@ function validateOfficerDelete(officerId, context = {}) {
     (e) => missionIds.includes(e.missionId) && e.status !== "cancelled"
   );
   if (financialEntries.length > 0) {
+    const key =
+      financialEntries.length > 1 ? "financialEntries_plural" : "financialEntries";
     blockers.push(
-      `This bailiff is linked to ${financialEntries.length} financial entr${
-        financialEntries.length > 1 ? "ies" : "y"
-      } via their missions.\n\nDeleting a bailiff with existing entries would compromise data integrity.`
+      t(`officer.delete.blocked.${key}`, { count: financialEntries.length })
     );
   }
 

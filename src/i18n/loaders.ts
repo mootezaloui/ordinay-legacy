@@ -6,6 +6,7 @@ type NamespaceLoader = () => Promise<ResourceLanguage>;
 const namespaceLoaders: Record<LanguageCode, NamespaceLoader> = {
   en: async () => ({
     common: (await import("./locales/en/common.json")).default,
+    auth: (await import("./locales/en/auth.json")).default,
     clients: (await import("./locales/en/clients.json")).default,
     settings: (await import("./locales/en/settings.json")).default,
     profile: (await import("./locales/en/profile.json")).default,
@@ -25,6 +26,7 @@ const namespaceLoaders: Record<LanguageCode, NamespaceLoader> = {
   }),
   fr: async () => ({
     common: (await import("./locales/fr/common.json")).default,
+    auth: (await import("./locales/fr/auth.json")).default,
     clients: (await import("./locales/fr/clients.json")).default,
     settings: (await import("./locales/fr/settings.json")).default,
     profile: (await import("./locales/fr/profile.json")).default,
@@ -44,6 +46,7 @@ const namespaceLoaders: Record<LanguageCode, NamespaceLoader> = {
   }),
   ar: async () => ({
     common: (await import("./locales/ar/common.json")).default,
+    auth: (await import("./locales/ar/auth.json")).default,
     clients: (await import("./locales/ar/clients.json")).default,
     settings: (await import("./locales/ar/settings.json")).default,
     profile: (await import("./locales/ar/profile.json")).default,
