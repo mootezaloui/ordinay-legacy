@@ -30,7 +30,7 @@
       "audience": "Audience",
       "expertise": "Expertise",
       "mediation": "Médiation",
-      "phone": "Téléphone"
+      "telephone": "Téléphone"
     },
     "status": {
       "scheduled": "Planifiée",

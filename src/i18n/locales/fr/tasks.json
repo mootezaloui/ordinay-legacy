@@ -187,7 +187,9 @@
       },
       "assignedTo": {
         "label": "Assignée à",
-        "create": "Ajouter"
+        "create": "Ajouter",
+        "myself": "Moi-même",
+        "intern": "Stagiaire"
       }
     },
     "header": {

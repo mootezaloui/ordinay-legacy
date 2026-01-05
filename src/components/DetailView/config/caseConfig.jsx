@@ -5,6 +5,7 @@ import { getStatusColor } from "./statusColors";
 import { sessionFormFields, taskFormFields, getMissionFormFields } from "../../FormModal/formConfigs";
 import { calculateNextHearing, formatDate, getDeadlineUrgency } from "../../../utils/deadlineUtils";
 import { formatDateValue } from "../../../utils/dateFormat";
+import { translateStatus } from "../../../utils/entityTranslations";
 
 /**
  * Case (Procès) Entity Configuration - UPDATED with Quick Actions
@@ -15,7 +16,6 @@ import { formatDateValue } from "../../../utils/dateFormat";
  * ✅ Fully internationalized with i18n support
  */
 export const createCaseConfig = (t) => {
-  const tTasks = i18next.getFixedT("tasks");
   const tSessions = i18next.getFixedT("sessions");
 
   return ({
@@ -180,7 +180,7 @@ export const createCaseConfig = (t) => {
                 )}
               </div>
               <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(data.status)}`}>
-                {data.status}
+                {translateStatus(data.status, "cases", t)}
               </span>
             </div>
 
@@ -352,6 +352,7 @@ export const createCaseConfig = (t) => {
         getFormFields: (caseData) => {
           // Get parent dossier data
           const parentDossier = caseData.dossier;
+          const tTasks = (key) => i18next.t(key, { ns: "tasks" });
 
           return taskFormFields(tTasks).map(field => {
             // Default parentType to 'case' since we're in case context (opposite of dossier)

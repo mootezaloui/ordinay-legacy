@@ -2311,40 +2311,62 @@ function validateOfficerEdit(officerId, context = {}) {
  * Validate deleting an Officer (Huissier)
  *
  * Business Rules:
- * - Cannot delete if officer has active missions
- * - Cannot delete if officer has financial entries
+ * - Cannot delete if officer has missions
+ * - Cannot delete if officer has financial entries (directly or via missions)
+ * - These are CASCADE blockers - not resolvable, require explicit confirmation
  */
 function validateOfficerDelete(officerId, context = {}) {
-  const blockers = [];
-  const warnings = [];
+  const affectedEntities = [];
 
-  const activeMissions = getAllMissions().filter(
-    (m) => m.officerId === officerId && m.status !== "TerminAc"
-  );
-
-  if (activeMissions.length > 0) {
-    blockers.push(
-      t("officer.delete.blocked.activeMissions", { count: activeMissions.length })
-    );
-  }
-
+  // Get all missions for this officer
   const missionsWithOfficer = getAllMissions().filter(
     (m) => m.officerId === officerId
   );
+
+  // Add missions to affected entities
+  if (missionsWithOfficer.length > 0) {
+    affectedEntities.push({
+      type: "missions",
+      count: missionsWithOfficer.length,
+      items: missionsWithOfficer.slice(0, 5).map((m) => ({
+        id: m.id,
+        label: `${m.missionNumber || m.id} - ${m.title || "Mission"}`,
+      })),
+    });
+  }
+
+  // Get financial entries linked to these missions
   const missionIds = missionsWithOfficer.map((m) => m.id);
   const financialEntries = financialLedger.filter(
     (e) => missionIds.includes(e.missionId) && e.status !== "cancelled"
   );
+
+  // Add financial entries to affected entities
   if (financialEntries.length > 0) {
-    const key =
-      financialEntries.length > 1 ? "financialEntries_plural" : "financialEntries";
-    blockers.push(
-      t(`officer.delete.blocked.${key}`, { count: financialEntries.length })
-    );
+    affectedEntities.push({
+      type: "financialEntries",
+      count: financialEntries.length,
+      items: financialEntries.slice(0, 5).map((e) => ({
+        id: e.id,
+        label: `${e.description || "Financial entry"} - ${e.amount} ${e.currency || "TND"}`,
+      })),
+    });
   }
 
-  const allowed = blockers.length === 0;
-  return { allowed, blockers, warnings };
+  // If there are affected entities, return CASCADE warning with force delete option
+  if (affectedEntities.length > 0) {
+    const totalCount = affectedEntities.reduce((sum, e) => sum + e.count, 0);
+    return {
+      allowed: false,
+      blockers: [],
+      warnings: buildDeleteWarnings(affectedEntities, "officer"),
+      requiresForceDelete: true,
+      affectedEntities,
+      forceDeleteMessage: buildForceDeleteMessage(totalCount, "officer"),
+    };
+  }
+
+  return { allowed: true, blockers: [], warnings: [] };
 }
 
 // ========================================

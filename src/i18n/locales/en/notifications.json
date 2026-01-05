@@ -124,6 +124,380 @@
       "notifications": "Notification Center"
     }
   },
+  "content": {
+    "task": {
+      "overdue": {
+        "title_one": "Task Overdue - {{count}} day",
+        "title_other": "Task Overdue - {{count}} days",
+        "message_one": "The task \"{{taskTitle}}\" is overdue by {{count}} day. Action required.",
+        "message_other": "The task \"{{taskTitle}}\" is overdue by {{count}} days. Action required."
+      },
+      "upcomingDeadline": {
+        "title_one": "Deadline in {{count}} day",
+        "title_other": "Deadline in {{count}} days",
+        "message_one": "The task \"{{taskTitle}}\" is due in {{count}} day.",
+        "message_other": "The task \"{{taskTitle}}\" is due in {{count}} days."
+      },
+      "dueToday": {
+        "title": "Due Today",
+        "message": "The task \"{{taskTitle}}\" must be completed today. Have you finished?"
+      },
+      "reminder": {
+        "title": "Task Reminder",
+        "message_one": "The task \"{{taskTitle}}\" is due in {{count}} day. Have you started?",
+        "message_other": "The task \"{{taskTitle}}\" is due in {{count}} days. Have you started?"
+      },
+      "upcoming": {
+        "title": "Upcoming Task",
+        "message_one": "Don't forget: \"{{taskTitle}}\" must be completed in {{count}} day.",
+        "message_other": "Don't forget: \"{{taskTitle}}\" must be completed in {{count}} days."
+      },
+      "actionRequired": {
+        "title": "Action Required",
+        "message": "\"{{taskTitle}}\" - The deadline is today! What is your progress?"
+      },
+      "attention": {
+        "title": "Attention - Overdue",
+        "message_one": "The task \"{{taskTitle}}\" should have been completed {{count}} day ago.",
+        "message_other": "The task \"{{taskTitle}}\" should have been completed {{count}} days ago."
+      },
+      "statusCheck": {
+        "title": "Task Follow-up",
+        "message": "Have you completed the task \"{{taskTitle}}\"? Deadline: {{dueDate}}"
+      },
+      "progressCheck": {
+        "title": "Progress Check",
+        "message": "Where are you with \"{{taskTitle}}\"? Deadline: {{dueDate}}"
+      }
+    },
+    "personalTask": {
+      "upcomingDeadline": {
+        "title_one": "Personal task deadline in {{count}} day",
+        "title_other": "Personal task deadline in {{count}} days",
+        "message_one": "The personal Task \"{{taskTitle}}\" is due in {{count}} day.",
+        "message_other": "The personal Task \"{{taskTitle}}\" is due in {{count}} days."
+      },
+      "completionReminder": {
+        "title": "Personal Task - Completion Reminder",
+        "message_one": "The personal task \"{{taskTitle}}\" had a deadline {{count}} day ago. Has the task been completed?",
+        "message_other": "The personal task \"{{taskTitle}}\" had a deadline {{count}} days ago. Has the task been completed?"
+      }
+    },
+    "session": {
+      "upcomingHearing": {
+        "title_one": "Hearing in {{count}} Day",
+        "title_other": "Hearing in {{count}} Days",
+        "message_one": "Hearing scheduled for case \"{{caseNumber}}\" in {{count}} day.",
+        "message_other": "Hearing scheduled for case \"{{caseNumber}}\" in {{count}} days.",
+        "messageWithLocation_one": "Hearing scheduled for case \"{{caseNumber}}\" in {{count}} day. Location: {{location}}",
+        "messageWithLocation_other": "Hearing scheduled for case \"{{caseNumber}}\" in {{count}} days. Location: {{location}}",
+        "messageNoLocation_one": "Hearing scheduled for case \"{{caseNumber}}\" in {{count}} day. Check documents and preparation.",
+        "messageNoLocation_other": "Hearing scheduled for case \"{{caseNumber}}\" in {{count}} days. Check documents and preparation."
+      },
+      "hearingToday": {
+        "title": "🔴 Hearing Today",
+        "message": "Hearing today for case \"{{caseNumber}}\" at {{time}}.",
+        "messageWithLocation": "Hearing today for case \"{{caseNumber}}\" at {{time}}. Location: {{location}}"
+      },
+      "hearingOutcome": {
+        "title": "Hearing Outcome - Documentation Required",
+        "message_one": "The hearing for case \"{{caseNumber}}\" took place {{count}} day ago. What was the outcome of the hearing?",
+        "message_other": "The hearing for case \"{{caseNumber}}\" took place {{count}} days ago. What was the outcome of the hearing?"
+      },
+      "preparation": {
+        "title": "Session Preparation",
+        "message_one": "Session \"{{sessionTitle}}\" in {{count}} day. Have you prepared your pleading?",
+        "message_other": "Session \"{{sessionTitle}}\" in {{count}} days. Have you prepared your pleading?",
+        "messageAlt_one": "The hearing \"{{sessionTitle}}\" is in {{count}} day. Have you prepared your arguments?",
+        "messageAlt_other": "The hearing \"{{sessionTitle}}\" is in {{count}} days. Have you prepared your arguments?",
+        "messageDate": "Session \"{{sessionTitle}}\" on {{date}}. Have you gathered all necessary documents?"
+      },
+      "tomorrow": {
+        "title": "Session Tomorrow",
+        "message": "The hearing \"{{sessionTitle}}\" takes place tomorrow. Are you ready?",
+        "messageAlt": "Session tomorrow: \"{{sessionTitle}}\". Have you checked all the files?"
+      },
+      "today": {
+        "title": "Session Today",
+        "message": "Hearing \"{{sessionTitle}}\" today at {{time}}. Good luck!",
+        "messageFallback": "Hearing \"{{sessionTitle}}\" today at the scheduled time. Good luck!"
+      }
+    },
+    "case": {
+      "missingHearing": {
+        "title": "Missing Hearing - Case without Hearing",
+        "message": "The Lawsuit \"{{caseTitle}}\" (Priority: {{priority}}) has no scheduled hearings. Has a hearing been created?"
+      },
+      "statusUpdate": {
+        "title": "Status Update - Lawsuit",
+        "message": "The case \"{{caseTitle}}\" has {{activitySummary}}. Should the case status be updated? Was there a verdict?",
+        "hearingsCompleted_one": "{{count}} hearing completed",
+        "hearingsCompleted_other": "{{count}} hearings completed",
+        "tasksCompleted_one": "{{count}} task completed",
+        "tasksCompleted_other": "{{count}} tasks completed",
+        "and": " and "
+      }
+    },
+    "mission": {
+      "upcomingDeadline": {
+        "title_one": "Mission - Deadline in {{count}} day",
+        "title_other": "Mission - Deadline in {{count}} days",
+        "message_one": "The mission \"{{missionTitle}}\" (priority {{priority}}) has a deadline in {{count}} day ({{dueDate}}).",
+        "message_other": "The mission \"{{missionTitle}}\" (priority {{priority}}) has a deadline in {{count}} days ({{dueDate}})."
+      },
+      "completionReminder": {
+        "title": "Mission - Update Required",
+        "message_one": "The mission \"{{missionTitle}}\" had a deadline {{count}} day ago. Has the mission been completed by the bailiff?",
+        "message_other": "The mission \"{{missionTitle}}\" had a deadline {{count}} days ago. Has the mission been completed by the bailiff?"
+      },
+      "upcoming": {
+        "title": "Upcoming Mission",
+        "message_one": "Mission \"{{missionTitle}}\" scheduled in {{count}} day. Is everything ready?",
+        "message_other": "Mission \"{{missionTitle}}\" scheduled in {{count}} days. Is everything ready?",
+        "messageDate": "Mission \"{{missionTitle}}\" on {{date}}. Have you prepared the documents?"
+      },
+      "dueToday": {
+        "title": "Mission Today",
+        "message": "Mission \"{{missionTitle}}\" today. Confirmed with the bailiff?"
+      },
+      "completion": {
+        "title": "Mission Follow-up",
+        "message": "Mission \"{{missionTitle}}\" completed? Have you received the bailiff's report?"
+      }
+    },
+    "financial": {
+      "upcomingPayment": {
+        "title_one": "Expected Payment - {{count}} day",
+        "title_other": "Expected Payment - {{count}} days",
+        "message_one": "Payment of {{amount}} {{currency}} expected from \"{{clientName}}\"{{contextInfo}} in {{count}} day.",
+        "message_other": "Payment of {{amount}} {{currency}} expected from \"{{clientName}}\"{{contextInfo}} in {{count}} days.",
+        "messageWithDescription_one": "Payment of {{amount}} {{currency}} expected from \"{{clientName}}\"{{contextInfo}} in {{count}} day. {{description}}",
+        "messageWithDescription_other": "Payment of {{amount}} {{currency}} expected from \"{{clientName}}\"{{contextInfo}} in {{count}} days. {{description}}"
+      },
+      "overduePayment": {
+        "title_one": "Overdue Payment - {{count}} day",
+        "title_other": "Overdue Payment - {{count}} days",
+        "message_one": "The payment of {{amount}} {{currency}} from \"{{clientName}}\"{{contextInfo}} is overdue by {{count}} day. Reminder recommended.",
+        "message_other": "The payment of {{amount}} {{currency}} from \"{{clientName}}\"{{contextInfo}} is overdue by {{count}} days. Reminder recommended."
+      },
+      "paymentReceivable": {
+        "title": "Payment Receivable",
+        "message_one": "The payment from {{clientName}} ({{amount}} TND) is due in {{count}} day.",
+        "message_other": "The payment from {{clientName}} ({{amount}} TND) is due in {{count}} days."
+      },
+      "paymentDue": {
+        "title": "Payment Due",
+        "message_one": "{{clientName}} must pay you {{amount}} TND in {{count}} day. Have you sent a reminder?",
+        "message_other": "{{clientName}} must pay you {{amount}} TND in {{count}} days. Have you sent a reminder?"
+      },
+      "paymentDueToday": {
+        "title": "Payment Due Today",
+        "message": "{{clientName}} must pay you {{amount}} TND today. Have you received the payment?",
+        "messageAlt": "Payment expected from {{clientName}}: {{amount}} TND. Have they paid?"
+      },
+      "paymentOverdue": {
+        "title": "Payment Overdue",
+        "message_one": "{{clientName}} has a payment overdue by {{count}} day ({{amount}} TND). Contacted?",
+        "message_other": "{{clientName}} has a payment overdue by {{count}} days ({{amount}} TND). Contacted?"
+      },
+      "followupRequired": {
+        "title": "Follow-up Required",
+        "message": "The payment from {{clientName}} ({{amount}} TND) is overdue. Have you sent a follow-up?"
+      }
+    },
+    "dossier": {
+      "inactivityReminder": {
+        "title_one": "Dossier Inactive - {{count}}+ Days",
+        "title_other": "Dossier Inactive - {{count}}+ Days",
+        "message_one": "The dossier \"{{dossierNumber}}\" has not been updated for {{count}} day. A review is recommended.",
+        "message_other": "The dossier \"{{dossierNumber}}\" has not been updated for {{count}} days. A review is recommended."
+      },
+      "reviewReminder": {
+        "title": "Dossier Review - Priority {{priority}}",
+        "message_one": "The dossier \"{{dossierNumber}}\" (priority {{priority}}) requires a review. Last updated {{count}} day ago.",
+        "message_other": "The dossier \"{{dossierNumber}}\" (priority {{priority}}) requires a review. Last updated {{count}} days ago."
+      },
+      "deadlineOverdue": {
+        "title_one": "Deadline Overdue - {{count}} day",
+        "title_other": "Deadline Overdue - {{count}} days",
+        "message_one": "Deadline of dossier \"{{dossierNumber}}\" is overdue by {{count}} day. Urgent action required.",
+        "message_other": "Deadline of dossier \"{{dossierNumber}}\" is overdue by {{count}} days. Urgent action required."
+      },
+      "deadlineToday": {
+        "title": "Deadline Today",
+        "message": "Deadline of dossier \"{{dossierNumber}}\" is today. Please complete the necessary actions."
+      },
+      "deadlineUpcoming": {
+        "title_one": "Upcoming Deadline - {{count}} day",
+        "title_other": "Upcoming Deadline - {{count}} days",
+        "message_one": "Deadline of dossier \"{{dossierNumber}}\" is in {{count}} day. Preparation recommended.",
+        "message_other": "Deadline of dossier \"{{dossierNumber}}\" is in {{count}} days. Preparation recommended."
+      },
+      "deadlineWeek": {
+        "title": "Deadline in 7 Days",
+        "message": "Deadline of dossier \"{{dossierNumber}}\" is in 7 days. Planning recommended."
+      },
+      "statusUpdateNeeded": {
+        "title": "Update Required",
+        "message_one": "The Dossier {{caseNumber}} has not been updated for {{count}} day. Any news?",
+        "message_other": "The Dossier {{caseNumber}} has not been updated for {{count}} days. Any news?"
+      },
+      "review": {
+        "title": "Dossier Review",
+        "message_one": "The Dossier {{caseNumber}} has been open for {{count}} day. Is everything progressing well?",
+        "message_other": "The Dossier {{caseNumber}} has been open for {{count}} days. Is everything progressing well?"
+      }
+    },
+    "client": {
+      "inActive": {
+        "title_one": "Client Inactive - {{count}}+ Days",
+        "title_other": "Client Inactive - {{count}}+ Days",
+        "message_one": "The client \"{{clientName}}\" has had no activity for {{count}} day (dossiers, tasks, sessions, payments). Would you like to mark this client as inactive?",
+        "message_other": "The client \"{{clientName}}\" has had no activity for {{count}} days (dossiers, tasks, sessions, payments). Would you like to mark this client as inactive?"
+      }
+    },
+    "deadline": {
+      "urgent": {
+        "title": "Critical Deadline",
+        "message_one": "URGENT: \"{{title}}\" - Only {{count}} hour left!",
+        "message_other": "URGENT: \"{{title}}\" - Only {{count}} hours left!"
+      },
+      "approaching": {
+        "title": "Approaching Deadline",
+        "message_one": "\"{{title}}\" must be finalized in {{count}} day.",
+        "message_other": "\"{{title}}\" must be finalized in {{count}} days.",
+        "messageAlt_one": "Attention: {{count}} day remaining for \"{{title}}\".",
+        "messageAlt_other": "Attention: {{count}} days remaining for \"{{title}}\"."
+      },
+      "missed": {
+        "title": "Deadline Exceeded",
+        "message_one": "\"{{title}}\" has exceeded its deadline by {{count}} day.",
+        "message_other": "\"{{title}}\" has exceeded its deadline by {{count}} days."
+      }
+    },
+    "domain": {
+      "clientArchived": {
+        "title": "Client archived",
+        "message": "The client {{name}} has been archived."
+      },
+      "clientReactivated": {
+        "title": "Client reactivated",
+        "message": "The client {{name}} has been reactivated."
+      },
+      "dossierClosed": {
+        "title": "Dossier closed",
+        "message": "The Dossier {{caseNumber}} has been closed."
+      },
+      "dossierReopened": {
+        "title": "Dossier reopened",
+        "message": "The Dossier {{caseNumber}} has been reopened."
+      },
+      "caseClosed": {
+        "title": "Case closed",
+        "message": "The case {{caseNumber}} has been closed."
+      },
+      "caseReopened": {
+        "title": "Case reopened",
+        "message": "The case {{caseNumber}} has been reopened."
+      },
+      "taskAssigned": {
+        "title": "Task assigned",
+        "message": "The task \"{{title}}\" has been assigned to {{assignee}}.",
+        "messageToYou": "The task \"{{title}}\" has been assigned to you."
+      },
+      "taskStatusChanged": {
+        "title": "Task status updated",
+        "message": "The task \"{{title}}\" has changed to \"{{status}}\"."
+      },
+      "taskOverdue": {
+        "title": "Task overdue",
+        "message_one": "The task \"{{title}}\" has been overdue for {{count}} day.",
+        "message_other": "The task \"{{title}}\" has been overdue for {{count}} days.",
+        "messageNoCount": "The task \"{{title}}\" is overdue."
+      },
+      "taskDueSoon": {
+        "title": "Task deadline approaching",
+        "message": "The task \"{{title}}\" is due on {{dueDate}}."
+      },
+      "sessionScheduled": {
+        "title": "Hearing scheduled",
+        "message": "Hearing \"{{title}}\" scheduled on {{date}} at {{time}}.",
+        "messageFallback": "Hearing \"{{title}}\" scheduled on {{date}} at time to be confirmed."
+      },
+      "sessionUpcoming24h": {
+        "title": "Hearing in 24 hours",
+        "message": "Hearing \"{{title}}\" in 24 hours. Final preparation required."
+      },
+      "sessionUpcoming1h": {
+        "title": "Imminent hearing",
+        "message": "Hearing \"{{title}}\" in 1 hour."
+      },
+      "sessionCompleted": {
+        "title": "Hearing completed",
+        "message": "Hearing \"{{title}}\" is marked completed."
+      },
+      "expenseAdded": {
+        "title": "Expense added",
+        "message": "New expense {{amount}} TND recorded",
+        "messageWithCategory": "New expense {{amount}} TND recorded ({{category}})",
+        "messageNoAmount": "New expense recorded",
+        "messageWithCategoryNoAmount": "New expense recorded ({{category}})"
+      },
+      "clientAdvanceReceived": {
+        "title": "Client advance received",
+        "message": "Advance received from {{clientName}} ({{amount}} TND).",
+        "messageFallback": "Advance received from {{clientName}}."
+      },
+      "clientBalanceOverdue": {
+        "title": "Client balance overdue",
+        "message": "The balance of {{clientName}} is overdue for payment.",
+        "messageFallback": "The client balance is overdue for payment."
+      },
+      "financialValidated": {
+        "title": "Entry validated",
+        "message": "The entry \"{{description}}\" is validated.",
+        "messageFallback": "The entry is validated."
+      },
+      "financialPaid": {
+        "title": "Payment confirmed",
+        "message": "The payment for \"{{description}}\" is marked paid.",
+        "messageFallback": "The payment is marked paid."
+      },
+      "missionAssigned": {
+        "title": "Mission assigned",
+        "message": "The mission \"{{title}}\" has been assigned to {{officerName}}.",
+        "messageFallback": "The mission \"{{title}}\" has been assigned to a bailiff."
+      },
+      "missionReassigned": {
+        "title": "Mission reassigned",
+        "message": "The mission \"{{title}}\" is transferred from {{oldOfficer}} to {{newOfficer}}.",
+        "messageFallback": "The mission \"{{title}}\" has been reassigned."
+      },
+      "missionOverdue": {
+        "title": "Mission overdue",
+        "message_one": "The mission \"{{title}}\" is overdue. ({{count}} day)",
+        "message_other": "The mission \"{{title}}\" is overdue. ({{count}} days)",
+        "messageNoCount": "The mission \"{{title}}\" is overdue."
+      },
+      "actionBlocked": {
+        "title": "Action blocked",
+        "message": "Action blocked by business rules.",
+        "messageWithReason": "{{reason}}"
+      },
+      "impactConfirmed": {
+        "title": "Relational impact confirmed",
+        "message": "Modification confirmed after impact warning.",
+        "messageWithSummary": "{{summary}}"
+      }
+    },
+    "priority": {
+      "low": "Low",
+      "medium": "Medium",
+      "normal": "Normal",
+      "high": "High",
+      "urgent": "Urgent"
+    }
+  },
   "clientEmail": {
     "modal": {
       "title": "Client Notification",

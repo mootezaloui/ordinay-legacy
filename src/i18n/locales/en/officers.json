@@ -94,6 +94,11 @@
       "title": "Deletion Successful",
       "body": "Officer deleted"
     },
+    "cascadeSuccess": {
+      "title": "Cascade Deletion Successful",
+      "body": "Bailiff and all related entities have been deleted"
+    },
+    "cascadeError": "Error during cascade deletion. Please try again.",
     "updateSuccess": "Bailiff updated successfully!",
     "createSuccess": "Bailiff added successfully!",
     "saveError": "Error saving Bailiff"

@@ -28,6 +28,7 @@ import {
   getAllMissionTypes,
   addCustomMissionType,
 } from "../../utils/missionTypeManager";
+import { translateAssignee } from "../../utils/entityTranslations";
 
 // Fallback translator for static configs defined at module scope
 const t = i18next.t.bind(i18next);
@@ -529,19 +530,19 @@ export const sessionFormFields = (t) => [
     label: t("form.fields.type.label"),
     type: "select",
     required: true,
-    defaultValue: "Hearing",
+    defaultValue: "Audience",
     options: [
-      { value: "Hearing", label: t("form.fields.type.options.hearing") },
+      { value: "Audience", label: t("form.fields.type.options.hearing") },
       {
         value: "Consultation",
         label: t("form.fields.type.options.consultation"),
       },
       { value: "Mediation", label: t("form.fields.type.options.mediation") },
       {
-        value: "Expert Assessment",
+        value: "Expertise",
         label: t("form.fields.type.options.expertAssessment"),
       },
-      { value: "Phone Call", label: t("form.fields.type.options.phoneCall") },
+      { value: "Telephone", label: t("form.fields.type.options.phoneCall") },
       { value: "Other", label: t("form.fields.type.options.other") },
     ],
   },
@@ -779,7 +780,11 @@ export const taskFormFields = (t) => [
     label: t("form.fields.assignedTo.label"),
     type: "searchable-select",
     required: true,
-    getOptions: () => getAllAssignees(DEFAULT_ASSIGNEES),
+    getOptions: () =>
+      getAllAssignees(DEFAULT_ASSIGNEES).map((option) => ({
+        ...option,
+        label: translateAssignee(option.label || option.value, t, "tasks"),
+      })),
     allowCreate: true,
     onCreateOption: async (name) => {
       try {

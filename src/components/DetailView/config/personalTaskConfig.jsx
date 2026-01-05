@@ -1,6 +1,7 @@
 import ContentSection from "../../layout/ContentSection";
 import { getStatusColor } from "./statusColors";
 import { formatDateTimeValue, formatDateValue } from "../../../utils/dateFormat";
+import { translateStatus, translatePriority, translatePersonalTaskCategory } from "../../../utils/entityTranslations";
 
 /**
  * Personal Task Configuration - UPDATED with Quick Actions
@@ -78,7 +79,7 @@ export const createPersonalTaskConfig = (t) => ({
   },
 
   getTitle: (data) => data.title,
-  getSubtitle: (data) => t('detail.subtitle', { date: formatDateTimeValue(data.createdDate), category: data.category }),
+  getSubtitle: (data) => t('detail.subtitle', { date: formatDateTimeValue(data.createdDate), category: translatePersonalTaskCategory(data.category, t) }),
 
   // ✅ NEW: Quick Actions Configuration
   quickActions: [
@@ -110,14 +111,14 @@ export const createPersonalTaskConfig = (t) => ({
       key: "category",
       label: t('detail.quickActions.category.label'),
       icon: "fas fa-tag",
-      colorMap: false,
+      colorMap: true,
       options: [
-        { value: "Invoices", label: t('detail.quickActions.category.invoices') },
-        { value: "Office", label: t('detail.quickActions.category.office') },
-        { value: "Personal", label: t('detail.quickActions.category.personal') },
-        { value: "IT", label: t('detail.quickActions.category.it') },
-        { value: "Administrative", label: t('detail.quickActions.category.administrative') },
-        { value: "Other", label: t('detail.quickActions.category.other') },
+        { value: "Invoices", label: t('detail.quickActions.category.invoices'), icon: "fas fa-file-invoice-dollar", color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" },
+        { value: "Office", label: t('detail.quickActions.category.office'), icon: "fas fa-briefcase", color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" },
+        { value: "Personal", label: t('detail.quickActions.category.personal'), icon: "fas fa-user", color: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400" },
+        { value: "IT", label: t('detail.quickActions.category.it'), icon: "fas fa-laptop", color: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400" },
+        { value: "Administrative", label: t('detail.quickActions.category.administrative'), icon: "fas fa-clipboard", color: "bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300" },
+        { value: "Other", label: t('detail.quickActions.category.other'), icon: "fas fa-sticky-note", color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
       ]
     }
   ],
@@ -141,6 +142,33 @@ export const createPersonalTaskConfig = (t) => ({
       },
     };
 
+    const categoryConfig = {
+      "Invoices": {
+        icon: "fas fa-file-invoice-dollar",
+        color: "text-green-600 dark:text-green-400",
+      },
+      "Office": {
+        icon: "fas fa-briefcase",
+        color: "text-blue-600 dark:text-blue-400",
+      },
+      "Personal": {
+        icon: "fas fa-user",
+        color: "text-purple-600 dark:text-purple-400",
+      },
+      "IT": {
+        icon: "fas fa-laptop",
+        color: "text-indigo-600 dark:text-indigo-400",
+      },
+      "Administrative": {
+        icon: "fas fa-clipboard",
+        color: "text-slate-600 dark:text-slate-400",
+      },
+      "Other": {
+        icon: "fas fa-sticky-note",
+        color: "text-amber-600 dark:text-amber-400",
+      },
+    };
+
     const categoryIcons = {
       "Invoices": "fas fa-file-invoice-dollar text-green-600",
       "Office": "fas fa-briefcase text-blue-600",
@@ -151,6 +179,7 @@ export const createPersonalTaskConfig = (t) => ({
     };
 
     const priority = priorityConfig[data.priority];
+    const category = categoryConfig[data.category];
 
     return (
       <ContentSection>
@@ -164,19 +193,19 @@ export const createPersonalTaskConfig = (t) => ({
                 <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
                   {data.title}
                 </h2>
-                <p className="text-slate-600 dark:text-slate-400">
-                  <i className="fas fa-tag mr-2"></i>
-                  {data.category}
+                <p className="text-slate-600 dark:text-slate-400 flex items-center gap-2">
+                  <i className={`${category?.icon} ${category?.color}`}></i>
+                  {translatePersonalTaskCategory(data.category, t)}
                 </p>
               </div>
             </div>
             <div className="flex items-center gap-3">
               <span className={`px-3 py-1 rounded-full text-sm font-medium flex items-center gap-2 ${priority.bg} ${priority.text}`}>
                 <i className={priority.icon}></i>
-                {t('detail.header.priority')} {data.priority}
+                {translatePriority(data.priority, t, "personalTasks")}
               </span>
               <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(data.status)}`}>
-                {data.status}
+                {translateStatus(data.status, "personalTasks", t)}
               </span>
             </div>
           </div>
@@ -191,13 +220,13 @@ export const createPersonalTaskConfig = (t) => ({
             <InfoCard
               icon="fas fa-flag"
               label={t('detail.header.priority')}
-              value={data.priority}
+              value={translatePriority(data.priority, t, "personalTasks")}
               color={data.priority === "High" ? "red" : data.priority === "Medium" ? "amber" : "green"}
             />
             <InfoCard
               icon="fas fa-info-circle"
               label={t('detail.header.status')}
-              value={data.status}
+              value={translateStatus(data.status, "personalTasks", t)}
               color="purple"
             />
           </div>
@@ -218,7 +247,7 @@ export const createPersonalTaskConfig = (t) => ({
       icon: "fas fa-tag",
       iconColor: "text-purple-600 dark:text-purple-400",
       bgColor: "bg-purple-100 dark:bg-purple-900/20",
-      value: data.category,
+      value: translatePersonalTaskCategory(data.category, t),
       label: t('detail.header.category')
     },
     {
@@ -229,7 +258,7 @@ export const createPersonalTaskConfig = (t) => ({
       bgColor: data.priority === "High" ? "bg-red-100 dark:bg-red-900/20" :
         data.priority === "Medium" ? "bg-amber-100 dark:bg-amber-900/20" :
           "bg-green-100 dark:bg-green-900/20",
-      value: data.priority,
+      value: translatePriority(data.priority, t, "personalTasks"),
       label: t('detail.header.priority')
     },
   ],

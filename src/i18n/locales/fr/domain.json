@@ -337,7 +337,15 @@
         "activeMissions": "Cet huissier a {{count}} mission(s) active(s).\n\nVous devez d'abord terminer ou réassigner ces missions avant de supprimer l'huissier.",
         "financialEntries": "Cet huissier est lié à {{count}} écriture financière via ses missions.\n\nLa suppression d'un huissier avec des écritures existantes compromettrait l'intégrité des données.",
         "financialEntries_plural": "Cet huissier est lié à {{count}} écritures financières via ses missions.\n\nLa suppression d'un huissier avec des écritures existantes compromettrait l'intégrité des données."
-      }
+      },
+      "warning": {
+        "missionsWillDelete": "Cet huissier a {{count}} mission qui sera supprimée.",
+        "missionsWillDelete_plural": "Cet huissier a {{count}} missions qui seront supprimées.",
+        "financialsWillDelete": "Cet huissier a {{count}} écriture financière qui sera supprimée.",
+        "financialsWillDelete_plural": "Cet huissier a {{count}} écritures financières qui seront supprimées."
+      },
+      "forceDeleteMessage": "⚠️ Attention : La suppression de cet huissier supprimera également {{count}} entité liée (missions, écritures financières). Cette action est irréversible.",
+      "forceDeleteMessage_plural": "⚠️ Attention : La suppression de cet huissier supprimera également {{count}} entités liées (missions, écritures financières). Cette action est irréversible."
     }
   }
 }

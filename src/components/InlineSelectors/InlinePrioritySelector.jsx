@@ -1,4 +1,5 @@
-import { useState, useRef, useLayoutEffect, useEffect } from "react";
+import { useState, useRef, useLayoutEffect, useEffect, useMemo, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { canPerformAction } from "../../services/domainRules";
 import BlockerModal from "../ui/BlockerModal";
 import { createPortal } from "react-dom";
@@ -18,13 +19,20 @@ export default function InlinePrioritySelector({
   entityType = "generic",
   entityId = null,
   entityData = null,
-  priorityOptions = [
-    { value: "Low", label: "Low", icon: "fas fa-arrow-down", color: "text-green-600 dark:text-green-400" },
-    { value: "Medium", label: "Medium", icon: "fas fa-minus", color: "text-amber-600 dark:text-amber-400" },
-    { value: "High", label: "High", icon: "fas fa-arrow-up", color: "text-red-600 dark:text-red-400" },
-  ],
+  priorityOptions = null,
   size = "sm",
 }) {
+  const namespaceMap = {
+    dossier: "dossiers",
+    task: "tasks",
+    personalTask: "personalTasks",
+    mission: "missions",
+    case: "cases",
+  };
+
+  const resolvedNamespace = namespaceMap[entityType] || entityType || "common";
+  const { t } = useTranslation(resolvedNamespace);
+
   const [isOpen, setIsOpen] = useState(false);
   const [blockerModalOpen, setBlockerModalOpen] = useState(false);
   const [validationResult, setValidationResult] = useState(null);
@@ -33,13 +41,58 @@ export default function InlinePrioritySelector({
   const dropdownIdRef = useRef(Symbol('priority-dropdown'));
   const [menuPosition, setMenuPosition] = useState(null); // null until computed to avoid flash at (0,0)
 
-  const currentPriority = priorityOptions.find(p => p.value === value) || priorityOptions[0];
+  const translatePriorityValue = useCallback((priorityValue) => {
+    if (!priorityValue) return "";
+
+    const normalized = typeof priorityValue === "string" ? priorityValue.trim() : priorityValue;
+    const priorityKeyMap = {
+      Low: "low",
+      Medium: "medium",
+      High: "high",
+      Urgent: "urgent",
+    };
+
+    const priorityKey = priorityKeyMap[normalized];
+    if (!priorityKey) return normalized || "";
+
+    const translationPaths = [
+      `detail.quickActions.priority.${priorityKey}`,
+      `detail.overview.priorities.${priorityKey}`,
+      `table.priority.${priorityKey}`,
+      `form.fields.priority.options.${priorityKey}`,
+      `priority.${priorityKey}`,
+    ];
+
+    for (const key of translationPaths) {
+      const translated = t(key, { ns: resolvedNamespace, defaultValue: key });
+      if (translated !== key) return translated;
+    }
+
+    return normalized;
+  }, [resolvedNamespace, t]);
+
+  const defaultPriorityOptions = useMemo(() => ([
+    { value: "Low", label: translatePriorityValue("Low"), icon: "fas fa-arrow-down", color: "text-green-600 dark:text-green-400" },
+    { value: "Medium", label: translatePriorityValue("Medium"), icon: "fas fa-minus", color: "text-amber-600 dark:text-amber-400" },
+    { value: "High", label: translatePriorityValue("High"), icon: "fas fa-arrow-up", color: "text-red-600 dark:text-red-400" },
+  ]), [translatePriorityValue]);
+
+  const computedPriorityOptions = useMemo(
+    () => (priorityOptions && priorityOptions.length > 0 ? priorityOptions : defaultPriorityOptions)
+      .map((option) => ({
+        ...option,
+        label: option.label ?? translatePriorityValue(option.value),
+      })),
+    [defaultPriorityOptions, priorityOptions, translatePriorityValue]
+  );
+
+  const currentPriority = computedPriorityOptions.find(p => p.value === value) || computedPriorityOptions[0];
 
   const computeMenuPosition = () => {
     if (!buttonRef.current) return null;
     const rect = buttonRef.current.getBoundingClientRect();
     const spaceBelow = window.innerHeight - rect.bottom;
-    const menuHeight = priorityOptions.length * 40 + 8;
+    const menuHeight = computedPriorityOptions.length * 40 + 8;
     const menuWidth = 192;
     const viewportLeft = 8;
     const viewportRight = window.innerWidth - 8;
@@ -95,7 +148,7 @@ export default function InlinePrioritySelector({
         }
       };
     }
-  }, [isOpen, priorityOptions.length]);
+  }, [computedPriorityOptions.length, isOpen]);
 
   const handlePriorityClick = (e, newPriority) => {
     e.stopPropagation();
@@ -197,7 +250,7 @@ export default function InlinePrioritySelector({
         type="button"
         ref={buttonRef}
         onClick={handleToggle}
-        className={`flex items-center gap-2 rounded-full font-medium transition-all hover:ring-2 hover:ring-blue-300 dark:hover:ring-blue-700 ${sizeClasses[size]} ${priorityColors[value] || priorityColors["Moyenne"]}`}
+        className={`flex items-center gap-2 rounded-full font-medium transition-all hover:ring-2 hover:ring-blue-300 dark:hover:ring-blue-700 ${sizeClasses[size]} ${priorityColors[value] || priorityColors["Medium"]}`}
       >
         {currentPriority?.icon && <i className={`${currentPriority.icon} text-xs`}></i>}
         <span>{currentPriority?.label || value}</span>
@@ -218,7 +271,7 @@ export default function InlinePrioritySelector({
           }}
           onClick={(e) => e.stopPropagation()}
         >
-          {priorityOptions.map((priority) => (
+          {computedPriorityOptions.map((priority) => (
             <button
               key={priority.value}
               onClick={(e) => handlePriorityClick(e, priority.value)}

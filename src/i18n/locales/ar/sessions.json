@@ -30,7 +30,7 @@
       "audience": "جلسة",
       "expertise": "خبرة",
       "mediation": "وساطة",
-      "phone": "هاتف"
+      "telephone": "هاتف"
     },
     "status": {
       "scheduled": "مجدولة",

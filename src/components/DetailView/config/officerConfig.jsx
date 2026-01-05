@@ -1,5 +1,6 @@
 import ContentSection from "../../layout/ContentSection";
 import { getStatusColor } from "./statusColors";
+import { translateStatus } from "../../../utils/entityTranslations";
 import { getMissionFormFields } from "../../FormModal/formConfigs";
 
 /**
@@ -179,7 +180,7 @@ export const createOfficerConfig = (t) => ({
                   </p>
                 </div>
                 <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(data.status)}`}>
-                  {data.status}
+                  {translateStatus(data.status, "officers", t)}
                 </span>
               </div>
 

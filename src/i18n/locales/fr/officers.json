@@ -94,6 +94,11 @@
       "title": "Suppression réussie",
       "body": "Huissier supprimé"
     },
+    "cascadeSuccess": {
+      "title": "Suppression en cascade réussie",
+      "body": "L'huissier et toutes les entités liées ont été supprimés"
+    },
+    "cascadeError": "Erreur lors de la suppression en cascade. Veuillez réessayer.",
     "updateSuccess": "Huissier mis à jour avec succès !",
     "createSuccess": "Huissier ajouté avec succès !",
     "saveError": "Erreur lors de l'enregistrement de l'huissier"

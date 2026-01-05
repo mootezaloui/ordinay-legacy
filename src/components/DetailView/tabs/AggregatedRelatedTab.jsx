@@ -9,7 +9,7 @@ import FormModal from "../../FormModal/FormModal";
 import { logEntityCreation, logHistoryEvent, EVENT_TYPES } from "../../../services/historyService";
 import { useSettings } from "../../../contexts/SettingsContext";
 import { useTranslation } from "react-i18next";
-import { translateStatus } from "../../../utils/entityTranslations";
+import { translateStatus, translateAssignee } from "../../../utils/entityTranslations";
 
 /**
  * AggregatedRelatedTab - Generic tab for displaying aggregated related entities
@@ -636,6 +636,7 @@ export default function AggregatedRelatedTab({
  */
 function ItemRow({ item, parentContext, entityConfig, aggregationType, allowDelete, onDelete, currentLocation, formatDate }) {
   const { t } = useTranslation("common");
+  const { t: tTasks } = useTranslation("tasks");
   const subtitle = entityConfig.getSubtitle
     ? entityConfig.getSubtitle(item, formatDate)
     : null;
@@ -643,6 +644,16 @@ function ItemRow({ item, parentContext, entityConfig, aggregationType, allowDele
   // Get raw status and translate it
   const rawStatus = entityConfig.getStatus ? entityConfig.getStatus(item) : null;
   const translatedStatus = rawStatus ? translateStatus(rawStatus, aggregationType, t) : null;
+
+  const taskMeta = (() => {
+    if (aggregationType !== "tasks") return null;
+    const dueLabel = tTasks("table.columns.dueDate");
+    const assignedLabel = tTasks("table.columns.assignedTo");
+    const formattedDate = formatDate ? formatDate(item.dueDate) : item.dueDate;
+    const assignee = translateAssignee(item.assignedTo, tTasks, "tasks");
+    if (!formattedDate && !assignee) return null;
+    return `${dueLabel}: ${formattedDate || t("detail.fallback.na")}${assignee ? ` • ${assignedLabel}: ${assignee}` : ""}`;
+  })();
 
   return (
     <div className="group">
@@ -674,8 +685,12 @@ function ItemRow({ item, parentContext, entityConfig, aggregationType, allowDele
               )}
             </div>
 
-            {/* Subtitle */}
-            {entityConfig.getSubtitle && (
+            {/* Subtitle or Task Metadata */}
+            {taskMeta ? (
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                {taskMeta}
+              </p>
+            ) : entityConfig.getSubtitle && (
               <p className="text-sm text-slate-600 dark:text-slate-400 mb-2">
                 {subtitle}
               </p>

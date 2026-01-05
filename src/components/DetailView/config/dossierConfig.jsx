@@ -7,7 +7,7 @@ import { getAllPhases, addCustomPhase } from "../../../utils/phaseManager";
 import { getAllCategories, addCustomCategory } from "../../../utils/categoryManager";
 import { calculateNextDeadline, formatDate, getDeadlineNavigationPath, getDeadlineUrgency } from "../../../utils/deadlineUtils";
 import { formatDateValue } from "../../../utils/dateFormat";
-import { translateStatus, translateCategory } from "../../../utils/entityTranslations";
+import { translateStatus, translateCategory, translatePriority, translatePhase } from "../../../utils/entityTranslations";
 
 // Default phases for dossiers
 const DEFAULT_PHASES = [
@@ -37,7 +37,6 @@ const DEFAULT_CATEGORIES = [
  * ✅ Fully internationalized with i18n support
  */
 export const createDossierConfig = (t) => {
-  const tTasks = i18next.getFixedT("tasks");
   const tCases = i18next.getFixedT("cases");
   const tSessions = i18next.getFixedT("sessions");
 
@@ -205,7 +204,10 @@ export const createDossierConfig = (t) => {
         label: t('detail.quickActions.phase.label'),
         icon: "fas fa-stream",
         colorMap: false,
-        getOptions: () => getAllPhases(DEFAULT_PHASES),
+        getOptions: () => getAllPhases(DEFAULT_PHASES).map((option) => ({
+          ...option,
+          label: translatePhase(option.value || option.label, t)
+        })),
         allowCreate: true,
         createLabel: t('detail.quickActions.phase.create'),
         onCreateOption: async (name) => {
@@ -247,7 +249,7 @@ export const createDossierConfig = (t) => {
               </div>
               <div className="flex items-center gap-3">
                 <span className={`px-3 py-1 rounded-full text-sm font-medium ${priorityColor[data.priority]}`}>
-                  {t('detail.header.priority')} {data.priority}
+                  {t('detail.header.priority')} {translatePriority(data.priority, t)}
                 </span>
                 <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(data.status)}`}>
                   {translateStatus(data.status, 'dossiers', t)}
@@ -258,7 +260,7 @@ export const createDossierConfig = (t) => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <InfoCard icon="fas fa-calendar" label={t('detail.header.openingDate')} value={formatDateValue(data.openDate)} color="blue" />
               <InfoCard icon="fas fa-layer-group" label={t('detail.header.category')} value={translateCategory(data.category, t)} color="purple" />
-              <InfoCard icon="fas fa-stream" label={t('detail.header.phase')} value={data.phase || t('detail.fallback.notDefined')} color="green" />
+              <InfoCard icon="fas fa-stream" label={t('detail.header.phase')} value={translatePhase(data.phase, t) || t('detail.fallback.notDefined')} color="green" />
               {(() => {
                 const deadline = data.computedNextDeadline;
                 if (!deadline) {
@@ -456,6 +458,7 @@ export const createDossierConfig = (t) => {
         // Dynamic form fields - dossierId and caseId options filtered to this dossier
         getFormFields: (dossierData) => {
           const dossierCases = dossierData.proceedings || [];
+          const tTasks = (key) => i18next.t(key, { ns: "tasks" });
 
           return taskFormFields(tTasks).map(field => {
             // Default parentType to 'dossier' since we're in dossier context
@@ -658,7 +661,11 @@ export const createDossierConfig = (t) => {
             icon: "fas fa-layer-group",
             type: "select",
             editable: true,
-            getOptions: () => getAllCategories(DEFAULT_CATEGORIES),
+            displayValue: (data) => translateCategory(data.category, t),
+            getOptions: () => getAllCategories(DEFAULT_CATEGORIES).map((option) => ({
+              ...option,
+              label: translateCategory(option.value || option.label, t)
+            })),
           },
           {
             key: "phase",
@@ -667,7 +674,11 @@ export const createDossierConfig = (t) => {
             icon: "fas fa-stream",
             type: "select",
             editable: true,
-            getOptions: () => getAllPhases(DEFAULT_PHASES),
+            displayValue: (data) => translatePhase(data.phase, t) || t('detail.fallback.notDefined'),
+            getOptions: () => getAllPhases(DEFAULT_PHASES).map((option) => ({
+              ...option,
+              label: translatePhase(option.value || option.label, t)
+            })),
           },
           {
             key: "openDate",

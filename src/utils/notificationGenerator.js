@@ -1,8 +1,14 @@
 /**
  * Notification Generator
  * Automatically generates date-related notifications for tasks, sessions, payments, etc.
+ *
+ * I18N ARCHITECTURE:
+ * - This generator uses the t() function to translate notification content
+ * - All titles and messages are internationalized using i18n keys
+ * - Dynamic values are passed as interpolation params
  */
 
+import { t } from "../i18n";
 import {
   taskNotificationTemplates,
   sessionNotificationTemplates,
@@ -16,7 +22,7 @@ import {
   calculateHoursDifference,
   resolveEntityLink,
   getMissionDisplayTitle,
-} from './notificationTemplates';
+} from "./notificationTemplates";
 
 /**
  * Base notification builder with dedupe-friendly IDs and link resolver
@@ -34,10 +40,20 @@ function buildNotification({
   linkContext = {},
   linkOverride = null,
 }) {
-  const link = linkOverride !== null ? linkOverride : resolveEntityLink(entityType, { entityType, entityId, ...metadata, ...linkContext });
+  const link =
+    linkOverride !== null
+      ? linkOverride
+      : resolveEntityLink(entityType, {
+          entityType,
+          entityId,
+          ...metadata,
+          ...linkContext,
+        });
 
   return {
-    id: `${entityType || 'system'}_${subType || 'event'}_${entityId || Math.random().toString(16).slice(2)}`,
+    id: `${entityType || "system"}_${subType || "event"}_${
+      entityId || Math.random().toString(16).slice(2)
+    }`,
     type: entityType,
     subType,
     priority,
@@ -55,12 +71,13 @@ function buildNotification({
 
 /**
  * Generate notifications for tasks
+ * Uses i18n keys for title and message translation
  */
 export function generateTaskNotifications(tasks) {
   const notifications = [];
   const now = new Date();
 
-  tasks.forEach(task => {
+  tasks.forEach((task) => {
     if (!task.dueDate || task.status === "Terminée") return;
 
     const daysLeft = calculateDaysDifference(task.dueDate, now);
@@ -68,86 +85,102 @@ export function generateTaskNotifications(tasks) {
     // Overdue tasks
     if (daysLeft < 0) {
       const daysOverdue = Math.abs(daysLeft);
-      const template = getRandomTemplate(taskNotificationTemplates.overdue);
 
-      notifications.push(buildNotification({
-        entityType: "task",
-        entityId: task.id,
-        subType: "overdue",
-        priority: "urgent",
-        title: template.title,
-        message: template.getMessage(task, daysOverdue),
-        icon: "fas fa-exclamation-circle",
-        timestamp: now.toISOString(),
-        metadata: {
-          taskId: task.id,
-          taskTitle: task.title,
-          daysOverdue,
-          dueDate: task.dueDate,
-        },
-      }));
+      notifications.push(
+        buildNotification({
+          entityType: "task",
+          entityId: task.id,
+          subType: "overdue",
+          priority: "urgent",
+          title: t("notifications:content.task.overdue.title", {
+            count: daysOverdue,
+          }),
+          message: t("notifications:content.task.overdue.message", {
+            taskTitle: task.title,
+            count: daysOverdue,
+          }),
+          icon: "fas fa-exclamation-circle",
+          timestamp: now.toISOString(),
+          metadata: {
+            taskId: task.id,
+            taskTitle: task.title,
+            daysOverdue,
+            dueDate: task.dueDate,
+          },
+        })
+      );
     }
     // Due today
     else if (daysLeft === 0) {
-      const template = getRandomTemplate(taskNotificationTemplates.dueToday);
-
-      notifications.push(buildNotification({
-        entityType: "task",
-        entityId: task.id,
-        subType: "dueToday",
-        priority: "high",
-        title: template.title,
-        message: template.getMessage(task),
-        icon: "fas fa-clock",
-        timestamp: now.toISOString(),
-        metadata: {
-          taskId: task.id,
-          taskTitle: task.title,
-          dueDate: task.dueDate,
-        },
-      }));
+      notifications.push(
+        buildNotification({
+          entityType: "task",
+          entityId: task.id,
+          subType: "dueToday",
+          priority: "high",
+          title: t("notifications:content.task.dueToday.title"),
+          message: t("notifications:content.task.dueToday.message", {
+            taskTitle: task.title,
+          }),
+          icon: "fas fa-clock",
+          timestamp: now.toISOString(),
+          metadata: {
+            taskId: task.id,
+            taskTitle: task.title,
+            dueDate: task.dueDate,
+          },
+        })
+      );
     }
     // Upcoming (1-7 days)
     else if (daysLeft <= 7) {
-      const template = getRandomTemplate(taskNotificationTemplates.upcoming);
-
-      notifications.push(buildNotification({
-        entityType: "task",
-        entityId: task.id,
-        subType: "upcoming",
-        priority: daysLeft <= 2 ? "high" : "medium",
-        title: template.title,
-        message: template.getMessage(task, daysLeft),
-        icon: "fas fa-tasks",
-        timestamp: now.toISOString(),
-        metadata: {
-          taskId: task.id,
-          taskTitle: task.title,
-          daysLeft,
-          dueDate: task.dueDate,
-        },
-      }));
+      notifications.push(
+        buildNotification({
+          entityType: "task",
+          entityId: task.id,
+          subType: "upcoming",
+          priority: daysLeft <= 2 ? "high" : "medium",
+          title: t("notifications:content.task.upcomingDeadline.title", {
+            count: daysLeft,
+          }),
+          message: t("notifications:content.task.upcomingDeadline.message", {
+            taskTitle: task.title,
+            count: daysLeft,
+          }),
+          icon: "fas fa-tasks",
+          timestamp: now.toISOString(),
+          metadata: {
+            taskId: task.id,
+            taskTitle: task.title,
+            daysLeft,
+            dueDate: task.dueDate,
+          },
+        })
+      );
     }
 
     // Status check for tasks in progress (every 3 days)
     if (task.status === "En cours" && daysLeft > 0 && daysLeft <= 14) {
-      const template = getRandomTemplate(taskNotificationTemplates.statusCheck);
-
-      notifications.push(buildNotification({
-        entityType: "task",
-        entityId: task.id,
-        subType: "statusCheck",
-        priority: "info",
-        title: template.title,
-        message: template.getMessage(task),
-        icon: "fas fa-question-circle",
-        timestamp: now.toISOString(),
-        metadata: {
-          taskId: task.id,
-          taskTitle: task.title,
-          dueDate: task.dueDate,
-        },
-      }));
+      notifications.push(
+        buildNotification({
+          entityType: "task",
+          entityId: task.id,
+          subType: "statusCheck",
+          priority: "info",
+          title: t("notifications:content.task.statusCheck.title"),
+          message: t("notifications:content.task.statusCheck.message", {
+            taskTitle: task.title,
+            dueDate: task.dueDate,
+          }),
+          icon: "fas fa-question-circle",
+          timestamp: now.toISOString(),
+          metadata: {
+            taskId: task.id,
+            taskTitle: task.title,
+            dueDate: task.dueDate,
+          },
+        })
+      );
     }
   });
 
@@ -157,76 +190,95 @@ export function generateTaskNotifications(tasks) {
 /**
  * Generate notifications for sessions
  */
+/**
+ * Generate notifications for sessions
+ * Uses i18n keys for title and message translation
+ */
 export function generateSessionNotifications(sessions) {
   const notifications = [];
   const now = new Date();
 
-  sessions.forEach(session => {
+  sessions.forEach((session) => {
     if (!session.date || session.status === "Terminée") return;
 
     const daysLeft = calculateDaysDifference(session.date, now);
+    const sessionTime =
+      session.time ||
+      t("notifications:content.session.today.messageFallback").split(" ").pop();
 
     // Session today
     if (daysLeft === 0) {
-      const template = getRandomTemplate(sessionNotificationTemplates.today);
-
-      notifications.push(buildNotification({
-        entityType: "session",
-        entityId: session.id,
-        subType: "today",
-        priority: "urgent",
-        title: template.title,
-        message: template.getMessage(session),
-        icon: "fas fa-gavel",
-        timestamp: now.toISOString(),
-        metadata: {
-          sessionId: session.id,
-          sessionTitle: session.title,
-          date: session.date,
-          time: session.time,
-        },
-      }));
+      notifications.push(
+        buildNotification({
+          entityType: "session",
+          entityId: session.id,
+          subType: "today",
+          priority: "urgent",
+          title: t("notifications:content.session.today.title"),
+          message: session.time
+            ? t("notifications:content.session.today.message", {
+                sessionTitle: session.title,
+                time: session.time,
+              })
+            : t("notifications:content.session.today.messageFallback", {
+                sessionTitle: session.title,
+              }),
+          icon: "fas fa-gavel",
+          timestamp: now.toISOString(),
+          metadata: {
+            sessionId: session.id,
+            sessionTitle: session.title,
+            date: session.date,
+            time: session.time,
+          },
+        })
+      );
     }
     // Session tomorrow
     else if (daysLeft === 1) {
-      const template = getRandomTemplate(sessionNotificationTemplates.tomorrow);
-
-      notifications.push(buildNotification({
-        entityType: "session",
-        entityId: session.id,
-        subType: "tomorrow",
-        priority: "high",
-        title: template.title,
-        message: template.getMessage(session),
-        icon: "fas fa-calendar-day",
-        timestamp: now.toISOString(),
-        metadata: {
-          sessionId: session.id,
-          sessionTitle: session.title,
-          date: session.date,
-        },
-      }));
+      notifications.push(
+        buildNotification({
+          entityType: "session",
+          entityId: session.id,
+          subType: "tomorrow",
+          priority: "high",
+          title: t("notifications:content.session.tomorrow.title"),
+          message: t("notifications:content.session.tomorrow.message", {
+            sessionTitle: session.title,
+          }),
+          icon: "fas fa-calendar-day",
+          timestamp: now.toISOString(),
+          metadata: {
+            sessionId: session.id,
+            sessionTitle: session.title,
+            date: session.date,
+          },
+        })
+      );
     }
     // Preparation reminders (2-7 days before)
     else if (daysLeft >= 2 && daysLeft <= 7) {
-      const template = getRandomTemplate(sessionNotificationTemplates.preparation);
-
-      notifications.push(buildNotification({
-        entityType: "session",
-        entityId: session.id,
-        subType: "preparation",
-        priority: daysLeft <= 3 ? "high" : "medium",
-        title: template.title,
-        message: template.getMessage(session, daysLeft),
-        icon: "fas fa-file-signature",
-        timestamp: now.toISOString(),
-        metadata: {
-          sessionId: session.id,
-          sessionTitle: session.title,
-          daysLeft,
-          date: session.date,
-        },
-      }));
+      notifications.push(
+        buildNotification({
+          entityType: "session",
+          entityId: session.id,
+          subType: "preparation",
+          priority: daysLeft <= 3 ? "high" : "medium",
+          title: t("notifications:content.session.preparation.title"),
+          message: t("notifications:content.session.preparation.message", {
+            sessionTitle: session.title,
+            count: daysLeft,
+          }),
+          icon: "fas fa-file-signature",
+          timestamp: now.toISOString(),
+          metadata: {
+            sessionId: session.id,
+            sessionTitle: session.title,
+            daysLeft,
+            date: session.date,
+          },
+        })
+      );
     }
   });
 
@@ -235,14 +287,16 @@ export function generateSessionNotifications(sessions) {
 
 /**
  * Generate notifications for payments
+ * Uses i18n keys for title and message translation
  */
 export function generatePaymentNotifications(financialEntries) {
   const notifications = [];
   const now = new Date();
 
-  financialEntries.forEach(entry => {
+  financialEntries.forEach((entry) => {
     // Only for receivables (Revenus) with payment due dates
-    if (entry.type !== "revenue" || !entry.dueDate || entry.status === "Payé") return;
+    if (entry.type !== "revenue" || !entry.dueDate || entry.status === "Payé")
+      return;
 
     const daysLeft = calculateDaysDifference(entry.dueDate, now);
 
@@ -256,83 +310,117 @@ export function generatePaymentNotifications(financialEntries) {
 
     // Overdue payments
     if (daysLeft < 0) {
-      const template = getRandomTemplate(paymentNotificationTemplates.overdue);
+      const daysOverdue = Math.abs(daysLeft);
 
-      notifications.push(buildNotification({
-        entityType: "financialEntry",
-        entityId: entry.id,
-        subType: "overdue",
-        priority: "urgent",
-        title: template.title,
-        message: template.getMessage(payment),
-        icon: "fas fa-exclamation-triangle",
-        timestamp: now.toISOString(),
-        linkOverride: resolveEntityLink("financialEntry", { entityId: entry.id, clientId: entry.clientId, dossierId: entry.dossierId, caseId: entry.caseId, missionId: entry.missionId }),
-        metadata: {
-          entryId: entry.id,
-          client: payment.client,
-          amount: payment.amount,
-          daysOverdue: payment.daysOverdue,
-          dueDate: entry.dueDate,
-          clientId: entry.clientId,
-          dossierId: entry.dossierId,
-          caseId: entry.caseId,
-          missionId: entry.missionId,
-        },
-      }));
+      notifications.push(
+        buildNotification({
+          entityType: "financialEntry",
+          entityId: entry.id,
+          subType: "overdue",
+          priority: "urgent",
+          title: t("notifications:content.financial.paymentOverdue.title"),
+          message: t("notifications:content.financial.paymentOverdue.message", {
+            clientName: payment.client,
+            amount: payment.amount,
+            count: daysOverdue,
+          }),
+          icon: "fas fa-exclamation-triangle",
+          timestamp: now.toISOString(),
+          linkOverride: resolveEntityLink("financialEntry", {
+            entityId: entry.id,
+            clientId: entry.clientId,
+            dossierId: entry.dossierId,
+            caseId: entry.caseId,
+            missionId: entry.missionId,
+          }),
+          metadata: {
+            entryId: entry.id,
+            client: payment.client,
+            amount: payment.amount,
+            daysOverdue: payment.daysOverdue,
+            dueDate: entry.dueDate,
+            clientId: entry.clientId,
+            dossierId: entry.dossierId,
+            caseId: entry.caseId,
+            missionId: entry.missionId,
+          },
+        })
+      );
     }
     // Due today
     else if (daysLeft === 0) {
-      const template = getRandomTemplate(paymentNotificationTemplates.dueToday);
-
-      notifications.push(buildNotification({
-        entityType: "financialEntry",
-        entityId: entry.id,
-        subType: "dueToday",
-        priority: "high",
-        title: template.title,
-        message: template.getMessage(payment),
-        icon: "fas fa-money-check-alt",
-        timestamp: now.toISOString(),
-        linkOverride: resolveEntityLink("financialEntry", { entityId: entry.id, clientId: entry.clientId, dossierId: entry.dossierId, caseId: entry.caseId, missionId: entry.missionId }),
-        metadata: {
-          entryId: entry.id,
-          client: payment.client,
-          amount: payment.amount,
-          dueDate: entry.dueDate,
-          clientId: entry.clientId,
-          dossierId: entry.dossierId,
-          caseId: entry.caseId,
-          missionId: entry.missionId,
-        },
-      }));
+      notifications.push(
+        buildNotification({
+          entityType: "financialEntry",
+          entityId: entry.id,
+          subType: "dueToday",
+          priority: "high",
+          title: t("notifications:content.financial.paymentDueToday.title"),
+          message: t(
+            "notifications:content.financial.paymentDueToday.message",
+            { clientName: payment.client, amount: payment.amount }
+          ),
+          icon: "fas fa-money-check-alt",
+          timestamp: now.toISOString(),
+          linkOverride: resolveEntityLink("financialEntry", {
+            entityId: entry.id,
+            clientId: entry.clientId,
+            dossierId: entry.dossierId,
+            caseId: entry.caseId,
+            missionId: entry.missionId,
+          }),
+          metadata: {
+            entryId: entry.id,
+            client: payment.client,
+            amount: payment.amount,
+            dueDate: entry.dueDate,
+            clientId: entry.clientId,
+            dossierId: entry.dossierId,
+            caseId: entry.caseId,
+            missionId: entry.missionId,
+          },
+        })
+      );
     }
     // Upcoming (1-7 days)
     else if (daysLeft <= 7) {
-      const template = getRandomTemplate(paymentNotificationTemplates.upcoming);
-
-      notifications.push(buildNotification({
-        entityType: "financialEntry",
-        entityId: entry.id,
-        subType: "upcoming",
-        priority: daysLeft <= 2 ? "high" : "medium",
-        title: template.title,
-        message: template.getMessage(payment),
-        icon: "fas fa-dollar-sign",
-        timestamp: now.toISOString(),
-        linkOverride: resolveEntityLink("financialEntry", { entityId: entry.id, clientId: entry.clientId, dossierId: entry.dossierId, caseId: entry.caseId, missionId: entry.missionId }),
-        metadata: {
-          entryId: entry.id,
-          client: payment.client,
-          amount: payment.amount,
-          daysLeft: payment.daysLeft,
-          dueDate: entry.dueDate,
-          clientId: entry.clientId,
-          dossierId: entry.dossierId,
-          caseId: entry.caseId,
-          missionId: entry.missionId,
-        },
-      }));
+      notifications.push(
+        buildNotification({
+          entityType: "financialEntry",
+          entityId: entry.id,
+          subType: "upcoming",
+          priority: daysLeft <= 2 ? "high" : "medium",
+          title: t("notifications:content.financial.paymentReceivable.title"),
+          message: t(
+            "notifications:content.financial.paymentReceivable.message",
+            {
+              clientName: payment.client,
+              amount: payment.amount,
+              count: daysLeft,
+            }
+          ),
+          icon: "fas fa-dollar-sign",
+          timestamp: now.toISOString(),
+          linkOverride: resolveEntityLink("financialEntry", {
+            entityId: entry.id,
+            clientId: entry.clientId,
+            dossierId: entry.dossierId,
+            caseId: entry.caseId,
+            missionId: entry.missionId,
+          }),
+          metadata: {
+            entryId: entry.id,
+            client: payment.client,
+            amount: payment.amount,
+            daysLeft: payment.daysLeft,
+            dueDate: entry.dueDate,
+            clientId: entry.clientId,
+            dossierId: entry.dossierId,
+            caseId: entry.caseId,
+            missionId: entry.missionId,
+          },
+        })
+      );
     }
   });
 
@@ -341,12 +429,13 @@ export function generatePaymentNotifications(financialEntries) {
 
 /**
  * Generate notifications for missions
+ * Uses i18n keys for title and message translation
  */
 export function generateMissionNotifications(missions) {
   const notifications = [];
   const now = new Date();
 
-  missions.forEach(mission => {
+  missions.forEach((mission) => {
     if (!mission.scheduledDate || mission.status === "Terminée") return;
 
     const daysLeft = calculateDaysDifference(mission.scheduledDate, now);
@@ -354,70 +443,83 @@ export function generateMissionNotifications(missions) {
 
     // Mission today
     if (daysLeft === 0) {
-      const template = getRandomTemplate(missionNotificationTemplates.dueToday);
-
-      notifications.push(buildNotification({
-        entityType: "mission",
-        entityId: mission.id,
-        subType: "today",
-        priority: "high",
-        title: template.title,
-        message: template.getMessage(mission),
-        icon: "fas fa-briefcase",
-        timestamp: now.toISOString(),
-        linkOverride: resolveEntityLink("mission", { missionId: mission.id }) || resolveEntityLink("officer", { officerId: mission.officerId }),
-        metadata: {
-          missionId: mission.id,
-          missionTitle,
-          date: mission.scheduledDate,
-          officerId: mission.officerId,
-        },
-      }));
+      notifications.push(
+        buildNotification({
+          entityType: "mission",
+          entityId: mission.id,
+          subType: "today",
+          priority: "high",
+          title: t("notifications:content.mission.dueToday.title"),
+          message: t("notifications:content.mission.dueToday.message", {
+            missionTitle,
+          }),
+          icon: "fas fa-briefcase",
+          timestamp: now.toISOString(),
+          linkOverride:
+            resolveEntityLink("mission", { missionId: mission.id }) ||
+            resolveEntityLink("officer", { officerId: mission.officerId }),
+          metadata: {
+            missionId: mission.id,
+            missionTitle,
+            date: mission.scheduledDate,
+            officerId: mission.officerId,
+          },
+        })
+      );
     }
     // Upcoming missions (1-5 days)
     else if (daysLeft >= 1 && daysLeft <= 5) {
-      const template = getRandomTemplate(missionNotificationTemplates.upcoming);
-
-      notifications.push(buildNotification({
-        entityType: "mission",
-        entityId: mission.id,
-        subType: "upcoming",
-        priority: "medium",
-        title: template.title,
-        message: template.getMessage(mission, daysLeft),
-        icon: "fas fa-calendar-alt",
-        timestamp: now.toISOString(),
-        linkOverride: resolveEntityLink("mission", { missionId: mission.id }) || resolveEntityLink("officer", { officerId: mission.officerId }),
-        metadata: {
-          missionId: mission.id,
-          missionTitle,
-          daysLeft,
-          date: mission.scheduledDate,
-          officerId: mission.officerId,
-        },
-      }));
+      notifications.push(
+        buildNotification({
+          entityType: "mission",
+          entityId: mission.id,
+          subType: "upcoming",
+          priority: "medium",
+          title: t("notifications:content.mission.upcoming.title"),
+          message: t("notifications:content.mission.upcoming.message", {
+            missionTitle,
+            count: daysLeft,
+          }),
+          icon: "fas fa-calendar-alt",
+          timestamp: now.toISOString(),
+          linkOverride:
+            resolveEntityLink("mission", { missionId: mission.id }) ||
+            resolveEntityLink("officer", { officerId: mission.officerId }),
+          metadata: {
+            missionId: mission.id,
+            missionTitle,
+            daysLeft,
+            date: mission.scheduledDate,
+            officerId: mission.officerId,
+          },
+        })
+      );
     }
 
     // Completion check (for completed missions)
     if (mission.status === "Effectuée" && !mission.reportReceived) {
-      const template = getRandomTemplate(missionNotificationTemplates.completion);
-
-      notifications.push(buildNotification({
-        entityType: "mission",
-        entityId: mission.id,
-        subType: "completion",
-        priority: "medium",
-        title: template.title,
-        message: template.getMessage(mission),
-        icon: "fas fa-check-circle",
-        timestamp: now.toISOString(),
-        linkOverride: resolveEntityLink("mission", { missionId: mission.id }) || resolveEntityLink("officer", { officerId: mission.officerId }),
-        metadata: {
-          missionId: mission.id,
-          missionTitle,
-          officerId: mission.officerId,
-        },
-      }));
+      notifications.push(
+        buildNotification({
+          entityType: "mission",
+          entityId: mission.id,
+          subType: "completion",
+          priority: "medium",
+          title: t("notifications:content.mission.completion.title"),
+          message: t("notifications:content.mission.completion.message", {
+            missionTitle,
+          }),
+          icon: "fas fa-check-circle",
+          timestamp: now.toISOString(),
+          linkOverride:
+            resolveEntityLink("mission", { missionId: mission.id }) ||
+            resolveEntityLink("officer", { officerId: mission.officerId }),
+          metadata: {
+            missionId: mission.id,
+            missionTitle,
+            officerId: mission.officerId,
+          },
+        })
+      );
     }
   });
 
@@ -426,13 +528,22 @@ export function generateMissionNotifications(missions) {
 
 /**
  * Generate notifications for dossiers
+ * Uses i18n keys for title and message translation
  */
 export function generateDossierNotifications(dossiers) {
   const notifications = [];
   const now = new Date();
 
-  dossiers.forEach(dossier => {
-    if (dossier.status === "Fermé" || dossier.status === "Ferme" || dossier.status === "closed") return;
+  dossiers.forEach((dossier) => {
+    if (
+      dossier.status === "Fermé" ||
+      dossier.status === "Ferme" ||
+      dossier.status === "closed"
+    )
+      return;
+
+    const dossierNumber =
+      dossier.case_number || dossier.caseNumber || dossier.reference;
 
     // Prochaine Échéance (Next Deadline) notifications
     if (dossier.next_deadline || dossier.nextDeadline) {
@@ -442,113 +553,141 @@ export function generateDossierNotifications(dossiers) {
       // Overdue deadline
       if (daysLeft < 0) {
         const daysOverdue = Math.abs(daysLeft);
-        notifications.push(buildNotification({
-          entityType: "dossier",
-          entityId: dossier.id,
-          subType: "deadlineOverdue",
-          priority: "urgent",
-          title: "Échéance Dépassée",
-          message: `L'échéance du dossier ${dossier.case_number || dossier.caseNumber || dossier.reference} est dépassée de ${daysOverdue} jour${daysOverdue > 1 ? 's' : ''}.`,
-          icon: "fas fa-exclamation-triangle",
-          timestamp: now.toISOString(),
-          metadata: {
-            dossierId: dossier.id,
-            caseNumber: dossier.case_number || dossier.caseNumber,
-            daysOverdue,
-            deadline: deadlineDate,
-          },
-        }));
+        notifications.push(
+          buildNotification({
+            entityType: "dossier",
+            entityId: dossier.id,
+            subType: "deadlineOverdue",
+            priority: "urgent",
+            title: t("notifications:content.dossier.deadlineOverdue.title", {
+              count: daysOverdue,
+            }),
+            message: t(
+              "notifications:content.dossier.deadlineOverdue.message",
+              { dossierNumber, count: daysOverdue }
+            ),
+            icon: "fas fa-exclamation-triangle",
+            timestamp: now.toISOString(),
+            metadata: {
+              dossierId: dossier.id,
+              caseNumber: dossierNumber,
+              daysOverdue,
+              deadline: deadlineDate,
+            },
+          })
+        );
       }
       // Due today
       else if (daysLeft === 0) {
-        notifications.push(buildNotification({
-          entityType: "dossier",
-          entityId: dossier.id,
-          subType: "deadlineToday",
-          priority: "urgent",
-          title: "Échéance Aujourd'hui",
-          message: `L'échéance du dossier ${dossier.case_number || dossier.caseNumber || dossier.reference} est aujourd'hui.`,
-          icon: "fas fa-clock",
-          timestamp: now.toISOString(),
-          metadata: {
-            dossierId: dossier.id,
-            caseNumber: dossier.case_number || dossier.caseNumber,
-            daysLeft: 0,
-            deadline: deadlineDate,
-          },
-        }));
+        notifications.push(
+          buildNotification({
+            entityType: "dossier",
+            entityId: dossier.id,
+            subType: "deadlineToday",
+            priority: "urgent",
+            title: t("notifications:content.dossier.deadlineToday.title"),
+            message: t("notifications:content.dossier.deadlineToday.message", {
+              dossierNumber,
+            }),
+            icon: "fas fa-clock",
+            timestamp: now.toISOString(),
+            metadata: {
+              dossierId: dossier.id,
+              caseNumber: dossierNumber,
+              daysLeft: 0,
+              deadline: deadlineDate,
+            },
+          })
+        );
       }
       // Upcoming (1-7 days)
       else if (daysLeft <= 7) {
         const priority = daysLeft <= 2 ? "high" : "medium";
-        notifications.push(buildNotification({
-          entityType: "dossier",
-          entityId: dossier.id,
-          subType: "deadlineUpcoming",
-          priority,
-          title: `Échéance dans ${daysLeft} jour${daysLeft > 1 ? 's' : ''}`,
-          message: `L'échéance du dossier ${dossier.case_number || dossier.caseNumber || dossier.reference} arrive dans ${daysLeft} jour${daysLeft > 1 ? 's' : ''}.`,
-          icon: "fas fa-calendar-alt",
-          timestamp: now.toISOString(),
-          metadata: {
-            dossierId: dossier.id,
-            caseNumber: dossier.case_number || dossier.caseNumber,
-            daysLeft,
-            deadline: deadlineDate,
-          },
-        }));
+        notifications.push(
+          buildNotification({
+            entityType: "dossier",
+            entityId: dossier.id,
+            subType: "deadlineUpcoming",
+            priority,
+            title: t("notifications:content.dossier.deadlineUpcoming.title", {
+              count: daysLeft,
+            }),
+            message: t(
+              "notifications:content.dossier.deadlineUpcoming.message",
+              { dossierNumber, count: daysLeft }
+            ),
+            icon: "fas fa-calendar-alt",
+            timestamp: now.toISOString(),
+            metadata: {
+              dossierId: dossier.id,
+              caseNumber: dossierNumber,
+              daysLeft,
+              deadline: deadlineDate,
+            },
+          })
+        );
       }
     }
 
     // Check for dossiers not updated in a while
     if (dossier.lastUpdateDate || dossier.updated_at || dossier.updatedAt) {
-      const lastUpdate = dossier.lastUpdateDate || dossier.updated_at || dossier.updatedAt;
-      const daysSinceUpdate = Math.abs(calculateDaysDifference(lastUpdate, now));
+      const lastUpdate =
+        dossier.lastUpdateDate || dossier.updated_at || dossier.updatedAt;
+      const daysSinceUpdate = Math.abs(
+        calculateDaysDifference(lastUpdate, now)
+      );
 
       if (daysSinceUpdate >= 7) {
-        const template = getRandomTemplate(dossierNotificationTemplates.statusUpdate);
-
-        notifications.push(buildNotification({
-          entityType: "dossier",
-          entityId: dossier.id,
-          subType: "statusUpdate",
-          priority: daysSinceUpdate >= 14 ? "high" : "medium",
-          title: template.title,
-          message: template.getMessage({ ...dossier, daysSinceUpdate }),
-          icon: "fas fa-folder-open",
-          timestamp: now.toISOString(),
-          metadata: {
-            dossierId: dossier.id,
-            caseNumber: dossier.case_number || dossier.caseNumber,
-            daysSinceUpdate,
-          },
-        }));
+        notifications.push(
+          buildNotification({
+            entityType: "dossier",
+            entityId: dossier.id,
+            subType: "statusUpdate",
+            priority: daysSinceUpdate >= 14 ? "high" : "medium",
+            title: t("notifications:content.dossier.statusUpdateNeeded.title"),
+            message: t(
+              "notifications:content.dossier.statusUpdateNeeded.message",
+              { caseNumber: dossierNumber, count: daysSinceUpdate }
+            ),
+            icon: "fas fa-folder-open",
+            timestamp: now.toISOString(),
+            metadata: {
+              dossierId: dossier.id,
+              caseNumber: dossierNumber,
+              daysSinceUpdate,
+            },
+          })
+        );
       }
     }
 
     // Review reminder for long-running dossiers
     if (dossier.openDate || dossier.opened_at || dossier.openedAt) {
-      const openDate = dossier.openDate || dossier.opened_at || dossier.openedAt;
+      const openDate =
+        dossier.openDate || dossier.opened_at || dossier.openedAt;
       const daysOpen = Math.abs(calculateDaysDifference(openDate, now));
 
       if (daysOpen >= 30 && daysOpen % 30 === 0) {
-        const template = getRandomTemplate(dossierNotificationTemplates.review);
-
-        notifications.push(buildNotification({
-          entityType: "dossier",
-          entityId: dossier.id,
-          subType: "review",
-          priority: "info",
-          title: template.title,
-          message: template.getMessage({ ...dossier, daysOpen }),
-          icon: "fas fa-search",
-          timestamp: now.toISOString(),
-          metadata: {
-            dossierId: dossier.id,
-            caseNumber: dossier.case_number || dossier.caseNumber,
-            daysOpen,
-          },
-        }));
+        notifications.push(
+          buildNotification({
+            entityType: "dossier",
+            entityId: dossier.id,
+            subType: "review",
+            priority: "info",
+            title: t("notifications:content.dossier.review.title"),
+            message: t("notifications:content.dossier.review.message", {
+              caseNumber: dossierNumber,
+              count: daysOpen,
+            }),
+            icon: "fas fa-search",
+            timestamp: now.toISOString(),
+            metadata: {
+              dossierId: dossier.id,
+              caseNumber: dossierNumber,
+              daysOpen,
+            },
+          })
+        );
       }
     }
   });
@@ -583,11 +722,15 @@ export function generateAllDateNotifications(data) {
 /**
  * Filter notifications by date range
  */
-export function filterNotificationsByDateRange(notifications, startDate, endDate) {
+export function filterNotificationsByDateRange(
+  notifications,
+  startDate,
+  endDate
+) {
   const start = new Date(startDate);
   const end = new Date(endDate);
 
-  return notifications.filter(notification => {
+  return notifications.filter((notification) => {
     const triggerDate = new Date(notification.triggerDate);
     return triggerDate >= start && triggerDate <= end;
   });
@@ -610,16 +753,18 @@ export function getTodayNotifications(notifications) {
  * Get urgent notifications (due today or overdue)
  */
 export function getUrgentNotifications(notifications) {
-  return notifications.filter(n =>
-    n.priority === "urgent" ||
-    n.subType === "overdue" ||
-    n.subType === "dueToday" ||
-    n.subType === "today"
+  return notifications.filter(
+    (n) =>
+      n.priority === "urgent" ||
+      n.subType === "overdue" ||
+      n.subType === "dueToday" ||
+      n.subType === "today"
   );
 }
 
 /**
  * Generate notification for a domain event (non date-based)
+ * Uses i18n for title and message translation
  */
 export function generateDomainEventNotification(eventKey, context = {}) {
   const template = domainEventTemplates[eventKey];
@@ -627,15 +772,35 @@ export function generateDomainEventNotification(eventKey, context = {}) {
 
   const entityType = template.type || context.entityType || context.type;
   const entityId = context.entityId || context[`${entityType}Id`];
-  const link = resolveEntityLink(entityType, { entityType, entityId, ...context });
+  const link = resolveEntityLink(entityType, {
+    entityType,
+    entityId,
+    ...context,
+  });
+
+  // Try to use i18n key first, fallback to template if not available
+  const i18nTitleKey = `notifications:content.domain.${eventKey}.title`;
+  const i18nMessageKey = `notifications:content.domain.${eventKey}.message`;
+
+  let title = t(i18nTitleKey);
+  // If translation returns the key itself, use the template
+  if (title === i18nTitleKey || title.startsWith("notifications:")) {
+    title = template.title;
+  }
+
+  let message = t(i18nMessageKey, context);
+  // If translation returns the key itself, use the template
+  if (message === i18nMessageKey || message.startsWith("notifications:")) {
+    message = template.getMessage ? template.getMessage(context) : "";
+  }
 
   return buildNotification({
     entityType,
     entityId,
     subType: eventKey,
     priority: template.priority || "info",
-    title: template.title,
-    message: template.getMessage ? template.getMessage(context) : "",
+    title,
+    message,
     icon: template.icon || "fas fa-bell",
     metadata: { ...context },
     linkOverride: link,

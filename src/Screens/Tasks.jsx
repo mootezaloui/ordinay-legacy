@@ -28,6 +28,7 @@ import { resolveDetailRoute } from "../utils/routeResolver";
 import { logEntityCreation } from "../services/historyService";
 import { useSettings } from "../contexts/SettingsContext";
 import { useTranslation } from "react-i18next";
+import { translateAssignee } from "../utils/entityTranslations";
 
 export default function Tasks() {
   // Use DataContext for global tasks and actions
@@ -157,7 +158,7 @@ export default function Tasks() {
       id: "assignedTo",
       label: t("table.columns.assignedTo"),
       sortable: true,
-      render: (task) => task.assignedTo,
+      render: (task) => translateAssignee(task.assignedTo, t, "tasks"),
     },
     {
       id: "dueDate",

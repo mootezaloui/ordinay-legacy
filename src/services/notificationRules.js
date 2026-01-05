@@ -12,7 +12,7 @@
  * Philosophy: Think like a legal assistant, not a cron job.
  */
 
-import { formatDateValue } from '../utils/dateFormat.js';
+import { formatDateValue } from "../utils/dateFormat.js";
 
 // Live entities are provided by callers (scheduler/context) via a context object.
 let entities = {
@@ -155,16 +155,25 @@ function clearNotificationHistory() {
 
 /**
  * Rule result structure
+ * NOW RETURNS I18N KEYS + PARAMS INSTEAD OF TRANSLATED STRINGS
  */
 class RuleResult {
   constructor(shouldNotify = false, config = {}) {
     this.shouldNotify = shouldNotify;
     this.priority = config.priority || "medium";
     this.frequency = config.frequency || "once"; // once, daily, urgent
-    this.title = config.title || "";
-    this.message = config.message || "";
     this.subType = config.subType || "reminder";
     this.metadata = config.metadata || {};
+
+    // NEW: i18n keys and params instead of hardcoded strings
+    this.titleKey = config.titleKey || "";
+    this.titleParams = config.titleParams || {};
+    this.messageKey = config.messageKey || "";
+    this.messageParams = config.messageParams || {};
+
+    // DEPRECATED: Keep for backward compatibility during migration
+    this.title = config.title || "";
+    this.message = config.message || "";
   }
 }
 
@@ -197,14 +206,10 @@ export const TaskRules = {
         priority: "urgent",
         frequency: daysOverdue <= 3 ? "daily" : "once",
         subType: "overdue",
-        title: `Task Overdue - ${daysOverdue} day${
-          daysOverdue > 1 ? "s" : ""
-        }`,
-        message: `Task "${
-          task.title
-        }" is overdue by ${daysOverdue} day${
-          daysOverdue > 1 ? "s" : ""
-        }. Action required.`,
+        titleKey: "content.task.overdue.title",
+        titleParams: { count: daysOverdue },
+        messageKey: "content.task.overdue.message",
+        messageParams: { taskTitle: task.title, count: daysOverdue },
         metadata: {
           taskId: task.id,
           taskTitle: task.title,
@@ -267,10 +272,10 @@ export const TaskRules = {
         priority: notificationPriority,
         frequency: "once",
         subType: "upcomingDeadline",
-        title: `Deadline in ${daysLeft} day${daysLeft > 1 ? "s" : ""}`,
-        message: `The task "${
-          task.title
-        }" is due in ${daysLeft} day${daysLeft > 1 ? "s" : ""}.`,
+        titleKey: "content.task.upcomingDeadline.title",
+        titleParams: { count: daysLeft },
+        messageKey: "content.task.upcomingDeadline.message",
+        messageParams: { taskTitle: task.title, count: daysLeft },
         metadata: {
           taskId: task.id,
           taskTitle: task.title,
@@ -336,12 +341,10 @@ export const PersonalTaskRules = {
         priority: notificationPriority,
         frequency: "once",
         subType: "upcomingDeadline",
-        title: `Personal task deadline in ${daysLeft} day${
-          daysLeft > 1 ? "s" : ""
-        }`,
-        message: `The personal Task "${
-          personalTask.title
-        }" is due in ${daysLeft} day${daysLeft > 1 ? "s" : ""}.`,
+        titleKey: "content.personalTask.upcomingDeadline.title",
+        titleParams: { count: daysLeft },
+        messageKey: "content.personalTask.upcomingDeadline.message",
+        messageParams: { taskTitle: personalTask.title, count: daysLeft },
         metadata: {
           taskId: personalTask.id,
           taskTitle: personalTask.title,
@@ -391,12 +394,13 @@ export const PersonalTaskRules = {
         priority: priorityWeight >= 3 ? "high" : "medium",
         frequency,
         subType: "completionReminder",
-        title: "Personal Task - Completion Reminder",
-        message: `The personal task "${
-          personalTask.title
-        }" had a deadline ${daysPastDeadline} day${
-          daysPastDeadline > 1 ? "s" : ""
-        } ago. Has the task been completed?`,
+        titleKey: "content.personalTask.completionReminder.title",
+        titleParams: {},
+        messageKey: "content.personalTask.completionReminder.message",
+        messageParams: {
+          taskTitle: personalTask.title,
+          count: daysPastDeadline,
+        },
         metadata: {
           taskId: personalTask.id,
           taskTitle: personalTask.title,
@@ -512,12 +516,16 @@ export const SessionRules = {
         priority: notificationPriority,
         frequency: "once",
         subType: "upcomingHearing",
-        title: `Hearing in ${daysLeft} Day${daysLeft > 1 ? "s" : ""}`,
-        message: `Hearing scheduled for case "${caseNumber}" in ${daysLeft} day${daysLeft > 1 ? "s" : ""}. ${
-          session.location
-            ? `Location: ${session.location}`
-            : "Check documents and preparation."
-        }`,
+        titleKey: "content.session.upcomingHearing.title",
+        titleParams: { count: daysLeft },
+        messageKey: session.location
+          ? "content.session.upcomingHearing.messageWithLocation"
+          : "content.session.upcomingHearing.messageNoLocation",
+        messageParams: {
+          caseNumber,
+          count: daysLeft,
+          location: session.location,
+        },
         metadata: {
           sessionId: session.id,
           caseNumber,
@@ -580,10 +588,12 @@ export const SessionRules = {
         priority: "urgent",
         frequency: "once",
         subType: "hearingToday",
-        title: "🔴 Hearing Today",
-        message: `Hearing today for case "${caseNumber}" at ${time}. ${
-          session.location ? `Location: ${session.location}` : ""
-        }`,
+        titleKey: "content.session.hearingToday.title",
+        titleParams: {},
+        messageKey: session.location
+          ? "content.session.hearingToday.messageWithLocation"
+          : "content.session.hearingToday.message",
+        messageParams: { caseNumber, time, location: session.location },
         metadata: {
           sessionId: session.id,
           caseNumber,
@@ -676,8 +686,10 @@ export const SessionRules = {
         priority: priorityWeight >= 3 ? "high" : "medium",
         frequency: daysSinceHearing <= 7 ? "once" : "weekly",
         subType: "hearingOutcome",
-        title: "Hearing Outcome - Documentation Required",
-        message: `The hearing for case "${caseNumber}" took place ${daysSinceHearing} day${daysSinceHearing > 1 ? "s" : ""} ago. What was the outcome of the hearing?`,
+        titleKey: "content.session.hearingOutcome.title",
+        titleParams: {},
+        messageKey: "content.session.hearingOutcome.message",
+        messageParams: { caseNumber, count: daysSinceHearing },
         metadata: {
           sessionId: session.id,
           caseNumber,
@@ -758,15 +770,16 @@ export const CaseRules = {
     let reminderIntervalDays;
     let priorityLabel;
 
+    // Pass priority as normalized keys for translation in scheduler
     if (priorityWeight >= 3) {
       reminderIntervalDays = 3; // Every 3 days for high priority
-      priorityLabel = "High";
+      priorityLabel = "high";
     } else if (priorityWeight === 2) {
       reminderIntervalDays = 5; // Every 5 days for medium priority
-      priorityLabel = "Medium";
+      priorityLabel = "medium";
     } else {
       reminderIntervalDays = 10; // Every 10 days for low priority
-      priorityLabel = "Low";
+      priorityLabel = "low";
     }
 
     // Check if enough time has passed since case opened (use modulo to trigger periodically)
@@ -779,8 +792,10 @@ export const CaseRules = {
       return new RuleResult(true, {
         priority: priorityWeight >= 3 ? "high" : "medium",
         subType: "missingHearing",
-        title: "Missing Hearing - Case without Hearing",
-        message: `The Lawsuit "${caseTitle}" (Priority: ${priorityLabel}) has no scheduled hearings. Has a hearing been created?`,
+        titleKey: "content.case.missingHearing.title",
+        titleParams: {},
+        messageKey: "content.case.missingHearing.message",
+        messageParams: { caseTitle, priority: priorityLabel },
         metadata: {
           caseNumber: caseItem.case_number || caseItem.reference,
           caseTitle,
@@ -868,7 +883,9 @@ export const CaseRules = {
       const caseTitle =
         caseItem.title || caseItem.case_number || caseItem.reference;
 
-      // Build activity summary
+      // Build activity summary - keep for backward compatibility
+      // The rendering component will use completedHearings/completedTasks counts
+      // to build the localized summary using the hearingsCompleted/tasksCompleted keys
       let activitySummary = "";
       if (completedHearings.length > 0) {
         activitySummary += `${completedHearings.length} hearing(s) completed`;
@@ -881,8 +898,15 @@ export const CaseRules = {
       return new RuleResult(true, {
         priority: priorityWeight >= 3 ? "high" : "medium",
         subType: "statusUpdate",
-        title: "Status Update - Lawsuit",
-        message: `The case "${caseTitle}" has ${activitySummary}. Should the case status be updated? Was there a verdict?`,
+        titleKey: "content.case.statusUpdate.title",
+        titleParams: {},
+        messageKey: "content.case.statusUpdate.message",
+        messageParams: {
+          caseTitle,
+          activitySummary, // Temp fallback - rendering should build from counts
+          completedHearings: completedHearings.length,
+          completedTasks: completedTasks.length,
+        },
         metadata: {
           caseNumber: caseItem.case_number || caseItem.reference,
           caseTitle,
@@ -936,12 +960,10 @@ export const MissionRules = {
     }
 
     if (reminderDays.includes(daysLeft)) {
+      // Pass priority as a key for translation in scheduler
+      // The scheduler will translate using t('notifications:content.priority.{key}')
       const priorityLabel =
-        priorityWeight >= 3
-          ? "Haute"
-          : priorityWeight === 2
-          ? "Moyenne"
-          : "Basse";
+        priorityWeight >= 3 ? "high" : priorityWeight === 2 ? "medium" : "low";
 
       // Priority-aware notification urgency
       let notificationPriority = "medium";
@@ -960,8 +982,15 @@ export const MissionRules = {
         priority: notificationPriority,
         frequency: "once",
         subType: "upcomingDeadline",
-        title: `Mission - Deadline in ${daysLeft} day${daysLeft > 1 ? "s" : ""}`,
-        message: `The mission "${missionTitle}" (priority ${priorityLabel}) has a deadline in ${daysLeft} day${daysLeft > 1 ? "s" : ""} (${formatDateValue(dueDate)}).`,
+        titleKey: "content.mission.upcomingDeadline.title",
+        titleParams: { count: daysLeft },
+        messageKey: "content.mission.upcomingDeadline.message",
+        messageParams: {
+          missionTitle,
+          priority: priorityLabel,
+          count: daysLeft,
+          dueDate: formatDateValue(dueDate),
+        },
         metadata: {
           missionId: mission.id,
           dueDate,
@@ -1012,8 +1041,13 @@ export const MissionRules = {
         priority: priorityWeight >= 3 ? "high" : "medium",
         frequency,
         subType: "completionReminder",
-        title: "Mission - Update Required",
-        message: `The mission "${missionTitle}" had a deadline ${daysPastDeadline} day${daysPastDeadline > 1 ? "s" : ""} ago. Has the mission been completed by the bailiff?`,
+        titleKey: "content.mission.completionReminder.title",
+        titleParams: {},
+        messageKey: "content.mission.completionReminder.message",
+        messageParams: {
+          missionTitle,
+          count: daysPastDeadline,
+        },
         metadata: {
           missionId: mission.id,
           dueDate,
@@ -1136,8 +1170,19 @@ export const FinancialRules = {
         priority: notificationPriority,
         frequency: "once",
         subType: "upcomingPayment",
-        title: `Expected Payment - ${daysLeft} day${daysLeft > 1 ? "s" : ""}`,
-        message: `Payment of ${amount} ${currency} expected from "${clientName}"${contextInfo} in ${daysLeft} day${daysLeft > 1 ? "s" : ""}. ${financialEntry.description || ""}`,
+        titleKey: "content.financial.upcomingPayment.title",
+        titleParams: { count: daysLeft },
+        messageKey: financialEntry.description
+          ? "content.financial.upcomingPayment.messageWithDescription"
+          : "content.financial.upcomingPayment.message",
+        messageParams: {
+          amount,
+          currency,
+          clientName,
+          contextInfo,
+          count: daysLeft,
+          description: financialEntry.description || "",
+        },
         metadata: {
           financialEntryId: financialEntry.id,
           clientName,
@@ -1251,8 +1296,16 @@ export const FinancialRules = {
           priority: notificationPriority,
           frequency: "once",
           subType: "overduePayment",
-          title: `Overdue Payment - ${daysOverdue} day${daysOverdue > 1 ? "s" : ""}`,
-          message: `The payment of ${amount} ${currency} from "${clientName}"${contextInfo} is overdue by ${daysOverdue} day${daysOverdue > 1 ? "s" : ""}. Reminder recommended.`,
+          titleKey: "content.financial.overduePayment.title",
+          titleParams: { count: daysOverdue },
+          messageKey: "content.financial.overduePayment.message",
+          messageParams: {
+            amount,
+            currency,
+            clientName,
+            contextInfo,
+            count: daysOverdue,
+          },
           metadata: {
             financialEntryId: financialEntry.id,
             clientName,
@@ -1300,18 +1353,23 @@ export const DossierRules = {
     const daysSinceLastUpdate = daysSinceUpdate(lastUpdate);
 
     if (daysSinceLastUpdate >= 7) {
+      const dossierNumber =
+        dossier.case_number || dossier.caseNumber || dossier.reference;
+
       return new RuleResult(true, {
         priority: "medium",
         frequency: "once",
         subType: "inactivityReminder",
-        title: "Dossier Inactive - 7+ Days",
-        message: `The dossier "${
-          dossier.case_number || dossier.caseNumber || dossier.reference
-        }" has not been updated for ${daysSinceLastUpdate} days. A review is recommended.`,
+        titleKey: "content.dossier.inactivityReminder.title",
+        titleParams: { count: daysSinceLastUpdate },
+        messageKey: "content.dossier.inactivityReminder.message",
+        messageParams: {
+          dossierNumber,
+          count: daysSinceLastUpdate,
+        },
         metadata: {
           dossierId: dossier.id,
-          dossierNumber:
-            dossier.case_number || dossier.caseNumber || dossier.reference,
+          dossierNumber,
           daysSinceLastUpdate,
         },
       });
@@ -1352,25 +1410,28 @@ export const DossierRules = {
         : 30; // Low priority: review every 30 days
 
     if (daysSinceLastUpdate >= reviewThreshold) {
+      // Pass priority as a key for translation in scheduler
       const priorityLabel =
-        priorityWeight >= 3
-          ? "Haute"
-          : priorityWeight === 2
-          ? "Moyenne"
-          : "Basse";
+        priorityWeight >= 3 ? "high" : priorityWeight === 2 ? "medium" : "low";
+
+      const dossierNumber =
+        dossier.case_number || dossier.caseNumber || dossier.reference;
 
       return new RuleResult(true, {
         priority: priorityWeight >= 3 ? "high" : "medium",
         frequency: "once",
         subType: "reviewReminder",
-        title: `Dossier Review - Priority ${priorityLabel}`,
-        message: `The dossier "${
-          dossier.case_number || dossier.caseNumber || dossier.reference
-        }" (priority ${priorityLabel}) requires a review. Last updated ${daysSinceLastUpdate} days ago.`,
+        titleKey: "content.dossier.reviewReminder.title",
+        titleParams: { priority: priorityLabel },
+        messageKey: "content.dossier.reviewReminder.message",
+        messageParams: {
+          dossierNumber,
+          priority: priorityLabel,
+          count: daysSinceLastUpdate,
+        },
         metadata: {
           dossierId: dossier.id,
-          dossierNumber:
-            dossier.case_number || dossier.caseNumber || dossier.reference,
+          dossierNumber,
           daysSinceLastUpdate,
           priority: dossier.priority,
           reviewThreshold,
@@ -1398,6 +1459,12 @@ export const DossierRules = {
     const deadlineDate = dossier.next_deadline || dossier.nextDeadline;
     if (!deadlineDate) return new RuleResult(false);
 
+    // Guard against invalid deadline values that would break date math
+    const dossierDeadlineDate = new Date(deadlineDate);
+    if (Number.isNaN(dossierDeadlineDate.getTime())) {
+      return new RuleResult(false);
+    }
+
     // DUPLICATE PREVENTION: Check if any task has the same deadline
     const tasks = entities.tasks || [];
     const hasTaskWithSameDeadline = tasks.some((task) => {
@@ -1420,11 +1487,14 @@ export const DossierRules = {
       const taskDeadline = task.due_date || task.dueDate;
       if (!taskDeadline) return false;
 
+      const taskDeadlineDate = new Date(taskDeadline);
+      if (Number.isNaN(taskDeadlineDate.getTime())) return false;
+
       // Normalize dates to compare (remove time component)
-      const dossierDeadlineNormalized = new Date(deadlineDate)
+      const dossierDeadlineNormalized = dossierDeadlineDate
         .toISOString()
         .split("T")[0];
-      const taskDeadlineNormalized = new Date(taskDeadline)
+      const taskDeadlineNormalized = taskDeadlineDate
         .toISOString()
         .split("T")[0];
 
@@ -1442,22 +1512,23 @@ export const DossierRules = {
     // Overdue deadline - always notify
     if (daysLeft < 0) {
       const daysOverdue = Math.abs(daysLeft);
+      const dossierNumber =
+        dossier.case_number || dossier.caseNumber || dossier.reference;
+
       return new RuleResult(true, {
         priority: "urgent",
         frequency: daysOverdue <= 3 ? "daily" : "once",
         subType: "deadlineOverdue",
-        title: `Deadline Overdue - ${daysOverdue} day${
-          daysOverdue > 1 ? "s" : ""
-        }`,
-        message: `Deadline of dossier "${
-          dossier.case_number || dossier.caseNumber || dossier.reference
-        }" is overdue by ${daysOverdue} day${
-          daysOverdue > 1 ? "s" : ""
-        }. Urgent action required.`,
+        titleKey: "content.dossier.deadlineOverdue.title",
+        titleParams: { count: daysOverdue },
+        messageKey: "content.dossier.deadlineOverdue.message",
+        messageParams: {
+          dossierNumber,
+          count: daysOverdue,
+        },
         metadata: {
           dossierId: dossier.id,
-          dossierNumber:
-            dossier.case_number || dossier.caseNumber || dossier.reference,
+          dossierNumber,
           deadline: deadlineDate,
           daysOverdue,
         },
@@ -1466,18 +1537,22 @@ export const DossierRules = {
 
     // Due today - always notify
     if (daysLeft === 0) {
+      const dossierNumber =
+        dossier.case_number || dossier.caseNumber || dossier.reference;
+
       return new RuleResult(true, {
         priority: "urgent",
         frequency: "once",
         subType: "deadlineToday",
-        title: "Deadline Today",
-        message: `Deadline of dossier "${
-          dossier.case_number || dossier.caseNumber || dossier.reference
-        }" is today. Please complete the necessary actions.`,
+        titleKey: "content.dossier.deadlineToday.title",
+        titleParams: {},
+        messageKey: "content.dossier.deadlineToday.message",
+        messageParams: {
+          dossierNumber,
+        },
         metadata: {
           dossierId: dossier.id,
-          dossierNumber:
-            dossier.case_number || dossier.caseNumber || dossier.reference,
+          dossierNumber,
           deadline: deadlineDate,
           daysLeft: 0,
         },
@@ -1497,18 +1572,23 @@ export const DossierRules = {
           return new RuleResult(false);
         }
 
+        const dossierNumber =
+          dossier.case_number || dossier.caseNumber || dossier.reference;
+
         return new RuleResult(true, {
           priority: "high",
           frequency: "daily",
           subType: "deadlineUpcoming",
-          title: `Upcoming Deadline - ${daysLeft} day${daysLeft > 1 ? "s" : ""}`,
-          message: `Deadline of dossier "${
-            dossier.case_number || dossier.caseNumber || dossier.reference
-          }" is in ${daysLeft} day${daysLeft > 1 ? "s" : ""}. Preparation recommended.`,
+          titleKey: "content.dossier.deadlineUpcoming.title",
+          titleParams: { count: daysLeft },
+          messageKey: "content.dossier.deadlineUpcoming.message",
+          messageParams: {
+            dossierNumber,
+            count: daysLeft,
+          },
           metadata: {
             dossierId: dossier.id,
-            dossierNumber:
-              dossier.case_number || dossier.caseNumber || dossier.reference,
+            dossierNumber,
             deadline: deadlineDate,
             daysLeft,
           },
@@ -1522,18 +1602,22 @@ export const DossierRules = {
           return new RuleResult(false);
         }
 
+        const dossierNumber =
+          dossier.case_number || dossier.caseNumber || dossier.reference;
+
         return new RuleResult(true, {
           priority: "medium",
           frequency: "once",
           subType: "deadlineWeek",
-          title: "Deadline in 7 Days",
-          message: `Deadline of dossier "${
-            dossier.case_number || dossier.caseNumber || dossier.reference
-          }" is in 7 days. Planning recommended.`,
+          titleKey: "content.dossier.deadlineWeek.title",
+          titleParams: {},
+          messageKey: "content.dossier.deadlineWeek.message",
+          messageParams: {
+            dossierNumber,
+          },
           metadata: {
             dossierId: dossier.id,
-            dossierNumber:
-              dossier.case_number || dossier.caseNumber || dossier.reference,
+            dossierNumber,
             deadline: deadlineDate,
             daysLeft: 7,
           },
@@ -1623,8 +1707,13 @@ export const ClientRules = {
           priority: "medium",
           frequency: "once",
           subType: "inActiveClient",
-          title: "Client Inactive - 60+ Days",
-          message: `The client "${client.name}" has had no activity for ${daysSinceLastUpdate} days (dossiers, tasks, sessions, payments). Would you like to mark this client as inactive?`,
+          titleKey: "content.client.inActive.title",
+          titleParams: { count: daysSinceLastUpdate },
+          messageKey: "content.client.inActive.message",
+          messageParams: {
+            clientName: client.name,
+            count: daysSinceLastUpdate,
+          },
           metadata: {
             clientId: client.id,
             clientName: client.name,

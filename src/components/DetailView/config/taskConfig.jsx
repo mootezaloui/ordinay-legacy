@@ -3,6 +3,7 @@ import ContentSection from "../../layout/ContentSection";
 import { getStatusColor } from "./statusColors";
 import { getAllAssignees, addCustomAssignee } from "../../../utils/assigneeManager";
 import { formatDateTimeValue, formatDateValue } from "../../../utils/dateFormat";
+import { translatePriority, translateStatus, translateAssignee } from "../../../utils/entityTranslations";
 
 // Default assignees that are always available
 const DEFAULT_ASSIGNEES = [
@@ -200,7 +201,10 @@ export const createTaskConfig = (t) => {
         label: t('detail.quickActions.assignedTo.label'),
         icon: "fas fa-user",
         colorMap: false,
-        getOptions: () => getAllAssignees(DEFAULT_ASSIGNEES),
+        getOptions: () => getAllAssignees(DEFAULT_ASSIGNEES).map((option) => ({
+          ...option,
+          label: translateAssignee(option.label || option.value, t, 'tasks'),
+        })),
         allowCreate: true,
         onCreateOption: async (name) => {
           try {
@@ -258,16 +262,16 @@ export const createTaskConfig = (t) => {
               </div>
               <div className="flex items-center gap-3">
                 <span className={`px-3 py-1 rounded-full text-sm font-medium ${priorityColor[data.priority]}`}>
-                  Priority {data.priority}
+                  {t('detail.header.priority')} {translatePriority(data.priority, t, 'tasks')}
                 </span>
                 <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(data.status)}`}>
-                  {data.status}
+                  {translateStatus(data.status, 'tasks', t)}
                 </span>
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <InfoCard icon="fas fa-user" label={t('detail.header.assignedTo')} value={data.assignedTo} color="blue" />
+              <InfoCard icon="fas fa-user" label={t('detail.header.assignedTo')} value={translateAssignee(data.assignedTo, t, 'tasks')} color="blue" />
               <InfoCard icon="fas fa-calendar" label={t('detail.header.dueDate')} value={formatDateValue(data.dueDate)} color="red" />
               <InfoCard icon="fas fa-clock" label={t('detail.header.estimatedTime')} value={getEstimatedTimeLabel(data.estimatedTime)} color="purple" />
             </div>
@@ -289,7 +293,7 @@ export const createTaskConfig = (t) => {
         icon: "fas fa-user-check",
         iconColor: "text-green-600 dark:text-green-400",
         bgColor: "bg-green-100 dark:bg-green-900/20",
-        value: data.assignedTo,
+        value: translateAssignee(data.assignedTo, t, 'tasks'),
         label: t('detail.header.assignedTo')
       },
     ],

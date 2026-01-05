@@ -30,7 +30,7 @@
       "audience": "Hearing",
       "expertise": "Expert Review",
       "mediation": "Mediation",
-      "phone": "Phone"
+      "telephone": "Telephone"
     },
     "status": {
       "scheduled": "Scheduled",

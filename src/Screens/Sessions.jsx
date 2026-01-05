@@ -59,7 +59,7 @@ export default function Sessions() {
     Audience: "fas fa-gavel",
     Expertise: "fas fa-microscope",
     Mediation: "fas fa-handshake",
-    Phone: "fas fa-phone",
+    Telephone: "fas fa-phone",
   };
 
   const statusLabelMap = useMemo(
@@ -80,7 +80,7 @@ export default function Sessions() {
       Audience: t("table.type.audience"),
       Expertise: t("table.type.expertise"),
       Mediation: t("table.type.mediation"),
-      Phone: t("table.type.phone"),
+      Telephone: t("table.type.telephone"),
     }),
     [t]
   );
@@ -433,22 +433,21 @@ export default function Sessions() {
       <PageHeader
         title={t("page.title")}
         subtitle=
-          {table.isFiltering
-            ? t("page.subtitleFiltered", {
-                total: table.originalTotalItems,
-                displayed: table.totalItems,
-              })
-            : t("page.subtitle", { total: table.originalTotalItems })}
+        {table.isFiltering
+          ? t("page.subtitleFiltered", {
+            total: table.originalTotalItems,
+            displayed: table.totalItems,
+          })
+          : t("page.subtitle", { total: table.originalTotalItems })}
         icon="fas fa-calendar"
         actions={
           <button
             onClick={handleAddSession}
             disabled={dossiers.length === 0}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors duration-200 flex items-center gap-2 ${
-              dossiers.length === 0
-                ? "bg-gray-400 cursor-not-allowed text-gray-200"
-                : "bg-blue-600 hover:bg-blue-700 text-white"
-            }`}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors duration-200 flex items-center gap-2 ${dossiers.length === 0
+              ? "bg-gray-400 cursor-not-allowed text-gray-200"
+              : "bg-blue-600 hover:bg-blue-700 text-white"
+              }`}
             title={dossiers.length === 0 ? t("actions.disabledTooltip") : ""}
           >
             <i className="fas fa-plus"></i>
@@ -491,8 +490,8 @@ export default function Sessions() {
               table.isFiltering
                 ? t("table.emptyFiltered")
                 : dossiers.length === 0
-                ? t("table.emptyNoDossiers")
-                : t("table.empty")
+                  ? t("table.emptyNoDossiers")
+                  : t("table.empty")
             }
           >
             {table.data.map((session) => (

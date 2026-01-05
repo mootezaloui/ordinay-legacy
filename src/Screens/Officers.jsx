@@ -40,7 +40,8 @@ export default function Officers() {
     financialEntries,
     addOfficer,
     updateOfficer,
-    deleteOfficer
+    deleteOfficer,
+    deleteOfficerCascade
   } = useData();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingOfficer, setEditingOfficer] = useState(null);
@@ -229,7 +230,8 @@ export default function Officers() {
     });
 
     if (!result.allowed) {
-      setValidationResult(result);
+      // Store officer ID in validation result for cascade delete
+      setValidationResult({ ...result, entityId: id, data: officer });
       setBlockerModalOpen(true);
       return;
     }
@@ -258,6 +260,51 @@ export default function Officers() {
 
   const handleStatusChange = async (id, newStatus) => {
     await updateOfficer(id, { status: newStatus });
+  };
+
+  /**
+   * Handle force delete - cascade delete officer and all related entities
+   */
+  const handleForceDelete = async () => {
+    if (!validationResult) return;
+
+    setBlockerModalOpen(false);
+
+    try {
+      // Extract the officer ID from the validation result
+      const officerId = validationResult.entityId || validationResult.data?.id;
+
+      if (!officerId) {
+        console.error('[Officers.handleForceDelete] No officer ID found in validation result');
+        showToast(t("toasts.cascadeError"), "error");
+        return;
+      }
+
+      const result = await deleteOfficerCascade(officerId);
+
+      if (!result || !result.ok) {
+        console.error('[Officers.handleForceDelete] Cascade delete failed:', result);
+        showToast(t("toasts.cascadeError"), "error");
+        return;
+      }
+
+      showToast(t("toasts.cascadeSuccess.body"), "success", {
+        title: t("toasts.cascadeSuccess.title"),
+        context: "officer",
+      });
+
+      // CRITICAL: Force page reload to clear any cached mission data
+      // This ensures no orphaned missions remain visible in dossier/case views
+      console.log('[Officers.handleForceDelete] Reloading page to clear cached data...');
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500); // Give user time to see success toast
+    } catch (error) {
+      console.error('[Officers.handleForceDelete] Error during cascade delete:', error);
+      showToast(t("toasts.cascadeError"), "error");
+    } finally {
+      setValidationResult(null);
+    }
   };
 
   const handleAddOfficer = () => {
@@ -543,11 +590,18 @@ export default function Officers() {
 
       <BlockerModal
         isOpen={blockerModalOpen}
-        onClose={() => setBlockerModalOpen(false)}
+        onClose={() => {
+          setBlockerModalOpen(false);
+          setValidationResult(null);
+        }}
         actionName={t("blockerModal.actionName")}
         blockers={validationResult?.blockers || []}
         warnings={validationResult?.warnings || []}
-        entityName={validationResult?.entityData?.name || t("blockerModal.entityFallback")}
+        entityName={validationResult?.data?.name || t("blockerModal.entityFallback")}
+        requiresForceDelete={validationResult?.requiresForceDelete || false}
+        affectedEntities={validationResult?.affectedEntities || []}
+        forceDeleteMessage={validationResult?.forceDeleteMessage || ""}
+        onForceDelete={handleForceDelete}
       />
     </PageLayout>
   );

@@ -337,7 +337,15 @@
         "activeMissions": "This bailiff has {{count}} active mission(s).\n\nYou must first complete or reassign these missions before deleting the bailiff.",
         "financialEntries": "This bailiff is linked to {{count}} financial entry via their missions.\n\nDeleting a bailiff with existing entries would compromise data integrity.",
         "financialEntries_plural": "This bailiff is linked to {{count}} financial entries via their missions.\n\nDeleting a bailiff with existing entries would compromise data integrity."
-      }
+      },
+      "warning": {
+        "missionsWillDelete": "This bailiff has {{count}} mission that will be deleted.",
+        "missionsWillDelete_plural": "This bailiff has {{count}} missions that will be deleted.",
+        "financialsWillDelete": "This bailiff has {{count}} financial entry that will be deleted.",
+        "financialsWillDelete_plural": "This bailiff has {{count}} financial entries that will be deleted."
+      },
+      "forceDeleteMessage": "⚠️ Warning: Deleting this bailiff will also delete {{count}} linked entity (missions, financial entries). This action is irreversible.",
+      "forceDeleteMessage_plural": "⚠️ Warning: Deleting this bailiff will also delete {{count}} linked entities (missions, financial entries). This action is irreversible."
     }
   }
 }

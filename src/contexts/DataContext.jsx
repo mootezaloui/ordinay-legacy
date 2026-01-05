@@ -1448,6 +1448,7 @@ export function DataProvider({ children }) {
       const statusMap = {
         "todo": "todo",
         "pending": "todo",
+        "not started": "todo",
         "en cours": "in_progress",
         "in_progress": "in_progress",
         "in progress": "in_progress",
@@ -1478,6 +1479,31 @@ export function DataProvider({ children }) {
       };
       return priorityMap[normalized] || "medium";
     };
+
+    // Normalize category from any case to lowercase
+    const normalizeCategory = (category) => {
+      if (!category) return null;
+      return category.toLowerCase();
+    };
+
+    const statusMap = {
+      "todo": "todo",
+      "not started": "todo",
+      "pending": "todo",
+      "en cours": "in_progress",
+      "in progress": "in_progress",
+      "in_progress": "in_progress",
+      "bloqué": "blocked",
+      "blocked": "blocked",
+      "terminé": "done",
+      "done": "done",
+      "completed": "done",
+      "annulé": "cancelled",
+      "cancelled": "cancelled",
+      "canceled": "cancelled",
+      "scheduled": "scheduled",
+    };
+
 
     const payload = {
       title: task.title,
@@ -1551,6 +1577,26 @@ export function DataProvider({ children }) {
       return priorityMap[normalized] || "medium";
     };
 
+    // Normalize category to backend lowercase values
+    const normalizeCategory = (category) => {
+      if (!category) return null;
+      const map = {
+        invoices: "invoices",
+        Invoices: "invoices",
+        office: "office",
+        Office: "office",
+        personal: "personal",
+        Personal: "personal",
+        it: "it",
+        IT: "it",
+        administrative: "administrative",
+        Administrative: "administrative",
+        other: "other",
+        Other: "other",
+      };
+      return map[category] || category.toLowerCase();
+    };
+
     const payload = {};
 
     // Only include fields that are being updated
@@ -1561,7 +1607,7 @@ export function DataProvider({ children }) {
       payload.description = emptyToNull(updates.description);
     }
     if (updates.category !== undefined) {
-      payload.category = emptyToNull(updates.category);
+      payload.category = normalizeCategory(updates.category);
     }
     if (updates.status !== undefined) {
       payload.status = normalizeStatus(updates.status);
@@ -1576,7 +1622,12 @@ export function DataProvider({ children }) {
       payload.completed_at = emptyToNull(updates.completedAt || updates.completed_at);
     }
     if (updates.notes !== undefined) {
-      payload.notes = emptyToNull(updates.notes);
+      // Ensure notes is stored as a string or null for SQLite binding
+      if (Array.isArray(updates.notes)) {
+        payload.notes = emptyToNull(JSON.stringify(updates.notes));
+      } else {
+        payload.notes = emptyToNull(updates.notes);
+      }
     }
 
     const updated = await apiClient.put(`/personal-tasks/${id}`, payload);
@@ -1763,6 +1814,67 @@ export function DataProvider({ children }) {
 
     logDeletionHistory("officer", prev, actorName);
     return { ok: true, result: validation.result };
+  };
+
+  /**
+   * CASCADE DELETE: Delete officer and all related entities
+   * Called when user confirms force delete from BlockerModal
+   *
+   * CRITICAL: This function MUST delete all missions or fail completely.
+   * Orphaned missions (missions without a bailiff) are INVALID domain state.
+   */
+  const deleteOfficerCascade = async (id) => {
+    console.log('[DataContext.deleteOfficerCascade] Force deleting officer and all related entities:', id);
+
+    try {
+      // Find all missions for this officer (use String comparison for type safety)
+      const officerMissions = missions.filter(m => String(m.officerId) === String(id));
+      console.log(`[DataContext.deleteOfficerCascade] Found ${officerMissions.length} missions to delete:`, officerMissions.map(m => m.id));
+
+      // Delete each mission (which will cascade delete their financial entries and history)
+      for (const mission of officerMissions) {
+        console.log(`[DataContext.deleteOfficerCascade] Deleting mission ${mission.id}...`);
+        const result = await deleteMissionCascade(mission.id);
+
+        // CRITICAL: If mission deletion fails, abort the entire cascade
+        if (!result || !result.ok) {
+          console.error(`[DataContext.deleteOfficerCascade] Failed to delete mission ${mission.id}:`, result);
+          throw new Error(`Failed to delete mission ${mission.id}. Aborting officer cascade delete to prevent orphaned missions.`);
+        }
+        console.log(`[DataContext.deleteOfficerCascade] Successfully deleted mission ${mission.id}`);
+      }
+
+      // Delete any direct financial entries linked to this officer (if any)
+      const directFinancialEntries = financialEntries.filter(
+        (entry) => String(entry.officerId) === String(id) && entry.scope === 'client'
+      );
+
+      console.log(`[DataContext.deleteOfficerCascade] Found ${directFinancialEntries.length} direct financial entries to delete`);
+      for (const entry of directFinancialEntries) {
+        await deleteFinancialEntry(entry.id);
+      }
+
+      // Finally, delete the officer itself from backend
+      console.log(`[DataContext.deleteOfficerCascade] Deleting officer ${id} from backend...`);
+      await apiClient.delete(`/officers/${id}`);
+
+      // Update frontend state
+      setOfficers((prev) => {
+        const next = prev.filter((officer) => officer.id !== id);
+        saveToStorage("officers", next);
+        return next;
+      });
+
+      const prev = officers.find((o) => o.id === id);
+      logDeletionHistory("officer", prev, actorName);
+
+      console.log('[DataContext.deleteOfficerCascade] Successfully deleted officer and all related entities');
+      return { ok: true, result: { message: 'Officer and all child entities deleted successfully' } };
+    } catch (error) {
+      console.error('[DataContext.deleteOfficerCascade] CRITICAL ERROR during cascade delete:', error);
+      console.error('[DataContext.deleteOfficerCascade] Officer may have been partially deleted. Manual cleanup may be required.');
+      return { ok: false, result: { message: `Error during cascade delete: ${error.message}` } };
+    }
   };
 
   // --- Missions ---
@@ -1993,21 +2105,18 @@ export function DataProvider({ children }) {
         await deleteEntityHistory('financial_entry', entry.id);
       }
 
-      // Find and delete all documents for this mission
-      const missionDocuments = documents.filter(d => d.entityType === 'mission' && String(d.entityId) === String(id));
-      for (const doc of missionDocuments) {
-        await deleteDocument(doc.id);
-        // Delete history for each document
-        await deleteEntityHistory('document', doc.id);
-      }
-
-      // Find and delete all notes for this mission
-      const missionNotes = notes.filter(n => n.entityType === 'mission' && String(n.entityId) === String(id));
-      for (const note of missionNotes) {
-        await deleteNote(note.id);
-        // Delete history for each note
-        await deleteEntityHistory('note', note.id);
-      }
+      // Note: Documents and notes deletion skipped as these features are not yet implemented
+      // When documents/notes are added, uncomment the following code:
+      // const missionDocuments = documents.filter(d => d.entityType === 'mission' && String(d.entityId) === String(id));
+      // for (const doc of missionDocuments) {
+      //   await deleteDocument(doc.id);
+      //   await deleteEntityHistory('document', doc.id);
+      // }
+      // const missionNotes = notes.filter(n => n.entityType === 'mission' && String(n.entityId) === String(id));
+      // for (const note of missionNotes) {
+      //   await deleteNote(note.id);
+      //   await deleteEntityHistory('note', note.id);
+      // }
 
       // Delete the mission from backend
       await apiClient.delete(`/missions/${id}`);
@@ -2208,6 +2317,7 @@ export function DataProvider({ children }) {
       addOfficer,
       updateOfficer,
       deleteOfficer,
+      deleteOfficerCascade,
       addMission,
       updateMission,
       deleteMission,

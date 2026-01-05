@@ -1,6 +1,7 @@
 import ContentSection from "../../layout/ContentSection";
 import { getStatusColor } from "./statusColors";
 import { formatDateValue } from "../../../utils/dateFormat";
+import { translateSessionType, translateStatus } from "../../../utils/entityTranslations";
 
 /**
  * Session Entity Configuration - UPDATED with Quick Actions
@@ -123,7 +124,7 @@ export const createSessionConfig = (t) => ({
 
   // Header display
   getTitle: (data) => data.title,
-  getSubtitle: (data) => t('detail.subtitle', { type: data.type, date: formatDateValue(data.date), time: data.time }),
+  getSubtitle: (data) => t('detail.subtitle', { type: translateSessionType(data.type, t), date: formatDateValue(data.date), time: data.time }),
 
   // ✅ NEW: Quick Actions Configuration
   quickActions: [
@@ -160,7 +161,7 @@ export const createSessionConfig = (t) => ({
   renderHeader: (data) => {
     const typeIcons = {
       "Consultation": "fas fa-comments",
-      "Hearing": "fas fa-gavel",
+      "Audience": "fas fa-gavel",
       "Expertise": "fas fa-microscope",
       "Mediation": "fas fa-handshake",
       "Telephone": "fas fa-phone",
@@ -168,7 +169,7 @@ export const createSessionConfig = (t) => ({
 
     const typeColors = {
       "Consultation": "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
-      "Hearing": "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400",
+      "Audience": "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400",
       "Expertise": "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
       "Mediation": "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
       "Telephone": "bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300",
@@ -184,15 +185,15 @@ export const createSessionConfig = (t) => ({
               </h2>
               <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
                 <i className={typeIcons[data.type]}></i>
-                <span>{data.type}</span>
+                <span>{translateSessionType(data.type, t)}</span>
               </div>
             </div>
             <div className="flex items-center gap-3">
               <span className={`px-3 py-1 rounded-full text-sm font-medium ${typeColors[data.type]}`}>
-                {data.type}
+                {translateSessionType(data.type, t)}
               </span>
               <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(data.status)}`}>
-                {data.status}
+                {translateStatus(data.status, "sessions", t)}
               </span>
             </div>
           </div>

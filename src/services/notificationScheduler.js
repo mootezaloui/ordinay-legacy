@@ -2,6 +2,11 @@
  * Notification Scheduler Service
  * Manages automatic generation and scheduling of behavior-driven notifications
  * Integrates with the intelligent rules engine
+ *
+ * I18N ARCHITECTURE:
+ * - NotificationRules return i18n keys (titleKey, messageKey) and params (titleParams, messageParams)
+ * - This scheduler translates them at generation time using the t() function
+ * - This ensures notifications are language-aware when created
  */
 
 import {
@@ -20,6 +25,7 @@ import {
 } from "../utils/scheduledNotifications";
 import { resolveEntityLink } from "../utils/notificationTemplates";
 import { evaluateAllRules } from "./notificationRules";
+import { t } from "../i18n";
 
 /**
  * Notification Scheduler Class
@@ -103,32 +109,41 @@ class NotificationScheduler {
         // Generate task notifications from real tasks
         if (preferences.tasks.enabled) {
           const taskNotifs = generateTaskNotifications(data.tasks || []);
-          const personalTaskNotifs =
-            generateTaskNotifications(data.personalTasks || []);
+          const personalTaskNotifs = generateTaskNotifications(
+            data.personalTasks || []
+          );
           generatedNotifications.push(...taskNotifs, ...personalTaskNotifs);
         }
 
         // Generate session notifications from real sessions
         if (preferences.sessions.enabled) {
-          const sessionNotifs = generateSessionNotifications(data.sessions || []);
+          const sessionNotifs = generateSessionNotifications(
+            data.sessions || []
+          );
           generatedNotifications.push(...sessionNotifs);
         }
 
         // Generate payment notifications from real financial entries
         if (preferences.payments.enabled) {
-          const paymentNotifs = generatePaymentNotifications(data.financialEntries || []);
+          const paymentNotifs = generatePaymentNotifications(
+            data.financialEntries || []
+          );
           generatedNotifications.push(...paymentNotifs);
         }
 
         // Generate mission notifications from real missions
         if (preferences.missions.enabled) {
-          const missionNotifs = generateMissionNotifications(data.missions || []);
+          const missionNotifs = generateMissionNotifications(
+            data.missions || []
+          );
           generatedNotifications.push(...missionNotifs);
         }
 
         // Generate dossier notifications from real dossiers
         if (preferences.dossiers.enabled) {
-          const dossierNotifs = generateDossierNotifications(data.dossiers || []);
+          const dossierNotifs = generateDossierNotifications(
+            data.dossiers || []
+          );
           generatedNotifications.push(...dossierNotifs);
         }
 
@@ -224,8 +239,40 @@ class NotificationScheduler {
 
   /**
    * Generate notification from intelligent rule
+   * Translates i18n keys (titleKey, messageKey) using the t() function
    */
   generateNotificationFromRule(ruleResult, timestamp = new Date()) {
+    // Translate title and message using i18n keys if available
+    // The notification rules provide titleKey/messageKey with titleParams/messageParams
+    let translatedTitle = ruleResult.title || "";
+    let translatedMessage = ruleResult.message || "";
+
+    // Translate title using i18n key if present
+    if (ruleResult.titleKey) {
+      const titleParams = ruleResult.titleParams || {};
+      // Use count for pluralization if present
+      translatedTitle = t(`notifications:${ruleResult.titleKey}`, titleParams);
+    }
+
+    // Translate message using i18n key if present
+    if (ruleResult.messageKey) {
+      const messageParams = ruleResult.messageParams || {};
+
+      // Translate nested domain values (priority) if present
+      // Priority values like "Haute", "Moyenne", "Basse" need translation
+      if (messageParams.priority) {
+        const priorityKey = this.getPriorityKey(messageParams.priority);
+        messageParams.priority = t(
+          `notifications:content.priority.${priorityKey}`
+        );
+      }
+
+      translatedMessage = t(
+        `notifications:${ruleResult.messageKey}`,
+        messageParams
+      );
+    }
+
     const baseNotification = {
       id:
         ruleResult.ruleId ||
@@ -240,12 +287,17 @@ class NotificationScheduler {
       icon: this.getIconForType(ruleResult.entityType),
       entityId: ruleResult.entityId,
       entityType: ruleResult.entityType,
-      title: ruleResult.title,
-      message: ruleResult.message,
+      title: translatedTitle,
+      message: translatedMessage,
       metadata: ruleResult.metadata || {},
       frequency: ruleResult.frequency || "once",
       ruleId: ruleResult.ruleId,
       ruleName: ruleResult.ruleName,
+      // Store original keys for potential re-translation on language change
+      titleKey: ruleResult.titleKey,
+      titleParams: ruleResult.titleParams,
+      messageKey: ruleResult.messageKey,
+      messageParams: ruleResult.messageParams,
     };
 
     // Resolve link based on entity type and metadata
@@ -258,6 +310,24 @@ class NotificationScheduler {
       ...baseNotification,
       link,
     };
+  }
+
+  /**
+   * Get normalized priority key for i18n translation
+   */
+  getPriorityKey(priority) {
+    const priorityMap = {
+      Haute: "high",
+      High: "high",
+      Urgent: "urgent",
+      Moyenne: "medium",
+      Medium: "medium",
+      Normale: "normal",
+      Normal: "normal",
+      Basse: "low",
+      Low: "low",
+    };
+    return priorityMap[priority] || priority?.toLowerCase() || "medium";
   }
 
   /**
@@ -289,12 +359,24 @@ class NotificationScheduler {
       missionId: scheduledNotif.missionId,
     });
 
-    const messageMap = {
-      task: `Notification for task #${scheduledNotif.entityId}`,
-      session: `Notification for hearing #${scheduledNotif.entityId}`,
-      payment: `Payment reminder #${scheduledNotif.entityId}`,
-      mission: `Notification for mission #${scheduledNotif.entityId}`,
-      dossier: `Update required for dossier #${scheduledNotif.entityId}`,
+    // Get message using i18n - try specific subType first, then fallback to generic
+    const getMessageForType = (type, subType, entityId) => {
+      // Try specific subType message key
+      const subTypeKey = `notifications:content.${type}.${subType}.message`;
+      const genericKey = `notifications:content.${type}.generic.message`;
+
+      // Get translated message with entityId as fallback context
+      const message = t(subTypeKey, { id: entityId, defaultValue: "" });
+      if (message) return message;
+
+      // Try generic message for the entity type
+      const genericMessage = t(genericKey, { id: entityId, defaultValue: "" });
+      if (genericMessage) return genericMessage;
+
+      // Final fallback using center types
+      return t(`notifications:center.types.${type}`, {
+        defaultValue: t("notifications:center.notification"),
+      });
     };
 
     const titleMap = {
@@ -307,8 +389,13 @@ class NotificationScheduler {
 
     return {
       ...baseNotification,
-      title: titleMap[scheduledNotif.type] || "Notification",
-      message: messageMap[scheduledNotif.type] || "Notification",
+      title:
+        titleMap[scheduledNotif.type] || t("notifications:center.notification"),
+      message: getMessageForType(
+        scheduledNotif.type,
+        scheduledNotif.subType,
+        scheduledNotif.entityId
+      ),
       link,
     };
   }
@@ -331,69 +418,85 @@ class NotificationScheduler {
   }
 
   /**
-   * Get title for task notification
+   * Get title for task notification (i18n)
    */
   getTitleForTaskNotification(subType) {
-    const titles = {
-      overdue: "Task Overdue",
-      dueToday: "Due Today",
-      upcoming: "Upcoming Task",
-      statusCheck: "Task Follow-up",
+    const titleKeys = {
+      overdue: "notifications:content.task.overdue.title",
+      dueToday: "notifications:content.task.dueToday.title",
+      upcoming: "notifications:content.task.upcomingDeadline.title",
+      statusCheck: "notifications:content.task.statusCheck.title",
     };
-    return titles[subType] || "Task Notification";
+    const key = titleKeys[subType];
+    return key ? t(key, { count: 1 }) : t("notifications:center.types.task");
   }
 
   /**
-   * Get title for session notification
+   * Get title for session notification (i18n)
    */
   getTitleForSessionNotification(subType) {
-    const titles = {
-      today: "Hearing Today",
-      tomorrow: "Hearing Tomorrow",
-      preparation: "Hearing Preparation",
-      statusUpdate: "Hearing Update",
-      postponed: "Hearing Postponed",
+    const titleKeys = {
+      today: "notifications:content.session.today.title",
+      tomorrow: "notifications:content.session.tomorrow.title",
+      preparation: "notifications:content.session.preparation.title",
+      upcomingHearing: "notifications:content.session.upcomingHearing.title",
+      hearingToday: "notifications:content.session.hearingToday.title",
     };
-    return titles[subType] || "Hearing Notification";
+    const key = titleKeys[subType];
+    return key ? t(key, { count: 1 }) : t("notifications:center.types.session");
   }
 
   /**
-   * Get title for payment notification
+   * Get title for payment notification (i18n)
    */
   getTitleForPaymentNotification(subType) {
-    const titles = {
-      overdue: "Payment Overdue",
-      dueToday: "Payment Due Today",
-      upcoming: "Upcoming Payment",
+    const titleKeys = {
+      overdue: "notifications:content.financial.paymentOverdue.title",
+      overduePayment: "notifications:content.financial.overduePayment.title",
+      dueToday: "notifications:content.financial.paymentDueToday.title",
+      upcoming: "notifications:content.financial.upcomingPayment.title",
+      upcomingPayment: "notifications:content.financial.upcomingPayment.title",
     };
-    return titles[subType] || "Payment Notification";
+    const key = titleKeys[subType];
+    return key ? t(key, { count: 1 }) : t("notifications:center.types.payment");
   }
 
   /**
-   * Get title for mission notification
+   * Get title for mission notification (i18n)
    */
   getTitleForMissionNotification(subType) {
-    const titles = {
-      today: "Mission Today",
-      upcoming: "Upcoming Mission",
-      completion: "Mission Follow-up",
-      dueToday: "Mission Due Today",
-      assigned: "New Mission",
-      documentsCheck: "Mission Documents",
-      reassigned: "Mission Reassigned",
+    const titleKeys = {
+      today: "notifications:content.mission.dueToday.title",
+      dueToday: "notifications:content.mission.dueToday.title",
+      upcoming: "notifications:content.mission.upcoming.title",
+      upcomingDeadline: "notifications:content.mission.upcomingDeadline.title",
+      completion: "notifications:content.mission.completion.title",
+      completionReminder:
+        "notifications:content.mission.completionReminder.title",
+      assigned: "notifications:content.domain.missionAssigned.title",
+      reassigned: "notifications:content.domain.missionReassigned.title",
     };
-    return titles[subType] || "Mission Notification";
+    const key = titleKeys[subType];
+    return key ? t(key, { count: 1 }) : t("notifications:center.types.mission");
   }
 
   /**
-   * Get title for dossier notification
+   * Get title for dossier notification (i18n)
    */
   getTitleForDossierNotification(subType) {
-    const titles = {
-      statusUpdate: "Update Required",
-      review: "Dossier Review",
+    const titleKeys = {
+      statusUpdate: "notifications:content.dossier.statusUpdateNeeded.title",
+      inactivityReminder:
+        "notifications:content.dossier.inactivityReminder.title",
+      review: "notifications:content.dossier.review.title",
+      reviewReminder: "notifications:content.dossier.reviewReminder.title",
+      deadlineOverdue: "notifications:content.dossier.deadlineOverdue.title",
+      deadlineToday: "notifications:content.dossier.deadlineToday.title",
+      deadlineUpcoming: "notifications:content.dossier.deadlineUpcoming.title",
+      deadlineWeek: "notifications:content.dossier.deadlineWeek.title",
     };
-    return titles[subType] || "Dossier Notification";
+    const key = titleKeys[subType];
+    return key ? t(key, { count: 1 }) : t("notifications:center.types.dossier");
   }
 
   /**

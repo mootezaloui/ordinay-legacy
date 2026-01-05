@@ -57,11 +57,11 @@ const sessionStatusMap: Record<string, string> = {
 };
 
 const sessionTypeMap: Record<string, string> = {
-  hearing: "Hearing",
+  hearing: "Audience",
   consultation: "Consultation",
   mediation: "Mediation",
   expertise: "Expertise",
-  phone: "Phone",
+  phone: "Telephone",
   other: "Other",
 };
 
@@ -354,12 +354,21 @@ const personalTaskStatusMap: Record<string, string> = {
   cancelled: "Cancelled",
 };
 
+const personalTaskCategoryMap: Record<string, string> = {
+  invoices: "Invoices",
+  office: "Office",
+  personal: "Personal",
+  it: "IT",
+  administrative: "Administrative",
+  other: "Other",
+};
+
 export function adaptPersonalTask(api: any) {
   return {
     id: api.id,
     title: api.title ?? "",
     description: api.description ?? "",
-    category: api.category ?? "",
+    category: personalTaskCategoryMap[api.category] ?? api.category ?? "",
     status: personalTaskStatusMap[api.status] ?? api.status ?? "",
     priority: priorityMap[api.priority] ?? api.priority ?? "",
     dueDate: dateOnly(api.due_date),
