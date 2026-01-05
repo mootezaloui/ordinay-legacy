@@ -31,13 +31,13 @@
       "onHold": "En attente",
       "completed": "Terminée",
       "blocked": "Bloquée",
-      "done": "Terminée",
+      "done": "Faite",
       "cancelled": "Annulée"
     },
     "priority": {
-      "high": "Haute",
+      "high": "Élevée",
       "medium": "Moyenne",
-      "low": "Basse"
+      "low": "Faible"
     },
     "actions": {
       "view": "Voir les détails",
@@ -66,7 +66,7 @@
       "create": "Ajouter une nouvelle tâche"
     },
     "help": {
-      "statusLocked": "Le statut ne peut être modifié qu'à l'aide du sélecteur dans la liste"
+      "statusLocked": "Le statut ne peut être modifié que via le sélecteur dans la liste"
     },
     "fields": {
       "title": {
@@ -74,21 +74,21 @@
         "placeholder": "Ex : Préparer le dossier de plaidoirie"
       },
       "parentType": {
-        "label": "Lié à",
+        "label": "Liée à",
         "options": {
           "dossier": "Dossier",
-          "case": "Procès"
+          "case": "Affaire"
         },
-        "helper": "Sélectionnez si cette tâche est liée à un dossier ou à un procès."
+        "helper": "Sélectionnez si cette tâche est liée à un dossier ou à une affaire."
       },
       "dossierId": {
         "label": "Dossier"
       },
       "caseId": {
-        "label": "Procès"
+        "label": "Affaire"
       },
       "assignedTo": {
-        "label": "Assigné à",
+        "label": "Assignée à",
         "createLabel": "Ajouter"
       },
       "dueDate": {
@@ -100,10 +100,10 @@
       "status": {
         "label": "Statut",
         "options": {
-          "notStarted": "Non démarrée",
+          "notStarted": "Non commencée",
           "inProgress": "En cours",
           "blocked": "Bloquée",
-          "done": "Terminée",
+          "done": "Faite",
           "cancelled": "Annulée"
         }
       },
@@ -112,8 +112,8 @@
         "placeholder": "Description détaillée de la tâche..."
       },
       "estimatedTime": {
-        "label": "Durée estimée",
-        "helper": "Durée estimée pour réaliser la tâche",
+        "label": "Temps estimé",
+        "helper": "Durée estimée pour accomplir la tâche",
         "options": {
           "0_5h": "30 minutes",
           "1h": "1 heure",
@@ -156,7 +156,7 @@
   },
   "detail": {
     "entityName": "Tâche",
-    "notFound": "Tâche introuvable",
+    "notFound": "Tâche non trouvée",
     "deleteConfirm": "Êtes-vous sûr de vouloir supprimer cette tâche ?",
     "subtitle": "Créée le {{date}}",
     "defaults": {
@@ -166,9 +166,9 @@
       }
     },
     "fallback": {
-      "na": "N/A",
+      "na": "N/D",
       "none": "Aucun",
-      "noDescription": "Pas de description"
+      "noDescription": "Aucune description"
     },
     "quickActions": {
       "status": {
@@ -176,12 +176,12 @@
         "notStarted": "Non commencée",
         "inProgress": "En cours",
         "blocked": "Bloquée",
-        "done": "Terminée",
+        "done": "Faite",
         "cancelled": "Annulée"
       },
       "priority": {
         "label": "Priorité",
-        "high": "Haute",
+        "high": "Élevée",
         "medium": "Moyenne",
         "low": "Faible"
       },
@@ -217,7 +217,7 @@
       }
     },
     "tabs": {
-      "overview": "Vue d'ensemble",
+      "overview": "Aperçu",
       "financial": "Comptabilité",
       "financialDescription": "Suivi financier lié à cette tâche",
       "documents": "Documents",
@@ -234,15 +234,15 @@
         "parentType": "Type de lien",
         "parentTypeOptions": {
           "dossier": "Dossier",
-          "case": "Procès"
+          "case": "Affaire"
         },
-        "parentTypeHelp": "Une tâche peut être liée à un dossier ou à un procès",
+        "parentTypeHelp": "Une tâche peut être liée à un dossier ou à une affaire",
         "dossier": "Dossier",
-        "dossierPlaceholder": "Sélectionnez un dossier...",
+        "dossierPlaceholder": "Sélectionner un dossier...",
         "dossierHelp": "Sélectionnez le dossier concerné",
-        "case": "Procès",
-        "casePlaceholder": "Sélectionnez un procès...",
-        "caseHelp": "Sélectionnez le procès concerné"
+        "case": "Affaire",
+        "casePlaceholder": "Sélectionner une affaire...",
+        "caseHelp": "Sélectionnez l'affaire concernée"
       }
     }
   }

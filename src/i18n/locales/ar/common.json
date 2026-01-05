@@ -1,7 +1,7 @@
 {
   "dashboard": {
     "title": "لوحة التحكم",
-    "subtitle": "نظرة عامة على أداء وأنشطة مكتب المحاماة",
+    "subtitle": "نظرة عامة على أداء ونشاط مكتبك القانوني",
     "quickActions": {
       "title": "إجراءات سريعة",
       "newClient": "عميل جديد",
@@ -9,9 +9,9 @@
       "newTask": "مهمة جديدة",
       "newSession": "جلسة جديدة",
       "subtitles": {
-        "client": "إضافة عميل جديد إلى قاعدة البيانات",
+        "client": "إضافة عميل جديد إلى قاعدة البيانات الخاصة بك",
         "dossier": "إنشاء ملف قانوني جديد",
-        "task": "إنشاء مهمة جديدة لتنفيذها",
+        "task": "إنشاء مهمة جديدة يجب تنفيذها",
         "session": "جدولة جلسة أو موعد جديد"
       }
     },
@@ -25,39 +25,39 @@
       "newThisWeek_one": "{{count}} جديد هذا الأسبوع",
       "newThisWeek_other": "{{count}} جديد هذا الأسبوع",
       "dueToday_one": "{{count}} مستحق اليوم",
-      "dueToday_other": "{{count}} مستحق اليوم"
+      "dueToday_other": "{{count}} مستحقة اليوم"
     },
     "urgentTasks": {
       "title": "مهام عاجلة ({{count}})",
-      "empty": "لا توجد مهام عاجلة! عمل رائع في البقاء على اطلاع."
+      "empty": "لا توجد مهام عاجلة! عمل رائع للبقاء على رأس الأمور."
     },
     "upcomingEvents": {
       "title": "الأحداث القادمة ({{count}})",
       "empty": "لا توجد أحداث قادمة مجدولة."
     },
     "projection": {
-      "title": "توقع (30-90 يومًا)",
-      "show": "إظهار التوقع",
+      "title": "التوقع (30-90 يوماً)",
+      "show": "عرض التوقع",
       "hide": "إخفاء",
-      "daysLabel_one": "يوم واحد",
+      "daysLabel_one": "{{count}} يوم",
       "daysLabel_other": "{{count}} يوم",
-      "nothing": "لا يوجد جديد",
+      "nothing": "لا شيء للإبلاغ عنه",
       "itemMeta": "{{date}} - {{label}}"
     },
     "planningLane": {
-      "title": "مسار التخطيط",
-      "subtitle": "الأحداث القادمة (8-12 عنصرًا)",
-      "empty": "لا توجد أحداث قادمة."
+      "title": "ممر التخطيط",
+      "subtitle": "الأحداث القادمة (8-12 عنصر)",
+      "empty": "لم يتم اكتشاف أي أحداث قادمة."
     },
     "loadMap": {
-      "title": "الحمولة القادمة (أسبوعيًا)",
-      "show": "إظهار الحمولة",
-      "hide": "إخفاء الحمولة",
-      "empty": "لا توجد حمولة قادمة.",
+      "title": "الحمل القادم (لكل أسبوع)",
+      "show": "عرض الحمل",
+      "hide": "إخفاء الحمل",
+      "empty": "لم يتم اكتشاف أي حمل قادم.",
       "weekLabel": "الأسبوع {{week}}",
-      "itemsCount_one": "عنصر واحد",
-      "itemsCount_other": "{{count}} عناصر",
-      "tooltipNone": "لا توجد حمولة",
+      "itemsCount_one": "{{count}} عنصر",
+      "itemsCount_other": "{{count}} عنصر",
+      "tooltipNone": "لا يوجد حمل",
       "tooltipType_one": "{{count}} {{type}}",
       "tooltipType_other": "{{count}} {{type}}"
     },
@@ -66,12 +66,12 @@
       "empty": "لا توجد أنشطة حديثة للعرض."
     },
     "quickStats": {
-      "title": "إحصائيات",
+      "title": "الإحصائيات",
       "dossiers": {
         "title": "الملفات حسب الحالة",
-        "inProgress": "قيد العمل",
-        "pending": "قيد الانتظار",
-        "closed": "مغلق"
+        "inProgress": "قيد التنفيذ",
+        "pending": "معلقة",
+        "closed": "مغلقة"
       },
       "tasks": {
         "title": "المهام حسب الأولوية",
@@ -80,19 +80,19 @@
         "low": "منخفضة"
       },
       "payments": {
-        "title": "حالة المدفوعات",
+        "title": "حالة الدفع",
         "paid": "مدفوع",
-        "pending": "قيد الانتظار",
+        "pending": "معلق",
         "overdue": "متأخر"
       }
     },
     "activities": {
       "newClient": "عميل جديد: {{name}}",
       "dossierUpdated": "تم تحديث الملف: {{caseNumber}}",
-      "scheduledHearing": "جلسة مجدولة: {{title}}",
+      "scheduledHearing": "جلسات مجدولة: {{title}}",
       "sessionDescription": "{{date}} في {{time}}",
-      "deadline": "موعد نهائي: {{title}}",
-      "entryTitle": "قيد #{{id}}"
+      "deadline": "الموعد النهائي: {{title}}",
+      "entryTitle": "إدخال رقم {{id}}"
     },
     "types": {
       "session": "جلسة",
@@ -107,10 +107,13 @@
   "actions": {
     "close": "إغلاق",
     "back": "رجوع",
+    "backToList": "العودة إلى القائمة",
     "edit": "تعديل",
     "delete": "حذف",
     "save": "حفظ",
-    "cancel": "إلغاء"
+    "cancel": "إلغاء",
+    "add": "إضافة",
+    "view": "عرض"
   },
   "forms": {
     "titles": {
@@ -123,19 +126,533 @@
       "invoice": { "new": "فاتورة جديدة", "edit": "تعديل الفاتورة" },
       "officerAssignment": { "new": "تعيين محضر", "edit": "تعديل المهمة" },
       "mission": { "new": "مهمة محضر جديدة", "edit": "تعديل مهمة المحضر" },
-      "financialEntry": { "new": "قيد مالي جديد", "edit": "تعديل القيد المالي" }
+      "financialEntry": { "new": "إدخال مالي جديد", "edit": "تعديل الإدخال المالي" }
     }
   },
+  "detail": {
+    "toast": {
+      "success": {
+        "save": "تم حفظ التغييرات بنجاح!",
+        "cascade": "تم حذف {{entity}} وجميع الكيانات المرتبطة"
+      },
+      "error": {
+        "save": "حدث خطأ أثناء حفظ التغييرات",
+        "saveInline": "حدث خطأ في الحفظ",
+        "cascade": "حدث خطأ أثناء الحذف المتتالي",
+        "cascadeUnavailable": "الحذف المتتالي غير متاح لهذا الكيان",
+        "delete": "حدث خطأ في الحذف",
+        "notAllowed": "هذا التعديل غير مسموح به"
+      },
+      "title": {
+        "blocked": "التعديل محظور",
+        "validationFailed": "فشل التحقق",
+        "saveError": "خطأ في الحفظ",
+        "cascade": "الحذف المتتالي"
+      }
+    },
+    "validation": {
+      "modificationNotAllowed": "هذا التعديل غير مسموح به"
+    },
+    "history": {
+      "loading": "جاري تحميل السجل...",
+      "empty": {
+        "title": "لا يوجد سجل متاح حتى الآن",
+        "description": "ستظهر الأحداث المهمة هنا: الإنشاءات، تغييرات الحالة، التعيينات، والإجراءات الهامة."
+      },
+      "badges": {
+        "lifecycle": "دورة الحياة",
+        "status": "الحالة",
+        "assignment": "التعيين",
+        "finance": "المالية",
+        "system": "النظام",
+        "relation": "العلاقة",
+        "childCreated": "تم إنشاء فرعي",
+        "childDeleted": "تم حذف فرعي"
+      },
+      "metadata": {
+        "oldStatus": "الحالة القديمة",
+        "newStatus": "الحالة الجديدة",
+        "assignedTo": "تم تعيينه لـ",
+        "previousAssignee": "السابق",
+        "amount": "المبلغ",
+        "actionType": "النوع"
+      },
+      "time": {
+        "justNow": "الآن",
+        "minutesAgo_one": "منذ {{count}} دقيقة",
+        "minutesAgo_other": "منذ {{count}} دقيقة",
+        "hoursAgo_one": "منذ {{count}} ساعة",
+        "hoursAgo_other": "منذ {{count}} ساعة",
+        "daysAgo_one": "منذ {{count}} يوم",
+        "daysAgo_other": "منذ {{count}} يوم"
+      },
+      "labels": {
+        "creation": "إنشاء",
+        "entityAdded": "تمت إضافة {{name}}",
+        "entityCreated": "تم إنشاء الكيان",
+        "statusChanged": "تم تغيير الحالة: {{oldStatus}} → {{newStatus}}",
+        "reassigned": "تم إعادة التعيين إلى: {{previousAssignee}} → {{assignedTo}}",
+        "assigned": "تم تعيينه لـ {{assignedTo}}",
+        "reassignmentPerformed": "تمت إعادة التعيين",
+        "initialAssignment": "تم إجراء التعيين الأولي",
+        "closed": "مغلق",
+        "reopened": "تم إعادة الفتح",
+        "archived": "مؤرشف",
+        "activated": "مفعل",
+        "completed": "مكتمل",
+        "cancelled": "ملغي",
+        "dossierCreated": "تم إنشاء الملف",
+        "lawsuitCreated": "تم إنشاء الدعوى",
+        "hearingCreated": "تم إنشاء الجلسة",
+        "taskCreated": "تم إنشاء المهمة",
+        "missionCreated": "تم إنشاء المهمة",
+        "itemCreated": "تم إنشاء العنصر",
+        "finance": {
+          "entryAdded": "تمت إضافة إدخال مالي",
+          "entryUpdated": "تم تحديث الإدخال المالي",
+          "entryDeleted": "تم حذف الإدخال المالي",
+          "amount": "المبلغ: {{amount}} د.ت"
+        },
+        "domainRule": {
+          "confirmed": "تم تأكيد قاعدة المجال",
+          "rejected": "تم رفض قاعدة المجال"
+        },
+        "relationalImpact": {
+          "confirmed": "تم تأكيد التأثير العلائقي",
+          "rejected": "تم رفض التأثير العلائقي"
+        }
+      }
+    },
+    "timeline": {
+      "title": "السجل",
+      "empty": "لا توجد أحداث في السجل"
+    },
+    "documents": {
+      "title": "المستندات ({{count}})",
+      "upload": {
+        "dragDrop": "اسحب وأفلت ملفاتك هنا",
+        "or": "أو",
+        "browse": "تصفح الملفات",
+        "browseLink": "تصفح",
+        "dragDropOr": "اسحب وأفلت ملفاتك هنا أو",
+        "formats": "PDF, DOC, XLS, PPT, الصور، الأرشيفات (10 ميجابايت كحد أقصى لكل ملف)",
+        "uploading": "جاري التحميل..."
+      },
+      "status": {
+        "missing": "ملف مفقود"
+      },
+      "actions": {
+        "relink": "إعادة الربط",
+        "download": "تحميل",
+        "reveal": "الكشف في المجلد",
+        "delete": "حذف"
+      },
+      "stats": {
+        "total": "إجمالي المستندات",
+        "pdf": "PDF",
+        "images": "الصور",
+        "totalSize": "الحجم الإجمالي"
+      },
+      "toast": {
+        "success": {
+          "upload": "تمت إضافة {{count}} مستند(ات) بنجاح!",
+          "downloadStart": "جاري تحميل {{name}}",
+          "delete": "تم حذف المستند",
+          "unlink": "تمت إزالة الرابط",
+          "relink": "تمت إعادة ربط المستند بنجاح"
+        },
+        "error": {
+          "uploadFailed": "فشل تحميل {{count}} مستند(ات)",
+          "uploadError": "حدث خطأ أثناء إضافة المستندات",
+          "open": "تعذر فتح المستند. الملف مفقود؟",
+          "download": "حدث خطأ أثناء تحميل المستند",
+          "reveal": "تعذر الكشف عن الملف",
+          "delete": "حدث خطأ أثناء حذف المستند",
+          "replace": "حدث خطأ أثناء استبدال المستند"
+        }
+      }
+    },
+    "notes": {
+      "title": "ملاحظات / محاضر",
+      "empty": "لا توجد ملاحظات حتى الآن",
+      "actions": {
+        "addPostit": "إضافة ملاحظة لاصقة",
+        "addPostitShort": "إضافة ملاحظة"
+      },
+      "status": {
+        "editing": "جاري التحرير...",
+        "saving": "جاري الحفظ..."
+      },
+      "placeholder": {
+        "content": "اكتب ملاحظتك هنا..."
+      },
+      "label": {
+        "postit": "ملاحظة لاصقة"
+      },
+      "time": {
+        "updated": "تم التحديث:",
+        "created": "تم الإنشاء:"
+      },
+      "toast": {
+        "success": {
+          "save": "تم حفظ الملاحظة",
+          "delete": "تم حذف الملاحظة"
+        },
+        "error": {
+          "saveMissing": "تعذر حفظ الملاحظات",
+          "empty": "لا يمكن أن تكون الملاحظة فارغة",
+          "save": "حدث خطأ أثناء حفظ الملاحظة",
+          "deleteMissing": "تعذر حذف الملاحظة",
+          "delete": "حدث خطأ أثناء حذف الملاحظة"
+        }
+      }
+    },
+    "missions": {
+      "empty": "لم يتم العثور على مهام.",
+      "add": "إضافة {{entityName}}",
+      "addDefault": "إضافة مهمة",
+      "search": {
+        "placeholder": "البحث حسب الرقم، العنوان، المرجع...",
+        "empty": "لم يتم العثور على مهمة تطابق المعايير."
+      },
+      "filter": {
+        "all": "الكل ({{count}})",
+        "scheduled": "مجدولة ({{count}})",
+        "inProgress": "قيد التنفيذ ({{count}})",
+        "completed": "مكتملة ({{count}})",
+        "cancelled": "ملغاة ({{count}})"
+      },
+      "priority": {
+        "high": "أولوية عالية"
+      },
+      "labels": {
+        "assigned": "تم التعيين لـ:",
+        "dueDate": "تاريخ الاستحقاق:",
+        "documents": "{{count}} مستند(ات)",
+        "fees": "{{amount}} أتعاب"
+      },
+      "financial": {
+        "addTitle": "إضافة مصروفات المحضر",
+        "expenseType": "مصروف (أتعاب مدفوعة)"
+      },
+      "fallback": {
+        "unknownClient": "عميل غير معروف",
+        "unknownDossier": "ملف غير معروف",
+        "noLawsuit": "لا توجد دعوى"
+      },
+      "blockers": {
+        "missingParent": "أضف ملفًا أو دعوى قبل إنشاء مهمة."
+      }
+    },
+    "financial": {
+      "title": "الإدخالات المحاسبية ({{count}})",
+      "columns": {
+        "date": "التاريخ",
+        "entry": "الإدخال",
+        "type": "النوع",
+        "amount": "المبلغ",
+        "status": "الحالة",
+        "actions": "الإجراءات"
+      },
+      "types": {
+        "revenue": "إيراد",
+        "expense": "مصروف"
+      },
+      "status": {
+        "draft": "مسودة",
+        "confirmed": "مؤكد",
+        "paid": "مدفوع",
+        "cancelled": "ملغي"
+      },
+      "summary": {
+        "billedFees": "الأتعاب المفوترة",
+        "billedFeesHelp": "إجمالي أتعاب المحاماة المفوترة للعميل",
+        "billedFeesDescription": "ما قمت بفوترته",
+        "reimbursableExpenses": "المصروفات القابلة للاسترداد",
+        "reimbursableExpensesHelp": "المصروفات المدفوعة للعميل (رسوم المحكمة، مصروفات المحضر، إلخ) للاسترداد",
+        "reimbursableExpensesDescription": "المصروفات المستردة من العميل",
+        "paymentsReceived": "المدفوعات المستلمة",
+        "paymentsReceivedDescription": "ما دفعه العميل بالفعل",
+        "balance": {
+          "toReceive": "للاستلام",
+          "overpaid": "مدفوع زائد",
+          "balanced": "متوازن",
+          "clientOwes": "العميل مدين لك بمبلغ {{amount}}",
+          "youOwe": "أنت مدين للعميل بمبلغ {{amount}}",
+          "settled": "تم التسوية بالكامل!"
+        },
+        "revenue": "الإيراد",
+        "expenses": "المصروفات",
+        "netBalance": "الرصيد الصافي"
+      },
+      "table": {
+        "title": "الإدخالات المحاسبية ({{count}})",
+        "empty": {
+          "search": "لم يتم العثور على نتائج",
+          "noData": "لا توجد إدخالات محاسبية متاحة"
+        },
+        "columns": {
+          "actions": "الإجراءات"
+        }
+      },
+      "actions": {
+        "newEntry": "إدخال جديد"
+      },
+      "detail": {
+        "sectionTitle": "تفاصيل الإدخال",
+        "date": "التاريخ",
+        "category": "الفئة",
+        "status": "الحالة",
+        "amount": "المبلغ",
+        "client": "العميل",
+        "dossier": "الملف",
+        "lawsuit": "الدعوى",
+        "createdBy": "تم الإنشاء بواسطة",
+        "description": "الوصف"
+      },
+      "form": {
+        "title": {
+          "edit": "تعديل الإدخال المحاسبي"
+        },
+        "subtitle": {
+          "add": "إنشاء إدخال جديد"
+        }
+      },
+      "blocker": {
+        "actionName": "تعديل/حذف الإدخال المالي"
+      },
+      "scope": {
+        "internal": "داخلي (مصروفات المكتب)",
+        "client": "عميل (يؤثر على رصيد العميل)"
+      },
+      "category": {
+        "bailiffFees": "مصروفات المحضر",
+        "expenseBailiffFees": "مصروفات (مصروفات المحضر)"
+      },
+      "fallback": {
+        "unknownClient": "عميل غير معروف",
+        "unknownDossier": "ملف غير معروف"
+      }
+    },
+    "overview": {
+      "noConfig": "لم يتم العثور على تكوين نظرة عامة",
+      "noNotes": "لا توجد ملاحظات",
+      "editAttachment": "تعديل المرفق"
+    },
+    "related": {
+      "add": "إضافة {{entityName}}",
+      "addDefault": "إضافة عنصر",
+      "edit": "تعديل",
+      "help": {
+        "taskCaseLink": "ستكون هذه المهمة مرتبطة بهذه الدعوى"
+      },
+      "empty": {
+        "noItems": "لا توجد عناصر"
+      },
+      "fallback": {
+        "entity": "عنصر",
+        "element": "عنصر"
+      },
+      "labels": {
+        "due": "الاستحقاق: {{date}}"
+      },
+      "form": {
+        "add": "إضافة {{entityName}}",
+        "create": "إنشاء {{entityName}} جديد"
+      }
+    },
+    "aggregated": {
+      "empty": {
+        "dossiers": "لا توجد ملفات لهذا العميل",
+        "lawsuitsClient": "لا توجد دعاوى لهذا العميل",
+        "lawsuitsDossier": "لا توجد دعاوى لهذا الملف",
+        "hearingsClient": "لا توجد جلسات مجدولة لهذا العميل.\nلإضافة جلسة، أنشئ ملفًا أو دعوى.",
+        "hearingsDossier": "لا توجد جلسات مجدولة لهذا الملف",
+        "hearingsLawsuit": "لا توجد جلسات مجدولة لهذه الدعوى",
+        "tasksClient": "لا توجد مهام لهذا العميل",
+        "tasksDossier": "لا توجد مهام لهذا الملف",
+        "tasksLawsuit": "لا توجد مهام لهذه الدعوى",
+        "missionsDossier": "لا توجد مهام محضر لهذا الملف",
+        "missionsLawsuit": "لا توجد مهام محضر لهذه الدعوى"
+      },
+      "labels": {
+        "category": "الفئة",
+        "nextHearing": "الجلسة القادمة",
+        "notScheduled": "غير مجدولة",
+        "due": "مستحق",
+        "assignedTo": "تم التعيين لـ",
+        "bailiff": "المحضر"
+      }
+    },
+    "errors": {
+      "tabNotFound": "لم يتم العثور على محتوى علامة التبويب",
+      "unrecognizedAggregation": "نوع التجميع غير معروف"
+    },
+    "quickActions": {
+      "title": "إجراءات سريعة",
+      "toast": {
+        "success": {
+          "update": "{{label}} تم التحديث: {{value}}"
+        },
+        "info": {
+          "cancel": "تم إلغاء التحديث"
+        },
+        "title": {
+          "updateSuccess": "تم التحديث بنجاح",
+          "undoSuccess": "تم التراجع بنجاح"
+        }
+      }
+    },
+    "blocker": {
+      "title": {
+        "actionNotPossible": "الإجراء غير ممكن",
+        "blockersResolved": "تم حل العوائق!",
+        "deleteAnyway": "حذف على أي حال؟"
+      },
+      "subtitle": {
+        "unableTo": "غير قادر على {{actionName}}{{entityName}}",
+        "canRetry": "يمكنك الآن إعادة محاولة الإجراء"
+      },
+      "sections": {
+        "issuesToResolve": "القضايا التي يجب حلها:",
+        "resolved": "تم حلها ({{count}}):",
+        "warnings": "تحذيرات:",
+        "howToResolve": "كيفية الحل؟",
+        "status": "الحالة:"
+      },
+      "help": {
+        "useButtons": "استخدم أزرار الإجراء أعلاه لحل كل مشكلة. يمكنك الانتقال إلى العناصر المانعة أو حلها مباشرة من هذه الشاشة."
+      },
+      "forceDelete": {
+        "willBeDeleted": "سيتم حذفه",
+        "willBeDeletedPlural": "سيتم حذفها",
+        "andMore": "... و{{count}} أخرى",
+        "irreversible": "هذا الإجراء لا رجعة فيه. سيتم حذف جميع البيانات بشكل دائم.",
+        "confirmButton": "نعم، احذف كل شيء بشكل دائم"
+      },
+      "actions": {
+        "retryAction": "إعادة محاولة الإجراء",
+        "close": "إغلاق",
+        "cancel": "إلغاء",
+        "changeStatusTo": "تغيير الحالة إلى \"{{status}}\" لـ"
+      },
+      "entityTypes": {
+        "client": "عميل",
+        "clients": "عملاء",
+        "dossier": "ملف",
+        "dossiers": "ملفات",
+        "lawsuit": "دعوى",
+        "lawsuits": "دعاوى",
+        "task": "مهمة",
+        "tasks": "مهام",
+        "session": "جلسة",
+        "sessions": "جلسات",
+        "mission": "مهمة",
+        "missions": "مهام",
+        "financialEntry": "إدخال مالي",
+        "financialEntries": "إدخالات مالية",
+        "officer": "محضر",
+        "officers": "محضرون"
+      },
+      "toast": {
+        "success": {
+          "taskComplete": "تم تحديد المهمة كمكتملة",
+          "hearingComplete": "تم تحديد الجلسة كمكتملة",
+          "entryPaid": "تم تحديد الإدخال كمدفوع",
+          "caseClosed": "تم إغلاق الدعوى",
+          "dossierClosed": "تم إغلاق الملف",
+          "resolved": "تم حل جميع العوائق!"
+        },
+        "error": {
+          "taskComplete": "تعذر تحديد هذه المهمة كمكتملة",
+          "hearingComplete": "تعذر تحديد هذه الجلسة كمكتملة",
+          "entryPaid": "تعذر تحديد هذا الإدخال كمدفوع",
+          "caseClosed": "تعذر إغلاق هذه الدعوى",
+          "dossierClosed": "تعذر إغلاق هذا الملف",
+          "unsupported": "الإجراء غير مدعوم",
+          "generic": "حدث خطأ"
+        }
+      },
+      "enrichment": {
+        "actions": {
+          "viewTask": "عرض المهمة",
+          "markComplete": "تحديد كمكتمل",
+          "viewLawsuit": "عرض الدعوى",
+          "closeLawsuit": "إغلاق الدعوى",
+          "viewHearing": "عرض الجلسة",
+          "viewMission": "عرض المهمة",
+          "completeMission": "إكمال المهمة",
+          "viewEntry": "عرض الإدخال",
+          "markAsPaid": "تحديد كمدفوع",
+          "goTo": "الانتقال إلى {{entityType}}",
+          "reopen": "إعادة فتح {{entityType}}",
+          "chooseAnotherParent": "اختر أصلًا آخر",
+          "viewDossier": "عرض الملف"
+        },
+        "summary": {
+          "incompleteTask": "{{count}} مهمة غير مكتملة",
+          "incompleteTasks": "{{count}} مهام غير مكتملة",
+          "openLawsuit": "{{count}} دعوى مفتوحة",
+          "openLawsuits": "{{count}} دعاوى مفتوحة",
+          "upcomingHearing": "{{count}} جلسة قادمة",
+          "upcomingHearings": "{{count}} جلسات قادمة",
+          "activeMission": "{{count}} مهمة نشطة",
+          "activeMissions": "{{count}} مهام نشطة",
+          "openDossier": "{{count}} ملف مفتوح",
+          "openDossiers": "{{count}} ملفات مفتوحة",
+          "openTask": "{{count}} مهمة مفتوحة",
+          "openTasks": "{{count}} مهام مفتوحة"
+        },
+        "helpText": {
+          "closeDossierTasks": "لإغلاق هذا الملف، يجب أولاً إكمال جميع المهام المرتبطة. يمكنك تحديد المهام كمكتملة بشكل فردي.",
+          "closeLawsuitTasks": "لإغلاق هذه الدعوى، يجب أولاً إكمال جميع المهام المرتبطة. يمكنك تحديد المهام كمكتملة بشكل فردي.",
+          "closeDossierLawsuits": "لإغلاق هذا الملف، يجب أولاً إغلاق جميع الدعاوى المرتبطة. يمكنك إغلاق كل دعوى بشكل فردي.",
+          "closeLawsuitHearings": "لإغلاق هذه الدعوى، يجب أولاً إكمال أو إلغاء جميع الجلسات القادمة. يمكنك تحديد الجلسات كمكتملة بشكل فردي.",
+          "closeDossierMissions": "لإغلاق هذا الملف، يجب أولاً إكمال جميع مهام المحضر النشطة.",
+          "closeLawsuitMissions": "لإغلاق هذه الدعوى، يجب أولاً إكمال جميع مهام المحضر النشطة.",
+          "closeDossierFinancial": "لإغلاق هذا الملف، يجب أولاً تحديد جميع الإدخالات المالية غير المدفوعة كمدفوعة.",
+          "closeLawsuitFinancial": "لإغلاق هذه الدعوى، يجب أولاً تحديد جميع الإدخالات المالية غير المدفوعة كمدفوعة.",
+          "closedParent": "ينتمي هذا العنصر إلى كيان أصل مغلق ولا يمكن تعديله. يجب أولاً إعادة فتح الأصل.",
+          "cannotCreateUnderClosed": "لا يمكنك إنشاء عناصر تحت كيان أصل مغلق. يرجى تحديد أصل نشط أو إعادة فتح المغلق.",
+          "paidEntryLocked": "تم تحديد هذا الإدخال كمدفوع وهو مقفل للحفاظ على سلامة السجلات المالية. أنشئ إدخالًا جديدًا إذا كنت بحاجة إلى إجراء تعديلات.",
+          "temporalConstraints": "تتعارض التواريخ المدخلة مع القيود الزمنية. تأكد من أن جميع التواريخ تتبع الترتيب الزمني الصحيح والمتطلبات القانونية.",
+          "inactivateClientDossiers": "لتحديد عميل كغير نشط، يجب أولاً إغلاق جميع الملفات المرتبطة. يمكنك إغلاق كل ملف بشكل فردي."
+        },
+        "warnings": {
+          "correctDates": "يرجى تصحيح التواريخ للامتثال للتسلسل الزمني القانوني."
+        }
+      }
+    }
+  },
+  "data": {
+    "toast": {
+      "error": {
+        "loadRemote": "تعذر تحميل البيانات البعيدة (للقراءة فقط)."
+      }
+    }
+  },
+  "form": {
+    "placeholder": {
+      "notProvided": "غير متوفر"
+    },
+    "upload": {
+      "dropPrompt": "اسحب وأفلت الملفات هنا، أو",
+      "browse": "تصفح"
+    },
+    "select": "اختر...",
+    "searching": "جاري البحث..."
+  },
   "table": {
-    "searching": "البحث...",
+    "searching": "جاري البحث...",
+    "searchResults": "{{filtered}} نتيجة(نتائج) من أصل {{total}}",
     "toolbar": {
       "columns": "الأعمدة",
       "manageColumns": "إدارة الأعمدة",
       "export": "تصدير"
     },
     "pagination": {
-      "showing": "عرض {{from}} إلى {{to}} من {{total}} النتائج",
-      "perPage": "{{count}} في الصفحة"
+      "showing": "عرض {{from}} إلى {{to}} من أصل {{total}} نتيجة",
+      "perPage": "{{count}} لكل صفحة"
     },
     "empty": "لا توجد بيانات متاحة",
     "columns": {
@@ -151,7 +668,7 @@
       "date": "التاريخ",
       "dueDate": "تاريخ الاستحقاق",
       "priority": "الأولوية",
-      "assignedTo": "مخصص لـ"
+      "assignedTo": "تم التعيين لـ"
     },
     "actions": {
       "view": "عرض",
@@ -159,9 +676,100 @@
       "delete": "حذف"
     }
   },
+  "dialog": {
+    "confirm": {
+      "defaults": {
+        "title": "تأكيد",
+        "message": "هل أنت متأكد؟",
+        "confirm": "تأكيد",
+        "cancel": "إلغاء"
+      }
+    },
+    "form": {
+      "validation": {
+        "required": {
+          "title": "الحقول المطلوبة",
+          "message": "يرجى تصحيح أخطاء النموذج قبل المتابعة."
+        }
+      }
+    },
+    "detail": {
+      "documents": {
+        "delete": {
+          "title": "حذف المستند",
+          "message": "هل تريد حذف الرابط فقط أم الملف بشكل دائم؟",
+          "confirm": "حذف الملف",
+          "cancel": "إزالة الرابط"
+        },
+        "deleteSingle": {
+          "title": "حذف المستند",
+          "message": "هل أنت متأكد أنك تريد حذف هذا المستند؟",
+          "confirm": "حذف",
+          "cancel": "إلغاء"
+        }
+      },
+      "notes": {
+        "delete": {
+          "title": "حذف الملاحظة",
+          "message": "هل أنت متأكد أنك تريد حذف هذه الملاحظة؟",
+          "confirm": "حذف",
+          "cancel": "إلغاء"
+        }
+      },
+      "missions": {
+        "delete": {
+          "title": "حذف المهمة",
+          "message": "هل أنت متأكد أنك تريد حذف هذه المهمة؟",
+          "confirm": "حذف",
+          "cancel": "إلغاء"
+        }
+      },
+      "financial": {
+        "delete": {
+          "title": "حذف الإدخال المالي",
+          "message": "هل أنت متأكد أنك تريد حذف هذا الإدخال؟",
+          "confirm": "حذف",
+          "cancel": "إلغاء"
+        }
+      },
+      "related": {
+        "delete": {
+          "title": "حذف {{entity}}",
+          "message": "هل أنت متأكد أنك تريد حذف هذا {{entity}}؟",
+          "confirm": "حذف",
+          "cancel": "إلغاء"
+        }
+      },
+      "impact": {
+        "change": {
+          "title": "تغيير المرفق",
+          "message": "هل أنت متأكد أنك تريد إجراء هذا التغيير؟",
+          "confirm": "تأكيد التغيير",
+          "cancel": "إلغاء"
+        }
+      },
+      "entity": {
+        "delete": {
+          "title": "حذف {{entity}}",
+          "confirm": "حذف",
+          "cancel": "إلغاء"
+        }
+      }
+    },
+    "impact": {
+      "warning": {
+        "title": "تحذير تأثير الربط",
+        "lead": "أنت على وشك {{action}}{{entityName}}",
+        "prompt": "هل تريد المتابعة؟",
+        "detail": "سيؤدي هذا الإجراء إلى تعديل العلاقات بين الكيانات. تأكد من فهم التأثير بالكامل قبل التأكيد.",
+        "confirm": "تأكيد التغيير",
+        "cancel": "إلغاء"
+      }
+    }
+  },
   "aria": {
     "dialog": {
-      "close": "إغلاق الحوار"
+      "close": "إغلاق مربع الحوار"
     },
     "search": {
       "clearSelection": "مسح التحديد"
@@ -173,9 +781,9 @@
   "search": {
     "placeholder": "البحث عن عملاء، ملفات، مهام...",
     "results": {
-      "found_one": "{{count}} نتيجة",
-      "found_other": "{{count}} نتائج",
-      "none": "لا توجد نتائج",
+      "found_one": "تم العثور على {{count}} نتيجة",
+      "found_other": "تم العثور على {{count}} نتيجة",
+      "none": "لم يتم العثور على نتائج",
       "noneFor": "لا توجد نتائج لـ \"{{query}}\"",
       "tryAgain": "جرب مصطلح بحث آخر",
       "escHint": "ESC للإغلاق"
@@ -188,7 +796,7 @@
       "hearings": "الجلسات",
       "bailiffs": "المحضرون"
     },
-    "assignedTo": "مخصص لـ:",
+    "assignedTo": "تم التعيين لـ:",
     "at": "في",
     "result_one": "نتيجة",
     "result_other": "نتائج"
@@ -199,24 +807,24 @@
       "settings": "الإعدادات",
       "lightMode": "الوضع الفاتح",
       "darkMode": "الوضع الداكن",
-      "logout": "إغلاق التطبيق",
-      "exitApp": "إغلاق التطبيق"
+      "logout": "الخروج من التطبيق",
+      "exitApp": "الخروج من التطبيق"
     },
     "roles": {
       "OWNER": "المالك",
       "ADMIN": "المدير",
-      "LAWYER": "المحامي",
-      "ASSISTANT": "المساعد"
+      "LAWYER": "محام",
+      "ASSISTANT": "مساعد"
     }
   },
-  "detail": {
-    "quickActions": {
-      "title": "إجراءات سريعة"
-    },
-    "missions": {
-      "blockers": {
-        "missingParent": "أضف ملفاً أو قضية أولاً قبل إنشاء مهمة."
-      }
-    }
+  "entities": {
+    "dossiers": "الملفات",
+    "lawsuits": "الدعاوى",
+    "hearings": "الجلسات",
+    "tasks": "المهام",
+    "missionsBailiff": "مهام المحضر"
+  },
+  "status": {
+    "loading": "جاري التحميل..."
   }
 }

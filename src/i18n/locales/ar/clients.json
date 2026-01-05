@@ -1,18 +1,18 @@
 {
   "page": {
     "title": "العملاء",
-    "subtitle": "إجمالي العملاء: {{total}}",
-    "subtitleFiltered": "إجمالي العملاء: {{total}} • المعروضة: {{displayed}}",
+    "subtitle": "{{total}} عميل في المجموع",
+    "subtitleFiltered": "{{total}} عميل في المجموع • عرض {{displayed}}",
     "actions": {
       "newClient": "عميل جديد"
     },
-    "loading": "جارٍ تحميل البيانات..."
+    "loading": "جاري تحميل البيانات..."
   },
   "stats": {
     "total": "إجمالي العملاء",
     "active": "عملاء نشطون",
     "inactive": "عملاء غير نشطين",
-    "newThisMonth": "عملاء جدد هذا الشهر",
+    "newThisMonth": "جدد هذا الشهر",
     "newThisMonthTrend": "منذ بداية الشهر"
   },
   "table": {
@@ -33,8 +33,8 @@
       "edit": "تعديل",
       "delete": "حذف"
     },
-    "empty": "لا يوجد عملاء",
-    "emptyFiltered": "لا توجد نتائج"
+    "empty": "لم يتم العثور على عملاء",
+    "emptyFiltered": "لم يتم العثور على نتائج"
   },
   "confirm": {
     "delete": {
@@ -46,90 +46,90 @@
   },
   "form": {
     "title": {
-      "edit": "تعديل عميل",
+      "edit": "تعديل العميل",
       "create": "إضافة عميل"
     },
     "subtitle": {
-      "edit": "تحديث بيانات العميل",
-      "create": "إضافة عميل جديد إلى قاعدة بياناتك"
+      "edit": "تعديل معلومات العميل",
+      "create": "إضافة عميل جديد إلى قاعدة البيانات الخاصة بك"
     },
     "help": {
-      "statusLocked": "لا يمكن تغيير الحالة إلا عبر المحدد في قائمة العملاء."
+      "statusLocked": "يمكن تغيير الحالة فقط من خلال المحدد في عرض القائمة."
     },
     "fields": {
       "name": {
-        "label": "????? ??????",
-        "placeholder": "????: ???? ?? ???"
+        "label": "الاسم الكامل",
+        "placeholder": "مثال: أحمد بن علي"
       },
       "email": {
-        "label": "?????? ??????????",
+        "label": "البريد الإلكتروني",
         "placeholder": "example@email.com"
       },
       "phone": {
-        "label": "??? ??????",
+        "label": "الهاتف",
         "placeholder": "+216 98 123 456"
       },
       "alternatePhone": {
-        "label": "???? ????",
+        "label": "هاتف بديل",
         "placeholder": "+216 71 234 567"
       },
       "cin": {
-        "label": "??? ??????",
+        "label": "رقم البطاقة الوطنية",
         "placeholder": "12345678"
       },
       "dateOfBirth": {
-        "label": "????? ???????"
+        "label": "تاريخ الميلاد"
       },
       "address": {
-        "label": "???????",
-        "placeholder": "??????? ??????"
+        "label": "العنوان",
+        "placeholder": "العنوان الكامل"
       },
       "profession": {
-        "label": "??????",
-        "placeholder": "????: ???? ?????"
+        "label": "المهنة",
+        "placeholder": "مثال: رائد أعمال"
       },
       "company": {
-        "label": "??????",
-        "placeholder": "??? ??????"
+        "label": "الشركة",
+        "placeholder": "اسم الشركة"
       },
       "taxId": {
-        "label": "?????? ???????",
+        "label": "المعرف الضريبي",
         "placeholder": "1234567X"
       },
       "status": {
-        "label": "??????",
+        "label": "الحالة",
         "options": {
-          "active": "???",
-          "inactive": "??? ???"
+          "active": "نشط",
+          "inactive": "غير نشط"
         }
       },
       "notes": {
-        "label": "???????",
-        "placeholder": "??????? ???? ??? ??????..."
+        "label": "ملاحظات",
+        "placeholder": "ملاحظات مهمة حول العميل..."
       }
     },
     "errors": {
-      "emailInvalid": "???? ???????? ??? ????"
+      "emailInvalid": "بريد إلكتروني غير صالح"
     }
   },
   "toasts": {
     "statusUpdated": "تم تحديث الحالة إلى {{status}}",
     "clientUpdated": "تم تحديث العميل",
-    "statusError": "تعذر تحديث الحالة",
-    "deleteError": "تعذر حذف العميل",
+    "statusError": "حدث خطأ أثناء تحديث الحالة",
+    "deleteError": "حدث خطأ أثناء حذف العميل",
     "deleteSuccess": {
       "title": "تم الحذف بنجاح",
       "body": "تم حذف العميل"
     },
-    "cascadeError": "خطأ أثناء الحذف المتسلسل",
+    "cascadeError": "حدث خطأ أثناء الحذف المتتالي",
     "cascadeSuccess": {
-      "title": "حذف متسلسل",
+      "title": "حذف متتالي",
       "body": "تم حذف العميل وجميع الكيانات المرتبطة"
     },
-    "updateSuccess": "تم تعديل العميل بنجاح",
-    "createMissingId": "تم إنشاء العميل لكن المعرّف غير متوفر",
-    "createSuccess": "تمت إضافة العميل بنجاح",
-    "saveError": "تعذر حفظ العميل"
+    "updateSuccess": "تم تحديث العميل بنجاح!",
+    "createMissingId": "تم إنشاء العميل، ولكن معرف الإرجاع غير متاح",
+    "createSuccess": "تمت إضافة العميل بنجاح!",
+    "saveError": "حدث خطأ أثناء حفظ العميل"
   },
   "confirmImpact": {
     "action": "تأكيد التعديل"
@@ -142,12 +142,12 @@
       "default": "تنفيذ إجراء على العميل"
     },
     "entityWithId": "العميل رقم {{id}}",
-    "entityGeneric": "العميل"
+    "entityGeneric": "عميل"
   },
   "detail": {
     "entityName": "العميل",
     "notFound": "لم يتم العثور على عميل.",
-    "deleteConfirm": "هل أنت متأكد من حذف هذا العميل؟",
+    "deleteConfirm": "هل أنت متأكد أنك تريد حذف هذا العميل؟",
     "subtitle": "عميل منذ {{date}}",
     "quickActions": {
       "status": {
@@ -157,62 +157,62 @@
       }
     },
     "stats": {
-      "documents": "المستندات",
-      "dossiers": "الملفات"
+      "dossiers": "الملفات",
+      "documents": "المستندات"
     },
     "tabs": {
-      "tasksAddSubtitle": "إنشاء مهمة جديدة لهذا العميل",
-      "sessionsDisabled": "أضف ملفاً أولاً قبل جدولة جلسة.",
-      "sessionsAddSubtitle": "إنشاء جلسة جديدة لهذا العميل",
       "dossiers": "الملفات",
-      "casesAddSubtitle": "إنشاء دعوى جديدة لهذا العميل",
-      "sessions": "الجلسات",
       "dossiersAddSubtitle": "إنشاء ملف جديد لهذا العميل",
-      "cases": "الدعاوى",
-      "casesEntity": "دعوى",
-      "tasksEntity": "مهمة",
-      "tasksDisabled": "أضف ملفاً أولاً قبل إنشاء مهمة لهذا العميل.",
-      "casesDisabled": "أضف ملفاً أولاً قبل إنشاء دعوى لهذا العميل.",
-      "tasks": "المهام",
+      "cases": "القضايا",
+      "casesEntity": "قضية",
+      "casesDisabled": "يرجى أولاً إضافة ملف قبل إنشاء قضية لهذا العميل.",
+      "casesAddSubtitle": "إنشاء قضية جديدة لهذا العميل",
+      "sessions": "الجلسات",
+      "sessionsDisabled": "يرجى أولاً إضافة ملف قبل جدولة جلسة.",
       "sessionsEntity": "جلسة",
-      "overview": "نظرة عامة",
+      "sessionsAddSubtitle": "إنشاء جلسة جديدة لهذا العميل",
+      "tasks": "المهام",
+      "tasksDisabled": "يرجى أولاً إضافة ملف قبل إنشاء مهمة لهذا العميل.",
+      "tasksEntity": "مهمة",
+      "tasksAddSubtitle": "إنشاء مهمة جديدة لهذا العميل",
       "financial": "المحاسبة",
       "documents": "المستندات",
-      "history": "السجل"
+      "history": "السجل",
+      "overview": "نظرة عامة"
     },
     "forms": {
+      "dossiersEmpty": "لا توجد ملفات متاحة. يرجى أولاً إنشاء ملف.",
+      "casesEmpty": "لا توجد قضايا متاحة. يرجى أولاً إنشاء قضية.",
+      "casesDossierHelp": "حدد الملف الذي ستكون هذه القضية مرتبطة به",
+      "sessionLinkHelpWithCases": "اختر ما إذا كانت هذه الجلسة مرتبطة بملف أو بقضية محددة",
       "sessionLinkHelpNoCases": "اختر ما إذا كانت هذه الجلسة مرتبطة بملف",
-      "sessionLinkHelpWithCases": "اختر ما إذا كانت هذه الجلسة مرتبطة بملف أو بدعوى محددة",
-      "taskCaseHelp": "اختر الدعوى المرتبطة بهذه المهمة",
-      "casesEmpty": "لا توجد دعاوى متاحة. يرجى إنشاء دعوى أولاً.",
-      "sessionCaseHelp": "اختر الدعوى المرتبطة بهذه الجلسة",
-      "taskDossierHelp": "اختر الملف المرتبط بهذه المهمة",
-      "sessionDossierHelp": "اختر الملف المرتبط بهذه الجلسة",
-      "dossiersEmpty": "لا توجد ملفات متاحة. يرجى إنشاء ملف أولاً.",
-      "casesDossierHelp": "اختر الملف المرتبطة به هذه الدعوى"
+      "sessionCaseHelp": "حدد القضية التي ستكون هذه الجلسة مرتبطة بها",
+      "sessionDossierHelp": "حدد الملف الذي ستكون هذه الجلسة مرتبطة به",
+      "taskDossierHelp": "حدد الملف الذي ستكون هذه المهمة مرتبطة به",
+      "taskCaseHelp": "حدد القضية التي ستكون هذه المهمة مرتبطة بها"
     },
     "overview": {
-      "fields": {
-        "taxId": "المعرف الضريبي",
-        "company": "الشركة",
-        "joinDate": "تاريخ التسجيل",
-        "cin": "الرقم الوطني",
-        "address": "العنوان",
-        "profession": "المهنة",
-        "name": "الاسم الكامل",
-        "dob": "تاريخ الميلاد",
-        "alternatePhone": "هاتف بديل",
-        "phone": "الهاتف",
-        "email": "البريد الإلكتروني"
-      },
+      "personal": "المعلومات الشخصية",
       "contact": "معلومات الاتصال",
       "registration": "معلومات التسجيل",
-      "notesEmpty": "لا توجد ملاحظات",
-      "personal": "المعلومات الشخصية",
-      "notes": "ملاحظات"
+      "notes": "ملاحظات",
+      "fields": {
+        "name": "الاسم الكامل",
+        "cin": "البطاقة الوطنية",
+        "dob": "تاريخ الميلاد",
+        "profession": "المهنة",
+        "company": "الشركة",
+        "taxId": "المعرف الضريبي",
+        "email": "البريد الإلكتروني",
+        "phone": "الهاتف",
+        "alternatePhone": "هاتف بديل",
+        "address": "العنوان",
+        "joinDate": "تاريخ التسجيل"
+      },
+      "notesEmpty": "لا توجد ملاحظات"
     },
     "fallback": {
-      "na": "لا يوجد"
+      "na": "غير متاح"
     }
   }
 }

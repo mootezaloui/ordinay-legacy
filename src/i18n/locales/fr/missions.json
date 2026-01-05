@@ -11,7 +11,7 @@
     "cancelled": "Annulées ({{count}})"
   },
   "labels": {
-    "assigned": "Assignée le :",
+    "assigned": "Assignée :",
     "dueDate": "Échéance :",
     "documents": "{{count}} documents",
     "fees": "{{amount}} frais"
@@ -27,7 +27,7 @@
       "missions": {
         "delete": {
           "title": "Supprimer la mission",
-          "message": "Êtes-vous sûr de vouloir supprimer cette mission ? Cette action est irréversible.",
+          "message": "Êtes-vous sûr de vouloir supprimer cette mission ? Cette action ne peut pas être annulée.",
           "confirm": "Supprimer",
           "cancel": "Annuler"
         }
@@ -36,7 +36,7 @@
   },
   "detail": {
     "entityName": "Mission",
-    "notFound": "Mission introuvable.",
+    "notFound": "Mission non trouvée.",
     "deleteConfirm": "Êtes-vous sûr de vouloir supprimer cette mission ?",
     "subtitle": "{{title}}",
     "fallback": {
@@ -44,8 +44,8 @@
       "none": "Aucun",
       "noReport": "Aucun rapport disponible",
       "noLinkedEntity": "Aucune entité liée",
-      "notAssigned": "Non assigné",
-      "unassigned": "Non assigné",
+      "notAssigned": "Non assignée",
+      "unassigned": "Non assignée",
       "untitled": "Mission #{{id}}"
     },
     "quickActions": {
@@ -89,7 +89,7 @@
       "title": "Entités liées",
       "bailiff": "Huissier",
       "dossier": "Dossier",
-      "lawsuit": "Affaire",
+      "lawsuit": "Procès",
       "empty": "Aucune entité liée"
     },
     "overview": {
@@ -98,7 +98,7 @@
       "description": "Description",
       "report": "Rapport / Résultat",
       "linkedEntity": "Entité liée",
-      "bailiffInfo": "Informations de l'huissier",
+      "bailiffInfo": "Informations sur l'huissier",
       "fields": {
         "missionNumber": "Numéro de mission",
         "title": "Titre",
@@ -107,16 +107,16 @@
         "priority": "Priorité",
         "assignDate": "Date d'assignation",
         "dueDate": "Date d'échéance",
-        "completionDate": "Date d'achèvement",
+        "completionDate": "Date de réalisation",
         "entityType": "Type d'entité",
         "entity": "Entité",
         "assignedBailiff": "Huissier assigné",
         "phone": "Téléphone",
-        "location": "Localisation"
+        "location": "Lieu"
       },
       "missionTypes": {
         "service": "Signification",
-        "inspection": "Constat",
+        "inspection": "Inspection",
         "seizure": "Saisie",
         "execution": "Exécution",
         "other": "Autre"
@@ -135,15 +135,15 @@
       },
       "entityTypes": {
         "dossier": "Dossier",
-        "case": "Affaire"
+        "case": "Procès"
       },
       "help": {
-        "entityType": "Sélectionnez le type d'entité auquel cette mission est liée",
-        "entity": "Sélectionnez le dossier ou l'affaire concerné(e)",
+        "entityType": "Sélectionnez le type d'entité à laquelle cette mission est liée",
+        "entity": "Sélectionnez le dossier ou le procès concerné",
         "bailiff": "Attention : Changer l'huissier transférera la mission à un autre huissier"
       },
       "placeholders": {
-        "selectCase": "Sélectionnez une affaire...",
+        "selectCase": "Sélectionnez un procès...",
         "selectDossier": "Sélectionnez un dossier..."
       }
     },
@@ -153,17 +153,17 @@
       "toast": {
         "success": {
           "add": "Mission créée avec succès !",
-          "addWithEntries": "Mission créée avec {{count}} écritures financières !",
+          "addWithEntries": "Mission créée avec {{count}} écritures comptables !",
           "update": "Mission mise à jour avec succès !",
           "delete": "Mission supprimée avec succès !",
-          "financialAdd": "Écriture financière ajoutée avec succès !",
-          "financialUpdate": "Écriture financière mise à jour avec succès !",
-          "financialDelete": "Écriture financière supprimée avec succès !"
+          "financialAdd": "Écriture comptable ajoutée avec succès !",
+          "financialUpdate": "Écriture comptable mise à jour avec succès !",
+          "financialDelete": "Écriture comptable supprimée avec succès !"
         },
         "error": {
           "add": "Erreur lors de la création de la mission",
           "delete": "Erreur lors de la suppression de la mission",
-          "financialAdd": "Erreur lors de l'ajout de l'écriture financière"
+          "financialAdd": "Erreur lors de l'ajout de l'écriture comptable"
         }
       }
     }
@@ -178,7 +178,7 @@
   "fallback": {
     "unknownClient": "Client inconnu",
     "unknownDossier": "Dossier inconnu",
-    "noLawsuit": "Aucune affaire"
+    "noLawsuit": "Aucun procès"
   },
   "form": {
     "title": {
@@ -206,37 +206,37 @@
       "status": "Statut",
       "description": "Description",
       "result": "Rapport / Résultat",
-      "completionDate": "Date d'achèvement",
+      "completionDate": "Date de réalisation",
       "notes": "Notes",
       "documents": "Documents",
       "financialEntries": "Frais d'huissier"
     },
     "placeholders": {
       "officer": "Sélectionnez un huissier...",
-      "missionNumber": "Ex : MIS-2025-001 (généré automatiquement si vide)",
+      "missionNumber": "Ex : MIS-2025-001 (auto-généré si vide)",
       "title": "Ex : Signification d'acte judiciaire",
       "description": "Description détaillée de la mission...",
       "result": "Rapport détaillé de l'exécution de la mission...",
       "notes": "Notes supplémentaires..."
     },
     "help": {
-      "entityReference": "Référence du dossier ou de l'affaire",
-      "missionNumber": "Optionnel - Laisser vide pour une génération automatique (MIS-ANNÉE-XXX)",
+      "entityReference": "Référence du dossier ou du procès",
+      "missionNumber": "Optionnel - Laissez vide pour la génération automatique (MIS-ANNÉE-XXX)",
       "result": "À remplir une fois la mission terminée",
-      "completionDate": "Date d'achèvement de la mission (si terminée)",
-      "documents": "Ajoutez des documents liés à cette mission (PDF, DOC, XLS, PPT, images, archives)",
-      "financialEntries": "Ajoutez les frais liés à cette mission. Ils seront automatiquement liés à la mission et au client.",
+      "completionDate": "Date de réalisation de la mission (si terminée)",
+      "documents": "Ajoutez des documents relatifs à cette mission (PDF, DOC, XLS, PPT, Images, Archives)",
+      "financialEntries": "Ajoutez des frais relatifs à cette mission. Ces frais seront automatiquement liés à la mission et au client.",
       "bailiffAssigned": "Cette mission sera assignée à {{name}}",
-      "entityType": "Sélectionnez si la mission concerne un dossier ou une affaire",
-      "entityReferenceSelect": "Sélectionnez le dossier ou l'affaire pour cette mission"
+      "entityType": "Sélectionnez si la mission concerne un dossier ou un procès",
+      "entityReferenceSelect": "Sélectionnez le dossier ou le procès pour cette mission"
     },
     "options": {
       "missionType": {
         "Service": "Signification",
         "Execution": "Exécution",
-        "Observation": "Constat",
+        "Observation": "Observation",
         "Seizure": "Saisie",
-        "Investigation": "Enquête"
+        "Investigation": "Investigation"
       },
       "status": {
         "planned": "Planifiée",

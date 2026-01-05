@@ -1,11 +1,11 @@
 {
   "page": {
     "title": "المهام",
-    "subtitle": "{{total}} مهام في المجموع",
-    "subtitleFiltered": "{{total}} مهام في المجموع · عرض {{displayed}}",
+    "subtitle": "{{total}} مهمة إجمالاً",
+    "subtitleFiltered": "{{total}} مهمة إجمالاً، {{displayed}} معروضة",
     "actions": {
       "newTask": "مهمة جديدة",
-      "newTaskDisabled": "يجب إضافة ملف أولاً قبل إنشاء مهمة."
+      "newTaskDisabled": "أضف ملفاً أولاً قبل إنشاء مهمة."
     },
     "loading": "جاري تحميل المهام..."
   },
@@ -31,7 +31,7 @@
       "onHold": "معلقة",
       "completed": "مكتملة",
       "blocked": "محظورة",
-      "done": "منتهية",
+      "done": "منجزة",
       "cancelled": "ملغاة"
     },
     "priority": {
@@ -44,14 +44,14 @@
       "edit": "تعديل",
       "delete": "حذف"
     },
-    "empty": "لم يتم العثور على مهام",
-    "emptyNoDossier": "يجب إضافة ملف أولاً قبل إنشاء مهمة.",
-    "emptyFiltered": "لم يتم العثور على نتائج"
+    "empty": "لا توجد مهام",
+    "emptyNoDossier": "أضف ملفاً أولاً قبل إنشاء مهمة.",
+    "emptyFiltered": "لا توجد نتائج"
   },
   "confirm": {
     "delete": {
       "title": "حذف المهمة",
-      "message": "هل أنت متأكد أنك تريد حذف هذه المهمة؟",
+      "message": "هل أنت متأكد من رغبتك في حذف هذه المهمة؟",
       "confirm": "حذف",
       "cancel": "إلغاء"
     }
@@ -66,29 +66,29 @@
       "create": "إضافة مهمة جديدة"
     },
     "help": {
-      "statusLocked": "يمكن تغيير الحالة فقط باستخدام المحدد في القائمة"
+      "statusLocked": "لا يمكن تغيير الحالة إلا عبر المحدد في القائمة"
     },
     "fields": {
       "title": {
         "label": "عنوان المهمة",
-        "placeholder": "مثال: إعداد ملف المرافعة"
+        "placeholder": "مثال: إعداد ملف الدفاع"
       },
       "parentType": {
-        "label": "مرتبط بـ",
+        "label": "مرتبطة بـ",
         "options": {
           "dossier": "ملف",
-          "case": "دعوى"
+          "case": "قضية"
         },
-        "helper": "حدد ما إذا كانت هذه المهمة مرتبطة بملف أو بدعوى."
+        "helper": "اختر ما إذا كانت المهمة مرتبطة بملف أو بقضية."
       },
       "dossierId": {
         "label": "الملف"
       },
       "caseId": {
-        "label": "الدعوى"
+        "label": "القضية"
       },
       "assignedTo": {
-        "label": "مكلَّف بها",
+        "label": "مخصصة لـ",
         "createLabel": "إضافة"
       },
       "dueDate": {
@@ -100,20 +100,20 @@
       "status": {
         "label": "الحالة",
         "options": {
-          "notStarted": "غير منجزة بعد",
-          "inProgress": "قيد الإنجاز",
-          "blocked": "متوقفة",
-          "done": "مكتملة",
+          "notStarted": "لم تبدأ",
+          "inProgress": "قيد التنفيذ",
+          "blocked": "محظورة",
+          "done": "منجزة",
           "cancelled": "ملغاة"
         }
       },
       "description": {
         "label": "الوصف",
-        "placeholder": "وصف تفصيلي للمهمة..."
+        "placeholder": "وصف مفصل للمهمة..."
       },
       "estimatedTime": {
-        "label": "المدة التقديرية",
-        "helper": "المدة التقديرية لإتمام المهمة",
+        "label": "الوقت المتوقع",
+        "helper": "المدة المتوقعة لإنجاز المهمة",
         "options": {
           "0_5h": "30 دقيقة",
           "1h": "ساعة واحدة",
@@ -139,12 +139,12 @@
     "priorityTitle": "أولوية المهمة",
     "priorityUpdated": "تم تحديث الأولوية: {{priority}}",
     "deleteSuccess": {
-      "title": "تم الحذف",
+      "title": "محذوفة",
       "body": "تم حذف المهمة"
     },
     "updateSuccess": "تم تحديث المهمة بنجاح!",
     "createSuccess": "تم إضافة المهمة بنجاح!",
-    "saveError": "حدث خطأ أثناء الحفظ",
+    "saveError": "خطأ أثناء الحفظ",
     "missingId": "معرف المهمة مفقود"
   },
   "blockerModal": {
@@ -152,13 +152,13 @@
     "entityFallback": "مهمة"
   },
   "confirmImpact": {
-    "action": "تغيير ارتباط المهمة"
+    "action": "تغيير ربط المهمة"
   },
   "detail": {
-    "entityName": "المهمة",
-    "notFound": "لم يتم العثور على المهمة",
-    "deleteConfirm": "هل أنت متأكد أنك تريد حذف هذه المهمة؟",
-    "subtitle": "تم الإنشاء في {{date}}",
+    "entityName": "مهمة",
+    "notFound": "المهمة غير موجودة",
+    "deleteConfirm": "هل أنت متأكد من رغبتك في حذف هذه المهمة؟",
+    "subtitle": "أُنشئت في {{date}}",
     "defaults": {
       "assignees": {
         "myself": "نفسي",
@@ -166,8 +166,8 @@
       }
     },
     "fallback": {
-      "na": "غير متاح",
-      "none": "لا شيء",
+      "na": "غير متوفر",
+      "none": "لا يوجد",
       "noDescription": "لا يوجد وصف"
     },
     "quickActions": {
@@ -176,7 +176,7 @@
         "notStarted": "لم تبدأ",
         "inProgress": "قيد التنفيذ",
         "blocked": "محظورة",
-        "done": "منتهية",
+        "done": "منجزة",
         "cancelled": "ملغاة"
       },
       "priority": {
@@ -187,21 +187,23 @@
       },
       "assignedTo": {
         "label": "مخصصة لـ",
-        "create": "إضافة"
+        "create": "إضافة",
+        "myself": "نفسي",
+        "intern": "متدرب"
       }
     },
     "header": {
       "priority": "الأولوية",
       "assignedTo": "مخصصة لـ",
       "dueDate": "تاريخ الاستحقاق",
-      "estimatedTime": "الوقت المقدر"
+      "estimatedTime": "الوقت المتوقع"
     },
     "estimatedTime": {
       "values": {
         "0_5h": "30 دقيقة",
         "1h": "ساعة واحدة",
         "1_5h": "ساعة ونصف",
-        "2h": "ساعتين",
+        "2h": "ساعتان",
         "3h": "3 ساعات",
         "4h": "4 ساعات",
         "6h": "6 ساعات",
@@ -210,17 +212,17 @@
         "16h": "16 ساعة",
         "20h": "20 ساعة",
         "24h": "يوم واحد",
-        "40h": "يومين",
-        "80h": "أسبوع"
+        "40h": "يومان",
+        "80h": "أسبوع واحد"
       }
     },
     "tabs": {
       "overview": "نظرة عامة",
-      "financial": "محاسبة",
+      "financial": "المحاسبة",
       "financialDescription": "تتبع مالي متعلق بهذه المهمة",
-      "documents": "مستندات",
-      "comments": "تعليقات",
-      "history": "سجل"
+      "documents": "الوثائق",
+      "comments": "التعليقات",
+      "history": "السجل"
     },
     "overview": {
       "description": "وصف المهمة",
@@ -228,19 +230,19 @@
       "association": "الكيان المرتبط",
       "fields": {
         "dueDate": "تاريخ الاستحقاق",
-        "estimatedTime": "الوقت المقدر",
-        "parentType": "نوع الارتباط",
+        "estimatedTime": "الوقت المتوقع",
+        "parentType": "نوع الربط",
         "parentTypeOptions": {
           "dossier": "ملف",
           "case": "قضية"
         },
-        "parentTypeHelp": "يمكن ربط المهمة إما بملف أو بقضية",
+        "parentTypeHelp": "يمكن ربط المهمة بملف أو بقضية",
         "dossier": "الملف",
-        "dossierPlaceholder": "اختر ملفًا...",
-        "dossierHelp": "اختر الملف المناسب",
+        "dossierPlaceholder": "اختر ملفاً...",
+        "dossierHelp": "اختر الملف المعني",
         "case": "القضية",
         "casePlaceholder": "اختر قضية...",
-        "caseHelp": "اختر القضية المناسبة"
+        "caseHelp": "اختر القضية المعنية"
       }
     }
   }

@@ -4,20 +4,20 @@
     "subtitle": "{{total}} huissiers au total",
     "subtitleFiltered": "{{total}} huissiers au total, {{displayed}} affichés",
     "actions": {
-      "new": "Nouvel huissier"
+      "new": "Nouveau huissier"
     }
   },
   "stats": {
     "total": "Total des huissiers",
-    "available": "Disponible",
-    "busy": "Occupé",
-    "inactive": "Inactif"
+    "available": "Disponibles",
+    "busy": "Occupés",
+    "inactive": "Inactifs"
   },
   "table": {
     "columns": {
       "name": "Nom",
       "phone": "Téléphone",
-      "email": "Email",
+      "email": "E-mail",
       "location": "Localisation",
       "status": "Statut",
       "actions": "Actions"
@@ -33,7 +33,7 @@
       "delete": "Supprimer"
     },
     "empty": "Aucun huissier disponible",
-    "emptyFiltered": "Aucun résultat"
+    "emptyFiltered": "Aucun résultat trouvé"
   },
   "confirm": {
     "delete": {
@@ -62,12 +62,12 @@
         "placeholder": "+216 98 123 456"
       },
       "alternatePhone": {
-        "label": "Téléphone secondaire",
+        "label": "Téléphone alternatif",
         "placeholder": "+216 71 234 567"
       },
       "email": {
-        "label": "Email",
-        "placeholder": "email@example.com"
+        "label": "E-mail",
+        "placeholder": "email@exemple.com"
       },
       "location": {
         "label": "Localisation",
@@ -75,18 +75,18 @@
       },
       "address": {
         "label": "Adresse complète",
-        "placeholder": "Adresse du cabinet/étude"
+        "placeholder": "Adresse du bureau/étude"
       },
       "status": {
         "label": "Statut"
       },
       "notes": {
         "label": "Notes",
-        "placeholder": "Notes sur cet huissier..."
+        "placeholder": "Notes concernant cet huissier..."
       }
     },
     "help": {
-      "statusLocked": "Le statut ne peut être modifié que via le sélecteur dans la liste."
+      "statusLocked": "Le statut ne peut être changé que via le sélecteur dans la liste"
     }
   },
   "toasts": {
@@ -96,7 +96,7 @@
     },
     "cascadeSuccess": {
       "title": "Suppression en cascade réussie",
-      "body": "L'huissier et toutes les entités liées ont été supprimés"
+      "body": "Huissier et toutes les entités associées ont été supprimés"
     },
     "cascadeError": "Erreur lors de la suppression en cascade. Veuillez réessayer.",
     "updateSuccess": "Huissier mis à jour avec succès !",
@@ -109,8 +109,8 @@
   },
   "detail": {
     "entityName": "Huissier",
-    "notFound": "Huissier introuvable",
-    "deleteConfirm": "Voulez-vous supprimer cet huissier ?",
+    "notFound": "Huissier non trouvé",
+    "deleteConfirm": "Êtes-vous sûr de vouloir supprimer cet huissier ?",
     "quickActions": {
       "status": {
         "label": "Statut",
@@ -122,56 +122,56 @@
     "header": {
       "independent": "Huissier indépendant",
       "phone": "Téléphone",
-      "email": "Email",
+      "email": "E-mail",
       "location": "Localisation"
     },
     "stats": {
-      "totalMissions": "Total missions",
+      "totalMissions": "Missions totales",
       "inProgress": "En cours",
       "completed": "Terminées"
     },
     "tabs": {
       "overview": "Aperçu",
       "missions": "Missions",
-      "cases": "Procès/Dossiers liés",
+      "cases": "Dossiers/Demandes liés",
       "financial": "Comptabilité",
-      "financialDescription": "Suivi financier de toutes les missions de cet huissier",
+      "financialDescription": "Suivi financier de toutes les missions pour cet huissier",
       "documents": "Documents",
       "history": "Historique"
     },
     "missions": {
-      "empty": "Aucune mission affectée à cet huissier",
+      "empty": "Aucune mission assignée à cet huissier",
       "entityName": "une mission",
       "addSubtitle": "Assigner une nouvelle mission à cet huissier",
       "help": {
         "assigned": "Cette mission sera assignée à {{name}}",
-        "entityType": "Sélectionnez si la mission concerne un dossier ou une affaire",
-        "entityReference": "Sélectionnez le dossier ou l'affaire pour cette mission"
+        "entityType": "Sélectionnez si cette mission concerne un dossier ou une demande",
+        "entityReference": "Sélectionnez le dossier ou la demande pour cette mission"
       }
     },
     "cases": {
-      "empty": "Aucun procès/dossier lié à cet huissier"
+      "empty": "Aucun dossier/demande lié pour cet huissier"
     },
     "overview": {
       "general": "Informations générales",
-      "contact": "Coordonnées",
+      "contact": "Informations de contact",
       "notes": "Notes",
       "fields": {
         "name": "Nom complet",
-        "alternatePhone": "Téléphone secondaire",
+        "alternatePhone": "Téléphone alternatif",
         "address": "Adresse complète"
       },
       "placeholders": {
         "name": "Ex : Me. Ahmed Ben Salem",
-        "email": "email@example.com",
+        "email": "email@exemple.com",
         "phone": "+216 98 123 456",
         "alternatePhone": "+216 71 234 567",
         "location": "Ex : Tunis",
-        "address": "Adresse du cabinet/étude"
+        "address": "Adresse du bureau/étude"
       }
     },
     "fallback": {
-      "na": "N/D",
+      "na": "N/A",
       "noNotes": "Aucune note"
     }
   }

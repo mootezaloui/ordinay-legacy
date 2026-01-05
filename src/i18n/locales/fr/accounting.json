@@ -1,14 +1,14 @@
 {
   "page": {
     "title": "Comptabilité",
-    "subtitle": "{{total}} écritures au total",
-    "subtitleFiltered": "{{total}} écritures au total, {{displayed}} affichées",
+    "subtitle": "{{total}} entrées au total",
+    "subtitleFiltered": "{{total}} entrées au total, {{displayed}} affichées",
     "actions": {
-      "new": "Nouvelle écriture"
+      "new": "Nouvelle entrée"
     }
   },
   "stats": {
-    "totalRevenue": "Recettes clients",
+    "totalRevenue": "Revenus clients",
     "clientExpenses": "Dépenses clients",
     "officeExpenses": "Dépenses bureau",
     "netBalance": "Solde net",
@@ -32,7 +32,7 @@
   "table": {
     "columns": {
       "date": "Date",
-      "entry": "Écriture",
+      "entry": "Entrée",
       "clientDossier": "Client / Dossier",
       "type": "Type",
       "amount": "Montant",
@@ -40,7 +40,7 @@
       "actions": "Actions"
     },
     "type": {
-      "revenue": "Recette",
+      "revenue": "Revenu",
       "expense": "Dépense"
     },
     "status": {
@@ -69,56 +69,56 @@
       "edit": "Modifier",
       "delete": "Supprimer"
     },
-    "empty": "Aucune écriture comptable pour le moment",
-    "emptyFiltered": "Aucune écriture ne correspond à vos filtres"
+    "empty": "Aucune entrée comptable pour le moment",
+    "emptyFiltered": "Aucune entrée comptable ne correspond à vos filtres"
   },
   "confirm": {
     "delete": {
-      "title": "Supprimer l'écriture",
-      "message": "Êtes-vous sûr de vouloir supprimer cette écriture ? Cette action est irréversible.",
+      "title": "Supprimer l'entrée",
+      "message": "Êtes-vous sûr de vouloir supprimer cette entrée ? Cette action est irréversible.",
       "confirm": "Supprimer",
       "cancel": "Annuler"
     }
   },
   "toasts": {
-    "deleteSuccess": "Écriture supprimée",
-    "deleteError": "Impossible de supprimer l'écriture",
-    "updateSuccess": "Écriture mise à jour",
-    "createSuccess": "Écriture créée",
-    "saveError": "Impossible d'enregistrer l'écriture"
+    "deleteSuccess": "Entrée supprimée",
+    "deleteError": "Impossible de supprimer l'entrée",
+    "updateSuccess": "Entrée mise à jour",
+    "createSuccess": "Entrée créée",
+    "saveError": "Impossible d'enregistrer l'entrée"
   },
   "history": {
-    "updateLabel": "Écriture comptable mise à jour"
+    "updateLabel": "Entrée comptable mise à jour"
   },
   "form": {
     "title": {
-      "edit": "Modifier une écriture",
-      "create": "Nouvelle écriture"
+      "edit": "Modifier l'entrée financière",
+      "create": "Nouvelle entrée financière"
     },
     "subtitle": {
       "edit": "Mettez à jour les détails comptables ci-dessous",
-      "create": "Ajoutez une nouvelle écriture comptable"
+      "create": "Ajouter une nouvelle entrée comptable"
     },
     "fields": {
       "scope": {
         "label": "Portée financière",
-        "help": "Choisissez \"Client\" pour les opérations clients, \"Interne\" pour les dépenses du cabinet",
+        "help": "Choisissez 'Client' pour les opérations liées aux clients, 'Interne' pour les dépenses du bureau",
         "options": {
-          "client": "Client (impacte le solde client)",
-          "internal": "Interne (dépenses du bureau)"
+          "client": "Client (affecte le solde client)",
+          "internal": "Interne (dépenses bureau)"
         }
       },
       "type": {
         "label": "Type d'opération",
-        "help": "Indiquez s'il s'agit d'une recette ou d'une dépense",
+        "help": "Sélectionnez si cette entrée est un revenu ou une dépense",
         "options": {
-          "revenue": "Recette (argent reçu)",
-          "expense": "Dépense (argent versé)"
+          "revenue": "Revenu (argent reçu)",
+          "expense": "Dépense (argent payé)"
         }
       },
       "category": {
         "label": "Catégorie",
-        "placeholder": "Sélectionnez une catégorie",
+        "placeholder": "Sélectionner une catégorie",
         "options": {
           "honoraires": "Honoraires",
           "advance": "Avance client",
@@ -129,7 +129,7 @@
         }
       },
       "amount": {
-        "label": "Montant (TND)",
+        "label": "Montant (DTN)",
         "placeholder": "0.00"
       },
       "date": {
@@ -140,33 +140,33 @@
       },
       "title": {
         "label": "Titre",
-        "placeholder": "Ex : Frais de dépôt, frais de déplacement d'huissier, consultation...",
-        "help": "Titre court et descriptif de l'écriture"
+        "placeholder": "Ex : Frais de dépôt au tribunal, Frais de déplacement huissier, Consultation juridique...",
+        "help": "Titre court et descriptif pour cette entrée financière"
       },
       "description": {
-        "label": "Détails complémentaires (optionnel)",
-        "placeholder": "Détails supplémentaires sur cette écriture..."
+        "label": "Détails supplémentaires (facultatif)",
+        "placeholder": "Détails supplémentaires facultatifs sur cette entrée financière..."
       },
       "client": {
         "label": "Client",
-        "help": "Client concerné (obligatoire si portée = Client)",
-        "placeholder": "Sélectionnez un client"
+        "help": "Client concerné par cette opération (requis si portée = Client)",
+        "placeholder": "Sélectionner un client"
       },
       "dossier": {
-        "label": "Dossier (optionnel)",
-        "help": "Dossier concerné (optionnel)",
-        "placeholder": "Sélectionnez un dossier"
+        "label": "Dossier (facultatif)",
+        "help": "Dossier concerné (facultatif)",
+        "placeholder": "Sélectionner un dossier"
       },
       "case": {
-        "label": "Affaire (optionnel)",
-        "help": "Affaire concernée (optionnel)",
-        "placeholder": "Sélectionnez une affaire"
+        "label": "Affaire (facultatif)",
+        "help": "Affaire concernée (facultatif)",
+        "placeholder": "Sélectionner une affaire"
       },
       "mission": {
         "label": "Mission associée",
         "help": "Sélectionnez la mission d'huissier liée à ces frais",
-        "selectPrerequisite": "Veuillez d'abord choisir un dossier ou une affaire",
-        "noneForEntity": "Aucune mission pour ce dossier/cette affaire",
+        "selectPrerequisite": "Veuillez d'abord sélectionner un dossier ou une affaire",
+        "noneForEntity": "Aucune mission pour ce dossier/affaire",
         "selectMission": "Sélectionnez la mission liée à ces frais",
         "noneAvailable": "Aucune mission disponible",
         "fallbackOfficer": "Huissier non défini",
@@ -175,23 +175,23 @@
     }
   },
   "blocker": {
-    "action": "Modifier/Supprimer l'écriture",
-    "entityFallback": "Écriture"
+    "action": "Modifier/Supprimer l'entrée financière",
+    "entityFallback": "Entrée"
   },
   "export": {
     "filename": "comptabilite-{{date}}.csv"
   },
   "detail": {
-    "entityName": "Écriture comptable",
-    "notFound": "Écriture comptable introuvable",
-    "deleteConfirm": "Êtes-vous sûr de vouloir supprimer cette écriture comptable ?",
+    "entityName": "Entrée comptable",
+    "notFound": "Entrée comptable introuvable",
+    "deleteConfirm": "Êtes-vous sûr de vouloir supprimer cette entrée comptable ?",
     "subtitle": "{{category}} • {{amount}} • {{date}}",
     "fallback": {
       "na": "N/A",
       "none": "Aucun",
-      "noAdditionalDetails": "Aucun détail supplémentaire",
-      "noNotes": "Aucune note",
-      "untitled": "Écriture #{{id}}"
+      "noAdditionalDetails": "Pas de détails supplémentaires",
+      "noNotes": "Pas de notes",
+      "untitled": "Entrée #{{id}}"
     },
     "financial": {
       "fallback": {
@@ -200,8 +200,8 @@
         "unknownCase": "Affaire inconnue"
       },
       "help": {
-        "currentMission": "Mission actuelle",
-        "missionOfficer": "Huissier de cette mission"
+        "currentMission": "Mission en cours",
+        "missionOfficer": "Huissier pour cette mission"
       }
     },
     "quickActions": {
@@ -215,27 +215,26 @@
     },
     "toast": {
       "success": {
-        "update": "?criture mise ? jour avec succ?s !",
-        "create": "?criture ajout?e avec succ?s !"
+        "update": "Entrée mise à jour avec succès !",
+        "create": "Entrée ajoutée avec succès !"
       },
       "error": {
-        "save": "Erreur lors de l'enregistrement de l'?criture"
+        "save": "Erreur lors de l'enregistrement de l'entrée"
       }
     },
-
     "header": {
-      "revenue": "Recette",
+      "revenue": "Revenu",
       "expense": "Dépense",
       "client": "Client",
       "office": "Bureau",
       "date": "Date",
       "dueDate": "Date d'échéance",
       "dossier": "Dossier",
-      "lawsuit": "Affaire",
+      "lawsuit": "Procès",
       "bailiff": "Huissier"
     },
     "tabs": {
-      "overview": "Aperçu",
+      "overview": "Vue d'ensemble",
       "relations": "Relations",
       "history": "Historique"
     },
@@ -244,7 +243,7 @@
       "empty": "Aucune entité liée",
       "client": "Client",
       "dossier": "Dossier",
-      "lawsuit": "Affaire",
+      "lawsuit": "Procès",
       "bailiff": "Huissier"
     },
     "overview": {
@@ -254,12 +253,12 @@
       "notes": "Notes",
       "fields": {
         "title": "Titre",
-        "titlePlaceholder": "Ex : Frais de dépôt, frais de déplacement d'huissier...",
-        "description": "Détails complémentaires",
-        "noAdditionalDetails": "Aucun détail supplémentaire",
+        "titlePlaceholder": "Ex : Frais de dépôt au tribunal, Frais de déplacement huissier...",
+        "description": "Détails supplémentaires",
+        "noAdditionalDetails": "Pas de détails supplémentaires",
         "amount": "Montant",
         "type": "Type",
-        "typeRevenue": "Recette",
+        "typeRevenue": "Revenu",
         "typeExpense": "Dépense",
         "category": "Catégorie",
         "status": "Statut",
@@ -269,18 +268,18 @@
         "date": "Date de transaction",
         "dueDate": "Date d'échéance",
         "client": "Client",
-        "clientPlaceholder": "Sélectionnez un client...",
+        "clientPlaceholder": "Sélectionner un client...",
         "dossier": "Dossier",
-        "dossierPlaceholder": "Sélectionnez un dossier...",
+        "dossierPlaceholder": "Sélectionner un dossier...",
         "dossierHelp": "Seuls les dossiers du client sélectionné sont affichés",
-        "lawsuit": "Affaire",
-        "lawsuitPlaceholder": "Sélectionnez une affaire...",
-        "lawsuitHelp": "Seules les affaires du dossier sélectionné sont affichées"
+        "lawsuit": "Procès",
+        "lawsuitPlaceholder": "Sélectionner un procès...",
+        "lawsuitHelp": "Seuls les procès du dossier sélectionné sont affichés"
       },
       "categories": {
         "Fees": "Honoraires",
         "bailiff_fees": "Frais d'huissier",
-        "office_expenses": "Dépenses de bureau",
+        "office_expenses": "Frais de bureau",
         "salary": "Salaire",
         "other": "Autre"
       }

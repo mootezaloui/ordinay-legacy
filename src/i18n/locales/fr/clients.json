@@ -4,15 +4,15 @@
     "subtitle": "{{total}} clients au total",
     "subtitleFiltered": "{{total}} clients au total • {{displayed}} affichés",
     "actions": {
-      "newClient": "Nouveau client"
+      "newClient": "Nouveau Client"
     },
     "loading": "Chargement des données..."
   },
   "stats": {
-    "total": "Total clients",
-    "active": "Clients actifs",
-    "inactive": "Clients inactifs",
-    "newThisMonth": "Nouveaux ce mois-ci",
+    "total": "Total Clients",
+    "active": "Clients Actifs",
+    "inactive": "Clients Inactifs",
+    "newThisMonth": "Nouveaux Ce Mois",
     "newThisMonthTrend": "depuis le début du mois"
   },
   "table": {
@@ -21,7 +21,7 @@
       "email": "Email",
       "phone": "Téléphone",
       "status": "Statut",
-      "joinDate": "Date d'inscription",
+      "joinDate": "Date d'adhésion",
       "actions": "Actions"
     },
     "status": {
@@ -46,15 +46,15 @@
   },
   "form": {
     "title": {
-      "edit": "Modifier un client",
+      "edit": "Modifier le client",
       "create": "Ajouter un client"
     },
     "subtitle": {
-      "edit": "Mettre à jour les informations du client",
+      "edit": "Modifier les informations du client",
       "create": "Ajouter un nouveau client à votre base de données"
     },
     "help": {
-      "statusLocked": "Le statut ne peut être changé que via le sélecteur dans la liste."
+      "statusLocked": "Le statut ne peut être modifié que via le sélecteur dans la vue liste."
     },
     "fields": {
       "name": {
@@ -70,11 +70,11 @@
         "placeholder": "+216 98 123 456"
       },
       "alternatePhone": {
-        "label": "Téléphone alternatif",
+        "label": "Téléphone secondaire",
         "placeholder": "+216 71 234 567"
       },
       "cin": {
-        "label": "Numéro d'identité",
+        "label": "Numéro de CIN",
         "placeholder": "12345678"
       },
       "dateOfBirth": {
@@ -89,8 +89,8 @@
         "placeholder": "Ex : Entrepreneur"
       },
       "company": {
-        "label": "Société",
-        "placeholder": "Nom de la société"
+        "label": "Entreprise",
+        "placeholder": "Nom de l'entreprise"
       },
       "taxId": {
         "label": "Identifiant fiscal",
@@ -119,15 +119,15 @@
     "deleteError": "Erreur lors de la suppression du client",
     "deleteSuccess": {
       "title": "Suppression réussie",
-      "body": "Client supprimé avec succès"
+      "body": "Client supprimé"
     },
     "cascadeError": "Erreur lors de la suppression en cascade",
     "cascadeSuccess": {
       "title": "Suppression en cascade",
-      "body": "Client et entités liées supprimés"
+      "body": "Client et toutes les entités associées supprimés"
     },
-    "updateSuccess": "Client modifié avec succès !",
-    "createMissingId": "Client créé, mais l'identifiant retourné est indisponible",
+    "updateSuccess": "Client mis à jour avec succès !",
+    "createMissingId": "Client créé, mais l'ID retourné n'est pas disponible",
     "createSuccess": "Client ajouté avec succès !",
     "saveError": "Erreur lors de l'enregistrement du client"
   },
@@ -137,18 +137,18 @@
   "blockerModal": {
     "actions": {
       "delete": "supprimer le client",
-      "changeStatus": "changer le statut en « {{status}} »",
+      "changeStatus": "changer le statut en \"{{status}}\"",
       "edit": "modifier le client",
       "default": "effectuer une action sur le client"
     },
-    "entityWithId": "Client n°{{id}}",
+    "entityWithId": "Client #{{id}}",
     "entityGeneric": "Client"
   },
   "detail": {
     "entityName": "Client",
     "notFound": "Aucun client trouvé.",
     "deleteConfirm": "Êtes-vous sûr de vouloir supprimer ce client ?",
-    "subtitle": "Client depuis le {{date}}",
+    "subtitle": "Client depuis {{date}}",
     "quickActions": {
       "status": {
         "label": "Statut",
@@ -157,59 +157,59 @@
       }
     },
     "stats": {
-      "documents": "Documents",
-      "dossiers": "Dossiers"
+      "dossiers": "Dossiers",
+      "documents": "Documents"
     },
     "tabs": {
-      "tasksAddSubtitle": "Créer une nouvelle tâche pour ce client",
-      "sessionsDisabled": "Ajoutez d'abord un dossier avant de programmer une audience.",
-      "sessionsAddSubtitle": "Créer une nouvelle audience pour ce client",
       "dossiers": "Dossiers",
-      "casesAddSubtitle": "Créer un nouveau procès pour ce client",
-      "sessions": "Audiences",
       "dossiersAddSubtitle": "Créer un nouveau dossier pour ce client",
-      "cases": "Procès",
-      "casesEntity": "procès",
-      "tasksEntity": "une tâche",
-      "tasksDisabled": "Ajoutez d'abord un dossier avant de créer une tâche pour ce client.",
-      "casesDisabled": "Ajoutez d'abord un dossier avant de créer un procès pour ce client.",
-      "tasks": "Tâches",
+      "cases": "Affaires",
+      "casesEntity": "affaire",
+      "casesDisabled": "Veuillez d'abord ajouter un dossier avant de créer une affaire pour ce client.",
+      "casesAddSubtitle": "Créer une nouvelle affaire pour ce client",
+      "sessions": "Audiences",
+      "sessionsDisabled": "Veuillez d'abord ajouter un dossier avant de planifier une audience.",
       "sessionsEntity": "une audience",
-      "overview": "Vue d'ensemble",
+      "sessionsAddSubtitle": "Créer une nouvelle audience pour ce client",
+      "tasks": "Tâches",
+      "tasksDisabled": "Veuillez d'abord ajouter un dossier avant de créer une tâche pour ce client.",
+      "tasksEntity": "une tâche",
+      "tasksAddSubtitle": "Créer une nouvelle tâche pour ce client",
       "financial": "Comptabilité",
       "documents": "Documents",
-      "history": "Historique"
+      "history": "Historique",
+      "overview": "Vue d'ensemble"
     },
     "forms": {
+      "dossiersEmpty": "Aucun dossier disponible. Veuillez d'abord créer un dossier.",
+      "casesEmpty": "Aucune affaire disponible. Veuillez d'abord créer une affaire.",
+      "casesDossierHelp": "Sélectionnez le dossier auquel cette affaire sera liée",
+      "sessionLinkHelpWithCases": "Choisissez si cette audience est liée à un dossier ou à une affaire spécifique",
       "sessionLinkHelpNoCases": "Choisissez si cette audience est liée à un dossier",
-      "sessionLinkHelpWithCases": "Choisissez si cette audience est liée à un dossier ou à un procès spécifique",
-      "taskCaseHelp": "Sélectionnez le procès auquel cette tâche sera rattachée",
-      "casesEmpty": "Aucun procès disponible. Veuillez créer un procès d'abord.",
-      "sessionCaseHelp": "Sélectionnez le procès auquel cette audience sera liée",
-      "taskDossierHelp": "Sélectionnez le dossier auquel cette tâche sera liée",
+      "sessionCaseHelp": "Sélectionnez l'affaire à laquelle cette audience sera liée",
       "sessionDossierHelp": "Sélectionnez le dossier auquel cette audience sera liée",
-      "dossiersEmpty": "Aucun dossier disponible. Veuillez créer un dossier d'abord.",
-      "casesDossierHelp": "Sélectionnez le dossier auquel ce procès sera lié"
+      "taskDossierHelp": "Sélectionnez le dossier auquel cette tâche sera liée",
+      "taskCaseHelp": "Sélectionnez l'affaire à laquelle cette tâche sera attachée"
     },
     "overview": {
+      "personal": "Informations Personnelles",
+      "contact": "Coordonnées",
+      "registration": "Informations d'Inscription",
+      "notes": "Notes",
       "fields": {
-        "taxId": "Identifiant fiscal",
-        "company": "Entreprise",
-        "joinDate": "Date d'inscription",
-        "cin": "CIN",
-        "address": "Adresse",
-        "profession": "Profession",
         "name": "Nom complet",
+        "cin": "CIN",
         "dob": "Date de naissance",
-        "alternatePhone": "Téléphone alternatif",
+        "profession": "Profession",
+        "company": "Entreprise",
+        "taxId": "Identifiant fiscal",
+        "email": "Email",
         "phone": "Téléphone",
-        "email": "Email"
+        "alternatePhone": "Téléphone secondaire",
+        "address": "Adresse",
+        "joinDate": "Date d'inscription"
       },
-      "contact": "Informations de contact",
-      "registration": "Informations d'inscription",
-      "notesEmpty": "Aucune note",
-      "personal": "Informations personnelles",
-      "notes": "Notes"
+      "notesEmpty": "Aucune note"
     },
     "fallback": {
       "na": "N/A"

@@ -1,17 +1,17 @@
 {
   "page": {
-    "title": "المحضرون القضائيون",
-    "subtitle": "{{total}} محضراً في المجموع",
-    "subtitleFiltered": "{{total}} محضراً في المجموع، المعروض {{displayed}}",
+    "title": "المحضرون",
+    "subtitle": "{{total}} محضر في المجموع",
+    "subtitleFiltered": "{{total}} محضر في المجموع، {{displayed}} معروض",
     "actions": {
       "new": "محضر جديد"
     }
   },
   "stats": {
     "total": "إجمالي المحضرين",
-    "available": "متاح",
-    "busy": "مشغول",
-    "inactive": "غير نشط"
+    "available": "متاحون",
+    "busy": "مشغولون",
+    "inactive": "غير نشطين"
   },
   "table": {
     "columns": {
@@ -20,7 +20,7 @@
       "email": "البريد الإلكتروني",
       "location": "الموقع",
       "status": "الحالة",
-      "actions": "إجراءات"
+      "actions": "الإجراءات"
     },
     "status": {
       "available": "متاح",
@@ -32,13 +32,13 @@
       "edit": "تعديل",
       "delete": "حذف"
     },
-    "empty": "لا يوجد محضر متوفر",
-    "emptyFiltered": "لا توجد نتائج"
+    "empty": "لا يوجد محضرون متاحون",
+    "emptyFiltered": "لم يتم العثور على نتائج"
   },
   "confirm": {
     "delete": {
       "title": "حذف المحضر",
-      "message": "هل أنت متأكد من حذف هذا المحضر؟",
+      "message": "هل أنت متأكد أنك تريد حذف هذا المحضر؟",
       "confirm": "حذف",
       "cancel": "إلغاء"
     }
@@ -49,13 +49,13 @@
       "create": "محضر جديد"
     },
     "subtitle": {
-      "edit": "تعديل بيانات المحضر",
+      "edit": "تعديل معلومات المحضر",
       "create": "إضافة محضر جديد"
     },
     "fields": {
       "name": {
         "label": "الاسم الكامل",
-        "placeholder": "مثال: الأستاذ أحمد بن سالم"
+        "placeholder": "مثال: المحامي أحمد بن سالم"
       },
       "phone": {
         "label": "الهاتف",
@@ -75,7 +75,7 @@
       },
       "address": {
         "label": "العنوان الكامل",
-        "placeholder": "عنوان المكتب/الدار"
+        "placeholder": "عنوان المكتب/الدراسة"
       },
       "status": {
         "label": "الحالة"
@@ -86,26 +86,31 @@
       }
     },
     "help": {
-      "statusLocked": "يمكن تغيير الحالة فقط عبر المحدد في قائمة المحضرين."
+      "statusLocked": "يمكن تغيير الحالة فقط من خلال محدد القائمة"
     }
   },
   "toasts": {
     "deleteSuccess": {
-      "title": "تم الحذف",
+      "title": "تم الحذف بنجاح",
       "body": "تم حذف المحضر"
     },
+    "cascadeSuccess": {
+      "title": "تم الحذف المتتالي بنجاح",
+      "body": "تم حذف المحضر وجميع الكيانات المرتبطة"
+    },
+    "cascadeError": "خطأ أثناء الحذف المتتالي. يرجى المحاولة مرة أخرى.",
     "updateSuccess": "تم تحديث المحضر بنجاح!",
     "createSuccess": "تمت إضافة المحضر بنجاح!",
-    "saveError": "خطأ أثناء حفظ المحضر"
+    "saveError": "خطأ في حفظ المحضر"
   },
   "blockerModal": {
     "actionName": "تعديل/حذف المحضر",
-    "entityFallback": "محضر"
+    "entityFallback": "المحضر"
   },
   "detail": {
-    "entityName": "محضر قضائي",
+    "entityName": "المحضر",
     "notFound": "المحضر غير موجود",
-    "deleteConfirm": "هل تريد حذف هذا المحضر؟",
+    "deleteConfirm": "هل أنت متأكد أنك تريد حذف هذا المحضر؟",
     "quickActions": {
       "status": {
         "label": "الحالة",
@@ -128,45 +133,45 @@
     "tabs": {
       "overview": "نظرة عامة",
       "missions": "المهام",
-      "cases": "القضايا/الملفات المرتبطة",
-      "financial": "الحسابات",
-      "financialDescription": "تتبع مالي لكل المهام الخاصة بهذا المحضر",
+      "cases": "الدعاوى/الملفات المرتبطة",
+      "financial": "المحاسبة",
+      "financialDescription": "تتبع مالي لجميع مهام هذا المحضر",
       "documents": "المستندات",
       "history": "السجل"
     },
     "missions": {
-      "empty": "لا توجد مهام مسندة لهذا المحضر",
+      "empty": "لا توجد مهام معينة لهذا المحضر",
       "entityName": "مهمة",
-      "addSubtitle": "إسناد مهمة جديدة لهذا المحضر",
+      "addSubtitle": "تعيين مهمة جديدة لهذا المحضر",
       "help": {
-        "assigned": "سيتم إسناد هذه المهمة إلى {{name}}",
-        "entityType": "اختر ما إذا كانت المهمة تخص ملفاً أو قضية",
-        "entityReference": "اختر الملف أو القضية لهذه المهمة"
+        "assigned": "ستُعين هذه المهمة لـ {{name}}",
+        "entityType": "حدد ما إذا كانت هذه المهمة تتعلق بملف أو دعوى",
+        "entityReference": "حدد الملف أو الدعوى لهذه المهمة"
       }
     },
     "cases": {
-      "empty": "لا توجد قضايا أو ملفات مرتبطة بهذا المحضر"
+      "empty": "لا توجد دعاوى/ملفات مرتبطة لهذا المحضر"
     },
     "overview": {
       "general": "معلومات عامة",
       "contact": "معلومات الاتصال",
-      "notes": "ملاحظات",
+      "notes": "الملاحظات",
       "fields": {
         "name": "الاسم الكامل",
         "alternatePhone": "هاتف بديل",
         "address": "العنوان الكامل"
       },
       "placeholders": {
-        "name": "مثال: الأستاذ أحمد بن سالم",
+        "name": "مثال: المحامي أحمد بن سالم",
         "email": "email@example.com",
         "phone": "+216 98 123 456",
         "alternatePhone": "+216 71 234 567",
         "location": "مثال: تونس",
-        "address": "عنوان المكتب/الدار"
+        "address": "عنوان المكتب/الدراسة"
       }
     },
     "fallback": {
-      "na": "غير متوفر",
+      "na": "غير متاح",
       "noNotes": "لا توجد ملاحظات"
     }
   }

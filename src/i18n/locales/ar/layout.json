@@ -1,6 +1,6 @@
 {
   "sidebar": {
-    "brand": "أورغانيا",
+    "brand": "Organia",
     "dashboard": "لوحة التحكم",
     "clients": "العملاء",
     "dossiers": "الملفات",
@@ -10,16 +10,16 @@
     "personalTasks": "المهام الشخصية",
     "officers": "المحضرون",
     "accounting": "المحاسبة",
-    "chatbot": "المساعد الذكي",
+    "chatbot": "ChatBot",
     "theme": {
-      "light": "وضع النهار",
+      "light": "الوضع الفاتح",
       "dark": "الوضع الداكن"
     },
-    "logout": "إغلاق التطبيق",
-    "exitApp": "إغلاق التطبيق",
-    "footer": "© 2025 أورغانيا"
+    "logout": "خروج من التطبيق",
+    "exitApp": "خروج من التطبيق",
+    "footer": "© 2025 Organia"
   },
   "header": {
-    "brand": "المكتب"
+    "brand": "LawFirm"
   }
 }

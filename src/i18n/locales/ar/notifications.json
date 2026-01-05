@@ -3,15 +3,15 @@
     "aria": "الإشعارات",
     "title": "الإشعارات",
     "unreadCount_one": "{{count}} غير مقروء",
-    "unreadCount_other": "{{count}} غير مقروءة",
+    "unreadCount_other": "{{count}} غير مقروء",
     "time": {
       "justNow": "الآن",
-      "minutesAgo_one": "قبل دقيقة",
-      "minutesAgo_other": "قبل {{count}} دقائق",
-      "hoursAgo_one": "قبل ساعة",
-      "hoursAgo_other": "قبل {{count}} ساعات",
-      "daysAgo_one": "قبل يوم",
-      "daysAgo_other": "قبل {{count}} أيام"
+      "minutesAgo_one": "قبل {{count}} دقيقة",
+      "minutesAgo_other": "قبل {{count}} دقيقة",
+      "hoursAgo_one": "قبل {{count}} ساعة",
+      "hoursAgo_other": "قبل {{count}} ساعة",
+      "daysAgo_one": "قبل {{count}} يوم",
+      "daysAgo_other": "قبل {{count}} يوم"
     },
     "empty": {
       "title": "لا توجد إشعارات",
@@ -24,7 +24,7 @@
       "deleteOne": "حذف الإشعار",
       "clearAll": {
         "title": "حذف الإشعارات",
-        "message": "هل أنت متأكد من حذف جميع الإشعارات؟",
+        "message": "هل أنت متأكد أنك تريد حذف جميع الإشعارات؟",
         "confirm": "حذف الكل",
         "cancel": "إلغاء"
       }
@@ -32,14 +32,14 @@
   },
   "center": {
     "title": "مركز الإشعارات",
-    "subtitle": "{{total}} إشعار / {{unread}} غير مقروء",
+    "subtitle": "{{total}} إشعارات / {{unread}} غير مقروء",
     "actions": {
       "markAll": "تحديد الكل كمقروء",
       "viewDetails": "عرض التفاصيل",
       "delete": "حذف",
       "clearAll": {
         "title": "حذف جميع الإشعارات",
-        "message": "سيتم حذف جميع الإشعارات نهائياً.",
+        "message": "سيؤدي هذا الإجراء إلى حذف جميع الإشعارات بشكل دائم.",
         "confirm": "حذف",
         "cancel": "إلغاء",
         "label": "مسح الكل"
@@ -50,8 +50,8 @@
         "label": "الحالة:",
         "options": {
           "all": "الكل",
-          "unread": "غير مقروءة",
-          "read": "مقروءة"
+          "unread": "غير مقروء",
+          "read": "مقروء"
         }
       },
       "type": {
@@ -62,61 +62,904 @@
       }
     },
     "types": {
+      "all": "جميع الأنواع",
       "app": "التطبيق",
-      "client": "عميل",
-      "dossier": "ملف",
-      "case": "قضية",
-      "task": "مهمة",
+      "client": "العميل",
+      "dossier": "الملف",
+      "case": "الدعوى",
+      "lawsuit": "الدعوى",
+      "task": "المهمة",
       "personalTask": "مهمة شخصية",
-      "session": "جلسة",
-      "hearing": "جلسة",
-      "payment": "دفعة",
-      "document": "مستند",
-      "deadline": "موعد نهائي",
-      "mission": "مهمة خارجية",
-      "financialEntry": "محاسبة",
-      "officer": "محضر قضائي",
+      "personal": "مهمة شخصية",
+      "session": "الجلسة",
+      "hearing": "الجلسة",
+      "payment": "الدفع",
+      "document": "المستند",
+      "deadline": "الموعد النهائي",
+      "mission": "المهمة",
+      "financialEntry": "المحاسبة",
+      "financial": "المحاسبة",
+      "officer": "المحضر",
+      "system": "النظام",
       "success": "نجاح",
-      "info": "معلومة",
+      "info": "معلومات",
       "warning": "تحذير",
       "error": "خطأ"
     },
-    "empty": "لا توجد إشعارات للعرض",
+    "empty": "لا توجد إشعارات لعرضها",
     "priority": {
       "urgent": "عاجل",
-      "high": "مرتفعة",
+      "high": "عالي",
       "success": "نجاح",
-      "info": "معلومة"
+      "info": "معلومات"
     },
     "time": {
-      "dateAndTime": "{{date}} عند {{time}}"
+      "dateAndTime": "{{date}} الساعة {{time}}"
     }
   },
   "templates": {
     "titles": {
-      "clientAdded": "تم إضافة عميل جديد",
+      "clientAdded": "تمت إضافة عميل جديد",
       "dossierCreated": "تم إنشاء ملف جديد",
-      "taskDue": "مهمة عاجلة",
-      "hearingScheduled": "جلسة مجدولة",
-      "paymentReceived": "تم استلام دفعة",
-      "documentUploaded": "تم رفع مستند",
-      "sessionScheduled": "جلسة محددة",
-      "deadlineApproaching": "اقتراب الموعد النهائي"
+      "taskDue": "مهمة عاجلة مستحقة",
+      "hearingScheduled": "جلسة قادمة",
+      "paymentReceived": "تم استلام الدفع",
+      "documentUploaded": "تم رفع المستند",
+      "sessionScheduled": "تم جدولة الجلسة",
+      "deadlineApproaching": "الموعد النهائي يقترب"
     },
-    "clientAdded": "تم إضافة العميل \"{{clientName}}\" بنجاح.",
+    "clientAdded": "تمت إضافة العميل \"{{clientName}}\" بنجاح.",
     "dossierCreated": "تم إنشاء الملف {{dossierNumber}} للعميل {{clientName}}.",
     "taskDue": "\"{{taskTitle}}\" مستحقة في {{dueDate}}.",
-    "hearingScheduled": "جلسة القضية {{caseNumber}} مجدولة في {{hearingDate}}.",
-    "paymentReceived": "{{clientName}} دفع مبلغ {{amount}}.",
-    "documentUploaded": "\"{{documentName}}\" تم رفعه إلى الملف {{dossierNumber}}.",
-    "sessionScheduled": "\"{{sessionTitle}}\" مجدولة بتاريخ {{date}}.",
-    "deadlineApproaching_one": "الموعد النهائي للملف {{dossierNumber}} بعد {{count}} يوم.",
-    "deadlineApproaching_other": "الموعد النهائي للملف {{dossierNumber}} بعد {{count}} أيام."
+    "hearingScheduled": "تم جدولة جلسة الدعوى {{caseNumber}} في {{hearingDate}}.",
+    "paymentReceived": "قام العميل {{clientName}} بدفع مبلغ {{amount}}.",
+    "documentUploaded": "تم رفع المستند \"{{documentName}}\" إلى الملف {{dossierNumber}}.",
+    "sessionScheduled": "\"{{sessionTitle}}\" مجدولة في {{date}}.",
+    "deadlineApproaching_one": "الموعد النهائي للملف {{dossierNumber}} خلال {{count}} يوم.",
+    "deadlineApproaching_other": "الموعد النهائي للملف {{dossierNumber}} خلال {{count}} يوم."
   },
   "severity": {
     "success": "نجاح",
-    "info": "معلومة",
+    "info": "معلومات",
     "warning": "تحذير",
     "error": "خطأ"
+  },
+  "routes": {
+    "labels": {
+      "notifications": "مركز الإشعارات"
+    }
+  },
+  "content": {
+    "task": {
+      "overdue": {
+        "title_one": "مهمة متأخرة - {{count}} يوم",
+        "title_other": "مهمة متأخرة - {{count}} يوم",
+        "message_one": "المهمة \"{{taskTitle}}\" متأخرة {{count}} يوم. إجراء مطلوب.",
+        "message_other": "المهمة \"{{taskTitle}}\" متأخرة {{count}} يوم. إجراء مطلوب."
+      },
+      "upcomingDeadline": {
+        "title_one": "موعد نهائي خلال {{count}} يوم",
+        "title_other": "موعد نهائي خلال {{count}} يوم",
+        "message_one": "المهمة \"{{taskTitle}}\" مستحقة خلال {{count}} يوم.",
+        "message_other": "المهمة \"{{taskTitle}}\" مستحقة خلال {{count}} يوم."
+      },
+      "dueToday": {
+        "title": "مستحقة اليوم",
+        "message": "يجب إكمال المهمة \"{{taskTitle}}\" اليوم. هل انتهيت؟"
+      },
+      "reminder": {
+        "title": "تذكير بالمهمة",
+        "message_one": "المهمة \"{{taskTitle}}\" مستحقة خلال {{count}} يوم. هل بدأت؟",
+        "message_other": "المهمة \"{{taskTitle}}\" مستحقة خلال {{count}} يوم. هل بدأت؟"
+      },
+      "upcoming": {
+        "title": "مهمة قادمة",
+        "message_one": "لا تنس: يجب إكمال \"{{taskTitle}}\" خلال {{count}} يوم.",
+        "message_other": "لا تنس: يجب إكمال \"{{taskTitle}}\" خلال {{count}} يوم."
+      },
+      "actionRequired": {
+        "title": "إجراء مطلوب",
+        "message": "\"{{taskTitle}}\" - الموعد النهائي اليوم! ما هو تقدمك؟"
+      },
+      "attention": {
+        "title": "انتباه - متأخرة",
+        "message_one": "كان يجب إكمال المهمة \"{{taskTitle}}\" منذ {{count}} يوم.",
+        "message_other": "كان يجب إكمال المهمة \"{{taskTitle}}\" منذ {{count}} يوم."
+      },
+      "statusCheck": {
+        "title": "متابعة المهمة",
+        "message": "هل أكملت المهمة \"{{taskTitle}}\"؟ الموعد النهائي: {{dueDate}}"
+      },
+      "progressCheck": {
+        "title": "فحص التقدم",
+        "message": "أين أنت مع \"{{taskTitle}}\"؟ الموعد النهائي: {{dueDate}}"
+      }
+    },
+    "personalTask": {
+      "upcomingDeadline": {
+        "title_one": "موعد نهائي لمهمة شخصية خلال {{count}} يوم",
+        "title_other": "موعد نهائي لمهمة شخصية خلال {{count}} يوم",
+        "message_one": "المهمة الشخصية \"{{taskTitle}}\" مستحقة خلال {{count}} يوم.",
+        "message_other": "المهمة الشخصية \"{{taskTitle}}\" مستحقة خلال {{count}} يوم."
+      },
+      "completionReminder": {
+        "title": "مهمة شخصية - تذكير بالإكمال",
+        "message_one": "كان للمهمة الشخصية \"{{taskTitle}}\" موعد نهائي منذ {{count}} يوم. هل تم إكمال المهمة؟",
+        "message_other": "كان للمهمة الشخصية \"{{taskTitle}}\" موعد نهائي منذ {{count}} يوم. هل تم إكمال المهمة؟"
+      }
+    },
+    "session": {
+      "upcomingHearing": {
+        "title_one": "جلسة خلال {{count}} يوم",
+        "title_other": "جلسة خلال {{count}} يوم",
+        "message_one": "تم جدولة جلسة للدعوى \"{{caseNumber}}\" خلال {{count}} يوم.",
+        "message_other": "تم جدولة جلسة للدعوى \"{{caseNumber}}\" خلال {{count}} يوم.",
+        "messageWithLocation_one": "تم جدولة جلسة للدعوى \"{{caseNumber}}\" خلال {{count}} يوم. المكان: {{location}}",
+        "messageWithLocation_other": "تم جدولة جلسة للدعوى \"{{caseNumber}}\" خلال {{count}} يوم. المكان: {{location}}",
+        "messageNoLocation_one": "تم جدولة جلسة للدعوى \"{{caseNumber}}\" خلال {{count}} يوم. تحقق من المستندات والتحضير.",
+        "messageNoLocation_other": "تم جدولة جلسة للدعوى \"{{caseNumber}}\" خلال {{count}} يوم. تحقق من المستندات والتحضير."
+      },
+      "hearingToday": {
+        "title": "🔴 جلسة اليوم",
+        "message": "جلسة اليوم للدعوى \"{{caseNumber}}\" الساعة {{time}}.",
+        "messageWithLocation": "جلسة اليوم للدعوى \"{{caseNumber}}\" الساعة {{time}}. المكان: {{location}}"
+      },
+      "hearingOutcome": {
+        "title": "نتيجة الجلسة - توثيق مطلوب",
+        "message_one": "عقدت جلسة الدعوى \"{{caseNumber}}\" منذ {{count}} يوم. ما هي نتيجة الجلسة؟",
+        "message_other": "عقدت جلسة الدعوى \"{{caseNumber}}\" منذ {{count}} يوم. ما هي نتيجة الجلسة؟"
+      },
+      "preparation": {
+        "title": "تحضير الجلسة",
+        "message_one": "الجلسة \"{{sessionTitle}}\" خلال {{count}} يوم. هل حضرت مرافعاتك؟",
+        "message_other": "الجلسة \"{{sessionTitle}}\" خلال {{count}} يوم. هل حضرت مرافعاتك؟",
+        "messageAlt_one": "الجلسة \"{{sessionTitle}}\" خلال {{count}} يوم. هل حضرت حججك؟",
+        "messageAlt_other": "الجلسة \"{{sessionTitle}}\" خلال {{count}} يوم. هل حضرت حججك؟",
+        "messageDate": "الجلسة \"{{sessionTitle}}\" في {{date}}. هل جمعت جميع المستندات اللازمة؟"
+      },
+      "tomorrow": {
+        "title": "جلسة غداً",
+        "message": "تعقد الجلسة \"{{sessionTitle}}\" غداً. هل أنت جاهز؟",
+        "messageAlt": "جلسة غداً: \"{{sessionTitle}}\". هل راجعت جميع الملفات؟"
+      },
+      "today": {
+        "title": "جلسة اليوم",
+        "message": "الجلسة \"{{sessionTitle}}\" اليوم الساعة {{time}}. حظاً طيباً!",
+        "messageFallback": "الجلسة \"{{sessionTitle}}\" اليوم في الوقت المحدد. حظاً طيباً!"
+      }
+    },
+    "case": {
+      "missingHearing": {
+        "title": "جلسة مفقودة - دعوى بدون جلسة",
+        "message": "الدعوى \"{{caseTitle}}\" (الأولوية: {{priority}}) ليس لها جلسات مجدولة. هل تم إنشاء جلسة؟"
+      },
+      "statusUpdate": {
+        "title": "تحديث الحالة - الدعوى",
+        "message": "الدعوى \"{{caseTitle}}\" لديها {{activitySummary}}. هل يجب تحديث حالة الدعوى؟ هل كان هناك حكم؟",
+        "hearingsCompleted_one": "تمت {{count}} جلسة",
+        "hearingsCompleted_other": "تمت {{count}} جلسة",
+        "tasksCompleted_one": "تمت {{count}} مهمة",
+        "tasksCompleted_other": "تمت {{count}} مهمة",
+        "and": " و "
+      }
+    },
+    "mission": {
+      "upcomingDeadline": {
+        "title_one": "مهمة - موعد نهائي خلال {{count}} يوم",
+        "title_other": "مهمة - موعد نهائي خلال {{count}} يوم",
+        "message_one": "المهمة \"{{missionTitle}}\" (الأولوية {{priority}}) لها موعد نهائي خلال {{count}} يوم ({{dueDate}}).",
+        "message_other": "المهمة \"{{missionTitle}}\" (الأولوية {{priority}}) لها موعد نهائي خلال {{count}} يوم ({{dueDate}})."
+      },
+      "completionReminder": {
+        "title": "مهمة - تحديث مطلوب",
+        "message_one": "كان للمهمة \"{{missionTitle}}\" موعد نهائي منذ {{count}} يوم. هل تم إكمال المهمة من قبل المحضر؟",
+        "message_other": "كان للمهمة \"{{missionTitle}}\" موعد نهائي منذ {{count}} يوم. هل تم إكمال المهمة من قبل المحضر؟"
+      },
+      "upcoming": {
+        "title": "مهمة قادمة",
+        "message_one": "المهمة \"{{missionTitle}}\" مجدولة خلال {{count}} يوم. هل كل شيء جاهز؟",
+        "message_other": "المهمة \"{{missionTitle}}\" مجدولة خلال {{count}} يوم. هل كل شيء جاهز؟",
+        "messageDate": "المهمة \"{{missionTitle}}\" في {{date}}. هل حضرت المستندات؟"
+      },
+      "dueToday": {
+        "title": "مهمة اليوم",
+        "message": "المهمة \"{{missionTitle}}\" اليوم. تم التأكيد مع المحضر؟"
+      },
+      "completion": {
+        "title": "متابعة المهمة",
+        "message": "المهمة \"{{missionTitle}}\" مكتملة؟ هل استلمت تقرير المحضر؟"
+      }
+    },
+    "financial": {
+      "upcomingPayment": {
+        "title_one": "دفع متوقع - {{count}} يوم",
+        "title_other": "دفع متوقع - {{count}} يوم",
+        "message_one": "دفع مبلغ {{amount}} {{currency}} متوقع من \"{{clientName}}\"{{contextInfo}} خلال {{count}} يوم.",
+        "message_other": "دفع مبلغ {{amount}} {{currency}} متوقع من \"{{clientName}}\"{{contextInfo}} خلال {{count}} يوم.",
+        "messageWithDescription_one": "دفع مبلغ {{amount}} {{currency}} متوقع من \"{{clientName}}\"{{contextInfo}} خلال {{count}} يوم. {{description}}",
+        "messageWithDescription_other": "دفع مبلغ {{amount}} {{currency}} متوقع من \"{{clientName}}\"{{contextInfo}} خلال {{count}} يوم. {{description}}"
+      },
+      "overduePayment": {
+        "title_one": "دفع متأخر - {{count}} يوم",
+        "title_other": "دفع متأخر - {{count}} يوم",
+        "message_one": "دفع مبلغ {{amount}} {{currency}} من \"{{clientName}}\"{{contextInfo}} متأخر {{count}} يوم. يوصى بالتذكير.",
+        "message_other": "دفع مبلغ {{amount}} {{currency}} من \"{{clientName}}\"{{contextInfo}} متأخر {{count}} يوم. يوصى بالتذكير."
+      },
+      "paymentReceivable": {
+        "title": "دفع مستحق القبض",
+        "message_one": "الدفع من {{clientName}} ({{amount}} د.ت) مستحق خلال {{count}} يوم.",
+        "message_other": "الدفع من {{clientName}} ({{amount}} د.ت) مستحق خلال {{count}} يوم."
+      },
+      "paymentDue": {
+        "title": "دفع مستحق",
+        "message_one": "يجب على {{clientName}} أن يدفع لك {{amount}} د.ت خلال {{count}} يوم. هل أرسلت تذكيراً؟",
+        "message_other": "يجب على {{clientName}} أن يدفع لك {{amount}} د.ت خلال {{count}} يوم. هل أرسلت تذكيراً؟"
+      },
+      "paymentDueToday": {
+        "title": "دفع مستحق اليوم",
+        "message": "يجب على {{clientName}} أن يدفع لك {{amount}} د.ت اليوم. هل استلمت الدفع؟",
+        "messageAlt": "دفع متوقع من {{clientName}}: {{amount}} د.ت. هل دفعوا؟"
+      },
+      "paymentOverdue": {
+        "title": "دفع متأخر",
+        "message_one": "لدى {{clientName}} دفعة متأخرة {{count}} يوم ({{amount}} د.ت). هل تم الاتصال؟",
+        "message_other": "لدى {{clientName}} دفعة متأخرة {{count}} يوم ({{amount}} د.ت). هل تم الاتصال؟"
+      },
+      "followupRequired": {
+        "title": "متابعة مطلوبة",
+        "message": "الدفع من {{clientName}} ({{amount}} د.ت) متأخر. هل أرسلت متابعة؟"
+      }
+    },
+    "dossier": {
+      "inactivityReminder": {
+        "title_one": "ملف غير نشط - {{count}}+ يوم",
+        "title_other": "ملف غير نشط - {{count}}+ يوم",
+        "message_one": "لم يتم تحديث الملف \"{{dossierNumber}}\" منذ {{count}} يوم. يوصى بمراجعة.",
+        "message_other": "لم يتم تحديث الملف \"{{dossierNumber}}\" منذ {{count}} يوم. يوصى بمراجعة."
+      },
+      "reviewReminder": {
+        "title": "مراجعة الملف - الأولوية {{priority}}",
+        "message_one": "يتطلب الملف \"{{dossierNumber}}\" (الأولوية {{priority}}) مراجعة. آخر تحديث منذ {{count}} يوم.",
+        "message_other": "يتطلب الملف \"{{dossierNumber}}\" (الأولوية {{priority}}) مراجعة. آخر تحديث منذ {{count}} يوم."
+      },
+      "deadlineOverdue": {
+        "title_one": "موعد نهائي منتهي - {{count}} يوم",
+        "title_other": "موعد نهائي منتهي - {{count}} يوم",
+        "message_one": "الموعد النهائي للملف \"{{dossierNumber}}\" منتهي منذ {{count}} يوم. إجراء عاجل مطلوب.",
+        "message_other": "الموعد النهائي للملف \"{{dossierNumber}}\" منتهي منذ {{count}} يوم. إجراء عاجل مطلوب."
+      },
+      "deadlineToday": {
+        "title": "موعد نهائي اليوم",
+        "message": "الموعد النهائي للملف \"{{dossierNumber}}\" اليوم. يرجى إكمال الإجراءات اللازمة."
+      },
+      "deadlineUpcoming": {
+        "title_one": "موعد نهائي قادم - {{count}} يوم",
+        "title_other": "موعد نهائي قادم - {{count}} يوم",
+        "message_one": "الموعد النهائي للملف \"{{dossierNumber}}\" خلال {{count}} يوم. يوصى بالتحضير.",
+        "message_other": "الموعد النهائي للملف \"{{dossierNumber}}\" خلال {{count}} يوم. يوصى بالتحضير."
+      },
+      "deadlineWeek": {
+        "title": "موعد نهائي خلال 7 أيام",
+        "message": "الموعد النهائي للملف \"{{dossierNumber}}\" خلال 7 أيام. يوصى بالتخطيط."
+      },
+      "statusUpdateNeeded": {
+        "title": "تحديث مطلوب",
+        "message_one": "لم يتم تحديث الملف {{caseNumber}} منذ {{count}} يوم. أي أخبار؟",
+        "message_other": "لم يتم تحديث الملف {{caseNumber}} منذ {{count}} يوم. أي أخبار؟"
+      },
+      "review": {
+        "title": "مراجعة الملف",
+        "message_one": "الملف {{caseNumber}} مفتوح منذ {{count}} يوم. هل كل شيء يتقدم بشكل جيد؟",
+        "message_other": "الملف {{caseNumber}} مفتوح منذ {{count}} يوم. هل كل شيء يتقدم بشكل جيد؟"
+      }
+    },
+    "client": {
+      "inActive": {
+        "title_one": "عميل غير نشط - {{count}}+ يوم",
+        "title_other": "عميل غير نشط - {{count}}+ يوم",
+        "message_one": "العميل \"{{clientName}}\" لم يكن له أي نشاط منذ {{count}} يوم (ملفات، مهام، جلسات، مدفوعات). هل ترغب في تحديد هذا العميل كغير نشط؟",
+        "message_other": "العميل \"{{clientName}}\" لم يكن له أي نشاط منذ {{count}} يوم (ملفات، مهام، جلسات، مدفوعات). هل ترغب في تحديد هذا العميل كغير نشط؟"
+      }
+    },
+    "deadline": {
+      "urgent": {
+        "title": "موعد نهائي حرج",
+        "message_one": "عاجل: \"{{title}}\" - بقي {{count}} ساعة فقط!",
+        "message_other": "عاجل: \"{{title}}\" - بقي {{count}} ساعة فقط!"
+      },
+      "approaching": {
+        "title": "موعد نهائي يقترب",
+        "message_one": "\"{{title}}\" يجب إنهاؤه خلال {{count}} يوم.",
+        "message_other": "\"{{title}}\" يجب إنهاؤه خلال {{count}} يوم.",
+        "messageAlt_one": "انتباه: متبقي {{count}} يوم لـ \"{{title}}\".",
+        "messageAlt_other": "انتباه: متبقي {{count}} يوم لـ \"{{title}}\"."
+      },
+      "missed": {
+        "title": "موعد نهائي فائت",
+        "message_one": "\"{{title}}\" تجاوز موعده النهائي {{count}} يوم.",
+        "message_other": "\"{{title}}\" تجاوز موعده النهائي {{count}} يوم."
+      }
+    },
+    "domain": {
+      "clientArchived": {
+        "title": "تم أرشفة العميل",
+        "message": "تمت أرشفة العميل {{name}}."
+      },
+      "clientReactivated": {
+        "title": "تم إعادة تفعيل العميل",
+        "message": "تمت إعادة تفعيل العميل {{name}}."
+      },
+      "dossierClosed": {
+        "title": "تم إغلاق الملف",
+        "message": "تم إغلاق الملف {{caseNumber}}."
+      },
+      "dossierReopened": {
+        "title": "تم إعادة فتح الملف",
+        "message": "تم إعادة فتح الملف {{caseNumber}}."
+      },
+      "caseClosed": {
+        "title": "تم إغلاق الدعوى",
+        "message": "تم إغلاق الدعوى {{caseNumber}}."
+      },
+      "caseReopened": {
+        "title": "تم إعادة فتح الدعوى",
+        "message": "تم إعادة فتح الدعوى {{caseNumber}}."
+      },
+      "taskAssigned": {
+        "title": "تم تعيين مهمة",
+        "message": "تم تعيين المهمة \"{{title}}\" إلى {{assignee}}.",
+        "messageToYou": "تم تعيين المهمة \"{{title}}\" إليك."
+      },
+      "taskStatusChanged": {
+        "title": "تم تحديث حالة المهمة",
+        "message": "تغيرت حالة المهمة \"{{title}}\" إلى \"{{status}}\"."
+      },
+      "taskOverdue": {
+        "title": "مهمة متأخرة",
+        "message_one": "المهمة \"{{title}}\" متأخرة منذ {{count}} يوم.",
+        "message_other": "المهمة \"{{title}}\" متأخرة منذ {{count}} يوم.",
+        "messageNoCount": "المهمة \"{{title}}\" متأخرة."
+      },
+      "taskDueSoon": {
+        "title": "موعد نهائي للمهمة يقترب",
+        "message": "المهمة \"{{title}}\" مستحقة في {{dueDate}}."
+      },
+      "sessionScheduled": {
+        "title": "تم جدولة جلسة",
+        "message": "تم جدولة الجلسة \"{{title}}\" في {{date}} الساعة {{time}}.",
+        "messageFallback": "تم جدولة الجلسة \"{{title}}\" في {{date}} في وقت يتحدد لاحقاً."
+      },
+      "sessionUpcoming24h": {
+        "title": "جلسة خلال 24 ساعة",
+        "message": "جلسة \"{{title}}\" خلال 24 ساعة. تحضير نهائي مطلوب."
+      },
+      "sessionUpcoming1h": {
+        "title": "جلسة وشيكة",
+        "message": "جلسة \"{{title}}\" خلال ساعة واحدة."
+      },
+      "sessionCompleted": {
+        "title": "تم الانتهاء من الجلسة",
+        "message": "تم تحديد الجلسة \"{{title}}\" كمكتملة."
+      },
+      "expenseAdded": {
+        "title": "تمت إضافة مصروف",
+        "message": "تم تسجيل مصروف جديد {{amount}} د.ت",
+        "messageWithCategory": "تم تسجيل مصروف جديد {{amount}} د.ت ({{category}})",
+        "messageNoAmount": "تم تسجيل مصروف جديد",
+        "messageWithCategoryNoAmount": "تم تسجيل مصروف جديد ({{category}})"
+      },
+      "clientAdvanceReceived": {
+        "title": "تم استلام دفعة مقدمة من العميل",
+        "message": "تم استلام دفعة مقدمة من {{clientName}} ({{amount}} د.ت).",
+        "messageFallback": "تم استلام دفعة مقدمة من {{clientName}}."
+      },
+      "clientBalanceOverdue": {
+        "title": "رصيد العميل متأخر",
+        "message": "رصيد العميل {{clientName}} متأخر عن السداد.",
+        "messageFallback": "رصيد العميل متأخر عن السداد."
+      },
+      "financialValidated": {
+        "title": "تم التحقق من القيد",
+        "message": "تم التحقق من القيد \"{{description}}\".",
+        "messageFallback": "تم التحقق من القيد."
+      },
+      "financialPaid": {
+        "title": "تم تأكيد الدفع",
+        "message": "تم تحديد الدفع مقابل \"{{description}}\" كمدفوع.",
+        "messageFallback": "تم تحديد الدفع كمدفوع."
+      },
+      "missionAssigned": {
+        "title": "تم تعيين مهمة",
+        "message": "تم تعيين المهمة \"{{title}}\" إلى {{officerName}}.",
+        "messageFallback": "تم تعيين المهمة \"{{title}}\" إلى محضر."
+      },
+      "missionReassigned": {
+        "title": "تم إعادة تعيين مهمة",
+        "message": "تم نقل المهمة \"{{title}}\" من {{oldOfficer}} إلى {{newOfficer}}.",
+        "messageFallback": "تم إعادة تعيين المهمة \"{{title}}\"."
+      },
+      "missionOverdue": {
+        "title": "مهمة متأخرة",
+        "message_one": "المهمة \"{{title}}\" متأخرة. ({{count}} يوم)",
+        "message_other": "المهمة \"{{title}}\" متأخرة. ({{count}} يوم)",
+        "messageNoCount": "المهمة \"{{title}}\" متأخرة."
+      },
+      "actionBlocked": {
+        "title": "إجراء محظور",
+        "message": "تم حظر الإجراء بواسطة قواعد العمل.",
+        "messageWithReason": "{{reason}}"
+      },
+      "impactConfirmed": {
+        "title": "تم تأكيد التأثير العلائقي",
+        "message": "تم تأكيد التعديل بعد تحذير التأثير.",
+        "messageWithSummary": "{{summary}}"
+      }
+    },
+    "priority": {
+      "low": "منخفض",
+      "medium": "متوسط",
+      "normal": "عادي",
+      "high": "عالي",
+      "urgent": "عاجل"
+    }
+  },
+  "contentVariants": {
+    "content.task.overdue": [
+      {
+        "tone": "urgent",
+        "title_one": "مهمة متأخرة - {{count}} يوم",
+        "title_other": "مهمة متأخرة - {{count}} يوم",
+        "message_one": "المهمة \"{{taskTitle}}\" متأخرة {{count}} يوم. إجراء مطلوب.",
+        "message_other": "المهمة \"{{taskTitle}}\" متأخرة {{count}} يوم. إجراء مطلوب."
+      },
+      {
+        "tone": "professional",
+        "title_one": "متابعة: تأخر {{count}} يوم",
+        "title_other": "متابعة: تأخر {{count}} يوم",
+        "message_one": "\"{{taskTitle}}\" تأخرت {{count}} يوم. يرجى إنهاؤها.",
+        "message_other": "\"{{taskTitle}}\" تأخرت {{count}} يوم. يرجى إنهاؤها."
+      }
+    ],
+    "content.task.upcomingDeadline": [
+      {
+        "tone": "professional",
+        "title_one": "موعد نهائي خلال {{count}} يوم",
+        "title_other": "موعد نهائي خلال {{count}} يوم",
+        "message_one": "المهمة \"{{taskTitle}}\" مستحقة خلال {{count}} يوم.",
+        "message_other": "المهمة \"{{taskTitle}}\" مستحقة خلال {{count}} يوم."
+      },
+      {
+        "tone": "planning",
+        "title_one": "تخطيط: متبقي {{count}} يوم",
+        "title_other": "تخطيط: متبقي {{count}} يوم",
+        "message_one": "\"{{taskTitle}}\" مستحقة خلال {{count}} يوم. خصص وقتاً للإنهاء.",
+        "message_other": "\"{{taskTitle}}\" مستحقة خلال {{count}} يوم. خصص وقتاً للإنهاء."
+      }
+    ],
+    "content.task.dueToday": [
+      {
+        "tone": "urgent",
+        "title": "مستحقة اليوم",
+        "message": "يجب إكمال المهمة \"{{taskTitle}}\" اليوم. هل انتهيت؟"
+      },
+      {
+        "tone": "focused",
+        "title": "موعد نهائي اليوم",
+        "message": "\"{{taskTitle}}\" يجب إنهاؤها اليوم. استمر في التقدم."
+      }
+    ],
+    "content.personalTask.upcomingDeadline": [
+      {
+        "tone": "professional",
+        "title_one": "موعد نهائي لمهمة شخصية خلال {{count}} يوم",
+        "title_other": "موعد نهائي لمهمة شخصية خلال {{count}} يوم",
+        "message_one": "المهمة الشخصية \"{{taskTitle}}\" مستحقة خلال {{count}} يوم.",
+        "message_other": "المهمة الشخصية \"{{taskTitle}}\" مستحقة خلال {{count}} يوم."
+      },
+      {
+        "tone": "planning",
+        "title_one": "مهمة شخصية مستحقة خلال {{count}} يوم",
+        "title_other": "مهمة شخصية مستحقة خلال {{count}} يوم",
+        "message_one": "\"{{taskTitle}}\" مجدولة خلال {{count}} يوم. خصص وقتاً.",
+        "message_other": "\"{{taskTitle}}\" مجدولة خلال {{count}} يوم. خصص وقتاً."
+      }
+    ],
+    "content.personalTask.completionReminder": [
+      {
+        "tone": "professional",
+        "title": "مهمة شخصية - تذكير بالإكمال",
+        "message_one": "كان للمهمة الشخصية \"{{taskTitle}}\" موعد نهائي منذ {{count}} يوم. هل تم إكمال المهمة؟",
+        "message_other": "كان للمهمة الشخصية \"{{taskTitle}}\" موعد نهائي منذ {{count}} يوم. هل تم إكمال المهمة؟"
+      },
+      {
+        "tone": "follow-up",
+        "title": "متابعة مهمة شخصية",
+        "message_one": "\"{{taskTitle}}\" كانت مستحقة منذ {{count}} يوم. تحديث أم تأجيل؟",
+        "message_other": "\"{{taskTitle}}\" كانت مستحقة منذ {{count}} يوم. تحديث أم تأجيل؟"
+      }
+    ],
+    "content.session.upcomingHearing": [
+      {
+        "tone": "professional",
+        "title_one": "جلسة خلال {{count}} يوم",
+        "title_other": "جلسة خلال {{count}} يوم",
+        "message_one": "تم جدولة جلسة للدعوى \"{{caseNumber}}\" خلال {{count}} يوم.",
+        "message_other": "تم جدولة جلسة للدعوى \"{{caseNumber}}\" خلال {{count}} يوم.",
+        "messageWithLocation_one": "تم جدولة جلسة للدعوى \"{{caseNumber}}\" خلال {{count}} يوم. المكان: {{location}}",
+        "messageWithLocation_other": "تم جدولة جلسة للدعوى \"{{caseNumber}}\" خلال {{count}} يوم. المكان: {{location}}",
+        "messageNoLocation_one": "تم جدولة جلسة للدعوى \"{{caseNumber}}\" خلال {{count}} يوم. تحقق من المستندات والتحضير.",
+        "messageNoLocation_other": "تم جدولة جلسة للدعوى \"{{caseNumber}}\" خلال {{count}} يوم. تحقق من المستندات والتحضير."
+      },
+      {
+        "tone": "urgent",
+        "title_one": "جلسة تقترب - {{count}} يوم",
+        "title_other": "جلسة تقترب - {{count}} يوم",
+        "message_one": "جلسة \"{{caseNumber}}\" خلال {{count}} يوم. تأكيد المذكرات واللوجستيات.",
+        "message_other": "جلسة \"{{caseNumber}}\" خلال {{count}} يوم. تأكيد المذكرات واللوجستيات.",
+        "messageWithLocation_one": "جلسة \"{{caseNumber}}\" خلال {{count}} يوم في {{location}}. أكمل التحضير.",
+        "messageWithLocation_other": "جلسة \"{{caseNumber}}\" خلال {{count}} يوم في {{location}}. أكمل التحضير.",
+        "messageNoLocation_one": "جلسة \"{{caseNumber}}\" خلال {{count}} يوم. تحقق من المكان والملفات.",
+        "messageNoLocation_other": "جلسة \"{{caseNumber}}\" خلال {{count}} يوم. تحقق من المكان والملفات."
+      }
+    ],
+    "content.session.hearingToday": [
+      {
+        "tone": "urgent",
+        "title": "dY\"' جلسة اليوم",
+        "message": "جلسة اليوم للدعوى \"{{caseNumber}}\" الساعة {{time}}.",
+        "messageWithLocation": "جلسة اليوم للدعوى \"{{caseNumber}}\" الساعة {{time}}. المكان: {{location}}"
+      },
+      {
+        "tone": "professional",
+        "title": "جلسة اليوم",
+        "message": "الدعوى \"{{caseNumber}}\" مجدولة اليوم الساعة {{time}}. فحوصات نهائية.",
+        "messageWithLocation": "الدعوى \"{{caseNumber}}\" اليوم الساعة {{time}} ({{location}}). فحوصات نهائية."
+      }
+    ],
+    "content.session.hearingOutcome": [
+      {
+        "tone": "professional",
+        "title": "نتيجة الجلسة - توثيق مطلوب",
+        "message_one": "عقدت جلسة الدعوى \"{{caseNumber}}\" منذ {{count}} يوم. ما هي نتيجة الجلسة؟",
+        "message_other": "عقدت جلسة الدعوى \"{{caseNumber}}\" منذ {{count}} يوم. ما هي نتيجة الجلسة؟"
+      },
+      {
+        "tone": "follow-up",
+        "title": "سجل نتيجة الجلسة",
+        "message_one": "الدعوى \"{{caseNumber}}\" عُقدت منذ {{count}} يوم. سجل النتيجة.",
+        "message_other": "الدعوى \"{{caseNumber}}\" عُقدت منذ {{count}} يوم. سجل النتيجة."
+      }
+    ],
+    "content.session.today": [
+      {
+        "tone": "urgent",
+        "title": "جلسة اليوم",
+        "message": "الجلسة \"{{sessionTitle}}\" اليوم الساعة {{time}}. حظاً طيباً!",
+        "messageFallback": "الجلسة \"{{sessionTitle}}\" اليوم في الوقت المحدد. حظاً طيباً!"
+      },
+      {
+        "tone": "professional",
+        "title": "جلسة اليوم",
+        "message": "\"{{sessionTitle}}\" اليوم الساعة {{time}}. مراجعة نهائية.",
+        "messageFallback": "\"{{sessionTitle}}\" اليوم. تأكيد التوقيت والمواد."
+      }
+    ],
+    "content.session.tomorrow": [
+      {
+        "tone": "professional",
+        "title": "جلسة غداً",
+        "message": "تعقد الجلسة \"{{sessionTitle}}\" غداً. هل أنت جاهز؟",
+        "messageAlt": "جلسة غداً: \"{{sessionTitle}}\". هل راجعت جميع الملفات؟"
+      },
+      {
+        "tone": "preparation",
+        "title": "جلسة الغد",
+        "message": "\"{{sessionTitle}}\" غداً. أنهِ موادك.",
+        "messageAlt": "غداً: \"{{sessionTitle}}\". تأكيد الملفات واللوجستيات."
+      }
+    ],
+    "content.session.preparation": [
+      {
+        "tone": "professional",
+        "title": "تحضير الجلسة",
+        "message_one": "الجلسة \"{{sessionTitle}}\" خلال {{count}} يوم. هل حضرت مرافعاتك؟",
+        "message_other": "الجلسة \"{{sessionTitle}}\" خلال {{count}} يوم. هل حضرت مرافعاتك؟",
+        "messageAlt_one": "الجلسة \"{{sessionTitle}}\" خلال {{count}} يوم. هل حضرت حججك؟",
+        "messageAlt_other": "الجلسة \"{{sessionTitle}}\" خلال {{count}} يوم. هل حضرت حججك؟",
+        "messageDate": "الجلسة \"{{sessionTitle}}\" في {{date}}. هل جمعت جميع المستندات اللازمة؟"
+      },
+      {
+        "tone": "planning",
+        "title": "العد التنازلي للجلسة",
+        "message_one": "\"{{sessionTitle}}\" خلال {{count}} يوم. رتب الحجج والمستندات.",
+        "message_other": "\"{{sessionTitle}}\" خلال {{count}} يوم. رتب الحجج والمستندات.",
+        "messageAlt_one": "الجلسة \"{{sessionTitle}}\" خلال {{count}} يوم. تأكيد الملاحظات والمذكرات.",
+        "messageAlt_other": "الجلسة \"{{sessionTitle}}\" خلال {{count}} يوم. تأكيد الملاحظات والمذكرات.",
+        "messageDate": "\"{{sessionTitle}}\" في {{date}}. راجع الملفات."
+      }
+    ],
+    "content.mission.upcomingDeadline": [
+      {
+        "tone": "professional",
+        "title_one": "مهمة - موعد نهائي خلال {{count}} يوم",
+        "title_other": "مهمة - موعد نهائي خلال {{count}} يوم",
+        "message_one": "المهمة \"{{missionTitle}}\" (الأولوية {{priority}}) لها موعد نهائي خلال {{count}} يوم ({{dueDate}}).",
+        "message_other": "المهمة \"{{missionTitle}}\" (الأولوية {{priority}}) لها موعد نهائي خلال {{count}} يوم ({{dueDate}})."
+      },
+      {
+        "tone": "planning",
+        "title_one": "مهمة مستحقة خلال {{count}} يوم",
+        "title_other": "مهمة مستحقة خلال {{count}} يوم",
+        "message_one": "\"{{missionTitle}}\" (الأولوية {{priority}}) مستحقة خلال {{count}} يوم ({{dueDate}}). تنسيق مع المحضر.",
+        "message_other": "\"{{missionTitle}}\" (الأولوية {{priority}}) مستحقة خلال {{count}} يوم ({{dueDate}}). تنسيق مع المحضر."
+      }
+    ],
+    "content.mission.completionReminder": [
+      {
+        "tone": "professional",
+        "title": "مهمة - تحديث مطلوب",
+        "message_one": "كان للمهمة \"{{missionTitle}}\" موعد نهائي منذ {{count}} يوم. هل تم إكمال المهمة من قبل المحضر؟",
+        "message_other": "كان للمهمة \"{{missionTitle}}\" موعد نهائي منذ {{count}} يوم. هل تم إكمال المهمة من قبل المحضر؟"
+      },
+      {
+        "tone": "follow-up",
+        "title": "تحديث مهمة مطلوب",
+        "message_one": "\"{{missionTitle}}\" كانت مستحقة منذ {{count}} يوم. تأكيد الإكمال مع المحضر.",
+        "message_other": "\"{{missionTitle}}\" كانت مستحقة منذ {{count}} يوم. تأكيد الإكمال مع المحضر."
+      }
+    ],
+    "content.mission.dueToday": [
+      {
+        "tone": "urgent",
+        "title": "مهمة اليوم",
+        "message": "المهمة \"{{missionTitle}}\" اليوم. تم التأكيد مع المحضر؟"
+      },
+      {
+        "tone": "professional",
+        "title": "مهمة مجدولة اليوم",
+        "message": "\"{{missionTitle}}\" مجدولة اليوم. تنسيق مع المحضر."
+      }
+    ],
+    "content.financial.upcomingPayment": [
+      {
+        "tone": "professional",
+        "title_one": "دفع متوقع - {{count}} يوم",
+        "title_other": "دفع متوقع - {{count}} يوم",
+        "message_one": "دفع مبلغ {{amount}} {{currency}} متوقع من \"{{clientName}}\"{{contextInfo}} خلال {{count}} يوم.",
+        "message_other": "دفع مبلغ {{amount}} {{currency}} متوقع من \"{{clientName}}\"{{contextInfo}} خلال {{count}} يوم.",
+        "messageWithDescription_one": "دفع مبلغ {{amount}} {{currency}} متوقع من \"{{clientName}}\"{{contextInfo}} خلال {{count}} يوم. {{description}}",
+        "messageWithDescription_other": "دفع مبلغ {{amount}} {{currency}} متوقع من \"{{clientName}}\"{{contextInfo}} خلال {{count}} يوم. {{description}}"
+      },
+      {
+        "tone": "reminder",
+        "title_one": "دفع وارد خلال {{count}} يوم",
+        "title_other": "دفع وارد خلال {{count}} يوم",
+        "message_one": "\"{{clientName}}\"{{contextInfo}} يجب أن يدفع {{amount}} {{currency}} خلال {{count}} يوم. حدد تذكيراً.",
+        "message_other": "\"{{clientName}}\"{{contextInfo}} يجب أن يدفع {{amount}} {{currency}} خلال {{count}} يوم. حدد تذكيراً.",
+        "messageWithDescription_one": "\"{{clientName}}\"{{contextInfo}} يجب أن يدفع {{amount}} {{currency}} خلال {{count}} يوم. ملاحظة: {{description}}",
+        "messageWithDescription_other": "\"{{clientName}}\"{{contextInfo}} يجب أن يدفع {{amount}} {{currency}} خلال {{count}} يوم. ملاحظة: {{description}}"
+      }
+    ],
+    "content.financial.overduePayment": [
+      {
+        "tone": "urgent",
+        "title_one": "دفع متأخر - {{count}} يوم",
+        "title_other": "دفع متأخر - {{count}} يوم",
+        "message_one": "دفع مبلغ {{amount}} {{currency}} من \"{{clientName}}\"{{contextInfo}} متأخر {{count}} يوم. يوصى بالتذكير.",
+        "message_other": "دفع مبلغ {{amount}} {{currency}} من \"{{clientName}}\"{{contextInfo}} متأخر {{count}} يوم. يوصى بالتذكير."
+      },
+      {
+        "tone": "professional",
+        "title_one": "دفع متأخر {{count}} يوم",
+        "title_other": "دفع متأخر {{count}} يوم",
+        "message_one": "\"{{clientName}}\"{{contextInfo}} ما زال مديناً {{amount}} {{currency}} (تأخر {{count}} يوم). قم بالمتابعة.",
+        "message_other": "\"{{clientName}}\"{{contextInfo}} ما زال مديناً {{amount}} {{currency}} (تأخر {{count}} يوم). قم بالمتابعة."
+      }
+    ],
+    "content.financial.paymentOverdue": [
+      {
+        "tone": "urgent",
+        "title": "دفع متأخر",
+        "message_one": "الدفع من {{clientName}} ({{amount}} د.ت) متأخر {{count}} يوم.",
+        "message_other": "الدفع من {{clientName}} ({{amount}} د.ت) متأخر {{count}} يوم."
+      },
+      {
+        "tone": "professional",
+        "title": "دفع متأخر",
+        "message_one": "دفع {{clientName}} بمبلغ {{amount}} د.ت متأخر {{count}} يوم. قم بالمتابعة.",
+        "message_other": "دفع {{clientName}} بمبلغ {{amount}} د.ت متأخر {{count}} يوم. قم بالمتابعة."
+      }
+    ],
+    "content.financial.paymentDueToday": [
+      {
+        "tone": "professional",
+        "title": "دفع مستحق اليوم",
+        "message": "يجب على {{clientName}} أن يدفع لك {{amount}} د.ت اليوم. هل استلمت الدفع؟",
+        "messageAlt": "دفع متوقع من {{clientName}}: {{amount}} د.ت. هل دفعوا؟"
+      },
+      {
+        "tone": "reminder",
+        "title": "دفع متوقع اليوم",
+        "message": "من المقرر أن يدفع {{clientName}} {{amount}} د.ت اليوم. تأكيد الاستلام.",
+        "messageAlt": "{{clientName}} - {{amount}} د.ت مستحق اليوم. تحقق من حالة الدفع."
+      }
+    ],
+    "content.financial.paymentReceivable": [
+      {
+        "tone": "professional",
+        "title": "دفع مستحق القبض",
+        "message_one": "الدفع من {{clientName}} ({{amount}} د.ت) مستحق خلال {{count}} يوم.",
+        "message_other": "الدفع من {{clientName}} ({{amount}} د.ت) مستحق خلال {{count}} يوم."
+      },
+      {
+        "tone": "planning",
+        "title": "دفع قادم",
+        "message_one": "يجب أن يدفع {{clientName}} {{amount}} د.ت خلال {{count}} يوم. خطط لتذكير.",
+        "message_other": "يجب أن يدفع {{clientName}} {{amount}} د.ت خلال {{count}} يوم. خطط لتذكير."
+      }
+    ],
+    "content.dossier.deadlineUpcoming": [
+      {
+        "tone": "professional",
+        "title_one": "موعد نهائي قادم - {{count}} يوم",
+        "title_other": "موعد نهائي قادم - {{count}} يوم",
+        "message_one": "الموعد النهائي للملف \"{{dossierNumber}}\" خلال {{count}} يوم. يوصى بالتحضير.",
+        "message_other": "الموعد النهائي للملف \"{{dossierNumber}}\" خلال {{count}} يوم. يوصى بالتحضير."
+      },
+      {
+        "tone": "planning",
+        "title_one": "موعد نهائي يقترب - {{count}} يوم",
+        "title_other": "موعد نهائي يقترب - {{count}} يوم",
+        "message_one": "\"{{dossierNumber}}\" مستحق خلال {{count}} يوم. أولو الخطوات التالية.",
+        "message_other": "\"{{dossierNumber}}\" مستحق خلال {{count}} يوم. أولو الخطوات التالية."
+      }
+    ],
+    "content.dossier.deadlineOverdue": [
+      {
+        "tone": "urgent",
+        "title_one": "موعد نهائي منتهي - {{count}} يوم",
+        "title_other": "موعد نهائي منتهي - {{count}} يوم",
+        "message_one": "الموعد النهائي للملف \"{{dossierNumber}}\" منتهي منذ {{count}} يوم. إجراء عاجل مطلوب.",
+        "message_other": "الموعد النهائي للملف \"{{dossierNumber}}\" منتهي منذ {{count}} يوم. إجراء عاجل مطلوب."
+      },
+      {
+        "tone": "professional",
+        "title_one": "موعد نهائي ملف منتهي",
+        "title_other": "موعد نهائي ملف منتهي",
+        "message_one": "موعد \"{{dossierNumber}}\" النهائي انتهى منذ {{count}} يوم. اتخذ إجراءً تصحيحياً.",
+        "message_other": "موعد \"{{dossierNumber}}\" النهائي انتهى منذ {{count}} يوم. اتخذ إجراءً تصحيحياً."
+      }
+    ],
+    "content.dossier.deadlineToday": [
+      {
+        "tone": "urgent",
+        "title": "موعد نهائي اليوم",
+        "message": "الموعد النهائي للملف \"{{dossierNumber}}\" اليوم. يرجى إكمال الإجراءات اللازمة."
+      },
+      {
+        "tone": "professional",
+        "title": "ملف مستحق اليوم",
+        "message": "موعد \"{{dossierNumber}}\" النهائي اليوم. أنهِ العناصر المعلقة."
+      }
+    ],
+    "content.client.inActive": [
+      {
+        "tone": "professional",
+        "title_one": "عميل غير نشط - {{count}}+ يوم",
+        "title_other": "عميل غير نشط - {{count}}+ يوم",
+        "message_one": "العميل \"{{clientName}}\" لم يكن له أي نشاط منذ {{count}} يوم (ملفات، مهام، جلسات، مدفوعات). هل ترغب في تحديد هذا العميل كغير نشط؟",
+        "message_other": "العميل \"{{clientName}}\" لم يكن له أي نشاط منذ {{count}} يوم (ملفات، مهام، جلسات، مدفوعات). هل ترغب في تحديد هذا العميل كغير نشط؟"
+      },
+      {
+        "tone": "follow-up",
+        "title_one": "عميل غير نشط منذ {{count}} يوم",
+        "title_other": "عميل غير نشط منذ {{count}} يوم",
+        "message_one": "\"{{clientName}}\" لم يكن له أي نشاط منذ {{count}} يوم. قرر ما إذا كنت سترشف أم تتفاعل.",
+        "message_other": "\"{{clientName}}\" لم يكن له أي نشاط منذ {{count}} يوم. قرر ما إذا كنت سترشف أم تتفاعل."
+      }
+    ]
+  },
+  "clientEmail": {
+    "modal": {
+      "title": "إشعار العميل",
+      "description": "هل تريد إشعار العميل بهذا التحديث؟",
+      "recipient": "المستلم",
+      "subject": "الموضوع",
+      "message": "الرسالة",
+      "preview": "معاينة",
+      "hide": "إخفاء",
+      "infoMessage": "📧 سيتم إرسال بريد إلكتروني إلى العميل لإعلامه بهذا التحديث. يمكنك اختيار عدم إشعار العميل إذا كان هذا الإجراء داخلياً.",
+      "actions": {
+        "decline": "لا، لا تُشعر",
+        "confirm": "نعم، أرسل بريداً إلكترونياً",
+        "sending": "جاري الإرسال..."
+      }
+    },
+    "subjects": {
+      "dossierCreated": "افتتاح ملفك {{title}} ({{number}})",
+      "dossierStatusChanged": "تحديث الملف {{title}} ({{number}})",
+      "dossierDeadlineChanged": "تعديل الموعد النهائي - {{title}} ({{number}})",
+      "caseCreated": "افتتاح دعواك {{title}} ({{number}})",
+      "caseStatusChanged": "تحديث حالة الدعوى {{title}} ({{number}})",
+      "caseHearingChanged": "تعديل تاريخ الجلسة - {{title}} ({{number}})",
+      "sessionScheduled": "تم جدولة الجلسة - {{title}}",
+      "sessionDateChanged": "تعديل تاريخ الجلسة - {{title}}",
+      "sessionCancelled": "إلغاء الجلسة - {{number}}",
+      "financialEntryAdded": "قيد مالي جديد يتعلق بملفك"
+    },
+    "body": {
+      "greeting": "عزيزي/عزيزتي {{name}}،",
+      "closing": "مع خالص التحية،\n{{senderName}}",
+      "dossierCreated": {
+        "confirmation": "نؤكد افتتاح ملفك.",
+        "details": "الملف: {{title}} ({{number}})\nتاريخ التسجيل: {{date}}",
+        "footer": "نبقى تحت تصرفكم لأي استفسار."
+      },
+      "dossierStatusChanged": {
+        "intro": "نعلمكم بأن حالة ملفكم قد تم تعديلها.",
+        "details": "الملف: {{title}} ({{number}})\nالحالة الجديدة: {{newStatus}}\nالتاريخ: {{date}}",
+        "footer": "لأي استفسار، لا تتردد في الاتصال بنا.",
+        "statusExplanations": {
+          "Closed": "ملفكم مغلق الآن. تمت معالجة جميع عناصر القضية.",
+          "Suspended": "ملفكم معلق مؤقتاً بسبب ظروف تتطلب إيقافاً مؤقتاً في المعالجة.",
+          "OpenAfterReopening": "تمت إعادة فتح ملفكم للمعالجة بعد تطورات جديدة.",
+          "Open": "ملفكم نشط الآن وجاري معالجته."
+        }
+      },
+      "dossierDeadlineChanged": {
+        "intro": "نعلمكم بتعديل موعد نهائي يتعلق بملفكم.",
+        "details": "الملف: {{title}} ({{number}})\n\nالموعد النهائي السابق: {{oldDate}}\nالموعد النهائي الجديد: {{newDate}}",
+        "impact": "هذا التعديل {{impactNote}}.",
+        "impactNotes": {
+          "significant": "يمثل تغييراً كبيراً في الجدول الزمني لملفكم",
+          "moderate": "قد يؤثر على الجدول الزمني لمعالجة ملفكم"
+        },
+        "footer": "لأي استفسار، لا تتردد في الاتصال بنا."
+      },
+      "caseCreated": {
+        "confirmation": "نؤكد افتتاح دعوى جديدة تخصكم.",
+        "details": "الدعوى: {{title}} ({{number}})\nالاختصاص: {{court}}",
+        "footer": "سنبقيكم على اطلاع بكل خطوة."
+      },
+      "caseStatusChanged": {
+        "intro": "نعلمكم بتطور يتعلق بدعواكم.",
+        "details": "الدعوى: {{title}} ({{number}})\nالمحكمة: {{court}}\nالحالة الجديدة: {{newStatus}}\nالتاريخ: {{date}}",
+        "footer": "نبقى تحت تصرفكم لأي معلومات إضافية.",
+        "statusExplanations": {
+          "Clos": "دعواكم مغلقة الآن. صدر حكم نهائي.",
+          "Suspendu": "تم تعليق دعواكم من قبل المحكمة. سنبقيكم على اطلاع باستئناف الإجراءات."
+        }
+      },
+      "caseHearingChanged": {
+        "intro": "نعلمكم بتعديل يتعلق بجلستكم القادمة.",
+        "details": "الدعوى: {{title}} ({{number}})\nالمحكمة: {{court}}\n\nالتاريخ السابق: {{oldDate}}\nالتاريخ الجديد: {{newDate}}",
+        "footer": "يرجى الاطلاع على هذا التغيير والتنظيم وفقاً لذلك.\n\nلأي استفسار، لا تتردد في الاتصال بنا."
+      },
+      "sessionScheduled": {
+        "intro": "تم جدولة جلسة لملفكم.",
+        "details": "النوع: {{title}}\nالتاريخ: {{date}} الساعة {{time}}\nالمكان: {{location}}\nالمدة المتوقعة: {{duration}}",
+        "detailsWithCase": "الدعوى: {{caseTitle}} ({{caseNumber}})\nالنوع: {{title}}\nالتاريخ: {{date}} الساعة {{time}}\nالمكان: {{location}}\nالمدة المتوقعة: {{duration}}",
+        "footer": "سنبقيكم على اطلاع بأي تطورات."
+      },
+      "sessionDateChanged": {
+        "intro": "نعلمكم بتعديل يتعلق بجلستكم القادمة.",
+        "details": "الجلسة: {{title}}\n\nالتاريخ السابق: {{oldDate}} الساعة {{oldTime}}\nالتاريخ الجديد: {{newDate}} الساعة {{newTime}}\n\nالمكان: {{location}}",
+        "detailsWithCase": "الدعوى: {{caseTitle}} ({{caseNumber}})\nالجلسة: {{title}}\n\nالتاريخ السابق: {{oldDate}} الساعة {{oldTime}}\nالتاريخ الجديد: {{newDate}} الساعة {{newTime}}\n\nالمكان: {{location}}",
+        "footer": "يرجى الاطلاع على هذا التغيير والتنظيم وفقاً لذلك.\n\nلأي استفسار، لا تتردد في الاتصال بنا."
+      },
+      "sessionCancelled": {
+        "intro": "نعلمكم بإلغاء الجلسة المجدولة.",
+        "details": "الجلسة الملغاة: {{date}} الساعة {{time}}\nالمكان: {{location}}",
+        "detailsWithCase": "الدعوى: {{caseNumber}} - {{caseTitle}}\nالجلسة الملغاة: {{date}} الساعة {{time}}\nالمكان: {{location}}",
+        "footer": "سيتم إعلامكم بتاريخ جديد في أقرب وقت ممكن."
+      },
+      "financialEntryAdded": {
+        "intro": "تم تسجيل قيد مالي جديد.",
+        "details": "الوصف: {{description}}\nالمبلغ: {{amount}}",
+        "detailsWithDueDate": "الوصف: {{description}}\nالمبلغ: {{amount}}\nتاريخ الاستحقاق: {{dueDate}}",
+        "detailsWithBalance": "الوصف: {{description}}\nالمبلغ: {{amount}}\nرصيد العميل بعد القيد: {{clientBalance}}",
+        "footer": "يرجى الاطلاع على هذا التحديث."
+      }
+    }
   }
 }

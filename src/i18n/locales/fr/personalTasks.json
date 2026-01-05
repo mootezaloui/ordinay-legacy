@@ -24,7 +24,7 @@
       "actions": "Actions"
     },
     "dueDate": {
-      "na": "N/D"
+      "na": "N/A"
     },
     "status": {
       "notStarted": "Non commencée",
@@ -55,7 +55,7 @@
       "delete": "Supprimer"
     },
     "empty": "Aucune tâche personnelle disponible",
-    "emptyFiltered": "Aucun résultat"
+    "emptyFiltered": "Aucun résultat trouvé"
   },
   "confirm": {
     "delete": {
@@ -110,7 +110,7 @@
       }
     },
     "help": {
-      "statusLocked": "Le statut ne peut être modifié que via le sélecteur dans la liste."
+      "statusLocked": "Le statut ne peut être changé que via le sélecteur dans la vue liste."
     }
   },
   "toasts": {
@@ -124,14 +124,14 @@
     },
     "updateSuccess": "Tâche mise à jour avec succès !",
     "createSuccess": "Tâche ajoutée avec succès !",
-    "saveError": "Erreur lors de l'enregistrement",
+    "saveError": "Erreur lors de l'enregistrement de la tâche",
     "missingId": "Identifiant de tâche personnelle manquant"
   },
   "detail": {
     "entityName": "Tâche personnelle",
-    "notFound": "Tâche personnelle introuvable",
-    "deleteConfirm": "Voulez-vous supprimer cette tâche personnelle ?",
-    "subtitle": "Créée le {{date}} · {{category}}",
+    "notFound": "Tâche personnelle non trouvée",
+    "deleteConfirm": "Êtes-vous sûr de vouloir supprimer cette tâche personnelle ?",
+    "subtitle": "Créée le {{date}} · {{catégorie}}",
     "quickActions": {
       "status": {
         "label": "Statut",
@@ -166,7 +166,7 @@
     "tabs": {
       "overview": "Aperçu",
       "financial": "Financier",
-      "financialDescription": "Écritures financières internes liées à cette tâche",
+      "financialDescription": "Écritures comptables internes liées à cette tâche",
       "documents": "Documents",
       "history": "Historique"
     },
@@ -180,8 +180,8 @@
       }
     },
     "fallback": {
-      "na": "N/D",
-      "noDescription": "Aucune description",
+      "na": "N/A",
+      "noDescription": "Aucune description fournie.",
       "noNotes": "Aucune note pour le moment."
     }
   }

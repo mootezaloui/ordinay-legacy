@@ -23,6 +23,7 @@ import {
   resolveEntityLink,
   getMissionDisplayTitle,
 } from "./notificationTemplates";
+import { translateNotificationCopy } from "./notificationVariants";
 
 /**
  * Base notification builder with dedupe-friendly IDs and link resolver
@@ -76,6 +77,21 @@ function buildNotification({
 export function generateTaskNotifications(tasks) {
   const notifications = [];
   const now = new Date();
+  const translateCopy = (
+    titleKey,
+    messageKey,
+    titleParams,
+    messageParams,
+    seedParts
+  ) =>
+    translateNotificationCopy({
+      titleKey,
+      messageKey,
+      titleParams,
+      messageParams,
+      seedParts,
+      timestamp: now,
+    });
 
   tasks.forEach((task) => {
     if (!task.dueDate || task.status === "Terminée") return;
@@ -85,6 +101,13 @@ export function generateTaskNotifications(tasks) {
     // Overdue tasks
     if (daysLeft < 0) {
       const daysOverdue = Math.abs(daysLeft);
+      const copy = translateCopy(
+        "content.task.overdue.title",
+        "content.task.overdue.message",
+        { count: daysOverdue },
+        { taskTitle: task.title, count: daysOverdue },
+        ["task", "overdue", task.id]
+      );
 
       notifications.push(
         buildNotification({
@@ -92,13 +115,8 @@ export function generateTaskNotifications(tasks) {
           entityId: task.id,
           subType: "overdue",
           priority: "urgent",
-          title: t("notifications:content.task.overdue.title", {
-            count: daysOverdue,
-          }),
-          message: t("notifications:content.task.overdue.message", {
-            taskTitle: task.title,
-            count: daysOverdue,
-          }),
+          title: copy.title,
+          message: copy.message,
           icon: "fas fa-exclamation-circle",
           timestamp: now.toISOString(),
           metadata: {
@@ -112,16 +130,22 @@ export function generateTaskNotifications(tasks) {
     }
     // Due today
     else if (daysLeft === 0) {
+      const copy = translateCopy(
+        "content.task.dueToday.title",
+        "content.task.dueToday.message",
+        {},
+        { taskTitle: task.title },
+        ["task", "dueToday", task.id]
+      );
+
       notifications.push(
         buildNotification({
           entityType: "task",
           entityId: task.id,
           subType: "dueToday",
           priority: "high",
-          title: t("notifications:content.task.dueToday.title"),
-          message: t("notifications:content.task.dueToday.message", {
-            taskTitle: task.title,
-          }),
+          title: copy.title,
+          message: copy.message,
           icon: "fas fa-clock",
           timestamp: now.toISOString(),
           metadata: {
@@ -134,19 +158,22 @@ export function generateTaskNotifications(tasks) {
     }
     // Upcoming (1-7 days)
     else if (daysLeft <= 7) {
+      const copy = translateCopy(
+        "content.task.upcomingDeadline.title",
+        "content.task.upcomingDeadline.message",
+        { count: daysLeft },
+        { taskTitle: task.title, count: daysLeft },
+        ["task", "upcoming", task.id, task.dueDate]
+      );
+
       notifications.push(
         buildNotification({
           entityType: "task",
           entityId: task.id,
           subType: "upcoming",
           priority: daysLeft <= 2 ? "high" : "medium",
-          title: t("notifications:content.task.upcomingDeadline.title", {
-            count: daysLeft,
-          }),
-          message: t("notifications:content.task.upcomingDeadline.message", {
-            taskTitle: task.title,
-            count: daysLeft,
-          }),
+          title: copy.title,
+          message: copy.message,
           icon: "fas fa-tasks",
           timestamp: now.toISOString(),
           metadata: {
@@ -161,17 +188,22 @@ export function generateTaskNotifications(tasks) {
 
     // Status check for tasks in progress (every 3 days)
     if (task.status === "En cours" && daysLeft > 0 && daysLeft <= 14) {
+      const copy = translateCopy(
+        "content.task.statusCheck.title",
+        "content.task.statusCheck.message",
+        {},
+        { taskTitle: task.title, dueDate: task.dueDate },
+        ["task", "statusCheck", task.id, task.dueDate]
+      );
+
       notifications.push(
         buildNotification({
           entityType: "task",
           entityId: task.id,
           subType: "statusCheck",
           priority: "info",
-          title: t("notifications:content.task.statusCheck.title"),
-          message: t("notifications:content.task.statusCheck.message", {
-            taskTitle: task.title,
-            dueDate: task.dueDate,
-          }),
+          title: copy.title,
+          message: copy.message,
           icon: "fas fa-question-circle",
           timestamp: now.toISOString(),
           metadata: {
@@ -197,6 +229,21 @@ export function generateTaskNotifications(tasks) {
 export function generateSessionNotifications(sessions) {
   const notifications = [];
   const now = new Date();
+  const translateCopy = (
+    titleKey,
+    messageKey,
+    titleParams,
+    messageParams,
+    seedParts
+  ) =>
+    translateNotificationCopy({
+      titleKey,
+      messageKey,
+      titleParams,
+      messageParams,
+      seedParts,
+      timestamp: now,
+    });
 
   sessions.forEach((session) => {
     if (!session.date || session.status === "Terminée") return;
@@ -208,21 +255,24 @@ export function generateSessionNotifications(sessions) {
 
     // Session today
     if (daysLeft === 0) {
+      const copy = translateCopy(
+        "content.session.today.title",
+        session.time
+          ? "content.session.today.message"
+          : "content.session.today.messageFallback",
+        {},
+        { sessionTitle: session.title, time: session.time },
+        ["session", "today", session.id, session.date, session.time]
+      );
+
       notifications.push(
         buildNotification({
           entityType: "session",
           entityId: session.id,
           subType: "today",
           priority: "urgent",
-          title: t("notifications:content.session.today.title"),
-          message: session.time
-            ? t("notifications:content.session.today.message", {
-                sessionTitle: session.title,
-                time: session.time,
-              })
-            : t("notifications:content.session.today.messageFallback", {
-                sessionTitle: session.title,
-              }),
+          title: copy.title,
+          message: copy.message,
           icon: "fas fa-gavel",
           timestamp: now.toISOString(),
           metadata: {
@@ -236,16 +286,22 @@ export function generateSessionNotifications(sessions) {
     }
     // Session tomorrow
     else if (daysLeft === 1) {
+      const copy = translateCopy(
+        "content.session.tomorrow.title",
+        "content.session.tomorrow.message",
+        {},
+        { sessionTitle: session.title },
+        ["session", "tomorrow", session.id, session.date]
+      );
+
       notifications.push(
         buildNotification({
           entityType: "session",
           entityId: session.id,
           subType: "tomorrow",
           priority: "high",
-          title: t("notifications:content.session.tomorrow.title"),
-          message: t("notifications:content.session.tomorrow.message", {
-            sessionTitle: session.title,
-          }),
+          title: copy.title,
+          message: copy.message,
           icon: "fas fa-calendar-day",
           timestamp: now.toISOString(),
           metadata: {
@@ -258,17 +314,22 @@ export function generateSessionNotifications(sessions) {
     }
     // Preparation reminders (2-7 days before)
     else if (daysLeft >= 2 && daysLeft <= 7) {
+      const copy = translateCopy(
+        "content.session.preparation.title",
+        "content.session.preparation.message",
+        {},
+        { sessionTitle: session.title, count: daysLeft },
+        ["session", "preparation", session.id, session.date]
+      );
+
       notifications.push(
         buildNotification({
           entityType: "session",
           entityId: session.id,
           subType: "preparation",
           priority: daysLeft <= 3 ? "high" : "medium",
-          title: t("notifications:content.session.preparation.title"),
-          message: t("notifications:content.session.preparation.message", {
-            sessionTitle: session.title,
-            count: daysLeft,
-          }),
+          title: copy.title,
+          message: copy.message,
           icon: "fas fa-file-signature",
           timestamp: now.toISOString(),
           metadata: {
@@ -292,6 +353,21 @@ export function generateSessionNotifications(sessions) {
 export function generatePaymentNotifications(financialEntries) {
   const notifications = [];
   const now = new Date();
+  const translateCopy = (
+    titleKey,
+    messageKey,
+    titleParams,
+    messageParams,
+    seedParts
+  ) =>
+    translateNotificationCopy({
+      titleKey,
+      messageKey,
+      titleParams,
+      messageParams,
+      seedParts,
+      timestamp: now,
+    });
 
   financialEntries.forEach((entry) => {
     // Only for receivables (Revenus) with payment due dates
@@ -311,6 +387,17 @@ export function generatePaymentNotifications(financialEntries) {
     // Overdue payments
     if (daysLeft < 0) {
       const daysOverdue = Math.abs(daysLeft);
+      const copy = translateCopy(
+        "content.financial.paymentOverdue.title",
+        "content.financial.paymentOverdue.message",
+        {},
+        {
+          clientName: payment.client,
+          amount: payment.amount,
+          count: daysOverdue,
+        },
+        ["financialEntry", "overdue", entry.id, entry.dueDate]
+      );
 
       notifications.push(
         buildNotification({
@@ -318,12 +405,8 @@ export function generatePaymentNotifications(financialEntries) {
           entityId: entry.id,
           subType: "overdue",
           priority: "urgent",
-          title: t("notifications:content.financial.paymentOverdue.title"),
-          message: t("notifications:content.financial.paymentOverdue.message", {
-            clientName: payment.client,
-            amount: payment.amount,
-            count: daysOverdue,
-          }),
+          title: copy.title,
+          message: copy.message,
           icon: "fas fa-exclamation-triangle",
           timestamp: now.toISOString(),
           linkOverride: resolveEntityLink("financialEntry", {
@@ -349,17 +432,22 @@ export function generatePaymentNotifications(financialEntries) {
     }
     // Due today
     else if (daysLeft === 0) {
+      const copy = translateCopy(
+        "content.financial.paymentDueToday.title",
+        "content.financial.paymentDueToday.message",
+        {},
+        { clientName: payment.client, amount: payment.amount },
+        ["financialEntry", "dueToday", entry.id, entry.dueDate]
+      );
+
       notifications.push(
         buildNotification({
           entityType: "financialEntry",
           entityId: entry.id,
           subType: "dueToday",
           priority: "high",
-          title: t("notifications:content.financial.paymentDueToday.title"),
-          message: t(
-            "notifications:content.financial.paymentDueToday.message",
-            { clientName: payment.client, amount: payment.amount }
-          ),
+          title: copy.title,
+          message: copy.message,
           icon: "fas fa-money-check-alt",
           timestamp: now.toISOString(),
           linkOverride: resolveEntityLink("financialEntry", {
@@ -384,21 +472,26 @@ export function generatePaymentNotifications(financialEntries) {
     }
     // Upcoming (1-7 days)
     else if (daysLeft <= 7) {
+      const copy = translateCopy(
+        "content.financial.paymentReceivable.title",
+        "content.financial.paymentReceivable.message",
+        { count: daysLeft },
+        {
+          clientName: payment.client,
+          amount: payment.amount,
+          count: daysLeft,
+        },
+        ["financialEntry", "upcoming", entry.id, entry.dueDate]
+      );
+
       notifications.push(
         buildNotification({
           entityType: "financialEntry",
           entityId: entry.id,
           subType: "upcoming",
           priority: daysLeft <= 2 ? "high" : "medium",
-          title: t("notifications:content.financial.paymentReceivable.title"),
-          message: t(
-            "notifications:content.financial.paymentReceivable.message",
-            {
-              clientName: payment.client,
-              amount: payment.amount,
-              count: daysLeft,
-            }
-          ),
+          title: copy.title,
+          message: copy.message,
           icon: "fas fa-dollar-sign",
           timestamp: now.toISOString(),
           linkOverride: resolveEntityLink("financialEntry", {
@@ -434,6 +527,21 @@ export function generatePaymentNotifications(financialEntries) {
 export function generateMissionNotifications(missions) {
   const notifications = [];
   const now = new Date();
+  const translateCopy = (
+    titleKey,
+    messageKey,
+    titleParams,
+    messageParams,
+    seedParts
+  ) =>
+    translateNotificationCopy({
+      titleKey,
+      messageKey,
+      titleParams,
+      messageParams,
+      seedParts,
+      timestamp: now,
+    });
 
   missions.forEach((mission) => {
     if (!mission.scheduledDate || mission.status === "Terminée") return;
@@ -443,16 +551,22 @@ export function generateMissionNotifications(missions) {
 
     // Mission today
     if (daysLeft === 0) {
+      const copy = translateCopy(
+        "content.mission.dueToday.title",
+        "content.mission.dueToday.message",
+        {},
+        { missionTitle },
+        ["mission", "dueToday", mission.id, mission.scheduledDate]
+      );
+
       notifications.push(
         buildNotification({
           entityType: "mission",
           entityId: mission.id,
           subType: "today",
           priority: "high",
-          title: t("notifications:content.mission.dueToday.title"),
-          message: t("notifications:content.mission.dueToday.message", {
-            missionTitle,
-          }),
+          title: copy.title,
+          message: copy.message,
           icon: "fas fa-briefcase",
           timestamp: now.toISOString(),
           linkOverride:
@@ -469,17 +583,22 @@ export function generateMissionNotifications(missions) {
     }
     // Upcoming missions (1-5 days)
     else if (daysLeft >= 1 && daysLeft <= 5) {
+      const copy = translateCopy(
+        "content.mission.upcoming.title",
+        "content.mission.upcoming.message",
+        {},
+        { missionTitle, count: daysLeft },
+        ["mission", "upcoming", mission.id, mission.scheduledDate]
+      );
+
       notifications.push(
         buildNotification({
           entityType: "mission",
           entityId: mission.id,
           subType: "upcoming",
           priority: "medium",
-          title: t("notifications:content.mission.upcoming.title"),
-          message: t("notifications:content.mission.upcoming.message", {
-            missionTitle,
-            count: daysLeft,
-          }),
+          title: copy.title,
+          message: copy.message,
           icon: "fas fa-calendar-alt",
           timestamp: now.toISOString(),
           linkOverride:
@@ -498,16 +617,22 @@ export function generateMissionNotifications(missions) {
 
     // Completion check (for completed missions)
     if (mission.status === "Effectuée" && !mission.reportReceived) {
+      const copy = translateCopy(
+        "content.mission.completion.title",
+        "content.mission.completion.message",
+        {},
+        { missionTitle },
+        ["mission", "completion", mission.id]
+      );
+
       notifications.push(
         buildNotification({
           entityType: "mission",
           entityId: mission.id,
           subType: "completion",
           priority: "medium",
-          title: t("notifications:content.mission.completion.title"),
-          message: t("notifications:content.mission.completion.message", {
-            missionTitle,
-          }),
+          title: copy.title,
+          message: copy.message,
           icon: "fas fa-check-circle",
           timestamp: now.toISOString(),
           linkOverride:
@@ -533,6 +658,21 @@ export function generateMissionNotifications(missions) {
 export function generateDossierNotifications(dossiers) {
   const notifications = [];
   const now = new Date();
+  const translateCopy = (
+    titleKey,
+    messageKey,
+    titleParams,
+    messageParams,
+    seedParts
+  ) =>
+    translateNotificationCopy({
+      titleKey,
+      messageKey,
+      titleParams,
+      messageParams,
+      seedParts,
+      timestamp: now,
+    });
 
   dossiers.forEach((dossier) => {
     if (
@@ -553,19 +693,21 @@ export function generateDossierNotifications(dossiers) {
       // Overdue deadline
       if (daysLeft < 0) {
         const daysOverdue = Math.abs(daysLeft);
+        const copy = translateCopy(
+          "content.dossier.deadlineOverdue.title",
+          "content.dossier.deadlineOverdue.message",
+          { count: daysOverdue },
+          { dossierNumber, count: daysOverdue },
+          ["dossier", "deadlineOverdue", dossier.id, deadlineDate]
+        );
         notifications.push(
           buildNotification({
             entityType: "dossier",
             entityId: dossier.id,
             subType: "deadlineOverdue",
             priority: "urgent",
-            title: t("notifications:content.dossier.deadlineOverdue.title", {
-              count: daysOverdue,
-            }),
-            message: t(
-              "notifications:content.dossier.deadlineOverdue.message",
-              { dossierNumber, count: daysOverdue }
-            ),
+            title: copy.title,
+            message: copy.message,
             icon: "fas fa-exclamation-triangle",
             timestamp: now.toISOString(),
             metadata: {
@@ -579,16 +721,21 @@ export function generateDossierNotifications(dossiers) {
       }
       // Due today
       else if (daysLeft === 0) {
+        const copy = translateCopy(
+          "content.dossier.deadlineToday.title",
+          "content.dossier.deadlineToday.message",
+          {},
+          { dossierNumber },
+          ["dossier", "deadlineToday", dossier.id, deadlineDate]
+        );
         notifications.push(
           buildNotification({
             entityType: "dossier",
             entityId: dossier.id,
             subType: "deadlineToday",
             priority: "urgent",
-            title: t("notifications:content.dossier.deadlineToday.title"),
-            message: t("notifications:content.dossier.deadlineToday.message", {
-              dossierNumber,
-            }),
+            title: copy.title,
+            message: copy.message,
             icon: "fas fa-clock",
             timestamp: now.toISOString(),
             metadata: {
@@ -603,19 +750,21 @@ export function generateDossierNotifications(dossiers) {
       // Upcoming (1-7 days)
       else if (daysLeft <= 7) {
         const priority = daysLeft <= 2 ? "high" : "medium";
+        const copy = translateCopy(
+          "content.dossier.deadlineUpcoming.title",
+          "content.dossier.deadlineUpcoming.message",
+          { count: daysLeft },
+          { dossierNumber, count: daysLeft },
+          ["dossier", "deadlineUpcoming", dossier.id, deadlineDate]
+        );
         notifications.push(
           buildNotification({
             entityType: "dossier",
             entityId: dossier.id,
             subType: "deadlineUpcoming",
             priority,
-            title: t("notifications:content.dossier.deadlineUpcoming.title", {
-              count: daysLeft,
-            }),
-            message: t(
-              "notifications:content.dossier.deadlineUpcoming.message",
-              { dossierNumber, count: daysLeft }
-            ),
+            title: copy.title,
+            message: copy.message,
             icon: "fas fa-calendar-alt",
             timestamp: now.toISOString(),
             metadata: {
@@ -638,17 +787,21 @@ export function generateDossierNotifications(dossiers) {
       );
 
       if (daysSinceUpdate >= 7) {
+        const copy = translateCopy(
+          "content.dossier.statusUpdateNeeded.title",
+          "content.dossier.statusUpdateNeeded.message",
+          {},
+          { caseNumber: dossierNumber, count: daysSinceUpdate },
+          ["dossier", "statusUpdate", dossier.id]
+        );
         notifications.push(
           buildNotification({
             entityType: "dossier",
             entityId: dossier.id,
             subType: "statusUpdate",
             priority: daysSinceUpdate >= 14 ? "high" : "medium",
-            title: t("notifications:content.dossier.statusUpdateNeeded.title"),
-            message: t(
-              "notifications:content.dossier.statusUpdateNeeded.message",
-              { caseNumber: dossierNumber, count: daysSinceUpdate }
-            ),
+            title: copy.title,
+            message: copy.message,
             icon: "fas fa-folder-open",
             timestamp: now.toISOString(),
             metadata: {
@@ -668,17 +821,21 @@ export function generateDossierNotifications(dossiers) {
       const daysOpen = Math.abs(calculateDaysDifference(openDate, now));
 
       if (daysOpen >= 30 && daysOpen % 30 === 0) {
+        const copy = translateCopy(
+          "content.dossier.review.title",
+          "content.dossier.review.message",
+          {},
+          { caseNumber: dossierNumber, count: daysOpen },
+          ["dossier", "review", dossier.id]
+        );
         notifications.push(
           buildNotification({
             entityType: "dossier",
             entityId: dossier.id,
             subType: "review",
             priority: "info",
-            title: t("notifications:content.dossier.review.title"),
-            message: t("notifications:content.dossier.review.message", {
-              caseNumber: dossierNumber,
-              count: daysOpen,
-            }),
+            title: copy.title,
+            message: copy.message,
             icon: "fas fa-search",
             timestamp: now.toISOString(),
             metadata: {

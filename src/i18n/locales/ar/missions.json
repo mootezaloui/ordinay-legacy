@@ -5,14 +5,14 @@
   },
   "filter": {
     "all": "الكل ({{count}})",
-    "scheduled": "مخطط لها ({{count}})",
-    "inProgress": "جارية ({{count}})",
+    "scheduled": "مجدولة ({{count}})",
+    "inProgress": "قيد التنفيذ ({{count}})",
     "completed": "مكتملة ({{count}})",
     "cancelled": "ملغاة ({{count}})"
   },
   "labels": {
-    "assigned": "تم التعيين:",
-    "dueDate": "تاريخ الاستحقاق:",
+    "assigned": "معينة:",
+    "dueDate": "الموعد النهائي:",
     "documents": "{{count}} مستندات",
     "fees": "{{amount}} رسوم"
   },
@@ -21,13 +21,13 @@
   },
   "add": "إضافة {{entityName}}",
   "addDefault": "مهمة",
-  "empty": "لا توجد مهام بعد",
+  "empty": "لا توجد مهام حتى الآن",
   "dialog": {
     "detail": {
       "missions": {
         "delete": {
           "title": "حذف المهمة",
-          "message": "هل أنت متأكد من حذف هذه المهمة؟ لا يمكن التراجع عن هذا الإجراء.",
+          "message": "هل أنت متأكد أنك تريد حذف هذه المهمة؟ لا يمكن التراجع عن هذا الإجراء.",
           "confirm": "حذف",
           "cancel": "إلغاء"
         }
@@ -35,43 +35,47 @@
     }
   },
   "detail": {
-    "entityName": "مهمة",
+    "entityName": "المهمة",
     "notFound": "المهمة غير موجودة.",
-    "deleteConfirm": "هل أنت متأكد من حذف هذه المهمة؟",
+    "deleteConfirm": "هل أنت متأكد أنك تريد حذف هذه المهمة؟",
     "subtitle": "{{title}}",
     "fallback": {
-      "na": "غير متوفر",
+      "na": "غير متاح",
       "none": "لا شيء",
       "noReport": "لا يوجد تقرير متاح",
-      "noLinkedEntity": "لا توجد جهة مرتبطة",
-      "notAssigned": "غير معين",
-      "unassigned": "غير معين",
-      "untitled": "مهمة #{{id}}"
+      "noLinkedEntity": "لا يوجد كيان مرتبط",
+      "notAssigned": "غير معينة",
+      "unassigned": "غير معينة",
+      "untitled": "المهمة #{{id}}"
     },
     "quickActions": {
       "status": {
         "label": "الحالة",
-        "planned": "مخطط لها",
-        "inProgress": "جارية",
+        "planned": "مجدولة",
+        "inProgress": "قيد التنفيذ",
         "completed": "مكتملة",
         "cancelled": "ملغاة"
       },
       "priority": {
         "label": "الأولوية",
-        "high": "عالية",
-        "medium": "متوسطة",
-        "low": "منخفضة"
+        "high": "عالي",
+        "medium": "متوسط",
+        "low": "منخفض"
       },
       "bailiff": {
         "label": "المحضر"
       }
     },
     "header": {
-      "assignedOn": "تاريخ التعيين",
+      "assignedOn": "معينة في",
       "dueDate": "تاريخ الاستحقاق",
-      "completedOn": "تاريخ الإكمال",
+      "completedOn": "مكتملة في",
       "bailiff": "المحضر",
       "priority": "الأولوية"
+    },
+    "stats": {
+      "documents": "المستندات",
+      "duration": "المدة"
     },
     "tabs": {
       "overview": "نظرة عامة",
@@ -81,6 +85,13 @@
       "relations": "العلاقات",
       "history": "السجل"
     },
+    "relations": {
+      "title": "الكيانات المرتبطة",
+      "bailiff": "المحضر",
+      "dossier": "الملف",
+      "lawsuit": "الدعوى",
+      "empty": "لا يوجد كيان مرتبط"
+    },
     "overview": {
       "missionDetails": "تفاصيل المهمة",
       "dates": "التواريخ",
@@ -88,38 +99,6 @@
       "report": "التقرير / النتيجة",
       "linkedEntity": "الكيان المرتبط",
       "bailiffInfo": "معلومات المحضر",
-      "missionTypes": {
-        "service": "تبليغ",
-        "inspection": "معاينة",
-        "seizure": "حجز",
-        "execution": "تنفيذ",
-        "other": "أخرى"
-      },
-      "statuses": {
-        "scheduled": "مخطط لها",
-        "inProgress": "جارية",
-        "completed": "مكتملة",
-        "cancelled": "ملغاة"
-      },
-      "priorities": {
-        "low": "منخفضة",
-        "medium": "متوسطة",
-        "high": "عالية",
-        "urgent": "عاجلة"
-      },
-      "entityTypes": {
-        "dossier": "ملف",
-        "case": "قضية"
-      },
-      "help": {
-        "entityType": "اختر نوع الكيان المرتبط بهذه المهمة",
-        "entity": "اختر الملف أو القضية المعنية",
-        "bailiff": "تحذير: تغيير المحضر سينقل المهمة إلى محضر آخر"
-      },
-      "placeholders": {
-        "selectCase": "اختر قضية...",
-        "selectDossier": "اختر ملفاً..."
-      },
       "fields": {
         "missionNumber": "رقم المهمة",
         "title": "العنوان",
@@ -128,28 +107,49 @@
         "priority": "الأولوية",
         "assignDate": "تاريخ التعيين",
         "dueDate": "تاريخ الاستحقاق",
-        "completionDate": "تاريخ الإكمال",
+        "completionDate": "تاريخ الإنجاز",
         "entityType": "نوع الكيان",
         "entity": "الكيان",
         "assignedBailiff": "المحضر المعين",
         "phone": "الهاتف",
         "location": "الموقع"
+      },
+      "missionTypes": {
+        "service": "التنبيه",
+        "inspection": "التفتيش",
+        "seizure": "الحجز",
+        "execution": "التنفيذ",
+        "other": "أخرى"
+      },
+      "statuses": {
+        "scheduled": "مجدولة",
+        "inProgress": "قيد التنفيذ",
+        "completed": "مكتملة",
+        "cancelled": "ملغاة"
+      },
+      "priorities": {
+        "low": "منخفض",
+        "medium": "متوسط",
+        "high": "عالي",
+        "urgent": "عاجل"
+      },
+      "entityTypes": {
+        "dossier": "ملف",
+        "case": "دعوى"
+      },
+      "help": {
+        "entityType": "حدد نوع الكيان المرتبط بهذه المهمة",
+        "entity": "حدد الملف أو الدعوى المعنية",
+        "bailiff": "انتباه: تغيير المحضر سينقل المهمة إلى محضر آخر"
+      },
+      "placeholders": {
+        "selectCase": "حدد دعوى...",
+        "selectDossier": "حدد ملف..."
       }
     },
-    "relations": {
-      "title": "الكيانات المرتبطة",
-      "bailiff": "المحضر",
-      "dossier": "الملف",
-      "lawsuit": "القضية",
-      "empty": "لا يوجد كيان مرتبط"
-    },
-    "stats": {
-      "documents": "المستندات",
-      "duration": "المدة"
-    },
     "missions": {
-      "empty": "لا توجد مهام بعد",
-      "entityName": "مهمة",
+      "empty": "لا توجد مهام حتى الآن",
+      "entityName": "المهمة",
       "toast": {
         "success": {
           "add": "تم إنشاء المهمة بنجاح!",
@@ -173,12 +173,12 @@
     "expenseType": "مصروف"
   },
   "scope": {
-    "client": "عميل"
+    "client": "العميل"
   },
   "fallback": {
     "unknownClient": "عميل غير معروف",
     "unknownDossier": "ملف غير معروف",
-    "noLawsuit": "لا توجد قضية"
+    "noLawsuit": "لا توجد دعوى"
   },
   "form": {
     "title": {
@@ -206,41 +206,41 @@
       "status": "الحالة",
       "description": "الوصف",
       "result": "التقرير / النتيجة",
-      "completionDate": "تاريخ الإكمال",
-      "notes": "ملاحظات",
+      "completionDate": "تاريخ الإنجاز",
+      "notes": "الملاحظات",
       "documents": "المستندات",
       "financialEntries": "رسوم المحضر"
     },
     "placeholders": {
-      "officer": "اختر محضراً...",
-      "missionNumber": "مثال: MIS-2025-001 (يتم توليده تلقائياً إذا كان فارغاً)",
-      "title": "مثال: تبليغ حكم",
-      "description": "وصف تفصيلي للمهمة...",
-      "result": "تقرير تفصيلي عن تنفيذ المهمة...",
+      "officer": "حدد محضرًا...",
+      "missionNumber": "مثال: MIS-2025-001 (يتم إنشاؤه تلقائيًا إذا كان فارغًا)",
+      "title": "مثال: تبليغ سند قضائي",
+      "description": "وصف مفصل للمهمة...",
+      "result": "تقرير مفصل عن تنفيذ المهمة...",
       "notes": "ملاحظات إضافية..."
     },
     "help": {
-      "entityReference": "مرجع الملف أو القضية",
-      "missionNumber": "اختياري - اتركه فارغاً للتوليد التلقائي (MIS-YEAR-XXX)",
-      "result": "يُملأ بعد إكمال المهمة",
-      "completionDate": "تاريخ إكمال المهمة (إن وجد)",
-      "documents": "أضف المستندات المتعلقة بهذه المهمة (PDF, DOC, XLS, PPT, صور, أرشيف)",
-      "financialEntries": "أضف الرسوم المتعلقة بهذه المهمة، سيتم ربطها آلياً بالمهمة والعميل",
-      "bailiffAssigned": "سيتم تعيين هذه المهمة لـ {{name}}",
-      "entityType": "اختر ما إذا كانت المهمة تتعلق بملف أو قضية",
-      "entityReferenceSelect": "اختر الملف أو القضية لهذه المهمة"
+      "entityReference": "مرجع الملف أو الدعوى",
+      "missionNumber": "اختياري - اتركه فارغًا للإنشاء التلقائي (MIS-السنة-XXX)",
+      "result": "يتم تعبئته بعد إكمال المهمة",
+      "completionDate": "تاريخ إنجاز المهمة (إذا تم إكمالها)",
+      "documents": "أضف مستندات متعلقة بهذه المهمة (PDF, DOC, XLS, PPT, صور، أرشيفات)",
+      "financialEntries": "أضف رسومًا متعلقة بهذه المهمة. ستكون هذه الرسوم مرتبطة تلقائيًا بالمهمة والعميل.",
+      "bailiffAssigned": "ستُعين هذه المهمة لـ {{name}}",
+      "entityType": "حدد ما إذا كانت المهمة تتعلق بملف أو بدعوى",
+      "entityReferenceSelect": "حدد الملف أو الدعوى لهذه المهمة"
     },
     "options": {
       "missionType": {
         "Service": "تبليغ",
         "Execution": "تنفيذ",
-        "Observation": "معاينة",
+        "Observation": "مراقبة",
         "Seizure": "حجز",
         "Investigation": "تحقيق"
       },
       "status": {
-        "planned": "مخطط لها",
-        "inProgress": "جارية",
+        "planned": "مجدولة",
+        "inProgress": "قيد التنفيذ",
         "completed": "مكتملة",
         "cancelled": "ملغاة"
       }

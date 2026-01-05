@@ -12,7 +12,7 @@
   "stats": {
     "total": "Total des dossiers",
     "open": "Dossiers ouverts",
-    "closed": "Dossiers clôturés",
+    "closed": "Dossiers fermés",
     "highPriority": "Haute priorité"
   },
   "table": {
@@ -30,7 +30,7 @@
       "open": "Ouvert",
       "inProgress": "En cours",
       "onHold": "En attente",
-      "closed": "Clôturé"
+      "closed": "Fermé"
     },
     "priority": {
       "high": "Haute",
@@ -62,7 +62,7 @@
     "cascadeError": "Erreur lors de la suppression en cascade",
     "cascadeSuccess": {
       "title": "Suppression en cascade",
-      "body": "Dossier et entités liées supprimés"
+      "body": "Dossier et toutes les entités associées supprimées"
     },
     "statusUpdated": "Statut mis à jour : {{status}}",
     "statusTitle": "Statut du dossier",
@@ -86,9 +86,9 @@
     },
     "fields": {
       "caseNumber": {
-        "label": "Reference / Numero",
-        "placeholder": "Ex : DOS-2025-001 (généré automatiquement si vide)",
-        "helper": "Optionnel - Laissez vide pour une génération automatique (DOS-ANNÉE-XXX)"
+        "label": "Référence / Numéro",
+        "placeholder": "Ex : DOS-2025-001 (auto-généré si vide)",
+        "helper": "Optionnel - Laissez vide pour la génération automatique (DOS-ANNÉE-XXX)"
       },
       "title": {
         "label": "Titre du dossier",
@@ -96,7 +96,7 @@
       },
       "clientId": {
         "label": "Client",
-        "helper": "S?lectionnez le client concern?"
+        "helper": "Sélectionnez le client concerné"
       },
       "category": {
         "label": "Catégorie",
@@ -111,7 +111,7 @@
         }
       },
       "priority": {
-        "label": "Priorit?"
+        "label": "Priorité"
       },
       "phase": {
         "label": "Phase",
@@ -119,7 +119,7 @@
           "opening": "Ouverture",
           "investigation": "Instruction",
           "negotiation": "Négociation",
-          "pleading": "Plaidoirie",
+          "pleading": "Plaidoyer",
           "judgment": "Jugement",
           "execution": "Exécution"
         }
@@ -130,7 +130,7 @@
           "open": "Ouvert",
           "inProgress": "En cours",
           "onHold": "En attente",
-          "closed": "Clôturé"
+          "closed": "Fermé"
         }
       },
       "openDate": {
@@ -146,11 +146,11 @@
       },
       "adversaryLawyer": {
         "label": "Avocat adverse",
-        "placeholder": "Nom de l'avocat adverse"
+        "placeholder": "Me. Nom de l'avocat"
       },
       "estimatedValue": {
         "label": "Valeur estimée",
-        "placeholder": "Ex : 50 000 TND"
+        "placeholder": "Ex : 50 000 DTN"
       },
       "courtReference": {
         "label": "Référence du tribunal",
@@ -159,25 +159,25 @@
     }
   },
   "blocker": {
-    "action": "Modifier/Supprimer un dossier",
+    "action": "Modifier/Supprimer le dossier",
     "entityFallback": "Dossier"
   },
   "confirmImpact": {
-    "action": "Modifier la pièce jointe du dossier"
+    "action": "Modifier l'attachement du dossier"
   },
   "errors": {
-    "missingId": "Identifiant de dossier manquant"
+    "missingId": "Identifiant du dossier manquant"
   },
   "detail": {
     "entityName": "Dossier",
-    "notFound": "Dossier introuvable",
+    "notFound": "Dossier non trouvé",
     "deleteConfirm": "Êtes-vous sûr de vouloir supprimer ce dossier ?",
     "defaults": {
       "phases": {
         "opening": "Ouverture",
-        "investigation": "Enquête",
+        "investigation": "Instruction",
         "negotiation": "Négociation",
-        "pleading": "Plaidoirie",
+        "pleading": "Plaidoyer",
         "judgment": "Jugement",
         "execution": "Exécution"
       },
@@ -199,11 +199,11 @@
     },
     "fallback": {
       "na": "N/A",
-      "noDeadlines": "Aucune échéance",
+      "noDeadlines": "Aucun délai",
       "notDefined": "Non défini",
       "unknownClient": "Client inconnu",
       "unassignedClient": "Client non assigné",
-      "nextDeadlineEmpty": "Aucune échéance à venir"
+      "nextDeadlineEmpty": "Aucun délai à venir"
     },
     "quickActions": {
       "status": {
@@ -211,13 +211,13 @@
         "open": "Ouvert",
         "inProgress": "En cours",
         "onHold": "En attente",
-        "closed": "Clôturé"
+        "closed": "Fermé"
       },
       "priority": {
         "label": "Priorité",
         "high": "Haute",
         "medium": "Moyenne",
-        "low": "Faible"
+        "low": "Basse"
       },
       "phase": {
         "label": "Phase",
@@ -229,12 +229,12 @@
       "openingDate": "Date d'ouverture",
       "category": "Catégorie",
       "phase": "Phase",
-      "nextDeadline": "Prochaine échéance"
+      "nextDeadline": "Prochain délai"
     },
     "category": {
       "options": {
         "commercialLaw": "Droit commercial",
-        "familyLaw": "Droit familial",
+        "familyLaw": "Droit de la famille",
         "criminalLaw": "Droit pénal",
         "laborLaw": "Droit du travail",
         "realEstateLaw": "Droit immobilier",
@@ -246,7 +246,7 @@
       "urgency": {
         "critical": "Critique",
         "urgent": "Urgent",
-        "soon": "Prochain",
+        "soon": "Prochainement",
         "normal": "Planifié"
       },
       "viewDetails": "Voir les détails"
@@ -255,10 +255,10 @@
       "documents": "Documents",
       "tasks": "Tâches",
       "lawsuits": "Procès",
-      "netProfit": "Résultat net"
+      "netProfit": "Bénéfice net"
     },
     "tabs": {
-      "overview": "Vue d'ensemble",
+      "overview": "Aperçu",
       "proceedings": "Procès",
       "proceedingsEntity": "un procès",
       "proceedingsAddSubtitle": "Créer un nouveau procès pour ce dossier",
@@ -270,7 +270,7 @@
       "tasksAddSubtitle": "Créer une nouvelle tâche pour ce dossier",
       "missions": "Missions",
       "missionsEntity": "une mission",
-      "missionsAddSubtitle": "Créer une nouvelle mission d'huissier pour ce dossier",
+      "missionsAddSubtitle": "Créer une nouvelle mission de huissier pour ce dossier",
       "financial": "Comptabilité",
       "documents": "Documents",
       "notes": "Notes",
@@ -278,16 +278,16 @@
     },
     "forms": {
       "sessions": {
-        "linkHelpWithCases": "Choisissez si cette audience est liée au dossier ou à un procès spécifique",
+        "linkHelpWithCases": "Choisissez si cette audience est liée à ce dossier ou à un procès spécifique",
         "linkHelpNoCases": "Cette audience sera liée à ce dossier (aucun procès disponible)",
-        "casesEmpty": "Aucun procès disponible. Veuillez en créer un d'abord.",
+        "casesEmpty": "Aucun procès disponible. Veuillez d'abord créer un procès.",
         "caseHelp": "Sélectionnez le procès auquel cette audience sera liée",
         "dossierHelp": "Cette audience sera liée à ce dossier"
       },
       "tasks": {
         "linkHelpWithCases": "Choisissez si cette tâche concerne le dossier en général ou un procès spécifique",
         "linkHelpNoCases": "Cette tâche sera liée au dossier (aucun procès disponible)",
-        "casesEmpty": "Aucun procès disponible. Veuillez en créer un d'abord.",
+        "casesEmpty": "Aucun procès disponible. Veuillez d'abord créer un procès.",
         "caseHelp": "Sélectionnez le procès auquel cette tâche sera liée",
         "dossierHelp": "Cette tâche sera liée à ce dossier"
       },
@@ -299,18 +299,18 @@
       "general": "Informations générales",
       "description": "Description du dossier",
       "adverse": "Partie adverse",
-      "legal": "Informations légales",
+      "legal": "Informations juridiques",
       "fields": {
-        "caseNumber": "Numéro de dossier",
+        "caseNumber": "Numéro du dossier",
         "caseNumberHelp": "Format : DOS-ANNÉE-NUMÉRO",
         "title": "Titre du dossier",
         "client": "Client",
-        "clientHelp": "Attention : Changer le client transférera le dossier vers un autre client",
+        "clientHelp": "Attention : Changer le client transférera le dossier à un autre client",
         "category": "Catégorie",
         "phase": "Phase",
         "openDate": "Date d'ouverture",
-        "nextDeadline": "Prochaine échéance",
-        "nextDeadlineEmpty": "Aucune échéance à venir",
+        "nextDeadline": "Prochain délai",
+        "nextDeadlineEmpty": "Aucun délai à venir",
         "adversaryParty": "Nom",
         "adversaryLawyer": "Avocat",
         "courtReference": "Référence du tribunal",

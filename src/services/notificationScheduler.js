@@ -24,6 +24,7 @@ import {
   getNotificationPreferences,
 } from "../utils/scheduledNotifications";
 import { resolveEntityLink } from "../utils/notificationTemplates";
+import { translateNotificationCopy } from "../utils/notificationVariants";
 import { evaluateAllRules } from "./notificationRules";
 import { t } from "../i18n";
 
@@ -246,31 +247,33 @@ class NotificationScheduler {
     // The notification rules provide titleKey/messageKey with titleParams/messageParams
     let translatedTitle = ruleResult.title || "";
     let translatedMessage = ruleResult.message || "";
+    const titleParams = ruleResult.titleParams || {};
+    const messageParams = { ...(ruleResult.messageParams || {}) };
 
-    // Translate title using i18n key if present
-    if (ruleResult.titleKey) {
-      const titleParams = ruleResult.titleParams || {};
-      // Use count for pluralization if present
-      translatedTitle = t(`notifications:${ruleResult.titleKey}`, titleParams);
+    // Translate nested domain values (priority) if present
+    // Priority values like "Haute", "Moyenne", "Basse" need translation
+    if (messageParams.priority) {
+      const priorityKey = this.getPriorityKey(messageParams.priority);
+      messageParams.priority = t(`notifications:content.priority.${priorityKey}`);
     }
 
-    // Translate message using i18n key if present
-    if (ruleResult.messageKey) {
-      const messageParams = ruleResult.messageParams || {};
+    if (ruleResult.titleKey || ruleResult.messageKey) {
+      const translated = translateNotificationCopy({
+        titleKey: ruleResult.titleKey,
+        messageKey: ruleResult.messageKey,
+        titleParams,
+        messageParams,
+        seedParts: [
+          ruleResult.ruleId,
+          ruleResult.entityId,
+          ruleResult.ruleName,
+          ruleResult.subType,
+        ],
+        timestamp,
+      });
 
-      // Translate nested domain values (priority) if present
-      // Priority values like "Haute", "Moyenne", "Basse" need translation
-      if (messageParams.priority) {
-        const priorityKey = this.getPriorityKey(messageParams.priority);
-        messageParams.priority = t(
-          `notifications:content.priority.${priorityKey}`
-        );
-      }
-
-      translatedMessage = t(
-        `notifications:${ruleResult.messageKey}`,
-        messageParams
-      );
+      translatedTitle = translated.title || translatedTitle;
+      translatedMessage = translated.message || translatedMessage;
     }
 
     const baseNotification = {

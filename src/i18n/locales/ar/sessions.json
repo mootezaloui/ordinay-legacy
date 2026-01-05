@@ -1,8 +1,8 @@
 {
   "page": {
     "title": "الجلسات",
-    "subtitle": "إجمالي {{total}} جلسة",
-    "subtitleFiltered": "إجمالي {{total}} جلسة · المعروضة {{displayed}}"
+    "subtitle": "{{total}} جلسة إجمالاً",
+    "subtitleFiltered": "{{total}} جلسة إجمالاً، {{displayed}} معروضة"
   },
   "actions": {
     "new": "جلسة جديدة",
@@ -21,7 +21,7 @@
       "date": "التاريخ",
       "time": "الوقت",
       "duration": "المدة",
-      "location": "الموقع",
+      "location": "المكان",
       "status": "الحالة",
       "actions": "الإجراءات"
     },
@@ -30,13 +30,13 @@
       "audience": "جلسة",
       "expertise": "خبرة",
       "mediation": "وساطة",
-      "telephone": "هاتف"
+      "telephone": "مكالمة هاتفية"
     },
     "status": {
       "scheduled": "مجدولة",
       "confirmed": "مؤكدة",
-      "pending": "قيد الانتظار",
-      "onHold": "معلقة",
+      "pending": "معلقة",
+      "onHold": "مؤجلة",
       "completed": "مكتملة",
       "cancelled": "ملغاة"
     },
@@ -46,25 +46,25 @@
       "delete": "حذف"
     },
     "empty": "لا توجد جلسات",
-    "emptyFiltered": "لا توجد نتائج",
+    "emptyFiltered": "لا توجد نتائج تطابق الفلاتر",
     "emptyNoDossiers": "أضف ملفاً قبل جدولة جلسة"
   },
   "confirm": {
     "delete": {
       "title": "حذف الجلسة",
-      "message": "هل أنت متأكد أنك تريد حذف هذه الجلسة؟",
+      "message": "هل أنت متأكد من رغبتك في حذف هذه الجلسة؟",
       "confirm": "حذف",
       "cancel": "إلغاء"
     }
   },
   "toasts": {
     "deleteSuccess": "تم حذف الجلسة",
-    "deletedTitle": "تم الحذف",
-    "deleteError": "خطأ أثناء الحذف",
+    "deletedTitle": "محذوفة",
+    "deleteError": "خطأ أثناء حذف الجلسة",
     "statusUpdated": "تم تحديث الحالة: {{status}}",
     "statusTitle": "حالة الجلسة",
     "updateSuccess": "تم تحديث الجلسة بنجاح",
-    "createSuccess": "تمت إضافة الجلسة بنجاح",
+    "createSuccess": "تم إضافة الجلسة بنجاح",
     "saveError": "خطأ أثناء الحفظ"
   },
   "form": {
@@ -79,91 +79,91 @@
     "statusReadonlyHelp": "لا يمكن تغيير الحالة إلا عبر المحدد في القائمة",
     "fields": {
       "title": {
-        "label": "????? ??????",
-        "placeholder": "????: ???? ???????"
+        "label": "عنوان الجلسة",
+        "placeholder": "مثال: جلسة تمهيدية"
       },
       "type": {
-        "label": "?????",
+        "label": "النوع",
         "options": {
-          "hearing": "???? ??????",
-          "consultation": "???????",
-          "mediation": "?????",
-          "expertAssessment": "????? ????",
-          "phoneCall": "?????? ??????",
-          "other": "????"
+          "hearing": "جلسة",
+          "consultation": "استشارة",
+          "mediation": "وساطة",
+          "expertAssessment": "خبرة",
+          "phoneCall": "مكالمة هاتفية",
+          "other": "أخرى"
         }
       },
       "linkType": {
-        "label": "?????? ??",
+        "label": "مرتبطة بـ",
         "options": {
-          "case": "????",
-          "dossier": "???"
+          "case": "قضية",
+          "dossier": "ملف"
         },
-        "helper": "???? ??? ?????? ????? ?? ?????? ????"
+        "helper": "يمكن ربط الجلسة بقضية أو مباشرة بملف"
       },
       "caseId": {
-        "label": "??????",
-        "helper": "???? ?????? ???????"
+        "label": "القضية",
+        "helper": "اختر القضية المعنية"
       },
       "dossierId": {
-        "label": "?????",
-        "helper": "???? ????? ??????"
+        "label": "الملف",
+        "helper": "اختر الملف المعني"
       },
       "date": {
-        "label": "???????"
+        "label": "التاريخ"
       },
       "time": {
-        "label": "?????",
-        "helper": "???? ??? ???????"
+        "label": "الوقت",
+        "helper": "اختر وقت البداية"
       },
       "duration": {
-        "label": "????? ?????????",
-        "helper": "????? ???????? ??????",
+        "label": "المدة المتوقعة",
+        "helper": "المدة المتوقعة للجلسة",
         "options": {
-          "00_15": "15 ?????",
-          "00_30": "30 ?????",
-          "00_45": "45 ?????",
-          "01_00": "???? ?????",
-          "01_30": "???? ????",
-          "02_00": "??????",
-          "02_30": "?????? ????",
-          "03_00": "3 ?????",
-          "04_00": "4 ?????"
+          "00_15": "15 دقيقة",
+          "00_30": "30 دقيقة",
+          "00_45": "45 دقيقة",
+          "01_00": "ساعة واحدة",
+          "01_30": "ساعة ونصف",
+          "02_00": "ساعتان",
+          "02_30": "ساعتان ونصف",
+          "03_00": "3 ساعات",
+          "04_00": "4 ساعات"
         }
       },
       "location": {
-        "label": "??????",
-        "placeholder": "????? ?????? ???"
+        "label": "المكان",
+        "placeholder": "المكتب، المحكمة، إلخ."
       },
       "courtRoom": {
-        "label": "???? ???????",
-        "placeholder": "????: ?????? 5?",
-        "helper": "?????? ??????? ???? ????? ???? ??????"
+        "label": "قاعة المحكمة",
+        "placeholder": "مثال: قاعة 5أ",
+        "helper": "القاعة المحددة التي ستعقد فيها الجلسة"
       },
       "judge": {
-        "label": "??????",
-        "placeholder": "????: ?????? ????",
-        "helper": "?????? ?????? ??? ??? ??????"
+        "label": "القاضي",
+        "placeholder": "مثال: القاضي أحمد",
+        "helper": "القاضي الذي يرأس هذه الجلسة"
       },
       "status": {
-        "label": "??????",
+        "label": "الحالة",
         "options": {
-          "scheduled": "??????",
-          "confirmed": "?????",
-          "pending": "??? ????????",
-          "completed": "??????",
-          "cancelled": "?????"
+          "scheduled": "مجدولة",
+          "confirmed": "مؤكدة",
+          "pending": "معلقة",
+          "completed": "مكتملة",
+          "cancelled": "ملغاة"
         }
       },
       "description": {
-        "label": "?????",
-        "placeholder": "??? ??????..."
+        "label": "الوصف",
+        "placeholder": "وصف الجلسة..."
       }
     }
   },
   "blocker": {
-    "action": "تعديل/حذف جلسة",
-    "entityWithDate": "جلسة بتاريخ {{date}}",
+    "action": "تعديل/حذف الجلسة",
+    "entityWithDate": "جلسة يوم {{date}}",
     "entityFallback": "جلسة"
   },
   "confirmImpact": {
@@ -171,13 +171,13 @@
     "entityFallback": "جلسة"
   },
   "export": {
-    "filename": "jalasat-{{date}}.csv"
+    "filename": "جلسات-{{date}}.csv"
   },
   "detail": {
     "entityName": "جلسة",
     "notFound": "الجلسة غير موجودة",
-    "deleteConfirm": "هل أنت متأكد من حذف هذه الجلسة؟",
-    "subtitle": "{{type}} - {{date}} في {{time}}",
+    "deleteConfirm": "هل أنت متأكد من رغبتك في حذف هذه الجلسة؟",
+    "subtitle": "{{type}} - {{date}} الساعة {{time}}",
     "fallback": {
       "na": "غير متوفر",
       "none": "لا يوجد",
@@ -188,7 +188,7 @@
         "label": "الحالة",
         "scheduled": "مجدولة",
         "confirmed": "مؤكدة",
-        "pending": "قيد الانتظار",
+        "pending": "معلقة",
         "completed": "مكتملة",
         "cancelled": "ملغاة"
       },
@@ -198,7 +198,7 @@
         "hearing": "جلسة",
         "expertise": "خبرة",
         "mediation": "وساطة",
-        "telephone": "هاتف",
+        "telephone": "مكالمة هاتفية",
         "other": "أخرى"
       }
     },
@@ -206,7 +206,7 @@
       "date": "التاريخ",
       "time": "الوقت",
       "duration": "المدة",
-      "location": "الموقع",
+      "location": "المكان",
       "courtRoom": "قاعة المحكمة",
       "judge": "القاضي",
       "participants": "المشاركون"
@@ -214,7 +214,7 @@
     "tabs": {
       "overview": "نظرة عامة",
       "participants": "المشاركون",
-      "documents": "المستندات",
+      "documents": "الوثائق",
       "report": "التقرير",
       "history": "السجل"
     },
@@ -224,8 +224,8 @@
       "unnamed": "مشارك بدون اسم",
       "roles": {
         "lawyer": "محامي",
-        "client": "عميل",
-        "judge": "قاضٍ",
+        "client": "موكل",
+        "judge": "قاضي",
         "witness": "شاهد",
         "expert": "خبير",
         "default": "مشارك"
@@ -240,7 +240,7 @@
         "emailPlaceholder": "name@email.com",
         "phone": "الهاتف",
         "phonePlaceholder": "+216 12 345 678",
-        "phoneHelp": "رقم اختياري للتنسيق في يوم الجلسة"
+        "phoneHelp": "رقم هاتف اختياري للتنسيق يوم الجلسة"
       }
     },
     "overview": {
@@ -251,21 +251,21 @@
         "title": "عنوان الجلسة",
         "linkType": "مرتبطة بـ",
         "linkTypeOptions": {
-          "case": "دعوى",
+          "case": "قضية",
           "dossier": "ملف"
         },
-        "linkTypeHelp": "يمكن ربط الجلسة بدعوى أو مباشرة بملف",
-        "case": "دعوى",
-        "casePlaceholder": "اختر دعوى...",
-        "caseHelp": "اختر الدعوى المعنية",
-        "dossier": "ملف",
+        "linkTypeHelp": "يمكن ربط الجلسة بقضية أو مباشرة بملف",
+        "case": "القضية",
+        "casePlaceholder": "اختر قضية...",
+        "caseHelp": "اختر القضية المعنية",
+        "dossier": "الملف",
         "dossierPlaceholder": "اختر ملفاً...",
         "dossierHelp": "اختر الملف المعني",
         "date": "التاريخ",
         "time": "الوقت",
-        "timeHelp": "اختر وقت بدء الجلسة",
-        "duration": "المدة المقدرة",
-        "durationHelp": "المدة المقدرة للجلسة",
+        "timeHelp": "اختر وقت بداية الجلسة",
+        "duration": "المدة المتوقعة",
+        "durationHelp": "المدة المتوقعة للجلسة",
         "durationOptions": {
           "00_15": "15 دقيقة",
           "00_30": "30 دقيقة",
@@ -277,11 +277,11 @@
           "03_00": "3 ساعات",
           "04_00": "4 ساعات"
         },
-        "location": "الموقع",
+        "location": "المكان",
         "courtRoom": "قاعة المحكمة",
         "courtRoomHelp": "القاعة المحددة لهذه الجلسة",
         "judge": "القاضي",
-        "judgeHelp": "القاضي المترأس لهذه الجلسة"
+        "judgeHelp": "القاضي الذي يرأس هذه الجلسة"
       }
     }
   }

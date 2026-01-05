@@ -2,11 +2,11 @@
   "page": {
     "title": "المهام الشخصية",
     "subtitle": "{{total}} مهمة شخصية",
-    "subtitleFiltered": "{{total}} مهمة شخصية، المعروض {{displayed}}",
+    "subtitleFiltered": "{{total}} مهمة شخصية، {{displayed}} معروضة",
     "actions": {
       "newTask": "مهمة جديدة"
     },
-    "loading": "جارٍ تحميل المهام الشخصية..."
+    "loading": "جاري تحميل المهام الشخصية..."
   },
   "stats": {
     "total": "الإجمالي",
@@ -21,10 +21,10 @@
       "dueDate": "تاريخ الاستحقاق",
       "priority": "الأولوية",
       "status": "الحالة",
-      "actions": "إجراءات"
+      "actions": "الإجراءات"
     },
     "dueDate": {
-      "na": "غير متوفر"
+      "na": "غير متاح"
     },
     "status": {
       "notStarted": "لم تبدأ",
@@ -32,20 +32,20 @@
       "inProgress": "قيد التنفيذ",
       "scheduled": "مجدولة",
       "completed": "مكتملة",
-      "blocked": "محجوبة",
-      "done": "منتهية",
+      "blocked": "متوقفة",
+      "done": "منجزة",
       "cancelled": "ملغاة"
     },
     "priority": {
-      "high": "عالية",
-      "medium": "متوسطة",
-      "low": "منخفضة"
+      "high": "عالي",
+      "medium": "متوسط",
+      "low": "منخفض"
     },
     "categories": {
-      "invoices": "فواتير",
-      "office": "مكتب",
+      "invoices": "الفواتير",
+      "office": "المكتب",
       "personal": "شخصي",
-      "it": "تقني",
+      "it": "تقنية المعلومات",
       "administrative": "إداري",
       "other": "أخرى"
     },
@@ -54,13 +54,13 @@
       "edit": "تعديل",
       "delete": "حذف"
     },
-    "empty": "لا توجد مهام شخصية",
-    "emptyFiltered": "لا توجد نتائج"
+    "empty": "لا توجد مهام شخصية متاحة",
+    "emptyFiltered": "لم يتم العثور على نتائج"
   },
   "confirm": {
     "delete": {
       "title": "حذف المهمة",
-      "message": "هل أنت متأكد من حذف هذه المهمة؟",
+      "message": "هل أنت متأكد أنك تريد حذف هذه المهمة؟",
       "confirm": "حذف",
       "cancel": "إلغاء"
     }
@@ -72,7 +72,7 @@
     },
     "subtitle": {
       "edit": "تعديل المهمة الشخصية",
-      "create": "إضافة مهمة غير مرتبطة بقضايا أو عملاء"
+      "create": "إضافة مهمة غير مرتبطة بالدعاوى أو العملاء"
     },
     "fields": {
       "title": {
@@ -82,10 +82,10 @@
       "category": {
         "label": "الفئة",
         "options": {
-          "invoices": "فواتير",
-          "office": "مكتب",
+          "invoices": "الفواتير",
+          "office": "المكتب",
           "personal": "شخصي",
-          "it": "تقني",
+          "it": "تقنية المعلومات",
           "administrative": "إداري",
           "other": "أخرى"
         }
@@ -96,21 +96,21 @@
       "priority": {
         "label": "الأولوية",
         "options": {
-          "high": "عالية",
-          "medium": "متوسطة",
-          "low": "منخفضة"
+          "high": "عالي",
+          "medium": "متوسط",
+          "low": "منخفض"
         }
       },
       "status": {
         "label": "الحالة"
       },
       "notes": {
-        "label": "ملاحظات",
+        "label": "الملاحظات",
         "placeholder": "ملاحظات إضافية..."
       }
     },
     "help": {
-      "statusLocked": "يمكن تغيير الحالة فقط عبر المحدد في قائمة المهام."
+      "statusLocked": "يمكن تغيير الحالة فقط من خلال محدد القائمة."
     }
   },
   "toasts": {
@@ -119,40 +119,40 @@
     "priorityTitle": "تحديث الأولوية",
     "priorityUpdated": "تم تحديث الأولوية: {{priority}}",
     "deleteSuccess": {
-      "title": "تم الحذف",
+      "title": "تم الحذف بنجاح",
       "body": "تم حذف المهمة الشخصية"
     },
     "updateSuccess": "تم تحديث المهمة بنجاح!",
     "createSuccess": "تمت إضافة المهمة بنجاح!",
-    "saveError": "خطأ أثناء الحفظ",
-    "missingId": "معرّف المهمة الشخصية غير متوفر"
+    "saveError": "خطأ في حفظ المهمة",
+    "missingId": "معرف المهمة الشخصية مفقود"
   },
   "detail": {
     "entityName": "المهمة الشخصية",
     "notFound": "المهمة الشخصية غير موجودة",
-    "deleteConfirm": "هل تريد حذف هذه المهمة الشخصية؟",
-    "subtitle": "أُنشئت في {{date}} · {{category}}",
+    "deleteConfirm": "هل أنت متأكد أنك تريد حذف هذه المهمة الشخصية؟",
+    "subtitle": "تم الإنشاء في {{date}} · {{category}}",
     "quickActions": {
       "status": {
         "label": "الحالة",
         "notStarted": "لم تبدأ",
         "inProgress": "قيد التنفيذ",
-        "blocked": "محجوبة",
-        "done": "منتهية",
+        "blocked": "متوقفة",
+        "done": "منجزة",
         "cancelled": "ملغاة"
       },
       "priority": {
         "label": "الأولوية",
-        "high": "عالية",
-        "medium": "متوسطة",
-        "low": "منخفضة"
+        "high": "عالي",
+        "medium": "متوسط",
+        "low": "منخفض"
       },
       "category": {
         "label": "الفئة",
-        "invoices": "فواتير",
-        "office": "مكتب",
+        "invoices": "الفواتير",
+        "office": "المكتب",
         "personal": "شخصي",
-        "it": "تقني",
+        "it": "تقنية المعلومات",
         "administrative": "إداري",
         "other": "أخرى"
       }
@@ -165,7 +165,7 @@
     },
     "tabs": {
       "overview": "نظرة عامة",
-      "financial": "المالي",
+      "financial": "مالي",
       "financialDescription": "قيود مالية داخلية مرتبطة بهذه المهمة",
       "documents": "المستندات",
       "history": "السجل"
@@ -180,9 +180,9 @@
       }
     },
     "fallback": {
-      "na": "غير متوفر",
-      "noDescription": "لا يوجد وصف",
-      "noNotes": "لا توجد ملاحظات."
+      "na": "غير متاح",
+      "noDescription": "لم يتم تقديم وصف.",
+      "noNotes": "لا توجد ملاحظات حتى الآن."
     }
   }
 }

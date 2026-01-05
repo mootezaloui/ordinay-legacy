@@ -5,9 +5,9 @@
     "clients": "Clients",
     "dossiers": "Dossiers",
     "tasks": "Tâches",
-    "cases": "Procédures",
+    "cases": "Procès",
     "sessions": "Audiences",
-    "personalTasks": "Corvées",
+    "personalTasks": "Tâches personnelles",
     "officers": "Huissiers",
     "accounting": "Comptabilité",
     "chatbot": "ChatBot",
@@ -20,6 +20,6 @@
     "footer": "© 2025 Organia"
   },
   "header": {
-    "brand": "Cabinet"
+    "brand": "LawFirm"
   }
 }

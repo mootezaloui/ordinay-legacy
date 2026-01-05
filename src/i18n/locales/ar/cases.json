@@ -1,16 +1,16 @@
 {
   "page": {
-    "title": "القضايا",
-    "subtitle": "{{total}} قضية إجمالاً",
-    "subtitleFiltered": "{{total}} قضية إجمالاً، المعروض {{displayed}}",
+    "title": "الدعاوى",
+    "subtitle": "{{total}} دعوى في المجموع",
+    "subtitleFiltered": "{{total}} دعوى في المجموع · عرض {{displayed}}",
     "actions": {
-      "newCase": "قضية جديدة",
-      "newCaseDisabled": "لا يمكن إنشاء قضية بدون ملفات. يُرجى إنشاء ملف أولاً."
+      "newCase": "دعوى جديدة",
+      "newCaseDisabled": "لا يمكن إنشاء دعوى بدون ملفات. يرجى إنشاء ملف أولاً."
     },
-    "loading": "جارٍ تحميل القضايا..."
+    "loading": "جاري تحميل الدعاوى..."
   },
   "stats": {
-    "total": "إجمالي القضايا",
+    "total": "إجمالي الدعاوى",
     "inProgress": "قيد التنفيذ",
     "upcoming": "جلسات قادمة",
     "upcomingTrend": "خلال 7 أيام",
@@ -18,13 +18,13 @@
   },
   "table": {
     "columns": {
-      "caseNumber": "رقم القضية",
+      "caseNumber": "رقم الدعوى",
       "title": "العنوان",
       "dossier": "الملف",
       "court": "المحكمة",
       "nextHearing": "الجلسة القادمة",
       "status": "الحالة",
-      "actions": "إجراءات"
+      "actions": "الإجراءات"
     },
     "nextHearing": {
       "none": "لا توجد جلسة"
@@ -32,7 +32,7 @@
     "status": {
       "inProgress": "قيد التنفيذ",
       "onHold": "معلقة",
-      "suspended": "موقوفة",
+      "suspended": "معلقة مؤقتاً",
       "closed": "مغلقة",
       "completed": "مكتملة"
     },
@@ -41,35 +41,35 @@
       "edit": "تعديل",
       "delete": "حذف"
     },
-    "empty": "لا توجد قضايا",
-    "emptyNoDossier": "يرجى إضافة ملف قبل إضافة قضية.",
-    "emptyFiltered": "لا توجد نتائج"
+    "empty": "لم يتم العثور على دعاوى",
+    "emptyNoDossier": "يرجى إضافة ملف قبل إضافة دعوى.",
+    "emptyFiltered": "لم يتم العثور على نتائج"
   },
   "confirm": {
     "delete": {
-      "title": "حذف القضية",
-      "message": "هل أنت متأكد من حذف هذه القضية؟",
+      "title": "حذف الدعوى",
+      "message": "هل أنت متأكد أنك تريد حذف هذه الدعوى؟",
       "confirm": "حذف",
       "cancel": "إلغاء"
     }
   },
   "form": {
     "title": {
-      "edit": "تعديل القضية",
-      "create": "قضية جديدة"
+      "edit": "تعديل الدعوى",
+      "create": "دعوى جديدة"
     },
     "subtitle": {
-      "edit": "تعديل بيانات القضية",
-      "create": "إضافة قضية جديدة"
+      "edit": "تعديل معلومات الدعوى",
+      "create": "إضافة دعوى جديدة"
     },
     "help": {
-      "statusLocked": "يمكن تغيير الحالة فقط عبر المحدد في القائمة"
+      "statusLocked": "يمكن تغيير الحالة فقط باستخدام المحدد في القائمة"
     },
     "fields": {
       "caseNumber": {
         "label": "المرجع / الرقم",
-        "placeholder": "مثال: PRO-2025-001 (يُنشأ تلقائيًا إذا تُرك فارغًا)",
-        "helper": "اختياري - اتركه فارغًا للإنشاء التلقائي (PRO-السنة-XXX)"
+        "placeholder": "مثال: PRO-2025-001 (يتم إنشاؤه تلقائياً إذا كان فارغاً)",
+        "helper": "اختياري - اتركه فارغاً للإنشاء التلقائي (PRO-السنة-XXX)"
       },
       "title": {
         "label": "عنوان الدعوى",
@@ -84,63 +84,63 @@
         "createLabel": "إضافة"
       },
       "filingDate": {
-        "label": "تاريخ الإيداع"
+        "label": "تاريخ التقديم"
       },
       "courtReference": {
-        "label": "رقم مرجع المحكمة",
+        "label": "رقم المرجع القضائي",
         "placeholder": "مثال: TPI-2024-COM-1234",
-        "helper": "رقم مرجع المحكمة لهذه الدعوى (اختياري)"
+        "helper": "رقم المرجع القضائي لهذه القضية (اختياري)"
       },
       "adversaryParty": {
         "label": "الطرف الخصم",
         "placeholder": "اسم الطرف الخصم"
       },
       "adversaryLawyer": {
-        "label": "المحامي الخصم",
-        "placeholder": "اسم المحامي الخصم"
+        "label": "محامي الخصم",
+        "placeholder": "أ.د. اسم المحامي"
       },
       "status": {
-        "label": "حالة الدعوى",
+        "label": "حالة القضية",
         "options": {
-          "inProgress": "قيد المعالجة",
-          "onHold": "معلق",
-          "closed": "مغلق"
+          "inProgress": "قيد التنفيذ",
+          "onHold": "معلقة",
+          "closed": "مغلقة"
         }
       },
       "description": {
         "label": "الوصف",
-        "placeholder": "وصف الدعوى..."
+        "placeholder": "وصف القضية..."
       }
     }
   },
   "toasts": {
-    "statusTitle": "حالة القضية",
+    "statusTitle": "حالة الدعوى",
     "statusUpdated": "تم تحديث الحالة: {{status}}",
     "deleteSuccess": {
       "title": "تم الحذف",
-      "body": "تم حذف القضية"
+      "body": "تم حذف الدعوى"
     },
-    "cascadeError": "خطأ أثناء الحذف المتسلسل",
+    "cascadeError": "حدث خطأ أثناء الحذف المتتالي",
     "cascadeSuccess": {
-      "title": "حذف متسلسل",
-      "body": "تم حذف القضية وجميع الكيانات المرتبطة"
+      "title": "حذف متتالي",
+      "body": "تم حذف الدعوى وجميع الكيانات المرتبطة بها"
     },
-    "updateSuccess": "تم تحديث القضية بنجاح!",
-    "createSuccess": "تمت إضافة القضية بنجاح!",
-    "saveError": "خطأ أثناء الحفظ",
-    "missingId": "معرّف القضية غير متوفر"
+    "updateSuccess": "تم تحديث الدعوى بنجاح!",
+    "createSuccess": "تم إضافة الدعوى بنجاح!",
+    "saveError": "حدث خطأ أثناء الحفظ",
+    "missingId": "معرف الدعوى مفقود"
   },
   "blockerModal": {
-    "actionName": "تعديل/حذف القضية",
-    "entityFallback": "قضية"
+    "actionName": "تعديل/حذف الدعوى",
+    "entityFallback": "دعوى"
   },
   "confirmImpact": {
-    "action": "تغيير ربط القضية"
+    "action": "تغيير ارتباط الدعوى"
   },
   "detail": {
-    "entityName": "قضية",
-    "notFound": "القضية غير موجودة",
-    "deleteConfirm": "هل تريد حذف هذه القضية؟",
+    "entityName": "دعوى",
+    "notFound": "لم يتم العثور على الدعوى",
+    "deleteConfirm": "هل أنت متأكد أنك تريد حذف هذه الدعوى؟",
     "quickActions": {
       "status": {
         "label": "الحالة",
@@ -154,10 +154,10 @@
       "nextHearing": "الجلسة القادمة",
       "at": "في",
       "adversaryLawyer": "محامي الخصم",
-      "noDossier": "لا يوجد ملف مرتبط"
+      "noDossier": "لم يتم تعيين ملف"
     },
     "fallback": {
-      "na": "غير متوفر",
+      "na": "غير متاح",
       "unknownDossier": "ملف غير معروف",
       "noHearings": "لا توجد جلسات",
       "noHearingsScheduled": "لا توجد جلسات مجدولة",
@@ -168,17 +168,17 @@
       "overview": "نظرة عامة",
       "sessions": "الجلسات",
       "tasks": "المهام",
-      "missions": "المهام الميدانية",
-      "financial": "الحسابات",
+      "missions": "المهام",
+      "financial": "المحاسبة",
       "documents": "المستندات",
-      "notes": "الملاحظات",
+      "notes": "ملاحظات",
       "history": "السجل"
     },
     "sessions": {
       "entityName": "جلسة",
-      "addSubtitle": "إنشاء جلسة جديدة لهذه القضية",
+      "addSubtitle": "إنشاء جلسة قضائية جديدة لهذه القضية",
       "help": {
-        "caseLink": "سترتبط هذه الجلسة بهذه القضية",
+        "caseLink": "ستكون هذه الجلسة مرتبطة بهذه القضية",
         "linkType": "هذه الجلسة مرتبطة بهذه القضية"
       },
       "placeholders": {
@@ -189,39 +189,39 @@
       "entityName": "مهمة",
       "addSubtitle": "إنشاء مهمة جديدة لهذه القضية",
       "help": {
-        "parentType": "اختر ما إذا كانت المهمة تخص القضية أو الملف الأب",
-        "caseLink": "سترتبط هذه المهمة بهذه القضية",
-        "dossierLink": "سترتبط هذه المهمة بالملف الأب"
+        "parentType": "اختر ما إذا كانت هذه المهمة تتعلق بالدعوى أو بالملف الأصلي",
+        "caseLink": "ستكون هذه المهمة مرتبطة بهذه الدعوى",
+        "dossierLink": "ستكون هذه المهمة مرتبطة بالملف الأصلي"
       }
     },
     "missions": {
       "entityName": "مهمة",
-      "addSubtitle": "إنشاء مهمة محضر جديدة لهذه القضية",
+      "addSubtitle": "إنشاء مهمة محضر جديدة لهذه الدعوى",
       "help": {
-        "caseLink": "سترتبط هذه المهمة بالقضية {{caseNumber}}"
+        "caseLink": "ستكون هذه المهمة مرتبطة بالدعوى {{caseNumber}}"
       }
     },
     "overview": {
       "general": "معلومات عامة",
-      "description": "وصف القضية",
-      "courtInfo": "بيانات المحكمة",
+      "description": "وصف الدعوى",
+      "courtInfo": "معلومات المحكمة",
       "dates": "تواريخ مهمة",
       "parties": "الأطراف",
       "relatedDossier": "الملف المرتبط",
       "fields": {
-        "caseNumber": "رقم القضية",
-        "title": "عنوان القضية",
+        "caseNumber": "رقم الدعوى",
+        "title": "عنوان الدعوى",
         "court": "المحكمة",
-        "courtReference": "رقم مرجع المحكمة",
-        "filingDate": "تاريخ الإيداع",
-        "adversaryParty": "الخصم",
-        "adversaryLawyer": "المحامي الخصم",
+        "courtReference": "رقم المرجع القضائي",
+        "filingDate": "تاريخ التقديم",
+        "adversaryParty": "الطرف الخصم",
+        "adversaryLawyer": "محامي الخصم",
         "associatedDossier": "الملف المرتبط"
       },
       "courtOptions": {
-        "firstInstance": "محكمة الدرجة الأولى",
+        "firstInstance": "محكمة أول درجة",
         "appeal": "محكمة الاستئناف",
-        "cassation": "محكمة التعقيب"
+        "cassation": "محكمة التمييز"
       },
       "help": {
         "associatedDossier": "اختر الملف المرتبط بهذه القضية"
@@ -233,9 +233,9 @@
     "nextHearing": {
       "badges": {
         "today": "اليوم",
-        "urgent": "عاجلة",
+        "urgent": "عاجل",
         "soon": "قريباً",
-        "scheduled": "مجدولة"
+        "scheduled": "مجدول"
       },
       "viewDetails": "عرض تفاصيل الجلسة"
     }
