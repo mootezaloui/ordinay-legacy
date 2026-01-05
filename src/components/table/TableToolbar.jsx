@@ -35,7 +35,7 @@ export default function TableToolbar({
   }, []);
 
   return (
-    <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+    <div className="relative z-20 px-6 py-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         {/* Left side - Search */}
         <div className="flex-1 max-w-md">
@@ -83,7 +83,7 @@ export default function TableToolbar({
         {/* Right side - Actions */}
         <div className="flex items-center gap-2">
           {/* Column visibility */}
-          <div className="relative" ref={columnMenuRef}>
+          <div className="relative z-30" ref={columnMenuRef}>
             <button
               onClick={() => setShowColumnMenu(!showColumnMenu)}
               className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300"
@@ -99,7 +99,7 @@ export default function TableToolbar({
 
             {/* Column menu dropdown */}
             {showColumnMenu && (
-              <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-slate-800 rounded-lg shadow-2xl border border-slate-200 dark:border-slate-700 z-50 max-h-96 overflow-y-auto">
+              <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-slate-800 rounded-lg shadow-2xl border border-slate-200 dark:border-slate-700 z-40 max-h-[calc(100vh-200px)] overflow-y-auto">
                 <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-semibold text-slate-900 dark:text-white">

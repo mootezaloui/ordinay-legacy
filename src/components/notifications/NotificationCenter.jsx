@@ -7,6 +7,7 @@ import PageLayout from "../layout/PageLayout";
 import PageHeader from "../layout/PageHeader";
 import ContentSection from "../layout/ContentSection";
 import { useTranslation } from "react-i18next";
+import { NotificationTypes, VALID_NOTIFICATION_TYPES } from "../../constants/notificationTypes";
 
 /**
  * NotificationCenter Page
@@ -38,7 +39,13 @@ export default function NotificationCenter() {
     return true;
   });
 
-  const notificationTypes = [...new Set(notifications.map((n) => n.type))];
+  // Use all defined notification types for the filter dropdown
+  // Show types that have notifications, plus all defined types
+  const typesInData = new Set(notifications.map((n) => n.type));
+  const allAvailableTypes = Array.from(new Set([
+    ...typesInData,
+    ...VALID_NOTIFICATION_TYPES
+  ])).sort();
 
   const handleNotificationClick = (notification) => {
     if (!notification.read) {
@@ -98,6 +105,144 @@ export default function NotificationCenter() {
     priority === "urgent"
       ? "bg-red-100 dark:bg-red-900/30"
       : "bg-blue-100 dark:bg-blue-900/30";
+
+  /**
+   * Parse and highlight ALL scan-critical data in notification messages
+   * Covers: titles, names, dates, times, amounts, locations, durations, priorities, status, case numbers
+   * Visual hierarchy: instant data extraction without reading full text
+   */
+  const renderHighlightedMessage = (message) => {
+    if (!message) return message;
+
+    let result = message;
+
+    // Order matters: more specific patterns first to avoid conflicts
+    const patterns = [
+      // === ENTITY NAMES / TITLES (in quotes) ===
+      {
+        regex: /"([^"]+)"/g,
+        replacement: '<span class="inline-flex items-center gap-0.5 font-semibold text-slate-900 dark:text-white"><span>📌</span>"$1"</span>'
+      },
+
+      // === PRIORITY (FR + EN) ===
+      {
+        regex: /priorité\s+([A-Za-zÀ-ÿ]+)/gi,
+        replacement: 'priorité <span class="inline-flex items-center gap-0.5 font-semibold text-amber-600 dark:text-amber-400"><span>⚡</span>$1</span>'
+      },
+      {
+        regex: /Priority:\s*([A-Za-z]+)/gi,
+        replacement: 'Priority: <span class="inline-flex items-center gap-0.5 font-semibold text-amber-600 dark:text-amber-400"><span>⚡</span>$1</span>'
+      },
+      {
+        regex: /Priorité\s*:\s*([A-Za-zÀ-ÿ]+)/gi,
+        replacement: 'Priorité : <span class="inline-flex items-center gap-0.5 font-semibold text-amber-600 dark:text-amber-400"><span>⚡</span>$1</span>'
+      },
+
+      // === LOCATION (FR + EN) ===
+      {
+        regex: /Lieu\s*:\s*([^\n.]+)/gi,
+        replacement: 'Lieu : <span class="inline-flex items-center gap-0.5 font-semibold text-emerald-600 dark:text-emerald-400"><span>📍</span>$1</span>'
+      },
+      {
+        regex: /Location:\s*([^\n.]+)/gi,
+        replacement: 'Location: <span class="inline-flex items-center gap-0.5 font-semibold text-emerald-600 dark:text-emerald-400"><span>📍</span>$1</span>'
+      },
+
+      // === TIMES (à HH:MM / at HH:MM) ===
+      {
+        regex: /\bà\s+(\d{1,2}[h:]\d{2})/gi,
+        replacement: 'à <span class="inline-flex items-center gap-0.5 font-semibold text-violet-600 dark:text-violet-400"><span>⏰</span>$1</span>'
+      },
+      {
+        regex: /\bat\s+(\d{1,2}:\d{2}(?:\s*[AP]M)?)/gi,
+        replacement: 'at <span class="inline-flex items-center gap-0.5 font-semibold text-violet-600 dark:text-violet-400"><span>⏰</span>$1</span>'
+      },
+
+      // === DATES ===
+      // Dates in parentheses (dd/mm/yyyy)
+      {
+        regex: /\((\d{2}\/\d{2}\/\d{4})\)/g,
+        replacement: '(<span class="inline-flex items-center gap-0.5 font-semibold text-blue-600 dark:text-blue-400"><span>📅</span>$1</span>)'
+      },
+      // "le dd/mm/yyyy" or "on dd/mm/yyyy"
+      {
+        regex: /\b(le|on)\s+(\d{2}\/\d{2}\/\d{4})/gi,
+        replacement: '$1 <span class="inline-flex items-center gap-0.5 font-semibold text-blue-600 dark:text-blue-400"><span>📅</span>$2</span>'
+      },
+      // Standalone dates dd/mm/yyyy (not already wrapped)
+      {
+        regex: /(?<![>\/])(\b\d{2}\/\d{2}\/\d{4}\b)(?![<])/g,
+        replacement: '<span class="inline-flex items-center gap-0.5 font-semibold text-blue-600 dark:text-blue-400"><span>📅</span>$1</span>'
+      },
+
+      // === DURATION / COUNTDOWN (FR + EN) ===
+      // "dans X jour(s)" / "in X day(s)"
+      {
+        regex: /dans\s+(\d+)\s+(jour|jours|heure|heures)/gi,
+        replacement: 'dans <span class="inline-flex items-center gap-0.5 font-semibold text-orange-600 dark:text-orange-400"><span>⏳</span>$1 $2</span>'
+      },
+      {
+        regex: /in\s+(\d+)\s+(day|days|hour|hours)/gi,
+        replacement: 'in <span class="inline-flex items-center gap-0.5 font-semibold text-orange-600 dark:text-orange-400"><span>⏳</span>$1 $2</span>'
+      },
+      // "il y a X jour(s)" / "X day(s) ago"
+      {
+        regex: /il y a\s+(\d+)\s+(jour|jours)/gi,
+        replacement: 'il y a <span class="inline-flex items-center gap-0.5 font-semibold text-orange-600 dark:text-orange-400"><span>⏳</span>$1 $2</span>'
+      },
+      {
+        regex: /(\d+)\s+(day|days)\s+ago/gi,
+        replacement: '<span class="inline-flex items-center gap-0.5 font-semibold text-orange-600 dark:text-orange-400"><span>⏳</span>$1 $2</span> ago'
+      },
+      // "depuis X jour(s)"
+      {
+        regex: /depuis\s+(\d+)\s+(jour|jours)/gi,
+        replacement: 'depuis <span class="inline-flex items-center gap-0.5 font-semibold text-orange-600 dark:text-orange-400"><span>⏳</span>$1 $2</span>'
+      },
+
+      // === AMOUNTS / MONEY ===
+      // Amount + TND/EUR/USD
+      {
+        regex: /(\d[\d\s.,]*)\s*(TND|EUR|USD|€|\$|£)/gi,
+        replacement: '<span class="inline-flex items-center gap-0.5 font-semibold text-rose-600 dark:text-rose-400"><span>💰</span>$1 $2</span>'
+      },
+      // Currency symbol first (€50, $100)
+      {
+        regex: /([€$£])\s?(\d[\d\s.,]*)/g,
+        replacement: '<span class="inline-flex items-center gap-0.5 font-semibold text-rose-600 dark:text-rose-400"><span>💰</span>$1$2</span>'
+      },
+
+      // === STATUS KEYWORDS (FR + EN) ===
+      {
+        regex: /\b(en retard|overdue|urgent|URGENT)\b/gi,
+        replacement: '<span class="inline-flex items-center gap-0.5 font-bold text-red-600 dark:text-red-400"><span>🔴</span>$1</span>'
+      },
+      {
+        regex: /\b(aujourd'hui|today|demain|tomorrow)\b/gi,
+        replacement: '<span class="inline-flex items-center gap-0.5 font-semibold text-red-500 dark:text-red-400"><span>📆</span>$1</span>'
+      },
+
+      // === CASE/DOSSIER NUMBERS ===
+      {
+        regex: /dossier\s+([A-Z0-9\-\/]+)/gi,
+        replacement: 'dossier <span class="inline-flex items-center gap-0.5 font-semibold text-indigo-600 dark:text-indigo-400"><span>📁</span>$1</span>'
+      },
+      {
+        regex: /\baffaire\s+([A-Z0-9\-\/]+)/gi,
+        replacement: 'affaire <span class="inline-flex items-center gap-0.5 font-semibold text-indigo-600 dark:text-indigo-400"><span>📁</span>$1</span>'
+      },
+      {
+        regex: /case\s+([A-Z0-9\-\/]+)/gi,
+        replacement: 'case <span class="inline-flex items-center gap-0.5 font-semibold text-indigo-600 dark:text-indigo-400"><span>📁</span>$1</span>'
+      }
+    ];
+
+    patterns.forEach(({ regex, replacement }) => {
+      result = result.replace(regex, replacement);
+    });
+
+    return result;
+  };
 
   return (
     <PageLayout>
@@ -168,7 +313,7 @@ export default function NotificationCenter() {
                 className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm"
               >
                 <option value="all">{t("center.filters.type.options.all")}</option>
-                {notificationTypes.map((type) => (
+                {allAvailableTypes.map((type) => (
                   <option key={type} value={type}>
                     {t(`center.types.${type}`, { defaultValue: type })}
                   </option>
@@ -197,7 +342,7 @@ export default function NotificationCenter() {
                     <div className="flex items-start justify-between gap-2">
                       <div>
                         <p className="text-sm font-semibold text-slate-900 dark:text-white">{notification.title}</p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{notification.message}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1" dangerouslySetInnerHTML={{ __html: renderHighlightedMessage(notification.message, notification.type) }}></p>
                         <div className="flex items-center gap-2 mt-2">
                           <span className={`text-[11px] px-2 py-1 rounded-full ${badge.bg} ${badge.text}`}>
                             {badge.label}

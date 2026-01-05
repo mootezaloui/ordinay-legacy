@@ -275,9 +275,9 @@ export default function Tasks() {
 
   const headerSubtitle = table.isFiltering
     ? t("page.subtitleFiltered", {
-        total: table.originalTotalItems,
-        displayed: table.totalItems,
-      })
+      total: table.originalTotalItems,
+      displayed: table.totalItems,
+    })
     : t("page.subtitle", { total: table.originalTotalItems });
 
   const tableEmptyMessage = table.isFiltering

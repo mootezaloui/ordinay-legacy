@@ -11,6 +11,7 @@ import TaskList from "../components/dashboard/TaskList";
 import { useSettings } from "../contexts/SettingsContext";
 import { useData } from "../contexts/DataContext";
 import { useTranslation } from "react-i18next";
+import { getDashboardSummary } from "../services/api/dashboard";
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -19,19 +20,18 @@ export default function Dashboard() {
   const [isLoadMapCollapsed, setLoadMapCollapsed] = useState(false);
   const { formatDate: formatDisplayDate } = useSettings();
   const { clients, dossiers, tasks, sessions, cases, missions, financialEntries } = useData();
-  // Temporary aliases to remove mock references
-  const mockClients = clients || [];
-  const mockDossiers = dossiers || [];
-  const mockTasks = tasks || [];
-  const mockSessions = sessions || [];
-  const mockCases = cases || [];
-  const mockAccounting = financialEntries || [];
-  const mockOfficersExtended = (missions || []).reduce((acc, m) => {
-    const list = acc[m.officerId] || { missions: [] };
-    list.missions.push(m);
-    acc[m.officerId] = list;
-    return acc;
-  }, {});
+  const initialSummary = {
+    totalClients: 0,
+    clientsDelta: 0,
+    activeDossiers: 0,
+    newDossiersThisWeek: 0,
+    pendingTasks: 0,
+    tasksDueToday: 0,
+    revenue: 0,
+    revenueDelta: 0,
+  };
+  const [summary, setSummary] = useState(initialSummary);
+  const [isLoadingSummary, setIsLoadingSummary] = useState(true);
 
   useEffect(() => {
     if (typeof window !== "undefined" && window.innerWidth < 768) {
@@ -40,42 +40,56 @@ export default function Dashboard() {
     }
   }, [sessions, cases, tasks, t]);
 
-  // Calculate real stats from mock data
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchSummary = async () => {
+      try {
+        setIsLoadingSummary(true);
+        const data = await getDashboardSummary();
+        if (isMounted) {
+          setSummary(data);
+        }
+      } catch (error) {
+        console.error("[Dashboard] Failed to load dashboard summary:", error);
+        if (isMounted) {
+          setSummary(initialSummary);
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingSummary(false);
+        }
+      }
+    };
+
+    fetchSummary();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Adapt backend summary to UI structure
   const stats = useMemo(() => {
-    const activeClients = clients.filter(c => c.status === "Active").length;
-    const activeDossiers = dossiers.filter(d => d.status === "Open").length;
-    const pendingTasks = tasks.filter(t => t.status !== "Completed").length;
-    const todayTasks = tasks.filter(t => t.dueDate === new Date().toISOString().split('T')[0]).length;
-
-    // Calculate revenue (sum of paid invoices)
-    const paidInvoices = financialEntries.filter(i => i.status === "Paid");
-    const revenue = paidInvoices.reduce((sum, inv) => {
-      const amount = parseFloat(inv.amount.replace(/[^0-9.]/g, '')) || 0;
-      return sum + amount;
-    }, 0);
-
     return {
       clients: {
-        total: clients.length,
-        active: activeClients,
-        trend: 12, // Mock trend
+        total: summary.totalClients,
+        trend: summary.clientsDelta,
       },
       dossiers: {
-        total: dossiers.length,
-        active: activeDossiers,
-        newThisWeek: 3, // Mock
+        active: summary.activeDossiers,
+        newThisWeek: summary.newDossiersThisWeek,
       },
       tasks: {
-        total: tasks.length,
-        pending: pendingTasks,
-        dueToday: todayTasks,
+        pending: summary.pendingTasks,
+        dueToday: summary.tasksDueToday,
       },
       revenue: {
-        total: revenue,
-        trend: 23, // Mock trend
+        total: summary.revenue,
+        trend: summary.revenueDelta,
       },
     };
-  }, [clients, dossiers, tasks, financialEntries]);
+  }, [summary]);
 
   // Generate recent activities from data
   const recentActivities = useMemo(() => {
@@ -130,11 +144,12 @@ export default function Dashboard() {
   // Get upcoming events
   const upcomingEvents = useMemo(() => {
     const events = [];
+    const now = new Date();
 
     // Upcoming sessions
     sessions.forEach(session => {
       const sessionDate = new Date(`${session.date}T${session.time || '00:00'}`);
-      if (sessionDate > new Date()) {
+      if (sessionDate > now) {
         events.push({
           id: `session-${session.id}`,
           type: session.type === "Audience" ? "hearing" : "session",
@@ -149,7 +164,7 @@ export default function Dashboard() {
     // Upcoming hearings from cases
     cases.forEach(caseItem => {
       const hearingDate = new Date(caseItem.nextHearing);
-      if (hearingDate > new Date()) {
+      if (hearingDate > now) {
         events.push({
           id: `case-${caseItem.id}`,
           type: "hearing",
@@ -164,7 +179,11 @@ export default function Dashboard() {
     // Task deadlines
     tasks.forEach(task => {
       const dueDate = new Date(task.dueDate);
-      if (dueDate > new Date() && task.status !== "Completed") {
+      if (
+        dueDate > now &&
+        task.status !== "Done" &&
+        task.status !== "Cancelled"
+      ) {
         events.push({
           id: `task-${task.id}`,
           type: "deadline",
@@ -177,7 +196,7 @@ export default function Dashboard() {
 
     // Sort by date
     return events.sort((a, b) => new Date(a.date) - new Date(b.date));
-  }, []);
+  }, [sessions, cases, tasks, t]);
 
   // Get urgent tasks (high priority or due soon)
   const urgentTasks = useMemo(() => {
@@ -188,7 +207,8 @@ export default function Dashboard() {
       .filter(task => {
         const dueDate = new Date(task.dueDate);
         return (
-          task.status !== "Completed" &&
+          task.status !== "Done" &&
+          task.status !== "Cancelled" &&
           (task.priority === "High" || dueDate <= threeDaysFromNow)
         );
       })
@@ -371,39 +391,49 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
             label={t("dashboard.stats.totalClients")}
-            value={stats.clients.total}
+            value={isLoadingSummary ? "—" : stats.clients.total}
             icon="fas fa-users"
             color="blue"
-            trend={stats.clients.trend}
-            trendLabel={t("dashboard.stats.trendVsLastMonth")}
+            trend={isLoadingSummary ? undefined : stats.clients.trend}
+            trendLabel={!isLoadingSummary ? t("dashboard.stats.trendVsLastMonth") : undefined}
             onClick={() => navigate("/clients")}
           />
 
           <StatCard
             label={t("dashboard.stats.activeDossiers")}
-            value={stats.dossiers.active}
+            value={isLoadingSummary ? "—" : stats.dossiers.active}
             icon="fas fa-folder-open"
             color="purple"
-            trendLabel={t("dashboard.stats.newThisWeek", { count: stats.dossiers.newThisWeek })}
+            trendLabel={
+              !isLoadingSummary
+                ? t("dashboard.stats.newThisWeek", { count: stats.dossiers.newThisWeek })
+                : undefined
+            }
             onClick={() => navigate("/dossiers")}
           />
 
           <StatCard
             label={t("dashboard.stats.pendingTasks")}
-            value={stats.tasks.pending}
+            value={isLoadingSummary ? "—" : stats.tasks.pending}
             icon="fas fa-tasks"
             color="amber"
-            trendLabel={t("dashboard.stats.dueToday", { count: stats.tasks.dueToday })}
+            trendLabel={
+              !isLoadingSummary ? t("dashboard.stats.dueToday", { count: stats.tasks.dueToday }) : undefined
+            }
             onClick={() => navigate("/tasks")}
           />
 
           <StatCard
             label={t("dashboard.stats.revenue")}
-            value={`${stats.revenue.total.toLocaleString('fr-TN')} ${t("dashboard.stats.currency")}`}
+            value={
+              isLoadingSummary
+                ? "—"
+                : `${stats.revenue.total.toLocaleString('fr-TN')} ${t("dashboard.stats.currency")}`
+            }
             icon="fas fa-dollar-sign"
             color="green"
-            trend={stats.revenue.trend}
-            trendLabel={t("dashboard.stats.trendVsLastMonth")}
+            trend={isLoadingSummary ? undefined : stats.revenue.trend}
+            trendLabel={!isLoadingSummary ? t("dashboard.stats.trendVsLastMonth") : undefined}
             onClick={() => navigate("/accounting")}
           />
         </div>
@@ -626,9 +656,21 @@ export default function Dashboard() {
                 </div>
                 <div className="space-y-2">
                   {[
-                    { label: t("dashboard.quickStats.dossiers.inProgress"), value: stats.dossiers.active, color: "blue" },
-                    { label: t("dashboard.quickStats.dossiers.pending"), value: dossiers.filter(d => d.status === "En Pending").length, color: "amber" },
-                    { label: t("dashboard.quickStats.dossiers.closed"), value: dossiers.filter(d => d.status === "Closed").length, color: "green" },
+                    {
+                      label: t("dashboard.quickStats.dossiers.inProgress"),
+                      value: dossiers.filter(d => d.status === "Open" || d.status === "In Progress").length,
+                      color: "blue",
+                    },
+                    {
+                      label: t("dashboard.quickStats.dossiers.pending"),
+                      value: dossiers.filter(d => d.status === "On Hold").length,
+                      color: "amber",
+                    },
+                    {
+                      label: t("dashboard.quickStats.dossiers.closed"),
+                      value: dossiers.filter(d => d.status === "Closed").length,
+                      color: "green",
+                    },
                   ].map((item) => (
                     <div key={item.label} className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
@@ -654,9 +696,21 @@ export default function Dashboard() {
                 </div>
                 <div className="space-y-2">
                   {[
-                    { label: t("dashboard.quickStats.tasks.high"), value: tasks.filter(t => t.priority === "High" && t.status !== "Completed").length, color: "red" },
-                    { label: t("dashboard.quickStats.tasks.medium"), value: tasks.filter(t => t.priority === "Medium" && t.status !== "Completed").length, color: "amber" },
-                    { label: t("dashboard.quickStats.tasks.low"), value: tasks.filter(t => t.priority === "Low" && t.status !== "Completed").length, color: "blue" },
+                    {
+                      label: t("dashboard.quickStats.tasks.high"),
+                      value: tasks.filter(t => t.priority === "High" && t.status !== "Done" && t.status !== "Cancelled").length,
+                      color: "red",
+                    },
+                    {
+                      label: t("dashboard.quickStats.tasks.medium"),
+                      value: tasks.filter(t => t.priority === "Medium" && t.status !== "Done" && t.status !== "Cancelled").length,
+                      color: "amber",
+                    },
+                    {
+                      label: t("dashboard.quickStats.tasks.low"),
+                      value: tasks.filter(t => t.priority === "Low" && t.status !== "Done" && t.status !== "Cancelled").length,
+                      color: "blue",
+                    },
                   ].map((item) => (
                     <div key={item.label} className="flex items-center justify-between">
                       <div className="flex items-center gap-2">

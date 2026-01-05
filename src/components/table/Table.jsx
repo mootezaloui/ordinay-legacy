@@ -6,8 +6,8 @@
 
 export default function Table({ children, className = "" }) {
   return (
-    <div className="w-full overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
-      <table className={`w-full border-collapse ${className}`}>
+    <div className="w-full overflow-x-hidden rounded-lg border border-slate-200 dark:border-slate-700">
+      <table className={`w-full table-fixed border-collapse ${className}`}>
         {children}
       </table>
     </div>

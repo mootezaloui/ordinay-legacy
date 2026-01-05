@@ -4,12 +4,12 @@
  * Provides consistent card-like container for content blocks
  */
 
-export default function ContentSection({ 
-  children, 
+export default function ContentSection({
+  children,
   title,
   actions,
   className = "",
-  allowOverflow = false // New prop to allow dropdown overflow
+  allowOverflow = true // Default to visible overflow to avoid clipping overlays like dropdowns
 }) {
   return (
     <div className={`bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 ${allowOverflow ? 'overflow-visible' : 'overflow-hidden'} ${className}`}>

@@ -77,6 +77,25 @@ export function NotificationProvider({ children }) {
   const [alerts, setAlerts] = useState([]);
   const { canNotifyType, notificationsEnabled, notificationPrefs } = useSettings();
 
+  const sortNotificationsByTimestamp = useCallback((list = []) => {
+    const safeList = Array.isArray(list) ? [...list] : [];
+    const getTime = (item) => {
+      const value = item?.timestamp ?? item?.created_at ?? item?.createdAt;
+      const time = value ? new Date(value).getTime() : 0;
+      return Number.isFinite(time) ? time : 0;
+    };
+
+    safeList.sort((a, b) => getTime(b) - getTime(a));
+    return safeList;
+  }, []);
+
+  const setNotificationsSorted = useCallback((updater) => {
+    setNotifications((prev) => {
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      return sortNotificationsByTimestamp(next);
+    });
+  }, [sortNotificationsByTimestamp]);
+
   const shouldNotify = useCallback((payload) => {
     const type = payload?.type || payload?.context;
     return canNotifyType(type);
@@ -118,8 +137,12 @@ export function NotificationProvider({ children }) {
           'session': 'session',
           'mission': 'mission',
           'financial_entry': 'financial_entry',
+          'financialEntry': 'financial_entry',
           'personal_task': 'personal_task',
+          'personalTask': 'personal_task',
           'document': 'document',
+          'app': 'app',
+          'system': 'system',
         };
         return typeMap[type] || null;
       };
@@ -202,7 +225,7 @@ export function NotificationProvider({ children }) {
       };
 
       console.log("[NOTIFICATION] Adding notification:", frontendNotification);
-      setNotifications(prev => [frontendNotification, ...prev]);
+      setNotificationsSorted(prev => [frontendNotification, ...prev]);
       return frontendNotification.id;
     } catch (error) {
       console.error("[NOTIFICATION] Failed to create notification:", error);
@@ -217,10 +240,10 @@ export function NotificationProvider({ children }) {
         entityId: notification.entityId,
         ...notification,
       };
-      setNotifications(prev => [localNotification, ...prev]);
+      setNotificationsSorted(prev => [localNotification, ...prev]);
       return localNotification.id;
     }
-  }, [shouldNotify, notifications]);
+  }, [shouldNotify, notifications, setNotificationsSorted]);
 
   // Load notifications from API on mount
   useEffect(() => {
@@ -231,30 +254,48 @@ export function NotificationProvider({ children }) {
         // Handle case where API returns undefined or null
         if (!apiNotifications || !Array.isArray(apiNotifications)) {
           console.warn("API returned invalid notifications data:", apiNotifications);
-          setNotifications([]);
+          setNotificationsSorted([]);
           return;
         }
 
         // Transform API notifications to frontend format
-        const transformedNotifications = apiNotifications.map(n => ({
-          id: n.id,
-          title: n.title,
-          message: n.message,
-          severity: n.severity,
-          priority: n.severity,
-          status: n.status,
-          read: n.status === "read",
-          timestamp: n.created_at,
-          entityType: n.entity_type,
-          entityId: n.entity_id,
-          scheduledAt: n.scheduled_at,
-          readAt: n.read_at,
-          type: "app", // Default type, can be enhanced based on entity_type
-          icon: getIconForEntityType(n.entity_type, n.severity),
-          link: getLinkForEntity(n.entity_type, n.entity_id),
-        }));
+        const transformedNotifications = apiNotifications.map(n => {
+          // Map entity_type to notification type
+          const typeMap = {
+            'task': 'task',
+            'personal_task': 'personalTask',
+            'session': 'session',
+            'case': 'case',
+            'mission': 'mission',
+            'financial_entry': 'financialEntry',
+            'dossier': 'dossier',
+            'client': 'client',
+            'document': 'document',
+          };
 
-        setNotifications(transformedNotifications);
+          // Use entity_type to determine type, fallback to 'app'
+          const notificationType = n.entity_type ? typeMap[n.entity_type] || 'app' : 'app';
+
+          return {
+            id: n.id,
+            title: n.title,
+            message: n.message,
+            severity: n.severity,
+            priority: n.severity,
+            status: n.status,
+            read: n.status === "read",
+            timestamp: n.created_at,
+            entityType: n.entity_type,
+            entityId: n.entity_id,
+            scheduledAt: n.scheduled_at,
+            readAt: n.read_at,
+            type: notificationType,
+            icon: getIconForEntityType(n.entity_type, n.severity),
+            link: getLinkForEntity(n.entity_type, n.entity_id),
+          };
+        });
+
+        setNotificationsSorted(transformedNotifications);
 
         // Also cache in localStorage for offline access
         localStorage.setItem("organia_notifications", JSON.stringify(transformedNotifications));
@@ -266,19 +307,19 @@ export function NotificationProvider({ children }) {
         if (saved) {
           try {
             const parsed = JSON.parse(saved);
-            setNotifications(parsed);
+            setNotificationsSorted(parsed);
           } catch (parseError) {
             console.error("Failed to parse cached notifications:", parseError);
-            setNotifications([]);
+            setNotificationsSorted([]);
           }
         } else {
-          setNotifications([]);
+          setNotificationsSorted([]);
         }
       }
     }
 
     loadNotifications();
-  }, []);
+  }, [setNotificationsSorted]);
 
   // Load entity data for the notification scheduler
   useEffect(() => {
@@ -345,7 +386,7 @@ export function NotificationProvider({ children }) {
     return () => {
       clearInterval(dataRefreshInterval);
     };
-  }, []);
+  }, [setNotificationsSorted]);
 
   // Start scheduler in separate effect with proper dependencies
   useEffect(() => {
@@ -366,12 +407,12 @@ export function NotificationProvider({ children }) {
     if (notifications.length > 0) {
       localStorage.setItem("organia_notifications", JSON.stringify(notifications));
     }
-  }, [notifications]);
+  }, [notifications, setNotificationsSorted]);
 
   // Remove alert
   const removeAlert = useCallback((alertId) => {
     setAlerts(prev => prev.filter(a => a.id !== alertId));
-  }, []);
+  }, [setNotificationsSorted]);
 
   // Add alert (temporary banner notification)
   const addAlert = useCallback((alert) => {
@@ -404,17 +445,17 @@ export function NotificationProvider({ children }) {
   const markAsRead = useCallback(async (notificationId) => {
     try {
       await notificationService.markAsRead(notificationId);
-      setNotifications(prev =>
+      setNotificationsSorted(prev =>
         prev.map(n => n.id === notificationId ? { ...n, read: true, status: "read" } : n)
       );
     } catch (error) {
       console.error(`Failed to mark notification ${notificationId} as read:`, error);
       // Still update locally on error for better UX
-      setNotifications(prev =>
+      setNotificationsSorted(prev =>
         prev.map(n => n.id === notificationId ? { ...n, read: true, status: "read" } : n)
       );
     }
-  }, []);
+  }, [setNotificationsSorted]);
 
   // Mark all as read
   const markAllAsRead = useCallback(async () => {
@@ -423,25 +464,25 @@ export function NotificationProvider({ children }) {
       if (unreadIds.length > 0) {
         await notificationService.markAllAsRead(unreadIds);
       }
-      setNotifications(prev => prev.map(n => ({ ...n, read: true, status: "read" })));
+      setNotificationsSorted(prev => prev.map(n => ({ ...n, read: true, status: "read" })));
     } catch (error) {
       console.error("Failed to mark all notifications as read:", error);
       // Still update locally on error for better UX
-      setNotifications(prev => prev.map(n => ({ ...n, read: true, status: "read" })));
+      setNotificationsSorted(prev => prev.map(n => ({ ...n, read: true, status: "read" })));
     }
-  }, [notifications]);
+  }, [notifications, setNotificationsSorted]);
 
   // Delete notification
   const deleteNotification = useCallback(async (notificationId) => {
     try {
       await notificationService.deleteNotification(notificationId);
-      setNotifications(prev => prev.filter(n => n.id !== notificationId));
+      setNotificationsSorted(prev => prev.filter(n => n.id !== notificationId));
     } catch (error) {
       console.error(`Failed to delete notification ${notificationId}:`, error);
       // Still update locally on error for better UX
-      setNotifications(prev => prev.filter(n => n.id !== notificationId));
+      setNotificationsSorted(prev => prev.filter(n => n.id !== notificationId));
     }
-  }, []);
+  }, [setNotificationsSorted]);
 
   // Clear all notifications (backend + local)
   const clearAll = useCallback(async () => {
@@ -454,10 +495,10 @@ export function NotificationProvider({ children }) {
     } catch (error) {
       console.error("Failed to clear notifications on backend:", error);
     } finally {
-      setNotifications([]);
+      setNotificationsSorted([]);
       localStorage.removeItem("organia_notifications");
     }
-  }, [notifications]);
+  }, [notifications, setNotificationsSorted]);
 
   // Get unread count
   const unreadCount = notifications.filter(n => !n.read).length;
