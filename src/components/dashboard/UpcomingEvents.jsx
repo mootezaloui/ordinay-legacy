@@ -29,11 +29,20 @@ export default function UpcomingEvents({ events, maxItems = 5 }) {
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
 
-    if (diffMs < 0) return "Passed";
-    if (diffHours < 1) return "Soon";
-    if (diffHours < 24) return `In ${diffHours}h`;
-    if (diffDays < 7) return `In ${diffDays}d`;
-    return formatDate(eventDate);
+    if (diffMs < 0) {
+      return { label: t("dashboard.upcomingEvents.time.passed"), isUrgent: false };
+    }
+    if (diffHours < 1) {
+      return { label: t("dashboard.upcomingEvents.time.soon"), isUrgent: true };
+    }
+    if (diffHours < 24) {
+      return { label: t("dashboard.upcomingEvents.time.inHours", { count: diffHours }), isUrgent: true };
+    }
+    if (diffDays < 7) {
+      return { label: t("dashboard.upcomingEvents.time.inDays", { count: diffDays }), isUrgent: false };
+    }
+
+    return { label: formatDate(eventDate), isUrgent: false };
   };
 
   const displayedEvents = events.slice(0, maxItems);
@@ -42,8 +51,7 @@ export default function UpcomingEvents({ events, maxItems = 5 }) {
     <div className="space-y-3">
       {displayedEvents.map((event) => {
         const colors = getEventColor(event.type);
-        const timeUntil = getTimeUntil(event.date);
-        const isUrgent = timeUntil.includes("h") || timeUntil === "Soon";
+        const { label: timeUntil, isUrgent } = getTimeUntil(event.date);
 
         return (
           <div

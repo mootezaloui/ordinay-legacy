@@ -136,16 +136,16 @@ export default function QuickActions({ onDataChange }) {
       }
 
       const messages = {
-        client: `Client "${formData.name}" created successfully !`,
-        dossier: `Dossier "${formData.caseNumber || formData.title}" created successfully !`,
-        task: `Task "${formData.title}" created successfully !`,
-        session: `Session "${formData.title}" scheduled successfully !`,
+        client: t("dashboard.quickActions.toasts.clientSuccess", { name: formData.name, ns: "common" }),
+        dossier: t("dashboard.quickActions.toasts.dossierSuccess", { reference: formData.caseNumber || formData.title, ns: "common" }),
+        task: t("dashboard.quickActions.toasts.taskSuccess", { title: formData.title, ns: "common" }),
+        session: t("dashboard.quickActions.toasts.sessionSuccess", { title: formData.title, ns: "common" }),
       };
 
       notify.success({
         context: entityType,
         title: getFormTitle(entityType, false),
-        message: messages[entityType] || "created susccessfully !",
+        message: messages[entityType] || t("dashboard.quickActions.toasts.genericSuccess", { ns: "common" }),
       });
 
       navigateToDetail(entityType, newEntity?.id);
@@ -155,8 +155,8 @@ export default function QuickActions({ onDataChange }) {
       console.error(`Error creating ${entityType}:`, error);
       notify.error({
         context: entityType,
-        title: "Creation Failed",
-        message: `Error during creation: ${error.message}`,
+        title: t("dashboard.quickActions.toasts.errorTitle", { ns: "common" }),
+        message: t("dashboard.quickActions.toasts.errorMessage", { ns: "common", message: error.message }),
       });
     } finally {
       setIsLoading(false);
@@ -183,7 +183,7 @@ export default function QuickActions({ onDataChange }) {
             return {
               ...field,
               options: [
-                { value: "", label: "Select a dossier..." },
+                { value: "", label: t("dashboard.quickActions.placeholders.dossier", { ns: "common" }) },
                 ...dossierOptions,
               ],
             };
@@ -192,7 +192,7 @@ export default function QuickActions({ onDataChange }) {
             return {
               ...field,
               options: [
-                { value: "", label: "Select a case..." },
+                { value: "", label: t("dashboard.quickActions.placeholders.case", { ns: "common" }) },
                 ...caseOptions,
               ],
             };
@@ -209,7 +209,7 @@ export default function QuickActions({ onDataChange }) {
             return {
               ...field,
               options: [
-                { value: "", label: "Select a case..." },
+                { value: "", label: t("dashboard.quickActions.placeholders.case", { ns: "common" }) },
                 ...caseOptions,
               ],
             };
@@ -218,7 +218,7 @@ export default function QuickActions({ onDataChange }) {
             return {
               ...field,
               options: [
-                { value: "", label: "Select a dossier..." },
+                { value: "", label: t("dashboard.quickActions.placeholders.dossier", { ns: "common" }) },
                 ...dossierOptions,
               ],
             };

@@ -176,6 +176,22 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
       return;
     }
 
+    if (result.requiresConfirmation) {
+      setValidationResult(result);
+      setPendingAction({
+        action: 'edit',
+        entryId: entry.id,
+        data: entry,
+        newData: entry,
+        mutate: () => {
+          setEditingEntry(entry);
+          setIsModalOpen(true);
+        }
+      });
+      setConfirmImpactModalOpen(true);
+      return;
+    }
+
     setEditingEntry(entry);
     setIsModalOpen(true);
   };
@@ -188,16 +204,16 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
       entryId: id,
       data: entry,
       newData: null,
-    mutate: async () => {
-      if (await confirm({
-        title: t("dialog.detail.financial.delete.title", { ns: "common" }),
-        message: t("dialog.detail.financial.delete.message", { ns: "common" }),
-        confirmText: t("dialog.detail.financial.delete.confirm", { ns: "common" }),
-        cancelText: t("dialog.detail.financial.delete.cancel", { ns: "common" }),
-        variant: "danger"
-      })) {
-          const result = deleteFinancialEntry(id);
-          if (!result.success) {
+      mutate: async () => {
+        if (await confirm({
+          title: t("dialog.detail.financial.delete.title", { ns: "common" }),
+          message: t("dialog.detail.financial.delete.message", { ns: "common" }),
+          confirmText: t("dialog.detail.financial.delete.confirm", { ns: "common" }),
+          cancelText: t("dialog.detail.financial.delete.cancel", { ns: "common" }),
+          variant: "danger"
+        })) {
+          const result = await deleteFinancialEntry(id, { skipConfirmation: true });
+          if (!result.ok) {
             if (result.result) {
               setValidationResult(result.result);
               setBlockerModalOpen(true);
@@ -1717,8 +1733,8 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
           setPendingAction(null);
         }}
         onConfirm={handleConfirmImpact}
-        actionName="confirm modification"
-        impactSummary={validationResult?.impactSummary || []}
+        actionName={validationResult?.actionName || "confirm modification"}
+        impactSummary={validationResult?.impactSummary || validationResult?.warnings || []}
         entityName={pendingAction?.newData?.description || selectedEntry?.description || editingEntry?.description || ''}
       />
 

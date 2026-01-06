@@ -28,8 +28,10 @@
     "status": {
       "notStarted": "لم تبدأ",
       "inProgress": "قيد التنفيذ",
+      "pending": "معلقة",
       "onHold": "معلقة",
       "completed": "مكتملة",
+      "scheduled": "مجدولة",
       "blocked": "محظورة",
       "done": "منجزة",
       "cancelled": "ملغاة"
@@ -175,6 +177,8 @@
         "label": "الحالة",
         "notStarted": "لم تبدأ",
         "inProgress": "قيد التنفيذ",
+        "pending": "معلقة",
+        "scheduled": "مجدولة",
         "blocked": "محظورة",
         "done": "منجزة",
         "cancelled": "ملغاة"

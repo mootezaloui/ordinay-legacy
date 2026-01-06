@@ -13,6 +13,19 @@
         "dossier": "Créer un nouveau dossier juridique",
         "task": "Créer une nouvelle tâche à effectuer",
         "session": "Planifier une nouvelle séance ou rendez-vous"
+      },
+      "placeholders": {
+        "dossier": "Sélectionner un dossier...",
+        "case": "Sélectionner une affaire..."
+      },
+      "toasts": {
+        "clientSuccess": "Client \"{{name}}\" créé avec succès !",
+        "dossierSuccess": "Dossier \"{{reference}}\" créé avec succès !",
+        "taskSuccess": "Tâche \"{{title}}\" créée avec succès !",
+        "sessionSuccess": "Séance \"{{title}}\" planifiée avec succès !",
+        "genericSuccess": "Création réussie !",
+        "errorTitle": "Échec de création",
+        "errorMessage": "Erreur lors de la création : {{message}}"
       }
     },
     "stats": {
@@ -29,11 +42,60 @@
     },
     "urgentTasks": {
       "title": "Tâches Urgentes ({{count}})",
-      "empty": "Aucune tâche urgente ! Excellent travail pour rester à jour."
+      "empty": "Aucune tâche urgente ! Excellent travail pour rester à jour.",
+      "viewAll": "Voir toutes les tâches ({{count}})"
     },
     "upcomingEvents": {
       "title": "Événements à Venir ({{count}})",
-      "empty": "Aucun événement à venir programmé."
+      "empty": "Aucun événement à venir programmé.",
+      "time": {
+        "passed": "Échu",
+        "soon": "Bientôt",
+        "inHours_one": "Dans {{count}} heure",
+        "inHours_other": "Dans {{count}} heures",
+        "inDays_one": "Dans {{count}} jour",
+        "inDays_other": "Dans {{count}} jours"
+      }
+    },
+    "workload": {
+      "title": "Charge de travail (90 jours)",
+      "show": "Afficher la charge",
+      "hide": "Masquer",
+      "subtitle": "Signal de charge pour les 90 prochains jours - uniquement les volumes.",
+      "guiding": "Projection = anticipation de la charge, pas un calendrier.",
+      "pressureLabel": "Charge : {{level}}",
+      "pressureHint": "Basée sur les 7 prochains jours",
+      "buckets": {
+        "immediate": "Prochains 7 jours",
+        "near": "8-30 jours",
+        "upcoming": "31-90 jours"
+      },
+      "range": {
+        "immediate": "Aujourd'hui à J+7",
+        "near": "J+8 à J+30",
+        "upcoming": "J+31 à J+90"
+      },
+      "entities": {
+        "tasks": "Tâches",
+        "hearings": "Audiences",
+        "missions": "Missions"
+      },
+      "counts": {
+        "task_one": "{{count}} tâche",
+        "task_other": "{{count}} tâches",
+        "hearing_one": "{{count}} audience",
+        "hearing_other": "{{count}} audiences",
+        "mission_one": "{{count}} mission",
+        "mission_other": "{{count}} missions"
+      },
+      "pressure": {
+        "calm": "Léger",
+        "steady": "Modéré",
+        "heavy": "Chargé",
+        "critical": "Critique"
+      },
+      "empty": "Aucune charge à venir dans les 90 prochains jours.",
+      "emptyBucket": "Aucun élément dans cette fenêtre."
     },
     "projection": {
       "title": "Projection (30-90 jours)",
@@ -50,16 +112,20 @@
       "empty": "Aucun événement à venir détecté."
     },
     "loadMap": {
-      "title": "Charge à Venir (par semaine)",
-      "show": "Afficher la Charge",
-      "hide": "Masquer la Charge",
-      "empty": "Aucune charge à venir détectée.",
-      "weekLabel": "Semaine {{week}}",
+      "title": "Charge hebdomadaire (roulante)",
+      "show": "Afficher la charge hebdo",
+      "hide": "Masquer la charge",
+      "empty": "Aucune charge détectée pour les prochaines semaines.",
+      "week": {
+        "this": "Cette semaine",
+        "next": "Semaine prochaine",
+        "inN": "Dans {{count}} semaines",
+        "beyond": "Au-delà"
+      },
+      "range": "{{start}} - {{end}}",
+      "beyondRange": "Après 4 semaines",
       "itemsCount_one": "{{count}} élément",
-      "itemsCount_other": "{{count}} éléments",
-      "tooltipNone": "Aucune charge",
-      "tooltipType_one": "{{count}} {{type}}",
-      "tooltipType_other": "{{count}} {{type}}"
+      "itemsCount_other": "{{count}} éléments"
     },
     "recentActivity": {
       "title": "Activité Récente",

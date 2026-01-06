@@ -313,21 +313,37 @@
     "edit": {
       "blocked": {
         "entryNotFound": "Financial entry not found",
-        "entryPaid": "This financial entry is already paid.\n\nPaid entries cannot be modified to ensure financial integrity.",
         "dossierClosed": "This entry is linked to Dossier \"{{caseNumber}}\" which is {{status}}.\n\nEntries from closed Dossiers cannot be modified.",
         "caseClosed": "This entry is linked to case \"{{caseNumber}}\" which is closed.\n\nEntries from closed cases cannot be modified."
+      },
+      "warning": {
+        "entryPaid": "This financial entry is marked as paid. Editing it will be recorded and balances will be recalculated.",
+        "lead": "This entry is already paid. Updating it will create a correction trail.",
+        "balanceImpact": "Client and dossier balances will be recomputed after you save.",
+        "auditTrail": "Previous amount and status will be preserved in history with timestamps and actor.",
+        "visibility": "A history event will note that a paid entry was corrected."
       }
     },
     "delete": {
       "blocked": {
-        "entryNotFound": "Financial entry not found",
-        "entryPaid": "This financial entry is paid.\n\nPaid entries cannot be deleted. You must create a corrective entry."
+        "entryNotFound": "Financial entry not found"
+      },
+      "warning": {
+        "entryPaid": "This financial entry is paid. Deleting it will be logged with previous values preserved.",
+        "lead": "This entry is paid. Deleting it requires confirmation and will leave an audit trail.",
+        "balanceImpact": "Balances will be recalculated after the deletion.",
+        "auditTrail": "Previous amount, status, and details will remain in history."
       }
     },
     "changeStatus": {
       "blocked": {
-        "entryNotFound": "Financial entry not found",
-        "alreadyPaid": "This entry is already marked as paid.\n\nPaid entries cannot be reverted to a previous status."
+        "entryNotFound": "Financial entry not found"
+      },
+      "warning": {
+        "alreadyPaid": "This entry is paid. Changing its status will be logged and balances will be recalculated.",
+        "lead": "You are changing the status of a paid entry.",
+        "balanceImpact": "Financial totals will adjust to reflect the new status.",
+        "auditTrail": "Previous and new statuses will be stored in history with timestamps."
       }
     }
   },

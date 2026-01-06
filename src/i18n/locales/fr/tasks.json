@@ -28,8 +28,10 @@
     "status": {
       "notStarted": "Non commencée",
       "inProgress": "En cours",
+      "pending": "En attente",
       "onHold": "En attente",
       "completed": "Terminée",
+      "scheduled": "Planifiée",
       "blocked": "Bloquée",
       "done": "Faite",
       "cancelled": "Annulée"
@@ -175,6 +177,8 @@
         "label": "Statut",
         "notStarted": "Non commencée",
         "inProgress": "En cours",
+        "pending": "En attente",
+        "scheduled": "Planifiée",
         "blocked": "Bloquée",
         "done": "Faite",
         "cancelled": "Annulée"

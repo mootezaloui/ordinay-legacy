@@ -300,7 +300,7 @@ export default function NotificationDropdown({ isOpen, onToggle, onClose }) {
           </div>
 
           {recentNotifications.length > 0 ? (
-            <div className="max-h-[400px] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-700">
+            <div className="max-h-[400px] overflow-y-auto scrollbar-default">
               {recentNotifications.map((notification) => (
                 <div
                   key={notification.id}

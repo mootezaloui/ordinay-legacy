@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { useSettings } from "../../contexts/SettingsContext";
 import { useTranslation } from "react-i18next";
+import { translateAssignee, translatePriority, translateStatus } from "../../utils/entityTranslations";
 
 /**
  * TaskList Component
@@ -10,7 +11,7 @@ import { useTranslation } from "react-i18next";
 export default function TaskList({ tasks, title = "Urgent Tasks", maxItems = 5 }) {
   const navigate = useNavigate();
   const { formatDate } = useSettings();
-  const { t } = useTranslation("common");
+  const { t } = useTranslation(["common", "tasks"]);
 
   const getPriorityColor = (priority) => {
     const colors = {
@@ -39,6 +40,9 @@ export default function TaskList({ tasks, title = "Urgent Tasks", maxItems = 5 }
       {displayedTasks.map((task) => {
         const priorityColors = getPriorityColor(task.priority);
         const isOverdue = new Date(task.dueDate) < new Date();
+        const translatedStatus = translateStatus(task.status, "tasks", t);
+        const translatedPriority = translatePriority(task.priority, t, "tasks");
+        const translatedAssignee = translateAssignee(task.assignedTo, t, "tasks");
 
         return (
           <div
@@ -74,13 +78,13 @@ export default function TaskList({ tasks, title = "Urgent Tasks", maxItems = 5 }
                   {task.assignedTo && (
                     <div className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
                       <i className="fas fa-user text-xs"></i>
-                      <span>{task.assignedTo}</span>
+                      <span>{translatedAssignee}</span>
                     </div>
                   )}
 
                   {/* Status Badge */}
                   <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(task.status)}`}>
-                    {task.status}
+                    {translatedStatus}
                   </span>
                 </div>
               </div>
@@ -89,7 +93,7 @@ export default function TaskList({ tasks, title = "Urgent Tasks", maxItems = 5 }
               <div className="flex-shrink-0">
                 <span className={`inline-flex items-center gap-1 px-2 py-1 ${priorityColors.bg} ${priorityColors.text} rounded text-xs font-medium`}>
                   <i className={`${priorityColors.icon} text-xs`}></i>
-                  {task.priority}
+                  {translatedPriority}
                 </span>
               </div>
             </div>
@@ -114,7 +118,7 @@ export default function TaskList({ tasks, title = "Urgent Tasks", maxItems = 5 }
           onClick={() => navigate("/tasks")}
           className="w-full py-2 text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/10 rounded-lg transition-colors font-medium"
         >
-          View all tasks ({tasks.length})
+          {t("dashboard.urgentTasks.viewAll", { count: tasks.length })}
           <i className="fas fa-arrow-right ml-2 text-xs"></i>
         </button>
       )}

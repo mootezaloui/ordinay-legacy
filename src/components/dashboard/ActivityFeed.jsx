@@ -32,10 +32,10 @@ export default function ActivityFeed({ activities, maxItems = 5 }) {
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
 
-    if (diffMins < 1) return "Now";
-    if (diffMins < 60) return `${diffMins} min ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
+    if (diffMins < 1) return t("detail.history.time.justNow");
+    if (diffMins < 60) return t("detail.history.time.minutesAgo", { count: diffMins });
+    if (diffHours < 24) return t("detail.history.time.hoursAgo", { count: diffHours });
+    if (diffDays < 7) return t("detail.history.time.daysAgo", { count: diffDays });
     return formatDate(date);
   };
 

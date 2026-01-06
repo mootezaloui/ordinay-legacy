@@ -313,21 +313,37 @@
     "edit": {
       "blocked": {
         "entryNotFound": "Écriture comptable introuvable",
-        "entryPaid": "Cette écriture comptable est déjà payée.\n\nLes écritures payées ne peuvent pas être modifiées pour garantir l'intégrité financière.",
         "dossierClosed": "Cette écriture est liée au dossier \"{{caseNumber}}\" qui est {{status}}.\n\nLes écritures des dossiers fermés ne peuvent pas être modifiées.",
         "caseClosed": "Cette écriture est liée au procès \"{{caseNumber}}\" qui est fermé.\n\nLes écritures des procès fermés ne peuvent pas être modifiées."
+      },
+      "warning": {
+        "entryPaid": "Cette écriture est marquée comme payée. La modifier sera journalisé et recalculera les soldes.",
+        "lead": "Cette écriture est déjà payée. La mettre à jour créera une trace de correction.",
+        "balanceImpact": "Les soldes client et dossier seront recalculés après l'enregistrement.",
+        "auditTrail": "Les montants et statuts précédents seront conservés dans l'historique avec date et auteur.",
+        "visibility": "Un événement d'historique indiquera qu'une écriture payée a été corrigée."
       }
     },
     "delete": {
       "blocked": {
-        "entryNotFound": "Écriture comptable introuvable",
-        "entryPaid": "Cette écriture comptable est payée.\n\nLes écritures payées ne peuvent pas être supprimées. Vous devez créer une écriture corrective."
+        "entryNotFound": "Écriture comptable introuvable"
+      },
+      "warning": {
+        "entryPaid": "Cette écriture est payée. La supprimer sera journalisé et conservera les valeurs précédentes.",
+        "lead": "Cette écriture est payée. Sa suppression nécessite confirmation et laissera une trace.",
+        "balanceImpact": "Les soldes seront recalculés après la suppression.",
+        "auditTrail": "Le montant, le statut et les détails précédents resteront dans l'historique."
       }
     },
     "changeStatus": {
       "blocked": {
-        "entryNotFound": "Écriture comptable introuvable",
-        "alreadyPaid": "Cette écriture est déjà marquée comme payée.\n\nLes écritures payées ne peuvent pas être ramenées à un statut précédent."
+        "entryNotFound": "Écriture comptable introuvable"
+      },
+      "warning": {
+        "alreadyPaid": "Cette écriture est payée. Modifier son statut sera journalisé et recalculera les soldes.",
+        "lead": "Vous modifiez le statut d'une écriture payée.",
+        "balanceImpact": "Les totaux financiers s'ajusteront selon le nouveau statut.",
+        "auditTrail": "Les anciens et nouveaux statuts seront enregistrés dans l'historique avec date."
       }
     }
   },

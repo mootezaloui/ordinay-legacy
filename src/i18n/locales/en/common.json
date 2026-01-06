@@ -13,6 +13,19 @@
         "dossier": "Create a new legal dossier",
         "task": "Create a new task to be performed",
         "session": "Schedule a new session or appointment"
+      },
+      "placeholders": {
+        "dossier": "Select a dossier...",
+        "case": "Select a case..."
+      },
+      "toasts": {
+        "clientSuccess": "Client \"{{name}}\" created successfully!",
+        "dossierSuccess": "Dossier \"{{reference}}\" created successfully!",
+        "taskSuccess": "Task \"{{title}}\" created successfully!",
+        "sessionSuccess": "Session \"{{title}}\" scheduled successfully!",
+        "genericSuccess": "Created successfully!",
+        "errorTitle": "Creation failed",
+        "errorMessage": "Error during creation: {{message}}"
       }
     },
     "stats": {
@@ -29,11 +42,60 @@
     },
     "urgentTasks": {
       "title": "Urgent Tasks ({{count}})",
-      "empty": "No urgent tasks! Great job staying on top of things."
+      "empty": "No urgent tasks! Great job staying on top of things.",
+      "viewAll": "View all tasks ({{count}})"
     },
     "upcomingEvents": {
       "title": "Upcoming Events ({{count}})",
-      "empty": "No upcoming events scheduled."
+      "empty": "No upcoming events scheduled.",
+      "time": {
+        "passed": "Passed",
+        "soon": "Soon",
+        "inHours_one": "In {{count}} hour",
+        "inHours_other": "In {{count}} hours",
+        "inDays_one": "In {{count}} day",
+        "inDays_other": "In {{count}} days"
+      }
+    },
+    "workload": {
+      "title": "Workload Health (90 days)",
+      "show": "Show workload",
+      "hide": "Hide",
+      "subtitle": "Workload signal for the next 90 days - counts only, no titles.",
+      "guiding": "Projection means anticipating pressure, not listing events.",
+      "pressureLabel": "Load: {{level}}",
+      "pressureHint": "Based on the next 7 days",
+      "buckets": {
+        "immediate": "Next 7 days",
+        "near": "8-30 days",
+        "upcoming": "31-90 days"
+      },
+      "range": {
+        "immediate": "Today to day 7",
+        "near": "Day 8 to 30",
+        "upcoming": "Day 31 to 90"
+      },
+      "entities": {
+        "tasks": "Tasks",
+        "hearings": "Hearings",
+        "missions": "Missions"
+      },
+      "counts": {
+        "task_one": "{{count}} task",
+        "task_other": "{{count}} tasks",
+        "hearing_one": "{{count}} hearing",
+        "hearing_other": "{{count}} hearings",
+        "mission_one": "{{count}} mission",
+        "mission_other": "{{count}} missions"
+      },
+      "pressure": {
+        "calm": "Light",
+        "steady": "Moderate",
+        "heavy": "High",
+        "critical": "Critical"
+      },
+      "empty": "No upcoming workload in the next 90 days.",
+      "emptyBucket": "No items in this window."
     },
     "projection": {
       "title": "Projection (30-90 days)",
@@ -50,16 +112,20 @@
       "empty": "No upcoming events detected."
     },
     "loadMap": {
-      "title": "Upcoming Load (per week)",
-      "show": "Show Load",
-      "hide": "Hide Load",
-      "empty": "No upcoming load detected.",
-      "weekLabel": "Week {{week}}",
+      "title": "Weekly workload (rolling)",
+      "show": "Show weekly load",
+      "hide": "Hide weekly load",
+      "empty": "No workload detected for the coming weeks.",
+      "week": {
+        "this": "This week",
+        "next": "Next week",
+        "inN": "In {{count}} weeks",
+        "beyond": "Beyond"
+      },
+      "range": "{{start}} - {{end}}",
+      "beyondRange": "After 4 weeks",
       "itemsCount_one": "{{count}} item",
-      "itemsCount_other": "{{count}} items",
-      "tooltipNone": "No load",
-      "tooltipType_one": "{{count}} {{type}}",
-      "tooltipType_other": "{{count}} {{type}}"
+      "itemsCount_other": "{{count}} items"
     },
     "recentActivity": {
       "title": "Recent Activity",

@@ -2255,12 +2255,12 @@ export function DataProvider({ children }) {
     return validation;
   };
 
-  const deleteFinancialEntry = async (id) => {
+  const deleteFinancialEntry = async (id, { skipConfirmation = false } = {}) => {
     const prev = financialEntries.find((e) => e.id === id);
     const validation = validateMutation("financialEntry", "delete", id, {
       data: prev,
       entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
-    }, integrityIssues);
+    }, integrityIssues, skipConfirmation);
     if (!validation.ok) return validation;
 
     console.log('[DataContext.deleteFinancialEntry] Deleting financial entry ID:', id);

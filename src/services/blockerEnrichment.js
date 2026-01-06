@@ -43,17 +43,17 @@ export function enrichBlockers(
 ) {
   const data = getData(context);
 
-  console.log('[enrichBlockers] All blockers:', blockers);
+  console.log("[enrichBlockers] All blockers:", blockers);
 
   if (!blockers || blockers.length === 0) {
     return [];
   }
 
   return blockers.map((blocker) => {
-    console.log('[enrichBlockers] Processing blocker:', blocker);
+    console.log("[enrichBlockers] Processing blocker:", blocker);
     // Try to parse and enrich each blocker
     const enriched = parseBlocker(blocker, entityType, entityId, action, data);
-    console.log('[enrichBlockers] Enriched to:', enriched?.type);
+    console.log("[enrichBlockers] Enriched to:", enriched?.type);
 
     // If we couldn't enrich it, return as plain blocker
     if (!enriched) {
@@ -92,7 +92,11 @@ function parseBlocker(blocker, entityType, entityId, action, data) {
   }
 
   // Pattern 2.5: Open Dossiers (English and French)
-  if (blocker.includes("open Dossier") || blocker.includes("dossier ouvert") || blocker.includes("dossiers ouverts")) {
+  if (
+    blocker.includes("open Dossier") ||
+    blocker.includes("dossier ouvert") ||
+    blocker.includes("dossiers ouverts")
+  ) {
     return parseDossierBlockerEnglish(blocker, entityType, entityId, data);
   }
 
@@ -121,30 +125,24 @@ function parseBlocker(blocker, entityType, entityId, action, data) {
   const includesBalance = normalizedBlocker.includes("balance");
   const isEnglishFinancial = includesUnpaid && includesBalance;
 
-  console.log('[parseBlocker] Checking financial:', {
+  console.log("[parseBlocker] Checking financial:", {
     blocker,
     includesUnpaid,
     includesBalance,
     includesUnpaidBalance: blocker.includes("Unpaid balance"),
-    includesUnpaidClientBalance: blocker.includes("Unpaid client balance")
+    includesUnpaidClientBalance: blocker.includes("Unpaid client balance"),
   });
   if (isEnglishFinancial) {
     return parseFinancialBlockerEnglish(blocker, entityType, entityId, data);
   }
 
   // Pattern 6: Parent is closed (edit restrictions)
-  if (
-    blocker.includes("belongs to") &&
-    (blocker.includes("closed"))
-  ) {
+  if (blocker.includes("belongs to") && blocker.includes("closed")) {
     return parseClosedParentBlocker(blocker, entityType, entityId, data);
   }
 
   // Pattern 7: Cannot create under closed parent
-  if (
-    blocker.includes("Cannot create") &&
-    (blocker.includes("closed"))
-  ) {
+  if (blocker.includes("Cannot create") && blocker.includes("closed")) {
     return parseCreateUnderClosedParentBlocker(blocker, entityType, entityId);
   }
 
@@ -227,12 +225,18 @@ function parseTaskBlocker(blocker, entityType, entityId, data) {
     type: "task",
     reason: blocker,
     items,
-    summary: tasks.length > 1
-      ? t("detail.blocker.enrichment.summary.incompleteTasks", { count: tasks.length })
-      : t("detail.blocker.enrichment.summary.incompleteTask", { count: tasks.length }),
-    helpText: entityType === "dossier"
-      ? t("detail.blocker.enrichment.helpText.closeDossierTasks")
-      : t("detail.blocker.enrichment.helpText.closeLawsuitTasks"),
+    summary:
+      tasks.length > 1
+        ? t("detail.blocker.enrichment.summary.incompleteTasks", {
+            count: tasks.length,
+          })
+        : t("detail.blocker.enrichment.summary.incompleteTask", {
+            count: tasks.length,
+          }),
+    helpText:
+      entityType === "dossier"
+        ? t("detail.blocker.enrichment.helpText.closeDossierTasks")
+        : t("detail.blocker.enrichment.helpText.closeLawsuitTasks"),
     actions: [],
   };
 }
@@ -247,9 +251,7 @@ function parseCaseBlocker(blocker, entityType, entityId, data) {
     const dossier = data.dossiers.find((d) => d.id == entityId);
     if (dossier) {
       const proceedings = data.cases.filter((c) => c.dossierId === dossier.id);
-      cases = proceedings.filter(
-        (proc) => proc.status !== "Closed"
-      );
+      cases = proceedings.filter((proc) => proc.status !== "Closed");
     }
   }
 
@@ -288,7 +290,8 @@ function parseCaseBlocker(blocker, entityType, entityId, data) {
     reason: blocker,
     items,
     summary: `${cases.length} open Lawsuit${cases.length > 1 ? "s" : ""}`,
-    helpText: "To close this dossier, all related lawsuits must be closed first. You can close each lawsuit individually.",
+    helpText:
+      "To close this dossier, all related lawsuits must be closed first. You can close each lawsuit individually.",
     actions: [],
   };
 }
@@ -345,7 +348,8 @@ function parseSessionBlocker(blocker, entityType, entityId, data) {
     summary: `${sessions.length} upcoming Hearing${
       sessions.length > 1 ? "s" : ""
     }`,
-    helpText: "To close this lawsuit, all upcoming hearings must be completed or cancelled first. You can mark hearings as complete individually.",
+    helpText:
+      "To close this lawsuit, all upcoming hearings must be completed or cancelled first. You can mark hearings as complete individually.",
     actions: [],
   };
 }
@@ -416,9 +420,10 @@ function parseMissionBlocker(blocker, entityType, entityId, data) {
     summary: `${missions.length} active Mission${
       missions.length > 1 ? "s" : ""
     }`,
-    helpText: entityType === "dossier"
-      ? "To close this dossier, all active missions must be completed or cancelled first. You can complete each mission individually."
-      : "To close this lawsuit, all active missions must be completed or cancelled first. You can complete each mission individually.",
+    helpText:
+      entityType === "dossier"
+        ? "To close this dossier, all active missions must be completed or cancelled first. You can complete each mission individually."
+        : "To close this lawsuit, all active missions must be completed or cancelled first. You can complete each mission individually.",
     actions: [],
   };
 }
@@ -483,9 +488,10 @@ function parseFinancialBlocker(blocker, entityType, entityId, data) {
     reason: blocker,
     items,
     summary: blocker,
-    helpText: entityType === "dossier"
-      ? "To close this dossier, all financial balances must be settled. You can mark entries as paid or create new payment entries to balance the account."
-      : "To mark this client as inactive, all financial balances must be settled. You can mark entries as paid or create new payment entries to balance the account.",
+    helpText:
+      entityType === "dossier"
+        ? "To close this dossier, all financial balances must be settled. You can mark entries as paid or create new payment entries to balance the account."
+        : "To mark this client as inactive, all financial balances must be settled. You can mark entries as paid or create new payment entries to balance the account.",
     actions: [],
   };
 }
@@ -587,7 +593,8 @@ function parseClosedParentBlocker(blocker, entityType, entityId, data) {
     reason: blocker,
     parentInfo,
     actions,
-    helpText: "This item belongs to a closed parent entity and cannot be modified. You must reopen the parent first.",
+    helpText:
+      "This item belongs to a closed parent entity and cannot be modified. You must reopen the parent first.",
   };
 }
 
@@ -607,7 +614,8 @@ function parseCreateUnderClosedParentBlocker(blocker) {
         description: "You must select an active parent",
       },
     ],
-    helpText: "You cannot create items under a closed parent entity. Please select an active parent or reopen the closed one.",
+    helpText:
+      "You cannot create items under a closed parent entity. Please select an active parent or reopen the closed one.",
   };
 }
 
@@ -627,8 +635,10 @@ function parsePaidFinancialEntryBlocker(blocker, entityType, entityId) {
         icon: "fas fa-external-link-alt",
       },
     ],
-    warning: "Paid financial entries cannot be modified to ensure financial integrity.",
-    helpText: "This entry has been marked as paid and is locked to maintain financial records integrity. Create a new entry if you need to make adjustments.",
+    warning:
+      "This paid entry requires a confirmation and will be fully audited if changed.",
+    helpText:
+      "Paid entries stay editable. Any change will be recorded with the previous amount and status, and balances will be recomputed.",
   };
 }
 
@@ -641,10 +651,11 @@ function parseTemporalBlocker(blocker, entityType, entityId) {
     reason: blocker,
     // Temporal blockers are informational - user must manually correct dates
     // Add a placeholder item to prevent "resolved" status
-    items: [{ id: 'temporal-validation', message: blocker }],
+    items: [{ id: "temporal-validation", message: blocker }],
     actions: [],
     warning: "Please correct the dates to comply with legal chronology.",
-    helpText: "The dates entered violate temporal constraints. Ensure all dates follow proper chronological order and legal requirements.",
+    helpText:
+      "The dates entered violate temporal constraints. Ensure all dates follow proper chronological order and legal requirements.",
   };
 }
 
@@ -680,9 +691,14 @@ function parseDossierBlockerEnglish(blocker, entityType, entityId, data) {
     type: "dossier",
     reason: blocker,
     items,
-    summary: dossiers.length > 1
-      ? t("detail.blocker.enrichment.summary.openDossiers", { count: dossiers.length })
-      : t("detail.blocker.enrichment.summary.openDossier", { count: dossiers.length }),
+    summary:
+      dossiers.length > 1
+        ? t("detail.blocker.enrichment.summary.openDossiers", {
+            count: dossiers.length,
+          })
+        : t("detail.blocker.enrichment.summary.openDossier", {
+            count: dossiers.length,
+          }),
     helpText: t("detail.blocker.enrichment.helpText.inactivateClientDossiers"),
     actions: [],
   };
@@ -696,9 +712,10 @@ function parseCaseBlockerEnglish(blocker, entityType, entityId, data) {
 
   if (entityType === "client") {
     const clientDossiers = data.dossiers.filter((d) => d.clientId == entityId);
-    cases = data.cases.filter((c) =>
-      clientDossiers.some((d) => d.id === c.dossierId) &&
-      c.status !== "Closed"
+    cases = data.cases.filter(
+      (c) =>
+        clientDossiers.some((d) => d.id === c.dossierId) &&
+        c.status !== "Closed"
     );
   } else if (entityType === "dossier") {
     const dossier = data.dossiers.find((d) => d.id == entityId);
@@ -738,9 +755,11 @@ function parseCaseBlockerEnglish(blocker, entityType, entityId, data) {
   // Context-aware helpText
   let helpText = "All related lawsuits must be closed first...";
   if (entityType === "dossier") {
-    helpText = "To close this dossier, all related lawsuits must be closed first. You can close each lawsuit individually.";
+    helpText =
+      "To close this dossier, all related lawsuits must be closed first. You can close each lawsuit individually.";
   } else if (entityType === "client") {
-    helpText = "To mark this client as inactive, all related lawsuits must be closed first. You can close each lawsuit individually.";
+    helpText =
+      "To mark this client as inactive, all related lawsuits must be closed first. You can close each lawsuit individually.";
   }
 
   return {
@@ -767,12 +786,18 @@ function parseTaskBlockerEnglish(blocker, entityType, entityId, data) {
 
     tasks = data.tasks.filter((task) => {
       if (task.dossierId) {
-        return clientDossiers.some((d) => d.id === task.dossierId) &&
-          task.status !== "Done" && task.status !== "Cancelled";
+        return (
+          clientDossiers.some((d) => d.id === task.dossierId) &&
+          task.status !== "Done" &&
+          task.status !== "Cancelled"
+        );
       }
       if (task.caseId && task.parentType === "case") {
-        return clientCases.some((c) => c.id === task.caseId) &&
-          task.status !== "Done" && task.status !== "Cancelled";
+        return (
+          clientCases.some((c) => c.id === task.caseId) &&
+          task.status !== "Done" &&
+          task.status !== "Cancelled"
+        );
       }
       return false;
     });
@@ -787,14 +812,17 @@ function parseTaskBlockerEnglish(blocker, entityType, entityId, data) {
             (task.parentType === "case" &&
               proceedings.some((p) => p.id == task.caseId))
         )
-        .filter((task) => task.status !== "Done" && task.status !== "Cancelled");
+        .filter(
+          (task) => task.status !== "Done" && task.status !== "Cancelled"
+        );
     }
   } else if (entityType === "case") {
     tasks = data.tasks.filter(
       (task) =>
         task.parentType === "case" &&
         task.caseId == entityId &&
-        task.status !== "Done" && task.status !== "Cancelled"
+        task.status !== "Done" &&
+        task.status !== "Cancelled"
     );
   }
 
@@ -823,13 +851,17 @@ function parseTaskBlockerEnglish(blocker, entityType, entityId, data) {
     ],
   }));
 
-  let helpText = "All related tasks must be completed first. You can mark tasks as complete individually.";
+  let helpText =
+    "All related tasks must be completed first. You can mark tasks as complete individually.";
   if (entityType === "dossier") {
-    helpText = "To close this dossier, all related tasks must be completed first. You can mark tasks as complete individually.";
+    helpText =
+      "To close this dossier, all related tasks must be completed first. You can mark tasks as complete individually.";
   } else if (entityType === "case") {
-    helpText = "To close this lawsuit, all related tasks must be completed first. You can mark tasks as complete individually.";
+    helpText =
+      "To close this lawsuit, all related tasks must be completed first. You can mark tasks as complete individually.";
   } else if (entityType === "client") {
-    helpText = "To mark this client as inactive, all related tasks must be completed first. You can mark tasks as complete individually.";
+    helpText =
+      "To mark this client as inactive, all related tasks must be completed first. You can mark tasks as complete individually.";
   }
 
   return {
@@ -856,12 +888,18 @@ function parseSessionBlockerEnglish(blocker, entityType, entityId, data) {
 
     sessions = data.sessions.filter((session) => {
       if (session.dossierId) {
-        return clientDossiers.some((d) => d.id === session.dossierId) &&
-          session.status !== "Completed" && session.status !== "Cancelled";
+        return (
+          clientDossiers.some((d) => d.id === session.dossierId) &&
+          session.status !== "Completed" &&
+          session.status !== "Cancelled"
+        );
       }
       if (session.caseId) {
-        return clientCases.some((c) => c.id === session.caseId) &&
-          session.status !== "Completed" && session.status !== "Cancelled";
+        return (
+          clientCases.some((c) => c.id === session.caseId) &&
+          session.status !== "Completed" &&
+          session.status !== "Cancelled"
+        );
       }
       return false;
     });
@@ -874,7 +912,8 @@ function parseSessionBlockerEnglish(blocker, entityType, entityId, data) {
       sessions = data.sessions.filter((session) => {
         const sessionDate = new Date(session.date);
         const isFuture = sessionDate >= today;
-        const isNotComplete = session.status !== "Completed" && session.status !== "Cancelled";
+        const isNotComplete =
+          session.status !== "Completed" && session.status !== "Cancelled";
 
         if (session.dossierId == entityId) {
           return isFuture && isNotComplete;
@@ -901,7 +940,7 @@ function parseSessionBlockerEnglish(blocker, entityType, entityId, data) {
 
   const items = sessions.slice(0, 5).map((session) => ({
     entityId: session.id,
-    entityLabel: `${session.type || 'Hearing'} on ${session.date}`,
+    entityLabel: `${session.type || "Hearing"} on ${session.date}`,
     entityType: "session",
     status: session.status,
     actions: [
@@ -924,13 +963,17 @@ function parseSessionBlockerEnglish(blocker, entityType, entityId, data) {
     ],
   }));
 
-  let helpText = "All related hearings must be completed first. You can mark hearings as complete individually.";
+  let helpText =
+    "All related hearings must be completed first. You can mark hearings as complete individually.";
   if (entityType === "dossier") {
-    helpText = "To close this dossier, all upcoming hearings must be completed or cancelled first. You can mark hearings as complete individually.";
+    helpText =
+      "To close this dossier, all upcoming hearings must be completed or cancelled first. You can mark hearings as complete individually.";
   } else if (entityType === "case") {
-    helpText = "To close this lawsuit, all upcoming hearings must be completed or cancelled first. You can mark hearings as complete individually.";
+    helpText =
+      "To close this lawsuit, all upcoming hearings must be completed or cancelled first. You can mark hearings as complete individually.";
   } else if (entityType === "client") {
-    helpText = "To mark this client as inactive, all related hearings must be completed first. You can mark hearings as complete individually.";
+    helpText =
+      "To mark this client as inactive, all related hearings must be completed first. You can mark hearings as complete individually.";
   }
 
   return {
@@ -949,22 +992,25 @@ function parseSessionBlockerEnglish(blocker, entityType, entityId, data) {
 function parseFinancialBlockerEnglish(blocker, entityType, entityId, data) {
   let entries = [];
 
-  console.log('[parseFinancialBlockerEnglish] Called with:', {
+  console.log("[parseFinancialBlockerEnglish] Called with:", {
     blocker,
     entityType,
     entityId,
     hasFinancialEntries: !!data.financialEntries,
-    financialEntriesCount: data.financialEntries?.length
+    financialEntriesCount: data.financialEntries?.length,
   });
 
   if (entityType === "dossier") {
     const dossier = data.dossiers.find((d) => d.id == entityId);
-    console.log('[parseFinancialBlockerEnglish] Dossier found:', dossier);
+    console.log("[parseFinancialBlockerEnglish] Dossier found:", dossier);
     if (dossier) {
       const allClientEntries = data.financialEntries.filter(
         (entry) => entry.clientId == dossier.clientId
       );
-      console.log('[parseFinancialBlockerEnglish] All client entries:', allClientEntries);
+      console.log(
+        "[parseFinancialBlockerEnglish] All client entries:",
+        allClientEntries
+      );
 
       entries = data.financialEntries.filter(
         (entry) =>
@@ -973,7 +1019,10 @@ function parseFinancialBlockerEnglish(blocker, entityType, entityId, data) {
           entry.status !== "Paid" &&
           entry.status !== "void"
       );
-      console.log('[parseFinancialBlockerEnglish] Filtered unpaid entries:', entries);
+      console.log(
+        "[parseFinancialBlockerEnglish] Filtered unpaid entries:",
+        entries
+      );
     }
   } else if (entityType === "client") {
     entries = data.financialEntries.filter(
@@ -1016,9 +1065,11 @@ function parseFinancialBlockerEnglish(blocker, entityType, entityId, data) {
   // Context-aware helpText
   let helpText = "All financial balances must be settled first...";
   if (entityType === "dossier") {
-    helpText = "To close this dossier, all financial balances must be settled. You can mark entries as paid or create new payment entries to balance the account.";
+    helpText =
+      "To close this dossier, all financial balances must be settled. You can mark entries as paid or create new payment entries to balance the account.";
   } else if (entityType === "client") {
-    helpText = "To mark this client as inactive, all financial balances must be settled. You can mark entries as paid or create new payment entries to balance the account.";
+    helpText =
+      "To mark this client as inactive, all financial balances must be settled. You can mark entries as paid or create new payment entries to balance the account.";
   }
 
   return {

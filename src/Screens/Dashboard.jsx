@@ -16,7 +16,7 @@ import { getDashboardSummary } from "../services/api/dashboard";
 export default function Dashboard() {
   const navigate = useNavigate();
   const { t } = useTranslation();
-  const [isProjectionCollapsed, setProjectionCollapsed] = useState(false);
+  const [isWorkloadCollapsed, setWorkloadCollapsed] = useState(false);
   const [isLoadMapCollapsed, setLoadMapCollapsed] = useState(false);
   const { formatDate: formatDisplayDate } = useSettings();
   const { clients, dossiers, tasks, sessions, cases, missions, financialEntries } = useData();
@@ -35,7 +35,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (typeof window !== "undefined" && window.innerWidth < 768) {
-      setProjectionCollapsed(true);
+      setWorkloadCollapsed(true);
       setLoadMapCollapsed(true);
     }
   }, [sessions, cases, tasks, t]);
@@ -221,152 +221,195 @@ export default function Dashboard() {
       });
   }, [tasks]);
 
-  // Projection data: aggregate next-dated items across entities
-  const projectionItems = useMemo(() => {
-    const items = [];
-    const now = new Date();
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  const WORKLOAD_HORIZON_DAYS = 90;
 
-    const pushItem = (dateStr, type, label, route) => {
-      if (!dateStr) return;
-      const date = new Date(dateStr);
-      if (Number.isNaN(date.getTime()) || date <= now) return;
-      items.push({ date, type, label, route });
+  // Workload health: aggregate future load by bucket and type (tasks, hearings, missions)
+  const workloadItems = useMemo(() => {
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const horizon = new Date(startOfToday.getTime() + WORKLOAD_HORIZON_DAYS * DAY_MS);
+
+    const toDate = (dateStr, timeStr) => {
+      if (!dateStr) return null;
+      const iso = timeStr ? `${dateStr}T${timeStr || "00:00"}` : dateStr;
+      const date = new Date(iso);
+      if (Number.isNaN(date.getTime())) return null;
+      if (date < startOfToday || date > horizon) return null;
+      return date;
     };
 
-    // Sessions
-    sessions.forEach(session => {
-      pushItem(`${session.date}T${session.time || "00:00"}`, "session", session.title, `/sessions/${session.id}`);
+    const isInactive = (status = "") => ["Done", "Cancelled", "Completed", "Closed"].includes(status);
+
+    const items = [];
+
+    tasks.forEach((task) => {
+      if (isInactive(task.status)) return;
+      const date = toDate(task.dueDate);
+      if (!date) return;
+      items.push({ date, type: "task" });
     });
 
-    // Tasks
-    tasks.forEach(task => {
-      pushItem(task.dueDate, "task", task.title, `/tasks/${task.id}`);
+    sessions.forEach((session) => {
+      if (isInactive(session.status)) return;
+      const date = toDate(session.date, session.time);
+      if (!date) return;
+      items.push({ date, type: "hearing" });
     });
 
-    // Cases: next hearings
-    cases.forEach(c => {
-      pushItem(c.nextHearing, "case", c.title, `/cases/${c.id}`);
+    cases.forEach((caseItem) => {
+      if (isInactive(caseItem.status)) return;
+      const date = toDate(caseItem.nextHearing);
+      if (!date) return;
+      items.push({ date, type: "hearing" });
     });
 
-    // Dossiers: next deadline
-    dossiers.forEach(d => {
-      if (d.nextDeadline) {
-        pushItem(d.nextDeadline, "dossier", d.title, `/dossiers/${d.id}`);
-      }
-    });
-
-    // Financial entries: use dueDate if available, fallback to date
-    financialEntries.forEach(entry => {
-      const targetDate = entry.dueDate || entry.date;
-      const displayText = entry.title || entry.description || t("dashboard.activities.entryTitle", { id: entry.id });
-      pushItem(targetDate, "finance", displayText, `/accounting/${entry.id}`);
-    });
-
-    // Missions with due dates (from officers)
-    Object.values(missions).forEach(officer => {
-      officer.missions?.forEach(mission => {
-        if (mission.dueDate) {
-          pushItem(mission.dueDate, "mission", mission.title, `/missions/${mission.id}`);
-        }
+    Object.values(missions).forEach((officer) => {
+      officer.missions?.forEach((mission) => {
+        if (isInactive(mission.status)) return;
+        const date = toDate(mission.dueDate || mission.plannedDate || mission.assignDate);
+        if (!date) return;
+        items.push({ date, type: "mission" });
       });
     });
 
     return items.sort((a, b) => a.date - b.date);
-  }, [sessions, tasks, cases, dossiers, financialEntries, missions, t]);
+  }, [tasks, sessions, cases, missions]);
 
-  const laneItems = projectionItems.slice(0, 12);
+  const workloadBuckets = useMemo(() => {
+    const bucketDefs = [
+      { key: "immediate", min: 0, max: 7, label: t("dashboard.workload.buckets.immediate") },
+      { key: "near", min: 8, max: 30, label: t("dashboard.workload.buckets.near") },
+      { key: "upcoming", min: 31, max: 90, label: t("dashboard.workload.buckets.upcoming") },
+    ];
 
-  const windowSummaries = useMemo(() => {
-    const horizons = [30, 60, 90];
-    const now = new Date();
-    return horizons.map(days => {
-      const cutoff = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
-      const windowItems = projectionItems.filter(item => item.date <= cutoff);
-      return {
-        days,
-        count: windowItems.length,
-        highlights: windowItems.slice(0, 2),
-      };
+    const totalsByType = { task: 0, hearing: 0, mission: 0 };
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+
+    const buckets = bucketDefs.map((bucket) => ({
+      ...bucket,
+      total: 0,
+      byType: { task: 0, hearing: 0, mission: 0 },
+    }));
+
+    workloadItems.forEach((item) => {
+      const daysAhead = Math.floor((item.date - startOfToday) / DAY_MS);
+      const bucket = buckets.find((b) => daysAhead >= b.min && daysAhead <= b.max);
+      if (!bucket) return;
+      bucket.total += 1;
+      bucket.byType[item.type] = (bucket.byType[item.type] || 0) + 1;
+      totalsByType[item.type] = (totalsByType[item.type] || 0) + 1;
     });
-  }, [projectionItems]);
 
-  const formatDate = (date) => formatDisplayDate(date);
+    return { buckets, totalsByType };
+  }, [workloadItems, t]);
 
-  const getTypeMeta = (type) => {
-    const map = {
-      session: { key: "session", icon: "fas fa-gavel", color: "text-purple-600" },
-      task: { key: "task", icon: "fas fa-tasks", color: "text-amber-600" },
-      case: { key: "case", icon: "fas fa-scale-balanced", color: "text-blue-600" },
-      dossier: { key: "dossier", icon: "fas fa-folder-open", color: "text-green-600" },
-      finance: { key: "finance", icon: "fas fa-file-invoice-dollar", color: "text-emerald-600" },
-      mission: { key: "mission", icon: "fas fa-user-tie", color: "text-teal-600" },
-    };
-    const base = map[type] || { key: "generic", icon: "fas fa-calendar", color: "text-slate-500" };
-    const labelKey = `dashboard.types.${base.key}`;
-    const label =
-      base.key === "generic"
-        ? t(labelKey, { type })
-        : t(labelKey);
-    return { ...base, label };
+  const workloadTypeLabels = useMemo(
+    () => ({
+      task: t("dashboard.workload.entities.tasks"),
+      hearing: t("dashboard.workload.entities.hearings"),
+      mission: t("dashboard.workload.entities.missions"),
+    }),
+    [t]
+  );
+
+  const getLoadLevel = (count) => {
+    if (count === 0) return "calm";
+    if (count <= 4) return "steady";
+    if (count <= 8) return "heavy";
+    return "critical";
   };
 
-  // Load Map: group projection items by ISO week for the next 8 weeks
+  const getLevelStyles = (level) => {
+    const map = {
+      calm: {
+        badge: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200",
+        bar: "bg-emerald-500",
+      },
+      steady: {
+        badge: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-200",
+        bar: "bg-amber-500",
+      },
+      heavy: {
+        badge: "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-200",
+        bar: "bg-orange-500",
+      },
+      critical: {
+        badge: "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-200",
+        bar: "bg-rose-500",
+      },
+    };
+    return map[level] || map.calm;
+  };
+
+  // Rolling weekly buckets starting today (Variant A)
   const loadMapWeeks = useMemo(() => {
-    const weeksToShow = 8;
-    const now = new Date();
+    const MAX_WEEKS = 4; // show up to 4 explicit weeks, then aggregate beyond
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
 
-    const getISOWeek = (date) => {
-      const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-      const dayNum = d.getUTCDay() || 7;
-      d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-      const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-      const weekNo = Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
-      return { year: d.getUTCFullYear(), week: weekNo };
-    };
+    const bucketTemplate = Array.from({ length: MAX_WEEKS }, (_v, idx) => {
+      const start = new Date(startOfToday.getTime() + idx * 7 * DAY_MS);
+      const end = new Date(start.getTime() + 6 * DAY_MS);
+      let labelKey = "dashboard.loadMap.week.this";
+      if (idx === 1) labelKey = "dashboard.loadMap.week.next";
+      if (idx >= 2) labelKey = "dashboard.loadMap.week.inN";
 
-    const weekKey = (dt) => {
-      const { year, week } = getISOWeek(dt);
-      return `${year}-W${week}`;
-    };
-
-    const weeks = [];
-    for (let i = 0; i < weeksToShow; i++) {
-      const start = new Date(now);
-      start.setDate(start.getDate() + i * 7);
-      weeks.push(start);
-    }
-
-    const bucket = weeks.reduce((acc, start) => {
-      const key = weekKey(start);
-      acc[key] = {
-        key,
+      return {
+        key: `week-${idx}`,
+        index: idx,
         start,
-        count: 0,
+        end,
+        label: idx <= 1 ? t(labelKey) : t(labelKey, { count: idx }),
+        range: t("dashboard.loadMap.range", {
+          start: formatDisplayDate(start),
+          end: formatDisplayDate(end),
+        }),
+        total: 0,
         byType: {},
       };
-      return acc;
-    }, {});
-
-    projectionItems.forEach((item) => {
-      const key = weekKey(item.date);
-      if (bucket[key]) {
-        bucket[key].count += 1;
-        bucket[key].byType[item.type] = (bucket[key].byType[item.type] || 0) + 1;
-      }
     });
 
-    const weeksArray = Object.values(bucket).sort((a, b) => a.start - b.start);
-    const maxCount = weeksArray.reduce((m, w) => Math.max(m, w.count), 0) || 1;
+    const beyondBucket = {
+      key: "beyond",
+      index: MAX_WEEKS,
+      start: new Date(startOfToday.getTime() + MAX_WEEKS * 7 * DAY_MS),
+      end: new Date(startOfToday.getTime() + 12 * 7 * DAY_MS),
+      label: t("dashboard.loadMap.week.beyond"),
+      range: t("dashboard.loadMap.beyondRange"),
+      total: 0,
+      byType: {},
+    };
 
-    return weeksArray.map((w) => {
-      const intensity = w.count <= 2 ? "light" : w.count <= 5 ? "medium" : "heavy";
-      return {
-        ...w,
-        maxCount,
-        intensity,
-      };
+    workloadItems.forEach((item) => {
+      const daysAhead = Math.floor((item.date - startOfToday) / DAY_MS);
+      if (daysAhead < 0) return;
+      const weekIndex = Math.floor(daysAhead / 7);
+      const bucket = bucketTemplate[weekIndex];
+      const target = bucket || beyondBucket;
+      target.total += 1;
+      target.byType[item.type] = (target.byType[item.type] || 0) + 1;
     });
-  }, [projectionItems]);
+
+    const bucketsWithData = bucketTemplate.filter((b, idx) => b.total > 0 || idx === 0);
+    const includeBeyond = beyondBucket.total > 0;
+    const allBuckets = includeBeyond ? [...bucketsWithData, beyondBucket] : bucketsWithData;
+    const hasWorkload = allBuckets.some((b) => b.total > 0);
+    if (!hasWorkload) return [];
+    const maxCount = allBuckets.reduce((m, b) => Math.max(m, b.total), 0) || 1;
+
+    return allBuckets.map((b) => ({
+      ...b,
+      maxCount,
+      intensity: b.total === 0 ? "light" : b.total <= 2 ? "light" : b.total <= 5 ? "medium" : "heavy",
+    }));
+  }, [workloadItems, t, formatDisplayDate]);
+
+  const immediateBucket = workloadBuckets.buckets.find((b) => b.key === "immediate") || { total: 0 };
+  const immediateLevel = getLoadLevel(immediateBucket.total);
+  const immediateStyles = getLevelStyles(immediateLevel);
+  const totalWorkloadCount = workloadBuckets.buckets.reduce((sum, bucket) => sum + bucket.total, 0);
 
   return (
     <PageLayout>
@@ -457,118 +500,123 @@ export default function Dashboard() {
 
         {/* Activity Feed and Quick Stats */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Projection Section */}
+          {/* Workload Health */}
           <div className="lg:col-span-3">
             <ContentSection
-              title={t("dashboard.projection.title")}
+              title={t("dashboard.workload.title")}
               actions={
                 <button
-                  onClick={() => setProjectionCollapsed(!isProjectionCollapsed)}
+                  onClick={() => setWorkloadCollapsed(!isWorkloadCollapsed)}
                   className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
                 >
-                  {isProjectionCollapsed ? t("dashboard.projection.show") : t("dashboard.projection.hide")}
+                  {isWorkloadCollapsed ? t("dashboard.workload.show") : t("dashboard.workload.hide")}
                 </button>
               }
             >
-              {!isProjectionCollapsed && (
-                <div className="p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  {/* Next 30/60/90 */}
-                  <div className="lg:col-span-1 space-y-4">
-                    {windowSummaries.map(win => (
-                      <div
-                        key={win.days}
-                        className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50"
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm font-semibold text-slate-800 dark:text-white">
-                            {t("dashboard.projection.daysLabel", { count: win.days })}
-                          </span>
-                          <span className="text-sm px-2 py-1 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
-                            {win.count}
-                          </span>
-                        </div>
-                        <div className="space-y-2">
-                          {win.highlights.length === 0 && (
-                            <p className="text-xs text-slate-500 dark:text-slate-400">
-                              {t("dashboard.projection.nothing")}
-                            </p>
-                          )}
-                          {win.highlights.map((item, idx) => {
-                            const meta = getTypeMeta(item.type);
-                            return (
-                              <button
-                                key={idx}
-                                onClick={() => navigate(item.route)}
-                                className="w-full text-left p-2 rounded-lg hover:bg-white hover:shadow dark:hover:bg-slate-700 transition"
-                              >
-                                <div className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
-                                  <i className={`${meta.icon} ${meta.color}`}></i>
-                                  <span className="truncate">{item.label}</span>
-                                </div>
-                                <div className="text-xs text-slate-500 dark:text-slate-400">
-                                  {t("dashboard.projection.itemMeta", {
-                                    date: formatDate(item.date),
-                                    label: meta.label,
-                                  })}
-                                </div>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Planning Lane */}
-                  <div className="lg:col-span-2">
-                    <div className="flex items-center justify-between mb-3">
-                      <h3 className="text-sm font-semibold text-slate-800 dark:text-white">
-                        {t("dashboard.planningLane.title")}
-                      </h3>
-                      <span className="text-xs text-slate-500 dark:text-slate-400">
-                        {t("dashboard.planningLane.subtitle")}
+              {!isWorkloadCollapsed && (
+                <div className="p-6 space-y-5">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm text-slate-500 dark:text-slate-400">
+                        {t("dashboard.workload.subtitle")}
+                      </p>
+                      <p className="text-xs text-slate-400 dark:text-slate-500">
+                        {t("dashboard.workload.guiding")}
+                      </p>
+                    </div>
+                    <div className={`flex items-center gap-2 px-3 py-1 rounded-full ${immediateStyles.badge}`}>
+                      <span className="text-xs font-semibold uppercase tracking-wide">
+                        {t("dashboard.workload.pressureLabel", {
+                          level: t(`dashboard.workload.pressure.${immediateLevel}`),
+                        })}
+                      </span>
+                      <span className="text-[11px] text-slate-600 dark:text-slate-200">
+                        {t("dashboard.workload.pressureHint")}
                       </span>
                     </div>
-                    {laneItems.length === 0 ? (
-                      <p className="text-sm text-slate-500 dark:text-slate-400">
-                        {t("dashboard.planningLane.empty")}
-                      </p>
-                    ) : (
-                      <div className="overflow-x-auto">
-                        <div className="flex gap-3 min-w-max">
-                          {laneItems.map((item, idx) => {
-                            const meta = getTypeMeta(item.type);
-                            return (
-                              <button
-                                key={idx}
-                                onClick={() => navigate(item.route)}
-                                className="min-w-[180px] p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:shadow transition"
-                              >
-                                <div className="flex items-center justify-between mb-2">
-                                  <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">
-                                    {meta.label}
-                                  </span>
-                                  <i className={`${meta.icon} ${meta.color}`}></i>
-                                </div>
-                                <div className="text-base font-semibold text-slate-900 dark:text-white truncate">
-                                  {item.label}
-                                </div>
-                                <div className="text-sm text-slate-500 dark:text-slate-400">
-                                  {formatDate(item.date)}
-                                </div>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
                   </div>
+
+                  {totalWorkloadCount === 0 ? (
+                    <p className="text-sm text-slate-500 dark:text-slate-400">
+                      {t("dashboard.workload.empty")}
+                    </p>
+                  ) : (
+                    <div className="space-y-4">
+                      {workloadBuckets.buckets.map((bucket) => {
+                        const level = getLoadLevel(bucket.total);
+                        const styles = getLevelStyles(level);
+                        const typeOrder = [
+                          { key: "task", icon: "fas fa-tasks", color: "text-amber-600" },
+                          { key: "hearing", icon: "fas fa-gavel", color: "text-indigo-600" },
+                          { key: "mission", icon: "fas fa-user-tie", color: "text-teal-600" },
+                        ];
+
+                        return (
+                          <div
+                            key={bucket.key}
+                            className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm"
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <p className="text-sm font-semibold text-slate-800 dark:text-white">
+                                  {bucket.label}
+                                </p>
+                                <p className="text-xs text-slate-500 dark:text-slate-400">
+                                  {t(`dashboard.workload.range.${bucket.key}`)}
+                                </p>
+                              </div>
+                              <span className={`text-xs font-semibold px-2 py-1 rounded-full ${styles.badge}`}>
+                                {t(`dashboard.workload.pressure.${level}`)}
+                              </span>
+                            </div>
+
+                            <div className="mt-3 flex items-center gap-3">
+                              <div className="text-3xl font-semibold text-slate-900 dark:text-white">
+                                {bucket.total}
+                              </div>
+                              <div className="flex-1 h-2 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
+                                <div
+                                  className={`h-full ${styles.bar}`}
+                                  style={{ width: `${Math.min(100, bucket.total * 12)}%` }}
+                                ></div>
+                              </div>
+                            </div>
+
+                            <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                              {typeOrder.map((type) => (
+                                <div
+                                  key={type.key}
+                                  className="flex items-center justify-between text-sm text-slate-700 dark:text-slate-200"
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <i className={`${type.icon} ${type.color}`}></i>
+                                    <span>{workloadTypeLabels[type.key]}</span>
+                                  </div>
+                                  <span className="font-semibold text-slate-900 dark:text-white">
+                                    {t(`dashboard.workload.counts.${type.key}`, {
+                                      count: bucket.byType[type.key] || 0,
+                                    })}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+
+                            {bucket.total === 0 && (
+                              <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                                {t("dashboard.workload.emptyBucket")}
+                              </p>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
             </ContentSection>
           </div>
 
-          {/* Load Map */}
+          {/* Weekly Load (rolling) */}
           <div className="lg:col-span-3">
             <ContentSection
               title={t("dashboard.loadMap.title")}
@@ -588,42 +636,55 @@ export default function Dashboard() {
                       {t("dashboard.loadMap.empty")}
                     </p>
                   ) : (
-                    <div className="flex gap-3 overflow-x-auto">
+                    <div className="space-y-3">
                       {loadMapWeeks.map((week) => {
-                        const heightRatio = week.count / week.maxCount;
-                        const barHeight = Math.max(8, Math.round(heightRatio * 64)); // px
+                        const barWidth = Math.min(100, Math.round((week.total / week.maxCount) * 100));
                         const intensityClasses =
                           week.intensity === "heavy"
                             ? "bg-indigo-500"
                             : week.intensity === "medium"
                               ? "bg-amber-400"
                               : "bg-emerald-400";
-                        const titleParts = Object.entries(week.byType)
-                          .map(([typeKey, count]) =>
-                            t("dashboard.loadMap.tooltipType", {
-                              count,
-                              type: getTypeMeta(typeKey).label,
-                            })
-                          )
-                          .join(", ");
-                        const tooltip = titleParts || t("dashboard.loadMap.tooltipNone");
-                        const label = t("dashboard.loadMap.weekLabel", { week: week.key.split("W")[1] });
+                        const typeOrder = [
+                          { key: "task", icon: "fas fa-tasks", color: "text-amber-600" },
+                          { key: "hearing", icon: "fas fa-gavel", color: "text-indigo-600" },
+                          { key: "mission", icon: "fas fa-user-tie", color: "text-teal-600" },
+                        ];
+
                         return (
-                          <div key={week.key} className="flex flex-col items-center min-w-[80px]">
-                            <div
-                              className="w-4 rounded-full transition-all"
-                              style={{ height: `${barHeight}px` }}
-                            >
+                          <div
+                            key={week.key}
+                            className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <p className="text-sm font-semibold text-slate-800 dark:text-white">{week.label}</p>
+                                <p className="text-xs text-slate-500 dark:text-slate-400">{week.range}</p>
+                              </div>
+                              <span className="text-sm font-semibold text-slate-900 dark:text-white">{week.total}</span>
+                            </div>
+
+                            <div className="mt-3 h-2 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
                               <div
-                                className={`w-full h-full rounded-full ${intensityClasses}`}
-                                title={tooltip}
+                                className={`h-full ${intensityClasses}`}
+                                style={{ width: `${barWidth}%` }}
                               ></div>
                             </div>
-                            <div className="mt-2 text-xs font-semibold text-slate-700 dark:text-slate-300">
-                              {label}
-                            </div>
-                            <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                              {t("dashboard.loadMap.itemsCount", { count: week.count })}
+
+                            <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm text-slate-700 dark:text-slate-200">
+                              {typeOrder.map((type) => (
+                                <div key={type.key} className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <i className={`${type.icon} ${type.color}`}></i>
+                                    <span>{workloadTypeLabels[type.key]}</span>
+                                  </div>
+                                  <span className="font-semibold text-slate-900 dark:text-white">
+                                    {t(`dashboard.workload.counts.${type.key}`, {
+                                      count: week.byType[type.key] || 0,
+                                    })}
+                                  </span>
+                                </div>
+                              ))}
                             </div>
                           </div>
                         );

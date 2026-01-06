@@ -28,8 +28,10 @@
     "status": {
       "notStarted": "Not Started",
       "inProgress": "In Progress",
+      "pending": "Pending",
       "onHold": "On Hold",
       "completed": "Completed",
+      "scheduled": "Scheduled",
       "blocked": "Blocked",
       "done": "Done",
       "cancelled": "Cancelled"
@@ -175,6 +177,8 @@
         "label": "Status",
         "notStarted": "Not Started",
         "inProgress": "In Progress",
+        "pending": "Pending",
+        "scheduled": "Scheduled",
         "blocked": "Blocked",
         "done": "Done",
         "cancelled": "Cancelled"

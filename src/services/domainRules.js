@@ -54,7 +54,11 @@ import { validateTemporalConstraints } from "./temporalValidation";
 import { enrichBlockers } from "./blockerEnrichment";
 import { i18nInstance } from "../i18n";
 import { translateStatus } from "../utils/entityTranslations";
-import { buildDeleteWarnings, buildForceDeleteMessage, buildImpactSummary } from "./domainRulesI18n";
+import {
+  buildDeleteWarnings,
+  buildForceDeleteMessage,
+  buildImpactSummary,
+} from "./domainRulesI18n";
 
 // Translation helper for domain rules
 const t = (key, options = {}) => {
@@ -440,12 +444,16 @@ function detectCaseImpact(currentData, newData) {
     const dossierIdChanged = currentData.dossierId != newData.dossierId;
 
     if (dossierIdChanged) {
-      const oldDossier = mockDossiers.find((d) => d.id == currentData.dossierId);
+      const oldDossier = mockDossiers.find(
+        (d) => d.id == currentData.dossierId
+      );
       const newDossier = mockDossiers.find((d) => d.id == newData.dossierId);
 
       const formatDossierLabel = (dossier) => {
         if (!dossier) return t("case.impact.dossier.notAssigned");
-        const label = `${dossier.caseNumber || ""} - ${dossier.title || ""}`.trim();
+        const label = `${dossier.caseNumber || ""} - ${
+          dossier.title || ""
+        }`.trim();
         return label || t("case.impact.dossier.notAssigned");
       };
 
@@ -1358,21 +1366,29 @@ function validateClientArchive(clientId, context = {}) {
   const openDossiers = clientDossiers.filter((d) => d.status !== "Closed");
 
   if (openDossiers.length > 0) {
-    const dossierLabel = openDossiers.length > 1
-      ? t("client.blocker.openDossiers", { count: openDossiers.length })
-      : t("client.blocker.openDossier", { count: openDossiers.length });
+    const dossierLabel =
+      openDossiers.length > 1
+        ? t("client.blocker.openDossiers", { count: openDossiers.length })
+        : t("client.blocker.openDossier", { count: openDossiers.length });
 
     const remainingCount = openDossiers.length - 3;
-    const andMoreText = remainingCount > 0
-      ? `\n  • ${t("client.archive.blocked.andMore", { count: remainingCount })}`
-      : "";
+    const andMoreText =
+      remainingCount > 0
+        ? `\n  • ${t("client.archive.blocked.andMore", {
+            count: remainingCount,
+          })}`
+        : "";
 
     blockers.push(
       `${dossierLabel}:` +
         openDossiers
           .slice(0, 3)
           .map((d) => {
-            const translatedStatus = translateStatus(d.status, 'dossiers', (key, options) => i18nInstance.t(key, options));
+            const translatedStatus = translateStatus(
+              d.status,
+              "dossiers",
+              (key, options) => i18nInstance.t(key, options)
+            );
             return `\n  • ${d.caseNumber} - ${d.title} (${translatedStatus})`;
           })
           .join("") +
@@ -2032,11 +2048,12 @@ function validateMissionDelete(missionId, context = {}) {
   const affectedEntities = [];
 
   const missions = context.missions || context.entities?.missions || [];
-  const financialEntries = context.financialEntries || context.entities?.financialEntries || [];
+  const financialEntries =
+    context.financialEntries || context.entities?.financialEntries || [];
   const documents = context.documents || context.entities?.documents || [];
   const notes = context.notes || context.entities?.notes || [];
 
-  const mission = missions.find(m => m.id === missionId);
+  const mission = missions.find((m) => m.id === missionId);
   if (!mission) {
     return { allowed: true, blockers: [], warnings: [] };
   }
@@ -2052,7 +2069,9 @@ function validateMissionDelete(missionId, context = {}) {
       count: missionFinancials.length,
       items: missionFinancials.slice(0, 5).map((e) => ({
         id: e.id,
-        label: `${e.description || e.title || 'Financial Entry'} - ${e.amount} ${e.currency || 'TND'}`,
+        label: `${e.description || e.title || "Financial Entry"} - ${
+          e.amount
+        } ${e.currency || "TND"}`,
       })),
     });
   }
@@ -2169,6 +2188,8 @@ const normalizeFinancialEntryId = (entryId) => {
 function validateFinancialEntryEdit(entryId, context = {}) {
   const blockers = [];
   const warnings = [];
+  let requiresConfirmation = false;
+  const impactSummary = [];
 
   // Use the data from context if available, otherwise fall back to financialLedger
   const entry =
@@ -2183,11 +2204,14 @@ function validateFinancialEntryEdit(entryId, context = {}) {
     };
   }
 
-  // Rule 1: Cannot edit paid/validated entries
+  // Rule 1: Paid entries are editable but require explicit confirmation
   if (entry.status === "Payée" || entry.status === "paid") {
-    blockers.push(
-      "This financial entry is already paid.\n\nPaid entries cannot be modified to ensure financial integrity."
-    );
+    warnings.push(t("financialEntry.edit.warning.entryPaid"));
+    impactSummary.push(t("financialEntry.edit.warning.lead"));
+    impactSummary.push(`- ${t("financialEntry.edit.warning.balanceImpact")}`);
+    impactSummary.push(`- ${t("financialEntry.edit.warning.auditTrail")}`);
+    impactSummary.push(`- ${t("financialEntry.edit.warning.visibility")}`);
+    requiresConfirmation = true;
   }
 
   // Rule 2: Check parent Dossier
@@ -2213,7 +2237,7 @@ function validateFinancialEntryEdit(entryId, context = {}) {
   }
 
   const allowed = blockers.length === 0;
-  return { allowed, blockers, warnings };
+  return { allowed, blockers, warnings, requiresConfirmation, impactSummary };
 }
 
 /**
@@ -2226,6 +2250,8 @@ function validateFinancialEntryEdit(entryId, context = {}) {
 function validateFinancialEntryDelete(entryId, context = {}) {
   const blockers = [];
   const warnings = [];
+  let requiresConfirmation = false;
+  const impactSummary = [];
 
   const entry =
     context.data ||
@@ -2241,7 +2267,11 @@ function validateFinancialEntryDelete(entryId, context = {}) {
   const statusValue = (entry.status || "").toLowerCase();
   const paidStatuses = ["payée", "payee", "payé", "paye", "payace", "paid"];
   if (paidStatuses.includes(statusValue)) {
-    blockers.push(t("financialEntry.delete.blocked.entryPaid"));
+    warnings.push(t("financialEntry.delete.warning.entryPaid"));
+    impactSummary.push(t("financialEntry.delete.warning.lead"));
+    impactSummary.push(`- ${t("financialEntry.delete.warning.balanceImpact")}`);
+    impactSummary.push(`- ${t("financialEntry.delete.warning.auditTrail")}`);
+    requiresConfirmation = true;
   }
 
   const editValidation = validateFinancialEntryEdit(entryId, context);
@@ -2250,7 +2280,7 @@ function validateFinancialEntryDelete(entryId, context = {}) {
   }
 
   const allowed = blockers.length === 0;
-  return { allowed, blockers, warnings };
+  return { allowed, blockers, warnings, requiresConfirmation, impactSummary };
 }
 
 function validateFinancialEntryStatusChange(entryId, context = {}) {
@@ -2258,6 +2288,8 @@ function validateFinancialEntryStatusChange(entryId, context = {}) {
   // But still check if entry is already paid
   const blockers = [];
   const warnings = [];
+  let requiresConfirmation = false;
+  const impactSummary = [];
 
   const entry = financialLedger.find(
     (e) => e.id === normalizeFinancialEntryId(entryId)
@@ -2272,17 +2304,23 @@ function validateFinancialEntryStatusChange(entryId, context = {}) {
 
   const { newValue } = context;
 
-  // If trying to change FROM paid status, block it
+  // If trying to change FROM paid status, require confirmation but allow
   if (entry.status === "Payée" || entry.status === "paid") {
     if (newValue !== "Payée" && newValue !== "paid") {
-      blockers.push(
-        "This entry is already marked as paid.\n\nPaid entries cannot be reverted to a previous status."
+      warnings.push(t("financialEntry.changeStatus.warning.alreadyPaid"));
+      impactSummary.push(t("financialEntry.changeStatus.warning.lead"));
+      impactSummary.push(
+        `- ${t("financialEntry.changeStatus.warning.balanceImpact")}`
       );
+      impactSummary.push(
+        `- ${t("financialEntry.changeStatus.warning.auditTrail")}`
+      );
+      requiresConfirmation = true;
     }
   }
 
   const allowed = blockers.length === 0;
-  return { allowed, blockers, warnings };
+  return { allowed, blockers, warnings, requiresConfirmation, impactSummary };
 }
 
 // ========================================
@@ -2348,7 +2386,9 @@ function validateOfficerDelete(officerId, context = {}) {
       count: financialEntries.length,
       items: financialEntries.slice(0, 5).map((e) => ({
         id: e.id,
-        label: `${e.description || "Financial entry"} - ${e.amount} ${e.currency || "TND"}`,
+        label: `${e.description || "Financial entry"} - ${e.amount} ${
+          e.currency || "TND"
+        }`,
       })),
     });
   }

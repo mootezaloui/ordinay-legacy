@@ -13,6 +13,19 @@
         "dossier": "إنشاء ملف قانوني جديد",
         "task": "إنشاء مهمة جديدة يجب تنفيذها",
         "session": "جدولة جلسة أو موعد جديد"
+      },
+      "placeholders": {
+        "dossier": "اختر ملفاً...",
+        "case": "اختر قضية..."
+      },
+      "toasts": {
+        "clientSuccess": "تم إنشاء العميل \"{{name}}\" بنجاح!",
+        "dossierSuccess": "تم إنشاء الملف \"{{reference}}\" بنجاح!",
+        "taskSuccess": "تم إنشاء المهمة \"{{title}}\" بنجاح!",
+        "sessionSuccess": "تم جدولة الجلسة \"{{title}}\" بنجاح!",
+        "genericSuccess": "تم الإنشاء بنجاح!",
+        "errorTitle": "فشل الإنشاء",
+        "errorMessage": "خطأ أثناء الإنشاء: {{message}}"
       }
     },
     "stats": {
@@ -29,11 +42,60 @@
     },
     "urgentTasks": {
       "title": "مهام عاجلة ({{count}})",
-      "empty": "لا توجد مهام عاجلة! عمل رائع للبقاء على رأس الأمور."
+      "empty": "لا توجد مهام عاجلة! عمل رائع للبقاء على رأس الأمور.",
+      "viewAll": "عرض كل المهام ({{count}})"
     },
     "upcomingEvents": {
       "title": "الأحداث القادمة ({{count}})",
-      "empty": "لا توجد أحداث قادمة مجدولة."
+      "empty": "لا توجد أحداث قادمة مجدولة.",
+      "time": {
+        "passed": "منقضي",
+        "soon": "قريباً",
+        "inHours_one": "بعد {{count}} ساعة",
+        "inHours_other": "بعد {{count}} ساعة",
+        "inDays_one": "بعد {{count}} يوم",
+        "inDays_other": "بعد {{count}} يوم"
+      }
+    },
+    "workload": {
+      "title": "صحة العبء (٩٠ يوماً)",
+      "show": "إظهار العبء",
+      "hide": "إخفاء",
+      "subtitle": "إشارة عن مستوى الانشغال خلال ٩٠ يوماً القادمة - أرقام فقط بدون عناوين.",
+      "guiding": "التوقع يعني استباق الضغط، وليس عرض قائمة أحداث.",
+      "pressureLabel": "الحمل: {{level}}",
+      "pressureHint": "يعتمد على الأيام السبعة القادمة",
+      "buckets": {
+        "immediate": "الأيام 7 القادمة",
+        "near": "8-30 يوماً",
+        "upcoming": "31-90 يوماً"
+      },
+      "range": {
+        "immediate": "من اليوم حتى +7",
+        "near": "من +8 إلى +30",
+        "upcoming": "من +31 إلى +90"
+      },
+      "entities": {
+        "tasks": "مهام",
+        "hearings": "جلسات",
+        "missions": "مهام موكل بها"
+      },
+      "counts": {
+        "task_one": "{{count}} مهمة",
+        "task_other": "{{count}} مهمة",
+        "hearing_one": "{{count}} جلسة",
+        "hearing_other": "{{count}} جلسة",
+        "mission_one": "{{count}} مهمة موكل بها",
+        "mission_other": "{{count}} مهمة موكل بها"
+      },
+      "pressure": {
+        "calm": "خفيف",
+        "steady": "متوسط",
+        "heavy": "مرتفع",
+        "critical": "حرج"
+      },
+      "empty": "لا يوجد عبء عمل قادم خلال ٩٠ يوماً المقبلة.",
+      "emptyBucket": "لا يوجد عناصر في هذه الفترة."
     },
     "projection": {
       "title": "التوقع (30-90 يوماً)",
@@ -50,16 +112,20 @@
       "empty": "لم يتم اكتشاف أي أحداث قادمة."
     },
     "loadMap": {
-      "title": "الحمل القادم (لكل أسبوع)",
-      "show": "عرض الحمل",
-      "hide": "إخفاء الحمل",
-      "empty": "لم يتم اكتشاف أي حمل قادم.",
-      "weekLabel": "الأسبوع {{week}}",
+      "title": "العبء الأسبوعي (متدرج)",
+      "show": "إظهار العبء الأسبوعي",
+      "hide": "إخفاء العبء",
+      "empty": "لا يوجد عبء في الأسابيع القادمة.",
+      "week": {
+        "this": "هذا الأسبوع",
+        "next": "الأسبوع القادم",
+        "inN": "بعد {{count}} أسابيع",
+        "beyond": "بعد ذلك"
+      },
+      "range": "{{start}} - {{end}}",
+      "beyondRange": "بعد 4 أسابيع",
       "itemsCount_one": "{{count}} عنصر",
-      "itemsCount_other": "{{count}} عنصر",
-      "tooltipNone": "لا يوجد حمل",
-      "tooltipType_one": "{{count}} {{type}}",
-      "tooltipType_other": "{{count}} {{type}}"
+      "itemsCount_other": "{{count}} عنصر"
     },
     "recentActivity": {
       "title": "النشاط الأخير",
