@@ -1,6 +1,6 @@
 /**
  * TutorialProgress.tsx
- * 
+ *
  * A progress indicator for the onboarding tutorial.
  * Shows current step and total steps visually.
  * Minimal, non-overwhelming design.
@@ -22,7 +22,7 @@ export default function TutorialProgress({
   showLabel = true,
 }: TutorialProgressProps) {
   const { t } = useTranslation("onboarding");
-  
+
   const progress = percentage ?? Math.round((currentStep / totalSteps) * 100);
 
   return (

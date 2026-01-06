@@ -184,9 +184,9 @@ export default function Officers() {
 
   const headerSubtitle = table.isFiltering
     ? t("page.subtitleFiltered", {
-        total: table.originalTotalItems,
-        displayed: table.totalItems,
-      })
+      total: table.originalTotalItems,
+      displayed: table.totalItems,
+    })
     : t("page.subtitle", { total: table.originalTotalItems });
 
   const tableEmptyMessage = table.isFiltering
@@ -494,7 +494,7 @@ export default function Officers() {
       />
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6" data-tutorial="officers-list-container">
         <StatCard
           label={t("stats.total")}
           value={stats.total}

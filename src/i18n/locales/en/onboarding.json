@@ -95,7 +95,12 @@
         "tip4": "Check your dashboard daily"
       },
       "replay": "Need a refresher? You can replay this tour anytime from Settings.",
-      "button": "Start using Organia"
+      "button": "Start using Organia",
+      "guidedTutorial": {
+        "title": "Want a hands-on walkthrough?",
+        "description": "Take an interactive guided tour where we'll highlight the interface and walk you through creating your first client.",
+        "button": "Start Guided Tutorial"
+      }
     }
   },
   "settings": {

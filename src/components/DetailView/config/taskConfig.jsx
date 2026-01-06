@@ -252,7 +252,7 @@ export const createTaskConfig = (t) => {
 
       return (
         <ContentSection>
-          <div className="p-6">
+          <div className="p-6" data-tutorial="task-detail-header">
             <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
               <div>
                 <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
@@ -264,7 +264,7 @@ export const createTaskConfig = (t) => {
                 <span className={`px-3 py-1 rounded-full text-sm font-medium ${priorityColor[data.priority]}`}>
                   {t('detail.header.priority')} {translatePriority(data.priority, t, 'tasks')}
                 </span>
-                <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(data.status)}`}>
+                <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(data.status)}`} data-tutorial="task-status-selector">
                   {translateStatus(data.status, 'tasks', t)}
                 </span>
               </div>

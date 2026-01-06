@@ -522,7 +522,7 @@ export default function Dossiers() {
         />
       </div>
 
-      <ContentSection>
+      <ContentSection data-tutorial="dossiers-list-container">
         <TableToolbar
           searchQuery={table.searchQuery}
           onSearchChange={table.setSearchQuery}

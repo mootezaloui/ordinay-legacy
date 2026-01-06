@@ -95,7 +95,12 @@
         "tip4": "Consultez votre tableau de bord quotidiennement"
       },
       "replay": "Besoin d'un rappel ? Vous pouvez relancer ce guide à tout moment depuis les Paramètres.",
-      "button": "Commencer à utiliser Organia"
+      "button": "Commencer à utiliser Organia",
+      "guidedTutorial": {
+        "title": "Voulez-vous une visite pratique ?",
+        "description": "Suivez un tutoriel interactif où nous mettrons en évidence l'interface et vous guiderons pour créer votre premier client.",
+        "button": "Démarrer le Tutoriel Guidé"
+      }
     }
   },
   "settings": {

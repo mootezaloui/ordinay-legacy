@@ -1,6 +1,6 @@
 /**
  * TutorialCard.tsx
- * 
+ *
  * The main container for tutorial step content.
  * A floating glass card with navigation controls.
  * Professional, calm, and accessible design.
@@ -52,10 +52,7 @@ export default function TutorialCard({
       {/* Progress bar at top */}
       {showProgress && (
         <div className="px-6 pt-4">
-          <TutorialProgress
-            currentStep={currentStep}
-            totalSteps={totalSteps}
-          />
+          <TutorialProgress currentStep={currentStep} totalSteps={totalSteps} />
         </div>
       )}
 
@@ -64,7 +61,9 @@ export default function TutorialCard({
         <div className="px-6 pt-6 pb-2">
           {icon && (
             <div className="w-12 h-12 rounded-xl bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center mb-4">
-              <i className={`${icon} text-xl text-blue-600 dark:text-blue-400`} />
+              <i
+                className={`${icon} text-xl text-blue-600 dark:text-blue-400`}
+              />
             </div>
           )}
           {title && (
@@ -114,7 +113,8 @@ export default function TutorialCard({
               onClick={onNext}
               className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
             >
-              {nextLabel || (isLastStep ? t("navigation.finish") : t("navigation.next"))}
+              {nextLabel ||
+                (isLastStep ? t("navigation.finish") : t("navigation.next"))}
               {!isLastStep && <i className="fas fa-arrow-right text-xs" />}
             </button>
           )}

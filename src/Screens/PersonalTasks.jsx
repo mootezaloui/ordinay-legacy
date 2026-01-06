@@ -654,9 +654,9 @@ export default function PersonalTasks() {
 
   const headerSubtitle = table.isFiltering
     ? t("page.subtitleFiltered", {
-        total: table.originalTotalItems,
-        displayed: table.totalItems,
-      })
+      total: table.originalTotalItems,
+      displayed: table.totalItems,
+    })
     : t("page.subtitle", { total: table.originalTotalItems });
 
   const tableEmptyMessage = table.isFiltering
@@ -673,7 +673,7 @@ export default function PersonalTasks() {
   };
 
   const handleDelete = async (id) => {
-  if (await confirm({
+    if (await confirm({
       title: t("confirm.delete.title"),
       message: t("confirm.delete.message"),
       confirmText: t("confirm.delete.confirm"),
@@ -759,7 +759,7 @@ export default function PersonalTasks() {
   };
 
   // Form fields for personal tasks
-    const personalTaskFormFields = [
+  const personalTaskFormFields = [
     {
       name: "title",
       label: t("form.fields.title.label"),
@@ -852,138 +852,140 @@ export default function PersonalTasks() {
 
   return (
     <PageLayout>
-      <PageHeader
-        title={t("page.title")}
-        subtitle={headerSubtitle}
-        icon="fas fa-sticky-note"
-        actions={
-          <button
-            onClick={handleAddTask}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center gap-2"
-          >
-            <i className="fas fa-plus"></i>
-            {t("page.actions.newTask")}
-          </button>
-        }
-      />
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <div className="p-4 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
-          <div className="flex items-center gap-3">
-            <div className="p-3 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
-              <i className="fas fa-clipboard-list text-blue-600 dark:text-blue-400 text-xl"></i>
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-slate-900 dark:text-white">{stats.total}</p>
-              <p className="text-sm text-slate-500 dark:text-slate-400">{t("stats.total")}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="p-4 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
-          <div className="flex items-center gap-3">
-            <div className="p-3 bg-amber-100 dark:bg-amber-900/20 rounded-lg">
-              <i className="fas fa-clock text-amber-600 dark:text-amber-400 text-xl"></i>
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-slate-900 dark:text-white">{stats.pending}</p>
-              <p className="text-sm text-slate-500 dark:text-slate-400">{t("stats.pending")}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="p-4 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
-          <div className="flex items-center gap-3">
-            <div className="p-3 bg-green-100 dark:bg-green-900/20 rounded-lg">
-              <i className="fas fa-check-circle text-green-600 dark:text-green-400 text-xl"></i>
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-slate-900 dark:text-white">{stats.completed}</p>
-              <p className="text-sm text-slate-500 dark:text-slate-400">{t("stats.completed")}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="p-4 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
-          <div className="flex items-center gap-3">
-            <div className="p-3 bg-red-100 dark:bg-red-900/20 rounded-lg">
-              <i className="fas fa-exclamation-triangle text-red-600 dark:text-red-400 text-xl"></i>
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-slate-900 dark:text-white">{stats.overdue}</p>
-              <p className="text-sm text-slate-500 dark:text-slate-400">{t("stats.overdue")}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <ContentSection>
-        <TableToolbar
-          searchQuery={table.searchQuery}
-          onSearchChange={table.setSearchQuery}
-          columns={table.allColumns}
-          visibleColumns={table.visibleColumns}
-          onToggleColumn={table.toggleColumnVisibility}
-          onResetColumns={table.resetColumns}
-          onExport={handleExport}
-          totalItems={table.originalTotalItems}
-          filteredItems={table.totalItems}
-          isFiltering={table.isFiltering}
+      <div data-tutorial="personal-tasks-container">
+        <PageHeader
+          title={t("page.title")}
+          subtitle={headerSubtitle}
+          icon="fas fa-sticky-note"
+          actions={
+            <button
+              onClick={handleAddTask}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center gap-2"
+            >
+              <i className="fas fa-plus"></i>
+              {t("page.actions.newTask")}
+            </button>
+          }
         />
 
-        <Table>
-          <AdvancedTableHeader
-            columns={table.columns}
-            sortBy={table.sortBy}
-            sortDirection={table.sortDirection}
-            onSort={table.handleSort}
-            onReorder={table.reorderColumns}
-            enableReorder={true}
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div className="p-4 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
+                <i className="fas fa-clipboard-list text-blue-600 dark:text-blue-400 text-xl"></i>
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-slate-900 dark:text-white">{stats.total}</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400">{t("stats.total")}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-4 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-amber-100 dark:bg-amber-900/20 rounded-lg">
+                <i className="fas fa-clock text-amber-600 dark:text-amber-400 text-xl"></i>
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-slate-900 dark:text-white">{stats.pending}</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400">{t("stats.pending")}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-4 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-green-100 dark:bg-green-900/20 rounded-lg">
+                <i className="fas fa-check-circle text-green-600 dark:text-green-400 text-xl"></i>
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-slate-900 dark:text-white">{stats.completed}</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400">{t("stats.completed")}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-4 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-red-100 dark:bg-red-900/20 rounded-lg">
+                <i className="fas fa-exclamation-triangle text-red-600 dark:text-red-400 text-xl"></i>
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-slate-900 dark:text-white">{stats.overdue}</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400">{t("stats.overdue")}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <ContentSection>
+          <TableToolbar
+            searchQuery={table.searchQuery}
+            onSearchChange={table.setSearchQuery}
+            columns={table.allColumns}
+            visibleColumns={table.visibleColumns}
+            onToggleColumn={table.toggleColumnVisibility}
+            onResetColumns={table.resetColumns}
+            onExport={handleExport}
+            totalItems={table.originalTotalItems}
+            filteredItems={table.totalItems}
+            isFiltering={table.isFiltering}
           />
-          <TableBody isEmpty={table.data.length === 0} emptyMessage={tableEmptyMessage}>
-            {table.data.map((task) => (
-              <TableRow
-                key={task.id}
-                onClick={() => handleView(task.id)}
-                className="cursor-pointer"
-              >
-                {table.columns.map((column) => (
-                  <TableCell key={column.id}>
-                    {column.render ? column.render(task) : task[column.id]}
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
 
-        <Pagination
-          currentPage={table.currentPage}
-          totalPages={table.totalPages}
-          totalItems={table.totalItems}
-          itemsPerPage={table.itemsPerPage}
-          onPageChange={table.handlePageChange}
-          onItemsPerPageChange={table.handleItemsPerPageChange}
+          <Table>
+            <AdvancedTableHeader
+              columns={table.columns}
+              sortBy={table.sortBy}
+              sortDirection={table.sortDirection}
+              onSort={table.handleSort}
+              onReorder={table.reorderColumns}
+              enableReorder={true}
+            />
+            <TableBody isEmpty={table.data.length === 0} emptyMessage={tableEmptyMessage}>
+              {table.data.map((task) => (
+                <TableRow
+                  key={task.id}
+                  onClick={() => handleView(task.id)}
+                  className="cursor-pointer"
+                >
+                  {table.columns.map((column) => (
+                    <TableCell key={column.id}>
+                      {column.render ? column.render(task) : task[column.id]}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+
+          <Pagination
+            currentPage={table.currentPage}
+            totalPages={table.totalPages}
+            totalItems={table.totalItems}
+            itemsPerPage={table.itemsPerPage}
+            onPageChange={table.handlePageChange}
+            onItemsPerPageChange={table.handleItemsPerPageChange}
+          />
+        </ContentSection>
+
+        <FormModal
+          isOpen={isModalOpen}
+          onClose={() => {
+            setIsModalOpen(false);
+            setEditingTask(null);
+          }}
+          onSubmit={handleSubmit}
+          title={editingTask ? t("form.title.edit") : t("form.title.create")}
+          subtitle={editingTask ? t("form.subtitle.edit") : t("form.subtitle.create")}
+          fields={dynamicPersonalTaskFormFields}
+          initialData={editingTask}
+          isLoading={isLoading}
+          entityType="personalTask"
+          entityId={editingTask?.id}
+          editingEntity={editingTask}
         />
-      </ContentSection>
-
-      <FormModal
-        isOpen={isModalOpen}
-        onClose={() => {
-          setIsModalOpen(false);
-          setEditingTask(null);
-        }}
-        onSubmit={handleSubmit}
-        title={editingTask ? t("form.title.edit") : t("form.title.create")}
-        subtitle={editingTask ? t("form.subtitle.edit") : t("form.subtitle.create")}
-        fields={dynamicPersonalTaskFormFields}
-        initialData={editingTask}
-        isLoading={isLoading}
-        entityType="personalTask"
-        entityId={editingTask?.id}
-        editingEntity={editingTask}
-      />
+      </div>
     </PageLayout>
   );
 }

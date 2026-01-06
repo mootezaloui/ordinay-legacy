@@ -1,6 +1,7 @@
 import { useSettings } from "../contexts/SettingsContext";
 import { useTheme } from "../contexts/ThemeProvider";
 import { useOnboarding } from "../contexts/OnboardingContext";
+import { useTutorialSafe } from "../contexts/TutorialContext";
 import { updateNotificationPreferences } from "../utils/scheduledNotifications";
 import PageLayout from "../components/layout/PageLayout";
 import PageHeader from "../components/layout/PageHeader";
@@ -12,7 +13,8 @@ export default function Settings() {
   const { settings, notificationPrefs, updateSettings, updateNotificationPrefs } = useSettings();
   const { setThemePreference } = useTheme();
   const { replayTutorial, hasCompletedOnboarding, hasSkippedOnboarding } = useOnboarding();
-  const { t } = useTranslation(["settings", "onboarding"]);
+  const tutorial = useTutorialSafe();
+  const { t } = useTranslation(["settings", "onboarding", "tutorial"]);
 
   const handleChange = (field, value) => {
     // Immediately save to context (which auto-persists to localStorage)
@@ -703,6 +705,81 @@ export default function Settings() {
                 {t("onboarding:settings.replayButton")}
               </button>
             </div>
+
+            {/* Interactive Tutorial */}
+            {tutorial && (
+              <div className="flex items-center justify-between pt-6 border-t border-slate-200 dark:border-slate-700">
+                <div>
+                  <label className="text-sm font-medium text-slate-900 dark:text-white">
+                    {t("tutorial:settings.startTitle")}
+                  </label>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    {t("tutorial:settings.startDescription")}
+                  </p>
+                  {/* Status indicator */}
+                  <div className="mt-2 flex items-center gap-2">
+                    {tutorial.hasCompletedTutorial ? (
+                      <>
+                        <i className="fas fa-check-circle text-green-500 text-sm" />
+                        <span className="text-xs text-green-600 dark:text-green-400">
+                          {t("tutorial:settings.status.completed")}
+                        </span>
+                      </>
+                    ) : tutorial.hasStartedTutorial ? (
+                      <>
+                        <i className="fas fa-hourglass-half text-blue-500 text-sm" />
+                        <span className="text-xs text-blue-600 dark:text-blue-400">
+                          {t("tutorial:settings.status.inProgress")}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <i className="fas fa-circle text-slate-400 text-sm" />
+                        <span className="text-xs text-slate-500 dark:text-slate-400">
+                          {t("tutorial:settings.status.notStarted")}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {tutorial.hasCompletedTutorial ? (
+                    <button
+                      onClick={tutorial.restartTutorial}
+                      className="px-4 py-2 bg-slate-600 hover:bg-slate-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
+                    >
+                      <i className="fas fa-redo text-xs" />
+                      {t("tutorial:settings.restartButton")}
+                    </button>
+                  ) : tutorial.hasStartedTutorial ? (
+                    <>
+                      <button
+                        onClick={tutorial.resumeTutorial}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
+                      >
+                        <i className="fas fa-play text-xs" />
+                        {t("tutorial:settings.resumeButton")}
+                      </button>
+                      <button
+                        onClick={tutorial.restartTutorial}
+                        className="px-3 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 text-sm rounded-lg transition-colors"
+                        title={t("tutorial:settings.restartButton")}
+                      >
+                        <i className="fas fa-redo" />
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      onClick={tutorial.startTutorial}
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
+                    >
+                      <i className="fas fa-hand-pointer text-xs" />
+                      {t("tutorial:settings.startButton")}
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </ContentSection>
       </div>

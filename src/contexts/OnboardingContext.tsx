@@ -1,9 +1,9 @@
 /**
  * OnboardingContext.tsx
- * 
+ *
  * Manages the onboarding tutorial state for Organia.
  * Handles first-launch detection, tutorial progress, and completion tracking.
- * 
+ *
  * Features:
  * - First launch detection via localStorage
  * - Step-by-step progress tracking
@@ -34,7 +34,8 @@ export const TUTORIAL_PHASES = {
   COMPLETION: "completion",
 } as const;
 
-export type TutorialPhase = typeof TUTORIAL_PHASES[keyof typeof TUTORIAL_PHASES];
+export type TutorialPhase =
+  (typeof TUTORIAL_PHASES)[keyof typeof TUTORIAL_PHASES];
 
 // Steps within the workflow phase (the most important one)
 export const WORKFLOW_STEPS = {
@@ -44,7 +45,7 @@ export const WORKFLOW_STEPS = {
   MISSIONS: "missions",
 } as const;
 
-export type WorkflowStep = typeof WORKFLOW_STEPS[keyof typeof WORKFLOW_STEPS];
+export type WorkflowStep = (typeof WORKFLOW_STEPS)[keyof typeof WORKFLOW_STEPS];
 
 // Order of phases for navigation
 export const PHASE_ORDER: TutorialPhase[] = [
@@ -76,7 +77,7 @@ interface OnboardingContextValue extends OnboardingState {
   replayTutorial: () => void;
   exitTutorial: () => void;
   dismissWelcomeModal: () => void;
-  
+
   // Computed
   currentPhaseIndex: number;
   totalPhases: number;
@@ -112,7 +113,7 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
   // Initialize state from localStorage
   const [state, setState] = useState<OnboardingState>(() => {
     if (typeof window === "undefined") return defaultState;
-    
+
     try {
       const stored = window.localStorage.getItem(ONBOARDING_STORAGE_KEY);
       if (stored) {
@@ -122,7 +123,8 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
           hasCompletedOnboarding: parsed.hasCompletedOnboarding ?? false,
           hasSkippedOnboarding: parsed.hasSkippedOnboarding ?? false,
           // Always start fresh on reload, but check if we should show welcome
-          showWelcomeModal: !parsed.hasCompletedOnboarding && !parsed.hasSkippedOnboarding,
+          showWelcomeModal:
+            !parsed.hasCompletedOnboarding && !parsed.hasSkippedOnboarding,
         };
       }
       // First time ever - show welcome modal
@@ -142,7 +144,7 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
   // Persist critical state to localStorage
   useEffect(() => {
     if (typeof window === "undefined") return;
-    
+
     try {
       window.localStorage.setItem(
         ONBOARDING_STORAGE_KEY,
@@ -158,7 +160,7 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
 
   // Start the tutorial
   const startTutorial = useCallback(() => {
-    setState(prev => ({
+    setState((prev) => ({
       ...prev,
       showWelcomeModal: false,
       isActive: true,
@@ -169,7 +171,7 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
 
   // Skip the tutorial (won't show again automatically)
   const skipTutorial = useCallback(() => {
-    setState(prev => ({
+    setState((prev) => ({
       ...prev,
       showWelcomeModal: false,
       isActive: false,
@@ -179,7 +181,7 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
 
   // Dismiss welcome modal (same as skip for now)
   const dismissWelcomeModal = useCallback(() => {
-    setState(prev => ({
+    setState((prev) => ({
       ...prev,
       showWelcomeModal: false,
     }));
@@ -187,12 +189,12 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
 
   // Navigate to next step
   const nextStep = useCallback(() => {
-    setState(prev => {
+    setState((prev) => {
       // Handle workflow sub-steps
       if (prev.currentPhase === TUTORIAL_PHASES.WORKFLOW) {
         const workflowOrder = Object.values(WORKFLOW_STEPS);
         const currentIndex = workflowOrder.indexOf(prev.currentWorkflowStep);
-        
+
         if (currentIndex < workflowOrder.length - 1) {
           return {
             ...prev,
@@ -218,12 +220,12 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
 
   // Navigate to previous step
   const previousStep = useCallback(() => {
-    setState(prev => {
+    setState((prev) => {
       // Handle workflow sub-steps
       if (prev.currentPhase === TUTORIAL_PHASES.WORKFLOW) {
         const workflowOrder = Object.values(WORKFLOW_STEPS);
         const currentIndex = workflowOrder.indexOf(prev.currentWorkflowStep);
-        
+
         if (currentIndex > 0) {
           return {
             ...prev,
@@ -256,7 +258,7 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
 
   // Jump to specific phase
   const goToPhase = useCallback((phase: TutorialPhase) => {
-    setState(prev => ({
+    setState((prev) => ({
       ...prev,
       currentPhase: phase,
       currentWorkflowStep: WORKFLOW_STEPS.CLIENTS,
@@ -265,7 +267,7 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
 
   // Complete the tutorial
   const completeTutorial = useCallback(() => {
-    setState(prev => ({
+    setState((prev) => ({
       ...prev,
       isActive: false,
       hasCompletedOnboarding: true,
@@ -275,7 +277,7 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
 
   // Replay the tutorial (from Settings)
   const replayTutorial = useCallback(() => {
-    setState(prev => ({
+    setState((prev) => ({
       ...prev,
       showWelcomeModal: true,
       isActive: false,
@@ -286,7 +288,7 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
 
   // Exit tutorial mid-way
   const exitTutorial = useCallback(() => {
-    setState(prev => ({
+    setState((prev) => ({
       ...prev,
       isActive: false,
       hasSkippedOnboarding: true,
@@ -296,19 +298,20 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
   // Computed values
   const currentPhaseIndex = PHASE_ORDER.indexOf(state.currentPhase);
   const totalPhases = PHASE_ORDER.length;
-  const isFirstPhase = currentPhaseIndex === 0 || 
-    (state.currentPhase === TUTORIAL_PHASES.WORKFLOW && 
-     state.currentWorkflowStep === WORKFLOW_STEPS.CLIENTS && 
-     currentPhaseIndex === PHASE_ORDER.indexOf(TUTORIAL_PHASES.WORKFLOW));
+  const isFirstPhase =
+    currentPhaseIndex === 0 ||
+    (state.currentPhase === TUTORIAL_PHASES.WORKFLOW &&
+      state.currentWorkflowStep === WORKFLOW_STEPS.CLIENTS &&
+      currentPhaseIndex === PHASE_ORDER.indexOf(TUTORIAL_PHASES.WORKFLOW));
   const isLastPhase = state.currentPhase === TUTORIAL_PHASES.COMPLETION;
 
   // Calculate progress including workflow sub-steps
   const progressPercentage = useMemo(() => {
     const workflowStepCount = Object.keys(WORKFLOW_STEPS).length;
     const baseSteps = PHASE_ORDER.length - 1 + workflowStepCount - 1; // Total steps minus overlaps
-    
+
     let completedSteps = 0;
-    
+
     // Add completed phases before workflow
     const workflowIndex = PHASE_ORDER.indexOf(TUTORIAL_PHASES.WORKFLOW);
     if (currentPhaseIndex < workflowIndex) {
@@ -321,45 +324,48 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
     } else {
       // Past workflow
       completedSteps = workflowIndex + workflowStepCount;
-      completedSteps += (currentPhaseIndex - workflowIndex - 1);
+      completedSteps += currentPhaseIndex - workflowIndex - 1;
     }
 
     return Math.round((completedSteps / baseSteps) * 100);
   }, [currentPhaseIndex, state.currentWorkflowStep]);
 
-  const value = useMemo<OnboardingContextValue>(() => ({
-    ...state,
-    startTutorial,
-    skipTutorial,
-    nextStep,
-    previousStep,
-    goToPhase,
-    completeTutorial,
-    replayTutorial,
-    exitTutorial,
-    dismissWelcomeModal,
-    currentPhaseIndex,
-    totalPhases,
-    isFirstPhase,
-    isLastPhase,
-    progressPercentage,
-  }), [
-    state,
-    startTutorial,
-    skipTutorial,
-    nextStep,
-    previousStep,
-    goToPhase,
-    completeTutorial,
-    replayTutorial,
-    exitTutorial,
-    dismissWelcomeModal,
-    currentPhaseIndex,
-    totalPhases,
-    isFirstPhase,
-    isLastPhase,
-    progressPercentage,
-  ]);
+  const value = useMemo<OnboardingContextValue>(
+    () => ({
+      ...state,
+      startTutorial,
+      skipTutorial,
+      nextStep,
+      previousStep,
+      goToPhase,
+      completeTutorial,
+      replayTutorial,
+      exitTutorial,
+      dismissWelcomeModal,
+      currentPhaseIndex,
+      totalPhases,
+      isFirstPhase,
+      isLastPhase,
+      progressPercentage,
+    }),
+    [
+      state,
+      startTutorial,
+      skipTutorial,
+      nextStep,
+      previousStep,
+      goToPhase,
+      completeTutorial,
+      replayTutorial,
+      exitTutorial,
+      dismissWelcomeModal,
+      currentPhaseIndex,
+      totalPhases,
+      isFirstPhase,
+      isLastPhase,
+      progressPercentage,
+    ]
+  );
 
   return (
     <OnboardingContext.Provider value={value}>

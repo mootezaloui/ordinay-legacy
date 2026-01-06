@@ -177,7 +177,7 @@ export const createSessionConfig = (t) => ({
 
     return (
       <ContentSection>
-        <div className="p-6">
+        <div className="p-6" data-tutorial="session-detail-header">
           <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
             <div>
               <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">

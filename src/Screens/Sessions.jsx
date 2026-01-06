@@ -5,6 +5,7 @@ import { useAdvancedTable } from "../hooks/useAdvancedTable";
 import { useToast } from "../contexts/ToastContext";
 import { useConfirm } from "../contexts/ConfirmContext";
 import { useData } from "../contexts/DataContext";
+import { useTutorialSafe } from "../contexts/TutorialContext";
 import PageLayout from "../components/layout/PageLayout";
 import PageHeader from "../components/layout/PageHeader";
 import ContentSection from "../components/layout/ContentSection";
@@ -32,6 +33,7 @@ export default function Sessions() {
   const navigate = useNavigate();
   const { showToast } = useToast();
   const { confirm } = useConfirm();
+  const tutorial = useTutorialSafe();
   const {
     sessions,
     dossiers,
@@ -289,6 +291,11 @@ export default function Sessions() {
   const handleAddSession = () => {
     setEditingSession(null);
     setIsModalOpen(true);
+
+    // Tell tutorial to hide overlay while modal is open
+    if (tutorial?.setWaitingForAction && tutorial?.currentStep?.id === "create-session") {
+      tutorial.setWaitingForAction(true);
+    }
   };
 
   const handleSubmit = async (formData) => {
@@ -347,6 +354,11 @@ export default function Sessions() {
         showToast(t("toasts.createSuccess"), "success");
 
         logEntityCreation("session", createdSession.id, formData.type || "Session");
+
+        // Notify tutorial that a session was created
+        if (tutorial?.setCreatedSession) {
+          tutorial.setCreatedSession(createdSession.id);
+        }
 
         const detailRoute = resolveDetailRoute("session", createdSession.id);
         if (detailRoute) {
@@ -444,6 +456,7 @@ export default function Sessions() {
           <button
             onClick={handleAddSession}
             disabled={dossiers.length === 0}
+            data-tutorial="add-session-button"
             className={`px-4 py-2 rounded-lg font-medium transition-colors duration-200 flex items-center gap-2 ${dossiers.length === 0
               ? "bg-gray-400 cursor-not-allowed text-gray-200"
               : "bg-blue-600 hover:bg-blue-700 text-white"
@@ -455,7 +468,7 @@ export default function Sessions() {
           </button>
         }
       />
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div data-tutorial="sessions-list-container" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <StatCard label={t("stats.total")} value={stats.total} icon="fas fa-calendar" color="blue" />
         <StatCard label={t("stats.today")} value={stats.today} icon="fas fa-calendar-day" color="purple" />
         <StatCard label={t("stats.thisWeek")} value={stats.thisWeek} icon="fas fa-calendar-week" color="amber" />
@@ -525,6 +538,10 @@ export default function Sessions() {
         onClose={() => {
           setIsModalOpen(false);
           setEditingSession(null);
+          // Restore tutorial overlay if it was hidden
+          if (tutorial?.setWaitingForAction) {
+            tutorial.setWaitingForAction(false);
+          }
         }}
         onSubmit={handleSubmit}
         title={editingSession ? t("form.title.edit") : t("form.title.create")}

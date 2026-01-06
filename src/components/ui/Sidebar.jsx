@@ -72,6 +72,15 @@ export default function Sidebar() {
                 {/* Use startsWith to handle nested routes (e.g., /clients/123) so the indicator stays active. */}
                 <Link
                   to={item.route}
+                  data-tutorial={
+                    item.route === "/clients" ? "sidebar-clients-link" :
+                      item.route === "/dossiers" ? "sidebar-dossiers-link" :
+                        item.route === "/personal-tasks" ? "sidebar-personal-tasks-link" :
+                          item.route === "/sessions" ? "sidebar-sessions-link" :
+                            item.route === "/officers" ? "sidebar-officers-link" :
+                              item.route === "/accounting" ? "sidebar-accounting-link" :
+                                undefined
+                  }
                   className={`group relative flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all duration-200 overflow-hidden ${isCollapsed ? "justify-center" : "justify-start"
                     } ${isActive
                       ? "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-200"

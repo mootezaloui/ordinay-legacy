@@ -1,0 +1,203 @@
+{
+  "progress": "Étape {{current}} sur {{total}}",
+  "controls": {
+    "next": "Suivant",
+    "back": "Retour",
+    "finish": "Terminer",
+    "skipStep": "Passer cette étape",
+    "exit": "Quitter le tutoriel",
+    "pressEscToExit": "Appuyez sur Échap pour quitter",
+    "continuePhase2": "Continuer vers les Dossiers",
+    "continuePhase3": "Continuer vers les Tâches",
+    "continuePhase4": "Continuer vers les Audiences",
+    "continuePhase5": "Continuer vers les Huissiers",
+    "continuePhase6": "Continuer vers les Finances",
+    "continuePhase7": "Terminer le Tutoriel"
+  },
+  "steps": {
+    "dashboard-intro": {
+      "title": "Votre Centre de Commande",
+      "description": "Voici votre tableau de bord — un aperçu rapide de vos clients, dossiers, tâches et revenus. Tout ce que vous devez savoir en un coup d'œil."
+    },
+    "sidebar-clients": {
+      "title": "Accéder aux Clients",
+      "description": "Dans Organia, tout commence par un client. Cliquez sur 'Clients' dans le menu latéral pour voir votre liste de clients.",
+      "action": "Cliquez sur Clients dans le menu"
+    },
+    "create-client": {
+      "title": "Ajouter Votre Premier Client",
+      "description": "Maintenant, ajoutons votre premier client. C'est ici que tout votre travail juridique commence.",
+      "action": "Cliquez sur le bouton 'Ajouter un client'"
+    },
+    "phase1-complete": {
+      "title": "Excellent Début !",
+      "description": "Vous avez appris les bases ! Vous savez maintenant naviguer et ajouter des clients. Prêt à découvrir les dossiers ?"
+    },
+    "client-detail-intro": {
+      "title": "À l'Intérieur d'un Client",
+      "description": "Vous êtes dans le profil d'un client. Tout ce qui concerne cette personne vit ici — ses dossiers, tâches, audiences et finances."
+    },
+    "client-dossiers-tab": {
+      "title": "Ouvrir l'Onglet Dossiers",
+      "description": "Voyons les dossiers de ce client. Cliquez sur l'onglet Dossiers pour voir et créer des affaires juridiques.",
+      "action": "Cliquez sur l'onglet Dossiers"
+    },
+    "create-dossier-from-client": {
+      "title": "Créer un Dossier",
+      "description": "Un dossier représente une affaire juridique concrète. Créons-en un pour ce client.",
+      "action": "Cliquez sur 'Ajouter un dossier'"
+    },
+    "client-notification-intro": {
+      "title": "Communication Client Intelligente",
+      "description": "Organia détecte les données importantes et vous aide à les envoyer à votre client. Nouveaux dossiers, changements de statut, audiences à venir — l'application vous invite quand quelque chose compte. Vous gardez le contrôle.",
+      "action": "Choisissez d'envoyer ou d'ignorer la notification"
+    },
+    "dossier-detail-overview": {
+      "title": "Le Cœur de Votre Travail",
+      "description": "Voici un dossier — le cœur de votre travail juridique. Tâches, missions, audiences et finances s'y rattachent. Tout reste organisé au même endroit."
+    },
+    "sidebar-dossiers": {
+      "title": "La Vue Globale",
+      "description": "Vous pouvez aussi gérer les dossiers globalement. Cliquez sur 'Dossiers' pour voir tous les dossiers de tous les clients.",
+      "action": "Cliquez sur Dossiers dans le menu"
+    },
+    "dossiers-list-overview": {
+      "title": "Deux Chemins Valides",
+      "description": "Voici le même dossier, visible globalement. Vous pouvez aussi créer des dossiers ici — les deux approches sont valides. Choisissez ce qui vous semble naturel."
+    },
+    "phase2-complete": {
+      "title": "Maîtrise des Dossiers !",
+      "description": "Vous comprenez maintenant les dossiers — le cœur de votre travail juridique. Vous savez les créer depuis un client ou depuis la liste globale. Prêt à découvrir les tâches ?"
+    },
+    "select-dossier-for-tasks": {
+      "title": "Ouvrir un Dossier",
+      "description": "Maintenant, apprenons les tâches. D'abord, cliquez sur un dossier pour ouvrir sa vue détaillée.",
+      "action": "Cliquez sur un dossier pour l'ouvrir"
+    },
+    "dossier-tasks-tab": {
+      "title": "Votre Liste de Tâches",
+      "description": "Les tâches sont la façon dont le travail se fait. Chaque dossier a sa propre liste. Voyons ce qu'il y a à faire.",
+      "action": "Cliquez sur l'onglet Tâches"
+    },
+    "create-task-from-dossier": {
+      "title": "Créer une Tâche",
+      "description": "Ajoutez une tâche avec une échéance et une priorité. Gardez le contrôle de votre charge de travail.",
+      "action": "Cliquez sur 'Ajouter une tâche'"
+    },
+    "task-detail-overview": {
+      "title": "Détails de la Tâche",
+      "description": "Voici votre tâche. Vous pouvez définir la priorité, la date d'échéance et l'assigner à des membres de l'équipe. Tout est suivi."
+    },
+    "task-status-workflow": {
+      "title": "Suivre la Progression",
+      "description": "Les tâches passent de 'À faire' → 'En cours' → 'Terminé'. Mettez à jour le statut au fur et à mesure. Votre tableau de bord affiche ce qui est en attente."
+    },
+    "sidebar-personal-tasks": {
+      "title": "Tâches Personnelles",
+      "description": "Tout n'appartient pas à un dossier. Les tâches personnelles sont pour vos propres rappels — appels, travail administratif, suivis.",
+      "action": "Cliquez sur Tâches Personnelles"
+    },
+    "personal-tasks-overview": {
+      "title": "Votre Liste Privée",
+      "description": "Ce sont VOS tâches — non liées à aucun dossier. Parfait pour les rappels personnels et le travail administratif."
+    },
+    "phase3-complete": {
+      "title": "Maître des Tâches !",
+      "description": "Vous savez maintenant gérer les tâches — pour les dossiers et personnelles. Ensuite, explorons les audiences et les sessions."
+    },
+    "sidebar-sessions": {
+      "title": "Sessions du Tribunal",
+      "description": "Les sessions sont vos comparutions — audiences, réunions et rendez-vous. Voyons comment les gérer.",
+      "action": "Cliquez sur Audiences"
+    },
+    "sessions-list-overview": {
+      "title": "Votre Calendrier",
+      "description": "Toutes vos sessions programmées apparaissent ici. Chaque session est liée à un dossier ou une affaire, le contexte n'est jamais perdu."
+    },
+    "create-session": {
+      "title": "Programmer une Session",
+      "description": "Ajoutez une audience ou une réunion. Définissez la date, l'heure, le lieu et liez-la à votre affaire.",
+      "action": "Cliquez sur 'Ajouter une audience'"
+    },
+    "session-detail-overview": {
+      "title": "Détails de la Session",
+      "description": "Suivez le résultat, les notes et les prochaines étapes de chaque session. Tout est documenté pour référence future."
+    },
+    "phase4-complete": {
+      "title": "Pro des Sessions !",
+      "description": "Vous pouvez maintenant gérer les sessions et audiences. Ensuite, découvrons les huissiers et les missions — votre réseau d'exécution."
+    },
+    "sidebar-officers": {
+      "title": "Rencontrez les Huissiers",
+      "description": "Les huissiers sont les professionnels qui exécutent les missions pour vous — signification d'actes, recouvrement de créances, etc.",
+      "action": "Cliquez sur Huissiers"
+    },
+    "officers-list-overview": {
+      "title": "Votre Réseau d'Huissiers",
+      "description": "Gérez ici votre liste d'huissiers et d'officiers. Vous aurez besoin d'au moins un huissier avant de créer des missions."
+    },
+    "missions-workflow-explained": {
+      "title": "Comment Fonctionnent les Missions",
+      "description": "Les missions sont du travail facturable effectué par les huissiers. Créez-les depuis un dossier, liez à un huissier, et suivez le résultat. Une fois terminées, les honoraires vont dans vos finances."
+    },
+    "phase5-complete": {
+      "title": "Expert en Missions !",
+      "description": "Vous comprenez les huissiers et les missions. Voyons maintenant où tout cela se rejoint — vos finances."
+    },
+    "sidebar-accounting": {
+      "title": "Vos Finances",
+      "description": "La section Comptabilité montre votre situation financière complète — revenus, dépenses et soldes.",
+      "action": "Cliquez sur Comptabilité"
+    },
+    "financial-overview": {
+      "title": "Tableau de Bord Financier",
+      "description": "Voyez vos gains en un coup d'œil. Honoraires de missions, paiements clients et dépenses — tout au même endroit."
+    },
+    "financial-entries-explained": {
+      "title": "Suivez Chaque Dinar",
+      "description": "Chaque entrée financière est liée à sa source — une mission, un paiement ou une dépense. Traçabilité totale, toujours."
+    },
+    "phase6-complete": {
+      "title": "Clarté Financière !",
+      "description": "Vous comprenez maintenant comment Organia suit votre argent. Une dernière étape pour terminer votre formation !"
+    },
+    "tutorial-complete": {
+      "title": "🎉 Félicitations !",
+      "description": "Vous avez terminé le tutoriel Organia ! Vous savez maintenant gérer clients, dossiers, tâches, sessions, missions et finances. Vous êtes prêt à gérer votre cabinet comme un pro."
+    }
+  },
+  "completion": {
+    "title": "Tutoriel en Pause",
+    "description": "Vous pouvez reprendre ou relancer le tutoriel à tout moment depuis les Paramètres.",
+    "continueExploring": "Continuer l'exploration"
+  },
+  "prompt": {
+    "title": "Prêt à Apprendre ?",
+    "description": "Souhaitez-vous une visite guidée rapide d'Organia ? Nous vous montrerons comment naviguer dans l'application et créer votre premier client.",
+    "startTutorial": "Commencer le tutoriel guidé",
+    "exploreAlone": "Je préfère explorer seul",
+    "laterNote": "Vous pouvez toujours commencer le tutoriel plus tard depuis les Paramètres."
+  },
+  "settings": {
+    "section": "Tutoriel Interactif",
+    "startTitle": "Démarrer le tutoriel interactif",
+    "startDescription": "Apprenez en pratiquant avec une visite guidée étape par étape.",
+    "startButton": "Démarrer le tutoriel",
+    "resumeButton": "Reprendre le tutoriel",
+    "restartButton": "Recommencer le tutoriel",
+    "status": {
+      "notStarted": "Non commencé",
+      "inProgress": "En cours",
+      "completed": "Terminé"
+    }
+  },
+  "phases": {
+    "phase1": "Phase 1 : Clients",
+    "phase2": "Phase 2 : Dossiers",
+    "phase3": "Phase 3 : Tâches",
+    "phase4": "Phase 4 : Audiences",
+    "phase5": "Phase 5: Huissiers & Missions",
+    "phase6": "Phase 6 : Finances",
+    "phase7": "Phase 7 : Terminé"
+  }
+}

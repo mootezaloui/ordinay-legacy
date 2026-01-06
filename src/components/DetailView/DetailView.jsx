@@ -3,6 +3,7 @@ import { useParams, useNavigate, useLocation, useSearchParams } from "react-rout
 import { useToast } from "../../contexts/ToastContext";
 import { useConfirm } from "../../contexts/ConfirmContext";
 import { useData } from "../../contexts/DataContext";
+import { useTutorialSafe } from "../../contexts/TutorialContext";
 import PageLayout from "../layout/PageLayout";
 import PageHeader from "../layout/PageHeader";
 import { getEntityConfig } from "./config/entityConfigs";
@@ -57,6 +58,7 @@ export default function DetailView({ entityType }) {
   };
 
   const { t } = useTranslation([getTranslationNamespace(entityType), "common"]);
+  const tutorial = useTutorialSafe(); // Safe hook for tutorial integration
   const [isEditing, setIsEditing] = useState(false);
   const justSaved = useRef(false);
   const pendingNotificationRef = useRef(null);
@@ -68,6 +70,28 @@ export default function DetailView({ entityType }) {
     eventType: null,
     eventData: null,
   });
+
+  // When notification prompt opens during tutorial, advance to the notification step
+  // Use refs to avoid dependency on tutorial object which changes every render
+  const nextStepRef = useRef(tutorial?.nextStep);
+  const currentStepRef = useRef(tutorial?.currentStep);
+  const setWaitingForActionRef = useRef(tutorial?.setWaitingForAction);
+  nextStepRef.current = tutorial?.nextStep;
+  currentStepRef.current = tutorial?.currentStep;
+  setWaitingForActionRef.current = tutorial?.setWaitingForAction;
+
+  useEffect(() => {
+    // When notification opens after dossier creation, advance tutorial to notification step
+    if (notificationPrompt.isOpen &&
+      currentStepRef.current?.id === "create-dossier-from-client" &&
+      nextStepRef.current) {
+      // Resume tutorial (in case it was waiting) and advance to notification step
+      if (setWaitingForActionRef.current) {
+        setWaitingForActionRef.current(false);
+      }
+      nextStepRef.current();
+    }
+  }, [notificationPrompt.isOpen]);
 
   const formatSessionSubtitle = (item) => {
     const parts = [formatDate(item.date)];
@@ -1032,27 +1056,38 @@ export default function DetailView({ entityType }) {
         {/* Tabs */}
         <div className="border-b border-slate-200 dark:border-slate-700 overflow-x-auto">
           <div className="flex gap-2 min-w-max">
-            {config.tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => {
-                  setActiveTab(tab.id);
-                  setSearchParams({ tab: tab.id });
-                }}
-                className={`px-4 py-3 font-medium transition-colors duration-200 border-b-2 flex items-center gap-2 whitespace-nowrap ${activeTab === tab.id
-                  ? "border-blue-600 text-blue-600 dark:text-blue-400"
-                  : "border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
-                  }`}
-              >
-                <i className={tab.icon}></i>
-                {tab.label}
-                {tab.getCount && (
-                  <span className="px-2 py-0.5 bg-slate-100 dark:bg-slate-700 rounded-full text-xs">
-                    {tab.getCount(data)}
-                  </span>
-                )}
-              </button>
-            ))}
+            {config.tabs.map((tab) => {
+              // Determine tutorial attribute based on entity type and tab id
+              const getTutorialAttribute = () => {
+                if (entityType === "client" && tab.id === "dossiers") return "client-dossiers-tab";
+                if (entityType === "dossier" && tab.id === "tasks") return "dossier-tasks-tab";
+                if (entityType === "dossier" && tab.id === "missions") return "dossier-missions-tab";
+                return undefined;
+              };
+
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => {
+                    setActiveTab(tab.id);
+                    setSearchParams({ tab: tab.id });
+                  }}
+                  className={`px-4 py-3 font-medium transition-colors duration-200 border-b-2 flex items-center gap-2 whitespace-nowrap ${activeTab === tab.id
+                    ? "border-blue-600 text-blue-600 dark:text-blue-400"
+                    : "border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
+                    }`}
+                  data-tutorial={getTutorialAttribute()}
+                >
+                  <i className={tab.icon}></i>
+                  {tab.label}
+                  {tab.getCount && (
+                    <span className="px-2 py-0.5 bg-slate-100 dark:bg-slate-700 rounded-full text-xs">
+                      {tab.getCount(data)}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -1090,11 +1125,19 @@ export default function DetailView({ entityType }) {
           } finally {
             clearPendingNotification?.();
             setNotificationPrompt({ isOpen: false, eventType: null, eventData: null });
+            // Advance tutorial after notification is handled
+            if (tutorial?.currentStep?.id === "client-notification-intro" && tutorial?.nextStep) {
+              tutorial.nextStep();
+            }
           }
         }}
         onClose={() => {
           clearPendingNotification?.();
           setNotificationPrompt({ isOpen: false, eventType: null, eventData: null });
+          // Advance tutorial after notification is dismissed
+          if (tutorial?.currentStep?.id === "client-notification-intro" && tutorial?.nextStep) {
+            tutorial.nextStep();
+          }
         }}
       />
     </PageLayout>

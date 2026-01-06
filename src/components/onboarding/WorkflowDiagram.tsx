@@ -1,9 +1,9 @@
 /**
  * WorkflowDiagram.tsx
- * 
+ *
  * A visual representation of Organia's core workflow:
  * Clients → Dossiers → Tasks/Missions
- * 
+ *
  * Designed to be understood at a glance.
  */
 
@@ -13,7 +13,9 @@ interface WorkflowDiagramProps {
   highlightStep?: "clients" | "dossiers" | "tasks" | "missions";
 }
 
-export default function WorkflowDiagram({ highlightStep }: WorkflowDiagramProps) {
+export default function WorkflowDiagram({
+  highlightStep,
+}: WorkflowDiagramProps) {
   const { t } = useTranslation("onboarding");
 
   const steps = [
@@ -44,28 +46,53 @@ export default function WorkflowDiagram({ highlightStep }: WorkflowDiagramProps)
   ];
 
   const getColorClasses = (color: string, isActive: boolean) => {
-    const colors: Record<string, { bg: string; text: string; border: string }> = {
-      blue: {
-        bg: isActive ? "bg-blue-100 dark:bg-blue-900/40" : "bg-slate-100 dark:bg-slate-700/50",
-        text: isActive ? "text-blue-600 dark:text-blue-400" : "text-slate-400 dark:text-slate-500",
-        border: isActive ? "border-blue-300 dark:border-blue-700" : "border-transparent",
-      },
-      purple: {
-        bg: isActive ? "bg-purple-100 dark:bg-purple-900/40" : "bg-slate-100 dark:bg-slate-700/50",
-        text: isActive ? "text-purple-600 dark:text-purple-400" : "text-slate-400 dark:text-slate-500",
-        border: isActive ? "border-purple-300 dark:border-purple-700" : "border-transparent",
-      },
-      green: {
-        bg: isActive ? "bg-green-100 dark:bg-green-900/40" : "bg-slate-100 dark:bg-slate-700/50",
-        text: isActive ? "text-green-600 dark:text-green-400" : "text-slate-400 dark:text-slate-500",
-        border: isActive ? "border-green-300 dark:border-green-700" : "border-transparent",
-      },
-      orange: {
-        bg: isActive ? "bg-orange-100 dark:bg-orange-900/40" : "bg-slate-100 dark:bg-slate-700/50",
-        text: isActive ? "text-orange-600 dark:text-orange-400" : "text-slate-400 dark:text-slate-500",
-        border: isActive ? "border-orange-300 dark:border-orange-700" : "border-transparent",
-      },
-    };
+    const colors: Record<string, { bg: string; text: string; border: string }> =
+      {
+        blue: {
+          bg: isActive
+            ? "bg-blue-100 dark:bg-blue-900/40"
+            : "bg-slate-100 dark:bg-slate-700/50",
+          text: isActive
+            ? "text-blue-600 dark:text-blue-400"
+            : "text-slate-400 dark:text-slate-500",
+          border: isActive
+            ? "border-blue-300 dark:border-blue-700"
+            : "border-transparent",
+        },
+        purple: {
+          bg: isActive
+            ? "bg-purple-100 dark:bg-purple-900/40"
+            : "bg-slate-100 dark:bg-slate-700/50",
+          text: isActive
+            ? "text-purple-600 dark:text-purple-400"
+            : "text-slate-400 dark:text-slate-500",
+          border: isActive
+            ? "border-purple-300 dark:border-purple-700"
+            : "border-transparent",
+        },
+        green: {
+          bg: isActive
+            ? "bg-green-100 dark:bg-green-900/40"
+            : "bg-slate-100 dark:bg-slate-700/50",
+          text: isActive
+            ? "text-green-600 dark:text-green-400"
+            : "text-slate-400 dark:text-slate-500",
+          border: isActive
+            ? "border-green-300 dark:border-green-700"
+            : "border-transparent",
+        },
+        orange: {
+          bg: isActive
+            ? "bg-orange-100 dark:bg-orange-900/40"
+            : "bg-slate-100 dark:bg-slate-700/50",
+          text: isActive
+            ? "text-orange-600 dark:text-orange-400"
+            : "text-slate-400 dark:text-slate-500",
+          border: isActive
+            ? "border-orange-300 dark:border-orange-700"
+            : "border-transparent",
+        },
+      };
     return colors[color];
   };
 
@@ -86,11 +113,15 @@ export default function WorkflowDiagram({ highlightStep }: WorkflowDiagramProps)
                   isActive ? colors.bg : ""
                 }`}
               >
-                <i className={`${step.icon} ${colors.text} text-lg transition-colors`} />
+                <i
+                  className={`${step.icon} ${colors.text} text-lg transition-colors`}
+                />
               </div>
               <span
                 className={`text-xs font-medium transition-colors ${
-                  isActive ? "text-slate-700 dark:text-slate-200" : "text-slate-400 dark:text-slate-500"
+                  isActive
+                    ? "text-slate-700 dark:text-slate-200"
+                    : "text-slate-400 dark:text-slate-500"
                 }`}
               >
                 {step.label}

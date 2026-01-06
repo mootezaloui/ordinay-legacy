@@ -24,6 +24,7 @@ const namespaceLoaders: Record<LanguageCode, NamespaceLoader> = {
     missions: (await import("./locales/en/missions.json")).default,
     domain: (await import("./locales/en/domain.json")).default,
     onboarding: (await import("./locales/en/onboarding.json")).default,
+    tutorial: (await import("./locales/en/tutorial.json")).default,
   }),
   fr: async () => ({
     common: (await import("./locales/fr/common.json")).default,
@@ -45,6 +46,7 @@ const namespaceLoaders: Record<LanguageCode, NamespaceLoader> = {
     missions: (await import("./locales/fr/missions.json")).default,
     domain: (await import("./locales/fr/domain.json")).default,
     onboarding: (await import("./locales/fr/onboarding.json")).default,
+    tutorial: (await import("./locales/fr/tutorial.json")).default,
   }),
   ar: async () => ({
     common: (await import("./locales/ar/common.json")).default,
@@ -66,6 +68,7 @@ const namespaceLoaders: Record<LanguageCode, NamespaceLoader> = {
     missions: (await import("./locales/ar/missions.json")).default,
     domain: (await import("./locales/ar/domain.json")).default,
     onboarding: (await import("./locales/ar/onboarding.json")).default,
+    tutorial: (await import("./locales/ar/tutorial.json")).default,
   }),
 };
 

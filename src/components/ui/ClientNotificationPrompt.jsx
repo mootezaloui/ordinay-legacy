@@ -55,6 +55,7 @@ export default function ClientNotificationPrompt({
         <div
           className="bg-white dark:bg-slate-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden"
           onClick={(e) => e.stopPropagation()}
+          data-tutorial="client-notification-modal"
         >
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-slate-700">

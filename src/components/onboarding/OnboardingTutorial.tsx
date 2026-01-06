@@ -1,9 +1,9 @@
 /**
  * OnboardingTutorial.tsx
- * 
+ *
  * The main orchestrator component for the onboarding tutorial.
  * Manages the flow between phases and renders the appropriate content.
- * 
+ *
  * This component is the entry point for the entire onboarding experience.
  */
 
@@ -31,7 +31,7 @@ import {
 
 /**
  * OnboardingTutorial
- * 
+ *
  * Renders the appropriate tutorial content based on current state.
  * Handles both the welcome modal and the step-by-step tutorial.
  */
@@ -70,21 +70,31 @@ export default function OnboardingTutorial() {
   }, [currentPhase, currentWorkflowStep]);
 
   // Total steps for display (phases + workflow sub-steps - 1 for overlap)
-  const totalDisplaySteps = PHASE_ORDER.length - 1 + Object.keys(WORKFLOW_STEPS).length;
+  const totalDisplaySteps =
+    PHASE_ORDER.length - 1 + Object.keys(WORKFLOW_STEPS).length;
 
   // Handle preference changes
-  const handleLanguageChange = useCallback((lang: string) => {
-    updateSettings({ language: lang });
-  }, [updateSettings]);
+  const handleLanguageChange = useCallback(
+    (lang: string) => {
+      updateSettings({ language: lang });
+    },
+    [updateSettings]
+  );
 
-  const handleThemeChange = useCallback((theme: string) => {
-    updateSettings({ theme });
-    setThemePreference(theme);
-  }, [updateSettings, setThemePreference]);
+  const handleThemeChange = useCallback(
+    (theme: string) => {
+      updateSettings({ theme });
+      setThemePreference(theme);
+    },
+    [updateSettings, setThemePreference]
+  );
 
-  const handleNotificationsChange = useCallback((enabled: boolean) => {
-    updateSettings({ desktopNotifications: enabled });
-  }, [updateSettings]);
+  const handleNotificationsChange = useCallback(
+    (enabled: boolean) => {
+      updateSettings({ desktopNotifications: enabled });
+    },
+    [updateSettings]
+  );
 
   // Handle next step with completion check
   const handleNext = useCallback(() => {
@@ -111,11 +121,18 @@ export default function OnboardingTutorial() {
       case TUTORIAL_PHASES.DASHBOARD:
         return { title: t("phases.dashboard.title"), icon: "fas fa-th-large" };
       case TUTORIAL_PHASES.WORKFLOW:
-        return { title: t("phases.workflow.title"), icon: "fas fa-project-diagram", subtitle: t("phases.workflow.subtitle") };
+        return {
+          title: t("phases.workflow.title"),
+          icon: "fas fa-project-diagram",
+          subtitle: t("phases.workflow.subtitle"),
+        };
       case TUTORIAL_PHASES.FINANCIAL:
         return { title: t("phases.financial.title"), icon: "fas fa-coins" };
       case TUTORIAL_PHASES.PREFERENCES:
-        return { title: t("phases.preferences.title"), icon: "fas fa-sliders-h" };
+        return {
+          title: t("phases.preferences.title"),
+          icon: "fas fa-sliders-h",
+        };
       case TUTORIAL_PHASES.COMPLETION:
         return { title: "", icon: "" }; // Completion has its own header
       default:
@@ -130,7 +147,8 @@ export default function OnboardingTutorial() {
   // Check if we're at the first workflow step (to show "Back" vs "Skip")
   const canGoBack = !(
     currentPhase === TUTORIAL_PHASES.DASHBOARD ||
-    (currentPhase === TUTORIAL_PHASES.WORKFLOW && currentWorkflowStep === WORKFLOW_STEPS.CLIENTS)
+    (currentPhase === TUTORIAL_PHASES.WORKFLOW &&
+      currentWorkflowStep === WORKFLOW_STEPS.CLIENTS)
   );
 
   return (
@@ -152,13 +170,13 @@ export default function OnboardingTutorial() {
       >
         {/* Render phase content */}
         {currentPhase === TUTORIAL_PHASES.DASHBOARD && <DashboardPhase />}
-        
+
         {currentPhase === TUTORIAL_PHASES.WORKFLOW && (
           <WorkflowPhase currentStep={currentWorkflowStep} />
         )}
-        
+
         {currentPhase === TUTORIAL_PHASES.FINANCIAL && <FinancialPhase />}
-        
+
         {currentPhase === TUTORIAL_PHASES.PREFERENCES && (
           <PreferencesPhase
             language={settings.language}
@@ -173,7 +191,7 @@ export default function OnboardingTutorial() {
             }))}
           />
         )}
-        
+
         {currentPhase === TUTORIAL_PHASES.COMPLETION && <CompletionPhase />}
       </TutorialCard>
     </TutorialOverlay>

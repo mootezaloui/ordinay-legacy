@@ -9,8 +9,10 @@ import { DataProvider } from "./contexts/DataContext";
 import { I18nProvider } from "./contexts/I18nProvider";
 import { OperatorProvider } from "./contexts/OperatorContext";
 import { OnboardingProvider } from "./contexts/OnboardingContext";
+import { TutorialProvider } from "./contexts/TutorialContext";
 import "@fortawesome/fontawesome-free/css/all.min.css";
 import { NotificationProvider } from "./contexts/NotificationContext";
+import TutorialOverlay from "./components/tutorial/TutorialOverlay";
 import AlertBanner from "./components/notifications/AlertBanner";
 import { OnboardingTutorial } from "./components/onboarding";
 import { SettingsProvider } from "./contexts/SettingsContext";
@@ -38,21 +40,24 @@ async function bootstrap() {
             <OperatorProvider>
               <ThemeProvider>
                 <OnboardingProvider>
-                  <NotificationProvider>
-                    <ToastProvider>
-                      <DataProvider>
-                        <AlertBanner />
-                        <SidebarProvider>
-                          <ConfirmProvider>
-                            <BrowserRouter>
-                              <App />
-                              <OnboardingTutorial />
-                            </BrowserRouter>
-                          </ConfirmProvider>
-                        </SidebarProvider>
-                      </DataProvider>
-                    </ToastProvider>
-                  </NotificationProvider>
+                  <TutorialProvider>
+                    <NotificationProvider>
+                      <ToastProvider>
+                        <DataProvider>
+                          <AlertBanner />
+                          <SidebarProvider>
+                            <ConfirmProvider>
+                              <BrowserRouter>
+                                <App />
+                                <OnboardingTutorial />
+                                <TutorialOverlay />
+                              </BrowserRouter>
+                            </ConfirmProvider>
+                          </SidebarProvider>
+                        </DataProvider>
+                      </ToastProvider>
+                    </NotificationProvider>
+                  </TutorialProvider>
                 </OnboardingProvider>
               </ThemeProvider>
             </OperatorProvider>

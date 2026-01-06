@@ -329,6 +329,8 @@ export default function AggregatedRelatedTab({
             }
             const created = creation.created || creation;
             newItem = { ...created };
+            // Notify tutorial
+            if (tutorial?.setCreatedSession) tutorial.setCreatedSession(created.id);
           }
           break;
         case "tasks":
@@ -355,6 +357,8 @@ export default function AggregatedRelatedTab({
             }
             const created = creation.created || creation;
             newItem = { ...created };
+            // Notify tutorial
+            if (tutorial?.setCreatedMission) tutorial.setCreatedMission(created.id);
           }
           break;
         default:
@@ -528,7 +532,36 @@ export default function AggregatedRelatedTab({
             {/* Show add button only if allowed and parent entity exists */}
             {allowAdd && hasFormFields && canAdd && isAddEnabled && (
               <button
-                onClick={() => setIsAddModalOpen(true)}
+                onClick={() => {
+                  // Handle tutorial state when adding dossier from client detail
+                  if (tutorial?.setWaitingForAction &&
+                    tutorial?.currentStep?.id === "create-dossier-from-client" &&
+                    tabConfig?.aggregationType === "dossiers") {
+                    tutorial.setWaitingForAction(true);
+                  }
+                  // Handle tutorial state when adding task from dossier detail
+                  if (tutorial?.setWaitingForAction &&
+                    tutorial?.currentStep?.id === "create-task-from-dossier" &&
+                    tabConfig?.aggregationType === "tasks") {
+                    tutorial.setWaitingForAction(true);
+                  }
+                  // Handle tutorial state when adding mission from dossier detail
+                  if (tutorial?.setWaitingForAction &&
+                    tutorial?.currentStep?.id === "create-mission-from-dossier" &&
+                    tabConfig?.aggregationType === "missions") {
+                    tutorial.setWaitingForAction(true);
+                  }
+                  setIsAddModalOpen(true);
+                }}
+                data-tutorial={
+                  tabConfig?.aggregationType === "dossiers" && config?.entityType === "client"
+                    ? "add-dossier-from-client-button"
+                    : tabConfig?.aggregationType === "tasks" && config?.entityType === "dossier"
+                      ? "add-task-from-dossier-button"
+                      : tabConfig?.aggregationType === "missions" && config?.entityType === "dossier"
+                        ? "add-mission-from-dossier-button"
+                        : undefined
+                }
                 className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors inline-flex items-center gap-2"
               >
                 <i className="fas fa-plus"></i>
@@ -542,7 +575,13 @@ export default function AggregatedRelatedTab({
         {hasFormFields && canAdd && isAddEnabled && (
           <FormModal
             isOpen={isAddModalOpen}
-            onClose={() => setIsAddModalOpen(false)}
+            onClose={() => {
+              setIsAddModalOpen(false);
+              // Reset tutorial waiting state if modal is closed without creating
+              if (tutorial?.setWaitingForAction) {
+                tutorial.setWaitingForAction(false);
+              }
+            }}
             onSubmit={handleAddItem}
             initialData={prefillContext}
             title={`Add ${tabConfig.entityName || 'element'}`}
@@ -604,7 +643,36 @@ export default function AggregatedRelatedTab({
           <div className="p-6 border-t border-slate-200 dark:border-slate-700">
             {isAddEnabled && canAdd ? (
               <button
-                onClick={() => setIsAddModalOpen(true)}
+                onClick={() => {
+                  // Handle tutorial state when adding dossier from client detail
+                  if (tutorial?.setWaitingForAction &&
+                    tutorial?.currentStep?.id === "create-dossier-from-client" &&
+                    tabConfig?.aggregationType === "dossiers") {
+                    tutorial.setWaitingForAction(true);
+                  }
+                  // Handle tutorial state when adding task from dossier detail
+                  if (tutorial?.setWaitingForAction &&
+                    tutorial?.currentStep?.id === "create-task-from-dossier" &&
+                    tabConfig?.aggregationType === "tasks") {
+                    tutorial.setWaitingForAction(true);
+                  }
+                  // Handle tutorial state when adding mission from dossier detail
+                  if (tutorial?.setWaitingForAction &&
+                    tutorial?.currentStep?.id === "create-mission-from-dossier" &&
+                    tabConfig?.aggregationType === "missions") {
+                    tutorial.setWaitingForAction(true);
+                  }
+                  setIsAddModalOpen(true);
+                }}
+                data-tutorial={
+                  tabConfig?.aggregationType === "dossiers" && config?.entityType === "client"
+                    ? "add-dossier-from-client-button"
+                    : tabConfig?.aggregationType === "tasks" && config?.entityType === "dossier"
+                      ? "add-task-from-dossier-button"
+                      : tabConfig?.aggregationType === "missions" && config?.entityType === "dossier"
+                        ? "add-mission-from-dossier-button"
+                        : undefined
+                }
                 className="w-full py-3 border-2 border-dashed border-slate-300 dark:border-slate-600 hover:border-blue-500 dark:hover:border-blue-500 rounded-lg text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors font-medium"
               >
                 <i className="fas fa-plus mr-2"></i>
@@ -623,7 +691,13 @@ export default function AggregatedRelatedTab({
       {hasFormFields && (
         <FormModal
           isOpen={isAddModalOpen}
-          onClose={() => setIsAddModalOpen(false)}
+          onClose={() => {
+            setIsAddModalOpen(false);
+            // Reset tutorial waiting state if modal is closed without creating
+            if (tutorial?.setWaitingForAction) {
+              tutorial.setWaitingForAction(false);
+            }
+          }}
           onSubmit={handleAddItem}
           initialData={prefillContext}
           title={t("detail.related.form.add", { entityName: tabConfig.entityName || t("detail.related.fallback.entity") })}

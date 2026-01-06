@@ -370,8 +370,8 @@ export default function Accounting() {
         render: (entry) => (
           <span
             className={`px-2 py-1 rounded-full text-xs font-medium ${entry.type === "revenue"
-                ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300"
-                : "bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300"
+              ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300"
+              : "bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300"
               }`}
           >
             {entry.type === "revenue"
@@ -387,8 +387,8 @@ export default function Accounting() {
         render: (entry) => (
           <span
             className={`font-semibold ${entry.type === "revenue"
-                ? "text-emerald-600 dark:text-emerald-400"
-                : "text-rose-600 dark:text-rose-400"
+              ? "text-emerald-600 dark:text-emerald-400"
+              : "text-rose-600 dark:text-rose-400"
               }`}
           >
             {entry.amountWithSign}
@@ -881,7 +881,7 @@ export default function Accounting() {
         }
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div data-tutorial="financial-dashboard-container" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <StatCard
           label={t("stats.totalRevenue")}
           value={formatCurrency(stats.totalClientRevenue)}
@@ -920,8 +920,8 @@ export default function Accounting() {
         <button
           onClick={() => setFilterScope("all")}
           className={`px-4 py-2 rounded-lg font-medium transition-colors ${filterScope === "all"
-              ? "bg-blue-600 text-white"
-              : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+            ? "bg-blue-600 text-white"
+            : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
             }`}
         >
           {t("filters.all")}
@@ -929,8 +929,8 @@ export default function Accounting() {
         <button
           onClick={() => setFilterScope("client")}
           className={`px-4 py-2 rounded-lg font-medium transition-colors ${filterScope === "client"
-              ? "bg-blue-600 text-white"
-              : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+            ? "bg-blue-600 text-white"
+            : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
             }`}
         >
           {t("filters.clients")}
@@ -938,8 +938,8 @@ export default function Accounting() {
         <button
           onClick={() => setFilterScope("internal")}
           className={`px-4 py-2 rounded-lg font-medium transition-colors ${filterScope === "internal"
-              ? "bg-blue-600 text-white"
-              : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+            ? "bg-blue-600 text-white"
+            : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
             }`}
         >
           {t("filters.internal")}
@@ -958,8 +958,8 @@ export default function Accounting() {
                   <div
                     key={entry.id}
                     className={`p-4 rounded-lg border cursor-pointer transition-colors ${isDraft
-                        ? "border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20"
-                        : "border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-900/20"
+                      ? "border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20"
+                      : "border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-900/20"
                       }`}
                     onClick={() => handleView(entry)}
                   >
@@ -1001,8 +1001,8 @@ export default function Accounting() {
                       <div className="text-right">
                         <div
                           className={`font-semibold ${entry.type === "revenue"
-                              ? "text-emerald-600 dark:text-emerald-400"
-                              : "text-rose-600 dark:text-rose-400"
+                            ? "text-emerald-600 dark:text-emerald-400"
+                            : "text-rose-600 dark:text-rose-400"
                             }`}
                         >
                           {entry.amountWithSign}
@@ -1029,7 +1029,7 @@ export default function Accounting() {
         </ContentSection>
       )}
 
-      <ContentSection>
+      <ContentSection data-tutorial="financial-entries-section">
         <TableToolbar
           searchQuery={table.searchQuery}
           onSearchChange={table.setSearchQuery}

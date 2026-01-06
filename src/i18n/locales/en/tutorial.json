@@ -1,0 +1,203 @@
+{
+  "progress": "Step {{current}} of {{total}}",
+  "controls": {
+    "next": "Next",
+    "back": "Back",
+    "finish": "Finish",
+    "skipStep": "Skip this step",
+    "exit": "Exit tutorial",
+    "pressEscToExit": "Press Esc to exit tutorial",
+    "continuePhase2": "Continue to Dossiers",
+    "continuePhase3": "Continue to Tasks",
+    "continuePhase4": "Continue to Sessions",
+    "continuePhase5": "Continue to Officers",
+    "continuePhase6": "Continue to Finances",
+    "continuePhase7": "Complete Tutorial"
+  },
+  "steps": {
+    "dashboard-intro": {
+      "title": "Your Command Center",
+      "description": "This is your dashboard — a quick overview of your clients, cases, tasks, and revenue. Everything you need to know at a glance."
+    },
+    "sidebar-clients": {
+      "title": "Navigate to Clients",
+      "description": "In Organia, everything starts with a client. Click on 'Clients' in the sidebar to see your client list.",
+      "action": "Click on Clients in the sidebar"
+    },
+    "create-client": {
+      "title": "Add Your First Client",
+      "description": "Now let's add your first client. This is where all your legal work begins.",
+      "action": "Click the 'Add Client' button"
+    },
+    "phase1-complete": {
+      "title": "Great Start!",
+      "description": "You've learned the basics! You now know how to navigate and add clients. Ready to learn about dossiers?"
+    },
+    "client-detail-intro": {
+      "title": "Inside a Client",
+      "description": "You're inside a client's profile. Everything related to this person lives here — their dossiers, tasks, hearings, and finances."
+    },
+    "client-dossiers-tab": {
+      "title": "Open Dossiers Tab",
+      "description": "Let's see this client's dossiers. Click on the Dossiers tab to view and create legal matters.",
+      "action": "Click on the Dossiers tab"
+    },
+    "create-dossier-from-client": {
+      "title": "Create a Dossier",
+      "description": "A dossier represents a real legal matter. Let's create one for this client.",
+      "action": "Click 'Add Dossier'"
+    },
+    "client-notification-intro": {
+      "title": "Smart Client Communication",
+      "description": "Organia detects important data and helps you send it to your client. New dossiers, status changes, upcoming hearings — the app prompts you when something matters. You stay in control.",
+      "action": "Choose to send or skip the notification"
+    },
+    "dossier-detail-overview": {
+      "title": "The Heart of Your Work",
+      "description": "This is a dossier — the core of your legal work. Tasks, missions, hearings, and finances all attach here. Everything stays organized in one place."
+    },
+    "sidebar-dossiers": {
+      "title": "The Global View",
+      "description": "You can also manage dossiers globally. Click on 'Dossiers' to see all dossiers across all clients.",
+      "action": "Click on Dossiers in the sidebar"
+    },
+    "dossiers-list-overview": {
+      "title": "Two Valid Paths",
+      "description": "Here's the same dossier, visible globally. You can create dossiers from here too — both paths are valid. Choose what feels natural."
+    },
+    "phase2-complete": {
+      "title": "Dossier Mastery!",
+      "description": "You now understand dossiers — the heart of your legal work. You know how to create them from a client or from the global list. Ready to learn about tasks?"
+    },
+    "select-dossier-for-tasks": {
+      "title": "Open a Dossier",
+      "description": "Now let's learn about tasks. First, click on any dossier to open its detail view.",
+      "action": "Click on a dossier to open it"
+    },
+    "dossier-tasks-tab": {
+      "title": "Your To-Do List",
+      "description": "Tasks are how work gets done. Each dossier has its own task list. Let's see what needs to be done.",
+      "action": "Click on the Tasks tab"
+    },
+    "create-task-from-dossier": {
+      "title": "Create a Task",
+      "description": "Add a task with a deadline and priority. Stay on top of your workload.",
+      "action": "Click 'Add Task'"
+    },
+    "task-detail-overview": {
+      "title": "Task Details",
+      "description": "Here's your task. You can set priority, due date, and assign it to team members. Everything is tracked."
+    },
+    "task-status-workflow": {
+      "title": "Track Progress",
+      "description": "Tasks flow from 'To Do' → 'In Progress' → 'Done'. Update the status as you work. Your dashboard shows what's pending."
+    },
+    "sidebar-personal-tasks": {
+      "title": "Personal Tasks",
+      "description": "Not everything belongs to a dossier. Personal tasks are for your own reminders — calls, admin work, follow-ups.",
+      "action": "Click on Personal Tasks"
+    },
+    "personal-tasks-overview": {
+      "title": "Your Private List",
+      "description": "These are YOUR tasks — not linked to any dossier. Perfect for personal reminders and admin work."
+    },
+    "phase3-complete": {
+      "title": "Task Master!",
+      "description": "You now know how to manage tasks — both for dossiers and personal ones. Next, let's explore hearings and sessions."
+    },
+    "sidebar-sessions": {
+      "title": "Court Sessions",
+      "description": "Sessions are your court appearances — hearings, meetings, and appointments. Let's see how to manage them.",
+      "action": "Click on Sessions"
+    },
+    "sessions-list-overview": {
+      "title": "Your Calendar",
+      "description": "All your scheduled sessions appear here. Each session is linked to a dossier or case, so context is never lost."
+    },
+    "create-session": {
+      "title": "Schedule a Session",
+      "description": "Add a court hearing or meeting. Set the date, time, location, and link it to your case.",
+      "action": "Click 'Add Session'"
+    },
+    "session-detail-overview": {
+      "title": "Session Details",
+      "description": "Track the outcome, notes, and next steps for each session. Everything is documented for future reference."
+    },
+    "phase4-complete": {
+      "title": "Session Pro!",
+      "description": "You can now manage court sessions and hearings. Next, let's learn about officers and missions — your execution network."
+    },
+    "sidebar-officers": {
+      "title": "Meet the Officers",
+      "description": "Officers (huissiers) are the professionals who execute missions for you — serving documents, collecting debts, etc.",
+      "action": "Click on Officers"
+    },
+    "officers-list-overview": {
+      "title": "Your Officer Network",
+      "description": "Here you manage your list of bailiffs and officers. You'll need at least one officer before creating missions."
+    },
+    "missions-workflow-explained": {
+      "title": "How Missions Work",
+      "description": "Missions are billable work done by officers. Create them from a dossier, link to an officer, and track the outcome. When complete, fees flow to your finances."
+    },
+    "phase5-complete": {
+      "title": "Mission Expert!",
+      "description": "You understand officers and missions. Now let's see where all this comes together — your finances."
+    },
+    "sidebar-accounting": {
+      "title": "Your Finances",
+      "description": "The Accounting section shows your complete financial picture — income, expenses, and balances.",
+      "action": "Click on Accounting"
+    },
+    "financial-overview": {
+      "title": "Financial Dashboard",
+      "description": "See your earnings at a glance. Mission fees, client payments, and expenses — all in one place."
+    },
+    "financial-entries-explained": {
+      "title": "Track Every Dinar",
+      "description": "Each financial entry is linked to its source — a mission, a payment, or an expense. Full traceability, always."
+    },
+    "phase6-complete": {
+      "title": "Financial Clarity!",
+      "description": "You now understand how Organia tracks your money. One more step to complete your training!"
+    },
+    "tutorial-complete": {
+      "title": "🎉 Congratulations!",
+      "description": "You've completed the Organia tutorial! You now know how to manage clients, dossiers, tasks, sessions, missions, and finances. You're ready to run your practice like a pro."
+    }
+  },
+  "completion": {
+    "title": "Tutorial Paused",
+    "description": "You can resume or restart the tutorial anytime from Settings.",
+    "continueExploring": "Continue exploring"
+  },
+  "prompt": {
+    "title": "Ready to Learn?",
+    "description": "Would you like a quick guided tour of Organia? We'll show you how to navigate the app and create your first client.",
+    "startTutorial": "Start guided tutorial",
+    "exploreAlone": "I'll explore on my own",
+    "laterNote": "You can always start the tutorial later from Settings."
+  },
+  "settings": {
+    "section": "Interactive Tutorial",
+    "startTitle": "Start interactive tutorial",
+    "startDescription": "Learn by doing with a step-by-step guided tour.",
+    "startButton": "Start tutorial",
+    "resumeButton": "Resume tutorial",
+    "restartButton": "Restart tutorial",
+    "status": {
+      "notStarted": "Not started",
+      "inProgress": "In progress",
+      "completed": "Completed"
+    }
+  },
+  "phases": {
+    "phase1": "Phase 1: Clients",
+    "phase2": "Phase 2: Dossiers",
+    "phase3": "Phase 3: Tasks",
+    "phase4": "Phase 4: Sessions",
+    "phase5": "Phase 5: Officers & Missions",
+    "phase6": "Phase 6: Financial",
+    "phase7": "Phase 7: Complete"
+  }
+}

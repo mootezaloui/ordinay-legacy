@@ -1,6 +1,6 @@
 /**
  * TutorialOverlay.tsx
- * 
+ *
  * A soft, semi-transparent overlay that dims the background
  * while keeping the tutorial content visible.
  * Designed to be non-intrusive and calming.

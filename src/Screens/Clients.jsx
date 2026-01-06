@@ -336,6 +336,11 @@ export default function Clients() {
   const handleAddClient = () => {
     setEditingClient(null);
     setIsModalOpen(true);
+
+    // Tell tutorial to hide overlay while modal is open
+    if (tutorial?.setWaitingForAction && tutorial?.currentStep?.id === "create-client") {
+      tutorial.setWaitingForAction(true);
+    }
   };
 
   const handleSubmit = async (formData) => {
@@ -391,12 +396,12 @@ export default function Clients() {
         }
         showToast(t("toasts.createSuccess"), "success");
         logEntityCreation('client', createdId, createdName);
-        
+
         // Notify tutorial that client was created (advances tutorial if on CREATE_CLIENT step)
         if (tutorial?.setCreatedClient) {
           tutorial.setCreatedClient(createdId);
         }
-        
+
         const detailRoute = resolveDetailRoute('client', createdId);
         if (detailRoute) {
           setTimeout(() => navigate(detailRoute), 100);
@@ -596,6 +601,10 @@ export default function Clients() {
         onClose={() => {
           setIsModalOpen(false);
           setEditingClient(null);
+          // Reset tutorial waiting state if modal closed without action
+          if (tutorial?.setWaitingForAction) {
+            tutorial.setWaitingForAction(false);
+          }
         }}
         onSubmit={handleSubmit}
         title={editingClient ? t("form.title.edit") : t("form.title.create")}

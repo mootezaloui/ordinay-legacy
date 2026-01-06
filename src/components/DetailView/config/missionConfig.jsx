@@ -127,7 +127,7 @@ export const createMissionConfig = (t) => ({
 
         return (
             <ContentSection>
-                <div className="p-6">
+                <div className="p-6" data-tutorial="mission-detail-header">
                     <div className="flex flex-col lg:flex-row items-start gap-6">
                         {/* Icon with gradient */}
                         <div className={`w-20 h-20 rounded-2xl bg-gradient-to-br ${statusBadge.bg} flex items-center justify-center text-4xl text-white shadow-xl flex-shrink-0`}>

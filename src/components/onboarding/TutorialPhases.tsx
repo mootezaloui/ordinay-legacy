@@ -1,12 +1,17 @@
 /**
  * TutorialPhases.tsx
- * 
+ *
  * Individual phase content components for the onboarding tutorial.
  * Each phase teaches a specific concept with human language.
  */
 
 import { useTranslation } from "react-i18next";
-import { WORKFLOW_STEPS, type WorkflowStep } from "../../contexts/OnboardingContext";
+import {
+  WORKFLOW_STEPS,
+  type WorkflowStep,
+  useOnboarding,
+} from "../../contexts/OnboardingContext";
+import { useTutorial } from "../../contexts/TutorialContext";
 import WorkflowDiagram from "./WorkflowDiagram";
 
 // ===== PHASE: Dashboard Understanding =====
@@ -57,11 +62,30 @@ interface WorkflowPhaseProps {
 export function WorkflowPhase({ currentStep }: WorkflowPhaseProps) {
   const { t } = useTranslation("onboarding");
 
-  const stepContent: Record<WorkflowStep, { key: string; icon: string; color: string }> = {
-    [WORKFLOW_STEPS.CLIENTS]: { key: "clients", icon: "fas fa-users", color: "blue" },
-    [WORKFLOW_STEPS.DOSSIERS]: { key: "dossiers", icon: "fas fa-folder-open", color: "purple" },
-    [WORKFLOW_STEPS.TASKS]: { key: "tasks", icon: "fas fa-tasks", color: "green" },
-    [WORKFLOW_STEPS.MISSIONS]: { key: "missions", icon: "fas fa-calendar-check", color: "orange" },
+  const stepContent: Record<
+    WorkflowStep,
+    { key: string; icon: string; color: string }
+  > = {
+    [WORKFLOW_STEPS.CLIENTS]: {
+      key: "clients",
+      icon: "fas fa-users",
+      color: "blue",
+    },
+    [WORKFLOW_STEPS.DOSSIERS]: {
+      key: "dossiers",
+      icon: "fas fa-folder-open",
+      color: "purple",
+    },
+    [WORKFLOW_STEPS.TASKS]: {
+      key: "tasks",
+      icon: "fas fa-tasks",
+      color: "green",
+    },
+    [WORKFLOW_STEPS.MISSIONS]: {
+      key: "missions",
+      icon: "fas fa-calendar-check",
+      color: "orange",
+    },
   };
 
   const content = stepContent[currentStep];
@@ -76,10 +100,15 @@ export function WorkflowPhase({ currentStep }: WorkflowPhaseProps) {
       )}
 
       {/* Workflow diagram */}
-      <WorkflowDiagram highlightStep={content.key as "clients" | "dossiers" | "tasks" | "missions"} />
+      <WorkflowDiagram
+        highlightStep={
+          content.key as "clients" | "dossiers" | "tasks" | "missions"
+        }
+      />
 
       {/* Step content */}
-      <div className={`p-4 rounded-xl bg-${content.color}-50 dark:bg-${content.color}-900/20 border border-${content.color}-100 dark:border-${content.color}-800/30`}
+      <div
+        className={`p-4 rounded-xl bg-${content.color}-50 dark:bg-${content.color}-900/20 border border-${content.color}-100 dark:border-${content.color}-800/30`}
         style={{
           backgroundColor: getColorBg(content.color),
           borderColor: getColorBorder(content.color),
@@ -193,7 +222,7 @@ export function PreferencesPhase({
 
       {/* Language */}
       <div className="space-y-2">
-        <label 
+        <label
           htmlFor="onboarding-language-select"
           className="text-sm font-medium text-slate-700 dark:text-slate-300"
         >
@@ -273,6 +302,17 @@ export function PreferencesPhase({
 // ===== PHASE: Completion =====
 export function CompletionPhase() {
   const { t } = useTranslation("onboarding");
+  const { startTutorial } = useTutorial();
+  const { completeTutorial } = useOnboarding();
+
+  const handleStartGuidedTutorial = () => {
+    // Complete onboarding first, then start the interactive tutorial
+    completeTutorial();
+    // Small delay to allow modal to close
+    setTimeout(() => {
+      startTutorial();
+    }, 300);
+  };
 
   return (
     <div className="space-y-5 text-center">
@@ -302,7 +342,10 @@ export function CompletionPhase() {
         </h4>
         <ul className="space-y-2">
           {["tip1", "tip2", "tip3", "tip4"].map((tip, index) => (
-            <li key={tip} className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+            <li
+              key={tip}
+              className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400"
+            >
               <span className="w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-xs font-medium text-blue-600 dark:text-blue-400">
                 {index + 1}
               </span>
@@ -310,6 +353,30 @@ export function CompletionPhase() {
             </li>
           ))}
         </ul>
+      </div>
+
+      {/* Guided Tutorial Option */}
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-4 border border-blue-200 dark:border-blue-800">
+        <div className="flex items-start gap-3">
+          <div className="flex-shrink-0 w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center">
+            <i className="fas fa-hand-pointer text-blue-600 dark:text-blue-400" />
+          </div>
+          <div className="flex-1 text-left">
+            <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-1">
+              {t("phases.completion.guidedTutorial.title")}
+            </h4>
+            <p className="text-xs text-slate-600 dark:text-slate-400 mb-3">
+              {t("phases.completion.guidedTutorial.description")}
+            </p>
+            <button
+              onClick={handleStartGuidedTutorial}
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+            >
+              <i className="fas fa-play text-xs" />
+              {t("phases.completion.guidedTutorial.button")}
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Replay note */}
@@ -332,11 +399,26 @@ function HighlightItem({
   text: string;
 }) {
   const colorClasses: Record<string, { bg: string; icon: string }> = {
-    blue: { bg: "bg-blue-50 dark:bg-blue-900/20", icon: "text-blue-600 dark:text-blue-400" },
-    purple: { bg: "bg-purple-50 dark:bg-purple-900/20", icon: "text-purple-600 dark:text-purple-400" },
-    amber: { bg: "bg-amber-50 dark:bg-amber-900/20", icon: "text-amber-600 dark:text-amber-400" },
-    green: { bg: "bg-green-50 dark:bg-green-900/20", icon: "text-green-600 dark:text-green-400" },
-    red: { bg: "bg-red-50 dark:bg-red-900/20", icon: "text-red-600 dark:text-red-400" },
+    blue: {
+      bg: "bg-blue-50 dark:bg-blue-900/20",
+      icon: "text-blue-600 dark:text-blue-400",
+    },
+    purple: {
+      bg: "bg-purple-50 dark:bg-purple-900/20",
+      icon: "text-purple-600 dark:text-purple-400",
+    },
+    amber: {
+      bg: "bg-amber-50 dark:bg-amber-900/20",
+      icon: "text-amber-600 dark:text-amber-400",
+    },
+    green: {
+      bg: "bg-green-50 dark:bg-green-900/20",
+      icon: "text-green-600 dark:text-green-400",
+    },
+    red: {
+      bg: "bg-red-50 dark:bg-red-900/20",
+      icon: "text-red-600 dark:text-red-400",
+    },
   };
 
   const classes = colorClasses[color] || colorClasses.blue;

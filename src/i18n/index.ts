@@ -77,6 +77,7 @@ export const initI18n = async (language?: string) => {
           "missions",
           "domain",
           "onboarding",
+          "tutorial",
         ],
         defaultNS: "common",
         interpolation: {

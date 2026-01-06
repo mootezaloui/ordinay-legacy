@@ -431,7 +431,7 @@ export default function Dashboard() {
         </ContentSection>
 
         {/* Stats Grid */}
-        <div 
+        <div
           className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
           data-tutorial="dashboard-stats"
         >
@@ -487,9 +487,9 @@ export default function Dashboard() {
         {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Urgent Tasks */}
-          <ContentSection 
+          <ContentSection
             title={t("dashboard.urgentTasks.title", { count: urgentTasks.length })}
-            data-tutorial="dashboard-tasks"
+            data-tutorial="dashboard-urgent-tasks"
           >
             <div className="p-6">
               <TaskList tasks={urgentTasks} maxItems={5} />
@@ -497,7 +497,10 @@ export default function Dashboard() {
           </ContentSection>
 
           {/* Upcoming Events */}
-          <ContentSection title={t("dashboard.upcomingEvents.title", { count: upcomingEvents.length })}>
+          <ContentSection
+            title={t("dashboard.upcomingEvents.title", { count: upcomingEvents.length })}
+            data-tutorial="dashboard-upcoming-events"
+          >
             <div className="p-6">
               <UpcomingEvents events={upcomingEvents} maxItems={5} />
             </div>
