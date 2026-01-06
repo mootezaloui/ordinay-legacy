@@ -313,6 +313,7 @@
     "edit": {
       "blocked": {
         "entryNotFound": "Écriture comptable introuvable",
+        "entryCancelled": "Cette écriture comptable a été annulée et ne peut pas être modifiée.\n\nLes écritures annulées sont conservées à des fins d'audit.",
         "dossierClosed": "Cette écriture est liée au dossier \"{{caseNumber}}\" qui est {{status}}.\n\nLes écritures des dossiers fermés ne peuvent pas être modifiées.",
         "caseClosed": "Cette écriture est liée au procès \"{{caseNumber}}\" qui est fermé.\n\nLes écritures des procès fermés ne peuvent pas être modifiées."
       },
@@ -326,18 +327,29 @@
     },
     "delete": {
       "blocked": {
-        "entryNotFound": "Écriture comptable introuvable"
+        "entryNotFound": "Écriture comptable introuvable",
+        "entryConfirmed": "Cette écriture comptable confirmée ne peut pas être supprimée définitivement.\n\nElle sera annulée et conservée à des fins d'audit."
       },
       "warning": {
         "entryPaid": "Cette écriture est payée. La supprimer sera journalisé et conservera les valeurs précédentes.",
         "lead": "Cette écriture est payée. Sa suppression nécessite confirmation et laissera une trace.",
         "balanceImpact": "Les soldes seront recalculés après la suppression.",
-        "auditTrail": "Le montant, le statut et les détails précédents resteront dans l'historique."
+        "auditTrail": "Le montant, le statut et les détails précédents resteront dans l'historique.",
+        "softDelete": "Cette écriture sera annulée (pas supprimée définitivement) pour préserver la piste d'audit."
+      },
+      "success": {
+        "hardDelete": "Brouillon supprimé définitivement.",
+        "softDelete": "Écriture annulée et archivée à des fins d'audit."
       }
+    },
+    "cancel": {
+      "success": "Écriture comptable annulée avec succès.",
+      "alreadyCancelled": "Cette écriture est déjà annulée."
     },
     "changeStatus": {
       "blocked": {
-        "entryNotFound": "Écriture comptable introuvable"
+        "entryNotFound": "Écriture comptable introuvable",
+        "entryCancelled": "Les écritures annulées ne peuvent pas avoir leur statut modifié."
       },
       "warning": {
         "alreadyPaid": "Cette écriture est payée. Modifier son statut sera journalisé et recalculera les soldes.",
@@ -345,6 +357,25 @@
         "balanceImpact": "Les totaux financiers s'ajusteront selon le nouveau statut.",
         "auditTrail": "Les anciens et nouveaux statuts seront enregistrés dans l'historique avec date."
       }
+    },
+    "status": {
+      "draft": "Brouillon",
+      "confirmed": "Confirmé",
+      "cancelled": "Annulé"
+    },
+    "direction": {
+      "receivable": "À recevoir",
+      "receivableDesc": "Le client doit ce montant",
+      "payable": "À payer",
+      "payableDesc": "Dépense du cabinet (pas une obligation du client)"
+    },
+    "blocker": {
+      "unpaidReceivable": "Solde créances impayées : {{amount}} DTN",
+      "unpaidReceivableCount": "{{count}} créance impayée",
+      "unpaidReceivableCount_plural": "{{count}} créances impayées",
+      "helpDossier": "Ce dossier ne peut pas être fermé car le client a des créances impayées. Marquez les écritures comme payées ou annulez-les pour continuer.",
+      "helpClient": "Ce client ne peut pas être archivé car il a des créances impayées. Marquez les écritures comme payées ou annulez-les pour continuer.",
+      "notePayable": "Note : Les dépenses internes (à payer) ne bloquent pas la fermeture."
     }
   },
   "officer": {

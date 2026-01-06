@@ -11,6 +11,7 @@ import {
   getFormTitle,
 } from "../FormModal/formConfigs";
 import { useData } from "../../contexts/DataContext";
+import { useTutorialSafe } from "../../contexts/TutorialContext";
 import { resolveDetailRoute } from "../../utils/routeResolver";
 import { logEntityCreation } from "../../services/historyService";
 
@@ -36,6 +37,7 @@ export default function QuickActions({ onDataChange }) {
   const tSessions = (key) => t(key, { ns: "sessions" });
   const { notify } = useNotifications();
   const navigate = useNavigate();
+  const tutorial = useTutorialSafe(); // Safe hook that returns null if not in provider
   const {
     clients,
     dossiers,
@@ -97,6 +99,8 @@ export default function QuickActions({ onDataChange }) {
           if (!createdId) throw new Error("client ID is missing");
           newEntity = { ...createdEntity };
           logEntityCreation("client", createdId, createdName);
+          // Notify tutorial
+          if (tutorial?.setCreatedClient) tutorial.setCreatedClient(createdId);
           break;
         }
         case "dossier": {
@@ -106,6 +110,8 @@ export default function QuickActions({ onDataChange }) {
           if (!createdId) throw new Error("dossier ID is missing");
           newEntity = { ...createdEntity };
           logEntityCreation("dossier", createdId, createdEntity?.caseNumber);
+          // Notify tutorial
+          if (tutorial?.setCreatedDossier) tutorial.setCreatedDossier(createdId);
           break;
         }
         case "task": {
@@ -118,6 +124,8 @@ export default function QuickActions({ onDataChange }) {
           const createdEntity = creation?.created || creation;
           newEntity = { ...createdEntity };
           logEntityCreation("task", newEntity.id, newEntity.title);
+          // Notify tutorial
+          if (tutorial?.setCreatedTask) tutorial.setCreatedTask(newEntity.id);
           break;
         }
         case "session": {

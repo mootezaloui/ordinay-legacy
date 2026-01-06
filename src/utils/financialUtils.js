@@ -5,12 +5,30 @@
  * All financial logic is centralized here to ensure consistency.
  *
  * Key principle: Balances are COMPUTED, never stored.
+ *
+ * FINANCIAL STABILIZATION (Phase 1):
+ * - Uses direction (receivable/payable) for accurate balance calculations
+ * - Excludes cancelled entries from balance computations
+ * - Only receivable entries affect client closure blockers
  */
 
 import {
   financialCategories,
   financialStatuses,
+  normalizeFinancialStatus,
+  determineDirection,
+  CANONICAL_STATUSES,
 } from "./financialConstants";
+
+/**
+ * Check if a status represents a cancelled/void entry
+ * @param {string} status - Entry status
+ * @returns {boolean}
+ */
+const isCancelledStatus = (status) => {
+  const normalized = normalizeFinancialStatus(status);
+  return normalized === "cancelled";
+};
 
 /**
  * Filter financial entries by criteria
@@ -21,14 +39,22 @@ import {
 export const filterFinancialEntries = (filters = {}, allEntries = []) => {
   let entries = [...allEntries];
 
-  // Exclude void entries by default
+  // Exclude cancelled/void entries by default (unless explicitly requested)
   if (filters.includeCancelled !== true) {
-    entries = entries.filter((e) => e.status !== "void");
+    entries = entries.filter((e) => !isCancelledStatus(e.status));
   }
 
   // Filter by scope
   if (filters.scope) {
     entries = entries.filter((e) => e.scope === filters.scope);
+  }
+
+  // Filter by direction (receivable/payable) - NEW for stabilization
+  if (filters.direction) {
+    entries = entries.filter((e) => {
+      const entryDirection = e.direction || determineDirection(e.type, e.scope);
+      return entryDirection === filters.direction;
+    });
   }
 
   // Filter by client
@@ -80,7 +106,11 @@ export const filterFinancialEntries = (filters = {}, allEntries = []) => {
 
   // Filter by status
   if (filters.status) {
-    entries = entries.filter((e) => e.status === filters.status);
+    entries = entries.filter(
+      (e) =>
+        normalizeFinancialStatus(e.status) ===
+        normalizeFinancialStatus(filters.status)
+    );
   }
 
   // Filter by date range
@@ -265,8 +295,14 @@ export const getOfficerFinancialSummary = (officerId, allEntries = []) => {
  * @param {Array} allEntries - All financial entries (from DataContext)
  * @returns {Object} Personal task financial summary (internal expenses only)
  */
-export const getPersonalTaskFinancialSummary = (personalTaskId, allEntries = []) => {
-  return computeFinancialSummary({ personalTaskId, scope: "internal" }, allEntries);
+export const getPersonalTaskFinancialSummary = (
+  personalTaskId,
+  allEntries = []
+) => {
+  return computeFinancialSummary(
+    { personalTaskId, scope: "internal" },
+    allEntries
+  );
 };
 
 /**
@@ -275,8 +311,14 @@ export const getPersonalTaskFinancialSummary = (personalTaskId, allEntries = [])
  * @returns {Object} Global summary with client and internal breakdown
  */
 export const getGlobalAccountingSummary = (allEntries = []) => {
-  const clientSummary = computeFinancialSummary({ scope: "client" }, allEntries);
-  const internalSummary = computeFinancialSummary({ scope: "internal" }, allEntries);
+  const clientSummary = computeFinancialSummary(
+    { scope: "client" },
+    allEntries
+  );
+  const internalSummary = computeFinancialSummary(
+    { scope: "internal" },
+    allEntries
+  );
 
   return {
     client: clientSummary,
@@ -314,7 +356,10 @@ export const formatCurrency = (amount, currency = "TND") => {
  * @param {Array} allEntries - All financial entries (from DataContext)
  * @returns {Array} Entries with display fields
  */
-export const getFinancialEntriesForDisplay = (filters = {}, allEntries = []) => {
+export const getFinancialEntriesForDisplay = (
+  filters = {},
+  allEntries = []
+) => {
   const entries = filterFinancialEntries(filters, allEntries);
 
   return entries.map((entry) => ({
@@ -355,7 +400,8 @@ export const getClientBalanceDetails = (clientId, allEntries = []) => {
 
   // Reimbursable expenses (paid by firm on behalf of client)
   // Include fraisJudiciaires, fraisHuissier, and otherExpense (for "Other" category expenses)
-  const reimbursableExpenses = summary.fraisJudiciaires + summary.fraisHuissier + summary.otherExpense;
+  const reimbursableExpenses =
+    summary.fraisJudiciaires + summary.fraisHuissier + summary.otherExpense;
 
   // Total client should pay
   const totalDue = totalOwed + reimbursableExpenses;
@@ -436,14 +482,100 @@ export const validateFinancialEntry = (entry) => {
   };
 };
 
+// ========================================
+// FINANCIAL STABILIZATION (Phase 1) - Balance for Blockers
+// ========================================
+
+/**
+ * Get client RECEIVABLE balance for closure validation
+ * This is what matters for closure blockers - only receivable entries
+ * (what client owes to firm), not internal/payable expenses.
+ *
+ * @param {Number} clientId - Client ID
+ * @param {Array} allEntries - All financial entries (from DataContext)
+ * @returns {Object} { hasOutstanding, outstandingBalance, unpaidEntries }
+ */
+export const getClientReceivableBalance = (clientId, allEntries = []) => {
+  // Only receivable entries (client owes money)
+  const receivableEntries = filterFinancialEntries(
+    { clientId, direction: "receivable" },
+    allEntries
+  );
+
+  // Calculate totals
+  let totalOwed = 0;
+  let totalPaid = 0;
+  const unpaidEntries = [];
+
+  receivableEntries.forEach((entry) => {
+    const amount = Number(entry.amount || 0);
+    totalOwed += amount;
+
+    // Check if paid (using isPaid flag or paidAt)
+    if (entry.isPaid || entry.paidAt) {
+      totalPaid += amount;
+    } else {
+      unpaidEntries.push(entry);
+    }
+  });
+
+  const outstandingBalance = totalOwed - totalPaid;
+
+  return {
+    hasOutstanding: outstandingBalance > 0,
+    totalOwed,
+    totalPaid,
+    outstandingBalance,
+    unpaidEntries,
+    unpaidCount: unpaidEntries.length,
+  };
+};
+
+/**
+ * Check if a dossier has outstanding receivable balance
+ * Uses client balance (dossiers share client's financial state)
+ *
+ * @param {Number} dossierId - Dossier ID
+ * @param {Number} clientId - Client ID (from dossier)
+ * @param {Array} allEntries - All financial entries
+ * @returns {Object} Balance info for closure blocker
+ */
+export const getDossierReceivableBalance = (
+  dossierId,
+  clientId,
+  allEntries = []
+) => {
+  // Get client-level receivable balance
+  const clientBalance = getClientReceivableBalance(clientId, allEntries);
+
+  // Filter unpaid entries that are specifically linked to this dossier
+  const dossierUnpaid = clientBalance.unpaidEntries.filter(
+    (e) => e.dossierId === dossierId
+  );
+
+  return {
+    ...clientBalance,
+    dossierSpecificUnpaid: dossierUnpaid,
+    dossierSpecificCount: dossierUnpaid.length,
+    // Note: closure blocks if ANY client receivable is unpaid (not just dossier-specific)
+    // This is intentional - settling all client balances is a business rule
+  };
+};
+
 /**
  * Get statistics for accounting dashboard
  * @param {Array} allEntries - All financial entries (from DataContext)
  * @returns {Object} Dashboard statistics
  */
 export const getAccountingStatistics = (allEntries = []) => {
-  const allClientEntries = filterFinancialEntries({ scope: "client" }, allEntries);
-  const allInternalEntries = filterFinancialEntries({ scope: "internal" }, allEntries);
+  const allClientEntries = filterFinancialEntries(
+    { scope: "client" },
+    allEntries
+  );
+  const allInternalEntries = filterFinancialEntries(
+    { scope: "internal" },
+    allEntries
+  );
 
   // Client financials
   const clientRevenues = allClientEntries.filter((e) => e.type === "revenue");
@@ -452,19 +584,29 @@ export const getAccountingStatistics = (allEntries = []) => {
   const totalClientRevenue = computeTotal(clientRevenues);
   const totalClientExpense = computeTotal(clientExpenses);
   const totalClientPaid = computeTotal(
-    clientRevenues.filter((e) => e.status === "paid")
+    clientRevenues.filter((e) => e.isPaid || e.paidAt)
   );
   const totalClientPending = computeTotal(
-    clientRevenues.filter((e) => e.status === "confirmed")
+    clientRevenues.filter(
+      (e) =>
+        !e.isPaid &&
+        !e.paidAt &&
+        normalizeFinancialStatus(e.status) === "confirmed"
+    )
   );
 
   // Internal expenses
   const totalInternalExpense = computeTotal(allInternalEntries);
   const totalInternalPaid = computeTotal(
-    allInternalEntries.filter((e) => e.status === "paid")
+    allInternalEntries.filter((e) => e.isPaid || e.paidAt)
   );
   const totalInternalPending = computeTotal(
-    allInternalEntries.filter((e) => e.status === "confirmed")
+    allInternalEntries.filter(
+      (e) =>
+        !e.isPaid &&
+        !e.paidAt &&
+        normalizeFinancialStatus(e.status) === "confirmed"
+    )
   );
 
   // Global
@@ -514,4 +656,7 @@ export default {
   getInternalExpensesSummary,
   validateFinancialEntry,
   getAccountingStatistics,
+  // Financial stabilization exports
+  getClientReceivableBalance,
+  getDossierReceivableBalance,
 };

@@ -1,0 +1,114 @@
+{
+  "welcome": {
+    "title": "Welcome to Organia",
+    "subtitle": "Your legal practice, organized.",
+    "description": "Organia helps you manage your clients, cases, tasks, and finances — all in one place. Let's take a quick tour to get you started.",
+    "startButton": "Start guided tour",
+    "skipButton": "Skip for now",
+    "skipNote": "You can always replay this from Settings."
+  },
+  "navigation": {
+    "next": "Next",
+    "back": "Back",
+    "skip": "Skip tour",
+    "finish": "Get started",
+    "stepOf": "Step {{current}} of {{total}}"
+  },
+  "phases": {
+    "dashboard": {
+      "title": "Your Control Center",
+      "description": "This is your dashboard — the place you'll start each day.",
+      "highlights": {
+        "stats": "See your key numbers at a glance: clients, active cases, pending tasks, and revenue.",
+        "upcoming": "Upcoming events and deadlines appear here. No need to check multiple places.",
+        "quick": "Need to create something fast? Quick actions are always within reach."
+      },
+      "tip": "You don't need to open everything. Organia surfaces what matters."
+    },
+    "workflow": {
+      "title": "How Organia Works",
+      "subtitle": "Understanding the flow",
+      "intro": "Organia is built around a simple hierarchy. Once you understand it, everything clicks.",
+      "clients": {
+        "title": "Start with Clients",
+        "description": "Every piece of work begins with a client. Add your clients first — they're the foundation.",
+        "detail": "Each client can have multiple legal matters. Think of clients as the containers for everything else."
+      },
+      "dossiers": {
+        "title": "Dossiers: Your Legal Matters",
+        "description": "A dossier represents a legal file or case. It belongs to a client and holds all related work.",
+        "detail": "Example: \"Divorce Proceedings - Smith\" or \"Contract Dispute - Acme Corp\". Each dossier tracks its own tasks, deadlines, and history."
+      },
+      "tasks": {
+        "title": "Tasks Keep You on Track",
+        "description": "Tasks are the actions you need to complete. They live inside dossiers or stand alone for personal work.",
+        "detail": "Set due dates, mark priorities, and check them off as you go. Nothing slips through the cracks."
+      },
+      "missions": {
+        "title": "Missions & Hearings",
+        "description": "Missions are scheduled events: court hearings, client meetings, expert consultations.",
+        "detail": "They appear in your dashboard's upcoming events. You'll never miss an important date."
+      },
+      "summary": "Clients → Dossiers → Tasks & Missions. That's the mental model. Simple."
+    },
+    "financial": {
+      "title": "Stay in Control of Your Finances",
+      "description": "Organia tracks your legal fees and expenses. Here's what you need to know.",
+      "points": {
+        "fees": "Fees are what you earn from clients. Attach them to dossiers to track payments.",
+        "expenses": "Expenses are costs you incur: court fees, travel, expert consultations.",
+        "tracking": "See what's paid, what's pending, and what's overdue — at a glance."
+      },
+      "reassurance": "Nothing is sent automatically. Nothing syncs without your permission. You stay in control.",
+      "tip": "Don't worry about mastering this now. Start simple, add detail as you go."
+    },
+    "preferences": {
+      "title": "Make It Yours",
+      "description": "A few quick settings to personalize your experience.",
+      "language": {
+        "title": "Language",
+        "description": "Choose your preferred language. You can change this anytime in Settings."
+      },
+      "theme": {
+        "title": "Theme",
+        "description": "Light or dark? Pick what's comfortable for your eyes.",
+        "light": "Light",
+        "dark": "Dark",
+        "system": "System default"
+      },
+      "notifications": {
+        "title": "Notifications",
+        "description": "Get reminders for upcoming deadlines and events.",
+        "enable": "Enable notifications"
+      },
+      "skipNote": "All of these can be changed later in Settings. No pressure."
+    },
+    "completion": {
+      "title": "You're Ready!",
+      "description": "That's all you need to know to get started.",
+      "encouragement": "Explore freely — you can't break anything. Every action is reversible, and your data is safe.",
+      "tips": {
+        "title": "Quick reminders",
+        "tip1": "Start by adding a client",
+        "tip2": "Create a dossier for their legal matter",
+        "tip3": "Add tasks to track your work",
+        "tip4": "Check your dashboard daily"
+      },
+      "replay": "Need a refresher? You can replay this tour anytime from Settings.",
+      "button": "Start using Organia"
+    }
+  },
+  "settings": {
+    "section": "Tutorial",
+    "replayTitle": "Replay onboarding tutorial",
+    "replayDescription": "Take the guided tour again to refresh your memory.",
+    "replayButton": "Replay tutorial",
+    "tipsTitle": "Show contextual tips",
+    "tipsDescription": "Display helpful hints as you navigate the app.",
+    "completed": "Tutorial completed",
+    "skipped": "Tutorial skipped"
+  },
+  "tooltips": {
+    "pressEsc": "Press Esc to exit at any time"
+  }
+}

@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useToast } from "../../../contexts/ToastContext";
 import { useConfirm } from "../../../contexts/ConfirmContext";
 import { useData } from "../../../contexts/DataContext";
+import { useTutorialSafe } from "../../../contexts/TutorialContext";
 import { getStatusColor } from "../config/statusColors";
 import ContentSection from "../../layout/ContentSection";
 import FormModal from "../../FormModal/FormModal";
@@ -42,6 +43,7 @@ export default function AggregatedRelatedTab({
   const { confirm } = useConfirm();
   const { formatDate } = useSettings();
   const { t } = useTranslation("common");
+  const tutorial = useTutorialSafe(); // Safe hook that returns null if not in provider
   const {
     addDossier,
     addCase,
@@ -301,6 +303,8 @@ export default function AggregatedRelatedTab({
             }
             const created = creation.created || creation;
             newItem = { ...created };
+            // Notify tutorial
+            if (tutorial?.setCreatedDossier) tutorial.setCreatedDossier(created.id);
           }
           break;
         case "cases":
@@ -337,6 +341,8 @@ export default function AggregatedRelatedTab({
             }
             const created = creation.created || creation;
             newItem = { ...created };
+            // Notify tutorial
+            if (tutorial?.setCreatedTask) tutorial.setCreatedTask(created.id);
           }
           break;
         case "missions":

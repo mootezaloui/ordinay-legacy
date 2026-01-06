@@ -431,7 +431,10 @@ export default function Dashboard() {
         </ContentSection>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div 
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
+          data-tutorial="dashboard-stats"
+        >
           <StatCard
             label={t("dashboard.stats.totalClients")}
             value={isLoadingSummary ? "—" : stats.clients.total}
@@ -484,7 +487,10 @@ export default function Dashboard() {
         {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Urgent Tasks */}
-          <ContentSection title={t("dashboard.urgentTasks.title", { count: urgentTasks.length })}>
+          <ContentSection 
+            title={t("dashboard.urgentTasks.title", { count: urgentTasks.length })}
+            data-tutorial="dashboard-tasks"
+          >
             <div className="p-6">
               <TaskList tasks={urgentTasks} maxItems={5} />
             </div>

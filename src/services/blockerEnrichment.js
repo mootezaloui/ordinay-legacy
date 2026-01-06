@@ -430,38 +430,68 @@ function parseMissionBlocker(blocker, entityType, entityId, data) {
 
 /**
  * Parse unpaid financial balance blocker
+ *
+ * FINANCIAL STABILIZATION (Phase 1):
+ * - Only considers receivable entries (what client owes)
+ * - Ignores payable/internal entries
+ * - Provides clear, actionable messages
  */
 function parseFinancialBlocker(blocker, entityType, entityId, data) {
   let entries = [];
 
+  // Helper to check if entry is paid
+  const isPaid = (entry) => {
+    if (entry.isPaid) return true;
+    if (entry.paidAt || entry.paid_at) return true;
+    const status = String(entry.status || "").toLowerCase();
+    return ["paid", "payé", "payée"].includes(status);
+  };
+
+  // Helper to check if entry is cancelled
+  const isCancelled = (entry) => {
+    const status = String(entry.status || "").toLowerCase();
+    return ["void", "cancelled", "annulé"].includes(status);
+  };
+
+  // Helper to get direction (receivable vs payable)
+  const getDirection = (entry) => {
+    if (entry.direction) return entry.direction;
+    if (entry.scope === "internal") return "payable";
+    return "receivable";
+  };
+
   if (entityType === "dossier") {
     const dossier = data.dossiers.find((d) => d.id == entityId);
     if (dossier) {
+      // Only receivable entries that are unpaid
       entries = data.financialEntries.filter(
         (entry) =>
           entry.clientId == dossier.clientId &&
-          entry.status !== "paid" &&
-          entry.status !== "Paid" &&
-          entry.status !== "void"
+          !isPaid(entry) &&
+          !isCancelled(entry) &&
+          getDirection(entry) === "receivable"
       );
     }
   } else if (entityType === "client") {
+    // Only receivable entries that are unpaid
     entries = data.financialEntries.filter(
       (entry) =>
         entry.clientId == entityId &&
-        entry.status !== "paid" &&
-        entry.status !== "Payée" &&
-        entry.status !== "void"
+        !isPaid(entry) &&
+        !isCancelled(entry) &&
+        getDirection(entry) === "receivable"
     );
   }
 
   const items = entries.slice(0, 5).map((entry) => ({
     entityId: entry.id,
-    entityLabel: `${entry.description || "Financial entry"} - ${entry.amount} ${
-      entry.currency || "TND"
-    }`,
+    entityLabel: `${entry.description || entry.title || "Financial entry"} - ${
+      entry.amount
+    } ${entry.currency || "TND"}`,
     entityType: "financialEntry",
     status: entry.status,
+    amount: entry.amount,
+    currency: entry.currency || "TND",
     actions: [
       {
         label: "View Entry",
@@ -483,15 +513,46 @@ function parseFinancialBlocker(blocker, entityType, entityId, data) {
     ],
   }));
 
+  // Calculate total outstanding
+  const totalOutstanding = entries.reduce(
+    (sum, e) => sum + Number(e.amount || 0),
+    0
+  );
+
+  // More specific help text
+  let helpText = "";
+  if (entityType === "dossier") {
+    helpText =
+      entries.length === 1
+        ? `This dossier cannot be closed because the client has 1 outstanding receivable (${totalOutstanding.toFixed(
+            2
+          )} TND). Mark the entry as paid or cancel it to proceed.`
+        : `This dossier cannot be closed because the client has ${
+            entries.length
+          } outstanding receivables (${totalOutstanding.toFixed(
+            2
+          )} TND total). All amounts owed by the client must be settled.`;
+  } else if (entityType === "client") {
+    helpText =
+      entries.length === 1
+        ? `This client cannot be archived because they have 1 outstanding receivable (${totalOutstanding.toFixed(
+            2
+          )} TND). Mark the entry as paid or cancel it to proceed.`
+        : `This client cannot be archived because they have ${
+            entries.length
+          } outstanding receivables (${totalOutstanding.toFixed(
+            2
+          )} TND total). All amounts owed by the client must be settled.`;
+  }
+
   return {
     type: "financial",
     reason: blocker,
     items,
     summary: blocker,
-    helpText:
-      entityType === "dossier"
-        ? "To close this dossier, all financial balances must be settled. You can mark entries as paid or create new payment entries to balance the account."
-        : "To mark this client as inactive, all financial balances must be settled. You can mark entries as paid or create new payment entries to balance the account.",
+    totalOutstanding,
+    unpaidCount: entries.length,
+    helpText,
     actions: [],
   };
 }

@@ -8,9 +8,11 @@ import { ConfirmProvider } from "./contexts/ConfirmContext";
 import { DataProvider } from "./contexts/DataContext";
 import { I18nProvider } from "./contexts/I18nProvider";
 import { OperatorProvider } from "./contexts/OperatorContext";
+import { OnboardingProvider } from "./contexts/OnboardingContext";
 import "@fortawesome/fontawesome-free/css/all.min.css";
 import { NotificationProvider } from "./contexts/NotificationContext";
 import AlertBanner from "./components/notifications/AlertBanner";
+import { OnboardingTutorial } from "./components/onboarding";
 import { SettingsProvider } from "./contexts/SettingsContext";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { initializeApiConfig } from "./lib/apiConfig";
@@ -35,20 +37,23 @@ async function bootstrap() {
           <I18nProvider>
             <OperatorProvider>
               <ThemeProvider>
-                <NotificationProvider>
-                  <ToastProvider>
-                    <DataProvider>
-                      <AlertBanner />
-                      <SidebarProvider>
-                        <ConfirmProvider>
-                          <BrowserRouter>
-                            <App />
-                          </BrowserRouter>
-                        </ConfirmProvider>
-                      </SidebarProvider>
-                    </DataProvider>
-                  </ToastProvider>
-                </NotificationProvider>
+                <OnboardingProvider>
+                  <NotificationProvider>
+                    <ToastProvider>
+                      <DataProvider>
+                        <AlertBanner />
+                        <SidebarProvider>
+                          <ConfirmProvider>
+                            <BrowserRouter>
+                              <App />
+                              <OnboardingTutorial />
+                            </BrowserRouter>
+                          </ConfirmProvider>
+                        </SidebarProvider>
+                      </DataProvider>
+                    </ToastProvider>
+                  </NotificationProvider>
+                </OnboardingProvider>
               </ThemeProvider>
             </OperatorProvider>
           </I18nProvider>

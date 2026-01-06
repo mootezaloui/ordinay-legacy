@@ -79,11 +79,52 @@ const officerStatusMap: Record<string, string> = {
   inactive: "Inactive",
 };
 
+// ========================================
+// FINANCIAL STATUS NORMALIZATION (Phase 1 Stabilization)
+// ========================================
+// Canonical statuses: draft, confirmed, cancelled
+// All legacy values are mapped to canonical ones
+
 const financialStatusMap: Record<string, string> = {
+  // Canonical statuses (pass through)
+  draft: "draft",
+  confirmed: "confirmed",
+  cancelled: "cancelled",
+  // Legacy mappings from database
   pending: "draft",
   posted: "confirmed",
-  paid: "paid",
-  void: "void",
+  paid: "confirmed", // paid = confirmed + paidAt set
+  void: "cancelled",
+};
+
+/**
+ * Normalize financial status to canonical value
+ */
+const normalizeFinancialStatus = (status: string | null | undefined): string => {
+  if (!status) return "draft";
+  const lowered = String(status).toLowerCase();
+  return financialStatusMap[lowered] || financialStatusMap[status] || "draft";
+};
+
+/**
+ * Determine direction based on entry type and scope
+ * receivable = client owes money
+ * payable = firm expense (not client's obligation)
+ */
+const determineDirection = (
+  entryType: string | null | undefined,
+  scope: string | null | undefined,
+  existingDirection: string | null | undefined
+): string => {
+  // Use existing direction if provided
+  if (existingDirection) return existingDirection;
+  
+  // Internal expenses are firm costs, not client obligations
+  if (scope === "internal") {
+    return "payable";
+  }
+  // Revenue/income and client-scoped expenses are receivable
+  return "receivable";
 };
 
 const missionStatusMap: Record<string, string> = {
@@ -279,8 +320,19 @@ export function adaptFinancialEntry(
   const clientName = api.client_id ? (clientsById[api.client_id]?.name ?? `Client #${api.client_id}`) : "";
   const dossierRef = api.dossier_id ? (dossiersById[api.dossier_id]?.caseNumber ?? `DOS-${api.dossier_id}`) : "";
   const caseRef = api.case_id ? (casesById[api.case_id]?.caseNumber ?? `PRO-${api.case_id}`) : "";
-  const mappedStatus = financialStatusMap[api.status] ?? api.status ?? "draft";
+  
+  // Normalize status to canonical value
+  const rawStatus = api.status;
+  const mappedStatus = normalizeFinancialStatus(rawStatus);
+  
+  // Determine if entry is paid (has paidAt set)
+  const isPaid = !!api.paid_at;
+  
+  // Map entry_type to frontend type
   const type = api.entry_type === "income" ? "revenue" : "expense";
+  
+  // Determine direction (receivable vs payable)
+  const direction = determineDirection(api.entry_type, api.scope, api.direction);
 
   return {
     id: api.id,
@@ -292,6 +344,13 @@ export function adaptFinancialEntry(
     title: api.title ?? "",
     description: api.description ?? "",
     status: mappedStatus,
+    // Financial stabilization fields
+    direction,
+    isPaid,
+    paidAt: api.paid_at ?? null,
+    cancelledAt: api.cancelled_at ?? null,
+    cancellationReason: api.cancellation_reason ?? null,
+    // Scope and relationships
     scope: api.scope ?? "client",
     clientId: api.client_id ?? null,
     clientName,
@@ -304,6 +363,9 @@ export function adaptFinancialEntry(
     personalTaskId: null,
     documentId: null,
     reference: api.reference ?? "",
+    // Metadata
+    createdAt: api.created_at ?? null,
+    updatedAt: api.updated_at ?? null,
   };
 }
 

@@ -1,0 +1,114 @@
+{
+  "welcome": {
+    "title": "Bienvenue sur Organia",
+    "subtitle": "Votre cabinet, organisé.",
+    "description": "Organia vous aide à gérer vos clients, dossiers, tâches et finances — le tout en un seul endroit. Faisons un tour rapide pour vous familiariser.",
+    "startButton": "Commencer la visite",
+    "skipButton": "Passer pour l'instant",
+    "skipNote": "Vous pourrez toujours revoir ce guide depuis les Paramètres."
+  },
+  "navigation": {
+    "next": "Suivant",
+    "back": "Retour",
+    "skip": "Quitter le guide",
+    "finish": "Commencer",
+    "stepOf": "Étape {{current}} sur {{total}}"
+  },
+  "phases": {
+    "dashboard": {
+      "title": "Votre Centre de Contrôle",
+      "description": "Voici votre tableau de bord — l'endroit où vous commencerez chaque journée.",
+      "highlights": {
+        "stats": "Consultez vos chiffres clés en un coup d'œil : clients, dossiers actifs, tâches en attente et revenus.",
+        "upcoming": "Les événements et échéances à venir apparaissent ici. Inutile de vérifier plusieurs endroits.",
+        "quick": "Besoin de créer quelque chose rapidement ? Les actions rapides sont toujours à portée de main."
+      },
+      "tip": "Vous n'avez pas besoin de tout ouvrir. Organia fait remonter ce qui compte."
+    },
+    "workflow": {
+      "title": "Comment Fonctionne Organia",
+      "subtitle": "Comprendre le flux de travail",
+      "intro": "Organia est construit autour d'une hiérarchie simple. Une fois comprise, tout devient clair.",
+      "clients": {
+        "title": "Commencez par les Clients",
+        "description": "Chaque travail commence par un client. Ajoutez vos clients d'abord — ils sont la base de tout.",
+        "detail": "Chaque client peut avoir plusieurs affaires juridiques. Considérez les clients comme les conteneurs de tout le reste."
+      },
+      "dossiers": {
+        "title": "Dossiers : Vos Affaires Juridiques",
+        "description": "Un dossier représente une affaire ou un cas juridique. Il appartient à un client et contient tout le travail associé.",
+        "detail": "Exemple : « Procédure de Divorce - Dupont » ou « Litige Commercial - Société ABC ». Chaque dossier suit ses propres tâches, échéances et historique."
+      },
+      "tasks": {
+        "title": "Les Tâches Vous Gardent sur la Bonne Voie",
+        "description": "Les tâches sont les actions à accomplir. Elles vivent dans les dossiers ou restent autonomes pour le travail personnel.",
+        "detail": "Définissez des dates limites, marquez les priorités et cochez-les au fur et à mesure. Rien ne passe entre les mailles."
+      },
+      "missions": {
+        "title": "Missions et Audiences",
+        "description": "Les missions sont des événements planifiés : audiences, rendez-vous clients, consultations d'experts.",
+        "detail": "Elles apparaissent dans les événements à venir de votre tableau de bord. Vous ne manquerez jamais une date importante."
+      },
+      "summary": "Clients → Dossiers → Tâches et Missions. C'est le modèle mental. Simple."
+    },
+    "financial": {
+      "title": "Gardez le Contrôle de Vos Finances",
+      "description": "Organia suit vos honoraires et dépenses. Voici ce que vous devez savoir.",
+      "points": {
+        "fees": "Les honoraires sont ce que vous gagnez des clients. Attachez-les aux dossiers pour suivre les paiements.",
+        "expenses": "Les dépenses sont les coûts que vous engagez : frais de justice, déplacements, consultations d'experts.",
+        "tracking": "Voyez ce qui est payé, en attente ou en retard — en un coup d'œil."
+      },
+      "reassurance": "Rien n'est envoyé automatiquement. Rien ne se synchronise sans votre permission. Vous gardez le contrôle.",
+      "tip": "Ne vous inquiétez pas de tout maîtriser maintenant. Commencez simple, ajoutez des détails au fur et à mesure."
+    },
+    "preferences": {
+      "title": "Personnalisez Votre Expérience",
+      "description": "Quelques réglages rapides pour adapter l'application à vos préférences.",
+      "language": {
+        "title": "Langue",
+        "description": "Choisissez votre langue préférée. Vous pouvez la modifier à tout moment dans les Paramètres."
+      },
+      "theme": {
+        "title": "Thème",
+        "description": "Clair ou sombre ? Choisissez ce qui est confortable pour vos yeux.",
+        "light": "Clair",
+        "dark": "Sombre",
+        "system": "Par défaut du système"
+      },
+      "notifications": {
+        "title": "Notifications",
+        "description": "Recevez des rappels pour les échéances et événements à venir.",
+        "enable": "Activer les notifications"
+      },
+      "skipNote": "Tout cela peut être modifié plus tard dans les Paramètres. Aucune pression."
+    },
+    "completion": {
+      "title": "Vous Êtes Prêt !",
+      "description": "C'est tout ce que vous devez savoir pour commencer.",
+      "encouragement": "Explorez librement — vous ne pouvez rien casser. Chaque action est réversible et vos données sont en sécurité.",
+      "tips": {
+        "title": "Rappels rapides",
+        "tip1": "Commencez par ajouter un client",
+        "tip2": "Créez un dossier pour son affaire juridique",
+        "tip3": "Ajoutez des tâches pour suivre votre travail",
+        "tip4": "Consultez votre tableau de bord quotidiennement"
+      },
+      "replay": "Besoin d'un rappel ? Vous pouvez relancer ce guide à tout moment depuis les Paramètres.",
+      "button": "Commencer à utiliser Organia"
+    }
+  },
+  "settings": {
+    "section": "Tutoriel",
+    "replayTitle": "Relancer le tutoriel d'accueil",
+    "replayDescription": "Refaites la visite guidée pour rafraîchir votre mémoire.",
+    "replayButton": "Relancer le tutoriel",
+    "tipsTitle": "Afficher les conseils contextuels",
+    "tipsDescription": "Affiche des astuces utiles lors de la navigation dans l'application.",
+    "completed": "Tutoriel terminé",
+    "skipped": "Tutoriel passé"
+  },
+  "tooltips": {
+    "pressEsc": "Appuyez sur Échap pour quitter à tout moment"
+  }
+}

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAdvancedTable } from "../hooks/useAdvancedTable";
 import { useToast } from "../contexts/ToastContext";
 import { useConfirm } from "../contexts/ConfirmContext";
+import { useTutorialSafe } from "../contexts/TutorialContext";
 import PageLayout from "../components/layout/PageLayout";
 import PageHeader from "../components/layout/PageHeader";
 import ContentSection from "../components/layout/ContentSection";
@@ -33,6 +34,7 @@ export default function Clients() {
   const { t } = useTranslation("clients");
   const { showToast } = useToast();
   const { confirm } = useConfirm();
+  const tutorial = useTutorialSafe(); // Safe hook that returns null if not in provider
   const {
     clients,
     dossiers,
@@ -389,6 +391,12 @@ export default function Clients() {
         }
         showToast(t("toasts.createSuccess"), "success");
         logEntityCreation('client', createdId, createdName);
+        
+        // Notify tutorial that client was created (advances tutorial if on CREATE_CLIENT step)
+        if (tutorial?.setCreatedClient) {
+          tutorial.setCreatedClient(createdId);
+        }
+        
         const detailRoute = resolveDetailRoute('client', createdId);
         if (detailRoute) {
           setTimeout(() => navigate(detailRoute), 100);
@@ -489,6 +497,7 @@ export default function Clients() {
           <button
             onClick={handleAddClient}
             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center gap-2"
+            data-tutorial="add-client-button"
           >
             <i className="fas fa-plus"></i>
             {t("page.actions.newClient")}

@@ -2472,39 +2472,101 @@ function validatePersonalTaskStatusChange(taskId, context = {}) {
 // ========================================
 
 /**
- * Calculate client financial balance
+ * Determine direction based on entry type and scope
+ * Helper for legacy entries that don't have direction set
+ * @param {object} entry - Financial entry
+ * @returns {string} receivable | payable
+ */
+function determineEntryDirection(entry) {
+  // Use existing direction if set
+  if (entry.direction) return entry.direction;
+
+  // Internal scope = firm expense = payable
+  if (entry.scope === "internal") return "payable";
+
+  // Client-scoped entries = client owes = receivable
+  return "receivable";
+}
+
+/**
+ * Check if status represents cancelled/void entry
+ * @param {string} status - Entry status
+ * @returns {boolean}
+ */
+function isCancelledStatus(status) {
+  if (!status) return false;
+  const lowered = String(status).toLowerCase();
+  return ["void", "cancelled", "annulé"].includes(lowered);
+}
+
+/**
+ * Check if entry is paid (has paid_at set or status indicates paid)
+ * @param {object} entry - Financial entry
+ * @returns {boolean}
+ */
+function isEntryPaid(entry) {
+  if (entry.isPaid) return true;
+  if (entry.paidAt || entry.paid_at) return true;
+
+  const status = String(entry.status || "").toLowerCase();
+  return ["paid", "payé", "payée"].includes(status);
+}
+
+/**
+ * Calculate client RECEIVABLE balance for closure validation
+ *
+ * FINANCIAL STABILIZATION (Phase 1):
+ * - Only considers receivable entries (client owes money)
+ * - Ignores payable/internal entries (firm's expenses, not client's debt)
+ * - Excludes cancelled entries
  *
  * @param {number} clientId - Client ID
  * @param {Array} entriesOverride - Optional financial entries to use instead of the global ledger
- * @returns {object} { totalInvoiced, totalPaid, balance }
+ * @returns {object} { hasOutstanding, outstandingBalance, unpaidEntries }
  */
 function getClientFinancials(clientId, entriesOverride = null) {
   const ledger = entriesOverride || financialLedger || [];
-  const paidStatuses = ["paid", "payé", "payée"];
-  const clientEntries = ledger.filter(
-    (entry) =>
-      entry.clientId === clientId &&
-      entry.status !== "void" &&
-      entry.status !== "cancelled"
-  );
 
-  let totalInvoiced = 0;
-  let totalPaid = 0;
+  // Filter to client's receivable entries only (what client owes)
+  const clientReceivables = ledger.filter((entry) => {
+    // Must belong to this client
+    if (entry.clientId !== clientId) return false;
 
-  clientEntries.forEach((entry) => {
-    const amount = entry.amount || 0;
+    // Exclude cancelled entries
+    if (isCancelledStatus(entry.status)) return false;
 
-    if (paidStatuses.includes((entry.status || "").toLowerCase())) {
-      totalPaid += amount;
-    }
-
-    totalInvoiced += amount;
+    // Only receivable direction (client owes money)
+    const direction = determineEntryDirection(entry);
+    return direction === "receivable";
   });
 
+  let totalOwed = 0;
+  let totalPaid = 0;
+  const unpaidEntries = [];
+
+  clientReceivables.forEach((entry) => {
+    const amount = Number(entry.amount || 0);
+    totalOwed += amount;
+
+    if (isEntryPaid(entry)) {
+      totalPaid += amount;
+    } else {
+      unpaidEntries.push(entry);
+    }
+  });
+
+  const outstandingBalance = totalOwed - totalPaid;
+
   return {
-    totalInvoiced,
+    totalInvoiced: totalOwed,
     totalPaid,
-    balance: totalPaid - totalInvoiced, // Negative means client owes money
+    // balance: negative = client owes money (legacy convention kept for compatibility)
+    balance: totalPaid - totalOwed,
+    // New fields for clarity
+    outstandingBalance,
+    hasOutstanding: outstandingBalance > 0,
+    unpaidEntries,
+    unpaidCount: unpaidEntries.length,
   };
 }
 

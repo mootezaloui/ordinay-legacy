@@ -313,6 +313,7 @@
     "edit": {
       "blocked": {
         "entryNotFound": "Financial entry not found",
+        "entryCancelled": "This financial entry has been cancelled and cannot be edited.\n\nCancelled entries are preserved for audit purposes.",
         "dossierClosed": "This entry is linked to Dossier \"{{caseNumber}}\" which is {{status}}.\n\nEntries from closed Dossiers cannot be modified.",
         "caseClosed": "This entry is linked to case \"{{caseNumber}}\" which is closed.\n\nEntries from closed cases cannot be modified."
       },
@@ -326,18 +327,29 @@
     },
     "delete": {
       "blocked": {
-        "entryNotFound": "Financial entry not found"
+        "entryNotFound": "Financial entry not found",
+        "entryConfirmed": "This confirmed financial entry cannot be permanently deleted.\n\nIt will be cancelled and preserved for audit purposes."
       },
       "warning": {
         "entryPaid": "This financial entry is paid. Deleting it will be logged with previous values preserved.",
         "lead": "This entry is paid. Deleting it requires confirmation and will leave an audit trail.",
         "balanceImpact": "Balances will be recalculated after the deletion.",
-        "auditTrail": "Previous amount, status, and details will remain in history."
+        "auditTrail": "Previous amount, status, and details will remain in history.",
+        "softDelete": "This entry will be cancelled (not permanently deleted) to preserve the audit trail."
+      },
+      "success": {
+        "hardDelete": "Draft entry permanently deleted.",
+        "softDelete": "Entry cancelled and archived for audit purposes."
       }
+    },
+    "cancel": {
+      "success": "Financial entry cancelled successfully.",
+      "alreadyCancelled": "This entry is already cancelled."
     },
     "changeStatus": {
       "blocked": {
-        "entryNotFound": "Financial entry not found"
+        "entryNotFound": "Financial entry not found",
+        "entryCancelled": "Cancelled entries cannot have their status changed."
       },
       "warning": {
         "alreadyPaid": "This entry is paid. Changing its status will be logged and balances will be recalculated.",
@@ -345,6 +357,25 @@
         "balanceImpact": "Financial totals will adjust to reflect the new status.",
         "auditTrail": "Previous and new statuses will be stored in history with timestamps."
       }
+    },
+    "status": {
+      "draft": "Draft",
+      "confirmed": "Confirmed",
+      "cancelled": "Cancelled"
+    },
+    "direction": {
+      "receivable": "Receivable",
+      "receivableDesc": "Client owes this amount",
+      "payable": "Payable",
+      "payableDesc": "Firm expense (not client obligation)"
+    },
+    "blocker": {
+      "unpaidReceivable": "Unpaid receivable balance: {{amount}} TND",
+      "unpaidReceivableCount": "{{count}} unpaid receivable entry",
+      "unpaidReceivableCount_plural": "{{count}} unpaid receivable entries",
+      "helpDossier": "This dossier cannot be closed because the client has outstanding receivables. Mark entries as paid or cancel them to proceed.",
+      "helpClient": "This client cannot be archived because they have outstanding receivables. Mark entries as paid or cancel them to proceed.",
+      "notePayable": "Note: Internal expenses (payable) do not block closure."
     }
   },
   "officer": {

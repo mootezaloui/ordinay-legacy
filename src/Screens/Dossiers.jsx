@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAdvancedTable } from "../hooks/useAdvancedTable";
 import { useToast } from "../contexts/ToastContext";
 import { useConfirm } from "../contexts/ConfirmContext";
+import { useTutorialSafe } from "../contexts/TutorialContext";
 import { useData } from "../contexts/DataContext";
 import PageLayout from "../components/layout/PageLayout";
 import PageHeader from "../components/layout/PageHeader";
@@ -33,6 +34,7 @@ export default function Dossiers() {
   const navigate = useNavigate();
   const { showToast } = useToast();
   const { confirm } = useConfirm();
+  const tutorial = useTutorialSafe(); // Safe hook that returns null if not in provider
   const { t } = useTranslation("dossiers");
   const {
     dossiers,
@@ -389,6 +391,11 @@ export default function Dossiers() {
 
         logEntityCreation('dossier', createdId, createdCaseNumber);
 
+        // Notify tutorial that dossier was created (advances tutorial if on CREATE_DOSSIER step)
+        if (tutorial?.setCreatedDossier) {
+          tutorial.setCreatedDossier(createdId);
+        }
+
         const detailRoute = resolveDetailRoute('dossier', createdId);
         if (detailRoute) {
           setTimeout(() => navigate(detailRoute), 100);
@@ -479,6 +486,7 @@ export default function Dossiers() {
               : "bg-blue-600 hover:bg-blue-700 text-white"
               }`}
             title={clients.length === 0 ? t("actions.disabledTooltip") : ""}
+            data-tutorial="add-dossier-button"
           >
             <i className="fas fa-plus"></i>
             {t("actions.new")}

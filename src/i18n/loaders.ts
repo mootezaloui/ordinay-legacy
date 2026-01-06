@@ -23,6 +23,7 @@ const namespaceLoaders: Record<LanguageCode, NamespaceLoader> = {
     notifications: (await import("./locales/en/notifications.json")).default,
     missions: (await import("./locales/en/missions.json")).default,
     domain: (await import("./locales/en/domain.json")).default,
+    onboarding: (await import("./locales/en/onboarding.json")).default,
   }),
   fr: async () => ({
     common: (await import("./locales/fr/common.json")).default,
@@ -43,6 +44,7 @@ const namespaceLoaders: Record<LanguageCode, NamespaceLoader> = {
     notifications: (await import("./locales/fr/notifications.json")).default,
     missions: (await import("./locales/fr/missions.json")).default,
     domain: (await import("./locales/fr/domain.json")).default,
+    onboarding: (await import("./locales/fr/onboarding.json")).default,
   }),
   ar: async () => ({
     common: (await import("./locales/ar/common.json")).default,
@@ -63,6 +65,7 @@ const namespaceLoaders: Record<LanguageCode, NamespaceLoader> = {
     notifications: (await import("./locales/ar/notifications.json")).default,
     missions: (await import("./locales/ar/missions.json")).default,
     domain: (await import("./locales/ar/domain.json")).default,
+    onboarding: (await import("./locales/ar/onboarding.json")).default,
   }),
 };
 

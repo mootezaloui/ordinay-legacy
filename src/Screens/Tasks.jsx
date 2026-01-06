@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAdvancedTable } from "../hooks/useAdvancedTable";
 import { useToast } from "../contexts/ToastContext";
 import { useConfirm } from "../contexts/ConfirmContext";
+import { useTutorialSafe } from "../contexts/TutorialContext";
 import PageLayout from "../components/layout/PageLayout";
 import PageHeader from "../components/layout/PageHeader";
 import ContentSection from "../components/layout/ContentSection";
@@ -50,6 +51,7 @@ export default function Tasks() {
   const navigate = useNavigate();
   const { showToast } = useToast();
   const { confirm } = useConfirm();
+  const tutorial = useTutorialSafe(); // Safe hook that returns null if not in provider
   const { formatDate } = useSettings();
   const { t } = useTranslation("tasks");
 
@@ -419,6 +421,11 @@ export default function Tasks() {
 
         logEntityCreation('task', createdId, createdEntity?.title);
 
+        // Notify tutorial that task was created (advances tutorial if on CREATE_TASK step)
+        if (tutorial?.setCreatedTask) {
+          tutorial.setCreatedTask(createdId);
+        }
+
         const detailRoute = resolveDetailRoute('task', createdId);
         if (detailRoute) {
           setTimeout(() => navigate(detailRoute), 100);
@@ -518,6 +525,7 @@ export default function Tasks() {
               : "bg-blue-600 hover:bg-blue-700 text-white"
               }`}
             title={dossiers.length === 0 ? t("page.actions.newTaskDisabled") : undefined}
+            data-tutorial="add-task-button"
           >
             <i className="fas fa-plus"></i>
             {t("page.actions.newTask")}
