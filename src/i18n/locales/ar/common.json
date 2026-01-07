@@ -13,19 +13,6 @@
         "dossier": "إنشاء ملف قانوني جديد",
         "task": "إنشاء مهمة جديدة يجب تنفيذها",
         "session": "جدولة جلسة أو موعد جديد"
-      },
-      "placeholders": {
-        "dossier": "اختر ملفاً...",
-        "case": "اختر قضية..."
-      },
-      "toasts": {
-        "clientSuccess": "تم إنشاء العميل \"{{name}}\" بنجاح!",
-        "dossierSuccess": "تم إنشاء الملف \"{{reference}}\" بنجاح!",
-        "taskSuccess": "تم إنشاء المهمة \"{{title}}\" بنجاح!",
-        "sessionSuccess": "تم جدولة الجلسة \"{{title}}\" بنجاح!",
-        "genericSuccess": "تم الإنشاء بنجاح!",
-        "errorTitle": "فشل الإنشاء",
-        "errorMessage": "خطأ أثناء الإنشاء: {{message}}"
       }
     },
     "stats": {
@@ -42,20 +29,11 @@
     },
     "urgentTasks": {
       "title": "مهام عاجلة ({{count}})",
-      "empty": "لا توجد مهام عاجلة! عمل رائع للبقاء على رأس الأمور.",
-      "viewAll": "عرض كل المهام ({{count}})"
+      "empty": "لا توجد مهام عاجلة! عمل رائع للبقاء على رأس الأمور."
     },
     "upcomingEvents": {
       "title": "الأحداث القادمة ({{count}})",
-      "empty": "لا توجد أحداث قادمة مجدولة.",
-      "time": {
-        "passed": "منقضي",
-        "soon": "قريباً",
-        "inHours_one": "بعد {{count}} ساعة",
-        "inHours_other": "بعد {{count}} ساعة",
-        "inDays_one": "بعد {{count}} يوم",
-        "inDays_other": "بعد {{count}} يوم"
-      }
+      "empty": "لا توجد أحداث قادمة مجدولة."
     },
     "workload": {
       "title": "صحة العبء (٩٠ يوماً)",

@@ -477,8 +477,11 @@ export default function Accounting() {
     ]
   );
 
+  // Initialize advanced table with intelligent ordering
+  // Financial Entries: Draft/Confirmed first (needs action), paid de-emphasized, cancelled archived
   const table = useAdvancedTable(displayEntries, columns, {
-    initialSortBy: "date",
+    // Remove initialSortBy to enable intelligent ordering by default
+    initialSortBy: null,
     initialSortDirection: "desc",
     initialItemsPerPage: 25,
     searchableFields: [
@@ -488,6 +491,8 @@ export default function Accounting() {
       "caseReference",
       "categoryLabel",
     ],
+    entityType: "financial",
+    enableIntelligentOrdering: true,
   });
 
   const headerSubtitle = table.isFiltering
@@ -1060,6 +1065,7 @@ export default function Accounting() {
               <TableRow
                 key={entry.id}
                 onClick={() => handleView(entry)}
+                emphasis={table.getItemEmphasis(entry)}
                 className="cursor-pointer"
               >
                 {table.columns.map((column) => (

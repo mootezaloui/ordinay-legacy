@@ -15,6 +15,7 @@ import {
   getDuplicateReferenceError,
   normalizeReference,
   isReferenceFormatValid,
+  getReferenceFormat,
 } from "../../utils/referenceUtils";
 import {
   shouldPromptClientNotification,
@@ -246,13 +247,25 @@ export default function FormModal({
         formData[referenceField] = reference;
         console.log(`✅ Auto-generated reference for ${entityType}:`, reference);
       } else {
-        // Normalize user input (uppercase, trim, and fix prefix if needed)
+        // Normalize user input (uppercase + trim)
         reference = normalizeReference(reference, entityType);
         formData[referenceField] = reference;
 
         // Validate format after normalization
-        if (!isReferenceFormatValid(entityType, reference)) {
-          const errorMessage = `Invalid format. Expected: ${entityType === 'case' ? 'PRO-YYYY-XXX' : entityType === 'dossier' ? 'DOS-YYYY-XXX' : 'MIS-YYYY-XXX'} (e.g., ${entityType === 'case' ? 'PRO-2025-001' : entityType === 'dossier' ? 'DOS-2025-001' : 'MIS-2025-001'})`;
+        const formatMeta = getReferenceFormat(entityType);
+        const usesStandardPrefix = formatMeta?.prefix
+          ? reference.startsWith(`${formatMeta.prefix}-`)
+          : false;
+        const isValidFormat = isReferenceFormatValid(entityType, reference, {
+          allowCustomPrefix: true,
+        });
+
+        if (!isValidFormat) {
+          const standardExample = formatMeta?.example || "REF-2025-001";
+          const standardFormat = formatMeta?.format || "PREFIX-YYYY-XXX";
+          const errorMessage = usesStandardPrefix
+            ? `Invalid format. Expected: ${standardFormat} (e.g., ${standardExample})`
+            : `Invalid reference. Use your own format (letters/numbers/separators) or the standard ${standardFormat} (e.g., ${standardExample}).`;
 
           notify.error({
             title: "Invalid Reference Format",

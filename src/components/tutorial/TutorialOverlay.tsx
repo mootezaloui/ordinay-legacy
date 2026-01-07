@@ -56,6 +56,11 @@ export default function TutorialOverlayComponent() {
   const overlayRef = useRef<HTMLDivElement>(null);
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
 
+  const isDossierDetailRoute = useCallback((pathname: string) => {
+    const segments = pathname.split("/").filter(Boolean);
+    return segments[0] === "dossiers" && segments.length >= 2;
+  }, []);
+
   // Find and track target element
   const findTargetElement = useCallback((): HTMLElement | null => {
     if (!currentStep?.target) return null;
@@ -236,16 +241,15 @@ export default function TutorialOverlayComponent() {
     }
 
     // For select-dossier-for-cases step: advance when user opens a dossier detail page
-    if (currentStep.id === "select-dossier-for-cases") {
-      // Check if user navigated to a dossier detail page (e.g., /dossiers/123)
-      const dossierDetailMatch = location.pathname.match(/^\/dossiers\/\d+$/);
-      if (dossierDetailMatch) {
-        // Small delay to let the navigation complete
-        const timeout = setTimeout(() => {
-          nextStep();
-        }, 100);
-        return () => clearTimeout(timeout);
-      }
+    if (
+      currentStep.id === "select-dossier-for-cases" &&
+      isDossierDetailRoute(location.pathname)
+    ) {
+      // Small delay to let the navigation complete
+      const timeout = setTimeout(() => {
+        nextStep();
+      }, 100);
+      return () => clearTimeout(timeout);
     }
 
     // For dossier-cases-tab step: advance when user clicks on the Cases/Proceedings tab
@@ -272,16 +276,14 @@ export default function TutorialOverlayComponent() {
     }
 
     // For select-dossier-for-tasks step: advance when user opens a dossier detail page
-    if (currentStep.id === "select-dossier-for-tasks") {
-      // Check if user navigated to a dossier detail page (e.g., /dossiers/123)
-      const dossierDetailMatch = location.pathname.match(/^\/dossiers\/\d+$/);
-      if (dossierDetailMatch) {
-        // Small delay to let the navigation complete
-        const timeout = setTimeout(() => {
-          nextStep();
-        }, 100);
-        return () => clearTimeout(timeout);
-      }
+    if (
+      currentStep.id === "select-dossier-for-tasks" &&
+      isDossierDetailRoute(location.pathname)
+    ) {
+      const timeout = setTimeout(() => {
+        nextStep();
+      }, 100);
+      return () => clearTimeout(timeout);
     }
 
     // For dossier-tasks-tab step: advance when user clicks on the Tasks tab
@@ -355,7 +357,84 @@ export default function TutorialOverlayComponent() {
       }, 100);
       return () => clearTimeout(timeout);
     }
-  }, [isActive, currentStep, location.pathname, searchString, nextStep]);
+
+    // Phase 8: Document management navigation detection
+    // For sidebar-dossiers-for-documents step: advance when user navigates to /dossiers
+    if (
+      currentStep.id === "sidebar-dossiers-for-documents" &&
+      location.pathname === "/dossiers"
+    ) {
+      const timeout = setTimeout(() => {
+        nextStep();
+      }, 100);
+      return () => clearTimeout(timeout);
+    }
+
+    // For select-dossier-for-documents step: advance when user opens a dossier detail page
+    if (
+      currentStep.id === "select-dossier-for-documents" &&
+      isDossierDetailRoute(location.pathname)
+    ) {
+      const timeout = setTimeout(() => {
+        nextStep();
+      }, 100);
+      return () => clearTimeout(timeout);
+    }
+
+    // For dossier-documents-tab step: advance when user clicks on the Documents tab
+    if (currentStep.id === "dossier-documents-tab") {
+      const searchParams = new URLSearchParams(searchString);
+      if (searchParams.get("tab") === "documents") {
+        // Slightly longer delay to ensure tab content renders
+        const timeout = setTimeout(() => {
+          nextStep();
+        }, 250);
+        return () => clearTimeout(timeout);
+      }
+    }
+
+    // For dossier-notes-tab step: advance when user clicks on the Notes tab
+    if (currentStep.id === "dossier-notes-tab") {
+      const searchParams = new URLSearchParams(searchString);
+      if (searchParams.get("tab") === "notes") {
+        // Slightly longer delay to ensure tab content renders
+        const timeout = setTimeout(() => {
+          nextStep();
+        }, 250);
+        return () => clearTimeout(timeout);
+      }
+    }
+
+    // For dossier-history-tab step: advance when user clicks on the History tab
+    if (currentStep.id === "dossier-history-tab") {
+      const searchParams = new URLSearchParams(searchString);
+      if (searchParams.get("tab") === "timeline") {
+        // Slightly longer delay to ensure tab content renders
+        const timeout = setTimeout(() => {
+          nextStep();
+        }, 250);
+        return () => clearTimeout(timeout);
+      }
+    }
+
+    // For return-to-dashboard step: advance when user navigates back to dashboard
+    if (
+      currentStep.id === "return-to-dashboard" &&
+      location.pathname === "/dashboard"
+    ) {
+      const timeout = setTimeout(() => {
+        nextStep();
+      }, 100);
+      return () => clearTimeout(timeout);
+    }
+  }, [
+    isActive,
+    currentStep,
+    location.pathname,
+    searchString,
+    nextStep,
+    isDossierDetailRoute,
+  ]);
 
   // Track target element with ResizeObserver and scroll
   useEffect(() => {
@@ -496,6 +575,7 @@ export default function TutorialOverlayComponent() {
   const isPhase5Complete = currentStep?.id === "phase5-complete";
   const isPhase6Complete = currentStep?.id === "phase6-complete";
   const isPhase7Complete = currentStep?.id === "phase7-complete";
+  const isPhase8Complete = currentStep?.id === "phase8-complete";
   const isTutorialComplete = currentStep?.id === "tutorial-complete";
   const isCompletionStep =
     isPhase1Complete ||
@@ -505,6 +585,7 @@ export default function TutorialOverlayComponent() {
     isPhase5Complete ||
     isPhase6Complete ||
     isPhase7Complete ||
+    isPhase8Complete ||
     isTutorialComplete;
 
   // Determine if spotlight should allow clicks through

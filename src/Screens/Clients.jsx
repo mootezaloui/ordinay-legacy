@@ -168,12 +168,16 @@ export default function Clients() {
     },
   ];
 
-  // Initialize advanced table
+  // Initialize advanced table with intelligent ordering
+  // Clients: Active clients appear first, inactive clients are de-emphasized
   const table = useAdvancedTable(clients, columns, {
-    initialSortBy: "name",
+    // Remove initialSortBy to enable intelligent ordering by default
+    initialSortBy: null,
     initialSortDirection: "asc",
     initialItemsPerPage: 10,
     searchableFields: ["name", "email", "phone", "status"],
+    entityType: "client",
+    enableIntelligentOrdering: true,
   });
 
   if (loading) {
@@ -574,6 +578,7 @@ export default function Clients() {
               <TableRow
                 key={client.id}
                 onClick={() => handleView(client.id)}
+                emphasis={table.getItemEmphasis(client)}
                 className="cursor-pointer"
               >
                 {table.columns.map((column) => (

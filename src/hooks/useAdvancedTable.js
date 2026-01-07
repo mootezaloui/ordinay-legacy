@@ -1,12 +1,23 @@
 import { useState, useMemo } from "react";
+import {
+  applyIntelligentOrdering,
+  getRowEmphasis,
+  getImportanceCalculator,
+} from "../utils/intelligentOrdering";
 
 /**
  * useAdvancedTable Hook
  * Provides advanced table functionality: sorting, filtering, column management, pagination
- * 
+ *
+ * NEW: Intelligent Ordering Support
+ * When entityType is provided, the table will use domain-aware default ordering
+ * that surfaces important items first and de-emphasizes completed/inactive items.
+ *
  * @param {Array} data - Array of data objects
  * @param {Array} initialColumns - Array of column configurations
  * @param {Object} options - Additional options
+ * @param {string} options.entityType - Entity type for intelligent ordering (client, dossier, task, etc.)
+ * @param {boolean} options.enableIntelligentOrdering - Enable/disable intelligent ordering (default: true when entityType provided)
  * @returns {Object} Table state and handlers
  */
 export function useAdvancedTable(data = [], initialColumns = [], options = {}) {
@@ -15,6 +26,8 @@ export function useAdvancedTable(data = [], initialColumns = [], options = {}) {
     initialSortDirection = "asc",
     initialItemsPerPage = 10,
     searchableFields = [],
+    entityType = null,
+    enableIntelligentOrdering = true,
   } = options;
 
   // State management
@@ -30,6 +43,13 @@ export function useAdvancedTable(data = [], initialColumns = [], options = {}) {
     initialColumns.map((col) => col.id)
   );
 
+  // Determine if we should use intelligent ordering
+  // Only use it when:
+  // 1. entityType is provided
+  // 2. enableIntelligentOrdering is true
+  // 3. User hasn't applied manual sorting (sortBy is null)
+  const useIntelligentSort = entityType && enableIntelligentOrdering && !sortBy;
+
   // Filter data based on search query
   const filteredData = useMemo(() => {
     if (!searchQuery.trim()) return data;
@@ -43,8 +63,14 @@ export function useAdvancedTable(data = [], initialColumns = [], options = {}) {
     });
   }, [data, searchQuery, searchableFields]);
 
-  // Sort data
+  // Sort data - either with intelligent ordering or manual sort
   const sortedData = useMemo(() => {
+    // If intelligent ordering is active, use domain-aware sorting
+    if (useIntelligentSort && entityType) {
+      return applyIntelligentOrdering(filteredData, entityType);
+    }
+
+    // Otherwise, use manual sorting if sortBy is set
     if (!sortBy) return filteredData;
 
     return [...filteredData].sort((a, b) => {
@@ -70,7 +96,7 @@ export function useAdvancedTable(data = [], initialColumns = [], options = {}) {
         return aVal < bVal ? 1 : aVal > bVal ? -1 : 0;
       }
     });
-  }, [filteredData, sortBy, sortDirection]);
+  }, [filteredData, sortBy, sortDirection, useIntelligentSort, entityType]);
 
   // Paginate data
   const paginatedData = useMemo(() => {
@@ -135,6 +161,25 @@ export function useAdvancedTable(data = [], initialColumns = [], options = {}) {
   const startItem = (currentPage - 1) * itemsPerPage + 1;
   const endItem = Math.min(currentPage * itemsPerPage, sortedData.length);
 
+  /**
+   * Get the visual emphasis level for a row.
+   * Used for intelligent visual hierarchy in tables.
+   * @param {Object} item - The row data item
+   * @returns {string} 'prominent' | 'normal' | 'subdued' | 'archived'
+   */
+  const getItemEmphasis = (item) => {
+    if (!entityType) return "normal";
+    return getRowEmphasis(entityType, item);
+  };
+
+  /**
+   * Reset to intelligent ordering (clear manual sort)
+   */
+  const resetToIntelligentOrder = () => {
+    setSortBy(null);
+    setSortDirection("asc");
+  };
+
   return {
     // Data
     data: paginatedData,
@@ -172,5 +217,11 @@ export function useAdvancedTable(data = [], initialColumns = [], options = {}) {
     // Utilities
     isFiltering: searchQuery.trim().length > 0,
     isSorting: sortBy !== null,
+
+    // Intelligent ordering
+    entityType,
+    isIntelligentOrdering: useIntelligentSort,
+    getItemEmphasis,
+    resetToIntelligentOrder,
   };
 }

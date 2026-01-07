@@ -48,7 +48,7 @@ export default function TimelineTab({ data, config }) {
 
   if (timeline.length === 0) {
     return (
-      <ContentSection title="History">
+      <ContentSection data-tutorial="dossier-history-section" title="History">
         <div className="p-12 text-center">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-800 mb-4">
             <i className="fas fa-history text-slate-400 dark:text-slate-600 text-2xl"></i>
@@ -62,7 +62,7 @@ export default function TimelineTab({ data, config }) {
   }
 
   return (
-    <ContentSection title="History">
+    <ContentSection data-tutorial="dossier-history-section" title="History">
       <div className="p-6">
         <div className="space-y-6">
           {timeline.map((event, index) => {

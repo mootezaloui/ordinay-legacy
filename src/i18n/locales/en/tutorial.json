@@ -124,7 +124,7 @@
     },
     "task-status-workflow": {
       "title": "Track Progress",
-      "description": "Tasks flow from 'To Do' → 'In Progress' → 'Done'. Update the status as you work. Your dashboard shows what's pending."
+      "description": "Tasks flow from 'To Do' -> 'In Progress' -> 'Done'. Update the status as you work. Your dashboard shows what's pending."
     },
     "sidebar-personal-tasks": {
       "title": "Personal Tasks",
@@ -195,8 +195,42 @@
       "title": "Financial Clarity!",
       "description": "You now understand how Organia tracks your money. One more step to complete your training!"
     },
+    "sidebar-dossiers-for-documents": {
+      "title": "Document Management",
+      "description": "Before we finish, let's see how Organia helps you manage documents, notes, and history. Let's go back to dossiers.",
+      "action": "Click on Dossiers"
+    },
+    "select-dossier-for-documents": {
+      "title": "Open a Dossier",
+      "description": "Click on a dossier to see the document management features.",
+      "action": "Click on a dossier"
+    },
+    "dossier-documents-tab": {
+      "title": "Dossier Documents",
+      "description": "Keep all important files linked to your dossier — contracts, evidence, legal documents — centralized and easy to access.",
+      "action": "Click on the Documents tab"
+    },
+    "dossier-notes-tab": {
+      "title": "Dossier Notes",
+      "description": "Add internal notes to keep context, decisions, and reminders. Notes are private and organized per dossier.",
+      "action": "Click on the Notes tab"
+    },
+    "dossier-history-tab": {
+      "title": "History / Audit Trail",
+      "description": "Every action is recorded - creations, edits, and key events. History gives you clear, trustworthy traceability.",
+      "action": "Click on the History tab"
+    },
+    "return-to-dashboard": {
+      "title": "Back to Your Command Center",
+      "description": "Perfect! You've explored all the key features of Organia. Let's return to the dashboard where everything comes together.",
+      "action": "Click on Dashboard in the sidebar"
+    },
+    "phase8-complete": {
+      "title": "Document Management Mastered!",
+      "description": "You now know how to manage documents, notes, and track history for complete traceability. You're ready to run your practice efficiently!"
+    },
     "tutorial-complete": {
-      "title": "🎉 Congratulations!",
+      "title": "Congratulations!",
       "description": "You've completed the Organia tutorial! You now know how to manage clients, dossiers, cases, tasks, sessions, missions, and finances. You're ready to run your practice like a pro."
     }
   },
@@ -233,6 +267,7 @@
     "phase5": "Phase 5: Sessions",
     "phase6": "Phase 6: Officers & Missions",
     "phase7": "Phase 7: Financial",
-    "phase8": "Phase 8: Complete"
+    "phase8": "Phase 8: Documents, Notes, History",
+    "phase9": "Phase 9: Complete"
   }
 }

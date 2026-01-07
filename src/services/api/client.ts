@@ -15,7 +15,21 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
   });
   if (!res.ok) {
-    const message = `API error ${res.status}`;
+    let detail = "";
+    try {
+      const text = await res.text();
+      if (text) {
+        try {
+          const json = JSON.parse(text);
+          detail = json.message || text;
+        } catch {
+          detail = text;
+        }
+      }
+    } catch {
+      // ignore parse errors
+    }
+    const message = `API error ${res.status}${detail ? ": " + detail : ""}`;
     throw new Error(message);
   }
 

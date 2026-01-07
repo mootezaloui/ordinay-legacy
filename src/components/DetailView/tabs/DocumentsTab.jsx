@@ -242,7 +242,7 @@ export default function DocumentsTab({ data, config, onDocumentsChange }) {
 
   if (documents.length === 0) {
     return (
-      <ContentSection title={t("detail.documents.title", { count: 0 })}>
+      <ContentSection data-tutorial="dossier-documents-section" title={t("detail.documents.title", { count: 0 })}>
         <div className="p-12">
           {/* Drag & Drop Zone */}
           <div
@@ -285,7 +285,7 @@ export default function DocumentsTab({ data, config, onDocumentsChange }) {
   }
 
   return (
-    <ContentSection title={t("detail.documents.title", { count: documents.length })}>
+    <ContentSection data-tutorial="dossier-documents-section" title={t("detail.documents.title", { count: documents.length })}>
       <div className="p-6">
         {/* Upload Zone */}
         <div
@@ -338,8 +338,8 @@ export default function DocumentsTab({ data, config, onDocumentsChange }) {
               <div
                 key={doc.id}
                 className={`p-4 border rounded-lg transition-colors group ${isMissing
-                    ? 'border-yellow-400 dark:border-yellow-600 bg-yellow-50 dark:bg-yellow-900/10'
-                    : 'border-slate-200 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-500'
+                  ? 'border-yellow-400 dark:border-yellow-600 bg-yellow-50 dark:bg-yellow-900/10'
+                  : 'border-slate-200 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-500'
                   }`}
               >
                 {/* Missing File Warning */}
@@ -360,8 +360,8 @@ export default function DocumentsTab({ data, config, onDocumentsChange }) {
                   {/* File Icon */}
                   <div
                     className={`p-3 rounded-lg flex-shrink-0 cursor-pointer ${isMissing
-                        ? 'bg-yellow-100 dark:bg-yellow-900/20'
-                        : 'bg-slate-100 dark:bg-slate-700'
+                      ? 'bg-yellow-100 dark:bg-yellow-900/20'
+                      : 'bg-slate-100 dark:bg-slate-700'
                       }`}
                     onClick={() => !isMissing && handleOpen(doc)}
                     title={isMissing ? t("detail.documents.status.missingFile") : t("detail.documents.actions.open")}
@@ -373,8 +373,8 @@ export default function DocumentsTab({ data, config, onDocumentsChange }) {
                   <div className="flex-1 min-w-0">
                     <p
                       className={`font-medium truncate cursor-pointer ${isMissing
-                          ? 'text-slate-600 dark:text-slate-400'
-                          : 'text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400'
+                        ? 'text-slate-600 dark:text-slate-400'
+                        : 'text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400'
                         }`}
                       onClick={() => !isMissing && handleOpen(doc)}
                       title={doc.name}

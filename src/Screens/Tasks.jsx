@@ -267,12 +267,16 @@ export default function Tasks() {
     },
   ];
 
-  // Initialize advanced table
+  // Initialize advanced table with intelligent ordering
+  // Tasks: Overdue/Blocked first, then In Progress, then by priority/due date, Completed last
   const table = useAdvancedTable(tasks, columns, {
-    initialSortBy: "dueDate",
+    // Remove initialSortBy to enable intelligent ordering by default
+    initialSortBy: null,
     initialSortDirection: "asc",
     initialItemsPerPage: 10,
     searchableFields: ["title", "dossier", "case", "assignedTo", "status", "priority"],
+    entityType: "task",
+    enableIntelligentOrdering: true,
   });
 
   const headerSubtitle = table.isFiltering
@@ -595,6 +599,7 @@ export default function Tasks() {
               <TableRow
                 key={task.id}
                 onClick={() => handleView(task.id)}
+                emphasis={table.getItemEmphasis(task)}
                 className="cursor-pointer"
               >
                 {table.columns.map((column) => (

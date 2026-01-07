@@ -337,8 +337,83 @@ export const PHASE7_STEPS: TutorialStep[] = [
   },
 ];
 
-// Phase 8: Tutorial Complete
+// Phase 8: Documents / Notes / History (Explain Only)
 export const PHASE8_STEPS: TutorialStep[] = [
+  // Step 8.1: Navigate back to dossiers to show document management features
+  {
+    id: "sidebar-dossiers-for-documents",
+    target: "sidebar-dossiers-link",
+    allowInteraction: true,
+    requiresAction: true,
+    position: "right",
+  },
+  // Step 8.2: Select a dossier to open its detail view
+  {
+    id: "select-dossier-for-documents",
+    target: "dossiers-list-container",
+    allowInteraction: true,
+    requiresAction: true,
+    position: "top",
+  },
+  // Step 8.3: Explain Documents tab in dossier detail (click to advance)
+  {
+    id: "dossier-documents-tab",
+    target: "dossier-documents-tab",
+    allowInteraction: true,
+    requiresAction: true,
+    position: "bottom",
+  },
+  // Step 8.4: Documents overview (after tab click)
+  {
+    id: "documents-overview",
+    target: "dossier-documents-section",
+    position: "top",
+  },
+  // Explain Notes tab in dossier detail (click to advance)
+  {
+    id: "dossier-notes-tab",
+    target: "dossier-notes-tab",
+    allowInteraction: true,
+    requiresAction: true,
+    position: "bottom",
+  },
+  // Notes overview (after tab click)
+  {
+    id: "notes-overview",
+    target: "dossier-notes-section",
+    position: "top",
+  },
+  // Explain History tab in dossier detail (click to advance)
+  {
+    id: "dossier-history-tab",
+    target: "dossier-history-tab",
+    allowInteraction: true,
+    requiresAction: true,
+    position: "bottom",
+  },
+  // History overview (after tab click)
+  {
+    id: "history-overview",
+    target: "dossier-history-section",
+    position: "top",
+  },
+  // Navigate back to dashboard to complete the tour
+  {
+    id: "return-to-dashboard",
+    target: "sidebar-dashboard-link",
+    allowInteraction: true,
+    requiresAction: true,
+    position: "right",
+  },
+  // Phase 8 Completion
+  {
+    id: "phase8-complete",
+    position: "auto",
+  },
+];
+
+// Phase 9: Tutorial Complete
+export const PHASE9_STEPS: TutorialStep[] = [
   // Final celebration and summary
   {
     id: "tutorial-complete",
@@ -356,6 +431,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   ...PHASE6_STEPS,
   ...PHASE7_STEPS,
   ...PHASE8_STEPS,
+  ...PHASE9_STEPS,
 ];
 
 interface TutorialState {
@@ -391,6 +467,9 @@ interface TutorialContextValue extends TutorialState {
 
   // Compatibility alias for AggregatedRelatedTab (dossier creation)
   setCreatedDossier: (dossierId: number | string) => void;
+
+  // Compatibility alias for AggregatedRelatedTab (case creation)
+  setCreatedCase: (caseId: number | string) => void;
 
   // Compatibility alias for AggregatedRelatedTab (task creation)
   setCreatedTask: (taskId: number | string) => void;
@@ -585,6 +664,9 @@ export function TutorialProvider({ children }: TutorialProviderProps) {
   // Notify that an action was completed (for requiresAction steps)
   const notifyActionComplete = useCallback((stepId: string) => {
     setState((prev) => {
+      // Ignore external triggers when tutorial is not active
+      if (!prev.isActive) return prev;
+
       const currentStep = TUTORIAL_STEPS[prev.currentStepIndex];
 
       // Only process if we're on the matching step
@@ -626,6 +708,15 @@ export function TutorialProvider({ children }: TutorialProviderProps) {
     (dossierId: number | string) => {
       console.log("[Tutorial] Dossier created:", dossierId);
       notifyActionComplete("create-dossier-from-client");
+    },
+    [notifyActionComplete]
+  );
+
+  // Compatibility function for AggregatedRelatedTab - triggers create-case-from-dossier step completion
+  const setCreatedCase = useCallback(
+    (caseId: number | string) => {
+      console.log("[Tutorial] Case created:", caseId);
+      notifyActionComplete("create-case-from-dossier");
     },
     [notifyActionComplete]
   );
@@ -689,6 +780,7 @@ export function TutorialProvider({ children }: TutorialProviderProps) {
       notifyActionComplete,
       setCreatedClient,
       setCreatedDossier,
+      setCreatedCase,
       setCreatedTask,
       setCreatedSession,
       setCreatedMission,
@@ -713,6 +805,7 @@ export function TutorialProvider({ children }: TutorialProviderProps) {
       notifyActionComplete,
       setCreatedClient,
       setCreatedDossier,
+      setCreatedCase,
       setCreatedTask,
       setCreatedSession,
       setCreatedMission,

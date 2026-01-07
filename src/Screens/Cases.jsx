@@ -203,20 +203,24 @@ export default function Cases() {
     closed: enhancedCases.filter(c => c.status === "Completed").length,
   };
 
-  // Initialize advanced table
+  // Initialize advanced table with intelligent ordering
+  // Cases: Upcoming hearings first, then active cases, closed cases de-emphasized
   const table = useAdvancedTable(enhancedCases, columns, {
-    initialSortBy: "nextHearing",
+    // Remove initialSortBy to enable intelligent ordering by default
+    initialSortBy: null,
     initialSortDirection: "asc",
     initialItemsPerPage: 10,
     searchableFields: ["caseNumber", "title", "dossier", "court", "status"],
+    entityType: "case",
+    enableIntelligentOrdering: true,
   });
 
   const headerSubtitle =
     table.isFiltering
       ? t("page.subtitleFiltered", {
-          total: table.originalTotalItems,
-          displayed: table.totalItems,
-        })
+        total: table.originalTotalItems,
+        displayed: table.totalItems,
+      })
       : t("page.subtitle", { total: table.originalTotalItems });
 
   const tableEmptyMessage =
@@ -556,6 +560,7 @@ export default function Cases() {
               <TableRow
                 key={caseItem.id}
                 onClick={() => handleView(caseItem.id)}
+                emphasis={table.getItemEmphasis(caseItem)}
                 className="cursor-pointer"
               >
                 {table.columns.map((column) => (

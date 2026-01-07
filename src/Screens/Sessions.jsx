@@ -218,11 +218,16 @@ export default function Sessions() {
     },
   ];
 
+  // Initialize advanced table with intelligent ordering
+  // Sessions: Today first, then upcoming week, confirmed before scheduled, completed/cancelled de-emphasized
   const table = useAdvancedTable(sessions, columns, {
-    initialSortBy: "date",
+    // Remove initialSortBy to enable intelligent ordering by default
+    initialSortBy: null,
     initialSortDirection: "asc",
     initialItemsPerPage: 10,
     searchableFields: ["title", "type", "location", "status"],
+    entityType: "session",
+    enableIntelligentOrdering: true,
   });
 
   const handleView = (id) => {
@@ -511,6 +516,7 @@ export default function Sessions() {
               <TableRow
                 key={session.id}
                 onClick={() => handleView(session.id)}
+                emphasis={table.getItemEmphasis(session)}
                 className="cursor-pointer"
               >
                 {table.columns.map((column) => (

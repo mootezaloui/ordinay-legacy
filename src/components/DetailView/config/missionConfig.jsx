@@ -113,111 +113,70 @@ export const createMissionConfig = (t) => ({
     ],
 
     renderHeader: (data) => {
-        const getStatusBadge = () => {
-            const statusMap = {
-                "Scheduled": { bg: "from-blue-400 to-blue-600", icon: "fa-calendar" },
-                "In Progress": { bg: "from-amber-400 to-orange-600", icon: "fa-spinner" },
-                "Completed": { bg: "from-green-400 to-green-600", icon: "fa-check-circle" },
-                "Cancelled": { bg: "from-red-400 to-red-600", icon: "fa-times-circle" },
-            };
-            return statusMap[data.status] || statusMap["Scheduled"];
-        };
-
-        const statusBadge = getStatusBadge();
-
         return (
             <ContentSection>
                 <div className="p-6" data-tutorial="mission-detail-header">
-                    <div className="flex flex-col lg:flex-row items-start gap-6">
-                        {/* Icon with gradient */}
-                        <div className={`w-20 h-20 rounded-2xl bg-gradient-to-br ${statusBadge.bg} flex items-center justify-center text-4xl text-white shadow-xl flex-shrink-0`}>
-                            <i className={`fas ${statusBadge.icon}`}></i>
-                        </div>
-
-                        <div className="flex-1 min-w-0">
-                            {/* Mission Number - Big and Bold */}
-                            <div className="mb-6">
-                                <div className="text-4xl font-black text-slate-900 dark:text-white mb-2">
-                                    {data.missionNumber}
-                                </div>
-                                <div className="flex items-center gap-3 flex-wrap">
-                                    <span className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-bold ${data.missionType === 'Service'
-                                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
-                                        : data.missionType === 'Execution'
-                                            ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
-                                            : data.missionType === 'Observation'
-                                                ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300'
-                                                : 'bg-slate-100 text-slate-700 dark:bg-slate-900/30 dark:text-slate-300'
-                                        }`}>
-                                        <i className="fas fa-briefcase"></i>
-                                        {translateMissionType(data.missionType, t)}
-                                    </span>
-                                    <span className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-bold ${getStatusColor(data.priority)}`}>
-                                        <i className="fas fa-exclamation-circle"></i>
-                                        {t('detail.header.priority')}: {translateMissionPriority(data.priority, t)}
-                                    </span>
-                                </div>
-                            </div>
-
-                            {/* Info Grid - Colorful */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-                                {/* Assign Date */}
-                                <div className="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                                    <div className="w-10 h-10 rounded-lg bg-blue-500 flex items-center justify-center flex-shrink-0">
-                                        <i className="fas fa-calendar-plus text-white"></i>
-                                    </div>
-                                    <div className="min-w-0 flex-1">
-                                        <p className="text-xs font-medium text-blue-600 dark:text-blue-400">{t('detail.header.assignedOn')}</p>
-                                        <p className="text-sm font-bold text-blue-900 dark:text-blue-100 truncate">
-                                            {formatDateValue(data.assignDate)}
-                                        </p>
-                                    </div>
-                                </div>
-
-                                {/* Due Date */}
-                                {data.dueDate && (
-                                    <div className="flex items-center gap-3 p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
-                                        <div className="w-10 h-10 rounded-lg bg-orange-500 flex items-center justify-center flex-shrink-0">
-                                            <i className="fas fa-clock text-white"></i>
-                                        </div>
-                                        <div className="min-w-0 flex-1">
-                                            <p className="text-xs font-medium text-orange-600 dark:text-orange-400">{t('detail.header.dueDate')}</p>
-                                            <p className="text-sm font-bold text-orange-900 dark:text-orange-100 truncate">
-                                                {formatDateValue(data.dueDate)}
-                                            </p>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Completion Date */}
-                                {data.completionDate && (
-                                    <div className="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
-                                        <div className="w-10 h-10 rounded-lg bg-green-500 flex items-center justify-center flex-shrink-0">
-                                            <i className="fas fa-check-circle text-white"></i>
-                                        </div>
-                                        <div className="min-w-0 flex-1">
-                                            <p className="text-xs font-medium text-green-600 dark:text-green-400">{t('detail.header.completedOn')}</p>
-                                            <p className="text-sm font-bold text-green-900 dark:text-green-100 truncate">
-                                                {formatDateValue(data.completionDate)}
-                                            </p>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Officer */}
-                                {data.officerName && (
-                                    <div className="flex items-center gap-3 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
-                                        <div className="w-10 h-10 rounded-lg bg-amber-500 flex items-center justify-center flex-shrink-0">
-                                            <i className="fas fa-user-tie text-white"></i>
-                                        </div>
-                                        <div className="min-w-0 flex-1">
-                                            <p className="text-xs font-medium text-amber-600 dark:text-amber-400">{t('detail.header.bailiff')}</p>
-                                            <p className="text-sm font-bold text-amber-900 dark:text-amber-100 truncate">{data.officerName}</p>
-                                        </div>
-                                    </div>
+                    <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
+                        <div>
+                            <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
+                                {data.title || data.missionNumber}
+                            </h2>
+                            <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                                <i className="fas fa-briefcase"></i>
+                                <span>{translateMissionType(data.missionType, t)}</span>
+                                {data.missionNumber && data.missionNumber !== data.title && (
+                                    <>
+                                        <span>•</span>
+                                        <span>{data.missionNumber}</span>
+                                    </>
                                 )}
                             </div>
                         </div>
+                        <div className="flex items-center gap-3">
+                            <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(data.priority)}`}>
+                                {translateMissionPriority(data.priority, t)}
+                            </span>
+                            <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(data.status)}`}>
+                                {translateMissionStatus(data.status, t)}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <InfoCard
+                            icon="fas fa-calendar-plus"
+                            label={t('detail.header.assignedOn')}
+                            value={formatDateValue(data.assignDate)}
+                            color="blue"
+                        />
+                        <InfoCard
+                            icon="fas fa-clock"
+                            label={t('detail.header.dueDate') || t('dueDate', { ns: 'tasks', defaultValue: 'Due Date' })}
+                            value={data.dueDate ? formatDateValue(data.dueDate) : t('detail.fallback.na')}
+                            color="orange"
+                        />
+                        {data.completionDate && (
+                            <InfoCard
+                                icon="fas fa-check-circle"
+                                label={t('detail.header.completedOn')}
+                                value={formatDateValue(data.completionDate)}
+                                color="green"
+                            />
+                        )}
+                        <InfoCard
+                            icon="fas fa-user-tie"
+                            label={t('detail.header.bailiff')}
+                            value={data.officerName || t('detail.fallback.unassigned')}
+                            color="amber"
+                        />
+                        {data.entityReference && (
+                            <InfoCard
+                                icon={data.entityType === 'case' ? "fas fa-gavel" : "fas fa-folder"}
+                                label={data.entityType === 'case' ? t('detail.relations.lawsuit') : t('detail.relations.dossier')}
+                                value={data.entityReference}
+                                color={data.entityType === 'case' ? "red" : "indigo"}
+                            />
+                        )}
                     </div>
                 </div>
             </ContentSection>
@@ -626,5 +585,43 @@ export const createMissionConfig = (t) => ({
         return getMissionFormFields();
     },
 });
+
+// Helper component
+function InfoCard({ icon, label, value, color }) {
+    const colors = {
+        blue: "bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400",
+        purple: "bg-purple-100 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400",
+        green: "bg-emerald-100 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400",
+        red: "bg-rose-100 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400",
+        amber: "bg-amber-100 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400",
+        orange: "bg-orange-100 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400",
+        slate: "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400",
+        indigo: "bg-indigo-100 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400",
+        teal: "bg-teal-100 dark:bg-teal-900/20 text-teal-600 dark:text-teal-400",
+        pink: "bg-pink-100 dark:bg-pink-900/20 text-pink-600 dark:text-pink-400",
+        cyan: "bg-cyan-100 dark:bg-cyan-900/20 text-cyan-600 dark:text-cyan-400",
+    };
+
+    const getColorClass = (c) => {
+        // Check if color is in map
+        if (colors[c]) return colors[c];
+        // Check if it's already a full class string
+        if (c && c.includes('bg-')) return c;
+        // Fallback
+        return colors.slate;
+    };
+
+    return (
+        <div className="flex items-center gap-3">
+            <div className={`p-2 rounded-lg ${getColorClass(color)}`}>
+                <i className={icon}></i>
+            </div>
+            <div>
+                <p className="text-xs text-slate-500 dark:text-slate-400">{label}</p>
+                <p className="text-sm font-medium text-slate-900 dark:text-white truncate" title={value}>{value}</p>
+            </div>
+        </div>
+    );
+}
 
 export default createMissionConfig;

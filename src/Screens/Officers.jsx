@@ -174,12 +174,16 @@ export default function Officers() {
     inactive: officers.filter(o => o.status === "Inactive").length,
   };
 
-  // Initialize advanced table
+  // Initialize advanced table with intelligent ordering
+  // Officers: Available first, then Busy, Inactive de-emphasized
   const table = useAdvancedTable(officers, columns, {
-    initialSortBy: "name",
+    // Remove initialSortBy to enable intelligent ordering by default
+    initialSortBy: null,
     initialSortDirection: "asc",
     initialItemsPerPage: 10,
     searchableFields: ["name", "phone", "email", "location", "status"],
+    entityType: "officer",
+    enableIntelligentOrdering: true,
   });
 
   const headerSubtitle = table.isFiltering
@@ -549,6 +553,7 @@ export default function Officers() {
               <TableRow
                 key={officer.id}
                 onClick={() => handleView(officer.id)}
+                emphasis={table.getItemEmphasis(officer)}
                 className="cursor-pointer"
               >
                 {table.columns.map((column) => (

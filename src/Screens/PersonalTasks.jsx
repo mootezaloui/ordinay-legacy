@@ -644,12 +644,16 @@ export default function PersonalTasks() {
     },
   ];
 
-  // Initialize advanced table
+  // Initialize advanced table with intelligent ordering
+  // Personal Tasks: Overdue/Blocked first, then In Progress, then by priority/due date, Done/Cancelled last
   const table = useAdvancedTable(tasks, columns, {
-    initialSortBy: "dueDate",
+    // Remove initialSortBy to enable intelligent ordering by default
+    initialSortBy: null,
     initialSortDirection: "asc",
     initialItemsPerPage: 10,
     searchableFields: ["title", "category", "status", "priority"],
+    entityType: "personalTask",
+    enableIntelligentOrdering: true,
   });
 
   const headerSubtitle = table.isFiltering
@@ -942,6 +946,7 @@ export default function PersonalTasks() {
                 <TableRow
                   key={task.id}
                   onClick={() => handleView(task.id)}
+                  emphasis={table.getItemEmphasis(task)}
                   className="cursor-pointer"
                 >
                   {table.columns.map((column) => (

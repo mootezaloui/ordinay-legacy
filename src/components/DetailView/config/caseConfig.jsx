@@ -441,10 +441,11 @@ export const createCaseConfig = (t) => {
                 helpText: t('detail.missions.help.caseLink', { caseNumber: caseData.caseNumber }),
               };
             } else if (field.name === 'missionNumber') {
+              // Let lawyers input their own reference or leave blank for auto-generation
               return {
                 ...field,
-                defaultValue: defaultMissionNumber,
-                disabled: true,
+                defaultValue: '',
+                disabled: false,
               };
             } else if (field.name === 'officerId') {
               return {

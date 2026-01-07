@@ -263,3 +263,91 @@
   overflow-wrap: anywhere;
   word-break: break-word;
 }
+
+/* --------------------------
+   Intelligent Table Row Emphasis
+   Used for domain-aware visual hierarchy in entity tables.
+   These classes de-emphasize completed/inactive items
+   while keeping them visible and accessible.
+-------------------------- */
+
+/* Prominent: Urgent items that need immediate attention */
+.table-row-prominent {
+  @apply relative;
+}
+
+.table-row-prominent::before {
+  content: '';
+  @apply absolute left-0 top-0 bottom-0 w-1;
+  @apply bg-amber-500 dark:bg-amber-400;
+}
+
+.table-row-prominent td {
+  @apply font-medium;
+}
+
+/* Normal: Active items in standard state */
+.table-row-normal {
+  /* Default styling - no modifications needed */
+}
+
+/* Subdued: Completed or on-hold items */
+.table-row-subdued {
+  @apply opacity-60;
+}
+
+.table-row-subdued:hover {
+  @apply opacity-80;
+}
+
+.table-row-subdued td {
+  @apply text-slate-500 dark:text-slate-400;
+}
+
+/* Archived: Cancelled or very old items */
+.table-row-archived {
+  @apply opacity-40;
+}
+
+.table-row-archived:hover {
+  @apply opacity-60;
+}
+
+.table-row-archived td {
+  @apply text-slate-400 dark:text-slate-500 italic;
+}
+
+/* Ensure status badges and icons remain visible in subdued/archived rows */
+.table-row-subdued .inline-status-badge,
+.table-row-subdued [class*="bg-"],
+.table-row-archived .inline-status-badge,
+.table-row-archived [class*="bg-"] {
+  @apply opacity-80;
+}
+
+/* Visual separator before subdued section (optional enhancement) */
+.table-row-section-divider {
+  @apply border-t-2 border-dashed border-slate-200 dark:border-slate-700;
+}
+
+/* Overdue indicator for tasks */
+.table-row-overdue {
+  @apply bg-red-50 dark:bg-red-900/10;
+}
+
+.table-row-overdue::before {
+  content: '';
+  @apply absolute left-0 top-0 bottom-0 w-1;
+  @apply bg-red-500 dark:bg-red-400;
+}
+
+/* Today indicator for sessions/hearings */
+.table-row-today {
+  @apply bg-blue-50 dark:bg-blue-900/10;
+}
+
+.table-row-today::before {
+  content: '';
+  @apply absolute left-0 top-0 bottom-0 w-1;
+  @apply bg-blue-500 dark:bg-blue-400;
+}

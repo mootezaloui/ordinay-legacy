@@ -13,7 +13,7 @@
     "continuePhase5": "Continuer vers les Audiences",
     "continuePhase6": "Continuer vers les Huissiers",
     "continuePhase7": "Continuer vers les Finances",
-    "continuePhase8": "Terminer le Tutoriel"
+    "continuePhase8": "Continuer vers les Documents"
   },
   "steps": {
     "dashboard-intro": {
@@ -124,7 +124,7 @@
     },
     "task-status-workflow": {
       "title": "Suivre la Progression",
-      "description": "Les tâches passent de 'À faire' → 'En cours' → 'Terminé'. Mettez à jour le statut au fur et à mesure. Votre tableau de bord affiche ce qui est en attente."
+      "description": "Les tâches passent de 'À faire' -> 'En cours' -> 'Terminé'. Mettez à jour le statut au fur et à mesure. Votre tableau de bord affiche ce qui est en attente."
     },
     "sidebar-personal-tasks": {
       "title": "Tâches Personnelles",
@@ -193,10 +193,56 @@
     },
     "phase7-complete": {
       "title": "Clarté Financière !",
-      "description": "Vous comprenez maintenant comment Organia suit votre argent. Une dernière étape pour terminer votre formation !"
+      "description": "Vous comprenez maintenant comment Organia suit votre argent. Passons aux Documents pour finaliser la visite."
+    },
+    "sidebar-dossiers-for-documents": {
+      "title": "Gestion des Documents",
+      "description": "Avant de terminer, voyons comment Organia vous aide à gérer les documents, notes et historique. Retournons aux dossiers.",
+      "action": "Cliquez sur Dossiers"
+    },
+    "select-dossier-for-documents": {
+      "title": "Ouvrir un Dossier",
+      "description": "Cliquez sur un dossier pour voir les fonctionnalités de gestion documentaire.",
+      "action": "Cliquez sur un dossier"
+    },
+    "dossier-documents-tab": {
+      "title": "Documents du Dossier",
+      "description": "Conservez tous les fichiers importants liés à votre dossier. Contrats, preuves, pièces légales — tout est centralisé et facilement accessible.",
+      "action": "Cliquez sur l'onglet Documents"
+    },
+    "documents-overview": {
+      "title": "Documents du Dossier",
+      "description": "Voici l'espace où vous centralisez tous les fichiers liés au dossier. Téléversez, ouvrez, téléchargez, reliez et gérez vos documents en toute simplicité."
+    },
+    "dossier-notes-tab": {
+      "title": "Notes du Dossier",
+      "description": "Ajoutez des notes internes pour garder le contexte, les décisions et les rappels. Elles sont privées et organisées par dossier.",
+      "action": "Cliquez sur l'onglet Notes"
+    },
+    "notes-overview": {
+      "title": "Notes du Dossier",
+      "description": "Utilisez les notes pour conserver le contexte, les décisions et les rappels. Elles sont privées et restent attachées au dossier pour une référence rapide."
+    },
+    "dossier-history-tab": {
+      "title": "Historique / Traçabilité",
+      "description": "Chaque action est enregistrée — créations, modifications et événements clés. L'historique vous donne une traçabilité claire et fiable.",
+      "action": "Cliquez sur l'onglet Historique"
+    },
+    "history-overview": {
+      "title": "Historique / Traçabilité",
+      "description": "Consultez la chronologie des événements liés au dossier. Créations, mises à jour, paiements et audiences — tout est tracé pour garder une vision claire."
+    },
+    "return-to-dashboard": {
+      "title": "Retour à Votre Centre de Contrôle",
+      "description": "Parfait ! Vous avez exploré toutes les fonctionnalités clés d'Organia. Retournons au tableau de bord où tout se rejoint.",
+      "action": "Cliquez sur Tableau de bord dans le menu"
+    },
+    "phase8-complete": {
+      "title": "Gestion Documentaire Maîtrisée !",
+      "description": "Vous savez maintenant gérer les documents, les notes et suivre l'historique pour une traçabilité complète. Vous êtes prêt à gérer votre cabinet efficacement !"
     },
     "tutorial-complete": {
-      "title": "🎉 Félicitations !",
+      "title": "Félicitations !",
       "description": "Vous avez terminé le tutoriel Organia ! Vous savez maintenant gérer clients, dossiers, procès, tâches, sessions, missions et finances. Vous êtes prêt à gérer votre cabinet comme un pro."
     }
   },
@@ -233,6 +279,7 @@
     "phase5": "Phase 5 : Audiences",
     "phase6": "Phase 6 : Huissiers & Missions",
     "phase7": "Phase 7 : Finances",
-    "phase8": "Phase 8 : Terminé"
+    "phase8": "Phase 8 : Documents, Notes, Historique",
+    "phase9": "Phase 9 : Terminé"
   }
 }

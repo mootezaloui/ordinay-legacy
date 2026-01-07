@@ -13,19 +13,6 @@
         "dossier": "Créer un nouveau dossier juridique",
         "task": "Créer une nouvelle tâche à effectuer",
         "session": "Planifier une nouvelle séance ou rendez-vous"
-      },
-      "placeholders": {
-        "dossier": "Sélectionner un dossier...",
-        "case": "Sélectionner une affaire..."
-      },
-      "toasts": {
-        "clientSuccess": "Client \"{{name}}\" créé avec succès !",
-        "dossierSuccess": "Dossier \"{{reference}}\" créé avec succès !",
-        "taskSuccess": "Tâche \"{{title}}\" créée avec succès !",
-        "sessionSuccess": "Séance \"{{title}}\" planifiée avec succès !",
-        "genericSuccess": "Création réussie !",
-        "errorTitle": "Échec de création",
-        "errorMessage": "Erreur lors de la création : {{message}}"
       }
     },
     "stats": {
@@ -42,20 +29,11 @@
     },
     "urgentTasks": {
       "title": "Tâches Urgentes ({{count}})",
-      "empty": "Aucune tâche urgente ! Excellent travail pour rester à jour.",
-      "viewAll": "Voir toutes les tâches ({{count}})"
+      "empty": "Aucune tâche urgente ! Excellent travail pour rester à jour."
     },
     "upcomingEvents": {
       "title": "Événements à Venir ({{count}})",
-      "empty": "Aucun événement à venir programmé.",
-      "time": {
-        "passed": "Échu",
-        "soon": "Bientôt",
-        "inHours_one": "Dans {{count}} heure",
-        "inHours_other": "Dans {{count}} heures",
-        "inDays_one": "Dans {{count}} jour",
-        "inDays_other": "Dans {{count}} jours"
-      }
+      "empty": "Aucun événement à venir programmé."
     },
     "workload": {
       "title": "Charge de travail (90 jours)",

@@ -160,19 +160,37 @@ export function isReferenceUnique(
  * @param {string} reference - Reference to validate
  * @returns {boolean} - true if format is valid
  */
-export function isReferenceFormatValid(entityType, reference) {
+export function isReferenceFormatValid(entityType, reference, options = {}) {
+  const { allowCustomPrefix = true, maxLength = 100 } = options;
+
   if (!reference) {
     return true; // Empty is valid
   }
 
-  const format = REFERENCE_FORMATS[entityType];
-  if (!format) {
+  const normalized = reference.trim();
+  if (normalized.length > maxLength) {
     return false;
   }
 
-  // Expected pattern: PREFIX-YYYY-XXX (e.g., DOS-2025-001)
-  const pattern = new RegExp(`^${format.prefix}-\\d{4}-\\d{3,}$`);
-  return pattern.test(reference);
+  const format = REFERENCE_FORMATS[entityType];
+  if (!format) {
+    return true;
+  }
+
+  // Expected pattern: PREFIX-YYYY-XXX (at least 1 char after year)
+  const strictPattern = new RegExp(`^${format.prefix}-\\d{4}-[A-Z0-9-]+$`);
+  if (strictPattern.test(normalized)) {
+    return true;
+  }
+
+  // Allow user-defined references when enabled
+  if (allowCustomPrefix) {
+    // Accept broad set: letters/numbers and common separators/spaces
+    const genericPattern = /^[A-Z0-9][A-Z0-9\s._/#-]*$/;
+    return genericPattern.test(normalized);
+  }
+
+  return false;
 }
 
 /**
@@ -212,29 +230,24 @@ export function getDuplicateReferenceError(entityType, reference) {
  * @param {string} entityType - 'dossier', 'case', or 'mission' (optional - for prefix correction)
  * @returns {string} - Normalized reference
  */
-export function normalizeReference(reference, entityType = null) {
+export function normalizeReference(reference, entityType = null, options = {}) {
+  const { autoCorrectPrefix = false } = options;
+
   if (!reference) {
     return "";
   }
 
   let normalized = reference.trim().toUpperCase();
 
-  // If entityType provided, fix the prefix if user entered wrong one
-  if (entityType && REFERENCE_FORMATS[entityType]) {
+  // Optional: keep legacy prefix auto-correction if explicitly requested
+  if (autoCorrectPrefix && entityType && REFERENCE_FORMATS[entityType]) {
     const format = REFERENCE_FORMATS[entityType];
     const expectedPrefix = format.prefix;
 
-    // Check if reference starts with wrong prefix (e.g., TRI instead of PRO)
-    // Pattern: extract prefix from reference (letters before first dash)
     const prefixMatch = normalized.match(/^([A-Z]+)-/);
     if (prefixMatch) {
       const userPrefix = prefixMatch[1];
-      // If prefix is wrong, replace it with correct one
       if (userPrefix !== expectedPrefix) {
-        console.warn(
-          `⚠️ Reference prefix mismatch: expected "${expectedPrefix}", got "${userPrefix}". Auto-correcting...`
-        );
-        // Replace wrong prefix with correct one
         normalized = normalized.replace(/^[A-Z]+-/, `${expectedPrefix}-`);
       }
     }

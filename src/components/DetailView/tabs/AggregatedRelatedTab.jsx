@@ -317,6 +317,8 @@ export default function AggregatedRelatedTab({
             }
             const created = creation.created || creation;
             newItem = { ...created };
+            // Notify tutorial
+            if (tutorial?.setCreatedCase) tutorial.setCreatedCase(created.id);
           }
           break;
         case "sessions":

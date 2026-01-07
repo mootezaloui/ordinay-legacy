@@ -1065,6 +1065,9 @@ export default function DetailView({ entityType }) {
                 if (entityType === "dossier" && tab.id === "proceedings") return "dossier-cases-tab";
                 if (entityType === "dossier" && tab.id === "tasks") return "dossier-tasks-tab";
                 if (entityType === "dossier" && tab.id === "missions") return "dossier-missions-tab";
+                if (entityType === "dossier" && tab.id === "documents") return "dossier-documents-tab";
+                if (entityType === "dossier" && tab.id === "notes") return "dossier-notes-tab";
+                if (entityType === "dossier" && tab.id === "timeline") return "dossier-history-tab";
                 return undefined;
               };
 

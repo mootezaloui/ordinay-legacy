@@ -197,7 +197,7 @@ export default function NotesTab({ data, config, tabConfig, onUpdate }) {
 
   if (notesList.length === 0) {
     return (
-      <ContentSection title={t("detail.notes.title")}>
+      <ContentSection data-tutorial="dossier-notes-section" title={t("detail.notes.title")}>
         <div className="p-12 text-center">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-amber-100 dark:bg-amber-900/20 mb-4">
             <i className="fas fa-sticky-note text-amber-500 dark:text-amber-400 text-2xl"></i>
@@ -219,6 +219,7 @@ export default function NotesTab({ data, config, tabConfig, onUpdate }) {
 
   return (
     <ContentSection
+      data-tutorial="dossier-notes-section"
       title={t("detail.notes.title")}
       actions={
         <button

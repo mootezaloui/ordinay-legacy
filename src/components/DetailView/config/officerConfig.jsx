@@ -264,11 +264,6 @@ export const createOfficerConfig = (t) => ({
 
       // ✅ UPDATED: Use same getFormFields pattern as dossier and case
       getFormFields: (officerData, contextData) => {
-        // Generate a default mission number
-        const year = new Date().getFullYear();
-        const randomNum = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-        const defaultMissionNumber = `MIS-${year}-${randomNum}`;
-
         const fields = getMissionFormFields().map(field => {
           // Pre-fill and disable officerId with current officer
           if (field.name === 'officerId') {
@@ -281,12 +276,12 @@ export const createOfficerConfig = (t) => ({
               helpText: t('form.help.bailiffAssigned', { ns: 'missions', name: officerData.name, defaultValue: `This mission will be assigned to ${officerData.name}` }),
             };
           }
-          // Auto-generate mission number
+          // Mission reference: editable/optional like dossier/case; leave blank to auto-generate
           if (field.name === 'missionNumber') {
             return {
               ...field,
-              defaultValue: defaultMissionNumber,
-              disabled: true,
+              defaultValue: '',
+              disabled: false,
             };
           }
           // Enable entityType (not disabled) for officer selection

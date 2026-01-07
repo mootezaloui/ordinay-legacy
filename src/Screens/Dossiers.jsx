@@ -194,12 +194,16 @@ export default function Dossiers() {
     },
   ];
 
-  // Initialize advanced table
+  // Initialize advanced table with intelligent ordering
+  // Dossiers: Open/High-priority first, Closed dossiers de-emphasized
   const table = useAdvancedTable(dossiers, columns, {
-    initialSortBy: "openDate",
+    // Remove initialSortBy to enable intelligent ordering by default
+    initialSortBy: null,
     initialSortDirection: "desc",
     initialItemsPerPage: 10,
     searchableFields: ["caseNumber", "title", "client", "category", "status"],
+    entityType: "dossier",
+    enableIntelligentOrdering: true,
   });
 
   const headerSubtitle = table.isFiltering
@@ -559,6 +563,7 @@ export default function Dossiers() {
               <TableRow
                 key={dossier.id}
                 onClick={() => handleView(dossier.id)}
+                emphasis={table.getItemEmphasis(dossier)}
                 className="cursor-pointer"
               >
                 {table.columns.map((column) => (

@@ -547,10 +547,11 @@ export const createDossierConfig = (t) => {
                 helpText: t('detail.forms.missions.linkedToDossier', { caseNumber: dossierData.caseNumber }),
               };
             } else if (field.name === 'missionNumber') {
+              // Allow lawyers to enter their own reference or leave blank for auto-generation
               return {
                 ...field,
-                defaultValue: defaultMissionNumber,
-                disabled: true,
+                defaultValue: '',
+                disabled: false,
               };
             } else if (field.name === 'officerId') {
               return {

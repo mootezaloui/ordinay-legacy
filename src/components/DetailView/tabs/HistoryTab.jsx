@@ -14,6 +14,7 @@ import {
     RotateCcw,
 } from "lucide-react";
 import { useSettings } from "../../../contexts/SettingsContext";
+import ContentSection from "../../layout/ContentSection";
 
 /**
  * History Tab - Read-only audit trail
@@ -27,7 +28,7 @@ import { useSettings } from "../../../contexts/SettingsContext";
  * - Relational impact confirmations
  */
 export default function HistoryTab({ entityType, entityId }) {
-    const { t } = useTranslation("common");
+    const { t, i18n } = useTranslation("common");
     const [history, setHistory] = useState([]);
     const [loading, setLoading] = useState(true);
     const { formatDateTime } = useSettings();
@@ -46,60 +47,67 @@ export default function HistoryTab({ entityType, entityId }) {
 
     if (loading) {
         return (
-            <div className="flex flex-col items-center justify-center p-12 text-center">
-                <Clock className="w-16 h-16 text-slate-300 dark:text-slate-600 mb-4 animate-pulse" />
-                <h3 className="text-lg font-medium text-slate-700 dark:text-slate-300 mb-2">
-                    {t("detail.history.loading")}
-                </h3>
-            </div>
+            <ContentSection data-tutorial="dossier-history-section" title={t("detail.tabs.history")}>
+                <div className="flex flex-col items-center justify-center p-12 text-center">
+                    <Clock className="w-16 h-16 text-slate-300 dark:text-slate-600 mb-4 animate-pulse" />
+                    <h3 className="text-lg font-medium text-slate-700 dark:text-slate-300 mb-2">
+                        {t("detail.history.loading")}
+                    </h3>
+                </div>
+            </ContentSection>
         );
     }
 
     if (!history || history.length === 0) {
         return (
-            <div className="flex flex-col items-center justify-center p-12 text-center">
-                <Clock className="w-16 h-16 text-slate-300 dark:text-slate-600 mb-4" />
-                <h3 className="text-lg font-medium text-slate-700 dark:text-slate-300 mb-2">
-                    {t("detail.history.empty.title")}
-                </h3>
-                <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md">
-                    {t("detail.history.empty.description")}
-                </p>
-            </div>
+            <ContentSection data-tutorial="dossier-history-section" title={t("detail.tabs.history")}>
+                <div className="flex flex-col items-center justify-center p-12 text-center">
+                    <Clock className="w-16 h-16 text-slate-300 dark:text-slate-600 mb-4" />
+                    <h3 className="text-lg font-medium text-slate-700 dark:text-slate-300 mb-2">
+                        {t("detail.history.empty.title")}
+                    </h3>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md">
+                        {t("detail.history.empty.description")}
+                    </p>
+                </div>
+            </ContentSection>
         );
     }
 
     return (
-        <div className="p-6">
-            <div className="max-w-4xl mx-auto">
-                {/* Timeline */}
-                <div className="relative">
-                    {/* Timeline line */}
-                    <div className="absolute left-8 top-0 bottom-0 w-0.5 bg-slate-200 dark:bg-slate-700" />
+        <ContentSection data-tutorial="dossier-history-section" title={t("detail.tabs.history")}>
+            <div className="p-6">
+                <div className="max-w-4xl mx-auto">
+                    {/* Timeline */}
+                    <div className="relative">
+                        {/* Timeline line */}
+                        <div className="absolute left-8 top-0 bottom-0 w-0.5 bg-slate-200 dark:bg-slate-700" />
 
-                    {/* Events */}
-                    <div className="space-y-6">
-                        {history.map((event, index) => (
-                            <HistoryEvent
-                                key={event.id}
-                                event={event}
-                                isFirst={index === 0}
-                                isLast={index === history.length - 1}
-                                formatDateTime={formatDateTime}
-                            />
-                        ))}
+                        {/* Events */}
+                        <div className="space-y-6">
+                            {history.map((event, index) => (
+                                <HistoryEvent
+                                    key={event.id}
+                                    event={event}
+                                    isFirst={index === 0}
+                                    isLast={index === history.length - 1}
+                                    formatDateTime={formatDateTime}
+                                    t={t}
+                                    i18n={i18n}
+                                />
+                            ))}
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
+        </ContentSection>
     );
 }
 
 /**
  * Single history event component
  */
-function HistoryEvent({ event, isFirst, isLast, formatDateTime }) {
-    const { t, i18n } = useTranslation("common");
+function HistoryEvent({ event, isFirst, isLast, formatDateTime, t, i18n }) {
     const { icon, iconColor, bgColor } = getEventIcon(event.eventType, event.metadata);
 
     return (
@@ -123,7 +131,7 @@ function HistoryEvent({ event, isFirst, isLast, formatDateTime }) {
                     </div>
 
                     {/* Event type badge */}
-                    <EventTypeBadge eventType={event.eventType} />
+                    <EventTypeBadge eventType={event.eventType} t={t} />
                 </div>
 
                 {/* Details */}
@@ -137,7 +145,7 @@ function HistoryEvent({ event, isFirst, isLast, formatDateTime }) {
 
                 {/* Metadata (if relevant) */}
                 {event.metadata && Object.keys(event.metadata).length > 0 && (
-                    <MetadataDisplay metadata={event.metadata} />
+                    <MetadataDisplay metadata={event.metadata} t={t} />
                 )}
             </div>
         </div>
@@ -240,8 +248,7 @@ function getEventIcon(eventType, metadata = {}) {
 /**
  * Event type badge
  */
-function EventTypeBadge({ eventType }) {
-    const { t } = useTranslation("common");
+function EventTypeBadge({ eventType, t }) {
 
     const badges = {
         lifecycle: { labelKey: 'detail.history.badges.lifecycle', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' },
@@ -267,8 +274,7 @@ function EventTypeBadge({ eventType }) {
 /**
  * Display metadata in a clean format
  */
-function MetadataDisplay({ metadata }) {
-    const { t } = useTranslation("common");
+function MetadataDisplay({ metadata, t }) {
 
     // Filter out internal/redundant metadata
     const relevantKeys = Object.keys(metadata).filter(key =>
