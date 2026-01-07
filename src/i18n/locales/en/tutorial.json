@@ -8,11 +8,12 @@
     "exit": "Exit tutorial",
     "pressEscToExit": "Press Esc to exit tutorial",
     "continuePhase2": "Continue to Dossiers",
-    "continuePhase3": "Continue to Tasks",
-    "continuePhase4": "Continue to Sessions",
-    "continuePhase5": "Continue to Officers",
-    "continuePhase6": "Continue to Finances",
-    "continuePhase7": "Complete Tutorial"
+    "continuePhase3": "Continue to Cases",
+    "continuePhase4": "Continue to Tasks",
+    "continuePhase5": "Continue to Sessions",
+    "continuePhase6": "Continue to Officers",
+    "continuePhase7": "Continue to Finances",
+    "continuePhase8": "Complete Tutorial"
   },
   "steps": {
     "dashboard-intro": {
@@ -67,11 +68,44 @@
     },
     "phase2-complete": {
       "title": "Dossier Mastery!",
-      "description": "You now understand dossiers — the heart of your legal work. You know how to create them from a client or from the global list. Ready to learn about tasks?"
+      "description": "You now understand dossiers — the heart of your legal work. You know how to create them from a client or from the global list. Ready to learn about cases?"
+    },
+    "select-dossier-for-cases": {
+      "title": "Open a Dossier",
+      "description": "Now let's learn about cases (lawsuits). First, click on any dossier to open its detail view.",
+      "action": "Click on a dossier to open it"
+    },
+    "dossier-cases-tab": {
+      "title": "Legal Proceedings",
+      "description": "Cases are your formal legal proceedings — lawsuits, disputes, and court matters. Each dossier can have multiple cases.",
+      "action": "Click on the Cases tab"
+    },
+    "create-case-from-dossier": {
+      "title": "Create a Case",
+      "description": "Add a case (lawsuit) with its court, parties, and status. Track every legal proceeding.",
+      "action": "Click 'Add Case'"
+    },
+    "case-notification-intro": {
+      "title": "Client Communication",
+      "description": "Just like with dossiers, Organia prompts you to notify your client about new cases. Keep them informed about their legal proceedings.",
+      "action": "Choose to send or skip the notification"
+    },
+    "case-detail-overview": {
+      "title": "Case Details",
+      "description": "Here's your case. You can track the court, status, hearings, and outcomes. Everything is documented."
+    },
+    "phase3-complete": {
+      "title": "Case Expert!",
+      "description": "You now know how to manage cases and lawsuits. Next, let's learn about tasks — your daily workflow."
+    },
+    "sidebar-dossiers-for-tasks": {
+      "title": "Back to Dossiers",
+      "description": "Let's continue with tasks. First, navigate back to the dossiers list.",
+      "action": "Click on Dossiers in the sidebar"
     },
     "select-dossier-for-tasks": {
       "title": "Open a Dossier",
-      "description": "Now let's learn about tasks. First, click on any dossier to open its detail view.",
+      "description": "Now let's learn about tasks. Click on any dossier to open its detail view.",
       "action": "Click on a dossier to open it"
     },
     "dossier-tasks-tab": {
@@ -101,7 +135,7 @@
       "title": "Your Private List",
       "description": "These are YOUR tasks — not linked to any dossier. Perfect for personal reminders and admin work."
     },
-    "phase3-complete": {
+    "phase4-complete": {
       "title": "Task Master!",
       "description": "You now know how to manage tasks — both for dossiers and personal ones. Next, let's explore hearings and sessions."
     },
@@ -123,7 +157,7 @@
       "title": "Session Details",
       "description": "Track the outcome, notes, and next steps for each session. Everything is documented for future reference."
     },
-    "phase4-complete": {
+    "phase5-complete": {
       "title": "Session Pro!",
       "description": "You can now manage court sessions and hearings. Next, let's learn about officers and missions — your execution network."
     },
@@ -140,7 +174,7 @@
       "title": "How Missions Work",
       "description": "Missions are billable work done by officers. Create them from a dossier, link to an officer, and track the outcome. When complete, fees flow to your finances."
     },
-    "phase5-complete": {
+    "phase6-complete": {
       "title": "Mission Expert!",
       "description": "You understand officers and missions. Now let's see where all this comes together — your finances."
     },
@@ -157,13 +191,13 @@
       "title": "Track Every Dinar",
       "description": "Each financial entry is linked to its source — a mission, a payment, or an expense. Full traceability, always."
     },
-    "phase6-complete": {
+    "phase7-complete": {
       "title": "Financial Clarity!",
       "description": "You now understand how Organia tracks your money. One more step to complete your training!"
     },
     "tutorial-complete": {
       "title": "🎉 Congratulations!",
-      "description": "You've completed the Organia tutorial! You now know how to manage clients, dossiers, tasks, sessions, missions, and finances. You're ready to run your practice like a pro."
+      "description": "You've completed the Organia tutorial! You now know how to manage clients, dossiers, cases, tasks, sessions, missions, and finances. You're ready to run your practice like a pro."
     }
   },
   "completion": {
@@ -194,10 +228,11 @@
   "phases": {
     "phase1": "Phase 1: Clients",
     "phase2": "Phase 2: Dossiers",
-    "phase3": "Phase 3: Tasks",
-    "phase4": "Phase 4: Sessions",
-    "phase5": "Phase 5: Officers & Missions",
-    "phase6": "Phase 6: Financial",
-    "phase7": "Phase 7: Complete"
+    "phase3": "Phase 3: Cases",
+    "phase4": "Phase 4: Tasks",
+    "phase5": "Phase 5: Sessions",
+    "phase6": "Phase 6: Officers & Missions",
+    "phase7": "Phase 7: Financial",
+    "phase8": "Phase 8: Complete"
   }
 }

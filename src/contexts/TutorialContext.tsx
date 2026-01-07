@@ -127,57 +127,45 @@ export const PHASE2_STEPS: TutorialStep[] = [
   },
 ];
 
-// Phase 3: Tasks — The Daily Workflow
+// Phase 3: Cases/Lawsuits — Legal Proceedings
 export const PHASE3_STEPS: TutorialStep[] = [
-  // Step 3.1: Select a dossier from the list to open its detail view
+  // Step 3.1: From dossiers list, select a dossier to open its detail view
   {
-    id: "select-dossier-for-tasks",
+    id: "select-dossier-for-cases",
     target: "dossiers-list-container",
     allowInteraction: true,
     requiresAction: true,
     position: "top",
   },
-  // Step 3.2: Navigate to dossier and click Tasks tab
+  // Step 3.2: Click on Cases/Procès tab
   {
-    id: "dossier-tasks-tab",
-    target: "dossier-tasks-tab",
+    id: "dossier-cases-tab",
+    target: "dossier-cases-tab",
     allowInteraction: true,
     requiresAction: true,
     position: "bottom",
   },
-  // Step 3.2: Create a task from the dossier
+  // Step 3.3: Create a case from the dossier
   {
-    id: "create-task-from-dossier",
-    target: "add-task-from-dossier-button",
+    id: "create-case-from-dossier",
+    target: "add-case-from-dossier-button",
     allowInteraction: true,
     requiresAction: true,
     position: "top",
   },
-  // Step 3.3: Task detail overview (after creation)
+  // Step 3.4: Client notification for case creation - spotlight the notification modal
   {
-    id: "task-detail-overview",
-    target: "task-detail-header",
-    position: "bottom",
-  },
-  // Step 3.4: Explain task status workflow
-  {
-    id: "task-status-workflow",
-    target: "task-status-selector",
-    position: "bottom",
-  },
-  // Step 3.5: Show personal tasks in sidebar
-  {
-    id: "sidebar-personal-tasks",
-    target: "sidebar-personal-tasks-link",
+    id: "case-notification-intro",
+    target: "client-notification-modal",
     allowInteraction: true,
     requiresAction: true,
-    position: "right",
+    position: "left",
   },
-  // Step 3.6: Personal tasks overview
+  // Step 3.5: Case detail overview (after notification handled)
   {
-    id: "personal-tasks-overview",
-    target: "personal-tasks-container",
-    position: "top",
+    id: "case-detail-overview",
+    target: "case-detail-header",
+    position: "bottom",
   },
   // Phase 3 Completion
   {
@@ -186,35 +174,65 @@ export const PHASE3_STEPS: TutorialStep[] = [
   },
 ];
 
-// Phase 4: Sessions — Court Appearances & Hearings
+// Phase 4: Tasks — The Daily Workflow
 export const PHASE4_STEPS: TutorialStep[] = [
-  // Step 4.1: Navigate to Sessions in sidebar
+  // Step 4.1: Navigate back to dossiers
   {
-    id: "sidebar-sessions",
-    target: "sidebar-sessions-link",
+    id: "sidebar-dossiers-for-tasks",
+    target: "sidebar-dossiers-link",
     allowInteraction: true,
     requiresAction: true,
     position: "right",
   },
-  // Step 4.2: Sessions list overview
+  // Step 4.2: Select a dossier from the list to open its detail view
   {
-    id: "sessions-list-overview",
-    target: "sessions-list-container",
+    id: "select-dossier-for-tasks",
+    target: "dossiers-list-container",
+    allowInteraction: true,
+    requiresAction: true,
     position: "top",
   },
-  // Step 4.3: Create a session
+  // Step 4.3: Navigate to dossier and click Tasks tab
   {
-    id: "create-session",
-    target: "add-session-button",
+    id: "dossier-tasks-tab",
+    target: "dossier-tasks-tab",
     allowInteraction: true,
     requiresAction: true,
     position: "bottom",
   },
-  // Step 4.4: Session detail overview
+  // Step 4.4: Create a task from the dossier
   {
-    id: "session-detail-overview",
-    target: "session-detail-header",
+    id: "create-task-from-dossier",
+    target: "add-task-from-dossier-button",
+    allowInteraction: true,
+    requiresAction: true,
+    position: "top",
+  },
+  // Step 4.5: Task detail overview (after creation)
+  {
+    id: "task-detail-overview",
+    target: "task-detail-header",
     position: "bottom",
+  },
+  // Step 4.6: Explain task status workflow
+  {
+    id: "task-status-workflow",
+    target: "task-status-selector",
+    position: "bottom",
+  },
+  // Step 4.7: Show personal tasks in sidebar
+  {
+    id: "sidebar-personal-tasks",
+    target: "sidebar-personal-tasks-link",
+    allowInteraction: true,
+    requiresAction: true,
+    position: "right",
+  },
+  // Step 4.8: Personal tasks overview
+  {
+    id: "personal-tasks-overview",
+    target: "personal-tasks-container",
+    position: "top",
   },
   // Phase 4 Completion
   {
@@ -223,28 +241,35 @@ export const PHASE4_STEPS: TutorialStep[] = [
   },
 ];
 
-// Phase 5: Officers & Missions — The Execution Network
-// Note: Missions require officers, so we teach officers first as a prerequisite
+// Phase 5: Sessions — Court Appearances & Hearings
 export const PHASE5_STEPS: TutorialStep[] = [
-  // Step 5.1: Navigate to Officers in sidebar
+  // Step 5.1: Navigate to Sessions in sidebar
   {
-    id: "sidebar-officers",
-    target: "sidebar-officers-link",
+    id: "sidebar-sessions",
+    target: "sidebar-sessions-link",
     allowInteraction: true,
     requiresAction: true,
     position: "right",
   },
-  // Step 5.2: Officers list overview - explain what officers/huissiers are
+  // Step 5.2: Sessions list overview
   {
-    id: "officers-list-overview",
-    target: "officers-list-container",
+    id: "sessions-list-overview",
+    target: "sessions-list-container",
     position: "top",
   },
-  // Step 5.3: Explain the mission workflow (educational - no creation needed)
+  // Step 5.3: Create a session
   {
-    id: "missions-workflow-explained",
-    target: "officers-list-container",
-    position: "top",
+    id: "create-session",
+    target: "add-session-button",
+    allowInteraction: true,
+    requiresAction: true,
+    position: "bottom",
+  },
+  // Step 5.4: Session detail overview
+  {
+    id: "session-detail-overview",
+    target: "session-detail-header",
+    position: "bottom",
   },
   // Phase 5 Completion
   {
@@ -253,26 +278,27 @@ export const PHASE5_STEPS: TutorialStep[] = [
   },
 ];
 
-// Phase 6: Financial — The Complete Picture
+// Phase 6: Officers & Missions — The Execution Network
+// Note: Missions require officers, so we teach officers first as a prerequisite
 export const PHASE6_STEPS: TutorialStep[] = [
-  // Step 6.1: Navigate to Accounting
+  // Step 6.1: Navigate to Officers in sidebar
   {
-    id: "sidebar-accounting",
-    target: "sidebar-accounting-link",
+    id: "sidebar-officers",
+    target: "sidebar-officers-link",
     allowInteraction: true,
     requiresAction: true,
     position: "right",
   },
-  // Step 6.2: Financial dashboard overview
+  // Step 6.2: Officers list overview - explain what officers/huissiers are
   {
-    id: "financial-overview",
-    target: "financial-dashboard-container",
+    id: "officers-list-overview",
+    target: "officers-list-container",
     position: "top",
   },
-  // Step 6.3: Understanding financial entries
+  // Step 6.3: Explain the mission workflow (educational - no creation needed)
   {
-    id: "financial-entries-explained",
-    target: "financial-entries-section",
+    id: "missions-workflow-explained",
+    target: "officers-list-container",
     position: "top",
   },
   // Phase 6 Completion
@@ -282,8 +308,37 @@ export const PHASE6_STEPS: TutorialStep[] = [
   },
 ];
 
-// Phase 7: Tutorial Complete
+// Phase 7: Financial — The Complete Picture
 export const PHASE7_STEPS: TutorialStep[] = [
+  // Step 7.1: Navigate to Accounting
+  {
+    id: "sidebar-accounting",
+    target: "sidebar-accounting-link",
+    allowInteraction: true,
+    requiresAction: true,
+    position: "right",
+  },
+  // Step 7.2: Financial dashboard overview
+  {
+    id: "financial-overview",
+    target: "financial-dashboard-container",
+    position: "top",
+  },
+  // Step 7.3: Understanding financial entries
+  {
+    id: "financial-entries-explained",
+    target: "financial-entries-section",
+    position: "top",
+  },
+  // Phase 7 Completion
+  {
+    id: "phase7-complete",
+    position: "auto",
+  },
+];
+
+// Phase 8: Tutorial Complete
+export const PHASE8_STEPS: TutorialStep[] = [
   // Final celebration and summary
   {
     id: "tutorial-complete",
@@ -300,6 +355,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   ...PHASE5_STEPS,
   ...PHASE6_STEPS,
   ...PHASE7_STEPS,
+  ...PHASE8_STEPS,
 ];
 
 interface TutorialState {

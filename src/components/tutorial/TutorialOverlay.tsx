@@ -235,6 +235,42 @@ export default function TutorialOverlayComponent() {
       }
     }
 
+    // For select-dossier-for-cases step: advance when user opens a dossier detail page
+    if (currentStep.id === "select-dossier-for-cases") {
+      // Check if user navigated to a dossier detail page (e.g., /dossiers/123)
+      const dossierDetailMatch = location.pathname.match(/^\/dossiers\/\d+$/);
+      if (dossierDetailMatch) {
+        // Small delay to let the navigation complete
+        const timeout = setTimeout(() => {
+          nextStep();
+        }, 100);
+        return () => clearTimeout(timeout);
+      }
+    }
+
+    // For dossier-cases-tab step: advance when user clicks on the Cases/Proceedings tab
+    if (currentStep.id === "dossier-cases-tab") {
+      const searchParams = new URLSearchParams(searchString);
+      if (searchParams.get("tab") === "proceedings") {
+        // Small delay to let the tab switch complete
+        const timeout = setTimeout(() => {
+          nextStep();
+        }, 100);
+        return () => clearTimeout(timeout);
+      }
+    }
+
+    // For sidebar-dossiers-for-tasks step: advance when user navigates to /dossiers
+    if (
+      currentStep.id === "sidebar-dossiers-for-tasks" &&
+      location.pathname === "/dossiers"
+    ) {
+      const timeout = setTimeout(() => {
+        nextStep();
+      }, 100);
+      return () => clearTimeout(timeout);
+    }
+
     // For select-dossier-for-tasks step: advance when user opens a dossier detail page
     if (currentStep.id === "select-dossier-for-tasks") {
       // Check if user navigated to a dossier detail page (e.g., /dossiers/123)
@@ -459,6 +495,7 @@ export default function TutorialOverlayComponent() {
   const isPhase4Complete = currentStep?.id === "phase4-complete";
   const isPhase5Complete = currentStep?.id === "phase5-complete";
   const isPhase6Complete = currentStep?.id === "phase6-complete";
+  const isPhase7Complete = currentStep?.id === "phase7-complete";
   const isTutorialComplete = currentStep?.id === "tutorial-complete";
   const isCompletionStep =
     isPhase1Complete ||
@@ -467,6 +504,7 @@ export default function TutorialOverlayComponent() {
     isPhase4Complete ||
     isPhase5Complete ||
     isPhase6Complete ||
+    isPhase7Complete ||
     isTutorialComplete;
 
   // Determine if spotlight should allow clicks through
@@ -616,9 +654,9 @@ export default function TutorialOverlayComponent() {
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <div className="flex gap-1">
-                  {Array.from({ length: Math.min(totalSteps, 7) }).map(
+                  {Array.from({ length: Math.min(totalSteps, 8) }).map(
                     (_, i) => {
-                      const segmentSize = Math.ceil(totalSteps / 7);
+                      const segmentSize = Math.ceil(totalSteps / 8);
                       const segmentIndex = Math.floor(
                         currentStepIndex / segmentSize
                       );
@@ -669,30 +707,8 @@ export default function TutorialOverlayComponent() {
             )}
 
             {/* Navigation */}
-            <div className="flex items-center justify-between pt-3 mt-1 border-t border-slate-100 dark:border-slate-700/60">
-              {/* Left: Back or Skip */}
-              <div>
-                {canGoBack && !currentStep?.requiresAction ? (
-                  <button
-                    onClick={previousStep}
-                    className="text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-all"
-                  >
-                    <i className="fas fa-arrow-left text-[10px]" />
-                    {t("controls.back")}
-                  </button>
-                ) : currentStep?.requiresAction ? (
-                  <button
-                    onClick={skipCurrentStep}
-                    className="text-sm text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 px-3 py-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-all"
-                  >
-                    {t("controls.skipStep")}
-                  </button>
-                ) : (
-                  <div className="w-1" />
-                )}
-              </div>
-
-              {/* Right: Next or Finish */}
+            <div className="flex items-center justify-center pt-3 mt-1 border-t border-slate-100 dark:border-slate-700/60">
+              {/* Next or Finish */}
               {canGoForward && (
                 <button
                   onClick={nextStep}
@@ -712,6 +728,8 @@ export default function TutorialOverlayComponent() {
                     ? t("controls.continuePhase6")
                     : isPhase6Complete
                     ? t("controls.continuePhase7")
+                    : isPhase7Complete
+                    ? t("controls.continuePhase8")
                     : t("controls.next")}
                   {!isLastStep && !isTutorialComplete && (
                     <i className="fas fa-arrow-right text-xs" />

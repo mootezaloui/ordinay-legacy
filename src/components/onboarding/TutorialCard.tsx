@@ -20,12 +20,9 @@ interface TutorialCardProps {
   showProgress?: boolean;
   showNavigation?: boolean;
   onNext?: () => void;
-  onBack?: () => void;
-  onSkip?: () => void;
   isFirstStep?: boolean;
   isLastStep?: boolean;
   nextLabel?: string;
-  backLabel?: string;
 }
 
 export default function TutorialCard({
@@ -38,12 +35,9 @@ export default function TutorialCard({
   showProgress = true,
   showNavigation = true,
   onNext,
-  onBack,
-  onSkip,
   isFirstStep = false,
   isLastStep = false,
   nextLabel,
-  backLabel,
 }: TutorialCardProps) {
   const { t } = useTranslation("onboarding");
 
@@ -84,30 +78,8 @@ export default function TutorialCard({
 
       {/* Navigation */}
       {showNavigation && (
-        <div className="px-6 pb-6 pt-2 flex items-center justify-between">
-          {/* Left side - Skip or Back */}
-          <div>
-            {isFirstStep && onSkip ? (
-              <button
-                onClick={onSkip}
-                className="text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
-              >
-                {t("navigation.skip")}
-              </button>
-            ) : onBack ? (
-              <button
-                onClick={onBack}
-                className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
-              >
-                <i className="fas fa-arrow-left text-xs" />
-                {backLabel || t("navigation.back")}
-              </button>
-            ) : (
-              <div />
-            )}
-          </div>
-
-          {/* Right side - Next or Finish */}
+        <div className="px-6 pb-6 pt-2 flex items-center justify-center">
+          {/* Next or Finish */}
           {onNext && (
             <button
               onClick={onNext}

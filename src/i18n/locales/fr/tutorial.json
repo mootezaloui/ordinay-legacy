@@ -8,11 +8,12 @@
     "exit": "Quitter le tutoriel",
     "pressEscToExit": "Appuyez sur Échap pour quitter",
     "continuePhase2": "Continuer vers les Dossiers",
-    "continuePhase3": "Continuer vers les Tâches",
-    "continuePhase4": "Continuer vers les Audiences",
-    "continuePhase5": "Continuer vers les Huissiers",
-    "continuePhase6": "Continuer vers les Finances",
-    "continuePhase7": "Terminer le Tutoriel"
+    "continuePhase3": "Continuer vers les Procès",
+    "continuePhase4": "Continuer vers les Tâches",
+    "continuePhase5": "Continuer vers les Audiences",
+    "continuePhase6": "Continuer vers les Huissiers",
+    "continuePhase7": "Continuer vers les Finances",
+    "continuePhase8": "Terminer le Tutoriel"
   },
   "steps": {
     "dashboard-intro": {
@@ -67,11 +68,44 @@
     },
     "phase2-complete": {
       "title": "Maîtrise des Dossiers !",
-      "description": "Vous comprenez maintenant les dossiers — le cœur de votre travail juridique. Vous savez les créer depuis un client ou depuis la liste globale. Prêt à découvrir les tâches ?"
+      "description": "Vous comprenez maintenant les dossiers — le cœur de votre travail juridique. Vous savez les créer depuis un client ou depuis la liste globale. Prêt à découvrir les procès ?"
+    },
+    "select-dossier-for-cases": {
+      "title": "Ouvrir un Dossier",
+      "description": "Maintenant, apprenons les procès (affaires judiciaires). D'abord, cliquez sur un dossier pour ouvrir sa vue détaillée.",
+      "action": "Cliquez sur un dossier pour l'ouvrir"
+    },
+    "dossier-cases-tab": {
+      "title": "Procédures Judiciaires",
+      "description": "Les procès sont vos procédures judiciaires formelles — litiges, contentieux et affaires devant le tribunal. Chaque dossier peut avoir plusieurs procès.",
+      "action": "Cliquez sur l'onglet Procès"
+    },
+    "create-case-from-dossier": {
+      "title": "Créer un Procès",
+      "description": "Ajoutez un procès avec son tribunal, ses parties et son statut. Suivez chaque procédure judiciaire.",
+      "action": "Cliquez sur 'Ajouter un procès'"
+    },
+    "case-notification-intro": {
+      "title": "Communication Client",
+      "description": "Comme pour les dossiers, Organia vous propose de notifier votre client des nouveaux procès. Tenez-les informés de leurs procédures judiciaires.",
+      "action": "Choisissez d'envoyer ou d'ignorer la notification"
+    },
+    "case-detail-overview": {
+      "title": "Détails du Procès",
+      "description": "Voici votre procès. Vous pouvez suivre le tribunal, le statut, les audiences et les résultats. Tout est documenté."
+    },
+    "phase3-complete": {
+      "title": "Expert en Procès !",
+      "description": "Vous savez maintenant gérer les procès et affaires judiciaires. Ensuite, apprenons les tâches — votre flux de travail quotidien."
+    },
+    "sidebar-dossiers-for-tasks": {
+      "title": "Retour aux Dossiers",
+      "description": "Continuons avec les tâches. D'abord, retournez à la liste des dossiers.",
+      "action": "Cliquez sur Dossiers dans le menu"
     },
     "select-dossier-for-tasks": {
       "title": "Ouvrir un Dossier",
-      "description": "Maintenant, apprenons les tâches. D'abord, cliquez sur un dossier pour ouvrir sa vue détaillée.",
+      "description": "Maintenant, apprenons les tâches. Cliquez sur un dossier pour ouvrir sa vue détaillée.",
       "action": "Cliquez sur un dossier pour l'ouvrir"
     },
     "dossier-tasks-tab": {
@@ -101,7 +135,7 @@
       "title": "Votre Liste Privée",
       "description": "Ce sont VOS tâches — non liées à aucun dossier. Parfait pour les rappels personnels et le travail administratif."
     },
-    "phase3-complete": {
+    "phase4-complete": {
       "title": "Maître des Tâches !",
       "description": "Vous savez maintenant gérer les tâches — pour les dossiers et personnelles. Ensuite, explorons les audiences et les sessions."
     },
@@ -123,7 +157,7 @@
       "title": "Détails de la Session",
       "description": "Suivez le résultat, les notes et les prochaines étapes de chaque session. Tout est documenté pour référence future."
     },
-    "phase4-complete": {
+    "phase5-complete": {
       "title": "Pro des Sessions !",
       "description": "Vous pouvez maintenant gérer les sessions et audiences. Ensuite, découvrons les huissiers et les missions — votre réseau d'exécution."
     },
@@ -140,7 +174,7 @@
       "title": "Comment Fonctionnent les Missions",
       "description": "Les missions sont du travail facturable effectué par les huissiers. Créez-les depuis un dossier, liez à un huissier, et suivez le résultat. Une fois terminées, les honoraires vont dans vos finances."
     },
-    "phase5-complete": {
+    "phase6-complete": {
       "title": "Expert en Missions !",
       "description": "Vous comprenez les huissiers et les missions. Voyons maintenant où tout cela se rejoint — vos finances."
     },
@@ -157,13 +191,13 @@
       "title": "Suivez Chaque Dinar",
       "description": "Chaque entrée financière est liée à sa source — une mission, un paiement ou une dépense. Traçabilité totale, toujours."
     },
-    "phase6-complete": {
+    "phase7-complete": {
       "title": "Clarté Financière !",
       "description": "Vous comprenez maintenant comment Organia suit votre argent. Une dernière étape pour terminer votre formation !"
     },
     "tutorial-complete": {
       "title": "🎉 Félicitations !",
-      "description": "Vous avez terminé le tutoriel Organia ! Vous savez maintenant gérer clients, dossiers, tâches, sessions, missions et finances. Vous êtes prêt à gérer votre cabinet comme un pro."
+      "description": "Vous avez terminé le tutoriel Organia ! Vous savez maintenant gérer clients, dossiers, procès, tâches, sessions, missions et finances. Vous êtes prêt à gérer votre cabinet comme un pro."
     }
   },
   "completion": {
@@ -194,10 +228,11 @@
   "phases": {
     "phase1": "Phase 1 : Clients",
     "phase2": "Phase 2 : Dossiers",
-    "phase3": "Phase 3 : Tâches",
-    "phase4": "Phase 4 : Audiences",
-    "phase5": "Phase 5: Huissiers & Missions",
-    "phase6": "Phase 6 : Finances",
-    "phase7": "Phase 7 : Terminé"
+    "phase3": "Phase 3 : Procès",
+    "phase4": "Phase 4 : Tâches",
+    "phase5": "Phase 5 : Audiences",
+    "phase6": "Phase 6 : Huissiers & Missions",
+    "phase7": "Phase 7 : Finances",
+    "phase8": "Phase 8 : Terminé"
   }
 }

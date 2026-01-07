@@ -551,16 +551,24 @@ export default function AggregatedRelatedTab({
                     tabConfig?.aggregationType === "missions") {
                     tutorial.setWaitingForAction(true);
                   }
+                  // Handle tutorial state when adding case from dossier detail
+                  if (tutorial?.setWaitingForAction &&
+                    tutorial?.currentStep?.id === "create-case-from-dossier" &&
+                    tabConfig?.aggregationType === "cases") {
+                    tutorial.setWaitingForAction(true);
+                  }
                   setIsAddModalOpen(true);
                 }}
                 data-tutorial={
                   tabConfig?.aggregationType === "dossiers" && config?.entityType === "client"
                     ? "add-dossier-from-client-button"
-                    : tabConfig?.aggregationType === "tasks" && config?.entityType === "dossier"
-                      ? "add-task-from-dossier-button"
-                      : tabConfig?.aggregationType === "missions" && config?.entityType === "dossier"
-                        ? "add-mission-from-dossier-button"
-                        : undefined
+                    : tabConfig?.aggregationType === "cases" && config?.entityType === "dossier"
+                      ? "add-case-from-dossier-button"
+                      : tabConfig?.aggregationType === "tasks" && config?.entityType === "dossier"
+                        ? "add-task-from-dossier-button"
+                        : tabConfig?.aggregationType === "missions" && config?.entityType === "dossier"
+                          ? "add-mission-from-dossier-button"
+                          : undefined
                 }
                 className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors inline-flex items-center gap-2"
               >
@@ -662,16 +670,24 @@ export default function AggregatedRelatedTab({
                     tabConfig?.aggregationType === "missions") {
                     tutorial.setWaitingForAction(true);
                   }
+                  // Handle tutorial state when adding case from dossier detail
+                  if (tutorial?.setWaitingForAction &&
+                    tutorial?.currentStep?.id === "create-case-from-dossier" &&
+                    tabConfig?.aggregationType === "cases") {
+                    tutorial.setWaitingForAction(true);
+                  }
                   setIsAddModalOpen(true);
                 }}
                 data-tutorial={
                   tabConfig?.aggregationType === "dossiers" && config?.entityType === "client"
                     ? "add-dossier-from-client-button"
-                    : tabConfig?.aggregationType === "tasks" && config?.entityType === "dossier"
-                      ? "add-task-from-dossier-button"
-                      : tabConfig?.aggregationType === "missions" && config?.entityType === "dossier"
-                        ? "add-mission-from-dossier-button"
-                        : undefined
+                    : tabConfig?.aggregationType === "cases" && config?.entityType === "dossier"
+                      ? "add-case-from-dossier-button"
+                      : tabConfig?.aggregationType === "tasks" && config?.entityType === "dossier"
+                        ? "add-task-from-dossier-button"
+                        : tabConfig?.aggregationType === "missions" && config?.entityType === "dossier"
+                          ? "add-mission-from-dossier-button"
+                          : undefined
                 }
                 className="w-full py-3 border-2 border-dashed border-slate-300 dark:border-slate-600 hover:border-blue-500 dark:hover:border-blue-500 rounded-lg text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors font-medium"
               >

@@ -81,13 +81,15 @@ export default function DetailView({ entityType }) {
   setWaitingForActionRef.current = tutorial?.setWaitingForAction;
 
   useEffect(() => {
-    // When notification opens after dossier creation, advance tutorial to notification step
-    if (notificationPrompt.isOpen &&
-      currentStepRef.current?.id === "create-dossier-from-client" &&
-      nextStepRef.current) {
-      // Resume tutorial (in case it was waiting) and advance to notification step
+    // When notification opens after creation, advance to the notification step
+    // and hide the overlay until the user chooses send or ignore.
+    const isCreationStep = (
+      currentStepRef.current?.id === "create-dossier-from-client" ||
+      currentStepRef.current?.id === "create-case-from-dossier"
+    );
+    if (notificationPrompt.isOpen && isCreationStep && nextStepRef.current) {
       if (setWaitingForActionRef.current) {
-        setWaitingForActionRef.current(false);
+        setWaitingForActionRef.current(true);
       }
       nextStepRef.current();
     }
@@ -1060,6 +1062,7 @@ export default function DetailView({ entityType }) {
               // Determine tutorial attribute based on entity type and tab id
               const getTutorialAttribute = () => {
                 if (entityType === "client" && tab.id === "dossiers") return "client-dossiers-tab";
+                if (entityType === "dossier" && tab.id === "proceedings") return "dossier-cases-tab";
                 if (entityType === "dossier" && tab.id === "tasks") return "dossier-tasks-tab";
                 if (entityType === "dossier" && tab.id === "missions") return "dossier-missions-tab";
                 return undefined;
@@ -1125,8 +1128,13 @@ export default function DetailView({ entityType }) {
           } finally {
             clearPendingNotification?.();
             setNotificationPrompt({ isOpen: false, eventType: null, eventData: null });
-            // Advance tutorial after notification is handled
-            if (tutorial?.currentStep?.id === "client-notification-intro" && tutorial?.nextStep) {
+            // Resume overlay for the next step after user decision
+            if (tutorial?.setWaitingForAction) {
+              tutorial.setWaitingForAction(false);
+            }
+            // Advance tutorial after notification is handled (for both dossier and case creation)
+            if ((tutorial?.currentStep?.id === "client-notification-intro" ||
+              tutorial?.currentStep?.id === "case-notification-intro") && tutorial?.nextStep) {
               tutorial.nextStep();
             }
           }
@@ -1134,8 +1142,13 @@ export default function DetailView({ entityType }) {
         onClose={() => {
           clearPendingNotification?.();
           setNotificationPrompt({ isOpen: false, eventType: null, eventData: null });
-          // Advance tutorial after notification is dismissed
-          if (tutorial?.currentStep?.id === "client-notification-intro" && tutorial?.nextStep) {
+          // Resume overlay for the next step after user decision
+          if (tutorial?.setWaitingForAction) {
+            tutorial.setWaitingForAction(false);
+          }
+          // Advance tutorial after notification is dismissed (for both dossier and case creation)
+          if ((tutorial?.currentStep?.id === "client-notification-intro" ||
+            tutorial?.currentStep?.id === "case-notification-intro") && tutorial?.nextStep) {
             tutorial.nextStep();
           }
         }}

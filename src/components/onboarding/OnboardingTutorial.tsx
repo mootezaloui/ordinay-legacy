@@ -162,8 +162,6 @@ export default function OnboardingTutorial() {
         showProgress={!isLastStep}
         showNavigation={true}
         onNext={handleNext}
-        onBack={canGoBack ? previousStep : undefined}
-        onSkip={isFirstStep ? exitTutorial : undefined}
         isFirstStep={isFirstStep}
         isLastStep={isLastStep}
         nextLabel={isLastStep ? t("phases.completion.button") : undefined}
