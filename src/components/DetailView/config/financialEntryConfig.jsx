@@ -1,7 +1,87 @@
 import ContentSection from "../../layout/ContentSection";
+import { getStatusColor } from "./statusColors";
 import { getFinancialEntriesForDisplay, formatCurrency } from "../../../utils/financialUtils";
 import { formatDateValue } from "../../../utils/dateFormat";
 import { financialCategories } from "../../../utils/financialConstants";
+
+// Helpers to translate financial enums via i18n (presentation only)
+const normalizeKey = (value) => (value || "").toString().trim();
+
+const translateFinancialType = (type, t) => {
+    const key = normalizeKey(type).toLowerCase();
+    if (!key) return "";
+    const path = `table.type.${key}`;
+    const translated = t(path, { ns: "accounting", defaultValue: path });
+    return translated === path ? key : translated;
+};
+
+const translateFinancialStatus = (status, t) => {
+    const key = normalizeKey(status).toLowerCase();
+    if (!key) return "";
+
+    const statusKeyMap = {
+        draft: "draft",
+        confirmed: "confirmed",
+        paid: "paid",
+        cancelled: "cancelled",
+        canceled: "cancelled",
+        posted: "posted",
+        overdue: "overdue",
+        void: "void",
+    };
+
+    const mappedKey = statusKeyMap[key] || key;
+
+    // Try quickActions then table for consistency with other detail views
+    const paths = [
+        `detail.quickActions.status.${mappedKey}`,
+        `table.status.${mappedKey}`,
+    ];
+
+    for (const p of paths) {
+        const translated = t(p, { ns: "accounting", defaultValue: p });
+        if (translated && translated !== p) return translated;
+    }
+
+    return status;
+};
+
+const translateFinancialCategory = (category, t) => {
+    const key = normalizeKey(category);
+    if (!key) return t("detail.fallback.na", { ns: "accounting", defaultValue: "N/A" });
+
+    const primaryPath = `table.category.${key}`;
+    const translated = t(primaryPath, {
+        ns: "accounting",
+        defaultValue: primaryPath,
+    });
+
+    if (translated !== primaryPath) return translated;
+
+    // Secondary fallback to overview categories if provided there
+    const overviewPath = `detail.overview.categories.${key}`;
+    const overviewTranslated = t(overviewPath, {
+        ns: "accounting",
+        defaultValue: overviewPath,
+    });
+
+    if (overviewTranslated !== overviewPath) return overviewTranslated;
+
+    return key;
+};
+
+const translateFinancialScope = (scope, t) => {
+    const key = normalizeKey(scope).toLowerCase();
+    const scopeKeyMap = {
+        client: "client",
+        internal: "internal",
+        office: "office",
+    };
+    const mappedKey = scopeKeyMap[key] || key;
+    const path = `table.scope.${mappedKey}`;
+    const translated = t(path, { ns: "accounting", defaultValue: path });
+    return translated === path ? scope : translated;
+};
 
 /**
  * Financial Entry Entity Configuration - Enhanced with tabs and better UI
@@ -53,7 +133,7 @@ export const createFinancialEntryConfig = (t) => ({
     getTitle: (data) => data.title || data.description || t('detail.fallback.untitled', { id: data.id }),
     getSubtitle: (data) => {
         const date = formatDateValue(data.date);
-        const categoryLabel = financialCategories[data.category]?.label || data.category;
+        const categoryLabel = translateFinancialCategory(data.category, t);
         const amount = formatCurrency(data.amount, data.currency);
         return t('detail.subtitle', { category: categoryLabel, amount, date });
     },
@@ -95,119 +175,92 @@ export const createFinancialEntryConfig = (t) => ({
     ],
 
     renderHeader: (data) => {
+        const headerAmount = data?.amountWithSign || formatCurrency(data.amount, data.currency);
+
         return (
             <ContentSection>
                 <div className="p-6">
-                    <div className="flex flex-col lg:flex-row items-start gap-6">
-                        {/* Icon with gradient */}
-                        <div className={`w-20 h-20 rounded-2xl flex items-center justify-center text-4xl shadow-xl flex-shrink-0 ${data.type === 'revenue'
-                            ? 'bg-gradient-to-br from-emerald-400 via-emerald-500 to-green-600 text-white'
-                            : 'bg-gradient-to-br from-rose-400 via-rose-500 to-red-600 text-white'
-                            }`}>
-                            <i className={data.type === 'revenue' ? 'fas fa-coins' : 'fas fa-receipt'}></i>
-                        </div>
-
-                        <div className="flex-1 min-w-0">
-                            {/* Amount Display - Big and Bold */}
-                            <div className="mb-6">
-                                <div className={`text-5xl font-black mb-2 ${data.type === 'revenue'
-                                    ? 'text-emerald-600 dark:text-emerald-400'
-                                    : 'text-rose-600 dark:text-rose-400'
-                                    }`}>
+                    <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
+                        <div>
+                            <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
+                                {data.title || data.description || t('table.fallback.untitled', { id: data.id })}
+                            </h2>
+                            <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                                <i className={data.type === 'revenue' ? "fas fa-arrow-trend-down" : "fas fa-arrow-trend-up"}></i>
+                                <span>{translateFinancialType(data.type, t)}</span>
+                                <span>•</span>
+                                <span>{translateFinancialCategory(data.category, t)}</span>
+                                <span>•</span>
+                                <span className={data.type === 'revenue' ? "text-emerald-600 dark:text-emerald-400 font-medium" : "text-rose-600 dark:text-rose-400 font-medium"}>
                                     {data.amountWithSign}
-                                </div>
-                                <div className="flex items-center gap-3 flex-wrap">
-                                    <span className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-bold ${data.type === 'revenue'
-                                        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
-                                        : 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300'
-                                        }`}>
-                                        <i className={`fas ${data.type === 'revenue' ? 'fa-arrow-trend-down' : 'fa-arrow-trend-up'}`}></i>
-                                        {data.type === 'revenue' ? t('detail.header.revenue') : t('detail.header.expense')}
-                                    </span>
-                                    <span className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-bold bg-${data.categoryColor}-100 text-${data.categoryColor}-700 dark:bg-${data.categoryColor}-900/30 dark:text-${data.categoryColor}-300`}>
-                                        <i className="fas fa-tag"></i>
-                                        {data.categoryLabel}
-                                    </span>
-                                    <span className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-bold ${data.scope === 'client'
-                                        ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300'
-                                        : 'bg-slate-100 text-slate-700 dark:bg-slate-900/30 dark:text-slate-300'
-                                        }`}>
-                                        <i className={`fas ${data.scope === 'client' ? 'fa-user' : 'fa-building'}`}></i>
-                                        {data.scope === 'client' ? t('detail.header.client') : t('detail.header.office')}
-                                    </span>
-                                </div>
-                            </div>
-
-                            {/* Info Grid - Colorful */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-                                {/* Date */}
-                                <div className="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                                    <div className="w-10 h-10 rounded-lg bg-blue-500 flex items-center justify-center flex-shrink-0">
-                                        <i className="fas fa-calendar text-white"></i>
-                                    </div>
-                                    <div className="min-w-0 flex-1">
-                                        <p className="text-xs font-medium text-blue-600 dark:text-blue-400">{t('detail.header.date')}</p>
-                                        <p className="text-sm font-bold text-blue-900 dark:text-blue-100 truncate">
-                                            {formatDateValue(data.date)}
-                                        </p>
-                                    </div>
-                                </div>
-
-                                {/* Client */}
-                                {data.clientName && (
-                                    <div className="flex items-center gap-3 p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg border border-indigo-200 dark:border-indigo-800">
-                                        <div className="w-10 h-10 rounded-lg bg-indigo-500 flex items-center justify-center flex-shrink-0">
-                                            <i className="fas fa-user text-white"></i>
-                                        </div>
-                                        <div className="min-w-0 flex-1">
-                                            <p className="text-xs font-medium text-indigo-600 dark:text-indigo-400">{t('detail.header.client')}</p>
-                                            <p className="text-sm font-bold text-indigo-900 dark:text-indigo-100 truncate">{data.clientName}</p>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Dossier */}
-                                {data.dossierReference && (
-                                    <div className="flex items-center gap-3 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
-                                        <div className="w-10 h-10 rounded-lg bg-amber-500 flex items-center justify-center flex-shrink-0">
-                                            <i className="fas fa-folder text-white"></i>
-                                        </div>
-                                        <div className="min-w-0 flex-1">
-                                            <p className="text-xs font-medium text-amber-600 dark:text-amber-400">{t('detail.header.dossier')}</p>
-                                            <p className="text-sm font-bold text-amber-900 dark:text-amber-100 truncate">{data.dossierReference}</p>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Case */}
-                                {data.caseReference && (
-                                    <div className="flex items-center gap-3 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
-                                        <div className="w-10 h-10 rounded-lg bg-red-500 flex items-center justify-center flex-shrink-0">
-                                            <i className="fas fa-gavel text-white"></i>
-                                        </div>
-                                        <div className="min-w-0 flex-1">
-                                            <p className="text-xs font-medium text-red-600 dark:text-red-400">{t('detail.header.lawsuit')}</p>
-                                            <p className="text-sm font-bold text-red-900 dark:text-red-100 truncate">{data.caseReference}</p>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Due Date */}
-                                {data.dueDate && (
-                                    <div className="flex items-center gap-3 p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
-                                        <div className="w-10 h-10 rounded-lg bg-orange-500 flex items-center justify-center flex-shrink-0">
-                                            <i className="fas fa-clock text-white"></i>
-                                        </div>
-                                        <div className="min-w-0 flex-1">
-                                            <p className="text-xs font-medium text-orange-600 dark:text-orange-400">{t('detail.header.dueDate')}</p>
-                                            <p className="text-sm font-bold text-orange-900 dark:text-orange-100 truncate">
-                                                {formatDateValue(data.dueDate)}
-                                            </p>
-                                        </div>
-                                    </div>
-                                )}
+                                </span>
                             </div>
                         </div>
+                        <div className="flex items-center gap-3">
+                            <span className={`px-3 py-1 rounded-full text-sm font-medium ${data.type === 'revenue' ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400" : "bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-400"}`}>
+                                {translateFinancialType(data.type, t)}
+                            </span>
+                            <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(data.status)}`}>
+                                {translateFinancialStatus(data.status, t)}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <InfoCard
+                            icon="fas fa-coins"
+                            label={t('table.columns.amount')}
+                            value={headerAmount}
+                            color={data.type === 'revenue' ? 'green' : 'red'}
+                        />
+                        <InfoCard
+                            icon="fas fa-calendar"
+                            label={t('table.columns.date')}
+                            value={formatDateValue(data.date)}
+                            color="blue"
+                        />
+                        {data.clientName && (
+                            <InfoCard
+                                icon="fas fa-user"
+                                label={t('table.scope.client')}
+                                value={data.clientName}
+                                color="purple"
+                            />
+                        )}
+                        {data.dossierReference && (
+                            <InfoCard
+                                icon="fas fa-folder"
+                                label={t('detail.header.dossier', { ns: 'dossiers', defaultValue: 'Dossier' })}
+                                value={data.dossierReference}
+                                color="amber"
+                            />
+                        )}
+                        {data.caseReference && (
+                            <InfoCard
+                                icon="fas fa-gavel"
+                                label={t('detail.header.lawsuit', { ns: 'cases', defaultValue: 'Affaire' })}
+                                value={data.caseReference}
+                                color="red"
+                            />
+                        )}
+                        <InfoCard
+                            icon="fas fa-clock"
+                            label={t('detail.header.dueDate', { ns: 'accounting', defaultValue: 'Date d\'échéance' })}
+                            value={data.dueDate ? formatDateValue(data.dueDate) : t('detail.fallback.none', { ns: 'accounting', defaultValue: t('detail.fallback.none', { ns: 'common', defaultValue: '—' }) })}
+                            color="orange"
+                        />
+                        <InfoCard
+                            icon="fas fa-tag"
+                            label={t('detail.detail.category', { ns: 'common', defaultValue: 'Catégorie' })}
+                            value={translateFinancialCategory(data.category, t)}
+                            color={data.categoryColor || "slate"}
+                        />
+                        <InfoCard
+                            icon={data.scope === 'client' ? "fas fa-user" : "fas fa-building"}
+                            label={t('detail.overview.fields.scope', { ns: 'accounting', defaultValue: 'Portée' })}
+                            value={translateFinancialScope(data.scope, t)}
+                            color={data.scope === 'client' ? "purple" : "slate"}
+                        />
                     </div>
                 </div>
             </ContentSection>
@@ -253,13 +306,13 @@ export const createFinancialEntryConfig = (t) => ({
                     key: "type",
                     label: t('detail.overview.fields.type'),
                     value: (data, contextData) => data.type || "expense",
-                    displayValue: (data) => data.type === 'revenue' ? t('detail.overview.fields.typeRevenue') : t('detail.overview.fields.typeExpense'),
+                    displayValue: (data) => translateFinancialType(data.type, t),
                     icon: "fas fa-exchange-alt",
                     type: "select",
                     editable: true,
                     options: [
-                        { value: "revenue", label: t('detail.overview.fields.typeRevenue') },
-                        { value: "expense", label: t('detail.overview.fields.typeExpense') },
+                        { value: "revenue", label: translateFinancialType("revenue", t) },
+                        { value: "expense", label: translateFinancialType("expense", t) },
                     ]
                 },
                 {
@@ -267,21 +320,18 @@ export const createFinancialEntryConfig = (t) => ({
                     label: t('detail.overview.fields.category'),
                     value: (data, contextData) => data.category,
                     displayValue: (data) => {
-                        // Use categoryLabel if available, otherwise compute from category
-                        if (data.categoryLabel) {
-                            return data.categoryLabel;
-                        }
-                        return financialCategories[data.category]?.label || data.category || t('detail.fallback.na');
+                        return translateFinancialCategory(data.category, t);
                     },
                     icon: "fas fa-tag",
                     type: "select",
                     editable: true,
                     options: [
-                        { value: "Fees", label: t('detail.overview.categories.Fees') },
-                        { value: "bailiff_fees", label: t('detail.overview.categories.bailiff_fees') },
-                        { value: "office_expenses", label: t('detail.overview.categories.office_expenses') },
-                        { value: "salary", label: t('detail.overview.categories.salary') },
-                        { value: "other", label: t('detail.overview.categories.other') },
+                        { value: "honoraires", label: translateFinancialCategory("honoraires", t) },
+                        { value: "advance", label: translateFinancialCategory("advance", t) },
+                        { value: "frais_judiciaires", label: translateFinancialCategory("frais_judiciaires", t) },
+                        { value: "frais_huissier", label: translateFinancialCategory("frais_huissier", t) },
+                        { value: "frais_bureau", label: translateFinancialCategory("frais_bureau", t) },
+                        { value: "other", label: translateFinancialCategory("other", t) },
                     ]
                 },
                 {
@@ -289,35 +339,29 @@ export const createFinancialEntryConfig = (t) => ({
                     label: t('detail.overview.fields.status'),
                     value: (data, contextData) => data.status,
                     displayValue: (data) => {
-                        const statusMap = {
-                            draft: t('detail.quickActions.status.draft'),
-                            confirmed: t('detail.quickActions.status.confirmed'),
-                            paid: t('detail.quickActions.status.paid'),
-                            cancelled: t('detail.quickActions.status.cancelled')
-                        };
-                        return statusMap[data.status] || data.status;
+                        return translateFinancialStatus(data.status, t);
                     },
                     icon: "fas fa-flag",
                     type: "select",
                     editable: true,
                     options: [
-                        { value: "draft", label: t('detail.quickActions.status.draft') },
-                        { value: "confirmed", label: t('detail.quickActions.status.confirmed') },
-                        { value: "paid", label: t('detail.quickActions.status.paid') },
-                        { value: "cancelled", label: t('detail.quickActions.status.cancelled') },
+                        { value: "draft", label: translateFinancialStatus("draft", t) },
+                        { value: "confirmed", label: translateFinancialStatus("confirmed", t) },
+                        { value: "paid", label: translateFinancialStatus("paid", t) },
+                        { value: "cancelled", label: translateFinancialStatus("cancelled", t) },
                     ]
                 },
                 {
                     key: "scope",
                     label: t('detail.overview.fields.scope'),
                     value: (data, contextData) => data.scope || "internal",
-                    displayValue: (data) => data.scope === 'client' ? t('detail.overview.fields.scopeClient') : t('detail.overview.fields.scopeOffice'),
+                    displayValue: (data) => translateFinancialScope(data.scope, t),
                     icon: "fas fa-layer-group",
                     type: "select",
                     editable: true,
                     options: [
-                        { value: "client", label: t('detail.overview.fields.scopeClient') },
-                        { value: "internal", label: t('detail.overview.fields.scopeOffice') },
+                        { value: "client", label: translateFinancialScope("client", t) },
+                        { value: "internal", label: translateFinancialScope("internal", t) },
                     ]
                 },
             ],
@@ -339,7 +383,7 @@ export const createFinancialEntryConfig = (t) => ({
                     key: "dueDate",
                     label: t('detail.overview.fields.dueDate'),
                     value: (data, contextData) => data.dueDate,
-                    displayValue: (data) => data.dueDate ? formatDateValue(data.dueDate) : t('detail.fallback.na'),
+                    displayValue: (data) => data.dueDate ? formatDateValue(data.dueDate) : t('detail.fallback.none', { defaultValue: t('detail.fallback.none', { ns: 'common', defaultValue: '—' }) }),
                     icon: "fas fa-clock",
                     type: "date",
                     editable: true
@@ -558,5 +602,43 @@ export const createFinancialEntryConfig = (t) => ({
     ],
 
 });
+
+// Helper component
+function InfoCard({ icon, label, value, color }) {
+    const colors = {
+        blue: "bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400",
+        purple: "bg-purple-100 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400",
+        green: "bg-emerald-100 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400",
+        red: "bg-rose-100 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400",
+        amber: "bg-amber-100 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400",
+        orange: "bg-orange-100 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400",
+        slate: "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400",
+        indigo: "bg-indigo-100 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400",
+        teal: "bg-teal-100 dark:bg-teal-900/20 text-teal-600 dark:text-teal-400",
+        pink: "bg-pink-100 dark:bg-pink-900/20 text-pink-600 dark:text-pink-400",
+        cyan: "bg-cyan-100 dark:bg-cyan-900/20 text-cyan-600 dark:text-cyan-400",
+    };
+
+    const getColorClass = (c) => {
+        // Check if color is in map
+        if (colors[c]) return colors[c];
+        // Check if it's already a full class string (unlikely but possible)
+        if (c && c.includes('bg-')) return c;
+        // Fallback
+        return colors.slate;
+    };
+
+    return (
+        <div className="flex items-center gap-3">
+            <div className={`p-2 rounded-lg ${getColorClass(color)}`}>
+                <i className={icon}></i>
+            </div>
+            <div>
+                <p className="text-xs text-slate-500 dark:text-slate-400">{label}</p>
+                <p className="text-sm font-medium text-slate-900 dark:text-white truncate" title={value}>{value}</p>
+            </div>
+        </div>
+    );
+}
 
 export default createFinancialEntryConfig;

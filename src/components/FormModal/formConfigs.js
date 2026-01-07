@@ -1678,8 +1678,23 @@ export const getFinancialEntryFormFields = () => {
       name: "date",
       label: tAccounting("form.fields.date.label", { defaultValue: "Date" }),
       type: "date",
+      required: false,
+      defaultValue: new Date().toISOString().split("T")[0],
+      helpText: tAccounting("form.fields.date.help", {
+        defaultValue: "If empty, today's date will be used",
+      }),
+    },
+    {
+      name: "dueDate",
+      label: tAccounting("form.fields.dueDate.label", {
+        defaultValue: "Due date",
+      }),
+      type: "date",
       required: true,
       defaultValue: new Date().toISOString().split("T")[0],
+      helpText: tAccounting("form.fields.dueDate.help", {
+        defaultValue: "Required: payment deadline or expected settlement date",
+      }),
     },
     {
       name: "status",

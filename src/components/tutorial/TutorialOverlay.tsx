@@ -86,9 +86,9 @@ export default function TutorialOverlayComponent() {
     setTargetRect(newRect);
 
     // Calculate tooltip position
-    const tooltipWidth = 320;
-    const tooltipHeight = 220; // Increased to account for action hint
-    const gap = 16; // Increased gap to ensure no overlap
+    const tooltipWidth = 340; // Match actual tooltip width
+    const tooltipHeight = 280; // Account for action hint and padding
+    const gap = 24; // Increased gap to ensure clear separation
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
 
@@ -501,7 +501,7 @@ export default function TutorialOverlayComponent() {
                 y={targetRect.top}
                 width={targetRect.width}
                 height={targetRect.height}
-                rx="8"
+                rx="12"
                 fill="black"
               />
             )}
@@ -512,7 +512,7 @@ export default function TutorialOverlayComponent() {
           y="0"
           width="100%"
           height="100%"
-          fill="rgba(0, 0, 0, 0.7)"
+          fill="rgba(15, 23, 42, 0.6)"
           mask="url(#spotlight-mask)"
           style={{ pointerEvents: "none" }}
         />
@@ -560,15 +560,16 @@ export default function TutorialOverlayComponent() {
         </>
       )}
 
-      {/* Spotlight border/glow */}
+      {/* Spotlight border/glow - refined subtle appearance */}
       {targetRect && (
         <div
-          className="absolute pointer-events-none border-2 border-blue-400 rounded-lg shadow-[0_0_0_4px_rgba(59,130,246,0.3)]"
+          className="absolute pointer-events-none rounded-xl border border-blue-400/60 shadow-[0_0_0_3px_rgba(59,130,246,0.15),0_0_20px_rgba(59,130,246,0.2)]"
           style={{
             top: targetRect.top,
             left: targetRect.left,
             width: targetRect.width,
             height: targetRect.height,
+            transition: "all 0.2s ease-out",
           }}
         />
       )}
@@ -577,91 +578,112 @@ export default function TutorialOverlayComponent() {
       {(tooltipPosition || isCompletionStep) && (
         <div
           data-tutorial-tooltip
-          className="absolute bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 w-80 animate-in fade-in zoom-in-95 duration-200 z-[9999] pointer-events-auto"
+          className="absolute bg-white dark:bg-slate-800 rounded-2xl shadow-xl shadow-slate-900/10 dark:shadow-slate-900/50 border border-slate-200/80 dark:border-slate-700/80 w-[340px] max-w-[calc(100vw-2rem)] z-[9999] pointer-events-auto"
           style={
             isCompletionStep
               ? {
                   top: "50%",
                   left: "50%",
                   transform: "translate(-50%, -50%)",
+                  animation: "fadeInScale 0.25s ease-out",
                 }
               : {
                   top: tooltipPosition?.top,
                   left: tooltipPosition?.left,
+                  animation: "fadeInScale 0.2s ease-out",
                 }
           }
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Arrow */}
+          {/* Arrow - refined */}
           {tooltipPosition && !isCompletionStep && (
             <div
-              className={`absolute w-3 h-3 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 transform rotate-45 ${
+              className={`absolute w-2.5 h-2.5 bg-white dark:bg-slate-800 border-slate-200/80 dark:border-slate-700/80 transform rotate-45 ${
                 tooltipPosition.arrowPosition === "top"
-                  ? "-top-1.5 left-1/2 -translate-x-1/2 border-l border-t"
+                  ? "-top-[5px] left-1/2 -translate-x-1/2 border-l border-t"
                   : tooltipPosition.arrowPosition === "bottom"
-                  ? "-bottom-1.5 left-1/2 -translate-x-1/2 border-r border-b"
+                  ? "-bottom-[5px] left-1/2 -translate-x-1/2 border-r border-b"
                   : tooltipPosition.arrowPosition === "left"
-                  ? "-left-1.5 top-1/2 -translate-y-1/2 border-l border-b"
-                  : "-right-1.5 top-1/2 -translate-y-1/2 border-r border-t"
+                  ? "-left-[5px] top-1/2 -translate-y-1/2 border-l border-b"
+                  : "-right-[5px] top-1/2 -translate-y-1/2 border-r border-t"
               }`}
             />
           )}
 
           {/* Content */}
-          <div className="p-4">
-            {/* Progress */}
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-xs text-slate-500 dark:text-slate-400">
-                {t("progress", {
-                  current: currentStepIndex + 1,
-                  total: totalSteps,
-                })}
-              </span>
+          <div className="p-5">
+            {/* Progress indicator */}
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className="flex gap-1">
+                  {Array.from({ length: Math.min(totalSteps, 7) }).map(
+                    (_, i) => {
+                      const segmentSize = Math.ceil(totalSteps / 7);
+                      const segmentIndex = Math.floor(
+                        currentStepIndex / segmentSize
+                      );
+                      return (
+                        <div
+                          key={i}
+                          className={`h-1 w-4 rounded-full transition-colors duration-200 ${
+                            i <= segmentIndex
+                              ? "bg-blue-500"
+                              : "bg-slate-200 dark:bg-slate-600"
+                          }`}
+                        />
+                      );
+                    }
+                  )}
+                </div>
+                <span className="text-xs text-slate-400 dark:text-slate-500 font-medium tabular-nums">
+                  {currentStepIndex + 1}/{totalSteps}
+                </span>
+              </div>
               <button
                 onClick={exitTutorial}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                className="w-7 h-7 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:text-slate-300 dark:hover:bg-slate-700 transition-all"
                 aria-label={t("controls.exit")}
               >
-                <i className="fas fa-times text-sm" />
+                <i className="fas fa-times text-xs" />
               </button>
             </div>
 
             {/* Step title */}
-            <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">
+            <h3 className="text-base font-semibold text-slate-800 dark:text-slate-100 mb-2 leading-snug">
               {t(`steps.${currentStep?.id}.title`)}
             </h3>
 
             {/* Step description */}
-            <p className="text-sm text-slate-600 dark:text-slate-300 mb-4 leading-relaxed">
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-4 leading-relaxed">
               {t(`steps.${currentStep?.id}.description`)}
             </p>
 
             {/* Action hint for interactive steps */}
             {currentStep?.requiresAction && (
-              <div className="mb-4 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-100 dark:border-blue-800/30">
-                <p className="text-xs text-blue-700 dark:text-blue-300 flex items-center gap-2">
-                  <i className="fas fa-hand-pointer" />
+              <div className="mb-4 px-3 py-2.5 bg-blue-50 dark:bg-blue-950/40 rounded-lg border border-blue-100 dark:border-blue-900/50">
+                <p className="text-xs text-blue-600 dark:text-blue-400 flex items-center gap-2 font-medium">
+                  <i className="fas fa-hand-pointer text-blue-500/70" />
                   {t(`steps.${currentStep.id}.action`)}
                 </p>
               </div>
             )}
 
             {/* Navigation */}
-            <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-700">
+            <div className="flex items-center justify-between pt-3 mt-1 border-t border-slate-100 dark:border-slate-700/60">
               {/* Left: Back or Skip */}
               <div>
                 {canGoBack && !currentStep?.requiresAction ? (
                   <button
                     onClick={previousStep}
-                    className="text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 flex items-center gap-1.5 px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                    className="text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-all"
                   >
-                    <i className="fas fa-arrow-left text-xs" />
+                    <i className="fas fa-arrow-left text-[10px]" />
                     {t("controls.back")}
                   </button>
                 ) : currentStep?.requiresAction ? (
                   <button
                     onClick={skipCurrentStep}
-                    className="text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                    className="text-sm text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 px-3 py-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-all"
                   >
                     {t("controls.skipStep")}
                   </button>
@@ -674,7 +696,7 @@ export default function TutorialOverlayComponent() {
               {canGoForward && (
                 <button
                   onClick={nextStep}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-sm font-medium rounded-lg transition-all flex items-center gap-2 shadow-sm hover:shadow"
                 >
                   {isLastStep || isTutorialComplete
                     ? t("controls.finish")
@@ -701,12 +723,12 @@ export default function TutorialOverlayComponent() {
         </div>
       )}
 
-      {/* ESC hint */}
-      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 text-xs text-white/60 flex items-center gap-2 pointer-events-none">
-        <kbd className="px-2 py-0.5 bg-white/10 rounded text-[10px] font-mono">
+      {/* ESC hint - refined */}
+      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 text-xs text-white/50 flex items-center gap-2 pointer-events-none select-none">
+        <kbd className="px-1.5 py-0.5 bg-white/10 backdrop-blur-sm rounded text-[10px] font-mono border border-white/10">
           Esc
         </kbd>
-        <span>{t("controls.pressEscToExit")}</span>
+        <span className="font-medium">{t("controls.pressEscToExit")}</span>
       </div>
     </div>,
     tutorialRoot

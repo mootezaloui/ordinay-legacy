@@ -133,7 +133,12 @@
         "placeholder": "0.00"
       },
       "date": {
-        "label": "Date"
+        "label": "Date",
+        "help": "Si vide, la date du jour sera utilisée"
+      },
+      "dueDate": {
+        "label": "Date d'échéance",
+        "help": "Obligatoire : date limite de paiement ou d'encaissement"
       },
       "status": {
         "label": "Statut"

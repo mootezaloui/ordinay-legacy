@@ -2171,6 +2171,8 @@ export function DataProvider({ children }) {
     const backendType = entryType === "revenue" ? "income" : "expense";
 
     // Map frontend field names to backend expectations
+    const todayIso = new Date().toISOString().split("T")[0];
+
     const payload = {
       scope: entry.scope || "client", // Default to client scope if not specified
       client_id: emptyToNull(entry.clientId || entry.client_id),
@@ -2182,7 +2184,8 @@ export function DataProvider({ children }) {
       category: emptyToNull(entry.category),
       amount: entry.amount,
       currency: entry.currency || "TND",
-      due_date: emptyToNull(entry.dueDate || entry.due_date || entry.date),
+      occurred_at: emptyToNull(entry.date || entry.occurred_at || todayIso),
+      due_date: emptyToNull(entry.dueDate || entry.due_date || entry.date || todayIso),
       paid_at: emptyToNull(entry.paidAt || entry.paid_at),
       title: emptyToNull(entry.title),
       description: emptyToNull(entry.description),
@@ -2226,6 +2229,7 @@ export function DataProvider({ children }) {
       status: updates.status,
       amount: updates.amount,
       currency: updates.currency || 'TND',
+      occurred_at: updates.date || updates.occurred_at,
       due_date: updates.dueDate,
       paid_at: updates.paidAt,
       description: updates.description,

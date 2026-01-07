@@ -320,6 +320,9 @@ export function adaptFinancialEntry(
   const clientName = api.client_id ? (clientsById[api.client_id]?.name ?? `Client #${api.client_id}`) : "";
   const dossierRef = api.dossier_id ? (dossiersById[api.dossier_id]?.caseNumber ?? `DOS-${api.dossier_id}`) : "";
   const caseRef = api.case_id ? (casesById[api.case_id]?.caseNumber ?? `PRO-${api.case_id}`) : "";
+
+  const dueDate = dateOnly(api.due_date);
+  const occurredDate = dateOnly(api.occurred_at) || dateOnly(api.created_at) || "";
   
   // Normalize status to canonical value
   const rawStatus = api.status;
@@ -340,7 +343,8 @@ export function adaptFinancialEntry(
     category: api.category ?? "other",
     amount: Number(api.amount || 0),
     currency: api.currency ?? "USD",
-    date: dateOnly(api.due_date) || dateOnly(api.created_at) || "",
+    date: occurredDate || dueDate,
+    dueDate,
     title: api.title ?? "",
     description: api.description ?? "",
     status: mappedStatus,

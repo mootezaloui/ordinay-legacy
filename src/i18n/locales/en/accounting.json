@@ -133,7 +133,12 @@
         "placeholder": "0.00"
       },
       "date": {
-        "label": "Date"
+        "label": "Date",
+        "help": "If empty, today's date will be used"
+      },
+      "dueDate": {
+        "label": "Due Date",
+        "help": "Required: payment deadline or expected settlement date"
       },
       "status": {
         "label": "Status"

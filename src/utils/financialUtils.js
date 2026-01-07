@@ -457,7 +457,8 @@ export const validateFinancialEntry = (entry) => {
   if (!entry.category) errors.push("Category is required");
   if (!entry.amount || entry.amount <= 0)
     errors.push("Amount must be greater than 0");
-  if (!entry.date) errors.push("Date is required");
+  const dueDate = entry.dueDate || entry.due_date;
+  if (!dueDate) errors.push("Due date is required");
   if (!entry.description) errors.push("Description is required");
   if (!entry.scope) errors.push("Scope (client/internal) is required");
 

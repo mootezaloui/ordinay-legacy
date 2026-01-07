@@ -791,27 +791,22 @@ export default function PersonalTasks() {
     {
       name: "priority",
       label: t("form.fields.priority.label"),
-      type: "select",
+      type: "inline-priority",
       required: true,
       defaultValue: "Medium",
-      options: [
-        { value: "High", label: t("form.fields.priority.options.high") },
-        { value: "Medium", label: t("form.fields.priority.options.medium") },
-        { value: "Low", label: t("form.fields.priority.options.low") },
-      ]
     },
     {
       name: "status",
       label: t("form.fields.status.label"),
-      type: "select",
+      type: "inline-status",
       required: true,
       defaultValue: "Pending",
-      options: [
-        { value: "Not Started", label: statusLabelMap["Not Started"] || "Not Started" },
-        { value: "Pending", label: statusLabelMap["Pending"] || "Pending" },
-        { value: "In Progress", label: statusLabelMap["In Progress"] || "In Progress" },
-        { value: "Scheduled", label: statusLabelMap["Scheduled"] || "Scheduled" },
-        { value: "Completed", label: statusLabelMap["Completed"] || "Completed" },
+      statusOptions: [
+        { value: "Not Started", label: statusLabelMap["Not Started"] || "Not Started", color: "slate" },
+        { value: "Pending", label: statusLabelMap["Pending"] || "Pending", color: "amber" },
+        { value: "In Progress", label: statusLabelMap["In Progress"] || "In Progress", color: "blue" },
+        { value: "Scheduled", label: statusLabelMap["Scheduled"] || "Scheduled", color: "purple" },
+        { value: "Completed", label: statusLabelMap["Completed"] || "Completed", color: "green" },
       ]
     },
     {

@@ -441,13 +441,13 @@ export default function Officers() {
     {
       name: "status",
       label: t("form.fields.status.label"),
-      type: "select",
+      type: "inline-status",
       required: true,
       defaultValue: "Available",
-      options: [
-        { value: "Available", label: statusLabelMap["Available"] || "Available" },
-        { value: "Busy", label: statusLabelMap["Busy"] || "Busy" },
-        { value: "Inactive", label: statusLabelMap["Inactive"] || "Inactive" },
+      statusOptions: [
+        { value: "Available", label: statusLabelMap["Available"] || "Available", color: "green" },
+        { value: "Busy", label: statusLabelMap["Busy"] || "Busy", color: "amber" },
+        { value: "Inactive", label: statusLabelMap["Inactive"] || "Inactive", color: "slate" },
       ]
     },
     {
