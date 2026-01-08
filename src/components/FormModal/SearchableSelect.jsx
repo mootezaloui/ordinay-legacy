@@ -14,7 +14,7 @@ export default function SearchableSelect({
   value,
   onChange,
   options = [],
-  placeholder = "Rechercher...",
+  placeholder, // ✅ Now undefined by default - will use i18n fallback
   disabled = false,
   className = "",
   error = false,
@@ -202,7 +202,7 @@ export default function SearchableSelect({
           onChange={handleInputChange}
           onFocus={handleInputFocus}
           onKeyDown={handleKeyDown}
-          placeholder={placeholder}
+          placeholder={placeholder || t("form.select.searching")}
           disabled={disabled}
           className={baseInputClass}
           autoComplete="off"

@@ -1069,7 +1069,11 @@ export default function Accounting() {
                 className="cursor-pointer"
               >
                 {table.columns.map((column) => (
-                  <TableCell key={column.id}>
+                  <TableCell
+                    key={column.id}
+                    truncate={!['status', 'priority'].includes(column.id)}
+                    adaptive={['status', 'priority'].includes(column.id)}
+                  >
                     {column.render ? column.render(entry) : entry[column.id]}
                   </TableCell>
                 ))}

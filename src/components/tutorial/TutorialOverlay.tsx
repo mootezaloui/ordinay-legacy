@@ -211,6 +211,16 @@ export default function TutorialOverlayComponent() {
     navigate,
   ]);
 
+  // Handle resuming tutorial - navigate to the step's route even if it requires action
+  useEffect(() => {
+    if (!isActive || !currentStep?.route) return;
+
+    // Only navigate if not already on the correct route
+    if (location.pathname !== currentStep.route) {
+      navigate(currentStep.route);
+    }
+  }, [isActive, currentStep?.route, location.pathname, navigate]);
+
   // Detect when user navigates to complete an action-required step
   const searchString = location.search || "";
   useEffect(() => {

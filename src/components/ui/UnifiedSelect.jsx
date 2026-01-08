@@ -10,6 +10,7 @@
  * Wraps both SearchableSelect and native <select> with unified appearance.
  */
 import SearchableSelect from "../FormModal/SearchableSelect";
+import { useTranslation } from "react-i18next";
 
 /**
  * UnifiedSelect - Consistent visual shell for all selectors
@@ -29,15 +30,20 @@ export default function UnifiedSelect({
     value,
     onChange,
     options = [],
-    placeholder = "Sélectionner...",
+    placeholder,
     disabled = false,
     error = false,
     className = "",
     compact = false,
     ...rest
 }) {
+    const { t } = useTranslation("common");
+
     // ✅ Unified wrapper classes (applied to container)
     const wrapperClass = `unified-select-wrapper ${className}`;
+
+    // Use i18n fallback if no placeholder provided
+    const effectivePlaceholder = placeholder || t("form.select.default");
 
     // ✅ Searchable variant uses SearchableSelect with preserved behavior
     if (variant === "searchable") {
@@ -47,7 +53,7 @@ export default function UnifiedSelect({
                     value={value}
                     onChange={onChange}
                     options={options}
-                    placeholder={placeholder}
+                    placeholder={effectivePlaceholder}
                     disabled={disabled}
                     error={error}
                     compact={compact}
@@ -60,8 +66,8 @@ export default function UnifiedSelect({
     // ✅ Native variant uses HTML select with unified styling
     // Matches SearchableSelect's visual appearance
     const baseInputClass = `w-full ${compact ? 'px-2.5 py-1.5 text-sm' : 'px-3 py-2'} pr-8 border rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors appearance-none cursor-pointer ${error
-            ? "border-red-500 dark:border-red-500"
-            : "border-slate-300 dark:border-slate-600"
+        ? "border-red-500 dark:border-red-500"
+        : "border-slate-300 dark:border-slate-600"
         } ${disabled ? "opacity-50 cursor-not-allowed" : "hover:border-slate-400 dark:hover:border-slate-500"}`;
 
     return (
@@ -73,7 +79,7 @@ export default function UnifiedSelect({
                 className={baseInputClass}
                 {...rest}
             >
-                <option value="">{placeholder}</option>
+                <option value="">{effectivePlaceholder}</option>
                 {options.map((option) => (
                     <option key={option.value} value={option.value}>
                         {option.label}

@@ -487,6 +487,10 @@
       "add": "إضافة {{entityName}}",
       "addDefault": "إضافة عنصر",
       "edit": "تعديل",
+      "subtitle": {
+        "add": "إضافة {{entity}} ل {{parent}}",
+        "edit": "تعديل {{entity}}"
+      },
       "help": {
         "taskCaseLink": "ستكون هذه المهمة مرتبطة بهذه الدعوى"
       },
@@ -683,8 +687,30 @@
       "dropPrompt": "اسحب وأفلت الملفات هنا، أو",
       "browse": "تصفح"
     },
-    "select": "اختر...",
-    "searching": "جاري البحث..."
+    "select": {
+      "default": "اختر خيارًا",
+      "searching": "البحث...",
+      "noSelection": "لم يتم اختيار عنصر",
+      "client": "اختر عميلاً",
+      "dossier": "اختر ملفًا",
+      "case": "اختر دعوى",
+      "task": "اختر مهمة",
+      "session": "اختر جلسة",
+      "officer": "اختر محضرًا",
+      "mission": "اختر مهمة تنفيذ",
+      "court": "اختر محكمة",
+      "judge": "اختر قاضيًا",
+      "phase": "اختر مرحلة",
+      "category": "اختر فئة",
+      "assignee": "اختر مكلفًا",
+      "adversaryLawyer": "اختر المحامي الخصم",
+      "missionType": "اختر نوع المهمة",
+      "relationType": "اختر نوع الارتباط",
+      "time": "اختر الوقت",
+      "date": "اختر التاريخ",
+      "status": "اختر الحالة",
+      "priority": "اختر الأولوية"
+    }
   },
   "table": {
     "searching": "جاري البحث...",

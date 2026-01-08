@@ -519,45 +519,65 @@ export const caseFormFields = (t) => [
 export const sessionFormFields = (t) => [
   {
     name: "title",
-    label: t("form.fields.title.label"),
+    label: t("form.fields.title.label", { ns: "sessions" }),
     type: "text",
-    placeholder: t("form.fields.title.placeholder"),
+    placeholder: t("form.fields.title.placeholder", { ns: "sessions" }),
     required: true,
     fullWidth: true,
   },
   {
     name: "type",
-    label: t("form.fields.type.label"),
+    label: t("form.fields.type.label", { ns: "sessions" }),
     type: "select",
     required: true,
     defaultValue: "Audience",
     options: [
-      { value: "Audience", label: t("form.fields.type.options.hearing") },
+      {
+        value: "Audience",
+        label: t("form.fields.type.options.hearing", { ns: "sessions" }),
+      },
       {
         value: "Consultation",
-        label: t("form.fields.type.options.consultation"),
+        label: t("form.fields.type.options.consultation", { ns: "sessions" }),
       },
-      { value: "Mediation", label: t("form.fields.type.options.mediation") },
+      {
+        value: "Mediation",
+        label: t("form.fields.type.options.mediation", { ns: "sessions" }),
+      },
       {
         value: "Expertise",
-        label: t("form.fields.type.options.expertAssessment"),
+        label: t("form.fields.type.options.expertAssessment", {
+          ns: "sessions",
+        }),
       },
-      { value: "Telephone", label: t("form.fields.type.options.phoneCall") },
-      { value: "Other", label: t("form.fields.type.options.other") },
+      {
+        value: "Telephone",
+        label: t("form.fields.type.options.phoneCall", { ns: "sessions" }),
+      },
+      {
+        value: "Other",
+        label: t("form.fields.type.options.other", { ns: "sessions" }),
+      },
     ],
   },
   {
     // ✅ NEW: Choose between linking to Procès or Dossier
     name: "linkType",
-    label: t("form.fields.linkType.label"),
+    label: t("form.fields.linkType.label", { ns: "sessions" }),
     type: "select",
     required: true,
     defaultValue: "case",
     options: [
-      { value: "case", label: t("form.fields.linkType.options.case") },
-      { value: "dossier", label: t("form.fields.linkType.options.dossier") },
+      {
+        value: "case",
+        label: t("form.fields.linkType.options.case", { ns: "sessions" }),
+      },
+      {
+        value: "dossier",
+        label: t("form.fields.linkType.options.dossier", { ns: "sessions" }),
+      },
     ],
-    helpText: t("form.fields.linkType.helper"),
+    helpText: t("form.fields.linkType.helper", { ns: "sessions" }),
     onChange: (value, formData, setFormData) => {
       // Clear the other field when type changes
       setFormData({
@@ -571,35 +591,35 @@ export const sessionFormFields = (t) => [
   {
     // ✅ RELATIONSHIP FIELD - Procès (shown when linkType is "case")
     name: "caseId",
-    label: t("form.fields.caseId.label"),
+    label: t("form.fields.caseId.label", { ns: "sessions" }),
     type: "searchable-select", // ✅ Use searchable select for scalability
     required: false,
     options: [], // ← Will be populated dynamically with []
-    helpText: t("form.fields.caseId.helper"),
+    helpText: t("form.fields.caseId.helper", { ns: "sessions" }),
     hideIf: (formData) => formData.linkType !== "case",
   },
   {
     // ✅ RELATIONSHIP FIELD - Dossier (shown when linkType is "dossier")
     name: "dossierId",
-    label: t("form.fields.dossierId.label"),
+    label: t("form.fields.dossierId.label", { ns: "sessions" }),
     type: "searchable-select", // ✅ Use searchable select for scalability
     required: false,
     options: [], // ← Will be populated dynamically with []
-    helpText: t("form.fields.dossierId.helper"),
+    helpText: t("form.fields.dossierId.helper", { ns: "sessions" }),
     hideIf: (formData) => formData.linkType !== "dossier",
   },
   {
     name: "date",
-    label: t("form.fields.date.label"),
+    label: t("form.fields.date.label", { ns: "sessions" }),
     type: "date",
     required: true,
   },
   {
     name: "time",
-    label: t("form.fields.time.label"),
+    label: t("form.fields.time.label", { ns: "sessions" }),
     type: "select",
     required: true,
-    helpText: t("form.fields.time.helper"),
+    helpText: t("form.fields.time.helper", { ns: "sessions" }),
     options: [
       { value: "08:00", label: "08:00" },
       { value: "08:15", label: "08:15" },
@@ -646,85 +666,112 @@ export const sessionFormFields = (t) => [
   },
   {
     name: "duration",
-    label: t("form.fields.duration.label"),
+    label: t("form.fields.duration.label", { ns: "sessions" }),
     type: "select",
     required: true,
     defaultValue: "01:00",
     options: [
-      { value: "00:15", label: t("form.fields.duration.options.00_15") },
-      { value: "00:30", label: t("form.fields.duration.options.00_30") },
-      { value: "00:45", label: t("form.fields.duration.options.00_45") },
-      { value: "01:00", label: t("form.fields.duration.options.01_00") },
-      { value: "01:30", label: t("form.fields.duration.options.01_30") },
-      { value: "02:00", label: t("form.fields.duration.options.02_00") },
-      { value: "02:30", label: t("form.fields.duration.options.02_30") },
-      { value: "03:00", label: t("form.fields.duration.options.03_00") },
-      { value: "04:00", label: t("form.fields.duration.options.04_00") },
+      {
+        value: "00:15",
+        label: t("form.fields.duration.options.00_15", { ns: "sessions" }),
+      },
+      {
+        value: "00:30",
+        label: t("form.fields.duration.options.00_30", { ns: "sessions" }),
+      },
+      {
+        value: "00:45",
+        label: t("form.fields.duration.options.00_45", { ns: "sessions" }),
+      },
+      {
+        value: "01:00",
+        label: t("form.fields.duration.options.01_00", { ns: "sessions" }),
+      },
+      {
+        value: "01:30",
+        label: t("form.fields.duration.options.01_30", { ns: "sessions" }),
+      },
+      {
+        value: "02:00",
+        label: t("form.fields.duration.options.02_00", { ns: "sessions" }),
+      },
+      {
+        value: "02:30",
+        label: t("form.fields.duration.options.02_30", { ns: "sessions" }),
+      },
+      {
+        value: "03:00",
+        label: t("form.fields.duration.options.03_00", { ns: "sessions" }),
+      },
+      {
+        value: "04:00",
+        label: t("form.fields.duration.options.04_00", { ns: "sessions" }),
+      },
     ],
-    helpText: t("form.fields.duration.helper"),
+    helpText: t("form.fields.duration.helper", { ns: "sessions" }),
   },
   {
     name: "location",
-    label: t("form.fields.location.label"),
+    label: t("form.fields.location.label", { ns: "sessions" }),
     type: "text",
-    placeholder: t("form.fields.location.placeholder"),
+    placeholder: t("form.fields.location.placeholder", { ns: "sessions" }),
     required: true,
   },
   {
     name: "courtRoom",
-    label: t("form.fields.courtRoom.label"),
+    label: t("form.fields.courtRoom.label", { ns: "sessions" }),
     type: "text",
     required: false,
-    placeholder: t("form.fields.courtRoom.placeholder"),
-    helpText: t("form.fields.courtRoom.helper"),
+    placeholder: t("form.fields.courtRoom.placeholder", { ns: "sessions" }),
+    helpText: t("form.fields.courtRoom.helper", { ns: "sessions" }),
   },
   {
     name: "judge",
-    label: t("form.fields.judge.label"),
+    label: t("form.fields.judge.label", { ns: "sessions" }),
     type: "text",
     required: false,
-    placeholder: t("form.fields.judge.placeholder"),
-    helpText: t("form.fields.judge.helper"),
+    placeholder: t("form.fields.judge.placeholder", { ns: "sessions" }),
+    helpText: t("form.fields.judge.helper", { ns: "sessions" }),
   },
   {
     name: "status",
-    label: t("form.fields.status.label"),
+    label: t("form.fields.status.label", { ns: "sessions" }),
     type: "inline-status",
     required: true,
     defaultValue: "Scheduled",
     statusOptions: [
       {
         value: "Scheduled",
-        label: t("form.fields.status.options.scheduled"),
+        label: t("form.fields.status.options.scheduled", { ns: "sessions" }),
         color: "blue",
       },
       {
         value: "Confirmed",
-        label: t("form.fields.status.options.confirmed"),
+        label: t("form.fields.status.options.confirmed", { ns: "sessions" }),
         color: "green",
       },
       {
         value: "Pending",
-        label: t("form.fields.status.options.pending"),
+        label: t("form.fields.status.options.pending", { ns: "sessions" }),
         color: "amber",
       },
       {
         value: "Completed",
-        label: t("form.fields.status.options.completed"),
+        label: t("form.fields.status.options.completed", { ns: "sessions" }),
         color: "slate",
       },
       {
         value: "Cancelled",
-        label: t("form.fields.status.options.cancelled"),
+        label: t("form.fields.status.options.cancelled", { ns: "sessions" }),
         color: "red",
       },
     ],
   },
   {
     name: "description",
-    label: t("form.fields.description.label"),
+    label: t("form.fields.description.label", { ns: "sessions" }),
     type: "textarea",
-    placeholder: t("form.fields.description.placeholder"),
+    placeholder: t("form.fields.description.placeholder", { ns: "sessions" }),
     required: false,
     fullWidth: true,
     rows: 3,
@@ -804,6 +851,29 @@ export const taskFormFields = (t) => [
     required: true,
   },
   {
+    name: "estimatedTime",
+    label: t("form.fields.estimatedTime.label"),
+    type: "select",
+    required: false,
+    options: [
+      { value: "0.5h", label: t("form.fields.estimatedTime.options.0_5h") },
+      { value: "1h", label: t("form.fields.estimatedTime.options.1h") },
+      { value: "1.5h", label: t("form.fields.estimatedTime.options.1_5h") },
+      { value: "2h", label: t("form.fields.estimatedTime.options.2h") },
+      { value: "3h", label: t("form.fields.estimatedTime.options.3h") },
+      { value: "4h", label: t("form.fields.estimatedTime.options.4h") },
+      { value: "6h", label: t("form.fields.estimatedTime.options.6h") },
+      { value: "8h", label: t("form.fields.estimatedTime.options.8h") },
+      { value: "12h", label: t("form.fields.estimatedTime.options.12h") },
+      { value: "16h", label: t("form.fields.estimatedTime.options.16h") },
+      { value: "20h", label: t("form.fields.estimatedTime.options.20h") },
+      { value: "24h", label: t("form.fields.estimatedTime.options.24h") },
+      { value: "40h", label: t("form.fields.estimatedTime.options.40h") },
+      { value: "80h", label: t("form.fields.estimatedTime.options.80h") },
+    ],
+    helpText: t("form.fields.estimatedTime.helper"),
+  },
+  {
     name: "priority",
     label: t("form.fields.priority.label"),
     type: "inline-priority",
@@ -852,29 +922,6 @@ export const taskFormFields = (t) => [
     required: false,
     fullWidth: true,
     rows: 4,
-  },
-  {
-    name: "estimatedTime",
-    label: t("form.fields.estimatedTime.label"),
-    type: "select",
-    required: false,
-    options: [
-      { value: "0.5h", label: t("form.fields.estimatedTime.options.0_5h") },
-      { value: "1h", label: t("form.fields.estimatedTime.options.1h") },
-      { value: "1.5h", label: t("form.fields.estimatedTime.options.1_5h") },
-      { value: "2h", label: t("form.fields.estimatedTime.options.2h") },
-      { value: "3h", label: t("form.fields.estimatedTime.options.3h") },
-      { value: "4h", label: t("form.fields.estimatedTime.options.4h") },
-      { value: "6h", label: t("form.fields.estimatedTime.options.6h") },
-      { value: "8h", label: t("form.fields.estimatedTime.options.8h") },
-      { value: "12h", label: t("form.fields.estimatedTime.options.12h") },
-      { value: "16h", label: t("form.fields.estimatedTime.options.16h") },
-      { value: "20h", label: t("form.fields.estimatedTime.options.20h") },
-      { value: "24h", label: t("form.fields.estimatedTime.options.24h") },
-      { value: "40h", label: t("form.fields.estimatedTime.options.40h") },
-      { value: "80h", label: t("form.fields.estimatedTime.options.80h") },
-    ],
-    helpText: t("form.fields.estimatedTime.helper"),
   },
 ];
 // ========================================

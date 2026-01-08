@@ -274,12 +274,7 @@
 /* Prominent: Urgent items that need immediate attention */
 .table-row-prominent {
   @apply relative;
-}
-
-.table-row-prominent::before {
-  content: '';
-  @apply absolute left-0 top-0 bottom-0 w-1;
-  @apply bg-amber-500 dark:bg-amber-400;
+  @apply border-l-4 border-amber-500 dark:border-amber-400;
 }
 
 .table-row-prominent td {
@@ -333,21 +328,13 @@
 /* Overdue indicator for tasks */
 .table-row-overdue {
   @apply bg-red-50 dark:bg-red-900/10;
-}
-
-.table-row-overdue::before {
-  content: '';
-  @apply absolute left-0 top-0 bottom-0 w-1;
-  @apply bg-red-500 dark:bg-red-400;
+  @apply relative;
+  @apply border-l-4 border-red-500 dark:border-red-400;
 }
 
 /* Today indicator for sessions/hearings */
 .table-row-today {
   @apply bg-blue-50 dark:bg-blue-900/10;
-}
-
-.table-row-today::before {
-  content: '';
-  @apply absolute left-0 top-0 bottom-0 w-1;
-  @apply bg-blue-500 dark:bg-blue-400;
+  @apply relative;
+  @apply border-l-4 border-blue-500 dark:border-blue-400;
 }

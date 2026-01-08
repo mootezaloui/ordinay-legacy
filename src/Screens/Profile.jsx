@@ -29,7 +29,6 @@ export default function Profile() {
     activeDossiers: 0,
     totalClients: 0,
     resolvedDossiers: 0,
-    successRate: 0,
   });
   const [isLoadingStats, setIsLoadingStats] = useState(true);
 
@@ -219,20 +218,6 @@ export default function Profile() {
               </div>
               <div className="p-3 bg-green-100 dark:bg-green-900/20 rounded-lg">
                 <i className="fas fa-check-circle text-green-600 dark:text-green-400 text-xl"></i>
-              </div>
-            </div>
-          </div>
-
-          <div className="p-6 bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-slate-500 dark:text-slate-400">{t("stats.successRate")}</p>
-                <p className="text-3xl font-bold text-slate-900 dark:text-white mt-2">
-                  {isLoadingStats ? "—" : `${stats.successRate}%`}
-                </p>
-              </div>
-              <div className="p-3 bg-amber-100 dark:bg-amber-900/20 rounded-lg">
-                <i className="fas fa-trophy text-amber-600 dark:text-amber-400 text-xl"></i>
               </div>
             </div>
           </div>

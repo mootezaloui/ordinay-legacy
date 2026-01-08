@@ -487,6 +487,10 @@
       "add": "Add {{entityName}}",
       "addDefault": "Add an item",
       "edit": "Edit",
+      "subtitle": {
+        "add": "Add {{entity}} for {{parent}}",
+        "edit": "Edit {{entity}}"
+      },
       "help": {
         "taskCaseLink": "This task will be linked to this lawsuit"
       },
@@ -683,8 +687,30 @@
       "dropPrompt": "Drag and drop files here, or",
       "browse": "browse"
     },
-    "select": "Select...",
-    "searching": "Searching..."
+    "select": {
+      "default": "Choose an option",
+      "searching": "Searching...",
+      "noSelection": "No item selected",
+      "client": "Select a client",
+      "dossier": "Select a dossier",
+      "case": "Select a case",
+      "task": "Select a task",
+      "session": "Select a session",
+      "officer": "Select an officer",
+      "mission": "Select a mission",
+      "court": "Select a court",
+      "judge": "Select a judge",
+      "phase": "Select a phase",
+      "category": "Select a category",
+      "assignee": "Select an assignee",
+      "adversaryLawyer": "Select adversary lawyer",
+      "missionType": "Select mission type",
+      "relationType": "Choose a link type",
+      "time": "Select a time",
+      "date": "Select a date",
+      "status": "Select a status",
+      "priority": "Select priority"
+    }
   },
   "table": {
     "searching": "Searching...",

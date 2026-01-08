@@ -11,8 +11,7 @@
   "stats": {
     "activeDossiers": "الملفات النشطة",
     "totalClients": "إجمالي العملاء",
-    "resolvedDossiers": "الملفات المنجزة",
-    "successRate": "نسبة النجاح"
+    "resolvedDossiers": "الملفات المنجزة"
   },
   "sections": {
     "personal": "المعلومات الشخصية",

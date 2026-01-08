@@ -297,6 +297,7 @@ export const createSessionConfig = (t) => ({
           label: t('detail.participants.form.name'),
           type: "text",
           required: true,
+          fullWidth: true,
           placeholder: t('detail.participants.form.namePlaceholder'),
           helpText: t('detail.participants.form.nameHelp')
         },
@@ -306,6 +307,7 @@ export const createSessionConfig = (t) => ({
           type: "searchable-select",
           placement: "bottom",
           required: true,
+          fullWidth: true,
           placeholder: t('detail.participants.form.rolePlaceholder'),
           options: [
             { value: "Lawyer", label: `⚖️ ${t('detail.participants.roles.lawyer')}` },

@@ -11,8 +11,7 @@
   "stats": {
     "activeDossiers": "Dossiers actifs",
     "totalClients": "Total clients",
-    "resolvedDossiers": "Dossiers résolus",
-    "successRate": "Taux de réussite"
+    "resolvedDossiers": "Dossiers résolus"
   },
   "sections": {
     "personal": "Informations personnelles",

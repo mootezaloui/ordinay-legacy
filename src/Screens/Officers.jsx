@@ -557,7 +557,11 @@ export default function Officers() {
                 className="cursor-pointer"
               >
                 {table.columns.map((column) => (
-                  <TableCell key={column.id}>
+                  <TableCell
+                    key={column.id}
+                    truncate={!['status', 'priority'].includes(column.id)}
+                    adaptive={['status', 'priority'].includes(column.id)}
+                  >
                     {column.render ? column.render(officer) : officer[column.id]}
                   </TableCell>
                 ))}

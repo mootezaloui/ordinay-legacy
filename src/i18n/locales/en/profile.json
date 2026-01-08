@@ -11,8 +11,7 @@
   "stats": {
     "activeDossiers": "Active Dossiers",
     "totalClients": "Total Clients",
-    "resolvedDossiers": "Resolved Dossiers",
-    "successRate": "Success Rate"
+    "resolvedDossiers": "Resolved Dossiers"
   },
   "sections": {
     "personal": "Personal Information",

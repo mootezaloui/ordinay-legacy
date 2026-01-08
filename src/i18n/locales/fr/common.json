@@ -487,6 +487,10 @@
       "add": "Ajouter {{entityName}}",
       "addDefault": "Ajouter un élément",
       "edit": "Modifier",
+      "subtitle": {
+        "add": "Ajouter {{entity}} pour {{parent}}",
+        "edit": "Modifier {{entity}}"
+      },
       "help": {
         "taskCaseLink": "Cette tâche sera liée à ce procès"
       },
@@ -683,8 +687,30 @@
       "dropPrompt": "Glissez-déposez des fichiers ici, ou",
       "browse": "parcourir"
     },
-    "select": "Sélectionner...",
-    "searching": "Recherche en cours..."
+    "select": {
+      "default": "Choisissez une option",
+      "searching": "Recherche...",
+      "noSelection": "Aucun élément sélectionné",
+      "client": "Sélectionnez un client",
+      "dossier": "Sélectionnez un dossier",
+      "case": "Sélectionnez un procès",
+      "task": "Sélectionnez une tâche",
+      "session": "Sélectionnez une audience",
+      "officer": "Sélectionnez un huissier",
+      "mission": "Sélectionnez une mission",
+      "court": "Sélectionnez un tribunal",
+      "judge": "Sélectionnez un juge",
+      "phase": "Sélectionnez une phase",
+      "category": "Sélectionnez une catégorie",
+      "assignee": "Sélectionnez un assigné",
+      "adversaryLawyer": "Sélectionnez l'avocat adverse",
+      "missionType": "Sélectionnez le type de mission",
+      "relationType": "Choisissez un type de lien",
+      "time": "Sélectionnez l'heure",
+      "date": "Sélectionnez la date",
+      "status": "Sélectionnez un statut",
+      "priority": "Sélectionnez la priorité"
+    }
   },
   "table": {
     "searching": "Recherche en cours...",

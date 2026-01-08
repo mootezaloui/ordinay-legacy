@@ -429,7 +429,7 @@ export default function FormModal({
 
   const modalSizeClass = getModalSize();
   const columnLayoutClass = getColumnLayout();
-  const spacingClass = compact ? "gap-3" : "gap-4";
+  const spacingClass = compact ? "gap-3" : "gap-5";
   const paddingClass = compact ? "p-4" : "p-6";
 
   return (
@@ -583,9 +583,9 @@ export default function FormModal({
  */
 function FormField({ field, value, onChange, error, formData, compact = false, entityType = null }) {
   const { t } = useTranslation(["common", "domain"]);
-  const baseInputClass = `w-full ${compact ? 'px-3 py-1.5 text-sm' : 'px-3.5 py-2.5'} border rounded-lg shadow-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 ${error
-    ? "border-red-400 dark:border-red-500 focus:border-red-500 focus:ring-red-500/20"
-    : "border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 hover:shadow"
+  const baseInputClass = `w-full ${compact ? 'px-3 py-1.5 text-sm' : 'px-3.5 py-2.5'} border-2 rounded-lg shadow-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all duration-200 ${error
+    ? "border-red-400 dark:border-red-500 focus:border-red-500 focus:ring-red-500/30"
+    : "border-slate-300 dark:border-slate-600 hover:border-slate-400 dark:hover:border-slate-500 hover:shadow-md"
     }`;
   const isReadOnly = field.type === "readonly" || field.disabled;
 
@@ -695,7 +695,7 @@ function FormField({ field, value, onChange, error, formData, compact = false, e
               value={value}
               onChange={(newValue) => onChange(field.name, newValue)}
               options={fieldOptions}
-              placeholder={field.placeholder || "Searching..."}
+              placeholder={field.placeholder || t("form.select.default")}
               disabled={field.disabled}
               error={error}
               compact={compact}
@@ -714,7 +714,7 @@ function FormField({ field, value, onChange, error, formData, compact = false, e
               disabled={field.disabled}
               className={`${baseInputClass} appearance-none cursor-pointer pr-10 ${field.disabled ? 'bg-slate-50 dark:bg-slate-800 opacity-50' : ''}`}
             >
-              <option value="">Select...</option>
+              <option value="">{field.placeholder || t("form.select.default")}</option>
               {fieldOptions?.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
@@ -756,7 +756,7 @@ function FormField({ field, value, onChange, error, formData, compact = false, e
             value={value}
             onChange={(newValue) => onChange(field.name, newValue)}
             options={searchableOptions}
-            placeholder={field.placeholder || "Searching..."}
+            placeholder={field.placeholder || t("form.select.searching")}
             disabled={field.disabled}
             error={error}
             compact={compact}
@@ -1155,27 +1155,28 @@ function FormField({ field, value, onChange, error, formData, compact = false, e
       {!isReadOnly && field.type !== "checkbox" && field.type !== "financial-entries" && (
         <label
           htmlFor={field.name}
-          className={`block ${compact ? 'text-xs' : 'text-sm'} font-medium text-slate-700 dark:text-slate-300 ${compact ? 'mb-0.5' : 'mb-1'}`}
+          className={`block font-semibold text-slate-700 dark:text-slate-200 ${compact ? 'text-xs mb-2' : 'text-sm mb-2.5'}`}
         >
           {field.label}
           {(field.required || isConditionallyRequired) && <span className="text-red-500 ml-1">*</span>}
         </label>
       )}
       {field.type === "financial-entries" && (
-        <div className="mb-2">
-          <label className={`block ${compact ? 'text-xs' : 'text-sm'} font-medium text-slate-700 dark:text-slate-300`}>
+        <div className={compact ? 'mb-2' : 'mb-3'}>
+          <label className={`block font-semibold text-slate-700 dark:text-slate-200 ${compact ? 'text-xs' : 'text-sm'}`}>
             {field.label}
           </label>
         </div>
       )}
       {renderInput()}
       {!isReadOnly && error && (
-        <p className={`${compact ? 'mt-0.5 text-xs' : 'mt-1 text-sm'} text-red-600 dark:text-red-400`}>
+        <p className={`${compact ? 'mt-1.5 text-xs' : 'mt-2 text-sm'} text-red-600 dark:text-red-400 font-medium`}>
+          <i className="fas fa-exclamation-circle mr-1"></i>
           {error}
         </p>
       )}
       {!isReadOnly && field.helpText && !error && (
-        <p className={`${compact ? 'mt-0.5 text-xs' : 'mt-1 text-sm'} text-slate-500 dark:text-slate-400`}>
+        <p className={`${compact ? 'mt-1 text-xs' : 'mt-2 text-xs'} text-slate-500 dark:text-slate-400`}>
           {field.helpText}
         </p>
       )}

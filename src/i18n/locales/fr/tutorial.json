@@ -17,233 +17,232 @@
   },
   "steps": {
     "dashboard-intro": {
-      "title": "Votre Centre de Commande",
-      "description": "Voici votre tableau de bord — un aperçu rapide de vos clients, dossiers, tâches et revenus. Tout ce que vous devez savoir en un coup d'œil."
+      "title": "Bienvenue au Tableau de Bord ✨",
+      "description": "Un aperçu complet en un coup d'œil : clients, dossiers, procès, tâches, revenus. Tout ce qu'il vous faut pour diriger efficacement."
     },
     "sidebar-clients": {
-      "title": "Accéder aux Clients",
-      "description": "Dans Organia, tout commence par un client. Cliquez sur 'Clients' dans le menu latéral pour voir votre liste de clients.",
-      "action": "Cliquez sur Clients dans le menu"
+      "title": "Commencez par les Clients 👥",
+      "description": "Dans Organia, tout commence par un client. C'est ici que vous les gérez.",
+      "action": "Ouvrir la section Clients"
     },
     "create-client": {
-      "title": "Ajouter Votre Premier Client",
-      "description": "Maintenant, ajoutons votre premier client. C'est ici que tout votre travail juridique commence.",
-      "action": "Cliquez sur le bouton 'Ajouter un client'"
+      "title": "Ajoutez Votre Premier Client ➕",
+      "description": "Créons votre premier client. C'est la base de tout votre travail juridique.",
+      "action": "Cliquez sur 'Ajouter un client'"
     },
     "phase1-complete": {
-      "title": "Excellent Début !",
-      "description": "Vous avez appris les bases ! Vous savez maintenant naviguer et ajouter des clients. Prêt à découvrir les dossiers ?"
+      "title": "Excellent Début ! ✅",
+      "description": "Les bases, c'est du passé. Vous savez naviguer et ajouter des clients. Suivant : les dossiers."
     },
     "client-detail-intro": {
-      "title": "À l'Intérieur d'un Client",
-      "description": "Vous êtes dans le profil d'un client. Tout ce qui concerne cette personne vit ici — ses dossiers, tâches, audiences et finances."
+      "title": "À l'Intérieur du Profil Client 📋",
+      "description": "Tout ce qui concerne ce client se trouve ici : dossiers, tâches, audiences, finances."
     },
     "client-dossiers-tab": {
-      "title": "Ouvrir l'Onglet Dossiers",
-      "description": "Voyons les dossiers de ce client. Cliquez sur l'onglet Dossiers pour voir et créer des affaires juridiques.",
-      "action": "Cliquez sur l'onglet Dossiers"
+      "title": "Afficher les Dossiers 📁",
+      "description": "Voyez toutes les affaires juridiques liées à ce client. Créez et gérez les dossiers ici.",
+      "action": "Ouvrir l'onglet Dossiers"
     },
     "create-dossier-from-client": {
-      "title": "Créer un Dossier",
-      "description": "Un dossier représente une affaire juridique concrète. Créons-en un pour ce client.",
+      "title": "Créer un Dossier 📋",
+      "description": "Un dossier = une affaire juridique. Créons-en un pour ce client.",
       "action": "Cliquez sur 'Ajouter un dossier'"
     },
     "client-notification-intro": {
-      "title": "Communication Client Intelligente",
-      "description": "Organia détecte les données importantes et vous aide à les envoyer à votre client. Nouveaux dossiers, changements de statut, audiences à venir — l'application vous invite quand quelque chose compte. Vous gardez le contrôle.",
-      "action": "Choisissez d'envoyer ou d'ignorer la notification"
+      "title": "Notifications Intelligentes 🔔",
+      "description": "Organia détecte les moments importants — nouveaux dossiers, changements de statut, audiences à venir. Restez informé sans effort.",
+      "action": "Choisir d'envoyer ou passer"
     },
     "dossier-detail-overview": {
-      "title": "Le Cœur de Votre Travail",
-      "description": "Voici un dossier — le cœur de votre travail juridique. Tâches, missions, audiences et finances s'y rattachent. Tout reste organisé au même endroit."
+      "title": "Le Cœur de Votre Travail 🎯",
+      "description": "Un dossier contient tout : tâches, missions, audiences, documents, notes, finances — organisés au même endroit."
     },
     "sidebar-dossiers": {
-      "title": "La Vue Globale",
-      "description": "Vous pouvez aussi gérer les dossiers globalement. Cliquez sur 'Dossiers' pour voir tous les dossiers de tous les clients.",
-      "action": "Cliquez sur Dossiers dans le menu"
+      "title": "Vue Globale des Dossiers 🗂️",
+      "description": "Voyez tous vos dossiers, tous clients confondus, en un seul endroit. Gérez-les comme vous préférez.",
+      "action": "Ouvrir la section Dossiers"
     },
     "dossiers-list-overview": {
-      "title": "Deux Chemins Valides",
-      "description": "Voici le même dossier, visible globalement. Vous pouvez aussi créer des dossiers ici — les deux approches sont valides. Choisissez ce qui vous semble naturel."
+      "title": "Workflows Flexibles ⚡",
+      "description": "Créez des dossiers depuis un client ou depuis ici. Les deux approches fonctionnent — choisissez ce qui vous convient."
     },
     "phase2-complete": {
-      "title": "Maîtrise des Dossiers !",
-      "description": "Vous comprenez maintenant les dossiers — le cœur de votre travail juridique. Vous savez les créer depuis un client ou depuis la liste globale. Prêt à découvrir les procès ?"
+      "title": "Maître des Dossiers ! ✅",
+      "description": "Vous maîtrisez les dossiers sur le bout des doigts. Suivant : les procès et affaires judiciaires."
     },
     "select-dossier-for-cases": {
-      "title": "Ouvrir un Dossier",
-      "description": "Maintenant, apprenons les procès (affaires judiciaires). D'abord, cliquez sur un dossier pour ouvrir sa vue détaillée.",
-      "action": "Cliquez sur un dossier pour l'ouvrir"
+      "title": "Ouvrir un Dossier 📂",
+      "description": "Pour apprendre les procès, sélectionnez d'abord un dossier.",
+      "action": "Cliquer sur un dossier pour l'ouvrir"
     },
     "dossier-cases-tab": {
-      "title": "Procédures Judiciaires",
-      "description": "Les procès sont vos procédures judiciaires formelles — litiges, contentieux et affaires devant le tribunal. Chaque dossier peut avoir plusieurs procès.",
-      "action": "Cliquez sur l'onglet Procès"
+      "title": "Gérer les Procès ⚖️",
+      "description": "Les procès sont vos affaires judiciaires formelles — litiges, contentieux, affaires de cour. Un dossier peut contenir plusieurs procès.",
+      "action": "Ouvrir l'onglet Procès"
     },
     "create-case-from-dossier": {
-      "title": "Créer un Procès",
-      "description": "Ajoutez un procès avec son tribunal, ses parties et son statut. Suivez chaque procédure judiciaire.",
+      "title": "Créer un Procès 📝",
+      "description": "Ajoutez un procès avec sa cour, ses parties et son statut. Suivez chaque affaire.",
       "action": "Cliquez sur 'Ajouter un procès'"
     },
     "case-notification-intro": {
-      "title": "Communication Client",
-      "description": "Comme pour les dossiers, Organia vous propose de notifier votre client des nouveaux procès. Tenez-les informés de leurs procédures judiciaires.",
-      "action": "Choisissez d'envoyer ou d'ignorer la notification"
+      "title": "Tenez les Clients Informés 📢",
+      "description": "Nouveau procès ? Organia peut notifier votre client automatiquement. Gardez-les dans la boucle.",
+      "action": "Choisir d'envoyer ou passer"
     },
     "case-detail-overview": {
-      "title": "Détails du Procès",
-      "description": "Voici votre procès. Vous pouvez suivre le tribunal, le statut, les audiences et les résultats. Tout est documenté."
+      "title": "Aperçu du Procès 🔍",
+      "description": "Suivez la cour, le statut, les audiences, les résultats — tout documenté au même endroit."
     },
     "phase3-complete": {
-      "title": "Expert en Procès !",
-      "description": "Vous savez maintenant gérer les procès et affaires judiciaires. Ensuite, apprenons les tâches — votre flux de travail quotidien."
+      "title": "Procès Sous Contrôle ! ✅",
+      "description": "Vous savez gérer les procès. Suivant : les tâches et votre flux quotidien."
     },
     "sidebar-dossiers-for-tasks": {
-      "title": "Retour aux Dossiers",
-      "description": "Continuons avec les tâches. D'abord, retournez à la liste des dossiers.",
-      "action": "Cliquez sur Dossiers dans le menu"
+      "title": "Retour aux Dossiers 🔙",
+      "description": "Continuons avec les tâches. Retournez à votre liste de dossiers.",
+      "action": "Ouvrir Dossiers"
     },
     "select-dossier-for-tasks": {
-      "title": "Ouvrir un Dossier",
-      "description": "Maintenant, apprenons les tâches. Cliquez sur un dossier pour ouvrir sa vue détaillée.",
-      "action": "Cliquez sur un dossier pour l'ouvrir"
+      "title": "Ouvrir un Dossier 📂",
+      "description": "Sélectionnez un dossier pour explorer ses tâches.",
+      "action": "Cliquer sur un dossier pour l'ouvrir"
     },
     "dossier-tasks-tab": {
-      "title": "Votre Liste de Tâches",
-      "description": "Les tâches sont la façon dont le travail se fait. Chaque dossier a sa propre liste. Voyons ce qu'il y a à faire.",
-      "action": "Cliquez sur l'onglet Tâches"
+      "title": "Votre Liste de Tâches ✓",
+      "description": "Les tâches, c'est comment le travail se fait. Chaque dossier a sa propre liste.",
+      "action": "Ouvrir l'onglet Tâches"
     },
     "create-task-from-dossier": {
-      "title": "Créer une Tâche",
-      "description": "Ajoutez une tâche avec une échéance et une priorité. Gardez le contrôle de votre charge de travail.",
+      "title": "Créer une Tâche 📌",
+      "description": "Ajoutez une tâche avec deadline et priorité. Restez organisé.",
       "action": "Cliquez sur 'Ajouter une tâche'"
     },
     "task-detail-overview": {
-      "title": "Détails de la Tâche",
-      "description": "Voici votre tâche. Vous pouvez définir la priorité, la date d'échéance et l'assigner à des membres de l'équipe. Tout est suivi."
+      "title": "Détails de la Tâche 📊",
+      "description": "Définissez la priorité, la date limite, assignez à l'équipe. Tout est suivi."
     },
     "task-status-workflow": {
-      "title": "Suivre la Progression",
-      "description": "Les tâches passent de 'À faire' -> 'En cours' -> 'Terminé'. Mettez à jour le statut au fur et à mesure. Votre tableau de bord affiche ce qui est en attente."
+      "title": "Suivre la Progression 📈",
+      "description": "Déplacez les tâches de 'À faire' → 'En cours' → 'Terminé'. Votre tableau affiche ce qui attend."
     },
     "sidebar-personal-tasks": {
-      "title": "Tâches Personnelles",
-      "description": "Tout n'appartient pas à un dossier. Les tâches personnelles sont pour vos propres rappels — appels, travail administratif, suivis.",
-      "action": "Cliquez sur Tâches Personnelles"
+      "title": "Tâches Personnelles 📝",
+      "description": "Pas tout ce qui est une tâche n'appartient à un dossier. Utilisez ceci pour vos rappels.",
+      "action": "Ouvrir Tâches Personnelles"
     },
     "personal-tasks-overview": {
-      "title": "Votre Liste Privée",
-      "description": "Ce sont VOS tâches — non liées à aucun dossier. Parfait pour les rappels personnels et le travail administratif."
+      "title": "Vos Rappels Privés 🔒",
+      "description": "Tâches non liées à un dossier. Parfait pour appels, travail administratif, relances."
     },
     "phase4-complete": {
-      "title": "Maître des Tâches !",
-      "description": "Vous savez maintenant gérer les tâches — pour les dossiers et personnelles. Ensuite, explorons les audiences et les sessions."
+      "title": "Maître des Tâches ! ✅",
+      "description": "Vous avez maîtrisé les tâches. Suivant : les sessions judiciaires."
     },
     "sidebar-sessions": {
-      "title": "Sessions du Tribunal",
-      "description": "Les sessions sont vos comparutions — audiences, réunions et rendez-vous. Voyons comment les gérer.",
-      "action": "Cliquez sur Audiences"
+      "title": "Sessions Judiciaires 📅",
+      "description": "Les sessions sont vos comparutions — audiences, réunions, rendez-vous. Gérez-les ici.",
+      "action": "Ouvrir Sessions"
     },
     "sessions-list-overview": {
-      "title": "Votre Calendrier",
-      "description": "Toutes vos sessions programmées apparaissent ici. Chaque session est liée à un dossier ou une affaire, le contexte n'est jamais perdu."
+      "title": "Votre Calendrier 🗓️",
+      "description": "Toutes les sessions programmées en un seul endroit. Chacune liée à son dossier ou affaire."
     },
     "create-session": {
-      "title": "Programmer une Session",
-      "description": "Ajoutez une audience ou une réunion. Définissez la date, l'heure, le lieu et liez-la à votre affaire.",
-      "action": "Cliquez sur 'Ajouter une audience'"
+      "title": "Planifier une Session 📌",
+      "description": "Ajoutez une audience ou réunion. Définissez date, heure, lieu et liez à votre affaire.",
+      "action": "Cliquez sur 'Ajouter une session'"
     },
     "session-detail-overview": {
-      "title": "Détails de la Session",
-      "description": "Suivez le résultat, les notes et les prochaines étapes de chaque session. Tout est documenté pour référence future."
+      "title": "Fiche de Session 📝",
+      "description": "Documentez le résultat, les notes, et les prochaines étapes. Gardez un dossier clair."
     },
     "phase5-complete": {
-      "title": "Pro des Sessions !",
-      "description": "Vous pouvez maintenant gérer les sessions et audiences. Ensuite, découvrons les huissiers et les missions — votre réseau d'exécution."
+      "title": "Pro des Sessions ! ✅",
+      "description": "Vous pouvez gérer les sessions. Suivant : les huissiers et missions."
     },
     "sidebar-officers": {
-      "title": "Rencontrez les Huissiers",
-      "description": "Les huissiers sont les professionnels qui exécutent les missions pour vous — signification d'actes, recouvrement de créances, etc.",
-      "action": "Cliquez sur Huissiers"
+      "title": "Rencontrez Vos Huissiers 👔",
+      "description": "Les huissiers exécutent vos missions : significations, recouvrements, etc.",
+      "action": "Ouvrir Huissiers"
     },
     "officers-list-overview": {
-      "title": "Votre Réseau d'Huissiers",
-      "description": "Gérez ici votre liste d'huissiers et d'officiers. Vous aurez besoin d'au moins un huissier avant de créer des missions."
+      "title": "Votre Réseau d'Huissiers 🤝",
+      "description": "Gérez votre liste d'huissiers et officiers. Vous en aurez besoin pour créer des missions."
     },
     "missions-workflow-explained": {
-      "title": "Comment Fonctionnent les Missions",
-      "description": "Les missions sont du travail facturable effectué par les huissiers. Créez-les depuis un dossier, liez à un huissier, et suivez le résultat. Une fois terminées, les honoraires vont dans vos finances."
+      "title": "Comment Fonctionnent les Missions ⚡",
+      "description": "Les missions sont du travail facturable par les huissiers. Créez-les, suivez le progrès, les honoraires vont à vos finances."
     },
     "phase6-complete": {
-      "title": "Expert en Missions !",
-      "description": "Vous comprenez les huissiers et les missions. Voyons maintenant où tout cela se rejoint — vos finances."
+      "title": "Expert des Missions ! ✅",
+      "description": "Vous comprenez huissiers et missions. Suivant : votre aperçu financier."
     },
     "sidebar-accounting": {
-      "title": "Vos Finances",
-      "description": "La section Comptabilité montre votre situation financière complète — revenus, dépenses et soldes.",
-      "action": "Cliquez sur Comptabilité"
+      "title": "Vos Finances 💰",
+      "description": "La comptabilité affiche votre tableau financier complet : revenus, dépenses, soldes.",
+      "action": "Ouvrir Comptabilité"
     },
     "financial-overview": {
-      "title": "Tableau de Bord Financier",
-      "description": "Voyez vos gains en un coup d'œil. Honoraires de missions, paiements clients et dépenses — tout au même endroit."
+      "title": "Tableau de Bord Financier 📊",
+      "description": "Voyez vos revenus en un coup d'œil : honoraires de missions, paiements clients, dépenses — ensemble."
     },
     "financial-entries-explained": {
-      "title": "Suivez Chaque Dinar",
-      "description": "Chaque entrée financière est liée à sa source — une mission, un paiement ou une dépense. Traçabilité totale, toujours."
+      "title": "Traçabilité Complète 🔗",
+      "description": "Chaque entrée est liée à sa source : mission, paiement ou dépense. Toujours transparent."
     },
     "phase7-complete": {
-      "title": "Clarté Financière !",
-      "description": "Vous comprenez maintenant comment Organia suit votre argent. Passons aux Documents pour finaliser la visite."
+      "title": "Clarté Financière ! ✅",
+      "description": "Vous comprenez comment Organia suit votre argent. Dernier acte : documents et historique."
     },
     "sidebar-dossiers-for-documents": {
-      "title": "Gestion des Documents",
-      "description": "Avant de terminer, voyons comment Organia vous aide à gérer les documents, notes et historique. Retournons aux dossiers.",
-      "action": "Cliquez sur Dossiers"
+      "title": "Gestion Documentaire 📄",
+      "description": "Avant de terminer, explorons documents, notes et historique. Retournez aux dossiers.",
+      "action": "Ouvrir Dossiers"
     },
     "select-dossier-for-documents": {
-      "title": "Ouvrir un Dossier",
-      "description": "Cliquez sur un dossier pour voir les fonctionnalités de gestion documentaire.",
-      "action": "Cliquez sur un dossier"
+      "title": "Ouvrir un Dossier 📂",
+      "description": "Sélectionnez un dossier pour voir les outils de gestion documentaire.",
+      "action": "Cliquer sur un dossier"
     },
     "dossier-documents-tab": {
-      "title": "Documents du Dossier",
-      "description": "Conservez tous les fichiers importants liés à votre dossier. Contrats, preuves, pièces légales — tout est centralisé et facilement accessible.",
-      "action": "Cliquez sur l'onglet Documents"
+      "title": "Stocker les Documents 📎",
+      "description": "Liez tous les fichiers importants à votre dossier : contrats, preuves, pièces légales.",
+      "action": "Ouvrir l'onglet Documents"
     },
     "documents-overview": {
-      "title": "Documents du Dossier",
-      "description": "Voici l'espace où vous centralisez tous les fichiers liés au dossier. Téléversez, ouvrez, téléchargez, reliez et gérez vos documents en toute simplicité."
+      "title": "Espace Documentaire 📎",
+      "description": "Centralisez tous vos fichiers. Téléversez, ouvrez, téléchargez, liez, gérez en simplicité."
     },
     "dossier-notes-tab": {
-      "title": "Notes du Dossier",
-      "description": "Ajoutez des notes internes pour garder le contexte, les décisions et les rappels. Elles sont privées et organisées par dossier.",
-      "action": "Cliquez sur l'onglet Notes"
+      "title": "Prenez des Notes 📝",
+      "description": "Ajoutez des notes internes pour contexte, décisions, rappels. Privées et organisées."
     },
     "notes-overview": {
-      "title": "Notes du Dossier",
-      "description": "Utilisez les notes pour conserver le contexte, les décisions et les rappels. Elles sont privées et restent attachées au dossier pour une référence rapide."
+      "title": "Espace Notes 📝",
+      "description": "Gardez le contexte, décisions, rappels. Notes privées, organisées par dossier."
     },
     "dossier-history-tab": {
-      "title": "Historique / Traçabilité",
-      "description": "Chaque action est enregistrée — créations, modifications et événements clés. L'historique vous donne une traçabilité claire et fiable.",
-      "action": "Cliquez sur l'onglet Historique"
+      "title": "Piste d'Audit 🔍",
+      "description": "Chaque action est enregistrée : créations, modifications, événements clés. Historique clair et fiable.",
+      "action": "Ouvrir l'onglet Historique"
     },
     "history-overview": {
-      "title": "Historique / Traçabilité",
-      "description": "Consultez la chronologie des événements liés au dossier. Créations, mises à jour, paiements et audiences — tout est tracé pour garder une vision claire."
+      "title": "Piste d'Audit 🔍",
+      "description": "Consulter la chronologie complète : créations, mises à jour, paiements, audiences — tout tracé."
     },
     "return-to-dashboard": {
-      "title": "Retour à Votre Centre de Contrôle",
-      "description": "Parfait ! Vous avez exploré toutes les fonctionnalités clés d'Organia. Retournons au tableau de bord où tout se rejoint.",
-      "action": "Cliquez sur Tableau de bord dans le menu"
+      "title": "Retour au Tableau de Bord 🏠",
+      "description": "Vous avez exploré toutes les fonctionnalités clés. Retournons où tout se rejoint.",
+      "action": "Ouvrir Tableau de bord"
     },
     "phase8-complete": {
-      "title": "Gestion Documentaire Maîtrisée !",
-      "description": "Vous savez maintenant gérer les documents, les notes et suivre l'historique pour une traçabilité complète. Vous êtes prêt à gérer votre cabinet efficacement !"
+      "title": "Maîtrise Complète ! ✅",
+      "description": "Vous maîtrisez documents, notes, historique. Vous êtes prêt à gérer votre cabinet efficacement."
     },
     "tutorial-complete": {
-      "title": "Félicitations !",
-      "description": "Vous avez terminé le tutoriel Organia ! Vous savez maintenant gérer clients, dossiers, procès, tâches, sessions, missions et finances. Vous êtes prêt à gérer votre cabinet comme un pro."
+      "title": "Félicitations ! 🎉",
+      "description": "Vous avez terminé le tutoriel Organia. Vous pouvez gérer clients, dossiers, procès, tâches, sessions, missions, finances et documents. Dirigez votre cabinet avec assurance."
     }
   },
   "completion": {

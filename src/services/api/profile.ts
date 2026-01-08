@@ -4,7 +4,6 @@ export interface ProfileStats {
   activeDossiers: number;
   totalClients: number;
   resolvedDossiers: number;
-  successRate: number;
 }
 
 /**
