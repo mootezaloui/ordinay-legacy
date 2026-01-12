@@ -1,0 +1,83 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AgentDraft",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "type",
+    "draftType",
+    "subject",
+    "body",
+    "audience",
+    "tone",
+    "sensitivity",
+    "placeholders",
+    "timestamp"
+  ],
+  "properties": {
+    "type": {
+      "const": "draft"
+    },
+    "draftType": {
+      "type": "string",
+      "enum": [
+        "invitation",
+        "client_email",
+        "generic"
+      ]
+    },
+    "subject": {
+      "type": "string",
+      "minLength": 1
+    },
+    "body": {
+      "type": "string",
+      "minLength": 1
+    },
+    "audience": {
+      "type": "string",
+      "minLength": 1
+    },
+    "tone": {
+      "type": "string",
+      "enum": [
+        "formal",
+        "neutral",
+        "concise"
+      ]
+    },
+    "sensitivity": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ]
+    },
+    "placeholders": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "assumptions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "contextReferences": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

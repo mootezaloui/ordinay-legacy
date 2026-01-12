@@ -1,0 +1,358 @@
+PRAGMA foreign_keys = ON;
+
+-- Core entities
+CREATE TABLE IF NOT EXISTS clients (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    email TEXT,
+    phone TEXT,
+    alternate_phone TEXT,
+    address TEXT,
+    status TEXT NOT NULL CHECK (status IN ('active','inActive')),
+    cin TEXT,
+    date_of_birth DATE,
+    profession TEXT,
+    company TEXT,
+    tax_id TEXT,
+    notes TEXT,
+    join_date DATE,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at DATETIME
+);
+
+CREATE TABLE IF NOT EXISTS dossiers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    reference TEXT NOT NULL UNIQUE,
+    client_id INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    description TEXT,
+    category TEXT,
+    phase TEXT,
+    adversary_party TEXT,
+    adversary_lawyer TEXT,
+    estimated_value NUMERIC,
+    court_reference TEXT,
+    assigned_lawyer TEXT,
+    status TEXT NOT NULL CHECK (status IN ('open','in_progress','on_hold','closed')),
+    priority TEXT NOT NULL DEFAULT 'medium' CHECK (priority IN ('urgent','high','medium','low')),
+    opened_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    next_deadline DATETIME,
+    closed_at DATETIME,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at DATETIME,
+    CHECK (reference IS NOT NULL AND length(reference) > 0),
+    FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE RESTRICT
+);
+CREATE INDEX IF NOT EXISTS idx_dossiers_client_id ON dossiers(client_id);
+CREATE INDEX IF NOT EXISTS idx_dossiers_status ON dossiers(status);
+CREATE INDEX IF NOT EXISTS idx_dossiers_priority ON dossiers(priority);
+CREATE INDEX IF NOT EXISTS idx_dossiers_next_deadline ON dossiers(next_deadline);
+
+CREATE TABLE IF NOT EXISTS cases (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    reference TEXT NOT NULL UNIQUE,
+    case_number TEXT UNIQUE,
+    dossier_id INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    description TEXT,
+    adversary TEXT,
+    adversary_party TEXT,
+    adversary_lawyer TEXT,
+    court TEXT,
+    filing_date DATE,
+    next_hearing DATE,
+    reference_number TEXT,
+    status TEXT NOT NULL CHECK (status IN ('open','in_progress','on_hold','closed')),
+    priority TEXT NOT NULL DEFAULT 'medium' CHECK (priority IN ('urgent','high','medium','low')),
+    opened_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    closed_at DATETIME,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at DATETIME,
+    CHECK (reference IS NOT NULL AND length(reference) > 0),
+    FOREIGN KEY (dossier_id) REFERENCES dossiers(id) ON DELETE RESTRICT
+);
+CREATE INDEX IF NOT EXISTS idx_cases_dossier_id ON cases(dossier_id);
+CREATE INDEX IF NOT EXISTS idx_cases_status ON cases(status);
+CREATE INDEX IF NOT EXISTS idx_cases_priority ON cases(priority);
+CREATE INDEX IF NOT EXISTS idx_cases_next_hearing ON cases(next_hearing);
+
+CREATE TABLE IF NOT EXISTS officers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    email TEXT,
+    phone TEXT,
+    alternate_phone TEXT,
+    address TEXT,
+    agency TEXT,
+    location TEXT,
+    specialization TEXT,
+    registration_number TEXT,
+    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','busy','inActive')),
+    notes TEXT,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at DATETIME
+);
+
+CREATE TABLE IF NOT EXISTS missions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    reference TEXT NOT NULL UNIQUE,
+    mission_number TEXT UNIQUE,
+    title TEXT NOT NULL,
+    description TEXT,
+    mission_type TEXT,
+    status TEXT NOT NULL CHECK (status IN ('planned','in_progress','completed','cancelled')),
+    priority TEXT NOT NULL DEFAULT 'medium' CHECK (priority IN ('urgent','high','medium','low')),
+    assign_date DATETIME,
+    due_date DATETIME,
+    completion_date DATETIME,
+    closed_at DATETIME,
+    result TEXT,
+    notes TEXT,
+    dossier_id INTEGER,
+    case_id INTEGER,
+    officer_id INTEGER,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at DATETIME,
+    CHECK (reference IS NOT NULL AND length(reference) > 0),
+    CHECK ((dossier_id IS NOT NULL AND case_id IS NULL) OR (dossier_id IS NULL AND case_id IS NOT NULL)),
+    FOREIGN KEY (dossier_id) REFERENCES dossiers(id) ON DELETE RESTRICT,
+    FOREIGN KEY (case_id) REFERENCES cases(id) ON DELETE RESTRICT,
+    FOREIGN KEY (officer_id) REFERENCES officers(id)
+);
+CREATE INDEX IF NOT EXISTS idx_missions_dossier_id ON missions(dossier_id);
+CREATE INDEX IF NOT EXISTS idx_missions_case_id ON missions(case_id);
+CREATE INDEX IF NOT EXISTS idx_missions_officer_id ON missions(officer_id);
+CREATE INDEX IF NOT EXISTS idx_missions_status ON missions(status);
+CREATE INDEX IF NOT EXISTS idx_missions_priority ON missions(priority);
+CREATE INDEX IF NOT EXISTS idx_missions_assign_date ON missions(assign_date);
+CREATE INDEX IF NOT EXISTS idx_missions_due_date ON missions(due_date);
+
+CREATE TABLE IF NOT EXISTS tasks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    dossier_id INTEGER,
+    case_id INTEGER,
+    title TEXT NOT NULL,
+    description TEXT,
+    assigned_to TEXT,
+    status TEXT NOT NULL CHECK (status IN ('todo','in_progress','blocked','done','cancelled')),
+    priority TEXT NOT NULL DEFAULT 'medium' CHECK (priority IN ('urgent','high','medium','low')),
+    due_date DATETIME,
+    estimated_time TEXT,
+    completed_at DATETIME,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at DATETIME,
+    CHECK ((dossier_id IS NOT NULL AND case_id IS NULL) OR (case_id IS NOT NULL AND dossier_id IS NULL)),
+    FOREIGN KEY (dossier_id) REFERENCES dossiers(id) ON DELETE RESTRICT,
+    FOREIGN KEY (case_id) REFERENCES cases(id) ON DELETE RESTRICT
+);
+CREATE INDEX IF NOT EXISTS idx_tasks_dossier_id ON tasks(dossier_id);
+CREATE INDEX IF NOT EXISTS idx_tasks_case_id ON tasks(case_id);
+CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
+CREATE INDEX IF NOT EXISTS idx_tasks_priority ON tasks(priority);
+CREATE INDEX IF NOT EXISTS idx_tasks_due_date ON tasks(due_date);
+
+CREATE TABLE IF NOT EXISTS sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT,
+    session_type TEXT NOT NULL CHECK (session_type IN ('hearing','consultation','mediation','expertise','phone','other')),
+    status TEXT NOT NULL CHECK (status IN ('scheduled','confirmed','pending','completed','cancelled')),
+    scheduled_at DATETIME NOT NULL,
+    duration TEXT,
+    location TEXT,
+    court_room TEXT,
+    judge TEXT,
+    outcome TEXT,
+    description TEXT,
+    notes TEXT,
+    participants TEXT,
+    dossier_id INTEGER,
+    case_id INTEGER,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at DATETIME,
+    CHECK ((case_id IS NOT NULL AND dossier_id IS NULL) OR (case_id IS NULL AND dossier_id IS NOT NULL)),
+    FOREIGN KEY (case_id) REFERENCES cases(id) ON DELETE RESTRICT,
+    FOREIGN KEY (dossier_id) REFERENCES dossiers(id) ON DELETE RESTRICT
+);
+CREATE INDEX IF NOT EXISTS idx_sessions_case_id ON sessions(case_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_dossier_id ON sessions(dossier_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_status ON sessions(status);
+CREATE INDEX IF NOT EXISTS idx_sessions_scheduled_at ON sessions(scheduled_at);
+
+CREATE TABLE IF NOT EXISTS personal_tasks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    description TEXT,
+    category TEXT,
+    status TEXT NOT NULL CHECK (status IN ('todo','in_progress','blocked','done','cancelled','scheduled')),
+    priority TEXT NOT NULL DEFAULT 'medium' CHECK (priority IN ('urgent','high','medium','low')),
+    due_date DATETIME,
+    completed_at DATETIME,
+    notes TEXT,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at DATETIME
+);
+CREATE INDEX IF NOT EXISTS idx_personal_tasks_status ON personal_tasks(status);
+CREATE INDEX IF NOT EXISTS idx_personal_tasks_due_date ON personal_tasks(due_date);
+
+CREATE TABLE IF NOT EXISTS financial_entries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    scope TEXT NOT NULL DEFAULT 'client' CHECK (scope IN ('client','internal')),
+    client_id INTEGER,
+    dossier_id INTEGER,
+    case_id INTEGER,
+    mission_id INTEGER,
+    entry_type TEXT NOT NULL CHECK (entry_type IN ('income','expense','revenue')),
+    status TEXT NOT NULL CHECK (status IN ('draft','confirmed','cancelled','paid','pending','posted','void')),
+    category TEXT,
+    amount NUMERIC NOT NULL CHECK (amount >= 0),
+    currency TEXT NOT NULL DEFAULT 'TND',
+    occurred_at DATETIME,
+    due_date DATETIME,
+    paid_at DATETIME,
+    title TEXT,
+    description TEXT,
+    reference TEXT,
+    notes TEXT,
+    direction TEXT DEFAULT NULL CHECK (direction IS NULL OR direction IN ('receivable','payable')),
+    cancelled_at DATETIME DEFAULT NULL,
+    cancellation_reason TEXT DEFAULT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at DATETIME,
+    CHECK ((dossier_id IS NULL) OR (case_id IS NULL)),
+    CHECK ((scope = 'client' AND client_id IS NOT NULL) OR (scope = 'internal' AND client_id IS NULL)),
+    FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE RESTRICT,
+    FOREIGN KEY (dossier_id) REFERENCES dossiers(id) ON DELETE RESTRICT,
+    FOREIGN KEY (case_id) REFERENCES cases(id) ON DELETE RESTRICT,
+    FOREIGN KEY (mission_id) REFERENCES missions(id) ON DELETE RESTRICT
+);
+CREATE INDEX IF NOT EXISTS idx_financial_entries_client_id ON financial_entries(client_id);
+CREATE INDEX IF NOT EXISTS idx_financial_entries_dossier_id ON financial_entries(dossier_id);
+CREATE INDEX IF NOT EXISTS idx_financial_entries_case_id ON financial_entries(case_id);
+CREATE INDEX IF NOT EXISTS idx_financial_entries_mission_id ON financial_entries(mission_id);
+CREATE INDEX IF NOT EXISTS idx_financial_entries_status ON financial_entries(status);
+CREATE INDEX IF NOT EXISTS idx_financial_entries_entry_type ON financial_entries(entry_type);
+CREATE INDEX IF NOT EXISTS idx_financial_entries_occurred_at ON financial_entries(occurred_at);
+CREATE INDEX IF NOT EXISTS idx_financial_entries_direction ON financial_entries(direction);
+
+CREATE TABLE IF NOT EXISTS documents (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    file_path TEXT NOT NULL,
+    original_filename TEXT,
+    category TEXT,
+    mime_type TEXT,
+    size_bytes INTEGER,
+    notes TEXT,
+    uploaded_by TEXT,
+    client_id INTEGER,
+    dossier_id INTEGER,
+    case_id INTEGER,
+    mission_id INTEGER,
+    task_id INTEGER,
+    session_id INTEGER,
+    personal_task_id INTEGER,
+    financial_entry_id INTEGER,
+    uploaded_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at DATETIME,
+    CHECK (
+        (client_id IS NOT NULL) +
+        (dossier_id IS NOT NULL) +
+        (case_id IS NOT NULL) +
+        (mission_id IS NOT NULL) +
+        (task_id IS NOT NULL) +
+        (session_id IS NOT NULL) +
+        (personal_task_id IS NOT NULL) +
+        (financial_entry_id IS NOT NULL) = 1
+    ),
+    FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE RESTRICT,
+    FOREIGN KEY (dossier_id) REFERENCES dossiers(id) ON DELETE RESTRICT,
+    FOREIGN KEY (case_id) REFERENCES cases(id) ON DELETE RESTRICT,
+    FOREIGN KEY (mission_id) REFERENCES missions(id) ON DELETE RESTRICT,
+    FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE RESTRICT,
+    FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE RESTRICT,
+    FOREIGN KEY (personal_task_id) REFERENCES personal_tasks(id) ON DELETE RESTRICT,
+    FOREIGN KEY (financial_entry_id) REFERENCES financial_entries(id) ON DELETE RESTRICT
+);
+CREATE INDEX IF NOT EXISTS idx_documents_client_id ON documents(client_id);
+CREATE INDEX IF NOT EXISTS idx_documents_dossier_id ON documents(dossier_id);
+CREATE INDEX IF NOT EXISTS idx_documents_case_id ON documents(case_id);
+CREATE INDEX IF NOT EXISTS idx_documents_mission_id ON documents(mission_id);
+CREATE INDEX IF NOT EXISTS idx_documents_task_id ON documents(task_id);
+CREATE INDEX IF NOT EXISTS idx_documents_session_id ON documents(session_id);
+CREATE INDEX IF NOT EXISTS idx_documents_personal_task_id ON documents(personal_task_id);
+CREATE INDEX IF NOT EXISTS idx_documents_financial_entry_id ON documents(financial_entry_id);
+CREATE INDEX IF NOT EXISTS idx_documents_uploaded_at ON documents(uploaded_at);
+
+CREATE TABLE IF NOT EXISTS notifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    type TEXT NOT NULL,
+    sub_type TEXT,
+    template_key TEXT NOT NULL,
+    payload TEXT NOT NULL,
+    dedupe_key TEXT NOT NULL UNIQUE,
+    severity TEXT NOT NULL CHECK (severity IN ('info', 'warning', 'error')),
+    status TEXT NOT NULL DEFAULT 'unread' CHECK (status IN ('unread', 'read', 'archived')),
+    entity_type TEXT CHECK (entity_type IN ('client', 'dossier', 'case', 'task', 'session', 'mission', 'financial_entry', 'personal_task', 'document')),
+    entity_id INTEGER,
+    scheduled_at DATETIME,
+    read_at DATETIME,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at DATETIME,
+    CHECK ((entity_type IS NULL AND entity_id IS NULL) OR (entity_type IS NOT NULL AND entity_id IS NOT NULL))
+);
+CREATE INDEX IF NOT EXISTS idx_notifications_status ON notifications(status);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_notifications_dedupe_key ON notifications(dedupe_key);
+CREATE INDEX IF NOT EXISTS idx_notifications_entity ON notifications(entity_type, entity_id);
+
+CREATE TABLE IF NOT EXISTS notes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    entity_type TEXT NOT NULL CHECK (entity_type IN ('client', 'dossier', 'case', 'task', 'session', 'mission', 'officer', 'financial_entry', 'document', 'personal_task')),
+    entity_id INTEGER NOT NULL,
+    content TEXT NOT NULL,
+    created_by TEXT,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at DATETIME,
+    CHECK (entity_type IS NOT NULL AND entity_id IS NOT NULL)
+);
+CREATE INDEX IF NOT EXISTS idx_notes_entity ON notes(entity_type, entity_id);
+CREATE INDEX IF NOT EXISTS idx_notes_created_at ON notes(created_at);
+
+CREATE TABLE IF NOT EXISTS operators (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    email TEXT,
+    phone TEXT,
+    specialization TEXT,
+    bar_number TEXT,
+    office TEXT,
+    bio TEXT,
+    role TEXT NOT NULL,
+    is_active INTEGER NOT NULL DEFAULT 1,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS history_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    entity_type TEXT NOT NULL CHECK (entity_type IN ('client', 'dossier', 'case', 'task', 'session', 'mission', 'officer', 'financial_entry', 'document', 'personal_task')),
+    entity_id INTEGER NOT NULL,
+    action TEXT NOT NULL,
+    description TEXT,
+    changed_fields TEXT,
+    actor TEXT,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at DATETIME
+);
+CREATE INDEX IF NOT EXISTS idx_history_events_entity ON history_events(entity_type, entity_id);

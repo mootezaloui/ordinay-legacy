@@ -1,12 +1,13 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm start)",
-      "Bash(npm run:*)",
-      "Bash(tree:*)",
-      "Bash(find:*)",
-      "Bash(grep:*)",
-      "Bash(npx tsc:*)"
+      "Bash(sqlite3:*)",
+      "Bash(node scripts/migrate_notifications_add_type.js:*)",
+      "Bash(node scripts/check_notifications_schema.js:*)",
+      "Bash(node scripts/rebuild_notifications_table.js:*)",
+      "Bash(echo:*)",
+      "Bash(node -e \"\nconst Database = require\\(''better-sqlite3''\\);\nconst db = new Database\\(''organia.db''\\);\nconst result = db.prepare\\(''DELETE FROM notifications''\\).run\\(\\);\nconsole.log\\(''✅ Cleared'', result.changes, ''old notifications''\\);\nconsole.log\\(''✅ Scheduler will regenerate them with correct template_key format''\\);\ndb.close\\(\\);\n\")",
+      "Bash(node -e:*)"
     ]
   }
 }
