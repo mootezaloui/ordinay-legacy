@@ -966,8 +966,35 @@
         "details": "Description: {{description}}\nAmount: {{amount}}",
         "detailsWithDueDate": "Description: {{description}}\nAmount: {{amount}}\nDue Date: {{dueDate}}",
         "detailsWithBalance": "Description: {{description}}\nAmount: {{amount}}\nClient Balance After Entry: {{clientBalance}}",
-        "footer": "Please take note of this update."
+      "footer": "Please take note of this update."
+    }
+  }
+  ,
+  "group": {
+    "tasks": {
+      "dueSoon": {
+        "title": "Tasks due soon",
+        "message": "{{count}} tasks due in the next 7 days"
+      }
+    },
+    "missions": {
+      "dueSoon": {
+        "title": "Missions due soon",
+        "message": "{{count}} missions due in the next 7 days"
+      }
+    },
+    "hearings": {
+      "dueSoon": {
+        "title": "Hearings coming up",
+        "message": "{{count}} hearings in the next 7 days"
+      }
+    },
+    "payments": {
+      "dueSoon": {
+        "title": "Payments due soon",
+        "message": "{{count}} payments due in the next 7 days"
       }
     }
   }
+}
 }

@@ -15,6 +15,7 @@ import PersonalTasks from "../Screens/PersonalTasks";
 import Officers from "../Screens/Officers";
 import Accounting from "../Screens/Accounting";
 import ChatBot from "../Screens/ChatBot";
+import Agent from "../Screens/Agent";
 import Profile from "../Screens/Profile";
 import Settings from "../Screens/Settings";
 import NotFound from "../Screens/NotFound";
@@ -175,6 +176,13 @@ export const routes: RouteConfig[] = [
     name: "ChatBot",
     icon: "fas fa-robot",
     label: "ChatBot",
+  },
+  {
+    path: "/agent",
+    component: Agent,
+    name: "Agent",
+    icon: "fas fa-brain",
+    label: "Agent",
   },
   {
     path: "/profile",

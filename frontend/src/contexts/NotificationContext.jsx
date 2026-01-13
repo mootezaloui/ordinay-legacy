@@ -4,6 +4,7 @@ import { useSettings } from "./SettingsContext";
 import * as notificationService from "../services/notificationService";
 import { apiClient } from "../services/api/client";
 import { useSeverityConfig } from "../hooks/useNotificationTranslation";
+import { buildDedupeKey } from "../utils/notificationDedupe";
 
 /**
  * Notification Context
@@ -108,6 +109,13 @@ export function NotificationProvider({ children }) {
       return null;
     }
 
+    const dedupeKey = notification.dedupe_key || notification.dedupeKey || buildDedupeKey({
+      ...notification,
+      entityType: notification.entityType,
+      entityId: notification.entityId,
+      payload: notification.params || notification.payload,
+    });
+
     // Map priority to valid severity (database constraint: info, warning, error)
     const mapPriorityToSeverity = (priority) => {
       const priorityLower = (priority || '').toLowerCase();
@@ -169,26 +177,6 @@ export function NotificationProvider({ children }) {
       const hasEntityId = notification.entityId !== undefined && notification.entityId !== null;
       const hasValidEntityType = mappedEntityType !== null;
 
-      // Check for duplicate notification before creating
-      // Avoid creating duplicate notifications for the same entity
-      // Use template_key for language-neutral deduplication
-      if (hasValidEntityType && hasEntityId) {
-        const templateKey = notification.template_key || notification.templateKey;
-        const existingNotification = notifications.find(n =>
-          n.entityType === mappedEntityType &&
-          n.entityId === notification.entityId &&
-          n.template_key === templateKey &&
-          n.status !== 'archived' &&
-          // Only check unread or notifications from the last 24 hours
-          (!n.read || (new Date() - new Date(n.timestamp)) < 24 * 60 * 60 * 1000)
-        );
-
-        if (existingNotification) {
-          console.log("[NOTIFICATION] Duplicate detected, skipping:", templateKey);
-          return existingNotification.id;
-        }
-      }
-
       // Prepare notification data for API
       // Store template_key and params (language-neutral)
       const notificationData = {
@@ -198,6 +186,7 @@ export function NotificationProvider({ children }) {
         payload: JSON.stringify(notification.params || {}),
         severity: severity,
         status: notification.read === true ? "read" : "unread",
+        dedupe_key: dedupeKey,
       };
 
       if (hasValidEntityType && hasEntityId) {
@@ -212,6 +201,10 @@ export function NotificationProvider({ children }) {
 
       // Create notification via API
       const createdNotification = await notificationService.createNotification(notificationData);
+      if (!createdNotification || !createdNotification.id) {
+        console.log("[NOTIFICATION] Creation suppressed (likely dismissed):", notification);
+        return null;
+      }
 
       // Transform API response to match frontend format
       // Store template_key and params for on-demand translation
@@ -238,6 +231,7 @@ export function NotificationProvider({ children }) {
         entityType: createdNotification.entity_type,
         entityId: createdNotification.entity_id,
         template_key: createdNotification.template_key,
+        dedupe_key: createdNotification.dedupe_key || dedupeKey,
         params: payload,
         icon: notification.icon,
         link: notification.link,
@@ -245,16 +239,11 @@ export function NotificationProvider({ children }) {
         meta: notification.meta,
       };
 
-      // Check if notification already exists in state (by ID)
-      // This handles cases where backend returns existing notification due to dedupe_key constraint
-      const alreadyExists = notifications.some(n => n.id === frontendNotification.id);
-      if (alreadyExists) {
-        console.log("[NOTIFICATION] Notification already in state, skipping:", frontendNotification.id);
-        return frontendNotification.id;
-      }
-
-      console.log("[NOTIFICATION] Adding notification:", frontendNotification);
-      setNotificationsSorted(prev => [frontendNotification, ...prev]);
+      console.log("[NOTIFICATION] Upserting notification:", frontendNotification);
+      setNotificationsSorted(prev => {
+        const filtered = prev.filter(n => n.dedupe_key !== frontendNotification.dedupe_key && n.id !== frontendNotification.id);
+        return [frontendNotification, ...filtered];
+      });
       return frontendNotification.id;
     } catch (error) {
       console.error("[NOTIFICATION] Failed to create notification:", error);
@@ -272,8 +261,12 @@ export function NotificationProvider({ children }) {
         icon: notification.icon,
         link: notification.link,
         type: notification.type || "app",
+        dedupe_key: dedupeKey,
       };
-      setNotificationsSorted(prev => [localNotification, ...prev]);
+      setNotificationsSorted(prev => {
+        const filtered = prev.filter(n => n.dedupe_key !== localNotification.dedupe_key);
+        return [localNotification, ...filtered];
+      });
       return localNotification.id;
     }
   }, [shouldNotify, notifications, setNotificationsSorted]);
@@ -336,6 +329,7 @@ export function NotificationProvider({ children }) {
             entityId: n.entity_id,
             scheduledAt: n.scheduled_at,
             readAt: n.read_at,
+            dedupe_key: n.dedupe_key,
             type: notificationType,
             icon: getIconForEntityType(n.entity_type, n.severity),
             link: getLinkForEntity(n.entity_type, n.entity_id),
@@ -519,33 +513,29 @@ export function NotificationProvider({ children }) {
     }
   }, [notifications, setNotificationsSorted]);
 
-  // Delete notification
+  // Delete notification and persist dismissal (backend handles dedupe suppression)
   const deleteNotification = useCallback(async (notificationId) => {
     try {
-      await notificationService.deleteNotification(notificationId);
+      await notificationService.deleteNotification(notificationId, { user_id: 1 });
       setNotificationsSorted(prev => prev.filter(n => n.id !== notificationId));
     } catch (error) {
       console.error(`Failed to delete notification ${notificationId}:`, error);
-      // Still update locally on error for better UX
       setNotificationsSorted(prev => prev.filter(n => n.id !== notificationId));
     }
   }, [setNotificationsSorted]);
 
   // Clear all notifications (backend + local)
-  const clearAll = useCallback(async () => {
+  // Bulk clear all notifications (backend + local)
+  const clearAll = useCallback(async (options = {}) => {
     try {
-      // Best-effort delete each notification on the backend
-      const ids = notifications.map((n) => n.id).filter(Boolean);
-      if (ids.length > 0) {
-        await Promise.allSettled(ids.map((id) => notificationService.deleteNotification(id)));
-      }
+      await notificationService.clearAllNotifications({ user_id: 1, ...options });
     } catch (error) {
       console.error("Failed to clear notifications on backend:", error);
     } finally {
       setNotificationsSorted([]);
       localStorage.removeItem("organia_notifications");
     }
-  }, [notifications, setNotificationsSorted]);
+  }, [setNotificationsSorted]);
 
   // Get unread count
   const unreadCount = notifications.filter(n => !n.read).length;

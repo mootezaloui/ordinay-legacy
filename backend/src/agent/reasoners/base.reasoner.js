@@ -21,6 +21,10 @@ class BaseReasoner {
     this._notImplemented('analyzeRisks');
   }
 
+  async proposeActions() {
+    this._notImplemented('proposeActions');
+  }
+
   _notImplemented(method) {
     throw new Error(`Reasoner "${this.name}" must implement ${method}().`);
   }

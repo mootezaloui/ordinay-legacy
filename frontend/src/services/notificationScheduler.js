@@ -1,14 +1,5 @@
-﻿/**
- * Notification Scheduler Service
- * Manages automatic generation and scheduling of behavior-driven notifications
- * Integrates with the intelligent rules engine
- *
- * I18N ARCHITECTURE:
- * - NotificationRules return i18n keys (titleKey, messageKey) and params (titleParams, messageParams)
- * - This scheduler translates them at generation time using the t() function
- * - This ensures notifications are language-aware when created
- */
-
+import { apiClient } from "./api/client";
+import { buildDedupeKey } from "../utils/notificationDedupe";
 import {
   generateTaskNotifications,
   generateSessionNotifications,
@@ -25,6 +16,191 @@ import {
 } from "../utils/scheduledNotifications";
 import { resolveEntityLink } from "../utils/notificationTemplates";
 import { evaluateAllRules } from "./notificationRules";
+
+// Helper to check if a notification is dismissed for the user (OWNER, id=1)
+async function isNotificationDismissed(dedupe_key, user_id = 1) {
+  try {
+    const params = new URLSearchParams({ dedupe_key, user_id }).toString();
+    const result = await apiClient.get(`/notifications/dismissed?${params}`);
+    return result.dismissed;
+  } catch (error) {
+    console.error("Failed to check dismissed notification:", error);
+    return false;
+  }
+}
+
+function resolveEntityId(metadata = {}, fallbackId = null) {
+  return (
+    metadata.taskId ??
+    metadata.personalTaskId ??
+    metadata.sessionId ??
+    metadata.missionId ??
+    metadata.financialEntryId ??
+    metadata.dossierId ??
+    metadata.caseId ??
+    fallbackId
+  );
+}
+
+function getStableDedupeKey(entityType, subType, entityId, metadata = {}) {
+  const resolvedId = resolveEntityId(metadata, entityId);
+  if (resolvedId === undefined || resolvedId === null) return null;
+
+  const type = (entityType || "").toLowerCase();
+  if (type === "task" || type === "personaltask") {
+    return `TASK_DEADLINE:${resolvedId}`;
+  }
+  if (type === "mission") {
+    return `MISSION_DEADLINE:${resolvedId}`;
+  }
+  if (type === "session" || type === "case" || type === "dossier") {
+    const sessionId = metadata.sessionId || resolvedId;
+    return sessionId ? `HEARING_DATE:${sessionId}` : null;
+  }
+  if (type === "financial" || type === "payment" || type === "financial_entry" || type === "financialentry") {
+    return `PAYMENT_STATUS:${resolvedId}`;
+  }
+  if (type === "dossier" && subType && subType.toLowerCase().includes("deadline")) {
+    return `DOSSIER_DEADLINE:${resolvedId}`;
+  }
+  return null;
+}
+
+const GROUP_CONFIG = {
+  tasks: {
+    dedupe: "TASKS_DUE_SOON",
+    type: "task",
+    title: "Tasks due soon",
+    message: (count) => `${count} tasks due in the next 7 days`,
+    link: "/tasks?filter=due_soon",
+  },
+  missions: {
+    dedupe: "MISSIONS_DUE_SOON",
+    type: "mission",
+    title: "Missions due soon",
+    message: (count) => `${count} missions due in the next 7 days`,
+    link: "/missions?filter=due_soon",
+  },
+  hearings: {
+    dedupe: "HEARINGS_DUE_SOON",
+    type: "session",
+    title: "Hearings coming up",
+    message: (count) => `${count} hearings in the next 7 days`,
+    link: "/sessions?filter=upcoming",
+  },
+  payments: {
+    dedupe: "PAYMENTS_DUE_SOON",
+    type: "financialEntry",
+    title: "Payments due soon",
+    message: (count) => `${count} payments due in the next 7 days`,
+    link: "/accounting?filter=due_soon",
+  },
+};
+
+function pickGroupCategory(ruleResult = {}) {
+  const type = (ruleResult.entityType || ruleResult.metadata?.entityType || "").toLowerCase();
+  if (type === "task" || type === "personaltask") return "tasks";
+  if (type === "mission") return "missions";
+  if (type === "session" || type === "case" || type === "dossier") return "hearings";
+  if (type === "financial" || type === "payment" || type === "financial_entry" || type === "financialentry") return "payments";
+  return null;
+}
+
+function extractDaysLeft(metadata = {}) {
+  if (metadata.daysLeft !== undefined) return metadata.daysLeft;
+  if (metadata.daysUntil !== undefined) return metadata.daysUntil;
+  if (metadata.daysOverdue !== undefined) return -Math.abs(metadata.daysOverdue);
+  if (metadata.count !== undefined) return metadata.count;
+  return null;
+}
+
+function groupRuleNotifications(ruleNotifications = []) {
+  const individualRules = [];
+  const groupedMap = {
+    tasks: [],
+    missions: [],
+    hearings: [],
+    payments: [],
+  };
+
+  ruleNotifications.forEach((rule) => {
+    const daysLeft = extractDaysLeft(rule.metadata || {});
+    const category = pickGroupCategory(rule);
+    const entityId = resolveEntityId(rule.metadata || {}, rule.entityId);
+    const dueDate =
+      rule.metadata?.dueDate ||
+      rule.metadata?.scheduledDate ||
+      rule.metadata?.deadline ||
+      rule.messageParams?.dueDate ||
+      rule.messageParams?.deadline ||
+      null;
+    const title =
+      rule.messageParams?.taskTitle ||
+      rule.messageParams?.missionTitle ||
+      rule.messageParams?.caseNumber ||
+      rule.messageParams?.dossierNumber ||
+      rule.messageParams?.clientName ||
+      rule.metadata?.entityLabel ||
+      rule.metadata?.entityReference ||
+      rule.metadata?.missionTitle ||
+      rule.metadata?.taskTitle ||
+      `Item ${entityId || ""}`;
+
+    // Group only non-overdue, non-today/tomorrow buckets (>=3 days)
+    if (
+      category &&
+      daysLeft !== null &&
+      daysLeft >= 3 &&
+      entityId !== undefined &&
+      entityId !== null
+    ) {
+      groupedMap[category].push({
+        id: entityId,
+        title,
+        dueDate,
+        daysLeft,
+      });
+    } else {
+      individualRules.push(rule);
+    }
+  });
+
+  const groupedNotifications = Object.entries(groupedMap)
+    .filter(([, items]) => items.length > 0)
+    .map(([category, items]) => {
+      const config = GROUP_CONFIG[category];
+      const count = items.length;
+      return {
+        id: `${config.dedupe}_GROUP`,
+        type: config.type,
+        subType: "dueSoonGroup",
+        priority: "info",
+        severity: "info",
+        template_key: `group.${category}.dueSoon`,
+        title: config.title,
+        message: config.message(count),
+        params: { count, items },
+        dedupe_key: config.dedupe,
+        entityType: config.type,
+        entityId: null,
+        timestamp: new Date().toISOString(),
+        link: config.link,
+        read: false,
+      };
+    });
+
+  return { individualRules, groupedNotifications };
+}
+/**
+ * Notification Scheduler Service
+ * Manages automatic generation and scheduling of behavior-driven notifications
+ * Integrates with the intelligent rules engine
+ *
+ * I18N ARCHITECTURE:
+ * - NotificationRules return i18n keys (titleKey, messageKey) and params (titleParams, messageParams)
+ * - This scheduler translates them at generation time using the t() function
+ * - This ensures notifications are language-aware when created
+ */
 
 /**
  * Notification Scheduler Class
@@ -108,10 +284,9 @@ class NotificationScheduler {
         // Generate task notifications from real tasks
         if (preferences.tasks.enabled) {
           const taskNotifs = generateTaskNotifications(data.tasks || []);
-          const personalTaskNotifs = generateTaskNotifications(
-            data.personalTasks || []
-          );
-          generatedNotifications.push(...taskNotifs, ...personalTaskNotifs);
+          // NOTE: Personal tasks are handled by the rules-based system (PersonalTaskRules)
+          // not by the old generator, so we don't call generateTaskNotifications for them
+          generatedNotifications.push(...taskNotifs);
         }
 
         // Generate session notifications from real sessions
@@ -146,26 +321,60 @@ class NotificationScheduler {
           generatedNotifications.push(...dossierNotifs);
         }
 
-        // Filter out already sent notifications
-        const newNotifications = generatedNotifications.filter(
-          (notif) => !this.sentNotificationIds.has(notif.id)
-        );
+        // Normalize dedupe keys before filtering
+        const normalizedGenerated = generatedNotifications.map((notif) => {
+          const dedupe_key =
+            notif.dedupe_key ||
+            getStableDedupeKey(
+              notif.entityType || notif.type,
+              notif.subType,
+              notif.entityId,
+              notif.metadata || notif.params
+            );
+          return {
+            ...notif,
+            dedupe_key: dedupe_key || buildDedupeKey({ ...notif, sub_type: notif.subType }),
+          };
+        });
 
-        // Send generated notifications
-        if (newNotifications.length > 0) {
-          console.log(
-            `[SCHEDULER] Generated ${newNotifications.length} new notification(s) from real data`
+        // Apply severity gate: only individualize overdue/today/tomorrow
+        const gatedNotifications = normalizedGenerated.filter((notif) => {
+          const daysLeft = notif.metadata?.daysLeft;
+          if (daysLeft === undefined || daysLeft === null) return true;
+          return daysLeft < 3; // 0/1 or overdue; group candidates (>=3) are skipped here
+        });
+
+        // Filter out already sent notifications and dismissed notifications (async)
+        const filterDismissed = async (notif) => {
+          if (this.sentNotificationIds.has(notif.id)) return false;
+          return !(await isNotificationDismissed(notif.dedupe_key, 1));
+        };
+
+        (async () => {
+          const checks = await Promise.all(
+            gatedNotifications.map(filterDismissed)
+          );
+          const newNotifications = gatedNotifications.filter(
+            (_, i) => checks[i]
           );
 
-          newNotifications.forEach((notification) => {
-            if (this.onNotificationGenerated) {
-              this.onNotificationGenerated(notification);
-              this.sentNotificationIds.add(notification.id);
-            }
-          });
-        } else {
-          console.log("[SCHEDULER] No new notifications to send today");
-        }
+          // Send generated notifications
+          if (newNotifications.length > 0) {
+            console.log(
+              `[SCHEDULER] Generated ${newNotifications.length} new notification(s) from real data (after dismissed check)`
+            );
+            newNotifications.forEach((notification) => {
+              if (this.onNotificationGenerated) {
+                this.onNotificationGenerated(notification);
+                this.sentNotificationIds.add(notification.id);
+              }
+            });
+          } else {
+            console.log(
+              "[SCHEDULER] No new notifications to send today (after dismissed check)"
+            );
+          }
+        })();
       } catch (error) {
         console.error(
           "[SCHEDULER] Error generating notifications from real data:",
@@ -180,27 +389,54 @@ class NotificationScheduler {
         entities: this.data,
       });
 
-      if (ruleBasedNotifications.length > 0) {
-        console.log(
-          `[SCHEDULER] Rules engine generated ${ruleBasedNotifications.length} notification(s)`
-        );
+      (async () => {
+        if (ruleBasedNotifications.length > 0) {
+          const { individualRules, groupedNotifications } = groupRuleNotifications(ruleBasedNotifications);
+          const preparedRuleNotifications = [
+            ...individualRules.map((ruleNotif) =>
+              this.generateNotificationFromRule(ruleNotif, now)
+            ),
+            ...groupedNotifications,
+          ];
 
-        ruleBasedNotifications.forEach((ruleNotif) => {
-          const notification = this.generateNotificationFromRule(
-            ruleNotif,
-            now
+          console.log(
+            `[SCHEDULER] Rules engine generated ${preparedRuleNotifications.length} notification(s) after grouping`
           );
 
-          if (
-            notification &&
-            this.onNotificationGenerated &&
-            !this.sentNotificationIds.has(notification.id)
-          ) {
-            this.onNotificationGenerated(notification);
-            this.sentNotificationIds.add(notification.id);
-          }
-        });
-      }
+          const ruleChecks = await Promise.all(
+            preparedRuleNotifications.map(async (notification) => {
+              const dedupe_key =
+                notification.dedupe_key ||
+                getStableDedupeKey(
+                  notification.entityType || notification.type,
+                  notification.subType,
+                  notification.entityId,
+                  notification.metadata || notification.params
+                ) ||
+                buildDedupeKey({
+                  ...notification,
+                  sub_type: notification.subType,
+                });
+              return !(await isNotificationDismissed(dedupe_key, 1));
+            })
+          );
+
+          const filteredRuleNotifications = preparedRuleNotifications.filter(
+            (_, idx) => ruleChecks[idx]
+          );
+
+          filteredRuleNotifications.forEach((notification) => {
+            if (
+              notification &&
+              this.onNotificationGenerated &&
+              !this.sentNotificationIds.has(notification.id)
+            ) {
+              this.onNotificationGenerated(notification);
+              this.sentNotificationIds.add(notification.id);
+            }
+          });
+        }
+      })();
     } catch (error) {
       console.error("[SCHEDULER] Error evaluating notification rules:", error);
     }
@@ -217,21 +453,36 @@ class NotificationScheduler {
       );
 
       dueNotifications.forEach((scheduledNotif) => {
-        try {
-          // Generate the actual notification based on the scheduled one
-          const notification =
-            this.generateNotificationFromScheduled(scheduledNotif);
+        (async () => {
+          try {
+            // Generate the actual notification based on the scheduled one
+            const notification =
+              this.generateNotificationFromScheduled(scheduledNotif);
 
-          if (notification && this.onNotificationGenerated) {
-            this.onNotificationGenerated(notification);
+            const dedupe_key =
+              notification &&
+              (notification.dedupe_key ||
+                buildDedupeKey({
+                  ...notification,
+                  sub_type: notification.subType,
+                }));
 
-            // Mark as sent
-            markNotificationAsSent(scheduledNotif.id);
-            scheduledNotif.sent = true;
+            if (
+              notification &&
+              dedupe_key &&
+              this.onNotificationGenerated &&
+              !(await isNotificationDismissed(dedupe_key, 1))
+            ) {
+              this.onNotificationGenerated(notification);
+
+              // Mark as sent
+              markNotificationAsSent(scheduledNotif.id);
+              scheduledNotif.sent = true;
+            }
+          } catch (error) {
+            console.error("Error generating notification:", error);
           }
-        } catch (error) {
-          console.error("Error generating notification:", error);
-        }
+        })();
       });
     }
   }
@@ -244,12 +495,13 @@ class NotificationScheduler {
     // Extract template key from titleKey, removing the .title suffix if present
     // Rules provide keys like "content.session.upcomingHearing.title"
     // We need "content.session.upcomingHearing"
-    let templateKey = ruleResult.titleKey || ruleResult.messageKey || "app.generic";
+    let templateKey =
+      ruleResult.titleKey || ruleResult.messageKey || "app.generic";
 
     // Remove .title or .message suffix if present
-    if (templateKey.endsWith('.title')) {
+    if (templateKey.endsWith(".title")) {
       templateKey = templateKey.slice(0, -6); // Remove ".title"
-    } else if (templateKey.endsWith('.message')) {
+    } else if (templateKey.endsWith(".message")) {
       templateKey = templateKey.slice(0, -8); // Remove ".message"
     }
 
@@ -284,6 +536,13 @@ class NotificationScheduler {
       ruleName: ruleResult.ruleName,
     };
 
+    const dedupe_key = getStableDedupeKey(
+      baseNotification.entityType || baseNotification.type,
+      baseNotification.subType,
+      baseNotification.entityId,
+      ruleResult.metadata
+    );
+
     // Resolve link based on entity type and metadata
     const link = resolveEntityLink(baseNotification.entityType, {
       entityId: baseNotification.entityId,
@@ -292,6 +551,7 @@ class NotificationScheduler {
 
     return {
       ...baseNotification,
+      dedupe_key,
       link,
     };
   }
@@ -390,6 +650,7 @@ class NotificationScheduler {
   getIconForType(type) {
     const iconMap = {
       task: "fas fa-tasks",
+      personalTask: "fas fa-clipboard-check",
       session: "fas fa-gavel",
       payment: "fas fa-dollar-sign",
       financial: "fas fa-dollar-sign",
@@ -494,9 +755,8 @@ class NotificationScheduler {
 
     if (preferences.tasks.enabled) {
       allNotifications.push(...generateTaskNotifications(data.tasks || []));
-      allNotifications.push(
-        ...generateTaskNotifications(data.personalTasks || [])
-      );
+      // NOTE: Personal tasks are handled by the rules-based system (PersonalTaskRules)
+      // not by the old generator
     }
 
     if (preferences.sessions.enabled) {

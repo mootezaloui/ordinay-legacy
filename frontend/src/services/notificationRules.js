@@ -15,6 +15,7 @@
 // Live entities are provided by callers (scheduler/context) via a context object.
 let entities = {
   tasks: [],
+  personalTasks: [],
   sessions: [],
   missions: [],
   dossiers: [],
@@ -26,6 +27,8 @@ let entities = {
 const loadEntities = (context = {}) => {
   entities = {
     tasks: context.entities?.tasks || context.tasks || [],
+    personalTasks:
+      context.entities?.personalTasks || context.personalTasks || [],
     sessions: context.entities?.sessions || context.sessions || [],
     missions: context.entities?.missions || context.missions || [],
     dossiers: context.entities?.dossiers || context.dossiers || [],
@@ -380,7 +383,7 @@ export const PersonalTaskRules = {
     const daysLeft = calculateDaysDifference(dueDate);
 
     // Check if deadline has passed (1+ day ago)
-    if (daysLeft < -1) {
+    if (daysLeft < 0) {
       const daysPastDeadline = Math.abs(daysLeft);
       const priorityWeight = getPriorityWeight(personalTask.priority);
 

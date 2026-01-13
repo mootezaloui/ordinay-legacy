@@ -1,3 +1,13 @@
+-- Track dismissed notifications per user (prevents re-generation)
+CREATE TABLE IF NOT EXISTS dismissed_notifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    dedupe_key TEXT NOT NULL,
+    dismissed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, dedupe_key)
+);
+CREATE INDEX IF NOT EXISTS idx_dismissed_notifications_user ON dismissed_notifications(user_id);
+CREATE INDEX IF NOT EXISTS idx_dismissed_notifications_dedupe ON dismissed_notifications(dedupe_key);
 PRAGMA foreign_keys = ON;
 
 -- Core entities

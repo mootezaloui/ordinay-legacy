@@ -1,3 +1,7 @@
+import { apiClient } from "./api/client";
+
+const ENDPOINT = "/notifications";
+
 /**
  * notificationService.js
  *
@@ -5,9 +9,36 @@
  * Connects to backend /api/notifications endpoints
  */
 
-import { apiClient } from './api/client';
-
-const ENDPOINT = '/notifications';
+/**
+ * Dismiss a notification for a user (persist dedupe_key)
+ * @param {string} dedupe_key
+ * @param {number} user_id
+ * @returns {Promise<void>}
+ */
+export async function dismissNotification(dedupe_key, user_id = 1) {
+  try {
+    await apiClient.post(`${ENDPOINT}/dismiss`, { dedupe_key, user_id });
+  } catch (error) {
+    console.error("Error dismissing notification:", error);
+    throw error;
+  }
+}
+/**
+ * Bulk clear all notifications for the current user (optionally by entity_type/entity_id)
+ * @param {Object} [options] - Optional filter (entity_type, entity_id)
+ * @returns {Promise<number>} Number of notifications cleared
+ */
+export async function clearAllNotifications(options = {}) {
+  try {
+    const params = new URLSearchParams(options).toString();
+    const url = params ? `${ENDPOINT}?${params}` : ENDPOINT;
+    const result = await apiClient.delete(url);
+    return result.cleared;
+  } catch (error) {
+    console.error("Error clearing all notifications:", error);
+    throw error;
+  }
+}
 
 /**
  * Fetch all notifications
@@ -18,7 +49,7 @@ export async function fetchNotifications() {
     const data = await apiClient.get(ENDPOINT);
     return data;
   } catch (error) {
-    console.error('Error fetching notifications:', error);
+    console.error("Error fetching notifications:", error);
     throw error;
   }
 }
@@ -55,7 +86,7 @@ export async function createNotification(data) {
     const result = await apiClient.post(ENDPOINT, data);
     return result;
   } catch (error) {
-    console.error('Error creating notification:', error);
+    console.error("Error creating notification:", error);
     throw error;
   }
 }
@@ -81,9 +112,11 @@ export async function updateNotification(id, data) {
  * @param {number} id - Notification ID
  * @returns {Promise<void>}
  */
-export async function deleteNotification(id) {
+export async function deleteNotification(id, options = {}) {
   try {
-    await apiClient.delete(`${ENDPOINT}/${id}`);
+    const params = new URLSearchParams(options).toString();
+    const url = params ? `${ENDPOINT}/${id}?${params}` : `${ENDPOINT}/${id}`;
+    await apiClient.delete(url);
   } catch (error) {
     console.error(`Error deleting notification ${id}:`, error);
     throw error;
@@ -98,7 +131,7 @@ export async function deleteNotification(id) {
 export async function markAsRead(id) {
   try {
     const data = await apiClient.put(`${ENDPOINT}/${id}`, {
-      status: 'read',
+      status: "read",
       read_at: new Date().toISOString(),
     });
     return data;
@@ -115,16 +148,16 @@ export async function markAsRead(id) {
  */
 export async function markAllAsRead(notificationIds) {
   try {
-    const promises = notificationIds.map(id =>
+    const promises = notificationIds.map((id) =>
       apiClient.put(`${ENDPOINT}/${id}`, {
-        status: 'read',
+        status: "read",
         read_at: new Date().toISOString(),
       })
     );
     const results = await Promise.all(promises);
     return results;
   } catch (error) {
-    console.error('Error marking all notifications as read:', error);
+    console.error("Error marking all notifications as read:", error);
     throw error;
   }
 }
@@ -137,7 +170,7 @@ export async function markAllAsRead(notificationIds) {
 export async function archiveNotification(id) {
   try {
     const data = await apiClient.put(`${ENDPOINT}/${id}`, {
-      status: 'archived',
+      status: "archived",
     });
     return data;
   } catch (error) {

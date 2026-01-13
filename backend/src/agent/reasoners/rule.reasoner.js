@@ -8,161 +8,219 @@ class RuleReasoner extends BaseReasoner {
   }
 
   async explain({ message, context = {} }) {
-    const timestamp = new Date().toISOString();
-    const entityId = this._stringOrDefault(context.entityId, 'unknown');
-    const entityType = this._stringOrDefault(context.entityType, 'general');
-    const summary = `Explanation of ${entityType} ${entityId} based on provided context.`;
-
-    const details = this._buildDetailLines(message, context);
-    const sources = this._buildSources(entityId, context);
+    const entityId = this._requireString(context.entityId, 'entityId');
+    const entityType = this._requireString(context.entityType, 'entityType');
+    const status = this._requireString(context.status, 'status');
+    const owner = this._stringOrDefault(context.owner, 'unassigned');
+    const lastUpdated = this._stringOrDefault(context.lastUpdated, 'unspecified');
+    const timestamp = this._now();
 
     return {
       type: 'explanation',
       entityId,
       entityType,
-      summary,
-      details,
+      summary: `State overview for ${entityType} ${entityId}.`,
+      details: [
+        `Status: ${status}.`,
+        `Owner: ${owner}.`,
+        `Last updated: ${lastUpdated}.`,
+        `Request recorded for audit: ${message}`,
+      ],
       timestamp,
       confidence: 1,
-      sources,
+      sources: this._buildSources(entityId, context),
       status: 'draft',
+      source: 'rule-based',
+      requires_validation: true,
     };
   }
 
   async summarize({ message, context = {} }) {
-    const timestamp = new Date().toISOString();
-    const sessionId = this._stringOrDefault(context.sessionId, 'unspecified-session');
+    const sessionId = this._requireString(context.sessionId, 'sessionId');
     const audience = this._stringOrDefault(context.audience, 'internal');
-    const agenda = Array.isArray(context.agenda) ? context.agenda : [];
+    const agenda = this._requireNonEmptyArray(context.agenda, 'agenda');
+    const timestamp = this._now();
 
-    const summary = `Session ${sessionId} summary for ${audience} consumption.`;
-    const detailLines = agenda.length
-      ? agenda.map((item, index) => `Agenda item ${index + 1}: ${item}`)
-      : [
-          'No agenda items supplied; using request message for context anchoring.',
-          `Request message: ${message}`,
-        ];
-
-    const sources = this._buildSources(sessionId, context);
+    const detailLines = agenda.map((item, index) => `Agenda item ${index + 1}: ${item}`);
 
     return {
       type: 'explanation',
       entityId: sessionId,
       entityType: 'session',
-      summary,
+      summary: `Session ${sessionId} summary for ${audience}.`,
       details: detailLines,
       timestamp,
       confidence: 1,
-      sources,
+      sources: this._buildSources(sessionId, { ...context, origin: context.origin || 'session_summary' }),
       status: 'draft',
+      source: 'rule-based',
+      requires_validation: true,
     };
   }
 
-  async draft({ message, context = {}, draftType = 'generic' }) {
-    const timestamp = new Date().toISOString();
-    const audience = this._stringOrDefault(context.audience, 'client');
-    const subject = this._deriveSubject(draftType, context);
-    const tone = this._stringOrDefault(context.tone, 'formal');
-    const sensitivity = this._stringOrDefault(context.sensitivity, 'medium');
-
-    const bodyParts = [
-      `Dear ${this._stringOrDefault(context.recipientName, 'recipient')},`,
-      '',
-      this._bodyLead(draftType, context, message),
-      '',
-      'Please confirm the details above or provide corrections in writing.',
-      '',
-      'Kind regards,',
-      this._stringOrDefault(context.senderName, 'Organia Team'),
-    ];
-
-    const placeholders = this._collectPlaceholders(context, draftType);
-    const assumptions = this._collectAssumptions(context);
-    const contextReferences = this._collectContextReferences(context);
-
-    return {
-      type: 'draft',
-      draftType,
-      subject,
-      body: bodyParts.join('\n'),
-      audience,
-      tone,
-      sensitivity,
-      placeholders,
-      assumptions,
-      contextReferences,
-      timestamp,
-    };
+  async draft({ context = {}, draftType = 'generic' }) {
+    if (draftType === 'invitation') {
+      return this._draftInvitation(context);
+    }
+    if (draftType === 'client_email') {
+      return this._draftClientEmail(context);
+    }
+    throw this._error(`Unsupported draft type: ${draftType}`, 400);
   }
 
-  async analyzeRisks({ context = {}, message }) {
-    const timestamp = new Date().toISOString();
-    const scope = this._stringOrDefault(context.scope, 'agent_operation');
-    const owner = this._stringOrDefault(context.owner, 'agent_guardrail');
-    const baselineNote = 'Deterministic rule-based analysis; execution paths are disabled.';
+  async analyzeRisks({ context = {} }) {
+    const scope = this._requireString(context.scope, 'scope');
+    const concerns = this._requireNonEmptyArray(context.concerns, 'concerns');
+    const timestamp = this._now();
 
-    const risks = [
-      {
-        id: 'risk-1',
-        title: 'Context insufficiency',
-        category: 'operational',
-        severity: 'medium',
-        likelihood: 'possible',
-        impact: 'Outputs may omit critical case details when context is sparse.',
-        mitigation: 'Require structured context fields before producing actionable guidance.',
-        owner,
-        status: 'open',
-        residualRisk: 'Low after manual review by operator.',
-        notes: [baselineNote],
-      },
-      {
-        id: 'risk-2',
-        title: 'Execution guardrails',
-        category: 'compliance',
-        severity: 'low',
-        likelihood: 'unlikely',
-        impact: 'Unapproved actions could be inferred as supported.',
-        mitigation: 'Keep execution flags disabled and surface policy stance in responses.',
-        owner,
-        status: 'monitor',
-        residualRisk: 'Minimal while execution remains off.',
-        notes: [`Request message anchored: ${message}`],
-      },
-    ];
+    const risks = concerns.map((concern, index) => ({
+      id: `OP-${index + 1}`,
+      title: concern,
+      category: this._mapConcernToCategory(concern),
+      severity: 'medium',
+      likelihood: 'possible',
+      impact: 'Operational disruption if unaddressed.',
+      mitigation: 'Document clear owner, timeframe, and verification steps.',
+      owner: this._stringOrDefault(context.owner, 'operations_control'),
+      status: 'open',
+      residualRisk: 'Pending review',
+      notes: ['Rule-based operational risk analysis only.'],
+    }));
 
     return {
       type: 'risk_analysis',
       scope,
-      overallAssessment: 'Controlled: deterministic reasoning with strict policy enforcement.',
+      overallAssessment: 'Operational risks identified; requires manual validation.',
       risks,
       recommendations: [
-        'Maintain manual oversight for any downstream actions.',
-        'Verify context completeness before acting on outputs.',
+        'Assign accountable owner for each risk and capture acceptance or mitigation.',
+        'Schedule follow-up review to confirm mitigations are applied.',
       ],
       timestamp,
+      source: 'rule-based',
+      status: 'draft',
+      requires_validation: true,
     };
   }
 
-  _stringOrDefault(value, fallback) {
-    return typeof value === 'string' && value.trim() ? value : fallback;
+  async proposeActions({ context = {} }) {
+    const scope = this._requireString(context.scope, 'scope');
+    const objective = this._requireString(context.objective, 'objective');
+    const observations = this._requireNonEmptyArray(context.observations, 'observations');
+    const timestamp = this._now();
+
+    const actions = observations.map((observation, index) => ({
+      id: `ACT-${index + 1}`,
+      title: `Action for: ${observation}`,
+      description: `Address observation: ${observation} with a documented next step.`,
+      rationale: `Observation ${observation} impacts objective: ${objective}.`,
+      priority: 'medium',
+      status: 'proposed',
+      requires_review: true,
+      risksAddressed: [observation],
+      dependencies: [],
+      owner: this._stringOrDefault(context.owner, 'operations_owner'),
+    }));
+
+    return {
+      type: 'action_plan',
+      scope,
+      objective,
+      constraints: Array.isArray(context.constraints) ? context.constraints : [],
+      contextReferences: this._collectContextReferences(context),
+      actions,
+      timestamp,
+      source: 'rule-based',
+      status: 'draft',
+      requires_validation: true,
+    };
   }
 
-  _buildDetailLines(message, context) {
-    const details = [];
-    if (context.status) {
-      details.push(`Status: ${context.status}.`);
-    }
-    if (context.owner) {
-      details.push(`Owner: ${context.owner}.`);
-    }
-    if (context.lastUpdated) {
-      details.push(`Last updated: ${context.lastUpdated}.`);
-    }
-    if (!details.length) {
-      details.push('No explicit state fields provided; defaulting to request-driven summary.');
-    }
-    details.push(`Request message: ${message}`);
-    return details;
+  _draftInvitation(context) {
+    const eventName = this._requireString(context.eventName, 'eventName');
+    const eventDate = this._requireString(context.eventDate, 'eventDate');
+    const location = this._requireString(context.location, 'location');
+    const recipientName = this._requireString(context.recipientName, 'recipientName');
+    const senderName = this._requireString(context.senderName, 'senderName');
+    const audience = this._stringOrDefault(context.audience, 'client');
+    const timestamp = this._now();
+
+    const subject = `Invitation: ${eventName}`;
+    const body = [
+      `Dear ${recipientName},`,
+      '',
+      `You are invited to ${eventName} on ${eventDate} at ${location}.`,
+      `Purpose: ${this._stringOrDefault(context.purpose, 'Review current matter status and next decisions.')}`,
+      `Requested preparation: ${this._stringOrDefault(
+        context.preparation,
+        'Review relevant documents and confirm availability.'
+      )}`,
+      '',
+      'Please confirm attendance and advise of any constraints.',
+      '',
+      `Regards,`,
+      senderName,
+    ].join('\n');
+
+    return {
+      type: 'draft',
+      draftType: 'invitation',
+      subject,
+      body,
+      audience,
+      tone: 'formal',
+      sensitivity: 'medium',
+      placeholders: ['{{recipient_name}}', '{{event_datetime}}', '{{location}}', '{{response_deadline}}'],
+      assumptions: this._collectAssumptions(context),
+      contextReferences: this._collectContextReferences(context),
+      timestamp,
+      source: 'rule-based',
+      status: 'draft',
+      requires_validation: true,
+    };
+  }
+
+  _draftClientEmail(context) {
+    const caseId = this._requireString(context.caseId, 'caseId');
+    const updateSummary = this._requireString(context.updateSummary, 'updateSummary');
+    const recipientName = this._requireString(context.recipientName, 'recipientName');
+    const senderName = this._requireString(context.senderName, 'senderName');
+    const audience = this._stringOrDefault(context.audience, 'client');
+    const timestamp = this._now();
+
+    const subject = `Case ${caseId} - Client Update`;
+    const body = [
+      `Dear ${recipientName},`,
+      '',
+      `We are providing an update on case ${caseId}.`,
+      `Summary: ${updateSummary}`,
+      `Open items: ${this._stringOrDefault(
+        context.openItems,
+        'Please confirm if any additional documents or clarifications are needed.'
+      )}`,
+      '',
+      'No commitments or filings have been executed with this communication.',
+      '',
+      `Regards,`,
+      senderName,
+    ].join('\n');
+
+    return {
+      type: 'draft',
+      draftType: 'client_email',
+      subject,
+      body,
+      audience,
+      tone: 'formal',
+      sensitivity: 'medium',
+      placeholders: ['{{recipient_name}}', '{{case_reference}}', '{{meeting_time}}'],
+      assumptions: this._collectAssumptions(context),
+      contextReferences: this._collectContextReferences({ ...context, caseId }),
+      timestamp,
+      source: 'rule-based',
+      status: 'draft',
+      requires_validation: true,
+    };
   }
 
   _buildSources(entityId, context) {
@@ -185,63 +243,28 @@ class RuleReasoner extends BaseReasoner {
     return sources;
   }
 
-  _deriveSubject(draftType, context) {
-    if (draftType === 'invitation') {
-      const event = this._stringOrDefault(context.eventName, 'Meeting');
-      return `${event} invitation`;
+  _mapConcernToCategory(concern) {
+    const text = (concern || '').toLowerCase();
+    if (text.includes('data') || text.includes('record')) {
+      return 'data_handling';
     }
-    if (draftType === 'client_email') {
-      const caseId = this._stringOrDefault(context.caseId, 'your matter');
-      return `Update regarding ${caseId}`;
+    if (text.includes('access') || text.includes('permission')) {
+      return 'access_control';
     }
-    return this._stringOrDefault(context.subject, 'Draft communication');
-  }
-
-  _bodyLead(draftType, context, message) {
-    if (draftType === 'invitation') {
-      const eventDate = this._stringOrDefault(context.eventDate, 'a scheduled meeting');
-      const location = this._stringOrDefault(context.location, 'to be confirmed');
-      return `You are invited to ${eventDate} at ${location}. Agenda: ${this._stringOrDefault(
-        context.agendaOverview,
-        'review current matters'
-      )}.`;
+    if (text.includes('downtime') || text.includes('availability')) {
+      return 'continuity';
     }
-    if (draftType === 'client_email') {
-      const caseId = this._stringOrDefault(context.caseId, 'your matter');
-      const update = this._stringOrDefault(
-        context.update,
-        'We prepared a brief status update based on recent activity.'
-      );
-      return `Regarding ${caseId}: ${update}`;
+    if (text.includes('communication') || text.includes('handoff')) {
+      return 'communication';
     }
-    return this._stringOrDefault(
-      context.bodyLead,
-      `Draft generated from request: ${message}`
-    );
-  }
-
-  _collectPlaceholders(context, draftType) {
-    const basePlaceholders = Array.isArray(context.placeholders) ? context.placeholders : [];
-    const ensured = [...basePlaceholders];
-
-    if (draftType === 'invitation' && !ensured.includes('{{event_datetime}}')) {
-      ensured.push('{{event_datetime}}');
-    }
-    if (draftType === 'client_email' && !ensured.includes('{{case_reference}}')) {
-      ensured.push('{{case_reference}}');
-    }
-    if (!ensured.includes('{{recipient_name}}')) {
-      ensured.push('{{recipient_name}}');
-    }
-
-    return ensured;
+    return 'process_integrity';
   }
 
   _collectAssumptions(context) {
-    if (Array.isArray(context.assumptions)) {
+    if (Array.isArray(context.assumptions) && context.assumptions.length) {
       return context.assumptions;
     }
-    return ['All data provided is pre-vetted and non-confidential.'];
+    return ['Content is a draft and requires legal review before sharing.'];
   }
 
   _collectContextReferences(context) {
@@ -255,7 +278,38 @@ class RuleReasoner extends BaseReasoner {
     if (context.sessionId) {
       refs.push(`session:${context.sessionId}`);
     }
+    if (context.eventName) {
+      refs.push(`event:${context.eventName}`);
+    }
     return refs;
+  }
+
+  _requireString(value, fieldName) {
+    if (typeof value !== 'string' || !value.trim()) {
+      throw this._error(`Missing required context: ${fieldName}`, 400);
+    }
+    return value.trim();
+  }
+
+  _requireNonEmptyArray(value, fieldName) {
+    if (!Array.isArray(value) || value.length === 0) {
+      throw this._error(`Missing required list: ${fieldName}`, 400);
+    }
+    return value;
+  }
+
+  _stringOrDefault(value, fallback) {
+    return typeof value === 'string' && value.trim() ? value.trim() : fallback;
+  }
+
+  _now() {
+    return new Date().toISOString();
+  }
+
+  _error(message, status = 400) {
+    const err = new Error(message);
+    err.status = status;
+    return err;
   }
 }
 

@@ -40,6 +40,14 @@ class ApiLLMReasoner extends BaseReasoner {
       overallAssessment: `${base.overallAssessment} External API integrations are disabled.`,
     };
   }
+
+  async proposeActions(params) {
+    const base = await this.fallback.proposeActions(params);
+    return {
+      ...base,
+      objective: `${base.objective} (API LLM stub - no external call)`,
+    };
+  }
 }
 
 module.exports = ApiLLMReasoner;

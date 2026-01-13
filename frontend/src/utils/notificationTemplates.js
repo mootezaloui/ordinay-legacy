@@ -32,6 +32,14 @@ export function resolveEntityLink(entityType, context = {}) {
         : ctx.entityId
         ? `/tasks/${ctx.entityId}`
         : null,
+    personalTask: (ctx) =>
+      ctx.taskId
+        ? `/personal-tasks/${ctx.taskId}`
+        : ctx.personalTaskId
+        ? `/personal-tasks/${ctx.personalTaskId}`
+        : ctx.entityId
+        ? `/personal-tasks/${ctx.entityId}`
+        : null,
     session: (ctx) =>
       ctx.sessionId
         ? `/sessions/${ctx.sessionId}`

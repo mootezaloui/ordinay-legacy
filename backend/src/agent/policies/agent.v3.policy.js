@@ -1,13 +1,16 @@
 'use strict';
 
+const { INTENTS } = require('../intents');
+
 const agentV3Policy = {
   version: 'v3',
   allowedIntents: [
-    'EXPLAIN_ENTITY_STATE',
-    'SUMMARIZE_SESSION',
-    'ANALYZE_OPERATIONAL_RISKS',
-    'DRAFT_INVITATION',
-    'DRAFT_CLIENT_EMAIL',
+    INTENTS.EXPLAIN_ENTITY_STATE,
+    INTENTS.SUMMARIZE_SESSION,
+    INTENTS.ANALYZE_OPERATIONAL_RISKS,
+    INTENTS.DRAFT_INVITATION,
+    INTENTS.DRAFT_CLIENT_EMAIL,
+    INTENTS.PROPOSE_ACTIONS,
   ],
   allowedToolCategories: ['read', 'analysis', 'draft', 'execute'],
   allowExecution: true,

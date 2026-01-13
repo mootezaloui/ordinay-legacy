@@ -114,6 +114,7 @@ export function SettingsProvider({ children }) {
     const normalized = type.toLowerCase();
     const prefsKeyMap = {
       task: "tasks",
+      personaltask: "personalTasks",
       deadline: "tasks",
       session: "sessions",
       hearing: "sessions",

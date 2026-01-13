@@ -1,12 +1,14 @@
 'use strict';
 
+const { INTENTS } = require('../intents');
+
 const agentV1Policy = {
   version: 'v1',
   allowedIntents: [
-    'EXPLAIN_ENTITY_STATE',
-    'SUMMARIZE_SESSION',
-    'DRAFT_INVITATION',
-    'DRAFT_CLIENT_EMAIL',
+    INTENTS.EXPLAIN_ENTITY_STATE,
+    INTENTS.SUMMARIZE_SESSION,
+    INTENTS.DRAFT_INVITATION,
+    INTENTS.DRAFT_CLIENT_EMAIL,
   ],
   allowedToolCategories: ['read', 'analysis', 'draft'],
   allowExecution: false,

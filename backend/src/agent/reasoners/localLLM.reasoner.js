@@ -40,6 +40,14 @@ class LocalLLMReasoner extends BaseReasoner {
       overallAssessment: `${base.overallAssessment} Local LLM is stubbed; no model calls were made.`,
     };
   }
+
+  async proposeActions(params) {
+    const base = await this.fallback.proposeActions(params);
+    return {
+      ...base,
+      objective: `${base.objective} (simulated local LLM reasoning)`,
+    };
+  }
 }
 
 module.exports = LocalLLMReasoner;

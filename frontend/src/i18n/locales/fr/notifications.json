@@ -969,5 +969,31 @@
         "footer": "Veuillez prendre note de cette mise à jour."
       }
     }
+  },
+  "group": {
+    "tasks": {
+      "dueSoon": {
+        "title": "Tâches à venir",
+        "message": "{{count}} tâches dues dans les 7 prochains jours"
+      }
+    },
+    "missions": {
+      "dueSoon": {
+        "title": "Missions à venir",
+        "message": "{{count}} missions dues dans les 7 prochains jours"
+      }
+    },
+    "hearings": {
+      "dueSoon": {
+        "title": "Audiences à venir",
+        "message": "{{count}} audiences dans les 7 prochains jours"
+      }
+    },
+    "payments": {
+      "dueSoon": {
+        "title": "Paiements à venir",
+        "message": "{{count}} paiements dus dans les 7 prochains jours"
+      }
+    }
   }
 }

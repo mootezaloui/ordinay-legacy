@@ -200,8 +200,8 @@ export const createPersonalTaskConfig = (t) => ({
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <span className={`px-3 py-1 rounded-full text-sm font-medium flex items-center gap-2 ${priority.bg} ${priority.text}`}>
-                <i className={priority.icon}></i>
+              <span className={`px-3 py-1 rounded-full text-sm font-medium flex items-center gap-2 ${priority?.bg || "bg-slate-200 dark:bg-slate-700"} ${priority?.text || "text-slate-800 dark:text-slate-300"}`}>
+                <i className={priority?.icon || "fas fa-flag"}></i>
                 {translatePriority(data.priority, t, "personalTasks")}
               </span>
               <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(data.status)}`}>

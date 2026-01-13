@@ -79,6 +79,26 @@ function initialize() {
     db.exec(schema);
   }
 
+  // Ensure dismissed_notifications exists even on older DBs (no migration needed)
+  const hasDismissed = db
+    .prepare(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='dismissed_notifications'"
+    )
+    .get();
+  if (!hasDismissed) {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS dismissed_notifications (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        dedupe_key TEXT NOT NULL,
+        dismissed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, dedupe_key)
+      );
+      CREATE INDEX IF NOT EXISTS idx_dismissed_notifications_user ON dismissed_notifications(user_id);
+      CREATE INDEX IF NOT EXISTS idx_dismissed_notifications_dedupe ON dismissed_notifications(dedupe_key);
+    `);
+  }
+
   // Apply pending migrations (idempotent via PRAGMA user_version)
   applyMigrations(db);
 

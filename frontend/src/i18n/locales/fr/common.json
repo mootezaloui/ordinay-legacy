@@ -40,7 +40,8 @@
       "title": "Événements à Venir ({{count}})",
       "empty": "Aucun événement à venir programmé.",
       "time": {
-        "inHours": "dans {{count}} heure(s)"
+        "inHours": "dans {{count}} heure(s)",
+        "soon": "bientôt"
       }
     },
     "workload": {

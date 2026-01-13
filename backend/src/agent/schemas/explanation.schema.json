@@ -10,7 +10,10 @@
     "summary",
     "details",
     "timestamp",
-    "sources"
+    "sources",
+    "source",
+    "requires_validation",
+    "status"
   ],
   "properties": {
     "type": {
@@ -44,6 +47,14 @@
       "type": "number",
       "minimum": 0,
       "maximum": 1
+    },
+    "source": {
+      "type": "string",
+      "const": "rule-based"
+    },
+    "requires_validation": {
+      "type": "boolean",
+      "const": true
     },
     "sources": {
       "type": "array",

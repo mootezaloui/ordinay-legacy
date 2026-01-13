@@ -39,7 +39,8 @@
       "title": "Upcoming Events ({{count}})",
       "empty": "No upcoming events scheduled.",
       "time": {
-        "inHours": "in {{count}} hour(s)"
+        "inHours": "in {{count}} hour(s)",
+        "soon": "soon"
       }
     },
     "workload": {
