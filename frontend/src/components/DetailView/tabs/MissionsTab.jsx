@@ -843,7 +843,7 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
   const statusCounts = useMemo(() => {
     return {
       all: missions.length,
-      Scheduled: missions.filter((m) => m.status === "Scheduled").length,
+      Planned: missions.filter((m) => m.status === "Planned").length,
       "In Progress": missions.filter((m) => m.status === "In Progress").length,
       Completed: missions.filter((m) => m.status === "Completed").length,
       Cancelled: missions.filter((m) => m.status === "Cancelled").length,
@@ -952,13 +952,13 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
               {t("filter.all", { ns: "missions", count: statusCounts.all })}
             </button>
             <button
-              onClick={() => setFilterStatus("Scheduled")}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap ${filterStatus === "Scheduled"
+              onClick={() => setFilterStatus("Planned")}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap ${filterStatus === "Planned"
                 ? "bg-blue-600 text-white"
                 : "bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600"
                 }`}
             >
-              {t("filter.scheduled", { ns: "missions", count: statusCounts.Scheduled })}
+              {t("filter.planned", { ns: "missions", count: statusCounts.Planned })}
             </button>
             <button
               onClick={() => setFilterStatus("In Progress")}

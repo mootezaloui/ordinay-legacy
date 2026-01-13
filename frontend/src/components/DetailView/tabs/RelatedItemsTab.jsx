@@ -4,8 +4,10 @@ import { useToast } from "../../../contexts/ToastContext";
 import { useConfirm } from "../../../contexts/ConfirmContext";
 import ContentSection from "../../layout/ContentSection";
 import FormModal from "../../FormModal/FormModal";
+
 import { resolveDetailRoute } from "../../../utils/routeResolver";
 import { useTranslation } from "react-i18next";
+import { getStatusColor } from "../config/statusColors";
 
 /**
  * RelatedItems Tab - Enhanced with dynamic field options
@@ -289,20 +291,7 @@ export default function RelatedItemsTab({ data, config, tabConfig, onItemsChange
                       </span>
                     )}
 
-                    {/* Edit Button */}
-                    {tabConfig.allowEdit !== false && (
-                      <button
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          handleModalOpen(item);
-                        }}
-                        className="p-2 hover:bg-blue-100 dark:hover:bg-blue-900/20 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
-                        title={t("actions.edit")}
-                      >
-                        <i className="fas fa-pen text-blue-600 dark:text-blue-300 text-sm"></i>
-                      </button>
-                    )}
+
 
                     {/* Delete Button */}
                     {tabConfig.allowDelete !== false && (
@@ -362,8 +351,8 @@ export default function RelatedItemsTab({ data, config, tabConfig, onItemsChange
           // ✅ Pass formData state handlers for dynamic updates
           formData={formData}
           onFormDataChange={setFormData}
-            initialData={editingItem || undefined}
-          />
+          initialData={editingItem || undefined}
+        />
       )}
     </>
   );

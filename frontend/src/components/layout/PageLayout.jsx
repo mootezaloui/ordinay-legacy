@@ -12,21 +12,20 @@ export default function PageLayout({ children }) {
   const { isCollapsed } = useSidebar();
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
+    <div className="min-h-full w-full h-full">
       {/* Fixed Sidebar */}
       <Sidebar />
 
       {/* Main content with dynamic left margin based on sidebar state */}
       <div
-        className={`transition-all duration-300 ${isCollapsed ? "ml-20" : "ml-64"
-          }`}
+        className={`transition-all duration-300 ${isCollapsed ? "ml-20" : "ml-64"}`}
       >
         {/* Header */}
         <HeaderBar />
 
         {/* Content Area */}
-        <main className="p-4 sm:p-6 lg:p-8">
-          <div className="w-full mx-auto">
+        <main className="p-4 sm:p-6 lg:p-8 min-h-full w-full">
+          <div className="w-full min-h-full">
             {children}
           </div>
         </main>

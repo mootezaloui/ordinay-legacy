@@ -337,27 +337,27 @@ export default function NotificationCenter() {
               return (
                 <div
                   key={notification.id}
-                  className="py-4 flex items-start gap-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 px-3 rounded-lg transition-colors"
+                  className="py-6 flex items-start gap-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 px-3 rounded-lg transition-colors"
                 >
-                  <div className={`w-10 h-10 rounded-full ${getIconBackground(notification.priority)} flex items-center justify-center`}>
-                    <i className={`${notification.icon || "fas fa-bell"} ${badge.text} text-lg`}></i>
+                  <div className={`w-12 h-12 rounded-full ${getIconBackground(notification.priority)} flex items-center justify-center flex-shrink-0`}>
+                    <i className={`${notification.icon || "fas fa-bell"} ${badge.text} text-xl`}></i>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <p className="text-sm font-semibold text-slate-900 dark:text-white">{notification.title}</p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1" dangerouslySetInnerHTML={{ __html: renderHighlightedMessage(notification.message, notification.type) }}></p>
-                        <div className="flex items-center gap-2 mt-2">
-                          <span className={`text-[11px] px-2 py-1 rounded-full ${badge.bg} ${badge.text}`}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 space-y-2">
+                        <p className="text-base font-semibold text-slate-900 dark:text-white leading-snug">{notification.title}</p>
+                        <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed" dangerouslySetInnerHTML={{ __html: renderHighlightedMessage(notification.message, notification.type) }}></p>
+                        <div className="flex items-center gap-3 mt-3">
+                          <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${badge.bg} ${badge.text}`}>
                             {badge.label}
                           </span>
-                          <span className="text-xs text-slate-500 dark:text-slate-400">
+                          <span className="text-sm text-slate-500 dark:text-slate-400">
                             {formatTimestamp(notification.timestamp)}
                           </span>
                           {notification.link && (
                             <button
                               onClick={() => handleNotificationClick(notification)}
-                              className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                              className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline"
                             >
                               {t("center.actions.viewDetails")}
                             </button>

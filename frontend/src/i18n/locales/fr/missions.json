@@ -5,6 +5,7 @@
   },
   "filter": {
     "all": "Toutes ({{count}})",
+    "planned": "Planifiées ({{count}})",
     "scheduled": "Planifiées ({{count}})",
     "inProgress": "En cours ({{count}})",
     "completed": "Terminées ({{count}})",

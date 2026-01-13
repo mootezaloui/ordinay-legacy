@@ -152,6 +152,14 @@ export default function Accounting() {
       .slice(0, 10);
   }, [displayEntries]);
 
+  const statusBadgeStyles = {
+    draft: { color: "amber", icon: "fas fa-hourglass-half" },
+    confirmed: { color: "blue", icon: "fas fa-check-circle" },
+    paid: { color: "emerald", icon: "fas fa-check-double" },
+    cancelled: { color: "red", icon: "fas fa-ban" },
+    default: { color: "slate", icon: "fas fa-info-circle" },
+  };
+
   useEffect(() => {
     if (financialEntries && Array.isArray(financialEntries)) {
       setRefreshKey((k) => k + 1);
@@ -958,21 +966,35 @@ export default function Accounting() {
           <div className="p-6">
             <div className="space-y-3">
               {priorityItems.slice(0, 5).map((entry) => {
-                const isDraft = entry.status === "draft";
+                const statusMeta =
+                  statusBadgeStyles[entry.status] || statusBadgeStyles.default;
+                const statusLabel =
+                  statusLabelMap[entry.status] || entry.statusLabel;
+                const statusHint = t(
+                  `priority.statusHints.${entry.status}`,
+                  {
+                    defaultValue:
+                      entry.status === "draft"
+                        ? "Needs confirmation"
+                        : entry.status === "confirmed"
+                          ? "Awaiting payment or reconciliation"
+                          : entry.status === "paid"
+                            ? "Paid"
+                            : entry.status === "cancelled"
+                              ? "Cancelled entry"
+                              : "",
+                  }
+                );
                 return (
                   <div
                     key={entry.id}
-                    className={`p-4 rounded-lg border cursor-pointer transition-colors ${isDraft
-                      ? "border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20"
-                      : "border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-900/20"
-                      }`}
+                    className={`p-4 rounded-lg border cursor-pointer transition-colors border-${statusMeta.color}-200 bg-${statusMeta.color}-50 dark:border-${statusMeta.color}-800 dark:bg-${statusMeta.color}-900/20`}
                     onClick={() => handleView(entry)}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3 flex-1 min-w-0">
                         <div
-                          className={`w-3 h-3 rounded-full flex-shrink-0 ${isDraft ? "bg-amber-500" : "bg-blue-500"
-                            }`}
+                          className={`w-3 h-3 rounded-full flex-shrink-0 bg-${statusMeta.color}-500`}
                         />
                         <div className="min-w-0 flex-1">
                           <div
@@ -1003,7 +1025,7 @@ export default function Accounting() {
                           </div>
                         </div>
                       </div>
-                      <div className="text-right">
+                      <div className="text-right space-y-2">
                         <div
                           className={`font-semibold ${entry.type === "revenue"
                             ? "text-emerald-600 dark:text-emerald-400"
@@ -1012,10 +1034,18 @@ export default function Accounting() {
                         >
                           {entry.amountWithSign}
                         </div>
-                        <div
-                          className={`text-xs px-2 py-1 rounded-full inline-block bg-${entry.statusColor}-100 text-${entry.statusColor}-800 dark:bg-${entry.statusColor}-900/30 dark:text-${entry.statusColor}-300`}
-                        >
-                          {statusLabelMap[entry.status] || entry.statusLabel}
+                        <div className="flex justify-end">
+                          <div
+                            className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-${statusMeta.color}-100 text-${statusMeta.color}-800 dark:bg-${statusMeta.color}-900/30 dark:text-${statusMeta.color}-200`}
+                          >
+                            <i className={`${statusMeta.icon} text-[11px]`} />
+                            <span>{statusLabel}</span>
+                            {statusHint && (
+                              <span className="text-[11px] font-normal opacity-80">
+                                • {statusHint}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
