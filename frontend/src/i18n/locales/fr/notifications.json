@@ -570,6 +570,34 @@
         "title_other": "Tâche personnelle due dans {{count}} jours",
         "message_one": "\"{{taskTitle}}\" est planifiée dans {{count}} jour. Réservez du temps.",
         "message_other": "\"{{taskTitle}}\" est planifiée dans {{count}} jours. Réservez du temps."
+      },
+      {
+        "tone": "gentle",
+        "title_one": "Petit rappel : {{count}} jour restant",
+        "title_other": "Petit rappel : {{count}} jours restants",
+        "message_one": "Juste un mot : \"{{taskTitle}}\" est à échéance dans {{count}} jour.",
+        "message_other": "Juste un mot : \"{{taskTitle}}\" est à échéance dans {{count}} jours."
+      },
+      {
+        "tone": "casual",
+        "title_one": "Info rapide — J-{{count}}",
+        "title_other": "Info rapide — J-{{count}}",
+        "message_one": "Hey ! \"{{taskTitle}}\" est à rendre dans {{count}} jour. Tu gères.",
+        "message_other": "Hey ! \"{{taskTitle}}\" est à rendre dans {{count}} jours. Tu gères."
+      },
+      {
+        "tone": "focused",
+        "title_one": "J-{{count}} : tâche perso",
+        "title_other": "J-{{count}} : tâche perso",
+        "message_one": "\"{{taskTitle}}\" à rendre dans {{count}} jour. Garde le rythme.",
+        "message_other": "\"{{taskTitle}}\" à rendre dans {{count}} jours. Garde le rythme."
+      },
+      {
+        "tone": "minimal",
+        "title_one": "⚠️ J-{{count}}",
+        "title_other": "⚠️ J-{{count}}",
+        "message_one": "\"{{taskTitle}}\" • échéance dans {{count}} jour",
+        "message_other": "\"{{taskTitle}}\" • échéance dans {{count}} jours"
       }
     ],
     "content.personalTask.completionReminder": [
@@ -864,6 +892,34 @@
         "title_other": "Client inactif depuis {{count}} jours",
         "message_one": "\"{{clientName}}\" n'a eu aucune activité depuis {{count}} jour. Décidez d'archiver ou d'engager.",
         "message_other": "\"{{clientName}}\" n'a eu aucune activité depuis {{count}} jours. Décidez d'archiver ou d'engager."
+      },
+      {
+        "tone": "gentle",
+        "title_one": "Petit rappel : {{count}} jour sans activité",
+        "title_other": "Petit rappel : {{count}} jours sans activité",
+        "message_one": "Aucune activité pour \"{{clientName}}\" depuis {{count}} jour. Un petit check-in ?",
+        "message_other": "Aucune activité pour \"{{clientName}}\" depuis {{count}} jours. Un petit check-in ?"
+      },
+      {
+        "tone": "casual",
+        "title_one": "Relance rapide ? {{count}} jour calme",
+        "title_other": "Relance rapide ? {{count}} jours calmes",
+        "message_one": "\"{{clientName}}\" est silencieux depuis {{count}} jour. On relance ?",
+        "message_other": "\"{{clientName}}\" est silencieux depuis {{count}} jours. On relance ?"
+      },
+      {
+        "tone": "focused",
+        "title_one": "Vérifiez client inactif ({{count}} jour)",
+        "title_other": "Vérifiez client inactif ({{count}} jours)",
+        "message_one": "Revoir \"{{clientName}}\" - aucune activité depuis {{count}} jour.",
+        "message_other": "Revoir \"{{clientName}}\" - aucune activité depuis {{count}} jours."
+      },
+      {
+        "tone": "minimal",
+        "title_one": "Inactif {{count}}j",
+        "title_other": "Inactif {{count}}j",
+        "message_one": "\"{{clientName}}\" - aucune activité {{count}} jour",
+        "message_other": "\"{{clientName}}\" - aucune activité {{count}} jours"
       }
     ]
   },

@@ -570,6 +570,34 @@
         "title_other": "Personal task due in {{count}} days",
         "message_one": "\"{{taskTitle}}\" is scheduled in {{count}} day. Set aside time.",
         "message_other": "\"{{taskTitle}}\" is scheduled in {{count}} days. Set aside time."
+      },
+      {
+        "tone": "gentle",
+        "title_one": "Gentle reminder: {{count}} day left",
+        "title_other": "Gentle reminder: {{count}} days left",
+        "message_one": "Just a heads-up: \"{{taskTitle}}\" is due in {{count}} day.",
+        "message_other": "Just a heads-up: \"{{taskTitle}}\" is due in {{count}} days."
+      },
+      {
+        "tone": "casual",
+        "title_one": "Heads up — {{count}} day to go",
+        "title_other": "Heads up — {{count}} days to go",
+        "message_one": "Hey! \"{{taskTitle}}\" is due in {{count}} day. You got this.",
+        "message_other": "Hey! \"{{taskTitle}}\" is due in {{count}} days. You got this."
+      },
+      {
+        "tone": "focused",
+        "title_one": "J-{{count}}: Personal task",
+        "title_other": "J-{{count}}: Personal task",
+        "message_one": "\"{{taskTitle}}\" due in {{count}} day. Keep momentum.",
+        "message_other": "\"{{taskTitle}}\" due in {{count}} days. Keep momentum."
+      },
+      {
+        "tone": "minimal",
+        "title_one": "⚠️ J-{{count}}",
+        "title_other": "⚠️ J-{{count}}",
+        "message_one": "\"{{taskTitle}}\" • due in {{count}} day",
+        "message_other": "\"{{taskTitle}}\" • due in {{count}} days"
       }
     ],
     "content.personalTask.completionReminder": [
@@ -864,6 +892,34 @@
         "title_other": "Client inactive for {{count}} days",
         "message_one": "\"{{clientName}}\" has seen no activity for {{count}} day. Decide whether to archive or engage.",
         "message_other": "\"{{clientName}}\" has seen no activity for {{count}} days. Decide whether to archive or engage."
+      },
+      {
+        "tone": "gentle",
+        "title_one": "Gentle reminder: {{count}} day inactive",
+        "title_other": "Gentle reminder: {{count}} days inactive",
+        "message_one": "No activity for \"{{clientName}}\" in {{count}} day. Consider a quick check-in.",
+        "message_other": "No activity for \"{{clientName}}\" in {{count}} days. Consider a quick check-in."
+      },
+      {
+        "tone": "casual",
+        "title_one": "Quick ping? {{count}} day quiet",
+        "title_other": "Quick ping? {{count}} days quiet",
+        "message_one": "\"{{clientName}}\" has been quiet for {{count}} day. Want to follow up?",
+        "message_other": "\"{{clientName}}\" has been quiet for {{count}} days. Want to follow up?"
+      },
+      {
+        "tone": "focused",
+        "title_one": "Review inactive client ({{count}} day)",
+        "title_other": "Review inactive client ({{count}} days)",
+        "message_one": "Review \"{{clientName}}\" - no activity for {{count}} day.",
+        "message_other": "Review \"{{clientName}}\" - no activity for {{count}} days."
+      },
+      {
+        "tone": "minimal",
+        "title_one": "Inactive {{count}}d",
+        "title_other": "Inactive {{count}}d",
+        "message_one": "\"{{clientName}}\" - no activity {{count}} day",
+        "message_other": "\"{{clientName}}\" - no activity {{count}} days"
       }
     ]
   },

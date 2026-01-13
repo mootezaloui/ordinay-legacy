@@ -1,4 +1,5 @@
 ﻿import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { useRef } from "react";
 import { logHistoryEvent, EVENT_TYPES, deleteEntityHistory } from "../services/historyService";
 import { canPerformAction } from "../services/domainRules";
 import { useToast } from "./ToastContext";
@@ -287,6 +288,8 @@ export function DataProvider({ children }) {
   const { showToast } = useToast();
   const { t } = useTranslation("common");
   const { operator } = useOperator();
+  const showToastRef = useRef(showToast);
+  const tRef = useRef(t);
 
   // Get operator name for history attribution
   const actorName = operator?.name || null;
@@ -305,6 +308,14 @@ export function DataProvider({ children }) {
   const [reconciled, setReconciled] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState(null);
+
+  useEffect(() => {
+    showToastRef.current = showToast;
+  }, [showToast]);
+
+  useEffect(() => {
+    tRef.current = t;
+  }, [t]);
 
   // Read-only fetch from backend (clients -> dossiers -> cases -> tasks -> sessions -> officers -> missions -> financial)
   useEffect(() => {
@@ -442,7 +453,7 @@ export function DataProvider({ children }) {
         if (cancelled) return;
         console.error("[DataContext] API load failed", error);
         setLoadError(error.message || "Loading Error");
-        showToast(t("data.toast.error.loadRemote"), "error");
+        showToastRef.current(tRef.current("data.toast.error.loadRemote"), "error");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -452,7 +463,7 @@ export function DataProvider({ children }) {
     return () => {
       cancelled = true;
     };
-  }, [showToast]);
+  }, []);
 
   // --- Clients ---
   const addClient = async (client) => {

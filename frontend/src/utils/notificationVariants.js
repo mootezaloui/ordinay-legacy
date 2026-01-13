@@ -92,6 +92,20 @@ const translatePart = (
       ? { ...params, count: fallbackParams.count }
       : params;
 
+  if (
+    Array.isArray(variants) &&
+    variants.length > 0 &&
+    variantIndex !== null &&
+    variantIndex !== undefined
+  ) {
+    const variant = variants[variantIndex];
+    const tail = getKeyTail(fullKey, baseKey);
+    const variantValue = resolveVariantValue(variant, tail, mergedParams);
+    if (variantValue) {
+      return variantValue;
+    }
+  }
+
   // Try direct translation with pluralization support
   const translationPath = `notifications:${fullKey}`;
   const translatedValue = t(translationPath, { ...mergedParams, defaultValue: "" });

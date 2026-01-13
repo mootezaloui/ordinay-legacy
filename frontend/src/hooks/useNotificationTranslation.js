@@ -13,6 +13,7 @@
 import { useTranslation } from "react-i18next";
 import { useMemo } from "react";
 import { formatDateLocalized } from "../utils/dateFormat";
+import { translateNotificationCopy } from "../utils/notificationVariants";
 
 /**
  * Format date parameters in notification params
@@ -77,13 +78,40 @@ export function useNotificationTranslation(notification) {
     // Format date params with current language
     const formattedParams = formatDateParams(params, i18n.language);
 
-    // Translate title and message using template key
-    // Template key format: "templates.clientAdded" or "content.task.overdue"
     const titleKey = `${templateKey}.title`;
     const messageKey = `${templateKey}.message`;
+    const paramSeed = [
+      formattedParams.taskTitle,
+      formattedParams.missionTitle,
+      formattedParams.sessionTitle,
+      formattedParams.caseNumber,
+      formattedParams.dossierNumber,
+      formattedParams.clientName,
+      formattedParams.title,
+      formattedParams.reference,
+    ]
+      .filter(Boolean)
+      .join("|");
 
-    const title = t(titleKey, { ...formattedParams, defaultValue: t("center.notification") });
-    const message = t(messageKey, { ...formattedParams, defaultValue: "" });
+    const seedParts = [
+      notification.dedupe_key || notification.dedupeKey || notification.id,
+      notification.entityType,
+      notification.entityId,
+      templateKey,
+      paramSeed,
+    ].filter(Boolean);
+
+    const copy = translateNotificationCopy({
+      titleKey,
+      messageKey,
+      titleParams: formattedParams,
+      messageParams: formattedParams,
+      seedParts,
+      timestamp: notification.timestamp,
+    });
+
+    const title = copy.title || t("center.notification");
+    const message = copy.message || "";
 
     return {
       ...notification,
@@ -126,9 +154,38 @@ export function useNotificationListTranslation(notifications) {
 
       const titleKey = `${templateKey}.title`;
       const messageKey = `${templateKey}.message`;
+      const paramSeed = [
+        formattedParams.taskTitle,
+        formattedParams.missionTitle,
+        formattedParams.sessionTitle,
+        formattedParams.caseNumber,
+        formattedParams.dossierNumber,
+        formattedParams.clientName,
+        formattedParams.title,
+        formattedParams.reference,
+      ]
+        .filter(Boolean)
+        .join("|");
 
-      const title = t(titleKey, { ...formattedParams, defaultValue: t("center.notification") });
-      const message = t(messageKey, { ...formattedParams, defaultValue: "" });
+      const seedParts = [
+        notification.dedupe_key || notification.dedupeKey || notification.id,
+        notification.entityType,
+        notification.entityId,
+        templateKey,
+        paramSeed,
+      ].filter(Boolean);
+
+      const copy = translateNotificationCopy({
+        titleKey,
+        messageKey,
+        titleParams: formattedParams,
+        messageParams: formattedParams,
+        seedParts,
+        timestamp: notification.timestamp,
+      });
+
+      const title = copy.title || t("center.notification");
+      const message = copy.message || "";
 
       return {
         ...notification,
