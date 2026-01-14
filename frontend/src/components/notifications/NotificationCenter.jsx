@@ -9,6 +9,8 @@ import ContentSection from "../layout/ContentSection";
 import { useTranslation } from "react-i18next";
 import { NotificationTypes, VALID_NOTIFICATION_TYPES } from "../../constants/notificationTypes";
 import { useNotificationListTranslation } from "../../hooks/useNotificationTranslation";
+import { useData } from "../../contexts/DataContext";
+import { useToast } from "../../contexts/ToastContext";
 
 /**
  * NotificationCenter Page
@@ -19,6 +21,8 @@ export default function NotificationCenter() {
   const { confirm } = useConfirm();
   const { formatDate, formatDateTime } = useSettings();
   const { t } = useTranslation("notifications");
+  const { showToast } = useToast();
+  const { clients, updateClient, dossiers, updateDossier, tasks, updateTask, sessions, updateSession } = useData();
   const {
     notifications,
     unreadCount,
@@ -58,6 +62,432 @@ export default function NotificationCenter() {
     if (notification.link) {
       navigate(notification.link);
     }
+  };
+
+  const isClientInactiveNotification = (notification) =>
+    notification?.entityType === "client" &&
+    (notification?.subType === "inActiveClient" ||
+      notification?.template_key === "content.client.inActive");
+
+  const isDossierInactiveNotification = (notification) =>
+    notification?.entityType === "dossier" &&
+    (notification?.subType === "inactivityReminder" ||
+      notification?.template_key === "content.dossier.inactivityReminder");
+
+  const isHearingNotification = (notification) =>
+    notification?.entityType === "session" &&
+    (
+      [
+        "upcomingHearing",
+        "participantReminder",
+        "hearingToday",
+        "today",
+        "tomorrow",
+        "preparation",
+      ].includes(notification?.subType) ||
+      [
+        "content.session.upcomingHearing",
+        "content.session.participantReminder",
+        "content.session.hearingToday",
+        "content.session.today",
+        "content.session.todayNoTime",
+        "content.session.tomorrow",
+        "content.session.preparation",
+      ].includes(notification?.template_key)
+    );
+
+  const isParticipantReminderNotification = (notification) =>
+    notification?.entityType === "session" &&
+    (notification?.subType === "participantReminder" ||
+      notification?.template_key === "content.session.participantReminder");
+
+  const isTaskDeadlineNotification = (notification) =>
+    notification?.entityType === "task" &&
+    (
+      [
+        "overdue",
+        "dueToday",
+        "upcoming",
+        "upcomingDeadline",
+        "statusCheck",
+      ].includes(notification?.subType) ||
+      [
+        "content.task.overdue",
+        "content.task.dueToday",
+        "content.task.upcomingDeadline",
+        "content.task.statusCheck",
+      ].includes(notification?.template_key)
+    );
+
+  const normalizeStatus = (status) =>
+    (status || "").toString().trim().toLowerCase();
+
+  const isTaskDoneStatus = (status) =>
+    ["done", "completed", "terminee", "termine", "terminée"].includes(normalizeStatus(status));
+
+  const isTaskCancelledStatus = (status) =>
+    ["cancelled", "canceled", "annule", "annulee", "annulée"].includes(normalizeStatus(status));
+
+  const isSessionCompletedStatus = (status) =>
+    ["completed", "terminee", "termine", "terminée"].includes(normalizeStatus(status));
+
+  const isSessionCancelledStatus = (status) =>
+    ["cancelled", "canceled", "annule", "annulee", "annulée"].includes(normalizeStatus(status));
+
+  const extractParticipantEmails = (participants) => {
+    const emails = new Set();
+    const emailRegex = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i;
+
+    const addEmail = (value) => {
+      if (!value || typeof value !== "string") return;
+      const match = value.match(emailRegex);
+      if (match) {
+        emails.add(match[0]);
+      }
+    };
+
+    if (Array.isArray(participants)) {
+      participants.forEach((participant) => {
+        if (typeof participant === "string") {
+          addEmail(participant);
+          return;
+        }
+        if (participant && typeof participant === "object") {
+          addEmail(participant.email);
+          addEmail(participant.email_address);
+          addEmail(participant.emailAddress);
+        }
+      });
+    } else if (typeof participants === "string") {
+      addEmail(participants);
+    }
+
+    return Array.from(emails);
+  };
+
+  const handleMarkClientInactive = async (notification, event) => {
+    event.stopPropagation();
+
+    const clientId = notification?.entityId;
+    if (!clientId) return;
+
+    const client = clients.find((item) => item.id === clientId);
+    const clientName =
+      notification?.params?.clientName || client?.name || t("center.types.client");
+
+    if (client?.status === "inActive" || client?.status === "Inactive") {
+      showToast(t("center.actions.markInactive.alreadyInactive", { clientName }), "info");
+      return;
+    }
+
+    const confirmed = await confirm({
+      title: t("center.actions.markInactive.title"),
+      message: t("center.actions.markInactive.message", { clientName }),
+      confirmText: t("center.actions.markInactive.confirm"),
+      cancelText: t("center.actions.markInactive.cancel"),
+      variant: "warning",
+    });
+
+    if (!confirmed) return;
+
+    const result = await updateClient(clientId, { status: "inActive" });
+    if (result?.ok === false) {
+      showToast(t("center.actions.markInactive.failed", { clientName }), "error");
+      return;
+    }
+
+    markAsRead(notification.id);
+    deleteNotification(notification.id);
+    showToast(t("center.actions.markInactive.success", { clientName }), "success");
+  };
+
+  const handleMarkDossierOnHold = async (notification, event) => {
+    event.stopPropagation();
+
+    const dossierId = notification?.entityId;
+    if (!dossierId) return;
+
+    const dossier = dossiers.find((item) => item.id === dossierId);
+    const dossierNumber =
+      notification?.params?.dossierNumber ||
+      dossier?.caseNumber ||
+      dossier?.reference ||
+      dossier?.title ||
+      t("center.types.dossier");
+
+    if (dossier?.status === "on_hold") {
+      showToast(
+        t("center.actions.markDossierOnHold.alreadyOnHold", { dossierNumber }),
+        "info"
+      );
+      return;
+    }
+    if (dossier?.status === "closed") {
+      showToast(
+        t("center.actions.markDossierOnHold.alreadyClosed", { dossierNumber }),
+        "info"
+      );
+      return;
+    }
+
+    const confirmed = await confirm({
+      title: t("center.actions.markDossierOnHold.title"),
+      message: t("center.actions.markDossierOnHold.message", { dossierNumber }),
+      confirmText: t("center.actions.markDossierOnHold.confirm"),
+      cancelText: t("center.actions.markDossierOnHold.cancel"),
+      variant: "warning",
+    });
+
+    if (!confirmed) return;
+
+    const result = await updateDossier(dossierId, { status: "on_hold" });
+    if (result?.ok === false) {
+      showToast(
+        t("center.actions.markDossierOnHold.failed", { dossierNumber }),
+        "error"
+      );
+      return;
+    }
+
+    markAsRead(notification.id);
+    deleteNotification(notification.id);
+    showToast(
+      t("center.actions.markDossierOnHold.success", { dossierNumber }),
+      "success"
+    );
+  };
+
+  const handleMarkTaskDone = async (notification, event) => {
+    event.stopPropagation();
+
+    const taskId = notification?.entityId;
+    if (!taskId) return;
+
+    const task = tasks.find((item) => item.id === taskId);
+    const taskTitle =
+      notification?.params?.taskTitle || task?.title || t("center.types.task");
+
+    if (isTaskDoneStatus(task?.status)) {
+      showToast(t("center.actions.markTaskDone.alreadyDone", { taskTitle }), "info");
+      return;
+    }
+    if (isTaskCancelledStatus(task?.status)) {
+      showToast(t("center.actions.markTaskDone.alreadyCancelled", { taskTitle }), "info");
+      return;
+    }
+
+    const confirmed = await confirm({
+      title: t("center.actions.markTaskDone.title"),
+      message: t("center.actions.markTaskDone.message", { taskTitle }),
+      confirmText: t("center.actions.markTaskDone.confirm"),
+      cancelText: t("center.actions.markTaskDone.cancel"),
+      variant: "warning",
+    });
+
+    if (!confirmed) return;
+
+    const result = await updateTask(taskId, {
+      status: "done",
+      completedAt: new Date().toISOString(),
+    });
+    if (result?.ok === false) {
+      showToast(t("center.actions.markTaskDone.failed", { taskTitle }), "error");
+      return;
+    }
+
+    markAsRead(notification.id);
+    deleteNotification(notification.id);
+    showToast(t("center.actions.markTaskDone.success", { taskTitle }), "success");
+  };
+
+  const handleMarkTaskCancelled = async (notification, event) => {
+    event.stopPropagation();
+
+    const taskId = notification?.entityId;
+    if (!taskId) return;
+
+    const task = tasks.find((item) => item.id === taskId);
+    const taskTitle =
+      notification?.params?.taskTitle || task?.title || t("center.types.task");
+
+    if (isTaskCancelledStatus(task?.status)) {
+      showToast(t("center.actions.markTaskCancelled.alreadyCancelled", { taskTitle }), "info");
+      return;
+    }
+    if (isTaskDoneStatus(task?.status)) {
+      showToast(t("center.actions.markTaskCancelled.alreadyDone", { taskTitle }), "info");
+      return;
+    }
+
+    const confirmed = await confirm({
+      title: t("center.actions.markTaskCancelled.title"),
+      message: t("center.actions.markTaskCancelled.message", { taskTitle }),
+      confirmText: t("center.actions.markTaskCancelled.confirm"),
+      cancelText: t("center.actions.markTaskCancelled.cancel"),
+      variant: "warning",
+    });
+
+    if (!confirmed) return;
+
+    const result = await updateTask(taskId, { status: "cancelled" });
+    if (result?.ok === false) {
+      showToast(t("center.actions.markTaskCancelled.failed", { taskTitle }), "error");
+      return;
+    }
+
+    markAsRead(notification.id);
+    deleteNotification(notification.id);
+    showToast(t("center.actions.markTaskCancelled.success", { taskTitle }), "success");
+  };
+
+  const handleMarkSessionCompleted = async (notification, event) => {
+    event.stopPropagation();
+
+    const sessionId = notification?.entityId;
+    if (!sessionId) return;
+
+    const session = sessions.find((item) => item.id === sessionId);
+    const sessionTitle =
+      notification?.params?.sessionTitle ||
+      notification?.params?.caseNumber ||
+      session?.title ||
+      t("center.types.session");
+
+    if (isSessionCompletedStatus(session?.status)) {
+      showToast(t("center.actions.markSessionCompleted.alreadyCompleted", { sessionTitle }), "info");
+      return;
+    }
+    if (isSessionCancelledStatus(session?.status)) {
+      showToast(t("center.actions.markSessionCompleted.alreadyCancelled", { sessionTitle }), "info");
+      return;
+    }
+
+    const confirmed = await confirm({
+      title: t("center.actions.markSessionCompleted.title"),
+      message: t("center.actions.markSessionCompleted.message", { sessionTitle }),
+      confirmText: t("center.actions.markSessionCompleted.confirm"),
+      cancelText: t("center.actions.markSessionCompleted.cancel"),
+      variant: "warning",
+    });
+
+    if (!confirmed) return;
+
+    const result = await updateSession(sessionId, { status: "completed" });
+    if (result?.ok === false) {
+      showToast(t("center.actions.markSessionCompleted.failed", { sessionTitle }), "error");
+      return;
+    }
+
+    markAsRead(notification.id);
+    deleteNotification(notification.id);
+    showToast(t("center.actions.markSessionCompleted.success", { sessionTitle }), "success");
+  };
+
+  const handleMarkSessionCancelled = async (notification, event) => {
+    event.stopPropagation();
+
+    const sessionId = notification?.entityId;
+    if (!sessionId) return;
+
+    const session = sessions.find((item) => item.id === sessionId);
+    const sessionTitle =
+      notification?.params?.sessionTitle ||
+      notification?.params?.caseNumber ||
+      session?.title ||
+      t("center.types.session");
+
+    if (isSessionCancelledStatus(session?.status)) {
+      showToast(t("center.actions.markSessionCancelled.alreadyCancelled", { sessionTitle }), "info");
+      return;
+    }
+    if (isSessionCompletedStatus(session?.status)) {
+      showToast(t("center.actions.markSessionCancelled.alreadyCompleted", { sessionTitle }), "info");
+      return;
+    }
+
+    const confirmed = await confirm({
+      title: t("center.actions.markSessionCancelled.title"),
+      message: t("center.actions.markSessionCancelled.message", { sessionTitle }),
+      confirmText: t("center.actions.markSessionCancelled.confirm"),
+      cancelText: t("center.actions.markSessionCancelled.cancel"),
+      variant: "warning",
+    });
+
+    if (!confirmed) return;
+
+    const result = await updateSession(sessionId, { status: "cancelled" });
+    if (result?.ok === false) {
+      showToast(t("center.actions.markSessionCancelled.failed", { sessionTitle }), "error");
+      return;
+    }
+
+    markAsRead(notification.id);
+    deleteNotification(notification.id);
+    showToast(t("center.actions.markSessionCancelled.success", { sessionTitle }), "success");
+  };
+
+  const handleSendParticipantReminder = async (notification, event) => {
+    event.stopPropagation();
+
+    const sessionId = notification?.entityId;
+    const params = notification?.params || {};
+    const session = sessions.find((item) => item.id === sessionId);
+
+    const sessionTitle =
+      params.sessionTitle || session?.title || t("center.types.session");
+    const scheduledDate =
+      params.scheduledDate || session?.scheduled_at || session?.scheduledAt;
+    const dateLabel = scheduledDate ? formatDate(scheduledDate) : "";
+    const timeLabel = params.time || "";
+    const location = params.location || session?.location || "";
+    const courtRoom = params.courtRoom || session?.court_room || session?.courtRoom || "";
+    const sessionType = params.sessionType || session?.session_type || session?.sessionType || "";
+    const participants = params.participants || session?.participants || [];
+    const emails = extractParticipantEmails(participants);
+
+    if (emails.length === 0) {
+      showToast(
+        t("center.actions.sendHearingReminder.noEmails", { sessionTitle }),
+        "error"
+      );
+      return;
+    }
+
+    const confirmed = await confirm({
+      title: t("center.actions.sendHearingReminder.title"),
+      message: t("center.actions.sendHearingReminder.message", {
+        sessionTitle,
+        count: emails.length,
+      }),
+      confirmText: t("center.actions.sendHearingReminder.confirm"),
+      cancelText: t("center.actions.sendHearingReminder.cancel"),
+    });
+    if (!confirmed) return;
+
+    const subject = t("center.actions.sendHearingReminder.emailSubject", {
+      sessionTitle,
+      date: dateLabel,
+      time: timeLabel,
+    });
+    const body = t("center.actions.sendHearingReminder.emailBody", {
+      sessionTitle,
+      date: dateLabel,
+      time: timeLabel,
+      location,
+      courtRoom,
+      sessionType,
+    });
+
+    const mailto = `mailto:${emails.join(",")}?subject=${encodeURIComponent(
+      subject
+    )}&body=${encodeURIComponent(body)}`;
+    window.location.href = mailto;
+
+    showToast(
+      t("center.actions.sendHearingReminder.success", { count: emails.length }),
+      "success"
+    );
+    markAsRead(notification.id);
   };
 
   const formatTimestamp = (timestamp) => {
@@ -334,10 +764,17 @@ export default function NotificationCenter() {
             )}
             {filteredNotifications.map((notification) => {
               const badge = getPriorityBadge(notification.priority);
+              const isClickable = Boolean(notification.link);
+              const showMarkInactive = isClientInactiveNotification(notification);
+              const showMarkDossierOnHold = isDossierInactiveNotification(notification);
+              const showTaskQuickActions = isTaskDeadlineNotification(notification);
+              const showHearingQuickActions = isHearingNotification(notification);
+              const showParticipantReminder = isParticipantReminderNotification(notification);
               return (
                 <div
                   key={notification.id}
-                  className="py-6 flex items-start gap-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 px-3 rounded-lg transition-colors"
+                  onClick={isClickable ? () => handleNotificationClick(notification) : undefined}
+                  className={`py-6 flex items-start gap-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 px-3 rounded-lg transition-colors ${isClickable ? "cursor-pointer" : ""}`}
                 >
                   <div className={`w-12 h-12 rounded-full ${getIconBackground(notification.priority)} flex items-center justify-center flex-shrink-0`}>
                     <i className={`${notification.icon || "fas fa-bell"} ${badge.text} text-xl`}></i>
@@ -354,12 +791,60 @@ export default function NotificationCenter() {
                           <span className="text-sm text-slate-500 dark:text-slate-400">
                             {formatTimestamp(notification.timestamp)}
                           </span>
-                          {notification.link && (
+                          {showMarkInactive && (
                             <button
-                              onClick={() => handleNotificationClick(notification)}
-                              className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline"
+                              onClick={(event) => handleMarkClientInactive(notification, event)}
+                              className="text-sm font-medium text-amber-700 dark:text-amber-300 hover:underline"
                             >
-                              {t("center.actions.viewDetails")}
+                              {t("center.actions.markInactive.label")}
+                            </button>
+                          )}
+                          {showMarkDossierOnHold && (
+                            <button
+                              onClick={(event) => handleMarkDossierOnHold(notification, event)}
+                              className="text-sm font-medium text-amber-700 dark:text-amber-300 hover:underline"
+                            >
+                              {t("center.actions.markDossierOnHold.label")}
+                            </button>
+                          )}
+                          {showTaskQuickActions && (
+                            <>
+                              <button
+                                onClick={(event) => handleMarkTaskDone(notification, event)}
+                                className="text-sm font-medium text-emerald-700 dark:text-emerald-300 hover:underline"
+                              >
+                                {t("center.actions.markTaskDone.label")}
+                              </button>
+                              <button
+                                onClick={(event) => handleMarkTaskCancelled(notification, event)}
+                                className="text-sm font-medium text-rose-700 dark:text-rose-300 hover:underline"
+                              >
+                                {t("center.actions.markTaskCancelled.label")}
+                              </button>
+                            </>
+                          )}
+                          {showHearingQuickActions && (
+                            <>
+                              <button
+                                onClick={(event) => handleMarkSessionCompleted(notification, event)}
+                                className="text-sm font-medium text-emerald-700 dark:text-emerald-300 hover:underline"
+                              >
+                                {t("center.actions.markSessionCompleted.label")}
+                              </button>
+                              <button
+                                onClick={(event) => handleMarkSessionCancelled(notification, event)}
+                                className="text-sm font-medium text-rose-700 dark:text-rose-300 hover:underline"
+                              >
+                                {t("center.actions.markSessionCancelled.label")}
+                              </button>
+                            </>
+                          )}
+                          {showParticipantReminder && (
+                            <button
+                              onClick={(event) => handleSendParticipantReminder(notification, event)}
+                              className="text-sm font-medium text-blue-700 dark:text-blue-300 hover:underline"
+                            >
+                              {t("center.actions.sendHearingReminder.label")}
                             </button>
                           )}
                         </div>
@@ -369,7 +854,10 @@ export default function NotificationCenter() {
                           <span className="w-2 h-2 rounded-full bg-blue-500"></span>
                         )}
                         <button
-                          onClick={() => deleteNotification(notification.id)}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            deleteNotification(notification.id);
+                          }}
                           className="text-slate-400 hover:text-red-500 transition-colors"
                           title={t("center.actions.delete")}
                         >

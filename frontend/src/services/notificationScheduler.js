@@ -3,7 +3,6 @@ import { buildDedupeKey } from "../utils/notificationDedupe";
 import {
   generateTaskNotifications,
   generateSessionNotifications,
-  generatePaymentNotifications,
   generateMissionNotifications,
   generateDossierNotifications,
 } from "../utils/notificationGenerator";
@@ -55,13 +54,18 @@ function getStableDedupeKey(entityType, subType, entityId, metadata = {}) {
   }
   if (type === "session" || type === "case" || type === "dossier") {
     const sessionId = metadata.sessionId || resolvedId;
-    return sessionId ? `HEARING_DATE:${sessionId}` : null;
+    if (!sessionId) return null;
+    const scheduledAt =
+      metadata.scheduledDate ||
+      metadata.scheduled_at ||
+      metadata.date ||
+      metadata.sessionDate ||
+      "";
+    const normalizedSubType = subType || metadata.subType || "";
+    return `HEARING_DATE:${sessionId}:${normalizedSubType}:${scheduledAt}`;
   }
   if (type === "financial" || type === "payment" || type === "financial_entry" || type === "financialentry") {
     return `PAYMENT_STATUS:${resolvedId}`;
-  }
-  if (type === "dossier" && subType && subType.toLowerCase().includes("deadline")) {
-    return `DOSSIER_DEADLINE:${resolvedId}`;
   }
   return null;
 }
@@ -99,10 +103,10 @@ const GROUP_CONFIG = {
 
 function pickGroupCategory(ruleResult = {}) {
   const type = (ruleResult.entityType || ruleResult.metadata?.entityType || "").toLowerCase();
-  if (type === "task" || type === "personaltask") return "tasks";
-  if (type === "mission") return "missions";
-  if (type === "session" || type === "case" || type === "dossier") return "hearings";
-  if (type === "financial" || type === "payment" || type === "financial_entry" || type === "financialentry") return "payments";
+  if (type === "task" || type === "personaltask") return null;
+  if (type === "mission") return null;
+  if (type === "session" || type === "case") return null;
+  if (type === "financial" || type === "payment" || type === "financial_entry" || type === "financialentry") return null;
   return null;
 }
 
@@ -283,7 +287,10 @@ class NotificationScheduler {
       try {
         // Generate task notifications from real tasks
         if (preferences.tasks.enabled) {
-          const taskNotifs = generateTaskNotifications(data.tasks || []);
+          const taskNotifs = generateTaskNotifications(data.tasks || [], {
+            dossiers: data.dossiers || [],
+            cases: data.cases || [],
+          });
           // NOTE: Personal tasks are handled by the rules-based system (PersonalTaskRules)
           // not by the old generator, so we don't call generateTaskNotifications for them
           generatedNotifications.push(...taskNotifs);
@@ -297,13 +304,7 @@ class NotificationScheduler {
           generatedNotifications.push(...sessionNotifs);
         }
 
-        // Generate payment notifications from real financial entries
-        if (preferences.payments.enabled) {
-          const paymentNotifs = generatePaymentNotifications(
-            data.financialEntries || []
-          );
-          generatedNotifications.push(...paymentNotifs);
-        }
+        // Payments are handled by the rules engine (FinancialRules)
 
         // Generate mission notifications from real missions
         if (preferences.missions.enabled) {
@@ -341,6 +342,8 @@ class NotificationScheduler {
         const gatedNotifications = normalizedGenerated.filter((notif) => {
           const daysLeft = notif.metadata?.daysLeft;
           if (daysLeft === undefined || daysLeft === null) return true;
+          const entityType = (notif.entityType || notif.type || "").toLowerCase();
+          if (entityType === "dossier") return true;
           return daysLeft < 3; // 0/1 or overdue; group candidates (>=3) are skipped here
         });
 
@@ -735,10 +738,6 @@ class NotificationScheduler {
         "notifications:content.dossier.inactivityReminder.title",
       review: "notifications:content.dossier.review.title",
       reviewReminder: "notifications:content.dossier.reviewReminder.title",
-      deadlineOverdue: "notifications:content.dossier.deadlineOverdue.title",
-      deadlineToday: "notifications:content.dossier.deadlineToday.title",
-      deadlineUpcoming: "notifications:content.dossier.deadlineUpcoming.title",
-      deadlineWeek: "notifications:content.dossier.deadlineWeek.title",
     };
     const key = titleKeys[subType];
     return key ? t(key, { count: 1 }) : t("notifications:center.types.dossier");
@@ -754,7 +753,10 @@ class NotificationScheduler {
     const allNotifications = [];
 
     if (preferences.tasks.enabled) {
-      allNotifications.push(...generateTaskNotifications(data.tasks || []));
+      allNotifications.push(...generateTaskNotifications(data.tasks || [], {
+        dossiers: data.dossiers || [],
+        cases: data.cases || [],
+      }));
       // NOTE: Personal tasks are handled by the rules-based system (PersonalTaskRules)
       // not by the old generator
     }
@@ -765,11 +767,7 @@ class NotificationScheduler {
       );
     }
 
-    if (preferences.payments.enabled) {
-      allNotifications.push(
-        ...generatePaymentNotifications(data.financialEntries || [])
-      );
-    }
+    // Payments are handled by the rules engine (FinancialRules)
 
     if (preferences.missions.enabled) {
       allNotifications.push(

@@ -21,6 +21,7 @@ let entities = {
   dossiers: [],
   cases: [],
   clients: [],
+  officers: [],
   financialEntries: [],
 };
 
@@ -34,12 +35,21 @@ const loadEntities = (context = {}) => {
     dossiers: context.entities?.dossiers || context.dossiers || [],
     cases: context.entities?.cases || context.cases || [],
     clients: context.entities?.clients || context.clients || [],
+    officers: context.entities?.officers || context.officers || [],
     financialEntries:
       context.entities?.financialEntries || context.financialEntries || [],
   };
 };
 
 const getAllMissions = () => entities.missions || [];
+
+const getVariantIndexFromText = (text) => {
+  if (typeof text !== "string") return null;
+  const match = text.match(/variantIndex\\s*=\\s*(\\d+)/i);
+  if (!match) return null;
+  const value = Number(match[1]);
+  return Number.isFinite(value) ? value : null;
+};
 
 // ============================================
 // CORE UTILITIES
@@ -85,6 +95,56 @@ function wasRecentlyAccessed(entityType, entityId, withinDays = 1) {
   // Placeholder - in production, check actual activity logs
   return false;
 }
+const isTaskClosedStatus = (status) => {
+  const normalized = (status || "").toString().trim().toLowerCase();
+  return [
+    "done",
+    "completed",
+    "cancelled",
+    "canceled",
+    "terminee",
+    "termine",
+    "annule",
+    "annulee",
+  ].includes(normalized);
+};
+
+const resolveTaskParent = (task) => {
+  const dossiers = entities.dossiers || [];
+  const cases = entities.cases || [];
+  const dossierId = task.dossier_id ?? task.dossierId;
+  const caseId = task.case_id ?? task.caseId;
+
+  if (caseId) {
+    const parentCase = cases.find((item) => item.id === caseId);
+    if (parentCase) {
+      return {
+        parentType: "case",
+        parentReference:
+          parentCase.case_number ||
+          parentCase.reference_number ||
+          parentCase.title ||
+          `Case #${parentCase.id}`,
+      };
+    }
+  }
+
+  if (dossierId) {
+    const parentDossier = dossiers.find((item) => item.id === dossierId);
+    if (parentDossier) {
+      return {
+        parentType: "dossier",
+        parentReference:
+          parentDossier.reference ||
+          parentDossier.case_number ||
+          parentDossier.title ||
+          `Dossier #${parentDossier.id}`,
+      };
+    }
+  }
+
+  return null;
+};
 
 /**
  * Get priority weight (for frequency calculation)
@@ -179,7 +239,7 @@ class RuleResult {
 }
 
 // ============================================
-// 1️⃣ TASK-BASED INTELLIGENCE RULES
+// 1∩╕ÅΓâú TASK-BASED INTELLIGENCE RULES
 // ============================================
 
 export const TaskRules = {
@@ -190,12 +250,7 @@ export const TaskRules = {
    */
   overdueReminder(task) {
     const dueDate = task.due_date || task.dueDate;
-    if (
-      !dueDate ||
-      task.status === "Terminée" ||
-      task.status === "Completed" ||
-      task.status === "done"
-    ) {
+    if (!dueDate || isTaskClosedStatus(task.status)) {
       return new RuleResult(false);
     }
 
@@ -204,26 +259,69 @@ export const TaskRules = {
     if (daysLeft < 0) {
       const daysOverdue = Math.abs(daysLeft);
       const priorityWeight = getPriorityWeight(task.priority);
+      const parentInfo = resolveTaskParent(task);
 
       return new RuleResult(true, {
         priority: "urgent",
         frequency: daysOverdue <= 3 ? "daily" : "once",
         subType: "overdue",
         titleKey: "content.task.overdue.title",
-        titleParams: { count: daysOverdue },
+        titleParams: variantIndex !== null ? { count: daysOverdue, variantIndex } : { count: daysOverdue },
         messageKey: "content.task.overdue.message",
-        messageParams: { taskTitle: task.title, count: daysOverdue },
+        messageParams: {
+          taskTitle: task.title,
+          count: daysOverdue,
+          ...(parentInfo || {}),
+        },
         metadata: {
           taskId: task.id,
           taskTitle: task.title,
           daysOverdue,
           priority: task.priority,
           priorityWeight,
+          ...(parentInfo || {}),
         },
       });
     }
 
     return new RuleResult(false);
+  },
+
+  /**
+   * RULE: Due Today Reminder
+   * Triggers: When task is due today
+   */
+  dueToday(task) {
+    const dueDate = task.due_date || task.dueDate;
+    if (!dueDate || isTaskClosedStatus(task.status)) {
+      return new RuleResult(false);
+    }
+
+    const daysLeft = calculateDaysDifference(dueDate);
+    if (daysLeft !== 0) {
+      return new RuleResult(false);
+    }
+
+    const parentInfo = resolveTaskParent(task);
+
+    return new RuleResult(true, {
+      priority: "high",
+      frequency: "once",
+      subType: "dueToday",
+      titleKey: "content.task.dueToday.title",
+      titleParams: variantIndex !== null ? { variantIndex } : {},
+      messageKey: "content.task.dueToday.message",
+      messageParams: {
+        taskTitle: task.title,
+        ...(parentInfo || {}),
+      },
+      metadata: {
+        taskId: task.id,
+        taskTitle: task.title,
+        dueDate,
+        ...(parentInfo || {}),
+      },
+    });
   },
 
   /**
@@ -237,12 +335,7 @@ export const TaskRules = {
    */
   upcomingDeadline(task) {
     const dueDate = task.due_date || task.dueDate;
-    if (
-      !dueDate ||
-      task.status === "Terminée" ||
-      task.status === "Completed" ||
-      task.status === "done"
-    ) {
+    if (!dueDate || isTaskClosedStatus(task.status)) {
       return new RuleResult(false);
     }
 
@@ -273,20 +366,27 @@ export const TaskRules = {
         notificationPriority = priorityWeight >= 3 ? "high" : "medium";
       }
 
+      const parentInfo = resolveTaskParent(task);
       return new RuleResult(true, {
         priority: notificationPriority,
         frequency: "once",
         subType: "upcomingDeadline",
         titleKey: "content.task.upcomingDeadline.title",
-        titleParams: { count: daysLeft },
+        titleParams:
+          variantIndex !== null ? { count: daysLeft, variantIndex } : { count: daysLeft },
         messageKey: "content.task.upcomingDeadline.message",
-        messageParams: { taskTitle: task.title, count: daysLeft },
+        messageParams: {
+          taskTitle: task.title,
+          count: daysLeft,
+          ...(parentInfo || {}),
+        },
         metadata: {
           taskId: task.id,
           taskTitle: task.title,
           daysLeft,
           priority: task.priority,
           priorityWeight,
+          ...(parentInfo || {}),
         },
       });
     }
@@ -296,7 +396,7 @@ export const TaskRules = {
 };
 
 // ============================================
-// 1.5️⃣ PERSONAL TASK RULES
+// 1.5∩╕ÅΓâú PERSONAL TASK RULES
 // ============================================
 
 export const PersonalTaskRules = {
@@ -312,7 +412,7 @@ export const PersonalTaskRules = {
     if (!dueDate) return new RuleResult(false);
 
     // Skip completed/cancelled tasks
-    const completedStatuses = ["done", "cancelled", "Terminée"];
+    const completedStatuses = ["done", "cancelled", "Termin├⌐e"];
     if (completedStatuses.includes(personalTask.status)) {
       return new RuleResult(false);
     }
@@ -347,7 +447,8 @@ export const PersonalTaskRules = {
         frequency: "once",
         subType: "upcomingDeadline",
         titleKey: "content.personalTask.upcomingDeadline.title",
-        titleParams: { count: daysLeft },
+        titleParams:
+          variantIndex !== null ? { count: daysLeft, variantIndex } : { count: daysLeft },
         messageKey: "content.personalTask.upcomingDeadline.message",
         messageParams: { taskTitle: personalTask.title, count: daysLeft },
         metadata: {
@@ -375,7 +476,7 @@ export const PersonalTaskRules = {
     if (!dueDate) return new RuleResult(false);
 
     // Skip completed/cancelled tasks
-    const completedStatuses = ["done", "cancelled", "Terminée"];
+    const completedStatuses = ["done", "cancelled", "Termin├⌐e"];
     if (completedStatuses.includes(personalTask.status)) {
       return new RuleResult(false);
     }
@@ -400,7 +501,7 @@ export const PersonalTaskRules = {
         frequency,
         subType: "completionReminder",
         titleKey: "content.personalTask.completionReminder.title",
-        titleParams: {},
+        titleParams: variantIndex !== null ? { variantIndex } : {},
         messageKey: "content.personalTask.completionReminder.message",
         messageParams: {
           taskTitle: personalTask.title,
@@ -422,7 +523,7 @@ export const PersonalTaskRules = {
 };
 
 // ============================================
-// 2️⃣ SESSION/AUDIENCE LIFECYCLE RULES
+// 2∩╕ÅΓâú SESSION/AUDIENCE LIFECYCLE RULES
 // ============================================
 
 /**
@@ -430,25 +531,25 @@ export const PersonalTaskRules = {
  * Returns an object with: { reference, entityType, entityId, label }
  *
  * Resolution rules:
- * 1. If session has case_id → look up case, return case reference/title + "procès"
- * 2. Else if session has dossier_id → look up dossier, return dossier reference + "dossier"
- * 3. Else if session has title → use session title + "audience"
- * 4. Else → return null (will display as "Audience")
+ * 1. If session has case_id ΓåÆ look up case, return case reference/title + "proc├¿s"
+ * 2. Else if session has dossier_id ΓåÆ look up dossier, return dossier reference + "dossier"
+ * 3. Else if session has title ΓåÆ use session title + "audience"
+ * 4. Else ΓåÆ return null (will display as "Audience")
  */
 function resolveSessionEntity(session, entities) {
   const cases = entities.cases || [];
   const dossiers = entities.dossiers || [];
 
-  // Priority 1: Case (procès)
+  // Priority 1: Case (proc├¿s)
   if (session.case_id) {
     const parentCase = cases.find(c => c.id === session.case_id);
     if (parentCase) {
-      const reference = parentCase.case_number || parentCase.reference || parentCase.reference_number || parentCase.title || `Procès #${parentCase.id}`;
+      const reference = parentCase.case_number || parentCase.reference || parentCase.reference_number || parentCase.title || `Proc├¿s #${parentCase.id}`;
       return {
         reference,
         entityType: 'case',
         entityId: parentCase.id,
-        label: 'procès'
+        label: 'proc├¿s'
       };
     }
   }
@@ -485,6 +586,12 @@ function resolveSessionEntity(session, entities) {
     label: ''
   };
 }
+
+const getSessionTime = (scheduledDate) => {
+  if (!scheduledDate || typeof scheduledDate !== "string") return "";
+  if (!scheduledDate.includes("T")) return "";
+  return scheduledDate.split("T")[1].substring(0, 5);
+};
 
 export const SessionRules = {
   /**
@@ -575,6 +682,8 @@ export const SessionRules = {
       const entityInfo = resolveSessionEntity(session, entities);
       const entityReference = entityInfo ? entityInfo.reference : 'Audience';
       const entityLabel = entityInfo ? entityInfo.label : '';
+      const time = getSessionTime(scheduledDate);
+      const sessionTitle = session.title || entityReference;
 
       return new RuleResult(true, {
         priority: notificationPriority,
@@ -583,7 +692,8 @@ export const SessionRules = {
         entityType: entityInfo?.entityType || 'session',
         entityId: entityInfo?.entityId || session.id,
         titleKey: "content.session.upcomingHearing.title",
-        titleParams: { count: daysLeft },
+        titleParams:
+          variantIndex !== null ? { count: daysLeft, variantIndex } : { count: daysLeft },
         messageKey: session.location
           ? "content.session.upcomingHearing.messageWithLocation"
           : "content.session.upcomingHearing.messageNoLocation",
@@ -591,7 +701,14 @@ export const SessionRules = {
           caseNumber: entityReference,
           entityLabel: entityLabel,
           count: daysLeft,
+          sessionTitle,
+          time,
+          scheduledDate,
+          sessionType: session.session_type || session.sessionType,
+          courtRoom: session.court_room || session.courtRoom,
           location: session.location,
+          participants: session.participants,
+          parentContext: "",
         },
         metadata: {
           sessionId: session.id,
@@ -600,15 +717,115 @@ export const SessionRules = {
           entityType: entityInfo?.entityType,
           entityId: entityInfo?.entityId,
           scheduledDate,
+          sessionTitle,
+          time,
           daysLeft,
           location: session.location,
           dossierId: parentDossier?.id,
           dossierPriority: priority,
+          parentContext: "",
         },
       });
     }
 
     return new RuleResult(false);
+  },
+
+  /**
+   * RULE: Participant Reminder
+   * Triggers: At 7, 3, and 1 day(s) before scheduled hearing
+   * Only fires when participants exist
+   */
+  participantReminder(session) {
+    const scheduledDate = session.scheduled_at || session.scheduledAt;
+    if (!scheduledDate) return new RuleResult(false);
+
+    const isHearing =
+      session.session_type === "hearing" ||
+      session.session_type === "Audience" ||
+      session.sessionType === "hearing" ||
+      session.sessionType === "Audience";
+
+    if (!isHearing) return new RuleResult(false);
+
+    if (
+      session.status === "cancelled" ||
+      session.status === "Annulee" ||
+      session.status === "completed" ||
+      session.status === "Terminee"
+    ) {
+      return new RuleResult(false);
+    }
+
+    const participants = session.participants;
+    const participantsCount = Array.isArray(participants)
+      ? participants.length
+      : participants
+        ? 1
+        : 0;
+    if (!participantsCount) return new RuleResult(false);
+
+    const daysLeft = calculateDaysDifference(scheduledDate);
+    const reminderDays = [7, 3, 1];
+    if (!reminderDays.includes(daysLeft)) {
+      return new RuleResult(false);
+    }
+
+    const createdDate = session.created_at || session.createdAt;
+    if (createdDate) {
+      const daysSinceCreation = daysSinceUpdate(createdDate);
+      const totalDaysUntilHearing = daysLeft + daysSinceCreation;
+      if (daysLeft > totalDaysUntilHearing) {
+        return new RuleResult(false);
+      }
+    }
+
+    const entityInfo = resolveSessionEntity(session, entities);
+    const entityReference = entityInfo ? entityInfo.reference : "Audience";
+    const entityLabel = entityInfo ? entityInfo.label : "";
+    const time = getSessionTime(scheduledDate);
+    const sessionTitle = session.title || entityReference;
+
+    return new RuleResult(true, {
+      priority: daysLeft === 1 ? "high" : "medium",
+      frequency: "once",
+      subType: "participantReminder",
+      entityType: entityInfo?.entityType || "session",
+      entityId: entityInfo?.entityId || session.id,
+      titleKey: "content.session.participantReminder.title",
+      titleParams:
+          variantIndex !== null ? { count: daysLeft, variantIndex } : { count: daysLeft },
+      messageKey: "content.session.participantReminder.message",
+      messageParams: {
+        sessionTitle,
+        caseNumber: entityReference,
+        entityLabel,
+        count: daysLeft,
+        time,
+        scheduledDate,
+        sessionType: session.session_type || session.sessionType,
+        courtRoom: session.court_room || session.courtRoom,
+        location: session.location,
+        participants,
+        participantsCount,
+        parentContext: "",
+      },
+      metadata: {
+        sessionId: session.id,
+        caseNumber: entityReference,
+        entityLabel,
+        entityType: entityInfo?.entityType,
+        entityId: entityInfo?.entityId,
+        scheduledDate,
+        sessionTitle,
+        time,
+        daysLeft,
+        location: session.location,
+        participants,
+        participantsCount,
+        parentContext: "",
+      },
+    });
   },
 
   /**
@@ -644,41 +861,47 @@ export const SessionRules = {
     if (daysLeft === 0) {
       // Resolve the correct entity (case/dossier/session)
       const entityInfo = resolveSessionEntity(session, entities);
-      const entityReference = entityInfo ? entityInfo.reference : 'Audience';
-      const entityLabel = entityInfo ? entityInfo.label : '';
+      const entityReference = entityInfo ? entityInfo.reference : "Audience";
+      const entityLabel = entityInfo ? entityInfo.label : "";
 
       // Extract time if available
-      const time = scheduledDate.includes("T")
-        ? scheduledDate.split("T")[1].substring(0, 5)
-        : "l'heure prévue";
+      const time = getSessionTime(scheduledDate) || "l'heure prevue";
+      const sessionTitle = session.title || entityReference;
 
       return new RuleResult(true, {
         priority: "urgent",
         frequency: "once",
         subType: "hearingToday",
-        entityType: entityInfo?.entityType || 'session',
+        entityType: entityInfo?.entityType || "session",
         entityId: entityInfo?.entityId || session.id,
         titleKey: "content.session.hearingToday.title",
-        titleParams: {},
+        titleParams: variantIndex !== null ? { variantIndex } : {},
         messageKey: session.location
           ? "content.session.hearingToday.messageWithLocation"
           : "content.session.hearingToday.message",
         messageParams: {
           caseNumber: entityReference,
-          entityLabel: entityLabel,
+          entityLabel,
           time,
-          location: session.location
+          sessionTitle,
+          sessionType: session.session_type || session.sessionType,
+          courtRoom: session.court_room || session.courtRoom,
+          location: session.location,
+          participants: session.participants,
+          parentContext: "",
         },
         metadata: {
           sessionId: session.id,
           caseNumber: entityReference,
-          entityLabel: entityLabel,
+          entityLabel,
           entityType: entityInfo?.entityType,
           entityId: entityInfo?.entityId,
           scheduledDate,
           time,
+          sessionTitle,
           location: session.location,
           daysLeft: 0,
+          parentContext: "",
         },
       });
     }
@@ -688,7 +911,7 @@ export const SessionRules = {
 
   /**
    * RULE: Post-Hearing Outcome Reminder
-   * Triggers: 1 day after a hearing that hasn't been updated with an outcome
+   * Triggers: 1 day after a hearing that hasn't been updated with notes
    * Prompts user to document what happened during the hearing
    * Priority inherited from parent dossier
    */
@@ -715,8 +938,14 @@ export const SessionRules = {
       return new RuleResult(false);
     }
 
-    // Skip if outcome is already documented
-    if (session.outcome && session.outcome.trim().length > 0) {
+    // Skip if notes are already documented
+    const notesValue = session.notes;
+    const hasNotes = Array.isArray(notesValue)
+      ? notesValue.length > 0
+      : typeof notesValue === "string"
+        ? notesValue.trim().length > 0
+        : Boolean(notesValue);
+    if (hasNotes) {
       return new RuleResult(false);
     }
 
@@ -765,7 +994,7 @@ export const SessionRules = {
         entityType: entityInfo?.entityType || 'session',
         entityId: entityInfo?.entityId || session.id,
         titleKey: "content.session.hearingOutcome.title",
-        titleParams: {},
+        titleParams: variantIndex !== null ? { variantIndex } : {},
         messageKey: "content.session.hearingOutcome.message",
         messageParams: {
           caseNumber: entityReference,
@@ -791,13 +1020,13 @@ export const SessionRules = {
 };
 
 // ============================================
-// 3️⃣ CASE/PROCÈS MANAGEMENT RULES
+// 3∩╕ÅΓâú CASE/PROC├êS MANAGEMENT RULES
 // ============================================
 
 export const CaseRules = {
   /**
    * RULE: Missing Hearing/Audience Reminder
-   * Triggers: When a procès has no upcoming hearings scheduled
+   * Triggers: When a proc├¿s has no upcoming hearings scheduled
    * Frequency depends on priority (inherited from parent dossier):
    * - High priority: every 3 days
    * - Medium priority: every 5 days
@@ -878,7 +1107,7 @@ export const CaseRules = {
         priority: priorityWeight >= 3 ? "high" : "medium",
         subType: "missingHearing",
         titleKey: "content.case.missingHearing.title",
-        titleParams: {},
+        titleParams: variantIndex !== null ? { variantIndex } : {},
         messageKey: "content.case.missingHearing.message",
         messageParams: { caseTitle, priority: priorityLabel },
         metadata: {
@@ -897,7 +1126,7 @@ export const CaseRules = {
 
   /**
    * RULE: Status Update Reminder
-   * Triggers: When a procès has completed activities (hearings/tasks) but hasn't been updated recently
+   * Triggers: When a proc├¿s has completed activities (hearings/tasks) but hasn't been updated recently
    * Suggests checking if the case status should be updated (e.g., verdict reached, case closed)
    * Frequency depends on priority (inherited from parent dossier):
    * - High priority: every 7 days
@@ -930,7 +1159,7 @@ export const CaseRules = {
     const completedTasks = tasks.filter((task) => {
       const belongsToCase = task.case_id === caseItem.id;
       const isCompleted =
-        task.status === "Terminée" || task.status === "completed";
+        task.status === "Termin├⌐e" || task.status === "completed";
       return belongsToCase && isCompleted;
     });
 
@@ -984,7 +1213,7 @@ export const CaseRules = {
         priority: priorityWeight >= 3 ? "high" : "medium",
         subType: "statusUpdate",
         titleKey: "content.case.statusUpdate.title",
-        titleParams: {},
+        titleParams: variantIndex !== null ? { variantIndex } : {},
         messageKey: "content.case.statusUpdate.message",
         messageParams: {
           caseTitle,
@@ -1009,8 +1238,8 @@ export const CaseRules = {
   },
 
   /**
-   * RULE: Missing Tasks for Procès
-   * Triggers: When a procès has no active tasks associated
+   * RULE: Missing Tasks for Proc├¿s
+   * Triggers: When a proc├¿s has no active tasks associated
    * Frequency depends on priority (inherited from parent dossier):
    * - High priority: every 3 days
    * - Medium priority: every 5 days
@@ -1084,7 +1313,7 @@ export const CaseRules = {
         priority: priorityWeight >= 3 ? "high" : "medium",
         subType: "missingTasks",
         titleKey: "content.case.missingTasks.title",
-        titleParams: {},
+        titleParams: variantIndex !== null ? { variantIndex } : {},
         messageKey: "content.case.missingTasks.message",
         messageParams: { caseTitle, priority: priorityLabel },
         metadata: {
@@ -1103,10 +1332,60 @@ export const CaseRules = {
 };
 
 // ============================================
-// 4️⃣ MISSION (HUISSIER) WORKFLOW RULES
+// 4∩╕ÅΓâú MISSION (HUISSIER) WORKFLOW RULES
 // ============================================
 
+const getMissionVariantIndex = (mission = {}) => {
+  const rawReference = mission.reference || mission.missionNumber || "";
+  if (typeof rawReference === "string") {
+    const match = rawReference.match(/VARIANT:(\d+)/i);
+    if (match) return Number(match[1]);
+  }
+  return Number.isFinite(Number(mission.variantIndex))
+    ? Number(mission.variantIndex)
+    : null;
+};
+
 export const MissionRules = {
+  /**
+   * RULE: Mission Due Today
+   * Triggers: same-day due_date
+   */
+  dueToday(mission) {
+    const dueDate = mission.due_date || mission.dueDate;
+    if (!dueDate) return new RuleResult(false);
+
+    // Skip completed or cancelled missions
+    if (mission.status === "Terminee" || mission.status === "Annulee") {
+      return new RuleResult(false);
+    }
+
+    const daysLeft = daysUntilDate(dueDate);
+    if (daysLeft !== 0) return new RuleResult(false);
+
+    const priorityWeight = getPriorityWeight(mission.priority);
+    const missionTitle =
+      mission.title || mission.description || mission.reference || "Mission";
+    const variantIndex = getMissionVariantIndex(mission);
+
+    return new RuleResult(true, {
+      priority: priorityWeight >= 3 ? "urgent" : "high",
+      frequency: "once",
+      subType: "dueToday",
+      titleKey: "content.mission.dueToday.title",
+      titleParams: variantIndex !== null ? { variantIndex } : {},
+      messageKey: "content.mission.dueToday.message",
+      messageParams:
+        variantIndex !== null ? { missionTitle, variantIndex } : { missionTitle },
+      metadata: {
+        missionId: mission.id,
+        dueDate,
+        daysLeft,
+        priority: mission.priority,
+      },
+    });
+  },
+
   /**
    * RULE: Upcoming Mission Deadline
    * Triggers: 7, 3, 1 days before due_date
@@ -1155,19 +1434,22 @@ export const MissionRules = {
 
       const missionTitle =
         mission.title || mission.description || mission.reference || "Mission";
+      const variantIndex = getMissionVariantIndex(mission);
 
       return new RuleResult(true, {
         priority: notificationPriority,
         frequency: "once",
         subType: "upcomingDeadline",
         titleKey: "content.mission.upcomingDeadline.title",
-        titleParams: { count: daysLeft },
+        titleParams:
+          variantIndex !== null ? { count: daysLeft, variantIndex } : { count: daysLeft },
         messageKey: "content.mission.upcomingDeadline.message",
         messageParams: {
           missionTitle,
           priority: priorityLabel,
           count: daysLeft,
           dueDate: dueDate, // Pass raw ISO date - will be formatted at render time
+          ...(variantIndex !== null ? { variantIndex } : {}),
         },
         metadata: {
           missionId: mission.id,
@@ -1204,6 +1486,7 @@ export const MissionRules = {
       const daysPastDeadline = Math.abs(daysLeft);
       const missionTitle =
         mission.title || mission.description || mission.reference || "Mission";
+      const variantIndex = getMissionVariantIndex(mission);
 
       // Priority-based frequency
       let frequency = "once";
@@ -1220,11 +1503,12 @@ export const MissionRules = {
         frequency,
         subType: "completionReminder",
         titleKey: "content.mission.completionReminder.title",
-        titleParams: {},
+        titleParams: variantIndex !== null ? { variantIndex } : {},
         messageKey: "content.mission.completionReminder.message",
         messageParams: {
           missionTitle,
           count: daysPastDeadline,
+          ...(variantIndex !== null ? { variantIndex } : {}),
         },
         metadata: {
           missionId: mission.id,
@@ -1241,7 +1525,7 @@ export const MissionRules = {
 };
 
 // ============================================
-// 4.5️⃣ FINANCIAL & PAYMENT RULES
+// 4.5∩╕ÅΓâú FINANCIAL & PAYMENT RULES
 // ============================================
 
 export const FinancialRules = {
@@ -1287,26 +1571,28 @@ export const FinancialRules = {
       const dossiers = entities.dossiers || [];
       const cases = entities.cases || [];
 
+      const clientId = financialEntry.client_id ?? financialEntry.clientId;
+      const dossierId = financialEntry.dossier_id ?? financialEntry.dossierId;
+      const caseId = financialEntry.case_id ?? financialEntry.caseId;
+
       let clientName = "Client";
-      let contextInfo = "";
+      let parentType = null;
+      let parentReference = "";
 
       // Try to get client directly
-      if (financialEntry.client_id) {
-        const client = clients.find((c) => c.id === financialEntry.client_id);
+      if (clientId) {
+        const client = clients.find((c) => c.id === clientId);
         if (client) {
           clientName = client.name;
         }
       }
 
       // Try to get dossier context
-      if (financialEntry.dossier_id) {
-        const dossier = dossiers.find(
-          (d) => d.id === financialEntry.dossier_id
-        );
+      if (dossierId) {
+        const dossier = dossiers.find((d) => d.id === dossierId);
         if (dossier) {
-          contextInfo = ` - Dossier: ${
-            dossier.case_number || dossier.reference
-          }`;
+          parentType = "dossier";
+          parentReference = dossier.case_number || dossier.reference;
           // If no client found yet, get from dossier
           if (clientName === "Client" && dossier.client_id) {
             const client = clients.find((c) => c.id === dossier.client_id);
@@ -1316,12 +1602,11 @@ export const FinancialRules = {
       }
 
       // Try to get case context
-      if (financialEntry.case_id) {
-        const caseItem = cases.find((c) => c.id === financialEntry.case_id);
+      if (caseId) {
+        const caseItem = cases.find((c) => c.id === caseId);
         if (caseItem) {
-          contextInfo = ` - Procès: ${
-            caseItem.case_number || caseItem.reference
-          }`;
+          parentType = "case";
+          parentReference = caseItem.case_number || caseItem.reference;
           // Get dossier from case to find client
           if (clientName === "Client" && caseItem.dossier_id) {
             const dossier = dossiers.find((d) => d.id === caseItem.dossier_id);
@@ -1333,8 +1618,14 @@ export const FinancialRules = {
         }
       }
 
+      const parentContexts = buildFinancialParentContexts(financialEntry);
+      const primaryContext = parentContexts[0] || {};
+      parentType = primaryContext.type || null;
+      parentReference = primaryContext.reference || "";
+
       const amount = financialEntry.amount || 0;
       const currency = financialEntry.currency || "TND";
+      const variantIndex = getVariantIndexFromText(financialEntry.description);
 
       // Determine priority based on proximity
       let notificationPriority = "medium";
@@ -1349,7 +1640,8 @@ export const FinancialRules = {
         frequency: "once",
         subType: "upcomingPayment",
         titleKey: "content.financial.upcomingPayment.title",
-        titleParams: { count: daysLeft },
+        titleParams:
+          variantIndex !== null ? { count: daysLeft, variantIndex } : { count: daysLeft },
         messageKey: financialEntry.description
           ? "content.financial.upcomingPayment.messageWithDescription"
           : "content.financial.upcomingPayment.message",
@@ -1357,9 +1649,12 @@ export const FinancialRules = {
           amount,
           currency,
           clientName,
-          contextInfo,
           count: daysLeft,
           description: financialEntry.description || "",
+          parentType,
+          parentReference,
+          parentContexts,
+          ...(variantIndex !== null ? { variantIndex } : {}),
         },
         metadata: {
           financialEntryId: financialEntry.id,
@@ -1412,27 +1707,28 @@ export const FinancialRules = {
         const clients = entities.clients || [];
         const dossiers = entities.dossiers || [];
         const cases = entities.cases || [];
+        const clientId = financialEntry.client_id ?? financialEntry.clientId;
+        const dossierId = financialEntry.dossier_id ?? financialEntry.dossierId;
+        const caseId = financialEntry.case_id ?? financialEntry.caseId;
 
         let clientName = "Client";
-        let contextInfo = "";
+        let parentType = null;
+        let parentReference = "";
 
         // Try to get client directly
-        if (financialEntry.client_id) {
-          const client = clients.find((c) => c.id === financialEntry.client_id);
+        if (clientId) {
+          const client = clients.find((c) => c.id === clientId);
           if (client) {
             clientName = client.name;
           }
         }
 
         // Try to get dossier context
-        if (financialEntry.dossier_id) {
-          const dossier = dossiers.find(
-            (d) => d.id === financialEntry.dossier_id
-          );
+        if (dossierId) {
+          const dossier = dossiers.find((d) => d.id === dossierId);
           if (dossier) {
-            contextInfo = ` - Dossier: ${
-              dossier.case_number || dossier.reference
-            }`;
+            parentType = "dossier";
+            parentReference = dossier.case_number || dossier.reference;
             // If no client found yet, get from dossier
             if (clientName === "Client" && dossier.client_id) {
               const client = clients.find((c) => c.id === dossier.client_id);
@@ -1442,12 +1738,11 @@ export const FinancialRules = {
         }
 
         // Try to get case context
-        if (financialEntry.case_id) {
-          const caseItem = cases.find((c) => c.id === financialEntry.case_id);
+        if (caseId) {
+          const caseItem = cases.find((c) => c.id === caseId);
           if (caseItem) {
-            contextInfo = ` - Procès: ${
-              caseItem.case_number || caseItem.reference
-            }`;
+            parentType = "case";
+            parentReference = caseItem.case_number || caseItem.reference;
             // Get dossier from case to find client
             if (clientName === "Client" && caseItem.dossier_id) {
               const dossier = dossiers.find(
@@ -1461,8 +1756,14 @@ export const FinancialRules = {
           }
         }
 
+        const parentContexts = buildFinancialParentContexts(financialEntry);
+        const primaryContext = parentContexts[0] || {};
+        parentType = primaryContext.type || null;
+        parentReference = primaryContext.reference || "";
+
         const amount = financialEntry.amount || 0;
         const currency = financialEntry.currency || "TND";
+        const variantIndex = getVariantIndexFromText(financialEntry.description);
 
         // Escalating priority based on how long it's overdue
         let notificationPriority = "high";
@@ -1475,14 +1776,17 @@ export const FinancialRules = {
           frequency: "once",
           subType: "overduePayment",
           titleKey: "content.financial.overduePayment.title",
-          titleParams: { count: daysOverdue },
+          titleParams: variantIndex !== null ? { count: daysOverdue, variantIndex } : { count: daysOverdue },
           messageKey: "content.financial.overduePayment.message",
           messageParams: {
             amount,
             currency,
             clientName,
-            contextInfo,
             count: daysOverdue,
+            parentType,
+            parentReference,
+            parentContexts,
+            ...(variantIndex !== null ? { variantIndex } : {}),
           },
           metadata: {
             financialEntryId: financialEntry.id,
@@ -1504,7 +1808,7 @@ export const FinancialRules = {
 };
 
 // ============================================
-// 5️⃣ DOSSIER MANAGEMENT RULES
+// 5∩╕ÅΓâú DOSSIER MANAGEMENT RULES
 // ============================================
 
 export const DossierRules = {
@@ -1516,10 +1820,10 @@ export const DossierRules = {
   inactivityReminder(dossier) {
     // Skip closed/archived dossiers
     if (
-      dossier.status === "Fermé" ||
+      dossier.status === "Ferm├⌐" ||
       dossier.status === "Ferme" ||
       dossier.status === "Clos" ||
-      dossier.status === "Archivé" ||
+      dossier.status === "Archiv├⌐" ||
       dossier.status === "closed"
     ) {
       return new RuleResult(false);
@@ -1533,6 +1837,7 @@ export const DossierRules = {
     if (daysSinceLastUpdate >= 7) {
       const dossierNumber =
         dossier.case_number || dossier.caseNumber || dossier.reference;
+      const variantIndex = getVariantIndexFromText(dossier.description);
 
       return new RuleResult(true, {
         priority: "medium",
@@ -1544,11 +1849,13 @@ export const DossierRules = {
         messageParams: {
           dossierNumber,
           count: daysSinceLastUpdate,
+          ...(variantIndex !== null ? { variantIndex } : {}),
         },
         metadata: {
           dossierId: dossier.id,
           dossierNumber,
           daysSinceLastUpdate,
+          ...(variantIndex !== null ? { variantIndex } : {}),
         },
       });
     }
@@ -1564,10 +1871,10 @@ export const DossierRules = {
   reviewReminder(dossier) {
     // Skip closed/archived dossiers
     if (
-      dossier.status === "Fermé" ||
+      dossier.status === "Ferm├⌐" ||
       dossier.status === "Ferme" ||
       dossier.status === "Clos" ||
-      dossier.status === "Archivé" ||
+      dossier.status === "Archiv├⌐" ||
       dossier.status === "closed"
     ) {
       return new RuleResult(false);
@@ -1594,6 +1901,7 @@ export const DossierRules = {
 
       const dossierNumber =
         dossier.case_number || dossier.caseNumber || dossier.reference;
+      const variantIndex = getVariantIndexFromText(dossier.description);
 
       return new RuleResult(true, {
         priority: priorityWeight >= 3 ? "high" : "medium",
@@ -1606,6 +1914,7 @@ export const DossierRules = {
           dossierNumber,
           priority: priorityLabel,
           count: daysSinceLastUpdate,
+          ...(variantIndex !== null ? { variantIndex } : {}),
         },
         metadata: {
           dossierId: dossier.id,
@@ -1613,194 +1922,9 @@ export const DossierRules = {
           daysSinceLastUpdate,
           priority: dossier.priority,
           reviewThreshold,
+          ...(variantIndex !== null ? { variantIndex } : {}),
         },
       });
-    }
-
-    return new RuleResult(false);
-  },
-
-  /**
-   * RULE: Prochaine Échéance (Next Deadline)
-   * Triggers: Notifications for upcoming deadlines
-   * - Overdue: Immediate notification
-   * - Due today: Morning reminder
-   * - Due in 1-3 days: Daily reminders
-   * - Due in 7 days: Single reminder
-   *
-   * EDGE CASE HANDLING:
-   * 1. If deadline was set recently, only send notifications for reminder days that haven't been "missed"
-   * 2. DUPLICATE PREVENTION: If any task exists with the same deadline, skip this notification
-   *    (task notifications are more specific and actionable)
-   */
-  nextDeadline(dossier) {
-    const deadlineDate = dossier.next_deadline || dossier.nextDeadline;
-    if (!deadlineDate) return new RuleResult(false);
-
-    // Guard against invalid deadline values that would break date math
-    const dossierDeadlineDate = new Date(deadlineDate);
-    if (Number.isNaN(dossierDeadlineDate.getTime())) {
-      return new RuleResult(false);
-    }
-
-    // DUPLICATE PREVENTION: Check if any task has the same deadline
-    const tasks = entities.tasks || [];
-    const hasTaskWithSameDeadline = tasks.some((task) => {
-      // Check if task belongs to this dossier
-      const taskBelongsToDossier =
-        task.dossier_id === dossier.id || task.dossierId === dossier.id;
-
-      if (!taskBelongsToDossier) return false;
-
-      // Check if task is active (not completed/cancelled)
-      const isActiveTask =
-        task.status !== "Terminée" &&
-        task.status !== "Completed" &&
-        task.status !== "done" &&
-        task.status !== "cancelled";
-
-      if (!isActiveTask) return false;
-
-      // Check if task has the same deadline (compare dates)
-      const taskDeadline = task.due_date || task.dueDate;
-      if (!taskDeadline) return false;
-
-      const taskDeadlineDate = new Date(taskDeadline);
-      if (Number.isNaN(taskDeadlineDate.getTime())) return false;
-
-      // Normalize dates to compare (remove time component)
-      const dossierDeadlineNormalized = dossierDeadlineDate
-        .toISOString()
-        .split("T")[0];
-      const taskDeadlineNormalized = taskDeadlineDate
-        .toISOString()
-        .split("T")[0];
-
-      return dossierDeadlineNormalized === taskDeadlineNormalized;
-    });
-
-    // If a task exists with the same deadline, skip dossier notification
-    // (task notification is more specific and provides better context)
-    if (hasTaskWithSameDeadline) {
-      return new RuleResult(false);
-    }
-
-    const daysLeft = calculateDaysDifference(deadlineDate);
-
-    // Overdue deadline - always notify
-    if (daysLeft < 0) {
-      const daysOverdue = Math.abs(daysLeft);
-      const dossierNumber =
-        dossier.case_number || dossier.caseNumber || dossier.reference;
-
-      return new RuleResult(true, {
-        priority: "urgent",
-        frequency: daysOverdue <= 3 ? "daily" : "once",
-        subType: "deadlineOverdue",
-        titleKey: "content.dossier.deadlineOverdue.title",
-        titleParams: { count: daysOverdue },
-        messageKey: "content.dossier.deadlineOverdue.message",
-        messageParams: {
-          dossierNumber,
-          count: daysOverdue,
-        },
-        metadata: {
-          dossierId: dossier.id,
-          dossierNumber,
-          deadline: deadlineDate,
-          daysOverdue,
-        },
-      });
-    }
-
-    // Due today - always notify
-    if (daysLeft === 0) {
-      const dossierNumber =
-        dossier.case_number || dossier.caseNumber || dossier.reference;
-
-      return new RuleResult(true, {
-        priority: "urgent",
-        frequency: "once",
-        subType: "deadlineToday",
-        titleKey: "content.dossier.deadlineToday.title",
-        titleParams: {},
-        messageKey: "content.dossier.deadlineToday.message",
-        messageParams: {
-          dossierNumber,
-        },
-        metadata: {
-          dossierId: dossier.id,
-          dossierNumber,
-          deadline: deadlineDate,
-          daysLeft: 0,
-        },
-      });
-    }
-
-    // Edge case check: For upcoming deadlines, verify the deadline wasn't just set
-    const lastUpdate = dossier.updated_at || dossier.updatedAt;
-    if (lastUpdate && daysLeft > 0) {
-      const daysSinceLastUpdate = daysSinceUpdate(lastUpdate);
-      const totalDaysUntilDeadline = daysLeft + daysSinceLastUpdate;
-
-      // Due in 1-3 days (daily reminders)
-      if (daysLeft >= 1 && daysLeft <= 3) {
-        // Only send if the deadline existed long enough for this reminder to be valid
-        if (daysLeft > totalDaysUntilDeadline) {
-          return new RuleResult(false);
-        }
-
-        const dossierNumber =
-          dossier.case_number || dossier.caseNumber || dossier.reference;
-
-        return new RuleResult(true, {
-          priority: "high",
-          frequency: "daily",
-          subType: "deadlineUpcoming",
-          titleKey: "content.dossier.deadlineUpcoming.title",
-          titleParams: { count: daysLeft },
-          messageKey: "content.dossier.deadlineUpcoming.message",
-          messageParams: {
-            dossierNumber,
-            count: daysLeft,
-          },
-          metadata: {
-            dossierId: dossier.id,
-            dossierNumber,
-            deadline: deadlineDate,
-            daysLeft,
-          },
-        });
-      }
-
-      // Due in 7 days (single reminder)
-      if (daysLeft === 7) {
-        // Only send if the deadline existed long enough (at least 7 days)
-        if (totalDaysUntilDeadline < 7) {
-          return new RuleResult(false);
-        }
-
-        const dossierNumber =
-          dossier.case_number || dossier.caseNumber || dossier.reference;
-
-        return new RuleResult(true, {
-          priority: "medium",
-          frequency: "once",
-          subType: "deadlineWeek",
-          titleKey: "content.dossier.deadlineWeek.title",
-          titleParams: {},
-          messageKey: "content.dossier.deadlineWeek.message",
-          messageParams: {
-            dossierNumber,
-          },
-          metadata: {
-            dossierId: dossier.id,
-            dossierNumber,
-            deadline: deadlineDate,
-            daysLeft: 7,
-          },
-        });
-      }
     }
 
     return new RuleResult(false);
@@ -1808,7 +1932,7 @@ export const DossierRules = {
 
   /**
    * RULE: Missing Tasks for Dossier
-   * Triggers: When a dossier has no active tasks AND no active procès with tasks
+   * Triggers: When a dossier has no active tasks AND no active proc├¿s with tasks
    * Frequency depends on dossier priority:
    * - High priority: every 3 days
    * - Medium priority: every 5 days
@@ -1820,7 +1944,7 @@ export const DossierRules = {
     const cases = context.cases || [];
 
     // Skip closed/archived dossiers
-    const closedStatuses = ["Clos", "closed", "archived", "Archivé"];
+    const closedStatuses = ["Clos", "closed", "archived", "Archiv├⌐"];
     if (closedStatuses.includes(dossier.status)) {
       return new RuleResult(false);
     }
@@ -1836,7 +1960,7 @@ export const DossierRules = {
       return belongsToDossier && isActive;
     });
 
-    // Check if any procès under this dossier has active tasks
+    // Check if any proc├¿s under this dossier has active tasks
     const dossierCases = cases.filter((c) => c.dossier_id === dossierId);
     const hasActiveCaseTasks = dossierCases.some((caseItem) => {
       return tasks.some((task) => {
@@ -1897,7 +2021,7 @@ export const DossierRules = {
         priority: priorityWeight >= 3 ? "high" : "medium",
         subType: "missingTasks",
         titleKey: "content.dossier.missingTasks.title",
-        titleParams: {},
+        titleParams: variantIndex !== null ? { variantIndex } : {},
         messageKey: "content.dossier.missingTasks.message",
         messageParams: { dossierNumber, priority: priorityLabel },
         metadata: {
@@ -1915,7 +2039,7 @@ export const DossierRules = {
 };
 
 // ============================================
-// 6️⃣ CLIENT ACTIVITY & ENGAGEMENT RULES
+// 6∩╕ÅΓâú CLIENT ACTIVITY & ENGAGEMENT RULES
 // ============================================
 
 export const ClientRules = {
@@ -2014,7 +2138,7 @@ export const ClientRules = {
 };
 
 // ============================================
-// 6️⃣ SYSTEM-LEVEL SMART NUDGES (DISABLED)
+// 6∩╕ÅΓâú SYSTEM-LEVEL SMART NUDGES (DISABLED)
 // ============================================
 
 export const SystemRules = {};
@@ -2126,7 +2250,7 @@ export function evaluateAllRules(currentDate = new Date(), context = {}) {
     allNotifications.push(...sessionNotifications);
   });
 
-  // Evaluate case/procès rules (missing hearings, status updates)
+  // Evaluate case/proc├¿s rules (missing hearings, status updates)
   cases.forEach((caseItem) => {
     const caseNotifications = evaluateEntityRules("case", caseItem, context);
     allNotifications.push(...caseNotifications);
@@ -2190,3 +2314,11 @@ export default {
   markNotificationSent,
   clearNotificationHistory,
 };
+
+
+
+
+
+
+
+

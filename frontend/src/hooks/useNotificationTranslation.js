@@ -46,6 +46,79 @@ const formatDateParams = (params, language) => {
   return formatted;
 };
 
+const buildParentContext = (params, t) => {
+  if (!params || typeof params !== "object") return "";
+
+  const formatContext = (type, reference) => {
+    if (!type || !reference) return "";
+    const typeLabel = t(`center.types.${type}`, {
+      defaultValue: type,
+    });
+    return `${typeLabel}: ${reference}`;
+  };
+
+  if (Array.isArray(params.parentContexts) && params.parentContexts.length > 0) {
+    const entries = params.parentContexts
+      .map((item) => ({
+        type: item?.type || item?.parentType,
+        reference: item?.reference || item?.parentReference,
+      }))
+      .filter((item) => item.type && item.reference)
+      .map((item) => formatContext(item.type, item.reference))
+      .filter(Boolean);
+
+    if (entries.length === 0) return "";
+    return ` - ${entries.join(" / ")}`;
+  }
+
+  const parentReference =
+    params.parentReference || params.dossierNumber || params.caseNumber;
+  const parentType =
+    params.parentType ||
+    (params.dossierNumber ? "dossier" : params.caseNumber ? "case" : null);
+  if (!parentReference || !parentType) return "";
+
+  return ` - ${formatContext(parentType, parentReference)}`;
+};
+
+const buildSessionDetails = (params, t) => {
+  if (!params || typeof params !== "object") return "";
+
+  const labels = {
+    sessionType: t("center.labels.sessionType", { defaultValue: "Type" }),
+    courtRoom: t("center.labels.courtRoom", { defaultValue: "Courtroom" }),
+    location: t("center.labels.location", { defaultValue: "Location" }),
+    participants: t("center.labels.participants", { defaultValue: "Participants" }),
+  };
+
+  const parts = [];
+  const sessionType = params.sessionType;
+  const courtRoom = params.courtRoom;
+  const location = params.location;
+  const participants = params.participants;
+
+  if (sessionType) parts.push(`${labels.sessionType}: ${sessionType}`);
+  if (courtRoom) parts.push(`${labels.courtRoom}: ${courtRoom}`);
+  if (location) parts.push(`${labels.location}: ${location}`);
+
+  if (Array.isArray(participants)) {
+    const names = participants
+      .map((item) =>
+        typeof item === "string"
+          ? item
+          : item?.name || item?.label || item?.full_name || item?.fullName
+      )
+      .filter(Boolean)
+      .join(", ");
+    if (names) parts.push(`${labels.participants}: ${names}`);
+  } else if (typeof participants === "string" && participants.trim().length) {
+    parts.push(`${labels.participants}: ${participants.trim()}`);
+  }
+
+  if (parts.length === 0) return "";
+  return ` - ${parts.join(" | ")}`;
+};
+
 /**
  * Translate a single notification object
  * @param {Object} notification - Notification with template_key and params
@@ -77,6 +150,12 @@ export function useNotificationTranslation(notification) {
 
     // Format date params with current language
     const formattedParams = formatDateParams(params, i18n.language);
+    if (formattedParams.parentContext === undefined) {
+      formattedParams.parentContext = buildParentContext(formattedParams, t);
+    }
+    if (formattedParams.detailsLine === undefined) {
+      formattedParams.detailsLine = buildSessionDetails(formattedParams, t);
+    }
 
     const titleKey = `${templateKey}.title`;
     const messageKey = `${templateKey}.message`;
@@ -151,6 +230,12 @@ export function useNotificationListTranslation(notifications) {
 
       // Format date params with current language
       const formattedParams = formatDateParams(params, i18n.language);
+      if (formattedParams.parentContext === undefined) {
+        formattedParams.parentContext = buildParentContext(formattedParams, t);
+      }
+      if (formattedParams.detailsLine === undefined) {
+        formattedParams.detailsLine = buildSessionDetails(formattedParams, t);
+      }
 
       const titleKey = `${templateKey}.title`;
       const messageKey = `${templateKey}.message`;

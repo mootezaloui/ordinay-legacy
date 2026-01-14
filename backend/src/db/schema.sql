@@ -219,6 +219,8 @@ CREATE TABLE IF NOT EXISTS financial_entries (
     dossier_id INTEGER,
     case_id INTEGER,
     mission_id INTEGER,
+    task_id INTEGER,
+    personal_task_id INTEGER,
     entry_type TEXT NOT NULL CHECK (entry_type IN ('income','expense','revenue')),
     status TEXT NOT NULL CHECK (status IN ('draft','confirmed','cancelled','paid','pending','posted','void')),
     category TEXT,
@@ -248,6 +250,8 @@ CREATE INDEX IF NOT EXISTS idx_financial_entries_client_id ON financial_entries(
 CREATE INDEX IF NOT EXISTS idx_financial_entries_dossier_id ON financial_entries(dossier_id);
 CREATE INDEX IF NOT EXISTS idx_financial_entries_case_id ON financial_entries(case_id);
 CREATE INDEX IF NOT EXISTS idx_financial_entries_mission_id ON financial_entries(mission_id);
+CREATE INDEX IF NOT EXISTS idx_financial_entries_task_id ON financial_entries(task_id);
+CREATE INDEX IF NOT EXISTS idx_financial_entries_personal_task_id ON financial_entries(personal_task_id);
 CREATE INDEX IF NOT EXISTS idx_financial_entries_status ON financial_entries(status);
 CREATE INDEX IF NOT EXISTS idx_financial_entries_entry_type ON financial_entries(entry_type);
 CREATE INDEX IF NOT EXISTS idx_financial_entries_occurred_at ON financial_entries(occurred_at);

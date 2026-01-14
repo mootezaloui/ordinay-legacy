@@ -74,15 +74,89 @@ function buildNotification({
  * Generate notifications for tasks
  * CORRECTED: Stores template_key + params (no translation)
  */
-export function generateTaskNotifications(tasks) {
+export function generateTaskNotifications(tasks, context = {}) {
   const notifications = [];
   const now = new Date();
 
+  const isTaskClosedStatus = (status) => {
+    const normalized = (status || "").toString().trim().toLowerCase();
+    return [
+      "done",
+      "completed",
+      "cancelled",
+      "canceled",
+      "terminee",
+      "termine",
+    ].includes(normalized);
+  };
+  const resolveSessionParent = (session) => {
+    if (session.dossier) {
+      return { parentType: "dossier", parentReference: session.dossier };
+    }
+    if (session.caseName) {
+      return { parentType: "case", parentReference: session.caseName };
+    }
+    if (session.case) {
+      return { parentType: "case", parentReference: session.case };
+    }
+    return null;
+  };
+
+  const isTaskInProgress = (status) => {
+    const normalized = (status || "").toString().trim().toLowerCase();
+    return ["in_progress", "in progress", "en cours"].includes(normalized);
+  };
+
+  const resolveTaskParent = (task) => {
+    if (task.dossier) {
+      return { parentType: "dossier", parentReference: task.dossier };
+    }
+    if (task.case) {
+      return { parentType: "case", parentReference: task.case };
+    }
+
+    const dossiers = context.dossiers || [];
+    const cases = context.cases || [];
+    const dossierId = task.dossier_id ?? task.dossierId;
+    const caseId = task.case_id ?? task.caseId;
+
+    if (caseId) {
+      const parentCase = cases.find((item) => item.id === caseId);
+      if (parentCase) {
+        return {
+          parentType: "case",
+          parentReference:
+            parentCase.case_number ||
+            parentCase.reference_number ||
+            parentCase.title ||
+            `Case #${parentCase.id}`,
+        };
+      }
+    }
+
+    if (dossierId) {
+      const parentDossier = dossiers.find((item) => item.id === dossierId);
+      if (parentDossier) {
+        return {
+          parentType: "dossier",
+          parentReference:
+            parentDossier.reference ||
+            parentDossier.case_number ||
+            parentDossier.title ||
+            `Dossier #${parentDossier.id}`,
+        };
+      }
+    }
+
+    return null;
+  };
+
   tasks.forEach((task) => {
     const dueDate = task.due_date || task.dueDate;
-    if (!dueDate || task.status === "Terminée" || task.status === "done") return;
+    if (!dueDate || isTaskClosedStatus(task.status)) return;
 
     const daysLeft = calculateDaysDifference(dueDate, now);
+    const parentInfo = resolveTaskParent(task);
 
     // Overdue tasks
     if (daysLeft < 0) {
@@ -95,7 +169,7 @@ export function generateTaskNotifications(tasks) {
           subType: "overdue",
           priority: "urgent",
           template_key: "content.task.overdue",
-          params: { taskTitle: task.title, count: daysOverdue },
+          params: { taskTitle: task.title, count: daysOverdue, ...(parentInfo || {}) },
           icon: "fas fa-exclamation-circle",
           timestamp: now.toISOString(),
           metadata: {
@@ -103,6 +177,7 @@ export function generateTaskNotifications(tasks) {
             taskTitle: task.title,
             daysOverdue,
             dueDate: dueDate,
+            ...(parentInfo || {}),
           },
         })
       );
@@ -116,13 +191,14 @@ export function generateTaskNotifications(tasks) {
           subType: "dueToday",
           priority: "high",
           template_key: "content.task.dueToday",
-          params: { taskTitle: task.title },
+          params: { taskTitle: task.title, ...(parentInfo || {}) },
           icon: "fas fa-clock",
           timestamp: now.toISOString(),
           metadata: {
             taskId: task.id,
             taskTitle: task.title,
             dueDate: dueDate,
+            ...(parentInfo || {}),
           },
         })
       );
@@ -136,7 +212,7 @@ export function generateTaskNotifications(tasks) {
           subType: "upcoming",
           priority: daysLeft <= 2 ? "high" : "medium",
           template_key: "content.task.upcomingDeadline",
-          params: { taskTitle: task.title, count: daysLeft },
+          params: { taskTitle: task.title, count: daysLeft, ...(parentInfo || {}) },
           icon: "fas fa-tasks",
           timestamp: now.toISOString(),
           metadata: {
@@ -144,13 +220,14 @@ export function generateTaskNotifications(tasks) {
             taskTitle: task.title,
             daysLeft,
             dueDate: dueDate,
+            ...(parentInfo || {}),
           },
         })
       );
     }
 
     // Status check for tasks in progress (every 3 days)
-    if (task.status === "En cours" && daysLeft > 0 && daysLeft <= 14) {
+    if (isTaskInProgress(task.status) && daysLeft > 0 && daysLeft <= 14) {
       notifications.push(
         buildNotification({
           entityType: "task",
@@ -158,13 +235,14 @@ export function generateTaskNotifications(tasks) {
           subType: "statusCheck",
           priority: "info",
           template_key: "content.task.statusCheck",
-          params: { taskTitle: task.title, dueDate: task.dueDate },
+          params: { taskTitle: task.title, dueDate: task.dueDate, ...(parentInfo || {}) },
           icon: "fas fa-question-circle",
           timestamp: now.toISOString(),
           metadata: {
             taskId: task.id,
             taskTitle: task.title,
             dueDate: task.dueDate,
+            ...(parentInfo || {}),
           },
         })
       );
@@ -182,10 +260,36 @@ export function generateSessionNotifications(sessions) {
   const notifications = [];
   const now = new Date();
 
+  const isTaskClosedStatus = (status) => {
+    const normalized = (status || "").toString().trim().toLowerCase();
+    return [
+      "done",
+      "completed",
+      "cancelled",
+      "canceled",
+      "terminee",
+      "termine",
+    ].includes(normalized);
+  };
+
+  const resolveSessionParent = (session) => {
+    if (session.dossier) {
+      return { parentType: "dossier", parentReference: session.dossier };
+    }
+    if (session.caseName) {
+      return { parentType: "case", parentReference: session.caseName };
+    }
+    if (session.case) {
+      return { parentType: "case", parentReference: session.case };
+    }
+    return null;
+  };
+
   sessions.forEach((session) => {
-    if (!session.date || session.status === "Terminée") return;
+    if (!session.date || session.status === "TerminＦ") return;
 
     const daysLeft = calculateDaysDifference(session.date, now);
+    const parentInfo = resolveSessionParent(session);
 
     // Session today
     if (daysLeft === 0) {
@@ -198,7 +302,7 @@ export function generateSessionNotifications(sessions) {
           template_key: session.time
             ? "content.session.today"
             : "content.session.todayNoTime",
-          params: { sessionTitle: session.title, time: session.time },
+          params: { sessionTitle: session.title, time: session.time, ...(parentInfo || {}) },
           icon: "fas fa-gavel",
           timestamp: now.toISOString(),
           metadata: {
@@ -206,6 +310,7 @@ export function generateSessionNotifications(sessions) {
             sessionTitle: session.title,
             date: session.date,
             time: session.time,
+            ...(parentInfo || {}),
           },
         })
       );
@@ -219,13 +324,14 @@ export function generateSessionNotifications(sessions) {
           subType: "tomorrow",
           priority: "high",
           template_key: "content.session.tomorrow",
-          params: { sessionTitle: session.title },
+          params: { sessionTitle: session.title, ...(parentInfo || {}) },
           icon: "fas fa-calendar-day",
           timestamp: now.toISOString(),
           metadata: {
             sessionId: session.id,
             sessionTitle: session.title,
             date: session.date,
+            ...(parentInfo || {}),
           },
         })
       );
@@ -239,7 +345,7 @@ export function generateSessionNotifications(sessions) {
           subType: "preparation",
           priority: daysLeft <= 3 ? "high" : "medium",
           template_key: "content.session.preparation",
-          params: { sessionTitle: session.title, count: daysLeft },
+          params: { sessionTitle: session.title, count: daysLeft, ...(parentInfo || {}) },
           icon: "fas fa-file-signature",
           timestamp: now.toISOString(),
           metadata: {
@@ -247,6 +353,7 @@ export function generateSessionNotifications(sessions) {
             sessionTitle: session.title,
             daysLeft,
             date: session.date,
+            ...(parentInfo || {}),
           },
         })
       );
@@ -264,6 +371,30 @@ export function generatePaymentNotifications(financialEntries) {
   const notifications = [];
   const now = new Date();
 
+  const isTaskClosedStatus = (status) => {
+    const normalized = (status || "").toString().trim().toLowerCase();
+    return [
+      "done",
+      "completed",
+      "cancelled",
+      "canceled",
+      "terminee",
+      "termine",
+    ].includes(normalized);
+  };
+  const resolveSessionParent = (session) => {
+    if (session.dossier) {
+      return { parentType: "dossier", parentReference: session.dossier };
+    }
+    if (session.caseName) {
+      return { parentType: "case", parentReference: session.caseName };
+    }
+    if (session.case) {
+      return { parentType: "case", parentReference: session.case };
+    }
+    return null;
+  };
+
   financialEntries.forEach((entry) => {
     // Only for receivables (Revenus) with payment due dates
     if (entry.type !== "revenue" || !entry.dueDate || entry.status === "Payé")
@@ -274,9 +405,12 @@ export function generatePaymentNotifications(financialEntries) {
     const payment = {
       client: entry.clientName || entry.description,
       amount: Math.abs(entry.amount),
+      currency: entry.currency || "USD",
       daysLeft: Math.abs(daysLeft),
       daysOverdue: Math.abs(daysLeft),
       dueDate: entry.dueDate,
+      parentType: entry.dossierReference ? "dossier" : entry.caseReference ? "case" : null,
+      parentReference: entry.dossierReference || entry.caseReference || "",
     };
 
     // Overdue payments
@@ -293,7 +427,10 @@ export function generatePaymentNotifications(financialEntries) {
           params: {
             clientName: payment.client,
             amount: payment.amount,
+            currency: payment.currency,
             count: daysOverdue,
+            parentType: payment.parentType,
+            parentReference: payment.parentReference,
           },
           icon: "fas fa-exclamation-triangle",
           timestamp: now.toISOString(),
@@ -308,12 +445,15 @@ export function generatePaymentNotifications(financialEntries) {
             entryId: entry.id,
             client: payment.client,
             amount: payment.amount,
+            currency: payment.currency,
             daysOverdue: payment.daysOverdue,
             dueDate: entry.dueDate,
             clientId: entry.clientId,
             dossierId: entry.dossierId,
             caseId: entry.caseId,
             missionId: entry.missionId,
+            parentType: payment.parentType,
+            parentReference: payment.parentReference,
           },
         })
       );
@@ -330,6 +470,9 @@ export function generatePaymentNotifications(financialEntries) {
           params: {
             clientName: payment.client,
             amount: payment.amount,
+            currency: payment.currency,
+            parentType: payment.parentType,
+            parentReference: payment.parentReference,
           },
           icon: "fas fa-money-check-alt",
           timestamp: now.toISOString(),
@@ -344,11 +487,14 @@ export function generatePaymentNotifications(financialEntries) {
             entryId: entry.id,
             client: payment.client,
             amount: payment.amount,
+            currency: payment.currency,
             dueDate: entry.dueDate,
             clientId: entry.clientId,
             dossierId: entry.dossierId,
             caseId: entry.caseId,
             missionId: entry.missionId,
+            parentType: payment.parentType,
+            parentReference: payment.parentReference,
           },
         })
       );
@@ -365,7 +511,10 @@ export function generatePaymentNotifications(financialEntries) {
           params: {
             clientName: payment.client,
             amount: payment.amount,
+            currency: payment.currency,
             count: daysLeft,
+            parentType: payment.parentType,
+            parentReference: payment.parentReference,
           },
           icon: "fas fa-dollar-sign",
           timestamp: now.toISOString(),
@@ -380,12 +529,15 @@ export function generatePaymentNotifications(financialEntries) {
             entryId: entry.id,
             client: payment.client,
             amount: payment.amount,
+            currency: payment.currency,
             daysLeft: payment.daysLeft,
             dueDate: entry.dueDate,
             clientId: entry.clientId,
             dossierId: entry.dossierId,
             caseId: entry.caseId,
             missionId: entry.missionId,
+            parentType: payment.parentType,
+            parentReference: payment.parentReference,
           },
         })
       );
@@ -402,6 +554,30 @@ export function generatePaymentNotifications(financialEntries) {
 export function generateMissionNotifications(missions) {
   const notifications = [];
   const now = new Date();
+
+  const isTaskClosedStatus = (status) => {
+    const normalized = (status || "").toString().trim().toLowerCase();
+    return [
+      "done",
+      "completed",
+      "cancelled",
+      "canceled",
+      "terminee",
+      "termine",
+    ].includes(normalized);
+  };
+  const resolveSessionParent = (session) => {
+    if (session.dossier) {
+      return { parentType: "dossier", parentReference: session.dossier };
+    }
+    if (session.caseName) {
+      return { parentType: "case", parentReference: session.caseName };
+    }
+    if (session.case) {
+      return { parentType: "case", parentReference: session.case };
+    }
+    return null;
+  };
 
   missions.forEach((mission) => {
     if (!mission.scheduledDate || mission.status === "Terminée") return;
@@ -495,6 +671,30 @@ export function generateDossierNotifications(dossiers) {
   const notifications = [];
   const now = new Date();
 
+  const isTaskClosedStatus = (status) => {
+    const normalized = (status || "").toString().trim().toLowerCase();
+    return [
+      "done",
+      "completed",
+      "cancelled",
+      "canceled",
+      "terminee",
+      "termine",
+    ].includes(normalized);
+  };
+  const resolveSessionParent = (session) => {
+    if (session.dossier) {
+      return { parentType: "dossier", parentReference: session.dossier };
+    }
+    if (session.caseName) {
+      return { parentType: "case", parentReference: session.caseName };
+    }
+    if (session.case) {
+      return { parentType: "case", parentReference: session.case };
+    }
+    return null;
+  };
+
   dossiers.forEach((dossier) => {
     if (
       dossier.status === "Fermé" ||
@@ -505,78 +705,6 @@ export function generateDossierNotifications(dossiers) {
 
     const dossierNumber =
       dossier.case_number || dossier.caseNumber || dossier.reference;
-
-    // Prochaine Échéance (Next Deadline) notifications
-    if (dossier.next_deadline || dossier.nextDeadline) {
-      const deadlineDate = dossier.next_deadline || dossier.nextDeadline;
-      const daysLeft = calculateDaysDifference(deadlineDate, now);
-
-      // Overdue deadline
-      if (daysLeft < 0) {
-        const daysOverdue = Math.abs(daysLeft);
-        notifications.push(
-          buildNotification({
-            entityType: "dossier",
-            entityId: dossier.id,
-            subType: "deadlineOverdue",
-            priority: "urgent",
-            template_key: "content.dossier.deadlineOverdue",
-            params: { dossierNumber, count: daysOverdue },
-            icon: "fas fa-exclamation-triangle",
-            timestamp: now.toISOString(),
-            metadata: {
-              dossierId: dossier.id,
-              caseNumber: dossierNumber,
-              daysOverdue,
-              deadline: deadlineDate,
-            },
-          })
-        );
-      }
-      // Due today
-      else if (daysLeft === 0) {
-        notifications.push(
-          buildNotification({
-            entityType: "dossier",
-            entityId: dossier.id,
-            subType: "deadlineToday",
-            priority: "urgent",
-            template_key: "content.dossier.deadlineToday",
-            params: { dossierNumber },
-            icon: "fas fa-clock",
-            timestamp: now.toISOString(),
-            metadata: {
-              dossierId: dossier.id,
-              caseNumber: dossierNumber,
-              daysLeft: 0,
-              deadline: deadlineDate,
-            },
-          })
-        );
-      }
-      // Upcoming (1-7 days)
-      else if (daysLeft <= 7) {
-        const priority = daysLeft <= 2 ? "high" : "medium";
-        notifications.push(
-          buildNotification({
-            entityType: "dossier",
-            entityId: dossier.id,
-            subType: "deadlineUpcoming",
-            priority,
-            template_key: "content.dossier.deadlineUpcoming",
-            params: { dossierNumber, count: daysLeft },
-            icon: "fas fa-calendar-alt",
-            timestamp: now.toISOString(),
-            metadata: {
-              dossierId: dossier.id,
-              caseNumber: dossierNumber,
-              daysLeft,
-              deadline: deadlineDate,
-            },
-          })
-        );
-      }
-    }
 
     // Check for dossiers not updated in a while
     if (dossier.lastUpdateDate || dossier.updated_at || dossier.updatedAt) {
@@ -643,7 +771,10 @@ export function generateDossierNotifications(dossiers) {
  */
 export function generateAllDateNotifications(data) {
   const allNotifications = [
-    ...generateTaskNotifications(data.tasks || []),
+    ...generateTaskNotifications(data.tasks || [], {
+      dossiers: data.dossiers || [],
+      cases: data.cases || [],
+    }),
     ...generateTaskNotifications(data.personalTasks || []),
     ...generateSessionNotifications(data.sessions || []),
     ...generatePaymentNotifications(data.financialEntries || []),
@@ -736,3 +867,7 @@ export function generateDomainEventNotification(eventKey, context = {}) {
     linkOverride: link,
   });
 }
+
+
+
+

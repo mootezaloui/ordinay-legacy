@@ -274,16 +274,16 @@
       "upcomingPayment": {
         "title_one": "دفع متوقع - {{count}} يوم",
         "title_other": "دفع متوقع - {{count}} يوم",
-        "message_one": "دفع مبلغ {{amount}} {{currency}} متوقع من \"{{clientName}}\"{{contextInfo}} خلال {{count}} يوم.",
-        "message_other": "دفع مبلغ {{amount}} {{currency}} متوقع من \"{{clientName}}\"{{contextInfo}} خلال {{count}} يوم.",
-        "messageWithDescription_one": "دفع مبلغ {{amount}} {{currency}} متوقع من \"{{clientName}}\"{{contextInfo}} خلال {{count}} يوم. {{description}}",
-        "messageWithDescription_other": "دفع مبلغ {{amount}} {{currency}} متوقع من \"{{clientName}}\"{{contextInfo}} خلال {{count}} يوم. {{description}}"
+        "message_one": "دفع مبلغ {{amount}} {{currency}} متوقع من \"{{clientName}}\"{{parentContext}} خلال {{count}} يوم.",
+        "message_other": "دفع مبلغ {{amount}} {{currency}} متوقع من \"{{clientName}}\"{{parentContext}} خلال {{count}} يوم.",
+        "messageWithDescription_one": "دفع مبلغ {{amount}} {{currency}} متوقع من \"{{clientName}}\"{{parentContext}} خلال {{count}} يوم. {{description}}",
+        "messageWithDescription_other": "دفع مبلغ {{amount}} {{currency}} متوقع من \"{{clientName}}\"{{parentContext}} خلال {{count}} يوم. {{description}}"
       },
       "overduePayment": {
         "title_one": "دفع متأخر - {{count}} يوم",
         "title_other": "دفع متأخر - {{count}} يوم",
-        "message_one": "دفع مبلغ {{amount}} {{currency}} من \"{{clientName}}\"{{contextInfo}} متأخر {{count}} يوم. يوصى بالتذكير.",
-        "message_other": "دفع مبلغ {{amount}} {{currency}} من \"{{clientName}}\"{{contextInfo}} متأخر {{count}} يوم. يوصى بالتذكير."
+        "message_one": "دفع مبلغ {{amount}} {{currency}} من \"{{clientName}}\"{{parentContext}} متأخر {{count}} يوم. يوصى بالتذكير.",
+        "message_other": "دفع مبلغ {{amount}} {{currency}} من \"{{clientName}}\"{{parentContext}} متأخر {{count}} يوم. يوصى بالتذكير."
       },
       "paymentReceivable": {
         "title": "دفع مستحق القبض",
@@ -321,26 +321,6 @@
         "title": "مراجعة الملف - الأولوية {{priority}}",
         "message_one": "يتطلب الملف \"{{dossierNumber}}\" (الأولوية {{priority}}) مراجعة. آخر تحديث منذ {{count}} يوم.",
         "message_other": "يتطلب الملف \"{{dossierNumber}}\" (الأولوية {{priority}}) مراجعة. آخر تحديث منذ {{count}} يوم."
-      },
-      "deadlineOverdue": {
-        "title_one": "موعد نهائي منتهي - {{count}} يوم",
-        "title_other": "موعد نهائي منتهي - {{count}} يوم",
-        "message_one": "الموعد النهائي للملف \"{{dossierNumber}}\" منتهي منذ {{count}} يوم. إجراء عاجل مطلوب.",
-        "message_other": "الموعد النهائي للملف \"{{dossierNumber}}\" منتهي منذ {{count}} يوم. إجراء عاجل مطلوب."
-      },
-      "deadlineToday": {
-        "title": "موعد نهائي اليوم",
-        "message": "الموعد النهائي للملف \"{{dossierNumber}}\" اليوم. يرجى إكمال الإجراءات اللازمة."
-      },
-      "deadlineUpcoming": {
-        "title_one": "موعد نهائي قادم - {{count}} يوم",
-        "title_other": "موعد نهائي قادم - {{count}} يوم",
-        "message_one": "الموعد النهائي للملف \"{{dossierNumber}}\" خلال {{count}} يوم. يوصى بالتحضير.",
-        "message_other": "الموعد النهائي للملف \"{{dossierNumber}}\" خلال {{count}} يوم. يوصى بالتحضير."
-      },
-      "deadlineWeek": {
-        "title": "موعد نهائي خلال 7 أيام",
-        "message": "الموعد النهائي للملف \"{{dossierNumber}}\" خلال 7 أيام. يوصى بالتخطيط."
       },
       "statusUpdateNeeded": {
         "title": "تحديث مطلوب",
@@ -725,19 +705,19 @@
         "tone": "professional",
         "title_one": "دفع متوقع - {{count}} يوم",
         "title_other": "دفع متوقع - {{count}} يوم",
-        "message_one": "دفع مبلغ {{amount}} {{currency}} متوقع من \"{{clientName}}\"{{contextInfo}} خلال {{count}} يوم.",
-        "message_other": "دفع مبلغ {{amount}} {{currency}} متوقع من \"{{clientName}}\"{{contextInfo}} خلال {{count}} يوم.",
-        "messageWithDescription_one": "دفع مبلغ {{amount}} {{currency}} متوقع من \"{{clientName}}\"{{contextInfo}} خلال {{count}} يوم. {{description}}",
-        "messageWithDescription_other": "دفع مبلغ {{amount}} {{currency}} متوقع من \"{{clientName}}\"{{contextInfo}} خلال {{count}} يوم. {{description}}"
+        "message_one": "دفع مبلغ {{amount}} {{currency}} متوقع من \"{{clientName}}\"{{parentContext}} خلال {{count}} يوم.",
+        "message_other": "دفع مبلغ {{amount}} {{currency}} متوقع من \"{{clientName}}\"{{parentContext}} خلال {{count}} يوم.",
+        "messageWithDescription_one": "دفع مبلغ {{amount}} {{currency}} متوقع من \"{{clientName}}\"{{parentContext}} خلال {{count}} يوم. {{description}}",
+        "messageWithDescription_other": "دفع مبلغ {{amount}} {{currency}} متوقع من \"{{clientName}}\"{{parentContext}} خلال {{count}} يوم. {{description}}"
       },
       {
         "tone": "reminder",
         "title_one": "دفع وارد خلال {{count}} يوم",
         "title_other": "دفع وارد خلال {{count}} يوم",
-        "message_one": "\"{{clientName}}\"{{contextInfo}} يجب أن يدفع {{amount}} {{currency}} خلال {{count}} يوم. حدد تذكيراً.",
-        "message_other": "\"{{clientName}}\"{{contextInfo}} يجب أن يدفع {{amount}} {{currency}} خلال {{count}} يوم. حدد تذكيراً.",
-        "messageWithDescription_one": "\"{{clientName}}\"{{contextInfo}} يجب أن يدفع {{amount}} {{currency}} خلال {{count}} يوم. ملاحظة: {{description}}",
-        "messageWithDescription_other": "\"{{clientName}}\"{{contextInfo}} يجب أن يدفع {{amount}} {{currency}} خلال {{count}} يوم. ملاحظة: {{description}}"
+        "message_one": "\"{{clientName}}\"{{parentContext}} يجب أن يدفع {{amount}} {{currency}} خلال {{count}} يوم. حدد تذكيراً.",
+        "message_other": "\"{{clientName}}\"{{parentContext}} يجب أن يدفع {{amount}} {{currency}} خلال {{count}} يوم. حدد تذكيراً.",
+        "messageWithDescription_one": "\"{{clientName}}\"{{parentContext}} يجب أن يدفع {{amount}} {{currency}} خلال {{count}} يوم. ملاحظة: {{description}}",
+        "messageWithDescription_other": "\"{{clientName}}\"{{parentContext}} يجب أن يدفع {{amount}} {{currency}} خلال {{count}} يوم. ملاحظة: {{description}}"
       }
     ],
     "content.financial.overduePayment": [
@@ -745,15 +725,15 @@
         "tone": "urgent",
         "title_one": "دفع متأخر - {{count}} يوم",
         "title_other": "دفع متأخر - {{count}} يوم",
-        "message_one": "دفع مبلغ {{amount}} {{currency}} من \"{{clientName}}\"{{contextInfo}} متأخر {{count}} يوم. يوصى بالتذكير.",
-        "message_other": "دفع مبلغ {{amount}} {{currency}} من \"{{clientName}}\"{{contextInfo}} متأخر {{count}} يوم. يوصى بالتذكير."
+        "message_one": "دفع مبلغ {{amount}} {{currency}} من \"{{clientName}}\"{{parentContext}} متأخر {{count}} يوم. يوصى بالتذكير.",
+        "message_other": "دفع مبلغ {{amount}} {{currency}} من \"{{clientName}}\"{{parentContext}} متأخر {{count}} يوم. يوصى بالتذكير."
       },
       {
         "tone": "professional",
         "title_one": "دفع متأخر {{count}} يوم",
         "title_other": "دفع متأخر {{count}} يوم",
-        "message_one": "\"{{clientName}}\"{{contextInfo}} ما زال مديناً {{amount}} {{currency}} (تأخر {{count}} يوم). قم بالمتابعة.",
-        "message_other": "\"{{clientName}}\"{{contextInfo}} ما زال مديناً {{amount}} {{currency}} (تأخر {{count}} يوم). قم بالمتابعة."
+        "message_one": "\"{{clientName}}\"{{parentContext}} ما زال مديناً {{amount}} {{currency}} (تأخر {{count}} يوم). قم بالمتابعة.",
+        "message_other": "\"{{clientName}}\"{{parentContext}} ما زال مديناً {{amount}} {{currency}} (تأخر {{count}} يوم). قم بالمتابعة."
       }
     ],
     "content.financial.paymentOverdue": [
@@ -796,50 +776,6 @@
         "title": "دفع قادم",
         "message_one": "يجب أن يدفع {{clientName}} {{amount}} د.ت خلال {{count}} يوم. خطط لتذكير.",
         "message_other": "يجب أن يدفع {{clientName}} {{amount}} د.ت خلال {{count}} يوم. خطط لتذكير."
-      }
-    ],
-    "content.dossier.deadlineUpcoming": [
-      {
-        "tone": "professional",
-        "title_one": "موعد نهائي قادم - {{count}} يوم",
-        "title_other": "موعد نهائي قادم - {{count}} يوم",
-        "message_one": "الموعد النهائي للملف \"{{dossierNumber}}\" خلال {{count}} يوم. يوصى بالتحضير.",
-        "message_other": "الموعد النهائي للملف \"{{dossierNumber}}\" خلال {{count}} يوم. يوصى بالتحضير."
-      },
-      {
-        "tone": "planning",
-        "title_one": "موعد نهائي يقترب - {{count}} يوم",
-        "title_other": "موعد نهائي يقترب - {{count}} يوم",
-        "message_one": "\"{{dossierNumber}}\" مستحق خلال {{count}} يوم. أولو الخطوات التالية.",
-        "message_other": "\"{{dossierNumber}}\" مستحق خلال {{count}} يوم. أولو الخطوات التالية."
-      }
-    ],
-    "content.dossier.deadlineOverdue": [
-      {
-        "tone": "urgent",
-        "title_one": "موعد نهائي منتهي - {{count}} يوم",
-        "title_other": "موعد نهائي منتهي - {{count}} يوم",
-        "message_one": "الموعد النهائي للملف \"{{dossierNumber}}\" منتهي منذ {{count}} يوم. إجراء عاجل مطلوب.",
-        "message_other": "الموعد النهائي للملف \"{{dossierNumber}}\" منتهي منذ {{count}} يوم. إجراء عاجل مطلوب."
-      },
-      {
-        "tone": "professional",
-        "title_one": "موعد نهائي ملف منتهي",
-        "title_other": "موعد نهائي ملف منتهي",
-        "message_one": "موعد \"{{dossierNumber}}\" النهائي انتهى منذ {{count}} يوم. اتخذ إجراءً تصحيحياً.",
-        "message_other": "موعد \"{{dossierNumber}}\" النهائي انتهى منذ {{count}} يوم. اتخذ إجراءً تصحيحياً."
-      }
-    ],
-    "content.dossier.deadlineToday": [
-      {
-        "tone": "urgent",
-        "title": "موعد نهائي اليوم",
-        "message": "الموعد النهائي للملف \"{{dossierNumber}}\" اليوم. يرجى إكمال الإجراءات اللازمة."
-      },
-      {
-        "tone": "professional",
-        "title": "ملف مستحق اليوم",
-        "message": "موعد \"{{dossierNumber}}\" النهائي اليوم. أنهِ العناصر المعلقة."
       }
     ],
     "content.client.inActive": [

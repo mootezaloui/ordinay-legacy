@@ -137,10 +137,20 @@ export const translateNotificationCopy = ({
   const normalizedMessageKey = normalizeKey(messageKey);
   const baseKey = getBaseKey(normalizedTitleKey, normalizedMessageKey);
   const variants = getVariants(baseKey);
-  const variantIndex =
-    variants.length > 0
-      ? hashSeed(buildVariantSeed(seedParts, timestamp)) % variants.length
+  const rawVariantIndex = titleParams.variantIndex ?? messageParams.variantIndex;
+  const parsedVariantIndex = Number.isFinite(Number(rawVariantIndex))
+    ? Math.max(0, Math.floor(Number(rawVariantIndex)))
+    : null;
+  const forcedVariantIndex =
+    parsedVariantIndex !== null && variants.length > 0
+      ? parsedVariantIndex % variants.length
       : null;
+  const variantIndex =
+    forcedVariantIndex !== null
+      ? forcedVariantIndex
+      : variants.length > 0
+        ? hashSeed(buildVariantSeed(seedParts, timestamp)) % variants.length
+        : null;
 
   return {
     title: translatePart(

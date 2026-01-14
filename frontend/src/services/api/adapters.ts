@@ -363,8 +363,8 @@ export function adaptFinancialEntry(
     caseId: api.case_id ?? null,
     caseReference: caseRef,
     missionId: api.mission_id ?? null,
-    taskId: null,
-    personalTaskId: null,
+    taskId: api.task_id ?? null,
+    personalTaskId: api.personal_task_id ?? null,
     documentId: null,
     reference: api.reference ?? "",
     // Metadata

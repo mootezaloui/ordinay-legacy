@@ -1,6 +1,7 @@
 import { apiClient } from "./api/client";
 
 const ENDPOINT = "/notifications";
+const isNotFoundError = (error) => error?.message?.includes("API error 404");
 
 /**
  * notificationService.js
@@ -118,6 +119,9 @@ export async function deleteNotification(id, options = {}) {
     const url = params ? `${ENDPOINT}/${id}?${params}` : `${ENDPOINT}/${id}`;
     await apiClient.delete(url);
   } catch (error) {
+    if (isNotFoundError(error)) {
+      return;
+    }
     console.error(`Error deleting notification ${id}:`, error);
     throw error;
   }
@@ -136,6 +140,9 @@ export async function markAsRead(id) {
     });
     return data;
   } catch (error) {
+    if (isNotFoundError(error)) {
+      return null;
+    }
     console.error(`Error marking notification ${id} as read:`, error);
     throw error;
   }
@@ -148,12 +155,7 @@ export async function markAsRead(id) {
  */
 export async function markAllAsRead(notificationIds) {
   try {
-    const promises = notificationIds.map((id) =>
-      apiClient.put(`${ENDPOINT}/${id}`, {
-        status: "read",
-        read_at: new Date().toISOString(),
-      })
-    );
+    const promises = notificationIds.map((id) => markAsRead(id));
     const results = await Promise.all(promises);
     return results;
   } catch (error) {

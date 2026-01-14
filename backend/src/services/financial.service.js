@@ -14,6 +14,8 @@ const allowedFields = [
   "dossier_id",
   "case_id",
   "mission_id",
+  "task_id",
+  "personal_task_id",
   "entry_type",
   "status",
   "category",
@@ -222,8 +224,8 @@ function create(payload) {
 
   try {
     const stmt = db.prepare(
-      `INSERT INTO ${table} (scope, client_id, dossier_id, case_id, mission_id, entry_type, status, category, amount, currency, occurred_at, due_date, paid_at, title, description, reference, notes, direction)
-       VALUES (@scope, @client_id, @dossier_id, @case_id, @mission_id, @entry_type, @status, @category, @amount, @currency, @occurred_at, @due_date, @paid_at, @title, @description, @reference, @notes, @direction)`
+      `INSERT INTO ${table} (scope, client_id, dossier_id, case_id, mission_id, task_id, personal_task_id, entry_type, status, category, amount, currency, occurred_at, due_date, paid_at, title, description, reference, notes, direction)
+       VALUES (@scope, @client_id, @dossier_id, @case_id, @mission_id, @task_id, @personal_task_id, @entry_type, @status, @category, @amount, @currency, @occurred_at, @due_date, @paid_at, @title, @description, @reference, @notes, @direction)`
     );
     const result = stmt.run(insertData);
 

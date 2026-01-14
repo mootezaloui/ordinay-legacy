@@ -228,6 +228,7 @@ export function NotificationProvider({ children }) {
         severity: createdNotification.severity,
         priority: createdNotification.severity,
         type: notification.type || "app",
+        subType: createdNotification.sub_type || notification.subType,
         entityType: createdNotification.entity_type,
         entityId: createdNotification.entity_id,
         template_key: createdNotification.template_key,
@@ -237,6 +238,7 @@ export function NotificationProvider({ children }) {
         link: notification.link,
         sticky: notification.sticky,
         meta: notification.meta,
+        isLocalOnly: false,
       };
 
       console.log("[NOTIFICATION] Upserting notification:", frontendNotification);
@@ -261,7 +263,9 @@ export function NotificationProvider({ children }) {
         icon: notification.icon,
         link: notification.link,
         type: notification.type || "app",
+        subType: notification.subType,
         dedupe_key: dedupeKey,
+        isLocalOnly: true,
       };
       setNotificationsSorted(prev => {
         const filtered = prev.filter(n => n.dedupe_key !== localNotification.dedupe_key);
@@ -331,8 +335,10 @@ export function NotificationProvider({ children }) {
             readAt: n.read_at,
             dedupe_key: n.dedupe_key,
             type: notificationType,
+            subType: n.sub_type,
             icon: getIconForEntityType(n.entity_type, n.severity),
             link: getLinkForEntity(n.entity_type, n.entity_id),
+            isLocalOnly: false,
           };
         });
 
@@ -369,7 +375,7 @@ export function NotificationProvider({ children }) {
         console.log("[NOTIFICATION] Loading entity data for scheduler...");
 
         // Fetch all entities from APIs using apiClient
-        const [tasks, personalTasks, sessions, cases, missions, financialEntries, dossiers, clients] = await Promise.all([
+        const [tasks, personalTasks, sessions, cases, missions, financialEntries, dossiers, clients, officers] = await Promise.all([
           apiClient.get('/tasks').catch(err => { console.error('[NOTIFICATION] Failed to load tasks:', err); return []; }),
           apiClient.get('/personal-tasks').catch(err => { console.error('[NOTIFICATION] Failed to load personal-tasks:', err); return []; }),
           apiClient.get('/sessions').catch(err => { console.error('[NOTIFICATION] Failed to load sessions:', err); return []; }),
@@ -378,6 +384,7 @@ export function NotificationProvider({ children }) {
           apiClient.get('/financial').catch(err => { console.error('[NOTIFICATION] Failed to load financial:', err); return []; }),
           apiClient.get('/dossiers').catch(err => { console.error('[NOTIFICATION] Failed to load dossiers:', err); return []; }),
           apiClient.get('/clients').catch(err => { console.error('[NOTIFICATION] Failed to load clients:', err); return []; }),
+          apiClient.get('/officers').catch(err => { console.error('[NOTIFICATION] Failed to load officers:', err); return []; }),
         ]);
 
         // Feed data to scheduler
@@ -390,6 +397,7 @@ export function NotificationProvider({ children }) {
           financialEntries: Array.isArray(financialEntries) ? financialEntries : [],
           dossiers: Array.isArray(dossiers) ? dossiers : [],
           clients: Array.isArray(clients) ? clients : [],
+          officers: Array.isArray(officers) ? officers : [],
         };
 
         console.log("[NOTIFICATION] Entity data loaded:", {
@@ -401,6 +409,7 @@ export function NotificationProvider({ children }) {
           financialEntries: (financialEntries || []).length,
           dossiers: (dossiers || []).length,
           clients: (clients || []).length,
+          officers: (officers || []).length,
         });
       } catch (error) {
         console.error("[NOTIFICATION] Failed to load entity data:", error);
@@ -414,6 +423,7 @@ export function NotificationProvider({ children }) {
           financialEntries: [],
           dossiers: [],
           clients: [],
+          officers: [],
         };
       }
     }
@@ -484,6 +494,13 @@ export function NotificationProvider({ children }) {
 
   // Mark notification as read
   const markAsRead = useCallback(async (notificationId) => {
+    const targetNotification = notifications.find(n => n.id === notificationId);
+    if (targetNotification?.isLocalOnly) {
+      setNotificationsSorted(prev =>
+        prev.map(n => n.id === notificationId ? { ...n, read: true, status: "read" } : n)
+      );
+      return;
+    }
     try {
       await notificationService.markAsRead(notificationId);
       setNotificationsSorted(prev =>
@@ -496,7 +513,7 @@ export function NotificationProvider({ children }) {
         prev.map(n => n.id === notificationId ? { ...n, read: true, status: "read" } : n)
       );
     }
-  }, [setNotificationsSorted]);
+  }, [notifications, setNotificationsSorted]);
 
   // Mark all as read
   const markAllAsRead = useCallback(async () => {
@@ -515,6 +532,11 @@ export function NotificationProvider({ children }) {
 
   // Delete notification and persist dismissal (backend handles dedupe suppression)
   const deleteNotification = useCallback(async (notificationId) => {
+    const targetNotification = notifications.find(n => n.id === notificationId);
+    if (targetNotification?.isLocalOnly) {
+      setNotificationsSorted(prev => prev.filter(n => n.id !== notificationId));
+      return;
+    }
     try {
       await notificationService.deleteNotification(notificationId, { user_id: 1 });
       setNotificationsSorted(prev => prev.filter(n => n.id !== notificationId));
@@ -522,7 +544,7 @@ export function NotificationProvider({ children }) {
       console.error(`Failed to delete notification ${notificationId}:`, error);
       setNotificationsSorted(prev => prev.filter(n => n.id !== notificationId));
     }
-  }, [setNotificationsSorted]);
+  }, [notifications, setNotificationsSorted]);
 
   // Clear all notifications (backend + local)
   // Bulk clear all notifications (backend + local)
