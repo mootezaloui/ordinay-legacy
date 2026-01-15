@@ -116,11 +116,19 @@ export default function Accounting() {
   };
 
   const displayEntries = useMemo(() => {
-    let filtered = getFinancialEntriesForDisplay({}, financialEntries || []);
+    // Always include cancelled entries for display, but sort them last
+    let filtered = getFinancialEntriesForDisplay({ includeCancelled: true }, financialEntries || []);
 
     if (filterScope !== "all") {
       filtered = filtered.filter((entry) => entry.scope === filterScope);
     }
+
+    // Sort: non-cancelled first, then cancelled, preserve original order otherwise
+    filtered = filtered.sort((a, b) => {
+      if (a.status === "cancelled" && b.status !== "cancelled") return 1;
+      if (a.status !== "cancelled" && b.status === "cancelled") return -1;
+      return 0;
+    });
 
     return filtered;
   }, [filterScope, refreshKey, financialEntries]);
@@ -326,14 +334,16 @@ export default function Accounting() {
                   {truncate(entry.description, 45)}
                 </span>
               )}
-              <div className="flex items-center gap-2 mt-1">
+              <div className="flex items-center gap-4 mt-1">
                 <span
-                  className={`px-2 py-0.5 rounded-full text-xs font-medium bg-${entry.categoryColor}-100 text-${entry.categoryColor}-800 dark:bg-${entry.categoryColor}-900/30 dark:text-${entry.categoryColor}-300`}
+                  className={`px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 mr-1`}
                 >
                   {categoryLabel}
                 </span>
                 {entry.scope === "internal" && (
-                  <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300">
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300`}
+                  >
                     {t("table.scope.office")}
                   </span>
                 )}
@@ -970,21 +980,9 @@ export default function Accounting() {
                   statusBadgeStyles[entry.status] || statusBadgeStyles.default;
                 const statusLabel =
                   statusLabelMap[entry.status] || entry.statusLabel;
-                const statusHint = t(
-                  `priority.statusHints.${entry.status}`,
-                  {
-                    defaultValue:
-                      entry.status === "draft"
-                        ? "Needs confirmation"
-                        : entry.status === "confirmed"
-                          ? "Awaiting payment or reconciliation"
-                          : entry.status === "paid"
-                            ? "Paid"
-                            : entry.status === "cancelled"
-                              ? "Cancelled entry"
-                              : "",
-                  }
-                );
+                const statusHint = t(`priority.statusHints.${entry.status}`, {
+                  defaultValue: '',
+                });
                 return (
                   <div
                     key={entry.id}

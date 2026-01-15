@@ -160,7 +160,14 @@ function create(payload) {
       return null;
     }
 
-    // Update existing notification instead of creating a new one (bucket exhaustion)
+    // CRITICAL FIX: Preserve user's read status
+    // If notification is already read, don't touch it at all
+    if (existingAny.status === "read" || existingAny.read_at) {
+      return existingAny; // Return as-is without modifications
+    }
+
+    // Only update UNREAD notifications (refresh content without destroying state)
+    // This updates metadata like payload, severity, etc. while preserving unread status
     const updateStmt = db.prepare(
       `UPDATE ${table}
        SET type = @type,
@@ -168,19 +175,29 @@ function create(payload) {
            template_key = @template_key,
            payload = @payload,
            severity = @severity,
-           status = @status,
            entity_type = @entity_type,
            entity_id = @entity_id,
            scheduled_at = @scheduled_at,
-           read_at = @read_at,
            updated_at = CURRENT_TIMESTAMP
-       WHERE dedupe_key = @dedupe_key AND deleted_at IS NULL`
+       WHERE dedupe_key = @dedupe_key 
+         AND deleted_at IS NULL 
+         AND status != 'read' 
+         AND read_at IS NULL`
     );
-    updateStmt.run({
-      ...insertData,
+
+    const result = updateStmt.run({
+      type: insertData.type,
+      sub_type: insertData.sub_type,
+      template_key: insertData.template_key,
       payload: payloadString,
+      severity: insertData.severity,
+      entity_type: insertData.entity_type,
+      entity_id: insertData.entity_id,
+      scheduled_at: insertData.scheduled_at,
       dedupe_key: dedupeKey,
     });
+
+    // ...existing code...
     return get(existingAny.id);
   }
 

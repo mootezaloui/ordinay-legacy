@@ -25,6 +25,8 @@ export function AgentLayout() {
     handleExampleClick,
     saveScrollPosition,
     getRelativeTime,
+    isLoading,
+    cancelStream,
   } = useAgentState();
 
   const {
@@ -104,6 +106,9 @@ export function AgentLayout() {
           inputRef={inputRef}
           onSubmit={handleSubmit}
           onKeyDown={handleKeyDown}
+          isStreaming={isLoading}
+          onStopGeneration={cancelStream}
+          onClear={() => setInput('')}
         />
       </div>
 

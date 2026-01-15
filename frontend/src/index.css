@@ -1,3 +1,11 @@
+/* Force user message text to white in user bubbles, even inside .prose */
+.user-message-bubble {
+  color: #fff !important;
+}
+.user-message-bubble .prose,
+.user-message-bubble .prose * {
+  color: #fff !important;
+}
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

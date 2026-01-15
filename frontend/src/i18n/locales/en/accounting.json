@@ -27,7 +27,13 @@
   },
   "priority": {
     "title": "Priority Items ({{count}})",
-    "more": "and {{count}} other items..."
+    "more": "and {{count}} other items...",
+    "statusHints": {
+      "draft": "Needs confirmation",
+      "confirmed": "Awaiting payment or reconciliation",
+      "paid": "Paid",
+      "cancelled": "Cancelled entry"
+    }
   },
   "table": {
     "columns": {

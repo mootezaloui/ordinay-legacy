@@ -91,21 +91,20 @@ export function AgentFolderItem({
   return (
     <>
       <div
-        draggable={!isEditing}
-        onDragStart={onDragStart}
-        onDragEnd={onDragEnd}
-        onDragOver={onDragOver}
-        onDragLeave={onDragLeave}
-        onDrop={onDrop}
         className={`group transition-all ${
           isDragging ? "opacity-50" : ""
-        } ${
-          isDropTarget ? "ring-2 ring-blue-400 ring-inset rounded-lg" : ""
         }`}
       >
+        {/* Folder header - this is the draggable part and drop target for moving sessions into folder */}
         <div
+          draggable={!isEditing}
+          onDragStart={onDragStart}
+          onDragEnd={onDragEnd}
+          onDragOver={onDragOver}
+          onDragLeave={onDragLeave}
+          onDrop={onDrop}
           className={`flex items-center gap-1 p-2 rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 ${
-            isDropTarget ? "bg-blue-50 dark:bg-blue-900/20" : ""
+            isDropTarget ? "ring-2 ring-blue-400 ring-inset bg-blue-50 dark:bg-blue-900/20" : ""
           }`}
           onClick={!isEditing ? onToggleExpand : undefined}
         >

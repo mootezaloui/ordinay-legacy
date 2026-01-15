@@ -1,3 +1,4 @@
+import React, { useState } from "react";
 import {
   Database,
   Zap,
@@ -10,13 +11,17 @@ import {
   Lightbulb,
   Search,
 } from "lucide-react";
+import { useData } from "../../contexts/DataContext";
 
-const dataSources = [
-  { id: "dossiers", label: "12 Dossiers", icon: FolderOpen, active: true },
-  { id: "clients", label: "47 Clients", icon: Users, active: true },
-  { id: "tasks", label: "23 Tasks", icon: CheckSquare, active: true },
-  { id: "sessions", label: "8 Sessions", icon: Calendar, active: true },
-  { id: "documents", label: "156 Documents", icon: FileText, active: true },
+const DATA_SOURCE_CONFIG = [
+  { id: "dossiers", label: "Dossiers", icon: FolderOpen },
+  { id: "clients", label: "Clients", icon: Users },
+  { id: "cases", label: "Cases", icon: FileText },
+  { id: "tasks", label: "Tasks", icon: CheckSquare },
+  { id: "personalTasks", label: "Personal Tasks", icon: CheckSquare },
+  { id: "missions", label: "Missions", icon: Zap },
+  { id: "sessions", label: "Sessions", icon: Calendar },
+  { id: "documents", label: "Documents", icon: FileText },
 ];
 
 const capabilities = [
@@ -62,16 +67,70 @@ interface AgentResultPreviewProps {
   onExampleClick: (example: string) => void;
 }
 
-export function AgentResultPreview({ onExampleClick }: AgentResultPreviewProps) {
+export function AgentResultPreview({
+  onExampleClick,
+}: AgentResultPreviewProps) {
+  const { dossiers, clients, cases, tasks, personalTasks, missions, sessions } =
+    useData();
+  // If you add documents to DataContext, include them here as well
+  // For now, documents count will be shown as '--'
+
+  // Track enabled/disabled state for each data source
+  const [enabledSources, setEnabledSources] = useState(() => {
+    // All enabled by default
+    const state: Record<string, boolean> = {};
+    DATA_SOURCE_CONFIG.forEach((ds) => {
+      state[ds.id] = true;
+    });
+    return state;
+  });
+
+  const handleToggleSource = (id: string) => {
+    setEnabledSources((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
   return (
     <div className="w-80 flex-shrink-0 border-l border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col overflow-hidden">
       <div className="p-4 border-b border-slate-200 dark:border-slate-800">
-        <div className="flex items-center gap-2 px-3 py-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
-          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-          <span className="text-xs font-medium text-green-700 dark:text-green-300">
-            Connected to your data
+        <button
+          type="button"
+          onClick={() => {
+            const allEnabled = Object.values(enabledSources).every(Boolean);
+            const newState: Record<string, boolean> = {};
+            DATA_SOURCE_CONFIG.forEach((ds) => {
+              newState[ds.id] = !allEnabled ? true : false;
+            });
+            setEnabledSources(newState);
+          }}
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-colors w-full
+            ${
+              Object.values(enabledSources).some(Boolean)
+                ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 cursor-pointer"
+                : "bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700 cursor-pointer"
+            }`}
+          aria-pressed={Object.values(enabledSources).some(Boolean)}
+        >
+          <div
+            className={`w-2 h-2 rounded-full animate-pulse
+            ${
+              Object.values(enabledSources).some(Boolean)
+                ? "bg-green-500"
+                : "bg-red-500 dark:bg-slate-600 animate-none"
+            }`}
+          ></div>
+          <span
+            className={`text-xs font-medium
+            ${
+              Object.values(enabledSources).some(Boolean)
+                ? "text-green-700 dark:text-green-300"
+                : "text-slate-500 dark:text-slate-400 line-through"
+            }`}
+          >
+            {Object.values(enabledSources).some(Boolean)
+              ? "Connected to your data"
+              : "Data access disabled"}
           </span>
-        </div>
+        </button>
       </div>
 
       <div className="p-4 border-b border-slate-200 dark:border-slate-800">
@@ -82,22 +141,65 @@ export function AgentResultPreview({ onExampleClick }: AgentResultPreviewProps) 
           </h3>
         </div>
         <div className="grid grid-cols-2 gap-2">
-          {dataSources.map((source) => {
+          {DATA_SOURCE_CONFIG.map((source) => {
             const IconComponent = source.icon;
+            let value = "--";
+            if (source.id === "dossiers" && dossiers) value = dossiers.length;
+            else if (source.id === "clients" && clients) value = clients.length;
+            else if (source.id === "cases" && cases) value = cases.length;
+            else if (source.id === "tasks" && tasks) value = tasks.length;
+            else if (source.id === "personalTasks" && personalTasks)
+              value = personalTasks.length;
+            else if (source.id === "missions" && missions)
+              value = missions.length;
+            else if (source.id === "sessions" && sessions)
+              value = sessions.length;
+            // Add documents when available in DataContext
+            const enabled = enabledSources[source.id];
             return (
-              <div
+              <button
                 key={source.id}
-                className="relative p-3 bg-slate-50 dark:bg-slate-800 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-750 transition-colors"
+                type="button"
+                onClick={() => handleToggleSource(source.id)}
+                className={`relative p-3 w-full text-left bg-slate-50 dark:bg-slate-800 rounded-lg transition-colors border-2 ${
+                  enabled
+                    ? "border-green-200 dark:border-green-800 hover:bg-slate-100 dark:hover:bg-slate-750"
+                    : "border-slate-300 dark:border-slate-700 opacity-60"
+                }`}
+                aria-pressed={enabled}
+                tabIndex={0}
               >
-                <div className="absolute top-2 right-2 w-1.5 h-1.5 bg-green-500 rounded-full"></div>
-                <IconComponent className="w-4 h-4 text-slate-600 dark:text-slate-400 mb-2" />
-                <div className="text-xs font-medium text-slate-900 dark:text-white">
-                  {source.label.split(" ")[0]}
+                <div
+                  className={`absolute top-2 right-2 w-1.5 h-1.5 rounded-full ${
+                    enabled ? "bg-green-500" : "bg-red-500 dark:bg-slate-600"
+                  }`}
+                ></div>
+                <IconComponent
+                  className={`w-4 h-4 mb-2 ${
+                    enabled
+                      ? "text-slate-600 dark:text-slate-400"
+                      : "text-slate-400 dark:text-slate-600"
+                  }`}
+                />
+                <div
+                  className={`text-xs font-medium ${
+                    enabled
+                      ? "text-slate-900 dark:text-white"
+                      : "text-slate-400 dark:text-slate-500"
+                  }`}
+                >
+                  {value}
                 </div>
-                <div className="text-xs text-slate-500 dark:text-slate-400">
-                  {source.label.split(" ")[1]}
+                <div
+                  className={`text-xs ${
+                    enabled
+                      ? "text-slate-500 dark:text-slate-400"
+                      : "text-slate-400 dark:text-slate-600"
+                  }`}
+                >
+                  {source.label}
                 </div>
-              </div>
+              </button>
             );
           })}
         </div>

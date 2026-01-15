@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { AgentMessage } from "../types/agentMessage";
+import { AgentMessage, AgentMessageData } from "../types/agentMessage";
 import { useAgentSessions } from "./useAgentSessions";
+import { streamAgentMessage, ContextScope, AgentVersion } from "../../services/api/agent";
 
 export function useAgentState() {
   const {
@@ -14,9 +15,14 @@ export function useAgentState() {
   const [input, setInput] = useState("");
   const [showHistorySidebar, setShowHistorySidebar] = useState(true);
   const [showContextSidebar, setShowContextSidebar] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+  const [agentVersion, setAgentVersion] = useState<AgentVersion>("v1");
+  const [contextScope, setContextScope] = useState<ContextScope>("GLOBAL");
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const conversationEndRef = useRef<HTMLDivElement>(null);
   const scrollPositions = useRef<Record<string, number>>({});
+  const streamAbortRef = useRef<AbortController | null>(null);
+  const streamSessionRef = useRef<string | null>(null);
 
   // Get messages from active session
   const conversation = activeSession?.messages || [];
@@ -29,6 +35,32 @@ export function useAgentState() {
       setInput("");
     }
   }, [activeSessionId]);
+
+  // Abort any active stream when session changes
+  useEffect(() => {
+    if (streamSessionRef.current && streamSessionRef.current !== activeSessionId) {
+      streamAbortRef.current?.abort();
+      streamAbortRef.current = null;
+      streamSessionRef.current = null;
+    }
+  }, [activeSessionId]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      streamAbortRef.current?.abort();
+    };
+  }, []);
+
+  // Cancel current stream (can be called from UI)
+  const cancelStream = useCallback(() => {
+    if (streamAbortRef.current) {
+      streamAbortRef.current.abort();
+      streamAbortRef.current = null;
+      streamSessionRef.current = null;
+      setIsLoading(false);
+    }
+  }, []);
 
   // Save scroll position before switching sessions
   const saveScrollPosition = useCallback(() => {
@@ -72,7 +104,7 @@ export function useAgentState() {
   const handleSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = input.trim();
-    if (!trimmed || !activeSessionId) return;
+    if (!trimmed || !activeSessionId || isLoading) return;
 
     const userMessage: AgentMessage = {
       id: `u-${Date.now()}`,
@@ -81,18 +113,129 @@ export function useAgentState() {
       timestamp: new Date(),
     };
 
-    const agentMessage: AgentMessage = {
-      id: `a-${Date.now()}`,
+    // Add user message and an empty streaming placeholder for agent
+    const agentMessageId = `a-${Date.now()}`;
+    const streamingMessage: AgentMessage = {
+      id: agentMessageId,
       role: "agent",
-      content: "Processing your request...",
-      timestamp: new Date(Date.now() + 500),
+      content: "",
+      timestamp: new Date(),
+      status: "sending",
     };
 
-    const newMessages = [...conversation, userMessage, agentMessage];
-    updateSessionMessages(activeSessionId, newMessages);
+    // Capture current messages for updates
+    const baseMessages = [...conversation, userMessage];
+    updateSessionMessages(activeSessionId, [...baseMessages, streamingMessage]);
     setInput("");
     updateSessionDraft(activeSessionId, "");
-  }, [input, activeSessionId, conversation, updateSessionMessages, updateSessionDraft]);
+    setIsLoading(true);
+
+    // Track which session this stream belongs to
+    streamSessionRef.current = activeSessionId;
+
+    // Accumulated content for streaming
+    let streamedContent = "";
+    let intent = "GENERAL_CHAT";
+    let agentData: AgentMessageData | undefined;
+
+    // Start streaming
+    const abortController = streamAgentMessage(
+      trimmed,
+      { contextScope, agentVersion },
+      {
+        onStart: (data) => {
+          intent = data.intent;
+        },
+        onChunk: (content) => {
+          // Ignore if session changed
+          if (streamSessionRef.current !== activeSessionId) return;
+
+          streamedContent += content;
+          const updatedMessage: AgentMessage = {
+            id: agentMessageId,
+            role: "agent",
+            content: streamedContent,
+            timestamp: new Date(),
+            status: "sending",
+            intent,
+          };
+          updateSessionMessages(activeSessionId, [...baseMessages, updatedMessage]);
+        },
+        onResult: (data) => {
+          // Non-streaming structured result (for non-chat intents)
+          if (streamSessionRef.current !== activeSessionId) return;
+
+          const output = data.output;
+          intent = data.intent;
+
+          if (output.type === "explanation") {
+            agentData = { type: "explanation", explanation: output };
+            streamedContent = output.summary;
+          } else if (output.type === "operational_risk_analysis") {
+            agentData = { type: "risks", risks: output };
+            streamedContent = output.overallAssessment || "Risk analysis complete";
+          } else if (["INVITATION", "CLIENT_EMAIL", "HEARING_SUMMARY", "INTERNAL_NOTE"].includes(output.type)) {
+            agentData = { type: "draft", draft: output };
+            streamedContent = `Draft ${output.type.toLowerCase().replace("_", " ")} generated`;
+          } else if (output.type === "action_plan") {
+            agentData = { type: "actions", actionProposals: output.actions };
+            streamedContent = `${output.actions?.length || 0} action(s) proposed`;
+          }
+
+          const resultMessage: AgentMessage = {
+            id: agentMessageId,
+            role: "agent",
+            content: streamedContent,
+            timestamp: new Date(),
+            status: "sending",
+            intent,
+            data: agentData,
+          };
+          updateSessionMessages(activeSessionId, [...baseMessages, resultMessage]);
+        },
+        onDone: () => {
+          if (streamSessionRef.current !== activeSessionId) return;
+
+          const finalMessage: AgentMessage = {
+            id: agentMessageId,
+            role: "agent",
+            content: streamedContent || "Response complete",
+            timestamp: new Date(),
+            status: "success",
+            intent,
+            data: agentData,
+          };
+          updateSessionMessages(activeSessionId, [...baseMessages, finalMessage]);
+          setIsLoading(false);
+          streamAbortRef.current = null;
+          streamSessionRef.current = null;
+        },
+        onError: (error) => {
+          if (streamSessionRef.current !== activeSessionId) return;
+
+          const errorMessage: AgentMessage = {
+            id: agentMessageId,
+            role: "agent",
+            content: `Error: ${error}`,
+            timestamp: new Date(),
+            status: "error",
+            data: { type: "error", error },
+          };
+          updateSessionMessages(activeSessionId, [...baseMessages, errorMessage]);
+          setIsLoading(false);
+          streamAbortRef.current = null;
+          streamSessionRef.current = null;
+        },
+        onCancelled: () => {
+          setIsLoading(false);
+          streamAbortRef.current = null;
+          streamSessionRef.current = null;
+        },
+      }
+    );
+
+    streamAbortRef.current = abortController;
+  }, [input, activeSessionId, conversation, updateSessionMessages, updateSessionDraft, isLoading, contextScope, agentVersion]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -100,6 +243,128 @@ export function useAgentState() {
       handleSubmit(e as any);
     }
   }, [handleSubmit]);
+
+  // Start a stream for a given user message content (used for Retry/Regenerate actions)
+  const startAgentStream = useCallback((userContent: string, opts?: { retryOf?: string; sourceUserId?: string }) => {
+    if (!userContent || !activeSessionId || isLoading) return;
+
+    const agentMessageId = `a-${Date.now()}`;
+    const streamingMessage: AgentMessage = {
+      id: agentMessageId,
+      role: "agent",
+      content: "",
+      timestamp: new Date(),
+      status: "sending",
+      retryOf: opts?.retryOf,
+    };
+
+    const baseMessages = [...(activeSession?.messages || [])];
+    updateSessionMessages(activeSessionId, [...baseMessages, streamingMessage]);
+    setIsLoading(true);
+    streamSessionRef.current = activeSessionId;
+
+    let streamedContent = "";
+    let intent = "GENERAL_CHAT";
+    let agentData: AgentMessageData | undefined;
+
+    const abortController = streamAgentMessage(
+      userContent,
+      { contextScope, agentVersion },
+      {
+        onStart: (data) => {
+          intent = data.intent;
+        },
+        onChunk: (content) => {
+          if (streamSessionRef.current !== activeSessionId) return;
+          streamedContent += content;
+          const updatedMessage: AgentMessage = {
+            id: agentMessageId,
+            role: "agent",
+            content: streamedContent,
+            timestamp: new Date(),
+            status: "sending",
+            intent,
+            retryOf: opts?.retryOf,
+          };
+          updateSessionMessages(activeSessionId, [...baseMessages, updatedMessage]);
+        },
+        onResult: (data) => {
+          if (streamSessionRef.current !== activeSessionId) return;
+          const output = data.output;
+          intent = data.intent;
+
+          if (output.type === "explanation") {
+            agentData = { type: "explanation", explanation: output };
+            streamedContent = output.summary;
+          } else if (output.type === "operational_risk_analysis") {
+            agentData = { type: "risks", risks: output };
+            streamedContent = output.overallAssessment || "Risk analysis complete";
+          } else if (["INVITATION", "CLIENT_EMAIL", "HEARING_SUMMARY", "INTERNAL_NOTE"].includes(output.type)) {
+            agentData = { type: "draft", draft: output };
+            streamedContent = `Draft ${output.type.toLowerCase().replace("_", " ")} generated`;
+          } else if (output.type === "action_plan") {
+            agentData = { type: "actions", actionProposals: output.actions };
+            streamedContent = `${output.actions?.length || 0} action(s) proposed`;
+          }
+
+          const resultMessage: AgentMessage = {
+            id: agentMessageId,
+            role: "agent",
+            content: streamedContent,
+            timestamp: new Date(),
+            status: "sending",
+            intent,
+            data: agentData,
+            retryOf: opts?.retryOf,
+          };
+          updateSessionMessages(activeSessionId, [...baseMessages, resultMessage]);
+        },
+        onDone: () => {
+          if (streamSessionRef.current !== activeSessionId) return;
+
+          const finalMessage: AgentMessage = {
+            id: agentMessageId,
+            role: "agent",
+            content: streamedContent || "Response complete",
+            timestamp: new Date(),
+            status: "success",
+            intent,
+            data: agentData,
+            retryOf: opts?.retryOf,
+          };
+          updateSessionMessages(activeSessionId, [...baseMessages, finalMessage]);
+          setIsLoading(false);
+          streamAbortRef.current = null;
+          streamSessionRef.current = null;
+        },
+        onError: (error) => {
+          if (streamSessionRef.current !== activeSessionId) return;
+
+          const errorMessage: AgentMessage = {
+            id: agentMessageId,
+            role: "agent",
+            content: `Error: ${error}`,
+            timestamp: new Date(),
+            status: "error",
+            data: { type: "error", error },
+            retryOf: opts?.retryOf,
+          };
+          updateSessionMessages(activeSessionId, [...baseMessages, errorMessage]);
+          setIsLoading(false);
+          streamAbortRef.current = null;
+          streamSessionRef.current = null;
+        },
+        onCancelled: () => {
+          setIsLoading(false);
+          streamAbortRef.current = null;
+          streamSessionRef.current = null;
+        },
+      }
+    );
+
+    streamAbortRef.current = abortController;
+  }, [activeSessionId, activeSession, updateSessionMessages, isLoading, contextScope, agentVersion]);
+
 
   const handleExampleClick = useCallback((example: string) => {
     setInput(example);
@@ -114,6 +379,11 @@ export function useAgentState() {
     setShowHistorySidebar,
     showContextSidebar,
     setShowContextSidebar,
+    isLoading,
+    agentVersion,
+    setAgentVersion,
+    contextScope,
+    setContextScope,
     inputRef,
     conversationEndRef,
     handleSubmit,
@@ -121,5 +391,7 @@ export function useAgentState() {
     handleExampleClick,
     saveScrollPosition,
     getRelativeTime,
+    cancelStream,
+    startAgentStream,
   };
 }

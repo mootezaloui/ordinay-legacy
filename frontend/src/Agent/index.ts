@@ -3,6 +3,7 @@ export { AgentLayout } from "./AgentLayout";
 
 export { AgentTopBar } from "./components/AgentTopBar";
 export { AgentInput } from "./components/AgentInput";
+export type { ContextIndicator } from "./components/AgentInput";
 export { AgentConversation } from "./components/AgentConversation";
 export { AgentMessage } from "./components/AgentMessage";
 export { AgentQuickActions } from "./components/AgentQuickActions";
