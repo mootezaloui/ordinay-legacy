@@ -5,6 +5,13 @@ import * as notificationService from "../services/notificationService";
 import { apiClient } from "../services/api/client";
 import { useSeverityConfig } from "../hooks/useNotificationTranslation";
 import { buildDedupeKey } from "../utils/notificationDedupe";
+import {
+  mapPriorityToSeverity,
+  mapTypeToEntityType,
+  getIconForEntityType,
+  getLinkForEntity,
+  mapEntityTypeToNotificationType,
+} from "../services/notifications/mappers";
 
 /**
  * Notification Context
@@ -20,50 +27,6 @@ import { buildDedupeKey } from "../utils/notificationDedupe";
  */
 
 const NotificationContext = createContext();
-
-/**
- * Helper: Get icon based on entity type and severity
- */
-function getIconForEntityType(entityType, severity) {
-  if (!entityType) {
-    return severity === "error" ? "fas fa-exclamation-circle" : "fas fa-bell";
-  }
-
-  const iconMap = {
-    client: "fas fa-user",
-    dossier: "fas fa-folder",
-    case: "fas fa-gavel",
-    task: "fas fa-tasks",
-    session: "fas fa-calendar-check",
-    mission: "fas fa-briefcase",
-    financial_entry: "fas fa-dollar-sign",
-    personal_task: "fas fa-clipboard-check",
-    document: "fas fa-file-upload",
-  };
-
-  return iconMap[entityType] || "fas fa-bell";
-}
-
-/**
- * Helper: Get navigation link based on entity type and ID
- */
-function getLinkForEntity(entityType, entityId) {
-  if (!entityType || !entityId) return null;
-
-  const linkMap = {
-    client: `/clients/${entityId}`,
-    dossier: `/dossiers/${entityId}`,
-    case: `/cases/${entityId}`,
-    task: `/tasks/${entityId}`,
-    session: `/sessions/${entityId}`,
-    mission: `/missions/${entityId}`,
-    financial_entry: `/accounting`,
-    personal_task: `/personal-tasks/${entityId}`,
-    document: `/documents/${entityId}`,
-  };
-
-  return linkMap[entityType] || null;
-}
 
 export function useNotifications() {
   const context = useContext(NotificationContext);
@@ -115,44 +78,6 @@ export function NotificationProvider({ children }) {
       entityId: notification.entityId,
       payload: notification.params || notification.payload,
     });
-
-    // Map priority to valid severity (database constraint: info, warning, error)
-    const mapPriorityToSeverity = (priority) => {
-      const priorityLower = (priority || '').toLowerCase();
-      if (priorityLower === 'urgent' || priorityLower === 'critical' || priorityLower === 'high') {
-        return 'error';
-      }
-      if (priorityLower === 'medium' || priorityLower === 'soon') {
-        return 'warning';
-      }
-      // info, low, success, normal, etc.
-      return 'info';
-    };
-
-    // Map notification type to valid entity_type (database constraint)
-    const mapTypeToEntityType = (type) => {
-      const typeMap = {
-        'hearing': 'session',
-        'payment': 'financial_entry',
-        'deadline': 'dossier',
-        'proceeding': 'case',
-        // Valid types that map directly
-        'client': 'client',
-        'dossier': 'dossier',
-        'case': 'case',
-        'task': 'task',
-        'session': 'session',
-        'mission': 'mission',
-        'financial_entry': 'financial_entry',
-        'financialEntry': 'financial_entry',
-        'personal_task': 'personal_task',
-        'personalTask': 'personal_task',
-        'document': 'document',
-        'app': 'app',
-        'system': 'system',
-      };
-      return typeMap[type] || null;
-    };
 
     // Determine severity: use existing severity if valid, otherwise map from priority
     let severity = notification.severity || notification.priority || 'info';
@@ -291,21 +216,8 @@ export function NotificationProvider({ children }) {
         // Transform API notifications to frontend format
         // Store template_key and params for on-demand translation
         const transformedNotifications = apiNotifications.map(n => {
-          // Map entity_type to notification type
-          const typeMap = {
-            'task': 'task',
-            'personal_task': 'personalTask',
-            'session': 'session',
-            'case': 'case',
-            'mission': 'mission',
-            'financial_entry': 'financialEntry',
-            'dossier': 'dossier',
-            'client': 'client',
-            'document': 'document',
-          };
-
           // Use entity_type to determine type, fallback to 'app'
-          const notificationType = n.entity_type ? typeMap[n.entity_type] || 'app' : 'app';
+          const notificationType = mapEntityTypeToNotificationType(n.entity_type);
 
           // Parse payload to extract params (with safe error handling)
           let payload = {};

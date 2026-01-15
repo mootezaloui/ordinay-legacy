@@ -2004,6 +2004,11 @@ export function DataProvider({ children }) {
   };
 
   const updateMission = async (id, updates, skipConfirmation = false) => {
+    const updateKeys = Object.keys(updates || {});
+    if (updateKeys.length === 1 && updateKeys[0] === "status") {
+      return updateMissionStatus(id, updates.status, skipConfirmation);
+    }
+
     const prev = missions.find((m) => m.id === id);
     const validation = validateMutation("mission", "edit", id, { data: prev, newData: { ...prev, ...updates } }, integrityIssues, skipConfirmation);
     if (!validation.ok) return validation;
@@ -2071,6 +2076,40 @@ export function DataProvider({ children }) {
 
     setMissions((prev) => {
       const next = prev.map((mission) =>
+        mission.id === id ? adapted : mission
+      );
+      saveToStorage("missions", next);
+      return next;
+    });
+    logUpdateHistory("mission", prev, updates, actorName);
+    logStatusHistory("mission", prev, updates, actorName);
+
+    return adapted;
+  };
+
+  const updateMissionStatus = async (id, status, skipConfirmation = false) => {
+    const prev = missions.find((m) => m.id === id);
+    const updates = { status };
+    const validation = validateMutation(
+      "mission",
+      "changeStatus",
+      id,
+      { data: prev, newData: { ...prev, ...updates } },
+      integrityIssues,
+      skipConfirmation
+    );
+    if (!validation.ok) return validation;
+
+    console.log("[DataContext.updateMissionStatus] Updating mission ID:", id, "to:", status);
+
+    const payload = { status };
+    const updated = await apiClient.put(`/missions/${id}`, payload);
+    const dossiersById = Object.fromEntries(dossiers.map((d) => [d.id, d]));
+    const casesById = Object.fromEntries(cases.map((c) => [c.id, c]));
+    const adapted = adaptMission(updated, dossiersById, casesById);
+
+    setMissions((prevMissions) => {
+      const next = prevMissions.map((mission) =>
         mission.id === id ? adapted : mission
       );
       saveToStorage("missions", next);
@@ -2222,6 +2261,11 @@ export function DataProvider({ children }) {
   };
 
   const updateFinancialEntry = async (id, updates) => {
+    const updateKeys = Object.keys(updates || {});
+    if (updateKeys.length === 1 && updateKeys[0] === "status") {
+      return updateFinancialEntryStatus(id, updates.status, true);
+    }
+
     const prev = financialEntries.find((e) => e.id === id);
     const validation = validateMutation("financialEntry", "edit", id, {
       data: prev,
@@ -2268,6 +2312,48 @@ export function DataProvider({ children }) {
     logStatusHistory("financialEntry", prev, updates, actorName);
 
     return validation;
+  };
+
+  const updateFinancialEntryStatus = async (id, status, skipConfirmation = false) => {
+    const prev = financialEntries.find((e) => e.id === id);
+    const updates = {
+      status,
+      ...(status === "paid" || status === "Paid"
+        ? { paidAt: new Date().toISOString() }
+        : {}),
+    };
+    const validation = validateMutation("financialEntry", "changeStatus", id, {
+      data: prev,
+      newData: { ...prev, ...updates },
+      entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries },
+    }, integrityIssues, skipConfirmation);
+    if (!validation.ok) return validation;
+
+    console.log("[DataContext.updateFinancialEntryStatus] Updating financial entry ID:", id, "to:", status);
+
+    const payload = {
+      status,
+      ...(updates.paidAt ? { paid_at: updates.paidAt } : {}),
+    };
+
+    const updated = await apiClient.put(`/financial/${id}`, payload);
+    const clientsById = Object.fromEntries(clients.map((c) => [c.id, c]));
+    const dossiersById = Object.fromEntries(dossiers.map((d) => [d.id, d]));
+    const casesById = Object.fromEntries(cases.map((c) => [c.id, c]));
+    const adapted = adaptFinancialEntry(updated, clientsById, dossiersById, casesById);
+
+    setFinancialEntries((prevEntries) => {
+      const next = prevEntries.map((entry) =>
+        entry.id === id ? adapted : entry
+      );
+      saveToStorage("financialEntries", next);
+      return next;
+    });
+
+    logUpdateHistory("financialEntry", prev, updates, actorName);
+    logStatusHistory("financialEntry", prev, updates, actorName);
+
+    return adapted;
   };
 
   const deleteFinancialEntry = async (id, { skipConfirmation = false } = {}) => {
@@ -2335,10 +2421,12 @@ export function DataProvider({ children }) {
       deleteOfficerCascade,
       addMission,
       updateMission,
+      updateMissionStatus,
       deleteMission,
       deleteMissionCascade,
       addFinancialEntry,
       updateFinancialEntry,
+      updateFinancialEntryStatus,
       deleteFinancialEntry,
       integrityIssues,
       reconciled,

@@ -6,8 +6,10 @@ import { AgentResultPreview } from "./components/AgentResultPreview";
 import { AgentHistorySidebar } from "./sidebar/AgentHistorySidebar";
 import { useAgentState } from "./hooks/useAgentState";
 import { useAgentSessions } from "./hooks/useAgentSessions";
+import { useSidebar } from "@/contexts/SidebarContext";
 
 export function AgentLayout() {
+  const { isCollapsed } = useSidebar();
   const {
     input,
     setInput,
@@ -21,24 +23,54 @@ export function AgentLayout() {
     handleSubmit,
     handleKeyDown,
     handleExampleClick,
+    saveScrollPosition,
+    getRelativeTime,
   } = useAgentState();
 
   const {
     sessions,
-    activeSession,
-    setActiveSession,
-    handleNewChat,
-    getRelativeTime,
+    folders,
+    activeSessionId,
+    setActiveSessionId,
+    createSession,
+    deleteSession,
+    renameSession,
+    createFolder,
+    deleteFolder,
+    renameFolder,
+    toggleFolderExpanded,
+    moveSessionToFolder,
+    reorderSessionsInFolder,
+    reorderFolders,
+    getSessionsInFolder,
   } = useAgentSessions();
 
+  const handleSessionClick = (sessionId: string) => {
+    if (sessionId !== activeSessionId) {
+      saveScrollPosition();
+      setActiveSessionId(sessionId);
+    }
+  };
+
   return (
-    <div className="fixed inset-0 top-[4.5rem] left-20 lg:left-64 z-0 flex min-h-0 overflow-hidden">
+    <div className={`fixed inset-0 top-[4.5rem] ${isCollapsed ? "left-20" : "left-64"} z-0 flex min-h-0 overflow-hidden transition-all duration-300`}>
       {showHistorySidebar && (
         <AgentHistorySidebar
           sessions={sessions}
-          activeSession={activeSession}
-          onSessionClick={setActiveSession}
-          onNewChat={handleNewChat}
+          folders={folders}
+          activeSessionId={activeSessionId}
+          onSessionClick={handleSessionClick}
+          onNewChat={createSession}
+          onCreateFolder={createFolder}
+          onRenameSession={renameSession}
+          onDeleteSession={deleteSession}
+          onRenameFolder={renameFolder}
+          onDeleteFolder={deleteFolder}
+          onToggleFolderExpanded={toggleFolderExpanded}
+          onMoveSession={moveSessionToFolder}
+          onReorderSessions={reorderSessionsInFolder}
+          onReorderFolders={reorderFolders}
+          getSessionsInFolder={getSessionsInFolder}
           getRelativeTime={getRelativeTime}
         />
       )}

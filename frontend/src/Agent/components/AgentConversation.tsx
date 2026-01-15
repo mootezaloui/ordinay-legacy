@@ -3,7 +3,7 @@ import { AgentMessage } from "./AgentMessage";
 
 interface AgentConversationProps {
   messages: AgentMessageType[];
-  conversationEndRef: React.RefObject<HTMLDivElement>;
+  conversationEndRef: React.RefObject<HTMLDivElement | null>;
   getRelativeTime: (timestamp: Date) => string;
 }
 

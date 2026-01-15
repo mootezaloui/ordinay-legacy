@@ -184,6 +184,8 @@ function create(payload) {
     dossier_id: null,
     case_id: null,
     mission_id: null,
+    task_id: null,
+    personal_task_id: null,
     category: null,
     occurred_at: null,
     due_date: null,

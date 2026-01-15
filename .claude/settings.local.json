@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(move \"C:\\\\Users\\\\moote\\\\OneDrive\\\\Dokumente\\\\GitHub\\\\Project_Lawyers\\\\lawyer-app\\\\frontend\\\\src\\\\utils\\\\notificationGenerator.js.backup\" \"C:\\\\Users\\\\moote\\\\OneDrive\\\\Dokumente\\\\GitHub\\\\Project_Lawyers\\\\lawyer-app\\\\frontend\\\\src\\\\utils\\\\archive\\\\notificationGenerator.js.backup\")",
+      "Bash(node -e:*)",
+      "Bash(sqlite3:*)",
+      "Bash(wc:*)",
+      "Bash(powershell -Command:*)",
+      "Bash(npx tsc --noEmit)"
+    ]
+  }
+}

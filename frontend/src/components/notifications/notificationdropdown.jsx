@@ -5,6 +5,11 @@ import { useConfirm } from "../../contexts/ConfirmContext";
 import { useSettings } from "../../contexts/SettingsContext";
 import { useTranslation } from "react-i18next";
 import { useNotificationListTranslation } from "../../hooks/useNotificationTranslation";
+import {
+  formatTimestamp,
+  getPriorityColor,
+  renderHighlightedMessage,
+} from "./formatters";
 
 /**
  * NotificationDropdown (Enhanced with Context)
@@ -70,174 +75,6 @@ export default function NotificationDropdown({ isOpen, onToggle, onClose }) {
     if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
       onClose();
     }
-  };
-
-  const formatTimestamp = (timestamp) => {
-    // SQLite CURRENT_TIMESTAMP returns UTC format: "YYYY-MM-DD HH:MM:SS"
-    // Add 'Z' to indicate UTC timezone for correct parsing
-    const timestampStr = timestamp.includes('T') ? timestamp : timestamp.replace(' ', 'T') + 'Z';
-    const date = new Date(timestampStr);
-    const now = new Date();
-    const diffMs = now - date;
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 1) return t("dropdown.time.justNow");
-    if (diffMins < 60) return t("dropdown.time.minutesAgo", { count: diffMins });
-    if (diffHours < 24) return t("dropdown.time.hoursAgo", { count: diffHours });
-    if (diffDays < 7) return t("dropdown.time.daysAgo", { count: diffDays });
-    return formatDateTime(date);
-  };
-
-  const getPriorityColor = (priority) => {
-    const colors = {
-      urgent: "text-red-600 dark:text-red-400",
-      high: "text-orange-600 dark:text-orange-400",
-      success: "text-green-600 dark:text-green-400",
-      warning: "text-amber-600 dark:text-amber-400",
-      error: "text-red-600 dark:text-red-400",
-      info: "text-blue-600 dark:text-blue-400",
-    };
-    return colors[priority] || colors.info;
-  };
-
-  /**
-   * Parse and highlight ALL scan-critical data in notification messages
-   * Covers: titles, names, dates, times, amounts, locations, durations, priorities, status, case numbers
-   * Visual hierarchy: instant data extraction without reading full text
-   */
-  const renderHighlightedMessage = (message) => {
-    if (!message) return message;
-
-    let result = message;
-
-    // Order matters: more specific patterns first to avoid conflicts
-    const patterns = [
-      // === ENTITY NAMES / TITLES (in quotes) ===
-      {
-        regex: /"([^"]+)"/g,
-        replacement: '<span class="inline-flex items-center gap-0.5 font-semibold text-slate-900 dark:text-white"><span>📌</span>"$1"</span>'
-      },
-
-      // === PRIORITY (FR + EN) ===
-      {
-        regex: /priorité\s+([A-Za-zÀ-ÿ]+)/gi,
-        replacement: 'priorité <span class="inline-flex items-center gap-0.5 font-semibold text-amber-600 dark:text-amber-400"><span>⚡</span>$1</span>'
-      },
-      {
-        regex: /Priority:\s*([A-Za-z]+)/gi,
-        replacement: 'Priority: <span class="inline-flex items-center gap-0.5 font-semibold text-amber-600 dark:text-amber-400"><span>⚡</span>$1</span>'
-      },
-      {
-        regex: /Priorité\s*:\s*([A-Za-zÀ-ÿ]+)/gi,
-        replacement: 'Priorité : <span class="inline-flex items-center gap-0.5 font-semibold text-amber-600 dark:text-amber-400"><span>⚡</span>$1</span>'
-      },
-
-      // === LOCATION (FR + EN) ===
-      {
-        regex: /Lieu\s*:\s*([^\n.]+)/gi,
-        replacement: 'Lieu : <span class="inline-flex items-center gap-0.5 font-semibold text-emerald-600 dark:text-emerald-400"><span>📍</span>$1</span>'
-      },
-      {
-        regex: /Location:\s*([^\n.]+)/gi,
-        replacement: 'Location: <span class="inline-flex items-center gap-0.5 font-semibold text-emerald-600 dark:text-emerald-400"><span>📍</span>$1</span>'
-      },
-
-      // === TIMES (à HH:MM / at HH:MM) ===
-      {
-        regex: /\bà\s+(\d{1,2}[h:]\d{2})/gi,
-        replacement: 'à <span class="inline-flex items-center gap-0.5 font-semibold text-violet-600 dark:text-violet-400"><span>⏰</span>$1</span>'
-      },
-      {
-        regex: /\bat\s+(\d{1,2}:\d{2}(?:\s*[AP]M)?)/gi,
-        replacement: 'at <span class="inline-flex items-center gap-0.5 font-semibold text-violet-600 dark:text-violet-400"><span>⏰</span>$1</span>'
-      },
-
-      // === DATES ===
-      // Dates in parentheses (dd/mm/yyyy)
-      {
-        regex: /\((\d{2}\/\d{2}\/\d{4})\)/g,
-        replacement: '(<span class="inline-flex items-center gap-0.5 font-semibold text-blue-600 dark:text-blue-400"><span>📅</span>$1</span>)'
-      },
-      // "le dd/mm/yyyy" or "on dd/mm/yyyy"
-      {
-        regex: /\b(le|on)\s+(\d{2}\/\d{2}\/\d{4})/gi,
-        replacement: '$1 <span class="inline-flex items-center gap-0.5 font-semibold text-blue-600 dark:text-blue-400"><span>📅</span>$2</span>'
-      },
-      // Standalone dates dd/mm/yyyy (not already wrapped)
-      {
-        regex: /(?<![>\/])(\b\d{2}\/\d{2}\/\d{4}\b)(?![<])/g,
-        replacement: '<span class="inline-flex items-center gap-0.5 font-semibold text-blue-600 dark:text-blue-400"><span>📅</span>$1</span>'
-      },
-
-      // === DURATION / COUNTDOWN (FR + EN) ===
-      // "dans X jour(s)" / "in X day(s)"
-      {
-        regex: /dans\s+(\d+)\s+(jour|jours|heure|heures)/gi,
-        replacement: 'dans <span class="inline-flex items-center gap-0.5 font-semibold text-orange-600 dark:text-orange-400"><span>⏳</span>$1 $2</span>'
-      },
-      {
-        regex: /in\s+(\d+)\s+(day|days|hour|hours)/gi,
-        replacement: 'in <span class="inline-flex items-center gap-0.5 font-semibold text-orange-600 dark:text-orange-400"><span>⏳</span>$1 $2</span>'
-      },
-      // "il y a X jour(s)" / "X day(s) ago"
-      {
-        regex: /il y a\s+(\d+)\s+(jour|jours)/gi,
-        replacement: 'il y a <span class="inline-flex items-center gap-0.5 font-semibold text-orange-600 dark:text-orange-400"><span>⏳</span>$1 $2</span>'
-      },
-      {
-        regex: /(\d+)\s+(day|days)\s+ago/gi,
-        replacement: '<span class="inline-flex items-center gap-0.5 font-semibold text-orange-600 dark:text-orange-400"><span>⏳</span>$1 $2</span> ago'
-      },
-      // "depuis X jour(s)"
-      {
-        regex: /depuis\s+(\d+)\s+(jour|jours)/gi,
-        replacement: 'depuis <span class="inline-flex items-center gap-0.5 font-semibold text-orange-600 dark:text-orange-400"><span>⏳</span>$1 $2</span>'
-      },
-
-      // === AMOUNTS / MONEY ===
-      // Amount + TND/EUR/USD
-      {
-        regex: /(\d[\d\s.,]*)\s*(TND|EUR|USD|€|\$|£)/gi,
-        replacement: '<span class="inline-flex items-center gap-0.5 font-semibold text-rose-600 dark:text-rose-400"><span>💰</span>$1 $2</span>'
-      },
-      // Currency symbol first (€50, $100)
-      {
-        regex: /([€$£])\s?(\d[\d\s.,]*)/g,
-        replacement: '<span class="inline-flex items-center gap-0.5 font-semibold text-rose-600 dark:text-rose-400"><span>💰</span>$1$2</span>'
-      },
-
-      // === STATUS KEYWORDS (FR + EN) ===
-      {
-        regex: /\b(en retard|overdue|urgent|URGENT)\b/gi,
-        replacement: '<span class="inline-flex items-center gap-0.5 font-bold text-red-600 dark:text-red-400"><span>🔴</span>$1</span>'
-      },
-      {
-        regex: /\b(aujourd'hui|today|demain|tomorrow)\b/gi,
-        replacement: '<span class="inline-flex items-center gap-0.5 font-semibold text-red-500 dark:text-red-400"><span>📆</span>$1</span>'
-      },
-
-      // === CASE/DOSSIER NUMBERS ===
-      {
-        regex: /dossier\s+([A-Z0-9\-\/]+)/gi,
-        replacement: 'dossier <span class="inline-flex items-center gap-0.5 font-semibold text-indigo-600 dark:text-indigo-400"><span>📁</span>$1</span>'
-      },
-      {
-        regex: /\baffaire\s+([A-Z0-9\-\/]+)/gi,
-        replacement: 'affaire <span class="inline-flex items-center gap-0.5 font-semibold text-indigo-600 dark:text-indigo-400"><span>📁</span>$1</span>'
-      },
-      {
-        regex: /case\s+([A-Z0-9\-\/]+)/gi,
-        replacement: 'case <span class="inline-flex items-center gap-0.5 font-semibold text-indigo-600 dark:text-indigo-400"><span>📁</span>$1</span>'
-      }
-    ];
-
-    patterns.forEach(({ regex, replacement }) => {
-      result = result.replace(regex, replacement);
-    });
-
-    return result;
   };
 
   useEffect(() => {
@@ -329,11 +166,11 @@ export default function NotificationDropdown({ isOpen, onToggle, onClose }) {
                       </div>
                       <p className={`text-sm text-slate-600 dark:text-slate-300 mt-1 ${!notification.read ? "" : "opacity-75"
                         }`}
-                        dangerouslySetInnerHTML={{ __html: renderHighlightedMessage(notification.message, notification.type) }}
+                        dangerouslySetInnerHTML={{ __html: renderHighlightedMessage(notification.message) }}
                       >
                       </p>
                       <span className="text-xs text-slate-500 dark:text-slate-400 mt-2 block">
-                        {formatTimestamp(notification.timestamp)}
+                        {formatTimestamp(notification.timestamp, { t, formatDate, formatDateTime })}
                       </span>
                     </div>
 

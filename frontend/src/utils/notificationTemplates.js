@@ -59,11 +59,13 @@ export function resolveEntityLink(entityType, context = {}) {
         ? `/officers/${ctx.entityId}`
         : null,
     financialEntry: (ctx) => {
+      const entryId = ctx.financialEntryId ?? ctx.entityId;
+      if (entryId) return `/accounting/${entryId}`;
       if (ctx.dossierId) return `/dossiers/${ctx.dossierId}`;
       if (ctx.caseId) return `/cases/${ctx.caseId}`;
       if (ctx.clientId) return `/clients/${ctx.clientId}`;
       if (ctx.missionId) return `/missions/${ctx.missionId}`;
-      return ctx.entityId ? `/accounting` : null;
+      return null;
     },
   };
 

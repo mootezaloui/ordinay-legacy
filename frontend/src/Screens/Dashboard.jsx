@@ -796,11 +796,18 @@ export default function Dashboard() {
                   </span>
                 </div>
                 <div className="space-y-2">
-                  {[
-                    { label: t("dashboard.quickStats.payments.paid"), value: financialEntries.filter(i => i.status === "Paid").length, color: "green" },
-                    { label: t("dashboard.quickStats.payments.pending"), value: financialEntries.filter(i => i.status === "Pending").length, color: "amber" },
-                    { label: t("dashboard.quickStats.payments.overdue"), value: financialEntries.filter(i => i.status === "Overdue").length, color: "red" },
-                  ].map((item) => (
+                  {(() => {
+                    // Canonical: confirmed+paidAt = Paid, confirmed+no paidAt+future due = Pending, confirmed+no paidAt+past due = Overdue
+                    const now = new Date();
+                    const paid = financialEntries.filter(i => i.status === "confirmed" && i.paidAt).length;
+                    const pending = financialEntries.filter(i => i.status === "confirmed" && !i.paidAt && i.dueDate && new Date(i.dueDate) >= now).length;
+                    const overdue = financialEntries.filter(i => i.status === "confirmed" && !i.paidAt && i.dueDate && new Date(i.dueDate) < now).length;
+                    return [
+                      { label: t("dashboard.quickStats.payments.paid"), value: paid, color: "green" },
+                      { label: t("dashboard.quickStats.payments.pending"), value: pending, color: "amber" },
+                      { label: t("dashboard.quickStats.payments.overdue"), value: overdue, color: "red" },
+                    ];
+                  })().map((item) => (
                     <div key={item.label} className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <div className={`w-2 h-2 rounded-full bg-${item.color}-500`}></div>
