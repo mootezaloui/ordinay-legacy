@@ -718,7 +718,8 @@
     "toolbar": {
       "columns": "الأعمدة",
       "manageColumns": "إدارة الأعمدة",
-      "export": "تصدير"
+      "export": "تصدير",
+      "reset": "إعادة تعيين"
     },
     "pagination": {
       "showing": "عرض {{from}} إلى {{to}} من أصل {{total}} نتيجة",

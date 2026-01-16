@@ -109,7 +109,7 @@ export default function TableToolbar({
                       onClick={onResetColumns}
                       className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
                     >
-                      {t("actions.reset")}
+                      {t("table.toolbar.reset")}
                     </button>
                   </div>
                 </div>

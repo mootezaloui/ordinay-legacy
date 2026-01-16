@@ -727,7 +727,8 @@
     "toolbar": {
       "columns": "Colonnes",
       "manageColumns": "Gérer les Colonnes",
-      "export": "Exporter"
+      "export": "Exporter",
+      "reset": "Réinitialiser"
     },
     "pagination": {
       "showing": "Affichage de {{from}} à {{to}} sur {{total}} résultats",

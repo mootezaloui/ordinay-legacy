@@ -48,7 +48,8 @@ export function AgentMessage({ message, getRelativeTime }: AgentMessageProps) {
   const originalContentRef = useRef(message.content || "");
 
   // Access session update functions and global streaming state
-  const { updateSessionMessages, activeSession, activeSessionId } = useAgentSessions();
+  const { updateSessionMessages, activeSession, activeSessionId } =
+    useAgentSessions();
   const { isLoading } = useAgentState();
   const editingDisabled = isLoading; // disable edits while any response is streaming
 
@@ -157,37 +158,37 @@ export function AgentMessage({ message, getRelativeTime }: AgentMessageProps) {
               </div>
             )}
 
-{/* Normal completed message content (and editable UI for user messages) */}
-        {!isStreaming && !isError && (
-          <div className="text-sm leading-relaxed mb-2">
-            {isUser && isEditing ? (
-              <div>
-                <textarea
-                  aria-label="Edit your message"
-                  className="w-full min-h-[4rem] p-3 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white resize-vertical"
-                  value={editContent}
-                  onChange={(e) => setEditContent(e.target.value)}
-                />
-                <div className="flex gap-2 mt-2">
-                  <button
-                    type="button"
-                    className="px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700"
-                    onClick={saveEdit}
-                  >
-                    Save
-                  </button>
-                  <button
-                    type="button"
-                    className="px-3 py-1.5 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-medium rounded-lg hover:bg-slate-50 dark:hover:bg-slate-600 border border-slate-200 dark:border-slate-600"
-                    onClick={cancelEdit}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <MarkdownOutput content={message.content} />
-            )}
+            {/* Normal completed message content (and editable UI for user messages) */}
+            {!isStreaming && !isError && (
+              <div className="text-sm leading-relaxed mb-2">
+                {isUser && isEditing ? (
+                  <div>
+                    <textarea
+                      aria-label="Edit your message"
+                      className="w-full min-h-[4rem] p-3 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white resize-vertical"
+                      value={editContent}
+                      onChange={(e) => setEditContent(e.target.value)}
+                    />
+                    <div className="flex gap-2 mt-2">
+                      <button
+                        type="button"
+                        className="px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700"
+                        onClick={saveEdit}
+                      >
+                        Save
+                      </button>
+                      <button
+                        type="button"
+                        className="px-3 py-1.5 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-medium rounded-lg hover:bg-slate-50 dark:hover:bg-slate-600 border border-slate-200 dark:border-slate-600"
+                        onClick={cancelEdit}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <MarkdownOutput content={message.content} />
+                )}
               </div>
             )}
 
@@ -231,18 +232,38 @@ export function AgentMessage({ message, getRelativeTime }: AgentMessageProps) {
 
         {/* Footer row: timestamp + action aligned; outside bubble */}
         <div className="flex items-center justify-between text-xs mt-2">
-          <div className={`${isUser ? "text-blue-100" : "text-slate-500 dark:text-slate-400"}`}>
-            {getRelativeTime(message.timestamp)}{message.edited && <span className="text-slate-400 dark:text-slate-500 ml-2">· edited</span>}{message.retryOf && <span className="text-slate-400 dark:text-slate-500 ml-2">· retry</span>}
+          <div
+            className={`${
+              isUser ? "text-blue-100" : "text-slate-500 dark:text-slate-400"
+            }`}
+          >
+            {getRelativeTime(message.timestamp)}
+            {message.edited && (
+              <span className="text-slate-400 dark:text-slate-500 ml-2">
+                · edited
+              </span>
+            )}
+            {message.retryOf && (
+              <span className="text-slate-400 dark:text-slate-500 ml-2">
+                · retry
+              </span>
+            )}
           </div>
 
           {isUser ? (
             <button
               type="button"
-              aria-label={editingDisabled ? "Editing disabled while response is streaming" : "Edit message"}
+              aria-label={
+                editingDisabled
+                  ? "Editing disabled while response is streaming"
+                  : "Edit message"
+              }
               onClick={startEdit}
               disabled={editingDisabled || isEditing}
               className={`p-1 rounded text-slate-500 bg-slate-100 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-slate-300 ${
-                editingDisabled ? "opacity-40 cursor-not-allowed" : "opacity-0 group-hover:opacity-100 focus:opacity-100 pointer-events-none group-hover:pointer-events-auto focus:pointer-events-auto"
+                editingDisabled
+                  ? "opacity-40 cursor-not-allowed"
+                  : "opacity-0 group-hover:opacity-100 focus:opacity-100 pointer-events-none group-hover:pointer-events-auto focus:pointer-events-auto"
               }`}
             >
               <Edit2 className="w-4 h-4" />
@@ -316,17 +337,24 @@ function RetryButton({ message }: { message: AgentMessageType }) {
     }
 
     // Start a new stream using the found user message content
-    startAgentStream?.(userMsg.content, { retryOf: message.id, sourceUserId: userMsg.id });
+    startAgentStream?.(userMsg.content, {
+      retryOf: message.id,
+      sourceUserId: userMsg.id,
+    });
   };
 
   return (
     <button
       type="button"
-      aria-label={disabled ? "Retry disabled while streaming" : "Retry response"}
+      aria-label={
+        disabled ? "Retry disabled while streaming" : "Retry response"
+      }
       onClick={handleRetry}
       disabled={disabled}
       className={`p-1 rounded text-slate-500 bg-slate-100 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-slate-300 ${
-        disabled ? "opacity-40 cursor-not-allowed" : "opacity-0 group-hover:opacity-100 focus:opacity-100 pointer-events-none group-hover:pointer-events-auto focus:pointer-events-auto"
+        disabled
+          ? "opacity-40 cursor-not-allowed"
+          : "opacity-0 group-hover:opacity-100 focus:opacity-100 pointer-events-none group-hover:pointer-events-auto focus:pointer-events-auto"
       }`}
     >
       <RotateCw className="w-4 h-4" />
