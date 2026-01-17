@@ -2,7 +2,7 @@ import { useLock } from "./contexts/lockContext";
 import { useSetup } from "./contexts/SetupContext";
 import SetupFlow from "./components/setup/SetupFlow";
 import { useInactivityLock } from "./hooks/useInactivityLock";
-import LockScreen from "./components/LockScreen";
+import LockScreen from "./components/lock/LockScreen";
 import AppRouter from "./routes/AppRouter";
 import { OnboardingTutorial } from "./components/onboarding";
 import TutorialOverlay from "./components/tutorial/TutorialOverlay";

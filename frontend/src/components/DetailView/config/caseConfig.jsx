@@ -77,6 +77,16 @@ export const createCaseConfig = (t) => {
       // ✅ Calculate dynamic next hearing from all related sessions
       const nextHearingObj = calculateNextHearing(caseData, caseSessions);
 
+      // Fetch documents for this case
+      let documents = [];
+      try {
+        const documentService = (await import("../../../services/documentService")).default;
+        documents = await documentService.getEntityDocuments("case", numericId);
+        console.log('[caseConfig] Loaded documents:', documents);
+      } catch (err) {
+        console.error('[caseConfig] Failed to load documents:', err);
+      }
+
       return {
         ...caseData,
         dossier: dossier || { id: null, caseNumber: t('detail.fallback.na'), title: t('detail.fallback.unknownDossier') },
@@ -84,6 +94,7 @@ export const createCaseConfig = (t) => {
         sessions: caseSessions,
         tasks: tasks.filter((t) => t.parentType === "case" && t.caseId === numericId),
         financialEntries: relatedFinancialEntries,
+        documents,
         // ✅ Add computed next hearing
         computedNextHearing: nextHearingObj,
       };

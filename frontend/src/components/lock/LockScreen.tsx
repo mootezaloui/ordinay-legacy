@@ -4,34 +4,34 @@
  * Blocks all app access until correct password is entered
  */
 
-import { useState, FormEvent } from 'react';
-import { useLock } from '../contexts/LockContext';
+import { useState, FormEvent } from "react";
+import { useLock } from "../../contexts/lockContext";
 
 export default function LockScreen() {
   const { unlock } = useLock();
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
   const [isUnlocking, setIsUnlocking] = useState(false);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setError('');
+    setError("");
 
     if (!password) {
-      setError('Please enter your password');
+      setError("Please enter your password");
       return;
     }
 
     setIsUnlocking(true);
 
     // Small delay for UX feedback
-    await new Promise(resolve => setTimeout(resolve, 300));
+    await new Promise((resolve) => setTimeout(resolve, 300));
 
     const success = unlock(password);
 
     if (!success) {
-      setError('Incorrect password');
-      setPassword('');
+      setError("Incorrect password");
+      setPassword("");
       setIsUnlocking(false);
     }
   };
@@ -65,14 +65,14 @@ export default function LockScreen() {
                 value={password}
                 onChange={(e) => {
                   setPassword(e.target.value);
-                  setError('');
+                  setError("");
                 }}
                 placeholder="Enter password"
                 autoFocus
                 autoComplete="current-password"
                 disabled={isUnlocking}
-                className={`w-full px-4 py-4 bg-slate-800/50 border ${
-                  error ? 'border-red-500' : 'border-slate-700'
+                className={`w-full pl-12 pr-4 py-4 bg-slate-800/50 border ${
+                  error ? "border-red-500" : "border-slate-700"
                 } rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all disabled:opacity-50 disabled:cursor-not-allowed`}
               />
               <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">

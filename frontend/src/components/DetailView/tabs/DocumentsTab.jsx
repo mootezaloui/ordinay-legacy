@@ -11,7 +11,7 @@ import { useTranslation } from "react-i18next";
  * Uses entity-agnostic document service with abstracted storage
  * Desktop-first design with local filesystem support
  */
-export default function DocumentsTab({ data, config, onDocumentsChange }) {
+export default function DocumentsTab({ data, config, onDocumentsChange, reloadKey }) {
   const { showToast } = useToast();
   const { confirm } = useConfirm();
   const { formatDate } = useSettings();
@@ -30,7 +30,7 @@ export default function DocumentsTab({ data, config, onDocumentsChange }) {
   // Load documents for this entity
   useEffect(() => {
     loadDocuments();
-  }, [entityType, entityId]);
+  }, [entityType, entityId, reloadKey]);
 
   const loadDocuments = async () => {
     const entityDocuments = await documentService.getEntityDocuments(entityType, entityId);

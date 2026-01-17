@@ -68,10 +68,23 @@ class DocumentService {
       notes: category || null,
     };
 
-    // Map entityType to backend foreign key field
-    const entityField = `${entityType}_id`;
+    // Map entityType to backend foreign key field, always use 'case' for case
+    let entityField, directoryType;
+    if (entityType === 'case') {
+      entityField = 'case_id';
+      directoryType = 'case';
+    } else {
+      entityField = `${entityType}_id`;
+      directoryType = entityType;
+    }
     payload[entityField] = parseInt(entityId, 10);
 
+    // Ensure file_path uses correct directory for case
+    if (payload.file_path && payload.file_path.startsWith('proces/')) {
+      payload.file_path = payload.file_path.replace('proces/', 'case/');
+    }
+
+    console.debug('[DocumentService] Upload document payload:', payload);
     const response = await fetch(`${this.getApiBase()}/documents`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

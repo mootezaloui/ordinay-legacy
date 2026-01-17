@@ -111,6 +111,16 @@ export const createDossierConfig = (t) => {
         }
       }
 
+      // Fetch documents for this dossier
+      let documents = [];
+      try {
+        const documentService = (await import("../../../services/documentService")).default;
+        documents = await documentService.getEntityDocuments("dossier", numericId);
+        console.log('[dossierConfig] Loaded documents:', documents);
+      } catch (err) {
+        console.error('[dossierConfig] Failed to load documents:', err);
+      }
+
       return {
         ...dossier,
         client: client || { id: null, name: t('detail.fallback.unassignedClient') },
@@ -118,6 +128,7 @@ export const createDossierConfig = (t) => {
         tasks: relatedTasks,
         proceedings: dossierCases,
         financialEntries: relatedFinancialEntries,
+        documents,
         // ✅ Add computed next deadline
         computedNextDeadline: nextDeadlineObj,
       };
