@@ -224,7 +224,9 @@ class TemplateService {
         );
         if (client) data["client.name"] = client.name;
       } else if (entityData.dossierId && contextData?.dossiers) {
-        dossier = contextData.dossiers.find((d) => d.id === entityData.dossierId);
+        dossier = contextData.dossiers.find(
+          (d) => d.id === entityData.dossierId,
+        );
         if (dossier && dossier.clientId && contextData?.clients) {
           const client = contextData.clients.find(
             (c) => c.id === dossier.clientId,

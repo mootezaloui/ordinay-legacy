@@ -70,9 +70,9 @@ class DocumentService {
 
     // Map entityType to backend foreign key field, always use 'case' for case
     let entityField, directoryType;
-    if (entityType === 'case') {
-      entityField = 'case_id';
-      directoryType = 'case';
+    if (entityType === "case") {
+      entityField = "case_id";
+      directoryType = "case";
     } else {
       entityField = `${entityType}_id`;
       directoryType = entityType;
@@ -80,11 +80,11 @@ class DocumentService {
     payload[entityField] = parseInt(entityId, 10);
 
     // Ensure file_path uses correct directory for case
-    if (payload.file_path && payload.file_path.startsWith('proces/')) {
-      payload.file_path = payload.file_path.replace('proces/', 'case/');
+    if (payload.file_path && payload.file_path.startsWith("proces/")) {
+      payload.file_path = payload.file_path.replace("proces/", "case/");
     }
 
-    console.debug('[DocumentService] Upload document payload:', payload);
+    console.debug("[DocumentService] Upload document payload:", payload);
     const response = await fetch(`${this.getApiBase()}/documents`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -193,7 +193,7 @@ class DocumentService {
         file,
         entityType,
         entityId,
-        category
+        category,
       );
       if (result.success) {
         results.successful.push(result.document);
@@ -216,7 +216,7 @@ class DocumentService {
       // Map entityType to backend query parameter
       const entityField = `${entityType}_id`;
       const response = await fetch(
-        `${this.getApiBase()}/documents?${entityField}=${entityId}`
+        `${this.getApiBase()}/documents?${entityField}=${entityId}`,
       );
 
       if (!response.ok) {
@@ -266,7 +266,7 @@ class DocumentService {
   async getDocumentById(documentId) {
     try {
       const response = await fetch(
-        `${this.getApiBase()}/documents/${documentId}`
+        `${this.getApiBase()}/documents/${documentId}`,
       );
 
       if (response.status === 404) {
@@ -350,7 +350,7 @@ class DocumentService {
         {
           method: "DELETE",
           headers: { "Content-Type": "application/json" },
-        }
+        },
       );
 
       if (!response.ok) {
@@ -361,16 +361,16 @@ class DocumentService {
       if (deleteFile && document.storagePath) {
         try {
           console.log(
-            `DocumentService: Deleting file from IndexedDB: ${document.storagePath}`
+            `DocumentService: Deleting file from IndexedDB: ${document.storagePath}`,
           );
           await this.storageProvider.deleteFile(document.storagePath);
           console.log(
-            `DocumentService: File deleted successfully: ${document.storagePath}`
+            `DocumentService: File deleted successfully: ${document.storagePath}`,
           );
         } catch (storageError) {
           console.error(
             "DocumentService: Storage deletion failed",
-            storageError
+            storageError,
           );
           // Don't fail the whole operation if file blob deletion fails
           // Metadata is already soft-deleted in backend
@@ -398,7 +398,7 @@ class DocumentService {
 
       // Check if file exists
       const exists = await this.storageProvider.fileExists(
-        document.storagePath
+        document.storagePath,
       );
       if (!exists) {
         throw new Error("File not found in storage");
@@ -519,7 +519,7 @@ class DocumentService {
             mime_type: newFile.type || getMimeType(extension),
             size_bytes: newFile.size,
           }),
-        }
+        },
       );
 
       if (!response.ok) {

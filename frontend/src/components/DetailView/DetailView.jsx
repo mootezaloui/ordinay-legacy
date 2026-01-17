@@ -25,6 +25,7 @@ import { canPerformAction } from "../../services/domainRules";
 import { useSettings } from "../../contexts/SettingsContext";
 import { useTranslation } from "react-i18next";
 import { translateCategory } from "../../utils/entityTranslations";
+import { useOperator } from '../../contexts/OperatorContext';
 
 /**
  * Generic DetailView component with modern inline editing UX
@@ -41,9 +42,21 @@ export default function DetailView({ entityType }) {
   const { showToast } = useToast();
   const { confirm } = useConfirm();
   const contextData = useData(); // Get all data from context
+  const { operator } = useOperator();
 
   // Document Generation Modal State
   const [generateDocModalOpen, setGenerateDocModalOpen] = useState(false);
+
+  // When opening GenerateDocumentModal, inject operator info into contextData
+  const getContextDataWithOperator = () => {
+    const contextWithOperator = { ...contextData };
+    if (operator) {
+      contextWithOperator.operators = [operator];
+      contextWithOperator.currentOperatorId = operator.id;
+    }
+    return contextWithOperator;
+  };
+
   // Key to force DocumentsTab reload
   const [documentsReloadKey, setDocumentsReloadKey] = useState(0);
 
@@ -351,25 +364,17 @@ export default function DetailView({ entityType }) {
   };
 
   const handleDocumentsChange = (newDocuments) => {
-    console.debug('[handleDocumentsChange] called with:', newDocuments);
     const newData = { ...data, documents: newDocuments };
-    console.debug('[handleDocumentsChange] newData:', newData);
     setData(newData);
     setOriginalData(newData);
   };
 
   // Called after document generation to force reload
   const handleDocumentGenerated = async (newDoc) => {
-    console.debug('[handleDocumentGenerated] called with:', newDoc);
-    setDocumentsReloadKey((k) => {
-      const newKey = k + 1;
-      console.debug('[handleDocumentGenerated] setDocumentsReloadKey:', newKey);
-      return newKey;
-    });
+    setDocumentsReloadKey((k) => k + 1);
     // Fetch latest documents from backend and update parent state for badge
     if (data && data.id && config && config.entityType) {
       const entityDocuments = await import('../../services/documentService').then(m => m.default.getEntityDocuments(config.entityType, data.id));
-      console.debug('[handleDocumentGenerated] entityDocuments:', entityDocuments);
       handleDocumentsChange(entityDocuments);
     }
     if (typeof loadDocuments === 'function') loadDocuments();
@@ -1212,7 +1217,7 @@ export default function DetailView({ entityType }) {
             onClose={() => setGenerateDocModalOpen(false)}
             entityType={entityType}
             entityData={data}
-            contextData={contextData}
+            contextData={getContextDataWithOperator()}
             onDocumentGenerated={handleDocumentGenerated}
           />
         </>
