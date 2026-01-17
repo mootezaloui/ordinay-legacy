@@ -175,6 +175,25 @@ export function canPerformAction(entityType, entityId, action, context = {}) {
     return { allowed: true, blockers: [], warnings: [] };
   }
 
+  const isStatusBasedEdit =
+    action === "edit" &&
+    context.data &&
+    context.newData &&
+    (() => {
+      const changedKeys = Object.keys(context.newData).filter(
+        (key) => context.newData[key] !== context.data[key]
+      );
+
+      if (changedKeys.length === 0) return false;
+
+      const allowedKeys = ["status", "priority"];
+
+      return (
+        changedKeys.includes("status") &&
+        changedKeys.every((key) => allowedKeys.includes(key))
+      );
+    })();
+
   const actionValidator = validator[action];
 
   let result = { allowed: true, blockers: [], warnings: [] };
@@ -195,7 +214,8 @@ export function canPerformAction(entityType, entityId, action, context = {}) {
   // TEMPORAL VALIDATION: Apply date/time validation to all create and edit actions
   if (
     (action === "create" || action === "add" || action === "edit") &&
-    context.newData
+    context.newData &&
+    !isStatusBasedEdit
   ) {
     try {
       const temporalResult = validateTemporalConstraints(

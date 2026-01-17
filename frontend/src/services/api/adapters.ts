@@ -100,9 +100,17 @@ const financialStatusMap: Record<string, string> = {
 /**
  * Normalize financial status to canonical value
  */
-const normalizeFinancialStatus = (status: string | null | undefined): string => {
+// Accepts status and paid_at (optional)
+const normalizeFinancialStatus = (status: string | null | undefined, paidAt?: string | null | undefined): string => {
   if (!status) return "draft";
   const lowered = String(status).toLowerCase();
+  // Only show 'paid' if status is 'paid'. If status is 'confirmed', always show 'confirmed' (even if paidAt is set)
+  if (lowered === "paid") {
+    return "paid";
+  }
+  if (lowered === "confirmed") {
+    return "confirmed";
+  }
   return financialStatusMap[lowered] || financialStatusMap[status] || "draft";
 };
 
@@ -324,12 +332,12 @@ export function adaptFinancialEntry(
   const dueDate = dateOnly(api.due_date);
   const occurredDate = dateOnly(api.occurred_at) || dateOnly(api.created_at) || "";
   
-  // Normalize status to canonical value
+  // Normalize status to canonical value (pass paid_at to logic)
   const rawStatus = api.status;
-  const mappedStatus = normalizeFinancialStatus(rawStatus);
-  
+  const mappedStatus = normalizeFinancialStatus(rawStatus, api.paid_at);
+
   // Determine if entry is paid (has paidAt set)
-  const isPaid = !!api.paid_at;
+  const isPaid = mappedStatus === "paid";
   
   // Map entry_type to frontend type
   const type = api.entry_type === "income" ? "revenue" : "expense";

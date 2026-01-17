@@ -1,9 +1,11 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
+import { LockProvider } from "./contexts/LockContext";
 import { ThemeProvider } from "./contexts/ThemeProvider";
 import { SidebarProvider } from "./contexts/SidebarContext";
 import { ToastProvider } from "./contexts/ToastContext";
+import { SetupProvider } from "./contexts/SetupContext";
 import { ConfirmProvider } from "./contexts/ConfirmContext";
 import { DataProvider } from "./contexts/DataContext";
 import { I18nProvider } from "./contexts/I18nProvider";
@@ -35,34 +37,36 @@ async function bootstrap() {
   createRoot(document.getElementById("root")!).render(
     <StrictMode>
       <ErrorBoundary>
-        <SettingsProvider>
-          <I18nProvider>
-            <OperatorProvider>
-              <ThemeProvider>
-                <OnboardingProvider>
-                  <TutorialProvider>
-                    <NotificationProvider>
-                      <ToastProvider>
-                        <DataProvider>
-                          <AlertBanner />
-                          <SidebarProvider>
-                            <ConfirmProvider>
-                              <BrowserRouter>
-                                <App />
-                                <OnboardingTutorial />
-                                <TutorialOverlay />
-                              </BrowserRouter>
-                            </ConfirmProvider>
-                          </SidebarProvider>
-                        </DataProvider>
-                      </ToastProvider>
-                    </NotificationProvider>
-                  </TutorialProvider>
-                </OnboardingProvider>
-              </ThemeProvider>
-            </OperatorProvider>
-          </I18nProvider>
-        </SettingsProvider>
+        <SetupProvider>
+          <LockProvider>
+            <SettingsProvider>
+              <I18nProvider>
+                <OperatorProvider>
+                  <ThemeProvider>
+                    <OnboardingProvider>
+                      <TutorialProvider>
+                        <NotificationProvider>
+                          <ToastProvider>
+                            <DataProvider>
+                              <AlertBanner />
+                              <SidebarProvider>
+                                <ConfirmProvider>
+                                  <BrowserRouter>
+                                    <App />
+                                  </BrowserRouter>
+                                </ConfirmProvider>
+                              </SidebarProvider>
+                            </DataProvider>
+                          </ToastProvider>
+                        </NotificationProvider>
+                      </TutorialProvider>
+                    </OnboardingProvider>
+                  </ThemeProvider>
+                </OperatorProvider>
+              </I18nProvider>
+            </SettingsProvider>
+          </LockProvider>
+        </SetupProvider>
       </ErrorBoundary>
     </StrictMode>
   );

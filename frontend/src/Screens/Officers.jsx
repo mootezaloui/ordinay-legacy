@@ -30,7 +30,7 @@ export default function Officers() {
   const { confirm } = useConfirm();
 
   const {
-    officers,
+    officers: rawOfficers,
     clients,
     dossiers,
     cases,
@@ -43,6 +43,15 @@ export default function Officers() {
     deleteOfficer,
     deleteOfficerCascade
   } = useData();
+
+  // Defensive mapping: always use UI status values
+  const mapOfficerStatus = (status) => {
+    if (status === "inActive" || status === "inactive") return "Inactive";
+    if (status === "active" || status === "Available") return "Available";
+    if (status === "busy" || status === "Busy") return "Busy";
+    return status;
+  };
+  const officers = rawOfficers.map(o => ({ ...o, status: mapOfficerStatus(o.status) }));
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingOfficer, setEditingOfficer] = useState(null);
   const [isLoading, setIsLoading] = useState(false);

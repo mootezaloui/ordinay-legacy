@@ -799,9 +799,25 @@ export default function Dashboard() {
                   {(() => {
                     // Canonical: confirmed+paidAt = Paid, confirmed+no paidAt+future due = Pending, confirmed+no paidAt+past due = Overdue
                     const now = new Date();
-                    const paid = financialEntries.filter(i => i.status === "confirmed" && i.paidAt).length;
-                    const pending = financialEntries.filter(i => i.status === "confirmed" && !i.paidAt && i.dueDate && new Date(i.dueDate) >= now).length;
-                    const overdue = financialEntries.filter(i => i.status === "confirmed" && !i.paidAt && i.dueDate && new Date(i.dueDate) < now).length;
+                    const oneMonthAgo = new Date();
+                    oneMonthAgo.setMonth(now.getMonth() - 1);
+                    const paid = financialEntries.filter(i =>
+                      i.status === "paid" &&
+                      i.paidAt &&
+                      new Date(i.paidAt) >= oneMonthAgo
+                    ).length;
+                    const pending = financialEntries.filter(i =>
+                      i.status === "confirmed" &&
+                      !i.paidAt &&
+                      i.dueDate &&
+                      new Date(i.dueDate) >= now
+                    ).length;
+                    const overdue = financialEntries.filter(i =>
+                      i.status === "confirmed" &&
+                      !i.paidAt &&
+                      i.dueDate &&
+                      new Date(i.dueDate) < now
+                    ).length;
                     return [
                       { label: t("dashboard.quickStats.payments.paid"), value: paid, color: "green" },
                       { label: t("dashboard.quickStats.payments.pending"), value: pending, color: "amber" },
