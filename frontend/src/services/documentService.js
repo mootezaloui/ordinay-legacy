@@ -141,8 +141,10 @@ class DocumentService {
 
       // 1. Store file blob in IndexedDB
       const extension = file.name.split(".").pop();
+      // Map 'proces' to 'case' for storage and backend if needed
+      let mappedEntityType = entityType === "proces" ? "case" : entityType;
       const storageResult = await this.storageProvider.storeFile(file, {
-        directory: entityType,
+        directory: mappedEntityType,
       });
 
       if (!storageResult.success) {
@@ -152,10 +154,10 @@ class DocumentService {
       // 2. Store metadata in backend SQLite
       const backendDoc = await this.createBackendMetadata({
         title: file.name,
-        file_path: storageResult.path,
+        file_path: storageResult.path.replace("proces/", "case/"),
         mime_type: file.type || getMimeType(extension),
         size_bytes: file.size,
-        entityType,
+        entityType: mappedEntityType,
         entityId,
         category,
       });

@@ -3,41 +3,50 @@
  */
 const STATUS_COLORS = {
   // Client/Officer statuses
-  'Active': 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
-  'active': 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
-  'Available': 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
-  'Inactive': 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
-  'inactive': 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
-  'inActive': 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
-  'Busy': 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
+  Active:
+    "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+  active:
+    "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+  Available:
+    "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+  Inactive: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+  inactive: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+  inActive: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+  Busy: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
 
   // Dossier/Case statuses
-  'Open': 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
-  'In Progress': 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
-  'On Hold': 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
-  'Closed': 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300',
+  Open: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+  "In Progress":
+    "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+  "On Hold":
+    "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
+  Closed: "bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300",
 
   // Session statuses
-  'Scheduled': 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
-  'Confirmed': 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
-  'Pending': 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
-  'Completed': 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300',
-  'Cancelled': 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
+  Scheduled: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+  Confirmed:
+    "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+  Pending:
+    "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
+  Completed:
+    "bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300",
+  Cancelled: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
 
   // Task statuses
-  'Not Started': 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300',
-  'Blocked': 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
-  'Done': 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
+  "Not Started":
+    "bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300",
+  Blocked: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+  Done: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
 
   // Mission statuses
-  'Planned': 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
+  Planned: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
 
   // Financial statuses
-  'Draft': 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300',
-  'Posted': 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
-  'Paid': 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
-  'Overdue': 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
-  'Void': 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300',
+  Draft: "bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300",
+  Posted: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+  Paid: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+  Overdue: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+  Void: "bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300",
 };
 
 /**
@@ -72,11 +81,7 @@ export const getStatusColor = (status = "") => {
     return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400";
   }
 
-  if (
-    key.includes("pending") ||
-    key.includes("hold") ||
-    key.includes("busy")
-  ) {
+  if (key.includes("pending") || key.includes("hold") || key.includes("busy")) {
     return "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400";
   }
 
@@ -110,7 +115,11 @@ export const getStatusIcon = (status = "") => {
   const key = statusStr.toLowerCase();
 
   // Active/Open states
-  if (key.includes("active") || key.includes("open") || key.includes("available")) {
+  if (
+    key.includes("active") ||
+    key.includes("open") ||
+    key.includes("available")
+  ) {
     return "fas fa-check-circle";
   }
 
@@ -144,7 +153,12 @@ export const getStatusIcon = (status = "") => {
   }
 
   // Completed/Done/Closed/Paid
-  if (key.includes("completed") || key.includes("done") || key.includes("closed") || key.includes("paid")) {
+  if (
+    key.includes("completed") ||
+    key.includes("done") ||
+    key.includes("closed") ||
+    key.includes("paid")
+  ) {
     return "fas fa-check-circle";
   }
 

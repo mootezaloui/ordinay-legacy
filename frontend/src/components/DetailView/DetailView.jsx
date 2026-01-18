@@ -1212,10 +1212,12 @@ export default function DetailView({ entityType }) {
       {(entityType === 'dossier' || entityType === 'case') && (
         <>
           {console.log('[DEBUG] Render GenerateDocumentModal. isOpen:', generateDocModalOpen, 'entityType:', entityType)}
+          {console.log('[DEBUG] Operator context for document:', getContextDataWithOperator())}
+          {/** Map 'case' to 'proces' for document generation */}
           <GenerateDocumentModal
             isOpen={generateDocModalOpen}
             onClose={() => setGenerateDocModalOpen(false)}
-            entityType={entityType}
+            entityType={entityType === 'case' ? 'proces' : entityType}
             entityData={data}
             contextData={getContextDataWithOperator()}
             onDocumentGenerated={handleDocumentGenerated}

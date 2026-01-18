@@ -75,10 +75,6 @@ const TEMPLATE_CONTENT = {
 بناءً على الحكم الصادر في القضية المشار إليها أعلاه، أطلب استخراج نسخة رسمية من الحكم.
 
 معلومات الملف:
-- اسم الموكل: {{client.name}}
-- رقم القضية: {{proces.reference}}
-- رقم الملف: {{dossier.reference}}
-- المحكمة: {{court.name}}
 
 وتفضلوا بقبول فائق الاحترام والتقدير.
 
@@ -105,10 +101,6 @@ Monsieur le Président du Tribunal,
 Suite au jugement rendu dans l'affaire référencée ci-dessus, je sollicite l'extraction d'une copie officielle du jugement.
 
 Informations du dossier:
-- Nom du client: {{client.name}}
-- Référence du procès: {{proces.reference}}
-- Référence du dossier: {{dossier.reference}}
-- Tribunal: {{court.name}}
 
 Veuillez agréer, Monsieur le Président, l'expression de ma haute considération.
 
@@ -136,8 +128,6 @@ Signature: {{operator.name}}
 أطلب استخراج الوثائق الرسمية المتعلقة بالملف المذكور أعلاه.
 
 معلومات الملف:
-- اسم الموكل: {{client.name}}
-- رقم الملف: {{dossier.reference}}
 
 وتفضلوا بقبول فائق الاحترام والتقدير.
 
@@ -161,8 +151,6 @@ Monsieur,
 Je sollicite l'extraction des documents officiels relatifs au dossier référencé ci-dessus.
 
 Informations du dossier:
-- Nom du client: {{client.name}}
-- Référence du dossier: {{dossier.reference}}
 
 Veuillez agréer, Monsieur, l'expression de ma haute considération.
 
@@ -205,45 +193,46 @@ class TemplateService {
       "proces.reference": "__________",
       "court.name": "__________",
       "today.date": new Date().toLocaleDateString("fr-FR"),
+      "operator.name": "__________",
     };
+    // Map operator name (robust)
+    if (contextData?.operator && contextData.operator.name) {
+      data["operator.name"] = contextData.operator.name;
+    } else if (
+      Array.isArray(contextData?.operators) &&
+      contextData.operators.length > 0 &&
+      contextData.operators[0]?.name
+    ) {
+      data["operator.name"] = contextData.operators[0].name;
+    } else {
+      data["operator.name"] = "__________";
+    }
+    // Operator mapping confirmed. Alert removed.
 
     // Map client name
     if (entityData.client?.name) {
       data["client.name"] = entityData.client.name;
     } else if (entityData.clientId && contextData?.clients) {
+      // Find client by id (number or string)
       const client = contextData.clients.find(
-        (c) => c.id === entityData.clientId,
+        (c) => String(c.id) === String(entityData.clientId),
       );
       if (client) data["client.name"] = client.name;
-    } else if (entityType === "proces") {
-      // Try to get client from parent dossier if available
-      let dossier = null;
-      if (entityData.dossier?.clientId && contextData?.clients) {
+    } else if (
+      entityType === "proces" &&
+      entityData.dossierId &&
+      contextData?.dossiers &&
+      contextData?.clients
+    ) {
+      // Fallback: find dossier, then its clientId
+      const dossier = contextData.dossiers.find(
+        (d) => String(d.id) === String(entityData.dossierId),
+      );
+      if (dossier && dossier.clientId) {
         const client = contextData.clients.find(
-          (c) => c.id === entityData.dossier.clientId,
+          (c) => String(c.id) === String(dossier.clientId),
         );
         if (client) data["client.name"] = client.name;
-      } else if (entityData.dossierId && contextData?.dossiers) {
-        dossier = contextData.dossiers.find(
-          (d) => d.id === entityData.dossierId,
-        );
-        if (dossier && dossier.clientId && contextData?.clients) {
-          const client = contextData.clients.find(
-            (c) => c.id === dossier.clientId,
-          );
-          if (client) data["client.name"] = client.name;
-        }
-      }
-    }
-
-    // Map operator (signature) name
-    data["operator.name"] = "__________";
-    if (contextData?.operators && contextData.currentOperatorId) {
-      const operator = contextData.operators.find(
-        (op) => op.id === contextData.currentOperatorId,
-      );
-      if (operator && operator.name) {
-        data["operator.name"] = operator.name;
       }
     }
 
@@ -324,7 +313,15 @@ class TemplateService {
       }
 
       // Extract entity data
+      console.log(
+        "[DEBUG] templateService.generateDocument contextData:",
+        contextData,
+      );
       const data = this.extractEntityData(entityType, entityData, contextData);
+      console.log(
+        "[DEBUG] templateService.generateDocument mapped data:",
+        data,
+      );
 
       // Get template content
       const templateContent =
@@ -403,6 +400,8 @@ class TemplateService {
   }
 }
 
+// Attach TEMPLATE_CONTENT to the class for external access
+TemplateService.TEMPLATE_CONTENT = TEMPLATE_CONTENT;
 // Export singleton
 const templateService = new TemplateService();
 export default templateService;
