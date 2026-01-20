@@ -353,12 +353,15 @@ export default function Sessions() {
       if (editingSession) {
         updateSession(editingSession.id, formData);
         showToast(t("toasts.updateSuccess"), "success");
-      } else {
-        const creation = await addSession(formData);
-        const createdSession = creation?.created || creation;
-        showToast(t("toasts.createSuccess"), "success");
+        } else {
+          const creation = await addSession(formData);
+          if (creation?.ok === false) {
+            return;
+          }
+          const createdSession = creation?.created || creation;
+          showToast(t("toasts.createSuccess"), "success");
 
-        logEntityCreation("session", createdSession.id, formData.type || "Session");
+          logEntityCreation("session", createdSession.id, formData.type || "Session");
 
         // Notify tutorial that a session was created
         if (tutorial?.setCreatedSession) {

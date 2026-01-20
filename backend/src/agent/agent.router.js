@@ -3,7 +3,7 @@
 const express = require('express');
 const AgentEngine = require('./agent.engine');
 const classifyIntent = require('./intent.classifier');
-const { getAvailableCommands, isSlashCommand } = require('./intent.classifier');
+const { getAvailableCommands, isSlashCommand, detectReadIntent, detectFollowUp } = require('./intent.classifier');
 const { INTENTS } = require('./intents');
 const { streamChatWithCallbacks } = require('./llm.client');
 
@@ -97,7 +97,34 @@ router.post('/agent/stream', async (req, res) => {
       return;
     }
 
-    // Classify intent for non-command messages
+    // ========== FOLLOW-UP INTENT GATE ==========
+    // CRITICAL: Must run BEFORE intent classification to prevent fallthrough to generic chat
+    // If a follow-up is detected, route through agentEngine.run() which has proper handling
+    const followUpDetection = detectFollowUp(message, context || {});
+    if (followUpDetection && followUpDetection.isFollowUp) {
+      console.log('[SSE] Follow-up detected:', followUpDetection.type, 'confidence:', followUpDetection.confidence);
+      sendEvent('start', { intent: 'FOLLOW_UP', agentVersion, isFollowUp: true, followUpType: followUpDetection.type });
+      // Route through agentEngine.run() which has the follow-up resolution logic
+      const result = await agentEngine.run({ message, context, agentVersion, reasoner: 'rule' });
+      sendEvent('result', { output: result.output, intent: result.intent, isFollowUp: true });
+      sendEvent('done', { timestamp: new Date().toISOString() });
+      res.end();
+      return;
+    }
+    // ========== END FOLLOW-UP INTENT GATE ==========
+
+    // READ INTENT GATE - check for data requests BEFORE LLM classification
+    const readIntent = detectReadIntent(message, context || {});
+    if (readIntent && readIntent.requiresLocalData) {
+      sendEvent('start', { intent: readIntent.intent, agentVersion, isReadIntent: true });
+      const result = await agentEngine.run({ message, context, agentVersion, reasoner: 'rule' });
+      sendEvent('result', { output: result.output, intent: result.intent, isReadIntent: true });
+      sendEvent('done', { timestamp: new Date().toISOString() });
+      res.end();
+      return;
+    }
+
+    // Classify intent for non-command, non-data messages
     const intent = await classifyIntent(message, context || {});
 
     // Send start event with intent
@@ -112,6 +139,22 @@ router.post('/agent/stream', async (req, res) => {
       res.end();
       return;
     }
+
+    // ========== FINAL SAFETY GUARD ==========
+    // CRITICAL: If we reach here with a message that looks like a data request,
+    // it means the READ intent gate missed it. Route through agentEngine instead.
+    // This prevents LLM from asking "Could you provide more context?" after retrieving data.
+    const looksLikeDataRequest = /\b(client|clients|dossier|dossiers|task|tasks|session|sessions)\b/i.test(message);
+    if (looksLikeDataRequest) {
+      console.log('[SSE] Safety guard triggered: message contains entity keywords but reached LLM path');
+      sendEvent('start', { intent: 'SAFETY_GUARD', agentVersion, isSafetyGuard: true });
+      const result = await agentEngine.run({ message, context, agentVersion, reasoner: 'rule' });
+      sendEvent('result', { output: result.output, intent: result.intent, isSafetyGuard: true });
+      sendEvent('done', { timestamp: new Date().toISOString() });
+      res.end();
+      return;
+    }
+    // ========== END SAFETY GUARD ==========
 
     // Stream the chat response using callback-based approach
     console.log('[SSE] Starting stream from Ollama...');

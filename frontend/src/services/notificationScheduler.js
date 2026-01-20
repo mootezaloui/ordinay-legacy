@@ -15,6 +15,7 @@ import {
 } from "../utils/scheduledNotifications";
 import { resolveEntityLink } from "../utils/notificationTemplates";
 import { evaluateAllRules } from "./notificationRules";
+import { filterOperationalEntities } from "../utils/importState";
 
 // Helper to check if a notification is dismissed for the user (OWNER, id=1)
 async function isNotificationDismissed(dedupe_key, user_id = 1) {
@@ -195,6 +196,20 @@ function groupRuleNotifications(ruleNotifications = []) {
 
   return { individualRules, groupedNotifications };
 }
+
+function filterOperationalData(data = {}) {
+  return {
+    tasks: filterOperationalEntities(data.tasks || []),
+    personalTasks: filterOperationalEntities(data.personalTasks || []),
+    sessions: filterOperationalEntities(data.sessions || []),
+    missions: filterOperationalEntities(data.missions || []),
+    dossiers: filterOperationalEntities(data.dossiers || []),
+    cases: filterOperationalEntities(data.cases || []),
+    clients: filterOperationalEntities(data.clients || []),
+    officers: filterOperationalEntities(data.officers || []),
+    financialEntries: filterOperationalEntities(data.financialEntries || []),
+  };
+}
 /**
  * Notification Scheduler Service
  * Manages automatic generation and scheduling of behavior-driven notifications
@@ -271,7 +286,7 @@ class NotificationScheduler {
     const now = new Date();
     const currentDate = now.toISOString().split("T")[0]; // YYYY-MM-DD
     const preferences = getNotificationPreferences();
-    const data = this.data || {};
+    const data = filterOperationalData(this.data || {});
 
     // Only run full data check once per day
     const shouldRunDailyCheck = this.lastCheckDate !== currentDate;
@@ -389,7 +404,7 @@ class NotificationScheduler {
     // Evaluate intelligent rules engine for behavior-driven notifications
     try {
       const ruleBasedNotifications = evaluateAllRules(now, {
-        entities: this.data,
+        entities: data,
       });
 
       (async () => {
@@ -749,13 +764,14 @@ class NotificationScheduler {
    */
   generateAllNotifications(data) {
     this.data = data || this.data;
+    const operationalData = filterOperationalData(this.data || {});
     const preferences = getNotificationPreferences();
     const allNotifications = [];
 
     if (preferences.tasks.enabled) {
-      allNotifications.push(...generateTaskNotifications(data.tasks || [], {
-        dossiers: data.dossiers || [],
-        cases: data.cases || [],
+      allNotifications.push(...generateTaskNotifications(operationalData.tasks || [], {
+        dossiers: operationalData.dossiers || [],
+        cases: operationalData.cases || [],
       }));
       // NOTE: Personal tasks are handled by the rules-based system (PersonalTaskRules)
       // not by the old generator
@@ -763,7 +779,7 @@ class NotificationScheduler {
 
     if (preferences.sessions.enabled) {
       allNotifications.push(
-        ...generateSessionNotifications(data.sessions || [])
+        ...generateSessionNotifications(operationalData.sessions || [])
       );
     }
 
@@ -771,13 +787,13 @@ class NotificationScheduler {
 
     if (preferences.missions.enabled) {
       allNotifications.push(
-        ...generateMissionNotifications(data.missions || [])
+        ...generateMissionNotifications(operationalData.missions || [])
       );
     }
 
     if (preferences.dossiers.enabled) {
       allNotifications.push(
-        ...generateDossierNotifications(data.dossiers || [])
+        ...generateDossierNotifications(operationalData.dossiers || [])
       );
     }
 

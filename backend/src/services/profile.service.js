@@ -7,7 +7,9 @@ const db = require("../db/connection");
 function getStats() {
   // Count total clients (excluding soft-deleted)
   const totalClients = db
-    .prepare("SELECT COUNT(*) as count FROM clients WHERE deleted_at IS NULL")
+    .prepare(
+      "SELECT COUNT(*) as count FROM clients WHERE deleted_at IS NULL AND validated = 1"
+    )
     .get().count;
 
   // Count active dossiers (open, in_progress, on_hold)
@@ -18,6 +20,7 @@ function getStats() {
       FROM dossiers
       WHERE status IN ('open', 'in_progress', 'on_hold')
       AND deleted_at IS NULL
+      AND validated = 1
     `
     )
     .get().count;
@@ -30,6 +33,7 @@ function getStats() {
       FROM dossiers
       WHERE status = 'closed'
       AND deleted_at IS NULL
+      AND validated = 1
     `
     )
     .get().count;

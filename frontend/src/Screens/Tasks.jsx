@@ -416,12 +416,15 @@ export default function Tasks() {
       if (editingTask) {
         await updateTask(editingTask.id, formData);
         showToast(t("toasts.updateSuccess"), "success");
-      } else {
-        const creation = await addTask(formData);
-        const createdEntity = creation?.created || creation;
-        const createdId = createdEntity?.id;
-        if (!createdId) throw new Error(t("toasts.missingId"));
-        showToast(t("toasts.createSuccess"), "success");
+        } else {
+          const creation = await addTask(formData);
+          if (creation?.ok === false) {
+            return;
+          }
+          const createdEntity = creation?.created || creation;
+          const createdId = createdEntity?.id;
+          if (!createdId) throw new Error(t("toasts.missingId"));
+          showToast(t("toasts.createSuccess"), "success");
 
         logEntityCreation('task', createdId, createdEntity?.title);
 

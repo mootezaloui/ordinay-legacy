@@ -23,6 +23,7 @@ import {
   resolveEntityLink,
   getMissionDisplayTitle,
 } from "./notificationTemplates";
+import { filterOperationalEntities } from "./importState";
 
 /**
  * Base notification builder with dedupe-friendly IDs and link resolver
@@ -77,6 +78,7 @@ function buildNotification({
 export function generateTaskNotifications(tasks, context = {}) {
   const notifications = [];
   const now = new Date();
+  const operationalTasks = filterOperationalEntities(tasks);
 
   const isTaskClosedStatus = (status) => {
     const normalized = (status || "").toString().trim().toLowerCase();
@@ -151,7 +153,7 @@ export function generateTaskNotifications(tasks, context = {}) {
     return null;
   };
 
-  tasks.forEach((task) => {
+  operationalTasks.forEach((task) => {
     const dueDate = task.due_date || task.dueDate;
     if (!dueDate || isTaskClosedStatus(task.status)) return;
 
@@ -259,6 +261,7 @@ export function generateTaskNotifications(tasks, context = {}) {
 export function generateSessionNotifications(sessions) {
   const notifications = [];
   const now = new Date();
+  const operationalSessions = filterOperationalEntities(sessions);
 
   const isTaskClosedStatus = (status) => {
     const normalized = (status || "").toString().trim().toLowerCase();
@@ -285,7 +288,7 @@ export function generateSessionNotifications(sessions) {
     return null;
   };
 
-  sessions.forEach((session) => {
+  operationalSessions.forEach((session) => {
     if (!session.date || session.status === "TerminＦ") return;
 
     const daysLeft = calculateDaysDifference(session.date, now);
@@ -370,6 +373,7 @@ export function generateSessionNotifications(sessions) {
 export function generatePaymentNotifications(financialEntries) {
   const notifications = [];
   const now = new Date();
+  const operationalEntries = filterOperationalEntities(financialEntries);
 
   const isTaskClosedStatus = (status) => {
     const normalized = (status || "").toString().trim().toLowerCase();
@@ -395,7 +399,7 @@ export function generatePaymentNotifications(financialEntries) {
     return null;
   };
 
-  financialEntries.forEach((entry) => {
+  operationalEntries.forEach((entry) => {
     // Only for receivables (Revenus) with payment due dates
     if (entry.type !== "revenue" || !entry.dueDate || entry.status === "Payé")
       return;
@@ -554,6 +558,7 @@ export function generatePaymentNotifications(financialEntries) {
 export function generateMissionNotifications(missions) {
   const notifications = [];
   const now = new Date();
+  const operationalMissions = filterOperationalEntities(missions);
 
   const isTaskClosedStatus = (status) => {
     const normalized = (status || "").toString().trim().toLowerCase();
@@ -579,7 +584,7 @@ export function generateMissionNotifications(missions) {
     return null;
   };
 
-  missions.forEach((mission) => {
+  operationalMissions.forEach((mission) => {
     if (!mission.scheduledDate || mission.status === "Terminée") return;
 
     const daysLeft = calculateDaysDifference(mission.scheduledDate, now);
@@ -670,6 +675,7 @@ export function generateMissionNotifications(missions) {
 export function generateDossierNotifications(dossiers) {
   const notifications = [];
   const now = new Date();
+  const operationalDossiers = filterOperationalEntities(dossiers);
 
   const isTaskClosedStatus = (status) => {
     const normalized = (status || "").toString().trim().toLowerCase();
@@ -695,7 +701,7 @@ export function generateDossierNotifications(dossiers) {
     return null;
   };
 
-  dossiers.forEach((dossier) => {
+  operationalDossiers.forEach((dossier) => {
     if (
       dossier.status === "Fermé" ||
       dossier.status === "Ferme" ||

@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { useSetup } from '../../contexts/SetupContext';
 import { useOperator } from '../../contexts/OperatorContext';
-import { updateOperator, getCurrentOperator } from '../../services/api/operators';
+import { updateOperatorForSetup, getCurrentOperator } from '../../services/api/operators';
 import { useLock } from '../../contexts/lockContext';
 
 // ============================================================================
@@ -120,7 +120,7 @@ function SetupFlow() {
         try {
             // Get current operator to obtain ID
             const currentOperator = await getCurrentOperator();
-            await updateOperator(currentOperator.id, operatorUpdate);
+            await updateOperatorForSetup(currentOperator.id, operatorUpdate);
             // Optionally, save firm info and lock config as before (localStorage or API if available)
             // Save firm info (still localStorage unless backend endpoint exists)
             if (formData.firmName) {

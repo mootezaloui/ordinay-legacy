@@ -21,6 +21,54 @@
 
 const { TOOL_CATEGORIES } = require('./tool.registry');
 
+/**
+ * TOOL_DOMAIN_MAP
+ *
+ * Maps tools to data domains for access control.
+ * If a domain is disabled in context.dataAccess, tools in that domain are BLOCKED.
+ */
+const TOOL_DOMAIN_MAP = Object.freeze({
+  // READ tools
+  getClient: 'clients',
+  getDossier: 'dossiers',
+  getCase: 'cases',
+  getSession: 'sessions',
+  listTasks: 'tasks',
+  getTimeline: 'dossiers', // Timeline is dossier-scoped
+
+  // ANALYSIS tools
+  detectOverdueTasks: 'tasks',
+  computeDossierStatus: 'dossiers',
+  findBlockingDependencies: 'dossiers',
+  scanOperationalRisks: 'dossiers',
+
+  // DRAFT tools (require underlying data access)
+  draftInvitation: 'sessions',
+  draftClientEmail: 'clients',
+  draftHearingSummary: 'sessions',
+
+  // EXECUTE tools
+  createTask: 'tasks',
+  scheduleReminder: 'tasks',
+  prepareClientNotification: 'clients',
+});
+
+/**
+ * DATA_DOMAINS
+ *
+ * All supported data domains for access control.
+ */
+const DATA_DOMAINS = Object.freeze({
+  CLIENTS: 'clients',
+  DOSSIERS: 'dossiers',
+  CASES: 'cases',
+  TASKS: 'tasks',
+  SESSIONS: 'sessions',
+  DOCUMENTS: 'documents',
+  PERSONAL_TASKS: 'personalTasks',
+  MISSIONS: 'missions',
+});
+
 class ToolFirewall {
   constructor({ registry, ledger }) {
     if (!registry) {
@@ -160,6 +208,40 @@ class ToolFirewall {
       });
     }
 
+    // GATE 6: Domain access must be enabled in context.dataAccess
+    const toolDomain = TOOL_DOMAIN_MAP[toolName];
+    if (toolDomain && context.dataAccess) {
+      const domainEnabled = context.dataAccess[toolDomain];
+      // If dataAccess is specified and domain is explicitly disabled, block
+      if (domainEnabled === false) {
+        const result = this._buildRejection({
+          toolName,
+          reason: 'DOMAIN_ACCESS_DENIED',
+          message: `Access to ${toolDomain} data is disabled. Enable ${toolDomain} access in the context panel to use this feature.`,
+          policy,
+          context,
+          checks,
+          tool,
+          deniedDomain: toolDomain,
+        });
+        this._logDecision(result);
+        return result;
+      }
+
+      checks.push({
+        gate: 'DOMAIN_ACCESS_CHECK',
+        passed: true,
+        message: `Access to ${toolDomain} domain is permitted`,
+      });
+    } else if (toolDomain) {
+      // No dataAccess in context = all domains allowed (backward compatibility)
+      checks.push({
+        gate: 'DOMAIN_ACCESS_CHECK',
+        passed: true,
+        message: 'No domain restrictions specified (all domains allowed)',
+      });
+    }
+
     // ALL GATES PASSED
     const result = {
       permitted: true,
@@ -244,4 +326,8 @@ class ToolFirewall {
   }
 }
 
-module.exports = ToolFirewall;
+module.exports = {
+  ToolFirewall,
+  TOOL_DOMAIN_MAP,
+  DATA_DOMAINS,
+};

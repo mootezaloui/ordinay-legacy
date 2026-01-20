@@ -67,7 +67,7 @@ export default function TemplateManagement() {
 
     if (confirmed) {
       try {
-        templateManager.deleteUserTemplate(template.id);
+        await templateManager.deleteUserTemplate(template.id);
         loadTemplates();
         showToast('Modèle supprimé avec succès', 'success');
       } catch (error) {
@@ -248,39 +248,39 @@ function TemplateModal({ template, onClose, onSave }) {
     name: template?.name || '',
     entity_type: template?.entity_type || 'dossier',
     language: template?.language || 'fr',
-    content: template?.content || '',
+    file: null,
   });
 
   const [validation, setValidation] = useState(null);
 
-  // Validate content when it changes
+  // Validate file when it changes
   useEffect(() => {
-    if (formData.content) {
-      const result = templateManager.validateTemplateContent(formData.content);
+    if (formData.file) {
+      const result = templateManager.validateTemplateFile(formData.file);
       setValidation(result);
     } else {
       setValidation(null);
     }
-  }, [formData.content]);
+  }, [formData.file]);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     // Validate required fields
     if (!formData.name) {
       showToast('Le nom du modèle est requis', 'error');
       return;
     }
 
-    if (!formData.content) {
-      showToast('Le contenu du modèle est requis', 'error');
+    if (!isEdit && !formData.file) {
+      showToast('Le fichier DOCX est requis', 'error');
       return;
     }
 
     try {
       if (isEdit) {
-        templateManager.updateUserTemplate(template.id, formData);
+        await templateManager.updateUserTemplate(template.id, formData);
         showToast('Modèle mis à jour avec succès', 'success');
       } else {
-        templateManager.createUserTemplate(formData);
+        await templateManager.createUserTemplate(formData);
         showToast('Modèle créé avec succès', 'success');
       }
       onSave();
@@ -307,10 +307,59 @@ function TemplateModal({ template, onClose, onSave }) {
 
         {/* Content */}
         <div className="px-6 py-4 space-y-4 overflow-y-auto flex-1">
+          {/* Placeholder Help */}
+          <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg space-y-3">
+            <div>
+              <p className="text-sm font-medium text-blue-900 dark:text-blue-300">
+                <i className="fas fa-info-circle mr-2"></i>
+                {isEdit ? "Modifier le modele" : "Nouveau modele"}
+              </p>
+              <ul className="text-sm text-blue-800 dark:text-blue-400 mt-2 space-y-1">
+                <li>Nom du modele *</li>
+                <li>Type d'entite *</li>
+                <li>Langue *</li>
+                <li>Fichier DOCX *</li>
+              </ul>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-blue-900 dark:text-blue-300">
+                Placeholders disponibles
+              </p>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs text-blue-800 dark:text-blue-400 mt-2">
+                <code className="bg-blue-100 dark:bg-blue-900/40 px-2 py-1 rounded">{'{{client.name}}'}</code>
+                <code className="bg-blue-100 dark:bg-blue-900/40 px-2 py-1 rounded">{'{{dossier.reference}}'}</code>
+                <code className="bg-blue-100 dark:bg-blue-900/40 px-2 py-1 rounded">{'{{proces.reference}}'}</code>
+                <code className="bg-blue-100 dark:bg-blue-900/40 px-2 py-1 rounded">{'{{court.name}}'}</code>
+                <code className="bg-blue-100 dark:bg-blue-900/40 px-2 py-1 rounded">{'{{court.address}}'}</code>
+                <code className="bg-blue-100 dark:bg-blue-900/40 px-2 py-1 rounded">{'{{court.city}}'}</code>
+                <code className="bg-blue-100 dark:bg-blue-900/40 px-2 py-1 rounded">{'{{lawyer.name}}'}</code>
+                <code className="bg-blue-100 dark:bg-blue-900/40 px-2 py-1 rounded">{'{{lawyer.title}}'}</code>
+                <code className="bg-blue-100 dark:bg-blue-900/40 px-2 py-1 rounded">{'{{lawyer.firm_name}}'}</code>
+                <code className="bg-blue-100 dark:bg-blue-900/40 px-2 py-1 rounded">{'{{lawyer.office_name}}'}</code>
+                <code className="bg-blue-100 dark:bg-blue-900/40 px-2 py-1 rounded">{'{{lawyer.office_address}}'}</code>
+                <code className="bg-blue-100 dark:bg-blue-900/40 px-2 py-1 rounded">{'{{lawyer.phone}}'}</code>
+                <code className="bg-blue-100 dark:bg-blue-900/40 px-2 py-1 rounded">{'{{lawyer.fax}}'}</code>
+                <code className="bg-blue-100 dark:bg-blue-900/40 px-2 py-1 rounded">{'{{lawyer.mobile}}'}</code>
+                <code className="bg-blue-100 dark:bg-blue-900/40 px-2 py-1 rounded">{'{{lawyer.email}}'}</code>
+                <code className="bg-blue-100 dark:bg-blue-900/40 px-2 py-1 rounded">{'{{lawyer.bar_id}}'}</code>
+                <code className="bg-blue-100 dark:bg-blue-900/40 px-2 py-1 rounded">{'{{lawyer.vpa}}'}</code>
+                <code className="bg-blue-100 dark:bg-blue-900/40 px-2 py-1 rounded">{'{{session.date}}'}</code>
+                <code className="bg-blue-100 dark:bg-blue-900/40 px-2 py-1 rounded">{'{{adversary.name}}'}</code>
+                <code className="bg-blue-100 dark:bg-blue-900/40 px-2 py-1 rounded">{'{{judgment.number}}'}</code>
+                <code className="bg-blue-100 dark:bg-blue-900/40 px-2 py-1 rounded">{'{{judgment.date}}'}</code>
+                <code className="bg-blue-100 dark:bg-blue-900/40 px-2 py-1 rounded">{'{{document.copy_type}}'}</code>
+                <code className="bg-blue-100 dark:bg-blue-900/40 px-2 py-1 rounded">{'{{today.date}}'}</code>
+              </div>
+              <p className="text-xs text-blue-800 dark:text-blue-400 mt-2">
+                Les placeholders doivent etre saisis en texte brut, sans style ni coupure.
+              </p>
+            </div>
+          </div>
+
           {/* Template Name */}
           <div>
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-              Nom du modèle *
+              Nom du modŠle *
             </label>
             <input
               type="text"
@@ -324,7 +373,7 @@ function TemplateModal({ template, onClose, onSave }) {
           {/* Entity Type */}
           <div>
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-              Type d'entité *
+              Type d'entit‚ *
             </label>
             <select
               value={formData.entity_type}
@@ -332,7 +381,7 @@ function TemplateModal({ template, onClose, onSave }) {
               className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="dossier">Dossier</option>
-              <option value="proces">Procès</option>
+              <option value="proces">ProcŠs</option>
             </select>
           </div>
 
@@ -346,39 +395,27 @@ function TemplateModal({ template, onClose, onSave }) {
               onChange={(e) => setFormData({ ...formData, language: e.target.value })}
               className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="fr">Français</option>
-              <option value="ar">العربية</option>
+              <option value="fr">Fran‡ais</option>
+              <option value="ar">???????</option>
             </select>
           </div>
 
-          {/* Template Content */}
+          {/* Template File */}
           <div>
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-              Contenu du modèle *
+              Fichier DOCX *
             </label>
-            <textarea
-              value={formData.content}
-              onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-              placeholder="Entrez le contenu de votre modèle avec des placeholders comme {{client.name}}, {{dossier.reference}}, etc."
-              rows={12}
-              className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            <input
+              type="file"
+              accept=".docx"
+              onChange={(e) => setFormData({ ...formData, file: e.target.files?.[0] || null })}
+              className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
-          </div>
-
-          {/* Placeholder Help */}
-          <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-            <p className="text-sm font-medium text-blue-900 dark:text-blue-300 mb-2">
-              <i className="fas fa-info-circle mr-2"></i>
-              Placeholders disponibles
-            </p>
-            <div className="grid grid-cols-2 gap-2 text-xs text-blue-800 dark:text-blue-400">
-              <code className="bg-blue-100 dark:bg-blue-900/40 px-2 py-1 rounded">{'{{client.name}}'}</code>
-              <code className="bg-blue-100 dark:bg-blue-900/40 px-2 py-1 rounded">{'{{dossier.reference}}'}</code>
-              <code className="bg-blue-100 dark:bg-blue-900/40 px-2 py-1 rounded">{'{{proces.reference}}'}</code>
-              <code className="bg-blue-100 dark:bg-blue-900/40 px-2 py-1 rounded">{'{{court.name}}'}</code>
-              <code className="bg-blue-100 dark:bg-blue-900/40 px-2 py-1 rounded">{'{{today.date}}'}</code>
-              <code className="bg-blue-100 dark:bg-blue-900/40 px-2 py-1 rounded">{'{{operator.name}}'}</code>
-            </div>
+            {template?.file_path && !formData.file && (
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
+                Fichier actuel: {template.file_path.split('/').pop()}
+              </p>
+            )}
           </div>
 
           {/* Validation Result */}
@@ -396,11 +433,6 @@ function TemplateModal({ template, onClose, onSave }) {
                 <i className={`fas ${validation.valid ? 'fa-check-circle' : 'fa-exclamation-triangle'} mr-2`}></i>
                 {validation.message}
               </p>
-              {validation.unknown.length > 0 && (
-                <p className="text-xs text-amber-700 dark:text-amber-400 mt-2">
-                  Ces placeholders ne seront pas remplacés lors de la génération.
-                </p>
-              )}
             </div>
           )}
         </div>
@@ -424,3 +456,4 @@ function TemplateModal({ template, onClose, onSave }) {
     </div>
   );
 }
+

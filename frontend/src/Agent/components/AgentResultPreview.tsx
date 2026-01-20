@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import {
   Database,
   Zap,
@@ -12,6 +12,7 @@ import {
   Search,
 } from "lucide-react";
 import { useData } from "../../contexts/DataContext";
+import { DataAccessPermissions } from "../../services/api/agent";
 
 const DATA_SOURCE_CONFIG = [
   { id: "dossiers", label: "Dossiers", icon: FolderOpen },
@@ -65,28 +66,29 @@ const capabilities = [
 
 interface AgentResultPreviewProps {
   onExampleClick: (example: string) => void;
+  dataAccess: DataAccessPermissions;
+  setDataAccess: React.Dispatch<React.SetStateAction<DataAccessPermissions>>;
 }
 
 export function AgentResultPreview({
   onExampleClick,
+  dataAccess,
+  setDataAccess,
 }: AgentResultPreviewProps) {
   const { dossiers, clients, cases, tasks, personalTasks, missions, sessions } =
     useData();
-  // If you add documents to DataContext, include them here as well
-  // For now, documents count will be shown as '--'
 
-  // Track enabled/disabled state for each data source
-  const [enabledSources, setEnabledSources] = useState(() => {
-    // All enabled by default
-    const state: Record<string, boolean> = {};
-    DATA_SOURCE_CONFIG.forEach((ds) => {
-      state[ds.id] = true;
+  const handleToggleSource = (id: keyof DataAccessPermissions) => {
+    setDataAccess((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const handleToggleAll = () => {
+    const allEnabled = Object.values(dataAccess).every(Boolean);
+    const newState = {} as DataAccessPermissions;
+    (Object.keys(dataAccess) as Array<keyof DataAccessPermissions>).forEach((key) => {
+      newState[key] = !allEnabled;
     });
-    return state;
-  });
-
-  const handleToggleSource = (id: string) => {
-    setEnabledSources((prev) => ({ ...prev, [id]: !prev[id] }));
+    setDataAccess(newState);
   };
 
   return (
@@ -94,26 +96,19 @@ export function AgentResultPreview({
       <div className="p-4 border-b border-slate-200 dark:border-slate-800">
         <button
           type="button"
-          onClick={() => {
-            const allEnabled = Object.values(enabledSources).every(Boolean);
-            const newState: Record<string, boolean> = {};
-            DATA_SOURCE_CONFIG.forEach((ds) => {
-              newState[ds.id] = !allEnabled ? true : false;
-            });
-            setEnabledSources(newState);
-          }}
+          onClick={handleToggleAll}
           className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-colors w-full
             ${
-              Object.values(enabledSources).some(Boolean)
+              Object.values(dataAccess).some(Boolean)
                 ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 cursor-pointer"
                 : "bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700 cursor-pointer"
             }`}
-          aria-pressed={Object.values(enabledSources).some(Boolean)}
+          aria-pressed={Object.values(dataAccess).some(Boolean) ? "true" : "false"}
         >
           <div
             className={`w-2 h-2 rounded-full animate-pulse
             ${
-              Object.values(enabledSources).some(Boolean)
+              Object.values(dataAccess).some(Boolean)
                 ? "bg-green-500"
                 : "bg-red-500 dark:bg-slate-600 animate-none"
             }`}
@@ -121,12 +116,12 @@ export function AgentResultPreview({
           <span
             className={`text-xs font-medium
             ${
-              Object.values(enabledSources).some(Boolean)
+              Object.values(dataAccess).some(Boolean)
                 ? "text-green-700 dark:text-green-300"
                 : "text-slate-500 dark:text-slate-400 line-through"
             }`}
           >
-            {Object.values(enabledSources).some(Boolean)
+            {Object.values(dataAccess).some(Boolean)
               ? "Connected to your data"
               : "Data access disabled"}
           </span>
@@ -143,7 +138,7 @@ export function AgentResultPreview({
         <div className="grid grid-cols-2 gap-2">
           {DATA_SOURCE_CONFIG.map((source) => {
             const IconComponent = source.icon;
-            let value = "--";
+            let value: string | number = "--";
             if (source.id === "dossiers" && dossiers) value = dossiers.length;
             else if (source.id === "clients" && clients) value = clients.length;
             else if (source.id === "cases" && cases) value = cases.length;
@@ -154,19 +149,18 @@ export function AgentResultPreview({
               value = missions.length;
             else if (source.id === "sessions" && sessions)
               value = sessions.length;
-            // Add documents when available in DataContext
-            const enabled = enabledSources[source.id];
+            const enabled = dataAccess[source.id as keyof DataAccessPermissions];
             return (
               <button
                 key={source.id}
                 type="button"
-                onClick={() => handleToggleSource(source.id)}
+                onClick={() => handleToggleSource(source.id as keyof DataAccessPermissions)}
                 className={`relative p-3 w-full text-left bg-slate-50 dark:bg-slate-800 rounded-lg transition-colors border-2 ${
                   enabled
                     ? "border-green-200 dark:border-green-800 hover:bg-slate-100 dark:hover:bg-slate-750"
                     : "border-slate-300 dark:border-slate-700 opacity-60"
                 }`}
-                aria-pressed={enabled}
+                aria-pressed={enabled ? "true" : "false"}
                 tabIndex={0}
               >
                 <div
@@ -230,6 +224,7 @@ export function AgentResultPreview({
                   {capability.examples.map((example, idx) => (
                     <button
                       key={idx}
+                      type="button"
                       onClick={() => onExampleClick(example)}
                       className="block w-full text-left text-xs text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
                     >

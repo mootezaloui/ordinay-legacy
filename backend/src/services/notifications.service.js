@@ -16,6 +16,31 @@ const allowedFields = [
   "dedupe_key",
 ];
 
+const entityTableByType = {
+  client: "clients",
+  dossier: "dossiers",
+  case: "cases",
+  task: "tasks",
+  session: "sessions",
+  mission: "missions",
+  financial_entry: "financial_entries",
+  personal_task: "personal_tasks",
+  document: "documents",
+};
+
+function isEntityOperational(entityType, entityId) {
+  const tableName = entityTableByType[entityType];
+  if (!tableName) return true;
+  const row = db
+    .prepare(
+      `SELECT validated, deleted_at FROM ${tableName} WHERE id = @id LIMIT 1`
+    )
+    .get({ id: entityId });
+  if (!row) return false;
+  if (row.deleted_at) return false;
+  return row.validated === 1;
+}
+
 function stableStringify(value) {
   if (value === null || value === undefined) return "null";
   if (typeof value === "string") return JSON.stringify(value);
@@ -135,6 +160,11 @@ function create(payload) {
   validateEntityPair(insertData);
   if (!insertData.severity) insertData.severity = "info";
   if (!insertData.status) insertData.status = "unread";
+  if (insertData.entity_type && insertData.entity_id) {
+    if (!isEntityOperational(insertData.entity_type, insertData.entity_id)) {
+      return null;
+    }
+  }
   const dedupeKey = insertData.dedupe_key || computeDedupeKey(insertData);
   const payloadString = stableStringify(insertData.payload);
 

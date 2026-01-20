@@ -1,20 +1,16 @@
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo } from "react";
 import {
   applyIntelligentOrdering,
   getRowEmphasis,
-  getImportanceCalculator,
 } from "../utils/intelligentOrdering";
-
-const REORDER_DELAY_MS = 3000;
 
 /**
  * useAdvancedTable Hook
  * Provides advanced table functionality: sorting, filtering, column management, pagination
  *
- * NEW: Intelligent Ordering Support with Soft-Delay
+ * Intelligent Ordering Support
  * When entityType is provided, the table will use domain-aware default ordering
  * that surfaces important items first and de-emphasizes completed/inactive items.
- * Status changes are immediate, but reordering is delayed by 3 seconds.
  *
  * @param {Array} data - Array of data objects
  * @param {Array} initialColumns - Array of column configurations
@@ -46,114 +42,29 @@ export function useAdvancedTable(data = [], initialColumns = [], options = {}) {
     initialColumns.map((col) => col.id),
   );
 
-  // Soft-delay reordering state
-  const [displayData, setDisplayData] = useState(data);
-  const pendingReorders = useRef(new Map());
-  const previousDataRef = useRef(data);
-
   // Determine if we should use intelligent ordering
   const useIntelligentSort = entityType && enableIntelligentOrdering && !sortBy;
 
-  // Clear all pending reorders
-  const clearAllPendingReorders = () => {
-    pendingReorders.current.forEach((timeoutId) => {
-      clearTimeout(timeoutId);
-    });
-    pendingReorders.current.clear();
-  };
-
-  // Clear pending reorders on unmount
-  useEffect(() => {
-    return () => {
-      clearAllPendingReorders();
-    };
-  }, []);
-
-  // Clear pending reorders when manual sorting is applied
-  useEffect(() => {
-    if (sortBy) {
-      clearAllPendingReorders();
-    }
-  }, [sortBy]);
-
-  // Detect status changes and schedule delayed reordering
-  useEffect(() => {
+  const orderedData = useMemo(() => {
     if (!useIntelligentSort || !entityType) {
-      // If not using intelligent ordering, just use data directly
-      setDisplayData(data);
-      return;
+      return data;
     }
 
-    const previousData = previousDataRef.current;
-
-    // Detect items with changed status
-    data.forEach((item) => {
-      const previousItem = previousData.find((prev) => prev.id === item.id);
-
-      if (previousItem && hasStatusChanged(previousItem, item, entityType)) {
-        // Cancel existing timeout for this item
-        if (pendingReorders.current.has(item.id)) {
-          clearTimeout(pendingReorders.current.get(item.id));
-        }
-
-        // Schedule delayed reorder
-        const timeoutId = setTimeout(() => {
-          // Recompute ordering with latest data
-          setDisplayData((currentDisplayData) => {
-            // Apply intelligent ordering to the actual current data
-            return applyIntelligentOrdering(data, entityType);
-          });
-
-          // Remove from pending
-          pendingReorders.current.delete(item.id);
-        }, REORDER_DELAY_MS);
-
-        pendingReorders.current.set(item.id, timeoutId);
-      }
-    });
-
-    // Update immediately for visual status changes (but keep order stable)
-    setDisplayData((currentDisplayData) => {
-      // Update item properties but maintain current order
-      return currentDisplayData
-        .map((displayItem) => {
-          const updatedItem = data.find((d) => d.id === displayItem.id);
-          return updatedItem || displayItem;
-        })
-        .concat(
-          // Add any new items that weren't in displayData
-          data.filter(
-            (item) => !currentDisplayData.some((d) => d.id === item.id),
-          ),
-        );
-    });
-
-    previousDataRef.current = data;
+    return applyIntelligentOrdering(data, entityType);
   }, [data, useIntelligentSort, entityType]);
-
-  // Initial ordering when data first loads or intelligent ordering is toggled
-  useEffect(() => {
-    if (
-      useIntelligentSort &&
-      entityType &&
-      previousDataRef.current.length === 0
-    ) {
-      setDisplayData(applyIntelligentOrdering(data, entityType));
-    }
-  }, [useIntelligentSort, entityType]);
 
   // Filter data based on search query
   const filteredData = useMemo(() => {
-    if (!searchQuery.trim()) return displayData;
+    if (!searchQuery.trim()) return orderedData;
 
     const query = searchQuery.toLowerCase();
-    return displayData.filter((row) => {
+    return orderedData.filter((row) => {
       return searchableFields.some((field) => {
         const value = row[field];
         return value && value.toString().toLowerCase().includes(query);
       });
     });
-  }, [displayData, searchQuery, searchableFields]);
+  }, [orderedData, searchQuery, searchableFields]);
 
   // Sort data - either with intelligent ordering or manual sort
   const sortedData = useMemo(() => {
@@ -270,11 +181,6 @@ export function useAdvancedTable(data = [], initialColumns = [], options = {}) {
   const resetToIntelligentOrder = () => {
     setSortBy(null);
     setSortDirection("asc");
-    // Immediately apply intelligent ordering
-    if (useIntelligentSort && entityType) {
-      clearAllPendingReorders();
-      setDisplayData(applyIntelligentOrdering(data, entityType));
-    }
   };
 
   return {
@@ -321,38 +227,4 @@ export function useAdvancedTable(data = [], initialColumns = [], options = {}) {
     getItemEmphasis,
     resetToIntelligentOrder,
   };
-}
-
-/**
- * Helper function to detect if status has changed between two items
- */
-function hasStatusChanged(previousItem, currentItem, entityType) {
-  // Check primary status field
-  if (previousItem.status !== currentItem.status) {
-    return true;
-  }
-
-  // Check entity-specific fields that affect ordering
-  switch (entityType) {
-    case "task":
-    case "personalTask":
-      return (
-        previousItem.priority !== currentItem.priority ||
-        previousItem.dueDate !== currentItem.dueDate
-      );
-    case "dossier":
-      return previousItem.priority !== currentItem.priority;
-    case "mission":
-      return previousItem.deadline !== currentItem.deadline;
-    case "session":
-      return previousItem.date !== currentItem.date;
-    case "case":
-      return (
-        previousItem.nextHearing !== currentItem.nextHearing ||
-        previousItem.computedNextHearing?.date !==
-          currentItem.computedNextHearing?.date
-      );
-    default:
-      return false;
-  }
 }

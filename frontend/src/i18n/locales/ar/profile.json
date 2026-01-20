@@ -26,7 +26,13 @@
     "specialization": "التخصص",
     "barNumber": "رقم القيد بنقابة المحامين",
     "office": "المكتب",
-    "bio": "السيرة الذاتية"
+    "bio": "السيرة الذاتية",
+    "mobile": "الجوال",
+    "fax": "الفاكس",
+    "barId": "معرف المحامي",
+    "officeName": "اسم المكتب",
+    "officeAddress": "عنوان المكتب",
+    "vpa": "VPA"
   },
   "toasts": {
     "saveSuccess": "تم تحديث الملف بنجاح!"

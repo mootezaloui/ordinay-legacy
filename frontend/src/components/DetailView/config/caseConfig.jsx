@@ -107,7 +107,7 @@ export const createCaseConfig = (t) => {
       const caseFields = [
         'caseNumber', 'title', 'dossierId', 'court',
         'filingDate', 'nextHearing', 'courtReference', 'adversaryParty',
-        'adversaryLawyer', 'status', 'description', 'notes' // ✅ Added notes
+        'adversaryLawyer', 'judgmentNumber', 'judgmentDate', 'status', 'description', 'notes' // ✅ Added notes
       ];
       const caseData = Object.keys(data).reduce((acc, key) => {
         if (caseFields.includes(key)) {
@@ -695,6 +695,29 @@ export const createCaseConfig = (t) => {
         ],
       },
       {
+        title: t('detail.overview.judgment'),
+        editStrategy: "structured",
+        fields: [
+          {
+            key: "judgmentNumber",
+            label: t('detail.overview.fields.judgmentNumber'),
+            value: (data) => data.judgmentNumber,
+            icon: "fas fa-hashtag",
+            type: "text",
+            editable: true
+          },
+          {
+            key: "judgmentDate",
+            label: t('detail.overview.fields.judgmentDate'),
+            value: (data) => data.judgmentDate,
+            displayValue: (data) => data.judgmentDate ? formatDateValue(data.judgmentDate) : t('detail.fallback.na'),
+            icon: "fas fa-calendar-check",
+            type: "date",
+            editable: true
+          },
+        ],
+      },
+      {
         title: t('detail.overview.relatedDossier'),
         editStrategy: "structured",
         fields: [
@@ -767,3 +790,4 @@ function InfoCard({ icon, label, value, color, linkTo = null, subtitle = null })
 
   return <div className="flex items-center gap-3">{content}</div>;
 }
+

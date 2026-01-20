@@ -14,6 +14,10 @@ export default function TableToolbar({
   onToggleColumn = () => { },
   onResetColumns = () => { },
   onExport = null,
+  onImport = null,
+  importLabel = null,
+  importDisabled = false,
+  importTitle = null,
   totalItems = 0,
   filteredItems = 0,
   isFiltering = false,
@@ -21,6 +25,7 @@ export default function TableToolbar({
   const { t } = useTranslation("common");
   const [showColumnMenu, setShowColumnMenu] = useState(false);
   const columnMenuRef = useRef(null);
+  const resolvedImportLabel = importLabel || t("table.toolbar.import");
 
   // Close column menu when clicking outside
   useEffect(() => {
@@ -82,6 +87,24 @@ export default function TableToolbar({
 
         {/* Right side - Actions */}
         <div className="flex items-center gap-2">
+          {/* Import button */}
+          {onImport && (
+            <button
+              onClick={onImport}
+              disabled={importDisabled}
+              title={importTitle || resolvedImportLabel}
+              className={`px-4 py-2 border rounded-lg transition-colors flex items-center gap-2 text-sm font-medium ${importDisabled
+                ? "bg-slate-200 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed"
+                : "bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300"
+                }`}
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 9l5-5m0 0l5 5m-5-5v12" />
+              </svg>
+              {resolvedImportLabel}
+            </button>
+          )}
+
           {/* Column visibility */}
           <div className="relative z-30" ref={columnMenuRef}>
             <button

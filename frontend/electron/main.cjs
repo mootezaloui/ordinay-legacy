@@ -17,6 +17,7 @@ const isDev = !app.isPackaged;
 const USER_DATA_PATH = app.getPath("userData");
 const DB_PATH = path.join(USER_DATA_PATH, "organia.db");
 const DOCUMENTS_PATH = path.join(USER_DATA_PATH, "documents");
+const LICENSE_PATH = path.join(USER_DATA_PATH, "organia_license.json");
 
 // Backend configuration
 let backendProcess = null;
@@ -58,7 +59,6 @@ function ensureDirectories() {
   if (!fs.existsSync(DOCUMENTS_PATH)) {
     fs.mkdirSync(DOCUMENTS_PATH, { recursive: true });
   }
-
   console.log("[Electron] Persistent paths:");
   console.log(`  userData: ${USER_DATA_PATH}`);
   console.log(`  database: ${DB_PATH}`);
@@ -313,6 +313,25 @@ function setupIPC() {
   ipcMain.handle("is-packaged", () => {
     return !isDev;
   });
+
+  // Handler to read local license file
+  ipcMain.handle("read-license-file", () => {
+    if (!fs.existsSync(LICENSE_PATH)) {
+      return { exists: false };
+    }
+
+    const contents = fs.readFileSync(LICENSE_PATH, "utf-8");
+    return { exists: true, contents };
+  });
+
+  // Handler to write local license file (overwrite any existing file)
+  ipcMain.handle("write-license-file", (_event, licenseData) => {
+    const payload = JSON.stringify(licenseData, null, 2);
+    fs.writeFileSync(LICENSE_PATH, payload, "utf-8");
+    return { ok: true };
+  });
+
+
 }
 
 // ============================================================

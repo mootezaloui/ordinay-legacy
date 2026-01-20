@@ -25,9 +25,14 @@ CREATE TABLE IF NOT EXISTS clients (
     company TEXT,
     tax_id TEXT,
     notes TEXT,
+    missing_fields TEXT,
     join_date DATE,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    imported INTEGER NOT NULL DEFAULT 0,
+    validated INTEGER NOT NULL DEFAULT 1,
+    import_source TEXT,
+    imported_at DATETIME,
     deleted_at DATETIME
 );
 
@@ -39,6 +44,7 @@ CREATE TABLE IF NOT EXISTS dossiers (
     description TEXT,
     category TEXT,
     phase TEXT,
+    adversary_name TEXT,
     adversary_party TEXT,
     adversary_lawyer TEXT,
     estimated_value NUMERIC,
@@ -51,6 +57,10 @@ CREATE TABLE IF NOT EXISTS dossiers (
     closed_at DATETIME,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    imported INTEGER NOT NULL DEFAULT 0,
+    validated INTEGER NOT NULL DEFAULT 1,
+    import_source TEXT,
+    imported_at DATETIME,
     deleted_at DATETIME,
     CHECK (reference IS NOT NULL AND length(reference) > 0),
     FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE RESTRICT
@@ -67,12 +77,15 @@ CREATE TABLE IF NOT EXISTS cases (
     dossier_id INTEGER NOT NULL,
     title TEXT NOT NULL,
     description TEXT,
+    adversary_name TEXT,
     adversary TEXT,
     adversary_party TEXT,
     adversary_lawyer TEXT,
     court TEXT,
     filing_date DATE,
     next_hearing DATE,
+    judgment_number TEXT,
+    judgment_date DATE,
     reference_number TEXT,
     status TEXT NOT NULL CHECK (status IN ('open','in_progress','on_hold','closed')),
     priority TEXT NOT NULL DEFAULT 'medium' CHECK (priority IN ('urgent','high','medium','low')),
@@ -80,6 +93,10 @@ CREATE TABLE IF NOT EXISTS cases (
     closed_at DATETIME,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    imported INTEGER NOT NULL DEFAULT 0,
+    validated INTEGER NOT NULL DEFAULT 1,
+    import_source TEXT,
+    imported_at DATETIME,
     deleted_at DATETIME,
     CHECK (reference IS NOT NULL AND length(reference) > 0),
     FOREIGN KEY (dossier_id) REFERENCES dossiers(id) ON DELETE RESTRICT
@@ -104,6 +121,10 @@ CREATE TABLE IF NOT EXISTS officers (
     notes TEXT,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    imported INTEGER NOT NULL DEFAULT 0,
+    validated INTEGER NOT NULL DEFAULT 1,
+    import_source TEXT,
+    imported_at DATETIME,
     deleted_at DATETIME
 );
 
@@ -127,6 +148,10 @@ CREATE TABLE IF NOT EXISTS missions (
     officer_id INTEGER,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    imported INTEGER NOT NULL DEFAULT 0,
+    validated INTEGER NOT NULL DEFAULT 1,
+    import_source TEXT,
+    imported_at DATETIME,
     deleted_at DATETIME,
     CHECK (reference IS NOT NULL AND length(reference) > 0),
     CHECK ((dossier_id IS NOT NULL AND case_id IS NULL) OR (dossier_id IS NULL AND case_id IS NOT NULL)),
@@ -156,6 +181,10 @@ CREATE TABLE IF NOT EXISTS tasks (
     completed_at DATETIME,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    imported INTEGER NOT NULL DEFAULT 0,
+    validated INTEGER NOT NULL DEFAULT 1,
+    import_source TEXT,
+    imported_at DATETIME,
     deleted_at DATETIME,
     CHECK ((dossier_id IS NOT NULL AND case_id IS NULL) OR (case_id IS NOT NULL AND dossier_id IS NULL)),
     FOREIGN KEY (dossier_id) REFERENCES dossiers(id) ON DELETE RESTRICT,
@@ -173,6 +202,7 @@ CREATE TABLE IF NOT EXISTS sessions (
     session_type TEXT NOT NULL CHECK (session_type IN ('hearing','consultation','mediation','expertise','phone','other')),
     status TEXT NOT NULL CHECK (status IN ('scheduled','confirmed','pending','completed','cancelled')),
     scheduled_at DATETIME NOT NULL,
+    session_date DATE,
     duration TEXT,
     location TEXT,
     court_room TEXT,
@@ -185,6 +215,10 @@ CREATE TABLE IF NOT EXISTS sessions (
     case_id INTEGER,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    imported INTEGER NOT NULL DEFAULT 0,
+    validated INTEGER NOT NULL DEFAULT 1,
+    import_source TEXT,
+    imported_at DATETIME,
     deleted_at DATETIME,
     CHECK ((case_id IS NOT NULL AND dossier_id IS NULL) OR (case_id IS NULL AND dossier_id IS NOT NULL)),
     FOREIGN KEY (case_id) REFERENCES cases(id) ON DELETE RESTRICT,
@@ -207,6 +241,10 @@ CREATE TABLE IF NOT EXISTS personal_tasks (
     notes TEXT,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    imported INTEGER NOT NULL DEFAULT 0,
+    validated INTEGER NOT NULL DEFAULT 1,
+    import_source TEXT,
+    imported_at DATETIME,
     deleted_at DATETIME
 );
 CREATE INDEX IF NOT EXISTS idx_personal_tasks_status ON personal_tasks(status);
@@ -238,6 +276,10 @@ CREATE TABLE IF NOT EXISTS financial_entries (
     cancellation_reason TEXT DEFAULT NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    imported INTEGER NOT NULL DEFAULT 0,
+    validated INTEGER NOT NULL DEFAULT 1,
+    import_source TEXT,
+    imported_at DATETIME,
     deleted_at DATETIME,
     CHECK ((dossier_id IS NULL) OR (case_id IS NULL)),
     CHECK ((scope = 'client' AND client_id IS NOT NULL) OR (scope = 'internal' AND client_id IS NULL)),
@@ -266,6 +308,7 @@ CREATE TABLE IF NOT EXISTS documents (
     mime_type TEXT,
     size_bytes INTEGER,
     notes TEXT,
+    copy_type TEXT,
     uploaded_by TEXT,
     client_id INTEGER,
     dossier_id INTEGER,
@@ -277,6 +320,10 @@ CREATE TABLE IF NOT EXISTS documents (
     financial_entry_id INTEGER,
     uploaded_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    imported INTEGER NOT NULL DEFAULT 0,
+    validated INTEGER NOT NULL DEFAULT 1,
+    import_source TEXT,
+    imported_at DATETIME,
     deleted_at DATETIME,
     CHECK (
         (client_id IS NOT NULL) +
@@ -346,10 +393,17 @@ CREATE INDEX IF NOT EXISTS idx_notes_created_at ON notes(created_at);
 CREATE TABLE IF NOT EXISTS operators (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
+    title TEXT,
+    office_name TEXT,
+    office_address TEXT,
     email TEXT,
     phone TEXT,
+    fax TEXT,
+    mobile TEXT,
     specialization TEXT,
+    bar_id TEXT,
     bar_number TEXT,
+    vpa TEXT,
     office TEXT,
     bio TEXT,
     role TEXT NOT NULL,
@@ -370,3 +424,20 @@ CREATE TABLE IF NOT EXISTS history_events (
     deleted_at DATETIME
 );
 CREATE INDEX IF NOT EXISTS idx_history_events_entity ON history_events(entity_type, entity_id);
+
+CREATE TABLE IF NOT EXISTS legacy_imports (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    entity_type TEXT NOT NULL CHECK (entity_type IN ('client')),
+    payload TEXT NOT NULL,
+    normalized_payload TEXT,
+    validation_errors TEXT,
+    import_source TEXT,
+    imported_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    imported INTEGER NOT NULL DEFAULT 1,
+    validated INTEGER NOT NULL DEFAULT 0,
+    resolved_entity_id INTEGER,
+    resolved_at DATETIME
+);
+CREATE INDEX IF NOT EXISTS idx_legacy_imports_entity_type ON legacy_imports(entity_type);
+CREATE INDEX IF NOT EXISTS idx_legacy_imports_validated ON legacy_imports(validated);
+CREATE INDEX IF NOT EXISTS idx_legacy_imports_imported_at ON legacy_imports(imported_at);

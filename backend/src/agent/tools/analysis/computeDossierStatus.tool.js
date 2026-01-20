@@ -59,7 +59,9 @@ const outputSchema = {
 
 async function handler({ dossierId }) {
   const dossier = db
-    .prepare('SELECT id, status, next_deadline FROM dossiers WHERE id = ? AND deleted_at IS NULL')
+    .prepare(
+      'SELECT id, status, next_deadline FROM dossiers WHERE id = ? AND deleted_at IS NULL AND validated = 1'
+    )
     .get(dossierId);
 
   if (!dossier) {
@@ -78,6 +80,7 @@ async function handler({ dossierId }) {
         SUM(CASE WHEN status NOT IN ('done', 'cancelled') AND due_date < ? THEN 1 ELSE 0 END) as overdue
       FROM tasks
       WHERE dossier_id = ? AND deleted_at IS NULL
+        AND validated = 1
       `
     )
     .get(now, dossierId);
@@ -90,6 +93,7 @@ async function handler({ dossierId }) {
       FROM sessions
       WHERE dossier_id = ?
         AND deleted_at IS NULL
+        AND validated = 1
         AND status IN ('scheduled', 'confirmed')
         AND scheduled_at >= ?
         AND scheduled_at <= datetime(?, '+30 days')
@@ -105,6 +109,7 @@ async function handler({ dossierId }) {
       FROM cases
       WHERE dossier_id = ?
         AND deleted_at IS NULL
+        AND validated = 1
         AND status IN ('open', 'in_progress')
       `
     )

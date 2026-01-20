@@ -43,6 +43,7 @@ function getSummary() {
       SELECT COUNT(*) AS count
       FROM clients
       WHERE deleted_at IS NULL
+        AND validated = 1
     `
     )
     .get().count;
@@ -54,6 +55,7 @@ function getSummary() {
       SELECT COUNT(*) AS count
       FROM clients
       WHERE deleted_at IS NULL
+        AND validated = 1
         AND ${clientDateExpr} >= DATE(@currentStart)
         AND ${clientDateExpr} < DATE(@nextStart)
     `
@@ -66,6 +68,7 @@ function getSummary() {
       SELECT COUNT(*) AS count
       FROM clients
       WHERE deleted_at IS NULL
+        AND validated = 1
         AND ${clientDateExpr} >= DATE(@previousStart)
         AND ${clientDateExpr} < DATE(@currentStart)
     `
@@ -79,6 +82,7 @@ function getSummary() {
       SELECT COUNT(*) AS count
       FROM dossiers
       WHERE deleted_at IS NULL
+        AND validated = 1
         AND status IN (${ACTIVE_DOSSIER_STATUSES.map((s) => `'${s}'`).join(',')})
     `
     )
@@ -91,6 +95,7 @@ function getSummary() {
       SELECT COUNT(*) AS count
       FROM dossiers
       WHERE deleted_at IS NULL
+        AND validated = 1
         AND DATE(COALESCE(created_at, opened_at)) >= DATE('now', 'localtime', '-6 days')
     `
     )
@@ -103,6 +108,7 @@ function getSummary() {
       SELECT COUNT(*) AS count
       FROM tasks
       WHERE deleted_at IS NULL
+        AND validated = 1
         AND status NOT IN ('done', 'cancelled')
     `
     )
@@ -115,6 +121,7 @@ function getSummary() {
       SELECT COUNT(*) AS count
       FROM tasks
       WHERE deleted_at IS NULL
+        AND validated = 1
         AND status NOT IN ('done', 'cancelled')
         AND due_date IS NOT NULL
         AND DATE(due_date) = DATE('now', 'localtime')
@@ -129,6 +136,7 @@ function getSummary() {
       SELECT COALESCE(SUM(amount), 0) AS total
       FROM financial_entries
       WHERE deleted_at IS NULL
+        AND validated = 1
         AND entry_type IN (${REVENUE_ENTRY_TYPES.map((t) => `'${t}'`).join(',')})
         AND status IN (${CONFIRMED_FINANCIAL_STATUSES.map((s) => `'${s}'`).join(',')})
     `
@@ -142,6 +150,7 @@ function getSummary() {
       SELECT COALESCE(SUM(amount), 0) AS total
       FROM financial_entries
       WHERE deleted_at IS NULL
+        AND validated = 1
         AND entry_type IN (${REVENUE_ENTRY_TYPES.map((t) => `'${t}'`).join(',')})
         AND status IN (${CONFIRMED_FINANCIAL_STATUSES.map((s) => `'${s}'`).join(',')})
         AND DATE(COALESCE(occurred_at, due_date, created_at)) >= DATE(@currentStart)
@@ -156,6 +165,7 @@ function getSummary() {
       SELECT COALESCE(SUM(amount), 0) AS total
       FROM financial_entries
       WHERE deleted_at IS NULL
+        AND validated = 1
         AND entry_type IN (${REVENUE_ENTRY_TYPES.map((t) => `'${t}'`).join(',')})
         AND status IN (${CONFIRMED_FINANCIAL_STATUSES.map((s) => `'${s}'`).join(',')})
         AND DATE(COALESCE(occurred_at, due_date, created_at)) >= DATE(@previousStart)

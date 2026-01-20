@@ -8,6 +8,7 @@ const allowedFields = [
   'mime_type',
   'size_bytes',
   'notes',
+  'copy_type',
   'client_id',
   'dossier_id',
   'case_id',
@@ -84,6 +85,7 @@ function create(payload) {
     mime_type: null,
     size_bytes: null,
     notes: null,
+    copy_type: null,
     client_id: null,
     dossier_id: null,
     case_id: null,
@@ -99,8 +101,8 @@ function create(payload) {
   validateTarget(insertData);
 
   const stmt = db.prepare(
-    `INSERT INTO ${table} (title, file_path, mime_type, size_bytes, notes, client_id, dossier_id, case_id, mission_id, task_id, session_id, personal_task_id, financial_entry_id)
-     VALUES (@title, @file_path, @mime_type, @size_bytes, @notes, @client_id, @dossier_id, @case_id, @mission_id, @task_id, @session_id, @personal_task_id, @financial_entry_id)`
+    `INSERT INTO ${table} (title, file_path, mime_type, size_bytes, notes, copy_type, client_id, dossier_id, case_id, mission_id, task_id, session_id, personal_task_id, financial_entry_id)
+     VALUES (@title, @file_path, @mime_type, @size_bytes, @notes, @copy_type, @client_id, @dossier_id, @case_id, @mission_id, @task_id, @session_id, @personal_task_id, @financial_entry_id)`
   );
   const result = stmt.run(insertData);
   return get(result.lastInsertRowid);

@@ -14,6 +14,7 @@ const allowedFields = [
   "session_type",
   "status",
   "scheduled_at",
+  "session_date",
   "duration",
   "location",
   "court_room",
@@ -92,6 +93,7 @@ function create(payload) {
   const data = normalizeData(filterPayload(payload, allowedFields));
   const insertData = {
     title: null,
+    session_date: null,
     duration: null,
     location: null,
     court_room: null,
@@ -117,8 +119,8 @@ function create(payload) {
 
   try {
     const stmt = db.prepare(
-      `INSERT INTO ${table} (title, session_type, status, scheduled_at, duration, location, court_room, judge, outcome, description, notes, participants, dossier_id, case_id)
-       VALUES (@title, @session_type, @status, @scheduled_at, @duration, @location, @court_room, @judge, @outcome, @description, @notes, @participants, @dossier_id, @case_id)`
+      `INSERT INTO ${table} (title, session_type, status, scheduled_at, session_date, duration, location, court_room, judge, outcome, description, notes, participants, dossier_id, case_id)
+       VALUES (@title, @session_type, @status, @scheduled_at, @session_date, @duration, @location, @court_room, @judge, @outcome, @description, @notes, @participants, @dossier_id, @case_id)`
     );
     const result = stmt.run(insertData);
     return get(result.lastInsertRowid);

@@ -8,7 +8,11 @@
     "notifications": "الإشعارات",
     "appointments": "إشعارات المواعيد والمواعيد النهائية",
     "accountSecurity": "الحساب والأمان",
-    "appearance": "المظهر"
+    "appearance": "المظهر",
+    "imports": "الاستيراد التاريخي"
+  },
+  "imports": {
+    "subtitle": "Review raw legacy intake records for clients."
   },
   "general": {
     "language": {

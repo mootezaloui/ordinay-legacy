@@ -20,6 +20,9 @@ import {
 } from "../models/Document.js";
 import { LocalStorageProvider } from "./storage/LocalStorageProvider.js";
 import { getApiBase } from "../lib/apiConfig";
+import { getAppLicenseState } from "./licenseService";
+
+const isLicenseLocked = () => getAppLicenseState() === "LOCKED";
 
 /**
  * Document service class
@@ -59,6 +62,7 @@ class DocumentService {
     entityType,
     entityId,
     category,
+    copy_type,
   }) {
     const payload = {
       title,
@@ -66,6 +70,7 @@ class DocumentService {
       mime_type,
       size_bytes,
       notes: category || null,
+      copy_type: copy_type || null,
     };
 
     // Map entityType to backend foreign key field, always use 'case' for case
@@ -131,8 +136,11 @@ class DocumentService {
    * @param {string} category - User-defined category
    * @returns {Promise<Object>} Result with document or error
    */
-  async uploadDocument(file, entityType, entityId, category = "") {
+  async uploadDocument(file, entityType, entityId, category = "", options = {}) {
     try {
+      if (isLicenseLocked()) {
+        return { success: false, error: "License inactive" };
+      }
       // Validate file
       const validation = this.validateFile(file);
       if (!validation.valid) {
@@ -160,6 +168,7 @@ class DocumentService {
         entityType: mappedEntityType,
         entityId,
         category,
+        copy_type: options.copyType || options.copy_type,
       });
 
       // 3. Return frontend-compatible document structure
@@ -184,7 +193,13 @@ class DocumentService {
    * @param {string} category - User-defined category
    * @returns {Promise<Object>} Results
    */
-  async uploadMultipleDocuments(files, entityType, entityId, category = "") {
+  async uploadMultipleDocuments(files, entityType, entityId, category = "", options = {}) {
+    if (isLicenseLocked()) {
+      return {
+        successful: [],
+        failed: files.map((file) => ({ file: file.name, error: "License inactive" })),
+      };
+    }
     const results = {
       successful: [],
       failed: [],
@@ -196,6 +211,7 @@ class DocumentService {
         entityType,
         entityId,
         category,
+        options,
       );
       if (result.success) {
         results.successful.push(result.document);
@@ -298,6 +314,9 @@ class DocumentService {
    */
   async linkDocumentToEntity(documentId, entityType, entityId, category = "") {
     try {
+      if (isLicenseLocked()) {
+        return false;
+      }
       const document = await this.getDocumentById(documentId);
       if (!document) return false;
 
@@ -342,6 +361,9 @@ class DocumentService {
    */
   async deleteDocument(documentId, entityType, entityId, deleteFile = false) {
     try {
+      if (isLicenseLocked()) {
+        return false;
+      }
       // Get document metadata to retrieve file_path
       const document = await this.getDocumentById(documentId);
       if (!document) return false;
@@ -441,6 +463,9 @@ class DocumentService {
    */
   async downloadDocument(documentId) {
     try {
+      if (isLicenseLocked()) {
+        throw new Error("License inactive");
+      }
       const document = await this.getDocumentById(documentId);
       if (!document || document.metadata.isDeleted) {
         throw new Error("Document not found");
@@ -496,6 +521,9 @@ class DocumentService {
    */
   async relinkDocument(documentId, newFile) {
     try {
+      if (isLicenseLocked()) {
+        return false;
+      }
       const document = await this.getDocumentById(documentId);
       if (!document) return false;
 

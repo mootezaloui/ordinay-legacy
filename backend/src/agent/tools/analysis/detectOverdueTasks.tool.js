@@ -72,6 +72,7 @@ async function handler({ dossierId = null, caseId = null, priority = null }) {
     LEFT JOIN dossiers d ON d.id = t.dossier_id
     LEFT JOIN cases c ON c.id = t.case_id
     WHERE t.deleted_at IS NULL
+      AND t.validated = 1
       AND t.status NOT IN ('done', 'cancelled')
       AND t.due_date IS NOT NULL
       AND t.due_date < ?

@@ -356,6 +356,9 @@ export default function Officers() {
         showToast(t("toasts.updateSuccess"), "success");
       } else {
         const creation = await addOfficer(formData);
+        if (creation?.ok === false) {
+          return;
+        }
         const createdOfficer = creation?.created || creation;
         showToast(t("toasts.createSuccess"), "success");
         // ✅ Log creation event

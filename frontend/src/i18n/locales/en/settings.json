@@ -8,7 +8,11 @@
     "notifications": "Notifications",
     "appointments": "Appointment & Deadline Notifications",
     "accountSecurity": "Account & Security",
-    "appearance": "Appearance"
+    "appearance": "Appearance",
+    "imports": "Legacy Imports"
+  },
+  "imports": {
+    "subtitle": "Review raw legacy intake records for clients."
   },
   "general": {
     "language": {

@@ -728,6 +728,7 @@
       "columns": "Colonnes",
       "manageColumns": "Gérer les Colonnes",
       "export": "Exporter",
+      "import": "Importer",
       "reset": "Réinitialiser"
     },
     "pagination": {
@@ -756,6 +757,143 @@
       "delete": "Supprimer"
     }
   },
+  "import": {
+    "title": "Importer des {{entity}} historiques",
+    "subtitle": "Mapping automatique. Les lignes valides sont importees comme non validees; les autres restent en quarantaine.",
+    "notice": "Les enregistrements valides sont stockes comme importes (non actifs). Completez les champs manquants avant activation.",
+    "sourceLabel": "Source de l'import (optionnel)",
+    "sourcePlaceholder": "ex: export Excel, ancien logiciel",
+    "fileLabel": "Fichier",
+    "fileHint": "CSV, JSON ou JSONL. Donnees stockees telles quelles.",
+    "fileEmpty": "Aucun fichier selectionne",
+    "recordsFound": "{{count}} enregistrement(s) prets a importer",
+    "parsing": "Analyse du fichier...",
+    "uploading": "Import {{current}} / {{total}}",
+    "actions": {
+      "chooseFile": "Choisir un fichier",
+      "import": "Importer"
+    },
+    "errors": {
+      "unsupported": "Type de fichier non pris en charge. Utilisez CSV, JSON ou JSONL.",
+      "parse": "Impossible d'analyser le fichier.",
+      "empty": "Aucun enregistrement dans le fichier.",
+      "upload": "Echec de l'import. Aucune modification appliquee."
+    },
+    "success": "{{count}} enregistrement(s) mis en attente de validation.",
+    "auto": {
+      "success": "{{created}} importes, {{queued}} en attente ({{total}} au total).",
+      "successWithDuplicates": "{{created}} importes, {{queued}} en attente, {{duplicates}} doublons ignores ({{total}} au total)."
+    }
+  },
+
+  "importQueue": {
+    "title": "Donnees importees (lecture seule)",
+    "subtitle": "Les lignes valides sont importees comme non validees; les invalides restent en quarantaine.",
+    "loading": "Chargement des imports...",
+    "showing": "Affichage {{shown}} sur {{total}}",
+    "empty": "Aucun enregistrement importe.",
+    "filters": {
+      "entity": "Entite",
+      "status": "Statut",
+      "pending": "En attente",
+      "validated": "Valide",
+      "all": "Tous",
+      "allEntities": "Toutes les entites"
+    },
+    "columns": {
+      "id": "ID import",
+      "entity": "Entite",
+      "importedAt": "Date d'import",
+      "source": "Source",
+      "status": "Statut",
+      "preview": "Apercu des donnees",
+      "actions": "Actions",
+      "issues": "Problemes"
+    },
+    "status": {
+      "pending": "En attente de validation",
+      "validated": "Valide",
+      "resolved": "Entite liee #{{id}}",
+      "issues": "Problemes de validation detectes",
+      "archived": "Archive"
+    },
+    "summary": {
+      "total": "Total",
+      "pending": "En attente",
+      "validated": "Valide",
+      "issues": "Problemes",
+      "duplicates": "Doublons",
+      "archived": "Archive"
+    },
+    "sessions": {
+      "header": "Sessions d'import",
+      "title": "Session d'import",
+      "records": "{{count}} enregistrement(s)"
+    },
+    "issues": {
+      "ok": "OK",
+      "review": "A verifier",
+      "duplicate": "Doublon"
+    },
+    "preview": {
+      "empty": "Aucune donnee enregistree."
+    },
+    "entities": {
+      "client": "Client",
+      "dossier": "Dossier",
+      "case": "Affaire",
+      "task": "Tache",
+      "session": "Audience",
+      "mission": "Mission",
+      "financialEntry": "Ecriture comptable",
+      "personalTask": "Tache personnelle",
+      "officer": "Huissier",
+      "document": "Document"
+    },
+    "actions": {
+      "refresh": "Rafraichir",
+      "loadMore": "Charger plus",
+      "viewPayload": "Voir les donnees",
+      "review": "Examiner",
+      "normalize": "Verifier",
+      "validate": "Valider et appliquer",
+      "archive": "Archiver",
+      "restore": "Restaurer",
+      "showArchived": "Voir archives",
+      "hideArchived": "Masquer archives",
+      "archiveValidated": "Archiver valides",
+      "openSession": "Voir enregistrements",
+      "closeSession": "Masquer enregistrements"
+    },
+    "errors": {
+      "load": "Impossible de charger la file d'import."
+    },
+    "review": {
+      "title": "Examiner l'import #{{id}} ({{entity}})",
+      "subtitle": "Fournissez un JSON normalise. Aucun mapping automatique.",
+      "notice": "Les imports restent en quarantaine. Seuls les enregistrements valides deviennent actifs.",
+      "payload": "Charge brute (lecture seule)",
+      "normalized": "Charge normalisee",
+      "normalizedHelp": "Collez un JSON normalise conforme au schema.",
+      "normalizedPlaceholder": "{\n  \"name\": \"...\",\n  \"status\": \"active\"\n}",
+      "hint": "La normalisation est manuelle. Corrigez les champs manquants et les conflits avant validation.",
+      "validationTitle": "Etat de validation",
+      "validationOk": "Validation reussie. Vous pouvez appliquer cet import.",
+      "missingFields": "Champs manquants : {{fields}}",
+      "conflicts": "Conflits : {{fields}}",
+      "errors": "{{count}} erreur(s) de validation.",
+      "parseRequired": "La charge normalisee est requise.",
+      "parseError": "La charge normalisee doit etre un JSON valide.",
+      "normalizeSuccess": "Validation terminee.",
+      "normalizeError": "Echec de la validation.",
+      "validationFailed": "Corrigez les problemes avant d'appliquer.",
+      "validateError": "Echec d'application.",
+      "applySuccess": "Import applique avec succes.",
+      "normalizing": "Verification...",
+      "validating": "Application..."
+    }
+  },
+
   "dialog": {
     "confirm": {
       "defaults": {

@@ -6,6 +6,7 @@ import LockScreen from "./components/lock/LockScreen";
 import AppRouter from "./routes/AppRouter";
 import { OnboardingTutorial } from "./components/onboarding";
 import TutorialOverlay from "./components/tutorial/TutorialOverlay";
+import LicenseBanner from "./components/LicenseBanner";
 
 function App() {
   const { isLocked } = useLock();
@@ -26,6 +27,7 @@ function App() {
   // Normal app flow
   return (
     <>
+      <LicenseBanner />
       <AppRouter />
       <OnboardingTutorial />
       <TutorialOverlay />

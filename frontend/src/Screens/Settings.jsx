@@ -1,1175 +1,148 @@
 import { useState } from 'react';
-import { useSettings } from "../contexts/SettingsContext";
-import { useTheme } from "../contexts/ThemeProvider";
-import { useOnboarding } from "../contexts/OnboardingContext";
-import { useTutorialSafe } from "../contexts/TutorialContext";
-import { useLock } from "../contexts/LockContext";
-import { updateNotificationPreferences } from "../utils/scheduledNotifications";
-import PageLayout from "../components/layout/PageLayout";
-import PageHeader from "../components/layout/PageHeader";
-import ContentSection from "../components/layout/ContentSection";
-import { LANGUAGE_REGISTRY } from "../i18n/config";
-import { useTranslation } from "react-i18next";
-import TemplateManagement from '../components/settings/TemplateManagement.jsx';
+import { useTranslation } from 'react-i18next';
+import PageLayout from '../components/layout/PageLayout';
+import PageHeader from '../components/layout/PageHeader';
+import SettingsGeneral from '../components/settings/SettingsGeneral';
+import SettingsWorkspace from '../components/settings/SettingsWorkspace';
+import SettingsNotifications from '../components/settings/SettingsNotifications';
+import SettingsDocuments from '../components/settings/SettingsDocuments';
+import SettingsSecurityAccess from '../components/settings/SettingsSecurityAccess';
+import SettingsAdvanced from '../components/settings/SettingsAdvanced';
+
+const SETTINGS_DOMAINS = [
+  {
+    id: 'general',
+    label: 'General',
+    description: 'Language, theme, and date formats.',
+    component: SettingsGeneral,
+  },
+  {
+    id: 'workspace',
+    label: 'Workspace',
+    description: 'Workspace defaults and import/export tools.',
+    component: SettingsWorkspace,
+  },
+  {
+    id: 'notifications',
+    label: 'Notifications',
+    description: 'Notification rules and reminder behavior.',
+    component: SettingsNotifications,
+  },
+  {
+    id: 'documents',
+    label: 'Documents',
+    description: 'Templates and document generation behavior.',
+    component: SettingsDocuments,
+  },
+  {
+    id: 'security',
+    label: 'Security & Access',
+    description: 'Workspace lock, license status, and access controls.',
+    component: SettingsSecurityAccess,
+  },
+  {
+    id: 'advanced',
+    label: 'Advanced',
+    description: 'Rarely used controls and training tools.',
+    component: SettingsAdvanced,
+    isAdvanced: true,
+  },
+];
 
 export default function Settings() {
-  const { settings, notificationPrefs, updateSettings, updateNotificationPrefs } = useSettings();
-  const { setThemePreference } = useTheme();
-  const { replayTutorial, hasCompletedOnboarding, hasSkippedOnboarding } = useOnboarding();
-  const tutorial = useTutorialSafe();
-  const { isEnabled, config, enableLock, disableLock, changePassword, updateSettings: updateLockSettings, lock } = useLock();
-  const { t } = useTranslation(["settings", "onboarding", "tutorial"]);
+  const { t } = useTranslation(['settings']);
+  const [activeDomainId, setActiveDomainId] = useState(SETTINGS_DOMAINS[0].id);
 
-  // Lock settings state
-  const [showEnableForm, setShowEnableForm] = useState(false);
-  const [showChangePassword, setShowChangePassword] = useState(false);
-  const [formData, setFormData] = useState({
-    password: '',
-    confirmPassword: '',
-    currentPassword: '',
-    newPassword: '',
-    confirmNewPassword: '',
-    lockOnStartup: true,
-    inactivityTimeout: 15,
-  });
-  const [lockError, setLockError] = useState('');
-  const [lockSuccess, setLockSuccess] = useState('');
+  const activeDomain = SETTINGS_DOMAINS.find((domain) => domain.id === activeDomainId) || SETTINGS_DOMAINS[0];
+  const ActiveComponent = activeDomain.component;
 
-  const handleChange = (field, value) => {
-    // Immediately save to context (which auto-persists to localStorage)
-    updateSettings({ [field]: value });
-
-    // Apply theme immediately if changed
-    if (field === "theme") {
-      setThemePreference(value);
-    }
-
-    // Reload page when language changes to re-initialize all static translations
-    if (field === "language") {
-      setTimeout(() => {
-        window.location.reload();
-      }, 100);
-    }
-  };
-
-  const handleNotificationPrefChange = (category, field, value) => {
-    // Immediately save to context
-    const updatedPrefs = {
-      ...notificationPrefs,
-      [category]: {
-        ...notificationPrefs[category],
-        [field]: value
-      }
-    };
-
-    updateNotificationPrefs(updatedPrefs);
-    updateNotificationPreferences("default", updatedPrefs);
-  };
-
-  // Lock management functions
-  const resetLockForms = () => {
-    setFormData({
-      password: '',
-      confirmPassword: '',
-      currentPassword: '',
-      newPassword: '',
-      confirmNewPassword: '',
-      lockOnStartup: config?.lockOnStartup ?? true,
-      inactivityTimeout: config?.inactivityTimeout ?? 15,
-    });
-    setLockError('');
-    setLockSuccess('');
-  };
-
-  const handleEnableLock = () => {
-    setLockError('');
-    setLockSuccess('');
-
-    if (!formData.password) {
-      setLockError('Password is required');
-      return;
-    }
-
-    if (formData.password.length < 6) {
-      setLockError('Password must be at least 6 characters');
-      return;
-    }
-
-    if (formData.password !== formData.confirmPassword) {
-      setLockError('Passwords do not match');
-      return;
-    }
-
-    enableLock(formData.password, formData.lockOnStartup, formData.inactivityTimeout);
-    setLockSuccess('Workspace lock enabled successfully');
-    setShowEnableForm(false);
-    resetLockForms();
-  };
-
-  const handleDisableLock = () => {
-    if (confirm('Are you sure you want to disable workspace lock? Your workspace will no longer be protected.')) {
-      disableLock();
-      setLockSuccess('Workspace lock disabled');
-      resetLockForms();
-    }
-  };
-
-  const handleChangePassword = () => {
-    setLockError('');
-    setLockSuccess('');
-
-    if (!formData.currentPassword || !formData.newPassword) {
-      setLockError('All password fields are required');
-      return;
-    }
-
-    if (formData.newPassword.length < 6) {
-      setLockError('New password must be at least 6 characters');
-      return;
-    }
-
-    if (formData.newPassword !== formData.confirmNewPassword) {
-      setLockError('New passwords do not match');
-      return;
-    }
-
-    const success = changePassword(formData.currentPassword, formData.newPassword);
-    if (success) {
-      setLockSuccess('Password changed successfully');
-      setShowChangePassword(false);
-      resetLockForms();
-    } else {
-      setLockError('Current password is incorrect');
-    }
-  };
-
-  const handleLockSettingsUpdate = (field, value) => {
-    updateLockSettings({ [field]: value });
-    setLockSuccess('Settings updated');
-    setTimeout(() => setLockSuccess(''), 2000);
-  };
+  const primaryDomains = SETTINGS_DOMAINS.filter((domain) => !domain.isAdvanced);
+  const advancedDomains = SETTINGS_DOMAINS.filter((domain) => domain.isAdvanced);
 
   return (
     <PageLayout>
       <PageHeader
-        title={t("page.title")}
-        subtitle={t("page.subtitle")}
+        title={t('page.title')}
+        subtitle={t('page.subtitle')}
         icon="fas fa-cog"
       />
 
-      <div className="space-y-6">
-        {/* General Settings */}
-        <ContentSection title={t("sections.general")}>
-          <div className="p-6 space-y-6">
-            {/* Language */}
-            <div className="flex items-center justify-between">
-              <div>
-                <label className="text-sm font-medium text-slate-900 dark:text-white">
-                  {t("general.language.label")}
-                </label>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                  {t("general.language.description")}
-                </p>
-              </div>
-              <select
-                value={settings.language}
-                onChange={(e) => handleChange("language", e.target.value)}
-                className="px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                {LANGUAGE_REGISTRY.map((language) => (
-                  <option key={language.code} value={language.code}>
-                    {language.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Date Format */}
-            <div className="flex items-center justify-between">
-              <div>
-                <label className="text-sm font-medium text-slate-900 dark:text-white">
-                  {t("general.dateFormat.label")}
-                </label>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                  {t("general.dateFormat.description")}
-                </p>
-              </div>
-              <select
-                value={settings.dateFormat}
-                onChange={(e) => handleChange("dateFormat", e.target.value)}
-                className="px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="DD/MM/YYYY">DD/MM/YYYY</option>
-                <option value="MM/DD/YYYY">MM/DD/YYYY</option>
-                <option value="YYYY/MM/DD">YYYY/MM/DD</option>
-                <option value="YYYY-MM-DD">YYYY-MM-DD</option>
-                <option value="DD-MM-YYYY">DD-MM-YYYY</option>
-                <option value="MM-DD-YYYY">MM-DD-YYYY</option>
-              </select>
-            </div>
-          </div>
-        </ContentSection>
-
-        {/* Workspace Lock */}
-        <ContentSection title="Workspace Lock">
-          <div className="p-6 space-y-6">
-            {/* Lock Status */}
-            <div className="flex items-center justify-between">
-              <div>
-                <label className="text-sm font-medium text-slate-900 dark:text-white">
-                  Lock Status
-                </label>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                  {isEnabled
-                    ? 'Your workspace is protected with a password'
-                    : 'Your workspace is not protected'}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                {isEnabled ? (
-                  <span className="px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs font-medium rounded-full flex items-center gap-1">
-                    <i className="fas fa-lock"></i>
-                    Enabled
-                  </span>
-                ) : (
-                  <span className="px-3 py-1 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 text-xs font-medium rounded-full flex items-center gap-1">
-                    <i className="fas fa-unlock"></i>
-                    Disabled
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* Messages */}
-            {lockError && (
-              <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg flex items-center gap-2 text-red-700 dark:text-red-400 text-sm">
-                <i className="fas fa-exclamation-circle"></i>
-                <span>{lockError}</span>
-              </div>
-            )}
-            {lockSuccess && (
-              <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg flex items-center gap-2 text-green-700 dark:text-green-400 text-sm">
-                <i className="fas fa-check-circle"></i>
-                <span>{lockSuccess}</span>
-              </div>
-            )}
-
-            {!isEnabled ? (
-              // Enable Lock Form
-              <div className="space-y-4">
-                {!showEnableForm ? (
-                  <button
-                    onClick={() => setShowEnableForm(true)}
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
-                  >
-                    <i className="fas fa-lock"></i>
-                    Enable Workspace Lock
-                  </button>
-                ) : (
-                  <div className="space-y-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700">
-                    <h4 className="text-sm font-semibold text-slate-900 dark:text-white">
-                      Set Up Workspace Lock
-                    </h4>
-
-                    <div className="space-y-3">
-                      <div>
-                        <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                          Password
-                        </label>
-                        <input
-                          type="password"
-                          value={formData.password}
-                          onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                          placeholder="Enter password (min. 6 characters)"
-                          className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                          Confirm Password
-                        </label>
-                        <input
-                          type="password"
-                          value={formData.confirmPassword}
-                          onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                          placeholder="Re-enter password"
-                          className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                      </div>
-
-                      <div className="flex items-center justify-between py-2">
-                        <label className="text-xs font-medium text-slate-700 dark:text-slate-300">
-                          Lock on startup
-                        </label>
-                        <button
-                          onClick={() => setFormData({ ...formData, lockOnStartup: !formData.lockOnStartup })}
-                          className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${formData.lockOnStartup ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-600'}`}
-                        >
-                          <span
-                            className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${formData.lockOnStartup ? 'translate-x-5' : 'translate-x-1'}`}
-                          />
-                        </button>
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                          Lock after inactivity (minutes, 0 to disable)
-                        </label>
-                        <input
-                          type="number"
-                          min="0"
-                          max="120"
-                          value={formData.inactivityTimeout}
-                          onChange={(e) => setFormData({ ...formData, inactivityTimeout: parseInt(e.target.value) || 0 })}
-                          className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 pt-2">
-                      <button
-                        onClick={handleEnableLock}
-                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
-                      >
-                        Enable Lock
-                      </button>
-                      <button
-                        onClick={() => {
-                          setShowEnableForm(false);
-                          resetLockForms();
-                        }}
-                        className="px-4 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 text-sm font-medium rounded-lg transition-colors"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : (
-              // Lock is enabled - show management options
-              <div className="space-y-4">
-                {/* Lock Settings */}
-                <div className="space-y-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700">
-                  <h4 className="text-sm font-semibold text-slate-900 dark:text-white">
-                    Lock Settings
-                  </h4>
-
-                  <div className="flex items-center justify-between py-2">
-                    <div>
-                      <label className="text-xs font-medium text-slate-700 dark:text-slate-300">
-                        Lock on startup
-                      </label>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
-                        Require password when app starts
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => handleLockSettingsUpdate('lockOnStartup', !config?.lockOnStartup)}
-                      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${config?.lockOnStartup ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-600'}`}
-                    >
-                      <span
-                        className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${config?.lockOnStartup ? 'translate-x-5' : 'translate-x-1'}`}
-                      />
-                    </button>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                      Inactivity timeout (minutes, 0 to disable)
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      max="120"
-                      value={config?.inactivityTimeout ?? 15}
-                      onChange={(e) => handleLockSettingsUpdate('inactivityTimeout', parseInt(e.target.value) || 0)}
-                      className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                      {config?.inactivityTimeout === 0
-                        ? 'Automatic lock disabled'
-                        : `Lock after ${config?.inactivityTimeout} minutes of inactivity`}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Change Password */}
-                {!showChangePassword ? (
-                  <button
-                    onClick={() => setShowChangePassword(true)}
-                    className="px-4 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
-                  >
-                    <i className="fas fa-key"></i>
-                    Change Password
-                  </button>
-                ) : (
-                  <div className="space-y-3 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700">
-                    <h4 className="text-sm font-semibold text-slate-900 dark:text-white">
-                      Change Password
-                    </h4>
-
-                    <div>
-                      <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                        Current Password
-                      </label>
-                      <input
-                        type="password"
-                        value={formData.currentPassword}
-                        onChange={(e) => setFormData({ ...formData, currentPassword: e.target.value })}
-                        className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                        New Password
-                      </label>
-                      <input
-                        type="password"
-                        value={formData.newPassword}
-                        onChange={(e) => setFormData({ ...formData, newPassword: e.target.value })}
-                        placeholder="Min. 6 characters"
-                        className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                        Confirm New Password
-                      </label>
-                      <input
-                        type="password"
-                        value={formData.confirmNewPassword}
-                        onChange={(e) => setFormData({ ...formData, confirmNewPassword: e.target.value })}
-                        className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-
-                    <div className="flex items-center gap-2 pt-2">
-                      <button
-                        onClick={handleChangePassword}
-                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
-                      >
-                        Update Password
-                      </button>
-                      <button
-                        onClick={() => {
-                          setShowChangePassword(false);
-                          resetLockForms();
-                        }}
-                        className="px-4 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 text-sm font-medium rounded-lg transition-colors"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Manual Lock */}
+      <div className="flex flex-col lg:flex-row gap-6">
+        <nav className="lg:w-64 flex-shrink-0">
+          <div className="flex lg:flex-col gap-2 overflow-x-auto lg:overflow-visible pb-2 lg:pb-0">
+            {primaryDomains.map((domain) => {
+              const isActive = domain.id === activeDomainId;
+              return (
                 <button
-                  onClick={lock}
-                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
-                >
-                  <i className="fas fa-lock"></i>
-                  Lock Now
-                </button>
-
-                {/* Disable Lock */}
-                <button
-                  onClick={handleDisableLock}
-                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
-                >
-                  <i className="fas fa-lock-open"></i>
-                  Disable Workspace Lock
-                </button>
-              </div>
-            )}
-          </div>
-        </ContentSection>
-
-        {/* Notification Settings */}
-        <ContentSection title={t("sections.notifications")}>
-          <div className="p-6 space-y-4">
-            {/* Desktop Notifications Toggle */}
-            <div className="flex items-center justify-between py-3">
-              <div>
-                <label className="text-sm font-medium text-slate-900 dark:text-white">
-                  {t("notifications.desktop.title")}
-                </label>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                  {t("notifications.desktop.description")}
-                </p>
-              </div>
-              <button
-                onClick={() => handleChange("desktopNotifications", !settings.desktopNotifications)}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${settings.desktopNotifications ? "bg-blue-600" : "bg-slate-300 dark:bg-slate-600"
+                  key={domain.id}
+                  onClick={() => setActiveDomainId(domain.id)}
+                  className={`min-w-[160px] lg:min-w-0 px-4 py-3 rounded-lg border text-left transition-colors ${
+                    isActive
+                      ? 'bg-blue-600 border-blue-600 text-white'
+                      : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:border-blue-400'
                   }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${settings.desktopNotifications ? "translate-x-6" : "translate-x-1"
+                  aria-current={isActive ? 'page' : undefined}
+                >
+                  <span className="block text-sm font-semibold">{domain.label}</span>
+                  <span
+                    className={`hidden lg:block text-xs mt-1 ${
+                      isActive ? 'text-blue-100' : 'text-slate-500 dark:text-slate-400'
                     }`}
-                />
-              </button>
-            </div>
-          </div>
-        </ContentSection>
-
-        {/* Date-Related Notification Preferences */}
-        <ContentSection title={t("sections.appointments")}>
-          <div className="p-6 space-y-6">
-            {/* Tasks */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <i className="fas fa-tasks text-blue-600"></i>
-                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
-                    {t("appointments.tasks.title")}
-                  </h3>
-                </div>
-                <button
-                  onClick={() => handleNotificationPrefChange("tasks", "enabled", !notificationPrefs.tasks.enabled)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${notificationPrefs.tasks.enabled ? "bg-blue-600" : "bg-slate-300 dark:bg-slate-600"}`}
-                >
-                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${notificationPrefs.tasks.enabled ? "translate-x-6" : "translate-x-1"}`} />
-                </button>
-              </div>
-              {notificationPrefs.tasks.enabled && (
-                <div className="ml-6 space-y-3 text-xs">
-                  {/* Overdue Reminders */}
-                  <div className="space-y-1">
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={notificationPrefs.tasks.overdueReminders}
-                        onChange={(e) => handleNotificationPrefChange("tasks", "overdueReminders", e.target.checked)}
-                        className="rounded border-slate-300 dark:border-slate-600"
-                      />
-                      <span className="text-slate-700 dark:text-slate-300">
-                        {t("appointments.tasks.overdue.label")}
-                      </span>
-                    </label>
-                    <p className="text-slate-500 dark:text-slate-400 pl-6">
-                      {t("appointments.tasks.overdue.description")}
-                    </p>
-                  </div>
-
-                  {/* Upcoming Deadline Reminders */}
-                  <div className="space-y-1">
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={notificationPrefs.tasks.upcomingReminders}
-                        onChange={(e) => handleNotificationPrefChange("tasks", "upcomingReminders", e.target.checked)}
-                        className="rounded border-slate-300 dark:border-slate-600"
-                      />
-                      <span className="text-slate-700 dark:text-slate-300">
-                        {t("appointments.tasks.upcoming.label")}
-                      </span>
-                    </label>
-                    <p className="text-slate-500 dark:text-slate-400 pl-6">
-                      {t("appointments.tasks.upcoming.description", {
-                        days: notificationPrefs.tasks.reminderDays.join(", "),
-                      })}
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Personal Tasks */}
-            <div className="space-y-3 pt-4 border-t border-slate-200 dark:border-slate-700">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <i className="fas fa-user-check text-indigo-600"></i>
-                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
-                    {t("appointments.personalTasks.title")}
-                  </h3>
-                </div>
-                <button
-                  onClick={() => handleNotificationPrefChange("personalTasks", "enabled", !notificationPrefs.personalTasks.enabled)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${notificationPrefs.personalTasks.enabled ? "bg-blue-600" : "bg-slate-300 dark:bg-slate-600"}`}
-                >
-                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${notificationPrefs.personalTasks.enabled ? "translate-x-6" : "translate-x-1"}`} />
-                </button>
-              </div>
-              {notificationPrefs.personalTasks.enabled && (
-                <div className="ml-6 space-y-3 text-xs">
-                  {/* Upcoming Deadline Reminders */}
-                  <div className="space-y-1">
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={notificationPrefs.personalTasks.upcomingReminders}
-                        onChange={(e) => handleNotificationPrefChange("personalTasks", "upcomingReminders", e.target.checked)}
-                        className="rounded border-slate-300 dark:border-slate-600"
-                      />
-                      <span className="text-slate-700 dark:text-slate-300">
-                        {t("appointments.personalTasks.upcoming.label")}
-                      </span>
-                    </label>
-                    <p className="text-slate-500 dark:text-slate-400 pl-6">
-                      {t("appointments.personalTasks.upcoming.description", {
-                        days: notificationPrefs.personalTasks.reminderDays.join(", "),
-                      })}
-                    </p>
-                  </div>
-
-                  {/* Completion Reminders */}
-                  <div className="space-y-1">
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={notificationPrefs.personalTasks.completionReminders}
-                        onChange={(e) => handleNotificationPrefChange("personalTasks", "completionReminders", e.target.checked)}
-                        className="rounded border-slate-300 dark:border-slate-600"
-                      />
-                      <span className="text-slate-700 dark:text-slate-300">
-                        {t("appointments.personalTasks.completion.label")}
-                      </span>
-                    </label>
-                    <p className="text-slate-500 dark:text-slate-400 pl-6">
-                      {t("appointments.personalTasks.completion.description")}
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Sessions */}
-            <div className="space-y-3 pt-4 border-t border-slate-200 dark:border-slate-700">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <i className="fas fa-gavel text-purple-600"></i>
-                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
-                    {t("appointments.sessions.title")}
-                  </h3>
-                </div>
-                <button
-                  onClick={() => handleNotificationPrefChange("sessions", "enabled", !notificationPrefs.sessions.enabled)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${notificationPrefs.sessions.enabled ? "bg-blue-600" : "bg-slate-300 dark:bg-slate-600"}`}
-                >
-                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${notificationPrefs.sessions.enabled ? "translate-x-6" : "translate-x-1"}`} />
-                </button>
-              </div>
-              {notificationPrefs.sessions.enabled && (
-                <div className="ml-6 space-y-3 text-xs">
-                  {/* Preparation Reminders */}
-                  <div className="space-y-1">
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={notificationPrefs.sessions.preparationReminders}
-                        onChange={(e) => handleNotificationPrefChange("sessions", "preparationReminders", e.target.checked)}
-                        className="rounded border-slate-300 dark:border-slate-600"
-                      />
-                      <span className="text-slate-700 dark:text-slate-300 font-medium">
-                        {t("appointments.sessions.preparation.label")}
-                      </span>
-                    </label>
-                    <p className="text-slate-500 dark:text-slate-400 ml-5">
-                      {t("appointments.sessions.preparation.description", {
-                        days: notificationPrefs.sessions.reminderDays.join(", "),
-                      })}
-                    </p>
-                  </div>
-
-                  {/* Day-of Reminder */}
-                  <div className="space-y-1">
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={notificationPrefs.sessions.dayOfReminder}
-                        onChange={(e) => handleNotificationPrefChange("sessions", "dayOfReminder", e.target.checked)}
-                        className="rounded border-slate-300 dark:border-slate-600"
-                      />
-                      <span className="text-slate-700 dark:text-slate-300 font-medium">
-                        {t("appointments.sessions.dayOf.label")}
-                      </span>
-                    </label>
-                    <p className="text-slate-500 dark:text-slate-400 ml-5">
-                      {t("appointments.sessions.dayOf.description")}
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Cases/Procès - Note: Cases don't have their own notification preferences */}
-            {/* Case notifications are controlled by parent dossier priority */}
-            <div className="space-y-3 pt-4 border-t border-slate-200 dark:border-slate-700">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <i className="fas fa-balance-scale text-red-600"></i>
-                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
-                    {t("appointments.cases.title")}
-                  </h3>
-                </div>
-                <div className="text-xs text-slate-500 dark:text-slate-400 italic">
-                  {t("appointments.cases.basedOnPriority")}
-                </div>
-              </div>
-              <div className="ml-6 text-xs text-slate-600 dark:text-slate-400">
-                <p className="mb-2">
-                  <strong>{t("appointments.cases.automaticTitle")}</strong>
-                </p>
-                <ul className="list-disc list-inside space-y-1 ml-2">
-                  <li>{t("appointments.cases.items.noSession")}</li>
-                  <li>{t("appointments.cases.items.updateSuggestion")}</li>
-                </ul>
-                <p className="mt-2 text-slate-500 dark:text-slate-500 italic">
-                  {t("appointments.cases.inherits")}
-                </p>
-              </div>
-            </div>
-
-            {/* Payments */}
-            <div className="space-y-3 pt-4 border-t border-slate-200 dark:border-slate-700">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <i className="fas fa-dollar-sign text-green-600"></i>
-                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
-                    {t("appointments.payments.title")}
-                  </h3>
-                </div>
-                <button
-                  onClick={() => handleNotificationPrefChange("payments", "enabled", !notificationPrefs.payments.enabled)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${notificationPrefs.payments.enabled ? "bg-blue-600" : "bg-slate-300 dark:bg-slate-600"}`}
-                >
-                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${notificationPrefs.payments.enabled ? "translate-x-6" : "translate-x-1"}`} />
-                </button>
-              </div>
-              {notificationPrefs.payments.enabled && (
-                <div className="ml-6 space-y-2 text-xs">
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={notificationPrefs.payments.overdueReminders}
-                      onChange={(e) => handleNotificationPrefChange("payments", "overdueReminders", e.target.checked)}
-                      className="rounded border-slate-300 dark:border-slate-600"
-                    />
-                    <span className="text-slate-700 dark:text-slate-300">
-                      {t("appointments.payments.overdue.label")}
-                    </span>
-                  </label>
-                  <p className="text-slate-500 dark:text-slate-400 ml-5">
-                    {t("appointments.payments.overdue.before", {
-                      days: notificationPrefs.payments.reminderDays.join(", "),
-                    })}
-                  </p>
-                  <p className="text-slate-500 dark:text-slate-400 ml-5">
-                    {t("appointments.payments.overdue.frequency", {
-                      days: notificationPrefs.payments.overdueReminderFrequency.join(", "),
-                    })}
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* Missions */}
-            <div className="space-y-3 pt-4 border-t border-slate-200 dark:border-slate-700">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <i className="fas fa-briefcase text-orange-600"></i>
-                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
-                    {t("appointments.missions.title")}
-                  </h3>
-                </div>
-                <button
-                  onClick={() => handleNotificationPrefChange("missions", "enabled", !notificationPrefs.missions.enabled)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${notificationPrefs.missions.enabled ? "bg-blue-600" : "bg-slate-300 dark:bg-slate-600"}`}
-                >
-                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${notificationPrefs.missions.enabled ? "translate-x-6" : "translate-x-1"}`} />
-                </button>
-              </div>
-              {notificationPrefs.missions.enabled && (
-                <div className="ml-6 space-y-3 text-xs">
-                  {/* Upcoming Deadline Reminders */}
-                  <div className="space-y-1">
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={notificationPrefs.missions.upcomingReminders}
-                        onChange={(e) => handleNotificationPrefChange("missions", "upcomingReminders", e.target.checked)}
-                        className="rounded border-slate-300 dark:border-slate-600"
-                      />
-                      <span className="text-slate-700 dark:text-slate-300">
-                        {t("appointments.missions.upcoming.label")}
-                      </span>
-                    </label>
-                    <p className="text-slate-500 dark:text-slate-400 pl-6">
-                      {t("appointments.missions.upcoming.description", {
-                        days: notificationPrefs.missions.reminderDays.join(", "),
-                      })}
-                    </p>
-                  </div>
-
-                  {/* Completion Reminders */}
-                  <div className="space-y-1">
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={notificationPrefs.missions.completionReminders}
-                        onChange={(e) => handleNotificationPrefChange("missions", "completionReminders", e.target.checked)}
-                        className="rounded border-slate-300 dark:border-slate-600"
-                      />
-                      <span className="text-slate-700 dark:text-slate-300">
-                        {t("appointments.missions.completion.label")}
-                      </span>
-                    </label>
-                    <p className="text-slate-500 dark:text-slate-400 pl-6">
-                      {t("appointments.missions.completion.description")}
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Dossiers */}
-            <div className="space-y-3 pt-4 border-t border-slate-200 dark:border-slate-700">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <i className="fas fa-folder-open text-amber-600"></i>
-                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
-                    {t("appointments.dossiers.title")}
-                  </h3>
-                </div>
-                <button
-                  onClick={() => handleNotificationPrefChange("dossiers", "enabled", !notificationPrefs.dossiers.enabled)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${notificationPrefs.dossiers.enabled ? "bg-blue-600" : "bg-slate-300 dark:bg-slate-600"}`}
-                >
-                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${notificationPrefs.dossiers.enabled ? "translate-x-6" : "translate-x-1"}`} />
-                </button>
-              </div>
-              {notificationPrefs.dossiers.enabled && (
-                <div className="ml-6 space-y-3 text-xs">
-                  {/* Inactivity Reminder */}
-                  <div className="space-y-1">
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={notificationPrefs.dossiers.inactivityReminder}
-                        onChange={(e) => handleNotificationPrefChange("dossiers", "inactivityReminder", e.target.checked)}
-                        className="rounded border-slate-300 dark:border-slate-600"
-                      />
-                      <span className="text-slate-700 dark:text-slate-300">
-                        {t("appointments.dossiers.inactivity.label", {
-                          days: notificationPrefs.dossiers.inactivityDays,
-                        })}
-                      </span>
-                    </label>
-                    <p className="text-slate-500 dark:text-slate-400 pl-6">
-                      {t("appointments.dossiers.inactivity.description", {
-                        days: notificationPrefs.dossiers.inactivityDays,
-                      })}
-                    </p>
-                  </div>
-
-                  {/* Review Reminder */}
-                  <div className="space-y-1">
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={notificationPrefs.dossiers.reviewReminder}
-                        onChange={(e) => handleNotificationPrefChange("dossiers", "reviewReminder", e.target.checked)}
-                        className="rounded border-slate-300 dark:border-slate-600"
-                      />
-                      <span className="text-slate-700 dark:text-slate-300">
-                        {t("appointments.dossiers.review.label")}
-                      </span>
-                    </label>
-                    <p className="text-slate-500 dark:text-slate-400 pl-6">
-                      {t("appointments.dossiers.review.high", {
-                        days: notificationPrefs.dossiers.reviewIntervalHigh,
-                      })}
-                      <br />
-                      {t("appointments.dossiers.review.medium", {
-                        days: notificationPrefs.dossiers.reviewIntervalMedium,
-                      })}
-                      <br />
-                      {t("appointments.dossiers.review.low", {
-                        days: notificationPrefs.dossiers.reviewIntervalLow,
-                      })}
-                    </p>
-                  </div>
-
-                  {/* Deadline Reminders */}
-                  <div className="space-y-1">
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={notificationPrefs.dossiers.deadlineReminders}
-                        onChange={(e) => handleNotificationPrefChange("dossiers", "deadlineReminders", e.target.checked)}
-                        className="rounded border-slate-300 dark:border-slate-600"
-                      />
-                      <span className="text-slate-700 dark:text-slate-300">
-                        {t("appointments.dossiers.deadline.label")}
-                      </span>
-                    </label>
-                    <p className="text-slate-500 dark:text-slate-400 pl-6">
-                      {t("appointments.dossiers.deadline.description")}
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Clients */}
-            <div className="space-y-3 pt-4 border-t border-slate-200 dark:border-slate-700">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <i className="fas fa-users text-purple-600"></i>
-                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
-                    {t("appointments.clients.title")}
-                  </h3>
-                </div>
-                <button
-                  onClick={() => handleNotificationPrefChange("clients", "enabled", !notificationPrefs.clients.enabled)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${notificationPrefs.clients.enabled ? "bg-blue-600" : "bg-slate-300 dark:bg-slate-600"}`}
-                >
-                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${notificationPrefs.clients.enabled ? "translate-x-6" : "translate-x-1"}`} />
-                </button>
-              </div>
-              {notificationPrefs.clients.enabled && (
-                <div className="ml-6 space-y-2 text-xs">
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={notificationPrefs.clients.inactivityReminder}
-                      onChange={(e) => handleNotificationPrefChange("clients", "inactivityReminder", e.target.checked)}
-                      className="rounded border-slate-300 dark:border-slate-600"
-                    />
-                    <span className="text-slate-700 dark:text-slate-300">
-                      {t("appointments.clients.inactivity.label", {
-                        days: notificationPrefs.clients.inactivityDays,
-                      })}
-                    </span>
-                  </label>
-                  <p className="text-slate-500 dark:text-slate-400 pl-6">
-                    {t("appointments.clients.inactivity.description", {
-                      days: notificationPrefs.clients.inactivityDays,
-                    })}
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-        </ContentSection>
-
-        {/* Account & Security (desktop honest messaging + future SaaS placeholders) */}
-        <ContentSection title={t("sections.accountSecurity")}>
-          <div className="p-6 space-y-6">
-            {/* Current desktop reality */}
-            <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
-                {t("security.current.title")}
-              </h3>
-              <ul className="space-y-2 text-sm text-slate-700 dark:text-slate-300">
-                <li className="flex items-start gap-2">
-                  <i className="fas fa-desktop text-blue-500 mt-0.5"></i>
-                  <span>{t("security.current.localOperator")}</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <i className="fas fa-globe text-slate-500 mt-0.5"></i>
-                  <span>{t("security.current.noOnlineAuth")}</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <i className="fas fa-user-shield text-emerald-600 mt-0.5"></i>
-                  <span>{t("security.current.osControlled")}</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <i className="fas fa-database text-amber-600 mt-0.5"></i>
-                  <span>{t("security.current.localData")}</span>
-                </li>
-              </ul>
-            </div>
-
-            {/* Future SaaS features, disabled for now */}
-            <div className="pt-4 border-t border-slate-200 dark:border-slate-700 space-y-3">
-              <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
-                {t("security.comingSoon.title")}
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                {t("security.comingSoon.caption")}
-              </p>
-              <div className="space-y-3">
-                {[
-                  "twoFactor",
-                  "sessionTimeout",
-                  "changePassword",
-                ].map((item) => (
-                  <div
-                    key={item}
-                    className="flex items-center justify-between rounded-lg border border-slate-200 dark:border-slate-700 px-4 py-3 bg-slate-50 dark:bg-slate-800/40 opacity-60 cursor-not-allowed"
                   >
-                    <div>
-                      <p className="text-sm font-medium text-slate-800 dark:text-slate-100">
-                        {t(`security.comingSoon.items.${item}.label`)}
-                      </p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
-                        {t(`security.comingSoon.items.${item}.description`)}
-                      </p>
-                    </div>
-                    <span className="px-2 py-1 text-xs rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
-                      {t("security.comingSoon.badge")}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
+                    {domain.description}
+                  </span>
+                </button>
+              );
+            })}
           </div>
-        </ContentSection>
 
-        {/* Appearance Settings */}
-        <ContentSection title={t("sections.appearance")}>
-          <div className="p-6 space-y-6">
-            {/* Theme */}
-            <div className="flex items-center justify-between">
-              <div>
-                <label className="text-sm font-medium text-slate-900 dark:text-white">
-                  {t("appearance.theme.label")}
-                </label>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                  {t("appearance.theme.description")}
-                </p>
+          {advancedDomains.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
+              <div className="text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-2">
+                Advanced
               </div>
-              <select
-                value={settings.theme}
-                onChange={(e) => handleChange("theme", e.target.value)}
-                className="px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="light">{t("appearance.theme.options.light")}</option>
-                <option value="dark">{t("appearance.theme.options.dark")}</option>
-                <option value="system">{t("appearance.theme.options.system")}</option>
-              </select>
-            </div>
-          </div>
-        </ContentSection>
-
-        {/* Tutorial & Onboarding */}
-        <ContentSection title={t("onboarding:settings.section")}>
-          <div className="p-6 space-y-6">
-            {/* Tutorial Status */}
-            <div className="flex items-center justify-between">
-              <div>
-                <label className="text-sm font-medium text-slate-900 dark:text-white">
-                  {t("onboarding:settings.replayTitle")}
-                </label>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                  {t("onboarding:settings.replayDescription")}
-                </p>
-                {/* Status indicator */}
-                <div className="mt-2 flex items-center gap-2">
-                  {hasCompletedOnboarding ? (
-                    <>
-                      <i className="fas fa-check-circle text-green-500 text-sm" />
-                      <span className="text-xs text-green-600 dark:text-green-400">
-                        {t("onboarding:settings.completed")}
-                      </span>
-                    </>
-                  ) : hasSkippedOnboarding ? (
-                    <>
-                      <i className="fas fa-forward text-amber-500 text-sm" />
-                      <span className="text-xs text-amber-600 dark:text-amber-400">
-                        {t("onboarding:settings.skipped")}
-                      </span>
-                    </>
-                  ) : null}
-                </div>
-              </div>
-              <button
-                onClick={replayTutorial}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
-              >
-                <i className="fas fa-play text-xs" />
-                {t("onboarding:settings.replayButton")}
-              </button>
-            </div>
-
-            {/* Interactive Tutorial */}
-            {tutorial && (
-              <div className="flex items-center justify-between pt-6 border-t border-slate-200 dark:border-slate-700">
-                <div>
-                  <label className="text-sm font-medium text-slate-900 dark:text-white">
-                    {t("tutorial:settings.startTitle")}
-                  </label>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                    {t("tutorial:settings.startDescription")}
-                  </p>
-                  {/* Status indicator */}
-                  <div className="mt-2 flex items-center gap-2">
-                    {tutorial.hasCompletedTutorial ? (
-                      <>
-                        <i className="fas fa-check-circle text-green-500 text-sm" />
-                        <span className="text-xs text-green-600 dark:text-green-400">
-                          {t("tutorial:settings.status.completed")}
-                        </span>
-                      </>
-                    ) : tutorial.hasStartedTutorial ? (
-                      <>
-                        <i className="fas fa-hourglass-half text-blue-500 text-sm" />
-                        <span className="text-xs text-blue-600 dark:text-blue-400">
-                          {t("tutorial:settings.status.inProgress")}
-                        </span>
-                      </>
-                    ) : (
-                      <>
-                        <i className="fas fa-circle text-slate-400 text-sm" />
-                        <span className="text-xs text-slate-500 dark:text-slate-400">
-                          {t("tutorial:settings.status.notStarted")}
-                        </span>
-                      </>
-                    )}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  {tutorial.hasCompletedTutorial ? (
+              <div className="flex lg:flex-col gap-2 overflow-x-auto lg:overflow-visible pb-2 lg:pb-0">
+                {advancedDomains.map((domain) => {
+                  const isActive = domain.id === activeDomainId;
+                  return (
                     <button
-                      onClick={tutorial.restartTutorial}
-                      className="px-4 py-2 bg-slate-600 hover:bg-slate-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
+                      key={domain.id}
+                      onClick={() => setActiveDomainId(domain.id)}
+                      className={`min-w-[160px] lg:min-w-0 px-4 py-3 rounded-lg border text-left transition-colors ${
+                        isActive
+                          ? 'bg-blue-600 border-blue-600 text-white'
+                          : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:border-blue-400'
+                      }`}
+                      aria-current={isActive ? 'page' : undefined}
                     >
-                      <i className="fas fa-redo text-xs" />
-                      {t("tutorial:settings.restartButton")}
-                    </button>
-                  ) : tutorial.hasStartedTutorial ? (
-                    <>
-                      <button
-                        onClick={tutorial.resumeTutorial}
-                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
+                      <span className="block text-sm font-semibold">{domain.label}</span>
+                      <span
+                        className={`hidden lg:block text-xs mt-1 ${
+                          isActive ? 'text-blue-100' : 'text-slate-500 dark:text-slate-400'
+                        }`}
                       >
-                        <i className="fas fa-play text-xs" />
-                        {t("tutorial:settings.resumeButton")}
-                      </button>
-                      <button
-                        onClick={tutorial.restartTutorial}
-                        className="px-3 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 text-sm rounded-lg transition-colors"
-                        title={t("tutorial:settings.restartButton")}
-                      >
-                        <i className="fas fa-redo" />
-                      </button>
-                    </>
-                  ) : (
-                    <button
-                      onClick={tutorial.startTutorial}
-                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
-                    >
-                      <i className="fas fa-hand-pointer text-xs" />
-                      {t("tutorial:settings.startButton")}
+                        {domain.description}
+                      </span>
                     </button>
-                  )}
-                </div>
+                  );
+                })}
               </div>
-            )}
-          </div>
-        </ContentSection>
+            </div>
+          )}
+        </nav>
 
-        {/* Modèles de documents */}
-        <ContentSection title="Modèles de documents">
-          <div className="p-6">
-            <TemplateManagement />
+        <section className="flex-1 space-y-6">
+          <div className="px-1">
+            <h2 className="text-2xl font-semibold text-slate-900 dark:text-white">
+              {activeDomain.label}
+            </h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+              {activeDomain.description}
+            </p>
           </div>
-        </ContentSection>
+
+          <ActiveComponent />
+        </section>
       </div>
     </PageLayout>
   );

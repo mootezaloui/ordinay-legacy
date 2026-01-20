@@ -30,6 +30,20 @@ contextBridge.exposeInMainWorld('electronAPI', {
    * Platform information
    */
   platform: process.platform,
+
+  /**
+   * Read local license file
+   * @returns {Promise<{exists: boolean, contents?: string}>}
+   */
+  readLicenseFile: () => ipcRenderer.invoke('read-license-file'),
+
+  /**
+   * Write local license file (overwrites existing)
+   * @param {object} licenseData
+   * @returns {Promise<{ok: boolean}>}
+   */
+  writeLicenseFile: (licenseData) => ipcRenderer.invoke('write-license-file', licenseData),
+
 });
 
 // Log that preload script has loaded

@@ -1,182 +1,102 @@
 /**
- * Template Service - Document Generation from Templates
+ * Template Service - Document Generation from DOCX Templates
  *
- * MVP ONLY - Simple placeholder replacement
- * NO AI, NO editor, NO automation
- *
- * Supports:
- * - Procès and Dossier entities only
- * - Single document type: Request for judgment copy
- * - Arabic and French languages
+ * No AI, no editor, no layout manipulation.
+ * Uses docxtemplater + pizzip to fill placeholders only.
  */
 
-import { Packer, Document, Paragraph, TextRun } from "docx";
+import PizZip from "pizzip";
+import Docxtemplater from "docxtemplater";
 import { saveAs } from "file-saver";
+import templateManager from "./templateManager";
+import { LocalStorageProvider } from "./storage/LocalStorageProvider.js";
 
-/**
- * Available document templates
- */
-const TEMPLATES = {
-  proces: {
-    jugement_request: {
-      ar: {
-        name: "مطلب استخراج حكم",
-        fileName: "jugement_request_ar.docx",
-        language: "ar",
-      },
-      fr: {
-        name: "Demande d'extraction de jugement",
-        fileName: "jugement_request_fr.docx",
-        language: "fr",
-      },
-    },
-  },
-  dossier: {
-    jugement_request: {
-      ar: {
-        name: "مطلب استخراج حكم",
-        fileName: "jugement_request_ar.docx",
-        language: "ar",
-      },
-      fr: {
-        name: "Demande d'extraction de jugement",
-        fileName: "jugement_request_fr.docx",
-        language: "fr",
-      },
-    },
-  },
-};
-
-/**
- * Template content - stored inline for MVP
- * In production, these would be loaded from .docx files
- */
-const TEMPLATE_CONTENT = {
-  proces: {
-    jugement_request: {
-      ar: `
-بسم الله الرحمن الرحيم
-
-المحكمة: {{court.name}}
-
-مطلب استخراج نسخة حكم
-
-المطلوب: {{client.name}}
-
-المرجع: {{proces.reference}}
-رقم الملف: {{dossier.reference}}
-
-التاريخ: {{today.date}}
-
-الموضوع: طلب استخراج نسخة من الحكم
-
-السيد رئيس المحكمة المحترم،
-
-بناءً على الحكم الصادر في القضية المشار إليها أعلاه، أطلب استخراج نسخة رسمية من الحكم.
-
-معلومات الملف:
-
-وتفضلوا بقبول فائق الاحترام والتقدير.
-
-التوقيع: {{operator.name}}
-`,
-      fr: `
-République Tunisienne
-
-Tribunal: {{court.name}}
-
-DEMANDE D'EXTRACTION DE JUGEMENT
-
-Demandeur: {{client.name}}
-
-Référence Procès: {{proces.reference}}
-Référence Dossier: {{dossier.reference}}
-
-Date: {{today.date}}
-
-Objet: Demande d'extraction de copie de jugement
-
-Monsieur le Président du Tribunal,
-
-Suite au jugement rendu dans l'affaire référencée ci-dessus, je sollicite l'extraction d'une copie officielle du jugement.
-
-Informations du dossier:
-
-Veuillez agréer, Monsieur le Président, l'expression de ma haute considération.
-
-Signature: {{operator.name}}
-`,
-    },
-  },
-  dossier: {
-    jugement_request: {
-      ar: `
-بسم الله الرحمن الرحيم
-
-مطلب استخراج وثائق
-
-المطلوب: {{client.name}}
-
-رقم الملف: {{dossier.reference}}
-
-التاريخ: {{today.date}}
-
-الموضوع: طلب استخراج وثائق رسمية
-
-السيد المحترم،
-
-أطلب استخراج الوثائق الرسمية المتعلقة بالملف المذكور أعلاه.
-
-معلومات الملف:
-
-وتفضلوا بقبول فائق الاحترام والتقدير.
-
-التوقيع: {{operator.name}}
-`,
-      fr: `
-République Tunisienne
-
-DEMANDE D'EXTRACTION DE DOCUMENTS
-
-Demandeur: {{client.name}}
-
-Référence Dossier: {{dossier.reference}}
-
-Date: {{today.date}}
-
-Objet: Demande d'extraction de documents officiels
-
-Monsieur,
-
-Je sollicite l'extraction des documents officiels relatifs au dossier référencé ci-dessus.
-
-Informations du dossier:
-
-Veuillez agréer, Monsieur, l'expression de ma haute considération.
-
-Signature: {{operator.name}}
-`,
-    },
-  },
-};
+const MISSING_VALUE = "";
+const FIRM_INFO_KEY = "firm_info";
 
 class TemplateService {
+  constructor() {
+    this.storageProvider = new LocalStorageProvider();
+  }
+
   /**
    * Get available templates for entity type
    * @param {string} entityType - 'proces' or 'dossier'
+   * @param {string|null} language - Optional language filter
    * @returns {Array} Available templates
    */
-  getAvailableTemplates(entityType) {
-    if (!["proces", "dossier"].includes(entityType)) {
-      throw new Error(`Unsupported entity type: ${entityType}`);
+  getAvailableTemplates(entityType, language = null) {
+    return templateManager.getAllTemplates(entityType, language);
+  }
+
+  getMissingValue() {
+    return MISSING_VALUE;
+  }
+
+  isMissingValue(value) {
+    return value === null || value === undefined || value === "" || value === MISSING_VALUE;
+  }
+
+  loadFirmInfo() {
+    try {
+      const raw = localStorage.getItem(FIRM_INFO_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch (error) {
+      console.warn("[TemplateService] Failed to read firm info:", error);
+      return null;
+    }
+  }
+
+  resolveOperator(contextData) {
+    if (!contextData) return null;
+    if (contextData.operator) return contextData.operator;
+    if (Array.isArray(contextData.operators) && contextData.operators.length > 0) {
+      const currentId = contextData.currentOperatorId;
+      if (currentId) {
+        return contextData.operators.find((op) => op.id === currentId) || contextData.operators[0];
+      }
+      return contextData.operators[0];
+    }
+    return null;
+  }
+
+  resolveSignatureValue(operator, firmInfo) {
+    const signature =
+      operator?.signature ||
+      firmInfo?.signature ||
+      operator?.signature_image ||
+      firmInfo?.signature_image ||
+      null;
+
+    if (!signature) return null;
+
+    if (typeof signature === "string") {
+      // Safe mode: only blank line unless an image module is wired.
+      return null;
     }
 
-    const templates = TEMPLATES[entityType];
-    return Object.keys(templates).map((key) => ({
-      id: key,
-      name_ar: templates[key].ar.name,
-      name_fr: templates[key].fr.name,
-    }));
+    return null;
+  }
+
+  buildVariantData(template, selectedVariantKey) {
+    const variants = Array.isArray(template?.variants) ? template.variants : [];
+    if (variants.length === 0) return {};
+
+    const data = {};
+    variants.forEach((variant) => {
+      if (!variant?.key) return;
+      const placeholder = variant.placeholder || `variant.${variant.key}`;
+      if (!placeholder) return;
+      if (variant.key === selectedVariantKey) {
+        data[placeholder] =
+          variant.value !== undefined && variant.value !== null
+            ? variant.value
+            : MISSING_VALUE;
+      } else {
+        data[placeholder] = "";
+      }
+    });
+    return data;
   }
 
   /**
@@ -188,96 +108,271 @@ class TemplateService {
    */
   extractEntityData(entityType, entityData, contextData) {
     const data = {
-      "client.name": "__________",
-      "dossier.reference": "__________",
-      "proces.reference": "__________",
-      "court.name": "__________",
+      "client.name": MISSING_VALUE,
+      "dossier.reference": MISSING_VALUE,
+      "proces.reference": MISSING_VALUE,
+      "court.name": MISSING_VALUE,
+      "court.address": MISSING_VALUE,
+      "court.city": MISSING_VALUE,
+      "lawyer.name": MISSING_VALUE,
+      "lawyer.title": MISSING_VALUE,
+      "lawyer.firm_name": MISSING_VALUE,
+      "lawyer.office_name": MISSING_VALUE,
+      "lawyer.office_address": MISSING_VALUE,
+      "lawyer.phone": MISSING_VALUE,
+      "lawyer.fax": MISSING_VALUE,
+      "lawyer.mobile": MISSING_VALUE,
+      "lawyer.email": MISSING_VALUE,
+      "lawyer.bar_id": MISSING_VALUE,
+      "lawyer.vpa": MISSING_VALUE,
+      "lawyer.signature": MISSING_VALUE,
+      "session.date": MISSING_VALUE,
+      "adversary.name": MISSING_VALUE,
+      "judgment.number": MISSING_VALUE,
+      "judgment.date": MISSING_VALUE,
+      "document.copy_type": MISSING_VALUE,
       "today.date": new Date().toLocaleDateString("fr-FR"),
-      "operator.name": "__________",
     };
-    // Map operator name (robust)
-    if (contextData?.operator && contextData.operator.name) {
-      data["operator.name"] = contextData.operator.name;
-    } else if (
-      Array.isArray(contextData?.operators) &&
-      contextData.operators.length > 0 &&
-      contextData.operators[0]?.name
-    ) {
-      data["operator.name"] = contextData.operators[0].name;
-    } else {
-      data["operator.name"] = "__________";
+
+    const firmInfo = this.loadFirmInfo();
+    const operator = this.resolveOperator(contextData);
+    if (operator?.name) {
+      data["lawyer.name"] = operator.name;
     }
-    // Operator mapping confirmed. Alert removed.
+    if (operator?.bar_id || operator?.barId || operator?.bar_number || operator?.barNumber) {
+      data["lawyer.bar_id"] =
+        operator.bar_id ||
+        operator.barId ||
+        operator.bar_number ||
+        operator.barNumber;
+    }
+    const firmName =
+      firmInfo?.name ||
+      operator?.firm_name ||
+      operator?.firmName ||
+      operator?.office ||
+      null;
+    if (firmName) {
+      data["lawyer.firm_name"] = firmName;
+    }
+    const officeName =
+      firmInfo?.office_name ||
+      firmInfo?.officeName ||
+      firmInfo?.firm_name ||
+      firmInfo?.firmName ||
+      operator?.office_name ||
+      operator?.officeName ||
+      firmName ||
+      null;
+    if (officeName) {
+      data["lawyer.office_name"] = officeName;
+    }
+    const officeAddress =
+      firmInfo?.office_address ||
+      firmInfo?.officeAddress ||
+      firmInfo?.address ||
+      operator?.office_address ||
+      operator?.officeAddress ||
+      operator?.address ||
+      null;
+    if (officeAddress) {
+      data["lawyer.office_address"] = officeAddress;
+    }
+    const lawyerTitle = operator?.title || firmInfo?.title || null;
+    if (lawyerTitle) {
+      data["lawyer.title"] = lawyerTitle;
+    }
+    const lawyerPhone = operator?.phone || firmInfo?.phone || firmInfo?.telephone || null;
+    if (lawyerPhone) {
+      data["lawyer.phone"] = lawyerPhone;
+    }
+    const lawyerFax = operator?.fax || firmInfo?.fax || null;
+    if (lawyerFax) {
+      data["lawyer.fax"] = lawyerFax;
+    }
+    const lawyerMobile = operator?.mobile || operator?.cell || firmInfo?.mobile || firmInfo?.cell || null;
+    if (lawyerMobile) {
+      data["lawyer.mobile"] = lawyerMobile;
+    }
+    const lawyerEmail = operator?.email || firmInfo?.email || null;
+    if (lawyerEmail) {
+      data["lawyer.email"] = lawyerEmail;
+    }
+    const lawyerVpa = operator?.vpa || firmInfo?.vpa || firmInfo?.vpa_number || null;
+    if (lawyerVpa) {
+      data["lawyer.vpa"] = lawyerVpa;
+    }
+    const signatureValue = this.resolveSignatureValue(operator, firmInfo);
+    if (signatureValue) {
+      data["lawyer.signature"] = signatureValue;
+    }
 
     // Map client name
-    if (entityData.client?.name) {
+    if (entityData?.client?.name) {
       data["client.name"] = entityData.client.name;
-    } else if (entityData.clientId && contextData?.clients) {
-      // Find client by id (number or string)
+    } else if (typeof entityData?.client === "string") {
+      data["client.name"] = entityData.client;
+    } else if (entityData?.clientId && contextData?.clients) {
       const client = contextData.clients.find(
         (c) => String(c.id) === String(entityData.clientId),
       );
-      if (client) data["client.name"] = client.name;
+      if (client?.name) data["client.name"] = client.name;
     } else if (
       entityType === "proces" &&
-      entityData.dossierId &&
+      entityData?.dossierId &&
       contextData?.dossiers &&
       contextData?.clients
     ) {
-      // Fallback: find dossier, then its clientId
       const dossier = contextData.dossiers.find(
         (d) => String(d.id) === String(entityData.dossierId),
       );
-      if (dossier && dossier.clientId) {
+      if (dossier?.clientId) {
         const client = contextData.clients.find(
           (c) => String(c.id) === String(dossier.clientId),
         );
-        if (client) data["client.name"] = client.name;
+        if (client?.name) data["client.name"] = client.name;
       }
     }
 
     if (entityType === "proces") {
-      // Procès-specific data
-      data["proces.reference"] = entityData.caseNumber || "__________";
-      data["court.name"] = entityData.court || "__________";
+      data["proces.reference"] = entityData?.caseNumber || MISSING_VALUE;
+      data["court.name"] = entityData?.court || MISSING_VALUE;
+      data["court.address"] =
+        entityData?.courtAddress ||
+        entityData?.court_address ||
+        entityData?.court?.address ||
+        MISSING_VALUE;
+      data["court.city"] =
+        entityData?.courtCity ||
+        entityData?.court_city ||
+        entityData?.court?.city ||
+        MISSING_VALUE;
 
-      // Get parent dossier reference
-      if (entityData.dossier?.caseNumber) {
+      if (entityData?.dossier?.caseNumber) {
         data["dossier.reference"] = entityData.dossier.caseNumber;
-      } else if (entityData.dossierId && contextData?.dossiers) {
+      } else if (entityData?.dossierId && contextData?.dossiers) {
         const dossier = contextData.dossiers.find(
-          (d) => d.id === entityData.dossierId,
+          (d) => String(d.id) === String(entityData.dossierId),
         );
-        if (dossier)
-          data["dossier.reference"] = dossier.caseNumber || "__________";
+        if (dossier?.caseNumber) {
+          data["dossier.reference"] = dossier.caseNumber;
+        }
+      }
+
+      const adversaryName =
+        entityData?.adversaryName ||
+        entityData?.adversary ||
+        entityData?.adversaryParty ||
+        entityData?.adversary_name ||
+        entityData?.adversary_party ||
+        null;
+      if (adversaryName) {
+        data["adversary.name"] = adversaryName;
       }
     } else if (entityType === "dossier") {
-      // Dossier-specific data
-      data["dossier.reference"] = entityData.caseNumber || "__________";
-      // For dossier, proces and court may not apply
-      data["proces.reference"] = "N/A";
-      data["court.name"] = "N/A";
+      data["dossier.reference"] = entityData?.caseNumber || MISSING_VALUE;
+      data["court.name"] = entityData?.court || data["court.name"];
+      data["court.address"] =
+        entityData?.courtAddress ||
+        entityData?.court_address ||
+        entityData?.court?.address ||
+        data["court.address"];
+      data["court.city"] =
+        entityData?.courtCity ||
+        entityData?.court_city ||
+        entityData?.court?.city ||
+        data["court.city"];
+      const adversaryName =
+        entityData?.adversaryName ||
+        entityData?.adversary ||
+        entityData?.adversaryParty ||
+        entityData?.adversary_name ||
+        entityData?.adversary_party ||
+        null;
+      if (adversaryName) {
+        data["adversary.name"] = adversaryName;
+      }
+    }
+
+    const judgmentNumber =
+      entityData?.judgmentNumber ||
+      entityData?.judgment_number ||
+      entityData?.judgment?.number ||
+      null;
+    if (judgmentNumber) {
+      data["judgment.number"] = judgmentNumber;
+    }
+    const judgmentDate =
+      entityData?.judgmentDate ||
+      entityData?.judgment_date ||
+      entityData?.judgment?.date ||
+      null;
+    if (judgmentDate) {
+      data["judgment.date"] = judgmentDate;
+    }
+
+    const sessionDate =
+      entityData?.sessionDate ||
+      entityData?.session_date ||
+      entityData?.session?.date ||
+      entityData?.date ||
+      entityData?.hearingDate ||
+      entityData?.hearing_date ||
+      null;
+    if (sessionDate) {
+      data["session.date"] = sessionDate;
+    } else if (entityType === "dossier") {
+      const sessions = Array.isArray(contextData?.sessions)
+        ? contextData.sessions
+        : [];
+      const dossierSessions = sessions.filter(
+        (session) => String(session?.dossierId) === String(entityData?.id),
+      );
+      if (dossierSessions.length > 0 && dossierSessions[0]?.date) {
+        data["session.date"] = dossierSessions[0].date;
+      }
+    }
+
+    if (entityType === "proces" && this.isMissingValue(data["session.date"])) {
+      const sessions = Array.isArray(contextData?.sessions)
+        ? contextData.sessions
+        : [];
+      const caseSessions = sessions.filter(
+        (session) => String(session?.caseId) === String(entityData?.id),
+      );
+      if (caseSessions.length > 0 && caseSessions[0]?.date) {
+        data["session.date"] = caseSessions[0].date;
+      }
     }
 
     return data;
   }
 
   /**
-   * Replace placeholders in template content
-   * @param {string} template - Template text
-   * @param {Object} data - Replacement data
-   * @returns {string} Processed text
+   * Load a DOCX template file
+   * @param {Object} template - Template metadata
+   * @returns {Promise<Blob>} DOCX file blob
    */
-  replacePlaceholders(template, data) {
-    let result = template;
+  async loadTemplateFile(template) {
+    if (!template?.file_path) {
+      throw new Error("Template file missing");
+    }
 
-    Object.keys(data).forEach((key) => {
-      const placeholder = `{{${key}}}`;
-      const value = data[key] || "__________";
-      result = result.split(placeholder).join(value);
-    });
+    if (template.template_type === "user") {
+      return await this.storageProvider.retrieveFile(template.file_path);
+    }
 
-    return result;
+    const baseUrl = import.meta?.env?.BASE_URL || "/";
+    const normalizedBase = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
+    const response = await fetch(`${normalizedBase}${template.file_path}`);
+    if (!response.ok) {
+      throw new Error("Template file missing");
+    }
+    const contentType = response.headers.get("content-type") || "";
+    if (contentType.includes("text/html")) {
+      throw new Error("Template file missing");
+    }
+    return await response.blob();
   }
 
   /**
@@ -295,6 +390,7 @@ class TemplateService {
     templateId,
     language,
     contextData,
+    options = {},
   ) {
     try {
       // Validate inputs
@@ -305,56 +401,65 @@ class TemplateService {
         throw new Error(`Unsupported language: ${language}`);
       }
 
-      const template = TEMPLATES[entityType]?.[templateId]?.[language];
+      const template = templateManager.getTemplateById(templateId);
       if (!template) {
-        throw new Error(
-          `Template not found: ${entityType}/${templateId}/${language}`,
-        );
+        throw new Error("Template not found");
       }
 
-      // Extract entity data
-      console.log(
-        "[DEBUG] templateService.generateDocument contextData:",
-        contextData,
-      );
-      const data = this.extractEntityData(entityType, entityData, contextData);
-      console.log(
-        "[DEBUG] templateService.generateDocument mapped data:",
-        data,
-      );
-
-      // Get template content
-      const templateContent =
-        TEMPLATE_CONTENT[entityType]?.[templateId]?.[language];
-      if (!templateContent) {
-        throw new Error(`Template content not found`);
+      if (template.entity_type && template.entity_type !== entityType) {
+        throw new Error("Template not available for this entity");
       }
 
-      // Replace placeholders
-      const processedContent = this.replacePlaceholders(templateContent, data);
+      if (template.language && template.language !== language) {
+        throw new Error("Template not available for this language");
+      }
 
-      // Generate DOCX
-      const doc = new Document({
-        sections: [
-          {
-            properties: {},
-            children: processedContent.split("\n").map(
-              (line) =>
-                new Paragraph({
-                  children: [new TextRun(line)],
-                  spacing: { after: 200 },
-                }),
-            ),
-          },
-        ],
+      const templateFile = await this.loadTemplateFile(template);
+      const data = this.extractEntityData(
+        entityType,
+        entityData || {},
+        contextData || {},
+      );
+      const variantData = this.buildVariantData(template, options.variantKey);
+      const copyType = options.copyType || options.copy_type || null;
+      const mergedData = {
+        ...data,
+        ...variantData,
+        ...(copyType ? { "document.copy_type": copyType } : {}),
+      };
+
+      const templateBuffer = await templateFile.arrayBuffer();
+      const signature = new Uint8Array(templateBuffer.slice(0, 2));
+      if (signature[0] !== 0x50 || signature[1] !== 0x4b) {
+        throw new Error("DOCX template is corrupted");
+      }
+      const zip = new PizZip(templateBuffer);
+      const doc = new Docxtemplater(zip, {
+        paragraphLoop: true,
+        linebreaks: true,
+        delimiters: { start: "{{", end: "}}" },
+        nullGetter: (part) => {
+          if (part?.tag) {
+            return `{{${part.tag}}}`;
+          }
+          return MISSING_VALUE;
+        },
       });
 
-      // Create blob
-      const blob = await Packer.toBlob(doc);
+      doc.render(mergedData);
 
-      // Generate filename
+      const blob = doc.getZip().generate({
+        type: "blob",
+        mimeType:
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      });
+
       const timestamp = new Date().toISOString().split("T")[0];
-      const fileName = `${template.name.replace(/[^a-zA-Z0-9]/g, "_")}_${timestamp}.docx`;
+      const safeName = (template.name || "document").replace(
+        /[^a-zA-Z0-9]/g,
+        "_",
+      );
+      const fileName = `${safeName}_${timestamp}.docx`;
 
       return {
         success: true,
@@ -365,15 +470,28 @@ class TemplateService {
           templateName: template.name,
           language,
           entityType,
-          entityId: entityData.id,
+          entityId: entityData?.id,
           generatedDate: new Date().toISOString(),
         },
       };
     } catch (error) {
       console.error("[TemplateService] Generation failed:", error);
+      let message = error?.message || "Generation failed";
+      if (
+        message.toLowerCase().includes("corrupt") ||
+        message.toLowerCase().includes("end of central directory")
+      ) {
+        message = "DOCX template is corrupted";
+      }
+      if (error?.properties?.errors) {
+        message = "Placeholder parsing failed";
+      }
+      if (message === "Template file missing") {
+        message = "Template file missing";
+      }
       return {
         success: false,
-        error: error.message,
+        error: message,
       };
     }
   }
@@ -400,8 +518,6 @@ class TemplateService {
   }
 }
 
-// Attach TEMPLATE_CONTENT to the class for external access
-TemplateService.TEMPLATE_CONTENT = TEMPLATE_CONTENT;
 // Export singleton
 const templateService = new TemplateService();
 export default templateService;

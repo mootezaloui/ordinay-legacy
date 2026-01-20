@@ -207,6 +207,7 @@
       "courtInfo": "Court Information",
       "dates": "Important Dates",
       "parties": "Parties",
+      "judgment": "Judgment",
       "relatedDossier": "Related Dossier",
       "fields": {
         "caseNumber": "Lawsuit Number",
@@ -216,6 +217,8 @@
         "filingDate": "Filing Date",
         "adversaryParty": "Adversary Party",
         "adversaryLawyer": "Adversary Lawyer",
+        "judgmentNumber": "Judgment Number",
+        "judgmentDate": "Judgment Date",
         "associatedDossier": "Associated Dossier"
       },
       "courtOptions": {

@@ -18,10 +18,16 @@ export default function Profile() {
     lastName: "",
     email: "",
     phone: "",
+    fax: "",
+    mobile: "",
     title: "",
     specialization: "",
+    barId: "",
     barNumber: "",
     office: "",
+    officeName: "",
+    officeAddress: "",
+    vpa: "",
     bio: "",
   });
 
@@ -45,10 +51,16 @@ export default function Profile() {
         lastName,
         email: operator.email || "",
         phone: operator.phone || "",
-        title: operator.role === "OWNER" ? "Principal Lawyer" : operator.role,
+        fax: operator.fax || "",
+        mobile: operator.mobile || "",
+        title: operator.title || (operator.role === "OWNER" ? "Principal Lawyer" : operator.role),
         specialization: operator.specialization || "",
+        barId: operator.bar_id || "",
         barNumber: operator.bar_number || "",
         office: operator.office || "",
+        officeName: operator.office_name || "",
+        officeAddress: operator.office_address || "",
+        vpa: operator.vpa || "",
         bio: operator.bio || "",
       });
     }
@@ -86,10 +98,17 @@ export default function Profile() {
       // Convert profile data to backend format
       const updates = {
         name: `${profile.firstName} ${profile.lastName}`.trim(),
+        title: profile.title,
+        office_name: profile.officeName,
+        office_address: profile.officeAddress,
         email: profile.email,
         phone: profile.phone,
+        fax: profile.fax,
+        mobile: profile.mobile,
         specialization: profile.specialization,
+        bar_id: profile.barId,
         bar_number: profile.barNumber,
+        vpa: profile.vpa,
         office: profile.office,
         bio: profile.bio,
       };
@@ -164,15 +183,23 @@ export default function Profile() {
                     <i className="fas fa-envelope"></i>
                     <span>{profile.email}</span>
                   </div>
-                  <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
-                    <i className="fas fa-phone"></i>
-                    <span>{profile.phone}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
-                    <i className="fas fa-id-card"></i>
-                    <span>{profile.barNumber}</span>
-                  </div>
+                <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+                  <i className="fas fa-phone"></i>
+                  <span>{profile.phone}</span>
                 </div>
+                <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+                  <i className="fas fa-mobile-alt"></i>
+                  <span>{profile.mobile}</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+                  <i className="fas fa-fax"></i>
+                  <span>{profile.fax}</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+                  <i className="fas fa-id-card"></i>
+                  <span>{profile.barNumber}</span>
+                </div>
+              </div>
               </div>
             </div>
           </div>
@@ -294,6 +321,40 @@ export default function Profile() {
                   <p className="text-slate-700 dark:text-slate-300">{profile.phone}</p>
                 )}
               </div>
+
+              {/* Mobile */}
+              <div>
+                <label className="block text-sm font-medium text-slate-900 dark:text-white mb-2">
+                  {t("fields.mobile")}
+                </label>
+                {isEditing ? (
+                  <input
+                    type="tel"
+                    value={profile.mobile}
+                    onChange={(e) => handleChange("mobile", e.target.value)}
+                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                ) : (
+                  <p className="text-slate-700 dark:text-slate-300">{profile.mobile}</p>
+                )}
+              </div>
+
+              {/* Fax */}
+              <div>
+                <label className="block text-sm font-medium text-slate-900 dark:text-white mb-2">
+                  {t("fields.fax")}
+                </label>
+                {isEditing ? (
+                  <input
+                    type="text"
+                    value={profile.fax}
+                    onChange={(e) => handleChange("fax", e.target.value)}
+                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                ) : (
+                  <p className="text-slate-700 dark:text-slate-300">{profile.fax}</p>
+                )}
+              </div>
             </div>
           </div>
         </ContentSection>
@@ -353,6 +414,40 @@ export default function Profile() {
                 )}
               </div>
 
+              {/* Bar ID */}
+              <div>
+                <label className="block text-sm font-medium text-slate-900 dark:text-white mb-2">
+                  {t("fields.barId")}
+                </label>
+                {isEditing ? (
+                  <input
+                    type="text"
+                    value={profile.barId}
+                    onChange={(e) => handleChange("barId", e.target.value)}
+                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                ) : (
+                  <p className="text-slate-700 dark:text-slate-300">{profile.barId}</p>
+                )}
+              </div>
+
+              {/* VPA */}
+              <div>
+                <label className="block text-sm font-medium text-slate-900 dark:text-white mb-2">
+                  {t("fields.vpa")}
+                </label>
+                {isEditing ? (
+                  <input
+                    type="text"
+                    value={profile.vpa}
+                    onChange={(e) => handleChange("vpa", e.target.value)}
+                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                ) : (
+                  <p className="text-slate-700 dark:text-slate-300">{profile.vpa}</p>
+                )}
+              </div>
+
               {/* Office */}
               <div>
                 <label className="block text-sm font-medium text-slate-900 dark:text-white mb-2">
@@ -367,6 +462,40 @@ export default function Profile() {
                   />
                 ) : (
                   <p className="text-slate-700 dark:text-slate-300">{profile.office}</p>
+                )}
+              </div>
+
+              {/* Office Name */}
+              <div>
+                <label className="block text-sm font-medium text-slate-900 dark:text-white mb-2">
+                  {t("fields.officeName")}
+                </label>
+                {isEditing ? (
+                  <input
+                    type="text"
+                    value={profile.officeName}
+                    onChange={(e) => handleChange("officeName", e.target.value)}
+                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                ) : (
+                  <p className="text-slate-700 dark:text-slate-300">{profile.officeName}</p>
+                )}
+              </div>
+
+              {/* Office Address */}
+              <div>
+                <label className="block text-sm font-medium text-slate-900 dark:text-white mb-2">
+                  {t("fields.officeAddress")}
+                </label>
+                {isEditing ? (
+                  <input
+                    type="text"
+                    value={profile.officeAddress}
+                    onChange={(e) => handleChange("officeAddress", e.target.value)}
+                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                ) : (
+                  <p className="text-slate-700 dark:text-slate-300">{profile.officeAddress}</p>
                 )}
               </div>
             </div>

@@ -10,7 +10,11 @@
  * - Templates are pure document generators
  */
 
+import { LocalStorageProvider } from "./storage/LocalStorageProvider.js";
+
 const STORAGE_KEY = "organia_user_templates";
+const TEMPLATE_DIRECTORY = "templates";
+const TEMPLATE_EXTENSIONS = ["docx"];
 
 /**
  * Template model
@@ -21,7 +25,8 @@ const STORAGE_KEY = "organia_user_templates";
  * @property {string} language - "ar" | "fr"
  * @property {string} template_type - "system" | "user"
  * @property {string} file_path - Path/reference to DOCX file
- * @property {string} content - Template content (for user templates)
+ * @property {string[]} required_fields - Optional list of required placeholders
+ * @property {Array} variants - Optional list of template variants
  * @property {string} created_at - ISO date
  * @property {string} updated_at - ISO date
  */
@@ -74,6 +79,7 @@ const SYSTEM_TEMPLATES = [
 
 class TemplateManager {
   constructor() {
+    this.storageProvider = new LocalStorageProvider();
     this.userTemplates = this.loadUserTemplates();
   }
 
@@ -161,12 +167,12 @@ class TemplateManager {
    * @param {string} data.name - Template name
    * @param {string} data.entity_type - "dossier" | "proces"
    * @param {string} data.language - "ar" | "fr"
-   * @param {string} data.content - DOCX content (text for now)
+   * @param {File} data.file - DOCX template file
    * @returns {DocumentTemplate}
    */
-  createUserTemplate(data) {
+  async createUserTemplate(data) {
     // Validate required fields
-    if (!data.name || !data.entity_type || !data.language || !data.content) {
+    if (!data.name || !data.entity_type || !data.language || !data.file) {
       throw new Error("Missing required fields");
     }
 
@@ -180,14 +186,28 @@ class TemplateManager {
       throw new Error("Invalid language");
     }
 
+    const extension = (data.file.name || "").split(".").pop()?.toLowerCase();
+    if (!TEMPLATE_EXTENSIONS.includes(extension)) {
+      throw new Error("Invalid template file type");
+    }
+
+    const storageResult = await this.storageProvider.storeFile(data.file, {
+      directory: TEMPLATE_DIRECTORY,
+    });
+
+    if (!storageResult.success) {
+      throw new Error(storageResult.error || "Failed to store template file");
+    }
+
     const template = {
       id: `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       name: data.name,
       entity_type: data.entity_type,
       language: data.language,
       template_type: "user",
-      file_path: `user/${data.entity_type}/${Date.now()}_${data.name.replace(/[^a-zA-Z0-9]/g, "_")}.docx`,
-      content: data.content,
+      file_path: storageResult.path,
+      required_fields: Array.isArray(data.required_fields) ? data.required_fields : [],
+      variants: Array.isArray(data.variants) ? data.variants : [],
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -204,7 +224,7 @@ class TemplateManager {
    * @param {Object} updates - Fields to update
    * @returns {DocumentTemplate}
    */
-  updateUserTemplate(templateId, updates) {
+  async updateUserTemplate(templateId, updates) {
     const template = this.userTemplates.find((t) => t.id === templateId);
 
     if (!template) {
@@ -218,7 +238,6 @@ class TemplateManager {
 
     // Update allowed fields
     if (updates.name) template.name = updates.name;
-    if (updates.content) template.content = updates.content;
     if (
       updates.entity_type &&
       ["dossier", "proces"].includes(updates.entity_type)
@@ -227,6 +246,39 @@ class TemplateManager {
     }
     if (updates.language && ["ar", "fr"].includes(updates.language)) {
       template.language = updates.language;
+    }
+    if (updates.required_fields) {
+      template.required_fields = Array.isArray(updates.required_fields)
+        ? updates.required_fields
+        : template.required_fields;
+    }
+    if (updates.variants) {
+      template.variants = Array.isArray(updates.variants)
+        ? updates.variants
+        : template.variants;
+    }
+
+    if (updates.file) {
+      const extension = (updates.file.name || "").split(".").pop()?.toLowerCase();
+      if (!TEMPLATE_EXTENSIONS.includes(extension)) {
+        throw new Error("Invalid template file type");
+      }
+
+      const storageResult = await this.storageProvider.storeFile(updates.file, {
+        directory: TEMPLATE_DIRECTORY,
+      });
+
+      if (!storageResult.success) {
+        throw new Error(storageResult.error || "Failed to store template file");
+      }
+
+      const previousPath = template.file_path;
+      template.file_path = storageResult.path;
+      if (previousPath) {
+        this.storageProvider.deleteFile(previousPath).catch((error) => {
+          console.error("[TemplateManager] Failed to delete old template file:", error);
+        });
+      }
     }
 
     template.updated_at = new Date().toISOString();
@@ -241,7 +293,7 @@ class TemplateManager {
    * @param {string} templateId - Template ID
    * @returns {boolean}
    */
-  deleteUserTemplate(templateId) {
+  async deleteUserTemplate(templateId) {
     const index = this.userTemplates.findIndex((t) => t.id === templateId);
 
     if (index === -1) {
@@ -257,6 +309,14 @@ class TemplateManager {
 
     this.userTemplates.splice(index, 1);
     this.saveUserTemplates();
+
+    if (template.file_path) {
+      try {
+        await this.storageProvider.deleteFile(template.file_path);
+      } catch (error) {
+        console.error("[TemplateManager] Failed to delete template file:", error);
+      }
+    }
 
     return true;
   }
@@ -281,7 +341,7 @@ class TemplateManager {
 
     // For user templates, return stored content
     if (template.template_type === "user") {
-      return template.content;
+      return null;
     }
 
     // For system templates, return null (handled by templateService)
@@ -289,41 +349,29 @@ class TemplateManager {
   }
 
   /**
-   * Validate template content for placeholders
-   * @param {string} content - Template content
+   * Validate template file selection
+   * @param {File|null} file - Template file
    * @returns {Object} Validation result
    */
-  validateTemplateContent(content) {
-    // List of valid placeholders
-    const validPlaceholders = [
-      "client.name",
-      "dossier.reference",
-      "proces.reference",
-      "court.name",
-      "today.date",
-      "operator.name",
-    ];
-
-    // Find all placeholders in content
-    const placeholderRegex = /\{\{([^}]+)\}\}/g;
-    const found = [];
-    let match;
-
-    while ((match = placeholderRegex.exec(content)) !== null) {
-      found.push(match[1].trim());
+  validateTemplateFile(file) {
+    if (!file) {
+      return {
+        valid: false,
+        message: "Aucun fichier s‚lectionn‚",
+      };
     }
 
-    // Check for unknown placeholders
-    const unknown = found.filter((p) => !validPlaceholders.includes(p));
+    const extension = (file.name || "").split(".").pop()?.toLowerCase();
+    if (!TEMPLATE_EXTENSIONS.includes(extension)) {
+      return {
+        valid: false,
+        message: "Seuls les fichiers DOCX sont autoris‚s",
+      };
+    }
 
     return {
-      valid: unknown.length === 0,
-      found,
-      unknown,
-      message:
-        unknown.length > 0
-          ? `Unknown placeholders: ${unknown.join(", ")}. These will not be replaced.`
-          : "All placeholders are valid",
+      valid: true,
+      message: "Fichier DOCX valide",
     };
   }
 }

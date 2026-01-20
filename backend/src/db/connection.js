@@ -99,6 +99,33 @@ function initialize() {
     `);
   }
 
+  // Ensure legacy_imports exists even on older DBs (no migration needed)
+  const hasLegacyImports = db
+    .prepare(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='legacy_imports'"
+    )
+    .get();
+  if (!hasLegacyImports) {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS legacy_imports (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        entity_type TEXT NOT NULL CHECK (entity_type IN ('client', 'dossier', 'case', 'task', 'session', 'mission', 'financial_entry', 'personal_task', 'officer', 'document')),
+        payload TEXT NOT NULL,
+        normalized_payload TEXT,
+        validation_errors TEXT,
+        import_source TEXT,
+        imported_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        imported INTEGER NOT NULL DEFAULT 1,
+        validated INTEGER NOT NULL DEFAULT 0,
+        resolved_entity_id INTEGER,
+        resolved_at DATETIME
+      );
+      CREATE INDEX IF NOT EXISTS idx_legacy_imports_entity_type ON legacy_imports(entity_type);
+      CREATE INDEX IF NOT EXISTS idx_legacy_imports_validated ON legacy_imports(validated);
+      CREATE INDEX IF NOT EXISTS idx_legacy_imports_imported_at ON legacy_imports(imported_at);
+    `);
+  }
+
   // Apply pending migrations (idempotent via PRAGMA user_version)
   applyMigrations(db);
 
@@ -144,8 +171,15 @@ function initialize() {
 
   ensureColumn("email", "TEXT");
   ensureColumn("phone", "TEXT");
+  ensureColumn("fax", "TEXT");
+  ensureColumn("mobile", "TEXT");
   ensureColumn("specialization", "TEXT");
+  ensureColumn("title", "TEXT");
+  ensureColumn("office_name", "TEXT");
+  ensureColumn("office_address", "TEXT");
+  ensureColumn("bar_id", "TEXT");
   ensureColumn("bar_number", "TEXT");
+  ensureColumn("vpa", "TEXT");
   ensureColumn("office", "TEXT");
   ensureColumn("bio", "TEXT");
   // For older SQLite, avoid non-constant defaults in ALTER; backfill after creation
@@ -154,6 +188,61 @@ function initialize() {
       "UPDATE operators SET updated_at = CURRENT_TIMESTAMP WHERE updated_at IS NULL;"
     );
   });
+
+  const ensureTableColumns = (table, columns) => {
+    const hasTable = db
+      .prepare(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name=@name"
+      )
+      .get({ name: table });
+    if (!hasTable) return;
+
+    const existing = db
+      .prepare(`PRAGMA table_info(${table})`)
+      .all()
+      .map((col) => col.name);
+
+    columns.forEach(({ name, definition, onAdd }) => {
+      if (!existing.includes(name)) {
+        db.exec(`ALTER TABLE ${table} ADD COLUMN ${name} ${definition};`);
+        if (typeof onAdd === "function") {
+          onAdd(db);
+        }
+      }
+    });
+  };
+
+  const importColumns = [
+    { name: "imported", definition: "INTEGER NOT NULL DEFAULT 0" },
+    { name: "validated", definition: "INTEGER NOT NULL DEFAULT 1" },
+    { name: "import_source", definition: "TEXT" },
+    { name: "imported_at", definition: "DATETIME" },
+  ];
+  const caseColumns = [
+    { name: "adversary_name", definition: "TEXT" },
+    { name: "judgment_number", definition: "TEXT" },
+    { name: "judgment_date", definition: "DATE" },
+  ];
+  const dossierColumns = [{ name: "adversary_name", definition: "TEXT" }];
+  const sessionColumns = [{ name: "session_date", definition: "DATE" }];
+  const documentColumns = [{ name: "copy_type", definition: "TEXT" }];
+
+  [
+    "clients",
+    "dossiers",
+    "cases",
+    "tasks",
+    "sessions",
+    "missions",
+    "officers",
+    "personal_tasks",
+    "financial_entries",
+    "documents",
+  ].forEach((table) => ensureTableColumns(table, importColumns));
+  ensureTableColumns("cases", caseColumns);
+  ensureTableColumns("dossiers", dossierColumns);
+  ensureTableColumns("sessions", sessionColumns);
+  ensureTableColumns("documents", documentColumns);
 
   // Ensure default operator exists
   const hasDefaultOperator = db

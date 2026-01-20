@@ -219,16 +219,16 @@ const AgentSessionsContext = createContext<
 // ============================================================================
 
 export function AgentSessionsProvider({ children }: { children: ReactNode }) {
-  const [sessions, setSessions] = useState<AgentSession[]>(() =>
-    loadSessionsFromStorage()
-  );
-  const [folders, setFolders] = useState<AgentFolder[]>(() =>
-    loadFoldersFromStorage()
-  );
-  const [activeSessionId, setActiveSessionId] = useState<string>(() => {
-    const loaded = loadSessionsFromStorage();
-    return loaded[0]?.id || "";
-  });
+  const [sessions, setSessions] = useState<AgentSession[]>(loadSessionsFromStorage);
+  const [folders, setFolders] = useState<AgentFolder[]>(loadFoldersFromStorage);
+  const [activeSessionId, setActiveSessionId] = useState<string>(() => "");
+
+  // Initialize activeSessionId from first session on mount
+  useEffect(() => {
+    if (!activeSessionId && sessions.length > 0) {
+      setActiveSessionId(sessions[0].id);
+    }
+  }, []);
 
   // Persist on change
   useEffect(() => {

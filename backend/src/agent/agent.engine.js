@@ -10,7 +10,15 @@ const {
   isSlashCommand,
   parseSlashCommand,
   getAvailableCommands,
+  detectReadIntent,
+  READ_INTENTS,
+  detectFollowUp,
+  FOLLOW_UP_TYPES,
+  hasExplicitEntityMention,
+  detectEntityType,
 } = require("./intent.classifier");
+const ConversationContextStore = require("./context/conversation.context");
+const { ACTION_TYPES, CONTEXT_SOURCES } = require("./context/conversation.context");
 const { INTENTS } = require("./intents");
 
 const agentV1Policy = require("./policies/agent.v1.policy");
@@ -20,7 +28,7 @@ const agentV3Policy = require("./policies/agent.v3.policy");
 const RuleReasoner = require("./reasoners/rule.reasoner");
 const AgentLedgerService = require("./ledger/agent.ledger.service");
 const { initializeToolRegistry } = require("./tools");
-const ToolFirewall = require("./tools/tool.firewall");
+const { ToolFirewall, DATA_DOMAINS, TOOL_DOMAIN_MAP } = require("./tools/tool.firewall");
 
 const chatSchema = require("./schemas/chat.schema.json");
 const explanationSchema = require("./schemas/explanation.schema.json");
@@ -47,6 +55,9 @@ class AgentEngine {
 
     this.ledger = options.ledgerService || new AgentLedgerService();
 
+    // Initialize Conversation Context Store for follow-up handling
+    this.contextStore = options.contextStore || new ConversationContextStore();
+
     // Initialize Tool Registry and Firewall
     this.toolRegistry = options.toolRegistry || initializeToolRegistry();
     this.toolFirewall = new ToolFirewall({
@@ -70,6 +81,85 @@ class AgentEngine {
       action_plan: this.ajv.compile(actionsSchema),
       agent_request: this.ajv.compile(agentRequestSchema),
       agent_response: this.ajv.compile(agentResponseSchema),
+    };
+  }
+
+  /**
+   * DOMAIN ACCESS CHECK
+   *
+   * Checks if a data domain is accessible based on context.dataAccess permissions.
+   * This is the AUTHORITATIVE enforcement point for data access control.
+   *
+   * @param {string} domain - Domain to check (clients, dossiers, cases, tasks, sessions, etc.)
+   * @param {Object} context - Request context containing dataAccess permissions
+   * @returns {{ permitted: boolean, message?: string }} Check result
+   * @private
+   */
+  _checkDomainAccess(domain, context) {
+    // If no dataAccess in context, allow all (backward compatibility)
+    if (!context || !context.dataAccess) {
+      return { permitted: true };
+    }
+
+    const domainEnabled = context.dataAccess[domain];
+
+    // If domain is explicitly disabled, block
+    if (domainEnabled === false) {
+      this.ledger.record({
+        type: 'domain_access_denied',
+        domain,
+        dataAccess: context.dataAccess,
+        timestamp: new Date().toISOString(),
+      });
+
+      return {
+        permitted: false,
+        message: `Access to ${domain} data is disabled. Enable ${domain} access in the Context panel to use this feature.`,
+      };
+    }
+
+    return { permitted: true };
+  }
+
+  /**
+   * Generate a domain access denied response
+   *
+   * @param {string} domain - Domain that was denied
+   * @param {string} message - Denial message
+   * @param {Object} policy - Current policy
+   * @returns {Object} Formatted response
+   * @private
+   */
+  _generateDomainDeniedResponse(domain, message, policy) {
+    return {
+      intent: 'ACCESS_DENIED',
+      agentVersion: policy.version,
+      reasoner: 'domain-firewall',
+      output: {
+        type: 'explanation',
+        entityId: 'domain_access_denied',
+        entityType: 'security',
+        summary: message,
+        details: [
+          `The ${domain} domain is currently disabled in your data access settings.`,
+          '',
+          'To access this data:',
+          '1. Open the Context panel (right sidebar)',
+          `2. Enable access to "${domain}"`,
+          '3. Try your request again',
+        ],
+        timestamp: new Date().toISOString(),
+        confidence: 1,
+        sources: [{
+          sourceType: 'system',
+          reference: 'domain_firewall',
+          note: 'Data access permission check',
+        }],
+        status: 'blocked',
+        source: 'domain-firewall',
+        requires_validation: false,
+      },
+      isAccessDenied: true,
     };
   }
 
@@ -353,8 +443,41 @@ class AgentEngine {
 
     // STEP: Check for slash commands BEFORE intent classification
     if (isSlashCommand(message)) {
-      return this._executeSlashCommand(message, context, policy);
+      const result = await this._executeSlashCommand(message, context, policy);
+      // Update conversation context after slash command
+      this._updateConversationContext(context, message, result, CONTEXT_SOURCES.SLASH_COMMAND);
+      return result;
     }
+
+    // ========== FOLLOW-UP INTENT GATE ==========
+    // Detect follow-up messages BEFORE regular intent classification
+    const followUpDetection = detectFollowUp(message, context);
+    if (followUpDetection && followUpDetection.isFollowUp) {
+      const followUpResult = await this._handleFollowUp(followUpDetection, message, context, policy);
+      if (followUpResult) {
+        return followUpResult;
+      }
+      // If follow-up handling returns null, continue to regular processing
+    }
+    // ========== END FOLLOW-UP INTENT GATE ==========
+
+    // ========== READ INTENT GATE ==========
+    // Rule-based detection BEFORE LLM - ensures data questions always access local data
+    const readIntent = detectReadIntent(message, context);
+    if (readIntent && readIntent.requiresLocalData && policy.allowedToolCategories.includes('read')) {
+      this.ledger.record({
+        type: 'read_intent_gate_triggered',
+        intent: readIntent.intent,
+        allowedTools: readIntent.allowedTools,
+        timestamp: new Date().toISOString(),
+      });
+
+      const readResult = await this._executeReadIntent(readIntent, message, context, policy);
+      // Update conversation context after read intent execution
+      this._updateConversationContext(context, message, readResult, CONTEXT_SOURCES.READ_INTENT);
+      return readResult;
+    }
+    // ========== END READ INTENT GATE ==========
 
     const intent = await classifyIntent(message, context);
     this._ensureIntentAllowed(intent, policy);
@@ -811,7 +934,342 @@ class AgentEngine {
   }
 
   /**
+   * Execute a READ intent (deterministic data access)
+   * This bypasses LLM for intent classification - data is retrieved first
+   * LLM is only used for formatting/explanation after data is retrieved
+   *
+   * CRITICAL: Domain access is checked BEFORE any database queries.
+   * If the required domain is disabled, the intent is BLOCKED.
+   *
+   * @param {Object} readIntent - Detected READ intent from detectReadIntent()
+   * @param {string} message - Original user message
+   * @param {Object} context - Request context
+   * @param {Object} policy - Current agent policy
+   * @returns {Promise<Object>} Data response
+   * @private
+   */
+  async _executeReadIntent(readIntent, message, context, policy) {
+    const db = require('../db/connection');
+    const { intent, allowedTools, entityHints, filters } = readIntent;
+
+    // DOMAIN ACCESS CHECK - Map READ intents to required domains
+    const INTENT_DOMAIN_MAP = {
+      'LIST_CLIENTS': DATA_DOMAINS.CLIENTS,
+      'GET_CLIENT': DATA_DOMAINS.CLIENTS,
+      'LIST_DOSSIERS': DATA_DOMAINS.DOSSIERS,
+      'GET_DOSSIER': DATA_DOMAINS.DOSSIERS,
+      'LIST_TASKS': DATA_DOMAINS.TASKS,
+      'LIST_OVERDUE_TASKS': DATA_DOMAINS.TASKS,
+      'LIST_SESSIONS': DATA_DOMAINS.SESSIONS,
+      'GET_UPCOMING_SESSIONS': DATA_DOMAINS.SESSIONS,
+    };
+
+    const requiredDomain = INTENT_DOMAIN_MAP[intent];
+    if (requiredDomain) {
+      const domainCheck = this._checkDomainAccess(requiredDomain, context);
+      if (!domainCheck.permitted) {
+        this.ledger.record({
+          type: 'read_intent_domain_blocked',
+          intent,
+          domain: requiredDomain,
+          timestamp: new Date().toISOString(),
+        });
+        // Return domain denied response
+        return {
+          intent: 'ACCESS_DENIED',
+          agentVersion: policy.version,
+          reasoner: 'domain-firewall',
+          output: {
+            type: 'explanation',
+            entityId: 'domain_access_denied',
+            entityType: 'security',
+            summary: domainCheck.message,
+            details: [
+              `This query requires access to ${requiredDomain} data.`,
+              '',
+              'To access this data:',
+              '1. Open the Context panel (right sidebar)',
+              `2. Enable access to "${requiredDomain}"`,
+              '3. Try your request again',
+            ],
+            timestamp: new Date().toISOString(),
+            confidence: 1,
+            sources: [{
+              sourceType: 'system',
+              reference: 'domain_firewall',
+              note: 'Data access permission check',
+            }],
+            status: 'blocked',
+            source: 'domain-firewall',
+            requires_validation: false,
+          },
+          isAccessDenied: true,
+        };
+      }
+    }
+
+    let data = null;
+    let summary = '';
+    const details = [];
+    const sources = [];
+
+    try {
+      switch (intent) {
+        case 'LIST_CLIENTS': {
+          const clients = db.prepare(
+            `SELECT id, name, email, phone, status FROM clients WHERE deleted_at IS NULL ORDER BY name LIMIT 50`
+          ).all();
+          data = clients;
+          summary = clients.length > 0
+            ? `Found ${clients.length} client(s)`
+            : 'No clients found in the system';
+          clients.forEach(c => {
+            details.push(`• ${c.name} (ID: ${c.id}) - ${c.status || 'active'}${c.email ? ` - ${c.email}` : ''}`);
+          });
+          sources.push({ sourceType: 'database', reference: 'clients', note: 'Client list query' });
+          break;
+        }
+
+        case 'LIST_DOSSIERS': {
+          const dossiers = db.prepare(
+            `SELECT d.id, d.reference, d.title, d.status, d.priority, c.name as client_name
+             FROM dossiers d
+             LEFT JOIN clients c ON c.id = d.client_id
+             WHERE d.deleted_at IS NULL
+             ORDER BY d.updated_at DESC
+             LIMIT 50`
+          ).all();
+          data = dossiers;
+          summary = dossiers.length > 0
+            ? `Found ${dossiers.length} dossier(s)`
+            : 'No dossiers found in the system';
+          dossiers.forEach(d => {
+            details.push(`• ${d.reference}: ${d.title} (${d.status}) - ${d.client_name || 'No client'}`);
+          });
+          sources.push({ sourceType: 'database', reference: 'dossiers', note: 'Dossier list query' });
+          break;
+        }
+
+        case 'LIST_TASKS': {
+          const tasks = db.prepare(
+            `SELECT t.id, t.title, t.status, t.priority, t.due_date, d.reference as dossier_ref
+             FROM tasks t
+             LEFT JOIN dossiers d ON d.id = t.dossier_id
+             WHERE t.deleted_at IS NULL AND t.status NOT IN ('done', 'cancelled')
+             ORDER BY t.priority DESC, t.due_date ASC
+             LIMIT 30`
+          ).all();
+          data = tasks;
+          summary = tasks.length > 0
+            ? `Found ${tasks.length} active task(s)`
+            : 'No active tasks found';
+          tasks.forEach(t => {
+            const due = t.due_date ? ` (due: ${t.due_date})` : '';
+            details.push(`• [${t.priority}] ${t.title}${due} - ${t.dossier_ref || 'No dossier'}`);
+          });
+          sources.push({ sourceType: 'database', reference: 'tasks', note: 'Task list query' });
+          break;
+        }
+
+        case 'LIST_OVERDUE_TASKS': {
+          const now = new Date().toISOString();
+          const tasks = db.prepare(
+            `SELECT t.id, t.title, t.status, t.priority, t.due_date, d.reference as dossier_ref,
+                    julianday(?) - julianday(t.due_date) as days_overdue
+             FROM tasks t
+             LEFT JOIN dossiers d ON d.id = t.dossier_id
+             WHERE t.deleted_at IS NULL
+               AND t.status NOT IN ('done', 'cancelled')
+               AND t.due_date IS NOT NULL
+               AND t.due_date < ?
+             ORDER BY t.due_date ASC`
+          ).all(now, now);
+          data = tasks;
+          summary = tasks.length > 0
+            ? `⚠ ${tasks.length} overdue task(s)`
+            : '✓ No overdue tasks';
+          tasks.forEach(t => {
+            details.push(`• [${t.priority}] ${t.title} - ${Math.round(t.days_overdue)} days overdue (${t.dossier_ref || 'No dossier'})`);
+          });
+          sources.push({ sourceType: 'analysis', reference: 'overdue_tasks', note: 'Overdue task detection' });
+          break;
+        }
+
+        case 'LIST_SESSIONS':
+        case 'GET_UPCOMING_SESSIONS': {
+          let query = `SELECT s.id, s.session_type, s.status, s.scheduled_at, s.location
+                       FROM sessions s WHERE s.deleted_at IS NULL`;
+          const params = [];
+
+          if (filters?.today) {
+            const today = new Date().toISOString().split('T')[0];
+            query += ` AND date(s.scheduled_at) = date(?)`;
+            params.push(today);
+          } else if (filters?.thisWeek) {
+            const today = new Date();
+            const weekEnd = new Date(today);
+            weekEnd.setDate(today.getDate() + 7);
+            query += ` AND date(s.scheduled_at) >= date(?) AND date(s.scheduled_at) <= date(?)`;
+            params.push(today.toISOString(), weekEnd.toISOString());
+          } else if (filters?.upcoming) {
+            query += ` AND s.scheduled_at >= datetime('now')`;
+          }
+
+          query += ` ORDER BY s.scheduled_at ${filters?.upcoming ? 'ASC' : 'DESC'} LIMIT 30`;
+
+          const sessions = db.prepare(query).all(...params);
+          data = sessions;
+
+          const filterLabel = filters?.today ? 'today' : filters?.thisWeek ? 'this week' : filters?.upcoming ? 'upcoming' : '';
+          summary = sessions.length > 0
+            ? `${sessions.length} session(s)${filterLabel ? ` ${filterLabel}` : ''}`
+            : `No sessions${filterLabel ? ` ${filterLabel}` : ''} found`;
+          sessions.forEach(s => {
+            const when = s.scheduled_at ? new Date(s.scheduled_at).toLocaleString() : 'unscheduled';
+            details.push(`• ${s.session_type} (${s.status}) - ${when}${s.location ? ` at ${s.location}` : ''}`);
+          });
+          sources.push({ sourceType: 'database', reference: 'sessions', note: 'Session list query' });
+          break;
+        }
+
+        case 'GET_CLIENT': {
+          if (entityHints && entityHints.length > 0) {
+            const hint = entityHints[0];
+            const clients = db.prepare(
+              `SELECT * FROM clients WHERE name LIKE ? COLLATE NOCASE AND deleted_at IS NULL LIMIT 10`
+            ).all(`%${hint.value}%`);
+
+            if (clients.length === 0) {
+              summary = `No client found matching "${hint.value}"`;
+              details.push('Try listing all clients with: show me my clients');
+            } else if (clients.length === 1) {
+              const c = clients[0];
+              summary = `Client: ${c.name}`;
+              details.push(`ID: ${c.id}`);
+              details.push(`Status: ${c.status || 'active'}`);
+              if (c.email) details.push(`Email: ${c.email}`);
+              if (c.phone) details.push(`Phone: ${c.phone}`);
+              if (c.company) details.push(`Company: ${c.company}`);
+              sources.push({ sourceType: 'database', reference: `client:${c.id}`, note: 'Client lookup' });
+            } else {
+              summary = `Multiple clients match "${hint.value}"`;
+              clients.forEach(c => {
+                details.push(`• ${c.name} (ID: ${c.id}) - ${c.status || 'active'}`);
+              });
+              details.push('', 'Please specify which client you mean.');
+            }
+          }
+          break;
+        }
+
+        case 'GET_DOSSIER': {
+          if (entityHints && entityHints.length > 0) {
+            const hint = entityHints[0];
+            let dossier;
+
+            if (hint.type === 'reference') {
+              dossier = db.prepare(
+                `SELECT d.*, c.name as client_name FROM dossiers d
+                 LEFT JOIN clients c ON c.id = d.client_id
+                 WHERE d.reference = ? COLLATE NOCASE AND d.deleted_at IS NULL`
+              ).get(hint.value);
+            } else {
+              const dossiers = db.prepare(
+                `SELECT d.*, c.name as client_name FROM dossiers d
+                 LEFT JOIN clients c ON c.id = d.client_id
+                 WHERE d.title LIKE ? COLLATE NOCASE AND d.deleted_at IS NULL LIMIT 10`
+              ).all(`%${hint.value}%`);
+              if (dossiers.length === 1) dossier = dossiers[0];
+              else if (dossiers.length > 1) {
+                summary = `Multiple dossiers match "${hint.value}"`;
+                dossiers.forEach(d => details.push(`• ${d.reference}: ${d.title}`));
+                details.push('', 'Please specify which dossier you mean.');
+              }
+            }
+
+            if (dossier) {
+              summary = `Dossier: ${dossier.reference}`;
+              details.push(`Title: ${dossier.title}`);
+              details.push(`Status: ${dossier.status || 'open'}`);
+              details.push(`Priority: ${dossier.priority || 'medium'}`);
+              details.push(`Client: ${dossier.client_name || 'None'}`);
+              if (dossier.phase) details.push(`Phase: ${dossier.phase}`);
+              sources.push({ sourceType: 'database', reference: `dossier:${dossier.id}`, note: 'Dossier lookup' });
+            } else if (!summary) {
+              summary = `No dossier found for "${hint.value}"`;
+              details.push('Try listing all dossiers with: show me my dossiers');
+            }
+          }
+          break;
+        }
+
+        default:
+          summary = 'Query type not yet implemented';
+          details.push('This type of data query is recognized but not yet supported.');
+      }
+
+      this.ledger.record({
+        type: 'read_intent_executed',
+        intent,
+        resultCount: Array.isArray(data) ? data.length : (data ? 1 : 0),
+        timestamp: new Date().toISOString(),
+      });
+
+      return {
+        intent: 'READ_DATA',
+        agentVersion: policy.version,
+        reasoner: 'read-gate',
+        output: {
+          type: 'explanation',
+          entityId: `read:${intent.toLowerCase()}`,
+          entityType: 'query_result',
+          summary,
+          details: details.length > 0 ? details : ['No data available.'],
+          timestamp: new Date().toISOString(),
+          confidence: 1,
+          sources,
+          status: 'complete',
+          source: 'read-intent-gate',
+          requires_validation: false,
+        },
+        isReadIntent: true,
+      };
+
+    } catch (err) {
+      this.ledger.record({
+        type: 'read_intent_error',
+        intent,
+        error: err.message,
+        timestamp: new Date().toISOString(),
+      });
+
+      return {
+        intent: 'READ_DATA',
+        agentVersion: policy.version,
+        reasoner: 'read-gate',
+        output: {
+          type: 'explanation',
+          entityId: 'read_error',
+          entityType: 'error',
+          summary: `Unable to retrieve data: ${err.message}`,
+          details: ['An error occurred while accessing the data.', 'Please try again or rephrase your request.'],
+          timestamp: new Date().toISOString(),
+          confidence: 1,
+          sources: [],
+          status: 'error',
+          source: 'read-intent-gate',
+          requires_validation: false,
+        },
+        isReadIntent: true,
+      };
+    }
+  }
+
+  /**
    * Execute the tools mapped to a slash command
+   *
+   * CRITICAL: Domain access is checked BEFORE any database queries.
+   * If the required domain is disabled, the command is BLOCKED.
    *
    * @param {Object} parsed - Parsed command from parseSlashCommand
    * @param {Object} context - Request context
@@ -822,6 +1280,57 @@ class AgentEngine {
   async _executeCommandTools(parsed, context, policy) {
     const { commandKey, args, toolMapping } = parsed;
     const db = require('../db/connection');
+
+    // DOMAIN ACCESS CHECK - Map slash commands to required domains
+    const COMMAND_DOMAIN_MAP = {
+      'clients': DATA_DOMAINS.CLIENTS,
+      'client': DATA_DOMAINS.CLIENTS,
+      'dossiers': DATA_DOMAINS.DOSSIERS,
+      'dossier': DATA_DOMAINS.DOSSIERS,
+      'tasks': DATA_DOMAINS.TASKS,
+      'tasks-overdue': DATA_DOMAINS.TASKS,
+      'sessions': DATA_DOMAINS.SESSIONS,
+      'sessions-today': DATA_DOMAINS.SESSIONS,
+      'sessions-week': DATA_DOMAINS.SESSIONS,
+    };
+
+    const requiredDomain = COMMAND_DOMAIN_MAP[commandKey];
+    if (requiredDomain) {
+      const domainCheck = this._checkDomainAccess(requiredDomain, context);
+      if (!domainCheck.permitted) {
+        this.ledger.record({
+          type: 'slash_command_domain_blocked',
+          command: commandKey,
+          domain: requiredDomain,
+          timestamp: new Date().toISOString(),
+        });
+        // Return domain denied response formatted as explanation
+        return {
+          type: 'explanation',
+          entityId: 'domain_access_denied',
+          entityType: 'security',
+          summary: domainCheck.message,
+          details: [
+            `The /${commandKey} command requires access to ${requiredDomain} data.`,
+            '',
+            'To use this command:',
+            '1. Open the Context panel (right sidebar)',
+            `2. Enable access to "${requiredDomain}"`,
+            '3. Try your command again',
+          ],
+          timestamp: new Date().toISOString(),
+          confidence: 1,
+          sources: [{
+            sourceType: 'system',
+            reference: 'domain_firewall',
+            note: 'Data access permission check',
+          }],
+          status: 'blocked',
+          source: 'domain-firewall',
+          requires_validation: false,
+        };
+      }
+    }
 
     let data = null;
     let summary = '';
@@ -1401,6 +1910,613 @@ class AgentEngine {
 
     return enriched;
   }
+
+  // ========== FOLLOW-UP INTENT HANDLING ==========
+
+  /**
+   * Handle follow-up messages using conversation context
+   *
+   * RESOLUTION RULES:
+   * 1. If valid context exists AND follow-up can be resolved safely → execute
+   * 2. If valid context exists BUT follow-up is ambiguous → ask grounded clarification
+   * 3. If no valid context exists → ask what user wants to act on
+   *
+   * NEVER guess silently. NEVER use stale context.
+   *
+   * @param {Object} followUpDetection - Follow-up detection result from detectFollowUp
+   * @param {string} message - Original user message
+   * @param {Object} context - Request context
+   * @param {Object} policy - Current agent policy
+   * @returns {Promise<Object|null>} Follow-up result or null to continue normal processing
+   * @private
+   */
+  async _handleFollowUp(followUpDetection, message, context, policy) {
+    const { type, modifier, filterWord, confidence } = followUpDetection;
+
+    // Log follow-up detection
+    this.ledger.record({
+      type: 'follow_up_detected',
+      followUpType: type,
+      confidence,
+      hasModifier: !!modifier,
+      timestamp: new Date().toISOString(),
+    });
+
+    // Get existing conversation context
+    const convContext = this.contextStore.get(context);
+
+    // RULE: No valid context → ask grounded clarification
+    if (!convContext) {
+      return this._generateNoContextClarification(followUpDetection, context, policy);
+    }
+
+    // RULE: Check if context should be reset (entity type switch, explicit mention)
+    const entityType = detectEntityType(message);
+    const hasExplicit = hasExplicitEntityMention(message);
+    if (this.contextStore.shouldReset(convContext, { entityType, hasExplicitEntity: hasExplicit })) {
+      this.contextStore.clear(context);
+      return null; // Continue to normal processing
+    }
+
+    // Handle different follow-up types
+    switch (type) {
+      case FOLLOW_UP_TYPES.FILTER_MODIFICATION:
+        return this._handleFilterModification(convContext, modifier, filterWord, message, context, policy);
+
+      case FOLLOW_UP_TYPES.NEXT_ACTION:
+        return this._handleNextAction(convContext, message, context, policy);
+
+      case FOLLOW_UP_TYPES.REPEAT_ACTION:
+        return this._handleRepeatAction(convContext, message, context, policy);
+
+      case FOLLOW_UP_TYPES.CLARIFICATION_REQUEST:
+        return this._handleClarificationRequest(convContext, message, context, policy);
+
+      case FOLLOW_UP_TYPES.SUBSET_REQUEST:
+        // Subset requests with pronouns (e.g., "show them again") - treat as repeat
+        return this._handleRepeatAction(convContext, message, context, policy);
+
+      case FOLLOW_UP_TYPES.CONFIRMATION:
+      case FOLLOW_UP_TYPES.NEGATION:
+        // Confirmation/negation without pending action → explain
+        return this._generateContextualResponse(convContext, type, context, policy);
+
+      default:
+        // Unknown follow-up type → continue normal processing
+        return null;
+    }
+  }
+
+  /**
+   * Handle filter modification follow-ups (e.g., "what about inactive ones?")
+   *
+   * @param {Object} convContext - Conversation context
+   * @param {Object} modifier - Filter modifier
+   * @param {string} filterWord - Original filter word
+   * @param {string} message - Original message
+   * @param {Object} context - Request context
+   * @param {Object} policy - Current policy
+   * @returns {Promise<Object>} Follow-up result
+   * @private
+   */
+  async _handleFilterModification(convContext, modifier, filterWord, message, context, policy) {
+    const { lastEntityType, lastIntent, lastResultSummary, lastActionType } = convContext;
+
+    // Only allow filter modification on LIST actions
+    // Note: Intent might be LIST_*, READ_DATA, or COMMAND - check actionType for accuracy
+    const isListAction = lastActionType === ACTION_TYPES.LIST ||
+                         (lastIntent && (lastIntent.startsWith('LIST_') || lastIntent === 'READ_DATA' || lastIntent === 'COMMAND'));
+
+    if (!lastIntent || !isListAction) {
+      return this._generateClarification(
+        `I can apply filters to list results. Your last action was not a list query.`,
+        `Would you like me to list your ${lastEntityType || 'data'}?`,
+        context,
+        policy
+      );
+    }
+
+    // Build filter for re-query
+    const filters = { ...lastResultSummary?.filters };
+    if (modifier) {
+      filters[modifier.field] = modifier.value;
+    }
+
+    // Map entity type to READ intent for re-query
+    const intentMap = {
+      client: 'LIST_CLIENTS',
+      dossier: 'LIST_DOSSIERS',
+      task: modifier?.value === 'overdue' ? 'LIST_OVERDUE_TASKS' : 'LIST_TASKS',
+      session: 'LIST_SESSIONS',
+    };
+
+    const intent = intentMap[lastEntityType];
+    if (!intent) {
+      return this._generateClarification(
+        `I'm not sure what to filter.`,
+        `You were looking at ${lastEntityType || 'data'}. What would you like to see?`,
+        context,
+        policy
+      );
+    }
+
+    // Log follow-up resolution
+    this.ledger.record({
+      type: 'follow_up_resolved',
+      resolutionType: 'filter_modification',
+      originalIntent: lastIntent,
+      newFilter: filters,
+      timestamp: new Date().toISOString(),
+    });
+
+    // Re-execute with new filter
+    const readIntent = {
+      intent,
+      requiresLocalData: true,
+      allowedTools: [],
+      filters,
+    };
+
+    const result = await this._executeReadIntent(readIntent, message, context, policy);
+
+    // Update context with new result
+    this._updateConversationContext(context, message, result, CONTEXT_SOURCES.FOLLOW_UP);
+
+    return result;
+  }
+
+  /**
+   * Handle "and now?" / "what's next?" follow-ups
+   *
+   * @param {Object} convContext - Conversation context
+   * @param {string} message - Original message
+   * @param {Object} context - Request context
+   * @param {Object} policy - Current policy
+   * @returns {Promise<Object>} Follow-up result
+   * @private
+   */
+  async _handleNextAction(convContext, message, context, policy) {
+    const { lastEntityType, lastActionType, lastResultSummary, lastQuery } = convContext;
+    const { count, emptyResult } = lastResultSummary || {};
+
+    // Empty result → suggest next steps
+    if (emptyResult || count === 0) {
+      const suggestions = this._getSuggestionsForEmptyResult(lastEntityType);
+      return this._generateClarification(
+        `Your last query for ${lastEntityType || 'data'} returned no results.`,
+        suggestions,
+        context,
+        policy
+      );
+    }
+
+    // Has results → suggest actions based on entity type
+    const suggestions = this._getSuggestionsForResults(lastEntityType, count);
+    return this._generateClarification(
+      `You were viewing ${count} ${lastEntityType || 'item'}(s).`,
+      suggestions,
+      context,
+      policy
+    );
+  }
+
+  /**
+   * Handle repeat action follow-ups (e.g., "give it again", "repeat that")
+   *
+   * @param {Object} convContext - Conversation context
+   * @param {string} message - Original message
+   * @param {Object} context - Request context
+   * @param {Object} policy - Current policy
+   * @returns {Promise<Object>} Follow-up result
+   * @private
+   */
+  async _handleRepeatAction(convContext, message, context, policy) {
+    const { lastEntityType, lastIntent, lastResultSummary, lastQuery } = convContext;
+
+    // Validate we have something to repeat
+    if (!lastIntent || !lastEntityType) {
+      return this._generateClarification(
+        'I need to know what you want me to repeat.',
+        [
+          'You can ask me to:',
+          '  • "Show my clients"',
+          '  • "List my tasks"',
+          '  • "Show my dossiers"',
+          '',
+          'Then you can ask me to repeat the results.',
+        ],
+        context,
+        policy
+      );
+    }
+
+    // Map entity type to READ intent for re-query
+    const intentMap = {
+      client: 'LIST_CLIENTS',
+      dossier: 'LIST_DOSSIERS',
+      task: 'LIST_TASKS',
+      session: 'LIST_SESSIONS',
+    };
+
+    const intent = intentMap[lastEntityType];
+    if (!intent) {
+      return this._generateClarification(
+        `I can't repeat that action.`,
+        `You were looking at ${lastEntityType || 'data'}. What would you like to see?`,
+        context,
+        policy
+      );
+    }
+
+    // Log follow-up resolution
+    this.ledger.record({
+      type: 'follow_up_resolved',
+      resolutionType: 'repeat_action',
+      originalIntent: lastIntent,
+      repeatedIntent: intent,
+      timestamp: new Date().toISOString(),
+    });
+
+    // Re-execute the last query with same filters
+    const readIntent = {
+      intent,
+      requiresLocalData: true,
+      allowedTools: [],
+      filters: lastResultSummary?.filters || {},
+    };
+
+    const result = await this._executeReadIntent(readIntent, message, context, policy);
+
+    // Update context with new result
+    this._updateConversationContext(context, message, result, CONTEXT_SOURCES.FOLLOW_UP);
+
+    return result;
+  }
+
+  /**
+   * Handle clarification request follow-ups (e.g., "why?")
+   *
+   * @param {Object} convContext - Conversation context
+   * @param {string} message - Original message
+   * @param {Object} context - Request context
+   * @param {Object} policy - Current policy
+   * @returns {Promise<Object>} Follow-up result
+   * @private
+   */
+  async _handleClarificationRequest(convContext, message, context, policy) {
+    const { lastEntityType, lastQuery, lastResultSummary } = convContext;
+
+    return this._generateClarification(
+      `You asked: "${lastQuery}"`,
+      `This showed ${lastResultSummary?.count || 0} ${lastEntityType || 'result'}(s). What would you like me to explain?`,
+      context,
+      policy
+    );
+  }
+
+  /**
+   * Generate clarification when no context exists
+   *
+   * @param {Object} followUpDetection - Follow-up detection result
+   * @param {Object} context - Request context
+   * @param {Object} policy - Current policy
+   * @returns {Object} Clarification response
+   * @private
+   */
+  _generateNoContextClarification(followUpDetection, context, policy) {
+    const { type } = followUpDetection;
+
+    let summary, details;
+
+    if (type === FOLLOW_UP_TYPES.FILTER_MODIFICATION) {
+      summary = 'I need to know what you want to filter.';
+      details = [
+        'You can ask me to:',
+        '  • "Show my clients"',
+        '  • "List my tasks"',
+        '  • "Show overdue tasks"',
+        '  • "List my dossiers"',
+        '',
+        'Then you can filter the results.',
+      ];
+    } else if (type === FOLLOW_UP_TYPES.NEXT_ACTION) {
+      summary = 'What would you like to do?';
+      details = [
+        'I can help you with:',
+        '  • Viewing your clients, dossiers, tasks, or sessions',
+        '  • Finding overdue tasks',
+        '  • Checking upcoming sessions',
+        '',
+        'What would you like to see?',
+      ];
+    } else {
+      summary = 'I need more context to help you.';
+      details = [
+        'Please tell me what you would like to do.',
+        '',
+        'Examples:',
+        '  • "Show my clients"',
+        '  • "List overdue tasks"',
+        '  • "Show today\'s sessions"',
+      ];
+    }
+
+    this.ledger.record({
+      type: 'follow_up_no_context',
+      followUpType: type,
+      timestamp: new Date().toISOString(),
+    });
+
+    return {
+      intent: 'FOLLOW_UP_CLARIFICATION',
+      agentVersion: policy.version,
+      reasoner: 'follow-up-gate',
+      output: {
+        type: 'explanation',
+        entityId: 'follow_up_clarification',
+        entityType: 'clarification',
+        summary,
+        details,
+        timestamp: new Date().toISOString(),
+        confidence: 1,
+        sources: [{
+          sourceType: 'context',
+          reference: 'conversation_context',
+          note: 'No prior context available',
+        }],
+        status: 'awaiting_input',
+        source: 'follow-up-handler',
+        requires_validation: false,
+      },
+      isFollowUp: true,
+      needsUserInput: true,
+    };
+  }
+
+  /**
+   * Generate a grounded clarification response
+   *
+   * @param {string} summary - Summary of the situation
+   * @param {string|string[]} suggestion - Suggestion or list of suggestions
+   * @param {Object} context - Request context
+   * @param {Object} policy - Current policy
+   * @returns {Object} Clarification response
+   * @private
+   */
+  _generateClarification(summary, suggestion, context, policy) {
+    const details = Array.isArray(suggestion) ? suggestion : [suggestion];
+
+    return {
+      intent: 'FOLLOW_UP_CLARIFICATION',
+      agentVersion: policy.version,
+      reasoner: 'follow-up-gate',
+      output: {
+        type: 'explanation',
+        entityId: 'follow_up_clarification',
+        entityType: 'clarification',
+        summary,
+        details,
+        timestamp: new Date().toISOString(),
+        confidence: 1,
+        sources: [{
+          sourceType: 'context',
+          reference: 'conversation_context',
+          note: 'Based on prior conversation context',
+        }],
+        status: 'awaiting_input',
+        source: 'follow-up-handler',
+        requires_validation: false,
+      },
+      isFollowUp: true,
+      needsUserInput: true,
+    };
+  }
+
+  /**
+   * Generate contextual response for confirmation/negation without pending action
+   *
+   * @param {Object} convContext - Conversation context
+   * @param {string} type - Follow-up type
+   * @param {Object} context - Request context
+   * @param {Object} policy - Current policy
+   * @returns {Object} Response
+   * @private
+   */
+  _generateContextualResponse(convContext, type, context, policy) {
+    const { lastEntityType, lastResultSummary } = convContext;
+
+    if (type === FOLLOW_UP_TYPES.CONFIRMATION) {
+      return this._generateClarification(
+        'There is no pending action to confirm.',
+        `You were viewing ${lastResultSummary?.count || 0} ${lastEntityType || 'item'}(s). What would you like to do next?`,
+        context,
+        policy
+      );
+    }
+
+    // Negation
+    this.contextStore.clear(context);
+    return this._generateClarification(
+      'Understood. Previous context cleared.',
+      'What would you like to do?',
+      context,
+      policy
+    );
+  }
+
+  /**
+   * Get suggestions for empty result scenarios
+   *
+   * @param {string} entityType - Entity type
+   * @returns {string[]} List of suggestions
+   * @private
+   */
+  _getSuggestionsForEmptyResult(entityType) {
+    const suggestions = {
+      client: [
+        'No clients found.',
+        'You can:',
+        '  • Add a new client from the Clients screen',
+        '  • Check if there are inactive clients: "show inactive clients"',
+      ],
+      dossier: [
+        'No dossiers found.',
+        'You can:',
+        '  • Create a new dossier from the Dossiers screen',
+        '  • Check closed dossiers: "show closed dossiers"',
+      ],
+      task: [
+        'No tasks found.',
+        'You can:',
+        '  • Create a new task from the Tasks screen',
+        '  • Check completed tasks: "show completed tasks"',
+      ],
+      session: [
+        'No sessions found.',
+        'You can:',
+        '  • Schedule a new session from the Sessions screen',
+        '  • Check past sessions: "show past sessions"',
+      ],
+    };
+
+    return suggestions[entityType] || ['No results found. Try a different query.'];
+  }
+
+  /**
+   * Get suggestions for results scenarios
+   *
+   * @param {string} entityType - Entity type
+   * @param {number} count - Number of results
+   * @returns {string[]} List of suggestions
+   * @private
+   */
+  _getSuggestionsForResults(entityType, count) {
+    const suggestions = {
+      client: [
+        `You have ${count} client(s).`,
+        'You can:',
+        '  • Filter by status: "show inactive clients"',
+        '  • Get details: "/client [name]"',
+        '  • View their dossiers: "show dossiers for [client]"',
+      ],
+      dossier: [
+        `You have ${count} dossier(s).`,
+        'You can:',
+        '  • Filter by status: "show open dossiers"',
+        '  • Filter by priority: "show urgent dossiers"',
+        '  • Get details: "/dossier [reference]"',
+      ],
+      task: [
+        `You have ${count} task(s).`,
+        'You can:',
+        '  • Show overdue: "show overdue tasks"',
+        '  • Show by priority: "show urgent tasks"',
+        '  • Filter by status: "show pending tasks"',
+      ],
+      session: [
+        `You have ${count} session(s).`,
+        'You can:',
+        '  • Show today: "show today\'s sessions"',
+        '  • Show this week: "show this week\'s sessions"',
+        '  • Show upcoming: "show upcoming sessions"',
+      ],
+    };
+
+    return suggestions[entityType] || [`${count} result(s) found. What would you like to do with them?`];
+  }
+
+  /**
+   * Update conversation context after a successful action
+   *
+   * @param {Object} requestContext - Request context
+   * @param {string} query - User query
+   * @param {Object} result - Action result
+   * @param {string} source - Context source
+   * @private
+   */
+  _updateConversationContext(requestContext, query, result, source) {
+    if (!result || !result.output) return;
+
+    const { intent, output } = result;
+
+    // Determine entity type from intent, output.entityId, or query
+    let entityType = null;
+
+    // Try to extract from intent first
+    if (intent) {
+      if (intent.includes('CLIENT')) entityType = 'client';
+      else if (intent.includes('DOSSIER')) entityType = 'dossier';
+      else if (intent.includes('TASK')) entityType = 'task';
+      else if (intent.includes('SESSION')) entityType = 'session';
+    }
+
+    // If not found in intent, try output.entityId (e.g., "read:list_clients", "command:clients")
+    if (!entityType && output.entityId) {
+      const entityIdLower = output.entityId.toLowerCase();
+      if (entityIdLower.includes('client')) entityType = 'client';
+      else if (entityIdLower.includes('dossier')) entityType = 'dossier';
+      else if (entityIdLower.includes('task')) entityType = 'task';
+      else if (entityIdLower.includes('session')) entityType = 'session';
+    }
+
+    // If still not found, try the query itself
+    if (!entityType && query) {
+      const queryLower = query.toLowerCase();
+      if (/\bclient/i.test(queryLower)) entityType = 'client';
+      else if (/\bdossier/i.test(queryLower)) entityType = 'dossier';
+      else if (/\btask/i.test(queryLower)) entityType = 'task';
+      else if (/\bsession/i.test(queryLower)) entityType = 'session';
+    }
+
+    // Determine action type
+    let actionType = ACTION_TYPES.LIST;
+    if (intent && intent.startsWith('GET_')) actionType = ACTION_TYPES.GET;
+    if (intent === 'COMMAND') actionType = ACTION_TYPES.LIST;
+
+    // Extract result count from output details
+    let count = 0;
+    let emptyResult = false;
+    if (output.details && Array.isArray(output.details)) {
+      // Count bullet points as results
+      count = output.details.filter(d => d.startsWith('•')).length;
+    }
+    if (output.summary) {
+      // Try to extract count from summary
+      const countMatch = output.summary.match(/(\d+)\s+(client|dossier|task|session|item)/i);
+      if (countMatch) count = parseInt(countMatch[1], 10);
+      if (/no\s+(client|dossier|task|session|result)/i.test(output.summary)) {
+        count = 0;
+        emptyResult = true;
+      }
+    }
+
+    // Update context store
+    this.contextStore.update(requestContext, {
+      intent,
+      entityType,
+      entityIds: [], // Could be populated from output data if needed
+      actionType,
+      resultSummary: {
+        count,
+        emptyResult,
+        filters: {},
+      },
+      query,
+      source,
+    });
+
+    this.ledger.record({
+      type: 'conversation_context_updated',
+      intent,
+      entityType,
+      actionType,
+      resultCount: count,
+      source,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  // ========== END FOLLOW-UP INTENT HANDLING ==========
 }
 
 module.exports = AgentEngine;

@@ -8,6 +8,7 @@ import { apiClient } from "../services/api/client";
 import { adaptHistory } from "../services/api/adapters";
 import { useTranslation } from "react-i18next";
 import { useOperator } from "./OperatorContext";
+import { useLicense } from "./LicenseContext";
 import {
   adaptCase,
   adaptClient,
@@ -147,6 +148,9 @@ const recordHistoryEvent = async (apiClientInstance, { entityType, entityId, act
   }
 };
 
+const isReadOnlyImport = (entity) =>
+  entity?.imported === true && entity?.validated === false;
+
 const validateMutation = (entityType, action, entityId, context = {}, integrityIssues = [], skipConfirmation = false) => {
   const relatedIssues = integrityIssues.filter(
     (issue) => issue.entityType === entityType && issue.entityId === entityId
@@ -158,6 +162,17 @@ const validateMutation = (entityType, action, entityId, context = {}, integrityI
       result: {
         allowed: false,
         blockers: relatedIssues.map((i) => i.message),
+        warnings: [],
+      },
+    };
+  }
+
+  if (action !== "add" && isReadOnlyImport(context.data)) {
+    return {
+      ok: false,
+      result: {
+        allowed: false,
+        blockers: ["Imported record is read-only until validated."],
         warnings: [],
       },
     };
@@ -288,8 +303,20 @@ export function DataProvider({ children }) {
   const { showToast } = useToast();
   const { t } = useTranslation("common");
   const { operator } = useOperator();
+  const { licenseState } = useLicense();
   const showToastRef = useRef(showToast);
   const tRef = useRef(t);
+
+  const isLicenseLocked = licenseState === "LOCKED";
+  const blockWrite = (actionLabel) => {
+    if (!isLicenseLocked) return false;
+    showToastRef.current("🔒 License inactive — Activate to continue", "error", {
+      title: "License inactive",
+      addToBell: false,
+    });
+    console.warn(`[DataContext] ${actionLabel} blocked: license inactive`);
+    return true;
+  };
 
   // Get operator name for history attribution
   const actorName = operator?.name || null;
@@ -467,6 +494,9 @@ export function DataProvider({ children }) {
 
   // --- Clients ---
   const addClient = async (client) => {
+    if (blockWrite("add client")) {
+      return { ok: false, result: { message: "License inactive" } };
+    }
     const validation = validateMutation("client", "add", client?.id, {
       data: client,
       newData: client,
@@ -509,6 +539,9 @@ export function DataProvider({ children }) {
   };
 
   const updateClient = async (id, updates) => {
+    if (blockWrite("update client")) {
+      return { ok: false, result: { message: "License inactive" } };
+    }
     const prev = clients.find((c) => c.id === id);
     const validation = validateMutation("client", "edit", id, { data: prev, newData: { ...prev, ...updates }, entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries } }, integrityIssues);
     if (!validation.ok) return validation;
@@ -569,6 +602,9 @@ export function DataProvider({ children }) {
   };
 
   const deleteClient = async (id) => {
+    if (blockWrite("delete client")) {
+      return { ok: false, result: { message: "License inactive" } };
+    }
     const prev = clients.find((c) => c.id === id);
     const validation = validateMutation("client", "delete", id, {
       data: prev,
@@ -598,6 +634,9 @@ export function DataProvider({ children }) {
    * Called when user confirms force delete from BlockerModal
    */
   const deleteClientCascade = async (id) => {
+    if (blockWrite("delete client cascade")) {
+      return { ok: false, result: { message: "License inactive" } };
+    }
     console.log('[DataContext.deleteClientCascade] Force deleting client and all related entities:', id);
 
     try {
@@ -642,6 +681,9 @@ export function DataProvider({ children }) {
 
   // --- Dossiers ---
   const addDossier = async (dossier) => {
+    if (blockWrite("add dossier")) {
+      return { ok: false, result: { message: "License inactive" } };
+    }
     const validation = validateMutation("dossier", "add", dossier?.id, {
       data: dossier,
       newData: dossier,
@@ -658,6 +700,7 @@ export function DataProvider({ children }) {
       category: dossier.category,
       phase: dossier.phase,
       adversary_party: dossier.adversaryParty || dossier.adversary_party || dossier.adversary,
+      adversary_name: dossier.adversaryName || dossier.adversary_name || dossier.adversaryParty || dossier.adversary_party || dossier.adversary,
       adversary_lawyer: dossier.adversaryLawyer || dossier.adversary_lawyer,
       estimated_value: dossier.estimatedValue || dossier.estimated_value,
       court_reference: dossier.courtReference || dossier.court_reference,
@@ -682,6 +725,9 @@ export function DataProvider({ children }) {
   };
 
   const updateDossier = async (id, updates, skipConfirmation = false) => {
+    if (blockWrite("update dossier")) {
+      return { ok: false, result: { message: "License inactive" } };
+    }
     const prev = dossiers.find((d) => d.id === id);
     const validation = validateMutation("dossier", "edit", id, { data: prev, newData: { ...prev, ...updates } }, integrityIssues, skipConfirmation);
     if (!validation.ok) return validation;
@@ -713,6 +759,14 @@ export function DataProvider({ children }) {
     }
     if (updates.adversaryParty !== undefined || updates.adversary_party !== undefined || updates.adversary !== undefined) {
       payload.adversary_party = updates.adversaryParty || updates.adversary_party || updates.adversary;
+    }
+    if (updates.adversaryName !== undefined || updates.adversary_name !== undefined || updates.adversaryParty !== undefined || updates.adversary_party !== undefined || updates.adversary !== undefined) {
+      payload.adversary_name =
+        updates.adversaryName ||
+        updates.adversary_name ||
+        updates.adversaryParty ||
+        updates.adversary_party ||
+        updates.adversary;
     }
     if (updates.adversaryLawyer !== undefined || updates.adversary_lawyer !== undefined) {
       payload.adversary_lawyer = updates.adversaryLawyer || updates.adversary_lawyer;
@@ -771,6 +825,9 @@ export function DataProvider({ children }) {
   };
 
   const deleteDossier = async (id) => {
+    if (blockWrite("delete dossier")) {
+      return { ok: false, result: { message: "License inactive" } };
+    }
     const prev = dossiers.find((d) => d.id === id);
     const validation = validateMutation("dossier", "delete", id, {
       data: prev,
@@ -800,6 +857,9 @@ export function DataProvider({ children }) {
    * Called when user confirms force delete from BlockerModal
    */
   const deleteDossierCascade = async (id) => {
+    if (blockWrite("delete dossier cascade")) {
+      return { ok: false, result: { message: "License inactive" } };
+    }
     console.log('[DataContext.deleteDossierCascade] Force deleting dossier and all related entities:', id);
 
     try {
@@ -868,6 +928,9 @@ export function DataProvider({ children }) {
 
   // --- Cases ---
   const addCase = async (caseItem) => {
+    if (blockWrite("add case")) {
+      return { ok: false, result: { message: "License inactive" } };
+    }
     const validation = validateMutation("case", "add", caseItem?.id, {
       data: caseItem,
       newData: caseItem,
@@ -884,10 +947,20 @@ export function DataProvider({ children }) {
       description: emptyToNull(caseItem.description),
       adversary: emptyToNull(caseItem.adversaire || caseItem.adversary),
       adversary_party: emptyToNull(caseItem.adversaryParty || caseItem.adversary_party),
+      adversary_name: emptyToNull(
+        caseItem.adversaryName ||
+          caseItem.adversary_name ||
+          caseItem.adversaryParty ||
+          caseItem.adversary_party ||
+          caseItem.adversaire ||
+          caseItem.adversary
+      ),
       adversary_lawyer: emptyToNull(caseItem.adversaryLawyer || caseItem.adversary_lawyer),
       court: emptyToNull(caseItem.court),
       filing_date: emptyToNull(caseItem.filingDate),
       next_hearing: emptyToNull(caseItem.nextHearing),
+      judgment_number: emptyToNull(caseItem.judgmentNumber || caseItem.judgment_number),
+      judgment_date: emptyToNull(caseItem.judgmentDate || caseItem.judgment_date),
       reference_number: emptyToNull(caseItem.courtReference || caseItem.reference_number),
       status: caseItem.status,
       priority: caseItem.priority === "High" ? "high" : caseItem.priority === "Medium" ? "medium" : caseItem.priority === "Low" ? "low" : caseItem.priority,
@@ -926,6 +999,9 @@ export function DataProvider({ children }) {
   };
 
   const updateCase = async (id, updates) => {
+    if (blockWrite("update case")) {
+      return { ok: false, result: { message: "License inactive" } };
+    }
     const prev = cases.find((c) => c.id === id);
     const validation = validateMutation("case", "edit", id, { data: prev, newData: { ...prev, ...updates } }, integrityIssues);
     if (!validation.ok) return validation;
@@ -952,6 +1028,23 @@ export function DataProvider({ children }) {
     if (updates.adversaryParty !== undefined || updates.adversary_party !== undefined) {
       payload.adversary_party = emptyToNull(updates.adversaryParty || updates.adversary_party);
     }
+    if (
+      updates.adversaryName !== undefined ||
+      updates.adversary_name !== undefined ||
+      updates.adversaryParty !== undefined ||
+      updates.adversary_party !== undefined ||
+      updates.adversaire !== undefined ||
+      updates.adversary !== undefined
+    ) {
+      payload.adversary_name = emptyToNull(
+        updates.adversaryName ||
+          updates.adversary_name ||
+          updates.adversaryParty ||
+          updates.adversary_party ||
+          updates.adversaire ||
+          updates.adversary
+      );
+    }
     if (updates.adversaryLawyer !== undefined || updates.adversary_lawyer !== undefined) {
       payload.adversary_lawyer = emptyToNull(updates.adversaryLawyer || updates.adversary_lawyer);
     }
@@ -963,6 +1056,12 @@ export function DataProvider({ children }) {
     }
     if (updates.nextHearing !== undefined) {
       payload.next_hearing = emptyToNull(updates.nextHearing);
+    }
+    if (updates.judgmentNumber !== undefined || updates.judgment_number !== undefined) {
+      payload.judgment_number = emptyToNull(updates.judgmentNumber || updates.judgment_number);
+    }
+    if (updates.judgmentDate !== undefined || updates.judgment_date !== undefined) {
+      payload.judgment_date = emptyToNull(updates.judgmentDate || updates.judgment_date);
     }
     if (updates.courtReference !== undefined) {
       payload.reference_number = emptyToNull(updates.courtReference);
@@ -1004,6 +1103,9 @@ export function DataProvider({ children }) {
   };
 
   const deleteCase = async (id) => {
+    if (blockWrite("delete case")) {
+      return { ok: false, result: { message: "License inactive" } };
+    }
     const prev = cases.find((c) => c.id === id);
     const validation = validateMutation("case", "delete", id, {
       data: prev,
@@ -1033,6 +1135,9 @@ export function DataProvider({ children }) {
    * Called when user confirms force delete from BlockerModal
    */
   const deleteCaseCascade = async (id) => {
+    if (blockWrite("delete case cascade")) {
+      return { ok: false, result: { message: "License inactive" } };
+    }
     console.log('[DataContext.deleteCaseCascade] Force deleting case and all related entities:', id);
 
     try {
@@ -1085,6 +1190,9 @@ export function DataProvider({ children }) {
 
   // --- Sessions ---
   const addSession = async (sessionItem) => {
+    if (blockWrite("add session")) {
+      return { ok: false, result: { message: "License inactive" } };
+    }
     const validation = validateMutation("session", "add", sessionItem?.id, {
       data: sessionItem,
       newData: sessionItem,
@@ -1131,6 +1239,11 @@ export function DataProvider({ children }) {
         sessionItem.scheduledAt ||
         sessionItem.scheduled_at ||
         (sessionItem.date ? `${sessionItem.date}T${sessionItem.time || "00:00"}:00` : null),
+      session_date:
+        sessionItem.sessionDate ||
+        sessionItem.session_date ||
+        sessionItem.date ||
+        (sessionItem.scheduledAt ? sessionItem.scheduledAt.split("T")[0] : null),
       location: emptyToNull(sessionItem.location),
       court_room: emptyToNull(sessionItem.courtRoom || sessionItem.court_room),
       judge: emptyToNull(sessionItem.judge),
@@ -1169,6 +1282,9 @@ export function DataProvider({ children }) {
   };
 
   const updateSession = async (id, updates, options = {}) => {
+    if (blockWrite("update session")) {
+      return { ok: false, result: { message: "License inactive" } };
+    }
     const { skipConfirmation = false } = options;
     const prev = sessions.find((s) => s.id === id);
     const validation = validateMutation("session", "edit", id, { data: prev, newData: { ...prev, ...updates } }, integrityIssues, skipConfirmation);
@@ -1214,6 +1330,21 @@ export function DataProvider({ children }) {
         updates.scheduledAt ||
         updates.scheduled_at ||
         (updates.date ? `${updates.date}T${updates.time || "00:00"}:00` : undefined);
+    }
+    if (
+      updates.sessionDate !== undefined ||
+      updates.session_date !== undefined ||
+      updates.date !== undefined ||
+      updates.scheduledAt !== undefined ||
+      updates.scheduled_at !== undefined
+    ) {
+      const derivedDate =
+        updates.sessionDate ||
+        updates.session_date ||
+        updates.date ||
+        (updates.scheduledAt ? updates.scheduledAt.split("T")[0] : null) ||
+        (updates.scheduled_at ? updates.scheduled_at.split("T")[0] : null);
+      payload.session_date = emptyToNull(derivedDate);
     }
     if (updates.location !== undefined) {
       payload.location = emptyToNull(updates.location);
@@ -1269,6 +1400,9 @@ export function DataProvider({ children }) {
   };
 
   const deleteSession = async (id) => {
+    if (blockWrite("delete session")) {
+      return { ok: false, result: { message: "License inactive" } };
+    }
     const prev = sessions.find((s) => s.id === id);
     const validation = validateMutation("session", "delete", id, {
       data: prev,
@@ -1295,6 +1429,9 @@ export function DataProvider({ children }) {
 
   // --- Tasks (linked to dossiers/cases) ---
   const addTask = async (taskItem) => {
+    if (blockWrite("add task")) {
+      return { ok: false, result: { message: "License inactive" } };
+    }
     const validation = validateMutation("task", "add", taskItem?.id, {
       data: taskItem,
       newData: taskItem,
@@ -1342,6 +1479,9 @@ export function DataProvider({ children }) {
   };
 
   const updateTask = async (id, updates, options = {}) => {
+    if (blockWrite("update task")) {
+      return { ok: false, result: { message: "License inactive" } };
+    }
     const { skipConfirmation = false } = options;
     const prev = tasks.find((t) => t.id === id);
     const validation = validateMutation("task", "edit", id, { data: prev, newData: { ...prev, ...updates } }, integrityIssues, skipConfirmation);
@@ -1416,6 +1556,9 @@ export function DataProvider({ children }) {
   };
 
   const deleteTask = async (id) => {
+    if (blockWrite("delete task")) {
+      return { ok: false, result: { message: "License inactive" } };
+    }
     const prev = tasks.find((t) => t.id === id);
     const validation = validateMutation("task", "delete", id, {
       data: prev,
@@ -1442,6 +1585,9 @@ export function DataProvider({ children }) {
 
   // --- Personal Tasks (non-linked) ---
   const addPersonalTask = async (task) => {
+    if (blockWrite("add personal task")) {
+      return { ok: false, result: { message: "License inactive" } };
+    }
     const validation = validateMutation("personalTask", "add", task?.id, {
       data: task,
       newData: task,
@@ -1543,6 +1689,9 @@ export function DataProvider({ children }) {
   };
 
   const updatePersonalTask = async (id, updates) => {
+    if (blockWrite("update personal task")) {
+      return { ok: false, result: { message: "License inactive" } };
+    }
     const prev = personalTasks.find((t) => t.id === id);
     const validation = validateMutation("personalTask", "edit", id, { data: prev, newData: { ...prev, ...updates } }, integrityIssues);
     if (!validation.ok) return validation;
@@ -1658,6 +1807,9 @@ export function DataProvider({ children }) {
   };
 
   const deletePersonalTask = async (id) => {
+    if (blockWrite("delete personal task")) {
+      return { ok: false, result: { message: "License inactive" } };
+    }
     const prev = personalTasks.find((t) => t.id === id);
     const validation = validateMutation("personalTask", "delete", id, {
       data: prev,
@@ -1681,6 +1833,9 @@ export function DataProvider({ children }) {
 
   // --- Officers ---
   const addOfficer = async (officer) => {
+    if (blockWrite("add officer")) {
+      return { ok: false, result: { message: "License inactive" } };
+    }
     const validation = validateMutation("officer", "add", officer?.id, {
       data: officer,
       newData: officer,
@@ -1730,6 +1885,9 @@ export function DataProvider({ children }) {
   };
 
   const updateOfficer = async (id, updates) => {
+    if (blockWrite("update officer")) {
+      return { ok: false, result: { message: "License inactive" } };
+    }
     const prev = officers.find((o) => o.id === id);
     const validation = validateMutation("officer", "edit", id, { data: prev, newData: { ...prev, ...updates } }, integrityIssues);
     if (!validation.ok) return validation;
@@ -1806,6 +1964,9 @@ export function DataProvider({ children }) {
   };
 
   const deleteOfficer = async (id) => {
+    if (blockWrite("delete officer")) {
+      return { ok: false, result: { message: "License inactive" } };
+    }
     const prev = officers.find((o) => o.id === id);
     const validation = validateMutation("officer", "delete", id, {
       data: prev,
@@ -1835,6 +1996,9 @@ export function DataProvider({ children }) {
    * Orphaned missions (missions without a bailiff) are INVALID domain state.
    */
   const deleteOfficerCascade = async (id) => {
+    if (blockWrite("delete officer cascade")) {
+      return { ok: false, result: { message: "License inactive" } };
+    }
     console.log('[DataContext.deleteOfficerCascade] Force deleting officer and all related entities:', id);
 
     try {
@@ -1890,6 +2054,9 @@ export function DataProvider({ children }) {
 
   // --- Missions ---
   const addMission = async (mission) => {
+    if (blockWrite("add mission")) {
+      return { ok: false, result: { message: "License inactive" } };
+    }
     const validation = validateMutation("mission", "add", mission?.id, {
       data: mission,
       newData: mission,
@@ -2004,6 +2171,9 @@ export function DataProvider({ children }) {
   };
 
   const updateMission = async (id, updates, skipConfirmation = false) => {
+    if (blockWrite("update mission")) {
+      return { ok: false, result: { message: "License inactive" } };
+    }
     const updateKeys = Object.keys(updates || {});
     if (updateKeys.length === 1 && updateKeys[0] === "status") {
       return updateMissionStatus(id, updates.status, skipConfirmation);
@@ -2088,6 +2258,9 @@ export function DataProvider({ children }) {
   };
 
   const updateMissionStatus = async (id, status, skipConfirmation = false) => {
+    if (blockWrite("update mission status")) {
+      return { ok: false, result: { message: "License inactive" } };
+    }
     const prev = missions.find((m) => m.id === id);
     const updates = { status };
     const validation = validateMutation(
@@ -2122,6 +2295,9 @@ export function DataProvider({ children }) {
   };
 
   const deleteMission = async (id) => {
+    if (blockWrite("delete mission")) {
+      return { ok: false, result: { message: "License inactive" } };
+    }
     const prev = missions.find((m) => m.id === id);
     const validation = validateMutation("mission", "delete", id, {
       data: prev,
@@ -2144,6 +2320,9 @@ export function DataProvider({ children }) {
   };
 
   const deleteMissionCascade = async (id) => {
+    if (blockWrite("delete mission cascade")) {
+      return { ok: false, result: { message: "License inactive" } };
+    }
     console.log('[DataContext.deleteMissionCascade] Force deleting mission and all related entities:', id);
 
     try {
@@ -2193,6 +2372,9 @@ export function DataProvider({ children }) {
 
   // --- Financial Entries ---
   const addFinancialEntry = async (entry) => {
+    if (blockWrite("add financial entry")) {
+      return { ok: false, result: { message: "License inactive" } };
+    }
     const validation = validateMutation("financialEntry", "add", entry?.id, {
       data: entry,
       newData: entry,
@@ -2261,6 +2443,9 @@ export function DataProvider({ children }) {
   };
 
   const updateFinancialEntry = async (id, updates) => {
+    if (blockWrite("update financial entry")) {
+      return { ok: false, result: { message: "License inactive" } };
+    }
     const updateKeys = Object.keys(updates || {});
     if (updateKeys.length === 1 && updateKeys[0] === "status") {
       return updateFinancialEntryStatus(id, updates.status, true);
@@ -2315,6 +2500,9 @@ export function DataProvider({ children }) {
   };
 
   const updateFinancialEntryStatus = async (id, status, skipConfirmation = false) => {
+    if (blockWrite("update financial entry status")) {
+      return { ok: false, result: { message: "License inactive" } };
+    }
     const prev = financialEntries.find((e) => e.id === id);
     const updates = {
       status,
@@ -2357,6 +2545,9 @@ export function DataProvider({ children }) {
   };
 
   const deleteFinancialEntry = async (id, { skipConfirmation = false } = {}) => {
+    if (blockWrite("delete financial entry")) {
+      return { ok: false, result: { message: "License inactive" } };
+    }
     const prev = financialEntries.find((e) => e.id === id);
     const validation = validateMutation("financialEntry", "delete", id, {
       data: prev,

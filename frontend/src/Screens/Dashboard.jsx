@@ -12,6 +12,7 @@ import { useSettings } from "../contexts/SettingsContext";
 import { useData } from "../contexts/DataContext";
 import { useTranslation } from "react-i18next";
 import { getDashboardSummary } from "../services/api/dashboard";
+import { filterOperationalEntities } from "../utils/importState";
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -20,6 +21,16 @@ export default function Dashboard() {
   const [isLoadMapCollapsed, setLoadMapCollapsed] = useState(false);
   const { formatDate: formatDisplayDate } = useSettings();
   const { clients, dossiers, tasks, sessions, cases, missions, financialEntries } = useData();
+  const operationalClients = useMemo(() => filterOperationalEntities(clients), [clients]);
+  const operationalDossiers = useMemo(() => filterOperationalEntities(dossiers), [dossiers]);
+  const operationalTasks = useMemo(() => filterOperationalEntities(tasks), [tasks]);
+  const operationalSessions = useMemo(() => filterOperationalEntities(sessions), [sessions]);
+  const operationalCases = useMemo(() => filterOperationalEntities(cases), [cases]);
+  const operationalMissions = useMemo(() => filterOperationalEntities(missions), [missions]);
+  const operationalFinancialEntries = useMemo(
+    () => filterOperationalEntities(financialEntries),
+    [financialEntries]
+  );
   const initialSummary = {
     totalClients: 0,
     clientsDelta: 0,
@@ -96,7 +107,7 @@ export default function Dashboard() {
     const activities = [];
 
     // Recent clients
-    clients.slice(0, 2).forEach(client => {
+    operationalClients.slice(0, 2).forEach(client => {
       activities.push({
         id: `client-${client.id}`,
         type: "client",
@@ -109,7 +120,7 @@ export default function Dashboard() {
     });
 
     // Recent dossiers
-    dossiers.slice(0, 1).forEach(dossier => {
+    operationalDossiers.slice(0, 1).forEach(dossier => {
       activities.push({
         id: `dossier-${dossier.id}`,
         type: "dossier",
@@ -122,7 +133,7 @@ export default function Dashboard() {
     });
 
     // Recent sessions
-    sessions.slice(0, 1).forEach(session => {
+    operationalSessions.slice(0, 1).forEach(session => {
       activities.push({
         id: `session-${session.id}`,
         type: "session",
@@ -139,7 +150,7 @@ export default function Dashboard() {
 
     // Sort by timestamp
     return activities.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-  }, [clients, dossiers, sessions, formatDisplayDate, navigate, t]);
+  }, [operationalClients, operationalDossiers, operationalSessions, formatDisplayDate, navigate, t]);
 
   // Get upcoming events
   const upcomingEvents = useMemo(() => {
@@ -147,7 +158,7 @@ export default function Dashboard() {
     const now = new Date();
 
     // Upcoming sessions
-    sessions.forEach(session => {
+    operationalSessions.forEach(session => {
       const sessionDate = new Date(`${session.date}T${session.time || '00:00'}`);
       if (sessionDate > now) {
         events.push({
@@ -162,7 +173,7 @@ export default function Dashboard() {
     });
 
     // Upcoming hearings from cases
-    cases.forEach(caseItem => {
+    operationalCases.forEach(caseItem => {
       const hearingDate = new Date(caseItem.nextHearing);
       if (hearingDate > now) {
         events.push({
@@ -177,7 +188,7 @@ export default function Dashboard() {
     });
 
     // Task deadlines
-    tasks.forEach(task => {
+    operationalTasks.forEach(task => {
       const dueDate = new Date(task.dueDate);
       if (
         dueDate > now &&
@@ -196,14 +207,14 @@ export default function Dashboard() {
 
     // Sort by date
     return events.sort((a, b) => new Date(a.date) - new Date(b.date));
-  }, [sessions, cases, tasks, t]);
+  }, [operationalSessions, operationalCases, operationalTasks, t]);
 
   // Get urgent tasks (high priority or due soon)
   const urgentTasks = useMemo(() => {
     const today = new Date();
     const threeDaysFromNow = new Date(today.getTime() + 3 * 24 * 60 * 60 * 1000);
 
-    return tasks
+    return operationalTasks
       .filter(task => {
         const dueDate = new Date(task.dueDate);
         return (
@@ -219,7 +230,7 @@ export default function Dashboard() {
         if (priorityDiff !== 0) return priorityDiff;
         return new Date(a.dueDate) - new Date(b.dueDate);
       });
-  }, [tasks]);
+  }, [operationalTasks]);
 
   const DAY_MS = 24 * 60 * 60 * 1000;
   const WORKLOAD_HORIZON_DAYS = 90;
@@ -243,28 +254,28 @@ export default function Dashboard() {
 
     const items = [];
 
-    tasks.forEach((task) => {
+    operationalTasks.forEach((task) => {
       if (isInactive(task.status)) return;
       const date = toDate(task.dueDate);
       if (!date) return;
       items.push({ date, type: "task" });
     });
 
-    sessions.forEach((session) => {
+    operationalSessions.forEach((session) => {
       if (isInactive(session.status)) return;
       const date = toDate(session.date, session.time);
       if (!date) return;
       items.push({ date, type: "hearing" });
     });
 
-    cases.forEach((caseItem) => {
+    operationalCases.forEach((caseItem) => {
       if (isInactive(caseItem.status)) return;
       const date = toDate(caseItem.nextHearing);
       if (!date) return;
       items.push({ date, type: "hearing" });
     });
 
-    Object.values(missions).forEach((officer) => {
+    Object.values(operationalMissions).forEach((officer) => {
       officer.missions?.forEach((mission) => {
         if (isInactive(mission.status)) return;
         const date = toDate(mission.dueDate || mission.plannedDate || mission.assignDate);
@@ -274,7 +285,7 @@ export default function Dashboard() {
     });
 
     return items.sort((a, b) => a.date - b.date);
-  }, [tasks, sessions, cases, missions]);
+  }, [operationalTasks, operationalSessions, operationalCases, operationalMissions]);
 
   const workloadBuckets = useMemo(() => {
     const bucketDefs = [
@@ -719,17 +730,17 @@ export default function Dashboard() {
                   {[
                     {
                       label: t("dashboard.quickStats.dossiers.inProgress"),
-                      value: dossiers.filter(d => d.status === "Open" || d.status === "In Progress").length,
+                      value: operationalDossiers.filter(d => d.status === "Open" || d.status === "In Progress").length,
                       color: "blue",
                     },
                     {
                       label: t("dashboard.quickStats.dossiers.pending"),
-                      value: dossiers.filter(d => d.status === "On Hold").length,
+                      value: operationalDossiers.filter(d => d.status === "On Hold").length,
                       color: "amber",
                     },
                     {
                       label: t("dashboard.quickStats.dossiers.closed"),
-                      value: dossiers.filter(d => d.status === "Closed").length,
+                      value: operationalDossiers.filter(d => d.status === "Closed").length,
                       color: "green",
                     },
                   ].map((item) => (
@@ -759,17 +770,17 @@ export default function Dashboard() {
                   {[
                     {
                       label: t("dashboard.quickStats.tasks.high"),
-                      value: tasks.filter(t => t.priority === "High" && t.status !== "Done" && t.status !== "Cancelled").length,
+                      value: operationalTasks.filter(t => t.priority === "High" && t.status !== "Done" && t.status !== "Cancelled").length,
                       color: "red",
                     },
                     {
                       label: t("dashboard.quickStats.tasks.medium"),
-                      value: tasks.filter(t => t.priority === "Medium" && t.status !== "Done" && t.status !== "Cancelled").length,
+                      value: operationalTasks.filter(t => t.priority === "Medium" && t.status !== "Done" && t.status !== "Cancelled").length,
                       color: "amber",
                     },
                     {
                       label: t("dashboard.quickStats.tasks.low"),
-                      value: tasks.filter(t => t.priority === "Low" && t.status !== "Done" && t.status !== "Cancelled").length,
+                      value: operationalTasks.filter(t => t.priority === "Low" && t.status !== "Done" && t.status !== "Cancelled").length,
                       color: "blue",
                     },
                   ].map((item) => (
@@ -801,18 +812,18 @@ export default function Dashboard() {
                     const now = new Date();
                     const oneMonthAgo = new Date();
                     oneMonthAgo.setMonth(now.getMonth() - 1);
-                    const paid = financialEntries.filter(i =>
+                    const paid = operationalFinancialEntries.filter(i =>
                       i.status === "paid" &&
                       i.paidAt &&
                       new Date(i.paidAt) >= oneMonthAgo
                     ).length;
-                    const pending = financialEntries.filter(i =>
+                    const pending = operationalFinancialEntries.filter(i =>
                       i.status === "confirmed" &&
                       !i.paidAt &&
                       i.dueDate &&
                       new Date(i.dueDate) >= now
                     ).length;
-                    const overdue = financialEntries.filter(i =>
+                    const overdue = operationalFinancialEntries.filter(i =>
                       i.status === "confirmed" &&
                       !i.paidAt &&
                       i.dueDate &&

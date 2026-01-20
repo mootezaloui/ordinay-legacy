@@ -65,6 +65,7 @@ async function handler({ dossierId }) {
       FROM tasks
       WHERE dossier_id = ?
         AND deleted_at IS NULL
+        AND validated = 1
         AND status = 'blocked'
       ORDER BY priority DESC
       `
@@ -83,6 +84,7 @@ async function handler({ dossierId }) {
       FROM tasks
       WHERE dossier_id = ?
         AND deleted_at IS NULL
+        AND validated = 1
         AND status NOT IN ('done', 'cancelled')
         AND priority IN ('urgent', 'high')
         AND due_date IS NOT NULL
@@ -104,6 +106,7 @@ async function handler({ dossierId }) {
       FROM sessions
       WHERE dossier_id = ?
         AND deleted_at IS NULL
+        AND validated = 1
         AND status IN ('scheduled', 'pending')
         AND scheduled_at >= ?
         AND scheduled_at <= datetime(?, '+7 days')

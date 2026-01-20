@@ -5,6 +5,8 @@ import * as notificationService from "../services/notificationService";
 import { apiClient } from "../services/api/client";
 import { useSeverityConfig } from "../hooks/useNotificationTranslation";
 import { buildDedupeKey } from "../utils/notificationDedupe";
+import { getAppLicenseState } from "../services/licenseService";
+import { filterOperationalEntities } from "../utils/importState";
 import {
   mapPriorityToSeverity,
   mapTypeToEntityType,
@@ -27,6 +29,7 @@ import {
  */
 
 const NotificationContext = createContext();
+const isLicenseLocked = () => getAppLicenseState() === "LOCKED";
 
 export function useNotifications() {
   const context = useContext(NotificationContext);
@@ -67,6 +70,9 @@ export function NotificationProvider({ children }) {
 
   // Add new notification
   const addNotification = useCallback(async (notification) => {
+    if (isLicenseLocked()) {
+      return null;
+    }
     if (!shouldNotify(notification)) {
       console.log("[NOTIFICATION] Skipped due to user preferences", notification);
       return null;
@@ -127,7 +133,6 @@ export function NotificationProvider({ children }) {
       // Create notification via API
       const createdNotification = await notificationService.createNotification(notificationData);
       if (!createdNotification || !createdNotification.id) {
-        console.log("[NOTIFICATION] Creation suppressed (likely dismissed):", notification);
         return null;
       }
 
@@ -299,29 +304,33 @@ export function NotificationProvider({ children }) {
           apiClient.get('/officers').catch(err => { console.error('[NOTIFICATION] Failed to load officers:', err); return []; }),
         ]);
 
+        const toOperational = (items) =>
+          filterOperationalEntities(Array.isArray(items) ? items : []);
+
         // Feed data to scheduler
         notificationScheduler.data = {
-          tasks: Array.isArray(tasks) ? tasks : [],
-          personalTasks: Array.isArray(personalTasks) ? personalTasks : [],
-          sessions: Array.isArray(sessions) ? sessions : [],
-          cases: Array.isArray(cases) ? cases : [],
-          missions: Array.isArray(missions) ? missions : [],
-          financialEntries: Array.isArray(financialEntries) ? financialEntries : [],
-          dossiers: Array.isArray(dossiers) ? dossiers : [],
-          clients: Array.isArray(clients) ? clients : [],
-          officers: Array.isArray(officers) ? officers : [],
+          tasks: toOperational(tasks),
+          personalTasks: toOperational(personalTasks),
+          sessions: toOperational(sessions),
+          cases: toOperational(cases),
+          missions: toOperational(missions),
+          financialEntries: toOperational(financialEntries),
+          dossiers: toOperational(dossiers),
+          clients: toOperational(clients),
+          officers: toOperational(officers),
         };
 
+        const schedulerData = notificationScheduler.data;
         console.log("[NOTIFICATION] Entity data loaded:", {
-          tasks: (tasks || []).length,
-          personalTasks: (personalTasks || []).length,
-          sessions: (sessions || []).length,
-          cases: (cases || []).length,
-          missions: (missions || []).length,
-          financialEntries: (financialEntries || []).length,
-          dossiers: (dossiers || []).length,
-          clients: (clients || []).length,
-          officers: (officers || []).length,
+          tasks: schedulerData.tasks.length,
+          personalTasks: schedulerData.personalTasks.length,
+          sessions: schedulerData.sessions.length,
+          cases: schedulerData.cases.length,
+          missions: schedulerData.missions.length,
+          financialEntries: schedulerData.financialEntries.length,
+          dossiers: schedulerData.dossiers.length,
+          clients: schedulerData.clients.length,
+          officers: schedulerData.officers.length,
         });
       } catch (error) {
         console.error("[NOTIFICATION] Failed to load entity data:", error);

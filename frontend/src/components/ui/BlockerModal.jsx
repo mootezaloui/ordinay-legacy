@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { enrichBlockers, getEntityRoute } from '../../services/blockerEnrichment';
 import { canPerformAction } from '../../services/domainRules';
@@ -56,9 +56,39 @@ export default function BlockerModal({
   const [resolvedBlockers, setResolvedBlockers] = useState(new Set());
   const [isResolving, setIsResolving] = useState(false);
   const { t } = useTranslation("common");
+  const blockersKeyRef = useRef("");
+
+  const getBlockersKey = (blockersInput) => {
+    if (!blockersInput || blockersInput.length === 0) {
+      return "empty";
+    }
+
+    if (typeof blockersInput[0] === "string") {
+      return `strings:${blockersInput.join("|")}`;
+    }
+
+    try {
+      return `objects:${JSON.stringify(blockersInput)}`;
+    } catch {
+      return `objects:${blockersInput.length}`;
+    }
+  };
 
   // Enrich blockers when they change
   useEffect(() => {
+    if (!isOpen) {
+      blockersKeyRef.current = "";
+      setEnrichedBlockers((prev) => (prev.length > 0 ? [] : prev));
+      setResolvedBlockers((prev) => (prev.size > 0 ? new Set() : prev));
+      return;
+    }
+
+    const blockersKey = `${entityType ?? ""}|${entityId ?? ""}|${action ?? ""}|${getBlockersKey(blockers)}`;
+    if (blockersKeyRef.current === blockersKey) {
+      return;
+    }
+    blockersKeyRef.current = blockersKey;
+
     if (isOpen && blockers && blockers.length > 0) {
       // Check if blockers are already enriched (objects) or need enrichment (strings)
       if (typeof blockers[0] === 'string') {
@@ -79,10 +109,10 @@ export default function BlockerModal({
         setEnrichedBlockers(blockers);
       }
     } else {
-      setEnrichedBlockers([]);
+      setEnrichedBlockers((prev) => (prev.length > 0 ? [] : prev));
     }
     // Reset resolved blockers when modal opens with new blockers
-    setResolvedBlockers(new Set());
+    setResolvedBlockers((prev) => (prev.size > 0 ? new Set() : prev));
   }, [isOpen, blockers, entityType, entityId, action]);
 
   // Close modal on Escape key

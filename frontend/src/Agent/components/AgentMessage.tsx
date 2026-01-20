@@ -133,9 +133,13 @@ export function AgentMessage({ message, getRelativeTime }: AgentMessageProps) {
           {/* Streaming: show content with cursor, or spinner if no content yet */}
           <div ref={contentRef}>
             {isStreaming && !hasContent && (
-              <div className="flex items-center gap-2 text-slate-500">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span className="text-sm">Generating...</span>
+              <div className="flex items-center gap-3 text-slate-500 dark:text-slate-400 py-1">
+                <div className="flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 bg-blue-500 rounded-full agent-working-dot" />
+                  <span className="w-1.5 h-1.5 bg-blue-500 rounded-full agent-working-dot" />
+                  <span className="w-1.5 h-1.5 bg-blue-500 rounded-full agent-working-dot" />
+                </div>
+                <span className="text-sm">Thinking...</span>
               </div>
             )}
 
@@ -365,14 +369,14 @@ function RetryButton({ message }: { message: AgentMessageType }) {
 // Explanation Section Component
 function ExplanationSection({ data }: { data: any }) {
   return (
-    <div className="pt-3 border-t border-slate-200 dark:border-slate-700">
-      <div className="flex items-center gap-2 mb-3">
+    <div className="pt-3 border-t border-slate-200 dark:border-slate-700 agent-animate-scaffold">
+      <div className="flex items-center gap-2 mb-3 agent-animate-item agent-animate-item-delay-1">
         <Lightbulb className="w-4 h-4 text-amber-500" />
         <span className="text-xs font-medium text-slate-700 dark:text-slate-300">
           {data.title || "Explanation"}
         </span>
       </div>
-      <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
+      <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 agent-animate-item agent-animate-item-delay-2">
         <p className="text-sm text-slate-900 dark:text-white mb-3">
           {data.summary}
         </p>
@@ -381,7 +385,7 @@ function ExplanationSection({ data }: { data: any }) {
             {data.details.map((detail: string, idx: number) => (
               <li
                 key={idx}
-                className="text-xs text-slate-600 dark:text-slate-400 pl-4 relative before:content-['•'] before:absolute before:left-0"
+                className={`text-xs text-slate-600 dark:text-slate-400 pl-4 relative before:content-['•'] before:absolute before:left-0 agent-animate-item agent-animate-item-delay-${Math.min(idx + 3, 8)}`}
               >
                 {detail}
               </li>
@@ -405,8 +409,8 @@ function RiskSection({ data }: { data: any }) {
   };
 
   return (
-    <div className="pt-3 border-t border-slate-200 dark:border-slate-700">
-      <div className="flex items-center justify-between mb-3">
+    <div className="pt-3 border-t border-slate-200 dark:border-slate-700 agent-animate-scaffold">
+      <div className="flex items-center justify-between mb-3 agent-animate-item agent-animate-item-delay-1">
         <div className="flex items-center gap-2">
           <Shield className="w-4 h-4 text-orange-500" />
           <span className="text-xs font-medium text-slate-700 dark:text-slate-300">
@@ -425,7 +429,7 @@ function RiskSection({ data }: { data: any }) {
         {data.risks?.map((risk: any, idx: number) => (
           <div
             key={idx}
-            className="p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700"
+            className={`p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 agent-animate-item agent-animate-item-delay-${Math.min(idx + 2, 8)}`}
           >
             <div className="flex items-start justify-between mb-2">
               <h4 className="text-sm font-semibold text-slate-900 dark:text-white">
@@ -457,16 +461,16 @@ function RiskSection({ data }: { data: any }) {
 // Draft Section Component
 function DraftSection({ data }: { data: any }) {
   return (
-    <div className="pt-3 border-t border-slate-200 dark:border-slate-700">
-      <div className="flex items-center gap-2 mb-3">
+    <div className="pt-3 border-t border-slate-200 dark:border-slate-700 agent-animate-scaffold">
+      <div className="flex items-center gap-2 mb-3 agent-animate-item agent-animate-item-delay-1">
         <FileText className="w-4 h-4 text-blue-500" />
         <span className="text-xs font-medium text-slate-700 dark:text-slate-300">
           Draft: {data.type?.replace("_", " ")}
         </span>
       </div>
-      <div className="p-4 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
+      <div className="p-4 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-xl border border-blue-200 dark:border-blue-800 agent-animate-item agent-animate-item-delay-2">
         {data.sections?.subject && (
-          <div className="mb-3">
+          <div className="mb-3 agent-animate-item agent-animate-item-delay-3">
             <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
               Subject:
             </span>
@@ -476,24 +480,24 @@ function DraftSection({ data }: { data: any }) {
           </div>
         )}
         {data.sections?.greeting && (
-          <p className="text-sm text-slate-700 dark:text-slate-300 mb-2">
+          <p className="text-sm text-slate-700 dark:text-slate-300 mb-2 agent-animate-item agent-animate-item-delay-4">
             {data.sections.greeting}
           </p>
         )}
-        <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">
+        <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap agent-animate-item agent-animate-item-delay-5">
           {data.sections?.body}
         </p>
         {data.sections?.closing && (
-          <p className="text-sm text-slate-700 dark:text-slate-300 mt-2">
+          <p className="text-sm text-slate-700 dark:text-slate-300 mt-2 agent-animate-item agent-animate-item-delay-6">
             {data.sections.closing}
           </p>
         )}
         {data.sections?.signature && (
-          <p className="text-sm text-slate-600 dark:text-slate-400 mt-2 italic">
+          <p className="text-sm text-slate-600 dark:text-slate-400 mt-2 italic agent-animate-item agent-animate-item-delay-7">
             {data.sections.signature}
           </p>
         )}
-        <div className="flex gap-2 mt-4">
+        <div className="flex gap-2 mt-4 agent-animate-item agent-animate-item-delay-8">
           <button
             type="button"
             className="flex-1 px-4 py-2 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition-colors"
@@ -515,8 +519,8 @@ function DraftSection({ data }: { data: any }) {
 // Actions Section Component
 function ActionsSection({ data }: { data: any[] }) {
   return (
-    <div className="pt-3 border-t border-slate-200 dark:border-slate-700">
-      <div className="flex items-center gap-2 mb-3">
+    <div className="pt-3 border-t border-slate-200 dark:border-slate-700 agent-animate-scaffold">
+      <div className="flex items-center gap-2 mb-3 agent-animate-item agent-animate-item-delay-1">
         <ListTodo className="w-4 h-4 text-green-500" />
         <span className="text-xs font-medium text-slate-700 dark:text-slate-300">
           Proposed Actions ({data.length})
@@ -526,7 +530,7 @@ function ActionsSection({ data }: { data: any[] }) {
         {data.map((action: any, idx: number) => (
           <div
             key={idx}
-            className="p-3 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center justify-between"
+            className={`p-3 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center justify-between agent-animate-item agent-animate-item-delay-${Math.min(idx + 2, 8)}`}
           >
             <div>
               <p className="text-sm font-medium text-slate-900 dark:text-white">

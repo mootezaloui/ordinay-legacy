@@ -11,6 +11,7 @@
  */
 
 import { formatDateValue } from "./dateFormat.js";
+import { filterOperationalEntities, isOperationalEntity } from "./importState";
 
 /**
  * Calculate the next upcoming hearing/session for a case (procès)
@@ -20,13 +21,17 @@ import { formatDateValue } from "./dateFormat.js";
  * @returns {Object|null} - { date, type, label, entityId, entity } or null if no upcoming sessions
  */
 export function calculateNextHearing(caseEntity, relatedSessions = []) {
+  if (caseEntity && !isOperationalEntity(caseEntity)) {
+    return null;
+  }
   const now = new Date();
   now.setHours(0, 0, 0, 0); // Start of today
 
   const candidates = [];
 
   // Extract upcoming sessions
-  relatedSessions.forEach((session) => {
+  const operationalSessions = filterOperationalEntities(relatedSessions);
+  operationalSessions.forEach((session) => {
     if (session.date) {
       const sessionDate = parseDate(session.date);
       if (sessionDate && sessionDate >= now) {
@@ -101,13 +106,21 @@ export function calculateNextDeadline(
   relatedTasks = [],
   relatedFinancialEntries = []
 ) {
+  if (dossier && !isOperationalEntity(dossier)) {
+    return null;
+  }
   const now = new Date();
   now.setHours(0, 0, 0, 0); // Start of today
 
   const candidates = [];
+  const operationalSessions = filterOperationalEntities(relatedSessions);
+  const operationalTasks = filterOperationalEntities(relatedTasks);
+  const operationalFinancials = filterOperationalEntities(
+    relatedFinancialEntries
+  );
 
   // 1. Extract deadlines from sessions
-  relatedSessions.forEach((session) => {
+  operationalSessions.forEach((session) => {
     if (session.date) {
       const sessionDate = parseDate(session.date);
       if (sessionDate && sessionDate >= now) {
@@ -124,7 +137,7 @@ export function calculateNextDeadline(
   });
 
   // 2. Extract deadlines from tasks
-  relatedTasks.forEach((task) => {
+  operationalTasks.forEach((task) => {
     if (task.dueDate) {
       const taskDate = parseDate(task.dueDate);
       if (taskDate && taskDate >= now) {
@@ -141,7 +154,7 @@ export function calculateNextDeadline(
   });
 
   // 3. Extract deadlines from financial entries (payment deadlines)
-  relatedFinancialEntries.forEach((entry) => {
+  operationalFinancials.forEach((entry) => {
     if (entry.date && entry.type === "expense" && entry.status !== "paid") {
       const entryDate = parseDate(entry.date);
       if (entryDate && entryDate >= now) {
@@ -199,13 +212,21 @@ export function getAllUpcomingDeadlines(
   relatedFinancialEntries = [],
   limit = 5
 ) {
+  if (dossier && !isOperationalEntity(dossier)) {
+    return [];
+  }
   const now = new Date();
   now.setHours(0, 0, 0, 0);
 
   const candidates = [];
+  const operationalSessions = filterOperationalEntities(relatedSessions);
+  const operationalTasks = filterOperationalEntities(relatedTasks);
+  const operationalFinancials = filterOperationalEntities(
+    relatedFinancialEntries
+  );
 
   // Extract all deadlines (same logic as calculateNextDeadline)
-  relatedSessions.forEach((session) => {
+  operationalSessions.forEach((session) => {
     if (session.date) {
       const sessionDate = parseDate(session.date);
       if (sessionDate && sessionDate >= now) {
@@ -221,7 +242,7 @@ export function getAllUpcomingDeadlines(
     }
   });
 
-  relatedTasks.forEach((task) => {
+  operationalTasks.forEach((task) => {
     if (task.dueDate) {
       const taskDate = parseDate(task.dueDate);
       if (taskDate && taskDate >= now) {
@@ -237,7 +258,7 @@ export function getAllUpcomingDeadlines(
     }
   });
 
-  relatedFinancialEntries.forEach((entry) => {
+  operationalFinancials.forEach((entry) => {
     if (entry.date && entry.type === "expense" && entry.status !== "paid") {
       const entryDate = parseDate(entry.date);
       if (entryDate && entryDate >= now) {

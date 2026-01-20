@@ -44,7 +44,22 @@ function getById(id) {
  */
 function update(id, updates) {
   // Whitelist of allowed fields (no password fields)
-  const allowedFields = ['name', 'email', 'phone', 'specialization', 'bar_number', 'office', 'bio'];
+  const allowedFields = [
+    'name',
+    'title',
+    'office_name',
+    'office_address',
+    'email',
+    'phone',
+    'fax',
+    'mobile',
+    'specialization',
+    'bar_id',
+    'bar_number',
+    'vpa',
+    'office',
+    'bio'
+  ];
 
   // Filter to only allowed fields
   const filtered = {};

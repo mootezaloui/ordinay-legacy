@@ -23,6 +23,7 @@ import { clientFormFields } from "../components/FormModal/formConfigs";
 import { useData } from "../contexts/DataContext";
 import BlockerModal from "../components/ui/BlockerModal";
 import ConfirmImpactModal from "../components/ui/ConfirmImpactModal";
+import LegacyImportModal from "../components/ui/LegacyImportModal";
 import { canPerformAction } from "../services/domainRules";
 import { resolveDetailRoute } from "../utils/routeResolver";
 import { logEntityCreation, logStatusChange } from "../services/historyService";
@@ -60,6 +61,7 @@ export default function Clients() {
   const [blockedClient, setBlockedClient] = useState(null);
   const [blockedAction, setBlockedAction] = useState(null);
   const [confirmImpactModalOpen, setConfirmImpactModalOpen] = useState(false);
+  const [importModalOpen, setImportModalOpen] = useState(false);
   const [pendingFormData, setPendingFormData] = useState(null);
   const [pendingDeleteId, setPendingDeleteId] = useState(null);
 
@@ -385,17 +387,20 @@ export default function Clients() {
       if (editingClient) {
         await updateClient(editingClient.id, formData);
         showToast(t("toasts.updateSuccess"), "success");
-      } else {
-        const newClient = {
-          ...formData,
-          joinDate: formData.joinDate || new Date().toISOString().split('T')[0],
-        };
-        const creation = await addClient(newClient);
-        const createdEntity = creation?.created || creation;
-        const createdId = createdEntity?.id;
-        const createdName = createdEntity?.name || formData.name;
-        if (!createdId) {
-          showToast(t("toasts.createMissingId"), "warning");
+        } else {
+          const newClient = {
+            ...formData,
+            joinDate: formData.joinDate || new Date().toISOString().split('T')[0],
+          };
+          const creation = await addClient(newClient);
+          if (creation?.ok === false) {
+            return;
+          }
+          const createdEntity = creation?.created || creation;
+          const createdId = createdEntity?.id;
+          const createdName = createdEntity?.name || formData.name;
+          if (!createdId) {
+            showToast(t("toasts.createMissingId"), "warning");
           return;
         }
         showToast(t("toasts.createSuccess"), "success");
@@ -552,6 +557,7 @@ export default function Clients() {
           onToggleColumn={table.toggleColumnVisibility}
           onResetColumns={table.resetColumns}
           onExport={handleExport}
+          onImport={() => setImportModalOpen(true)}
           totalItems={table.originalTotalItems}
           filteredItems={table.totalItems}
           isFiltering={table.isFiltering}
@@ -595,15 +601,23 @@ export default function Clients() {
           </TableBody>
         </Table>
 
-        <Pagination
-          currentPage={table.currentPage}
-          totalPages={table.totalPages}
-          totalItems={table.totalItems}
-          itemsPerPage={table.itemsPerPage}
-          onPageChange={table.handlePageChange}
-          onItemsPerPageChange={table.handleItemsPerPageChange}
-        />
-      </ContentSection>
+      <Pagination
+        currentPage={table.currentPage}
+        totalPages={table.totalPages}
+        totalItems={table.totalItems}
+        itemsPerPage={table.itemsPerPage}
+        onPageChange={table.handlePageChange}
+        onItemsPerPageChange={table.handleItemsPerPageChange}
+      />
+    </ContentSection>
+
+      <LegacyImportModal
+        isOpen={importModalOpen}
+        onClose={() => setImportModalOpen(false)}
+        entityType="client"
+        entityLabel={t("page.title")}
+        onImported={() => window.location.reload()}
+      />
 
       <FormModal
         isOpen={isModalOpen}

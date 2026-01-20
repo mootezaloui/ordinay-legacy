@@ -154,6 +154,8 @@
       "nextHearing": "Prochaine audience",
       "at": "à",
       "adversaryLawyer": "Avocat adverse",
+        "judgmentNumber": "Numero du jugement",
+        "judgmentDate": "Date du jugement",
       "noDossier": "Aucun dossier assigné"
     },
     "fallback": {
@@ -207,6 +209,7 @@
       "courtInfo": "Informations du Tribunal",
       "dates": "Dates Importantes",
       "parties": "Parties",
+      "judgment": "Jugement",
       "relatedDossier": "Dossier Associé",
       "fields": {
         "caseNumber": "Numéro du Procès",
@@ -216,6 +219,8 @@
         "filingDate": "Date de dépôt",
         "adversaryParty": "Partie adverse",
         "adversaryLawyer": "Avocat adverse",
+        "judgmentNumber": "Numero du jugement",
+        "judgmentDate": "Date du jugement",
         "associatedDossier": "Dossier associé"
       },
       "courtOptions": {

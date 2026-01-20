@@ -8,7 +8,11 @@
     "notifications": "Notifications",
     "appointments": "Notifications de rendez-vous et d'échéances",
     "accountSecurity": "Compte & sécurité",
-    "appearance": "Apparence"
+    "appearance": "Apparence",
+    "imports": "Imports historiques"
+  },
+  "imports": {
+    "subtitle": "Consultez les imports bruts pour les clients."
   },
   "general": {
     "language": {

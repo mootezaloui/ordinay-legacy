@@ -385,12 +385,15 @@ export default function Dossiers() {
       if (editingDossier) {
         updateDossier(editingDossier.id, formData);
         showToast(t("toasts.updateSuccess"), "success");
-      } else {
-        const creation = await addDossier(formData);
-        const createdEntity = creation?.created || creation;
-        const createdId = createdEntity?.id;
-        const createdCaseNumber = createdEntity?.caseNumber || createdEntity?.reference || formData.caseNumber;
-        if (!createdId) throw new Error(t("errors.missingId"));
+        } else {
+          const creation = await addDossier(formData);
+          if (creation?.ok === false) {
+            return;
+          }
+          const createdEntity = creation?.created || creation;
+          const createdId = createdEntity?.id;
+          const createdCaseNumber = createdEntity?.caseNumber || createdEntity?.reference || formData.caseNumber;
+          if (!createdId) throw new Error(t("errors.missingId"));
         showToast(t("toasts.createSuccess"), "success");
 
         logEntityCreation('dossier', createdId, createdCaseNumber);
@@ -527,18 +530,18 @@ export default function Dossiers() {
       </div>
 
       <ContentSection data-tutorial="dossiers-list-container">
-        <TableToolbar
-          searchQuery={table.searchQuery}
-          onSearchChange={table.setSearchQuery}
-          columns={table.allColumns}
-          visibleColumns={table.visibleColumns}
-          onToggleColumn={table.toggleColumnVisibility}
-          onResetColumns={table.resetColumns}
-          onExport={handleExport}
-          totalItems={table.originalTotalItems}
-          filteredItems={table.totalItems}
-          isFiltering={table.isFiltering}
-        />
+          <TableToolbar
+            searchQuery={table.searchQuery}
+            onSearchChange={table.setSearchQuery}
+            columns={table.allColumns}
+            visibleColumns={table.visibleColumns}
+            onToggleColumn={table.toggleColumnVisibility}
+            onResetColumns={table.resetColumns}
+            onExport={handleExport}
+            totalItems={table.originalTotalItems}
+            filteredItems={table.totalItems}
+            isFiltering={table.isFiltering}
+          />
 
         <Table>
           <AdvancedTableHeader
@@ -580,15 +583,15 @@ export default function Dossiers() {
           </TableBody>
         </Table>
 
-        <Pagination
-          currentPage={table.currentPage}
-          totalPages={table.totalPages}
-          totalItems={table.totalItems}
-          itemsPerPage={table.itemsPerPage}
-          onPageChange={table.handlePageChange}
-          onItemsPerPageChange={table.handleItemsPerPageChange}
-        />
-      </ContentSection>
+      <Pagination
+        currentPage={table.currentPage}
+        totalPages={table.totalPages}
+        totalItems={table.totalItems}
+        itemsPerPage={table.itemsPerPage}
+        onPageChange={table.handlePageChange}
+        onItemsPerPageChange={table.handleItemsPerPageChange}
+      />
+    </ContentSection>
 
       <FormModal
         isOpen={isModalOpen}

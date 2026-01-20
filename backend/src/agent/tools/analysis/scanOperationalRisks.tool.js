@@ -66,7 +66,9 @@ async function handler({ entityType, entityId }) {
   // Get entity name for context
   const entityTable = entityType === "dossier" ? "dossiers" : "cases";
   const entity = db
-    .prepare(`SELECT id, title, reference FROM ${entityTable} WHERE id = ?`)
+    .prepare(
+      `SELECT id, title, reference FROM ${entityTable} WHERE id = ? AND validated = 1`
+    )
     .get(entityId);
 
   if (!entity) {
@@ -81,6 +83,7 @@ async function handler({ entityType, entityId }) {
       FROM tasks
       WHERE ${taskCondition}
         AND deleted_at IS NULL
+        AND validated = 1
         AND status NOT IN ('done', 'cancelled')
         AND priority = 'urgent'
         AND due_date < ?
@@ -118,6 +121,7 @@ async function handler({ entityType, entityId }) {
       FROM sessions
       WHERE ${sessionCondition}
         AND deleted_at IS NULL
+        AND validated = 1
         AND status IN ('scheduled', 'pending')
         AND scheduled_at >= ?
         AND scheduled_at <= datetime(?, '+3 days')
@@ -155,6 +159,7 @@ async function handler({ entityType, entityId }) {
       FROM tasks
       WHERE ${taskCondition}
         AND deleted_at IS NULL
+        AND validated = 1
         AND status = 'blocked'
       `
     )
@@ -189,9 +194,9 @@ async function handler({ entityType, entityId }) {
         `
         SELECT COUNT(*) as count
         FROM (
-          SELECT created_at FROM tasks WHERE dossier_id = ? AND created_at >= datetime(?, '-30 days')
+          SELECT created_at FROM tasks WHERE dossier_id = ? AND created_at >= datetime(?, '-30 days') AND validated = 1
           UNION ALL
-          SELECT created_at FROM sessions WHERE dossier_id = ? AND created_at >= datetime(?, '-30 days')
+          SELECT created_at FROM sessions WHERE dossier_id = ? AND created_at >= datetime(?, '-30 days') AND validated = 1
         )
         `
       )
@@ -224,6 +229,7 @@ async function handler({ entityType, entityId }) {
       FROM tasks
       WHERE ${taskCondition}
         AND deleted_at IS NULL
+        AND validated = 1
         AND status NOT IN ('done', 'cancelled')
         AND (assigned_to IS NULL OR assigned_to = '')
       `

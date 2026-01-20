@@ -26,6 +26,18 @@ export interface ContextRefs {
   taskId?: number;
 }
 
+// Data access permissions - controls which domains the agent can access
+export interface DataAccessPermissions {
+  clients: boolean;
+  dossiers: boolean;
+  cases: boolean;
+  tasks: boolean;
+  personalTasks: boolean;
+  missions: boolean;
+  sessions: boolean;
+  documents: boolean;
+}
+
 // Agent request to backend
 export interface AgentRequest {
   message: string;
@@ -329,10 +341,11 @@ export function streamAgentMessage(
     contextScope?: ContextScope;
     contextRefs?: ContextRefs;
     agentVersion?: AgentVersion;
+    dataAccess?: DataAccessPermissions;
   } = {},
   callbacks: StreamCallbacks
 ): AbortController {
-  const { contextScope = 'GLOBAL', contextRefs = {}, agentVersion = 'v1' } = options;
+  const { contextScope = 'GLOBAL', contextRefs = {}, agentVersion = 'v1', dataAccess } = options;
   const abortController = new AbortController();
 
   const request = {
@@ -340,6 +353,7 @@ export function streamAgentMessage(
     context: {
       ...contextRefs,
       scope: contextScope,
+      dataAccess,
     },
     agentVersion,
   };

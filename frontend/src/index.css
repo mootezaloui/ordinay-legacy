@@ -349,3 +349,119 @@
   @apply relative;
   @apply border-l-4 border-blue-500 dark:border-blue-400;
 }
+
+/* --------------------------
+   Agent Progressive Reveal Animations
+   Subtle, professional animations for agent outputs
+-------------------------- */
+
+/* Fade in with slight upward movement */
+@keyframes agent-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Container scaffold reveal */
+@keyframes agent-scaffold {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Shimmer effect for working state */
+@keyframes agent-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* Subtle pulse for working indicator */
+@keyframes agent-pulse {
+  0%, 100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Typing dots animation */
+@keyframes agent-dots {
+  0%, 20% {
+    opacity: 0.2;
+    transform: translateY(0);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
+  80%, 100% {
+    opacity: 0.2;
+    transform: translateY(0);
+  }
+}
+
+.agent-animate-scaffold {
+  animation: agent-scaffold 0.25s ease-out forwards;
+}
+
+.agent-animate-item {
+  opacity: 0;
+  animation: agent-fade-up 0.3s ease-out forwards;
+}
+
+.agent-animate-item-delay-1 { animation-delay: 0.05s; }
+.agent-animate-item-delay-2 { animation-delay: 0.1s; }
+.agent-animate-item-delay-3 { animation-delay: 0.15s; }
+.agent-animate-item-delay-4 { animation-delay: 0.2s; }
+.agent-animate-item-delay-5 { animation-delay: 0.25s; }
+.agent-animate-item-delay-6 { animation-delay: 0.3s; }
+.agent-animate-item-delay-7 { animation-delay: 0.35s; }
+.agent-animate-item-delay-8 { animation-delay: 0.4s; }
+
+.agent-shimmer {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(59, 130, 246, 0.08) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: agent-shimmer 1.5s ease-in-out infinite;
+}
+
+.dark .agent-shimmer {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(59, 130, 246, 0.15) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+}
+
+.agent-working-dot {
+  animation: agent-dots 1.4s ease-in-out infinite;
+}
+
+.agent-working-dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.agent-working-dot:nth-child(3) {
+  animation-delay: 0.4s;
+}

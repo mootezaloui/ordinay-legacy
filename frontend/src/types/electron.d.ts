@@ -37,6 +37,17 @@ export interface ElectronAPI {
    * Platform information
    */
   platform: NodeJS.Platform;
+
+  /**
+   * Read local license file
+   */
+  readLicenseFile: () => Promise<{ exists: boolean; contents?: string }>;
+
+  /**
+   * Write local license file (overwrites existing)
+   */
+  writeLicenseFile: (licenseData: unknown) => Promise<{ ok: boolean }>;
+
 }
 
 declare global {

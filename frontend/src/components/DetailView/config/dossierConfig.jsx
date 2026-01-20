@@ -142,7 +142,7 @@ export const createDossierConfig = (t) => {
       // Filter out relationship fields - dossier entity should only contain dossier-specific data
       const dossierFields = [
         'caseNumber', 'title', 'clientId', 'category', 'priority', 'phase',
-        'openDate', 'nextDeadline', 'description', 'status', 'notes' // ✅ Added notes
+        'openDate', 'nextDeadline', 'description', 'adversaryParty', 'adversaryLawyer', 'status', 'notes' // ✅ Added notes
       ];
       const dossierData = Object.keys(data).reduce((acc, key) => {
         if (dossierFields.includes(key)) {
@@ -865,3 +865,4 @@ function InfoCard({ icon, label, value, color, linkTo = null, subtitle = null })
 
   return <div className="flex items-center gap-3">{content}</div>;
 }
+

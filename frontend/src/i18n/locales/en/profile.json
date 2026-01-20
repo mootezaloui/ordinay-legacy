@@ -22,10 +22,16 @@
     "lastName": "Last Name",
     "email": "Email",
     "phone": "Phone",
+    "mobile": "Mobile",
+    "fax": "Fax",
     "title": "Title",
     "specialization": "Specialization",
     "barNumber": "Bar Number",
+    "barId": "Bar ID",
     "office": "Office",
+    "officeName": "Office Name",
+    "officeAddress": "Office Address",
+    "vpa": "VPA",
     "bio": "Biography"
   },
   "toasts": {

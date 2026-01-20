@@ -22,10 +22,16 @@
     "lastName": "Nom",
     "email": "Email",
     "phone": "Téléphone",
+    "mobile": "Mobile",
+    "fax": "Fax",
     "title": "Titre",
     "specialization": "Spécialisation",
     "barNumber": "Numéro d'inscription au barreau",
+    "barId": "ID barreau",
     "office": "Bureau",
+    "officeName": "Nom du cabinet",
+    "officeAddress": "Adresse du cabinet",
+    "vpa": "VPA",
     "bio": "Biographie"
   },
   "toasts": {

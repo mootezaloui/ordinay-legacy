@@ -19,6 +19,7 @@ import {
   determineDirection,
   CANONICAL_STATUSES,
 } from "./financialConstants";
+import { isOperationalEntity } from "./importState";
 
 /**
  * Check if a status represents a cancelled/void entry
@@ -38,6 +39,11 @@ const isCancelledStatus = (status) => {
  */
 export const filterFinancialEntries = (filters = {}, allEntries = []) => {
   let entries = [...allEntries];
+
+  // Exclude unvalidated imports by default
+  if (filters.includeUnvalidated !== true) {
+    entries = entries.filter(isOperationalEntity);
+  }
 
   // Exclude cancelled/void entries by default (unless explicitly requested)
   if (filters.includeCancelled !== true) {

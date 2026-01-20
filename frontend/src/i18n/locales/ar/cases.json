@@ -96,6 +96,8 @@
         "placeholder": "اسم الطرف الخصم"
       },
       "adversaryLawyer": {
+        "judgmentNumber": "رقم الحكم",
+        "judgmentDate": "تاريخ الحكم",
         "label": "محامي الخصم",
         "placeholder": "أ.د. اسم المحامي"
       },
@@ -154,6 +156,8 @@
       "nextHearing": "الجلسة القادمة",
       "at": "في",
       "adversaryLawyer": "محامي الخصم",
+        "judgmentNumber": "رقم الحكم",
+        "judgmentDate": "تاريخ الحكم",
       "noDossier": "لم يتم تعيين ملف"
     },
     "fallback": {
@@ -207,6 +211,7 @@
       "courtInfo": "معلومات المحكمة",
       "dates": "تواريخ مهمة",
       "parties": "الأطراف",
+      "judgment": "الحكم",
       "relatedDossier": "الملف المرتبط",
       "fields": {
         "caseNumber": "رقم الدعوى",
@@ -216,6 +221,8 @@
         "filingDate": "تاريخ التقديم",
         "adversaryParty": "الطرف الخصم",
         "adversaryLawyer": "محامي الخصم",
+        "judgmentNumber": "رقم الحكم",
+        "judgmentDate": "تاريخ الحكم",
         "associatedDossier": "الملف المرتبط"
       },
       "courtOptions": {

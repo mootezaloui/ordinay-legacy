@@ -445,10 +445,12 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
 
   // Initialize advanced table
   const table = useAdvancedTable(entries, columns, {
-    initialSortBy: "date",
-    initialSortDirection: "desc",
+    initialSortBy: null,
+    initialSortDirection: "asc",
     initialItemsPerPage: 10,
     searchableFields: ["description", "categoryLabel"],
+    entityType: "financialEntry",
+    enableIntelligentOrdering: true,
   });
 
   const handleAddEntry = () => {

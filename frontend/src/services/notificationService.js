@@ -1,7 +1,9 @@
 import { apiClient } from "./api/client";
+import { getAppLicenseState } from "./licenseService";
 
 const ENDPOINT = "/notifications";
 const isNotFoundError = (error) => error?.message?.includes("API error 404");
+const isLicenseLocked = () => getAppLicenseState() === "LOCKED";
 
 /**
  * notificationService.js
@@ -17,6 +19,7 @@ const isNotFoundError = (error) => error?.message?.includes("API error 404");
  * @returns {Promise<void>}
  */
 export async function dismissNotification(dedupe_key, user_id = 1) {
+  if (isLicenseLocked()) return null;
   try {
     await apiClient.post(`${ENDPOINT}/dismiss`, { dedupe_key, user_id });
   } catch (error) {
@@ -30,6 +33,7 @@ export async function dismissNotification(dedupe_key, user_id = 1) {
  * @returns {Promise<number>} Number of notifications cleared
  */
 export async function clearAllNotifications(options = {}) {
+  if (isLicenseLocked()) return 0;
   try {
     const params = new URLSearchParams(options).toString();
     const url = params ? `${ENDPOINT}?${params}` : ENDPOINT;
@@ -83,6 +87,7 @@ export async function getNotification(id) {
  * @returns {Promise<Object>} Created notification object
  */
 export async function createNotification(data) {
+  if (isLicenseLocked()) return null;
   try {
     const result = await apiClient.post(ENDPOINT, data);
     return result;
@@ -99,6 +104,7 @@ export async function createNotification(data) {
  * @returns {Promise<Object>} Updated notification object
  */
 export async function updateNotification(id, data) {
+  if (isLicenseLocked()) return null;
   try {
     const result = await apiClient.put(`${ENDPOINT}/${id}`, data);
     return result;
@@ -114,6 +120,7 @@ export async function updateNotification(id, data) {
  * @returns {Promise<void>}
  */
 export async function deleteNotification(id, options = {}) {
+  if (isLicenseLocked()) return;
   try {
     const params = new URLSearchParams(options).toString();
     const url = params ? `${ENDPOINT}/${id}?${params}` : `${ENDPOINT}/${id}`;
@@ -133,6 +140,7 @@ export async function deleteNotification(id, options = {}) {
  * @returns {Promise<Object>} Updated notification object
  */
 export async function markAsRead(id) {
+  if (isLicenseLocked()) return null;
   try {
     const data = await apiClient.put(`${ENDPOINT}/${id}`, {
       status: "read",
@@ -154,6 +162,7 @@ export async function markAsRead(id) {
  * @returns {Promise<Array>} Array of updated notifications
  */
 export async function markAllAsRead(notificationIds) {
+  if (isLicenseLocked()) return [];
   try {
     const promises = notificationIds.map((id) => markAsRead(id));
     const results = await Promise.all(promises);
@@ -170,6 +179,7 @@ export async function markAllAsRead(notificationIds) {
  * @returns {Promise<Object>} Updated notification object
  */
 export async function archiveNotification(id) {
+  if (isLicenseLocked()) return null;
   try {
     const data = await apiClient.put(`${ENDPOINT}/${id}`, {
       status: "archived",

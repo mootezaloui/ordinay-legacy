@@ -105,7 +105,11 @@ function list(includeDeleted = false) {
  * @returns {Array} Active financial entries
  */
 function listForBalance(filters = {}) {
-  const where = ["deleted_at IS NULL", "status NOT IN ('cancelled', 'void')"];
+  const where = [
+    "deleted_at IS NULL",
+    "status NOT IN ('cancelled', 'void')",
+    "validated = 1",
+  ];
   const params = {};
 
   if (filters.clientId) {
@@ -510,6 +514,7 @@ function checkParentDeletionAllowed(parentType, parentId) {
     WHERE ${whereClause}
     AND deleted_at IS NULL
     AND status NOT IN ('cancelled', 'void')
+    AND validated = 1
   `
     )
     .all(params);

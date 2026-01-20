@@ -93,6 +93,9 @@ export default function QuickActions({ onDataChange }) {
             joinDate: formData.joinDate || new Date().toISOString().split("T")[0],
           };
           const creation = await addClient(payload);
+          if (creation?.ok === false) {
+            return;
+          }
           const createdEntity = creation?.created || creation;
           const createdId = createdEntity?.id;
           const createdName = createdEntity?.name || formData.name;
@@ -105,6 +108,9 @@ export default function QuickActions({ onDataChange }) {
         }
         case "dossier": {
           const creation = await addDossier(formData);
+          if (creation?.ok === false) {
+            return;
+          }
           const createdEntity = creation?.created || creation;
           const createdId = createdEntity?.id;
           if (!createdId) throw new Error("dossier ID is missing");
@@ -121,6 +127,9 @@ export default function QuickActions({ onDataChange }) {
             parentType,
           };
           const creation = await addTask(payload);
+          if (creation?.ok === false) {
+            return;
+          }
           const createdEntity = creation?.created || creation;
           newEntity = { ...createdEntity };
           logEntityCreation("task", newEntity.id, newEntity.title);
@@ -130,6 +139,9 @@ export default function QuickActions({ onDataChange }) {
         }
         case "session": {
           const creation = await addSession(formData);
+          if (creation?.ok === false) {
+            return;
+          }
           const createdEntity = creation?.created || creation;
           newEntity = { ...createdEntity };
           logEntityCreation("session", newEntity.id, newEntity.title);

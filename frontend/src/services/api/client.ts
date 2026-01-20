@@ -6,6 +6,9 @@
  */
 
 import { getApiBase } from '../../lib/apiConfig';
+import { getAppLicenseState } from '../licenseService';
+
+const isLicenseLocked = () => getAppLicenseState() === "LOCKED";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const apiBase = getApiBase();
@@ -44,17 +47,23 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export const apiClient = {
   get: <T>(path: string) => request<T>(path),
   post: <T>(path: string, body: any) =>
-    request<T>(path, {
-      method: "POST",
-      body: JSON.stringify(body),
-    }),
+    isLicenseLocked()
+      ? Promise.reject(new Error("License inactive"))
+      : request<T>(path, {
+          method: "POST",
+          body: JSON.stringify(body),
+        }),
   put: <T>(path: string, body: any) =>
-    request<T>(path, {
-      method: "PUT",
-      body: JSON.stringify(body),
-    }),
+    isLicenseLocked()
+      ? Promise.reject(new Error("License inactive"))
+      : request<T>(path, {
+          method: "PUT",
+          body: JSON.stringify(body),
+        }),
   delete: <T>(path: string) =>
-    request<T>(path, {
-      method: "DELETE",
-    }),
+    isLicenseLocked()
+      ? Promise.reject(new Error("License inactive"))
+      : request<T>(path, {
+          method: "DELETE",
+        }),
 };

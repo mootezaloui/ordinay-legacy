@@ -91,7 +91,7 @@ export default function ConfirmDialog({
           </h2>
 
           {/* Message */}
-          <p className="text-gray-600 dark:text-gray-300 mb-6">
+          <p className="text-gray-600 dark:text-gray-300 mb-6 whitespace-pre-line">
             {message}
           </p>
 

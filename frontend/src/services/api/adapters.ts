@@ -171,6 +171,22 @@ const parseParticipants = (value: any): any[] => {
   }
 };
 
+const normalizeFlag = (value: any, defaultValue: boolean) => {
+  if (value === undefined || value === null) return defaultValue;
+  if (value === "1") return true;
+  if (value === "0") return false;
+  if (value === "true") return true;
+  if (value === "false") return false;
+  return value === true || value === 1;
+};
+
+const adaptImportState = (api: any) => ({
+  imported: normalizeFlag(api.imported, false),
+  validated: normalizeFlag(api.validated, true),
+  importSource: api.import_source ?? null,
+  importedAt: api.imported_at ?? null,
+});
+
 export function adaptClient(api: any) {
   return {
     id: api.id,
@@ -187,11 +203,13 @@ export function adaptClient(api: any) {
     taxId: api.tax_id ?? "",
     address: api.address ?? "",
     notes: adaptNotes(api.notes), // ✅ Adapt notes with proper field names
+    ...adaptImportState(api),
   };
 }
 
 export function adaptDossier(api: any, clientsById: Record<number, any>) {
   const clientName = clientsById[api.client_id]?.name ?? `Client #${api.client_id}`;
+  const adversaryName = api.adversary_name ?? api.adversary_party ?? "";
   return {
     id: api.id,
     caseNumber: api.reference ?? api.case_number ?? "",
@@ -205,19 +223,23 @@ export function adaptDossier(api: any, clientsById: Record<number, any>) {
     category: api.category ?? "",
     assignedLawyer: api.assigned_lawyer ?? "",
     description: api.description ?? "",
-    adversary: api.adversary_party ?? "",
-    adversaryParty: api.adversary_party ?? "",
+    adversaryName,
+    adversary: adversaryName,
+    adversaryParty: adversaryName,
     adversaryLawyer: api.adversary_lawyer ?? "",
     estimatedValue: api.estimated_value ?? "",
     courtReference: api.court_reference ?? "",
     nextDeadline: dateOnly(api.next_deadline),
     relatedCases: api.relatedCases || [],
     notes: adaptNotes(api.notes), // ✅ Adapt notes with proper field names
+    ...adaptImportState(api),
   };
 }
 
 export function adaptCase(api: any, dossiersById: Record<number, any>) {
   const dossierTitle = dossiersById[api.dossier_id]?.caseNumber ?? "";
+  const adversaryName =
+    api.adversary_name ?? api.adversary_party ?? api.adversary ?? "";
   return {
     id: api.id,
     caseNumber: api.reference ?? api.case_number ?? "",
@@ -227,15 +249,19 @@ export function adaptCase(api: any, dossiersById: Record<number, any>) {
     status: caseStatusMap[api.status] ?? api.status ?? "",
     openDate: dateOnly(api.opened_at),
     priority: priorityMap[api.priority] ?? api.priority ?? "",
-    adversaire: api.adversary ?? "",
-    adversaryParty: api.adversary_party ?? "",
+    adversaryName,
+    adversaire: api.adversary ?? adversaryName ?? "",
+    adversaryParty: api.adversary_party ?? api.adversary_name ?? "",
     adversaryLawyer: api.adversary_lawyer ?? "",
+    judgmentNumber: api.judgment_number ?? "",
+    judgmentDate: dateOnly(api.judgment_date),
     court: api.court ?? "",
     filingDate: dateOnly(api.filing_date),
     nextHearing: dateOnly(api.next_hearing),
     courtReference: api.reference_number ?? "",
     description: api.description ?? "",
     notes: adaptNotes(api.notes), // ✅ Adapt notes with proper field names
+    ...adaptImportState(api),
   };
 }
 
@@ -266,6 +292,7 @@ export function adaptTask(api: any, dossiersById: Record<number, any>, casesById
     description: api.description ?? "",
     createdDate: dateOnly(api.created_at),
     notes: adaptNotes(api.notes), // ✅ Adapt notes with proper field names
+    ...adaptImportState(api),
   };
 }
 
@@ -286,7 +313,8 @@ export function adaptSession(api: any, dossiersById: Record<number, any>, casesB
     caseId: api.case_id ?? null,
     dossier: dossierLabel,
     caseName: caseLabel,
-    date: dateOnly(api.scheduled_at),
+    date: dateOnly(api.session_date) || dateOnly(api.scheduled_at),
+    sessionDate: dateOnly(api.session_date) || dateOnly(api.scheduled_at),
     time: api.scheduled_at ? api.scheduled_at.split("T")[1]?.slice(0, 5) ?? "" : "",
     scheduledAt: api.scheduled_at ?? "",
     status: sessionStatusMap[api.status] ?? api.status ?? "",
@@ -296,6 +324,7 @@ export function adaptSession(api: any, dossiersById: Record<number, any>, casesB
     duration: api.duration ?? "",
     outcome: api.outcome ?? "",
     notes: adaptNotes(api.notes), // ✅ Adapt notes with proper field names
+    ...adaptImportState(api),
     description: api.description ?? "",
     participants: parseParticipants(api.participants),
   };
@@ -315,6 +344,7 @@ export function adaptOfficer(api: any) {
     status: officerStatusMap[api.status] ?? api.status ?? "",
     registrationNumber: api.registration_number ?? "",
     notes: adaptNotes(api.notes), // ✅ Adapt notes with proper field names
+    ...adaptImportState(api),
     missions: [],
   };
 }
@@ -378,6 +408,7 @@ export function adaptFinancialEntry(
     // Metadata
     createdAt: api.created_at ?? null,
     updatedAt: api.updated_at ?? null,
+    ...adaptImportState(api),
   };
 }
 
@@ -409,6 +440,7 @@ export function adaptMission(
     closedAt: dateOnly(api.closed_at),
     result: api.result ?? "",
     notes: adaptNotes(api.notes), // ✅ Adapt notes with proper field names
+    ...adaptImportState(api),
     description: api.description ?? "",
     dossierId: api.dossier_id ?? null,
     caseId: api.case_id ?? null,
@@ -448,6 +480,7 @@ export function adaptPersonalTask(api: any) {
     dueDate: dateOnly(api.due_date),
     completedAt: dateOnly(api.completed_at),
     notes: adaptNotes(api.notes), // ✅ Adapt notes with proper field names
+    ...adaptImportState(api),
     createdDate: dateOnly(api.created_at),
   };
 }

@@ -1,7 +1,57 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { AgentMessage, AgentMessageData } from "../types/agentMessage";
 import { useAgentSessions } from "./useAgentSessions";
-import { streamAgentMessage, ContextScope, AgentVersion } from "../../services/api/agent";
+import { streamAgentMessage, ContextScope, AgentVersion, DataAccessPermissions } from "../../services/api/agent";
+
+// Default data access - all domains enabled
+const DEFAULT_DATA_ACCESS: DataAccessPermissions = {
+  clients: true,
+  dossiers: true,
+  cases: true,
+  tasks: true,
+  personalTasks: true,
+  missions: true,
+  sessions: true,
+  documents: true,
+};
+
+// Storage key for persisting data access permissions
+const DATA_ACCESS_STORAGE_KEY = 'organia_agent_data_access';
+
+/**
+ * Load data access permissions from localStorage
+ * Returns DEFAULT_DATA_ACCESS if no saved state exists
+ */
+function loadDataAccessFromStorage(): DataAccessPermissions {
+  try {
+    const stored = localStorage.getItem(DATA_ACCESS_STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      // Validate structure - ensure all required keys exist
+      const validated: DataAccessPermissions = { ...DEFAULT_DATA_ACCESS };
+      for (const key of Object.keys(DEFAULT_DATA_ACCESS) as Array<keyof DataAccessPermissions>) {
+        if (typeof parsed[key] === 'boolean') {
+          validated[key] = parsed[key];
+        }
+      }
+      return validated;
+    }
+  } catch {
+    // Ignore parse errors, return default
+  }
+  return DEFAULT_DATA_ACCESS;
+}
+
+/**
+ * Save data access permissions to localStorage
+ */
+function saveDataAccessToStorage(dataAccess: DataAccessPermissions): void {
+  try {
+    localStorage.setItem(DATA_ACCESS_STORAGE_KEY, JSON.stringify(dataAccess));
+  } catch {
+    // Ignore storage errors
+  }
+}
 
 export function useAgentState() {
   const {
@@ -10,6 +60,7 @@ export function useAgentState() {
     updateSessionMessages,
     updateSessionDraft,
     getRelativeTime,
+    createSession,
   } = useAgentSessions();
 
   const [input, setInput] = useState("");
@@ -18,6 +69,8 @@ export function useAgentState() {
   const [isLoading, setIsLoading] = useState(false);
   const [agentVersion, setAgentVersion] = useState<AgentVersion>("v1");
   const [contextScope, setContextScope] = useState<ContextScope>("GLOBAL");
+  // CRITICAL: Load data access permissions from localStorage on init
+  const [dataAccess, setDataAccess] = useState<DataAccessPermissions>(loadDataAccessFromStorage);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const conversationEndRef = useRef<HTMLDivElement>(null);
   const scrollPositions = useRef<Record<string, number>>({});
@@ -51,6 +104,11 @@ export function useAgentState() {
       streamAbortRef.current?.abort();
     };
   }, []);
+
+  // CRITICAL: Persist data access permissions to localStorage on change
+  useEffect(() => {
+    saveDataAccessToStorage(dataAccess);
+  }, [dataAccess]);
 
   // Cancel current stream (can be called from UI)
   const cancelStream = useCallback(() => {
@@ -104,7 +162,16 @@ export function useAgentState() {
   const handleSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = input.trim();
-    if (!trimmed || !activeSessionId || isLoading) return;
+    if (!trimmed || isLoading) return;
+
+    // Bootstrap session if none exists
+    let sessionId = activeSessionId;
+    let currentMessages = conversation;
+    if (!activeSession) {
+      const newSession = createSession();
+      sessionId = newSession.id;
+      currentMessages = [];
+    }
 
     const userMessage: AgentMessage = {
       id: `u-${Date.now()}`,
@@ -124,14 +191,14 @@ export function useAgentState() {
     };
 
     // Capture current messages for updates
-    const baseMessages = [...conversation, userMessage];
-    updateSessionMessages(activeSessionId, [...baseMessages, streamingMessage]);
+    const baseMessages = [...currentMessages, userMessage];
+    updateSessionMessages(sessionId, [...baseMessages, streamingMessage]);
     setInput("");
-    updateSessionDraft(activeSessionId, "");
+    updateSessionDraft(sessionId, "");
     setIsLoading(true);
 
     // Track which session this stream belongs to
-    streamSessionRef.current = activeSessionId;
+    streamSessionRef.current = sessionId;
 
     // Accumulated content for streaming
     let streamedContent = "";
@@ -141,14 +208,14 @@ export function useAgentState() {
     // Start streaming
     const abortController = streamAgentMessage(
       trimmed,
-      { contextScope, agentVersion },
+      { contextScope, agentVersion, dataAccess },
       {
         onStart: (data) => {
           intent = data.intent;
         },
         onChunk: (content) => {
           // Ignore if session changed
-          if (streamSessionRef.current !== activeSessionId) return;
+          if (streamSessionRef.current !== sessionId) return;
 
           streamedContent += content;
           const updatedMessage: AgentMessage = {
@@ -159,11 +226,11 @@ export function useAgentState() {
             status: "sending",
             intent,
           };
-          updateSessionMessages(activeSessionId, [...baseMessages, updatedMessage]);
+          updateSessionMessages(sessionId, [...baseMessages, updatedMessage]);
         },
         onResult: (data) => {
           // Non-streaming structured result (for non-chat intents)
-          if (streamSessionRef.current !== activeSessionId) return;
+          if (streamSessionRef.current !== sessionId) return;
 
           const output = data.output;
           intent = data.intent;
@@ -191,10 +258,10 @@ export function useAgentState() {
             intent,
             data: agentData,
           };
-          updateSessionMessages(activeSessionId, [...baseMessages, resultMessage]);
+          updateSessionMessages(sessionId, [...baseMessages, resultMessage]);
         },
         onDone: () => {
-          if (streamSessionRef.current !== activeSessionId) return;
+          if (streamSessionRef.current !== sessionId) return;
 
           const finalMessage: AgentMessage = {
             id: agentMessageId,
@@ -205,13 +272,13 @@ export function useAgentState() {
             intent,
             data: agentData,
           };
-          updateSessionMessages(activeSessionId, [...baseMessages, finalMessage]);
+          updateSessionMessages(sessionId, [...baseMessages, finalMessage]);
           setIsLoading(false);
           streamAbortRef.current = null;
           streamSessionRef.current = null;
         },
         onError: (error) => {
-          if (streamSessionRef.current !== activeSessionId) return;
+          if (streamSessionRef.current !== sessionId) return;
 
           const errorMessage: AgentMessage = {
             id: agentMessageId,
@@ -221,7 +288,7 @@ export function useAgentState() {
             status: "error",
             data: { type: "error", error },
           };
-          updateSessionMessages(activeSessionId, [...baseMessages, errorMessage]);
+          updateSessionMessages(sessionId, [...baseMessages, errorMessage]);
           setIsLoading(false);
           streamAbortRef.current = null;
           streamSessionRef.current = null;
@@ -235,7 +302,7 @@ export function useAgentState() {
     );
 
     streamAbortRef.current = abortController;
-  }, [input, activeSessionId, conversation, updateSessionMessages, updateSessionDraft, isLoading, contextScope, agentVersion]);
+  }, [input, activeSessionId, activeSession, conversation, updateSessionMessages, updateSessionDraft, createSession, isLoading, contextScope, agentVersion, dataAccess]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -269,7 +336,7 @@ export function useAgentState() {
 
     const abortController = streamAgentMessage(
       userContent,
-      { contextScope, agentVersion },
+      { contextScope, agentVersion, dataAccess },
       {
         onStart: (data) => {
           intent = data.intent;
@@ -363,7 +430,7 @@ export function useAgentState() {
     );
 
     streamAbortRef.current = abortController;
-  }, [activeSessionId, activeSession, updateSessionMessages, isLoading, contextScope, agentVersion]);
+  }, [activeSessionId, activeSession, updateSessionMessages, isLoading, contextScope, agentVersion, dataAccess]);
 
 
   const handleExampleClick = useCallback((example: string) => {
@@ -384,6 +451,8 @@ export function useAgentState() {
     setAgentVersion,
     contextScope,
     setContextScope,
+    dataAccess,
+    setDataAccess,
     inputRef,
     conversationEndRef,
     handleSubmit,
