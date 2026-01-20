@@ -409,7 +409,7 @@ export const createOfficerConfig = (t) => ({
           key: "status",
           label: t('detail.quickActions.status.label'),
           value: (data) => data.status,
-          displayValue: (data) => data.status || t('detail.fallback.na'),
+          displayValue: (data) => translateStatus(data.status, "officers", t) || t('detail.fallback.na'),
           icon: "fas fa-flag",
           type: "select",
           editable: true,

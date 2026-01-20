@@ -584,7 +584,7 @@ export default function DetailView({ entityType }) {
       case "timeline":
         return <TimelineTab data={data} config={config} />;
       case "history":
-        return <HistoryTab entityType={config.entityType} entityId={parseInt(id)} />;
+        return <HistoryTab entityType={config.entityType} entityId={parseInt(id)} label={tabConfig.label} />;
       case "notes":
         return <NotesTab
           data={data}

@@ -25,11 +25,12 @@ import BlockerModal from "../components/ui/BlockerModal";
 import ConfirmImpactModal from "../components/ui/ConfirmImpactModal";
 import { canPerformAction } from "../services/domainRules";
 import { resolveDetailRoute } from "../utils/routeResolver";
-import { logEntityCreation } from "../services/historyService";
+import { logEntityCreation, logHistoryEvent, EVENT_TYPES } from "../services/historyService";
 import { useSettings } from "../contexts/SettingsContext";
 
 export default function Sessions() {
   const { t } = useTranslation("sessions");
+  const { t: tCommon } = useTranslation("common");
   const navigate = useNavigate();
   const { showToast } = useToast();
   const { confirm } = useConfirm();
@@ -362,6 +363,42 @@ export default function Sessions() {
           showToast(t("toasts.createSuccess"), "success");
 
           logEntityCreation("session", createdSession.id, formData.type || "Session");
+
+          const sessionTitle = createdSession.title || formData.title || getTypeLabel(formData.type || createdSession.type) || "Session";
+          const hearingLabel = tCommon("detail.history.labels.hearingCreated");
+          const historyLabel = `${hearingLabel}: ${sessionTitle}`;
+
+          if (createdSession.caseId) {
+            logHistoryEvent({
+              entityType: "case",
+              entityId: createdSession.caseId,
+              eventType: EVENT_TYPES.RELATION,
+              label: historyLabel,
+              details: historyLabel,
+              metadata: { childType: "session", childId: createdSession.id },
+            });
+            const caseItem = cases.find((c) => String(c.id) === String(createdSession.caseId));
+            if (caseItem?.dossierId) {
+              const dossierLabel = caseItem.caseNumber ? `${historyLabel} (${caseItem.caseNumber})` : historyLabel;
+              logHistoryEvent({
+                entityType: "dossier",
+                entityId: caseItem.dossierId,
+                eventType: EVENT_TYPES.RELATION,
+                label: dossierLabel,
+                details: dossierLabel,
+                metadata: { childType: "case", childId: caseItem.id, relatedType: "session", relatedId: createdSession.id },
+              });
+            }
+          } else if (createdSession.dossierId) {
+            logHistoryEvent({
+              entityType: "dossier",
+              entityId: createdSession.dossierId,
+              eventType: EVENT_TYPES.RELATION,
+              label: historyLabel,
+              details: historyLabel,
+              metadata: { childType: "session", childId: createdSession.id },
+            });
+          }
 
         // Notify tutorial that a session was created
         if (tutorial?.setCreatedSession) {

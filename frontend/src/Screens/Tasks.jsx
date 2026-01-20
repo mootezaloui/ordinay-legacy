@@ -26,7 +26,7 @@ import BlockerModal from "../components/ui/BlockerModal";
 import ConfirmImpactModal from "../components/ui/ConfirmImpactModal";
 import { canPerformAction } from "../services/domainRules";
 import { resolveDetailRoute } from "../utils/routeResolver";
-import { logEntityCreation } from "../services/historyService";
+import { logEntityCreation, logHistoryEvent, EVENT_TYPES } from "../services/historyService";
 import { useSettings } from "../contexts/SettingsContext";
 import { useTranslation } from "react-i18next";
 import { translateAssignee } from "../utils/entityTranslations";
@@ -54,6 +54,7 @@ export default function Tasks() {
   const tutorial = useTutorialSafe(); // Safe hook that returns null if not in provider
   const { formatDate } = useSettings();
   const { t } = useTranslation("tasks");
+  const { t: tCommon } = useTranslation("common");
 
   // Removed local tasks state; use context only
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -416,17 +417,51 @@ export default function Tasks() {
       if (editingTask) {
         await updateTask(editingTask.id, formData);
         showToast(t("toasts.updateSuccess"), "success");
-        } else {
-          const creation = await addTask(formData);
-          if (creation?.ok === false) {
-            return;
-          }
-          const createdEntity = creation?.created || creation;
-          const createdId = createdEntity?.id;
-          if (!createdId) throw new Error(t("toasts.missingId"));
-          showToast(t("toasts.createSuccess"), "success");
+      } else {
+        const creation = await addTask(formData);
+        if (creation?.ok === false) {
+          return;
+        }
+        const createdEntity = creation?.created || creation;
+        const createdId = createdEntity?.id;
+        if (!createdId) throw new Error(t("toasts.missingId"));
+        showToast(t("toasts.createSuccess"), "success");
 
         logEntityCreation('task', createdId, createdEntity?.title);
+        const taskTitle = createdEntity?.title || formData.title || "Task";
+        const taskLabel = tCommon("detail.history.labels.taskCreated");
+        const historyLabel = `${taskLabel}: ${taskTitle}`;
+        if (createdEntity?.caseId) {
+          logHistoryEvent({
+            entityType: "case",
+            entityId: createdEntity.caseId,
+            eventType: EVENT_TYPES.RELATION,
+            label: historyLabel,
+            details: historyLabel,
+            metadata: { childType: "task", childId: createdId },
+          });
+          const caseItem = cases.find((c) => String(c.id) === String(createdEntity.caseId));
+          if (caseItem?.dossierId) {
+            const dossierLabel = caseItem.caseNumber ? `${historyLabel} (${caseItem.caseNumber})` : historyLabel;
+            logHistoryEvent({
+              entityType: "dossier",
+              entityId: caseItem.dossierId,
+              eventType: EVENT_TYPES.RELATION,
+              label: dossierLabel,
+              details: dossierLabel,
+              metadata: { childType: "case", childId: caseItem.id, relatedType: "task", relatedId: createdId },
+            });
+          }
+        } else if (createdEntity?.dossierId) {
+          logHistoryEvent({
+            entityType: "dossier",
+            entityId: createdEntity.dossierId,
+            eventType: EVENT_TYPES.RELATION,
+            label: historyLabel,
+            details: historyLabel,
+            metadata: { childType: "task", childId: createdId },
+          });
+        }
 
         // Notify tutorial that task was created (advances tutorial if on CREATE_TASK step)
         if (tutorial?.setCreatedTask) {

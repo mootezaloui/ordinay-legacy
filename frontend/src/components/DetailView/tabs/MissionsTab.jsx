@@ -9,6 +9,7 @@ import ConfirmImpactModal from "../../ui/ConfirmImpactModal";
 import BlockerModal from "../../ui/BlockerModal";
 import { canPerformAction } from "../../../services/domainRules";
 import { getStatusColor } from "../config/statusColors";
+import { translateMissionStatus } from "../../../utils/entityTranslations";
 import {
   formatCurrency
 } from "../../../utils/financialUtils";
@@ -1015,7 +1016,7 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
                           mission.status
                         )}`}
                       >
-                        {mission.status}
+                        {translateMissionStatus(mission.status, t)}
                       </span>
                       {mission.priority === "High" && (
                         <span className="px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">

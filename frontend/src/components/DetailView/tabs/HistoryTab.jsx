@@ -27,7 +27,7 @@ import ContentSection from "../../layout/ContentSection";
  * - Domain rule confirmations
  * - Relational impact confirmations
  */
-export default function HistoryTab({ entityType, entityId }) {
+export default function HistoryTab({ entityType, entityId, label }) {
     const { t, i18n } = useTranslation("common");
     const [history, setHistory] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -47,7 +47,7 @@ export default function HistoryTab({ entityType, entityId }) {
 
     if (loading) {
         return (
-            <ContentSection data-tutorial="dossier-history-section" title={t("detail.tabs.history")}>
+            <ContentSection data-tutorial="dossier-history-section" title={label || t("detail.tabs.history")}>
                 <div className="flex flex-col items-center justify-center p-12 text-center">
                     <Clock className="w-16 h-16 text-slate-300 dark:text-slate-600 mb-4 animate-pulse" />
                     <h3 className="text-lg font-medium text-slate-700 dark:text-slate-300 mb-2">
@@ -60,7 +60,7 @@ export default function HistoryTab({ entityType, entityId }) {
 
     if (!history || history.length === 0) {
         return (
-            <ContentSection data-tutorial="dossier-history-section" title={t("detail.tabs.history")}>
+            <ContentSection data-tutorial="dossier-history-section" title={label || t("detail.tabs.history")}>
                 <div className="flex flex-col items-center justify-center p-12 text-center">
                     <Clock className="w-16 h-16 text-slate-300 dark:text-slate-600 mb-4" />
                     <h3 className="text-lg font-medium text-slate-700 dark:text-slate-300 mb-2">
@@ -75,7 +75,7 @@ export default function HistoryTab({ entityType, entityId }) {
     }
 
     return (
-        <ContentSection data-tutorial="dossier-history-section" title={t("detail.tabs.history")}>
+        <ContentSection data-tutorial="dossier-history-section" title={label || t("detail.tabs.history")}>
             <div className="p-6">
                 <div className="max-w-4xl mx-auto">
                     {/* Timeline */}

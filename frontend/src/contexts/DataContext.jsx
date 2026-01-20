@@ -1395,6 +1395,43 @@ export function DataProvider({ children }) {
     });
     logUpdateHistory("session", prev, updates, actorName);
     logStatusHistory("session", prev, updates, actorName);
+    const sessionTitle = adapted.title || prev?.title || updates?.title || "Session";
+    const updateLabel = `Session updated: ${sessionTitle}`;
+    if (adapted.caseId) {
+      logHistoryEvent({
+        entityType: "case",
+        entityId: adapted.caseId,
+        eventType: EVENT_TYPES.RELATION,
+        label: updateLabel,
+        details: updateLabel,
+        metadata: { childType: "session", childId: adapted.id },
+        actor: actorName,
+      });
+      const caseItem = cases.find((c) => String(c.id) === String(adapted.caseId));
+      if (caseItem?.dossierId) {
+        const caseRef = caseItem.caseNumber || caseItem.title || "";
+        const dossierLabel = caseRef ? `${updateLabel} (${caseRef})` : updateLabel;
+        logHistoryEvent({
+          entityType: "dossier",
+          entityId: caseItem.dossierId,
+          eventType: EVENT_TYPES.RELATION,
+          label: dossierLabel,
+          details: dossierLabel,
+          metadata: { childType: "case", childId: caseItem.id, relatedType: "session", relatedId: adapted.id },
+          actor: actorName,
+        });
+      }
+    } else if (adapted.dossierId) {
+      logHistoryEvent({
+        entityType: "dossier",
+        entityId: adapted.dossierId,
+        eventType: EVENT_TYPES.RELATION,
+        label: updateLabel,
+        details: updateLabel,
+        metadata: { childType: "session", childId: adapted.id },
+        actor: actorName,
+      });
+    }
 
     return validation;
   };
@@ -1424,6 +1461,24 @@ export function DataProvider({ children }) {
     });
 
     logDeletionHistory("session", prev, actorName);
+    if (prev?.caseId) {
+      const caseItem = cases.find((c) => String(c.id) === String(prev.caseId));
+      if (caseItem?.dossierId) {
+        const sessionTitle = prev.title || "Session";
+        const deleteLabel = `Session deleted: ${sessionTitle}`;
+        const caseRef = caseItem.caseNumber || caseItem.title || "";
+        const dossierLabel = caseRef ? `${deleteLabel} (${caseRef})` : deleteLabel;
+        logHistoryEvent({
+          entityType: "dossier",
+          entityId: caseItem.dossierId,
+          eventType: EVENT_TYPES.RELATION,
+          label: dossierLabel,
+          details: dossierLabel,
+          metadata: { childType: "case", childId: caseItem.id, relatedType: "session", relatedId: prev.id },
+          actor: actorName,
+        });
+      }
+    }
     return { ok: true, result: validation.result };
   };
 
@@ -1551,6 +1606,43 @@ export function DataProvider({ children }) {
     });
     logUpdateHistory("task", prev, updates, actorName);
     logStatusHistory("task", prev, updates, actorName);
+    const taskTitle = adapted.title || prev?.title || updates?.title || "Task";
+    const updateLabel = `Task updated: ${taskTitle}`;
+    if (adapted.caseId) {
+      logHistoryEvent({
+        entityType: "case",
+        entityId: adapted.caseId,
+        eventType: EVENT_TYPES.RELATION,
+        label: updateLabel,
+        details: updateLabel,
+        metadata: { childType: "task", childId: adapted.id },
+        actor: actorName,
+      });
+      const caseItem = cases.find((c) => String(c.id) === String(adapted.caseId));
+      if (caseItem?.dossierId) {
+        const caseRef = caseItem.caseNumber || caseItem.title || "";
+        const dossierLabel = caseRef ? `${updateLabel} (${caseRef})` : updateLabel;
+        logHistoryEvent({
+          entityType: "dossier",
+          entityId: caseItem.dossierId,
+          eventType: EVENT_TYPES.RELATION,
+          label: dossierLabel,
+          details: dossierLabel,
+          metadata: { childType: "case", childId: caseItem.id, relatedType: "task", relatedId: adapted.id },
+          actor: actorName,
+        });
+      }
+    } else if (adapted.dossierId) {
+      logHistoryEvent({
+        entityType: "dossier",
+        entityId: adapted.dossierId,
+        eventType: EVENT_TYPES.RELATION,
+        label: updateLabel,
+        details: updateLabel,
+        metadata: { childType: "task", childId: adapted.id },
+        actor: actorName,
+      });
+    }
 
     return validation;
   };
@@ -1580,6 +1672,24 @@ export function DataProvider({ children }) {
     });
 
     logDeletionHistory("task", prev, actorName);
+    if (prev?.caseId) {
+      const caseItem = cases.find((c) => String(c.id) === String(prev.caseId));
+      if (caseItem?.dossierId) {
+        const taskTitle = prev.title || "Task";
+        const deleteLabel = `Task deleted: ${taskTitle}`;
+        const caseRef = caseItem.caseNumber || caseItem.title || "";
+        const dossierLabel = caseRef ? `${deleteLabel} (${caseRef})` : deleteLabel;
+        logHistoryEvent({
+          entityType: "dossier",
+          entityId: caseItem.dossierId,
+          eventType: EVENT_TYPES.RELATION,
+          label: dossierLabel,
+          details: dossierLabel,
+          metadata: { childType: "case", childId: caseItem.id, relatedType: "task", relatedId: prev.id },
+          actor: actorName,
+        });
+      }
+    }
     return { ok: true, result: validation.result };
   };
 
@@ -2167,6 +2277,55 @@ export function DataProvider({ children }) {
     }
 
     logCreationHistory("mission", created, actorName);
+    const createdTitle = adapted.title || created.title || "Mission";
+    const missionCreateLabel = `Mission created: ${createdTitle}`;
+    if (adapted.caseId) {
+      logHistoryEvent({
+        entityType: "case",
+        entityId: adapted.caseId,
+        eventType: EVENT_TYPES.RELATION,
+        label: missionCreateLabel,
+        details: missionCreateLabel,
+        metadata: { childType: "mission", childId: adapted.id },
+        actor: actorName,
+      });
+      const caseItem = cases.find((c) => String(c.id) === String(adapted.caseId));
+      if (caseItem?.dossierId) {
+        const caseRef = caseItem.caseNumber || caseItem.title || "";
+        const dossierLabel = caseRef ? `${missionCreateLabel} (${caseRef})` : missionCreateLabel;
+        logHistoryEvent({
+          entityType: "dossier",
+          entityId: caseItem.dossierId,
+          eventType: EVENT_TYPES.RELATION,
+          label: dossierLabel,
+          details: dossierLabel,
+          metadata: { childType: "case", childId: caseItem.id, relatedType: "mission", relatedId: adapted.id },
+          actor: actorName,
+        });
+      }
+    } else if (adapted.dossierId) {
+      logHistoryEvent({
+        entityType: "dossier",
+        entityId: adapted.dossierId,
+        eventType: EVENT_TYPES.RELATION,
+        label: missionCreateLabel,
+        details: missionCreateLabel,
+        metadata: { childType: "mission", childId: adapted.id },
+        actor: actorName,
+      });
+    }
+    if (adapted.officerId) {
+      const createLabel = `Mission created: ${createdTitle}`;
+      logHistoryEvent({
+        entityType: "officer",
+        entityId: adapted.officerId,
+        eventType: EVENT_TYPES.RELATION,
+        label: createLabel,
+        details: createLabel,
+        metadata: { childType: "mission", childId: adapted.id },
+        actor: actorName,
+      });
+    }
     return { ok: true, result: validation.result, created: adapted };
   };
 
@@ -2253,6 +2412,55 @@ export function DataProvider({ children }) {
     });
     logUpdateHistory("mission", prev, updates, actorName);
     logStatusHistory("mission", prev, updates, actorName);
+    const updatedTitle = adapted.title || prev?.title || "Mission";
+    const missionUpdateLabel = `Mission updated: ${updatedTitle}`;
+    if (adapted.caseId) {
+      logHistoryEvent({
+        entityType: "case",
+        entityId: adapted.caseId,
+        eventType: EVENT_TYPES.RELATION,
+        label: missionUpdateLabel,
+        details: missionUpdateLabel,
+        metadata: { childType: "mission", childId: adapted.id },
+        actor: actorName,
+      });
+      const caseItem = cases.find((c) => String(c.id) === String(adapted.caseId));
+      if (caseItem?.dossierId) {
+        const caseRef = caseItem.caseNumber || caseItem.title || "";
+        const dossierLabel = caseRef ? `${missionUpdateLabel} (${caseRef})` : missionUpdateLabel;
+        logHistoryEvent({
+          entityType: "dossier",
+          entityId: caseItem.dossierId,
+          eventType: EVENT_TYPES.RELATION,
+          label: dossierLabel,
+          details: dossierLabel,
+          metadata: { childType: "case", childId: caseItem.id, relatedType: "mission", relatedId: adapted.id },
+          actor: actorName,
+        });
+      }
+    } else if (adapted.dossierId) {
+      logHistoryEvent({
+        entityType: "dossier",
+        entityId: adapted.dossierId,
+        eventType: EVENT_TYPES.RELATION,
+        label: missionUpdateLabel,
+        details: missionUpdateLabel,
+        metadata: { childType: "mission", childId: adapted.id },
+        actor: actorName,
+      });
+    }
+    if (adapted.officerId) {
+      const updateLabel = `Mission updated: ${updatedTitle}`;
+      logHistoryEvent({
+        entityType: "officer",
+        entityId: adapted.officerId,
+        eventType: EVENT_TYPES.RELATION,
+        label: updateLabel,
+        details: updateLabel,
+        metadata: { childType: "mission", childId: adapted.id },
+        actor: actorName,
+      });
+    }
 
     return adapted;
   };
@@ -2290,6 +2498,55 @@ export function DataProvider({ children }) {
     });
     logUpdateHistory("mission", prev, updates, actorName);
     logStatusHistory("mission", prev, updates, actorName);
+    const updatedTitle = adapted.title || prev?.title || updates?.title || "Mission";
+    const missionUpdateLabel = `Mission updated: ${updatedTitle}`;
+    if (adapted.caseId) {
+      logHistoryEvent({
+        entityType: "case",
+        entityId: adapted.caseId,
+        eventType: EVENT_TYPES.RELATION,
+        label: missionUpdateLabel,
+        details: missionUpdateLabel,
+        metadata: { childType: "mission", childId: adapted.id },
+        actor: actorName,
+      });
+      const caseItem = cases.find((c) => String(c.id) === String(adapted.caseId));
+      if (caseItem?.dossierId) {
+        const caseRef = caseItem.caseNumber || caseItem.title || "";
+        const dossierLabel = caseRef ? `${missionUpdateLabel} (${caseRef})` : missionUpdateLabel;
+        logHistoryEvent({
+          entityType: "dossier",
+          entityId: caseItem.dossierId,
+          eventType: EVENT_TYPES.RELATION,
+          label: dossierLabel,
+          details: dossierLabel,
+          metadata: { childType: "case", childId: caseItem.id, relatedType: "mission", relatedId: adapted.id },
+          actor: actorName,
+        });
+      }
+    } else if (adapted.dossierId) {
+      logHistoryEvent({
+        entityType: "dossier",
+        entityId: adapted.dossierId,
+        eventType: EVENT_TYPES.RELATION,
+        label: missionUpdateLabel,
+        details: missionUpdateLabel,
+        metadata: { childType: "mission", childId: adapted.id },
+        actor: actorName,
+      });
+    }
+    if (adapted.officerId) {
+      const updateLabel = `Mission updated: ${updatedTitle}`;
+      logHistoryEvent({
+        entityType: "officer",
+        entityId: adapted.officerId,
+        eventType: EVENT_TYPES.RELATION,
+        label: updateLabel,
+        details: updateLabel,
+        metadata: { childType: "mission", childId: adapted.id },
+        actor: actorName,
+      });
+    }
 
     return adapted;
   };
@@ -2316,6 +2573,58 @@ export function DataProvider({ children }) {
     });
 
     logDeletionHistory("mission", prev, actorName);
+    if (prev?.caseId) {
+      const deleteTitle = prev.title || "Mission";
+      const missionDeleteLabel = `Mission deleted: ${deleteTitle}`;
+      logHistoryEvent({
+        entityType: "case",
+        entityId: prev.caseId,
+        eventType: EVENT_TYPES.RELATION,
+        label: missionDeleteLabel,
+        details: missionDeleteLabel,
+        metadata: { childType: "mission", childId: prev.id },
+        actor: actorName,
+      });
+      const caseItem = cases.find((c) => String(c.id) === String(prev.caseId));
+      if (caseItem?.dossierId) {
+        const caseRef = caseItem.caseNumber || caseItem.title || "";
+        const dossierLabel = caseRef ? `${missionDeleteLabel} (${caseRef})` : missionDeleteLabel;
+        logHistoryEvent({
+          entityType: "dossier",
+          entityId: caseItem.dossierId,
+          eventType: EVENT_TYPES.RELATION,
+          label: dossierLabel,
+          details: dossierLabel,
+          metadata: { childType: "case", childId: caseItem.id, relatedType: "mission", relatedId: prev.id },
+          actor: actorName,
+        });
+      }
+    } else if (prev?.dossierId) {
+      const deleteTitle = prev.title || "Mission";
+      const missionDeleteLabel = `Mission deleted: ${deleteTitle}`;
+      logHistoryEvent({
+        entityType: "dossier",
+        entityId: prev.dossierId,
+        eventType: EVENT_TYPES.RELATION,
+        label: missionDeleteLabel,
+        details: missionDeleteLabel,
+        metadata: { childType: "mission", childId: prev.id },
+        actor: actorName,
+      });
+    }
+    if (prev?.officerId) {
+      const deleteTitle = prev.title || "Mission";
+      const deleteLabel = `Mission deleted: ${deleteTitle}`;
+      logHistoryEvent({
+        entityType: "officer",
+        entityId: prev.officerId,
+        eventType: EVENT_TYPES.RELATION,
+        label: deleteLabel,
+        details: deleteLabel,
+        metadata: { childType: "mission", childId: prev.id },
+        actor: actorName,
+      });
+    }
     return { ok: true, result: validation.result };
   };
 
@@ -2361,6 +2670,58 @@ export function DataProvider({ children }) {
 
       const prev = missions.find((m) => m.id === id);
       logDeletionHistory("mission", prev, actorName);
+      if (prev?.caseId) {
+        const deleteTitle = prev.title || "Mission";
+        const missionDeleteLabel = `Mission deleted: ${deleteTitle}`;
+        logHistoryEvent({
+          entityType: "case",
+          entityId: prev.caseId,
+          eventType: EVENT_TYPES.RELATION,
+          label: missionDeleteLabel,
+          details: missionDeleteLabel,
+          metadata: { childType: "mission", childId: prev.id },
+          actor: actorName,
+        });
+        const caseItem = cases.find((c) => String(c.id) === String(prev.caseId));
+        if (caseItem?.dossierId) {
+          const caseRef = caseItem.caseNumber || caseItem.title || "";
+          const dossierLabel = caseRef ? `${missionDeleteLabel} (${caseRef})` : missionDeleteLabel;
+          logHistoryEvent({
+            entityType: "dossier",
+            entityId: caseItem.dossierId,
+            eventType: EVENT_TYPES.RELATION,
+            label: dossierLabel,
+            details: dossierLabel,
+            metadata: { childType: "case", childId: caseItem.id, relatedType: "mission", relatedId: prev.id },
+            actor: actorName,
+          });
+        }
+      } else if (prev?.dossierId) {
+        const deleteTitle = prev.title || "Mission";
+        const missionDeleteLabel = `Mission deleted: ${deleteTitle}`;
+        logHistoryEvent({
+          entityType: "dossier",
+          entityId: prev.dossierId,
+          eventType: EVENT_TYPES.RELATION,
+          label: missionDeleteLabel,
+          details: missionDeleteLabel,
+          metadata: { childType: "mission", childId: prev.id },
+          actor: actorName,
+        });
+      }
+      if (prev?.officerId) {
+        const deleteTitle = prev.title || "Mission";
+        const deleteLabel = `Mission deleted: ${deleteTitle}`;
+        logHistoryEvent({
+          entityType: "officer",
+          entityId: prev.officerId,
+          eventType: EVENT_TYPES.RELATION,
+          label: deleteLabel,
+          details: deleteLabel,
+          metadata: { childType: "mission", childId: prev.id },
+          actor: actorName,
+        });
+      }
 
       console.log('[DataContext.deleteMissionCascade] Successfully deleted mission and all related entities');
       return { ok: true, result: { message: 'Mission and all related entities deleted successfully' } };

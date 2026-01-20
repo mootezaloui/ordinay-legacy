@@ -78,6 +78,9 @@ class DocumentService {
     if (entityType === "case") {
       entityField = "case_id";
       directoryType = "case";
+    } else if (entityType === "personalTask") {
+      entityField = "personal_task_id";
+      directoryType = "personalTask";
     } else {
       entityField = `${entityType}_id`;
       directoryType = entityType;
@@ -232,7 +235,16 @@ class DocumentService {
   async getEntityDocuments(entityType, entityId) {
     try {
       // Map entityType to backend query parameter
-      const entityField = `${entityType}_id`;
+      let entityField;
+      if (entityType === "case") {
+        entityField = "case_id";
+      } else if (entityType === "personalTask") {
+        entityField = "personal_task_id";
+      } else if (entityType === "officer") {
+        return [];
+      } else {
+        entityField = `${entityType}_id`;
+      }
       const response = await fetch(
         `${this.getApiBase()}/documents?${entityField}=${entityId}`,
       );

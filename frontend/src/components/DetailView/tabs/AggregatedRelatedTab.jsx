@@ -382,6 +382,51 @@ export default function AggregatedRelatedTab({
             childId: newItem.id,
           },
         });
+        if (tabConfig?.aggregationType === "sessions" && config?.entityType === "case" && data?.dossierId) {
+          logHistoryEvent({
+            entityType: "dossier",
+            entityId: data.dossierId,
+            eventType: EVENT_TYPES.RELATION,
+            label: `${getCreatedLabel()}: ${itemTitle} (${data.caseNumber || data.title || ""})`,
+            details: `${getCreatedLabel()}: ${itemTitle} (${data.caseNumber || data.title || ""})`,
+            metadata: {
+              childType: "case",
+              childId: data.id,
+              relatedType: referenceEntityType,
+              relatedId: newItem.id,
+            },
+          });
+        }
+        if (tabConfig?.aggregationType === "tasks" && config?.entityType === "case" && data?.dossierId) {
+          logHistoryEvent({
+            entityType: "dossier",
+            entityId: data.dossierId,
+            eventType: EVENT_TYPES.RELATION,
+            label: `${getCreatedLabel()}: ${itemTitle} (${data.caseNumber || data.title || ""})`,
+            details: `${getCreatedLabel()}: ${itemTitle} (${data.caseNumber || data.title || ""})`,
+            metadata: {
+              childType: "case",
+              childId: data.id,
+              relatedType: referenceEntityType,
+              relatedId: newItem.id,
+            },
+          });
+        }
+        if (tabConfig?.aggregationType === "missions" && config?.entityType === "case" && data?.dossierId) {
+          logHistoryEvent({
+            entityType: "dossier",
+            entityId: data.dossierId,
+            eventType: EVENT_TYPES.RELATION,
+            label: `${getCreatedLabel()}: ${itemTitle} (${data.caseNumber || data.title || ""})`,
+            details: `${getCreatedLabel()}: ${itemTitle} (${data.caseNumber || data.title || ""})`,
+            metadata: {
+              childType: "case",
+              childId: data.id,
+              relatedType: referenceEntityType,
+              relatedId: newItem.id,
+            },
+          });
+        }
       }
 
       // Add to local state
