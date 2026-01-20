@@ -32,6 +32,36 @@ export default function ConfirmImpactModal({
     action: resolvedActionName.toLowerCase(),
     entityName: entityName ? ` ${entityName}` : "",
   });
+
+  const normalizedImpactSummary = impactSummary.flatMap((item) => {
+    if (item === null || item === undefined) return [];
+    if (typeof item === "string") return [item];
+    if (typeof item !== "object") return [String(item)];
+
+    const lines = [];
+    const message = item.message || item.title || item.text || item.label || "";
+    if (message) {
+      lines.push(`**${message}**`);
+    }
+
+    const details = item.details;
+    if (details) {
+      if (Array.isArray(details)) {
+        details
+          .filter((detail) => detail !== null && detail !== undefined)
+          .forEach((detail) => lines.push(` ${String(detail)}`));
+      } else if (typeof details === "string") {
+        details
+          .split(/,\s*/)
+          .filter(Boolean)
+          .forEach((detail) => lines.push(` ${detail}`));
+      } else {
+        lines.push(` ${String(details)}`);
+      }
+    }
+
+    return lines;
+  });
   // Close modal on Escape key
   useEffect(() => {
     const handleEscape = (e) => {
@@ -98,7 +128,7 @@ export default function ConfirmImpactModal({
         {/* Content */}
         <div className="px-6 py-5 overflow-y-auto max-h-[calc(85vh-200px)]">
           <div className="space-y-4">
-            {impactSummary.map((line, index) => {
+            {normalizedImpactSummary.map((line, index) => {
               // Empty lines are spacers
               if (line.trim() === '') {
                 return <div key={index} className="h-2"></div>;

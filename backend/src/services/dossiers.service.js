@@ -175,15 +175,202 @@ function remove(id) {
   const dossier = get(id);
   if (!dossier) return false;
 
-  // Delete all history events for this dossier
-  historyService.deleteByEntity("dossier", id);
+  const deleteIn = (tableName, column, ids) => {
+    if (!ids || ids.length === 0) return 0;
+    const params = {};
+    const placeholders = ids.map((value, index) => {
+      const key = `id${index}`;
+      params[key] = value;
+      return `@${key}`;
+    });
+    const stmt = db.prepare(
+      `DELETE FROM ${tableName} WHERE ${column} IN (${placeholders.join(", ")})`
+    );
+    const result = stmt.run(params);
+    return result.changes;
+  };
 
-  // Delete all notes for this dossier
-  notesService.deleteNotesForEntity("dossier", id);
+  const deleteByEntity = (entityType, ids) => {
+    if (!ids || ids.length === 0) return 0;
+    const params = { entity_type: entityType };
+    const placeholders = ids.map((value, index) => {
+      const key = `id${index}`;
+      params[key] = value;
+      return `@${key}`;
+    });
+    const stmt = db.prepare(
+      `DELETE FROM history_events WHERE entity_type = @entity_type AND entity_id IN (${placeholders.join(", ")})`
+    );
+    const result = stmt.run(params);
+    return result.changes;
+  };
 
-  // Delete the dossier
-  const stmt = db.prepare(`DELETE FROM ${table} WHERE id = @id`);
-  const result = stmt.run({ id });
+  const deleteNotesByEntity = (entityType, ids) => {
+    if (!ids || ids.length === 0) return 0;
+    const params = { entity_type: entityType };
+    const placeholders = ids.map((value, index) => {
+      const key = `id${index}`;
+      params[key] = value;
+      return `@${key}`;
+    });
+    const stmt = db.prepare(
+      `DELETE FROM notes WHERE entity_type = @entity_type AND entity_id IN (${placeholders.join(", ")})`
+    );
+    const result = stmt.run(params);
+    return result.changes;
+  };
+
+  const deleteNotificationsByEntity = (entityType, ids) => {
+    if (!ids || ids.length === 0) return 0;
+    const params = { entity_type: entityType };
+    const placeholders = ids.map((value, index) => {
+      const key = `id${index}`;
+      params[key] = value;
+      return `@${key}`;
+    });
+    const stmt = db.prepare(
+      `DELETE FROM notifications WHERE entity_type = @entity_type AND entity_id IN (${placeholders.join(", ")})`
+    );
+    const result = stmt.run(params);
+    return result.changes;
+  };
+
+  const deleteTransaction = db.transaction(() => {
+    const caseIds = db
+      .prepare(`SELECT id FROM cases WHERE dossier_id = ?`)
+      .all(id)
+      .map((row) => row.id);
+
+    const missionIds = db
+      .prepare(
+        `SELECT id FROM missions WHERE dossier_id = ?${
+          caseIds.length > 0
+            ? ` OR case_id IN (${caseIds.map(() => "?").join(", ")})`
+            : ""
+        }`
+      )
+      .all(id, ...caseIds)
+      .map((row) => row.id);
+
+    const taskIds = db
+      .prepare(
+        `SELECT id FROM tasks WHERE dossier_id = ?${
+          caseIds.length > 0
+            ? ` OR case_id IN (${caseIds.map(() => "?").join(", ")})`
+            : ""
+        }`
+      )
+      .all(id, ...caseIds)
+      .map((row) => row.id);
+
+    const sessionIds = db
+      .prepare(
+        `SELECT id FROM sessions WHERE dossier_id = ?${
+          caseIds.length > 0
+            ? ` OR case_id IN (${caseIds.map(() => "?").join(", ")})`
+            : ""
+        }`
+      )
+      .all(id, ...caseIds)
+      .map((row) => row.id);
+
+    const financialEntryIds = db
+      .prepare(
+        `SELECT id FROM financial_entries WHERE dossier_id = ?${
+          caseIds.length > 0
+            ? ` OR case_id IN (${caseIds.map(() => "?").join(", ")})`
+            : ""
+        }${
+          missionIds.length > 0
+            ? ` OR mission_id IN (${missionIds.map(() => "?").join(", ")})`
+            : ""
+        }${
+          taskIds.length > 0
+            ? ` OR task_id IN (${taskIds.map(() => "?").join(", ")})`
+            : ""
+        }`
+      )
+      .all(id, ...caseIds, ...missionIds, ...taskIds)
+      .map((row) => row.id);
+
+    const documentIds = db
+      .prepare(
+        `SELECT id FROM documents WHERE dossier_id = ?${
+          caseIds.length > 0
+            ? ` OR case_id IN (${caseIds.map(() => "?").join(", ")})`
+            : ""
+        }${
+          missionIds.length > 0
+            ? ` OR mission_id IN (${missionIds.map(() => "?").join(", ")})`
+            : ""
+        }${
+          taskIds.length > 0
+            ? ` OR task_id IN (${taskIds.map(() => "?").join(", ")})`
+            : ""
+        }${
+          sessionIds.length > 0
+            ? ` OR session_id IN (${sessionIds.map(() => "?").join(", ")})`
+            : ""
+        }${
+          financialEntryIds.length > 0
+            ? ` OR financial_entry_id IN (${financialEntryIds.map(() => "?").join(", ")})`
+            : ""
+        }`
+      )
+      .all(
+        id,
+        ...caseIds,
+        ...missionIds,
+        ...taskIds,
+        ...sessionIds,
+        ...financialEntryIds
+      )
+      .map((row) => row.id);
+
+    // Delete documents first (they can reference everything)
+    deleteIn("documents", "id", documentIds);
+
+    // Delete financial entries next (documents may reference them)
+    deleteIn("financial_entries", "id", financialEntryIds);
+
+    // Delete notifications, notes, history for all impacted entities
+    const dossierIds = [id];
+    deleteNotificationsByEntity("document", documentIds);
+    deleteNotificationsByEntity("financial_entry", financialEntryIds);
+    deleteNotificationsByEntity("mission", missionIds);
+    deleteNotificationsByEntity("task", taskIds);
+    deleteNotificationsByEntity("session", sessionIds);
+    deleteNotificationsByEntity("case", caseIds);
+    deleteNotificationsByEntity("dossier", dossierIds);
+
+    deleteNotesByEntity("document", documentIds);
+    deleteNotesByEntity("financial_entry", financialEntryIds);
+    deleteNotesByEntity("mission", missionIds);
+    deleteNotesByEntity("task", taskIds);
+    deleteNotesByEntity("session", sessionIds);
+    deleteNotesByEntity("case", caseIds);
+    deleteNotesByEntity("dossier", dossierIds);
+
+    deleteByEntity("document", documentIds);
+    deleteByEntity("financial_entry", financialEntryIds);
+    deleteByEntity("mission", missionIds);
+    deleteByEntity("task", taskIds);
+    deleteByEntity("session", sessionIds);
+    deleteByEntity("case", caseIds);
+    deleteByEntity("dossier", dossierIds);
+
+    // Delete child entities
+    deleteIn("missions", "id", missionIds);
+    deleteIn("tasks", "id", taskIds);
+    deleteIn("sessions", "id", sessionIds);
+    deleteIn("cases", "id", caseIds);
+
+    // Delete the dossier
+    const stmt = db.prepare(`DELETE FROM ${table} WHERE id = @id`);
+    return stmt.run({ id });
+  });
+
+  const result = deleteTransaction();
 
   // Add deletion event to parent client's history
   if (result.changes > 0 && dossier.client_id) {

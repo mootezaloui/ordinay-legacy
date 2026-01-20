@@ -171,17 +171,49 @@ function getDeleteImpact(id) {
 
   // Check notifications
   const notifications = db.prepare(
-    `SELECT id, title, message, severity, status
+    `SELECT id, type, sub_type, template_key, payload, severity, status
      FROM notifications
      WHERE entity_type = 'mission' AND entity_id = @id AND deleted_at IS NULL`
   ).all({ id });
   if (notifications.length > 0) {
-    impacts.notifications = notifications.map(n => ({
-      id: n.id,
-      title: n.title,
-      severity: n.severity,
-      status: n.status
-    }));
+    const parsePayload = (value) => {
+      if (!value) return {};
+      if (typeof value === 'object') return value;
+      if (typeof value === 'string') {
+        try {
+          const parsed = JSON.parse(value);
+          if (parsed && typeof parsed === 'object') return parsed;
+        } catch (error) {
+          return { value };
+        }
+      }
+      return { value };
+    };
+
+    impacts.notifications = notifications.map((n) => {
+      const payload = parsePayload(n.payload);
+      const title =
+        payload.title ||
+        payload.subject ||
+        payload.name ||
+        payload.reference ||
+        n.template_key ||
+        n.type ||
+        "Notification";
+      const message =
+        payload.message || payload.body || payload.description || null;
+
+      return {
+        id: n.id,
+        title,
+        message,
+        severity: n.severity,
+        status: n.status,
+        type: n.type,
+        subType: n.sub_type,
+        templateKey: n.template_key,
+      };
+    });
   }
 
   // Check history events
