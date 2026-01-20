@@ -57,7 +57,7 @@ export function AgentLayout() {
   };
 
   return (
-    <div className={`fixed top-[4.5rem] right-0 bottom-0 ${isCollapsed ? "left-20" : "left-64"} z-0 flex min-h-0 overflow-hidden transition-all duration-300`}>
+    <div className={`fixed top-16 right-0 bottom-0 ${isCollapsed ? "left-20" : "left-64"} z-0 flex min-h-0 overflow-hidden transition-all duration-300`}>
       {showHistorySidebar && (
         <AgentHistorySidebar
           sessions={sessions}

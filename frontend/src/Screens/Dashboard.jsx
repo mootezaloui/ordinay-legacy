@@ -13,6 +13,7 @@ import { useData } from "../contexts/DataContext";
 import { useTranslation } from "react-i18next";
 import { getDashboardSummary } from "../services/api/dashboard";
 import { filterOperationalEntities } from "../utils/importState";
+import { calculateNextHearing } from "../utils/deadlineUtils";
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -172,15 +173,15 @@ export default function Dashboard() {
       }
     });
 
-    // Upcoming hearings from cases
+    // Upcoming hearings from cases (use i18n-aware label)
     operationalCases.forEach(caseItem => {
-      const hearingDate = new Date(caseItem.nextHearing);
-      if (hearingDate > now) {
+      const hearing = calculateNextHearing(caseItem, [], [], [], t);
+      if (hearing && hearing.date > now) {
         events.push({
           id: `case-${caseItem.id}`,
           type: "hearing",
-          title: caseItem.title,
-          date: hearingDate.toISOString(),
+          title: hearing.label,
+          date: hearing.date.toISOString(),
           location: caseItem.court,
           link: `/cases/${caseItem.id}`,
         });

@@ -40,6 +40,7 @@
       "empty": "No upcoming events scheduled.",
       "time": {
         "inHours": "in {{count}} hour(s)",
+        "inDays": "in {{count}} day(s)",
         "soon": "soon"
       }
     },

@@ -56,25 +56,46 @@ const SYSTEM_TEMPLATES = [
     updated_at: new Date().toISOString(),
   },
   {
-    id: "sys_dossier_jugement_ar",
-    name: "مطلب استخراج حكم",
+    id: "sys_dossier_mise_ar",
+    name: "إنذار رسمي",
     entity_type: "dossier",
     language: "ar",
     template_type: "system",
-    file_path: "system/dossier/jugement_request_ar.docx",
+    file_path: "system/dossier/Mise_en_Demeure_ar.docx",
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   },
   {
-    id: "sys_dossier_jugement_fr",
-    name: "Demande d'extraction de jugement",
+    id: "sys_dossier_mise_fr",
+    name: "Mise en demeure",
     entity_type: "dossier",
     language: "fr",
     template_type: "system",
-    file_path: "system/dossier/jugement_request_fr.docx",
+    file_path: "system/dossier/Mise_en_Demeure_fr.docx",
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   },
+  {
+    id: "sys_session_renvoi_ar",
+    name: "طلب تأجيل الجلسة",
+    entity_type: "session",
+    language: "ar",
+    template_type: "system",
+    file_path: "system/hearing/Demande_de_Renvoi_ar.docx",
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: "sys_session_renvoi_fr",
+    name: "Demande de renvoi d'audience",
+    entity_type: "session",
+    language: "fr",
+    template_type: "system",
+    file_path: "system/hearing/Demande_de_Renvoi_fr.docx",
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  // Removed dossier-level judgment extraction templates as per legal domain logic
 ];
 
 class TemplateManager {
@@ -177,7 +198,7 @@ class TemplateManager {
     }
 
     // Validate entity type
-    if (!["dossier", "proces"].includes(data.entity_type)) {
+    if (!["dossier", "proces", "session"].includes(data.entity_type)) {
       throw new Error("Invalid entity type");
     }
 
@@ -206,7 +227,9 @@ class TemplateManager {
       language: data.language,
       template_type: "user",
       file_path: storageResult.path,
-      required_fields: Array.isArray(data.required_fields) ? data.required_fields : [],
+      required_fields: Array.isArray(data.required_fields)
+        ? data.required_fields
+        : [],
       variants: Array.isArray(data.variants) ? data.variants : [],
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -240,7 +263,7 @@ class TemplateManager {
     if (updates.name) template.name = updates.name;
     if (
       updates.entity_type &&
-      ["dossier", "proces"].includes(updates.entity_type)
+      ["dossier", "proces", "session"].includes(updates.entity_type)
     ) {
       template.entity_type = updates.entity_type;
     }
@@ -259,7 +282,10 @@ class TemplateManager {
     }
 
     if (updates.file) {
-      const extension = (updates.file.name || "").split(".").pop()?.toLowerCase();
+      const extension = (updates.file.name || "")
+        .split(".")
+        .pop()
+        ?.toLowerCase();
       if (!TEMPLATE_EXTENSIONS.includes(extension)) {
         throw new Error("Invalid template file type");
       }
@@ -276,7 +302,10 @@ class TemplateManager {
       template.file_path = storageResult.path;
       if (previousPath) {
         this.storageProvider.deleteFile(previousPath).catch((error) => {
-          console.error("[TemplateManager] Failed to delete old template file:", error);
+          console.error(
+            "[TemplateManager] Failed to delete old template file:",
+            error,
+          );
         });
       }
     }
@@ -314,7 +343,10 @@ class TemplateManager {
       try {
         await this.storageProvider.deleteFile(template.file_path);
       } catch (error) {
-        console.error("[TemplateManager] Failed to delete template file:", error);
+        console.error(
+          "[TemplateManager] Failed to delete template file:",
+          error,
+        );
       }
     }
 

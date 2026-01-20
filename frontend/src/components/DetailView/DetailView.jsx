@@ -1035,7 +1035,7 @@ export default function DetailView({ entityType }) {
             </button>
 
             {/* Generate Document Button - Only for dossier and case (proces) */}
-            {(entityType === 'dossier' || entityType === 'case') && (
+            {(entityType === 'dossier' || entityType === 'case' || entityType === 'session') && (
               <button
                 onClick={() => {
                   console.log('[DEBUG] Generate Document button clicked. entityType:', entityType);
@@ -1209,7 +1209,7 @@ export default function DetailView({ entityType }) {
       />
 
       {/* Generate Document Modal (always rendered at root level) */}
-      {(entityType === 'dossier' || entityType === 'case') && (
+      {(entityType === 'dossier' || entityType === 'case' || entityType === 'session') && (
         <>
           {console.log('[DEBUG] Render GenerateDocumentModal. isOpen:', generateDocModalOpen, 'entityType:', entityType)}
           {console.log('[DEBUG] Operator context for document:', getContextDataWithOperator())}

@@ -41,6 +41,7 @@
       "empty": "Aucun événement à venir programmé.",
       "time": {
         "inHours": "dans {{count}} heure(s)",
+        "inDays": "dans {{count}} jour(s)",
         "soon": "bientôt"
       }
     },

@@ -122,8 +122,8 @@ export default function GenerateDocumentModal({
             }
             const confirmed = await confirm({
                 title: "Donnees manquantes",
-                message: `Certaines donnees sont manquantes. Generer quand meme?\n\n${lines.join("\n")}`,
-                confirmText: "Generer",
+                message: `Certaines données sont manquantes. Générer quand même?\n\n${lines.join("\n")}`,
+                confirmText: "Générer",
                 cancelText: "Annuler",
                 variant: "warning",
             });
@@ -152,7 +152,7 @@ export default function GenerateDocumentModal({
                 language: selectedLanguage,
             });
             setSavedDocument(null);
-            showToast("Document genere. Choisissez une action.", "success");
+            showToast("Document généré. Choisissez une action.", "success");
         } catch (error) {
             console.error("[GenerateDocumentModal] Error:", error);
             showToast(`Erreur lors de la generation: ${error.message}`, "error");
@@ -245,7 +245,7 @@ export default function GenerateDocumentModal({
         onClose();
     };
 
-    const entityReference = useMemo(() => {
+    const entityRéférence = useMemo(() => {
         const data = templateService.extractEntityData(
             entityType,
             entityData || {},
@@ -254,6 +254,8 @@ export default function GenerateDocumentModal({
         const resolved =
             entityType === "proces"
                 ? data["proces.reference"]
+                : entityType === "session"
+                ? data["session.date"] || data["proces.reference"] || data["dossier.reference"]
                 : data["dossier.reference"];
         return (
             resolved ||
@@ -273,7 +275,7 @@ export default function GenerateDocumentModal({
                     <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
                         <h3 className="text-lg font-semibold text-slate-900 dark:text-white truncate">
                             <i className="fas fa-check-circle text-green-600 dark:text-green-400 mr-2"></i>
-                            Document genere
+                            Document généré
                         </h3>
                         <button
                             onClick={handleCancel}
@@ -289,14 +291,14 @@ export default function GenerateDocumentModal({
                                 {generatedDoc.fileName}
                             </p>
                             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                                Modele: {generatedDoc.templateName}
+                                Modèle: {generatedDoc.templateName}
                             </p>
                             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                                Langue: {generatedDoc.language === "ar" ? "Arabe" : "Francais"}
+                                Langue: {generatedDoc.language === "ar" ? "Arabe" : "Français"}
                             </p>
                             {savedDocument && (
                                 <p className="text-xs text-green-600 dark:text-green-400 mt-2">
-                                    Enregistre dans Documents.
+                                    Enregistré dans Documents.
                                 </p>
                             )}
                         </div>
@@ -308,7 +310,7 @@ export default function GenerateDocumentModal({
                                 className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white rounded-lg font-medium transition-colors"
                             >
                                 <i className="fas fa-save mr-2"></i>
-                                Enregistrer
+                                Enregistrér
                             </button>
                             <button
                                 onClick={handleDownload}
@@ -316,7 +318,7 @@ export default function GenerateDocumentModal({
                                 className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg font-medium transition-colors"
                             >
                                 <i className="fas fa-download mr-2"></i>
-                                Telecharger
+                                Télécharger
                             </button>
                             <button
                                 onClick={handleSaveAndDownload}
@@ -324,7 +326,7 @@ export default function GenerateDocumentModal({
                                 className="w-full px-4 py-2 border border-blue-300 text-blue-700 hover:bg-blue-50 dark:border-blue-500 dark:text-blue-200 dark:hover:bg-blue-900/30 rounded-lg font-medium transition-colors"
                             >
                                 <i className="fas fa-save mr-2"></i>
-                                Enregistrer + Telecharger
+                                Enregistrér + Télécharger
                             </button>
                         </div>
                     </div>
@@ -349,7 +351,7 @@ export default function GenerateDocumentModal({
                     <div className="flex items-center justify-between">
                         <h3 className="text-lg font-semibold text-slate-900 dark:text-white truncate">
                             <i className="fas fa-file-alt mr-2"></i>
-                            Generer un document
+                            Générer un document
                         </h3>
                         <button
                             onClick={handleCancel}
@@ -367,15 +369,15 @@ export default function GenerateDocumentModal({
                         </p>
                         <div className="p-3 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-700">
                             <p className="text-sm text-slate-600 dark:text-slate-400">
-                                Entite:{" "}
+                                Entité:{" "}
                                 <span className="font-medium text-slate-900 dark:text-white">
-                                    {entityType === "proces" ? "Proces" : "Dossier"}
+                                    {entityType === "proces" ? "Procès" : entityType === "session" ? "Audience" : "Dossier"}
                                 </span>
                             </p>
                             <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-                                Reference:{" "}
+                                Référence:{" "}
                                 <span className="font-medium text-slate-900 dark:text-white">
-                                    {entityReference}
+                                    {entityRéférence}
                                 </span>
                             </p>
                         </div>
@@ -412,7 +414,7 @@ export default function GenerateDocumentModal({
                                                 )}
                                             </p>
                                             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                                                {tpl.language === "ar" ? "Arabe" : "Francais"}
+                                                {tpl.language === "ar" ? "Arabe" : "Français"}
                                             </p>
                                         </div>
                                     </label>
@@ -447,7 +449,7 @@ export default function GenerateDocumentModal({
                                     />
                                     <i className="fas fa-flag text-blue-600 dark:text-blue-400"></i>
                                     <span className="font-medium text-slate-900 dark:text-white">
-                                        Francais
+                                        Français
                                     </span>
                                 </label>
 
@@ -514,7 +516,7 @@ export default function GenerateDocumentModal({
                         )}
 
                         <p className="text-xs text-slate-500 dark:text-slate-400">
-                            Le document sera genere au format Word (.docx) et pourra etre ouvert
+                            Le document sera généré au format Word (.docx) et pourra etre ouvert
                             et modifie avec votre editeur habituel.
                         </p>
                     </div>
@@ -534,7 +536,7 @@ export default function GenerateDocumentModal({
                         ) : (
                             <>
                                 <i className="fas fa-check mr-2"></i>
-                                Generer le document
+                                Générer le document
                             </>
                         )}
                     </button>

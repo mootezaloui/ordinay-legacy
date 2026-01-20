@@ -139,10 +139,17 @@ export function useAgentState() {
     }
   }, [activeSessionId]);
 
-  // Scroll to end when new messages arrive
+  // Scroll to end when messages change (using scrollTo instead of scrollIntoView to avoid parent scroll)
   useEffect(() => {
     if (conversation.length > 0) {
-      conversationEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      // Use scrollTo on the container instead of scrollIntoView to avoid scrolling parent/body
+      const container = conversationEndRef.current?.parentElement?.parentElement;
+      if (container) {
+        container.scrollTo({
+          top: container.scrollHeight,
+          behavior: "smooth",
+        });
+      }
     }
   }, [conversation.length]);
 

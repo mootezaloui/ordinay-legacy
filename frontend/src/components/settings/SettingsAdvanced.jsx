@@ -10,9 +10,7 @@ export default function SettingsAdvanced() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-4 text-sm text-amber-800 dark:text-amber-200">
-        Rarely used options live here. Changes are explicit and do not apply automatically.
-      </div>
+      {/* Removed rarely used options phrase as requested */}
 
       <ContentSection title={t("onboarding:settings.section")}>
         <div className="p-6 space-y-6">

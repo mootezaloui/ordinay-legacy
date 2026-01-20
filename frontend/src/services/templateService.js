@@ -108,9 +108,80 @@ class TemplateService {
    */
   extractEntityData(entityType, entityData, contextData) {
     const data = {
+      "client.id": MISSING_VALUE,
       "client.name": MISSING_VALUE,
+      "client.email": MISSING_VALUE,
+      "client.phone": MISSING_VALUE,
+      "client.alternate_phone": MISSING_VALUE,
+      "client.address": MISSING_VALUE,
+      "client.status": MISSING_VALUE,
+      "client.cin": MISSING_VALUE,
+      "client.date_of_birth": MISSING_VALUE,
+      "client.profession": MISSING_VALUE,
+      "client.company": MISSING_VALUE,
+      "client.tax_id": MISSING_VALUE,
+      "client.notes": MISSING_VALUE,
+      "client.missing_fields": MISSING_VALUE,
+      "client.join_date": MISSING_VALUE,
+      "client.created_at": MISSING_VALUE,
+      "client.updated_at": MISSING_VALUE,
+      "client.imported": MISSING_VALUE,
+      "client.validated": MISSING_VALUE,
+      "client.import_source": MISSING_VALUE,
+      "client.imported_at": MISSING_VALUE,
+      "client.deleted_at": MISSING_VALUE,
+      "dossier.id": MISSING_VALUE,
       "dossier.reference": MISSING_VALUE,
+      "dossier.client_id": MISSING_VALUE,
+      "dossier.title": MISSING_VALUE,
+      "dossier.description": MISSING_VALUE,
+      "dossier.category": MISSING_VALUE,
+      "dossier.phase": MISSING_VALUE,
+      "dossier.adversary_name": MISSING_VALUE,
+      "dossier.adversary_party": MISSING_VALUE,
+      "dossier.adversary_lawyer": MISSING_VALUE,
+      "dossier.estimated_value": MISSING_VALUE,
+      "dossier.court_reference": MISSING_VALUE,
+      "dossier.assigned_lawyer": MISSING_VALUE,
+      "dossier.status": MISSING_VALUE,
+      "dossier.priority": MISSING_VALUE,
+      "dossier.opened_at": MISSING_VALUE,
+      "dossier.next_deadline": MISSING_VALUE,
+      "dossier.closed_at": MISSING_VALUE,
+      "dossier.created_at": MISSING_VALUE,
+      "dossier.updated_at": MISSING_VALUE,
+      "dossier.imported": MISSING_VALUE,
+      "dossier.validated": MISSING_VALUE,
+      "dossier.import_source": MISSING_VALUE,
+      "dossier.imported_at": MISSING_VALUE,
+      "dossier.deleted_at": MISSING_VALUE,
+      "proces.id": MISSING_VALUE,
       "proces.reference": MISSING_VALUE,
+      "proces.case_number": MISSING_VALUE,
+      "proces.dossier_id": MISSING_VALUE,
+      "proces.title": MISSING_VALUE,
+      "proces.description": MISSING_VALUE,
+      "proces.adversary_name": MISSING_VALUE,
+      "proces.adversary": MISSING_VALUE,
+      "proces.adversary_party": MISSING_VALUE,
+      "proces.adversary_lawyer": MISSING_VALUE,
+      "proces.court": MISSING_VALUE,
+      "proces.filing_date": MISSING_VALUE,
+      "proces.next_hearing": MISSING_VALUE,
+      "proces.judgment_number": MISSING_VALUE,
+      "proces.judgment_date": MISSING_VALUE,
+      "proces.reference_number": MISSING_VALUE,
+      "proces.status": MISSING_VALUE,
+      "proces.priority": MISSING_VALUE,
+      "proces.opened_at": MISSING_VALUE,
+      "proces.closed_at": MISSING_VALUE,
+      "proces.created_at": MISSING_VALUE,
+      "proces.updated_at": MISSING_VALUE,
+      "proces.imported": MISSING_VALUE,
+      "proces.validated": MISSING_VALUE,
+      "proces.import_source": MISSING_VALUE,
+      "proces.imported_at": MISSING_VALUE,
+      "proces.deleted_at": MISSING_VALUE,
       "court.name": MISSING_VALUE,
       "court.address": MISSING_VALUE,
       "court.city": MISSING_VALUE,
@@ -126,7 +197,60 @@ class TemplateService {
       "lawyer.bar_id": MISSING_VALUE,
       "lawyer.vpa": MISSING_VALUE,
       "lawyer.signature": MISSING_VALUE,
+      "session.id": MISSING_VALUE,
+      "session.title": MISSING_VALUE,
+      "session.session_type": MISSING_VALUE,
+      "session.status": MISSING_VALUE,
+      "session.scheduled_at": MISSING_VALUE,
+      "session.session_date": MISSING_VALUE,
+      "session.duration": MISSING_VALUE,
+      "session.location": MISSING_VALUE,
+      "session.court_room": MISSING_VALUE,
+      "session.judge": MISSING_VALUE,
+      "session.outcome": MISSING_VALUE,
+      "session.description": MISSING_VALUE,
+      "session.notes": MISSING_VALUE,
+      "session.participants": MISSING_VALUE,
+      "session.dossier_id": MISSING_VALUE,
+      "session.case_id": MISSING_VALUE,
+      "session.created_at": MISSING_VALUE,
+      "session.updated_at": MISSING_VALUE,
+      "session.imported": MISSING_VALUE,
+      "session.validated": MISSING_VALUE,
+      "session.import_source": MISSING_VALUE,
+      "session.imported_at": MISSING_VALUE,
+      "session.deleted_at": MISSING_VALUE,
       "session.date": MISSING_VALUE,
+      "financial_entry.id": MISSING_VALUE,
+      "financial_entry.scope": MISSING_VALUE,
+      "financial_entry.client_id": MISSING_VALUE,
+      "financial_entry.dossier_id": MISSING_VALUE,
+      "financial_entry.case_id": MISSING_VALUE,
+      "financial_entry.mission_id": MISSING_VALUE,
+      "financial_entry.task_id": MISSING_VALUE,
+      "financial_entry.personal_task_id": MISSING_VALUE,
+      "financial_entry.entry_type": MISSING_VALUE,
+      "financial_entry.status": MISSING_VALUE,
+      "financial_entry.category": MISSING_VALUE,
+      "financial_entry.amount": MISSING_VALUE,
+      "financial_entry.currency": MISSING_VALUE,
+      "financial_entry.occurred_at": MISSING_VALUE,
+      "financial_entry.due_date": MISSING_VALUE,
+      "financial_entry.paid_at": MISSING_VALUE,
+      "financial_entry.title": MISSING_VALUE,
+      "financial_entry.description": MISSING_VALUE,
+      "financial_entry.reference": MISSING_VALUE,
+      "financial_entry.notes": MISSING_VALUE,
+      "financial_entry.direction": MISSING_VALUE,
+      "financial_entry.cancelled_at": MISSING_VALUE,
+      "financial_entry.cancellation_reason": MISSING_VALUE,
+      "financial_entry.created_at": MISSING_VALUE,
+      "financial_entry.updated_at": MISSING_VALUE,
+      "financial_entry.imported": MISSING_VALUE,
+      "financial_entry.validated": MISSING_VALUE,
+      "financial_entry.import_source": MISSING_VALUE,
+      "financial_entry.imported_at": MISSING_VALUE,
+      "financial_entry.deleted_at": MISSING_VALUE,
       "adversary.name": MISSING_VALUE,
       "judgment.number": MISSING_VALUE,
       "judgment.date": MISSING_VALUE,
@@ -207,35 +331,409 @@ class TemplateService {
       data["lawyer.signature"] = signatureValue;
     }
 
-    // Map client name
-    if (entityData?.client?.name) {
-      data["client.name"] = entityData.client.name;
-    } else if (typeof entityData?.client === "string") {
-      data["client.name"] = entityData.client;
-    } else if (entityData?.clientId && contextData?.clients) {
-      const client = contextData.clients.find(
-        (c) => String(c.id) === String(entityData.clientId),
-      );
-      if (client?.name) data["client.name"] = client.name;
-    } else if (
-      entityType === "proces" &&
-      entityData?.dossierId &&
-      contextData?.dossiers &&
-      contextData?.clients
-    ) {
-      const dossier = contextData.dossiers.find(
-        (d) => String(d.id) === String(entityData.dossierId),
-      );
-      if (dossier?.clientId) {
-        const client = contextData.clients.find(
-          (c) => String(c.id) === String(dossier.clientId),
-        );
-        if (client?.name) data["client.name"] = client.name;
+    const toText = (value) => {
+      if (value === null || value === undefined) return null;
+      if (typeof value === "string") return value;
+      if (typeof value === "number" || typeof value === "boolean") {
+        return String(value);
       }
+      if (Array.isArray(value)) {
+        return value
+          .map((item) => {
+            if (typeof item === "string") return item;
+            if (item?.content) return item.content;
+            try {
+              return JSON.stringify(item);
+            } catch (_error) {
+              return String(item);
+            }
+          })
+          .filter(Boolean)
+          .join("\n");
+      }
+      try {
+        return JSON.stringify(value);
+      } catch (_error) {
+        return String(value);
+      }
+    };
+
+    const applyDossierFields = (dossierSource) => {
+      if (!dossierSource) return;
+
+      const reference =
+        dossierSource.reference ||
+        dossierSource.caseNumber ||
+        dossierSource.case_number ||
+        null;
+      const clientId =
+        dossierSource.clientId ||
+        dossierSource.client_id ||
+        dossierSource.client?.id ||
+        null;
+      const adversaryName =
+        dossierSource.adversaryName ||
+        dossierSource.adversary_name ||
+        dossierSource.adversary ||
+        null;
+      const adversaryParty =
+        dossierSource.adversaryParty ||
+        dossierSource.adversary_party ||
+        dossierSource.adversary ||
+        null;
+
+      data["dossier.id"] = toText(dossierSource.id) || data["dossier.id"];
+      data["dossier.reference"] =
+        toText(reference) || data["dossier.reference"];
+      data["dossier.client_id"] =
+        toText(clientId) || data["dossier.client_id"];
+      data["dossier.title"] = toText(dossierSource.title) || data["dossier.title"];
+      data["dossier.description"] =
+        toText(dossierSource.description) || data["dossier.description"];
+      data["dossier.category"] =
+        toText(dossierSource.category) || data["dossier.category"];
+      data["dossier.phase"] = toText(dossierSource.phase) || data["dossier.phase"];
+      data["dossier.adversary_name"] =
+        toText(adversaryName) || data["dossier.adversary_name"];
+      data["dossier.adversary_party"] =
+        toText(adversaryParty || adversaryName) ||
+        data["dossier.adversary_party"];
+      data["dossier.adversary_lawyer"] =
+        toText(dossierSource.adversaryLawyer || dossierSource.adversary_lawyer) ||
+        data["dossier.adversary_lawyer"];
+      data["dossier.estimated_value"] =
+        toText(dossierSource.estimatedValue || dossierSource.estimated_value) ||
+        data["dossier.estimated_value"];
+      data["dossier.court_reference"] =
+        toText(dossierSource.courtReference || dossierSource.court_reference) ||
+        data["dossier.court_reference"];
+      data["dossier.assigned_lawyer"] =
+        toText(dossierSource.assignedLawyer || dossierSource.assigned_lawyer) ||
+        data["dossier.assigned_lawyer"];
+      data["dossier.status"] = toText(dossierSource.status) || data["dossier.status"];
+      data["dossier.priority"] =
+        toText(dossierSource.priority) || data["dossier.priority"];
+      data["dossier.opened_at"] =
+        toText(dossierSource.opened_at || dossierSource.openDate || dossierSource.openedAt) ||
+        data["dossier.opened_at"];
+      data["dossier.next_deadline"] =
+        toText(dossierSource.next_deadline || dossierSource.nextDeadline) ||
+        data["dossier.next_deadline"];
+      data["dossier.closed_at"] =
+        toText(dossierSource.closed_at || dossierSource.closeDate || dossierSource.closedAt) ||
+        data["dossier.closed_at"];
+      data["dossier.created_at"] =
+        toText(dossierSource.created_at || dossierSource.createdAt) ||
+        data["dossier.created_at"];
+      data["dossier.updated_at"] =
+        toText(dossierSource.updated_at || dossierSource.updatedAt) ||
+        data["dossier.updated_at"];
+      data["dossier.imported"] =
+        toText(dossierSource.imported) || data["dossier.imported"];
+      data["dossier.validated"] =
+        toText(dossierSource.validated) || data["dossier.validated"];
+      data["dossier.import_source"] =
+        toText(dossierSource.import_source || dossierSource.importSource) ||
+        data["dossier.import_source"];
+      data["dossier.imported_at"] =
+        toText(dossierSource.imported_at || dossierSource.importedAt) ||
+        data["dossier.imported_at"];
+      data["dossier.deleted_at"] =
+        toText(dossierSource.deleted_at || dossierSource.deletedAt) ||
+        data["dossier.deleted_at"];
+    };
+
+    const applyCaseFields = (caseSource) => {
+      if (!caseSource) return;
+
+      const reference =
+        caseSource.reference ||
+        caseSource.caseNumber ||
+        caseSource.case_number ||
+        null;
+      const caseNumber = caseSource.case_number || caseSource.caseNumber || null;
+      const dossierId =
+        caseSource.dossierId ||
+        caseSource.dossier_id ||
+        caseSource.dossier?.id ||
+        null;
+      const adversaryName =
+        caseSource.adversaryName ||
+        caseSource.adversary_name ||
+        caseSource.adversary ||
+        caseSource.adversary_party ||
+        null;
+      const adversary =
+        caseSource.adversary ||
+        caseSource.adversaire ||
+        caseSource.adversary_name ||
+        null;
+      const adversaryParty =
+        caseSource.adversaryParty ||
+        caseSource.adversary_party ||
+        caseSource.adversary_name ||
+        caseSource.adversary ||
+        null;
+      const referenceNumber =
+        caseSource.reference_number ||
+        caseSource.referenceNumber ||
+        caseSource.courtReference ||
+        caseSource.court_reference ||
+        null;
+      const filingDate = caseSource.filingDate || caseSource.filing_date || null;
+      const nextHearing =
+        caseSource.nextHearing || caseSource.next_hearing || null;
+      const judgmentNumber =
+        caseSource.judgmentNumber ||
+        caseSource.judgment_number ||
+        caseSource.judgment?.number ||
+        null;
+      const judgmentDate =
+        caseSource.judgmentDate ||
+        caseSource.judgment_date ||
+        caseSource.judgment?.date ||
+        null;
+
+      data["proces.id"] = toText(caseSource.id) || data["proces.id"];
+      data["proces.reference"] =
+        toText(reference) || data["proces.reference"];
+      data["proces.case_number"] =
+        toText(caseNumber) || data["proces.case_number"];
+      data["proces.dossier_id"] =
+        toText(dossierId) || data["proces.dossier_id"];
+      data["proces.title"] = toText(caseSource.title) || data["proces.title"];
+      data["proces.description"] =
+        toText(caseSource.description) || data["proces.description"];
+      data["proces.adversary_name"] =
+        toText(adversaryName) || data["proces.adversary_name"];
+      data["proces.adversary"] =
+        toText(adversary) || data["proces.adversary"];
+      data["proces.adversary_party"] =
+        toText(adversaryParty || adversaryName) ||
+        data["proces.adversary_party"];
+      data["proces.adversary_lawyer"] =
+        toText(caseSource.adversaryLawyer || caseSource.adversary_lawyer) ||
+        data["proces.adversary_lawyer"];
+      data["proces.court"] = toText(caseSource.court) || data["proces.court"];
+      data["proces.filing_date"] =
+        toText(filingDate) || data["proces.filing_date"];
+      data["proces.next_hearing"] =
+        toText(nextHearing) || data["proces.next_hearing"];
+      data["proces.judgment_number"] =
+        toText(judgmentNumber) || data["proces.judgment_number"];
+      data["proces.judgment_date"] =
+        toText(judgmentDate) || data["proces.judgment_date"];
+      data["proces.reference_number"] =
+        toText(referenceNumber) || data["proces.reference_number"];
+      data["proces.status"] = toText(caseSource.status) || data["proces.status"];
+      data["proces.priority"] =
+        toText(caseSource.priority) || data["proces.priority"];
+      data["proces.opened_at"] =
+        toText(caseSource.opened_at || caseSource.openDate || caseSource.openedAt) ||
+        data["proces.opened_at"];
+      data["proces.closed_at"] =
+        toText(caseSource.closed_at || caseSource.closeDate || caseSource.closedAt) ||
+        data["proces.closed_at"];
+      data["proces.created_at"] =
+        toText(caseSource.created_at || caseSource.createdAt) ||
+        data["proces.created_at"];
+      data["proces.updated_at"] =
+        toText(caseSource.updated_at || caseSource.updatedAt) ||
+        data["proces.updated_at"];
+      data["proces.imported"] =
+        toText(caseSource.imported) || data["proces.imported"];
+      data["proces.validated"] =
+        toText(caseSource.validated) || data["proces.validated"];
+      data["proces.import_source"] =
+        toText(caseSource.import_source || caseSource.importSource) ||
+        data["proces.import_source"];
+      data["proces.imported_at"] =
+        toText(caseSource.imported_at || caseSource.importedAt) ||
+        data["proces.imported_at"];
+      data["proces.deleted_at"] =
+        toText(caseSource.deleted_at || caseSource.deletedAt) ||
+        data["proces.deleted_at"];
+    };
+
+    const applySessionFields = (sessionSource) => {
+      if (!sessionSource) return;
+
+      const sessionType =
+        sessionSource.session_type || sessionSource.sessionType || sessionSource.type || null;
+      const scheduledAt = sessionSource.scheduled_at || sessionSource.scheduledAt || null;
+      const sessionDate =
+        sessionSource.session_date ||
+        sessionSource.sessionDate ||
+        sessionSource.date ||
+        null;
+      const dossierId =
+        sessionSource.dossierId ||
+        sessionSource.dossier_id ||
+        sessionSource.dossier?.id ||
+        null;
+      const caseId =
+        sessionSource.caseId ||
+        sessionSource.case_id ||
+        sessionSource.case?.id ||
+        null;
+      const participants =
+        sessionSource.participants ||
+        sessionSource.participant_list ||
+        null;
+
+      data["session.id"] = toText(sessionSource.id) || data["session.id"];
+      data["session.title"] =
+        toText(sessionSource.title) || data["session.title"];
+      data["session.session_type"] =
+        toText(sessionType) || data["session.session_type"];
+      data["session.status"] =
+        toText(sessionSource.status) || data["session.status"];
+      data["session.scheduled_at"] =
+        toText(scheduledAt) || data["session.scheduled_at"];
+      data["session.session_date"] =
+        toText(sessionDate) || data["session.session_date"];
+      data["session.duration"] =
+        toText(sessionSource.duration) || data["session.duration"];
+      data["session.location"] =
+        toText(sessionSource.location) || data["session.location"];
+      data["session.court_room"] =
+        toText(sessionSource.court_room || sessionSource.courtRoom) ||
+        data["session.court_room"];
+      data["session.judge"] =
+        toText(sessionSource.judge) || data["session.judge"];
+      data["session.outcome"] =
+        toText(sessionSource.outcome) || data["session.outcome"];
+      data["session.description"] =
+        toText(sessionSource.description) || data["session.description"];
+      data["session.notes"] =
+        toText(sessionSource.notes) || data["session.notes"];
+      data["session.participants"] =
+        toText(participants) || data["session.participants"];
+      data["session.dossier_id"] =
+        toText(dossierId) || data["session.dossier_id"];
+      data["session.case_id"] =
+        toText(caseId) || data["session.case_id"];
+      data["session.created_at"] =
+        toText(sessionSource.created_at || sessionSource.createdAt) ||
+        data["session.created_at"];
+      data["session.updated_at"] =
+        toText(sessionSource.updated_at || sessionSource.updatedAt) ||
+        data["session.updated_at"];
+      data["session.imported"] =
+        toText(sessionSource.imported) || data["session.imported"];
+      data["session.validated"] =
+        toText(sessionSource.validated) || data["session.validated"];
+      data["session.import_source"] =
+        toText(sessionSource.import_source || sessionSource.importSource) ||
+        data["session.import_source"];
+      data["session.imported_at"] =
+        toText(sessionSource.imported_at || sessionSource.importedAt) ||
+        data["session.imported_at"];
+      data["session.deleted_at"] =
+        toText(sessionSource.deleted_at || sessionSource.deletedAt) ||
+        data["session.deleted_at"];
+    };
+
+    const resolveClient = () => {
+      if (entityData?.client && typeof entityData.client === "object") {
+        return entityData.client;
+      }
+      if (typeof entityData?.client === "string") {
+        return { name: entityData.client };
+      }
+      if (entityData?.clientId && Array.isArray(contextData?.clients)) {
+        return contextData.clients.find(
+          (client) => String(client.id) === String(entityData.clientId),
+        );
+      }
+      if (
+        entityType === "proces" &&
+        entityData?.dossierId &&
+        Array.isArray(contextData?.dossiers) &&
+        Array.isArray(contextData?.clients)
+      ) {
+        const dossier = contextData.dossiers.find(
+          (item) => String(item.id) === String(entityData.dossierId),
+        );
+        if (dossier?.clientId) {
+          return contextData.clients.find(
+            (client) => String(client.id) === String(dossier.clientId),
+          );
+        }
+      }
+      if (entityType === "session") {
+        const cases = Array.isArray(contextData?.cases) ? contextData.cases : [];
+        const dossiers = Array.isArray(contextData?.dossiers)
+          ? contextData.dossiers
+          : [];
+        const clients = Array.isArray(contextData?.clients)
+          ? contextData.clients
+          : [];
+        const caseItem = entityData?.caseId
+          ? cases.find((item) => String(item.id) === String(entityData.caseId))
+          : null;
+        const dossierItem = entityData?.dossierId
+          ? dossiers.find((item) => String(item.id) === String(entityData.dossierId))
+          : caseItem?.dossierId
+            ? dossiers.find((item) => String(item.id) === String(caseItem.dossierId))
+            : null;
+        if (dossierItem?.clientId) {
+          return clients.find(
+            (client) => String(client.id) === String(dossierItem.clientId),
+          );
+        }
+      }
+      return null;
+    };
+
+    const client = resolveClient();
+    if (client) {
+      data["client.id"] = toText(client.id) || data["client.id"];
+      data["client.name"] = toText(client.name) || data["client.name"];
+      data["client.email"] = toText(client.email) || data["client.email"];
+      data["client.phone"] = toText(client.phone) || data["client.phone"];
+      data["client.alternate_phone"] =
+        toText(client.alternatePhone || client.alternate_phone) ||
+        data["client.alternate_phone"];
+      data["client.address"] = toText(client.address) || data["client.address"];
+      data["client.status"] = toText(client.status) || data["client.status"];
+      data["client.cin"] = toText(client.cin) || data["client.cin"];
+      data["client.date_of_birth"] =
+        toText(client.dateOfBirth || client.date_of_birth) ||
+        data["client.date_of_birth"];
+      data["client.profession"] =
+        toText(client.profession) || data["client.profession"];
+      data["client.company"] = toText(client.company) || data["client.company"];
+      data["client.tax_id"] =
+        toText(client.taxId || client.tax_id) || data["client.tax_id"];
+      data["client.notes"] = toText(client.notes) || data["client.notes"];
+      data["client.missing_fields"] =
+        toText(client.missingFields || client.missing_fields) ||
+        data["client.missing_fields"];
+      data["client.join_date"] =
+        toText(client.joinDate || client.join_date) || data["client.join_date"];
+      data["client.created_at"] =
+        toText(client.created_at || client.createdAt) || data["client.created_at"];
+      data["client.updated_at"] =
+        toText(client.updated_at || client.updatedAt) || data["client.updated_at"];
+      data["client.imported"] =
+        toText(client.imported) || data["client.imported"];
+      data["client.validated"] =
+        toText(client.validated) || data["client.validated"];
+      data["client.import_source"] =
+        toText(client.importSource || client.import_source) ||
+        data["client.import_source"];
+      data["client.imported_at"] =
+        toText(client.importedAt || client.imported_at) ||
+        data["client.imported_at"];
+      data["client.deleted_at"] =
+        toText(client.deleted_at || client.deletedAt) || data["client.deleted_at"];
     }
 
     if (entityType === "proces") {
-      data["proces.reference"] = entityData?.caseNumber || MISSING_VALUE;
+      applyCaseFields(entityData);
+      data["proces.reference"] =
+        toText(entityData?.caseNumber) || data["proces.reference"] || MISSING_VALUE;
       data["court.name"] = entityData?.court || MISSING_VALUE;
       data["court.address"] =
         entityData?.courtAddress ||
@@ -270,7 +768,7 @@ class TemplateService {
         data["adversary.name"] = adversaryName;
       }
     } else if (entityType === "dossier") {
-      data["dossier.reference"] = entityData?.caseNumber || MISSING_VALUE;
+      applyDossierFields(entityData);
       data["court.name"] = entityData?.court || data["court.name"];
       data["court.address"] =
         entityData?.courtAddress ||
@@ -291,6 +789,77 @@ class TemplateService {
         null;
       if (adversaryName) {
         data["adversary.name"] = adversaryName;
+      }
+    } else if (entityType === "session") {
+      applySessionFields(entityData);
+      const cases = Array.isArray(contextData?.cases) ? contextData.cases : [];
+      const dossiers = Array.isArray(contextData?.dossiers) ? contextData.dossiers : [];
+      const clients = Array.isArray(contextData?.clients) ? contextData.clients : [];
+
+      const caseItem = entityData?.caseId
+        ? cases.find((caseEntry) => String(caseEntry.id) === String(entityData.caseId))
+        : null;
+      const dossierItem = entityData?.dossierId
+        ? dossiers.find((dossierEntry) => String(dossierEntry.id) === String(entityData.dossierId))
+        : caseItem?.dossierId
+          ? dossiers.find((dossierEntry) => String(dossierEntry.id) === String(caseItem.dossierId))
+          : null;
+
+      if (caseItem) {
+        applyCaseFields(caseItem);
+      }
+
+      if (caseItem?.caseNumber) {
+        data["proces.reference"] = caseItem.caseNumber;
+      }
+      if (caseItem?.court) {
+        data["court.name"] = caseItem.court;
+      }
+      if (caseItem?.courtAddress || caseItem?.court_address) {
+        data["court.address"] = caseItem.courtAddress || caseItem.court_address;
+      }
+      if (caseItem?.courtCity || caseItem?.court_city) {
+        data["court.city"] = caseItem.courtCity || caseItem.court_city;
+      }
+
+      if (dossierItem?.caseNumber) {
+        data["dossier.reference"] = dossierItem.caseNumber;
+      }
+
+      if (this.isMissingValue(data["client.name"]) && dossierItem?.clientId) {
+        const client = clients.find((clientEntry) => String(clientEntry.id) === String(dossierItem.clientId));
+        if (client?.name) {
+          data["client.name"] = client.name;
+        }
+      }
+
+      const adversaryName =
+        caseItem?.adversaryName ||
+        caseItem?.adversary ||
+        caseItem?.adversaryParty ||
+        caseItem?.adversary_name ||
+        caseItem?.adversary_party ||
+        null;
+      if (adversaryName) {
+        data["adversary.name"] = adversaryName;
+      }
+
+      const judgmentNumber =
+        caseItem?.judgmentNumber ||
+        caseItem?.judgment_number ||
+        caseItem?.judgment?.number ||
+        null;
+      if (judgmentNumber) {
+        data["judgment.number"] = judgmentNumber;
+      }
+
+      const judgmentDate =
+        caseItem?.judgmentDate ||
+        caseItem?.judgment_date ||
+        caseItem?.judgment?.date ||
+        null;
+      if (judgmentDate) {
+        data["judgment.date"] = judgmentDate;
       }
     }
 
@@ -316,6 +885,8 @@ class TemplateService {
       entityData?.session_date ||
       entityData?.session?.date ||
       entityData?.date ||
+      entityData?.scheduledAt?.split?.("T")?.[0] ||
+      entityData?.scheduled_at?.split?.("T")?.[0] ||
       entityData?.hearingDate ||
       entityData?.hearing_date ||
       null;
@@ -394,7 +965,7 @@ class TemplateService {
   ) {
     try {
       // Validate inputs
-      if (!["proces", "dossier"].includes(entityType)) {
+      if (!["proces", "dossier", "session"].includes(entityType)) {
         throw new Error(`Unsupported entity type: ${entityType}`);
       }
       if (!["ar", "fr"].includes(language)) {

@@ -45,7 +45,7 @@ export function calculateNextHearing(caseEntity, relatedSessions = []) {
               parseInt(timeParts[0], 10),
               parseInt(timeParts[1], 10),
               0,
-              0
+              0,
             );
           }
         }
@@ -74,7 +74,11 @@ export function calculateNextHearing(caseEntity, relatedSessions = []) {
         datetime: manualHearing,
         time: null,
         type: "manual",
-        label: "Audience programmée",
+        // Use i18n if provided, fallback to old string
+        label:
+          typeof t === "function"
+            ? t("common:scheduledHearing", { title: "" })
+            : "Audience programmée",
         location: null,
         entityId: null,
         entity: null,
@@ -104,7 +108,7 @@ export function calculateNextDeadline(
   dossier,
   relatedSessions = [],
   relatedTasks = [],
-  relatedFinancialEntries = []
+  relatedFinancialEntries = [],
 ) {
   if (dossier && !isOperationalEntity(dossier)) {
     return null;
@@ -116,7 +120,7 @@ export function calculateNextDeadline(
   const operationalSessions = filterOperationalEntities(relatedSessions);
   const operationalTasks = filterOperationalEntities(relatedTasks);
   const operationalFinancials = filterOperationalEntities(
-    relatedFinancialEntries
+    relatedFinancialEntries,
   );
 
   // 1. Extract deadlines from sessions
@@ -210,7 +214,7 @@ export function getAllUpcomingDeadlines(
   relatedSessions = [],
   relatedTasks = [],
   relatedFinancialEntries = [],
-  limit = 5
+  limit = 5,
 ) {
   if (dossier && !isOperationalEntity(dossier)) {
     return [];
@@ -222,7 +226,7 @@ export function getAllUpcomingDeadlines(
   const operationalSessions = filterOperationalEntities(relatedSessions);
   const operationalTasks = filterOperationalEntities(relatedTasks);
   const operationalFinancials = filterOperationalEntities(
-    relatedFinancialEntries
+    relatedFinancialEntries,
   );
 
   // Extract all deadlines (same logic as calculateNextDeadline)
