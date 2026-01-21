@@ -19,6 +19,7 @@ const DB_PATH = path.join(USER_DATA_PATH, "organia.db");
 const DOCUMENTS_PATH = path.join(USER_DATA_PATH, "documents");
 const LICENSE_PATH = path.join(USER_DATA_PATH, "organia_license.json");
 const DEVICE_ID_PATH = path.join(USER_DATA_PATH, "organia_device_id.txt");
+const ACTIVATION_PROTOCOL = "organia";
 
 // Backend configuration
 let backendProcess = null;
@@ -397,6 +398,11 @@ function setupIPC() {
   });
 }
 
+function handleActivationUrl(url) {
+  if (!mainWindow || !url) return;
+  mainWindow.webContents.send("activation-url", url);
+}
+
 // ============================================================
 // APP LIFECYCLE
 // ============================================================
@@ -420,6 +426,15 @@ app.whenReady().then(async () => {
 
     // Create the main window
     createWindow();
+
+    // Register custom protocol for activation deep link
+    if (process.defaultApp && process.argv.length >= 2) {
+      app.setAsDefaultProtocolClient(ACTIVATION_PROTOCOL, process.execPath, [
+        path.resolve(process.argv[1]),
+      ]);
+    } else {
+      app.setAsDefaultProtocolClient(ACTIVATION_PROTOCOL);
+    }
   } catch (error) {
     console.error("[Electron] Failed to initialize:", error);
     app.quit();
@@ -441,6 +456,27 @@ app.on("activate", () => {
     createWindow();
   }
 });
+
+app.on("open-url", (event, url) => {
+  event.preventDefault();
+  handleActivationUrl(url);
+});
+
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) {
+  app.quit();
+} else {
+  app.on("second-instance", (_event, argv) => {
+    const urlArg = argv.find((arg) => arg.startsWith(`${ACTIVATION_PROTOCOL}://`));
+    if (urlArg) {
+      handleActivationUrl(urlArg);
+    }
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+    }
+  });
+}
 
 // Handle app quit
 app.on("before-quit", () => {

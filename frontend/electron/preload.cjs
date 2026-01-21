@@ -65,6 +65,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openExternal: (url) => ipcRenderer.invoke('open-external-url', url),
 
   /**
+   * Listen for activation deep links
+   * @param {(url: string) => void} handler
+   */
+  onActivationUrl: (handler) => ipcRenderer.on('activation-url', (_event, url) => handler(url)),
+
+  /**
    * Window control methods
    */
   windowMinimize: () => ipcRenderer.send('window-minimize'),

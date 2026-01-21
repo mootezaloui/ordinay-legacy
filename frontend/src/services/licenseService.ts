@@ -94,7 +94,12 @@ export async function getOrCreateDeviceId(): Promise<string> {
 }
 
 export function getActivationUrl(deviceId: string): string {
-  return `https://organia.app/activate?device_id=${encodeURIComponent(deviceId)}`;
+  const base =
+    (typeof import.meta !== "undefined" &&
+      import.meta.env &&
+      import.meta.env.VITE_ACTIVATION_BASE_URL) ||
+    "https://organia.app/activate";
+  return `${base}?device_id=${encodeURIComponent(deviceId)}`;
 }
 
 const isValidDateString = (value: string): boolean => {

@@ -63,6 +63,11 @@ export interface ElectronAPI {
    */
   openExternal: (url: string) => Promise<void>;
 
+  /**
+   * Listen for activation deep link
+   */
+  onActivationUrl: (handler: (url: string) => void) => void;
+
 }
 
 declare global {
