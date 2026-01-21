@@ -50,6 +50,7 @@ export default function AggregatedRelatedTab({
     addSession,
     addTask,
     addMission,
+    addFinancialEntry,
     deleteDossier,
     deleteCase,
     deleteSession,
@@ -359,6 +360,34 @@ export default function AggregatedRelatedTab({
             }
             const created = creation.created || creation;
             newItem = { ...created };
+            if (normalizedFormData.financialEntries && Array.isArray(normalizedFormData.financialEntries) && normalizedFormData.financialEntries.length > 0) {
+              const dossierId = normalizedFormData.dossierId || null;
+              const caseId = normalizedFormData.caseId || null;
+              let clientId = normalizedFormData.clientId || null;
+              if (!clientId && dossierId) {
+                const dossier = contextData?.dossiers?.find(d => d.id === dossierId);
+                if (dossier) clientId = dossier.clientId;
+              } else if (!clientId && caseId) {
+                const caseItem = contextData?.cases?.find(c => c.id === caseId);
+                if (caseItem?.dossierId) {
+                  const dossier = contextData?.dossiers?.find(d => d.id === caseItem.dossierId);
+                  if (dossier) clientId = dossier.clientId;
+                }
+              }
+              for (const entry of normalizedFormData.financialEntries) {
+                await addFinancialEntry({
+                  ...entry,
+                  missionId: created.id,
+                  clientId,
+                  dossierId,
+                  caseId,
+                  type: "expense",
+                  category: "bailiff_fees",
+                  status: entry.status || "draft",
+                  currency: entry.currency || "TND",
+                });
+              }
+            }
             // Notify tutorial
             if (tutorial?.setCreatedMission) tutorial.setCreatedMission(created.id);
           }
@@ -768,6 +797,7 @@ export default function AggregatedRelatedTab({
           fields={finalFormFields}
           isLoading={isLoading}
           entityType={referenceEntityType}
+          entities={contextData}
         />
       )}
     </>

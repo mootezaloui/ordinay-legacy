@@ -933,11 +933,11 @@ export function DataProvider({ children }) {
 
       // Find and delete all missions for this dossier
       const dossierMissions = missions.filter(m => String(m.dossierId) === String(id));
-      for (const mission of dossierMissions) {
-        await deleteMission(mission.id);
-        // Delete history for each mission
-        await deleteEntityHistory('mission', mission.id);
-      }
+        for (const mission of dossierMissions) {
+          await deleteMissionCascade(mission.id);
+          // Delete history for each mission
+          await deleteEntityHistory('mission', mission.id);
+        }
 
       // Find and delete all tasks for this dossier
       const dossierTasks = tasks.filter(t => t.parentType === 'dossier' && String(t.dossierId) === String(id));
@@ -956,7 +956,10 @@ export function DataProvider({ children }) {
       }
 
       // Find and delete all financial entries for this dossier
-      const dossierFinancials = financialEntries.filter(e => String(e.dossierId) === String(id));
+        const dossierFinancials = financialEntries.filter(e => String(e.dossierId) === String(id)
+          && !e.missionId
+          && !e.caseId
+          && !e.taskId);
       for (const entry of dossierFinancials) {
         await deleteFinancialEntry(entry.id);
         // Delete history for each financial entry
@@ -3128,7 +3131,13 @@ export function DataProvider({ children }) {
 
     console.log('[DataContext.deleteFinancialEntry] Deleting financial entry ID:', id);
 
-    await apiClient.delete(`/financial/${id}`);
+    try {
+      await apiClient.delete(`/financial/${id}`);
+    } catch (error) {
+      if (!String(error?.message || error).includes("API error 404")) {
+        throw error;
+      }
+    }
 
     // Delete history for this financial entry
     await deleteEntityHistory('financial_entry', id);
