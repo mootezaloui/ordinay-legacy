@@ -227,16 +227,6 @@ const validateMutation = (entityType, action, entityId, context = {}, integrityI
     };
   }
 
-  if (action !== "add" && isReadOnlyImport(context.data)) {
-    return {
-      ok: false,
-      result: {
-        allowed: false,
-        blockers: ["Imported record is read-only until validated."],
-        warnings: [],
-      },
-    };
-  }
 
   const result = canPerformAction(entityType, entityId, action, {
     ...context,

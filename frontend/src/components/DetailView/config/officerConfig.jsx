@@ -48,21 +48,23 @@ export const createOfficerConfig = (t) => ({
     const financialEntries = contextData?.financialEntries || [];
 
     // Filter missions assigned to this officer
-    const officerMissions = missions.filter(m => m.officerId === numericId);
+    const officerMissions = missions.filter(m => String(m.officerId) === String(numericId));
 
     // Filter cases where this officer has missions
     const relatedCaseIds = new Set(
       missions
-        .filter(m => m.officerId === numericId && m.caseId)
-        .map(m => m.caseId)
+        .filter(m => String(m.officerId) === String(numericId) && (m.caseId || (m.entityType === "case" && m.entityId)))
+        .map(m => m.caseId || (m.entityType === "case" ? m.entityId : null))
+        .filter(Boolean)
     );
     const officerCases = cases.filter(c => relatedCaseIds.has(c.id));
 
     // Filter dossiers where this officer has missions
     const relatedDossierIds = new Set(
       missions
-        .filter(m => m.officerId === numericId && m.dossierId)
-        .map(m => m.dossierId)
+        .filter(m => String(m.officerId) === String(numericId) && (m.dossierId || (m.entityType === "dossier" && m.entityId)))
+        .map(m => m.dossierId || (m.entityType === "dossier" ? m.entityId : null))
+        .filter(Boolean)
     );
     const officerDossiers = dossiers.filter(d => relatedDossierIds.has(d.id));
 
@@ -77,7 +79,7 @@ export const createOfficerConfig = (t) => ({
     return {
       ...officer,
       missions: officerMissions,
-      cases: officerCases,
+      cases: [...officerDossiers, ...officerCases],
       dossiers: officerDossiers,
       financialEntries: relatedFinancialEntries,
     };
