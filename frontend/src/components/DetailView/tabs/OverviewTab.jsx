@@ -432,10 +432,10 @@ function StructuredEditSection({ section, data, onSave, onSaveWithOptions, entit
                       if (useSearchable) {
                         return (
                           <SearchableSelect
-                            value={editedData[fieldKey] || ''}
+                            value={editedData[fieldKey] ?? value ?? ''}
                             onChange={(newValue) => handleFieldChange(fieldKey, newValue)}
                             options={fieldOptions}
-                            placeholder={field.placeholder || t("form.searching")}
+                            placeholder={field.placeholder || t("form.select.searching")}
                             disabled={false}
                             compact={false}
                             allowCreate={field.allowCreate || false}
@@ -449,11 +449,11 @@ function StructuredEditSection({ section, data, onSave, onSaveWithOptions, entit
                       return (
                         <div className="relative">
                           <select
-                            value={editedData[fieldKey] || ''}
+                            value={editedData[fieldKey] ?? value ?? ''}
                             onChange={(e) => handleFieldChange(fieldKey, e.target.value)}
                             className="w-full px-3.5 py-2.5 pr-10 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 appearance-none cursor-pointer hover:border-slate-300 dark:hover:border-slate-600 hover:shadow"
                           >
-                            <option value="">{t("form.select")}</option>
+                            <option value="">{t("form.select.default")}</option>
                             {fieldOptions.map((option) => (
                               <option key={option.value} value={option.value}>
                                 {option.label}
@@ -694,7 +694,7 @@ function RegularSection({ section, data, isEditing, onDataChange, contextData = 
                             value={editedData[fieldKey] || ''}
                             onChange={(newValue) => handleFieldChange(fieldKey, newValue)}
                             options={field.options}
-                            placeholder={field.placeholder || t("form.searching")}
+                            placeholder={field.placeholder || t("form.select.searching")}
                             disabled={false}
                             compact={false}
                           />
@@ -709,7 +709,7 @@ function RegularSection({ section, data, isEditing, onDataChange, contextData = 
                             onChange={(e) => handleFieldChange(fieldKey, e.target.value)}
                             className="w-full px-3.5 py-2.5 pr-10 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 appearance-none cursor-pointer hover:border-slate-300 dark:hover:border-slate-600 hover:shadow"
                           >
-                            <option value="">{t("form.select")}</option>
+                            <option value="">{t("form.select.default")}</option>
                             {field.options.map((option) => (
                               <option key={option.value} value={option.value}>
                                 {option.label}

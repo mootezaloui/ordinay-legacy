@@ -395,6 +395,7 @@ export const createMissionConfig = (t) => ({
                     type: "select",
                     editable: true,
                     options: [
+                        { value: "Planned", label: t('detail.quickActions.status.planned') },
                         { value: "Scheduled", label: t('detail.overview.statuses.scheduled') },
                         { value: "In Progress", label: t('detail.overview.statuses.inProgress') },
                         { value: "Completed", label: t('detail.overview.statuses.completed') },

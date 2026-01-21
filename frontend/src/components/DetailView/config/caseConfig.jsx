@@ -553,11 +553,18 @@ export const createCaseConfig = (t) => {
             icon: "fas fa-landmark",
             type: "select",
             editable: true,
-            options: [
-              { value: "Court of First Instance", label: t('detail.overview.courtOptions.firstInstance') },
-              { value: "Court of Appeal", label: t('detail.overview.courtOptions.appeal') },
-              { value: "Court of Cassation", label: t('detail.overview.courtOptions.cassation') },
-            ]
+            getOptions: (editedData) => {
+              const baseOptions = [
+                { value: "Court of First Instance", label: t('detail.overview.courtOptions.firstInstance') },
+                { value: "Court of Appeal", label: t('detail.overview.courtOptions.appeal') },
+                { value: "Court of Cassation", label: t('detail.overview.courtOptions.cassation') },
+              ];
+              const currentValue = editedData?.court;
+              if (currentValue && !baseOptions.some((option) => option.value === currentValue)) {
+                return [{ value: currentValue, label: currentValue }, ...baseOptions];
+              }
+              return baseOptions;
+            }
           },
           {
             key: "courtReference",

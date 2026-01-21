@@ -47,7 +47,11 @@ const translateFinancialStatus = (status, t) => {
 };
 
 const translateFinancialCategory = (category, t) => {
-    const key = normalizeKey(category);
+    const rawKey = normalizeKey(category);
+    const keyMap = {
+        bailiff_fees: "frais_huissier",
+    };
+    const key = keyMap[rawKey?.toLowerCase?.() || rawKey] || rawKey;
     if (!key) return t("detail.fallback.na", { ns: "accounting", defaultValue: "N/A" });
 
     const primaryPath = `table.category.${key}`;
@@ -330,6 +334,7 @@ export const createFinancialEntryConfig = (t) => ({
                         { value: "advance", label: translateFinancialCategory("advance", t) },
                         { value: "frais_judiciaires", label: translateFinancialCategory("frais_judiciaires", t) },
                         { value: "frais_huissier", label: translateFinancialCategory("frais_huissier", t) },
+                        { value: "bailiff_fees", label: translateFinancialCategory("frais_huissier", t) },
                         { value: "frais_bureau", label: translateFinancialCategory("frais_bureau", t) },
                         { value: "other", label: translateFinancialCategory("other", t) },
                     ]

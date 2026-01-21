@@ -674,10 +674,17 @@ export const createDossierConfig = (t) => {
             type: "select",
             editable: true,
             displayValue: (data) => translateCategory(data.category, t),
-            getOptions: () => getAllCategories(DEFAULT_CATEGORIES).map((option) => ({
-              ...option,
-              label: translateCategory(option.value || option.label, t)
-            })),
+            getOptions: (formData) => {
+              const baseOptions = getAllCategories(DEFAULT_CATEGORIES).map((option) => ({
+                ...option,
+                label: translateCategory(option.value || option.label, t)
+              }));
+              const currentValue = formData?.category;
+              if (currentValue && !baseOptions.some((option) => option.value === currentValue)) {
+                return [{ value: currentValue, label: translateCategory(currentValue, t) }, ...baseOptions];
+              }
+              return baseOptions;
+            },
           },
           {
             key: "phase",
