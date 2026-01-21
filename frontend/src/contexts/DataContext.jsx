@@ -3,12 +3,14 @@ import { useRef } from "react";
 import { logHistoryEvent, EVENT_TYPES, deleteEntityHistory } from "../services/historyService";
 import { canPerformAction } from "../services/domainRules";
 import { useToast } from "./ToastContext";
+import { useConfirm } from "./ConfirmContext";
 import { logEntityCreation, logLifecycleChange, logStatusChange } from "../services/historyService";
 import { apiClient } from "../services/api/client";
 import { adaptHistory } from "../services/api/adapters";
 import { useTranslation } from "react-i18next";
 import { useOperator } from "./OperatorContext";
 import { useLicense } from "./LicenseContext";
+import { checkFreePlanLimit } from "../services/licenseService";
 import {
   adaptCase,
   adaptClient,
@@ -354,10 +356,11 @@ export function DataProvider({ children }) {
   const { t } = useTranslation("common");
   const { operator } = useOperator();
   const { licenseState } = useLicense();
+  const { confirm } = useConfirm();
   const showToastRef = useRef(showToast);
   const tRef = useRef(t);
 
-  const isLicenseLocked = licenseState !== "ACTIVE";
+  const isLicenseLocked = ["ACTIVATING", "ERROR"].includes(licenseState);
   const blockWrite = (actionLabel) => {
     if (!isLicenseLocked) return false;
     showToastRef.current("🔒 License inactive — Activate to continue", "error", {
@@ -366,6 +369,33 @@ export function DataProvider({ children }) {
     });
     console.warn(`[DataContext] ${actionLabel} blocked: license inactive`);
     return true;
+  };
+
+  const blockFreeLimit = (entityType, entityData) => {
+    const limitResult = checkFreePlanLimit({
+      licenseState,
+      clients,
+      dossiers,
+      cases,
+      tasks,
+      entityType,
+      entityData,
+    });
+    if (limitResult.allowed) return false;
+    const message = `You have reached the free plan limit for ${limitResult.label} (${limitResult.limit}). Organia remains free for small usage. Activate to remove limits and keep adding data.`;
+    confirm({
+      title: "Free plan limit reached",
+      message,
+      confirmText: "Activate / Upgrade",
+      cancelText: "Close",
+      variant: "warning",
+    }).then((accepted) => {
+      if (accepted && typeof window !== "undefined") {
+        window.location.href = "/settings?tab=security";
+      }
+    });
+    console.warn(`[DataContext] ${entityType} blocked: free plan limit reached`);
+    return { ok: false, result: { message, limit: limitResult.limit, current: limitResult.current } };
   };
 
   // Get operator name for history attribution
@@ -547,6 +577,8 @@ export function DataProvider({ children }) {
     if (blockWrite("add client")) {
       return { ok: false, result: { message: "License inactive" } };
     }
+    const limitBlock = blockFreeLimit("client", client);
+    if (limitBlock) return limitBlock;
     const validation = validateMutation("client", "add", client?.id, {
       data: client,
       newData: client,
@@ -734,6 +766,8 @@ export function DataProvider({ children }) {
     if (blockWrite("add dossier")) {
       return { ok: false, result: { message: "License inactive" } };
     }
+    const limitBlock = blockFreeLimit("dossier", dossier);
+    if (limitBlock) return limitBlock;
     const validation = validateMutation("dossier", "add", dossier?.id, {
       data: dossier,
       newData: dossier,
@@ -984,6 +1018,8 @@ export function DataProvider({ children }) {
     if (blockWrite("add case")) {
       return { ok: false, result: { message: "License inactive" } };
     }
+    const limitBlock = blockFreeLimit("case", caseItem);
+    if (limitBlock) return limitBlock;
     const validation = validateMutation("case", "add", caseItem?.id, {
       data: caseItem,
       newData: caseItem,
@@ -1559,6 +1595,8 @@ export function DataProvider({ children }) {
     if (blockWrite("add task")) {
       return { ok: false, result: { message: "License inactive" } };
     }
+    const limitBlock = blockFreeLimit("task", taskItem);
+    if (limitBlock) return limitBlock;
     const validation = validateMutation("task", "add", taskItem?.id, {
       data: taskItem,
       newData: taskItem,

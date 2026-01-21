@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useLock } from "../../contexts/LockContext";
 import { useLicense } from "../../contexts/LicenseContext";
-import { getActivationUrl, getOrCreateDeviceId, requestActivationFromServer } from "../../services/licenseService";
+import { FREE_PLAN_LIMITS, getActivationUrl, getOrCreateDeviceId, requestActivationFromServer } from "../../services/licenseService";
 import { useSettings } from "../../contexts/SettingsContext";
 import { formatDateValue } from "../../utils/dateFormat";
 import ContentSection from "../layout/ContentSection";
@@ -173,6 +173,7 @@ export default function SettingsSecurityAccess() {
 
   const licenseStatusLabel = () => {
     const labels = {
+      FREE: "Free plan",
       UNACTIVATED: "Unactivated",
       ACTIVATING: "Activating",
       ACTIVE: "Active",
@@ -181,6 +182,9 @@ export default function SettingsSecurityAccess() {
     };
     return labels[licenseState] || "Inactive";
   };
+
+  const isPaidPlan = licenseState === "ACTIVE";
+  const planLabel = isPaidPlan ? "Paid plan (Unlimited)" : "Free plan (Test phase)";
 
   return (
     <div className="space-y-6">
@@ -513,6 +517,35 @@ export default function SettingsSecurityAccess() {
               No license file found.
             </div>
           )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="p-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40">
+              <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                Current Plan
+              </p>
+              <p className="mt-2 text-sm font-semibold text-slate-900 dark:text-white">
+                {planLabel}
+              </p>
+              {!isPaidPlan && (
+                <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                  Free access is limited by usage scale. Upgrade to remove limits.
+                </p>
+              )}
+            </div>
+            <div className="p-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40">
+              <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                Plan Limits
+              </p>
+              <div className="mt-2 text-xs text-slate-600 dark:text-slate-300 space-y-1">
+                <div>Free plan: Clients {FREE_PLAN_LIMITS.clients}</div>
+                <div>Free plan: Dossiers {FREE_PLAN_LIMITS.dossiers}</div>
+                <div>Free plan: Cases per dossier {FREE_PLAN_LIMITS.casesPerDossier}</div>
+                <div>Free plan: Active tasks {FREE_PLAN_LIMITS.activeTasks}</div>
+                <div>Paid plan: Unlimited</div>
+              </div>
+            </div>
+          </div>
+
           {licenseState !== "ACTIVE" && (
             <div className="space-y-3">
               <button
@@ -521,7 +554,7 @@ export default function SettingsSecurityAccess() {
                 disabled={activationBusy || licenseState === "ACTIVATING"}
               >
                 <i className="fas fa-bolt"></i>
-                Activate Organia
+                Activate / Upgrade
               </button>
               {import.meta.env.DEV && (
                 <button

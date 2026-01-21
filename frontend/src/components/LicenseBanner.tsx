@@ -8,6 +8,7 @@ export default function LicenseBanner() {
   }
 
   const messages = {
+    FREE: "Free plan limits apply - Activate to remove limits",
     UNACTIVATED: "Activate Organia to unlock write access",
     ACTIVATING: "Activation in progress",
     ACTIVE: "",

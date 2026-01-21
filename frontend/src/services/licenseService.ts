@@ -10,13 +10,14 @@ export interface LicenseData {
 }
 
 export type LicenseState =
+  | "FREE"
   | "UNACTIVATED"
   | "ACTIVATING"
   | "ACTIVE"
   | "EXPIRED"
   | "ERROR";
 
-export let appLicenseState: LicenseState = "UNACTIVATED";
+export let appLicenseState: LicenseState = "FREE";
 
 const DEVICE_ID_STORAGE_KEY = "organia_device_id";
 
@@ -110,7 +111,7 @@ export interface LicenseReadResult {
 export function getLicenseStateFromData(
   licenseData: LicenseData | null
 ): LicenseState {
-  if (!licenseData) return "UNACTIVATED";
+  if (!licenseData) return "FREE";
   if (licenseData.status !== "active") return "EXPIRED";
   if (!["monthly", "yearly", "perpetual"].includes(licenseData.license_type)) {
     return "ERROR";
@@ -139,8 +140,8 @@ export async function loadLicenseFromDisk(): Promise<LicenseState> {
     const storedDeviceId = await readStoredDeviceId();
     const response = await window.electronAPI.readLicenseFile();
     if (!response.exists || !response.contents) {
-      setAppLicenseState("UNACTIVATED");
-      return "UNACTIVATED";
+      setAppLicenseState("FREE");
+      return "FREE";
     }
 
     const parsed = JSON.parse(response.contents) as LicenseData;
@@ -221,4 +222,103 @@ export async function verifyLicenseWithServer(
 ): Promise<LicenseReadResult> {
   // TODO: Replace with real server revalidation and offline handling.
   return { data: cachedData };
+}
+
+export const FREE_PLAN_LIMITS = {
+  clients: 3,
+  dossiers: 3,
+  casesPerDossier: 1,
+  activeTasks: 10,
+};
+
+export type FreeLimitResult = {
+  allowed: boolean;
+  limit?: number;
+  current?: number;
+  label?: string;
+  message?: string;
+};
+
+const isFreePlanState = (state: LicenseState) =>
+  state === "FREE" || state === "EXPIRED" || state === "UNACTIVATED";
+
+const isTaskActive = (status: string) =>
+  !["Done", "Cancelled"].includes(status || "");
+
+export function checkFreePlanLimit({
+  licenseState,
+  clients,
+  dossiers,
+  cases,
+  tasks,
+  entityType,
+  entityData,
+}: {
+  licenseState: LicenseState;
+  clients: Array<any>;
+  dossiers: Array<any>;
+  cases: Array<any>;
+  tasks: Array<any>;
+  entityType: "client" | "dossier" | "case" | "task";
+  entityData?: any;
+}): FreeLimitResult {
+  if (!isFreePlanState(licenseState)) {
+    return { allowed: true };
+  }
+
+  if (entityType === "client") {
+    const current = clients.length;
+    if (current >= FREE_PLAN_LIMITS.clients) {
+      return {
+        allowed: false,
+        limit: FREE_PLAN_LIMITS.clients,
+        current,
+        label: "Clients",
+      };
+    }
+  }
+
+  if (entityType === "dossier") {
+    const current = dossiers.length;
+    if (current >= FREE_PLAN_LIMITS.dossiers) {
+      return {
+        allowed: false,
+        limit: FREE_PLAN_LIMITS.dossiers,
+        current,
+        label: "Dossiers",
+      };
+    }
+  }
+
+  if (entityType === "case") {
+    const dossierId = entityData?.dossierId ?? entityData?.dossier_id ?? null;
+    if (dossierId) {
+      const current = cases.filter((item) => String(item.dossierId) === String(dossierId)).length;
+      if (current >= FREE_PLAN_LIMITS.casesPerDossier) {
+        return {
+          allowed: false,
+          limit: FREE_PLAN_LIMITS.casesPerDossier,
+          current,
+          label: "Cases per dossier",
+        };
+      }
+    }
+  }
+
+  if (entityType === "task") {
+    if (!isTaskActive(entityData?.status)) {
+      return { allowed: true };
+    }
+    const current = tasks.filter((task) => isTaskActive(task.status)).length;
+    if (current >= FREE_PLAN_LIMITS.activeTasks) {
+      return {
+        allowed: false,
+        limit: FREE_PLAN_LIMITS.activeTasks,
+        current,
+        label: "Active tasks",
+      };
+    }
+  }
+
+  return { allowed: true };
 }

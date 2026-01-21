@@ -22,7 +22,8 @@ import { LocalStorageProvider } from "./storage/LocalStorageProvider.js";
 import { getApiBase } from "../lib/apiConfig";
 import { getAppLicenseState } from "./licenseService";
 
-const isLicenseLocked = () => getAppLicenseState() !== "ACTIVE";
+const isLicenseLocked = () =>
+  ["ACTIVATING", "ERROR"].includes(getAppLicenseState());
 
 /**
  * Document service class

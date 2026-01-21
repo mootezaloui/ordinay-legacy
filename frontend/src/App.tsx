@@ -18,6 +18,7 @@ import {
 } from "./services/licenseService";
 
 const READ_ONLY_STORAGE_KEY = "organia_readonly_mode";
+const FREE_PLAN_STORAGE_KEY = "organia_free_plan_continue";
 
 function App() {
   const { isLocked } = useLock();
@@ -27,7 +28,7 @@ function App() {
   const [activationError, setActivationError] = useState<string | null>(null);
   const [allowReadOnly, setAllowReadOnly] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
-    return window.localStorage.getItem(READ_ONLY_STORAGE_KEY) === "1";
+    return window.localStorage.getItem(FREE_PLAN_STORAGE_KEY) === "1";
   });
   // Monitor user activity for inactivity lock
   useInactivityLock();
@@ -62,7 +63,7 @@ function App() {
     );
   }
 
-  const needsActivation = licenseState !== "ACTIVE";
+  const needsActivation = ["FREE", "UNACTIVATED", "EXPIRED", "ERROR"].includes(licenseState);
   if (needsActivation && !allowReadOnly) {
     return (
       <>
@@ -83,7 +84,7 @@ function App() {
           }}
           onContinueReadOnly={() => {
             if (typeof window !== "undefined") {
-              window.localStorage.setItem(READ_ONLY_STORAGE_KEY, "1");
+              window.localStorage.setItem(FREE_PLAN_STORAGE_KEY, "1");
             }
             setAllowReadOnly(true);
           }}
@@ -133,6 +134,7 @@ function ActivationScreen({
   onSimulateActivation: () => void | Promise<void>;
 }) {
   const activationLabels = {
+    FREE: "Free plan limits apply",
     UNACTIVATED: "Activate Organia on this device",
     ACTIVATING: "Activation in progress",
     ACTIVE: "Activation complete",
@@ -161,16 +163,14 @@ function ActivationScreen({
             onClick={onContinueReadOnly}
             className="w-full rounded-lg border border-slate-700 text-slate-200 py-2.5 hover:bg-slate-800 transition"
           >
-            Continue in read-only mode
+            Continue with free plan
           </button>
-          {import.meta.env.DEV && (
-            <button
-              onClick={onSimulateActivation}
-              className="w-full rounded-lg border border-amber-500 text-amber-200 py-2.5 hover:bg-amber-500/10 transition"
-            >
-              Simulate successful activation
-            </button>
-          )}
+          <button
+            onClick={onSimulateActivation}
+            className="w-full rounded-lg border border-amber-500 text-amber-200 py-2.5 hover:bg-amber-500/10 transition"
+          >
+            Simulate successful activation
+          </button>
         </div>
         {activationError && (
           <div className="mt-4 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">

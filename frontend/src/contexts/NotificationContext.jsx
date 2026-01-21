@@ -29,7 +29,8 @@ import {
  */
 
 const NotificationContext = createContext();
-const isLicenseLocked = () => getAppLicenseState() !== "ACTIVE";
+const isLicenseLocked = () =>
+  ["ACTIVATING", "ERROR"].includes(getAppLicenseState());
 
 export function useNotifications() {
   const context = useContext(NotificationContext);

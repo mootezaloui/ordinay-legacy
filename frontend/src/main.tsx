@@ -49,16 +49,16 @@ async function bootstrap() {
                         <NotificationProvider>
                           <ToastProvider>
                             <LicenseProvider>
-                              <DataProvider>
-                                <AlertBanner />
-                                <SidebarProvider>
-                                  <ConfirmProvider>
+                              <ConfirmProvider>
+                                <DataProvider>
+                                  <AlertBanner />
+                                  <SidebarProvider>
                                     <BrowserRouter>
                                       <App />
                                     </BrowserRouter>
-                                  </ConfirmProvider>
-                                </SidebarProvider>
-                              </DataProvider>
+                                  </SidebarProvider>
+                                </DataProvider>
+                              </ConfirmProvider>
                             </LicenseProvider>
                           </ToastProvider>
                         </NotificationProvider>

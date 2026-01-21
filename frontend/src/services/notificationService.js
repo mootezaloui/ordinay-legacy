@@ -3,7 +3,8 @@ import { getAppLicenseState } from "./licenseService";
 
 const ENDPOINT = "/notifications";
 const isNotFoundError = (error) => error?.message?.includes("API error 404");
-const isLicenseLocked = () => getAppLicenseState() !== "ACTIVE";
+const isLicenseLocked = () =>
+  ["ACTIVATING", "ERROR"].includes(getAppLicenseState());
 
 /**
  * notificationService.js

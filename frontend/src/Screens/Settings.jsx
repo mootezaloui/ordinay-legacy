@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import PageLayout from '../components/layout/PageLayout';
 import PageHeader from '../components/layout/PageHeader';
@@ -8,6 +8,7 @@ import SettingsNotifications from '../components/settings/SettingsNotifications'
 import SettingsDocuments from '../components/settings/SettingsDocuments';
 import SettingsSecurityAccess from '../components/settings/SettingsSecurityAccess';
 import SettingsAdvanced from '../components/settings/SettingsAdvanced';
+import { useLocation } from 'react-router-dom';
 
 const SETTINGS_DOMAINS = [
   {
@@ -51,6 +52,7 @@ const SETTINGS_DOMAINS = [
 
 export default function Settings() {
   const { t } = useTranslation(['settings']);
+  const location = useLocation();
   const [activeDomainId, setActiveDomainId] = useState(SETTINGS_DOMAINS[0].id);
 
   const activeDomain = SETTINGS_DOMAINS.find((domain) => domain.id === activeDomainId) || SETTINGS_DOMAINS[0];
@@ -58,6 +60,14 @@ export default function Settings() {
 
   const primaryDomains = SETTINGS_DOMAINS.filter((domain) => !domain.isAdvanced);
   const advancedDomains = SETTINGS_DOMAINS.filter((domain) => domain.isAdvanced);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const tab = params.get('tab') || params.get('section');
+    if (tab && SETTINGS_DOMAINS.some((domain) => domain.id === tab)) {
+      setActiveDomainId(tab);
+    }
+  }, [location.search]);
 
   return (
     <PageLayout>
