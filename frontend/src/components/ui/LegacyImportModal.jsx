@@ -16,6 +16,31 @@ const getExtension = (fileName) => {
 
 const stripBom = (text) => text.replace(/^\uFEFF/, "");
 
+const decodeImportFile = async (file) => {
+  const buffer = await file.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+  let encoding = "utf-8";
+
+  if (bytes.length >= 2) {
+    if (bytes[0] === 0xff && bytes[1] === 0xfe) {
+      encoding = "utf-16le";
+    } else if (bytes[0] === 0xfe && bytes[1] === 0xff) {
+      encoding = "utf-16be";
+    }
+  }
+
+  let text = new TextDecoder(encoding).decode(buffer);
+  if (encoding === "utf-8" && text.includes("\uFFFD")) {
+    try {
+      text = new TextDecoder("windows-1252").decode(buffer);
+    } catch (err) {
+      // keep utf-8 decode on unsupported encodings
+    }
+  }
+
+  return text;
+};
+
 const countDelimiterOutsideQuotes = (line, delimiter) => {
   let count = 0;
   let inQuotes = false;
@@ -230,7 +255,7 @@ export default function LegacyImportModal({
     setIsParsing(true);
 
     try {
-      const rawText = await file.text();
+      const rawText = await decodeImportFile(file);
       const text = stripBom(rawText);
       let records = [];
 

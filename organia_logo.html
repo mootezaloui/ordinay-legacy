@@ -1,0 +1,447 @@
+<!doctype html>
+<html lang="en" class="h-full">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Organia Brand Concepts</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/_sdk/element_sdk.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600&amp;family=Jost:wght@300;400;500&amp;display=swap" rel="stylesheet">
+  <style>
+    body {
+      box-sizing: border-box;
+    }
+    
+    :root {
+      --forest: #1F3D36;
+      --gold: #B89B5E;
+      --cream: #F8F6F1;
+      --sage: #A8B5A0;
+      --charcoal: #2C2C2C;
+    }
+    
+    /* Ring animations */
+    @keyframes ringExpand {
+      0% {
+        transform: scale(0);
+        opacity: 0;
+      }
+      50% {
+        opacity: 1;
+      }
+      100% {
+        transform: scale(1);
+        opacity: var(--final-opacity);
+      }
+    }
+    
+    @keyframes ringPulse {
+      0%, 100% {
+        transform: scale(1);
+      }
+      50% {
+        transform: scale(1.02);
+      }
+    }
+    
+    /* Point animations */
+    @keyframes pointAppear {
+      0% {
+        transform: scale(0) translate(-50%, -50%);
+        opacity: 0;
+      }
+      70% {
+        transform: scale(1.3) translate(-50%, -50%);
+      }
+      100% {
+        transform: scale(1) translate(-50%, -50%);
+        opacity: 1;
+      }
+    }
+    
+    @keyframes pointOrbit {
+      0% {
+        transform: translate(-50%, -50%) rotate(0deg) translateX(60px) rotate(0deg);
+      }
+      100% {
+        transform: translate(-50%, -50%) rotate(360deg) translateX(60px) rotate(-360deg);
+      }
+    }
+    
+    /* Core animations */
+    @keyframes coreGrow {
+      0% {
+        transform: scale(0);
+      }
+      60% {
+        transform: scale(1.2);
+      }
+      100% {
+        transform: scale(1);
+      }
+    }
+    
+    @keyframes corePulse {
+      0%, 100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(31, 61, 54, 0.4);
+      }
+      50% {
+        transform: scale(1.05);
+        box-shadow: 0 0 20px 5px rgba(31, 61, 54, 0.2);
+      }
+    }
+    
+    /* Leaf accent animation */
+    @keyframes leafFloat {
+      0% {
+        transform: translate(0, 0) rotate(0deg);
+        opacity: 0;
+      }
+      20% {
+        opacity: 0.6;
+      }
+      100% {
+        transform: translate(5px, -5px) rotate(10deg);
+        opacity: 0.6;
+      }
+    }
+    
+    /* Line drawing animation */
+    @keyframes drawLine {
+      0% {
+        stroke-dashoffset: 400;
+      }
+      100% {
+        stroke-dashoffset: 0;
+      }
+    }
+    
+    /* Text reveal */
+    @keyframes textReveal {
+      0% {
+        opacity: 0;
+        transform: translateY(20px);
+        letter-spacing: 0.3em;
+      }
+      100% {
+        opacity: 1;
+        transform: translateY(0);
+        letter-spacing: 0.15em;
+      }
+    }
+    
+    @keyframes fadeIn {
+      0% {
+        opacity: 0;
+      }
+      100% {
+        opacity: 1;
+      }
+    }
+    
+    /* Spinner for loading */
+    @keyframes spin {
+      0% {
+        transform: rotate(0deg);
+      }
+      100% {
+        transform: rotate(360deg);
+      }
+    }
+    
+    /* Progress bar */
+    @keyframes progressFill {
+      0% {
+        width: 0%;
+      }
+      100% {
+        width: 100%;
+      }
+    }
+    
+    /* Stagger delays */
+    .delay-100 { animation-delay: 0.1s; }
+    .delay-200 { animation-delay: 0.2s; }
+    .delay-300 { animation-delay: 0.3s; }
+    .delay-400 { animation-delay: 0.4s; }
+    .delay-500 { animation-delay: 0.5s; }
+    .delay-600 { animation-delay: 0.6s; }
+    .delay-700 { animation-delay: 0.7s; }
+    .delay-800 { animation-delay: 0.8s; }
+    .delay-1000 { animation-delay: 1s; }
+    .delay-1200 { animation-delay: 1.2s; }
+    .delay-1500 { animation-delay: 1.5s; }
+    .delay-2000 { animation-delay: 2s; }
+  </style>
+  <style>@view-transition { navigation: auto; }</style>
+  <script src="/_sdk/data_sdk.js" type="text/javascript"></script>
+ </head>
+ <body class="h-full bg-[#F8F6F1] overflow-auto">
+  <div id="app-wrapper" class="w-full h-full"><!-- Navigation Tabs -->
+   <nav class="sticky top-0 z-50 bg-[#F8F6F1]/95 backdrop-blur-sm border-b border-[#1F3D36]/10">
+    <div class="max-w-6xl mx-auto px-4 py-4">
+     <div class="flex flex-wrap gap-2 justify-center"><button onclick="showSection('intro')" class="nav-btn px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 bg-[#1F3D36] text-[#F8F6F1]" data-section="intro" style="font-family: 'Jost', sans-serif;"> Logo Animation </button> <button onclick="showSection('loading1')" class="nav-btn px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 bg-transparent text-[#1F3D36] border border-[#1F3D36]/30 hover:bg-[#1F3D36]/10" data-section="loading1" style="font-family: 'Jost', sans-serif;"> Loading: Rings </button> <button onclick="showSection('loading2')" class="nav-btn px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 bg-transparent text-[#1F3D36] border border-[#1F3D36]/30 hover:bg-[#1F3D36]/10" data-section="loading2" style="font-family: 'Jost', sans-serif;"> Loading: Orbital </button> <button onclick="showSection('loading3')" class="nav-btn px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 bg-transparent text-[#1F3D36] border border-[#1F3D36]/30 hover:bg-[#1F3D36]/10" data-section="loading3" style="font-family: 'Jost', sans-serif;"> Loading: Progress </button> <button onclick="showSection('wordmark')" class="nav-btn px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 bg-transparent text-[#1F3D36] border border-[#1F3D36]/30 hover:bg-[#1F3D36]/10" data-section="wordmark" style="font-family: 'Jost', sans-serif;"> Wordmark </button>
+     </div>
+    </div>
+   </nav><!-- Section: Logo Animation Intro -->
+   <section id="section-intro" class="min-h-screen flex flex-col items-center justify-center px-4 py-16">
+    <div class="text-center mb-12">
+     <h1 class="text-4xl md:text-5xl text-[#1F3D36] mb-4" style="font-family: 'Cormorant Garamond', serif; font-weight: 300;">Logo Formation</h1>
+     <p class="text-[#1F3D36]/60 text-lg" style="font-family: 'Jost', sans-serif; font-weight: 300;" id="tagline-display">Organized by Nature</p>
+    </div><!-- Animated Logo -->
+    <div class="relative w-64 h-64 mb-12" id="main-logo-container"><!-- Growth rings -->
+     <div class="absolute inset-0 flex items-center justify-center">
+      <div class="ring-outer absolute w-48 h-48 rounded-full border-[7px] border-[#1F3D36] opacity-0" style="--final-opacity: 0.25; animation: ringExpand 0.8s ease-out forwards, ringPulse 4s ease-in-out 2s infinite;"></div>
+     </div>
+     <div class="absolute inset-0 flex items-center justify-center">
+      <div class="ring-middle absolute w-36 h-36 rounded-full border-[7px] border-[#1F3D36] opacity-0" style="--final-opacity: 0.5; animation: ringExpand 0.8s ease-out 0.2s forwards, ringPulse 4s ease-in-out 2.2s infinite;"></div>
+     </div>
+     <div class="absolute inset-0 flex items-center justify-center">
+      <div class="ring-inner absolute w-24 h-24 rounded-full border-[7px] border-[#1F3D36] opacity-0" style="--final-opacity: 0.75; animation: ringExpand 0.8s ease-out 0.4s forwards, ringPulse 4s ease-in-out 2.4s infinite;"></div>
+     </div><!-- Cardinal points -->
+     <div class="absolute top-4 left-1/2 w-4 h-4 rounded-full bg-[#1F3D36] opacity-0" style="transform: translate(-50%, -50%); animation: pointAppear 0.5s ease-out 0.8s forwards;"></div>
+     <div class="absolute top-1/2 right-4 w-4 h-4 rounded-full bg-[#1F3D36] opacity-0" style="transform: translate(-50%, -50%); animation: pointAppear 0.5s ease-out 0.9s forwards;"></div>
+     <div class="absolute bottom-4 left-1/2 w-4 h-4 rounded-full bg-[#1F3D36] opacity-0" style="transform: translate(-50%, -50%); animation: pointAppear 0.5s ease-out 1s forwards;"></div>
+     <div class="absolute top-1/2 left-4 w-4 h-4 rounded-full bg-[#1F3D36] opacity-0" style="transform: translate(-50%, -50%); animation: pointAppear 0.5s ease-out 1.1s forwards;"></div><!-- Core -->
+     <div class="absolute inset-0 flex items-center justify-center">
+      <div class="w-8 h-8 rounded-full bg-[#1F3D36]" style="transform: scale(0); animation: coreGrow 0.6s ease-out 1.2s forwards, corePulse 3s ease-in-out 2s infinite;"></div>
+     </div><!-- Gold accent leaf -->
+     <div class="absolute top-[72px] right-[56px] opacity-0" style="animation: leafFloat 0.8s ease-out 1.5s forwards;">
+      <svg width="20" height="16" viewbox="0 0 20 16" fill="none"><path d="M10 3 Q15 0, 18 5 Q13 8, 10 3 Z" fill="#B89B5E" />
+      </svg>
+     </div>
+    </div><!-- Replay button --> <button onclick="replayAnimation()" class="px-6 py-3 bg-[#1F3D36] text-[#F8F6F1] rounded-full hover:bg-[#1F3D36]/90 transition-all duration-300" style="font-family: 'Jost', sans-serif;"> Replay Animation </button> <!-- Animation description -->
+    <div class="mt-12 max-w-xl text-center">
+     <h3 class="text-xl text-[#1F3D36] mb-4" style="font-family: 'Cormorant Garamond', serif;">Animation Sequence</h3>
+     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-left text-sm" style="font-family: 'Jost', sans-serif; font-weight: 300;">
+      <div class="p-4 bg-white/50 rounded-lg border border-[#1F3D36]/10"><span class="text-[#B89B5E] font-medium">0.0s - 0.6s</span>
+       <p class="text-[#1F3D36]/70 mt-1">Rings expand from center with staggered timing</p>
+      </div>
+      <div class="p-4 bg-white/50 rounded-lg border border-[#1F3D36]/10"><span class="text-[#B89B5E] font-medium">0.8s - 1.1s</span>
+       <p class="text-[#1F3D36]/70 mt-1">Cardinal points appear clockwise</p>
+      </div>
+      <div class="p-4 bg-white/50 rounded-lg border border-[#1F3D36]/10"><span class="text-[#B89B5E] font-medium">1.2s - 1.5s</span>
+       <p class="text-[#1F3D36]/70 mt-1">Core grows with bounce effect</p>
+      </div>
+      <div class="p-4 bg-white/50 rounded-lg border border-[#1F3D36]/10"><span class="text-[#B89B5E] font-medium">1.5s+</span>
+       <p class="text-[#1F3D36]/70 mt-1">Gold leaf floats in, subtle pulse begins</p>
+      </div>
+     </div>
+    </div>
+   </section><!-- Section: Loading Screen 1 - Expanding Rings -->
+   <section id="section-loading1" class="min-h-screen flex-col items-center justify-center px-4 py-16 bg-[#1F3D36] hidden">
+    <div class="text-center mb-8"><span class="text-[#B89B5E] text-sm tracking-widest" style="font-family: 'Jost', sans-serif;">LOADING CONCEPT 01</span>
+     <h2 class="text-3xl text-[#F8F6F1] mt-2" style="font-family: 'Cormorant Garamond', serif; font-weight: 300;">Expanding Rings</h2>
+    </div>
+    <div class="relative w-48 h-48 mx-auto mb-8" id="loading1-logo">
+     <svg viewbox="0 0 160 160" class="w-full h-full"><circle cx="80" cy="80" r="60" fill="none" stroke="#F8F6F1" stroke-width="4" opacity="0.2" stroke-dasharray="377" stroke-dashoffset="377" style="animation: drawLine 1.5s ease-out forwards;">
+      </circle> <circle cx="80" cy="80" r="46" fill="none" stroke="#F8F6F1" stroke-width="4" opacity="0.4" stroke-dasharray="289" stroke-dashoffset="289" style="animation: drawLine 1.5s ease-out 0.3s forwards;">
+      </circle> <circle cx="80" cy="80" r="32" fill="none" stroke="#F8F6F1" stroke-width="4" opacity="0.6" stroke-dasharray="201" stroke-dashoffset="201" style="animation: drawLine 1.5s ease-out 0.6s forwards;">
+      </circle> <circle cx="80" cy="80" r="10" fill="#B89B5E" opacity="0" style="animation: fadeIn 0.5s ease-out 1s forwards;">
+      </circle>
+     </svg>
+    </div>
+    <p class="text-[#F8F6F1]/60 text-center" style="font-family: 'Jost', sans-serif; font-weight: 300; animation: fadeIn 1s ease-out 1.2s both;">Cultivating your experience...</p><button onclick="replayLoading1()" class="mt-8 px-6 py-3 border border-[#F8F6F1]/30 text-[#F8F6F1] rounded-full hover:bg-[#F8F6F1]/10 transition-all duration-300 mx-auto block" style="font-family: 'Jost', sans-serif;"> Replay </button>
+   </section><!-- Section: Loading Screen 2 - Orbital -->
+   <section id="section-loading2" class="min-h-screen flex-col items-center justify-center px-4 py-16 bg-[#F8F6F1] hidden">
+    <div class="text-center mb-8"><span class="text-[#B89B5E] text-sm tracking-widest" style="font-family: 'Jost', sans-serif;">LOADING CONCEPT 02</span>
+     <h2 class="text-3xl text-[#1F3D36] mt-2" style="font-family: 'Cormorant Garamond', serif; font-weight: 300;">Orbital Motion</h2>
+    </div>
+    <div class="relative w-48 h-48 mx-auto mb-8"><!-- Static rings -->
+     <div class="absolute inset-0 flex items-center justify-center">
+      <div class="w-40 h-40 rounded-full border-2 border-[#1F3D36]/20"></div>
+     </div>
+     <div class="absolute inset-0 flex items-center justify-center">
+      <div class="w-28 h-28 rounded-full border-2 border-[#1F3D36]/30"></div>
+     </div>
+     <div class="absolute inset-0 flex items-center justify-center">
+      <div class="w-16 h-16 rounded-full border-2 border-[#1F3D36]/40"></div>
+     </div><!-- Core -->
+     <div class="absolute inset-0 flex items-center justify-center">
+      <div class="w-6 h-6 rounded-full bg-[#1F3D36]"></div>
+     </div><!-- Orbiting points -->
+     <div class="absolute inset-0 flex items-center justify-center" style="animation: spin 3s linear infinite;">
+      <div class="absolute w-3 h-3 rounded-full bg-[#B89B5E]" style="transform: translateX(80px);"></div>
+     </div>
+     <div class="absolute inset-0 flex items-center justify-center" style="animation: spin 4s linear infinite reverse;">
+      <div class="absolute w-2 h-2 rounded-full bg-[#1F3D36]" style="transform: translateX(56px);"></div>
+     </div>
+     <div class="absolute inset-0 flex items-center justify-center" style="animation: spin 2s linear infinite;">
+      <div class="absolute w-2 h-2 rounded-full bg-[#1F3D36]/60" style="transform: translateX(32px);"></div>
+     </div>
+    </div>
+    <p class="text-[#1F3D36]/60 text-center" style="font-family: 'Jost', sans-serif; font-weight: 300;">Finding natural balance...</p>
+   </section><!-- Section: Loading Screen 3 - Progress -->
+   <section id="section-loading3" class="min-h-screen flex-col items-center justify-center px-4 py-16 bg-gradient-to-b from-[#1F3D36] to-[#2a4f45] hidden">
+    <div class="text-center mb-8"><span class="text-[#B89B5E] text-sm tracking-widest" style="font-family: 'Jost', sans-serif;">LOADING CONCEPT 03</span>
+     <h2 class="text-3xl text-[#F8F6F1] mt-2" style="font-family: 'Cormorant Garamond', serif; font-weight: 300;">Growth Progress</h2>
+    </div><!-- Mini logo -->
+    <div class="relative w-24 h-24 mx-auto mb-8">
+     <svg viewbox="0 0 160 160" class="w-full h-full"><circle cx="80" cy="80" r="50" fill="none" stroke="#F8F6F1" stroke-width="3" opacity="0.2" /> <circle cx="80" cy="80" r="36" fill="none" stroke="#F8F6F1" stroke-width="3" opacity="0.3" /> <circle cx="80" cy="80" r="22" fill="none" stroke="#F8F6F1" stroke-width="3" opacity="0.4" /> <circle cx="80" cy="80" r="8" fill="#B89B5E" />
+     </svg>
+    </div><!-- Progress bar -->
+    <div class="w-64 mx-auto mb-4">
+     <div class="h-1 bg-[#F8F6F1]/20 rounded-full overflow-hidden">
+      <div id="progress-bar" class="h-full bg-[#B89B5E] rounded-full" style="width: 0%; animation: progressFill 3s ease-out forwards;"></div>
+     </div>
+    </div>
+    <p class="text-[#F8F6F1]/60 text-center text-sm" style="font-family: 'Jost', sans-serif; font-weight: 300;"><span id="progress-text">0%</span> — Growing naturally</p><button onclick="replayLoading3()" class="mt-8 px-6 py-3 border border-[#F8F6F1]/30 text-[#F8F6F1] rounded-full hover:bg-[#F8F6F1]/10 transition-all duration-300 mx-auto block" style="font-family: 'Jost', sans-serif;"> Replay </button>
+   </section><!-- Section: Wordmark with Logo -->
+   <section id="section-wordmark" class="min-h-screen flex-col items-center justify-center px-4 py-16 bg-[#F8F6F1] hidden">
+    <div class="text-center mb-12"><span class="text-[#B89B5E] text-sm tracking-widest" style="font-family: 'Jost', sans-serif;">WORDMARK</span>
+     <h2 class="text-3xl text-[#1F3D36] mt-2" style="font-family: 'Cormorant Garamond', serif; font-weight: 300;">Logo as the "O"</h2>
+    </div><!-- Wordmark display -->
+    <div class="flex items-center justify-center gap-0 mb-16" id="wordmark-container"><!-- Logo as O -->
+     <div class="relative w-20 h-20 flex items-center justify-center opacity-0" style="animation: fadeIn 0.6s ease-out 0.3s forwards;">
+      <svg viewbox="0 0 160 160" class="w-full h-full"><circle cx="80" cy="80" r="55" fill="none" stroke="#1F3D36" stroke-width="6" opacity="0.25" /> <circle cx="80" cy="80" r="42" fill="none" stroke="#1F3D36" stroke-width="6" opacity="0.5" /> <circle cx="80" cy="80" r="29" fill="none" stroke="#1F3D36" stroke-width="6" opacity="0.75" /> <circle cx="80" cy="20" r="4" fill="#1F3D36" /> <circle cx="140" cy="80" r="4" fill="#1F3D36" /> <circle cx="80" cy="140" r="4" fill="#1F3D36" /> <circle cx="20" cy="80" r="4" fill="#1F3D36" /> <circle cx="80" cy="80" r="8" fill="#1F3D36" /> <path d="M98 62 Q102 58, 106 62 Q102 66, 98 62 Z" fill="#B89B5E" opacity="0.6" />
+      </svg>
+     </div><!-- RGANIA text --> <span class="text-6xl md:text-7xl text-[#1F3D36] -ml-1 opacity-0" style="font-family: 'Cormorant Garamond', serif; font-weight: 300; letter-spacing: 0.05em; animation: textReveal 0.8s ease-out 0.6s forwards;" id="brand-text">rgania</span>
+    </div><!-- Alternative layouts -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto"><!-- Stacked -->
+     <div class="bg-white/50 rounded-2xl p-8 border border-[#1F3D36]/10 text-center">
+      <p class="text-xs text-[#B89B5E] mb-4 tracking-widest" style="font-family: 'Jost', sans-serif;">STACKED</p>
+      <div class="flex flex-col items-center gap-2">
+       <div class="w-12 h-12">
+        <svg viewbox="0 0 160 160" class="w-full h-full"><circle cx="80" cy="80" r="55" fill="none" stroke="#1F3D36" stroke-width="6" opacity="0.25" /> <circle cx="80" cy="80" r="42" fill="none" stroke="#1F3D36" stroke-width="6" opacity="0.5" /> <circle cx="80" cy="80" r="29" fill="none" stroke="#1F3D36" stroke-width="6" opacity="0.75" /> <circle cx="80" cy="80" r="8" fill="#1F3D36" />
+        </svg>
+       </div><span class="text-2xl text-[#1F3D36]" style="font-family: 'Cormorant Garamond', serif; font-weight: 400; letter-spacing: 0.15em;">ORGANIA</span>
+      </div>
+     </div><!-- Horizontal -->
+     <div class="bg-[#1F3D36] rounded-2xl p-8 text-center">
+      <p class="text-xs text-[#B89B5E] mb-4 tracking-widest" style="font-family: 'Jost', sans-serif;">DARK MODE</p>
+      <div class="flex items-center justify-center gap-2">
+       <div class="w-8 h-8">
+        <svg viewbox="0 0 160 160" class="w-full h-full"><circle cx="80" cy="80" r="55" fill="none" stroke="#F8F6F1" stroke-width="6" opacity="0.25" /> <circle cx="80" cy="80" r="42" fill="none" stroke="#F8F6F1" stroke-width="6" opacity="0.5" /> <circle cx="80" cy="80" r="29" fill="none" stroke="#F8F6F1" stroke-width="6" opacity="0.75" /> <circle cx="80" cy="80" r="8" fill="#B89B5E" />
+        </svg>
+       </div><span class="text-xl text-[#F8F6F1]" style="font-family: 'Cormorant Garamond', serif; font-weight: 400; letter-spacing: 0.1em;">Organia</span>
+      </div>
+     </div><!-- Icon only -->
+     <div class="bg-[#A8B5A0]/30 rounded-2xl p-8 text-center">
+      <p class="text-xs text-[#1F3D36]/60 mb-4 tracking-widest" style="font-family: 'Jost', sans-serif;">ICON ONLY</p>
+      <div class="w-16 h-16 mx-auto">
+       <svg viewbox="0 0 160 160" class="w-full h-full"><circle cx="80" cy="80" r="55" fill="none" stroke="#1F3D36" stroke-width="6" opacity="0.25" /> <circle cx="80" cy="80" r="42" fill="none" stroke="#1F3D36" stroke-width="6" opacity="0.5" /> <circle cx="80" cy="80" r="29" fill="none" stroke="#1F3D36" stroke-width="6" opacity="0.75" /> <circle cx="80" cy="20" r="4" fill="#1F3D36" /> <circle cx="140" cy="80" r="4" fill="#1F3D36" /> <circle cx="80" cy="140" r="4" fill="#1F3D36" /> <circle cx="20" cy="80" r="4" fill="#1F3D36" /> <circle cx="80" cy="80" r="8" fill="#1F3D36" /> <path d="M98 62 Q102 58, 106 62 Q102 66, 98 62 Z" fill="#B89B5E" opacity="0.6" />
+       </svg>
+      </div>
+     </div>
+    </div>
+   </section>
+  </div>
+  <script>
+    const defaultConfig = {
+      brand_name: "Organia",
+      tagline: "Organized by Nature"
+    };
+    
+    let config = { ...defaultConfig };
+    
+    function showSection(sectionId) {
+      // Hide all sections
+      document.querySelectorAll('section').forEach(section => {
+        section.classList.add('hidden');
+        section.classList.remove('flex');
+      });
+      
+      // Show selected section
+      const section = document.getElementById('section-' + sectionId);
+      if (section) {
+        section.classList.remove('hidden');
+        section.classList.add('flex');
+      }
+      
+      // Update nav buttons
+      document.querySelectorAll('.nav-btn').forEach(btn => {
+        if (btn.dataset.section === sectionId) {
+          btn.classList.add('bg-[#1F3D36]', 'text-[#F8F6F1]');
+          btn.classList.remove('bg-transparent', 'text-[#1F3D36]', 'border', 'border-[#1F3D36]/30');
+        } else {
+          btn.classList.remove('bg-[#1F3D36]', 'text-[#F8F6F1]');
+          btn.classList.add('bg-transparent', 'text-[#1F3D36]', 'border', 'border-[#1F3D36]/30');
+        }
+      });
+      
+      // Restart animations for specific sections
+      if (sectionId === 'loading3') {
+        startProgressAnimation();
+      }
+    }
+    
+    function replayAnimation() {
+      const container = document.getElementById('main-logo-container');
+      const clone = container.cloneNode(true);
+      container.parentNode.replaceChild(clone, container);
+    }
+    
+    function replayLoading1() {
+      const container = document.getElementById('loading1-logo');
+      const clone = container.cloneNode(true);
+      container.parentNode.replaceChild(clone, container);
+    }
+    
+    function replayLoading3() {
+      const progressBar = document.getElementById('progress-bar');
+      progressBar.style.animation = 'none';
+      progressBar.offsetHeight; // Trigger reflow
+      progressBar.style.animation = 'progressFill 3s ease-out forwards';
+      startProgressAnimation();
+    }
+    
+    function startProgressAnimation() {
+      const progressText = document.getElementById('progress-text');
+      let progress = 0;
+      const interval = setInterval(() => {
+        progress += 1;
+        if (progressText) {
+          progressText.textContent = progress + '%';
+        }
+        if (progress >= 100) {
+          clearInterval(interval);
+        }
+      }, 30);
+    }
+    
+    async function onConfigChange(newConfig) {
+      config = { ...defaultConfig, ...newConfig };
+      
+      // Update tagline
+      const taglineEl = document.getElementById('tagline-display');
+      if (taglineEl) {
+        taglineEl.textContent = config.tagline || defaultConfig.tagline;
+      }
+      
+      // Update brand text in wordmark
+      const brandTextEl = document.getElementById('brand-text');
+      if (brandTextEl) {
+        const brandName = config.brand_name || defaultConfig.brand_name;
+        // Remove first letter (O) and show rest
+        brandTextEl.textContent = brandName.length > 1 ? brandName.slice(1).toLowerCase() : '';
+      }
+    }
+    
+    // Initialize SDK
+    if (window.elementSdk) {
+      window.elementSdk.init({
+        defaultConfig,
+        onConfigChange,
+        mapToCapabilities: (cfg) => ({
+          recolorables: [],
+          borderables: [],
+          fontEditable: undefined,
+          fontSizeable: undefined
+        }),
+        mapToEditPanelValues: (cfg) => new Map([
+          ["brand_name", cfg.brand_name || defaultConfig.brand_name],
+          ["tagline", cfg.tagline || defaultConfig.tagline]
+        ])
+      });
+    }
+    
+    // Start progress animation on load if that section is visible
+    document.addEventListener('DOMContentLoaded', () => {
+      onConfigChange(config);
+    });
+  </script>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9c129fe38672e1cd',t:'MTc2ODk1NDYwNC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>

@@ -2731,6 +2731,126 @@ export function DataProvider({ children }) {
     }
   };
 
+  const logFinancialEntryParentHistory = (entry, actionLabel) => {
+    if (!entry?.id) return;
+    const entryDesc = entry.title || entry.description || `${entry.type || entry.entryType || entry.entry_type || "Entry"} - ${entry.amount ?? ""} ${entry.currency || ""}`.trim();
+    const baseLabel = entryDesc ? `${actionLabel}: ${entryDesc}` : actionLabel;
+    const loggedTargets = new Set();
+    const logTarget = (entityType, entityId, label = baseLabel, metadata = {}) => {
+      if (!entityType || !entityId) return;
+      const key = `${entityType}:${entityId}`;
+      if (loggedTargets.has(key)) return;
+      loggedTargets.add(key);
+      logHistoryEvent({
+        entityType,
+        entityId,
+        eventType: EVENT_TYPES.FINANCE,
+        label,
+        details: label,
+        metadata: {
+          childType: "financial_entry",
+          childId: entry.id,
+          amount: entry.amount,
+          ...metadata,
+        },
+        actor: actorName,
+      });
+    };
+
+    if (entry.clientId) {
+      logTarget("client", entry.clientId);
+    }
+    if (entry.dossierId) {
+      logTarget("dossier", entry.dossierId);
+    }
+    if (entry.caseId) {
+      logTarget("case", entry.caseId);
+      const caseItem = cases.find((c) => String(c.id) === String(entry.caseId));
+      if (caseItem?.dossierId) {
+        const caseRef = caseItem.caseNumber || caseItem.title || "";
+        const dossierLabel = caseRef ? `${baseLabel} (${caseRef})` : baseLabel;
+        logTarget("dossier", caseItem.dossierId, dossierLabel, {
+          childType: "case",
+          childId: caseItem.id,
+          relatedType: "financial_entry",
+          relatedId: entry.id,
+        });
+      }
+    }
+    if (entry.missionId) {
+      logTarget("mission", entry.missionId);
+      const missionItem = missions.find((m) => String(m.id) === String(entry.missionId));
+      if (missionItem?.entityType === "case" && missionItem?.entityId) {
+        const caseRef = missionItem.entityReference || "";
+        const caseLabel = caseRef ? `${baseLabel} (${caseRef})` : baseLabel;
+        logTarget("case", missionItem.entityId, caseLabel, {
+          childType: "mission",
+          childId: missionItem.id,
+          relatedType: "financial_entry",
+          relatedId: entry.id,
+        });
+        const caseItem = cases.find((c) => String(c.id) === String(missionItem.entityId));
+        if (caseItem?.dossierId) {
+          const dossierLabel = caseRef ? `${baseLabel} (${caseRef})` : baseLabel;
+          logTarget("dossier", caseItem.dossierId, dossierLabel, {
+            childType: "case",
+            childId: caseItem.id,
+            relatedType: "financial_entry",
+            relatedId: entry.id,
+          });
+        }
+      } else if (missionItem?.entityType === "dossier" && missionItem?.entityId) {
+        const dossierLabel = missionItem.entityReference ? `${baseLabel} (${missionItem.entityReference})` : baseLabel;
+        logTarget("dossier", missionItem.entityId, dossierLabel, {
+          childType: "mission",
+          childId: missionItem.id,
+          relatedType: "financial_entry",
+          relatedId: entry.id,
+        });
+      }
+      if (missionItem?.officerId) {
+        const officerLabel = missionItem.missionNumber ? `${baseLabel} (${missionItem.missionNumber})` : baseLabel;
+        logTarget("officer", missionItem.officerId, officerLabel, {
+          childType: "mission",
+          childId: missionItem.id,
+          relatedType: "financial_entry",
+          relatedId: entry.id,
+        });
+      }
+    }
+    if (entry.taskId) {
+      logTarget("task", entry.taskId);
+      const taskItem = tasks.find((t) => String(t.id) === String(entry.taskId));
+      if (taskItem?.caseId) {
+        const caseItem = cases.find((c) => String(c.id) === String(taskItem.caseId));
+        if (caseItem) {
+          const caseRef = caseItem.caseNumber || caseItem.title || "";
+          const caseLabel = caseRef ? `${baseLabel} (${caseRef})` : baseLabel;
+          logTarget("case", caseItem.id, caseLabel, {
+            childType: "task",
+            childId: taskItem.id,
+            relatedType: "financial_entry",
+            relatedId: entry.id,
+          });
+          if (caseItem.dossierId) {
+            const dossierLabel = caseRef ? `${baseLabel} (${caseRef})` : baseLabel;
+            logTarget("dossier", caseItem.dossierId, dossierLabel, {
+              childType: "case",
+              childId: caseItem.id,
+              relatedType: "financial_entry",
+              relatedId: entry.id,
+            });
+          }
+        }
+      } else if (taskItem?.dossierId) {
+        logTarget("dossier", taskItem.dossierId);
+      }
+    }
+    if (entry.personalTaskId) {
+      logTarget("personalTask", entry.personalTaskId);
+    }
+  };
+
   // --- Financial Entries ---
   const addFinancialEntry = async (entry) => {
     if (blockWrite("add financial entry")) {
@@ -2772,6 +2892,8 @@ export function DataProvider({ children }) {
       dossier_id: emptyToNull(entry.dossierId || entry.dossier_id),
       case_id: emptyToNull(entry.caseId || entry.case_id),
       mission_id: emptyToNull(entry.missionId || entry.mission_id),
+      task_id: emptyToNull(entry.taskId || entry.task_id),
+      personal_task_id: emptyToNull(entry.personalTaskId || entry.personal_task_id),
       entry_type: backendType,
       status: statusMap[entry.status] || entry.status || "pending",
       category: emptyToNull(entry.category),
@@ -2800,6 +2922,7 @@ export function DataProvider({ children }) {
     });
 
     logCreationHistory("financialEntry", created, actorName);
+    logFinancialEntryParentHistory(adapted, "Financial entry added");
     return { ok: true, result: validation.result, created: adapted };
   };
 
@@ -2826,6 +2949,8 @@ export function DataProvider({ children }) {
       client_id: updates.clientId,
       dossier_id: updates.dossierId,
       case_id: updates.caseId,
+      task_id: updates.taskId,
+      personal_task_id: updates.personalTaskId,
       entry_type: updates.type || updates.entryType,
       status: updates.status,
       amount: updates.amount,
@@ -2856,6 +2981,7 @@ export function DataProvider({ children }) {
 
     logUpdateHistory("financialEntry", prev, updates, actorName);
     logStatusHistory("financialEntry", prev, updates, actorName);
+    logFinancialEntryParentHistory(adapted, "Financial entry updated");
 
     return validation;
   };
@@ -2901,6 +3027,7 @@ export function DataProvider({ children }) {
 
     logUpdateHistory("financialEntry", prev, updates, actorName);
     logStatusHistory("financialEntry", prev, updates, actorName);
+    logFinancialEntryParentHistory(adapted, "Financial entry updated");
 
     return adapted;
   };
@@ -2930,6 +3057,7 @@ export function DataProvider({ children }) {
     });
 
     logDeletionHistory("financialEntry", prev, actorName);
+    logFinancialEntryParentHistory(prev, "Financial entry deleted");
     return { ok: true, result: validation.result };
   };
 

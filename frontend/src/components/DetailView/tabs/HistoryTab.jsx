@@ -17,6 +17,65 @@ import { useSettings } from "../../../contexts/SettingsContext";
 import ContentSection from "../../layout/ContentSection";
 
 /**
+ * Calculate event depth based on metadata
+ * Depth 0: Direct lifecycle events on current entity
+ * Depth 1: Events from immediate children (relation, child_created, child_deleted)
+ * Depth 2: Events from grandchildren (finance under mission, etc.)
+ */
+function getEventDepth(event) {
+    const { eventType, metadata = {} } = event;
+
+    // Direct lifecycle events on current entity = depth 0
+    if (eventType === 'lifecycle' && !metadata.childType && !metadata.relatedType) {
+        return 0;
+    }
+
+    // Direct status/assignment changes on current entity = depth 0
+    if ((eventType === 'status' || eventType === 'assignment') && !metadata.childType && !metadata.relatedType) {
+        return 0;
+    }
+
+    // Child events (relation, child_created, child_deleted) = depth 1
+    if (eventType === 'relation' || eventType === 'child_created' || eventType === 'child_deleted') {
+        return 1;
+    }
+
+    // Finance events with relatedType = depth 2 (grandchild)
+    if (eventType === 'finance' && (metadata.relatedType || metadata.childType)) {
+        return 2;
+    }
+
+    // System events = depth 0 (direct)
+    if (eventType === 'system') {
+        return 0;
+    }
+
+    // Default: check for child/related metadata
+    if (metadata.childType || metadata.relatedType) {
+        return 1;
+    }
+
+    return 0;
+}
+
+/**
+ * Get relation path for nested events (returns raw entity types)
+ */
+function getRelationPath(event) {
+    const { metadata = {} } = event;
+    const path = [];
+
+    if (metadata.relatedType) {
+        path.push(metadata.relatedType);
+    }
+    if (metadata.childType) {
+        path.push(metadata.childType);
+    }
+
+    return path;
+}
+
+/**
  * History Tab - Read-only audit trail
  *
  * Displays chronological timeline of important events:
@@ -78,25 +137,19 @@ export default function HistoryTab({ entityType, entityId, label }) {
         <ContentSection data-tutorial="dossier-history-section" title={label || t("detail.tabs.history")}>
             <div className="p-6">
                 <div className="max-w-4xl mx-auto">
-                    {/* Timeline */}
-                    <div className="relative">
-                        {/* Timeline line */}
-                        <div className="absolute left-8 top-0 bottom-0 w-0.5 bg-slate-200 dark:bg-slate-700" />
-
-                        {/* Events */}
-                        <div className="space-y-6">
-                            {history.map((event, index) => (
-                                <HistoryEvent
-                                    key={event.id}
-                                    event={event}
-                                    isFirst={index === 0}
-                                    isLast={index === history.length - 1}
-                                    formatDateTime={formatDateTime}
-                                    t={t}
-                                    i18n={i18n}
-                                />
-                            ))}
-                        </div>
+                    {/* Events with visual hierarchy */}
+                    <div className="space-y-3">
+                        {history.map((event, index) => (
+                            <HistoryEvent
+                                key={event.id}
+                                event={event}
+                                isFirst={index === 0}
+                                isLast={index === history.length - 1}
+                                formatDateTime={formatDateTime}
+                                t={t}
+                                i18n={i18n}
+                            />
+                        ))}
                     </div>
                 </div>
             </div>
@@ -105,58 +158,122 @@ export default function HistoryTab({ entityType, entityId, label }) {
 }
 
 /**
- * Single history event component
+ * Single history event component with visual hierarchy
  */
 function HistoryEvent({ event, isFirst, isLast, formatDateTime, t, i18n }) {
-    const { icon, iconColor, bgColor } = getEventIcon(event.eventType, event.metadata);
+    const depth = getEventDepth(event);
+    const { icon, iconColor, bgColor } = getEventIcon(event.eventType, event.metadata, depth);
+    const relationPath = getRelationPath(event);
+
+    // Visual hierarchy styles based on depth
+    const depthStyles = {
+        0: {
+            wrapper: "pl-0",
+            container: "bg-slate-50/50 dark:bg-slate-800/30 rounded-lg p-4 -ml-2",
+            iconSize: "w-12 h-12",
+            titleClass: "text-base font-semibold text-slate-900 dark:text-slate-100",
+            timestampClass: "text-sm",
+        },
+        1: {
+            wrapper: "pl-6 border-l-2 border-slate-200 dark:border-slate-700 ml-6",
+            container: "py-3",
+            iconSize: "w-10 h-10",
+            titleClass: "text-sm font-medium text-slate-700 dark:text-slate-300",
+            timestampClass: "text-xs",
+        },
+        2: {
+            wrapper: "pl-6 border-l-2 border-dashed border-slate-200 dark:border-slate-700 ml-12",
+            container: "py-2",
+            iconSize: "w-8 h-8",
+            titleClass: "text-sm text-slate-600 dark:text-slate-400",
+            timestampClass: "text-xs",
+        },
+    };
+
+    const style = depthStyles[Math.min(depth, 2)];
 
     return (
-        <div className="relative flex gap-4 group">
-            {/* Icon */}
-            <div className={`relative z-10 flex items-center justify-center w-16 h-16 rounded-full ${bgColor} flex-shrink-0`}>
-                {icon}
-            </div>
-
-            {/* Content */}
-            <div className="flex-1 min-w-0 pb-8">
-                {/* Header */}
-                <div className="flex items-start justify-between gap-4 mb-2">
-                    <div className="flex-1 min-w-0">
-                        <h4 className="text-base font-semibold text-slate-900 dark:text-slate-100 overflow-wrap-anywhere">
-                            {event.label}
-                        </h4>
-                        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                            {formatTimestamp(event.timestamp, formatDateTime, t, i18n)}
-                        </p>
-                    </div>
-
-                    {/* Event type badge */}
-                    <EventTypeBadge eventType={event.eventType} t={t} />
+        <div className={style.wrapper}>
+            <div className={`relative flex gap-3 group ${style.container}`}>
+                {/* Icon */}
+                <div className={`relative z-10 flex items-center justify-center ${style.iconSize} rounded-full ${bgColor} flex-shrink-0`}>
+                    {icon}
                 </div>
 
-                {/* Details */}
-                {event.details && (
-                    <div className="mt-3 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700">
-                        <p className="text-sm text-slate-700 dark:text-slate-300 overflow-wrap-anywhere whitespace-normal">
-                            {event.details}
-                        </p>
-                    </div>
-                )}
+                {/* Content */}
+                <div className="flex-1 min-w-0">
+                    {/* Header */}
+                    <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                            <h4 className={`${style.titleClass} overflow-wrap-anywhere`}>
+                                {event.label}
+                            </h4>
+                            <p className={`${style.timestampClass} text-slate-500 dark:text-slate-400 mt-0.5`}>
+                                {formatTimestamp(event.timestamp, formatDateTime, t, i18n)}
+                            </p>
+                        </div>
 
-                {/* Metadata (if relevant) */}
-                {event.metadata && Object.keys(event.metadata).length > 0 && (
-                    <MetadataDisplay metadata={event.metadata} t={t} />
-                )}
+                        {/* Badges row */}
+                        <div className="flex items-center gap-2 flex-shrink-0 flex-wrap justify-end">
+                            {/* Relation path badge for nested events */}
+                            {relationPath.length > 0 && (
+                                <RelationPathBadge path={relationPath} t={t} />
+                            )}
+                            {/* Event type badge */}
+                            <EventTypeBadge eventType={event.eventType} t={t} />
+                        </div>
+                    </div>
+
+                    {/* Metadata (if relevant) */}
+                    {event.metadata && Object.keys(event.metadata).length > 0 && (
+                        <MetadataDisplay metadata={event.metadata} t={t} depth={depth} />
+                    )}
+                </div>
             </div>
         </div>
     );
 }
 
 /**
- * Get icon and colors for event type
+ * Relation path badge for nested events - shows source entity chain
  */
-function getEventIcon(eventType, metadata = {}) {
-    const iconClass = "w-8 h-8";
+function RelationPathBadge({ path, t }) {
+    if (!path || path.length === 0) return null;
+
+    // Translate entity type names
+    const translateEntityType = (type) => {
+        const key = `entities.${type}`;
+        const translated = t(key, { defaultValue: '' });
+        // If no translation, format the raw type nicely
+        if (!translated || translated === key) {
+            return type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+        }
+        return translated;
+    };
+
+    return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-slate-200/60 text-slate-600 dark:bg-slate-700/60 dark:text-slate-400">
+            {path.map((segment, idx) => (
+                <span key={idx} className="flex items-center">
+                    {idx > 0 && <span className="mx-1 text-slate-400 dark:text-slate-500">→</span>}
+                    <span>{translateEntityType(segment)}</span>
+                </span>
+            ))}
+        </span>
+    );
+}
+
+/**
+ * Get icon and colors for event type with depth-based sizing
+ */
+function getEventIcon(eventType, metadata = {}, depth = 0) {
+    // Icon sizes based on depth (smaller than container)
+    const iconSizes = {
+        0: "w-6 h-6",
+        1: "w-5 h-5",
+        2: "w-4 h-4",
+    };
+    const iconClass = iconSizes[Math.min(depth, 2)];
 
     switch (eventType) {
         case 'lifecycle':
@@ -272,9 +389,9 @@ function EventTypeBadge({ eventType, t }) {
 }
 
 /**
- * Display metadata in a clean format
+ * Display metadata in a clean format with depth-aware styling
  */
-function MetadataDisplay({ metadata, t }) {
+function MetadataDisplay({ metadata, t, depth = 0 }) {
 
     // Filter out internal/redundant metadata
     const relevantKeys = Object.keys(metadata).filter(key =>
@@ -285,14 +402,33 @@ function MetadataDisplay({ metadata, t }) {
         return null;
     }
 
+    // For deeper events, show inline compact format
+    if (depth >= 2) {
+        return (
+            <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                {relevantKeys.map((key, idx) => {
+                    const value = metadata[key];
+                    if (value === null || value === undefined) return null;
+                    return (
+                        <span key={key}>
+                            {idx > 0 && <span className="mx-1">·</span>}
+                            <span className="capitalize">{formatMetadataKey(key, t)}:</span>{' '}
+                            <span>{formatMetadataValue(value)}</span>
+                        </span>
+                    );
+                })}
+            </div>
+        );
+    }
+
     return (
-        <div className="mt-3 flex flex-wrap gap-2">
+        <div className="mt-2 flex flex-wrap gap-2">
             {relevantKeys.map(key => {
                 const value = metadata[key];
                 if (value === null || value === undefined) return null;
 
                 return (
-                    <div key={key} className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded text-xs">
+                    <div key={key} className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded text-xs">
                         <span className="font-medium text-slate-500 dark:text-slate-400 capitalize">
                             {formatMetadataKey(key, t)}:
                         </span>

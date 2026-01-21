@@ -73,12 +73,39 @@ export function useAgentState() {
   const [dataAccess, setDataAccess] = useState<DataAccessPermissions>(loadDataAccessFromStorage);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const conversationEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const scrollPositions = useRef<Record<string, number>>({});
   const streamAbortRef = useRef<AbortController | null>(null);
   const streamSessionRef = useRef<string | null>(null);
+  const lastMessageContentRef = useRef<string>("");
+  const isUserScrolledUpRef = useRef(false);
 
   // Get messages from active session
   const conversation = activeSession?.messages || [];
+
+  // Scroll to bottom utility
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
+    const container = scrollContainerRef.current;
+    if (container) {
+      // Use requestAnimationFrame to ensure DOM has updated
+      requestAnimationFrame(() => {
+        container.scrollTo({
+          top: container.scrollHeight,
+          behavior,
+        });
+      });
+    }
+  }, []);
+
+  // Track user scroll position to detect if they scrolled up
+  const handleScroll = useCallback(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+    // User is "scrolled up" if they're more than 100px from bottom
+    isUserScrolledUpRef.current = distanceFromBottom > 100;
+  }, []);
 
   // Restore input draft when switching sessions
   useEffect(() => {
@@ -122,36 +149,72 @@ export function useAgentState() {
 
   // Save scroll position before switching sessions
   const saveScrollPosition = useCallback(() => {
-    const container = conversationEndRef.current?.parentElement?.parentElement;
+    const container = scrollContainerRef.current;
     if (container && activeSessionId) {
       scrollPositions.current[activeSessionId] = container.scrollTop;
     }
   }, [activeSessionId]);
 
-  // Restore scroll position after switching sessions
+  // Attach scroll listener to track user scroll position
   useEffect(() => {
-    const container = conversationEndRef.current?.parentElement?.parentElement;
-    if (container && activeSessionId) {
-      const savedPos = scrollPositions.current[activeSessionId];
-      if (savedPos !== undefined) {
-        container.scrollTop = savedPos;
-      }
-    }
-  }, [activeSessionId]);
+    const container = scrollContainerRef.current;
+    if (!container) return;
 
-  // Scroll to end when messages change (using scrollTo instead of scrollIntoView to avoid parent scroll)
+    container.addEventListener("scroll", handleScroll, { passive: true });
+    return () => container.removeEventListener("scroll", handleScroll);
+  }, [handleScroll]);
+
+  // Scroll to bottom when switching sessions (after a brief delay for render)
   useEffect(() => {
-    if (conversation.length > 0) {
-      // Use scrollTo on the container instead of scrollIntoView to avoid scrolling parent/body
-      const container = conversationEndRef.current?.parentElement?.parentElement;
+    if (!activeSessionId) return;
+
+    // Reset user scroll tracking when switching sessions
+    isUserScrolledUpRef.current = false;
+
+    // Small delay to ensure messages have rendered
+    const timer = setTimeout(() => {
+      const savedPos = scrollPositions.current[activeSessionId];
+      const container = scrollContainerRef.current;
       if (container) {
-        container.scrollTo({
-          top: container.scrollHeight,
-          behavior: "smooth",
-        });
+        if (savedPos !== undefined) {
+          // Restore saved position
+          container.scrollTop = savedPos;
+        } else {
+          // No saved position, scroll to bottom
+          scrollToBottom("instant");
+        }
+      }
+    }, 50);
+
+    return () => clearTimeout(timer);
+  }, [activeSessionId, scrollToBottom]);
+
+  // Scroll to bottom when new messages are added (not during streaming)
+  useEffect(() => {
+    if (conversation.length > 0 && !isLoading) {
+      // Only auto-scroll if user hasn't scrolled up
+      if (!isUserScrolledUpRef.current) {
+        scrollToBottom("smooth");
       }
     }
-  }, [conversation.length]);
+  }, [conversation.length, isLoading, scrollToBottom]);
+
+  // Auto-scroll during streaming when content grows
+  useEffect(() => {
+    if (!isLoading || conversation.length === 0) {
+      lastMessageContentRef.current = "";
+      return;
+    }
+
+    const lastMessage = conversation[conversation.length - 1];
+    const currentContent = lastMessage?.content || "";
+
+    // Only scroll if content has changed and user hasn't scrolled up
+    if (currentContent !== lastMessageContentRef.current && !isUserScrolledUpRef.current) {
+      lastMessageContentRef.current = currentContent;
+      scrollToBottom("smooth");
+    }
+  }, [conversation, isLoading, scrollToBottom]);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -462,10 +525,12 @@ export function useAgentState() {
     setDataAccess,
     inputRef,
     conversationEndRef,
+    scrollContainerRef,
     handleSubmit,
     handleKeyDown,
     handleExampleClick,
     saveScrollPosition,
+    scrollToBottom,
     getRelativeTime,
     cancelStream,
     startAgentStream,

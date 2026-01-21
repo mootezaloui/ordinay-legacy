@@ -240,12 +240,16 @@ function stopBackend() {
  * Create the main application window
  */
 function createWindow() {
+  const windowIcon = resolveWindowIcon();
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
     minWidth: 1024,
     minHeight: 768,
     title: "Organia",
+    frame: false,
+    titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "hidden",
+    icon: windowIcon ?? undefined,
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
       contextIsolation: true,
@@ -281,6 +285,23 @@ function createWindow() {
   mainWindow.on("closed", () => {
     mainWindow = null;
   });
+}
+
+/**
+ * Resolve a window icon for development runs.
+ * In production, the packaged app icon is used by the OS.
+ */
+function resolveWindowIcon() {
+  if (!isDev) {
+    return null;
+  }
+
+  if (process.platform === "win32") {
+    const iconPath = path.join(__dirname, "..", "build", "icon.ico");
+    return fs.existsSync(iconPath) ? iconPath : null;
+  }
+
+  return null;
 }
 
 // ============================================================
@@ -331,7 +352,28 @@ function setupIPC() {
     return { ok: true };
   });
 
+  // Window control handlers
+  ipcMain.on("window-minimize", () => {
+    if (mainWindow) mainWindow.minimize();
+  });
 
+  ipcMain.on("window-maximize", () => {
+    if (mainWindow) {
+      if (mainWindow.isMaximized()) {
+        mainWindow.unmaximize();
+      } else {
+        mainWindow.maximize();
+      }
+    }
+  });
+
+  ipcMain.on("window-close", () => {
+    if (mainWindow) mainWindow.close();
+  });
+
+  ipcMain.handle("window-is-maximized", () => {
+    return mainWindow ? mainWindow.isMaximized() : false;
+  });
 }
 
 // ============================================================

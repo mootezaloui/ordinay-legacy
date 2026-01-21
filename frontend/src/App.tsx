@@ -7,6 +7,7 @@ import AppRouter from "./routes/AppRouter";
 import { OnboardingTutorial } from "./components/onboarding";
 import TutorialOverlay from "./components/tutorial/TutorialOverlay";
 import LicenseBanner from "./components/LicenseBanner";
+import TitleBar from "./components/ui/TitleBar";
 
 function App() {
   const { isLocked } = useLock();
@@ -15,18 +16,29 @@ function App() {
   useInactivityLock();
 
   if (!isInitialized) {
-    return <SetupFlow onComplete={completeSetup} />;
+    return (
+      <>
+        <TitleBar />
+        <SetupFlow onComplete={completeSetup} />
+      </>
+    );
   }
 
   // Render lock screen if workspace is locked
   // This is a complete gate - no app data is rendered behind it
   if (isLocked) {
-    return <LockScreen />;
+    return (
+      <>
+        <TitleBar />
+        <LockScreen />
+      </>
+    );
   }
 
   // Normal app flow
   return (
     <>
+      <TitleBar />
       <LicenseBanner />
       <AppRouter />
       <OnboardingTutorial />

@@ -9,9 +9,14 @@ This folder contains resources used during Electron packaging:
 ## Creating Icons
 
 ### Windows (.ico)
-Create a 256x256 PNG and convert to ICO format using an online converter or ImageMagick:
+Convert the SVG into a multi-size ICO using ImageMagick:
 ```bash
-magick convert icon.png -define icon:auto-resize=256,128,64,48,32,16 icon.ico
+./generate-icons.ps1
+```
+
+Or run ImageMagick directly:
+```bash
+magick convert icon.svg -background none -define icon:auto-resize=256,128,64,48,32,16 icon.ico
 ```
 
 ### macOS (.icns)

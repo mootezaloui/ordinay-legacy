@@ -44,6 +44,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
    */
   writeLicenseFile: (licenseData) => ipcRenderer.invoke('write-license-file', licenseData),
 
+  /**
+   * Window control methods
+   */
+  windowMinimize: () => ipcRenderer.send('window-minimize'),
+  windowMaximize: () => ipcRenderer.send('window-maximize'),
+  windowClose: () => ipcRenderer.send('window-close'),
+  windowIsMaximized: () => ipcRenderer.invoke('window-is-maximized'),
 });
 
 // Log that preload script has loaded

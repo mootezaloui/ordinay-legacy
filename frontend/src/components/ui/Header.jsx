@@ -20,7 +20,7 @@ export default function HeaderBar() {
   };
 
   return (
-    <header className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-lg w-full transition-all duration-300 sticky top-0 z-30 border-b border-slate-200 dark:border-slate-700">
+    <header className={`bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-lg transition-all duration-300 fixed right-0 z-30 border-b border-slate-200 dark:border-slate-700 titlebar-offset-top ${isCollapsed ? "left-20" : "left-64"}`}>
       <div className="w-full px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 gap-4">
           {/* Logo - Hidden when sidebar is expanded, visible when collapsed */}

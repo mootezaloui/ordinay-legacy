@@ -41,7 +41,7 @@ export default function Sidebar() {
 
   return (
     <aside
-      className={`fixed left-0 top-0 h-screen flex flex-col justify-between transition-all duration-300 border-r z-40 ${isCollapsed ? "w-20" : "w-64"
+      className={`fixed left-0 flex flex-col justify-between transition-all duration-300 border-r z-40 titlebar-offset-top titlebar-offset-height ${isCollapsed ? "w-20" : "w-64"
         } bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 border-slate-200 dark:border-slate-800`}
     >
       {/* Toggle */}

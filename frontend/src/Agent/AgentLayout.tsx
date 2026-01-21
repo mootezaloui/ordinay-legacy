@@ -20,6 +20,7 @@ export function AgentLayout() {
     setShowContextSidebar,
     inputRef,
     conversationEndRef,
+    scrollContainerRef,
     handleSubmit,
     handleKeyDown,
     handleExampleClick,
@@ -57,7 +58,7 @@ export function AgentLayout() {
   };
 
   return (
-    <div className={`fixed top-16 right-0 bottom-0 ${isCollapsed ? "left-20" : "left-64"} z-0 flex min-h-0 overflow-hidden transition-all duration-300`}>
+    <div className={`fixed right-0 bottom-0 ${isCollapsed ? "left-20" : "left-64"} z-0 flex min-h-0 overflow-hidden transition-all duration-300 titlebar-offset-header`}>
       {showHistorySidebar && (
         <AgentHistorySidebar
           sessions={sessions}
@@ -87,7 +88,7 @@ export function AgentLayout() {
           onToggleContext={() => setShowContextSidebar(!showContextSidebar)}
         />
 
-        <div className="flex-1 overflow-y-auto">
+        <div ref={scrollContainerRef} className="flex-1 overflow-y-auto scroll-smooth">
           <div className="max-w-4xl mx-auto px-6 py-6">
             {conversation.length === 0 && (
               <AgentQuickActions onExampleClick={handleExampleClick} />
