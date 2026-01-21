@@ -8,7 +8,7 @@
 import { getApiBase } from '../../lib/apiConfig';
 import { getAppLicenseState } from '../licenseService';
 
-const isLicenseLocked = () => getAppLicenseState() === "LOCKED";
+const isLicenseLocked = () => getAppLicenseState() !== "ACTIVE";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const apiBase = getApiBase();

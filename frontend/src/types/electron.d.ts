@@ -48,6 +48,21 @@ export interface ElectronAPI {
    */
   writeLicenseFile: (licenseData: unknown) => Promise<{ ok: boolean }>;
 
+  /**
+   * Read device id
+   */
+  readDeviceId: () => Promise<{ exists: boolean; deviceId?: string }>;
+
+  /**
+   * Write device id
+   */
+  writeDeviceId: (deviceId: string) => Promise<{ ok: boolean }>;
+
+  /**
+   * Open external URL
+   */
+  openExternal: (url: string) => Promise<void>;
+
 }
 
 declare global {

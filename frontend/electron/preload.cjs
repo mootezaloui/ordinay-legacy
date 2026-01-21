@@ -45,6 +45,26 @@ contextBridge.exposeInMainWorld('electronAPI', {
   writeLicenseFile: (licenseData) => ipcRenderer.invoke('write-license-file', licenseData),
 
   /**
+   * Read device id
+   * @returns {Promise<{exists: boolean, deviceId?: string}>}
+   */
+  readDeviceId: () => ipcRenderer.invoke('read-device-id'),
+
+  /**
+   * Write device id
+   * @param {string} deviceId
+   * @returns {Promise<{ok: boolean}>}
+   */
+  writeDeviceId: (deviceId) => ipcRenderer.invoke('write-device-id', deviceId),
+
+  /**
+   * Open external URL
+   * @param {string} url
+   * @returns {Promise<void>}
+   */
+  openExternal: (url) => ipcRenderer.invoke('open-external-url', url),
+
+  /**
    * Window control methods
    */
   windowMinimize: () => ipcRenderer.send('window-minimize'),

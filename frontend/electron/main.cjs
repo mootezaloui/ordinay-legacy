@@ -1,7 +1,7 @@
 // Electron Main Process for Organia
 // Desktop Foundation Layer
 
-const { app, BrowserWindow, ipcMain } = require("electron");
+const { app, BrowserWindow, ipcMain, shell } = require("electron");
 const path = require("path");
 const { spawn } = require("child_process");
 const net = require("net");
@@ -18,6 +18,7 @@ const USER_DATA_PATH = app.getPath("userData");
 const DB_PATH = path.join(USER_DATA_PATH, "organia.db");
 const DOCUMENTS_PATH = path.join(USER_DATA_PATH, "documents");
 const LICENSE_PATH = path.join(USER_DATA_PATH, "organia_license.json");
+const DEVICE_ID_PATH = path.join(USER_DATA_PATH, "organia_device_id.txt");
 
 // Backend configuration
 let backendProcess = null;
@@ -350,6 +351,26 @@ function setupIPC() {
     const payload = JSON.stringify(licenseData, null, 2);
     fs.writeFileSync(LICENSE_PATH, payload, "utf-8");
     return { ok: true };
+  });
+
+  // Handler to read device id
+  ipcMain.handle("read-device-id", () => {
+    if (!fs.existsSync(DEVICE_ID_PATH)) {
+      return { exists: false };
+    }
+    const deviceId = fs.readFileSync(DEVICE_ID_PATH, "utf-8").trim();
+    return { exists: true, deviceId };
+  });
+
+  // Handler to write device id
+  ipcMain.handle("write-device-id", (_event, deviceId) => {
+    fs.writeFileSync(DEVICE_ID_PATH, String(deviceId), "utf-8");
+    return { ok: true };
+  });
+
+  // Handler to open external URLs (activation flow)
+  ipcMain.handle("open-external-url", (_event, url) => {
+    return shell.openExternal(url);
   });
 
   // Window control handlers

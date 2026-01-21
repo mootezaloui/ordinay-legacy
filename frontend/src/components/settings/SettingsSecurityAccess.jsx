@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useLock } from "../../contexts/LockContext";
 import { useLicense } from "../../contexts/LicenseContext";
+import { getActivationUrl, getOrCreateDeviceId, requestActivationFromServer } from "../../services/licenseService";
 import { useSettings } from "../../contexts/SettingsContext";
 import { formatDateValue } from "../../utils/dateFormat";
 import ContentSection from "../layout/ContentSection";
@@ -10,7 +11,7 @@ export default function SettingsSecurityAccess() {
   const { settings } = useSettings();
   const { t } = useTranslation(["settings"]);
   const { isEnabled, config, enableLock, disableLock, changePassword, updateSettings, lock } = useLock();
-  const { licenseState, licenseData, licenseError } = useLicense();
+  const { licenseState, licenseData, licenseError, setActivationState, activateLicense } = useLicense();
 
   const [showEnableForm, setShowEnableForm] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
@@ -25,6 +26,8 @@ export default function SettingsSecurityAccess() {
   });
   const [lockError, setLockError] = useState("");
   const [lockSuccess, setLockSuccess] = useState("");
+  const [activationError, setActivationError] = useState("");
+  const [activationBusy, setActivationBusy] = useState(false);
 
   const resetLockForms = () => {
     setFormData({
@@ -114,14 +117,69 @@ export default function SettingsSecurityAccess() {
   };
 
   const licenseTypeLabel = () => {
-    if (!licenseData?.type) return "Unknown";
-    return licenseData.type.charAt(0).toUpperCase() + licenseData.type.slice(1);
+    if (!licenseData?.license_type) return "Unknown";
+    return licenseData.license_type.charAt(0).toUpperCase() + licenseData.license_type.slice(1);
   };
 
   const licenseNextBilling = () => {
     if (!licenseData) return "-";
-    if (licenseData.type === "perpetual") return "N/A";
+    if (licenseData.license_type === "perpetual") return "N/A";
     return formatLicenseDate(licenseData.expires_at);
+  };
+
+  const handleActivateLicense = async () => {
+    setActivationError("");
+    setActivationBusy(true);
+    setActivationState("ACTIVATING", null);
+    try {
+      const deviceId = await getOrCreateDeviceId();
+      const url = getActivationUrl(deviceId);
+      if (typeof window !== "undefined") {
+        window.localStorage.removeItem("organia_readonly_mode");
+      }
+      if (window.electronAPI?.openExternal) {
+        await window.electronAPI.openExternal(url);
+      } else {
+        window.open(url, "_blank");
+      }
+    } catch (error) {
+      console.error("[License] Activation launch failed:", error);
+      setActivationError("Activation failed. Please try again.");
+      setActivationState("ERROR", "Activation failed");
+    } finally {
+      setActivationBusy(false);
+    }
+  };
+
+  const handleSimulateActivation = async () => {
+    setActivationError("");
+    setActivationBusy(true);
+    setActivationState("ACTIVATING", null);
+    try {
+      if (typeof window !== "undefined") {
+        window.localStorage.removeItem("organia_readonly_mode");
+      }
+      const deviceId = await getOrCreateDeviceId();
+      const licenseData = await requestActivationFromServer(deviceId);
+      await activateLicense(licenseData);
+    } catch (error) {
+      console.error("[License] Activation failed:", error);
+      setActivationError("Activation failed. Please try again.");
+      setActivationState("ERROR", "Activation failed");
+    } finally {
+      setActivationBusy(false);
+    }
+  };
+
+  const licenseStatusLabel = () => {
+    const labels = {
+      UNACTIVATED: "Unactivated",
+      ACTIVATING: "Activating",
+      ACTIVE: "Active",
+      EXPIRED: "Expired",
+      ERROR: "Error",
+    };
+    return labels[licenseState] || "Inactive";
   };
 
   return (
@@ -412,7 +470,7 @@ export default function SettingsSecurityAccess() {
               : "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400"
               }`}>
               <i className={`fas ${licenseState === "ACTIVE" ? "fa-check-circle" : "fa-lock"}`}></i>
-              {licenseState === "ACTIVE" ? "Active" : "Inactive"}
+              {licenseStatusLabel()}
             </span>
           </div>
 
@@ -453,6 +511,34 @@ export default function SettingsSecurityAccess() {
           ) : (
             <div className="p-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-600 dark:text-slate-300">
               No license file found.
+            </div>
+          )}
+          {licenseState !== "ACTIVE" && (
+            <div className="space-y-3">
+              <button
+                onClick={handleActivateLicense}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2 disabled:opacity-60"
+                disabled={activationBusy || licenseState === "ACTIVATING"}
+              >
+                <i className="fas fa-bolt"></i>
+                Activate Organia
+              </button>
+              {import.meta.env.DEV && (
+                <button
+                  onClick={handleSimulateActivation}
+                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2 disabled:opacity-60"
+                  disabled={activationBusy || licenseState === "ACTIVATING"}
+                >
+                  <i className="fas fa-flask"></i>
+                  Simulate successful activation
+                </button>
+              )}
+              {activationError && (
+                <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg flex items-center gap-2 text-amber-700 dark:text-amber-300 text-sm">
+                  <i className="fas fa-exclamation-triangle"></i>
+                  <span>{activationError}</span>
+                </div>
+              )}
             </div>
           )}
         </div>

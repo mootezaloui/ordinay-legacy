@@ -357,7 +357,7 @@ export function DataProvider({ children }) {
   const showToastRef = useRef(showToast);
   const tRef = useRef(t);
 
-  const isLicenseLocked = licenseState === "LOCKED";
+  const isLicenseLocked = licenseState !== "ACTIVE";
   const blockWrite = (actionLabel) => {
     if (!isLicenseLocked) return false;
     showToastRef.current("🔒 License inactive — Activate to continue", "error", {
