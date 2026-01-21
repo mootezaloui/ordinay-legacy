@@ -36,7 +36,6 @@ export default function NotificationCenter() {
   const { t } = useTranslation("notifications");
   const {
     notifications,
-    unreadCount,
     markAllAsRead,
     deleteNotification,
     clearAll,
@@ -61,8 +60,12 @@ export default function NotificationCenter() {
 
   // Translate notifications on-demand based on active language
   const translatedNotifications = useNotificationListTranslation(notifications);
+  const visibleNotifications = translatedNotifications.filter(
+    (notification) => notification?.severity !== "error" && notification?.priority !== "error"
+  );
+  const unreadCount = visibleNotifications.filter((notification) => !notification.read).length;
 
-  const filteredNotifications = translatedNotifications.filter((notification) => {
+  const filteredNotifications = visibleNotifications.filter((notification) => {
     if (filter === "unread" && notification.read) return false;
     if (filter === "read" && !notification.read) return false;
 
@@ -73,7 +76,7 @@ export default function NotificationCenter() {
 
   // Use all defined notification types for the filter dropdown
   // Show types that have notifications, plus all defined types
-  const typesInData = new Set(notifications.map((n) => n.type));
+  const typesInData = new Set(visibleNotifications.map((n) => n.type));
   const allAvailableTypes = Array.from(new Set([
     ...typesInData,
     ...VALID_NOTIFICATION_TYPES
@@ -83,7 +86,7 @@ export default function NotificationCenter() {
     <PageLayout>
       <PageHeader
         title={t("center.title")}
-        subtitle={t("center.subtitle", { total: notifications.length, unread: unreadCount })}
+        subtitle={t("center.subtitle", { total: visibleNotifications.length, unread: unreadCount })}
         icon="fas fa-bell"
         actions={
           <div className="flex items-center gap-3">
@@ -95,7 +98,7 @@ export default function NotificationCenter() {
                 {t("center.actions.markAll")}
               </button>
             )}
-            {notifications.length > 0 && (
+            {visibleNotifications.length > 0 && (
               <button
                 onClick={async () => {
                   if (await confirm({

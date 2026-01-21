@@ -246,5 +246,8 @@
         "cancelled": "Annulée"
       }
     }
+  },
+  "blockers": {
+    "missingParent": "Vous ne pouvez pas créer une mission. Veuillez d'abord créer au moins un dossier."
   }
 }

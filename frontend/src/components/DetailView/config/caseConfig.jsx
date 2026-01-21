@@ -68,8 +68,8 @@ export const createCaseConfig = (t) => {
         }
       }
 
-      // Aggregate all sessions related to this case (by caseId or dossierId)
-      const caseSessions = sessions.filter((s) => s.caseId === numericId || s.dossierId === caseData.dossierId);
+      // Only include sessions directly linked to this case
+      const caseSessions = sessions.filter((s) => s.caseId === numericId);
       const relatedFinancialEntries = financialEntries.filter(entry =>
         entry.caseId === numericId && entry.scope === 'client'
       );

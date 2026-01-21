@@ -128,8 +128,12 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
 
   // Get filtered entries for this entity
   const entries = useMemo(() => {
-    let filters = {};
+    if (entityType === "officer" && Array.isArray(entityData?.financialEntries)) {
+      // Use pre-aggregated entries from officerConfig for officer view
+      return getFinancialEntriesForDisplay({}, entityData.financialEntries);
+    }
 
+    let filters = {};
     if (entityType === "client") {
       filters = { scope: "client", clientId: entityId };
     } else if (entityType === "dossier") {
@@ -137,16 +141,12 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
     } else if (entityType === "case") {
       filters = { scope: "client", caseId: entityId };
     } else if (entityType === "officer") {
-      // For officers (huissiers), filter by officerId to show all mission expenses
       filters = { scope: "client", officerId: entityId };
     } else if (entityType === "mission") {
-      // For missions, filter by missionId to show mission-specific expenses
       filters = { scope: "client", missionId: entityId };
     } else if (entityType === "personalTask") {
-      // For personal tasks, filter by personalTaskId with internal scope
       filters = { scope: "internal", personalTaskId: entityId };
     } else if (entityType === "task") {
-      // For tasks, filter by parent relationship
       filters = { scope: "client" };
       if (entityData.parentType === "case" && entityData.caseId) {
         filters.caseId = entityData.caseId;
@@ -154,7 +154,6 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
         filters.dossierId = entityData.dossierId;
       }
     }
-
     return getFinancialEntriesForDisplay(filters, financialEntries);
   }, [entityType, entityId, entityData, refreshKey, financialEntries]);
 

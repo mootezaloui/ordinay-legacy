@@ -22,7 +22,6 @@ export default function NotificationDropdown({ isOpen, onToggle, onClose }) {
   const { t } = useTranslation("notifications");
   const {
     notifications,
-    unreadCount,
     markAsRead,
     markAllAsRead,
     deleteNotification,
@@ -33,9 +32,13 @@ export default function NotificationDropdown({ isOpen, onToggle, onClose }) {
 
   // Translate notifications on-demand based on active language
   const translatedNotifications = useNotificationListTranslation(notifications);
+  const visibleNotifications = translatedNotifications.filter(
+    (notification) => notification?.severity !== "error" && notification?.priority !== "error"
+  );
+  const unreadCount = visibleNotifications.filter((notification) => !notification.read).length;
 
   // Show only recent 5 notifications in dropdown
-  const recentNotifications = translatedNotifications.slice(0, 5);
+  const recentNotifications = visibleNotifications.slice(0, 5);
 
   const toggleDropdown = (e) => {
     e.stopPropagation();
@@ -214,7 +217,7 @@ export default function NotificationDropdown({ isOpen, onToggle, onClose }) {
             </button>
             <button
               onClick={clearNotifications}
-              disabled={notifications.length === 0}
+              disabled={visibleNotifications.length === 0}
               className="px-6 py-4 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <i className="fas fa-trash"></i>

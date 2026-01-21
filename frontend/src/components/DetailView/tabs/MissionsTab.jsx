@@ -868,7 +868,7 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
             {allowAdd && !hasParentEntities && (
               <div className="mt-4 text-amber-600 dark:text-amber-400 font-medium flex flex-col items-center gap-2 text-center">
                 <i className="fas fa-info-circle text-2xl"></i>
-                <span>{t("blockers.missingParent", { ns: "common" })}</span>
+                <span>{t("blockers.missingParent", { ns: "missions" })}</span>
               </div>
             )}
 
@@ -921,7 +921,7 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
             ) : (
               <div className="text-amber-600 dark:text-amber-400 text-sm flex items-center gap-2">
                 <i className="fas fa-info-circle"></i>
-                <span>{t("blockers.missingParent", { ns: "common" })}</span>
+                <span>{t("blockers.missingParent", { ns: "missions" })}</span>
               </div>
             )
           )

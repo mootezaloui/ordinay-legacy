@@ -104,6 +104,66 @@ const logStatusHistory = (entityType, prevEntity, updates, actor = null) => {
   logStatusChange(entityType, prevEntity.id, oldStatus, newStatus, null, actor);
 };
 
+/**
+ * Build a change summary for parent history events
+ * Returns { label, changes } where changes contains the field-level diff
+ */
+const buildChangeSummary = (entityType, entityName, prevEntity, updates) => {
+  if (!prevEntity || !updates) return null;
+
+  const changes = {};
+  const changeParts = [];
+
+  // Track important field changes
+  const fieldLabels = {
+    status: "Statut",
+    title: "Titre",
+    amount: "Montant",
+    session_type: "Type",
+    scheduled_at: "Date prévue",
+    session_date: "Date",
+    location: "Lieu",
+    outcome: "Résultat",
+    priority: "Priorité",
+    due_date: "Échéance",
+    assigned_to: "Assigné à",
+    description: "Description",
+  };
+
+  Object.entries(updates).forEach(([key, newVal]) => {
+    const oldVal = prevEntity[key];
+    if (oldVal === newVal) return;
+    if (newVal === undefined) return;
+
+    // Store raw change for metadata
+    changes[`previous_${key}`] = oldVal;
+    changes[`new_${key}`] = newVal;
+
+    // Build human-readable part for important fields
+    if (fieldLabels[key]) {
+      if (key === "status") {
+        changeParts.push(`${fieldLabels[key]}: ${oldVal || "-"} → ${newVal}`);
+      } else if (key === "amount") {
+        changeParts.push(`${fieldLabels[key]}: ${oldVal || 0} → ${newVal}`);
+      } else {
+        changeParts.push(fieldLabels[key]);
+      }
+    }
+  });
+
+  if (Object.keys(changes).length === 0) return null;
+
+  // Build descriptive label
+  let label;
+  if (changeParts.length > 0) {
+    label = `${entityType} modifié: ${entityName} (${changeParts.slice(0, 2).join(", ")}${changeParts.length > 2 ? "..." : ""})`;
+  } else {
+    label = `${entityType} modifié: ${entityName}`;
+  }
+
+  return { label, changes };
+};
+
 const logCreationHistory = (entityType, entity, actor = null) => {
   if (!entity?.id) return;
   const name = entity.name || entity.title || entity.caseNumber || entity.description || `#${entity.id}`;
@@ -1099,6 +1159,23 @@ export function DataProvider({ children }) {
     logUpdateHistory("case", prev, updates, actorName);
     logStatusHistory("case", prev, updates, actorName);
 
+    // Log to parent dossier with change details
+    if (adapted.dossierId) {
+      const caseTitle = adapted.title || adapted.caseNumber || prev?.title || "Case";
+      const changeSummary = buildChangeSummary("Affaire", caseTitle, prev, updates);
+      const caseUpdateLabel = changeSummary?.label || `Affaire modifiée: ${caseTitle}`;
+      const changeMetadata = changeSummary?.changes || {};
+      logHistoryEvent({
+        entityType: "dossier",
+        entityId: adapted.dossierId,
+        eventType: EVENT_TYPES.RELATION,
+        label: caseUpdateLabel,
+        details: caseUpdateLabel,
+        metadata: { childType: "case", childId: adapted.id, ...changeMetadata },
+        actor: actorName,
+      });
+    }
+
     return validation;
   };
 
@@ -1396,7 +1473,9 @@ export function DataProvider({ children }) {
     logUpdateHistory("session", prev, updates, actorName);
     logStatusHistory("session", prev, updates, actorName);
     const sessionTitle = adapted.title || prev?.title || updates?.title || "Session";
-    const updateLabel = `Session updated: ${sessionTitle}`;
+    const changeSummary = buildChangeSummary("Session", sessionTitle, prev, updates);
+    const updateLabel = changeSummary?.label || `Session modifié: ${sessionTitle}`;
+    const changeMetadata = changeSummary?.changes || {};
     if (adapted.caseId) {
       logHistoryEvent({
         entityType: "case",
@@ -1404,7 +1483,7 @@ export function DataProvider({ children }) {
         eventType: EVENT_TYPES.RELATION,
         label: updateLabel,
         details: updateLabel,
-        metadata: { childType: "session", childId: adapted.id },
+        metadata: { childType: "session", childId: adapted.id, ...changeMetadata },
         actor: actorName,
       });
       const caseItem = cases.find((c) => String(c.id) === String(adapted.caseId));
@@ -1417,7 +1496,7 @@ export function DataProvider({ children }) {
           eventType: EVENT_TYPES.RELATION,
           label: dossierLabel,
           details: dossierLabel,
-          metadata: { childType: "case", childId: caseItem.id, relatedType: "session", relatedId: adapted.id },
+          metadata: { childType: "case", childId: caseItem.id, relatedType: "session", relatedId: adapted.id, ...changeMetadata },
           actor: actorName,
         });
       }
@@ -1428,7 +1507,7 @@ export function DataProvider({ children }) {
         eventType: EVENT_TYPES.RELATION,
         label: updateLabel,
         details: updateLabel,
-        metadata: { childType: "session", childId: adapted.id },
+        metadata: { childType: "session", childId: adapted.id, ...changeMetadata },
         actor: actorName,
       });
     }
@@ -1607,7 +1686,9 @@ export function DataProvider({ children }) {
     logUpdateHistory("task", prev, updates, actorName);
     logStatusHistory("task", prev, updates, actorName);
     const taskTitle = adapted.title || prev?.title || updates?.title || "Task";
-    const updateLabel = `Task updated: ${taskTitle}`;
+    const changeSummary = buildChangeSummary("Tâche", taskTitle, prev, updates);
+    const updateLabel = changeSummary?.label || `Tâche modifiée: ${taskTitle}`;
+    const changeMetadata = changeSummary?.changes || {};
     if (adapted.caseId) {
       logHistoryEvent({
         entityType: "case",
@@ -1615,7 +1696,7 @@ export function DataProvider({ children }) {
         eventType: EVENT_TYPES.RELATION,
         label: updateLabel,
         details: updateLabel,
-        metadata: { childType: "task", childId: adapted.id },
+        metadata: { childType: "task", childId: adapted.id, ...changeMetadata },
         actor: actorName,
       });
       const caseItem = cases.find((c) => String(c.id) === String(adapted.caseId));
@@ -1628,7 +1709,7 @@ export function DataProvider({ children }) {
           eventType: EVENT_TYPES.RELATION,
           label: dossierLabel,
           details: dossierLabel,
-          metadata: { childType: "case", childId: caseItem.id, relatedType: "task", relatedId: adapted.id },
+          metadata: { childType: "case", childId: caseItem.id, relatedType: "task", relatedId: adapted.id, ...changeMetadata },
           actor: actorName,
         });
       }
@@ -1639,7 +1720,7 @@ export function DataProvider({ children }) {
         eventType: EVENT_TYPES.RELATION,
         label: updateLabel,
         details: updateLabel,
-        metadata: { childType: "task", childId: adapted.id },
+        metadata: { childType: "task", childId: adapted.id, ...changeMetadata },
         actor: actorName,
       });
     }
@@ -2413,7 +2494,9 @@ export function DataProvider({ children }) {
     logUpdateHistory("mission", prev, updates, actorName);
     logStatusHistory("mission", prev, updates, actorName);
     const updatedTitle = adapted.title || prev?.title || "Mission";
-    const missionUpdateLabel = `Mission updated: ${updatedTitle}`;
+    const changeSummary = buildChangeSummary("Mission", updatedTitle, prev, updates);
+    const missionUpdateLabel = changeSummary?.label || `Mission modifiée: ${updatedTitle}`;
+    const changeMetadata = changeSummary?.changes || {};
     if (adapted.caseId) {
       logHistoryEvent({
         entityType: "case",
@@ -2421,7 +2504,7 @@ export function DataProvider({ children }) {
         eventType: EVENT_TYPES.RELATION,
         label: missionUpdateLabel,
         details: missionUpdateLabel,
-        metadata: { childType: "mission", childId: adapted.id },
+        metadata: { childType: "mission", childId: adapted.id, ...changeMetadata },
         actor: actorName,
       });
       const caseItem = cases.find((c) => String(c.id) === String(adapted.caseId));
@@ -2434,7 +2517,7 @@ export function DataProvider({ children }) {
           eventType: EVENT_TYPES.RELATION,
           label: dossierLabel,
           details: dossierLabel,
-          metadata: { childType: "case", childId: caseItem.id, relatedType: "mission", relatedId: adapted.id },
+          metadata: { childType: "case", childId: caseItem.id, relatedType: "mission", relatedId: adapted.id, ...changeMetadata },
           actor: actorName,
         });
       }
@@ -2445,19 +2528,18 @@ export function DataProvider({ children }) {
         eventType: EVENT_TYPES.RELATION,
         label: missionUpdateLabel,
         details: missionUpdateLabel,
-        metadata: { childType: "mission", childId: adapted.id },
+        metadata: { childType: "mission", childId: adapted.id, ...changeMetadata },
         actor: actorName,
       });
     }
     if (adapted.officerId) {
-      const updateLabel = `Mission updated: ${updatedTitle}`;
       logHistoryEvent({
         entityType: "officer",
         entityId: adapted.officerId,
         eventType: EVENT_TYPES.RELATION,
-        label: updateLabel,
-        details: updateLabel,
-        metadata: { childType: "mission", childId: adapted.id },
+        label: missionUpdateLabel,
+        details: missionUpdateLabel,
+        metadata: { childType: "mission", childId: adapted.id, ...changeMetadata },
         actor: actorName,
       });
     }
@@ -2499,7 +2581,9 @@ export function DataProvider({ children }) {
     logUpdateHistory("mission", prev, updates, actorName);
     logStatusHistory("mission", prev, updates, actorName);
     const updatedTitle = adapted.title || prev?.title || updates?.title || "Mission";
-    const missionUpdateLabel = `Mission updated: ${updatedTitle}`;
+    const changeSummary = buildChangeSummary("Mission", updatedTitle, prev, updates);
+    const missionUpdateLabel = changeSummary?.label || `Mission modifiée: ${updatedTitle}`;
+    const changeMetadata = changeSummary?.changes || {};
     if (adapted.caseId) {
       logHistoryEvent({
         entityType: "case",
@@ -2507,7 +2591,7 @@ export function DataProvider({ children }) {
         eventType: EVENT_TYPES.RELATION,
         label: missionUpdateLabel,
         details: missionUpdateLabel,
-        metadata: { childType: "mission", childId: adapted.id },
+        metadata: { childType: "mission", childId: adapted.id, ...changeMetadata },
         actor: actorName,
       });
       const caseItem = cases.find((c) => String(c.id) === String(adapted.caseId));
@@ -2520,7 +2604,7 @@ export function DataProvider({ children }) {
           eventType: EVENT_TYPES.RELATION,
           label: dossierLabel,
           details: dossierLabel,
-          metadata: { childType: "case", childId: caseItem.id, relatedType: "mission", relatedId: adapted.id },
+          metadata: { childType: "case", childId: caseItem.id, relatedType: "mission", relatedId: adapted.id, ...changeMetadata },
           actor: actorName,
         });
       }
@@ -2531,19 +2615,18 @@ export function DataProvider({ children }) {
         eventType: EVENT_TYPES.RELATION,
         label: missionUpdateLabel,
         details: missionUpdateLabel,
-        metadata: { childType: "mission", childId: adapted.id },
+        metadata: { childType: "mission", childId: adapted.id, ...changeMetadata },
         actor: actorName,
       });
     }
     if (adapted.officerId) {
-      const updateLabel = `Mission updated: ${updatedTitle}`;
       logHistoryEvent({
         entityType: "officer",
         entityId: adapted.officerId,
         eventType: EVENT_TYPES.RELATION,
-        label: updateLabel,
-        details: updateLabel,
-        metadata: { childType: "mission", childId: adapted.id },
+        label: missionUpdateLabel,
+        details: missionUpdateLabel,
+        metadata: { childType: "mission", childId: adapted.id, ...changeMetadata },
         actor: actorName,
       });
     }

@@ -66,9 +66,12 @@ export const createOfficerConfig = (t) => ({
     );
     const officerDossiers = dossiers.filter(d => relatedDossierIds.has(d.id));
 
-    // Filter financial entries for this officer (mission expenses)
+
+    // Robust: include entries with officerId or with missionId belonging to officer's missions
+    const officerMissionIds = new Set(officerMissions.map(m => m.id));
     const relatedFinancialEntries = financialEntries.filter(entry =>
-      entry.officerId === numericId && entry.scope === 'client'
+      entry.scope === 'client' &&
+      (entry.officerId === numericId || (entry.missionId && officerMissionIds.has(entry.missionId)))
     );
 
     return {

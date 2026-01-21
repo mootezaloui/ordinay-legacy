@@ -594,9 +594,9 @@ export function NotificationProvider({ children }) {
 
     const duration = payload.duration ?? config.duration;
 
-    // Only add to notification center (bell) for errors or if explicitly requested
-    // Skip notification center for routine actions, warnings, success, info (toast-only)
-    const addToBell = payload.addToBell ?? (severity === "error");
+    // Only add to notification center (bell) when explicitly requested
+    // Keep toasts for routine actions, warnings, success, info, and errors
+    const addToBell = payload.addToBell ?? false;
 
     let notificationId = null;
 

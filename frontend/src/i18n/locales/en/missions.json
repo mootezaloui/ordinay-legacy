@@ -246,5 +246,8 @@
         "cancelled": "Cancelled"
       }
     }
+  },
+  "blockers": {
+    "missingParent": "You cannot create a mission. Please create at least one dossier first."
   }
 }
