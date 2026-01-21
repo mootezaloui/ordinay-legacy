@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from "react-dom";
 import { useNavigate } from 'react-router-dom';
 import { enrichBlockers, getEntityRoute } from '../../services/blockerEnrichment';
 import { canPerformAction } from '../../services/domainRules';
@@ -308,9 +309,9 @@ export default function BlockerModal({
   );
   const allResolved = hasBlockers && hasEnrichedBlockers && activeBlockers.length === 0;
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm"
       onClick={onClose}
     >
       <div
@@ -519,7 +520,8 @@ export default function BlockerModal({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
