@@ -497,6 +497,11 @@
       "add": "Ajouter {{entityName}}",
       "addDefault": "Ajouter un élément",
       "edit": "Modifier",
+      "disabledAction": "Action indisponible pour le moment.",
+      "toast": {
+        "addSuccess": "{{entityName}} ajouté avec succès !",
+        "addError": "Erreur lors de l'ajout"
+      },
       "subtitle": {
         "add": "Ajouter {{entity}} pour {{parent}}",
         "edit": "Modifier {{entity}}"
@@ -712,10 +717,14 @@
           "closeLawsuitTasks": "Pour clore ce procès, toutes les tâches associées doivent d'abord être terminées. Vous pouvez marquer les tâches comme terminées individuellement.",
           "closeDossierLawsuits": "Pour clore ce dossier, tous les procès associés doivent d'abord être clos. Vous pouvez clore chaque procès individuellement.",
           "closeLawsuitHearings": "Pour clore ce procès, toutes les audiences à venir doivent d'abord être terminées ou annulées. Vous pouvez marquer les audiences comme terminées individuellement.",
+          "closeDossierHearings": "Pour clore ce dossier, toutes les audiences à venir doivent d'abord être terminées ou annulées. Vous pouvez marquer les audiences comme terminées individuellement.",
           "closeDossierMissions": "Pour clore ce dossier, toutes les missions d'huissier actives doivent d'abord être terminées.",
           "closeLawsuitMissions": "Pour clore ce procès, toutes les missions d'huissier actives doivent d'abord être terminées.",
           "closeDossierFinancial": "Pour clore ce dossier, toutes les entrées financières impayées doivent d'abord être marquées comme payées.",
           "closeLawsuitFinancial": "Pour clore ce procès, toutes les entrées financières impayées doivent d'abord être marquées comme payées.",
+          "inactivateClientLawsuits": "Pour marquer ce client comme inactif, tous les procès associés doivent d'abord être clos. Vous pouvez clore chaque procès individuellement.",
+          "inactivateClientTasks": "Pour marquer ce client comme inactif, toutes les tâches associées doivent d'abord être terminées. Vous pouvez marquer les tâches comme terminées individuellement.",
+          "inactivateClientHearings": "Pour marquer ce client comme inactif, toutes les audiences associées doivent d'abord être terminées. Vous pouvez marquer les audiences comme terminées individuellement.",
           "closedParent": "Cet élément appartient à une entité parente close et ne peut pas être modifié. Vous devez d'abord rouvrir le parent.",
           "cannotCreateUnderClosed": "Vous ne pouvez pas créer d'éléments sous une entité parente close. Veuillez sélectionner un parent actif ou rouvrir celui qui est clos.",
           "paidEntryLocked": "Cette entrée a été marquée comme payée et est verrouillée pour maintenir l'intégrité des registres financiers. Créez une nouvelle entrée si vous devez faire des ajustements.",

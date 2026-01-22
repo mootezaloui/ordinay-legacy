@@ -340,6 +340,57 @@
       "errors": {
         "activationFailed": "Échec de l'activation. Veuillez réessayer."
       },
+      "planChange": {
+        "action": "Changer de plan",
+        "manageAction": "Gérer le plan",
+        "title": "Changer de plan",
+        "subtitle": "Consultez votre plan actuel et choisissez-en un autre.",
+        "currentPlan": "Plan actuel",
+        "availablePlans": "Plans disponibles",
+        "status": {
+          "activationInProgress": "Activation en cours. Terminez l'activation avant de changer de plan."
+        },
+        "actions": {
+          "select": "Choisir ce plan",
+          "manage": "Gérer le plan",
+          "current": "Plan actuel",
+          "refresh": "Rafraîchir la licence",
+          "close": "Fermer"
+        },
+        "messages": {
+          "opened": "La page du plan s'est ouverte dans votre navigateur.",
+          "openFailed": "Impossible d'ouvrir la page du plan.",
+          "refreshSuccess": "Licence rafraîchie.",
+          "refreshFailed": "Impossible de rafraîchir la licence. Veuillez réessayer."
+        },
+        "notes": {
+          "title": "Processus externe",
+          "external": "Les changements de plan se font dans votre navigateur. Nous ouvrons le site Organia pour terminer la mise à jour.",
+          "after": "Après le changement, revenez ici et rafraîchissez la licence."
+        },
+        "plans": {
+          "free": {
+            "title": "Gratuit",
+            "description": "Usage limité pour évaluation."
+          },
+          "trial": {
+            "title": "Essai",
+            "description": "Accès temporaire aux fonctionnalités payantes."
+          },
+          "monthly": {
+            "title": "Mensuel",
+            "description": "Accès complet facturé chaque mois."
+          },
+          "yearly": {
+            "title": "Annuel",
+            "description": "Accès complet facturé chaque année."
+          },
+          "perpetual": {
+            "title": "Perpétuel",
+            "description": "Achat unique avec accès à vie."
+          }
+        }
+      },
       "referral": {
         "title": "Inviter un collègue",
         "subtitle": "Partagez votre lien de parrainage une fois l'activation terminée.",

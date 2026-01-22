@@ -1,5 +1,6 @@
 export type LicenseType = "monthly" | "yearly" | "perpetual";
 export type LicenseStatus = "active" | "expired";
+export type PlanChoice = "free" | "trial" | "monthly" | "yearly" | "perpetual";
 
 export interface LicenseData {
   device_id: string;
@@ -36,6 +37,12 @@ const getLicenseServerOrigin = (): string => {
     return "https://organia.app";
   }
 };
+
+const getPlanManagementBaseUrl = (): string =>
+  (typeof import.meta !== "undefined" &&
+    import.meta.env &&
+    import.meta.env.VITE_PLAN_MANAGEMENT_URL) ||
+  getActivationBaseUrl();
 
 export function getAppLicenseState(): LicenseState {
   return appLicenseState;
@@ -119,6 +126,43 @@ export function getActivationUrl(
     ? `&ref=${encodeURIComponent(pendingReferralCode)}`
     : "";
   return `${base}${separator}device_id=${encodeURIComponent(deviceId)}${referralSuffix}`;
+}
+
+export function getPlanManagementUrl({
+  deviceId,
+  currentPlan,
+  targetPlan,
+  licenseState,
+  action,
+}: {
+  deviceId?: string | null;
+  currentPlan?: string | null;
+  targetPlan?: string | null;
+  licenseState?: LicenseState | null;
+  action?: "manage" | "change" | "upgrade";
+}): string {
+  const base = getPlanManagementBaseUrl();
+  try {
+    const url = new URL(base);
+    if (deviceId) url.searchParams.set("device_id", deviceId);
+    if (currentPlan) url.searchParams.set("current_plan", currentPlan);
+    if (targetPlan) url.searchParams.set("target_plan", targetPlan);
+    if (licenseState) url.searchParams.set("license_state", licenseState.toLowerCase());
+    if (action) url.searchParams.set("action", action);
+    url.searchParams.set("source", "organia_app");
+    return url.toString();
+  } catch {
+    const params = new URLSearchParams();
+    if (deviceId) params.set("device_id", deviceId);
+    if (currentPlan) params.set("current_plan", currentPlan);
+    if (targetPlan) params.set("target_plan", targetPlan);
+    if (licenseState) params.set("license_state", licenseState.toLowerCase());
+    if (action) params.set("action", action);
+    params.set("source", "organia_app");
+    const suffix = params.toString();
+    const separator = base.includes("?") ? "&" : "?";
+    return suffix ? `${base}${separator}${suffix}` : base;
+  }
 }
 
 export function storePendingReferralCode(code: string): void {

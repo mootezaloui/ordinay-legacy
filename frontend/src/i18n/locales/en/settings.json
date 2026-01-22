@@ -340,6 +340,57 @@
       "errors": {
         "activationFailed": "Activation failed. Please try again."
       },
+      "planChange": {
+        "action": "Change Plan",
+        "manageAction": "Manage Plan",
+        "title": "Change plan",
+        "subtitle": "Review your current plan and choose a new one.",
+        "currentPlan": "Current plan",
+        "availablePlans": "Available plans",
+        "status": {
+          "activationInProgress": "Activation is in progress. Finish activation before changing plans."
+        },
+        "actions": {
+          "select": "Choose plan",
+          "manage": "Manage plan",
+          "current": "Current plan",
+          "refresh": "Refresh license",
+          "close": "Close"
+        },
+        "messages": {
+          "opened": "Plan page opened in your browser.",
+          "openFailed": "Could not open the plan page.",
+          "refreshSuccess": "License refreshed.",
+          "refreshFailed": "Unable to refresh license. Please try again."
+        },
+        "notes": {
+          "title": "External checkout",
+          "external": "Plan changes happen in your browser. We'll open the Organia website to complete the update.",
+          "after": "After completing the change, return here and refresh your license."
+        },
+        "plans": {
+          "free": {
+            "title": "Free",
+            "description": "Limited usage for evaluation."
+          },
+          "trial": {
+            "title": "Trial",
+            "description": "Limited-time access to paid features."
+          },
+          "monthly": {
+            "title": "Monthly",
+            "description": "Full access billed monthly."
+          },
+          "yearly": {
+            "title": "Yearly",
+            "description": "Full access billed yearly."
+          },
+          "perpetual": {
+            "title": "Perpetual",
+            "description": "One-time purchase with lifetime access."
+          }
+        }
+      },
       "referral": {
         "title": "Invite a colleague",
         "subtitle": "Share your referral link after activation is complete.",

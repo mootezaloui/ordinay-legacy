@@ -471,7 +471,12 @@ export default function AggregatedRelatedTab({
       await new Promise(resolve => setTimeout(resolve, 500));
 
       setIsAddModalOpen(false);
-      showToast(`${tabConfig?.entityName || 'Element'} added successfully!`, "success");
+      showToast(
+        t("detail.related.toast.addSuccess", {
+          entityName: tabConfig?.entityName || t("detail.related.fallback.element"),
+        }),
+        "success"
+      );
 
       // Navigate to the newly created entity detail view
       if (entityConfig?.route) {
@@ -480,7 +485,7 @@ export default function AggregatedRelatedTab({
 
     } catch (error) {
       console.error("Error adding item:", error);
-      showToast("Error adding item", "error");
+      showToast(t("detail.related.toast.addError"), "error");
     } finally {
       setIsLoading(false);
     }
@@ -530,7 +535,7 @@ export default function AggregatedRelatedTab({
   const allowAdd = tabConfig?.allowAdd !== false;
   const allowDelete = tabConfig?.allowDelete !== false;
   const isAddEnabled = tabConfig?.addEnabled ? tabConfig.addEnabled(data) : true;
-  const disabledReason = tabConfig?.addDisabledText || "Action unavailable at the moment.";
+  const disabledReason = tabConfig?.addDisabledText || t("detail.related.disabledAction");
 
   // Get form fields - support both static formFields and dynamic getFormFields
   const formFields = tabConfig?.getFormFields
@@ -668,8 +673,8 @@ export default function AggregatedRelatedTab({
             }}
             onSubmit={handleAddItem}
             initialData={prefillContext}
-            title={`Add ${tabConfig.entityName || 'element'}`}
-            subtitle={tabConfig.addSubtitle || `Create a new ${tabConfig.entityName?.toLowerCase() || 'element'}`}
+            title={t("detail.related.form.add", { entityName: tabConfig.entityName || t("detail.related.fallback.entity") })}
+            subtitle={tabConfig.addSubtitle || t("detail.related.form.create", { entityName: tabConfig.entityName?.toLowerCase() || t("detail.related.fallback.entity").toLowerCase() })}
             fields={finalFormFields}
             isLoading={isLoading}
             entityType={referenceEntityType}

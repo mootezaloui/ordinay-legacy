@@ -496,6 +496,11 @@
       "add": "Add {{entityName}}",
       "addDefault": "Add an item",
       "edit": "Edit",
+      "disabledAction": "Action unavailable at the moment.",
+      "toast": {
+        "addSuccess": "{{entityName}} added successfully!",
+        "addError": "Error adding item"
+      },
       "subtitle": {
         "add": "Add {{entity}} for {{parent}}",
         "edit": "Edit {{entity}}"
@@ -711,10 +716,14 @@
           "closeLawsuitTasks": "To close this lawsuit, all related tasks must be completed first. You can mark tasks as complete individually.",
           "closeDossierLawsuits": "To close this dossier, all related lawsuits must be closed first. You can close each lawsuit individually.",
           "closeLawsuitHearings": "To close this lawsuit, all upcoming hearings must be completed or cancelled first. You can mark hearings as complete individually.",
+          "closeDossierHearings": "To close this dossier, all upcoming hearings must be completed or cancelled first. You can mark hearings as complete individually.",
           "closeDossierMissions": "To close this dossier, all active bailiff missions must be completed first.",
           "closeLawsuitMissions": "To close this lawsuit, all active bailiff missions must be completed first.",
           "closeDossierFinancial": "To close this dossier, all unpaid financial entries must be marked as paid first.",
           "closeLawsuitFinancial": "To close this lawsuit, all unpaid financial entries must be marked as paid first.",
+          "inactivateClientLawsuits": "To mark this client as inactive, all related lawsuits must be closed first. You can close each lawsuit individually.",
+          "inactivateClientTasks": "To mark this client as inactive, all related tasks must be completed first. You can mark tasks as complete individually.",
+          "inactivateClientHearings": "To mark this client as inactive, all related hearings must be completed first. You can mark hearings as complete individually.",
           "closedParent": "This item belongs to a closed parent entity and cannot be modified. You must reopen the parent first.",
           "cannotCreateUnderClosed": "You cannot create items under a closed parent entity. Please select an active parent or reopen the closed one.",
           "paidEntryLocked": "This entry has been marked as paid and is locked to maintain financial records integrity. Create a new entry if you need to make adjustments.",
