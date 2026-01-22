@@ -12,7 +12,7 @@ export default function PageLayout({ children }) {
   const { isCollapsed } = useSidebar();
 
   return (
-    <div className="min-h-full w-full h-full titlebar-offset-padding">
+    <div className="min-h-full w-full h-full titlebar-offset-padding overflow-x-hidden">
       {/* Fixed Sidebar */}
       <Sidebar />
 

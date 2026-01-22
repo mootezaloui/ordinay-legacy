@@ -26,128 +26,233 @@ export default function Sidebar() {
     return () => clearTimeout(timer);
   }, [location.pathname]);
 
-  const menuItems = [
-    { icon: "fas fa-th-large", label: t("sidebar.dashboard"), route: "/dashboard" },
-    { icon: "fas fa-users", label: t("sidebar.clients"), route: "/clients" },
-    { icon: "fas fa-folder-open", label: t("sidebar.dossiers"), route: "/dossiers" },
-    { icon: "fas fa-tasks", label: t("sidebar.tasks"), route: "/tasks" },
-    { icon: "fas fa-gavel", label: t("sidebar.cases"), route: "/cases" },
-    { icon: "fas fa-calendar", label: t("sidebar.sessions"), route: "/sessions" },
-    { icon: "fas fa-sticky-note", label: t("sidebar.personalTasks"), route: "/personal-tasks" },
-    { icon: "fas fa-user-tie", label: t("sidebar.officers"), route: "/officers" },
-    { icon: "fas fa-calculator", label: t("sidebar.accounting"), route: "/accounting" },
-    { icon: "fas fa-robot", label: t("sidebar.chatbot"), route: "/chatbot" },
+  // Grouped navigation structure
+  const navigationGroups = [
+    {
+      id: "primary",
+      items: [
+        { icon: "fas fa-th-large", label: t("sidebar.dashboard"), route: "/dashboard" },
+      ]
+    },
+    {
+      id: "core",
+      label: !isCollapsed ? t("sidebar.groups.core", { defaultValue: "Core" }) : null,
+      items: [
+        { icon: "fas fa-users", label: t("sidebar.clients"), route: "/clients" },
+        { icon: "fas fa-folder-open", label: t("sidebar.dossiers"), route: "/dossiers" },
+        { icon: "fas fa-gavel", label: t("sidebar.cases"), route: "/cases" },
+      ]
+    },
+    {
+      id: "workflow",
+      label: !isCollapsed ? t("sidebar.groups.workflow", { defaultValue: "Workflow" }) : null,
+      items: [
+        { icon: "fas fa-tasks", label: t("sidebar.tasks"), route: "/tasks" },
+        { icon: "fas fa-calendar", label: t("sidebar.sessions"), route: "/sessions" },
+        { icon: "fas fa-sticky-note", label: t("sidebar.personalTasks"), route: "/personal-tasks" },
+      ]
+    },
+    {
+      id: "operations",
+      label: !isCollapsed ? t("sidebar.groups.operations", { defaultValue: "Operations" }) : null,
+      items: [
+        { icon: "fas fa-user-tie", label: t("sidebar.officers"), route: "/officers" },
+        { icon: "fas fa-calculator", label: t("sidebar.accounting"), route: "/accounting" },
+      ]
+    },
+    {
+      id: "tools",
+      label: !isCollapsed ? t("sidebar.groups.tools", { defaultValue: "Tools" }) : null,
+      items: [
+        { icon: "fas fa-robot", label: t("sidebar.chatbot"), route: "/chatbot" },
+      ]
+    }
   ];
 
   return (
     <aside
-      className={`fixed left-0 flex flex-col justify-between transition-all duration-300 border-r z-40 titlebar-offset-top titlebar-offset-height ${isCollapsed ? "w-20" : "w-64"
-        } bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 border-slate-200 dark:border-slate-800`}
+      className={`fixed left-0 flex flex-col transition-all duration-300 border-r z-40 titlebar-offset-top titlebar-offset-height ${
+        isCollapsed ? "w-[72px]" : "w-64"
+      } bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 border-slate-200 dark:border-slate-800`}
     >
       {/* Toggle */}
       <button
         onClick={toggleSidebar}
-        className="absolute -right-3 top-6 rounded-full p-1.5 border focus:outline-none focus:ring-2 focus:ring-slate-500 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 z-50"
+        className="absolute -right-3 top-6 rounded-full p-1.5 border shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 z-50 transition-all"
+        aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
       >
-        <i className={`${isCollapsed ? "fas fa-chevron-right text-sm" : "fas fa-chevron-left text-sm"}`}></i>
+        <i className={`${isCollapsed ? "fas fa-chevron-right text-xs" : "fas fa-chevron-left text-xs"} text-slate-600 dark:text-slate-400`}></i>
       </button>
 
-      {/* Logo */}
-      <div className="p-4 border-b border-slate-200 dark:border-slate-800">
-        <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-slate-100 dark:bg-slate-700">
-            <i className="fas fa-scale-balanced"></i>
+      {/* Header - Enhanced branding */}
+      <div className="relative px-4 py-5 border-b border-slate-200 dark:border-slate-800 bg-gradient-to-br from-white to-slate-50 dark:from-slate-900 dark:to-slate-950">
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-gradient-to-br from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700 shadow-lg shadow-blue-500/20 dark:shadow-blue-600/30">
+              <i className="fas fa-scale-balanced text-white text-base"></i>
+            </div>
+            <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-white dark:border-slate-900 rounded-full"></div>
           </div>
-          {!isCollapsed && <span className="font-semibold text-lg">{t("sidebar.brand")}</span>}
+          {!isCollapsed && (
+            <div className="flex flex-col">
+              <span className="font-bold text-base text-slate-900 dark:text-white leading-tight">{t("sidebar.brand")}</span>
+              <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Pro</span>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 py-4 overflow-y-auto">
-        <ul className="space-y-1 px-3">
-          {menuItems.map((item, index) => {
-            const isActive = location.pathname.startsWith(item.route);
-            return (
-              <li key={index}>
-                {/* Use startsWith to handle nested routes (e.g., /clients/123) so the indicator stays active. */}
-                <Link
-                  to={item.route}
-                  data-tutorial={
-                    item.route === "/dashboard" ? "sidebar-dashboard-link" :
-                      item.route === "/clients" ? "sidebar-clients-link" :
-                        item.route === "/dossiers" ? "sidebar-dossiers-link" :
-                          item.route === "/personal-tasks" ? "sidebar-personal-tasks-link" :
-                            item.route === "/sessions" ? "sidebar-sessions-link" :
-                              item.route === "/officers" ? "sidebar-officers-link" :
-                                item.route === "/accounting" ? "sidebar-accounting-link" :
-                                  undefined
-                  }
-                  className={`group relative flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all duration-200 overflow-hidden ${isCollapsed ? "justify-center" : "justify-start"
-                    } ${isActive
-                      ? "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-200"
-                      : "hover:bg-slate-100 dark:hover:bg-slate-800"
-                    }`}
-                >
-                  <span
-                    className={`absolute left-0 top-1/2 h-8 w-1 -translate-y-1/2 rounded-r-full bg-blue-500 transition-all duration-300 ease-out ${isActive
-                      ? "scale-y-100 opacity-100"
-                      : "scale-y-0 opacity-0 group-hover:scale-y-100 group-hover:opacity-80"
-                      }`}
-                  ></span>
-                  <span className="flex-shrink-0">
-                    <i
-                      className={`${item.icon} transition-colors duration-200 ${isActive
-                        ? "text-blue-600 dark:text-blue-300"
-                        : "text-slate-500 group-hover:text-slate-700 dark:text-slate-400 dark:group-hover:text-slate-200"
-                        }`}
-                    ></i>
+      {/* Navigation - Grouped with enhanced hierarchy */}
+      <nav className="flex-1 py-3 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700 scrollbar-track-transparent">
+        <div className="space-y-6">
+          {navigationGroups.map((group) => (
+            <div key={group.id} className="px-3">
+              {/* Section label - only show when expanded */}
+              {group.label && !isCollapsed && (
+                <div className="px-3 mb-2">
+                  <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-500 uppercase tracking-wider">
+                    {group.label}
                   </span>
-                  {!isCollapsed && (
-                    <span
-                      className={`text-sm font-medium transition-colors duration-200 ${isActive
-                        ? "text-blue-700 dark:text-blue-100"
-                        : "text-slate-700 group-hover:text-slate-900 dark:text-slate-200 dark:group-hover:text-white"
-                        } ${isActive && activeFlash ? "animate-pop" : ""}`}
-                    >
-                      {item.label}
-                    </span>
-                  )}
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
+                </div>
+              )}
+
+              {/* Collapsed section indicator */}
+              {group.label && isCollapsed && group.id !== "primary" && (
+                <div className="flex justify-center mb-2">
+                  <div className="w-6 h-px bg-slate-300 dark:bg-slate-700"></div>
+                </div>
+              )}
+
+              {/* Items */}
+              <ul className="space-y-0.5">
+                {group.items.map((item) => {
+                  const isActive = location.pathname.startsWith(item.route);
+                  return (
+                    <li key={item.route}>
+                      <Link
+                        to={item.route}
+                        data-tutorial={
+                          item.route === "/dashboard" ? "sidebar-dashboard-link" :
+                          item.route === "/clients" ? "sidebar-clients-link" :
+                          item.route === "/dossiers" ? "sidebar-dossiers-link" :
+                          item.route === "/personal-tasks" ? "sidebar-personal-tasks-link" :
+                          item.route === "/sessions" ? "sidebar-sessions-link" :
+                          item.route === "/officers" ? "sidebar-officers-link" :
+                          item.route === "/accounting" ? "sidebar-accounting-link" :
+                          undefined
+                        }
+                        className={`group relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 ${
+                          isCollapsed ? "justify-center" : "justify-start"
+                        } ${
+                          isActive
+                            ? "bg-blue-600 dark:bg-blue-600 text-white shadow-lg shadow-blue-500/30 dark:shadow-blue-600/40"
+                            : "hover:bg-white dark:hover:bg-slate-900 text-slate-700 dark:text-slate-300 hover:shadow-sm"
+                        }`}
+                      >
+                        {/* Icon container with enhanced styling */}
+                        <span className={`relative flex items-center justify-center w-5 transition-transform duration-200 ${
+                          isActive ? "scale-110" : "group-hover:scale-105"
+                        }`}>
+                          <i
+                            className={`${item.icon} text-base transition-all duration-200 ${
+                              isActive
+                                ? "text-white"
+                                : "text-slate-500 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200"
+                            }`}
+                          ></i>
+                        </span>
+
+                        {/* Label */}
+                        {!isCollapsed && (
+                          <span
+                            className={`text-[13px] font-medium transition-all duration-200 ${
+                              isActive
+                                ? "text-white"
+                                : "text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white"
+                            } ${isActive && activeFlash ? "animate-pop" : ""}`}
+                          >
+                            {item.label}
+                          </span>
+                        )}
+
+                        {/* Active indicator glow */}
+                        {isActive && (
+                          <span className="absolute inset-0 rounded-xl bg-blue-400/10 dark:bg-blue-400/10 blur-sm"></span>
+                        )}
+
+                        {/* Tooltip for collapsed state */}
+                        {isCollapsed && (
+                          <span className="absolute left-full ml-4 px-3 py-1.5 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-medium rounded-lg opacity-0 invisible pointer-events-none group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-50 shadow-xl">
+                            {item.label}
+                            <span className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-slate-900 dark:border-r-slate-100"></span>
+                          </span>
+                        )}
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ))}
+        </div>
       </nav>
 
-      {/* Footer */}
-      <div className="border-t border-slate-200 dark:border-slate-800">
-        <div className="p-4 space-y-3">
+      {/* Footer - System actions with clear separation */}
+      <div className="border-t border-slate-200 dark:border-slate-800 bg-gradient-to-b from-transparent to-slate-100/50 dark:to-slate-900/50">
+        <div className="p-3 space-y-1">
+          {/* Theme toggle */}
           <button
             onClick={toggleTheme}
-            className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800 ${isCollapsed ? "justify-center" : "justify-start"
-              }`}
+            className={`w-full group flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 hover:bg-white dark:hover:bg-slate-900 text-slate-700 dark:text-slate-300 hover:shadow-sm ${
+              isCollapsed ? "justify-center" : "justify-start"
+            }`}
           >
-            <span className="flex-shrink-0">
-              <i className={isDark ? "fas fa-sun" : "fas fa-moon"}></i>
+            <span className="relative flex items-center justify-center w-5">
+              <i className={`${isDark ? "fas fa-sun" : "fas fa-moon"} text-base text-slate-500 dark:text-slate-400 group-hover:text-amber-500 transition-all duration-200`}></i>
             </span>
-            {!isCollapsed && <span className="text-sm font-medium">{isDark ? t("sidebar.theme.light") : t("sidebar.theme.dark")}</span>}
+            {!isCollapsed && (
+              <span className="text-[13px] font-medium">{isDark ? t("sidebar.theme.light") : t("sidebar.theme.dark")}</span>
+            )}
+
+            {/* Tooltip for collapsed */}
+            {isCollapsed && (
+              <span className="absolute left-full ml-4 px-3 py-1.5 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-medium rounded-lg opacity-0 invisible pointer-events-none group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-50 shadow-xl">
+                {isDark ? t("sidebar.theme.light") : t("sidebar.theme.dark")}
+                <span className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-slate-900 dark:border-r-slate-100"></span>
+              </span>
+            )}
           </button>
 
+          {/* Exit button */}
           <button
             onClick={handleExit}
-            className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800 ${isCollapsed ? "justify-center" : "justify-start"
-              }`}
+            className={`w-full group flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 hover:bg-red-50 dark:hover:bg-red-950/50 text-slate-700 dark:text-slate-300 hover:text-red-600 dark:hover:text-red-400 ${
+              isCollapsed ? "justify-center" : "justify-start"
+            }`}
           >
-            <span className="flex-shrink-0">
-              <i className="fas fa-sign-out-alt text-red-500"></i>
+            <span className="relative flex items-center justify-center w-5">
+              <i className="fas fa-sign-out-alt text-base text-red-500 dark:text-red-400 transition-all duration-200"></i>
             </span>
-            {!isCollapsed && <span className="text-sm font-medium text-red-500">{t("sidebar.exitApp")}</span>}
+            {!isCollapsed && (
+              <span className="text-[13px] font-medium text-red-600 dark:text-red-400">{t("sidebar.exitApp")}</span>
+            )}
+
+            {/* Tooltip for collapsed */}
+            {isCollapsed && (
+              <span className="absolute left-full ml-4 px-3 py-1.5 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-medium rounded-lg opacity-0 invisible pointer-events-none group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-50 shadow-xl">
+                {t("sidebar.exitApp")}
+                <span className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-slate-900 dark:border-r-slate-100"></span>
+              </span>
+            )}
           </button>
         </div>
 
-        <p className={`px-4 py-3 text-xs text-slate-400 dark:text-slate-500 ${isCollapsed ? "text-center" : ""}`}>
-          {t("sidebar.footer")}
-        </p>
+        {/* Version footer */}
+        <div className={`px-4 py-3 ${isCollapsed ? "text-center" : ""}`}>
+          <p className="text-[10px] text-slate-400 dark:text-slate-600 font-medium">
+            {isCollapsed ? "©" : t("sidebar.footer")}
+          </p>
+        </div>
       </div>
     </aside>
   );
