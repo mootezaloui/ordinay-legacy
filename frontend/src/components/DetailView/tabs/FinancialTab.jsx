@@ -322,7 +322,11 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
             </span>
           )}
           <span
-            className={`mt-1 px-2 py-0.5 rounded-full text-xs font-medium inline-block w-fit bg-${entry.categoryColor}-100 text-${entry.categoryColor}-800 dark:bg-${entry.categoryColor}-900/30 dark:text-${entry.categoryColor}-300`}
+            className={
+              entry.category === "bailiff_fees" || entry.category === "frais_huissier"
+                ? "mt-1 px-2 py-0.5 rounded-full text-xs font-bold inline-block w-fit bg-blue-600 text-white dark:bg-blue-500 dark:text-white shadow-sm"
+                : `mt-1 px-2 py-0.5 rounded-full text-xs font-medium inline-block w-fit bg-${entry.categoryColor}-100 text-${entry.categoryColor}-800 dark:bg-${entry.categoryColor}-900/30 dark:text-${entry.categoryColor}-300`
+            }
           >
             {entry.categoryLabel}
           </span>
@@ -1604,9 +1608,19 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
                     <label className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                       Category
                     </label>
-                    <p className="text-base text-slate-900 dark:text-white font-semibold flex items-center gap-2">
-                      <i className={`${financialCategories[selectedEntry.category]?.icon} text-slate-400`}></i>
-                      {selectedEntry.categoryLabel}
+                    <p className="text-base font-semibold flex items-center gap-2">
+                      <i className={`${financialCategories[selectedEntry.category]?.icon} ${
+                        selectedEntry.category === "bailiff_fees" || selectedEntry.category === "frais_huissier"
+                          ? "text-blue-600 dark:text-blue-400"
+                          : "text-slate-400"
+                      }`}></i>
+                      <span className={
+                        selectedEntry.category === "bailiff_fees" || selectedEntry.category === "frais_huissier"
+                          ? "px-2 py-1 rounded-full text-sm font-bold bg-blue-600 text-white dark:bg-blue-500 dark:text-white shadow-sm"
+                          : "text-slate-900 dark:text-white"
+                      }>
+                        {selectedEntry.categoryLabel}
+                      </span>
                     </p>
                   </div>
                   <div className="space-y-1.5">

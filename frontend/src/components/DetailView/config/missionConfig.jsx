@@ -5,6 +5,24 @@ import { formatDateValue } from "../../../utils/dateFormat";
 import { translateMissionStatus, translateMissionPriority, translateMissionType } from "../../../utils/entityTranslations";
 
 /**
+ * Get color classes for mission priority badges
+ */
+const getPriorityColor = (priority) => {
+    const normalizedPriority = (priority || "").toLowerCase();
+    switch (normalizedPriority) {
+        case "high":
+        case "urgent":
+            return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400";
+        case "medium":
+            return "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400";
+        case "low":
+            return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400";
+        default:
+            return "bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300";
+    }
+};
+
+/**
  * Mission Entity Configuration
  * Configuration for mission detail view with tabs and enhanced UI
  * ✅ Fully internationalized with i18n support
@@ -133,7 +151,7 @@ export const createMissionConfig = (t) => ({
                             </div>
                         </div>
                         <div className="flex items-center gap-3">
-                            <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(data.priority)}`}>
+                            <span className={`px-3 py-1 rounded-full text-sm font-medium ${getPriorityColor(data.priority)}`}>
                                 {translateMissionPriority(data.priority, t)}
                             </span>
                             <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(data.status)}`}>
