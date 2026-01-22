@@ -21,7 +21,6 @@ const allowedFields = [
   "judge",
   "outcome",
   "description",
-  "notes",
   "participants",
   "dossier_id",
   "case_id",
@@ -100,7 +99,6 @@ function create(payload) {
     judge: null,
     outcome: null,
     description: null,
-    notes: null,
     participants: null,
     dossier_id: null,
     case_id: null,
@@ -119,11 +117,16 @@ function create(payload) {
 
   try {
     const stmt = db.prepare(
-      `INSERT INTO ${table} (title, session_type, status, scheduled_at, session_date, duration, location, court_room, judge, outcome, description, notes, participants, dossier_id, case_id)
-       VALUES (@title, @session_type, @status, @scheduled_at, @session_date, @duration, @location, @court_room, @judge, @outcome, @description, @notes, @participants, @dossier_id, @case_id)`
+      `INSERT INTO ${table} (title, session_type, status, scheduled_at, session_date, duration, location, court_room, judge, outcome, description, participants, dossier_id, case_id)
+       VALUES (@title, @session_type, @status, @scheduled_at, @session_date, @duration, @location, @court_room, @judge, @outcome, @description, @participants, @dossier_id, @case_id)`
     );
     const result = stmt.run(insertData);
-    return get(result.lastInsertRowid);
+    const created = get(result.lastInsertRowid);
+    if (payload?.notes !== undefined) {
+      notesService.saveNotesForEntity("session", created.id, payload.notes);
+      created.notes = notesService.getNotesForEntity("session", created.id);
+    }
+    return created;
   } catch (error) {
     console.error("[sessions.service] Create failed:", error.message);
     console.error(
@@ -143,19 +146,18 @@ function update(id, payload) {
     );
   }
 
-  // Handle notes separately - save to notes table
-  let notesArray = null;
-  if (data.notes !== undefined) {
-    notesArray = data.notes;
-    delete data.notes; // Remove from main update
-  }
+  const notesArray = payload?.notes;
 
   if (data.participants !== undefined) {
     data.participants = serializeParticipants(data.participants);
   }
 
-  // Only update session table if there are fields other than notes
-  if (Object.keys(data).length > 0) {
+  const hasDataFields = Object.keys(data).length > 0;
+  if (!hasDataFields && notesArray === undefined) {
+    throw new Error("No fields provided for update");
+  }
+
+  if (hasDataFields) {
     const setClause = buildUpdateClause(data);
     const stmt = db.prepare(
       `UPDATE ${table} SET ${setClause}, updated_at = CURRENT_TIMESTAMP WHERE id = @id AND deleted_at IS NULL`
@@ -164,8 +166,7 @@ function update(id, payload) {
     if (result.changes === 0) return null;
   }
 
-  // Save notes if provided
-  if (notesArray !== null) {
+  if (notesArray !== undefined) {
     notesService.saveNotesForEntity("session", id, notesArray);
   }
 

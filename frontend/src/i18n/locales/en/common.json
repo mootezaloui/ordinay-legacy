@@ -183,6 +183,9 @@
     }
   },
   "detail": {
+    "tabs": {
+      "notes": "Notes"
+    },
     "toast": {
       "success": {
         "save": "Changes saved successfully!",

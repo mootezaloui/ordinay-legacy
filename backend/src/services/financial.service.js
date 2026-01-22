@@ -1,5 +1,6 @@
 const db = require("../db/connection");
 const historyService = require("./history.service");
+const notesService = require("./notes.service");
 const {
   assert,
   filterPayload,
@@ -27,7 +28,6 @@ const allowedFields = [
   "title",
   "description",
   "reference",
-  "notes",
   "direction", // receivable | payable
 ];
 
@@ -96,7 +96,11 @@ function validateParentCombination(data) {
 
 function list(includeDeleted = false) {
   const whereClause = includeDeleted ? "" : "WHERE deleted_at IS NULL";
-  return db.prepare(`SELECT * FROM ${table} ${whereClause}`).all();
+  const entries = db.prepare(`SELECT * FROM ${table} ${whereClause}`).all();
+  return entries.map((entry) => ({
+    ...entry,
+    notes: notesService.getNotesForEntity("financialEntry", entry.id),
+  }));
 }
 
 /**
@@ -167,9 +171,14 @@ function getClientReceivableBalance(clientId) {
 }
 
 function get(id) {
-  return db
+  const entry = db
     .prepare(`SELECT * FROM ${table} WHERE id = @id AND deleted_at IS NULL`)
     .get({ id });
+  if (!entry) return null;
+  return {
+    ...entry,
+    notes: notesService.getNotesForEntity("financialEntry", id),
+  };
 }
 
 /**
@@ -196,7 +205,6 @@ function create(payload) {
     paid_at: null,
     description: null,
     reference: null,
-    notes: null,
     ...data,
   };
 
@@ -230,8 +238,8 @@ function create(payload) {
 
   try {
     const stmt = db.prepare(
-      `INSERT INTO ${table} (scope, client_id, dossier_id, case_id, mission_id, task_id, personal_task_id, entry_type, status, category, amount, currency, occurred_at, due_date, paid_at, title, description, reference, notes, direction)
-       VALUES (@scope, @client_id, @dossier_id, @case_id, @mission_id, @task_id, @personal_task_id, @entry_type, @status, @category, @amount, @currency, @occurred_at, @due_date, @paid_at, @title, @description, @reference, @notes, @direction)`
+      `INSERT INTO ${table} (scope, client_id, dossier_id, case_id, mission_id, task_id, personal_task_id, entry_type, status, category, amount, currency, occurred_at, due_date, paid_at, title, description, reference, direction)
+       VALUES (@scope, @client_id, @dossier_id, @case_id, @mission_id, @task_id, @personal_task_id, @entry_type, @status, @category, @amount, @currency, @occurred_at, @due_date, @paid_at, @title, @description, @reference, @direction)`
     );
     const result = stmt.run(insertData);
 
@@ -248,6 +256,10 @@ function create(payload) {
       actor: payload.actor || null,
     });
 
+    if (payload?.notes !== undefined) {
+      notesService.saveNotesForEntity("financialEntry", created.id, payload.notes);
+      return get(created.id);
+    }
     return created;
   } catch (error) {
     console.error("[financial.service] Create failed:", error.message);
@@ -263,18 +275,27 @@ function update(id, payload) {
   const existingEntry = get(id);
   if (!existingEntry) return null;
 
+  const notesArray = payload?.notes;
   const data = normalizeData(filterPayload(payload, allowedFields));
   validateParentCombination(data);
-  assert(Object.keys(data).length > 0, "No fields provided for update");
+  const hasDataFields = Object.keys(data).length > 0;
+  if (!hasDataFields && notesArray === undefined) {
+    assert(false, "No fields provided for update");
+  }
 
-  const setClause = buildUpdateClause(data);
-  const stmt = db.prepare(
-    `UPDATE ${table} SET ${setClause}, updated_at = CURRENT_TIMESTAMP WHERE id = @id AND deleted_at IS NULL`
-  );
-  const result = stmt.run({ ...data, id });
-  if (result.changes === 0) return null;
+  if (hasDataFields) {
+    const setClause = buildUpdateClause(data);
+    const stmt = db.prepare(
+      `UPDATE ${table} SET ${setClause}, updated_at = CURRENT_TIMESTAMP WHERE id = @id AND deleted_at IS NULL`
+    );
+    const result = stmt.run({ ...data, id });
+    if (result.changes === 0) return null;
+  }
 
   const updatedEntry = get(id);
+  if (notesArray !== undefined) {
+    notesService.saveNotesForEntity("financialEntry", id, notesArray);
+  }
 
   // Track meaningful changes for auditability
   const changedFields = {};
@@ -366,6 +387,9 @@ function remove(id, options = {}) {
       }
     }
 
+    if (result.changes > 0) {
+      notesService.deleteNotesForEntity("financialEntry", id);
+    }
     return { success: result.changes > 0, method: "hard_delete" };
   }
 
@@ -413,6 +437,9 @@ function remove(id, options = {}) {
     }
   }
 
+  if (result.changes > 0) {
+    notesService.deleteNotesForEntity("financialEntry", id);
+  }
   return { success: result.changes > 0, method: "soft_delete" };
 }
 

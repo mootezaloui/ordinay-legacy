@@ -107,7 +107,7 @@ export const createCaseConfig = (t) => {
       const caseFields = [
         'caseNumber', 'title', 'dossierId', 'court',
         'filingDate', 'nextHearing', 'courtReference', 'adversaryParty',
-        'adversaryLawyer', 'judgmentNumber', 'judgmentDate', 'status', 'description', 'notes' // ✅ Added notes
+        'adversaryLawyer', 'judgmentNumber', 'judgmentDate', 'status', 'description', 'notes'
       ];
       const caseData = Object.keys(data).reduce((acc, key) => {
         if (caseFields.includes(key)) {
@@ -493,7 +493,7 @@ export const createCaseConfig = (t) => {
       },
       {
         id: "notes",
-        label: t('detail.tabs.notes'),
+        label: t('detail.tabs.notes', { ns: 'common' }),
         icon: "fas fa-sticky-note",
         component: "notes",
         fieldKey: "notes", // ✅ Explicitly set field key for clarity

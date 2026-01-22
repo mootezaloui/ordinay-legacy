@@ -58,6 +58,14 @@ export default function OverviewTab({ data, config, isEditing, onDataChange, onS
   );
 }
 
+const normalizeNotesValue = (value, fallback = "") => {
+  if (Array.isArray(value)) {
+    return value.map(note => note?.content).filter(Boolean).join("\n\n");
+  }
+  if (value === null || value === undefined) return fallback;
+  return value;
+};
+
 /**
  * Structured Edit Section - Explicit Edit/Save buttons
  */
@@ -107,9 +115,13 @@ function StructuredEditSection({ section, data, onSave, onSaveWithOptions, entit
         initialData[fieldKey] = resolvedValue ?? '';
       });
     } else if (section.fieldKey) {
-      initialData[section.fieldKey] = data[section.fieldKey] ?? (
+      const rawValue = data[section.fieldKey] ?? (
         typeof section.content === 'function' ? section.content(data) : section.content
       );
+      initialData[section.fieldKey] =
+        section.type === "notes"
+          ? normalizeNotesValue(rawValue, "")
+          : rawValue;
     }
     setEditedData(initialData);
     setIsEditing(true);
@@ -322,7 +334,11 @@ function StructuredEditSection({ section, data, onSave, onSaveWithOptions, entit
           <>
             {isEditing ? (
               <textarea
-                value={editedData[section.fieldKey || 'notes'] || (typeof section.content === 'function' ? section.content(data) : section.content)}
+                value={normalizeNotesValue(
+                  editedData[section.fieldKey || 'notes'] ??
+                    (typeof section.content === 'function' ? section.content(data) : section.content),
+                  ""
+                )}
                 onChange={(e) => handleFieldChange(section.fieldKey || 'notes', e.target.value)}
                 className="w-full px-3 py-2 border border-amber-300 dark:border-amber-600 rounded-lg bg-amber-50 dark:bg-amber-900/10 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
                 rows="3"
@@ -611,7 +627,11 @@ function RegularSection({ section, data, isEditing, onDataChange, contextData = 
           <>
             {isEditing ? (
               <textarea
-                value={editedData[section.fieldKey || 'notes'] || (typeof section.content === 'function' ? section.content(editedData) : section.content)}
+                value={normalizeNotesValue(
+                  editedData[section.fieldKey || 'notes'] ??
+                    (typeof section.content === 'function' ? section.content(editedData) : section.content),
+                  ""
+                )}
                 onChange={(e) => handleFieldChange(section.fieldKey || 'notes', e.target.value)}
                 className="w-full px-3 py-2 border border-amber-300 dark:border-amber-600 rounded-lg bg-amber-50 dark:bg-amber-900/10 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
                 rows="3"

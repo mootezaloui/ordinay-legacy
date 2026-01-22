@@ -246,7 +246,7 @@ export const createMissionConfig = (t) => ({
         },
         {
             id: "notes",
-            label: t('detail.tabs.notes'),
+            label: t('detail.tabs.notes', { ns: 'common' }),
             icon: "fas fa-sticky-note",
             component: "notes",
             getCount: (data) => {

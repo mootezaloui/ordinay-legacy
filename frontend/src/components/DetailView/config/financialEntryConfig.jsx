@@ -481,13 +481,6 @@ export const createFinancialEntryConfig = (t) => ({
                 },
             ],
         },
-        {
-            title: t('detail.overview.notes'),
-            editStrategy: "structured",
-            type: "notes",
-            fieldKey: "notes",
-            content: (data) => data.notes || t('detail.fallback.noNotes'),
-        },
     ],
 
     // Tabs configuration with colorful design
@@ -497,6 +490,18 @@ export const createFinancialEntryConfig = (t) => ({
             label: t('detail.tabs.overview'),
             icon: "fas fa-eye",
             component: "overview",
+        },
+        {
+            id: "notes",
+            label: t('detail.tabs.notes', { ns: 'common' }),
+            icon: "fas fa-sticky-note",
+            component: "notes",
+            fieldKey: "notes",
+            getCount: (data) => {
+                if (!data.notes) return 0;
+                if (Array.isArray(data.notes)) return data.notes.length;
+                return 1;
+            },
         },
         {
             id: "relations",

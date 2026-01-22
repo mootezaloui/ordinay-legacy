@@ -144,7 +144,7 @@ export const createDossierConfig = (t, helpers = {}) => {
       // Filter out relationship fields - dossier entity should only contain dossier-specific data
       const dossierFields = [
         'caseNumber', 'title', 'clientId', 'category', 'priority', 'phase',
-        'openDate', 'nextDeadline', 'description', 'adversaryParty', 'adversaryLawyer', 'status', 'notes' // ✅ Added notes
+        'openDate', 'nextDeadline', 'description', 'adversaryParty', 'adversaryLawyer', 'status', 'notes'
       ];
       const dossierData = Object.keys(data).reduce((acc, key) => {
         if (dossierFields.includes(key)) {
@@ -601,7 +601,7 @@ export const createDossierConfig = (t, helpers = {}) => {
       },
       {
         id: "notes",
-        label: t('detail.tabs.notes'),
+        label: t('detail.tabs.notes', { ns: 'common' }),
         icon: "fas fa-sticky-note",
         component: "notes",
         fieldKey: "notes", // ✅ Explicitly set field key for clarity

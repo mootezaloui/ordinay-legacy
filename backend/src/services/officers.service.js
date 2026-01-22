@@ -1,17 +1,27 @@
 const db = require("../db/connection");
+const notesService = require("./notes.service");
 const { assert, filterPayload, buildUpdateClause, normalizeData } = require("./_utils");
 
 const table = "officers";
-const allowedFields = ["name", "email", "phone", "alternate_phone", "address", "agency", "location", "specialization", "registration_number", "status", "notes"];
+const allowedFields = ["name", "email", "phone", "alternate_phone", "address", "agency", "location", "specialization", "registration_number", "status"];
 
 function list() {
-  return db.prepare(`SELECT * FROM ${table} WHERE deleted_at IS NULL`).all();
+  const officers = db.prepare(`SELECT * FROM ${table} WHERE deleted_at IS NULL`).all();
+  return officers.map((officer) => ({
+    ...officer,
+    notes: notesService.getNotesForEntity("officer", officer.id),
+  }));
 }
 
 function get(id) {
-  return db
+  const officer = db
     .prepare(`SELECT * FROM ${table} WHERE id = @id AND deleted_at IS NULL`)
     .get({ id });
+  if (!officer) return null;
+  return {
+    ...officer,
+    notes: notesService.getNotesForEntity("officer", id),
+  };
 }
 
 function create(payload) {
@@ -23,7 +33,6 @@ function create(payload) {
     address: null,
     agency: null,
     location: null,
-    notes: null,
     ...data,
   };
   assert(insertData.name, "name is required");
@@ -31,11 +40,16 @@ function create(payload) {
 
   try {
     const stmt = db.prepare(
-      `INSERT INTO ${table} (name, email, phone, alternate_phone, address, agency, location, status, notes)
-       VALUES (@name, @email, @phone, @alternate_phone, @address, @agency, @location, @status, @notes)`
+      `INSERT INTO ${table} (name, email, phone, alternate_phone, address, agency, location, status)
+       VALUES (@name, @email, @phone, @alternate_phone, @address, @agency, @location, @status)`
     );
     const result = stmt.run(insertData);
-    return get(result.lastInsertRowid);
+    const created = get(result.lastInsertRowid);
+    if (payload?.notes !== undefined) {
+      notesService.saveNotesForEntity("officer", created.id, payload.notes);
+      return get(created.id);
+    }
+    return created;
   } catch (error) {
     console.error("[officers.service] Create failed:", error.message);
     console.error(
@@ -48,11 +62,15 @@ function create(payload) {
 
 function update(id, payload) {
   console.log('[officers.service] Update - Raw payload:', payload);
+  const notesArray = payload?.notes;
   const filtered = filterPayload(payload, allowedFields);
   console.log('[officers.service] Update - Filtered payload:', filtered);
   const data = normalizeData(filtered);
   console.log('[officers.service] Update - Normalized data:', data);
-  assert(Object.keys(data).length > 0, "No fields provided for update");
+  const hasDataFields = Object.keys(data).length > 0;
+  if (!hasDataFields && notesArray === undefined) {
+    assert(false, "No fields provided for update");
+  }
 
   // 🚨 CRITICAL SAFETY GUARD: Prevent destructive updates that might wipe data
   // If updating an officer, ensure we're not accidentally nullifying critical fields
@@ -73,12 +91,17 @@ function update(id, payload) {
     }
   }
 
-  const setClause = buildUpdateClause(data);
-  const stmt = db.prepare(
-    `UPDATE ${table} SET ${setClause}, updated_at = CURRENT_TIMESTAMP WHERE id = @id AND deleted_at IS NULL`
-  );
-  const result = stmt.run({ ...data, id });
-  if (result.changes === 0) return null;
+  if (hasDataFields) {
+    const setClause = buildUpdateClause(data);
+    const stmt = db.prepare(
+      `UPDATE ${table} SET ${setClause}, updated_at = CURRENT_TIMESTAMP WHERE id = @id AND deleted_at IS NULL`
+    );
+    const result = stmt.run({ ...data, id });
+    if (result.changes === 0) return null;
+  }
+  if (notesArray !== undefined) {
+    notesService.saveNotesForEntity("officer", id, notesArray);
+  }
   return get(id);
 }
 
@@ -98,6 +121,7 @@ function remove(id) {
 
     // Delete all history events for this officer
     historyService.deleteByEntity("officer", id);
+    notesService.deleteNotesForEntity("officer", id);
 
     // Delete the officer
     const stmt = db.prepare(`DELETE FROM ${table} WHERE id = @id`);

@@ -1,4 +1,5 @@
 const db = require('../db/connection');
+const notesService = require('./notes.service');
 const { assert, filterPayload, buildUpdateClause, normalizeData } = require('./_utils');
 
 const table = 'clients';
@@ -14,16 +15,24 @@ const allowedFields = [
   'profession',
   'company',
   'tax_id',
-  'notes',
   'join_date',
 ];
 
 function list() {
-  return db.prepare(`SELECT * FROM ${table} WHERE deleted_at IS NULL`).all();
+  const clients = db.prepare(`SELECT * FROM ${table} WHERE deleted_at IS NULL`).all();
+  return clients.map((client) => ({
+    ...client,
+    notes: notesService.getNotesForEntity('client', client.id),
+  }));
 }
 
 function get(id) {
-  return db.prepare(`SELECT * FROM ${table} WHERE id = @id AND deleted_at IS NULL`).get({ id });
+  const client = db.prepare(`SELECT * FROM ${table} WHERE id = @id AND deleted_at IS NULL`).get({ id });
+  if (!client) return null;
+  return {
+    ...client,
+    notes: notesService.getNotesForEntity('client', id),
+  };
 }
 
 function create(payload) {
@@ -38,7 +47,6 @@ function create(payload) {
     profession: null,
     company: null,
     tax_id: null,
-    notes: null,
     join_date: null,
     ...data,
   };
@@ -47,11 +55,16 @@ function create(payload) {
 
   try {
     const stmt = db.prepare(
-      `INSERT INTO ${table} (name, email, phone, alternate_phone, address, status, cin, date_of_birth, profession, company, tax_id, notes, join_date)
-       VALUES (@name, @email, @phone, @alternate_phone, @address, @status, @cin, @date_of_birth, @profession, @company, @tax_id, @notes, @join_date)`
+      `INSERT INTO ${table} (name, email, phone, alternate_phone, address, status, cin, date_of_birth, profession, company, tax_id, join_date)
+       VALUES (@name, @email, @phone, @alternate_phone, @address, @status, @cin, @date_of_birth, @profession, @company, @tax_id, @join_date)`
     );
     const result = stmt.run(insertData);
-    return get(result.lastInsertRowid);
+    const created = get(result.lastInsertRowid);
+    if (payload?.notes !== undefined) {
+      notesService.saveNotesForEntity('client', created.id, payload.notes);
+      return get(created.id);
+    }
+    return created;
   } catch (error) {
     console.error('[clients.service] Create failed:', error.message);
     console.error('[clients.service] Insert data:', JSON.stringify(insertData, null, 2));
@@ -60,15 +73,24 @@ function create(payload) {
 }
 
 function update(id, payload) {
+  const notesArray = payload?.notes;
   const data = normalizeData(filterPayload(payload, allowedFields));
-  assert(Object.keys(data).length > 0, 'No fields provided for update');
+  const hasDataFields = Object.keys(data).length > 0;
+  if (!hasDataFields && notesArray === undefined) {
+    assert(false, 'No fields provided for update');
+  }
 
-  const setClause = buildUpdateClause(data);
-  const stmt = db.prepare(
-    `UPDATE ${table} SET ${setClause}, updated_at = CURRENT_TIMESTAMP WHERE id = @id AND deleted_at IS NULL`
-  );
-  const result = stmt.run({ ...data, id });
-  if (result.changes === 0) return null;
+  if (hasDataFields) {
+    const setClause = buildUpdateClause(data);
+    const stmt = db.prepare(
+      `UPDATE ${table} SET ${setClause}, updated_at = CURRENT_TIMESTAMP WHERE id = @id AND deleted_at IS NULL`
+    );
+    const result = stmt.run({ ...data, id });
+    if (result.changes === 0) return null;
+  }
+  if (notesArray !== undefined) {
+    notesService.saveNotesForEntity('client', id, notesArray);
+  }
   return get(id);
 }
 
@@ -77,6 +99,7 @@ function remove(id) {
 
   // Delete all history events for this client
   historyService.deleteByEntity('client', id);
+  notesService.deleteNotesForEntity('client', id);
 
   // Delete the client
   const stmt = db.prepare(`DELETE FROM ${table} WHERE id = @id`);

@@ -83,7 +83,7 @@ export const createSessionConfig = (t) => ({
     // Filter out any potential relationship fields - session entity should only contain session-specific data
     const sessionFields = [
       'title', 'type', 'linkType', 'caseId', 'dossierId', 'date', 'time',
-      'duration', 'location', 'courtRoom', 'judge', 'status', 'description', 'notes', 'participants'
+      'duration', 'location', 'courtRoom', 'judge', 'status', 'description', 'participants', 'notes'
     ];
     const sessionData = Object.keys(data).reduce((acc, key) => {
       if (sessionFields.includes(key)) {

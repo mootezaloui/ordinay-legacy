@@ -647,7 +647,7 @@ export function DataProvider({ children }) {
       profession: updates.profession,
       company: updates.company,
       tax_id: updates.taxId,
-      notes: updates.notes,
+      notes: updates.notes !== undefined ? notesToBackendFormat(updates.notes) : undefined,
       join_date: updates.joinDate,
     };
 
@@ -2009,12 +2009,8 @@ export function DataProvider({ children }) {
       payload.completed_at = emptyToNull(updates.completedAt || updates.completed_at);
     }
     if (updates.notes !== undefined) {
-      // Ensure notes is stored as a string or null for SQLite binding
-      if (Array.isArray(updates.notes)) {
-        payload.notes = emptyToNull(JSON.stringify(updates.notes));
-      } else {
-        payload.notes = emptyToNull(updates.notes);
-      }
+      // ✅ Convert notes to backend format (camelCase → snake_case)
+      payload.notes = notesToBackendFormat(updates.notes);
     }
 
     const updated = await apiClient.put(`/personal-tasks/${id}`, payload);
@@ -2163,7 +2159,8 @@ export function DataProvider({ children }) {
       payload.status = normalizeOfficerStatus(updates.status);
     }
     if (updates.notes !== undefined) {
-      payload.notes = emptyToNull(updates.notes);
+      // ✅ Convert notes to backend format (camelCase → snake_case)
+      payload.notes = notesToBackendFormat(updates.notes);
     }
 
     // Safety check: ensure we have at least one field to update

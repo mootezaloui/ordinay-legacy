@@ -447,6 +447,18 @@ export const createClientConfig = (t) => {
         getCount: (data) => data.documents?.length || 0,
       },
       {
+        id: "notes",
+        label: t('detail.tabs.notes', { ns: 'common' }),
+        icon: "fas fa-sticky-note",
+        component: "notes",
+        fieldKey: "notes",
+        getCount: (data) => {
+          if (!data.notes) return 0;
+          if (Array.isArray(data.notes)) return data.notes.length;
+          return 1;
+        },
+      },
+      {
         id: "history",
         label: t('detail.tabs.history'),
         icon: "fas fa-history",
@@ -566,13 +578,6 @@ export const createClientConfig = (t) => {
             editable: true
           },
         ],
-      },
-      {
-        title: t('detail.overview.notes'),
-        editStrategy: "structured",
-        type: "notes",
-        fieldKey: "notes",
-        content: (data) => data.notes || t('detail.overview.notesEmpty'),
       },
     ],
   };

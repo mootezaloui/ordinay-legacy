@@ -128,7 +128,7 @@ export const createTaskConfig = (t) => {
       // Filter out any potential relationship fields - task entity should only contain task-specific data
       const taskFields = [
         'title', 'parentType', 'dossierId', 'caseId', 'assignedTo', 'dueDate',
-        'priority', 'status', 'description', 'estimatedTime', 'notes' // ✅ Added notes
+        'priority', 'status', 'description', 'estimatedTime', 'notes'
       ];
       const taskData = Object.keys(data).reduce((acc, key) => {
         if (taskFields.includes(key)) {

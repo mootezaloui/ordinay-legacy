@@ -25,6 +25,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { useSettings } from "../../contexts/SettingsContext";
 import useBodyScrollLock from "../../hooks/useBodyScrollLock";
+import { formatCurrency } from "../../utils/currency";
 
 const interpolateCurrency = (value, currency) => {
   if (typeof value !== "string") return value;
