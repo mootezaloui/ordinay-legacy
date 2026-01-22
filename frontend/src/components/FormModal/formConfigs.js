@@ -29,6 +29,7 @@ import {
   addCustomMissionType,
 } from "../../utils/missionTypeManager";
 import { translateAssignee } from "../../utils/entityTranslations";
+import { getStoredCurrency } from "../../utils/currency";
 
 // Fallback translator for static configs defined at module scope
 const t = i18next.t.bind(i18next);
@@ -1176,7 +1177,9 @@ export const officerAssignmentFormFields = [
 // INVOICE FORM (for Accounting tab)
 // ========================================
 
-export const invoiceFormFields = [
+export const getInvoiceFormFields = () => [
+  const currency = getStoredCurrency();
+  return [
   {
     name: "invoiceNumber",
     label: "Invoice Number",
@@ -1217,9 +1220,15 @@ export const invoiceFormFields = [
   },
   {
     name: "amount",
-    label: "Amount TTC",
+    label: i18next.t("common:forms.invoice.amountLabel", {
+      defaultValue: "Amount TTC ({{currency}})",
+      currency,
+    }),
     type: "text",
-    placeholder: "Ex: 1,500 TND",
+    placeholder: i18next.t("common:forms.invoice.amountPlaceholder", {
+      defaultValue: "Ex: 1,500 {{currency}}",
+      currency,
+    }),
     required: true,
   },
   {
@@ -1265,7 +1274,7 @@ export const invoiceFormFields = [
     fullWidth: true,
     rows: 2,
   },
-];
+  ];
 
 // ========================================
 // MISSION FORM (Huissier Mission)
@@ -1527,6 +1536,7 @@ export const getFinancialEntryFormFields = () => {
   // Use i18next.t directly to get translations in current language
   const tAccounting = (key, options = {}) =>
     i18next.t(`accounting:${key}`, options);
+  const currency = getStoredCurrency();
 
   return [
     {
@@ -1704,7 +1714,8 @@ export const getFinancialEntryFormFields = () => {
     {
       name: "amount",
       label: tAccounting("form.fields.amount.label", {
-        defaultValue: "Amount (TND)",
+        defaultValue: "Amount ({{currency}})",
+        currency,
       }),
       type: "number",
       required: true,
@@ -2044,10 +2055,10 @@ export function getFormFields(entityType) {
     session: sessionFormFields(i18next.getFixedT("sessions")),
     task: taskFormFields,
     personalTask: personalTaskFormFields,
-    invoice: invoiceFormFields,
+    invoice: getInvoiceFormFields(),
     officerAssignment: officerAssignmentFormFields,
     mission: missionFormFields,
-    financialEntry: financialEntryFormFields,
+    financialEntry: getFinancialEntryFormFields(),
   };
 
   return fieldsMap[entityType] || [];

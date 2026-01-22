@@ -22,6 +22,10 @@
     "dateFormat": {
       "label": "Format de date",
       "description": "Comment afficher les dates"
+    },
+    "currency": {
+      "label": "Devise",
+      "description": "Choisissez la devise pour toutes les valeurs monetaires"
     }
   },
   "notifications": {

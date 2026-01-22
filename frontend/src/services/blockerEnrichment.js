@@ -11,6 +11,7 @@
  */
 
 import { i18nInstance } from "../i18n";
+import { formatCurrency, getStoredCurrency } from "../utils/currency";
 
 const t = (key, options) => i18nInstance.t(key, { ns: "common", ...options });
 
@@ -485,13 +486,11 @@ function parseFinancialBlocker(blocker, entityType, entityId, data) {
 
   const items = entries.slice(0, 5).map((entry) => ({
     entityId: entry.id,
-    entityLabel: `${entry.description || entry.title || "Financial entry"} - ${
-      entry.amount
-    } ${entry.currency || "TND"}`,
+    entityLabel: `${entry.description || entry.title || "Financial entry"} - ${formatCurrency(entry.amount)}`,
     entityType: "financialEntry",
     status: entry.status,
     amount: entry.amount,
-    currency: entry.currency || "TND",
+    currency: getStoredCurrency(),
     actions: [
       {
         label: "View Entry",
@@ -524,25 +523,25 @@ function parseFinancialBlocker(blocker, entityType, entityId, data) {
   if (entityType === "dossier") {
     helpText =
       entries.length === 1
-        ? `This dossier cannot be closed because the client has 1 outstanding receivable (${totalOutstanding.toFixed(
-            2
-          )} TND). Mark the entry as paid or cancel it to proceed.`
+        ? `This dossier cannot be closed because the client has 1 outstanding receivable (${formatCurrency(
+            totalOutstanding
+          )}). Mark the entry as paid or cancel it to proceed.`
         : `This dossier cannot be closed because the client has ${
             entries.length
-          } outstanding receivables (${totalOutstanding.toFixed(
-            2
-          )} TND total). All amounts owed by the client must be settled.`;
+          } outstanding receivables (${formatCurrency(
+            totalOutstanding
+          )} total). All amounts owed by the client must be settled.`;
   } else if (entityType === "client") {
     helpText =
       entries.length === 1
-        ? `This client cannot be archived because they have 1 outstanding receivable (${totalOutstanding.toFixed(
-            2
-          )} TND). Mark the entry as paid or cancel it to proceed.`
+        ? `This client cannot be archived because they have 1 outstanding receivable (${formatCurrency(
+            totalOutstanding
+          )}). Mark the entry as paid or cancel it to proceed.`
         : `This client cannot be archived because they have ${
             entries.length
-          } outstanding receivables (${totalOutstanding.toFixed(
-            2
-          )} TND total). All amounts owed by the client must be settled.`;
+          } outstanding receivables (${formatCurrency(
+            totalOutstanding
+          )} total). All amounts owed by the client must be settled.`;
   }
 
   return {
@@ -1097,9 +1096,7 @@ function parseFinancialBlockerEnglish(blocker, entityType, entityId, data) {
 
   const items = entries.slice(0, 5).map((entry) => ({
     entityId: entry.id,
-    entityLabel: `${entry.description || "Financial entry"} - ${entry.amount} ${
-      entry.currency || "TND"
-    }`,
+    entityLabel: `${entry.description || "Financial entry"} - ${formatCurrency(entry.amount)}`,
     entityType: "financialEntry",
     status: entry.status,
     actions: [

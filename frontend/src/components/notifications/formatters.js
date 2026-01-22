@@ -1,7 +1,15 @@
+import { SUPPORTED_CURRENCIES } from "../../utils/currency";
+
 /**
  * Shared formatting helpers for notification UI components
  * Used by NotificationCenter and NotificationDropdown
  */
+
+const currencyCodePattern = SUPPORTED_CURRENCIES.join("|");
+const amountWithCurrencyRegex = new RegExp(
+  `(\\d[\\d\\s.,]*)\\s*(${currencyCodePattern}|€|\\$|£)`,
+  "gi"
+);
 
 /**
  * Format notification timestamp for display
@@ -209,9 +217,9 @@ export function renderHighlightedMessage(message) {
     },
 
     // === AMOUNTS / MONEY ===
-    // Amount + TND/EUR/USD
+    // Amount + currency code/symbol
     {
-      regex: /(\d[\d\s.,]*)\s*(TND|EUR|USD|€|\$|£)/gi,
+      regex: amountWithCurrencyRegex,
       replacement: '<span class="inline-flex items-center gap-0.5 font-semibold text-rose-600 dark:text-rose-400"><span>💰</span>$1 $2</span>'
     },
     // Currency symbol first (€50, $100)

@@ -1,5 +1,6 @@
 import { RuleResult, daysUntilDate, daysSinceUpdate, getVariantIndexFromText, buildFinancialParentContexts } from "./shared";
 import { entities } from "./shared/entityLoader";
+import { formatCurrency, getStoredCurrency } from "../../../utils/currency";
 
 export const FinancialRules = {
   /**
@@ -96,8 +97,9 @@ export const FinancialRules = {
       parentType = primaryContext.type || null;
       parentReference = primaryContext.reference || "";
 
-      const amount = financialEntry.amount || 0;
-      const currency = financialEntry.currency || "TND";
+      const amount = Number(financialEntry.amount || 0);
+      const formattedAmount = formatCurrency(amount);
+      const currency = getStoredCurrency();
       const variantIndex = getVariantIndexFromText(financialEntry.description);
 
       // Determine priority based on proximity
@@ -119,8 +121,7 @@ export const FinancialRules = {
           ? "content.financial.upcomingPayment.messageWithDescription"
           : "content.financial.upcomingPayment.message",
         messageParams: {
-          amount,
-          currency,
+          amount: formattedAmount,
           clientName,
           count: daysLeft,
           description: financialEntry.description || "",
@@ -235,8 +236,9 @@ export const FinancialRules = {
         parentType = primaryContext.type || null;
         parentReference = primaryContext.reference || "";
 
-        const amount = financialEntry.amount || 0;
-        const currency = financialEntry.currency || "TND";
+        const amount = Number(financialEntry.amount || 0);
+        const formattedAmount = formatCurrency(amount);
+        const currency = getStoredCurrency();
         const variantIndex = getVariantIndexFromText(financialEntry.description);
 
         // Escalating priority based on how long it's overdue
@@ -253,8 +255,7 @@ export const FinancialRules = {
           titleParams: variantIndex !== null ? { count: daysOverdue, variantIndex } : { count: daysOverdue },
           messageKey: "content.financial.overduePayment.message",
           messageParams: {
-            amount,
-            currency,
+            amount: formattedAmount,
             clientName,
             count: daysOverdue,
             parentType,

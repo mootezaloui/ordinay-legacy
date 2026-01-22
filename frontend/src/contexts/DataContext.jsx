@@ -8,6 +8,7 @@ import { logEntityCreation, logLifecycleChange, logStatusChange } from "../servi
 import { apiClient } from "../services/api/client";
 import { adaptHistory } from "../services/api/adapters";
 import { useTranslation } from "react-i18next";
+import { useSettings } from "./SettingsContext";
 import { useOperator } from "./OperatorContext";
 import { useLicense } from "./LicenseContext";
 import { checkFreePlanLimit } from "../services/licenseService";
@@ -354,6 +355,7 @@ const reconcileEntities = (clients, dossiers, cases, tasks, sessions) => {
 export function DataProvider({ children }) {
   const { showToast } = useToast();
   const { t } = useTranslation("common");
+  const { currency, formatCurrency } = useSettings();
   const { operator } = useOperator();
   const { licenseState } = useLicense();
   const { confirm } = useConfirm();
@@ -2847,7 +2849,16 @@ export function DataProvider({ children }) {
 
   const logFinancialEntryParentHistory = (entry, actionLabel) => {
     if (!entry?.id) return;
-    const entryDesc = entry.title || entry.description || `${entry.type || entry.entryType || entry.entry_type || "Entry"} - ${entry.amount ?? ""} ${entry.currency || ""}`.trim();
+    const amountLabel =
+      entry?.amount !== null && entry?.amount !== undefined
+        ? formatCurrency(entry.amount)
+        : "";
+    const entryDesc =
+      entry.title ||
+      entry.description ||
+      `${entry.type || entry.entryType || entry.entry_type || "Entry"}${
+        amountLabel ? ` - ${amountLabel}` : ""
+      }`.trim();
     const baseLabel = entryDesc ? `${actionLabel}: ${entryDesc}` : actionLabel;
     const loggedTargets = new Set();
     const logTarget = (entityType, entityId, label = baseLabel, metadata = {}) => {
@@ -3012,7 +3023,7 @@ export function DataProvider({ children }) {
       status: statusMap[entry.status] || entry.status || "pending",
       category: emptyToNull(entry.category),
       amount: entry.amount,
-      currency: entry.currency || "TND",
+      currency,
       occurred_at: emptyToNull(entry.date || entry.occurred_at || todayIso),
       due_date: emptyToNull(entry.dueDate || entry.due_date || entry.date || todayIso),
       paid_at: emptyToNull(entry.paidAt || entry.paid_at),
@@ -3068,7 +3079,7 @@ export function DataProvider({ children }) {
       entry_type: updates.type || updates.entryType,
       status: updates.status,
       amount: updates.amount,
-      currency: updates.currency || 'TND',
+      currency,
       occurred_at: updates.date || updates.occurred_at,
       due_date: updates.dueDate,
       paid_at: updates.paidAt,

@@ -11,9 +11,6 @@ import { canPerformAction } from "../../../services/domainRules";
 import { getStatusColor } from "../config/statusColors";
 import { translateMissionStatus } from "../../../utils/entityTranslations";
 import {
-  formatCurrency
-} from "../../../utils/financialUtils";
-import {
   getFinancialEntryFormFields,
   populateRelationshipOptions
 } from "../../FormModal/formConfigs";
@@ -32,7 +29,7 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
   const location = useLocation();
   const { showToast } = useToast();
   const { confirm } = useConfirm();
-  const { formatDate } = useSettings();
+  const { formatDate, formatCurrency, currency } = useSettings();
   const { t } = useTranslation(["missions", "common"]);
   const {
     clients,
@@ -278,7 +275,7 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
               type: 'expense', // Officer fees are expenses
               category: 'Bailiff_fees',
               status: entry.status || 'Draft',
-              currency: entry.currency || 'TND',
+              currency,
             };
 
             try {
@@ -474,7 +471,7 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
         impactSummary.push({
           type: 'cascade',
           message: `${impacts.financialEntries.length} financial entry(ies) will be permanently deleted`,
-          details: impacts.financialEntries.map(e => `${e.title} (${e.amount} ${e.currency})`).join(', ')
+          details: impacts.financialEntries.map(e => `${e.title} (${formatCurrency(e.amount)})`).join(', ')
         });
       }
 

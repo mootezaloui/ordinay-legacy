@@ -38,7 +38,7 @@ export default function DetailView({ entityType }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { formatDate } = useSettings();
+  const { formatDate, formatCurrency } = useSettings();
   const { showToast } = useToast();
   const { confirm } = useConfirm();
   const contextData = useData(); // Get all data from context
@@ -128,7 +128,7 @@ export default function DetailView({ entityType }) {
   };
 
   // Get configuration for this entity type (pass translation function for internationalized configs)
-  const config = getEntityConfig(entityType, t);
+  const config = getEntityConfig(entityType, t, { formatCurrency });
 
   // ✅ Read active tab from URL query parameter, fallback to first tab or state
   const tabFromUrl = searchParams.get('tab');

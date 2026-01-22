@@ -24,7 +24,7 @@
       "activeDossiers": "Dossiers Actifs",
       "pendingTasks": "Tâches en Attente",
       "revenue": "Chiffre d'Affaires",
-      "currency": "DTN",
+      "currency": "{{currency}}",
       "trendVsLastMonth": "vs le mois dernier",
       "newThisWeek_one": "{{count}} nouveau cette semaine",
       "newThisWeek_other": "{{count}} nouveaux cette semaine",
@@ -265,7 +265,7 @@
           "entryAdded": "Entrée financière ajoutée",
           "entryUpdated": "Entrée financière mise à jour",
           "entryDeleted": "Entrée financière supprimée",
-          "amount": "Montant : {{amount}} DTN"
+          "amount": "Montant : {{amount}}"
         },
         "domainRule": {
           "confirmed": "Règle de domaine confirmée",

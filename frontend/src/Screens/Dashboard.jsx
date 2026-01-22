@@ -20,7 +20,7 @@ export default function Dashboard() {
   const { t } = useTranslation();
   const [isWorkloadCollapsed, setWorkloadCollapsed] = useState(false);
   const [isLoadMapCollapsed, setLoadMapCollapsed] = useState(false);
-  const { formatDate: formatDisplayDate } = useSettings();
+  const { formatDate: formatDisplayDate, formatCurrency } = useSettings();
   const { clients, dossiers, tasks, sessions, cases, missions, financialEntries } = useData();
   const operationalClients = useMemo(() => filterOperationalEntities(clients), [clients]);
   const operationalDossiers = useMemo(() => filterOperationalEntities(dossiers), [dossiers]);
@@ -483,7 +483,7 @@ export default function Dashboard() {
             value={
               isLoadingSummary
                 ? "—"
-                : `${stats.revenue.total.toLocaleString('fr-TN')} ${t("dashboard.stats.currency")}`
+                : formatCurrency(stats.revenue.total)
             }
             icon="fas fa-dollar-sign"
             color="green"

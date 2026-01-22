@@ -142,7 +142,7 @@
         "success": "تم إعداد تذكير لـ {{clientName}}.",
         "noEmail": "لا يوجد بريد إلكتروني لـ {{clientName}}.",
         "emailSubject": "تذكير بالدفع - {{clientName}}",
-        "emailBody": "مرحبًا {{clientName}},\n\nهذا تذكير بدفع {{amount}} {{currency}} المستحق بتاريخ {{dueDate}}.\n\nشكرًا."
+        "emailBody": "مرحبًا {{clientName}},\n\nهذا تذكير بدفع {{amount}} المستحق بتاريخ {{dueDate}}.\n\nشكرًا."
       },
       "sendHearingReminder": {
         "label": "إرسال تذكير",
@@ -333,12 +333,12 @@
     "financial": {
       "paymentDue": {
         "title": "دفعة مستحقة",
-        "message_one": "العميل {{clientName}} مستحق عليك مبلغ {{amount}} {{currency}} بعد {{count}} يوم. هل أرسلت تذكيرًا؟",
-        "message_other": "العميل {{clientName}} مستحق عليك مبلغ {{amount}} {{currency}} بعد {{count}} يوم. هل أرسلت تذكيرًا؟"
+        "message_one": "العميل {{clientName}} مستحق عليك مبلغ {{amount}} بعد {{count}} يوم. هل أرسلت تذكيرًا؟",
+        "message_other": "العميل {{clientName}} مستحق عليك مبلغ {{amount}} بعد {{count}} يوم. هل أرسلت تذكيرًا؟"
       },
       "followupRequired": {
         "title": "متابعة مطلوبة",
-        "message": "دفعة العميل {{clientName}} ({{amount}} {{currency}}) متأخرة. هل أرسلت متابعة؟"
+        "message": "دفعة العميل {{clientName}} ({{amount}}) متأخرة. هل أرسلت متابعة؟"
       }
     },
     "dossier": {
@@ -430,14 +430,14 @@
       },
       "expenseAdded": {
         "title": "مصروف مضاف",
-        "message": "تم تسجيل مصروف جديد بقيمة {{amount}} {{currency}}",
-        "messageWithCategory": "تم تسجيل مصروف جديد بقيمة {{amount}} {{currency}} ({{category}})",
+        "message": "تم تسجيل مصروف جديد بقيمة {{amount}}",
+        "messageWithCategory": "تم تسجيل مصروف جديد بقيمة {{amount}} ({{category}})",
         "messageNoAmount": "تم تسجيل مصروف جديد",
         "messageWithCategoryNoAmount": "تم تسجيل مصروف جديد ({{category}})"
       },
       "clientAdvanceReceived": {
         "title": "تم استلام دفعة مقدمة من العميل",
-        "message": "تم استلام دفعة مقدمة من العميل {{clientName}} ({{amount}} {{currency}}).",
+        "message": "تم استلام دفعة مقدمة من العميل {{clientName}} ({{amount}}).",
         "messageFallback": "تم استلام دفعة مقدمة من العميل {{clientName}}."
       },
       "clientBalanceOverdue": {
@@ -803,37 +803,37 @@
         "tone": "professional",
         "title_one": "دفعة متوقعة - {{count}} يوم",
         "title_other": "دفعة متوقعة - {{count}} يوم",
-        "message_one": "دفعة بقيمة {{amount}} {{currency}} متوقعة من \"{{clientName}}\"{{parentContext}} بعد {{count}} يوم.",
-        "message_other": "دفعة بقيمة {{amount}} {{currency}} متوقعة من \"{{clientName}}\"{{parentContext}} بعد {{count}} يوم.",
-        "messageWithDescription_one": "دفعة بقيمة {{amount}} {{currency}} متوقعة من \"{{clientName}}\"{{parentContext}} بعد {{count}} يوم. {{description}}",
-        "messageWithDescription_other": "دفعة بقيمة {{amount}} {{currency}} متوقعة من \"{{clientName}}\"{{parentContext}} بعد {{count}} يوم. {{description}}"
+        "message_one": "دفعة بقيمة {{amount}} متوقعة من \"{{clientName}}\"{{parentContext}} بعد {{count}} يوم.",
+        "message_other": "دفعة بقيمة {{amount}} متوقعة من \"{{clientName}}\"{{parentContext}} بعد {{count}} يوم.",
+        "messageWithDescription_one": "دفعة بقيمة {{amount}} متوقعة من \"{{clientName}}\"{{parentContext}} بعد {{count}} يوم. {{description}}",
+        "messageWithDescription_other": "دفعة بقيمة {{amount}} متوقعة من \"{{clientName}}\"{{parentContext}} بعد {{count}} يوم. {{description}}"
       },
       {
         "tone": "reminder",
         "title_one": "دفعة بعد {{count}} يوم",
         "title_other": "دفعة بعد {{count}} يوم",
-        "message_one": "\"{{clientName}}\"{{parentContext}} يجب أن يدفع {{amount}} {{currency}} بعد {{count}} يوم. خطط لإرسال تذكير.",
-        "message_other": "\"{{clientName}}\"{{parentContext}} يجب أن يدفع {{amount}} {{currency}} بعد {{count}} يوم. خطط لإرسال تذكير.",
-        "messageWithDescription_one": "\"{{clientName}}\"{{parentContext}} يجب أن يدفع {{amount}} {{currency}} بعد {{count}} يوم. ملاحظة: {{description}}",
-        "messageWithDescription_other": "\"{{clientName}}\"{{parentContext}} يجب أن يدفع {{amount}} {{currency}} بعد {{count}} يوم. ملاحظة: {{description}}"
+        "message_one": "\"{{clientName}}\"{{parentContext}} يجب أن يدفع {{amount}} بعد {{count}} يوم. خطط لإرسال تذكير.",
+        "message_other": "\"{{clientName}}\"{{parentContext}} يجب أن يدفع {{amount}} بعد {{count}} يوم. خطط لإرسال تذكير.",
+        "messageWithDescription_one": "\"{{clientName}}\"{{parentContext}} يجب أن يدفع {{amount}} بعد {{count}} يوم. ملاحظة: {{description}}",
+        "messageWithDescription_other": "\"{{clientName}}\"{{parentContext}} يجب أن يدفع {{amount}} بعد {{count}} يوم. ملاحظة: {{description}}"
       },
       {
         "tone": "focused",
         "title_one": "دفعة بعد {{count}} يوم",
         "title_other": "دفعة بعد {{count}} يوم",
-        "message_one": "{{clientName}}{{parentContext}} مدين بـ {{amount}} {{currency}} بعد {{count}} يوم.",
-        "message_other": "{{clientName}}{{parentContext}} مدين بـ {{amount}} {{currency}} بعد {{count}} يوم.",
-        "messageWithDescription_one": "{{clientName}}{{parentContext}} مدين بـ {{amount}} {{currency}} بعد {{count}} يوم. {{description}}",
-        "messageWithDescription_other": "{{clientName}}{{parentContext}} مدين بـ {{amount}} {{currency}} بعد {{count}} يوم. {{description}}"
+        "message_one": "{{clientName}}{{parentContext}} مدين بـ {{amount}} بعد {{count}} يوم.",
+        "message_other": "{{clientName}}{{parentContext}} مدين بـ {{amount}} بعد {{count}} يوم.",
+        "messageWithDescription_one": "{{clientName}}{{parentContext}} مدين بـ {{amount}} بعد {{count}} يوم. {{description}}",
+        "messageWithDescription_other": "{{clientName}}{{parentContext}} مدين بـ {{amount}} بعد {{count}} يوم. {{description}}"
       },
       {
         "tone": "gentle",
         "title_one": "تذكير صغير بالدفعة",
         "title_other": "تذكير صغير بالدفعة",
-        "message_one": "تذكير صغير: {{amount}} {{currency}} من \"{{clientName}}\"{{parentContext}} بعد {{count}} يوم.",
-        "message_other": "تذكير صغير: {{amount}} {{currency}} من \"{{clientName}}\"{{parentContext}} بعد {{count}} يوم.",
-        "messageWithDescription_one": "تذكير صغير: {{amount}} {{currency}} من \"{{clientName}}\"{{parentContext}} بعد {{count}} يوم. {{description}}",
-        "messageWithDescription_other": "تذكير صغير: {{amount}} {{currency}} من \"{{clientName}}\"{{parentContext}} بعد {{count}} يوم. {{description}}"
+        "message_one": "تذكير صغير: {{amount}} من \"{{clientName}}\"{{parentContext}} بعد {{count}} يوم.",
+        "message_other": "تذكير صغير: {{amount}} من \"{{clientName}}\"{{parentContext}} بعد {{count}} يوم.",
+        "messageWithDescription_one": "تذكير صغير: {{amount}} من \"{{clientName}}\"{{parentContext}} بعد {{count}} يوم. {{description}}",
+        "messageWithDescription_other": "تذكير صغير: {{amount}} من \"{{clientName}}\"{{parentContext}} بعد {{count}} يوم. {{description}}"
       }
     ],
     "content.financial.overduePayment": [
@@ -841,81 +841,81 @@
         "tone": "urgent",
         "title_one": "دفعة متأخرة - {{count}} يوم",
         "title_other": "دفعة متأخرة - {{count}} يوم",
-        "message_one": "الدفعة بقيمة {{amount}} {{currency}} من \"{{clientName}}\"{{parentContext}} متأخرة {{count}} يوم. يُوصى بالمتابعة.",
-        "message_other": "الدفعة بقيمة {{amount}} {{currency}} من \"{{clientName}}\"{{parentContext}} متأخرة {{count}} يوم. يُوصى بالمتابعة."
+        "message_one": "الدفعة بقيمة {{amount}} من \"{{clientName}}\"{{parentContext}} متأخرة {{count}} يوم. يُوصى بالمتابعة.",
+        "message_other": "الدفعة بقيمة {{amount}} من \"{{clientName}}\"{{parentContext}} متأخرة {{count}} يوم. يُوصى بالمتابعة."
       },
       {
         "tone": "professional",
         "title_one": "دفعة متأخرة {{count}} يوم",
         "title_other": "دفعة متأخرة {{count}} يوم",
-        "message_one": "\"{{clientName}}\"{{parentContext}} ما زال مدينًا بـ {{amount}} {{currency}} ({{count}} يوم تأخير). اتبع.",
-        "message_other": "\"{{clientName}}\"{{parentContext}} ما زال مدينًا بـ {{amount}} {{currency}} ({{count}} يوم تأخير). اتبع."
+        "message_one": "\"{{clientName}}\"{{parentContext}} ما زال مدينًا بـ {{amount}} ({{count}} يوم تأخير). اتبع.",
+        "message_other": "\"{{clientName}}\"{{parentContext}} ما زال مدينًا بـ {{amount}} ({{count}} يوم تأخير). اتبع."
       },
       {
         "tone": "focused",
         "title_one": "تأخير {{count}} يوم",
         "title_other": "تأخير {{count}} يوم",
-        "message_one": "{{clientName}}{{parentContext}} تأخر {{count}} يوم عن {{amount}} {{currency}}.",
-        "message_other": "{{clientName}}{{parentContext}} تأخر {{count}} يوم عن {{amount}} {{currency}}."
+        "message_one": "{{clientName}}{{parentContext}} تأخر {{count}} يوم عن {{amount}}.",
+        "message_other": "{{clientName}}{{parentContext}} تأخر {{count}} يوم عن {{amount}}."
       },
       {
         "tone": "gentle",
         "title_one": "متابعة دفعة",
         "title_other": "متابعة دفعة",
-        "message_one": "تذكير: {{clientName}}{{parentContext}} تأخر {{count}} يوم عن {{amount}} {{currency}}.",
-        "message_other": "تذكير: {{clientName}}{{parentContext}} تأخر {{count}} يوم عن {{amount}} {{currency}}."
+        "message_one": "تذكير: {{clientName}}{{parentContext}} تأخر {{count}} يوم عن {{amount}}.",
+        "message_other": "تذكير: {{clientName}}{{parentContext}} تأخر {{count}} يوم عن {{amount}}."
       }
     ],
     "content.financial.paymentOverdue": [
       {
         "tone": "urgent",
         "title": "دفعة متأخرة",
-        "message_one": "دفعة العميل {{clientName}}{{parentContext}} ({{amount}} {{currency}}) متأخرة {{count}} يوم.",
-        "message_other": "دفعة العميل {{clientName}}{{parentContext}} ({{amount}} {{currency}}) متأخرة {{count}} يوم."
+        "message_one": "دفعة العميل {{clientName}}{{parentContext}} ({{amount}}) متأخرة {{count}} يوم.",
+        "message_other": "دفعة العميل {{clientName}}{{parentContext}} ({{amount}}) متأخرة {{count}} يوم."
       },
       {
         "tone": "professional",
         "title": "دفعة معلقة",
-        "message_one": "دفعة العميل {{clientName}}{{parentContext}} ({{amount}} {{currency}}) متأخرة {{count}} يوم. اتبع.",
-        "message_other": "دفعة العميل {{clientName}}{{parentContext}} ({{amount}} {{currency}}) متأخرة {{count}} يوم. اتبع."
+        "message_one": "دفعة العميل {{clientName}}{{parentContext}} ({{amount}}) متأخرة {{count}} يوم. اتبع.",
+        "message_other": "دفعة العميل {{clientName}}{{parentContext}} ({{amount}}) متأخرة {{count}} يوم. اتبع."
       },
       {
         "tone": "focused",
         "title": "دفعة متأخرة",
-        "message_one": "{{amount}} {{currency}} من {{clientName}}{{parentContext}} متأخرة {{count}} يوم.",
-        "message_other": "{{amount}} {{currency}} من {{clientName}}{{parentContext}} متأخرة {{count}} يوم."
+        "message_one": "{{amount}} من {{clientName}}{{parentContext}} متأخرة {{count}} يوم.",
+        "message_other": "{{amount}} من {{clientName}}{{parentContext}} متأخرة {{count}} يوم."
       },
       {
         "tone": "gentle",
         "title": "تذكير بالدفعة",
-        "message_one": "تذكير: {{clientName}}{{parentContext}} تأخر {{count}} يوم عن {{amount}} {{currency}}.",
-        "message_other": "تذكير: {{clientName}}{{parentContext}} تأخر {{count}} يوم عن {{amount}} {{currency}}."
+        "message_one": "تذكير: {{clientName}}{{parentContext}} تأخر {{count}} يوم عن {{amount}}.",
+        "message_other": "تذكير: {{clientName}}{{parentContext}} تأخر {{count}} يوم عن {{amount}}."
       }
     ],
     "content.financial.paymentDueToday": [
       {
         "tone": "professional",
         "title": "دفعة متوقعة اليوم",
-        "message": "العميل {{clientName}}{{parentContext}} يجب أن يدفع {{amount}} {{currency}} اليوم. هل استلمت الدفعة؟",
-        "messageAlt": "دفعة متوقعة من {{clientName}}{{parentContext}}: {{amount}} {{currency}}. هل استلمتها؟"
+        "message": "العميل {{clientName}}{{parentContext}} يجب أن يدفع {{amount}} اليوم. هل استلمت الدفعة؟",
+        "messageAlt": "دفعة متوقعة من {{clientName}}{{parentContext}}: {{amount}}. هل استلمتها؟"
       },
       {
         "tone": "reminder",
         "title": "دفعة اليوم",
-        "message": "العميل {{clientName}}{{parentContext}} يجب أن يسدد {{amount}} {{currency}} اليوم. أكد الاستلام.",
-        "messageAlt": "{{clientName}} - {{amount}} {{currency}} اليوم{{parentContext}}. تحقق من الحالة."
+        "message": "العميل {{clientName}}{{parentContext}} يجب أن يسدد {{amount}} اليوم. أكد الاستلام.",
+        "messageAlt": "{{clientName}} - {{amount}} اليوم{{parentContext}}. تحقق من الحالة."
       },
       {
         "tone": "friendly",
         "title": "إنها لليوم",
-        "message": "نقطة صغيرة: {{clientName}}{{parentContext}} مدين بـ {{amount}} {{currency}} اليوم.",
-        "messageAlt": "مستحقة اليوم: {{amount}} {{currency}} من {{clientName}}{{parentContext}}."
+        "message": "نقطة صغيرة: {{clientName}}{{parentContext}} مدين بـ {{amount}} اليوم.",
+        "messageAlt": "مستحقة اليوم: {{amount}} من {{clientName}}{{parentContext}}."
       },
       {
         "tone": "focused",
         "title": "موعد نهائي اليوم",
-        "message": "{{clientName}}{{parentContext}} - {{amount}} {{currency}} اليوم.",
-        "messageAlt": "{{amount}} {{currency}} اليوم{{parentContext}}."
+        "message": "{{clientName}}{{parentContext}} - {{amount}} اليوم.",
+        "messageAlt": "{{amount}} اليوم{{parentContext}}."
       }
 
     ],
@@ -923,27 +923,27 @@
       {
         "tone": "professional",
         "title": "دفعة مستحقة القبض",
-        "message_one": "دفعة العميل {{clientName}}{{parentContext}} ({{amount}} {{currency}}) مستحقة بعد {{count}} يوم.",
-        "message_other": "دفعة العميل {{clientName}}{{parentContext}} ({{amount}} {{currency}}) مستحقة بعد {{count}} يوم."
+        "message_one": "دفعة العميل {{clientName}}{{parentContext}} ({{amount}}) مستحقة بعد {{count}} يوم.",
+        "message_other": "دفعة العميل {{clientName}}{{parentContext}} ({{amount}}) مستحقة بعد {{count}} يوم."
       },
       {
         "tone": "planning",
         "title": "دفعة قادمة",
-        "message_one": "العميل {{clientName}}{{parentContext}} يجب أن يسدد {{amount}} {{currency}} بعد {{count}} يوم. خطط لتذكير.",
-        "message_other": "العميل {{clientName}}{{parentContext}} يجب أن يسدد {{amount}} {{currency}} بعد {{count}} يوم. خطط لتذكير."
+        "message_one": "العميل {{clientName}}{{parentContext}} يجب أن يسدد {{amount}} بعد {{count}} يوم. خطط لتذكير.",
+        "message_other": "العميل {{clientName}}{{parentContext}} يجب أن يسدد {{amount}} بعد {{count}} يوم. خطط لتذكير."
       },
       {
         "tone": "focused",
         "title_one": "دفعة بعد {{count}} يوم",
         "title_other": "دفعة بعد {{count}} يوم",
-        "message_one": "{{amount}} {{currency}} متوقعة من {{clientName}}{{parentContext}} بعد {{count}} يوم.",
-        "message_other": "{{amount}} {{currency}} متوقعة من {{clientName}}{{parentContext}} بعد {{count}} يوم."
+        "message_one": "{{amount}} متوقعة من {{clientName}}{{parentContext}} بعد {{count}} يوم.",
+        "message_other": "{{amount}} متوقعة من {{clientName}}{{parentContext}} بعد {{count}} يوم."
       },
       {
         "tone": "gentle",
         "title": "تذكير صغير",
-        "message_one": "تذكير صغير: {{clientName}}{{parentContext}} مدين بـ {{amount}} {{currency}} بعد {{count}} يوم.",
-        "message_other": "تذكير صغير: {{clientName}}{{parentContext}} مدين بـ {{amount}} {{currency}} بعد {{count}} يوم."
+        "message_one": "تذكير صغير: {{clientName}}{{parentContext}} مدين بـ {{amount}} بعد {{count}} يوم.",
+        "message_other": "تذكير صغير: {{clientName}}{{parentContext}} مدين بـ {{amount}} بعد {{count}} يوم."
       }
     ],
     "content.client.inActive": [
@@ -1490,50 +1490,50 @@
       {
         "tone": "professional",
         "title": "دفعة مستحقة",
-        "message_one": "العميل {{clientName}} مستحق عليك مبلغ {{amount}} {{currency}} بعد {{count}} يوم. هل أرسلت تذكيرًا؟",
-        "message_other": "العميل {{clientName}} مستحق عليك مبلغ {{amount}} {{currency}} بعد {{count}} يوم. هل أرسلت تذكيرًا؟"
+        "message_one": "العميل {{clientName}} مستحق عليك مبلغ {{amount}} بعد {{count}} يوم. هل أرسلت تذكيرًا؟",
+        "message_other": "العميل {{clientName}} مستحق عليك مبلغ {{amount}} بعد {{count}} يوم. هل أرسلت تذكيرًا؟"
       },
       {
         "tone": "reminder",
         "title_one": "دفعة بعد {{count}} يوم",
         "title_other": "دفعة بعد {{count}} يوم",
-        "message_one": "العميل {{clientName}} مدين بـ {{amount}} {{currency}} بعد {{count}} يوم. هل أرسلت تذكيرًا؟",
-        "message_other": "العميل {{clientName}} مدين بـ {{amount}} {{currency}} بعد {{count}} يوم. هل أرسلت تذكيرًا؟"
+        "message_one": "العميل {{clientName}} مدين بـ {{amount}} بعد {{count}} يوم. هل أرسلت تذكيرًا؟",
+        "message_other": "العميل {{clientName}} مدين بـ {{amount}} بعد {{count}} يوم. هل أرسلت تذكيرًا؟"
       },
       {
         "tone": "friendly",
         "title": "تذكير بالدفعة",
-        "message_one": "تذكير صغير: العميل {{clientName}} يجب أن يسدد لك {{amount}} {{currency}} بعد {{count}} يوم.",
-        "message_other": "تذكير صغير: العميل {{clientName}} يجب أن يسدد لك {{amount}} {{currency}} بعد {{count}} يوم."
+        "message_one": "تذكير صغير: العميل {{clientName}} يجب أن يسدد لك {{amount}} بعد {{count}} يوم.",
+        "message_other": "تذكير صغير: العميل {{clientName}} يجب أن يسدد لك {{amount}} بعد {{count}} يوم."
       },
       {
         "tone": "focused",
         "title_one": "J-{{count}}",
         "title_other": "J-{{count}}",
-        "message_one": "{{clientName}} - {{amount}} {{currency}} بعد {{count}} يوم",
-        "message_other": "{{clientName}} - {{amount}} {{currency}} بعد {{count}} يوم"
+        "message_one": "{{clientName}} - {{amount}} بعد {{count}} يوم",
+        "message_other": "{{clientName}} - {{amount}} بعد {{count}} يوم"
       }
     ],
     "content.financial.followupRequired": [
       {
         "tone": "professional",
         "title": "متابعة مطلوبة",
-        "message": "دفعة العميل {{clientName}} ({{amount}} {{currency}}) متأخرة. هل أرسلت متابعة؟"
+        "message": "دفعة العميل {{clientName}} ({{amount}}) متأخرة. هل أرسلت متابعة؟"
       },
       {
         "tone": "actionable",
         "title": "متابعة ضرورية",
-        "message": "العميل {{clientName}} لديه دفعة متأخرة ({{amount}} {{currency}}). أرسل متابعة."
+        "message": "العميل {{clientName}} لديه دفعة متأخرة ({{amount}}). أرسل متابعة."
       },
       {
         "tone": "friendly",
         "title": "متابعة صغيرة؟",
-        "message": "دفعة العميل {{clientName}} ({{amount}} {{currency}}) متأخرة. تذكير صغير؟"
+        "message": "دفعة العميل {{clientName}} ({{amount}}) متأخرة. تذكير صغير؟"
       },
       {
         "tone": "direct",
         "title": "اتبع",
-        "message": "{{clientName}} - {{amount}} {{currency}} متأخرة. تواصل معه."
+        "message": "{{clientName}} - {{amount}} متأخرة. تواصل معه."
       }
       
     ],
@@ -1779,3 +1779,4 @@
     }
   }
 }
+

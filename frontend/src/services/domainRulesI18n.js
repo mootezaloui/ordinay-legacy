@@ -6,6 +6,7 @@
  */
 
 import { i18nInstance } from "../i18n";
+import { formatCurrency } from "../utils/currency";
 
 // Translation helper
 const t = (key, options = {}) => {
@@ -139,7 +140,7 @@ export const buildMissionsBlocker = (
  */
 export const buildUnpaidBalanceBlocker = (balance) => {
   return t("dossier.close.blocked.unpaidBalance", {
-    amount: Math.abs(balance).toFixed(2),
+    amount: formatCurrency(Math.abs(balance)),
   });
 };
 

@@ -3,6 +3,7 @@ import { useTheme } from "../../contexts/ThemeProvider";
 import { useTranslation } from "react-i18next";
 import ContentSection from "../layout/ContentSection";
 import { LANGUAGE_REGISTRY } from "../../i18n/config";
+import { SUPPORTED_CURRENCIES } from "../../utils/currency";
 
 export default function SettingsGeneral() {
   const { settings, updateSettings } = useSettings();
@@ -69,6 +70,28 @@ export default function SettingsGeneral() {
               <option value="YYYY-MM-DD">YYYY-MM-DD</option>
               <option value="DD-MM-YYYY">DD-MM-YYYY</option>
               <option value="MM-DD-YYYY">MM-DD-YYYY</option>
+            </select>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div>
+              <label className="text-sm font-medium text-slate-900 dark:text-white">
+                {t("general.currency.label")}
+              </label>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                {t("general.currency.description")}
+              </p>
+            </div>
+            <select
+              value={settings.currency}
+              onChange={(e) => handleChange("currency", e.target.value)}
+              className="px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {SUPPORTED_CURRENCIES.map((code) => (
+                <option key={code} value={code}>
+                  {code}
+                </option>
+              ))}
             </select>
           </div>
         </div>

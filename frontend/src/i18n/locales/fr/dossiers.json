@@ -150,7 +150,7 @@
       },
       "estimatedValue": {
         "label": "Valeur estimée",
-        "placeholder": "Ex : 50 000 DTN"
+        "placeholder": "Ex : 50 000 {{currency}}"
       },
       "courtReference": {
         "label": "Référence du tribunal",

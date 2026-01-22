@@ -24,7 +24,7 @@
       "activeDossiers": "Active Dossiers",
       "pendingTasks": "Pending Tasks",
       "revenue": "Revenue",
-      "currency": "TND",
+      "currency": "{{currency}}",
       "trendVsLastMonth": "vs last month",
       "newThisWeek_one": "{{count}} new this week",
       "newThisWeek_other": "{{count}} new this week",
@@ -264,7 +264,7 @@
           "entryAdded": "Financial entry added",
           "entryUpdated": "Financial entry updated",
           "entryDeleted": "Financial entry deleted",
-          "amount": "Amount: {{amount}} TND"
+          "amount": "Amount: {{amount}}"
         },
         "domainRule": {
           "confirmed": "Domain rule confirmed",

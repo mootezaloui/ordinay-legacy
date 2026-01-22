@@ -143,7 +143,7 @@
         "success": "Reminder prepared for {{clientName}}.",
         "noEmail": "No email found for {{clientName}}.",
         "emailSubject": "Payment reminder - {{clientName}}",
-        "emailBody": "Hello {{clientName}},\n\nThis is a friendly reminder about the payment of {{amount}} {{currency}} due on {{dueDate}}.\n\nThank you."
+        "emailBody": "Hello {{clientName}},\n\nThis is a friendly reminder about the payment of {{amount}} due on {{dueDate}}.\n\nThank you."
       },
       "sendHearingReminder": {
         "label": "Send reminder",
@@ -334,12 +334,12 @@
     "financial": {
       "paymentDue": {
         "title": "Payment Due",
-        "message_one": "{{clientName}} owes you {{amount}} {{currency}} in {{count}} day. Have you sent a reminder?",
-        "message_other": "{{clientName}} owes you {{amount}} {{currency}} in {{count}} days. Have you sent a reminder?"
+        "message_one": "{{clientName}} owes you {{amount}} in {{count}} day. Have you sent a reminder?",
+        "message_other": "{{clientName}} owes you {{amount}} in {{count}} days. Have you sent a reminder?"
       },
       "followupRequired": {
         "title": "Follow-up Required",
-        "message": "Payment from {{clientName}} ({{amount}} {{currency}}) is overdue. Have you sent a follow-up?"
+        "message": "Payment from {{clientName}} ({{amount}}) is overdue. Have you sent a follow-up?"
       }
     },
     "dossier": {
@@ -431,14 +431,14 @@
       },
       "expenseAdded": {
         "title": "Expense added",
-        "message": "New expense {{amount}} {{currency}} recorded",
-        "messageWithCategory": "New expense {{amount}} {{currency}} recorded ({{category}})",
+        "message": "New expense {{amount}} recorded",
+        "messageWithCategory": "New expense {{amount}} recorded ({{category}})",
         "messageNoAmount": "New expense recorded",
         "messageWithCategoryNoAmount": "New expense recorded ({{category}})"
       },
       "clientAdvanceReceived": {
         "title": "Client advance received",
-        "message": "Advance received from {{clientName}} ({{amount}} {{currency}}).",
+        "message": "Advance received from {{clientName}} ({{amount}}).",
         "messageFallback": "Advance received from {{clientName}}."
       },
       "clientBalanceOverdue": {
@@ -804,37 +804,37 @@
         "tone": "professional",
         "title_one": "Payment expected - {{count}} day",
         "title_other": "Payment expected - {{count}} days",
-        "message_one": "Payment of {{amount}} {{currency}} expected from \"{{clientName}}\"{{parentContext}} in {{count}} day.",
-        "message_other": "Payment of {{amount}} {{currency}} expected from \"{{clientName}}\"{{parentContext}} in {{count}} days.",
-        "messageWithDescription_one": "Payment of {{amount}} {{currency}} expected from \"{{clientName}}\"{{parentContext}} in {{count}} day. {{description}}",
-        "messageWithDescription_other": "Payment of {{amount}} {{currency}} expected from \"{{clientName}}\"{{parentContext}} in {{count}} days. {{description}}"
+        "message_one": "Payment of {{amount}} expected from \"{{clientName}}\"{{parentContext}} in {{count}} day.",
+        "message_other": "Payment of {{amount}} expected from \"{{clientName}}\"{{parentContext}} in {{count}} days.",
+        "messageWithDescription_one": "Payment of {{amount}} expected from \"{{clientName}}\"{{parentContext}} in {{count}} day. {{description}}",
+        "messageWithDescription_other": "Payment of {{amount}} expected from \"{{clientName}}\"{{parentContext}} in {{count}} days. {{description}}"
       },
       {
         "tone": "reminder",
         "title_one": "Payment in {{count}} day",
         "title_other": "Payment in {{count}} days",
-        "message_one": "\"{{clientName}}\"{{parentContext}} must pay {{amount}} {{currency}} in {{count}} day. Schedule a reminder.",
-        "message_other": "\"{{clientName}}\"{{parentContext}} must pay {{amount}} {{currency}} in {{count}} days. Schedule a reminder.",
-        "messageWithDescription_one": "\"{{clientName}}\"{{parentContext}} must pay {{amount}} {{currency}} in {{count}} day. Note: {{description}}",
-        "messageWithDescription_other": "\"{{clientName}}\"{{parentContext}} must pay {{amount}} {{currency}} in {{count}} days. Note: {{description}}"
+        "message_one": "\"{{clientName}}\"{{parentContext}} must pay {{amount}} in {{count}} day. Schedule a reminder.",
+        "message_other": "\"{{clientName}}\"{{parentContext}} must pay {{amount}} in {{count}} days. Schedule a reminder.",
+        "messageWithDescription_one": "\"{{clientName}}\"{{parentContext}} must pay {{amount}} in {{count}} day. Note: {{description}}",
+        "messageWithDescription_other": "\"{{clientName}}\"{{parentContext}} must pay {{amount}} in {{count}} days. Note: {{description}}"
       },
       {
         "tone": "focused",
         "title_one": "Payment in {{count}} day",
         "title_other": "Payment in {{count}} days",
-        "message_one": "{{clientName}}{{parentContext}} owes {{amount}} {{currency}} in {{count}} day.",
-        "message_other": "{{clientName}}{{parentContext}} owes {{amount}} {{currency}} in {{count}} days.",
-        "messageWithDescription_one": "{{clientName}}{{parentContext}} owes {{amount}} {{currency}} in {{count}} day. {{description}}",
-        "messageWithDescription_other": "{{clientName}}{{parentContext}} owes {{amount}} {{currency}} in {{count}} days. {{description}}"
+        "message_one": "{{clientName}}{{parentContext}} owes {{amount}} in {{count}} day.",
+        "message_other": "{{clientName}}{{parentContext}} owes {{amount}} in {{count}} days.",
+        "messageWithDescription_one": "{{clientName}}{{parentContext}} owes {{amount}} in {{count}} day. {{description}}",
+        "messageWithDescription_other": "{{clientName}}{{parentContext}} owes {{amount}} in {{count}} days. {{description}}"
       },
       {
         "tone": "gentle",
         "title_one": "Quick payment reminder",
         "title_other": "Quick payment reminder",
-        "message_one": "Quick reminder: {{amount}} {{currency}} from \"{{clientName}}\"{{parentContext}} in {{count}} day.",
-        "message_other": "Quick reminder: {{amount}} {{currency}} from \"{{clientName}}\"{{parentContext}} in {{count}} days.",
-        "messageWithDescription_one": "Quick reminder: {{amount}} {{currency}} from \"{{clientName}}\"{{parentContext}} in {{count}} day. {{description}}",
-        "messageWithDescription_other": "Quick reminder: {{amount}} {{currency}} from \"{{clientName}}\"{{parentContext}} in {{count}} days. {{description}}"
+        "message_one": "Quick reminder: {{amount}} from \"{{clientName}}\"{{parentContext}} in {{count}} day.",
+        "message_other": "Quick reminder: {{amount}} from \"{{clientName}}\"{{parentContext}} in {{count}} days.",
+        "messageWithDescription_one": "Quick reminder: {{amount}} from \"{{clientName}}\"{{parentContext}} in {{count}} day. {{description}}",
+        "messageWithDescription_other": "Quick reminder: {{amount}} from \"{{clientName}}\"{{parentContext}} in {{count}} days. {{description}}"
       }
     ],
     "content.financial.overduePayment": [
@@ -842,81 +842,81 @@
         "tone": "urgent",
         "title_one": "Payment overdue - {{count}} day",
         "title_other": "Payment overdue - {{count}} days",
-        "message_one": "Payment of {{amount}} {{currency}} from \"{{clientName}}\"{{parentContext}} is overdue by {{count}} day. Follow-up recommended.",
-        "message_other": "Payment of {{amount}} {{currency}} from \"{{clientName}}\"{{parentContext}} is overdue by {{count}} days. Follow-up recommended."
+        "message_one": "Payment of {{amount}} from \"{{clientName}}\"{{parentContext}} is overdue by {{count}} day. Follow-up recommended.",
+        "message_other": "Payment of {{amount}} from \"{{clientName}}\"{{parentContext}} is overdue by {{count}} days. Follow-up recommended."
       },
       {
         "tone": "professional",
         "title_one": "Payment overdue by {{count}} day",
         "title_other": "Payment overdue by {{count}} days",
-        "message_one": "\"{{clientName}}\"{{parentContext}} still owes {{amount}} {{currency}} ({{count}} day overdue). Follow up.",
-        "message_other": "\"{{clientName}}\"{{parentContext}} still owes {{amount}} {{currency}} ({{count}} days overdue). Follow up."
+        "message_one": "\"{{clientName}}\"{{parentContext}} still owes {{amount}} ({{count}} day overdue). Follow up.",
+        "message_other": "\"{{clientName}}\"{{parentContext}} still owes {{amount}} ({{count}} days overdue). Follow up."
       },
       {
         "tone": "focused",
         "title_one": "Overdue {{count}} day",
         "title_other": "Overdue {{count}} days",
-        "message_one": "{{clientName}}{{parentContext}} is {{count}} day overdue on {{amount}} {{currency}}.",
-        "message_other": "{{clientName}}{{parentContext}} is {{count}} days overdue on {{amount}} {{currency}}."
+        "message_one": "{{clientName}}{{parentContext}} is {{count}} day overdue on {{amount}}.",
+        "message_other": "{{clientName}}{{parentContext}} is {{count}} days overdue on {{amount}}."
       },
       {
         "tone": "gentle",
         "title_one": "Payment follow-up",
         "title_other": "Payment follow-up",
-        "message_one": "Reminder: {{clientName}}{{parentContext}} is {{count}} day overdue on {{amount}} {{currency}}.",
-        "message_other": "Reminder: {{clientName}}{{parentContext}} is {{count}} days overdue on {{amount}} {{currency}}."
+        "message_one": "Reminder: {{clientName}}{{parentContext}} is {{count}} day overdue on {{amount}}.",
+        "message_other": "Reminder: {{clientName}}{{parentContext}} is {{count}} days overdue on {{amount}}."
       }
     ],
     "content.financial.paymentOverdue": [
       {
         "tone": "urgent",
         "title": "Payment overdue",
-        "message_one": "Payment from {{clientName}}{{parentContext}} ({{amount}} {{currency}}) is overdue by {{count}} day.",
-        "message_other": "Payment from {{clientName}}{{parentContext}} ({{amount}} {{currency}}) is overdue by {{count}} days."
+        "message_one": "Payment from {{clientName}}{{parentContext}} ({{amount}}) is overdue by {{count}} day.",
+        "message_other": "Payment from {{clientName}}{{parentContext}} ({{amount}}) is overdue by {{count}} days."
       },
       {
         "tone": "professional",
         "title": "Payment pending",
-        "message_one": "Payment from {{clientName}}{{parentContext}} ({{amount}} {{currency}}) is overdue by {{count}} day. Follow up.",
-        "message_other": "Payment from {{clientName}}{{parentContext}} ({{amount}} {{currency}}) is overdue by {{count}} days. Follow up."
+        "message_one": "Payment from {{clientName}}{{parentContext}} ({{amount}}) is overdue by {{count}} day. Follow up.",
+        "message_other": "Payment from {{clientName}}{{parentContext}} ({{amount}}) is overdue by {{count}} days. Follow up."
       },
       {
         "tone": "focused",
         "title": "Payment overdue",
-        "message_one": "{{amount}} {{currency}} from {{clientName}}{{parentContext}} overdue by {{count}} day.",
-        "message_other": "{{amount}} {{currency}} from {{clientName}}{{parentContext}} overdue by {{count}} days."
+        "message_one": "{{amount}} from {{clientName}}{{parentContext}} overdue by {{count}} day.",
+        "message_other": "{{amount}} from {{clientName}}{{parentContext}} overdue by {{count}} days."
       },
       {
         "tone": "gentle",
         "title": "Payment reminder",
-        "message_one": "Reminder: {{clientName}}{{parentContext}} is {{count}} day overdue on {{amount}} {{currency}}.",
-        "message_other": "Reminder: {{clientName}}{{parentContext}} is {{count}} days overdue on {{amount}} {{currency}}."
+        "message_one": "Reminder: {{clientName}}{{parentContext}} is {{count}} day overdue on {{amount}}.",
+        "message_other": "Reminder: {{clientName}}{{parentContext}} is {{count}} days overdue on {{amount}}."
       }
     ],
     "content.financial.paymentDueToday": [
       {
         "tone": "professional",
         "title": "Payment expected today",
-        "message": "{{clientName}}{{parentContext}} must pay {{amount}} {{currency}} today. Payment received?",
-        "messageAlt": "Payment expected from {{clientName}}{{parentContext}}: {{amount}} {{currency}}. Received?"
+        "message": "{{clientName}}{{parentContext}} must pay {{amount}} today. Payment received?",
+        "messageAlt": "Payment expected from {{clientName}}{{parentContext}}: {{amount}}. Received?"
       },
       {
         "tone": "reminder",
         "title": "Today's payment",
-        "message": "{{clientName}}{{parentContext}} must settle {{amount}} {{currency}} today. Confirm receipt.",
-        "messageAlt": "{{clientName}} - {{amount}} {{currency}} today{{parentContext}}. Check status."
+        "message": "{{clientName}}{{parentContext}} must settle {{amount}} today. Confirm receipt.",
+        "messageAlt": "{{clientName}} - {{amount}} today{{parentContext}}. Check status."
       },
       {
         "tone": "friendly",
         "title": "It's for today",
-        "message": "Quick check: {{clientName}}{{parentContext}} owes {{amount}} {{currency}} today.",
-        "messageAlt": "To settle today: {{amount}} {{currency}} from {{clientName}}{{parentContext}}."
+        "message": "Quick check: {{clientName}}{{parentContext}} owes {{amount}} today.",
+        "messageAlt": "To settle today: {{amount}} from {{clientName}}{{parentContext}}."
       },
       {
         "tone": "focused",
         "title": "Due today",
-        "message": "{{clientName}}{{parentContext}} - {{amount}} {{currency}} today.",
-        "messageAlt": "{{amount}} {{currency}} today{{parentContext}}."
+        "message": "{{clientName}}{{parentContext}} - {{amount}} today.",
+        "messageAlt": "{{amount}} today{{parentContext}}."
       }
 
     ],
@@ -924,27 +924,27 @@
       {
         "tone": "professional",
         "title": "Payment to receive",
-        "message_one": "Payment from {{clientName}}{{parentContext}} ({{amount}} {{currency}}) is due in {{count}} day.",
-        "message_other": "Payment from {{clientName}}{{parentContext}} ({{amount}} {{currency}}) is due in {{count}} days."
+        "message_one": "Payment from {{clientName}}{{parentContext}} ({{amount}}) is due in {{count}} day.",
+        "message_other": "Payment from {{clientName}}{{parentContext}} ({{amount}}) is due in {{count}} days."
       },
       {
         "tone": "planning",
         "title": "Upcoming payment",
-        "message_one": "{{clientName}}{{parentContext}} must settle {{amount}} {{currency}} in {{count}} day. Plan a reminder.",
-        "message_other": "{{clientName}}{{parentContext}} must settle {{amount}} {{currency}} in {{count}} days. Plan a reminder."
+        "message_one": "{{clientName}}{{parentContext}} must settle {{amount}} in {{count}} day. Plan a reminder.",
+        "message_other": "{{clientName}}{{parentContext}} must settle {{amount}} in {{count}} days. Plan a reminder."
       },
       {
         "tone": "focused",
         "title_one": "Payment in {{count}} day",
         "title_other": "Payment in {{count}} days",
-        "message_one": "{{amount}} {{currency}} expected from {{clientName}}{{parentContext}} in {{count}} day.",
-        "message_other": "{{amount}} {{currency}} expected from {{clientName}}{{parentContext}} in {{count}} days."
+        "message_one": "{{amount}} expected from {{clientName}}{{parentContext}} in {{count}} day.",
+        "message_other": "{{amount}} expected from {{clientName}}{{parentContext}} in {{count}} days."
       },
       {
         "tone": "gentle",
         "title": "Quick reminder",
-        "message_one": "Quick reminder: {{clientName}}{{parentContext}} owes {{amount}} {{currency}} in {{count}} day.",
-        "message_other": "Quick reminder: {{clientName}}{{parentContext}} owes {{amount}} {{currency}} in {{count}} days."
+        "message_one": "Quick reminder: {{clientName}}{{parentContext}} owes {{amount}} in {{count}} day.",
+        "message_other": "Quick reminder: {{clientName}}{{parentContext}} owes {{amount}} in {{count}} days."
       }
     ],
     "content.client.inActive": [
@@ -1491,50 +1491,50 @@
       {
         "tone": "professional",
         "title": "Payment Due",
-        "message_one": "{{clientName}} owes you {{amount}} {{currency}} in {{count}} day. Have you sent a reminder?",
-        "message_other": "{{clientName}} owes you {{amount}} {{currency}} in {{count}} days. Have you sent a reminder?"
+        "message_one": "{{clientName}} owes you {{amount}} in {{count}} day. Have you sent a reminder?",
+        "message_other": "{{clientName}} owes you {{amount}} in {{count}} days. Have you sent a reminder?"
       },
       {
         "tone": "reminder",
         "title_one": "Payment in {{count}} day",
         "title_other": "Payment in {{count}} days",
-        "message_one": "{{clientName}} owes {{amount}} {{currency}} in {{count}} day. Reminder sent?",
-        "message_other": "{{clientName}} owes {{amount}} {{currency}} in {{count}} days. Reminder sent?"
+        "message_one": "{{clientName}} owes {{amount}} in {{count}} day. Reminder sent?",
+        "message_other": "{{clientName}} owes {{amount}} in {{count}} days. Reminder sent?"
       },
       {
         "tone": "friendly",
         "title": "Payment reminder",
-        "message_one": "Quick reminder: {{clientName}} owes you {{amount}} {{currency}} in {{count}} day.",
-        "message_other": "Quick reminder: {{clientName}} owes you {{amount}} {{currency}} in {{count}} days."
+        "message_one": "Quick reminder: {{clientName}} owes you {{amount}} in {{count}} day.",
+        "message_other": "Quick reminder: {{clientName}} owes you {{amount}} in {{count}} days."
       },
       {
         "tone": "focused",
         "title_one": "D-{{count}}",
         "title_other": "D-{{count}}",
-        "message_one": "{{clientName}} - {{amount}} {{currency}} in {{count}} day",
-        "message_other": "{{clientName}} - {{amount}} {{currency}} in {{count}} days"
+        "message_one": "{{clientName}} - {{amount}} in {{count}} day",
+        "message_other": "{{clientName}} - {{amount}} in {{count}} days"
       }
     ],
     "content.financial.followupRequired": [
       {
         "tone": "professional",
         "title": "Follow-up Required",
-        "message": "Payment from {{clientName}} ({{amount}} {{currency}}) is overdue. Have you sent a follow-up?"
+        "message": "Payment from {{clientName}} ({{amount}}) is overdue. Have you sent a follow-up?"
       },
       {
         "tone": "actionable",
         "title": "Follow-up needed",
-        "message": "{{clientName}} has an overdue payment ({{amount}} {{currency}}). Send a follow-up."
+        "message": "{{clientName}} has an overdue payment ({{amount}}). Send a follow-up."
       },
       {
         "tone": "friendly",
         "title": "Quick follow-up?",
-        "message": "Payment from {{clientName}} ({{amount}} {{currency}}) is overdue. A quick reminder?"
+        "message": "Payment from {{clientName}} ({{amount}}) is overdue. A quick reminder?"
       },
       {
         "tone": "direct",
         "title": "Follow up",
-        "message": "{{clientName}} - {{amount}} {{currency}} overdue. Contact them."
+        "message": "{{clientName}} - {{amount}} overdue. Contact them."
       }
       
     ],
@@ -1780,3 +1780,4 @@
     }
   }
 }
+

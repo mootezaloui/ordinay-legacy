@@ -54,6 +54,7 @@ import { validateTemporalConstraints } from "./temporalValidation";
 import { enrichBlockers } from "./blockerEnrichment";
 import { i18nInstance } from "../i18n";
 import { translateStatus } from "../utils/entityTranslations";
+import { formatCurrency } from "../utils/currency";
 import {
   buildDeleteWarnings,
   buildForceDeleteMessage,
@@ -866,7 +867,7 @@ function validateDossierClose(dossierId, context = {}) {
 
   if (clientFinancials.balance < 0) {
     blockers.push(
-      `Unpaid balance: ${Math.abs(clientFinancials.balance).toFixed(2)} TND`
+      `Unpaid balance: ${formatCurrency(Math.abs(clientFinancials.balance))}`
     );
   }
 
@@ -1055,7 +1056,7 @@ function validateDossierDelete(dossierId, context = {}) {
       count: dossierFinancials.length,
       items: dossierFinancials.slice(0, 5).map((e) => ({
         id: e.id,
-        label: `${e.description} - ${e.amount} TND`,
+        label: `${e.description} - ${formatCurrency(e.amount)}`,
       })),
     });
   }
@@ -1510,7 +1511,7 @@ function validateClientArchive(clientId, context = {}) {
   );
   if (clientFinancials.balance < 0) {
     blockers.push(
-      `Unpaid balance: ${Math.abs(clientFinancials.balance).toFixed(2)} TND`
+      `Unpaid balance: ${formatCurrency(Math.abs(clientFinancials.balance))}`
     );
   }
 
@@ -1628,7 +1629,7 @@ function validateClientDelete(clientId, context = {}) {
       count: clientFinancials.length,
       items: clientFinancials.slice(0, 5).map((e) => ({
         id: e.id,
-        label: `${e.description} - ${e.amount} TND`,
+        label: `${e.description} - ${formatCurrency(e.amount)}`,
       })),
     });
   }
@@ -2089,9 +2090,7 @@ function validateMissionDelete(missionId, context = {}) {
       count: missionFinancials.length,
       items: missionFinancials.slice(0, 5).map((e) => ({
         id: e.id,
-        label: `${e.description || e.title || "Financial Entry"} - ${
-          e.amount
-        } ${e.currency || "TND"}`,
+        label: `${e.description || e.title || "Financial Entry"} - ${formatCurrency(e.amount)}`,
       })),
     });
   }
@@ -2406,9 +2405,7 @@ function validateOfficerDelete(officerId, context = {}) {
       count: financialEntries.length,
       items: financialEntries.slice(0, 5).map((e) => ({
         id: e.id,
-        label: `${e.description || "Financial entry"} - ${e.amount} ${
-          e.currency || "TND"
-        }`,
+        label: `${e.description || "Financial entry"} - ${formatCurrency(e.amount)}`,
       })),
     });
   }

@@ -23,6 +23,7 @@ import {
   setPendingNotification,
 } from "../../services/clientCommunication";
 import { useTranslation } from "react-i18next";
+import { useSettings } from "../../contexts/SettingsContext";
 
 /**
  * FormModal - Enhanced with improved responsive design and domain rule validation
@@ -67,6 +68,7 @@ export default function FormModal({
   const [initialized, setInitialized] = useState(false);
   const { notify } = useNotifications();
   const { t } = useTranslation(["common", "domain"]);
+  const { formatCurrency, currency } = useSettings();
 
   // ✅ Domain rule validation state
   const [blockerModalOpen, setBlockerModalOpen] = useState(false);
@@ -978,7 +980,7 @@ function FormField({ field, value, onChange, error, formData, compact = false, e
                     Bailiff Fees
                   </p>
                   <p className="text-xs text-slate-600 dark:text-slate-400">
-                    {entries.length} {entries.length === 1 ? 'entry' : 'entries'} • Total: {totalAmount.toFixed(2)} TND
+                    {entries.length} {entries.length === 1 ? 'entry' : 'entries'} • Total: {formatCurrency(totalAmount)}
                   </p>
                 </div>
               </div>
@@ -1036,7 +1038,7 @@ function FormField({ field, value, onChange, error, formData, compact = false, e
                         <div>
                           <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                             <i className="fas fa-money-bill-wave mr-1 text-green-600 dark:text-green-400"></i>
-                            Amount (TND) *
+                            Amount ({currency}) *
                           </label>
                           <input
                             type="number"

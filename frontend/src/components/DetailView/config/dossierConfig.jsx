@@ -8,6 +8,7 @@ import { getAllCategories, addCustomCategory } from "../../../utils/categoryMana
 import { calculateNextDeadline, formatDate, getDeadlineNavigationPath, getDeadlineUrgency } from "../../../utils/deadlineUtils";
 import { formatDateValue } from "../../../utils/dateFormat";
 import { translateStatus, translateCategory, translatePriority, translatePhase } from "../../../utils/entityTranslations";
+import { formatCurrency as formatCurrencyValue } from "../../../utils/currency";
 
 // Default phases for dossiers
 const DEFAULT_PHASES = [
@@ -36,9 +37,10 @@ const DEFAULT_CATEGORIES = [
  * ✅ Added structured edit mode for overview sections
  * ✅ Fully internationalized with i18n support
  */
-export const createDossierConfig = (t) => {
+export const createDossierConfig = (t, helpers = {}) => {
   const tCases = i18next.getFixedT("cases");
   const tSessions = i18next.getFixedT("sessions");
+  const formatCurrency = helpers?.formatCurrency || formatCurrencyValue;
 
   return {
     entityType: "dossier",
@@ -348,7 +350,7 @@ export const createDossierConfig = (t) => {
           icon: "fas fa-chart-line",
           iconColor: totalRevenue >= totalExpenses ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400",
           bgColor: totalRevenue >= totalExpenses ? "bg-green-100 dark:bg-green-900/20" : "bg-red-100 dark:bg-red-900/20",
-          value: `${(totalRevenue - totalExpenses).toFixed(0)} TND`,
+          value: formatCurrency(totalRevenue - totalExpenses),
           label: t('detail.stats.netProfit')
         },
       ];

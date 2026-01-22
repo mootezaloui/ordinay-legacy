@@ -22,6 +22,10 @@
     "dateFormat": {
       "label": "Date Format",
       "description": "How to display dates"
+    },
+    "currency": {
+      "label": "Currency",
+      "description": "Choose the currency used for all monetary values"
     }
   },
   "notifications": {

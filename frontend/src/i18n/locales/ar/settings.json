@@ -22,6 +22,10 @@
     "dateFormat": {
       "label": "تنسيق التاريخ",
       "description": "كيفية عرض التواريخ"
+    },
+    "currency": {
+      "label": "العملة",
+      "description": "اختر العملة المستخدمة لكل القيم المالية"
     }
   },
   "notifications": {

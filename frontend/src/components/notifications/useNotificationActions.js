@@ -555,13 +555,11 @@ export function useNotificationActions() {
     const subject = t("center.actions.sendPaymentReminder.emailSubject", {
       clientName,
       amount: params.amount,
-      currency: params.currency,
       dueDate: params.dueDate || params.due_date,
     });
     const body = t("center.actions.sendPaymentReminder.emailBody", {
       clientName,
       amount: params.amount,
-      currency: params.currency,
       dueDate: params.dueDate || params.due_date,
     });
 

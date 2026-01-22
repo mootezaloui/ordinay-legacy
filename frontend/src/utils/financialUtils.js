@@ -20,6 +20,7 @@ import {
   CANONICAL_STATUSES,
 } from "./financialConstants";
 import { isOperationalEntity } from "./importState";
+import { formatCurrency as formatCurrencyValue } from "./currency";
 
 /**
  * Check if a status represents a cancelled/void entry
@@ -340,19 +341,11 @@ export const getGlobalAccountingSummary = (allEntries = []) => {
 /**
  * Format amount as currency string
  * @param {Number} amount - Amount to format
- * @param {String} currency - Currency code (default: TND)
+ * @param {String} currency - Currency code (defaults to the active app currency)
  * @returns {String} Formatted amount
  */
-export const formatCurrency = (amount, currency = "TND") => {
-  if (amount === null || amount === undefined) return "-";
-
-  const formatted = amount.toLocaleString("fr-TN", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  });
-
-  return `${formatted} ${currency}`;
-};
+export const formatCurrency = (amount, currency) =>
+  formatCurrencyValue(amount, { currency });
 
 /**
  * Get financial entries for display in tables
@@ -375,11 +368,11 @@ export const getFinancialEntriesForDisplay = (
     categoryColor: financialCategories[entry.category]?.color || "gray",
     statusLabel: financialStatuses[entry.status]?.label || entry.status,
     statusColor: financialStatuses[entry.status]?.color || "gray",
-    amountFormatted: formatCurrency(entry.amount, entry.currency),
+    amountFormatted: formatCurrency(entry.amount),
     amountWithSign:
       entry.type === "expense"
-        ? `-${formatCurrency(entry.amount, entry.currency)}`
-        : `+${formatCurrency(entry.amount, entry.currency)}`,
+        ? `-${formatCurrency(entry.amount)}`
+        : `+${formatCurrency(entry.amount)}`,
 
     // Entity references for display
     entityReference: entry.caseReference

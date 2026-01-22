@@ -3,6 +3,8 @@
  * Provides structured templates for date reminders AND domain events
  */
 
+import { formatCurrency } from "./currency";
+
 /**
  * Link resolver for entity destinations
  */
@@ -216,14 +218,14 @@ export const paymentNotificationTemplates = {
     {
       title: "Payment Receivable",
       getMessage: (payment) =>
-        `The payment from ${payment.client} (${payment.amount} TND) is due in ${
+        `The payment from ${payment.client} (${formatCurrency(payment.amount)}) is due in ${
           payment.daysLeft
         } day${payment.daysLeft > 1 ? "s" : ""}.`,
     },
     {
       title: "Payment Due",
       getMessage: (payment) =>
-        `${payment.client} must pay you ${payment.amount} TND in ${
+        `${payment.client} must pay you ${formatCurrency(payment.amount)} in ${
           payment.daysLeft
         } day${payment.daysLeft > 1 ? "s" : ""}. Have you sent a reminder?`,
     },
@@ -234,12 +236,12 @@ export const paymentNotificationTemplates = {
     {
       title: "Payment Due Today",
       getMessage: (payment) =>
-        `${payment.client} must pay you ${payment.amount} TND today. Have you received the payment?`,
+        `${payment.client} must pay you ${formatCurrency(payment.amount)} today. Have you received the payment?`,
     },
     {
       title: "Payment Due",
       getMessage: (payment) =>
-        `Payment expected from ${payment.client}: ${payment.amount} TND. Have they paid?`,
+        `Payment expected from ${payment.client}: ${formatCurrency(payment.amount)}. Have they paid?`,
     },
   ],
 
@@ -250,12 +252,12 @@ export const paymentNotificationTemplates = {
       getMessage: (payment) =>
         `${payment.client} has a payment overdue by ${payment.daysOverdue} day${
           payment.daysOverdue > 1 ? "s" : ""
-        } (${payment.amount} TND). Contacted?`,
+        } (${formatCurrency(payment.amount)}). Contacted?`,
     },
     {
       title: "Follow-up Required",
       getMessage: (payment) =>
-        `The payment from ${payment.client} (${payment.amount} TND) is overdue. Have you sent a follow-up?`,
+        `The payment from ${payment.client} (${formatCurrency(payment.amount)}) is overdue. Have you sent a follow-up?`,
     },
   ],
 };
@@ -509,7 +511,7 @@ export const domainEventTemplates = {
     icon: "fas fa-receipt",
     title: "Expense added",
     getMessage: (ctx) =>
-      `New expense ${ctx.amount ? `${ctx.amount} TND` : ""} recorded${
+      `New expense ${ctx.amount ? formatCurrency(ctx.amount) : ""} recorded${
         ctx.category ? ` (${ctx.category})` : ""
       }.`,
   },
@@ -520,8 +522,8 @@ export const domainEventTemplates = {
     title: "Client advance received",
     getMessage: (ctx) =>
       `Advance received from ${ctx.clientName || "client"} (${
-        ctx.amount || ""
-      } TND).`,
+        ctx.amount ? formatCurrency(ctx.amount) : ""
+      }).`,
   },
   clientBalanceOverdue: {
     type: "financial",

@@ -135,7 +135,7 @@
         }
       },
       "amount": {
-        "label": "Montant (DTN)",
+        "label": "Montant ({{currency}})",
         "placeholder": "0.00"
       },
       "date": {

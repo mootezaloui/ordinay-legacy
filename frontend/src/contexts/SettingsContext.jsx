@@ -1,7 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { getNotificationPreferences } from "../utils/scheduledNotifications";
 import { formatDateTimeValue, formatDateValue, getDefaultDateFormat } from "../utils/dateFormat";
-import { DEFAULT_LANGUAGE, SUPPORTED_LANGUAGE_CODES } from "../i18n/config";
+import { DEFAULT_LANGUAGE, SUPPORTED_LANGUAGE_CODES, getLanguageLocale } from "../i18n/config";
+import { i18nInstance } from "../i18n";
+import { DEFAULT_CURRENCY, formatCurrency as formatCurrencyValue, getCurrencyFromSettings, normalizeCurrencyCode } from "../utils/currency";
 
 const STORAGE_KEY = "organia_settings";
 
@@ -10,6 +12,7 @@ export const DEFAULT_SETTINGS = {
   timezone: "Africa/Tunis",
   dateFormat: getDefaultDateFormat(),
   theme: "system",
+  currency: DEFAULT_CURRENCY,
   desktopNotifications: true, // Simplified: just enable/disable all notifications
 };
 
@@ -36,6 +39,7 @@ export function SettingsProvider({ children }) {
           if (!SUPPORTED_LANGUAGE_CODES.includes(parsedSettings.language)) {
             parsedSettings.language = DEFAULT_LANGUAGE;
           }
+          parsedSettings.currency = normalizeCurrencyCode(parsedSettings.currency);
           return parsedSettings;
         }
       }
@@ -87,6 +91,7 @@ export function SettingsProvider({ children }) {
       if (!SUPPORTED_LANGUAGE_CODES.includes(next.language)) {
         next.language = DEFAULT_LANGUAGE;
       }
+      next.currency = normalizeCurrencyCode(next.currency);
       return next;
     });
   }, []);
@@ -104,6 +109,23 @@ export function SettingsProvider({ children }) {
     () => settings.desktopNotifications !== false,
     [settings.desktopNotifications]
   );
+
+  const currency = useMemo(() => getCurrencyFromSettings(settings), [settings]);
+  const currencyLocale = useMemo(
+    () => getLanguageLocale(settings?.language),
+    [settings?.language]
+  );
+
+  useEffect(() => {
+    if (!i18nInstance?.options) return;
+    const interpolation = i18nInstance.options.interpolation || {};
+    i18nInstance.options.interpolation = interpolation;
+    interpolation.defaultVariables = {
+      ...(interpolation.defaultVariables || {}),
+      currency,
+    };
+    i18nInstance.emit?.("languageChanged", i18nInstance.language);
+  }, [currency]);
 
   const canNotifyType = useCallback((type) => {
     // Global notification toggle
@@ -139,6 +161,7 @@ export function SettingsProvider({ children }) {
   const value = useMemo(() => ({
     hydrated,
     settings,
+    currency,
     notificationPrefs,
     updateSettings,
     updateNotificationPrefs,
@@ -146,15 +169,23 @@ export function SettingsProvider({ children }) {
     canNotifyType,
     formatDate: (value, options) => formatDateValue(value, settings.dateFormat, options),
     formatDateTime: (value, options) => formatDateTimeValue(value, settings.dateFormat, options),
+    formatCurrency: (value, options) =>
+      formatCurrencyValue(value, {
+        ...options,
+        currency,
+        locale: currencyLocale,
+      }),
   }), [
     hydrated,
     settings,
+    currency,
     notificationPrefs,
     updateSettings,
     updateNotificationPrefs,
     notificationsEnabled,
     canNotifyType,
     settings.dateFormat,
+    currencyLocale,
   ]);
 
   return (

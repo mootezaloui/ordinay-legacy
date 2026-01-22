@@ -24,6 +24,7 @@ import {
   getMissionDisplayTitle,
 } from "./notificationTemplates";
 import { filterOperationalEntities } from "./importState";
+import { formatCurrency, getStoredCurrency } from "./currency";
 
 /**
  * Base notification builder with dedupe-friendly IDs and link resolver
@@ -406,10 +407,12 @@ export function generatePaymentNotifications(financialEntries) {
 
     const daysLeft = calculateDaysDifference(entry.dueDate, now);
 
+    const formattedAmount = formatCurrency(Math.abs(entry.amount));
+    const currency = getStoredCurrency();
     const payment = {
       client: entry.clientName || entry.description,
-      amount: Math.abs(entry.amount),
-      currency: entry.currency || "USD",
+      amount: formattedAmount,
+      currency,
       daysLeft: Math.abs(daysLeft),
       daysOverdue: Math.abs(daysLeft),
       dueDate: entry.dueDate,
@@ -431,7 +434,6 @@ export function generatePaymentNotifications(financialEntries) {
           params: {
             clientName: payment.client,
             amount: payment.amount,
-            currency: payment.currency,
             count: daysOverdue,
             parentType: payment.parentType,
             parentReference: payment.parentReference,
@@ -474,7 +476,6 @@ export function generatePaymentNotifications(financialEntries) {
           params: {
             clientName: payment.client,
             amount: payment.amount,
-            currency: payment.currency,
             parentType: payment.parentType,
             parentReference: payment.parentReference,
           },
@@ -515,7 +516,6 @@ export function generatePaymentNotifications(financialEntries) {
           params: {
             clientName: payment.client,
             amount: payment.amount,
-            currency: payment.currency,
             count: daysLeft,
             parentType: payment.parentType,
             parentReference: payment.parentReference,

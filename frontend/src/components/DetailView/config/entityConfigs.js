@@ -32,7 +32,7 @@ const entityConfigFactories = {
  * @param {function} t - Translation function (optional, required for internationalized configs)
  * @returns {object} Entity configuration object
  */
-export function getEntityConfig(entityType, t = null) {
+export function getEntityConfig(entityType, t = null, helpers = null) {
   const configOrFactory = entityConfigFactories[entityType];
 
   if (!configOrFactory) {
@@ -45,7 +45,7 @@ export function getEntityConfig(entityType, t = null) {
       // If no translation function provided, create a fallback that returns the key
       t = (key) => key;
     }
-    return configOrFactory(t);
+    return configOrFactory(t, helpers);
   }
 
   // Otherwise, return the config directly (legacy configs)

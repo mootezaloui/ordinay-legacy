@@ -21,7 +21,7 @@
         "tasksOpen_plural": "{{count}} open Tasks:",
         "casesOpen": "{{count}} open Lawsuit:",
         "casesOpen_plural": "{{count}} open Lawsuits:",
-        "unpaidBalance": "Unpaid balance: {{amount}} TND",
+        "unpaidBalance": "Unpaid balance: {{amount}}",
         "sessionsOpen": "{{count}} open Hearing:",
         "sessionsOpen_plural": "{{count}} open Hearings:",
         "missionsActive": "{{count}} active bailiff mission:",
@@ -145,7 +145,7 @@
         "tasksOpen_plural": "{{count}} open Tasks:",
         "sessionsOpen": "{{count}} open Hearing:",
         "sessionsOpen_plural": "{{count}} open Hearings:",
-        "unpaidBalance": "Unpaid balance: {{amount}} TND",
+        "unpaidBalance": "Unpaid balance: {{amount}}",
         "andMore": "... and {{count}} other",
         "andMore_plural": "... and {{count}} others"
       }
@@ -370,7 +370,7 @@
       "payableDesc": "Firm expense (not client obligation)"
     },
     "blocker": {
-      "unpaidReceivable": "Unpaid receivable balance: {{amount}} TND",
+      "unpaidReceivable": "Unpaid receivable balance: {{amount}}",
       "unpaidReceivableCount": "{{count}} unpaid receivable entry",
       "unpaidReceivableCount_plural": "{{count}} unpaid receivable entries",
       "helpDossier": "This dossier cannot be closed because the client has outstanding receivables. Mark entries as paid or cancel them to proceed.",

@@ -20,6 +20,22 @@ export type LicenseState =
 export let appLicenseState: LicenseState = "FREE";
 
 const DEVICE_ID_STORAGE_KEY = "organia_device_id";
+const PENDING_REFERRAL_STORAGE_KEY = "organia_pending_referral_code";
+
+const getActivationBaseUrl = (): string =>
+  (typeof import.meta !== "undefined" &&
+    import.meta.env &&
+    import.meta.env.VITE_ACTIVATION_BASE_URL) ||
+  "https://organia.app/activate";
+
+const getLicenseServerOrigin = (): string => {
+  const base = getActivationBaseUrl();
+  try {
+    return new URL(base).origin;
+  } catch {
+    return "https://organia.app";
+  }
+};
 
 export function getAppLicenseState(): LicenseState {
   return appLicenseState;
@@ -93,13 +109,55 @@ export async function getOrCreateDeviceId(): Promise<string> {
   return hashed;
 }
 
-export function getActivationUrl(deviceId: string): string {
-  const base =
-    (typeof import.meta !== "undefined" &&
-      import.meta.env &&
-      import.meta.env.VITE_ACTIVATION_BASE_URL) ||
-    "https://organia.app/activate";
-  return `${base}?device_id=${encodeURIComponent(deviceId)}`;
+export function getActivationUrl(
+  deviceId: string,
+  pendingReferralCode?: string | null
+): string {
+  const base = getActivationBaseUrl();
+  const separator = base.includes("?") ? "&" : "?";
+  const referralSuffix = pendingReferralCode
+    ? `&ref=${encodeURIComponent(pendingReferralCode)}`
+    : "";
+  return `${base}${separator}device_id=${encodeURIComponent(deviceId)}${referralSuffix}`;
+}
+
+export function storePendingReferralCode(code: string): void {
+  if (typeof window === "undefined") return;
+  const normalized = String(code || "").trim();
+  if (!normalized) return;
+  window.localStorage.setItem(PENDING_REFERRAL_STORAGE_KEY, normalized);
+}
+
+export function getPendingReferralCode(): string | null {
+  if (typeof window === "undefined") return null;
+  return window.localStorage.getItem(PENDING_REFERRAL_STORAGE_KEY);
+}
+
+export function clearPendingReferralCode(): void {
+  if (typeof window === "undefined") return;
+  window.localStorage.removeItem(PENDING_REFERRAL_STORAGE_KEY);
+}
+
+export function extractPendingReferralFromUrl(rawUrl: string): string | null {
+  if (!rawUrl) return null;
+  let parsed: URL | null = null;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    parsed = null;
+  }
+  if (!parsed) return null;
+  const params = parsed.searchParams;
+  const hashParams = new URLSearchParams(parsed.hash.replace(/^#/, ""));
+  const getParam = (key: string) => params.get(key) ?? hashParams.get(key);
+  const refParam =
+    getParam("ref") || getParam("referral") || getParam("referral_code");
+  const isInstall =
+    parsed.hostname === "install" ||
+    parsed.pathname === "/install" ||
+    parsed.pathname.startsWith("/install/");
+  if (!refParam || !isInstall) return null;
+  return refParam.trim();
 }
 
 const isValidDateString = (value: string): boolean => {
@@ -219,6 +277,70 @@ export async function requestActivationFromServer(
 ): Promise<LicenseData> {
   // TODO: Replace mock response with real activation server call.
   return mockActivationResponse(deviceId);
+}
+
+export type ReferralLinkResult = {
+  link: string | null;
+  error?: string;
+};
+
+export async function requestReferralLink(
+  deviceId: string
+): Promise<ReferralLinkResult> {
+  const origin = getLicenseServerOrigin();
+  const endpoint = `${origin}/api/referrals/link?device_id=${encodeURIComponent(deviceId)}`;
+  try {
+    const response = await fetch(endpoint, { method: "GET" });
+    if (!response.ok) {
+      return { link: null, error: "Referral link unavailable" };
+    }
+    const payload = await response.json();
+    if (payload?.referral_link) {
+      return { link: String(payload.referral_link) };
+    }
+    if (payload?.referral_code) {
+      return {
+        link: `${origin}/install?ref=${encodeURIComponent(payload.referral_code)}`,
+      };
+    }
+    return { link: null, error: "Referral link unavailable" };
+  } catch (error) {
+    console.warn("[Referral] Failed to fetch referral link:", error);
+    return { link: null, error: "Referral link unavailable" };
+  }
+}
+
+export type ReferralSubmitResult = {
+  ok: boolean;
+  error?: string;
+};
+
+export async function submitReferralOnActivation(
+  deviceId: string,
+  pendingReferralCode?: string | null
+): Promise<ReferralSubmitResult> {
+  if (!pendingReferralCode) {
+    return { ok: true };
+  }
+  const origin = getLicenseServerOrigin();
+  const endpoint = `${origin}/api/activations/referral`;
+  try {
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        device_id: deviceId,
+        pending_referral_code: pendingReferralCode,
+      }),
+    });
+    if (!response.ok) {
+      return { ok: false, error: "Referral submission failed" };
+    }
+    return { ok: true };
+  } catch (error) {
+    console.warn("[Referral] Failed to submit referral:", error);
+    return { ok: false, error: "Referral submission failed" };
+  }
 }
 
 export async function verifyLicenseWithServer(

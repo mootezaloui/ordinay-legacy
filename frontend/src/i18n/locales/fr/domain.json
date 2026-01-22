@@ -21,7 +21,7 @@
         "tasksOpen_plural": "{{count}} tâches ouvertes :",
         "casesOpen": "{{count}} procès ouvert :",
         "casesOpen_plural": "{{count}} procès ouverts :",
-        "unpaidBalance": "Solde impayé : {{amount}} DTN",
+        "unpaidBalance": "Solde impayé : {{amount}}",
         "sessionsOpen": "{{count}} audience ouverte :",
         "sessionsOpen_plural": "{{count}} audiences ouvertes :",
         "missionsActive": "{{count}} mission de huissier active :",
@@ -145,7 +145,7 @@
         "tasksOpen_plural": "{{count}} tâches ouvertes :",
         "sessionsOpen": "{{count}} audience ouverte :",
         "sessionsOpen_plural": "{{count}} audiences ouvertes :",
-        "unpaidBalance": "Solde impayé : {{amount}} DTN",
+        "unpaidBalance": "Solde impayé : {{amount}}",
         "andMore": "... et {{count}} autre",
         "andMore_plural": "... et {{count}} autres"
       }
@@ -370,7 +370,7 @@
       "payableDesc": "Dépense du cabinet (pas une obligation du client)"
     },
     "blocker": {
-      "unpaidReceivable": "Solde créances impayées : {{amount}} DTN",
+      "unpaidReceivable": "Solde créances impayées : {{amount}}",
       "unpaidReceivableCount": "{{count}} créance impayée",
       "unpaidReceivableCount_plural": "{{count}} créances impayées",
       "helpDossier": "Ce dossier ne peut pas être fermé car le client a des créances impayées. Marquez les écritures comme payées ou annulez-les pour continuer.",

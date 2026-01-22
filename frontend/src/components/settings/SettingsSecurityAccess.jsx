@@ -1,8 +1,14 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useLock } from "../../contexts/LockContext";
 import { useLicense } from "../../contexts/LicenseContext";
-import { FREE_PLAN_LIMITS, getActivationUrl, getOrCreateDeviceId } from "../../services/licenseService";
+import {
+  FREE_PLAN_LIMITS,
+  getActivationUrl,
+  getOrCreateDeviceId,
+  getPendingReferralCode,
+  requestReferralLink,
+} from "../../services/licenseService";
 import { useSettings } from "../../contexts/SettingsContext";
 import { formatDateValue } from "../../utils/dateFormat";
 import ContentSection from "../layout/ContentSection";
@@ -11,7 +17,7 @@ export default function SettingsSecurityAccess() {
   const { settings } = useSettings();
   const { t } = useTranslation(["settings"]);
   const { isEnabled, config, enableLock, disableLock, changePassword, updateSettings, lock } = useLock();
-  const { licenseState, licenseData, licenseError, setActivationState, activateLicense } = useLicense();
+  const { licenseState, licenseData, licenseError, setActivationState } = useLicense();
 
   const [showEnableForm, setShowEnableForm] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
@@ -29,6 +35,10 @@ export default function SettingsSecurityAccess() {
   const [lockSuccess, setLockSuccess] = useState("");
   const [activationError, setActivationError] = useState("");
   const [activationBusy, setActivationBusy] = useState(false);
+  const [referralLink, setReferralLink] = useState("");
+  const [referralStatus, setReferralStatus] = useState("idle");
+  const [referralMessage, setReferralMessage] = useState("");
+  const [referralCopied, setReferralCopied] = useState(false);
 
   const resetLockForms = () => {
     setFormData({
@@ -133,7 +143,8 @@ export default function SettingsSecurityAccess() {
     setActivationState("ACTIVATING", null);
     try {
       const deviceId = await getOrCreateDeviceId();
-      const url = getActivationUrl(deviceId);
+      const pendingReferral = getPendingReferralCode();
+      const url = getActivationUrl(deviceId, pendingReferral);
       if (typeof window !== "undefined") {
         window.localStorage.removeItem("organia_readonly_mode");
       }
@@ -148,6 +159,68 @@ export default function SettingsSecurityAccess() {
       setActivationState("ERROR", "Activation failed");
     } finally {
       setActivationBusy(false);
+    }
+  };
+
+  useEffect(() => {
+    let active = true;
+    const loadReferralLink = async () => {
+      if (licenseState !== "ACTIVE") {
+        setReferralLink("");
+        setReferralStatus("idle");
+        setReferralMessage("");
+        return;
+      }
+      setReferralStatus("loading");
+      setReferralMessage("");
+      try {
+        const deviceId = await getOrCreateDeviceId();
+        const result = await requestReferralLink(deviceId);
+        if (!active) return;
+        if (result.link) {
+          setReferralLink(result.link);
+          setReferralStatus("ready");
+        } else {
+          setReferralLink("");
+          setReferralStatus("error");
+          setReferralMessage(result.error || "Referral link unavailable");
+        }
+      } catch (error) {
+        if (!active) return;
+        setReferralLink("");
+        setReferralStatus("error");
+        setReferralMessage("Referral link unavailable");
+      }
+    };
+    loadReferralLink();
+    return () => {
+      active = false;
+    };
+  }, [licenseState]);
+
+  const handleCopyReferral = async () => {
+    if (!referralLink) return;
+    try {
+      await navigator.clipboard.writeText(referralLink);
+      setReferralCopied(true);
+      setTimeout(() => setReferralCopied(false), 1500);
+    } catch (error) {
+      setReferralMessage("Copy failed. Please try again.");
+    }
+  };
+
+  const handleRefreshReferral = async () => {
+    setReferralStatus("loading");
+    setReferralMessage("");
+    const deviceId = await getOrCreateDeviceId();
+    const result = await requestReferralLink(deviceId);
+    if (result.link) {
+      setReferralLink(result.link);
+      setReferralStatus("ready");
+    } else {
+      setReferralLink("");
+      setReferralStatus("error");
+      setReferralMessage(result.error || "Referral link unavailable");
     }
   };
 
@@ -542,7 +615,7 @@ export default function SettingsSecurityAccess() {
             </span>
           </div>
 
-          {licenseError && (
+          {licenseError && licenseState !== "FREE" && (
             <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg flex items-center gap-2 text-amber-700 dark:text-amber-300 text-sm">
               <i className="fas fa-exclamation-triangle"></i>
               <span>{licenseError}</span>
@@ -559,26 +632,30 @@ export default function SettingsSecurityAccess() {
                   {licenseTypeLabel()}
                 </p>
               </div>
-              <div className="p-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40">
-                <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                  Next Billing
-                </p>
-                <p className="mt-2 text-sm font-semibold text-slate-900 dark:text-white">
-                  {licenseNextBilling()}
-                </p>
-              </div>
-              <div className="p-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40">
-                <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                  Expiration Date
-                </p>
-                <p className="mt-2 text-sm font-semibold text-slate-900 dark:text-white">
-                  {licenseData.expires_at === null ? "Never" : formatLicenseDate(licenseData.expires_at)}
-                </p>
-              </div>
+              {licenseState !== "FREE" && (
+                <>
+                  <div className="p-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40">
+                    <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                      Next Billing
+                    </p>
+                    <p className="mt-2 text-sm font-semibold text-slate-900 dark:text-white">
+                      {licenseNextBilling()}
+                    </p>
+                  </div>
+                  <div className="p-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40">
+                    <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                      Expiration Date
+                    </p>
+                    <p className="mt-2 text-sm font-semibold text-slate-900 dark:text-white">
+                      {licenseData.expires_at === null ? "Never" : formatLicenseDate(licenseData.expires_at)}
+                    </p>
+                  </div>
+                </>
+              )}
             </div>
           ) : (
             <div className="p-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-600 dark:text-slate-300">
-              No license file found.
+              No license Activated.
             </div>
           )}
 
@@ -624,6 +701,62 @@ export default function SettingsSecurityAccess() {
                 <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg flex items-center gap-2 text-amber-700 dark:text-amber-300 text-sm">
                   <i className="fas fa-exclamation-triangle"></i>
                   <span>{activationError}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {licenseState === "ACTIVE" && (
+            <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/40 p-4 space-y-3">
+              <div>
+                <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                  Invite a colleague
+                </p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Share your referral link after activation is complete.
+                </p>
+              </div>
+              {referralStatus === "loading" && (
+                <div className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                  <i className="fas fa-spinner fa-spin"></i>
+                  Fetching referral link...
+                </div>
+              )}
+              {referralStatus === "error" && (
+                <div className="space-y-2">
+                  <div className="text-xs text-amber-600 dark:text-amber-300 flex items-center gap-2">
+                    <i className="fas fa-exclamation-triangle"></i>
+                    <span>{referralMessage || "Referral link unavailable"}</span>
+                  </div>
+                  <button
+                    onClick={handleRefreshReferral}
+                    className="px-3 py-2 text-xs font-semibold rounded-lg bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 transition"
+                  >
+                    Retry
+                  </button>
+                </div>
+              )}
+              {referralStatus === "ready" && (
+                <div className="space-y-2">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <input
+                      type="text"
+                      value={referralLink}
+                      readOnly
+                      className="flex-1 px-3 py-2 text-xs border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-200"
+                    />
+                    <button
+                      onClick={handleCopyReferral}
+                      className="px-3 py-2 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white transition"
+                    >
+                      {referralCopied ? "Copied" : "Copy link"}
+                    </button>
+                  </div>
+                  {referralMessage && (
+                    <div className="text-xs text-amber-600 dark:text-amber-300">
+                      {referralMessage}
+                    </div>
+                  )}
                 </div>
               )}
             </div>

@@ -41,7 +41,7 @@ export default function AggregatedRelatedTab({
   const navigate = useNavigate();
   const { showToast } = useToast();
   const { confirm } = useConfirm();
-  const { formatDate } = useSettings();
+  const { formatDate, currency } = useSettings();
   const { t } = useTranslation("common");
   const tutorial = useTutorialSafe(); // Safe hook that returns null if not in provider
   const {
@@ -384,7 +384,7 @@ export default function AggregatedRelatedTab({
                   type: "expense",
                   category: "bailiff_fees",
                   status: entry.status || "draft",
-                  currency: entry.currency || "TND",
+                  currency,
                 });
               }
             }

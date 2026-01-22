@@ -1,4 +1,10 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  ReactNode,
+} from "react";
 import {
   activateLicense as writeLicense,
   getAppLicenseState,
@@ -21,12 +27,13 @@ interface LicenseContextValue {
   setActivationState: (state: LicenseState, error?: string | null) => void;
 }
 
-const LicenseContext = createContext<LicenseContextValue | undefined>(undefined);
+const LicenseContext = createContext<LicenseContextValue | undefined>(
+  undefined,
+);
 
 export function LicenseProvider({ children }: { children: ReactNode }) {
-  const [licenseState, setLicenseState] = useState<LicenseState>(
-    getAppLicenseState()
-  );
+  const [licenseState, setLicenseState] =
+    useState<LicenseState>(getAppLicenseState());
   const [licenseData, setLicenseData] = useState<LicenseData | null>(null);
   const [licenseError, setLicenseError] = useState<string | null>(null);
 
@@ -37,8 +44,13 @@ export function LicenseProvider({ children }: { children: ReactNode }) {
         if (!mounted) return;
         setLicenseState(state);
         setLicenseData(dataResult.data);
-        setLicenseError(dataResult.error || null);
-      }
+        // Suppress error for FREE plan, even if license file is malformed
+        if (state === "FREE") {
+          setLicenseError(null);
+        } else {
+          setLicenseError(dataResult.error || null);
+        }
+      },
     );
     return () => {
       mounted = false;
@@ -52,7 +64,12 @@ export function LicenseProvider({ children }: { children: ReactNode }) {
     ]);
     setLicenseState(state);
     setLicenseData(dataResult.data);
-    setLicenseError(dataResult.error || null);
+    // Suppress error for FREE plan, even if license file is malformed
+    if (state === "FREE") {
+      setLicenseError(null);
+    } else {
+      setLicenseError(dataResult.error || null);
+    }
     return state;
   };
 
@@ -72,7 +89,12 @@ export function LicenseProvider({ children }: { children: ReactNode }) {
     ]);
     setLicenseState(nextState);
     setLicenseData(dataResult.data);
-    setLicenseError(dataResult.error || null);
+    // Suppress error for FREE plan, even if license file is malformed
+    if (nextState === "FREE") {
+      setLicenseError(null);
+    } else {
+      setLicenseError(dataResult.error || null);
+    }
     setAppLicenseState(nextState);
   };
 

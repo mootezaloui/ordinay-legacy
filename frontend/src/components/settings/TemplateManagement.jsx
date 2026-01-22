@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useToast } from '../../contexts/ToastContext';
 import { useConfirm } from '../../contexts/ConfirmContext';
 import ContentSection from '../layout/ContentSection';
 import templateManager from '../../services/templateManager';
+import { useSettings } from '../../contexts/SettingsContext';
 
 /**
  * Template Management UI
@@ -408,7 +409,7 @@ const FIELD_DEFINITIONS = {
       { key: 'status', label: 'Statut', placeholder: '{{financial_entry.status}}', example: 'confirmed', entities: ['dossier', 'proces', 'session'] },
       { key: 'category', label: 'Catégorie', placeholder: '{{financial_entry.category}}', example: 'honoraires', entities: ['dossier', 'proces', 'session'] },
       { key: 'amount', label: 'Montant', placeholder: '{{financial_entry.amount}}', example: '1500', entities: ['dossier', 'proces', 'session'] },
-      { key: 'currency', label: 'Devise', placeholder: '{{financial_entry.currency}}', example: 'TND', entities: ['dossier', 'proces', 'session'] },
+      { key: 'currency', label: 'Devise', placeholder: '{{financial_entry.currency}}', example: '', entities: ['dossier', 'proces', 'session'] },
       { key: 'occurred_at', label: 'Date opération', placeholder: '{{financial_entry.occurred_at}}', example: '2024-03-10 10:00', entities: ['dossier', 'proces', 'session'] },
       { key: 'due_date', label: "Date d'échéance", placeholder: '{{financial_entry.due_date}}', example: '2024-03-20', entities: ['dossier', 'proces', 'session'] },
       { key: 'paid_at', label: 'Payée le', placeholder: '{{financial_entry.paid_at}}', example: '2024-03-15', entities: ['dossier', 'proces', 'session'] },
@@ -463,10 +464,22 @@ const FIELD_DEFINITIONS = {
  * Field Picker Component - Displays fields grouped by category with copy functionality
  */
 function FieldPicker({ entityType, showToast }) {
+  const { currency } = useSettings();
   const [copiedField, setCopiedField] = useState(null);
   const [copiedGroup, setCopiedGroup] = useState(null);
   const [copiedAll, setCopiedAll] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState(() => new Set());
+
+  const fieldDefinitions = useMemo(() => {
+    const definitions = JSON.parse(JSON.stringify(FIELD_DEFINITIONS));
+    const currencyField = definitions.financial_entry?.fields?.find(
+      (field) => field.key === "currency"
+    );
+    if (currencyField) {
+      currencyField.example = currency;
+    }
+    return definitions;
+  }, [currency]);
 
   useEffect(() => {
     setExpandedCategories(new Set());
@@ -522,7 +535,7 @@ function FieldPicker({ entityType, showToast }) {
   // Filter categories based on entity type
   const getVisibleCategories = () => {
     const categories = [];
-    Object.entries(FIELD_DEFINITIONS).forEach(([key, category]) => {
+    Object.entries(fieldDefinitions).forEach(([key, category]) => {
       const visibleFields = category.fields.filter(f => f.entities.includes(entityType));
       if (visibleFields.length > 0) {
         categories.push({ ...category, key, fields: visibleFields });

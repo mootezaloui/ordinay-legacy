@@ -64,13 +64,23 @@ function getActionType(event) {
  * Extract change details from metadata
  * Returns array of { field, oldValue, newValue } objects
  */
-function extractChangeDetails(metadata = {}) {
+function extractChangeDetails(metadata = {}, formatAmount) {
     const changes = [];
+    const amountFormatter = typeof formatAmount === "function" ? formatAmount : (v) => v;
+    const formatAmountValue = (value) => {
+        if (typeof value === "string") {
+            const trimmed = value.trim();
+            if (trimmed && Number.isNaN(Number(trimmed))) {
+                return value;
+            }
+        }
+        return amountFormatter(value);
+    };
 
     // Known field mappings for display
     const fieldConfig = {
         status: { label: 'status', format: (v) => v },
-        amount: { label: 'amount', format: formatCurrency },
+        amount: { label: 'amount', format: formatAmountValue },
         title: { label: 'title', format: (v) => v },
         priority: { label: 'priority', format: (v) => v },
         due_date: { label: 'due_date', format: (v) => v },
@@ -188,19 +198,6 @@ function extractFinancialData(metadata = {}) {
 }
 
 /**
- * Format currency value
- */
-function formatCurrency(value) {
-    if (value === null || value === undefined) return '-';
-    const num = typeof value === 'string' ? parseFloat(value) : value;
-    return new Intl.NumberFormat('fr-TN', {
-        style: 'currency',
-        currency: 'TND',
-        minimumFractionDigits: 3,
-    }).format(num);
-}
-
-/**
  * Calculate event depth based on metadata and action
  */
 function getEventDepth(event) {
@@ -233,7 +230,7 @@ export default function HistoryTab({ entityType, entityId, label }) {
     const { t, i18n } = useTranslation("common");
     const [history, setHistory] = useState([]);
     const [loading, setLoading] = useState(true);
-    const { formatDateTime } = useSettings();
+    const { formatDateTime, formatCurrency } = useSettings();
 
     useEffect(() => {
         const fetchHistory = async () => {
@@ -286,6 +283,7 @@ export default function HistoryTab({ entityType, entityId, label }) {
                                 isFirst={index === 0}
                                 isLast={index === history.length - 1}
                                 formatDateTime={formatDateTime}
+                                formatCurrency={formatCurrency}
                                 t={t}
                                 i18n={i18n}
                             />
@@ -300,11 +298,11 @@ export default function HistoryTab({ entityType, entityId, label }) {
 /**
  * Single history event component with visual hierarchy
  */
-function HistoryEvent({ event, isFirst, isLast, formatDateTime, t, i18n }) {
+function HistoryEvent({ event, isFirst, isLast, formatDateTime, formatCurrency, t, i18n }) {
     const depth = getEventDepth(event);
     const action = getActionType(event);
     const { icon, bgColor } = getActionIcon(action, event.eventType, event.metadata, depth);
-    const changeDetails = extractChangeDetails(event.metadata);
+    const changeDetails = extractChangeDetails(event.metadata, formatCurrency);
     const parentContext = extractParentContext(event);
     const financialData = event.eventType === 'finance' ? extractFinancialData(event.metadata) : null;
 
@@ -370,7 +368,7 @@ function HistoryEvent({ event, isFirst, isLast, formatDateTime, t, i18n }) {
 
                     {/* Financial data block */}
                     {financialData && action === 'created' && (
-                        <FinancialDataBlock data={financialData} t={t} />
+                        <FinancialDataBlock data={financialData} t={t} formatCurrency={formatCurrency} />
                     )}
                 </div>
             </div>
@@ -582,8 +580,9 @@ function ChangeDetailsBlock({ changes, t }) {
 /**
  * Financial data block - shows financial entry details
  */
-function FinancialDataBlock({ data, t }) {
+function FinancialDataBlock({ data, t, formatCurrency }) {
     if (!data || !data.amount) return null;
+    const formatAmount = typeof formatCurrency === "function" ? formatCurrency : (value) => value;
 
     return (
         <div className="mt-3 p-3 bg-emerald-50/50 dark:bg-emerald-900/10 rounded-lg border border-emerald-200/50 dark:border-emerald-800/30">
@@ -591,7 +590,7 @@ function FinancialDataBlock({ data, t }) {
                 <div>
                     <span className="text-slate-500 dark:text-slate-400">{t('detail.history.fields.amount', 'Montant')}:</span>
                     <span className="ml-2 font-semibold text-emerald-700 dark:text-emerald-400">
-                        {formatCurrency(data.amount)}
+                        {formatAmount(data.amount)}
                     </span>
                 </div>
                 {data.type && (

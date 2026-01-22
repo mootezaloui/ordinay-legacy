@@ -1,5 +1,7 @@
 // Map backend payloads to frontend shapes while keeping display labels in French.
 
+import { getStoredCurrency } from "../../utils/currency";
+
 const statusMapClient: Record<string, string> = {
   active: "Active",
   inactive: "Inactive",
@@ -355,6 +357,7 @@ export function adaptFinancialEntry(
   dossiersById: Record<number, any>,
   casesById: Record<number, any>
 ) {
+  const currency = getStoredCurrency();
   const clientName = api.client_id ? (clientsById[api.client_id]?.name ?? `Client #${api.client_id}`) : "";
   const dossierRef = api.dossier_id ? (dossiersById[api.dossier_id]?.caseNumber ?? `DOS-${api.dossier_id}`) : "";
   const caseRef = api.case_id ? (casesById[api.case_id]?.caseNumber ?? `PRO-${api.case_id}`) : "";
@@ -380,7 +383,7 @@ export function adaptFinancialEntry(
     type,
     category: api.category ?? "other",
     amount: Number(api.amount || 0),
-    currency: api.currency ?? "USD",
+    currency,
     date: occurredDate || dueDate,
     dueDate,
     title: api.title ?? "",

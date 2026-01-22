@@ -150,7 +150,7 @@
       },
       "estimatedValue": {
         "label": "Estimated Value",
-        "placeholder": "Ex: 50,000 TND"
+        "placeholder": "Ex: 50,000 {{currency}}"
       },
       "courtReference": {
         "label": "Court Reference",

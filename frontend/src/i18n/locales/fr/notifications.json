@@ -143,7 +143,7 @@
         "success": "Rappel prepare pour {{clientName}}.",
         "noEmail": "Aucun email pour {{clientName}}.",
         "emailSubject": "Rappel de paiement - {{clientName}}",
-        "emailBody": "Bonjour {{clientName}},\n\nCeci est un rappel pour le paiement de {{amount}} {{currency}} du {{dueDate}}.\n\nMerci."
+        "emailBody": "Bonjour {{clientName}},\n\nCeci est un rappel pour le paiement de {{amount}} du {{dueDate}}.\n\nMerci."
       },
       "sendHearingReminder": {
         "label": "Envoyer rappel",
@@ -334,12 +334,12 @@
     "financial": {
       "paymentDue": {
         "title": "Paiement Dû",
-        "message_one": "{{clientName}} doit vous payer {{amount}} {{currency}} dans {{count}} jour. Avez-vous envoyé un rappel ?",
-        "message_other": "{{clientName}} doit vous payer {{amount}} {{currency}} dans {{count}} jours. Avez-vous envoyé un rappel ?"
+        "message_one": "{{clientName}} doit vous payer {{amount}} dans {{count}} jour. Avez-vous envoyé un rappel ?",
+        "message_other": "{{clientName}} doit vous payer {{amount}} dans {{count}} jours. Avez-vous envoyé un rappel ?"
       },
       "followupRequired": {
         "title": "Suivi Requis",
-        "message": "Le paiement de {{clientName}} ({{amount}} {{currency}}) est en retard. Avez-vous envoyé un suivi ?"
+        "message": "Le paiement de {{clientName}} ({{amount}}) est en retard. Avez-vous envoyé un suivi ?"
       }
     },
     "dossier": {
@@ -431,14 +431,14 @@
       },
       "expenseAdded": {
         "title": "Dépense ajoutée",
-        "message": "Nouvelle dépense {{amount}} {{currency}} enregistrée",
-        "messageWithCategory": "Nouvelle dépense {{amount}} {{currency}} enregistrée ({{category}})",
+        "message": "Nouvelle dépense {{amount}} enregistrée",
+        "messageWithCategory": "Nouvelle dépense {{amount}} enregistrée ({{category}})",
         "messageNoAmount": "Nouvelle dépense enregistrée",
         "messageWithCategoryNoAmount": "Nouvelle dépense enregistrée ({{category}})"
       },
       "clientAdvanceReceived": {
         "title": "Acompte client reçu",
-        "message": "Acompte reçu de {{clientName}} ({{amount}} {{currency}}).",
+        "message": "Acompte reçu de {{clientName}} ({{amount}}).",
         "messageFallback": "Acompte reçu de {{clientName}}."
       },
       "clientBalanceOverdue": {
@@ -804,37 +804,37 @@
         "tone": "professional",
         "title_one": "Paiement attendu - {{count}} jour",
         "title_other": "Paiement attendu - {{count}} jours",
-        "message_one": "Paiement de {{amount}} {{currency}} attendu de \"{{clientName}}\"{{parentContext}} dans {{count}} jour.",
-        "message_other": "Paiement de {{amount}} {{currency}} attendu de \"{{clientName}}\"{{parentContext}} dans {{count}} jours.",
-        "messageWithDescription_one": "Paiement de {{amount}} {{currency}} attendu de \"{{clientName}}\"{{parentContext}} dans {{count}} jour. {{description}}",
-        "messageWithDescription_other": "Paiement de {{amount}} {{currency}} attendu de \"{{clientName}}\"{{parentContext}} dans {{count}} jours. {{description}}"
+        "message_one": "Paiement de {{amount}} attendu de \"{{clientName}}\"{{parentContext}} dans {{count}} jour.",
+        "message_other": "Paiement de {{amount}} attendu de \"{{clientName}}\"{{parentContext}} dans {{count}} jours.",
+        "messageWithDescription_one": "Paiement de {{amount}} attendu de \"{{clientName}}\"{{parentContext}} dans {{count}} jour. {{description}}",
+        "messageWithDescription_other": "Paiement de {{amount}} attendu de \"{{clientName}}\"{{parentContext}} dans {{count}} jours. {{description}}"
       },
       {
         "tone": "reminder",
         "title_one": "Paiement dans {{count}} jour",
         "title_other": "Paiement dans {{count}} jours",
-        "message_one": "\"{{clientName}}\"{{parentContext}} doit payer {{amount}} {{currency}} dans {{count}} jour. Planifiez un rappel.",
-        "message_other": "\"{{clientName}}\"{{parentContext}} doit payer {{amount}} {{currency}} dans {{count}} jours. Planifiez un rappel.",
-        "messageWithDescription_one": "\"{{clientName}}\"{{parentContext}} doit payer {{amount}} {{currency}} dans {{count}} jour. Note : {{description}}",
-        "messageWithDescription_other": "\"{{clientName}}\"{{parentContext}} doit payer {{amount}} {{currency}} dans {{count}} jours. Note : {{description}}"
+        "message_one": "\"{{clientName}}\"{{parentContext}} doit payer {{amount}} dans {{count}} jour. Planifiez un rappel.",
+        "message_other": "\"{{clientName}}\"{{parentContext}} doit payer {{amount}} dans {{count}} jours. Planifiez un rappel.",
+        "messageWithDescription_one": "\"{{clientName}}\"{{parentContext}} doit payer {{amount}} dans {{count}} jour. Note : {{description}}",
+        "messageWithDescription_other": "\"{{clientName}}\"{{parentContext}} doit payer {{amount}} dans {{count}} jours. Note : {{description}}"
       },
       {
         "tone": "focused",
         "title_one": "Paiement dans {{count}} jour",
         "title_other": "Paiement dans {{count}} jours",
-        "message_one": "{{clientName}}{{parentContext}} doit {{amount}} {{currency}} dans {{count}} jour.",
-        "message_other": "{{clientName}}{{parentContext}} doit {{amount}} {{currency}} dans {{count}} jours.",
-        "messageWithDescription_one": "{{clientName}}{{parentContext}} doit {{amount}} {{currency}} dans {{count}} jour. {{description}}",
-        "messageWithDescription_other": "{{clientName}}{{parentContext}} doit {{amount}} {{currency}} dans {{count}} jours. {{description}}"
+        "message_one": "{{clientName}}{{parentContext}} doit {{amount}} dans {{count}} jour.",
+        "message_other": "{{clientName}}{{parentContext}} doit {{amount}} dans {{count}} jours.",
+        "messageWithDescription_one": "{{clientName}}{{parentContext}} doit {{amount}} dans {{count}} jour. {{description}}",
+        "messageWithDescription_other": "{{clientName}}{{parentContext}} doit {{amount}} dans {{count}} jours. {{description}}"
       },
       {
         "tone": "gentle",
         "title_one": "Petit rappel paiement",
         "title_other": "Petit rappel paiement",
-        "message_one": "Petit rappel : {{amount}} {{currency}} de \"{{clientName}}\"{{parentContext}} dans {{count}} jour.",
-        "message_other": "Petit rappel : {{amount}} {{currency}} de \"{{clientName}}\"{{parentContext}} dans {{count}} jours.",
-        "messageWithDescription_one": "Petit rappel : {{amount}} {{currency}} de \"{{clientName}}\"{{parentContext}} dans {{count}} jour. {{description}}",
-        "messageWithDescription_other": "Petit rappel : {{amount}} {{currency}} de \"{{clientName}}\"{{parentContext}} dans {{count}} jours. {{description}}"
+        "message_one": "Petit rappel : {{amount}} de \"{{clientName}}\"{{parentContext}} dans {{count}} jour.",
+        "message_other": "Petit rappel : {{amount}} de \"{{clientName}}\"{{parentContext}} dans {{count}} jours.",
+        "messageWithDescription_one": "Petit rappel : {{amount}} de \"{{clientName}}\"{{parentContext}} dans {{count}} jour. {{description}}",
+        "messageWithDescription_other": "Petit rappel : {{amount}} de \"{{clientName}}\"{{parentContext}} dans {{count}} jours. {{description}}"
       }
     ],
     "content.financial.overduePayment": [
@@ -842,81 +842,81 @@
         "tone": "urgent",
         "title_one": "Paiement en retard - {{count}} jour",
         "title_other": "Paiement en retard - {{count}} jours",
-        "message_one": "Le paiement de {{amount}} {{currency}} de \"{{clientName}}\"{{parentContext}} est en retard de {{count}} jour. Relance recommandee.",
-        "message_other": "Le paiement de {{amount}} {{currency}} de \"{{clientName}}\"{{parentContext}} est en retard de {{count}} jours. Relance recommandee."
+        "message_one": "Le paiement de {{amount}} de \"{{clientName}}\"{{parentContext}} est en retard de {{count}} jour. Relance recommandee.",
+        "message_other": "Le paiement de {{amount}} de \"{{clientName}}\"{{parentContext}} est en retard de {{count}} jours. Relance recommandee."
       },
       {
         "tone": "professional",
         "title_one": "Paiement en retard de {{count}} jour",
         "title_other": "Paiement en retard de {{count}} jours",
-        "message_one": "\"{{clientName}}\"{{parentContext}} doit toujours {{amount}} {{currency}} ({{count}} jour de retard). Relancez.",
-        "message_other": "\"{{clientName}}\"{{parentContext}} doit toujours {{amount}} {{currency}} ({{count}} jours de retard). Relancez."
+        "message_one": "\"{{clientName}}\"{{parentContext}} doit toujours {{amount}} ({{count}} jour de retard). Relancez.",
+        "message_other": "\"{{clientName}}\"{{parentContext}} doit toujours {{amount}} ({{count}} jours de retard). Relancez."
       },
       {
         "tone": "focused",
         "title_one": "Retard {{count}} jour",
         "title_other": "Retard {{count}} jours",
-        "message_one": "{{clientName}}{{parentContext}} a {{count}} jour de retard sur {{amount}} {{currency}}.",
-        "message_other": "{{clientName}}{{parentContext}} a {{count}} jours de retard sur {{amount}} {{currency}}."
+        "message_one": "{{clientName}}{{parentContext}} a {{count}} jour de retard sur {{amount}}.",
+        "message_other": "{{clientName}}{{parentContext}} a {{count}} jours de retard sur {{amount}}."
       },
       {
         "tone": "gentle",
         "title_one": "Suivi paiement",
         "title_other": "Suivi paiement",
-        "message_one": "Rappel : {{clientName}}{{parentContext}} a {{count}} jour de retard sur {{amount}} {{currency}}.",
-        "message_other": "Rappel : {{clientName}}{{parentContext}} a {{count}} jours de retard sur {{amount}} {{currency}}."
+        "message_one": "Rappel : {{clientName}}{{parentContext}} a {{count}} jour de retard sur {{amount}}.",
+        "message_other": "Rappel : {{clientName}}{{parentContext}} a {{count}} jours de retard sur {{amount}}."
       }
     ],
     "content.financial.paymentOverdue": [
       {
         "tone": "urgent",
         "title": "Paiement en retard",
-        "message_one": "Le paiement de {{clientName}}{{parentContext}} ({{amount}} {{currency}}) est en retard de {{count}} jour.",
-        "message_other": "Le paiement de {{clientName}}{{parentContext}} ({{amount}} {{currency}}) est en retard de {{count}} jours."
+        "message_one": "Le paiement de {{clientName}}{{parentContext}} ({{amount}}) est en retard de {{count}} jour.",
+        "message_other": "Le paiement de {{clientName}}{{parentContext}} ({{amount}}) est en retard de {{count}} jours."
       },
       {
         "tone": "professional",
         "title": "Paiement en attente",
-        "message_one": "Paiement de {{clientName}}{{parentContext}} ({{amount}} {{currency}}) en retard de {{count}} jour. Relancez.",
-        "message_other": "Paiement de {{clientName}}{{parentContext}} ({{amount}} {{currency}}) en retard de {{count}} jours. Relancez."
+        "message_one": "Paiement de {{clientName}}{{parentContext}} ({{amount}}) en retard de {{count}} jour. Relancez.",
+        "message_other": "Paiement de {{clientName}}{{parentContext}} ({{amount}}) en retard de {{count}} jours. Relancez."
       },
       {
         "tone": "focused",
         "title": "Paiement en retard",
-        "message_one": "{{amount}} {{currency}} de {{clientName}}{{parentContext}} en retard de {{count}} jour.",
-        "message_other": "{{amount}} {{currency}} de {{clientName}}{{parentContext}} en retard de {{count}} jours."
+        "message_one": "{{amount}} de {{clientName}}{{parentContext}} en retard de {{count}} jour.",
+        "message_other": "{{amount}} de {{clientName}}{{parentContext}} en retard de {{count}} jours."
       },
       {
         "tone": "gentle",
         "title": "Rappel paiement",
-        "message_one": "Rappel : {{clientName}}{{parentContext}} a {{count}} jour de retard sur {{amount}} {{currency}}.",
-        "message_other": "Rappel : {{clientName}}{{parentContext}} a {{count}} jours de retard sur {{amount}} {{currency}}."
+        "message_one": "Rappel : {{clientName}}{{parentContext}} a {{count}} jour de retard sur {{amount}}.",
+        "message_other": "Rappel : {{clientName}}{{parentContext}} a {{count}} jours de retard sur {{amount}}."
       }
     ],
     "content.financial.paymentDueToday": [
       {
         "tone": "professional",
         "title": "Paiement attendu aujourd'hui",
-        "message": "{{clientName}}{{parentContext}} doit payer {{amount}} {{currency}} aujourd'hui. Paiement recu ?",
-        "messageAlt": "Paiement attendu de {{clientName}}{{parentContext}} : {{amount}} {{currency}}. Recu ?"
+        "message": "{{clientName}}{{parentContext}} doit payer {{amount}} aujourd'hui. Paiement recu ?",
+        "messageAlt": "Paiement attendu de {{clientName}}{{parentContext}} : {{amount}}. Recu ?"
       },
       {
         "tone": "reminder",
         "title": "Paiement du jour",
-        "message": "{{clientName}}{{parentContext}} doit regler {{amount}} {{currency}} aujourd'hui. Confirmez la reception.",
-        "messageAlt": "{{clientName}} - {{amount}} {{currency}} aujourd'hui{{parentContext}}. Verifiez le statut."
+        "message": "{{clientName}}{{parentContext}} doit regler {{amount}} aujourd'hui. Confirmez la reception.",
+        "messageAlt": "{{clientName}} - {{amount}} aujourd'hui{{parentContext}}. Verifiez le statut."
       },
       {
         "tone": "friendly",
         "title": "C'est pour aujourd'hui",
-        "message": "Petit point : {{clientName}}{{parentContext}} doit {{amount}} {{currency}} aujourd'hui.",
-        "messageAlt": "A regler aujourd'hui : {{amount}} {{currency}} de {{clientName}}{{parentContext}}."
+        "message": "Petit point : {{clientName}}{{parentContext}} doit {{amount}} aujourd'hui.",
+        "messageAlt": "A regler aujourd'hui : {{amount}} de {{clientName}}{{parentContext}}."
       },
       {
         "tone": "focused",
         "title": "Echeance aujourd'hui",
-        "message": "{{clientName}}{{parentContext}} - {{amount}} {{currency}} aujourd'hui.",
-        "messageAlt": "{{amount}} {{currency}} aujourd'hui{{parentContext}}."
+        "message": "{{clientName}}{{parentContext}} - {{amount}} aujourd'hui.",
+        "messageAlt": "{{amount}} aujourd'hui{{parentContext}}."
       }
 
     ],
@@ -924,27 +924,27 @@
       {
         "tone": "professional",
         "title": "Paiement a recevoir",
-        "message_one": "Le paiement de {{clientName}}{{parentContext}} ({{amount}} {{currency}}) est du dans {{count}} jour.",
-        "message_other": "Le paiement de {{clientName}}{{parentContext}} ({{amount}} {{currency}}) est du dans {{count}} jours."
+        "message_one": "Le paiement de {{clientName}}{{parentContext}} ({{amount}}) est du dans {{count}} jour.",
+        "message_other": "Le paiement de {{clientName}}{{parentContext}} ({{amount}}) est du dans {{count}} jours."
       },
       {
         "tone": "planning",
         "title": "Paiement a venir",
-        "message_one": "{{clientName}}{{parentContext}} doit regler {{amount}} {{currency}} dans {{count}} jour. Prevoir un rappel.",
-        "message_other": "{{clientName}}{{parentContext}} doit regler {{amount}} {{currency}} dans {{count}} jours. Prevoir un rappel."
+        "message_one": "{{clientName}}{{parentContext}} doit regler {{amount}} dans {{count}} jour. Prevoir un rappel.",
+        "message_other": "{{clientName}}{{parentContext}} doit regler {{amount}} dans {{count}} jours. Prevoir un rappel."
       },
       {
         "tone": "focused",
         "title_one": "Paiement dans {{count}} jour",
         "title_other": "Paiement dans {{count}} jours",
-        "message_one": "{{amount}} {{currency}} attendus de {{clientName}}{{parentContext}} dans {{count}} jour.",
-        "message_other": "{{amount}} {{currency}} attendus de {{clientName}}{{parentContext}} dans {{count}} jours."
+        "message_one": "{{amount}} attendus de {{clientName}}{{parentContext}} dans {{count}} jour.",
+        "message_other": "{{amount}} attendus de {{clientName}}{{parentContext}} dans {{count}} jours."
       },
       {
         "tone": "gentle",
         "title": "Petit rappel",
-        "message_one": "Petit rappel : {{clientName}}{{parentContext}} doit {{amount}} {{currency}} dans {{count}} jour.",
-        "message_other": "Petit rappel : {{clientName}}{{parentContext}} doit {{amount}} {{currency}} dans {{count}} jours."
+        "message_one": "Petit rappel : {{clientName}}{{parentContext}} doit {{amount}} dans {{count}} jour.",
+        "message_other": "Petit rappel : {{clientName}}{{parentContext}} doit {{amount}} dans {{count}} jours."
       }
     ],
     "content.client.inActive": [
@@ -1491,50 +1491,50 @@
       {
         "tone": "professional",
         "title": "Paiement Dû",
-        "message_one": "{{clientName}} doit vous payer {{amount}} {{currency}} dans {{count}} jour. Avez-vous envoyé un rappel ?",
-        "message_other": "{{clientName}} doit vous payer {{amount}} {{currency}} dans {{count}} jours. Avez-vous envoyé un rappel ?"
+        "message_one": "{{clientName}} doit vous payer {{amount}} dans {{count}} jour. Avez-vous envoyé un rappel ?",
+        "message_other": "{{clientName}} doit vous payer {{amount}} dans {{count}} jours. Avez-vous envoyé un rappel ?"
       },
       {
         "tone": "reminder",
         "title_one": "Paiement dans {{count}} jour",
         "title_other": "Paiement dans {{count}} jours",
-        "message_one": "{{clientName}} doit {{amount}} {{currency}} dans {{count}} jour. Rappel envoyé ?",
-        "message_other": "{{clientName}} doit {{amount}} {{currency}} dans {{count}} jours. Rappel envoyé ?"
+        "message_one": "{{clientName}} doit {{amount}} dans {{count}} jour. Rappel envoyé ?",
+        "message_other": "{{clientName}} doit {{amount}} dans {{count}} jours. Rappel envoyé ?"
       },
       {
         "tone": "friendly",
         "title": "Rappel paiement",
-        "message_one": "Petit rappel : {{clientName}} doit vous régler {{amount}} {{currency}} dans {{count}} jour.",
-        "message_other": "Petit rappel : {{clientName}} doit vous régler {{amount}} {{currency}} dans {{count}} jours."
+        "message_one": "Petit rappel : {{clientName}} doit vous régler {{amount}} dans {{count}} jour.",
+        "message_other": "Petit rappel : {{clientName}} doit vous régler {{amount}} dans {{count}} jours."
       },
       {
         "tone": "focused",
         "title_one": "J-{{count}}",
         "title_other": "J-{{count}}",
-        "message_one": "{{clientName}} - {{amount}} {{currency}} dans {{count}} jour",
-        "message_other": "{{clientName}} - {{amount}} {{currency}} dans {{count}} jours"
+        "message_one": "{{clientName}} - {{amount}} dans {{count}} jour",
+        "message_other": "{{clientName}} - {{amount}} dans {{count}} jours"
       }
     ],
     "content.financial.followupRequired": [
       {
         "tone": "professional",
         "title": "Suivi Requis",
-        "message": "Le paiement de {{clientName}} ({{amount}} {{currency}}) est en retard. Avez-vous envoyé un suivi ?"
+        "message": "Le paiement de {{clientName}} ({{amount}}) est en retard. Avez-vous envoyé un suivi ?"
       },
       {
         "tone": "actionable",
         "title": "Relance nécessaire",
-        "message": "{{clientName}} a un paiement en retard ({{amount}} {{currency}}). Envoyez une relance."
+        "message": "{{clientName}} a un paiement en retard ({{amount}}). Envoyez une relance."
       },
       {
         "tone": "friendly",
         "title": "Petit suivi ?",
-        "message": "Le paiement de {{clientName}} ({{amount}} {{currency}}) se fait attendre. Un petit rappel ?"
+        "message": "Le paiement de {{clientName}} ({{amount}}) se fait attendre. Un petit rappel ?"
       },
       {
         "tone": "direct",
         "title": "Relancez",
-        "message": "{{clientName}} - {{amount}} {{currency}} en retard. Contactez-le."
+        "message": "{{clientName}} - {{amount}} en retard. Contactez-le."
       }
       
     ],
@@ -1780,5 +1780,6 @@
     }
   }
 }
+
 
 

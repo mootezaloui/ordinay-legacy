@@ -135,7 +135,7 @@
         }
       },
       "amount": {
-        "label": "Amount (TND)",
+        "label": "Amount ({{currency}})",
         "placeholder": "0.00"
       },
       "date": {
