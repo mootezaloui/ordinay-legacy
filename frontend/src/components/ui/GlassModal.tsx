@@ -1,5 +1,6 @@
 import { useEffect, ReactNode } from 'react';
 import { createPortal } from 'react-dom';
+import useBodyScrollLock from "../../hooks/useBodyScrollLock";
 
 interface GlassModalProps {
   isOpen: boolean;
@@ -28,6 +29,7 @@ export default function GlassModal({
   children,
   maxWidth = '3xl',
 }: GlassModalProps) {
+  useBodyScrollLock(isOpen);
   // Handle ESC key to close modal
   useEffect(() => {
     if (!isOpen) return;
@@ -41,18 +43,6 @@ export default function GlassModal({
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
   }, [isOpen, onClose]);
-
-  // Prevent body scroll when modal is open
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
-    return () => {
-      document.body.style.overflow = '';
-    };
-  }, [isOpen]);
 
   if (!isOpen) return null;
 

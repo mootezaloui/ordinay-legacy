@@ -24,6 +24,12 @@ import {
 } from "../../services/clientCommunication";
 import { useTranslation } from "react-i18next";
 import { useSettings } from "../../contexts/SettingsContext";
+import useBodyScrollLock from "../../hooks/useBodyScrollLock";
+
+const interpolateCurrency = (value, currency) => {
+  if (typeof value !== "string") return value;
+  return value.replaceAll("{{currency}}", currency || "");
+};
 
 /**
  * FormModal - Enhanced with improved responsive design and domain rule validation
@@ -69,6 +75,7 @@ export default function FormModal({
   const { notify } = useNotifications();
   const { t } = useTranslation(["common", "domain"]);
   const { formatCurrency, currency } = useSettings();
+  useBodyScrollLock(isOpen);
 
   // ✅ Domain rule validation state
   const [blockerModalOpen, setBlockerModalOpen] = useState(false);
@@ -203,7 +210,7 @@ export default function FormModal({
       );
 
       if ((field.required || isConditionallyRequired) && !formData[field.name]) {
-        newErrors[field.name] = `${field.label} est requis`;
+        newErrors[field.name] = `${resolveCurrencyString(field.label)} est requis`;
       }
 
       // Custom validation
@@ -433,6 +440,7 @@ export default function FormModal({
   const columnLayoutClass = getColumnLayout();
   const spacingClass = compact ? "gap-3" : "gap-5";
   const paddingClass = compact ? "p-4" : "p-6";
+  const resolveCurrencyString = (value) => interpolateCurrency(value, currency);
 
   return (
     <div
@@ -486,7 +494,7 @@ export default function FormModal({
 
           {/* Form - Scrollable */}
           <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
-            <div className={`${paddingClass} overflow-y-auto flex-1`}>
+            <div className={`${paddingClass} overflow-y-auto overscroll-contain flex-1`}>
               <div className={`grid grid-cols-1 md:grid-cols-2 ${columnLayoutClass} ${spacingClass}`}>
                 {fields.map((field) => {
                   // ✅ Check hideIf function for conditional visibility
@@ -566,7 +574,11 @@ export default function FormModal({
       <BlockerModal
         isOpen={blockerModalOpen}
         onClose={() => setBlockerModalOpen(false)}
-        actionName={editingEntity ? "Edit" : "Save"}
+        actionName={
+          editingEntity
+            ? t("actions.edit", { ns: "common" })
+            : t("actions.save", { ns: "common" })
+        }
         blockers={validationResult?.blockers || []}
         warnings={validationResult?.warnings || []}
         entityName={editingEntity?.title || editingEntity?.name || editingEntity?.caseNumber || ""}
@@ -601,6 +613,11 @@ export default function FormModal({
  */
 function FormField({ field, value, onChange, error, formData, compact = false, entityType = null }) {
   const { t } = useTranslation(["common", "domain"]);
+  const { currency } = useSettings();
+  const resolvedLabel = interpolateCurrency(field.label, currency);
+  const resolvedPlaceholder = interpolateCurrency(field.placeholder, currency);
+  const resolvedHelpText = interpolateCurrency(field.helpText, currency);
+  const resolvedCheckboxLabel = interpolateCurrency(field.checkboxLabel, currency);
   const baseInputClass = `w-full ${compact ? 'px-3 py-1.5 text-sm' : 'px-3.5 py-2.5'} border-2 rounded-lg shadow-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all duration-200 ${error
     ? "border-red-400 dark:border-red-500 focus:border-red-500 focus:ring-red-500/30"
     : "border-slate-300 dark:border-slate-600 hover:border-slate-400 dark:hover:border-slate-500 hover:shadow-md"
@@ -654,12 +671,12 @@ function FormField({ field, value, onChange, error, formData, compact = false, e
       const displayValue = resolveDisplayValue();
       return (
         <ReadOnlyField
-          label={field.label}
+          label={resolvedLabel}
           value={displayValue}
-          hint={field.helpText}
+          hint={resolvedHelpText}
           icon={field.icon}
           compact={compact}
-          placeholder={field.placeholder || t("form.placeholder.notProvided", { ns: "common" })}
+          placeholder={resolvedPlaceholder || t("form.placeholder.notProvided", { ns: "common" })}
         />
       );
     }
@@ -677,7 +694,7 @@ function FormField({ field, value, onChange, error, formData, compact = false, e
             id={field.name}
             value={value}
             onChange={(e) => onChange(field.name, e.target.value)}
-            placeholder={field.placeholder}
+            placeholder={resolvedPlaceholder}
             required={field.required}
             disabled={field.disabled}
             className={baseInputClass}
@@ -690,7 +707,7 @@ function FormField({ field, value, onChange, error, formData, compact = false, e
             id={field.name}
             value={value}
             onChange={(e) => onChange(field.name, e.target.value)}
-            placeholder={field.placeholder}
+            placeholder={resolvedPlaceholder}
             required={field.required}
             disabled={field.disabled}
             rows={field.rows || (compact ? 2 : 3)}
@@ -713,7 +730,7 @@ function FormField({ field, value, onChange, error, formData, compact = false, e
               value={value}
               onChange={(newValue) => onChange(field.name, newValue)}
               options={fieldOptions}
-              placeholder={field.placeholder || t("form.select.default")}
+              placeholder={resolvedPlaceholder || t("form.select.default")}
               disabled={field.disabled}
               error={error}
               compact={compact}
@@ -732,7 +749,7 @@ function FormField({ field, value, onChange, error, formData, compact = false, e
               disabled={field.disabled}
               className={`${baseInputClass} appearance-none cursor-pointer pr-10 ${field.disabled ? 'bg-slate-50 dark:bg-slate-800 opacity-50' : ''}`}
             >
-              <option value="">{field.placeholder || t("form.select.default")}</option>
+              <option value="">{resolvedPlaceholder || t("form.select.default")}</option>
               {fieldOptions?.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
@@ -774,7 +791,7 @@ function FormField({ field, value, onChange, error, formData, compact = false, e
             value={value}
             onChange={(newValue) => onChange(field.name, newValue)}
             options={searchableOptions}
-            placeholder={field.placeholder || t("form.select.searching")}
+            placeholder={resolvedPlaceholder || t("form.select.searching")}
             disabled={field.disabled}
             error={error}
             compact={compact}
@@ -800,7 +817,7 @@ function FormField({ field, value, onChange, error, formData, compact = false, e
               htmlFor={field.name}
               className={`ml-2 ${compact ? 'text-xs' : 'text-sm'} text-slate-700 dark:text-slate-300`}
             >
-              {field.checkboxLabel || field.label}
+              {resolvedCheckboxLabel || resolvedLabel}
             </label>
           </div>
         );
@@ -1152,7 +1169,7 @@ function FormField({ field, value, onChange, error, formData, compact = false, e
             id={field.name}
             value={value}
             onChange={(e) => onChange(field.name, e.target.value)}
-            placeholder={field.placeholder}
+            placeholder={resolvedPlaceholder}
             required={field.required}
             disabled={field.disabled}
             className={baseInputClass}
@@ -1175,14 +1192,14 @@ function FormField({ field, value, onChange, error, formData, compact = false, e
           htmlFor={field.name}
           className={`block font-semibold text-slate-700 dark:text-slate-200 ${compact ? 'text-xs mb-2' : 'text-sm mb-2.5'}`}
         >
-          {field.label}
+          {resolvedLabel}
           {(field.required || isConditionallyRequired) && <span className="text-red-500 ml-1">*</span>}
         </label>
       )}
       {field.type === "financial-entries" && (
         <div className={compact ? 'mb-2' : 'mb-3'}>
           <label className={`block font-semibold text-slate-700 dark:text-slate-200 ${compact ? 'text-xs' : 'text-sm'}`}>
-            {field.label}
+            {resolvedLabel}
           </label>
         </div>
       )}
@@ -1193,9 +1210,9 @@ function FormField({ field, value, onChange, error, formData, compact = false, e
           {error}
         </p>
       )}
-      {!isReadOnly && field.helpText && !error && (
+      {!isReadOnly && resolvedHelpText && !error && (
         <p className={`${compact ? 'mt-1 text-xs' : 'mt-2 text-xs'} text-slate-500 dark:text-slate-400`}>
-          {field.helpText}
+          {resolvedHelpText}
         </p>
       )}
     </div>

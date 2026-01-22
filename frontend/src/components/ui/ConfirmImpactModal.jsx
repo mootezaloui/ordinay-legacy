@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useTranslation } from "react-i18next";
+import useBodyScrollLock from "../../hooks/useBodyScrollLock";
 
 /**
  * ConfirmImpactModal Component
@@ -32,6 +33,7 @@ export default function ConfirmImpactModal({
     action: resolvedActionName.toLowerCase(),
     entityName: entityName ? ` ${entityName}` : "",
   });
+  useBodyScrollLock(isOpen);
 
   const normalizedImpactSummary = impactSummary.flatMap((item) => {
     if (item === null || item === undefined) return [];
@@ -72,13 +74,10 @@ export default function ConfirmImpactModal({
 
     if (isOpen) {
       document.addEventListener('keydown', handleEscape);
-      // Prevent body scroll when modal is open
-      document.body.style.overflow = 'hidden';
     }
 
     return () => {
       document.removeEventListener('keydown', handleEscape);
-      document.body.style.overflow = 'unset';
     };
   }, [isOpen, onClose]);
 
@@ -126,7 +125,7 @@ export default function ConfirmImpactModal({
         </div>
 
         {/* Content */}
-        <div className="px-6 py-5 overflow-y-auto max-h-[calc(85vh-200px)]">
+        <div className="px-6 py-5 overflow-y-auto overscroll-contain max-h-[calc(85vh-200px)]">
           <div className="space-y-4">
             {normalizedImpactSummary.map((line, index) => {
               // Empty lines are spacers

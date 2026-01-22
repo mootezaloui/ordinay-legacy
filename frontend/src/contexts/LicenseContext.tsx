@@ -22,6 +22,8 @@ interface LicenseContextValue {
   licenseState: LicenseState;
   licenseData: LicenseData | null;
   licenseError: string | null;
+  /** True once the initial license state has been resolved from disk. */
+  licenseLoaded: boolean;
   refreshLicense: () => Promise<LicenseState>;
   activateLicense: (licenseData: LicenseData) => Promise<void>;
   setActivationState: (state: LicenseState, error?: string | null) => void;
@@ -36,6 +38,8 @@ export function LicenseProvider({ children }: { children: ReactNode }) {
     useState<LicenseState>(getAppLicenseState());
   const [licenseData, setLicenseData] = useState<LicenseData | null>(null);
   const [licenseError, setLicenseError] = useState<string | null>(null);
+  // Prevents transient UI (e.g. license alerts) until initial state is resolved.
+  const [licenseLoaded, setLicenseLoaded] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -50,6 +54,8 @@ export function LicenseProvider({ children }: { children: ReactNode }) {
         } else {
           setLicenseError(dataResult.error || null);
         }
+        // Mark license as fully resolved to allow UI to render stable state.
+        setLicenseLoaded(true);
       },
     );
     return () => {
@@ -145,6 +151,7 @@ export function LicenseProvider({ children }: { children: ReactNode }) {
         licenseState,
         licenseData,
         licenseError,
+        licenseLoaded,
         refreshLicense,
         activateLicense,
         setActivationState,

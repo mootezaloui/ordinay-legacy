@@ -1,5 +1,6 @@
 import { AlertTriangle, Info, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import useBodyScrollLock from "../../hooks/useBodyScrollLock";
 
 /**
  * ConfirmDialog - Custom confirmation dialog matching the app's UI design
@@ -16,6 +17,7 @@ export default function ConfirmDialog({
   variant = "warning", // 'warning' | 'danger' | 'info'
 }) {
   const { t } = useTranslation("common");
+  useBodyScrollLock(isOpen);
   if (!isOpen) return null;
 
   const handleConfirm = () => {

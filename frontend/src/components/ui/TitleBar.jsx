@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
-import { Minus, Square, X, Copy } from "lucide-react";
+import { Minus, Square, X, Copy, Maximize2 } from "lucide-react";
 
 export default function TitleBar() {
   const [isMaximized, setIsMaximized] = useState(false);
+  const [isHoveringControls, setIsHoveringControls] = useState(false);
   const isElectron = !!window.electronAPI;
 
   useEffect(() => {
@@ -47,56 +48,90 @@ export default function TitleBar() {
 
   return (
     <div className="titlebar">
-      {/* Drag region */}
-      <div className="titlebar-drag" />
-
-      {/* App identity */}
-      <div className="titlebar-identity">
-        <svg
-          className="titlebar-logo"
-          viewBox="0 0 28 28"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-          aria-hidden="true"
-        >
-          <circle className="titlebar-logo-ring" cx="16" cy="16" r="11" />
-          <circle className="titlebar-logo-ring" cx="16" cy="16" r="8.5" />
-          <circle className="titlebar-logo-ring" cx="16" cy="16" r="5.5" />
-          <circle className="titlebar-logo-dot" cx="16" cy="6" r="1" />
-          <circle className="titlebar-logo-dot" cx="26" cy="16" r="1" />
-          <circle className="titlebar-logo-dot" cx="16" cy="26" r="1" />
-          <circle className="titlebar-logo-dot" cx="6" cy="16" r="1" />
-          <circle className="titlebar-logo-accent" cx="16" cy="16" r="1.5" />
-        </svg>
-        <span className="titlebar-name">rgania</span>
+      {/* Left section - Logo */}
+      <div className="titlebar-left">
+        <div className="titlebar-logo-container">
+          <div className="titlebar-logo-glow" />
+          <svg
+            className="titlebar-logo"
+            viewBox="0 0 32 32"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true"
+          >
+            {/* Outer ring */}
+            <circle
+              cx="16"
+              cy="16"
+              r="13"
+              className="titlebar-logo-ring-outer"
+            />
+            {/* Middle ring */}
+            <circle
+              cx="16"
+              cy="16"
+              r="9"
+              className="titlebar-logo-ring-middle"
+            />
+            {/* Inner ring */}
+            <circle
+              cx="16"
+              cy="16"
+              r="5"
+              className="titlebar-logo-ring-inner"
+            />
+            {/* Orbital dots */}
+            <circle cx="16" cy="3" r="1.5" className="titlebar-logo-dot titlebar-logo-dot-1" />
+            <circle cx="29" cy="16" r="1.5" className="titlebar-logo-dot titlebar-logo-dot-2" />
+            <circle cx="16" cy="29" r="1.5" className="titlebar-logo-dot titlebar-logo-dot-3" />
+            <circle cx="3" cy="16" r="1.5" className="titlebar-logo-dot titlebar-logo-dot-4" />
+            {/* Center accent */}
+            <circle cx="16" cy="16" r="2" className="titlebar-logo-center" />
+          </svg>
+        </div>
       </div>
 
-      {/* Spacer */}
-      <div className="titlebar-spacer" />
+      {/* Center section - App name (draggable) */}
+      <div className="titlebar-center">
+        <span className="titlebar-brand">
+          <span className="titlebar-brand-o">O</span>
+          <span className="titlebar-brand-text">rgania</span>
+        </span>
+      </div>
 
-      {/* Window controls */}
-      <div className="titlebar-controls">
-        <button
-          className="titlebar-btn"
-          onClick={handleMinimize}
-          aria-label="Minimize"
-        >
-          <Minus size={12} />
-        </button>
-        <button
-          className="titlebar-btn"
-          onClick={handleMaximize}
-          aria-label={isMaximized ? "Restore" : "Maximize"}
-        >
-          {isMaximized ? <Copy size={12} /> : <Square size={10} />}
-        </button>
-        <button
-          className="titlebar-btn titlebar-btn-close"
-          onClick={handleClose}
-          aria-label="Close"
-        >
-          <X size={14} />
-        </button>
+      {/* Right section - Window controls */}
+      <div
+        className="titlebar-right"
+        onMouseEnter={() => setIsHoveringControls(true)}
+        onMouseLeave={() => setIsHoveringControls(false)}
+      >
+        <div className="titlebar-controls">
+          <button
+            className="titlebar-btn titlebar-btn-minimize"
+            onClick={handleMinimize}
+            aria-label="Minimize"
+          >
+            <Minus size={14} strokeWidth={2} />
+          </button>
+          <button
+            className="titlebar-btn titlebar-btn-maximize"
+            onClick={handleMaximize}
+            aria-label={isMaximized ? "Restore" : "Maximize"}
+          >
+            {isMaximized ? (
+              <Copy size={12} strokeWidth={2} />
+            ) : (
+              <Maximize2 size={12} strokeWidth={2} />
+            )}
+          </button>
+          <button
+            className="titlebar-btn titlebar-btn-close"
+            onClick={handleClose}
+            aria-label="Close"
+          >
+            <X size={14} strokeWidth={2} />
+          </button>
+        </div>
       </div>
     </div>
   );

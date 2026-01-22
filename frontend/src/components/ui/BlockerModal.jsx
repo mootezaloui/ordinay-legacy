@@ -7,6 +7,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { useData } from '../../contexts/DataContext';
 import { useTranslation } from "react-i18next";
 import { translateStatus } from '../../utils/entityTranslations';
+import useBodyScrollLock from "../../hooks/useBodyScrollLock";
 
 /**
  * BlockerModal Component - ENHANCED with Interactive Actions
@@ -58,6 +59,7 @@ export default function BlockerModal({
   const [isResolving, setIsResolving] = useState(false);
   const { t } = useTranslation("common");
   const blockersKeyRef = useRef("");
+  useBodyScrollLock(isOpen);
 
   const getBlockersKey = (blockersInput) => {
     if (!blockersInput || blockersInput.length === 0) {
@@ -126,13 +128,10 @@ export default function BlockerModal({
 
     if (isOpen) {
       document.addEventListener('keydown', handleEscape);
-      // Prevent body scroll when modal is open
-      document.body.style.overflow = 'hidden';
     }
 
     return () => {
       document.removeEventListener('keydown', handleEscape);
-      document.body.style.overflow = 'unset';
     };
   }, [isOpen, onClose]);
 
@@ -360,7 +359,7 @@ export default function BlockerModal({
         </div>
 
         {/* Content */}
-        <div className="px-6 py-5 overflow-y-auto overflow-x-hidden flex-1 min-h-0">
+        <div className="px-6 py-5 overflow-y-auto overscroll-contain overflow-x-hidden flex-1 min-h-0">
           {hasEnrichedBlockers && activeBlockers.length > 0 && (
             <div className="mb-6">
               <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-3 flex items-center gap-2">

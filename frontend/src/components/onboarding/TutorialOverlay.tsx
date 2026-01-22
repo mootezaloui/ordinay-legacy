@@ -9,6 +9,7 @@
 import { ReactNode, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
+import useBodyScrollLock from "../../hooks/useBodyScrollLock";
 
 interface TutorialOverlayProps {
   children: ReactNode;
@@ -22,6 +23,7 @@ export default function TutorialOverlay({
   showEscHint = true,
 }: TutorialOverlayProps) {
   const { t } = useTranslation("onboarding");
+  useBodyScrollLock(true);
 
   // Handle ESC key to close
   useEffect(() => {
@@ -36,14 +38,6 @@ export default function TutorialOverlay({
     document.addEventListener("keydown", handleEscape);
     return () => document.removeEventListener("keydown", handleEscape);
   }, [onClose]);
-
-  // Prevent body scroll when overlay is open
-  useEffect(() => {
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, []);
 
   const modalRoot = document.getElementById("modal-root");
   if (!modalRoot) {

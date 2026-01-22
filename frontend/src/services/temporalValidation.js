@@ -55,7 +55,7 @@ const getAllMissions = () => entities.missions || [];
 const tCommon = (key, options = {}) =>
   i18nInstance.t(key, { ns: "common", ...options });
 const tTemporal = (key, options = {}) =>
-  tCommon(`detail.blocker.temporal.${key}`, options);
+  tCommon(`detail.blocker.enrichment.temporal.${key}`, options);
 
 // ========================================
 // CORE DATE UTILITIES

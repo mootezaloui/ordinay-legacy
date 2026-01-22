@@ -12,6 +12,7 @@ import React, { useState } from 'react';
 import { X, Mail, Send, Eye, EyeOff } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { generateClientEmail } from '../../services/clientCommunication';
+import useBodyScrollLock from "../../hooks/useBodyScrollLock";
 
 export default function ClientNotificationPrompt({
   isOpen,
@@ -23,6 +24,7 @@ export default function ClientNotificationPrompt({
   const { t } = useTranslation('notifications');
   const [showPreview, setShowPreview] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  useBodyScrollLock(isOpen);
 
   if (!isOpen) return null;
 
@@ -82,7 +84,7 @@ export default function ClientNotificationPrompt({
           </div>
 
           {/* Body */}
-          <div className="p-6 space-y-4 overflow-y-auto max-h-[60vh]">
+          <div className="p-6 space-y-4 overflow-y-auto overscroll-contain max-h-[60vh]">
             {/* Client Info */}
             {emailPreview && (
               <div className="bg-slate-50 dark:bg-slate-900/50 rounded-lg p-4 space-y-2">

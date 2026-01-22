@@ -608,191 +608,277 @@ export default function SettingsSecurityAccess() {
       </ContentSection>
 
       <ContentSection title={t("securityAccess.license.title")}>
-        <div className="p-6 space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <label className="text-sm font-medium text-slate-900 dark:text-white">
-                {t("securityAccess.license.statusLabel")}
-              </label>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                {t("securityAccess.license.statusDescription")}
-              </p>
-            </div>
-            <span className={`px-3 py-1 text-xs font-medium rounded-full flex items-center gap-1 ${licenseState === "ACTIVE"
-              ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
-              : "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400"
-              }`}>
-              <i className={`fas ${licenseState === "ACTIVE" ? "fa-check-circle" : "fa-lock"}`}></i>
-              {licenseStatusLabel()}
-            </span>
-          </div>
+        <div className="relative overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 p-6">
+          {/* Background gradient */}
+          <div className={`pointer-events-none absolute inset-0 ${isPaidPlan
+            ? "bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.12),_transparent_55%)] dark:bg-[radial-gradient(circle_at_top,_rgba(52,211,153,0.12),_transparent_60%)]"
+            : "bg-[radial-gradient(circle_at_top,_rgba(251,191,36,0.12),_transparent_55%)] dark:bg-[radial-gradient(circle_at_top,_rgba(251,191,36,0.12),_transparent_60%)]"
+          }`} />
 
-          {licenseError && licenseState !== "FREE" && (
-            <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg flex items-center gap-2 text-amber-700 dark:text-amber-300 text-sm">
-              <i className="fas fa-exclamation-triangle"></i>
-              <span>{licenseError}</span>
-            </div>
-          )}
-
-          {licenseData ? (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div className="p-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40">
-                <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                  {t("securityAccess.license.cards.licenseType")}
-                </p>
-                <p className="mt-2 text-sm font-semibold text-slate-900 dark:text-white">
-                  {licenseTypeLabel()}
-                </p>
+          <div className="relative space-y-6">
+            {/* Header with status */}
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div className="flex items-start gap-3">
+                <div className={`flex h-12 w-12 items-center justify-center rounded-2xl border ${isPaidPlan
+                  ? "border-emerald-200 bg-gradient-to-br from-emerald-50 to-green-50 text-emerald-600 dark:border-emerald-800/50 dark:from-emerald-900/30 dark:to-green-900/20 dark:text-emerald-400"
+                  : "border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50 text-amber-600 dark:border-amber-800/50 dark:from-amber-900/30 dark:to-orange-900/20 dark:text-amber-400"
+                }`}>
+                  <i className={`fas ${isPaidPlan ? "fa-crown" : "fa-certificate"} text-lg`}></i>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                    {t("securityAccess.license.statusLabel")}
+                  </p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-md">
+                    {t("securityAccess.license.statusDescription")}
+                  </p>
+                </div>
               </div>
-              {licenseState !== "FREE" && (
-                <>
-                  <div className="p-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40">
-                    <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              <div className="flex items-center gap-2">
+                <span className={`px-3 py-1.5 text-xs font-semibold rounded-full flex items-center gap-1.5 ${isPaidPlan
+                  ? "bg-gradient-to-r from-emerald-100 to-green-100 dark:from-emerald-900/40 dark:to-green-900/30 text-emerald-700 dark:text-emerald-300 ring-1 ring-emerald-200 dark:ring-emerald-800/50"
+                  : "bg-gradient-to-r from-amber-100 to-orange-100 dark:from-amber-900/40 dark:to-orange-900/30 text-amber-700 dark:text-amber-300 ring-1 ring-amber-200 dark:ring-amber-800/50"
+                }`}>
+                  <i className={`fas ${isPaidPlan ? "fa-check-circle" : "fa-hourglass-half"}`}></i>
+                  {licenseStatusLabel()}
+                </span>
+              </div>
+            </div>
+
+            {/* Error message */}
+            {licenseError && licenseState !== "FREE" && (
+              <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl flex items-center gap-2 text-amber-700 dark:text-amber-300 text-sm">
+                <i className="fas fa-exclamation-triangle"></i>
+                <span>{licenseError}</span>
+              </div>
+            )}
+
+            {/* License details cards */}
+            {licenseData && licenseState !== "FREE" && (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-gradient-to-br from-slate-50 to-white dark:from-slate-800/60 dark:to-slate-900/40 hover:shadow-md transition-shadow">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                      <i className="fas fa-id-card text-blue-600 dark:text-blue-400 text-sm"></i>
+                    </div>
+                    <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                      {t("securityAccess.license.cards.licenseType")}
+                    </p>
+                  </div>
+                  <p className="text-base font-bold text-slate-900 dark:text-white">
+                    {licenseTypeLabel()}
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-gradient-to-br from-slate-50 to-white dark:from-slate-800/60 dark:to-slate-900/40 hover:shadow-md transition-shadow">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-8 h-8 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+                      <i className="fas fa-calendar-alt text-purple-600 dark:text-purple-400 text-sm"></i>
+                    </div>
+                    <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
                       {t("securityAccess.license.cards.nextBilling")}
                     </p>
-                    <p className="mt-2 text-sm font-semibold text-slate-900 dark:text-white">
-                      {licenseNextBilling()}
-                    </p>
                   </div>
-                  <div className="p-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40">
-                    <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                  <p className="text-base font-bold text-slate-900 dark:text-white">
+                    {licenseNextBilling()}
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-gradient-to-br from-slate-50 to-white dark:from-slate-800/60 dark:to-slate-900/40 hover:shadow-md transition-shadow">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-8 h-8 rounded-lg bg-rose-100 dark:bg-rose-900/30 flex items-center justify-center">
+                      <i className="fas fa-clock text-rose-600 dark:text-rose-400 text-sm"></i>
+                    </div>
+                    <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
                       {t("securityAccess.license.cards.expirationDate")}
                     </p>
-                    <p className="mt-2 text-sm font-semibold text-slate-900 dark:text-white">
-                      {licenseData.expires_at === null
-                        ? t("securityAccess.license.labels.never")
-                        : formatLicenseDate(licenseData.expires_at)}
+                  </div>
+                  <p className="text-base font-bold text-slate-900 dark:text-white">
+                    {licenseData.expires_at === null
+                      ? t("securityAccess.license.labels.never")
+                      : formatLicenseDate(licenseData.expires_at)}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Current Plan Card */}
+            <div className={`p-5 rounded-xl border ${isPaidPlan
+              ? "border-emerald-200 dark:border-emerald-800/50 bg-gradient-to-br from-emerald-50/80 to-green-50/80 dark:from-emerald-900/20 dark:to-green-900/10"
+              : "border-amber-200 dark:border-amber-800/50 bg-gradient-to-br from-amber-50/80 to-orange-50/80 dark:from-amber-900/20 dark:to-orange-900/10"
+            }`}>
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isPaidPlan
+                    ? "bg-gradient-to-br from-emerald-500 to-green-600 text-white shadow-lg shadow-emerald-500/25"
+                    : "bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-lg shadow-amber-500/25"
+                  }`}>
+                    <i className={`fas ${isPaidPlan ? "fa-infinity" : "fa-layer-group"}`}></i>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                      {t("securityAccess.license.cards.currentPlan")}
+                    </p>
+                    <p className={`text-lg font-bold ${isPaidPlan ? "text-emerald-700 dark:text-emerald-300" : "text-amber-700 dark:text-amber-300"}`}>
+                      {planLabel}
                     </p>
                   </div>
-                </>
-              )}
-            </div>
-          ) : (
-            <div className="p-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-600 dark:text-slate-300">
-              {t("securityAccess.license.emptyState")}
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div className="p-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40">
-              <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                {t("securityAccess.license.cards.currentPlan")}
-              </p>
-              <p className="mt-2 text-sm font-semibold text-slate-900 dark:text-white">
-                {planLabel}
-              </p>
-              {!isPaidPlan && (
-                <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                  {t("securityAccess.license.freePlanNote")}
-                </p>
-              )}
-            </div>
-            <div className="p-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40">
-              <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                {t("securityAccess.license.cards.planLimits")}
-              </p>
-              <div className="mt-2 text-xs text-slate-600 dark:text-slate-300 space-y-1">
-                <div>
-                  {t("securityAccess.license.planLimits.clients", {
-                    count: FREE_PLAN_LIMITS.clients,
-                  })}
                 </div>
-                <div>
-                  {t("securityAccess.license.planLimits.dossiers", {
-                    count: FREE_PLAN_LIMITS.dossiers,
-                  })}
-                </div>
-                <div>
-                  {t("securityAccess.license.planLimits.casesPerDossier", {
-                    count: FREE_PLAN_LIMITS.casesPerDossier,
-                  })}
-                </div>
-                <div>
-                  {t("securityAccess.license.planLimits.activeTasks", {
-                    count: FREE_PLAN_LIMITS.activeTasks,
-                  })}
-                </div>
-                <div>{t("securityAccess.license.planLimits.paidUnlimited")}</div>
+                {!isPaidPlan && (
+                  <button
+                    onClick={handleActivateLicense}
+                    disabled={activationBusy || licenseState === "ACTIVATING"}
+                    className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white text-sm font-semibold rounded-xl transition-all shadow-lg shadow-emerald-500/25 flex items-center gap-2 disabled:opacity-60"
+                  >
+                    <i className="fas fa-bolt"></i>
+                    {t("securityAccess.license.actions.activate")}
+                  </button>
+                )}
               </div>
-            </div>
-          </div>
 
-          {licenseState !== "ACTIVE" && (
-            <div className="space-y-3">
-              <button
-                onClick={handleActivateLicense}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2 disabled:opacity-60"
-                disabled={activationBusy || licenseState === "ACTIVATING"}
-              >
-                <i className="fas fa-bolt"></i>
-                {t("securityAccess.license.actions.activate")}
-              </button>
               {activationError && (
-                <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg flex items-center gap-2 text-amber-700 dark:text-amber-300 text-sm">
-                  <i className="fas fa-exclamation-triangle"></i>
+                <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl flex items-center gap-2 text-red-700 dark:text-red-300 text-sm">
+                  <i className="fas fa-exclamation-circle"></i>
                   <span>{activationError}</span>
                 </div>
               )}
             </div>
-          )}
 
-          {licenseState === "ACTIVE" && (
-            <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/40 p-4 space-y-3">
-              <div>
-                <p className="text-sm font-semibold text-slate-900 dark:text-white">
-                  {t("securityAccess.license.referral.title")}
-                </p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  {t("securityAccess.license.referral.subtitle")}
-                </p>
+            {/* Plan Limits */}
+            <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/40 overflow-hidden">
+              <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/50">
+                <div className="flex items-center gap-2">
+                  <i className="fas fa-sliders-h text-slate-500 dark:text-slate-400"></i>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                    {t("securityAccess.license.cards.planLimits")}
+                  </p>
+                </div>
               </div>
-              {referralStatus === "loading" && (
-                <div className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-2">
-                  <i className="fas fa-spinner fa-spin"></i>
-                  {t("securityAccess.license.referral.loading")}
-                </div>
-              )}
-              {referralStatus === "error" && (
-                <div className="space-y-2">
-                  <div className="text-xs text-amber-600 dark:text-amber-300 flex items-center gap-2">
-                    <i className="fas fa-exclamation-triangle"></i>
-                    <span>{referralMessage || t("securityAccess.license.referral.unavailable")}</span>
+              <div className="p-5">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  <div className="text-center p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50">
+                    <div className="w-10 h-10 mx-auto rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center mb-2">
+                      <i className="fas fa-users text-blue-600 dark:text-blue-400"></i>
+                    </div>
+                    <p className={`text-lg font-bold ${isPaidPlan ? "text-emerald-600 dark:text-emerald-400" : "text-slate-900 dark:text-white"}`}>
+                      {isPaidPlan ? "∞" : FREE_PLAN_LIMITS.clients}
+                    </p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Clients</p>
                   </div>
-                  <button
-                    onClick={handleRefreshReferral}
-                    className="px-3 py-2 text-xs font-semibold rounded-lg bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 transition"
-                  >
-                    {t("securityAccess.license.referral.retry")}
-                  </button>
-                </div>
-              )}
-              {referralStatus === "ready" && (
-                <div className="space-y-2">
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                    <input
-                      type="text"
-                      value={referralLink}
-                      readOnly
-                      className="flex-1 px-3 py-2 text-xs border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-200"
-                    />
-                    <button
-                      onClick={handleCopyReferral}
-                      className="px-3 py-2 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white transition"
-                    >
-                      {referralCopied
-                        ? t("securityAccess.license.referral.copied")
-                        : t("securityAccess.license.referral.copyLink")}
-                    </button>
+                  <div className="text-center p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50">
+                    <div className="w-10 h-10 mx-auto rounded-xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center mb-2">
+                      <i className="fas fa-folder text-purple-600 dark:text-purple-400"></i>
+                    </div>
+                    <p className={`text-lg font-bold ${isPaidPlan ? "text-emerald-600 dark:text-emerald-400" : "text-slate-900 dark:text-white"}`}>
+                      {isPaidPlan ? "∞" : FREE_PLAN_LIMITS.dossiers}
+                    </p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Dossiers</p>
                   </div>
-                  {referralMessage && (
-                    <div className="text-xs text-amber-600 dark:text-amber-300">
-                      {referralMessage}
+                  <div className="text-center p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50">
+                    <div className="w-10 h-10 mx-auto rounded-xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center mb-2">
+                      <i className="fas fa-briefcase text-amber-600 dark:text-amber-400"></i>
+                    </div>
+                    <p className={`text-lg font-bold ${isPaidPlan ? "text-emerald-600 dark:text-emerald-400" : "text-slate-900 dark:text-white"}`}>
+                      {isPaidPlan ? "∞" : FREE_PLAN_LIMITS.casesPerDossier}
+                    </p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Cases/Dossier</p>
+                  </div>
+                  <div className="text-center p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50">
+                    <div className="w-10 h-10 mx-auto rounded-xl bg-rose-100 dark:bg-rose-900/30 flex items-center justify-center mb-2">
+                      <i className="fas fa-tasks text-rose-600 dark:text-rose-400"></i>
+                    </div>
+                    <p className={`text-lg font-bold ${isPaidPlan ? "text-emerald-600 dark:text-emerald-400" : "text-slate-900 dark:text-white"}`}>
+                      {isPaidPlan ? "∞" : FREE_PLAN_LIMITS.activeTasks}
+                    </p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Active Tasks</p>
+                  </div>
+                </div>
+                {isPaidPlan && (
+                  <div className="mt-4 flex items-center justify-center gap-2 text-emerald-600 dark:text-emerald-400">
+                    <i className="fas fa-check-circle"></i>
+                    <span className="text-sm font-medium">{t("securityAccess.license.planLimits.paidUnlimited")}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Referral Section - Only for active licenses */}
+            {licenseState === "ACTIVE" && (
+              <div className="rounded-xl border border-indigo-200 dark:border-indigo-800/50 bg-gradient-to-br from-indigo-50/80 to-purple-50/80 dark:from-indigo-900/20 dark:to-purple-900/10 overflow-hidden">
+                <div className="px-5 py-4 border-b border-indigo-200/50 dark:border-indigo-800/30">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center shadow-lg shadow-indigo-500/25">
+                      <i className="fas fa-gift"></i>
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                        {t("securityAccess.license.referral.title")}
+                      </p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        {t("securityAccess.license.referral.subtitle")}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div className="p-5">
+                  {referralStatus === "loading" && (
+                    <div className="flex items-center justify-center gap-2 py-4 text-slate-500 dark:text-slate-400">
+                      <i className="fas fa-spinner fa-spin"></i>
+                      <span className="text-sm">{t("securityAccess.license.referral.loading")}</span>
+                    </div>
+                  )}
+                  {referralStatus === "error" && (
+                    <div className="space-y-3">
+                      <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl flex items-center gap-2 text-amber-700 dark:text-amber-300 text-sm">
+                        <i className="fas fa-exclamation-triangle"></i>
+                        <span>{referralMessage || t("securityAccess.license.referral.unavailable")}</span>
+                      </div>
+                      <button
+                        onClick={handleRefreshReferral}
+                        className="px-4 py-2 text-sm font-semibold rounded-xl bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 transition flex items-center gap-2"
+                      >
+                        <i className="fas fa-sync-alt"></i>
+                        {t("securityAccess.license.referral.retry")}
+                      </button>
+                    </div>
+                  )}
+                  {referralStatus === "ready" && (
+                    <div className="space-y-3">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                        <div className="flex-1 relative">
+                          <input
+                            type="text"
+                            value={referralLink}
+                            readOnly
+                            className="w-full px-4 py-2.5 text-sm border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 pr-10"
+                          />
+                          <i className="fas fa-link absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                        </div>
+                        <button
+                          onClick={handleCopyReferral}
+                          className={`px-5 py-2.5 text-sm font-semibold rounded-xl transition flex items-center gap-2 ${referralCopied
+                            ? "bg-emerald-500 text-white"
+                            : "bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white shadow-lg shadow-indigo-500/25"
+                          }`}
+                        >
+                          <i className={`fas ${referralCopied ? "fa-check" : "fa-copy"}`}></i>
+                          {referralCopied
+                            ? t("securityAccess.license.referral.copied")
+                            : t("securityAccess.license.referral.copyLink")}
+                        </button>
+                      </div>
+                      {referralMessage && (
+                        <div className="text-xs text-amber-600 dark:text-amber-300 flex items-center gap-2">
+                          <i className="fas fa-info-circle"></i>
+                          {referralMessage}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
-              )}
-            </div>
-          )}
+              </div>
+            )}
+          </div>
         </div>
       </ContentSection>
 

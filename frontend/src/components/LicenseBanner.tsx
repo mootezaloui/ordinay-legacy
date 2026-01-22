@@ -3,9 +3,10 @@ import { useLicense } from "../contexts/LicenseContext";
 
 export default function LicenseBanner() {
   const { t } = useTranslation("license");
-  const { licenseState } = useLicense();
+  const { licenseState, licenseLoaded } = useLicense();
 
-  if (licenseState === "ACTIVE") {
+  // Prevent transient flash: only render once license state is fully resolved.
+  if (!licenseLoaded || licenseState === "ACTIVE") {
     return null;
   }
 
