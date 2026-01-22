@@ -170,333 +170,342 @@ export default function SettingsSecurityAccess() {
   return (
     <div className="space-y-6">
       <ContentSection title="Workspace Lock">
-  <div className="relative overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 p-6">
-    <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.12),_transparent_55%)] dark:bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.12),_transparent_60%)]" />
-    <div className="relative space-y-6">
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div className="flex items-start gap-3">
-          <div
-            className={`flex h-12 w-12 items-center justify-center rounded-2xl border ${isEnabled ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800/50 dark:bg-emerald-900/20 dark:text-emerald-300" : "border-slate-200 bg-slate-100 text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"}`}
-          >
-            <i className={`fas ${isEnabled ? "fa-shield-alt" : "fa-shield"}`}></i>
-          </div>
-          <div>
-            <p className="text-sm font-semibold text-slate-900 dark:text-white">
-              Workspace protection
-            </p>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-md">
-              {isEnabled
-                ? "Locked workspaces require a password at startup or after inactivity."
-                : "Add a local password to keep sensitive client data protected."}
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          {isEnabled ? (
-            <span className="px-3 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 text-xs font-medium rounded-full flex items-center gap-1">
-              <i className="fas fa-lock"></i>
-              Enabled
-            </span>
-          ) : (
-            <span className="px-3 py-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-medium rounded-full flex items-center gap-1">
-              <i className="fas fa-unlock"></i>
-              Disabled
-            </span>
-          )}
-        </div>
-      </div>
-
-      {lockError && (
-        <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg flex items-center gap-2 text-red-700 dark:text-red-400 text-sm">
-          <i className="fas fa-exclamation-circle"></i>
-          <span>{lockError}</span>
-        </div>
-      )}
-      {lockSuccess && (
-        <div className="p-3 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg flex items-center gap-2 text-emerald-700 dark:text-emerald-300 text-sm">
-          <i className="fas fa-check-circle"></i>
-          <span>{lockSuccess}</span>
-        </div>
-      )}
-
-      {!isEnabled ? (
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr),minmax(0,1.1fr)]">
-          <div className="space-y-4">
-            <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900/40 p-4">
-              <h4 className="text-sm font-semibold text-slate-900 dark:text-white">
-                Why lock this workspace?
-              </h4>
-              <ul className="mt-3 space-y-2 text-xs text-slate-600 dark:text-slate-300">
-                <li className="flex items-start gap-2">
-                  <i className="fas fa-check text-emerald-600 mt-0.5"></i>
-                  <span>Protects client data when you step away.</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <i className="fas fa-check text-emerald-600 mt-0.5"></i>
-                  <span>Auto-lock after inactivity or on startup.</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <i className="fas fa-check text-emerald-600 mt-0.5"></i>
-                  <span>Local-only password, no online account required.</span>
-                </li>
-              </ul>
-            </div>
-            {!showEnableForm && (
-              <button
-                onClick={() => setShowEnableForm(true)}
-                className="w-full sm:w-auto px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
-              >
-                <i className="fas fa-lock"></i>
-                Set up workspace lock
-              </button>
-            )}
-          </div>
-
-          {!showEnableForm ? (
-            <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/40 p-5">
-              <h4 className="text-sm font-semibold text-slate-900 dark:text-white">
-                Security preview
-              </h4>
-              <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                Configure startup and inactivity protection before enabling.
-              </p>
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 px-3 py-3">
-                  <p className="text-xs font-medium text-slate-700 dark:text-slate-200">Lock on startup</p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Require a password at launch.</p>
+        <div className="relative overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 p-6">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.12),_transparent_55%)] dark:bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.12),_transparent_60%)]" />
+          <div className="relative space-y-6">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div className="flex items-start gap-3">
+                <div
+                  className={`flex h-12 w-12 items-center justify-center rounded-2xl border ${isEnabled ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800/50 dark:bg-emerald-900/20 dark:text-emerald-300" : "border-slate-200 bg-slate-100 text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"}`}
+                >
+                  <i className={`fas ${isEnabled ? "fa-shield-alt" : "fa-shield"}`}></i>
                 </div>
-                <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 px-3 py-3">
-                  <p className="text-xs font-medium text-slate-700 dark:text-slate-200">Inactivity lock</p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Auto-lock after set minutes.</p>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-4 p-5 bg-white/70 dark:bg-slate-900/40 rounded-xl border border-slate-200 dark:border-slate-800">
-              <div>
-                <h4 className="text-sm font-semibold text-slate-900 dark:text-white">
-                  Set up workspace lock
-                </h4>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                  Choose a local password and how the lock behaves.
-                </p>
-              </div>
-
-              <div className="space-y-3">
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                    Password
-                  </label>
-                  <input
-                    type="password"
-                    value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    placeholder="Enter password (min. 6 characters)"
-                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                    Confirm password
-                  </label>
-                  <input
-                    type="password"
-                    value={formData.confirmPassword}
-                    onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                    placeholder="Re-enter password"
-                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div className="flex items-center justify-between py-2">
-                  <div>
-                    <label className="text-xs font-medium text-slate-700 dark:text-slate-300">
-                      Lock on startup
-                    </label>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                      Require password when the app opens.
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => setFormData({ ...formData, lockOnStartup: !formData.lockOnStartup })}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${formData.lockOnStartup ? "bg-blue-600" : "bg-slate-300 dark:bg-slate-600"}`}
-                  >
-                    <span
-                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${formData.lockOnStartup ? "translate-x-6" : "translate-x-1"}`}
-                    />
-                  </button>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                    Lock after inactivity (minutes)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="120"
-                    value={formData.inactivityTimeout}
-                    onChange={(e) => setFormData({ ...formData, inactivityTimeout: parseInt(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                    Use 0 to disable automatic lock.
+                  <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                    Workspace protection
+                  </p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-md">
+                    {isEnabled
+                      ? "Locked workspaces require a password at startup or after inactivity."
+                      : "Add a local password to keep sensitive client data protected."}
                   </p>
                 </div>
               </div>
-
-              <div className="flex flex-wrap items-center gap-2 pt-2">
-                <button
-                  onClick={handleEnableLock}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
-                >
-                  Enable lock
-                </button>
-                <button
-                  onClick={() => {
-                    setShowEnableForm(false);
-                    resetLockForms();
-                  }}
-                  className="px-4 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 text-sm font-medium rounded-lg transition-colors"
-                >
-                  Cancel
-                </button>
+              <div className="flex items-center gap-2">
+                {isEnabled ? (
+                  <span className="px-3 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 text-xs font-medium rounded-full flex items-center gap-1">
+                    <i className="fas fa-lock"></i>
+                    Enabled
+                  </span>
+                ) : (
+                  <span className="px-3 py-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-medium rounded-full flex items-center gap-1">
+                    <i className="fas fa-unlock"></i>
+                    Disabled
+                  </span>
+                )}
               </div>
             </div>
-          )}
-        </div>
-      ) : (
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr),minmax(0,0.9fr)]">
-          <div className="space-y-4 p-5 bg-white/70 dark:bg-slate-900/40 rounded-xl border border-slate-200 dark:border-slate-800">
-            <div>
-              <h4 className="text-sm font-semibold text-slate-900 dark:text-white">
-                Lock settings
-              </h4>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                Fine-tune when the lock activates.
-              </p>
-            </div>
 
-            <div className="flex items-center justify-between py-2">
-              <div>
-                <label className="text-xs font-medium text-slate-700 dark:text-slate-300">
-                  Lock on startup
-                </label>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Require password when app starts.
-                </p>
+            {lockError && (
+              <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg flex items-center gap-2 text-red-700 dark:text-red-400 text-sm">
+                <i className="fas fa-exclamation-circle"></i>
+                <span>{lockError}</span>
               </div>
-              <button
-                onClick={() => handleLockSettingsUpdate("lockOnStartup", !config?.lockOnStartup)}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${config?.lockOnStartup ? "bg-blue-600" : "bg-slate-300 dark:bg-slate-600"}`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${config?.lockOnStartup ? "translate-x-6" : "translate-x-1"}`}
-                />
-              </button>
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                Inactivity timeout (minutes)
-              </label>
-              <input
-                type="number"
-                min="0"
-                max="120"
-                value={config?.inactivityTimeout ?? 15}
-                onChange={(e) => handleLockSettingsUpdate("inactivityTimeout", parseInt(e.target.value) || 0)}
-                className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                {config?.inactivityTimeout === 0
-                  ? "Automatic lock is disabled."
-                  : `Locks after ${config?.inactivityTimeout} minutes of inactivity.`}
-              </p>
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            {!showChangePassword ? (
-              <button
-                onClick={() => setShowChangePassword(true)}
-                className="w-full px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
-              >
-                <i className="fas fa-key"></i>
-                Change password
-              </button>
-            ) : (
-              <div className="space-y-3 p-5 bg-white/70 dark:bg-slate-900/40 rounded-xl border border-slate-200 dark:border-slate-800">
-                <h4 className="text-sm font-semibold text-slate-900 dark:text-white">
-                  Change password
-                </h4>
-
-                <div>
-                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                    Current password
-                  </label>
-                  <input
-                    type="password"
-                    value={formData.currentPassword}
-                    onChange={(e) => setFormData({ ...formData, currentPassword: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                    New password
-                  </label>
-                  <input
-                    type="password"
-                    value={formData.newPassword}
-                    onChange={(e) => setFormData({ ...formData, newPassword: e.target.value })}
-                    placeholder="Min. 6 characters"
-                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                    Confirm new password
-                  </label>
-                  <input
-                    type="password"
-                    value={formData.confirmNewPassword}
-                    onChange={(e) => setFormData({ ...formData, confirmNewPassword: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2 pt-2">
-                  <button
-                    onClick={handleChangePassword}
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
-                  >
-                    Update password
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowChangePassword(false);
-                      resetLockForms();
-                    }}
-                    className="px-4 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 text-sm font-medium rounded-lg transition-colors"
-                  >
-                    Cancel
-                  </button>
-                </div>
+            )}
+            {lockSuccess && (
+              <div className="p-3 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg flex items-center gap-2 text-emerald-700 dark:text-emerald-300 text-sm">
+                <i className="fas fa-check-circle"></i>
+                <span>{lockSuccess}</span>
               </div>
             )}
 
-            <div className="grid gap-3 sm:grid-cols-2">
-              <button
-                onClick={lock}
-                className="px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
-              >
-                <i className="fas fa-lock"></i>
-                Lock now
-              </button>
+            {!isEnabled ? (
+              <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr),minmax(0,1.1fr)]">
+                <div className="space-y-4">
+                  <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900/40 p-4">
+                    <h4 className="text-sm font-semibold text-slate-900 dark:text-white">
+                      Why lock this workspace?
+                    </h4>
+                    <ul className="mt-3 space-y-2 text-xs text-slate-600 dark:text-slate-300">
+                      <li className="flex items-start gap-2">
+                        <i className="fas fa-check text-emerald-600 mt-0.5"></i>
+                        <span>Protects client data when you step away.</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <i className="fas fa-check text-emerald-600 mt-0.5"></i>
+                        <span>Auto-lock after inactivity or on startup.</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <i className="fas fa-check text-emerald-600 mt-0.5"></i>
+                        <span>Local-only password, no online account required.</span>
+                      </li>
+                    </ul>
+                  </div>
+                  {!showEnableForm && (
+                    <button
+                      onClick={() => setShowEnableForm(true)}
+                      className="w-full sm:w-auto px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
+                    >
+                      <i className="fas fa-lock"></i>
+                      Set up workspace lock
+                    </button>
+                  )}
+                </div>
+
+                {!showEnableForm ? (
+                  <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/40 p-5">
+                    <h4 className="text-sm font-semibold text-slate-900 dark:text-white">
+                      Security preview
+                    </h4>
+                    <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                      Configure startup and inactivity protection before enabling.
+                    </p>
+                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                      <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 px-3 py-3">
+                        <p className="text-xs font-medium text-slate-700 dark:text-slate-200">Lock on startup</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Require a password at launch.</p>
+                      </div>
+                      <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 px-3 py-3">
+                        <p className="text-xs font-medium text-slate-700 dark:text-slate-200">Inactivity lock</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Auto-lock after set minutes.</p>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4 p-5 bg-white/70 dark:bg-slate-900/40 rounded-xl border border-slate-200 dark:border-slate-800">
+                    <div>
+                      <h4 className="text-sm font-semibold text-slate-900 dark:text-white">
+                        Set up workspace lock
+                      </h4>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                        Choose a local password and how the lock behaves.
+                      </p>
+                    </div>
+
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-800/60 dark:bg-amber-900/20 dark:text-amber-200">
+                      <div className="flex items-start gap-2">
+                        <i className="fas fa-triangle-exclamation mt-0.5"></i>
+                        <span>
+                          If you forget this password, there is no recovery. You will need to reset the app to regain access. we strongly recommend writing it down and keeping it safe.
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                          Password
+                        </label>
+                        <input
+                          type="password"
+                          value={formData.password}
+                          onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                          placeholder="Enter password (min. 6 characters)"
+                          className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                          Confirm password
+                        </label>
+                        <input
+                          type="password"
+                          value={formData.confirmPassword}
+                          onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                          placeholder="Re-enter password"
+                          className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between py-2">
+                        <div>
+                          <label className="text-xs font-medium text-slate-700 dark:text-slate-300">
+                            Lock on startup
+                          </label>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">
+                            Require password when the app opens.
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => setFormData({ ...formData, lockOnStartup: !formData.lockOnStartup })}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${formData.lockOnStartup ? "bg-blue-600" : "bg-slate-300 dark:bg-slate-600"}`}
+                        >
+                          <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${formData.lockOnStartup ? "translate-x-6" : "translate-x-1"}`}
+                          />
+                        </button>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                          Lock after inactivity (minutes)
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="120"
+                          value={formData.inactivityTimeout}
+                          onChange={(e) => setFormData({ ...formData, inactivityTimeout: parseInt(e.target.value) || 0 })}
+                          className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                          Use 0 to disable automatic lock.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 pt-2">
+                      <button
+                        onClick={handleEnableLock}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+                      >
+                        Enable lock
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowEnableForm(false);
+                          resetLockForms();
+                        }}
+                        className="px-4 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 text-sm font-medium rounded-lg transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr),minmax(0,0.9fr)]">
+                <div className="space-y-4 p-5 bg-white/70 dark:bg-slate-900/40 rounded-xl border border-slate-200 dark:border-slate-800">
+                  <div>
+                    <h4 className="text-sm font-semibold text-slate-900 dark:text-white">
+                      Lock settings
+                    </h4>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                      Fine-tune when the lock activates.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center justify-between py-2">
+                    <div>
+                      <label className="text-xs font-medium text-slate-700 dark:text-slate-300">
+                        Lock on startup
+                      </label>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        Require password when app starts.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => handleLockSettingsUpdate("lockOnStartup", !config?.lockOnStartup)}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${config?.lockOnStartup ? "bg-blue-600" : "bg-slate-300 dark:bg-slate-600"}`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${config?.lockOnStartup ? "translate-x-6" : "translate-x-1"}`}
+                      />
+                    </button>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                      Inactivity timeout (minutes)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="120"
+                      value={config?.inactivityTimeout ?? 15}
+                      onChange={(e) => handleLockSettingsUpdate("inactivityTimeout", parseInt(e.target.value) || 0)}
+                      className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                      {config?.inactivityTimeout === 0
+                        ? "Automatic lock is disabled."
+                        : `Locks after ${config?.inactivityTimeout} minutes of inactivity.`}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  {!showChangePassword ? (
+                    <button
+                      onClick={() => setShowChangePassword(true)}
+                      className="w-full px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
+                    >
+                      <i className="fas fa-key"></i>
+                      Change password
+                    </button>
+                  ) : (
+                    <div className="space-y-3 p-5 bg-white/70 dark:bg-slate-900/40 rounded-xl border border-slate-200 dark:border-slate-800">
+                      <h4 className="text-sm font-semibold text-slate-900 dark:text-white">
+                        Change password
+                      </h4>
+
+                      <div>
+                        <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                          Current password
+                        </label>
+                        <input
+                          type="password"
+                          value={formData.currentPassword}
+                          onChange={(e) => setFormData({ ...formData, currentPassword: e.target.value })}
+                          className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                          New password
+                        </label>
+                        <input
+                          type="password"
+                          value={formData.newPassword}
+                          onChange={(e) => setFormData({ ...formData, newPassword: e.target.value })}
+                          placeholder="Min. 6 characters"
+                          className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                          Confirm new password
+                        </label>
+                        <input
+                          type="password"
+                          value={formData.confirmNewPassword}
+                          onChange={(e) => setFormData({ ...formData, confirmNewPassword: e.target.value })}
+                          className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2 pt-2">
+                        <button
+                          onClick={handleChangePassword}
+                          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+                        >
+                          Update password
+                        </button>
+                        <button
+                          onClick={() => {
+                            setShowChangePassword(false);
+                            resetLockForms();
+                          }}
+                          className="px-4 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 text-sm font-medium rounded-lg transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <button
+                      onClick={lock}
+                      className="px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
+                    >
+                      <i className="fas fa-lock"></i>
+                      Lock now
+                    </button>
 
                     <button
                       onClick={() => setShowDisableConfirm(true)}
@@ -506,12 +515,12 @@ export default function SettingsSecurityAccess() {
                       Disable lock
                     </button>
                   </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
-      )}
-    </div>
-  </div>
-</ContentSection>
+      </ContentSection>
 
       <ContentSection title="License">
         <div className="p-6 space-y-4">

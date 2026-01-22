@@ -65,6 +65,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openExternal: (url) => ipcRenderer.invoke('open-external-url', url),
 
   /**
+   * Reset app data (backend DB + documents)
+   * @returns {Promise<{ok: boolean, error?: string}>}
+   */
+  resetAppData: () => ipcRenderer.invoke('reset-app-data'),
+
+  /**
    * Listen for activation deep links
    * @param {(url: string) => void} handler
    */

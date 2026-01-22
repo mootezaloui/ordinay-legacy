@@ -4,14 +4,19 @@
  * Blocks all app access until correct password is entered
  */
 
-import { useState, FormEvent } from "react";
+import { useEffect, useState, FormEvent } from "react";
 import { useLock } from "../../contexts/lockContext";
+import { resetAppData } from "../../services/appResetService";
 
 export default function LockScreen() {
   const { unlock } = useLock();
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isUnlocking, setIsUnlocking] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
+  const [resetConfirmText, setResetConfirmText] = useState("");
+  const [resetCountdown, setResetCountdown] = useState(6);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -35,6 +40,33 @@ export default function LockScreen() {
       setIsUnlocking(false);
     }
   };
+
+  const handleResetApp = async () => {
+    setIsResetting(true);
+    await resetAppData();
+    window.location.reload();
+  };
+
+  useEffect(() => {
+    if (!showResetConfirm) {
+      setResetConfirmText("");
+      setResetCountdown(6);
+      return;
+    }
+
+    setResetCountdown(6);
+    const timer = window.setInterval(() => {
+      setResetCountdown((prev) => {
+        if (prev <= 1) {
+          window.clearInterval(timer);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [showResetConfirm]);
 
   return (
     <div className="fixed inset-0 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center z-[9999]">
@@ -106,11 +138,83 @@ export default function LockScreen() {
           </button>
         </form>
 
+        <div className="mt-4 text-center">
+          <button
+            type="button"
+            onClick={() => setShowResetConfirm(true)}
+            className="text-xs text-slate-400 hover:text-slate-200 transition"
+          >
+            Forgot password? Reset app
+          </button>
+        </div>
+
         {/* Footer */}
         <div className="mt-8 text-center text-slate-500 text-sm">
           <p>Organia - Legal Practice Management</p>
         </div>
       </div>
+
+      {showResetConfirm && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center px-4">
+          <div
+            className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm"
+            onClick={() => !isResetting && setShowResetConfirm(false)}
+          />
+          <div className="relative w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900/90 p-6 shadow-2xl text-white">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full border border-red-500/30 bg-red-500/15 text-red-200 shadow-[0_0_0_1px_rgba(239,68,68,0.2)]">
+                <i className="fas fa-exclamation"></i>
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold">Reset app data?</h3>
+                <p className="text-xs text-slate-300 mt-1">
+                  This clears all workspace data on this device, including clients, cases, and documents. Your activation stays, but you will need to set up the workspace again.
+                </p>
+              </div>
+            </div>
+            <div className="mt-4">
+              <label className="block text-xs font-medium text-slate-300 mb-2">
+                Type RESET to confirm
+              </label>
+              <input
+                type="text"
+                value={resetConfirmText}
+                onChange={(e) => setResetConfirmText(e.target.value)}
+                placeholder="RESET"
+                className="w-full px-3 py-2 rounded-lg bg-slate-950/60 border border-slate-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <p className="text-[11px] text-slate-400 mt-2">
+                Reset is enabled in {resetCountdown} seconds.
+              </p>
+            </div>
+            <div className="mt-5 flex flex-wrap gap-2 justify-end">
+              <button
+                type="button"
+                disabled={isResetting}
+                onClick={() => setShowResetConfirm(false)}
+                className="px-4 py-2 text-sm font-medium rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-100 transition disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isResetting || resetCountdown > 0 || resetConfirmText !== "RESET"}
+                onClick={handleResetApp}
+                className="px-4 py-2 text-sm font-semibold rounded-lg bg-red-600 hover:bg-red-500 text-white transition disabled:opacity-60 flex items-center gap-2"
+              >
+                {isResetting ? (
+                  <>
+                    <i className="fas fa-spinner fa-spin"></i>
+                    Resetting...
+                  </>
+                ) : (
+                  "Reset app"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -25,6 +25,7 @@ const ACTIVATION_PROTOCOL = "organia";
 let backendProcess = null;
 let backendPort = null;
 let mainWindow = null;
+let resetting = false;
 
 // ============================================================
 // UTILITY FUNCTIONS
@@ -234,6 +235,49 @@ function stopBackend() {
   }
 }
 
+function waitFor(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function deleteIfExists(targetPath) {
+  if (!fs.existsSync(targetPath)) return;
+  const stat = fs.lstatSync(targetPath);
+  if (stat.isDirectory()) {
+    fs.rmSync(targetPath, { recursive: true, force: true });
+  } else {
+    fs.unlinkSync(targetPath);
+  }
+}
+
+async function resetBackendData() {
+  if (resetting) return;
+  resetting = true;
+
+  stopBackend();
+  await waitFor(500);
+
+  const deleteTargets = [DB_PATH, DOCUMENTS_PATH];
+  for (const target of deleteTargets) {
+    let attempts = 0;
+    while (attempts < 5) {
+      try {
+        deleteIfExists(target);
+        break;
+      } catch (error) {
+        attempts += 1;
+        if (attempts >= 5) {
+          throw error;
+        }
+        await waitFor(300);
+      }
+    }
+  }
+
+  ensureDirectories();
+  await startBackend();
+  resetting = false;
+}
+
 // ============================================================
 // WINDOW MANAGEMENT
 // ============================================================
@@ -372,6 +416,16 @@ function setupIPC() {
   // Handler to open external URLs (activation flow)
   ipcMain.handle("open-external-url", (_event, url) => {
     return shell.openExternal(url);
+  });
+
+  ipcMain.handle("reset-app-data", async () => {
+    try {
+      await resetBackendData();
+      return { ok: true };
+    } catch (error) {
+      console.error("[Electron] Reset app data failed:", error);
+      return { ok: false, error: error?.message || "Reset failed" };
+    }
   });
 
   // Window control handlers

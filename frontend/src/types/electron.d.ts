@@ -68,6 +68,11 @@ export interface ElectronAPI {
    */
   onActivationUrl: (handler: (url: string) => void) => void;
 
+  /**
+   * Reset app data (backend DB + documents)
+   */
+  resetAppData: () => Promise<{ ok: boolean; error?: string }>;
+
 }
 
 declare global {
