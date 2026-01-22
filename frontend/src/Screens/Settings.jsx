@@ -10,49 +10,48 @@ import SettingsSecurityAccess from '../components/settings/SettingsSecurityAcces
 import SettingsAdvanced from '../components/settings/SettingsAdvanced';
 import { useLocation } from 'react-router-dom';
 
-const SETTINGS_DOMAINS = [
-  {
-    id: 'general',
-    label: 'General',
-    description: 'Language, theme, and date formats.',
-    component: SettingsGeneral,
-  },
-  {
-    id: 'workspace',
-    label: 'Workspace',
-    description: 'Workspace defaults and import/export tools.',
-    component: SettingsWorkspace,
-  },
-  {
-    id: 'notifications',
-    label: 'Notifications',
-    description: 'Notification rules and reminder behavior.',
-    component: SettingsNotifications,
-  },
-  {
-    id: 'documents',
-    label: 'Documents',
-    description: 'Templates and document generation behavior.',
-    component: SettingsDocuments,
-  },
-  {
-    id: 'security',
-    label: 'Security & Access',
-    description: 'Workspace lock, license status, and access controls.',
-    component: SettingsSecurityAccess,
-  },
-  {
-    id: 'advanced',
-    label: 'Advanced',
-    description: 'Rarely used controls and training tools.',
-    component: SettingsAdvanced,
-    isAdvanced: true,
-  },
-];
-
 export default function Settings() {
   const { t } = useTranslation(['settings']);
   const location = useLocation();
+  const SETTINGS_DOMAINS = [
+    {
+      id: 'general',
+      label: t('domains.general.label'),
+      description: t('domains.general.description'),
+      component: SettingsGeneral,
+    },
+    {
+      id: 'workspace',
+      label: t('domains.workspace.label'),
+      description: t('domains.workspace.description'),
+      component: SettingsWorkspace,
+    },
+    {
+      id: 'notifications',
+      label: t('domains.notifications.label'),
+      description: t('domains.notifications.description'),
+      component: SettingsNotifications,
+    },
+    {
+      id: 'documents',
+      label: t('domains.documents.label'),
+      description: t('domains.documents.description'),
+      component: SettingsDocuments,
+    },
+    {
+      id: 'security',
+      label: t('domains.security.label'),
+      description: t('domains.security.description'),
+      component: SettingsSecurityAccess,
+    },
+    {
+      id: 'advanced',
+      label: t('domains.advanced.label'),
+      description: t('domains.advanced.description'),
+      component: SettingsAdvanced,
+      isAdvanced: true,
+    },
+  ];
   const [activeDomainId, setActiveDomainId] = useState(SETTINGS_DOMAINS[0].id);
 
   const activeDomain = SETTINGS_DOMAINS.find((domain) => domain.id === activeDomainId) || SETTINGS_DOMAINS[0];
@@ -109,7 +108,7 @@ export default function Settings() {
           {advancedDomains.length > 0 && (
             <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
               <div className="text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-2">
-                Advanced
+                {t('domains.advanced.groupLabel')}
               </div>
               <div className="flex lg:flex-col gap-2 overflow-x-auto lg:overflow-visible pb-2 lg:pb-0">
                 {advancedDomains.map((domain) => {

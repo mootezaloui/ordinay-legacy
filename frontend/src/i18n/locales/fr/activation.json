@@ -1,0 +1,62 @@
+{
+  "states": {
+    "free": "Les limites du plan gratuit s'appliquent",
+    "unactivated": "Activer Organia sur cet appareil",
+    "activating": "Activation en cours",
+    "active": "Activation terminée",
+    "expired": "Licence expirée - Réactivez cet appareil",
+    "error": "Erreur d'activation - Réessayez"
+  },
+  "views": {
+    "waiting": {
+      "title": "Activation d'Organia",
+      "description": "Terminez le paiement dans votre navigateur. L'application s'activera automatiquement une fois le paiement terminé.",
+      "status": "En attente d'activation..."
+    },
+    "success": {
+      "title": "Activation terminée",
+      "description": "Votre appareil est maintenant activé. Les détails de la licence sont prêts."
+    },
+    "error": {
+      "title": "Échec de l'activation"
+    },
+    "freeSetup": {
+      "title": "Configuration du plan gratuit",
+      "description": "Configuration de votre plan gratuit. Un instant...",
+      "status": "Préparation du plan gratuit..."
+    },
+    "choice": {
+      "description": "Cet appareil doit être vérifié auprès du serveur d'activation d'Organia avant que l'accès en écriture soit déverrouillé."
+    }
+  },
+  "actions": {
+    "openActivation": "Rouvrir la page d'activation",
+    "back": "Retour",
+    "continue": "Continuer vers Organia",
+    "tryAgain": "Réessayer",
+    "continueFree": "Continuer avec le plan gratuit",
+    "activate": "Activer"
+  },
+  "details": {
+    "status": "Statut : {{status}}",
+    "plan": "Plan : {{plan}}",
+    "validUntil": "Valable jusqu'au : {{date}}",
+    "statusDefaults": {
+      "active": "actif"
+    },
+    "plans": {
+      "free": "gratuit",
+      "yearly": "annuel",
+      "monthly": "mensuel",
+      "perpetual": "perpétuel"
+    },
+    "validUntilValues": {
+      "lifetime": "À vie",
+      "unlimited": "Illimité",
+      "fallbackDate": "2027-01-20"
+    }
+  },
+  "errors": {
+    "activationFailed": "Échec de l'activation. Veuillez réessayer."
+  }
+}

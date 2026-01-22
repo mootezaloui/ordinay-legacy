@@ -1,0 +1,25 @@
+{
+  "banner": {
+    "messages": {
+      "FREE": "Free plan limits apply - Activate to remove limits",
+      "UNACTIVATED": "Activate Organia to unlock write access",
+      "ACTIVATING": "Activation in progress",
+      "ACTIVE": "",
+      "EXPIRED": "License expired - Activate to continue",
+      "ERROR": "License error - Reactivate required",
+      "default": "License inactive - Activate to continue"
+    }
+  },
+  "toast": {
+    "inactive": {
+      "message": "🔒 License inactive — Activate to continue",
+      "title": "License inactive"
+    }
+  },
+  "freeLimit": {
+    "title": "Free plan limit reached",
+    "message": "You have reached the free plan limit for {{label}} ({{limit}}). Organia remains free for small usage. Activate to remove limits and keep adding data.",
+    "confirm": "Activate / Upgrade",
+    "cancel": "Close"
+  }
+}

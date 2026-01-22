@@ -1,0 +1,62 @@
+{
+  "states": {
+    "free": "Free plan limits apply",
+    "unactivated": "Activate Organia on this device",
+    "activating": "Activation in progress",
+    "active": "Activation complete",
+    "expired": "License expired - Reactivate this device",
+    "error": "Activation error - Try again"
+  },
+  "views": {
+    "waiting": {
+      "title": "Activating Organia",
+      "description": "Complete payment in your browser. This app will activate automatically when payment finishes.",
+      "status": "Waiting for activation..."
+    },
+    "success": {
+      "title": "Activation complete",
+      "description": "Your device is now activated. License details are ready."
+    },
+    "error": {
+      "title": "Activation failed"
+    },
+    "freeSetup": {
+      "title": "Setting up free plan",
+      "description": "Setting up your free plan. One moment...",
+      "status": "Preparing free plan..."
+    },
+    "choice": {
+      "description": "This device must be verified with the Organia activation server before write access is unlocked."
+    }
+  },
+  "actions": {
+    "openActivation": "Open activation page again",
+    "back": "Back",
+    "continue": "Continue to Organia",
+    "tryAgain": "Try again",
+    "continueFree": "Continue with free plan",
+    "activate": "Activate"
+  },
+  "details": {
+    "status": "Status: {{status}}",
+    "plan": "Plan: {{plan}}",
+    "validUntil": "Valid Until: {{date}}",
+    "statusDefaults": {
+      "active": "active"
+    },
+    "plans": {
+      "free": "free",
+      "yearly": "yearly",
+      "monthly": "monthly",
+      "perpetual": "perpetual"
+    },
+    "validUntilValues": {
+      "lifetime": "Lifetime",
+      "unlimited": "Unlimited",
+      "fallbackDate": "2027-01-20"
+    }
+  },
+  "errors": {
+    "activationFailed": "Activation failed. Please try again."
+  }
+}

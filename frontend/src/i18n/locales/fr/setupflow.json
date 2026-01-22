@@ -1,0 +1,131 @@
+{
+  "intro": {
+    "title": "Bienvenue dans Organia",
+    "subtitle": "Configurez votre espace de travail en quelques étapes"
+  },
+  "progress": {
+    "stepOf": "Étape {{step}} sur {{total}}",
+    "labels": {
+      "profile": "Votre profil",
+      "firm": "Informations du cabinet",
+      "security": "Sécurité de l'espace de travail"
+    },
+    "localDataNote": "Toutes les données sont stockées localement sur votre appareil"
+  },
+  "steps": {
+    "profile": {
+      "title": "Votre profil",
+      "subtitle": "Parlez-nous de vous pour personnaliser votre espace de travail"
+    },
+    "firm": {
+      "title": "Informations du cabinet",
+      "subtitle": "Ajoutez des informations sur votre pratique ou votre cabinet"
+    },
+    "security": {
+      "title": "Sécurité de l'espace de travail",
+      "subtitle": "Protégez votre espace de travail avec un mot de passe"
+    }
+  },
+  "badges": {
+    "optional": "Facultatif"
+  },
+  "sections": {
+    "requiredInfo": "Informations requises",
+    "professionalDetails": "Détails professionnels",
+    "contactInformation": "Coordonnées"
+  },
+  "fields": {
+    "firstName": {
+      "label": "Prénom",
+      "placeholder": "John"
+    },
+    "lastName": {
+      "label": "Nom",
+      "placeholder": "Doe"
+    },
+    "role": {
+      "label": "Titre professionnel",
+      "placeholder": "ex. Avocat principal, consultant juridique"
+    },
+    "specialization": {
+      "label": "Spécialité",
+      "placeholder": "ex. Droit des sociétés"
+    },
+    "barNumber": {
+      "label": "Numéro de barreau",
+      "placeholder": "ABC123456"
+    },
+    "email": {
+      "label": "E-mail",
+      "placeholder": "john.doe@example.com"
+    },
+    "phone": {
+      "label": "Téléphone",
+      "placeholder": "+216 XX XXX XXX"
+    },
+    "firmName": {
+      "label": "Nom du cabinet / de la pratique",
+      "placeholder": "Cabinet & Associés"
+    },
+    "firmAddress": {
+      "label": "Adresse",
+      "placeholder": "123 rue Principale, Ville, Pays"
+    },
+    "firmPhone": {
+      "label": "Téléphone du cabinet",
+      "placeholder": "+216 XX XXX XXX"
+    },
+    "jurisdiction": {
+      "label": "Juridiction",
+      "placeholder": "ex. Tunisie"
+    },
+    "password": {
+      "label": "Mot de passe",
+      "placeholder": "Min. 6 caractères"
+    },
+    "confirmPassword": {
+      "label": "Confirmer le mot de passe",
+      "placeholder": "Saisissez à nouveau le mot de passe"
+    }
+  },
+  "hints": {
+    "editLater": "Vous pourrez modifier ces informations plus tard dans les paramètres",
+    "skipFirm": "Vous pouvez ignorer cette étape et ajouter les informations du cabinet plus tard dans les paramètres."
+  },
+  "lock": {
+    "enable": {
+      "title": "Activer le verrouillage de l'espace de travail",
+      "description": "Exiger un mot de passe pour accéder à votre espace de travail"
+    },
+    "warning": "Si vous oubliez ce mot de passe, il n'y a pas d'option de récupération. Vous devrez réinitialiser l'application pour retrouver l'accès.",
+    "options": {
+      "title": "Options de verrouillage",
+      "lockOnStartup": {
+        "title": "Verrouillage au démarrage",
+        "description": "Exiger un mot de passe au lancement de l'application"
+      },
+      "inactivityTimeout": {
+        "title": "Délai d'inactivité",
+        "description": "Verrouiller après inactivité (0 pour désactiver)"
+      }
+    },
+    "disabledNotice": "Sans verrouillage, toute personne ayant accès à cet appareil peut consulter les données de votre espace de travail. Vous pourrez l'activer plus tard dans les paramètres."
+  },
+  "units": {
+    "minutesShort": "min"
+  },
+  "actions": {
+    "back": "Retour",
+    "skip": "Ignorer",
+    "continue": "Continuer",
+    "complete": "Terminer la configuration"
+  },
+  "errors": {
+    "firstNameRequired": "Le prénom est requis",
+    "lastNameRequired": "Le nom est requis",
+    "passwordRequired": "Le mot de passe est requis",
+    "passwordTooShort": "Le mot de passe doit contenir au moins 6 caractères",
+    "passwordMismatch": "Les mots de passe ne correspondent pas",
+    "general": "Échec de la configuration. Veuillez réessayer."
+  }
+}

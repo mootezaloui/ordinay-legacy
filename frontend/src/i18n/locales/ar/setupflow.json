@@ -1,0 +1,131 @@
+{
+  "intro": {
+    "title": "مرحبًا بك في Organia",
+    "subtitle": "قم بإعداد مساحة العمل في خطوات بسيطة"
+  },
+  "progress": {
+    "stepOf": "الخطوة {{step}} من {{total}}",
+    "labels": {
+      "profile": "ملفك الشخصي",
+      "firm": "معلومات المكتب",
+      "security": "أمان مساحة العمل"
+    },
+    "localDataNote": "تُخزَّن جميع البيانات محليًا على جهازك"
+  },
+  "steps": {
+    "profile": {
+      "title": "ملفك الشخصي",
+      "subtitle": "أخبرنا عن نفسك لتخصيص مساحة العمل"
+    },
+    "firm": {
+      "title": "معلومات المكتب",
+      "subtitle": "أضف تفاصيل حول ممارستك أو مكتبك"
+    },
+    "security": {
+      "title": "أمان مساحة العمل",
+      "subtitle": "احمِ مساحة العمل باستخدام قفل بكلمة مرور"
+    }
+  },
+  "badges": {
+    "optional": "اختياري"
+  },
+  "sections": {
+    "requiredInfo": "المعلومات المطلوبة",
+    "professionalDetails": "التفاصيل المهنية",
+    "contactInformation": "معلومات الاتصال"
+  },
+  "fields": {
+    "firstName": {
+      "label": "الاسم الأول",
+      "placeholder": "John"
+    },
+    "lastName": {
+      "label": "اسم العائلة",
+      "placeholder": "Doe"
+    },
+    "role": {
+      "label": "المسمى الوظيفي",
+      "placeholder": "مثل: محامٍ أول، مستشار قانوني"
+    },
+    "specialization": {
+      "label": "التخصص",
+      "placeholder": "مثل: قانون الشركات"
+    },
+    "barNumber": {
+      "label": "رقم القيد",
+      "placeholder": "ABC123456"
+    },
+    "email": {
+      "label": "البريد الإلكتروني",
+      "placeholder": "john.doe@example.com"
+    },
+    "phone": {
+      "label": "الهاتف",
+      "placeholder": "+216 XX XXX XXX"
+    },
+    "firmName": {
+      "label": "اسم المكتب / الممارسة",
+      "placeholder": "Law Firm & Associates"
+    },
+    "firmAddress": {
+      "label": "العنوان",
+      "placeholder": "123 Main Street, City, Country"
+    },
+    "firmPhone": {
+      "label": "هاتف المكتب",
+      "placeholder": "+216 XX XXX XXX"
+    },
+    "jurisdiction": {
+      "label": "الاختصاص القضائي",
+      "placeholder": "مثل: تونس"
+    },
+    "password": {
+      "label": "كلمة المرور",
+      "placeholder": "الحد الأدنى 6 أحرف"
+    },
+    "confirmPassword": {
+      "label": "تأكيد كلمة المرور",
+      "placeholder": "أعد إدخال كلمة المرور"
+    }
+  },
+  "hints": {
+    "editLater": "يمكنك تعديل هذه المعلومات لاحقًا من الإعدادات",
+    "skipFirm": "يمكنك تخطي هذه الخطوة وإضافة معلومات المكتب لاحقًا من الإعدادات."
+  },
+  "lock": {
+    "enable": {
+      "title": "تفعيل قفل مساحة العمل",
+      "description": "يتطلب كلمة مرور للوصول إلى مساحة العمل"
+    },
+    "warning": "إذا نسيت كلمة المرور هذه، فلا توجد طريقة للاستعادة. ستحتاج إلى إعادة ضبط التطبيق لاستعادة الوصول.",
+    "options": {
+      "title": "خيارات القفل",
+      "lockOnStartup": {
+        "title": "القفل عند بدء التشغيل",
+        "description": "يتطلب كلمة مرور عند تشغيل التطبيق"
+      },
+      "inactivityTimeout": {
+        "title": "مهلة عدم النشاط",
+        "description": "القفل بعد الخمول (0 للإيقاف)"
+      }
+    },
+    "disabledNotice": "بدون قفل، يمكن لأي شخص لديه وصول إلى هذا الجهاز عرض بيانات مساحة العمل. يمكنك تفعيل ذلك لاحقًا من الإعدادات."
+  },
+  "units": {
+    "minutesShort": "د"
+  },
+  "actions": {
+    "back": "رجوع",
+    "skip": "تخطي",
+    "continue": "متابعة",
+    "complete": "إكمال الإعداد"
+  },
+  "errors": {
+    "firstNameRequired": "الاسم الأول مطلوب",
+    "lastNameRequired": "اسم العائلة مطلوب",
+    "passwordRequired": "كلمة المرور مطلوبة",
+    "passwordTooShort": "يجب أن تتكون كلمة المرور من 6 أحرف على الأقل",
+    "passwordMismatch": "كلمتا المرور غير متطابقتين",
+    "general": "تعذر إكمال الإعداد. يرجى المحاولة مرة أخرى."
+  }
+}

@@ -160,5 +160,196 @@
         "system": "Système"
       }
     }
+  },
+  "domains": {
+    "general": {
+      "label": "Général",
+      "description": "Langue, thème et formats de date."
+    },
+    "workspace": {
+      "label": "Espace de travail",
+      "description": "Paramètres par défaut et outils d'import/export."
+    },
+    "notifications": {
+      "label": "Notifications",
+      "description": "Règles de notification et rappels."
+    },
+    "documents": {
+      "label": "Documents",
+      "description": "Modèles et génération de documents."
+    },
+    "security": {
+      "label": "Sécurité & accès",
+      "description": "Verrouillage, statut de licence et contrôles d'accès."
+    },
+    "advanced": {
+      "label": "Avancé",
+      "description": "Contrôles peu utilisés et outils de formation.",
+      "groupLabel": "Avancé"
+    }
+  },
+  "securityAccess": {
+    "workspaceLock": {
+      "title": "Verrouillage de l'espace de travail",
+      "header": {
+        "title": "Protection de l'espace de travail",
+        "enabledDescription": "Les espaces verrouillés nécessitent un mot de passe au démarrage ou après inactivité.",
+        "disabledDescription": "Ajoutez un mot de passe local pour protéger les données sensibles des clients."
+      },
+      "status": {
+        "enabled": "Activé",
+        "disabled": "Désactivé"
+      },
+      "why": {
+        "title": "Pourquoi verrouiller cet espace de travail ?",
+        "items": {
+          "protectsData": "Protège les données clients quand vous vous absentez.",
+          "autoLock": "Verrouillage automatique après inactivité ou au démarrage.",
+          "localOnly": "Mot de passe local uniquement, aucun compte en ligne requis."
+        }
+      },
+      "actions": {
+        "setup": "Configurer le verrouillage de l'espace de travail",
+        "enable": "Activer le verrouillage",
+        "cancel": "Annuler",
+        "changePassword": "Changer le mot de passe",
+        "updatePassword": "Mettre à jour le mot de passe",
+        "lockNow": "Verrouiller maintenant",
+        "disable": "Désactiver le verrouillage"
+      },
+      "preview": {
+        "title": "Aperçu de la sécurité",
+        "description": "Configurez la protection au démarrage et l'inactivité avant d'activer.",
+        "cards": {
+          "lockOnStartup": {
+            "title": "Verrouillage au démarrage",
+            "description": "Exiger un mot de passe au lancement."
+          },
+          "inactivity": {
+            "title": "Verrouillage par inactivité",
+            "description": "Verrouillage automatique après un délai défini."
+          }
+        }
+      },
+      "form": {
+        "title": "Configurer le verrouillage de l'espace de travail",
+        "subtitle": "Choisissez un mot de passe local et le comportement du verrou.",
+        "warning": "Si vous oubliez ce mot de passe, il n'y a pas de récupération. Vous devrez réinitialiser l'application pour retrouver l'accès. Nous recommandons fortement de le noter et de le conserver en lieu sûr.",
+        "fields": {
+          "password": {
+            "label": "Mot de passe",
+            "placeholder": "Saisissez le mot de passe (min. 6 caractères)"
+          },
+          "confirmPassword": {
+            "label": "Confirmer le mot de passe",
+            "placeholder": "Saisissez à nouveau le mot de passe"
+          },
+          "lockOnStartup": {
+            "label": "Verrouillage au démarrage",
+            "description": "Exiger un mot de passe lorsque l'application s'ouvre."
+          },
+          "inactivityTimeout": {
+            "label": "Verrouiller après inactivité (minutes)",
+            "hint": "Utilisez 0 pour désactiver le verrouillage automatique."
+          }
+        }
+      },
+      "settings": {
+        "title": "Paramètres de verrouillage",
+        "subtitle": "Affinez quand le verrou s'active.",
+        "lockOnStartup": {
+          "label": "Verrouillage au démarrage",
+          "description": "Exiger un mot de passe au démarrage de l'application."
+        },
+        "inactivityTimeout": {
+          "label": "Délai d'inactivité (minutes)",
+          "disabled": "Le verrouillage automatique est désactivé.",
+          "enabled": "Verrouille après {{minutes}} minutes d'inactivité."
+        }
+      },
+      "changePassword": {
+        "title": "Changer le mot de passe",
+        "fields": {
+          "currentPassword": "Mot de passe actuel",
+          "newPassword": "Nouveau mot de passe",
+          "confirmNewPassword": "Confirmer le nouveau mot de passe",
+          "newPasswordPlaceholder": "Min. 6 caractères"
+        }
+      },
+      "messages": {
+        "lockEnabled": "Verrouillage de l'espace de travail activé",
+        "lockDisabled": "Verrouillage de l'espace de travail désactivé",
+        "passwordChanged": "Mot de passe modifié avec succès",
+        "settingsUpdated": "Paramètres mis à jour"
+      },
+      "errors": {
+        "passwordRequired": "Le mot de passe est requis",
+        "passwordTooShort": "Le mot de passe doit contenir au moins 6 caractères",
+        "passwordMismatch": "Les mots de passe ne correspondent pas",
+        "allFieldsRequired": "Tous les champs de mot de passe sont requis",
+        "newPasswordTooShort": "Le nouveau mot de passe doit contenir au moins 6 caractères",
+        "newPasswordMismatch": "Les nouveaux mots de passe ne correspondent pas",
+        "currentPasswordIncorrect": "Le mot de passe actuel est incorrect"
+      },
+      "disableConfirm": {
+        "title": "Désactiver le verrouillage de l'espace de travail ?",
+        "description": "Votre espace de travail ne sera plus protégé jusqu'à ce que vous le réactiviez."
+      }
+    },
+    "license": {
+      "title": "Licence",
+      "statusLabel": "Statut",
+      "statusDescription": "Licence locale sur cet appareil",
+      "status": {
+        "free": "Plan gratuit",
+        "unactivated": "Non activé",
+        "activating": "Activation en cours",
+        "active": "Actif",
+        "expired": "Expiré",
+        "error": "Erreur",
+        "inactive": "Inactif"
+      },
+      "plan": {
+        "paid": "Plan payant (Illimité)",
+        "free": "Plan gratuit (Phase de test)"
+      },
+      "labels": {
+        "unknown": "Inconnu",
+        "notApplicable": "N/A",
+        "never": "Jamais"
+      },
+      "cards": {
+        "licenseType": "Type de licence",
+        "nextBilling": "Prochaine facturation",
+        "expirationDate": "Date d'expiration",
+        "currentPlan": "Plan actuel",
+        "planLimits": "Limites du plan"
+      },
+      "planLimits": {
+        "clients": "Plan gratuit : Clients {{count}}",
+        "dossiers": "Plan gratuit : Dossiers {{count}}",
+        "casesPerDossier": "Plan gratuit : Affaires par dossier {{count}}",
+        "activeTasks": "Plan gratuit : Tâches actives {{count}}",
+        "paidUnlimited": "Plan payant : Illimité"
+      },
+      "freePlanNote": "L'accès gratuit est limité par l'échelle d'utilisation. Passez à la version payante pour supprimer les limites.",
+      "actions": {
+        "activate": "Activer / Mettre à niveau"
+      },
+      "emptyState": "Aucune licence activée.",
+      "errors": {
+        "activationFailed": "Échec de l'activation. Veuillez réessayer."
+      },
+      "referral": {
+        "title": "Inviter un collègue",
+        "subtitle": "Partagez votre lien de parrainage une fois l'activation terminée.",
+        "loading": "Récupération du lien de parrainage...",
+        "unavailable": "Lien de parrainage indisponible",
+        "retry": "Réessayer",
+        "copyLink": "Copier le lien",
+        "copied": "Copié",
+        "copyFailed": "Échec de la copie. Veuillez réessayer."
+      }
+    }
   }
 }

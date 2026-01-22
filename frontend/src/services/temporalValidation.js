@@ -25,6 +25,7 @@
  */
 
 import { formatDateValue } from "../utils/dateFormat";
+import { i18nInstance } from "../i18n";
 
 // Live entities are injected via the context parameter.
 let entities = {
@@ -50,6 +51,11 @@ const loadEntities = (context = {}) => {
 };
 
 const getAllMissions = () => entities.missions || [];
+
+const tCommon = (key, options = {}) =>
+  i18nInstance.t(key, { ns: "common", ...options });
+const tTemporal = (key, options = {}) =>
+  tCommon(`detail.blocker.temporal.${key}`, options);
 
 // ========================================
 // CORE DATE UTILITIES
@@ -145,7 +151,7 @@ function combineDateAndTime(dateStr, timeStr) {
  */
 function formatDate(dateInput) {
   const date = parseDate(dateInput);
-  if (!date) return "invalid date";
+  if (!date) return tTemporal("invalidDate");
 
   return formatDateValue(date);
 }
@@ -314,9 +320,9 @@ function validateClientDates(clientData, action, context = {}) {
   if (clientData.dateOfBirth) {
     if (isInFuture(clientData.dateOfBirth)) {
       blockers.push(
-        `The birth date (${formatDate(
-          clientData.dateOfBirth
-        )}) cannot be in the future.`
+        tTemporal("birthDateFuture", {
+          date: formatDate(clientData.dateOfBirth),
+        })
       );
     }
 
@@ -325,14 +331,14 @@ function validateClientDates(clientData, action, context = {}) {
     const yearDiff = new Date().getFullYear() - birthDate.getFullYear();
     if (yearDiff > 120) {
       warnings.push(
-        `The birth date indicates an age of ${yearDiff} years. Please verify this date.`
+        tTemporal("birthDateAgeUnusual", { years: yearDiff })
       );
     }
 
     // Warning: Minor client (under 18)
     if (yearDiff < 18) {
       warnings.push(
-        `The client would be a minor (${yearDiff} years old). Verify that a legal guardian is registered.`
+        tTemporal("birthDateMinor", { years: yearDiff })
       );
     }
   }
@@ -341,9 +347,9 @@ function validateClientDates(clientData, action, context = {}) {
   if (clientData.joinDate) {
     if (isInFuture(clientData.joinDate)) {
       blockers.push(
-        `The registration date (${formatDate(
-          clientData.joinDate
-        )}) cannot be in the future.`
+        tTemporal("registrationDateFuture", {
+          date: formatDate(clientData.joinDate),
+        })
       );
     }
   }
@@ -366,9 +372,9 @@ function validateDossierDates(dossierData, action, context = {}) {
   if (dossierData.openDate) {
     if (isInFuture(dossierData.openDate)) {
       blockers.push(
-        `The opening date (${formatDate(
-          dossierData.openDate
-        )}) cannot be in the future.`
+        tTemporal("openingDateFuture", {
+          date: formatDate(dossierData.openDate),
+        })
       );
     }
   }
@@ -384,11 +390,10 @@ function validateDossierDates(dossierData, action, context = {}) {
     if (client && client.joinDate) {
       if (compareDates(dossierData.openDate, client.joinDate) === -1) {
         blockers.push(
-          `The dossier opening date (${formatDate(
-            dossierData.openDate
-          )}) cannot be before the client's registration date (${formatDate(
-            client.joinDate
-          )}).`
+          tTemporal("dossierOpenBeforeClient", {
+            openDate: formatDate(dossierData.openDate),
+            joinDate: formatDate(client.joinDate),
+          })
         );
       }
     }
@@ -398,9 +403,9 @@ function validateDossierDates(dossierData, action, context = {}) {
   if (dossierData.nextDeadline) {
     if (isInPast(dossierData.nextDeadline)) {
       warnings.push(
-        `The next deadline (${formatDate(
-          dossierData.nextDeadline
-        )}) is in the past. Consider updating it.`
+        tTemporal("nextDeadlinePast", {
+          date: formatDate(dossierData.nextDeadline),
+        })
       );
     }
   }
@@ -409,11 +414,10 @@ function validateDossierDates(dossierData, action, context = {}) {
   if (dossierData.closeDate && dossierData.openDate) {
     if (compareDates(dossierData.closeDate, dossierData.openDate) <= 0) {
       blockers.push(
-        `The closing date (${formatDate(
-          dossierData.closeDate
-        )}) must be after the opening date (${formatDate(
-          dossierData.openDate
-        )}).`
+        tTemporal("closingDateAfterOpening", {
+          closeDate: formatDate(dossierData.closeDate),
+          openDate: formatDate(dossierData.openDate),
+        })
       );
     }
   }
@@ -430,7 +434,7 @@ function validateDossierDates(dossierData, action, context = {}) {
 
     if (openCases.length > 0) {
       blockers.push(
-        `Cannot close the dossier: ${openCases.length} lawsuit(s) are still in progress.`
+        tTemporal("cannotCloseDossierOpenCases", { count: openCases.length })
       );
     }
   }
@@ -453,9 +457,9 @@ function validateCaseDates(caseData, action, context = {}) {
   if (caseData.filingDate) {
     if (isInFuture(caseData.filingDate)) {
       blockers.push(
-        `The filing date (${formatDate(
-          caseData.filingDate
-        )}) cannot be in the future.`
+        tTemporal("filingDateFuture", {
+          date: formatDate(caseData.filingDate),
+        })
       );
     }
   }
@@ -466,11 +470,10 @@ function validateCaseDates(caseData, action, context = {}) {
     if (dossier && dossier.openDate) {
       if (compareDates(caseData.filingDate, dossier.openDate) === -1) {
         blockers.push(
-          `The lawsuit filing date (${formatDate(
-            caseData.filingDate
-          )}) cannot be before the dossier opening date (${formatDate(
-            dossier.openDate
-          )}).`
+          tTemporal("filingBeforeDossierOpen", {
+            filingDate: formatDate(caseData.filingDate),
+            openDate: formatDate(dossier.openDate),
+          })
         );
       }
     }
@@ -480,9 +483,9 @@ function validateCaseDates(caseData, action, context = {}) {
   if (caseData.nextHearing) {
     if (isInPast(caseData.nextHearing)) {
       warnings.push(
-        `The next hearing (${formatDate(
-          caseData.nextHearing
-        )}) is in the past. Update this date.`
+        tTemporal("nextHearingPast", {
+          date: formatDate(caseData.nextHearing),
+        })
       );
     }
   }
@@ -491,9 +494,10 @@ function validateCaseDates(caseData, action, context = {}) {
   if (caseData.closeDate && caseData.filingDate) {
     if (compareDates(caseData.closeDate, caseData.filingDate) <= 0) {
       blockers.push(
-        `The closing date (${formatDate(
-          caseData.closeDate
-        )}) must be after the filing date (${formatDate(caseData.filingDate)}).`
+        tTemporal("closingDateAfterFiling", {
+          closeDate: formatDate(caseData.closeDate),
+          filingDate: formatDate(caseData.filingDate),
+        })
       );
     }
   }
@@ -512,7 +516,9 @@ function validateCaseDates(caseData, action, context = {}) {
 
     if (futureSessions.length > 0) {
       blockers.push(
-        `Cannot close the lawsuit: ${futureSessions.length} future hearing(s) are still scheduled.`
+        tTemporal("cannotCloseLawsuitFutureHearings", {
+          count: futureSessions.length,
+        })
       );
     }
   }
@@ -521,11 +527,10 @@ function validateCaseDates(caseData, action, context = {}) {
   if (caseData.judgmentDate && caseData.filingDate) {
     if (compareDates(caseData.judgmentDate, caseData.filingDate) === -1) {
       blockers.push(
-        `The judgment date (${formatDate(
-          caseData.judgmentDate
-        )}) cannot be before the filing date (${formatDate(
-          caseData.filingDate
-        )}).`
+        tTemporal("judgmentBeforeFiling", {
+          judgmentDate: formatDate(caseData.judgmentDate),
+          filingDate: formatDate(caseData.filingDate),
+        })
       );
     }
   }
@@ -552,7 +557,9 @@ function validateTaskDates(taskData, action, context = {}) {
     ) {
       if (isInPast(taskData.dueDate)) {
         blockers.push(
-          `The due date (${formatDate(taskData.dueDate)}) is in the past.`
+          tTemporal("dueDatePast", {
+            date: formatDate(taskData.dueDate),
+          })
         );
       }
     }
@@ -564,11 +571,10 @@ function validateTaskDates(taskData, action, context = {}) {
     if (parentCase && parentCase.nextHearing) {
       if (compareDates(taskData.dueDate, parentCase.nextHearing) === 1) {
         warnings.push(
-          `The task due date (${formatDate(
-            taskData.dueDate
-          )}) is after the lawsuit's next hearing (${formatDate(
-            parentCase.nextHearing
-          )}). Verify consistency.`
+          tTemporal("taskDueAfterHearing", {
+            dueDate: formatDate(taskData.dueDate),
+            hearingDate: formatDate(parentCase.nextHearing),
+          })
         );
       }
     }
@@ -594,7 +600,7 @@ function validateTaskDates(taskData, action, context = {}) {
         parent.status === "Clos";
       if (isClosed) {
         blockers.push(
-          `Cannot create a task: the ${parentType} parent is already closed.`
+          tTemporal("taskParentClosed", { parentType })
         );
       }
     }
@@ -604,11 +610,10 @@ function validateTaskDates(taskData, action, context = {}) {
   if (taskData.completionDate && taskData.createdDate) {
     if (compareDates(taskData.completionDate, taskData.createdDate) === -1) {
       blockers.push(
-        `The completion date (${formatDate(
-          taskData.completionDate
-        )}) cannot be before the creation date (${formatDate(
-          taskData.createdDate
-        )}).`
+        tTemporal("completionBeforeCreation", {
+          completionDate: formatDate(taskData.completionDate),
+          createdDate: formatDate(taskData.createdDate),
+        })
       );
     }
   }
@@ -617,11 +622,10 @@ function validateTaskDates(taskData, action, context = {}) {
   if (taskData.startDate && taskData.dueDate) {
     if (compareDates(taskData.startDate, taskData.dueDate) === 1) {
       blockers.push(
-        `The start date (${formatDate(
-          taskData.startDate
-        )}) must be before the due date (${formatDate(
-          taskData.dueDate
-        )}).`
+        tTemporal("startAfterDue", {
+          startDate: formatDate(taskData.startDate),
+          dueDate: formatDate(taskData.dueDate),
+        })
       );
     }
   }
@@ -648,9 +652,9 @@ function validateSessionDates(sessionData, action, context = {}) {
     ) {
       if (isInPast(sessionData.date)) {
         blockers.push(
-          `The hearing date (${formatDate(
-            sessionData.date
-          )}) is in the past, but its status is not "Completed".`
+          tTemporal("hearingDatePastStatus", {
+            date: formatDate(sessionData.date),
+          })
         );
       }
     }
@@ -669,7 +673,10 @@ function validateSessionDates(sessionData, action, context = {}) {
 
     if (startDateTime && endDateTime && endDateTime <= startDateTime) {
       blockers.push(
-        `The end time (${sessionData.endTime}) must be after the start time (${sessionData.time}).`
+        tTemporal("endTimeBeforeStart", {
+          endTime: sessionData.endTime,
+          startTime: sessionData.time,
+        })
       );
     }
   }
@@ -684,9 +691,9 @@ function validateSessionDates(sessionData, action, context = {}) {
       if (isClosed && parentCase.closeDate && sessionData.date) {
         if (compareDates(sessionData.date, parentCase.closeDate) === 1) {
           blockers.push(
-            `The hearing cannot be scheduled after the lawsuit is closed (${formatDate(
-              parentCase.closeDate
-            )}).`
+            tTemporal("hearingAfterCaseClosed", {
+              closeDate: formatDate(parentCase.closeDate),
+            })
           );
         }
       }
@@ -694,7 +701,7 @@ function validateSessionDates(sessionData, action, context = {}) {
       // Create action
       if (action === "create" && isClosed) {
         blockers.push(
-          `Cannot create a hearing: the parent lawsuit is already closed.`
+          tTemporal("hearingCreateClosedCase")
         );
       }
     }
@@ -709,9 +716,9 @@ function validateSessionDates(sessionData, action, context = {}) {
       if (isClosed && parentDossier.closeDate && sessionData.date) {
         if (compareDates(sessionData.date, parentDossier.closeDate) === 1) {
           blockers.push(
-            `The hearing cannot be scheduled after the dossier's closing date (${formatDate(
-              parentDossier.closeDate
-            )}).`
+            tTemporal("hearingAfterDossierClosed", {
+              closeDate: formatDate(parentDossier.closeDate),
+            })
           );
         }
       }
@@ -719,7 +726,7 @@ function validateSessionDates(sessionData, action, context = {}) {
       // Create action
       if (action === "create" && isClosed) {
         blockers.push(
-          `Cannot create a hearing : the parent dossier is already closed.`
+          tTemporal("hearingCreateClosedDossier")
         );
       }
     }
@@ -731,11 +738,10 @@ function validateSessionDates(sessionData, action, context = {}) {
     if (parentCase && parentCase.filingDate) {
       if (compareDates(sessionData.date, parentCase.filingDate) === -1) {
         blockers.push(
-          `The hearing date (${formatDate(
-            sessionData.date
-          )}) cannot be before the lawsuit's filing date (${formatDate(
-            parentCase.filingDate
-          )}).`
+          tTemporal("hearingBeforeFiling", {
+            date: formatDate(sessionData.date),
+            filingDate: formatDate(parentCase.filingDate),
+          })
         );
       }
     }
@@ -759,9 +765,9 @@ function validateMissionDates(missionData, action, context = {}) {
   if (missionData.assignDate) {
     if (isInFuture(missionData.assignDate)) {
       blockers.push(
-        `The assignment date (${formatDate(
-          missionData.assignDate
-        )}) cannot be in the future.`
+        tTemporal("assignmentDateFuture", {
+          date: formatDate(missionData.assignDate),
+        })
       );
     }
   }
@@ -770,11 +776,10 @@ function validateMissionDates(missionData, action, context = {}) {
   if (missionData.dueDate && missionData.assignDate) {
     if (compareDates(missionData.dueDate, missionData.assignDate) <= 0) {
       blockers.push(
-        `The due date (${formatDate(
-          missionData.dueDate
-        )}) must be after the assignment date (${formatDate(
-          missionData.assignDate
-        )}).`
+        tTemporal("missionDueAfterAssign", {
+          dueDate: formatDate(missionData.dueDate),
+          assignDate: formatDate(missionData.assignDate),
+        })
       );
     }
   }
@@ -787,9 +792,10 @@ function validateMissionDates(missionData, action, context = {}) {
   ) {
     if (isInPast(missionData.dueDate)) {
       warnings.push(
-        `The mission's due date (${formatDate(
-          missionData.dueDate
-        )}) is overdue. Current status: ${missionData.status}.`
+        tTemporal("missionDueOverdue", {
+          dueDate: formatDate(missionData.dueDate),
+          status: missionData.status,
+        })
       );
     }
   }
@@ -800,11 +806,10 @@ function validateMissionDates(missionData, action, context = {}) {
       compareDates(missionData.completionDate, missionData.assignDate) === -1
     ) {
       blockers.push(
-        `The completion date (${formatDate(
-          missionData.completionDate
-        )}) cannot be before the assignment date (${formatDate(
-          missionData.assignDate
-        )}).`
+        tTemporal("missionCompletionBeforeAssign", {
+          completionDate: formatDate(missionData.completionDate),
+          assignDate: formatDate(missionData.assignDate),
+        })
       );
     }
   }
@@ -827,7 +832,7 @@ function validateMissionDates(missionData, action, context = {}) {
         parent.status === "Closed" || parent.status === "Completed";
       if (isClosed) {
         blockers.push(
-          `Cannot create a mission: the ${parentType} parent is already closed.`
+          tTemporal("missionParentClosed", { parentType })
         );
       }
     }
@@ -851,9 +856,7 @@ function validateFinancialDates(financialData, action, context = {}) {
   if (financialData.date) {
     if (isInFuture(financialData.date)) {
       blockers.push(
-        `The entry date (${formatDate(
-          financialData.date
-        )}) cannot be in the future.`
+        tTemporal("entryDateFuture", { date: formatDate(financialData.date) })
       );
     }
   }
@@ -862,11 +865,10 @@ function validateFinancialDates(financialData, action, context = {}) {
   if (financialData.dueDate && financialData.date) {
     if (compareDates(financialData.dueDate, financialData.date) === -1) {
       blockers.push(
-        `The due date (${formatDate(
-          financialData.dueDate
-        )}) need to be posterior or equal to the entry date (${formatDate(
-          financialData.date
-        )}).`
+        tTemporal("financialDueBeforeEntry", {
+          dueDate: formatDate(financialData.dueDate),
+          entryDate: formatDate(financialData.date),
+        })
       );
     }
   }
@@ -875,11 +877,10 @@ function validateFinancialDates(financialData, action, context = {}) {
   if (financialData.paymentDate && financialData.date) {
     if (compareDates(financialData.paymentDate, financialData.date) === -1) {
       blockers.push(
-        `The payment date (${formatDate(
-          financialData.paymentDate
-        )}) cannot be before the entry date (${formatDate(
-          financialData.date
-        )}).`
+        tTemporal("paymentBeforeEntry", {
+          paymentDate: formatDate(financialData.paymentDate),
+          entryDate: formatDate(financialData.date),
+        })
       );
     }
   }
@@ -892,9 +893,9 @@ function validateFinancialDates(financialData, action, context = {}) {
   ) {
     if (isInPast(financialData.dueDate)) {
       warnings.push(
-        `This entry is overdue. Due date passed: ${formatDate(
-          financialData.dueDate
-        )}.`
+        tTemporal("entryOverdue", {
+          dueDate: formatDate(financialData.dueDate),
+        })
       );
     }
   }
@@ -905,11 +906,10 @@ function validateFinancialDates(financialData, action, context = {}) {
     if (client && client.joinDate) {
       if (compareDates(financialData.date, client.joinDate) === -1) {
         blockers.push(
-          `The entry date (${formatDate(
-            financialData.date
-          )}) cannot be before the client's registration date (${formatDate(
-            client.joinDate
-          )}).`
+          tTemporal("entryBeforeClientJoin", {
+            entryDate: formatDate(financialData.date),
+            joinDate: formatDate(client.joinDate),
+          })
         );
       }
     }
@@ -921,9 +921,9 @@ function validateFinancialDates(financialData, action, context = {}) {
     if (dossier && dossier.closeDate) {
       if (compareDates(financialData.date, dossier.closeDate) === 1) {
         warnings.push(
-          `The entry is dated after the dossier closure (${formatDate(
-            dossier.closeDate
-          )}). Verify consistency.`
+          tTemporal("entryAfterDossierClose", {
+            closeDate: formatDate(dossier.closeDate),
+          })
         );
       }
     }
@@ -947,7 +947,9 @@ function validatePersonalTaskDates(personalTaskData, action, context = {}) {
   if (personalTaskData.dueDate && personalTaskData.status !== "Completed") {
     if (isInPast(personalTaskData.dueDate)) {
       blockers.push(
-        `The due date (${formatDate(personalTaskData.dueDate)}) is overdue.`
+        tTemporal("personalTaskDueOverdue", {
+          date: formatDate(personalTaskData.dueDate),
+        })
       );
     }
   }
@@ -956,9 +958,9 @@ function validatePersonalTaskDates(personalTaskData, action, context = {}) {
   if (personalTaskData.completionDate) {
     if (isInFuture(personalTaskData.completionDate)) {
       blockers.push(
-        `The completion date (${formatDate(
-          personalTaskData.completionDate
-        )}) cannot be in the future.`
+        tTemporal("personalTaskCompletionFuture", {
+          date: formatDate(personalTaskData.completionDate),
+        })
       );
     }
   }
@@ -1018,9 +1020,7 @@ export function validateTemporalConstraints(
     return validator(entityData, action, context);
   } catch (error) {
     console.error(`Error in temporal validation for ${entityType}:`, error);
-    return validationResult(false, [
-      `Temporal validation error. Please check the entered dates.`,
-    ]);
+    return validationResult(false, [tTemporal("genericError")]);
   }
 }
 

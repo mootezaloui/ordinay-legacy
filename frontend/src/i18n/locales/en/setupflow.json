@@ -1,0 +1,131 @@
+{
+  "intro": {
+    "title": "Welcome to Organia",
+    "subtitle": "Set up your workspace in a few simple steps"
+  },
+  "progress": {
+    "stepOf": "Step {{step}} of {{total}}",
+    "labels": {
+      "profile": "Your Profile",
+      "firm": "Firm Information",
+      "security": "Workspace Security"
+    },
+    "localDataNote": "All data is stored locally on your device"
+  },
+  "steps": {
+    "profile": {
+      "title": "Your Profile",
+      "subtitle": "Tell us about yourself to personalize your workspace"
+    },
+    "firm": {
+      "title": "Firm Information",
+      "subtitle": "Add details about your practice or firm"
+    },
+    "security": {
+      "title": "Workspace Security",
+      "subtitle": "Protect your workspace with a password lock"
+    }
+  },
+  "badges": {
+    "optional": "Optional"
+  },
+  "sections": {
+    "requiredInfo": "Required Information",
+    "professionalDetails": "Professional Details",
+    "contactInformation": "Contact Information"
+  },
+  "fields": {
+    "firstName": {
+      "label": "First Name",
+      "placeholder": "John"
+    },
+    "lastName": {
+      "label": "Last Name",
+      "placeholder": "Doe"
+    },
+    "role": {
+      "label": "Professional Title",
+      "placeholder": "e.g., Senior Attorney, Legal Consultant"
+    },
+    "specialization": {
+      "label": "Specialization",
+      "placeholder": "e.g., Corporate Law"
+    },
+    "barNumber": {
+      "label": "Bar Number",
+      "placeholder": "ABC123456"
+    },
+    "email": {
+      "label": "Email",
+      "placeholder": "john.doe@example.com"
+    },
+    "phone": {
+      "label": "Phone",
+      "placeholder": "+216 XX XXX XXX"
+    },
+    "firmName": {
+      "label": "Firm / Practice Name",
+      "placeholder": "Law Firm & Associates"
+    },
+    "firmAddress": {
+      "label": "Address",
+      "placeholder": "123 Main Street, City, Country"
+    },
+    "firmPhone": {
+      "label": "Firm Phone",
+      "placeholder": "+216 XX XXX XXX"
+    },
+    "jurisdiction": {
+      "label": "Jurisdiction",
+      "placeholder": "e.g., Tunisia"
+    },
+    "password": {
+      "label": "Password",
+      "placeholder": "Min. 6 characters"
+    },
+    "confirmPassword": {
+      "label": "Confirm Password",
+      "placeholder": "Re-enter password"
+    }
+  },
+  "hints": {
+    "editLater": "You can edit these details later in Settings",
+    "skipFirm": "You can skip this step and add firm details later in Settings."
+  },
+  "lock": {
+    "enable": {
+      "title": "Enable workspace lock",
+      "description": "Require a password to access your workspace"
+    },
+    "warning": "If you forget this password, there is no recovery option. You will need to reset the app to regain access.",
+    "options": {
+      "title": "Lock Options",
+      "lockOnStartup": {
+        "title": "Lock on startup",
+        "description": "Require password when app launches"
+      },
+      "inactivityTimeout": {
+        "title": "Inactivity timeout",
+        "description": "Lock after idle (0 to disable)"
+      }
+    },
+    "disabledNotice": "Without a lock, anyone with access to this device can view your workspace data. You can enable this later in Settings."
+  },
+  "units": {
+    "minutesShort": "min"
+  },
+  "actions": {
+    "back": "Back",
+    "skip": "Skip",
+    "continue": "Continue",
+    "complete": "Complete Setup"
+  },
+  "errors": {
+    "firstNameRequired": "First name is required",
+    "lastNameRequired": "Last name is required",
+    "passwordRequired": "Password is required",
+    "passwordTooShort": "Password must be at least 6 characters",
+    "passwordMismatch": "Passwords do not match",
+    "general": "Failed to complete setup. Please try again."
+  }
+}

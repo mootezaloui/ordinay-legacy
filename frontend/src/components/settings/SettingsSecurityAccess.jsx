@@ -59,29 +59,29 @@ export default function SettingsSecurityAccess() {
     setLockSuccess("");
 
     if (!formData.password) {
-      setLockError("Password is required");
+      setLockError(t("securityAccess.workspaceLock.errors.passwordRequired"));
       return;
     }
 
     if (formData.password.length < 6) {
-      setLockError("Password must be at least 6 characters");
+      setLockError(t("securityAccess.workspaceLock.errors.passwordTooShort"));
       return;
     }
 
     if (formData.password !== formData.confirmPassword) {
-      setLockError("Passwords do not match");
+      setLockError(t("securityAccess.workspaceLock.errors.passwordMismatch"));
       return;
     }
 
     enableLock(formData.password, formData.lockOnStartup, formData.inactivityTimeout);
-    setLockSuccess("Workspace lock enabled successfully");
+    setLockSuccess(t("securityAccess.workspaceLock.messages.lockEnabled"));
     setShowEnableForm(false);
     resetLockForms();
   };
 
   const handleDisableLock = () => {
     disableLock();
-    setLockSuccess("Workspace lock disabled");
+    setLockSuccess(t("securityAccess.workspaceLock.messages.lockDisabled"));
     resetLockForms();
     setShowDisableConfirm(false);
   };
@@ -91,33 +91,33 @@ export default function SettingsSecurityAccess() {
     setLockSuccess("");
 
     if (!formData.currentPassword || !formData.newPassword) {
-      setLockError("All password fields are required");
+      setLockError(t("securityAccess.workspaceLock.errors.allFieldsRequired"));
       return;
     }
 
     if (formData.newPassword.length < 6) {
-      setLockError("New password must be at least 6 characters");
+      setLockError(t("securityAccess.workspaceLock.errors.newPasswordTooShort"));
       return;
     }
 
     if (formData.newPassword !== formData.confirmNewPassword) {
-      setLockError("New passwords do not match");
+      setLockError(t("securityAccess.workspaceLock.errors.newPasswordMismatch"));
       return;
     }
 
     const success = changePassword(formData.currentPassword, formData.newPassword);
     if (success) {
-      setLockSuccess("Password changed successfully");
+      setLockSuccess(t("securityAccess.workspaceLock.messages.passwordChanged"));
       setShowChangePassword(false);
       resetLockForms();
     } else {
-      setLockError("Current password is incorrect");
+      setLockError(t("securityAccess.workspaceLock.errors.currentPasswordIncorrect"));
     }
   };
 
   const handleLockSettingsUpdate = (field, value) => {
     updateSettings({ [field]: value });
-    setLockSuccess("Settings updated");
+    setLockSuccess(t("securityAccess.workspaceLock.messages.settingsUpdated"));
     setTimeout(() => setLockSuccess(""), 2000);
   };
 
@@ -127,13 +127,13 @@ export default function SettingsSecurityAccess() {
   };
 
   const licenseTypeLabel = () => {
-    if (!licenseData?.license_type) return "Unknown";
+    if (!licenseData?.license_type) return t("securityAccess.license.labels.unknown");
     return licenseData.license_type.charAt(0).toUpperCase() + licenseData.license_type.slice(1);
   };
 
   const licenseNextBilling = () => {
     if (!licenseData) return "-";
-    if (licenseData.license_type === "perpetual") return "N/A";
+    if (licenseData.license_type === "perpetual") return t("securityAccess.license.labels.notApplicable");
     return formatLicenseDate(licenseData.expires_at);
   };
 
@@ -155,8 +155,8 @@ export default function SettingsSecurityAccess() {
       }
     } catch (error) {
       console.error("[License] Activation launch failed:", error);
-      setActivationError("Activation failed. Please try again.");
-      setActivationState("ERROR", "Activation failed");
+      setActivationError(t("securityAccess.license.errors.activationFailed"));
+      setActivationState("ERROR", t("securityAccess.license.errors.activationFailed"));
     } finally {
       setActivationBusy(false);
     }
@@ -183,13 +183,13 @@ export default function SettingsSecurityAccess() {
         } else {
           setReferralLink("");
           setReferralStatus("error");
-          setReferralMessage(result.error || "Referral link unavailable");
+          setReferralMessage(result.error || t("securityAccess.license.referral.unavailable"));
         }
       } catch (error) {
         if (!active) return;
         setReferralLink("");
         setReferralStatus("error");
-        setReferralMessage("Referral link unavailable");
+        setReferralMessage(t("securityAccess.license.referral.unavailable"));
       }
     };
     loadReferralLink();
@@ -205,7 +205,7 @@ export default function SettingsSecurityAccess() {
       setReferralCopied(true);
       setTimeout(() => setReferralCopied(false), 1500);
     } catch (error) {
-      setReferralMessage("Copy failed. Please try again.");
+      setReferralMessage(t("securityAccess.license.referral.copyFailed"));
     }
   };
 
@@ -220,29 +220,31 @@ export default function SettingsSecurityAccess() {
     } else {
       setReferralLink("");
       setReferralStatus("error");
-      setReferralMessage(result.error || "Referral link unavailable");
+      setReferralMessage(result.error || t("securityAccess.license.referral.unavailable"));
     }
   };
 
 
   const licenseStatusLabel = () => {
     const labels = {
-      FREE: "Free plan",
-      UNACTIVATED: "Unactivated",
-      ACTIVATING: "Activating",
-      ACTIVE: "Active",
-      EXPIRED: "Expired",
-      ERROR: "Error",
+      FREE: t("securityAccess.license.status.free"),
+      UNACTIVATED: t("securityAccess.license.status.unactivated"),
+      ACTIVATING: t("securityAccess.license.status.activating"),
+      ACTIVE: t("securityAccess.license.status.active"),
+      EXPIRED: t("securityAccess.license.status.expired"),
+      ERROR: t("securityAccess.license.status.error"),
     };
-    return labels[licenseState] || "Inactive";
+    return labels[licenseState] || t("securityAccess.license.status.inactive");
   };
 
   const isPaidPlan = licenseState === "ACTIVE";
-  const planLabel = isPaidPlan ? "Paid plan (Unlimited)" : "Free plan (Test phase)";
+  const planLabel = isPaidPlan
+    ? t("securityAccess.license.plan.paid")
+    : t("securityAccess.license.plan.free");
 
   return (
     <div className="space-y-6">
-      <ContentSection title="Workspace Lock">
+      <ContentSection title={t("securityAccess.workspaceLock.title")}>
         <div className="relative overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 p-6">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.12),_transparent_55%)] dark:bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.12),_transparent_60%)]" />
           <div className="relative space-y-6">
@@ -255,12 +257,12 @@ export default function SettingsSecurityAccess() {
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-slate-900 dark:text-white">
-                    Workspace protection
+                    {t("securityAccess.workspaceLock.header.title")}
                   </p>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-md">
                     {isEnabled
-                      ? "Locked workspaces require a password at startup or after inactivity."
-                      : "Add a local password to keep sensitive client data protected."}
+                      ? t("securityAccess.workspaceLock.header.enabledDescription")
+                      : t("securityAccess.workspaceLock.header.disabledDescription")}
                   </p>
                 </div>
               </div>
@@ -268,12 +270,12 @@ export default function SettingsSecurityAccess() {
                 {isEnabled ? (
                   <span className="px-3 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 text-xs font-medium rounded-full flex items-center gap-1">
                     <i className="fas fa-lock"></i>
-                    Enabled
+                    {t("securityAccess.workspaceLock.status.enabled")}
                   </span>
                 ) : (
                   <span className="px-3 py-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-medium rounded-full flex items-center gap-1">
                     <i className="fas fa-unlock"></i>
-                    Disabled
+                    {t("securityAccess.workspaceLock.status.disabled")}
                   </span>
                 )}
               </div>
@@ -297,20 +299,20 @@ export default function SettingsSecurityAccess() {
                 <div className="space-y-4">
                   <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900/40 p-4">
                     <h4 className="text-sm font-semibold text-slate-900 dark:text-white">
-                      Why lock this workspace?
+                      {t("securityAccess.workspaceLock.why.title")}
                     </h4>
                     <ul className="mt-3 space-y-2 text-xs text-slate-600 dark:text-slate-300">
                       <li className="flex items-start gap-2">
                         <i className="fas fa-check text-emerald-600 mt-0.5"></i>
-                        <span>Protects client data when you step away.</span>
+                        <span>{t("securityAccess.workspaceLock.why.items.protectsData")}</span>
                       </li>
                       <li className="flex items-start gap-2">
                         <i className="fas fa-check text-emerald-600 mt-0.5"></i>
-                        <span>Auto-lock after inactivity or on startup.</span>
+                        <span>{t("securityAccess.workspaceLock.why.items.autoLock")}</span>
                       </li>
                       <li className="flex items-start gap-2">
                         <i className="fas fa-check text-emerald-600 mt-0.5"></i>
-                        <span>Local-only password, no online account required.</span>
+                        <span>{t("securityAccess.workspaceLock.why.items.localOnly")}</span>
                       </li>
                     </ul>
                   </div>
@@ -320,7 +322,7 @@ export default function SettingsSecurityAccess() {
                       className="w-full sm:w-auto px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
                     >
                       <i className="fas fa-lock"></i>
-                      Set up workspace lock
+                      {t("securityAccess.workspaceLock.actions.setup")}
                     </button>
                   )}
                 </div>
@@ -328,19 +330,27 @@ export default function SettingsSecurityAccess() {
                 {!showEnableForm ? (
                   <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/40 p-5">
                     <h4 className="text-sm font-semibold text-slate-900 dark:text-white">
-                      Security preview
+                      {t("securityAccess.workspaceLock.preview.title")}
                     </h4>
                     <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                      Configure startup and inactivity protection before enabling.
+                      {t("securityAccess.workspaceLock.preview.description")}
                     </p>
                     <div className="mt-4 grid gap-3 sm:grid-cols-2">
                       <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 px-3 py-3">
-                        <p className="text-xs font-medium text-slate-700 dark:text-slate-200">Lock on startup</p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Require a password at launch.</p>
+                        <p className="text-xs font-medium text-slate-700 dark:text-slate-200">
+                          {t("securityAccess.workspaceLock.preview.cards.lockOnStartup.title")}
+                        </p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                          {t("securityAccess.workspaceLock.preview.cards.lockOnStartup.description")}
+                        </p>
                       </div>
                       <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 px-3 py-3">
-                        <p className="text-xs font-medium text-slate-700 dark:text-slate-200">Inactivity lock</p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Auto-lock after set minutes.</p>
+                        <p className="text-xs font-medium text-slate-700 dark:text-slate-200">
+                          {t("securityAccess.workspaceLock.preview.cards.inactivity.title")}
+                        </p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                          {t("securityAccess.workspaceLock.preview.cards.inactivity.description")}
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -348,10 +358,10 @@ export default function SettingsSecurityAccess() {
                   <div className="space-y-4 p-5 bg-white/70 dark:bg-slate-900/40 rounded-xl border border-slate-200 dark:border-slate-800">
                     <div>
                       <h4 className="text-sm font-semibold text-slate-900 dark:text-white">
-                        Set up workspace lock
+                        {t("securityAccess.workspaceLock.form.title")}
                       </h4>
                       <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                        Choose a local password and how the lock behaves.
+                        {t("securityAccess.workspaceLock.form.subtitle")}
                       </p>
                     </div>
 
@@ -359,7 +369,7 @@ export default function SettingsSecurityAccess() {
                       <div className="flex items-start gap-2">
                         <i className="fas fa-triangle-exclamation mt-0.5"></i>
                         <span>
-                          If you forget this password, there is no recovery. You will need to reset the app to regain access. we strongly recommend writing it down and keeping it safe.
+                          {t("securityAccess.workspaceLock.form.warning")}
                         </span>
                       </div>
                     </div>
@@ -367,26 +377,26 @@ export default function SettingsSecurityAccess() {
                     <div className="space-y-3">
                       <div>
                         <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                          Password
+                          {t("securityAccess.workspaceLock.form.fields.password.label")}
                         </label>
                         <input
                           type="password"
                           value={formData.password}
                           onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                          placeholder="Enter password (min. 6 characters)"
+                          placeholder={t("securityAccess.workspaceLock.form.fields.password.placeholder")}
                           className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                       </div>
 
                       <div>
                         <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                          Confirm password
+                          {t("securityAccess.workspaceLock.form.fields.confirmPassword.label")}
                         </label>
                         <input
                           type="password"
                           value={formData.confirmPassword}
                           onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                          placeholder="Re-enter password"
+                          placeholder={t("securityAccess.workspaceLock.form.fields.confirmPassword.placeholder")}
                           className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                       </div>
@@ -394,10 +404,10 @@ export default function SettingsSecurityAccess() {
                       <div className="flex items-center justify-between py-2">
                         <div>
                           <label className="text-xs font-medium text-slate-700 dark:text-slate-300">
-                            Lock on startup
+                            {t("securityAccess.workspaceLock.form.fields.lockOnStartup.label")}
                           </label>
                           <p className="text-xs text-slate-500 dark:text-slate-400">
-                            Require password when the app opens.
+                            {t("securityAccess.workspaceLock.form.fields.lockOnStartup.description")}
                           </p>
                         </div>
                         <button
@@ -412,7 +422,7 @@ export default function SettingsSecurityAccess() {
 
                       <div>
                         <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                          Lock after inactivity (minutes)
+                          {t("securityAccess.workspaceLock.form.fields.inactivityTimeout.label")}
                         </label>
                         <input
                           type="number"
@@ -423,7 +433,7 @@ export default function SettingsSecurityAccess() {
                           className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                         <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                          Use 0 to disable automatic lock.
+                          {t("securityAccess.workspaceLock.form.fields.inactivityTimeout.hint")}
                         </p>
                       </div>
                     </div>
@@ -433,7 +443,7 @@ export default function SettingsSecurityAccess() {
                         onClick={handleEnableLock}
                         className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
                       >
-                        Enable lock
+                        {t("securityAccess.workspaceLock.actions.enable")}
                       </button>
                       <button
                         onClick={() => {
@@ -442,7 +452,7 @@ export default function SettingsSecurityAccess() {
                         }}
                         className="px-4 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 text-sm font-medium rounded-lg transition-colors"
                       >
-                        Cancel
+                        {t("securityAccess.workspaceLock.actions.cancel")}
                       </button>
                     </div>
                   </div>
@@ -453,20 +463,20 @@ export default function SettingsSecurityAccess() {
                 <div className="space-y-4 p-5 bg-white/70 dark:bg-slate-900/40 rounded-xl border border-slate-200 dark:border-slate-800">
                   <div>
                     <h4 className="text-sm font-semibold text-slate-900 dark:text-white">
-                      Lock settings
+                      {t("securityAccess.workspaceLock.settings.title")}
                     </h4>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                      Fine-tune when the lock activates.
+                      {t("securityAccess.workspaceLock.settings.subtitle")}
                     </p>
                   </div>
 
                   <div className="flex items-center justify-between py-2">
                     <div>
                       <label className="text-xs font-medium text-slate-700 dark:text-slate-300">
-                        Lock on startup
+                        {t("securityAccess.workspaceLock.settings.lockOnStartup.label")}
                       </label>
                       <p className="text-xs text-slate-500 dark:text-slate-400">
-                        Require password when app starts.
+                        {t("securityAccess.workspaceLock.settings.lockOnStartup.description")}
                       </p>
                     </div>
                     <button
@@ -481,7 +491,7 @@ export default function SettingsSecurityAccess() {
 
                   <div>
                     <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                      Inactivity timeout (minutes)
+                      {t("securityAccess.workspaceLock.settings.inactivityTimeout.label")}
                     </label>
                     <input
                       type="number"
@@ -493,8 +503,10 @@ export default function SettingsSecurityAccess() {
                     />
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                       {config?.inactivityTimeout === 0
-                        ? "Automatic lock is disabled."
-                        : `Locks after ${config?.inactivityTimeout} minutes of inactivity.`}
+                        ? t("securityAccess.workspaceLock.settings.inactivityTimeout.disabled")
+                        : t("securityAccess.workspaceLock.settings.inactivityTimeout.enabled", {
+                          minutes: config?.inactivityTimeout ?? 0,
+                        })}
                     </p>
                   </div>
                 </div>
@@ -506,17 +518,17 @@ export default function SettingsSecurityAccess() {
                       className="w-full px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
                     >
                       <i className="fas fa-key"></i>
-                      Change password
+                      {t("securityAccess.workspaceLock.actions.changePassword")}
                     </button>
                   ) : (
                     <div className="space-y-3 p-5 bg-white/70 dark:bg-slate-900/40 rounded-xl border border-slate-200 dark:border-slate-800">
                       <h4 className="text-sm font-semibold text-slate-900 dark:text-white">
-                        Change password
+                        {t("securityAccess.workspaceLock.changePassword.title")}
                       </h4>
 
                       <div>
                         <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                          Current password
+                          {t("securityAccess.workspaceLock.changePassword.fields.currentPassword")}
                         </label>
                         <input
                           type="password"
@@ -528,20 +540,20 @@ export default function SettingsSecurityAccess() {
 
                       <div>
                         <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                          New password
+                          {t("securityAccess.workspaceLock.changePassword.fields.newPassword")}
                         </label>
                         <input
                           type="password"
                           value={formData.newPassword}
                           onChange={(e) => setFormData({ ...formData, newPassword: e.target.value })}
-                          placeholder="Min. 6 characters"
+                          placeholder={t("securityAccess.workspaceLock.changePassword.fields.newPasswordPlaceholder")}
                           className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                       </div>
 
                       <div>
                         <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                          Confirm new password
+                          {t("securityAccess.workspaceLock.changePassword.fields.confirmNewPassword")}
                         </label>
                         <input
                           type="password"
@@ -556,7 +568,7 @@ export default function SettingsSecurityAccess() {
                           onClick={handleChangePassword}
                           className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
                         >
-                          Update password
+                          {t("securityAccess.workspaceLock.actions.updatePassword")}
                         </button>
                         <button
                           onClick={() => {
@@ -565,7 +577,7 @@ export default function SettingsSecurityAccess() {
                           }}
                           className="px-4 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 text-sm font-medium rounded-lg transition-colors"
                         >
-                          Cancel
+                          {t("securityAccess.workspaceLock.actions.cancel")}
                         </button>
                       </div>
                     </div>
@@ -577,7 +589,7 @@ export default function SettingsSecurityAccess() {
                       className="px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
                     >
                       <i className="fas fa-lock"></i>
-                      Lock now
+                      {t("securityAccess.workspaceLock.actions.lockNow")}
                     </button>
 
                     <button
@@ -585,7 +597,7 @@ export default function SettingsSecurityAccess() {
                       className="px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
                     >
                       <i className="fas fa-lock-open"></i>
-                      Disable lock
+                      {t("securityAccess.workspaceLock.actions.disable")}
                     </button>
                   </div>
                 </div>
@@ -595,15 +607,15 @@ export default function SettingsSecurityAccess() {
         </div>
       </ContentSection>
 
-      <ContentSection title="License">
+      <ContentSection title={t("securityAccess.license.title")}>
         <div className="p-6 space-y-4">
           <div className="flex items-center justify-between">
             <div>
               <label className="text-sm font-medium text-slate-900 dark:text-white">
-                Status
+                {t("securityAccess.license.statusLabel")}
               </label>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                Local license on this device
+                {t("securityAccess.license.statusDescription")}
               </p>
             </div>
             <span className={`px-3 py-1 text-xs font-medium rounded-full flex items-center gap-1 ${licenseState === "ACTIVE"
@@ -626,7 +638,7 @@ export default function SettingsSecurityAccess() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div className="p-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40">
                 <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                  License Type
+                  {t("securityAccess.license.cards.licenseType")}
                 </p>
                 <p className="mt-2 text-sm font-semibold text-slate-900 dark:text-white">
                   {licenseTypeLabel()}
@@ -636,7 +648,7 @@ export default function SettingsSecurityAccess() {
                 <>
                   <div className="p-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40">
                     <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                      Next Billing
+                      {t("securityAccess.license.cards.nextBilling")}
                     </p>
                     <p className="mt-2 text-sm font-semibold text-slate-900 dark:text-white">
                       {licenseNextBilling()}
@@ -644,10 +656,12 @@ export default function SettingsSecurityAccess() {
                   </div>
                   <div className="p-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40">
                     <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                      Expiration Date
+                      {t("securityAccess.license.cards.expirationDate")}
                     </p>
                     <p className="mt-2 text-sm font-semibold text-slate-900 dark:text-white">
-                      {licenseData.expires_at === null ? "Never" : formatLicenseDate(licenseData.expires_at)}
+                      {licenseData.expires_at === null
+                        ? t("securityAccess.license.labels.never")
+                        : formatLicenseDate(licenseData.expires_at)}
                     </p>
                   </div>
                 </>
@@ -655,34 +669,50 @@ export default function SettingsSecurityAccess() {
             </div>
           ) : (
             <div className="p-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-600 dark:text-slate-300">
-              No license Activated.
+              {t("securityAccess.license.emptyState")}
             </div>
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="p-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40">
               <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                Current Plan
+                {t("securityAccess.license.cards.currentPlan")}
               </p>
               <p className="mt-2 text-sm font-semibold text-slate-900 dark:text-white">
                 {planLabel}
               </p>
               {!isPaidPlan && (
                 <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                  Free access is limited by usage scale. Upgrade to remove limits.
+                  {t("securityAccess.license.freePlanNote")}
                 </p>
               )}
             </div>
             <div className="p-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40">
               <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                Plan Limits
+                {t("securityAccess.license.cards.planLimits")}
               </p>
               <div className="mt-2 text-xs text-slate-600 dark:text-slate-300 space-y-1">
-                <div>Free plan: Clients {FREE_PLAN_LIMITS.clients}</div>
-                <div>Free plan: Dossiers {FREE_PLAN_LIMITS.dossiers}</div>
-                <div>Free plan: Cases per dossier {FREE_PLAN_LIMITS.casesPerDossier}</div>
-                <div>Free plan: Active tasks {FREE_PLAN_LIMITS.activeTasks}</div>
-                <div>Paid plan: Unlimited</div>
+                <div>
+                  {t("securityAccess.license.planLimits.clients", {
+                    count: FREE_PLAN_LIMITS.clients,
+                  })}
+                </div>
+                <div>
+                  {t("securityAccess.license.planLimits.dossiers", {
+                    count: FREE_PLAN_LIMITS.dossiers,
+                  })}
+                </div>
+                <div>
+                  {t("securityAccess.license.planLimits.casesPerDossier", {
+                    count: FREE_PLAN_LIMITS.casesPerDossier,
+                  })}
+                </div>
+                <div>
+                  {t("securityAccess.license.planLimits.activeTasks", {
+                    count: FREE_PLAN_LIMITS.activeTasks,
+                  })}
+                </div>
+                <div>{t("securityAccess.license.planLimits.paidUnlimited")}</div>
               </div>
             </div>
           </div>
@@ -695,7 +725,7 @@ export default function SettingsSecurityAccess() {
                 disabled={activationBusy || licenseState === "ACTIVATING"}
               >
                 <i className="fas fa-bolt"></i>
-                Activate / Upgrade
+                {t("securityAccess.license.actions.activate")}
               </button>
               {activationError && (
                 <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg flex items-center gap-2 text-amber-700 dark:text-amber-300 text-sm">
@@ -710,29 +740,29 @@ export default function SettingsSecurityAccess() {
             <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/40 p-4 space-y-3">
               <div>
                 <p className="text-sm font-semibold text-slate-900 dark:text-white">
-                  Invite a colleague
+                  {t("securityAccess.license.referral.title")}
                 </p>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Share your referral link after activation is complete.
+                  {t("securityAccess.license.referral.subtitle")}
                 </p>
               </div>
               {referralStatus === "loading" && (
                 <div className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-2">
                   <i className="fas fa-spinner fa-spin"></i>
-                  Fetching referral link...
+                  {t("securityAccess.license.referral.loading")}
                 </div>
               )}
               {referralStatus === "error" && (
                 <div className="space-y-2">
                   <div className="text-xs text-amber-600 dark:text-amber-300 flex items-center gap-2">
                     <i className="fas fa-exclamation-triangle"></i>
-                    <span>{referralMessage || "Referral link unavailable"}</span>
+                    <span>{referralMessage || t("securityAccess.license.referral.unavailable")}</span>
                   </div>
                   <button
                     onClick={handleRefreshReferral}
                     className="px-3 py-2 text-xs font-semibold rounded-lg bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 transition"
                   >
-                    Retry
+                    {t("securityAccess.license.referral.retry")}
                   </button>
                 </div>
               )}
@@ -749,7 +779,9 @@ export default function SettingsSecurityAccess() {
                       onClick={handleCopyReferral}
                       className="px-3 py-2 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white transition"
                     >
-                      {referralCopied ? "Copied" : "Copy link"}
+                      {referralCopied
+                        ? t("securityAccess.license.referral.copied")
+                        : t("securityAccess.license.referral.copyLink")}
                     </button>
                   </div>
                   {referralMessage && (
@@ -777,10 +809,10 @@ export default function SettingsSecurityAccess() {
               </div>
               <div>
                 <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
-                  Disable workspace lock?
+                  {t("securityAccess.workspaceLock.disableConfirm.title")}
                 </h3>
                 <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">
-                  Your workspace will no longer be protected until you enable it again.
+                  {t("securityAccess.workspaceLock.disableConfirm.description")}
                 </p>
               </div>
             </div>
@@ -789,13 +821,13 @@ export default function SettingsSecurityAccess() {
                 onClick={() => setShowDisableConfirm(false)}
                 className="px-4 py-2 text-sm font-medium rounded-lg bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 transition"
               >
-                Cancel
+                {t("securityAccess.workspaceLock.actions.cancel")}
               </button>
               <button
                 onClick={handleDisableLock}
                 className="px-4 py-2 text-sm font-semibold rounded-lg bg-red-600 hover:bg-red-700 text-white transition"
               >
-                Disable lock
+                {t("securityAccess.workspaceLock.actions.disable")}
               </button>
             </div>
           </div>

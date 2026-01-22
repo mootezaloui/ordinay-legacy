@@ -1,0 +1,32 @@
+{
+  "title": "Organia Workspace Locked",
+  "subtitle": "Enter your password to access your workspace",
+  "fields": {
+    "password": {
+      "label": "Password",
+      "placeholder": "Enter password"
+    },
+    "resetConfirm": {
+      "label": "Type {{token}} to confirm",
+      "placeholder": "{{token}}"
+    }
+  },
+  "actions": {
+    "unlock": "Unlock Workspace",
+    "unlocking": "Unlocking...",
+    "forgotReset": "Forgot password? Reset app",
+    "cancel": "Cancel",
+    "reset": "Reset app",
+    "resetting": "Resetting..."
+  },
+  "errors": {
+    "passwordRequired": "Please enter your password",
+    "passwordIncorrect": "Incorrect password"
+  },
+  "footer": "Organia - Legal Practice Management",
+  "reset": {
+    "title": "Reset app data?",
+    "description": "This clears all workspace data on this device, including clients, cases, and documents. Your activation stays, but you will need to set up the workspace again.",
+    "countdown": "Reset is enabled in {{seconds}} seconds."
+  }
+}

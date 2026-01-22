@@ -160,5 +160,196 @@
         "system": "النظام"
       }
     }
+  },
+  "domains": {
+    "general": {
+      "label": "عام",
+      "description": "اللغة والمظهر وتنسيقات التاريخ."
+    },
+    "workspace": {
+      "label": "مساحة العمل",
+      "description": "إعدادات المساحة وأدوات الاستيراد/التصدير."
+    },
+    "notifications": {
+      "label": "الإشعارات",
+      "description": "قواعد الإشعارات وسلوك التذكيرات."
+    },
+    "documents": {
+      "label": "المستندات",
+      "description": "القوالب وسلوك إنشاء المستندات."
+    },
+    "security": {
+      "label": "الأمان والوصول",
+      "description": "قفل مساحة العمل وحالة الترخيص وضوابط الوصول."
+    },
+    "advanced": {
+      "label": "متقدم",
+      "description": "عناصر نادرة الاستخدام وأدوات التدريب.",
+      "groupLabel": "متقدم"
+    }
+  },
+  "securityAccess": {
+    "workspaceLock": {
+      "title": "قفل مساحة العمل",
+      "header": {
+        "title": "حماية مساحة العمل",
+        "enabledDescription": "تتطلب مساحات العمل المقفلة كلمة مرور عند التشغيل أو بعد عدم النشاط.",
+        "disabledDescription": "أضف كلمة مرور محلية لحماية بيانات العملاء الحساسة."
+      },
+      "status": {
+        "enabled": "مفعّل",
+        "disabled": "معطّل"
+      },
+      "why": {
+        "title": "لماذا قفل مساحة العمل؟",
+        "items": {
+          "protectsData": "يحمي بيانات العملاء عندما تبتعد.",
+          "autoLock": "قفل تلقائي بعد عدم النشاط أو عند التشغيل.",
+          "localOnly": "كلمة مرور محلية فقط، بدون حساب عبر الإنترنت."
+        }
+      },
+      "actions": {
+        "setup": "إعداد قفل مساحة العمل",
+        "enable": "تفعيل القفل",
+        "cancel": "إلغاء",
+        "changePassword": "تغيير كلمة المرور",
+        "updatePassword": "تحديث كلمة المرور",
+        "lockNow": "قفل الآن",
+        "disable": "تعطيل القفل"
+      },
+      "preview": {
+        "title": "معاينة الأمان",
+        "description": "اضبط الحماية عند التشغيل وعدم النشاط قبل التفعيل.",
+        "cards": {
+          "lockOnStartup": {
+            "title": "القفل عند التشغيل",
+            "description": "يتطلب كلمة مرور عند الإطلاق."
+          },
+          "inactivity": {
+            "title": "قفل عدم النشاط",
+            "description": "قفل تلقائي بعد دقائق محددة."
+          }
+        }
+      },
+      "form": {
+        "title": "إعداد قفل مساحة العمل",
+        "subtitle": "اختر كلمة مرور محلية وكيفية عمل القفل.",
+        "warning": "إذا نسيت كلمة المرور، فلا توجد استعادة. ستحتاج إلى إعادة ضبط التطبيق لاستعادة الوصول. نوصي بشدة بتدوينها وحفظها بأمان.",
+        "fields": {
+          "password": {
+            "label": "كلمة المرور",
+            "placeholder": "أدخل كلمة المرور (الحد الأدنى 6 أحرف)"
+          },
+          "confirmPassword": {
+            "label": "تأكيد كلمة المرور",
+            "placeholder": "أعد إدخال كلمة المرور"
+          },
+          "lockOnStartup": {
+            "label": "القفل عند التشغيل",
+            "description": "يتطلب كلمة مرور عند فتح التطبيق."
+          },
+          "inactivityTimeout": {
+            "label": "القفل بعد عدم النشاط (بالدقائق)",
+            "hint": "استخدم 0 لتعطيل القفل التلقائي."
+          }
+        }
+      },
+      "settings": {
+        "title": "إعدادات القفل",
+        "subtitle": "اضبط متى يتم تفعيل القفل.",
+        "lockOnStartup": {
+          "label": "القفل عند التشغيل",
+          "description": "يتطلب كلمة مرور عند بدء التطبيق."
+        },
+        "inactivityTimeout": {
+          "label": "مهلة عدم النشاط (بالدقائق)",
+          "disabled": "تم تعطيل القفل التلقائي.",
+          "enabled": "يقفل بعد {{minutes}} دقيقة من عدم النشاط."
+        }
+      },
+      "changePassword": {
+        "title": "تغيير كلمة المرور",
+        "fields": {
+          "currentPassword": "كلمة المرور الحالية",
+          "newPassword": "كلمة المرور الجديدة",
+          "confirmNewPassword": "تأكيد كلمة المرور الجديدة",
+          "newPasswordPlaceholder": "الحد الأدنى 6 أحرف"
+        }
+      },
+      "messages": {
+        "lockEnabled": "تم تفعيل قفل مساحة العمل بنجاح",
+        "lockDisabled": "تم تعطيل قفل مساحة العمل",
+        "passwordChanged": "تم تغيير كلمة المرور بنجاح",
+        "settingsUpdated": "تم تحديث الإعدادات"
+      },
+      "errors": {
+        "passwordRequired": "كلمة المرور مطلوبة",
+        "passwordTooShort": "يجب أن تتكون كلمة المرور من 6 أحرف على الأقل",
+        "passwordMismatch": "كلمتا المرور غير متطابقتين",
+        "allFieldsRequired": "جميع حقول كلمة المرور مطلوبة",
+        "newPasswordTooShort": "يجب أن تتكون كلمة المرور الجديدة من 6 أحرف على الأقل",
+        "newPasswordMismatch": "كلمتا المرور الجديدتان غير متطابقتين",
+        "currentPasswordIncorrect": "كلمة المرور الحالية غير صحيحة"
+      },
+      "disableConfirm": {
+        "title": "تعطيل قفل مساحة العمل؟",
+        "description": "لن تكون مساحة العمل محمية حتى تقوم بتفعيل القفل مرة أخرى."
+      }
+    },
+    "license": {
+      "title": "الترخيص",
+      "statusLabel": "الحالة",
+      "statusDescription": "ترخيص محلي على هذا الجهاز",
+      "status": {
+        "free": "الخطة المجانية",
+        "unactivated": "غير مفعّل",
+        "activating": "جارٍ التفعيل",
+        "active": "نشط",
+        "expired": "منتهي الصلاحية",
+        "error": "خطأ",
+        "inactive": "غير نشط"
+      },
+      "plan": {
+        "paid": "الخطة المدفوعة (غير محدودة)",
+        "free": "الخطة المجانية (مرحلة تجريبية)"
+      },
+      "labels": {
+        "unknown": "غير معروف",
+        "notApplicable": "غير متاح",
+        "never": "أبدًا"
+      },
+      "cards": {
+        "licenseType": "نوع الترخيص",
+        "nextBilling": "الفوترة القادمة",
+        "expirationDate": "تاريخ الانتهاء",
+        "currentPlan": "الخطة الحالية",
+        "planLimits": "حدود الخطة"
+      },
+      "planLimits": {
+        "clients": "الخطة المجانية: العملاء {{count}}",
+        "dossiers": "الخطة المجانية: الملفات {{count}}",
+        "casesPerDossier": "الخطة المجانية: القضايا لكل ملف {{count}}",
+        "activeTasks": "الخطة المجانية: المهام النشطة {{count}}",
+        "paidUnlimited": "الخطة المدفوعة: غير محدودة"
+      },
+      "freePlanNote": "الوصول المجاني محدود بحسب حجم الاستخدام. قم بالترقية لإزالة الحدود.",
+      "actions": {
+        "activate": "تفعيل / ترقية"
+      },
+      "emptyState": "لا يوجد ترخيص مفعّل.",
+      "errors": {
+        "activationFailed": "فشل التفعيل. يرجى المحاولة مرة أخرى."
+      },
+      "referral": {
+        "title": "دعوة زميل",
+        "subtitle": "شارك رابط الإحالة بعد اكتمال التفعيل.",
+        "loading": "جارٍ جلب رابط الإحالة...",
+        "unavailable": "رابط الإحالة غير متاح",
+        "retry": "إعادة المحاولة",
+        "copyLink": "نسخ الرابط",
+        "copied": "تم النسخ",
+        "copyFailed": "فشل النسخ. يرجى المحاولة مرة أخرى."
+      }
+    }
   }
 }

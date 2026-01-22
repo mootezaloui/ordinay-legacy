@@ -38,6 +38,10 @@ const namespaceLoaders: Record<LanguageCode, NamespaceLoader> = {
     domain: await safeImport(() => import("./locales/en/domain.json"), "en/domain"),
     onboarding: await safeImport(() => import("./locales/en/onboarding.json"), "en/onboarding"),
     tutorial: await safeImport(() => import("./locales/en/tutorial.json"), "en/tutorial"),
+    setupflow: await safeImport(() => import("./locales/en/setupflow.json"), "en/setupflow"),
+    lock: await safeImport(() => import("./locales/en/lock.json"), "en/lock"),
+    activation: await safeImport(() => import("./locales/en/activation.json"), "en/activation"),
+    license: await safeImport(() => import("./locales/en/license.json"), "en/license"),
   }),
   fr: async () => ({
     common: await safeImport(() => import("./locales/fr/common.json"), "fr/common"),
@@ -60,6 +64,10 @@ const namespaceLoaders: Record<LanguageCode, NamespaceLoader> = {
     domain: await safeImport(() => import("./locales/fr/domain.json"), "fr/domain"),
     onboarding: await safeImport(() => import("./locales/fr/onboarding.json"), "fr/onboarding"),
     tutorial: await safeImport(() => import("./locales/fr/tutorial.json"), "fr/tutorial"),
+    setupflow: await safeImport(() => import("./locales/fr/setupflow.json"), "fr/setupflow"),
+    lock: await safeImport(() => import("./locales/fr/lock.json"), "fr/lock"),
+    activation: await safeImport(() => import("./locales/fr/activation.json"), "fr/activation"),
+    license: await safeImport(() => import("./locales/fr/license.json"), "fr/license"),
   }),
   ar: async () => ({
     common: await safeImport(() => import("./locales/ar/common.json"), "ar/common"),
@@ -82,6 +90,10 @@ const namespaceLoaders: Record<LanguageCode, NamespaceLoader> = {
     domain: await safeImport(() => import("./locales/ar/domain.json"), "ar/domain"),
     onboarding: await safeImport(() => import("./locales/ar/onboarding.json"), "ar/onboarding"),
     tutorial: await safeImport(() => import("./locales/ar/tutorial.json"), "ar/tutorial"),
+    setupflow: await safeImport(() => import("./locales/ar/setupflow.json"), "ar/setupflow"),
+    lock: await safeImport(() => import("./locales/ar/lock.json"), "ar/lock"),
+    activation: await safeImport(() => import("./locales/ar/activation.json"), "ar/activation"),
+    license: await safeImport(() => import("./locales/ar/license.json"), "ar/license"),
   }),
 };
 

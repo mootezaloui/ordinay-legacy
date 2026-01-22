@@ -354,7 +354,7 @@ const reconcileEntities = (clients, dossiers, cases, tasks, sessions) => {
 
 export function DataProvider({ children }) {
   const { showToast } = useToast();
-  const { t } = useTranslation("common");
+  const { t } = useTranslation(["common", "license"]);
   const { currency, formatCurrency } = useSettings();
   const { operator } = useOperator();
   const { licenseState } = useLicense();
@@ -365,8 +365,8 @@ export function DataProvider({ children }) {
   const isLicenseLocked = ["ACTIVATING", "ERROR"].includes(licenseState);
   const blockWrite = (actionLabel) => {
     if (!isLicenseLocked) return false;
-    showToastRef.current("🔒 License inactive — Activate to continue", "error", {
-      title: "License inactive",
+    showToastRef.current(t("license:toast.inactive.message"), "error", {
+      title: t("license:toast.inactive.title"),
       addToBell: false,
     });
     console.warn(`[DataContext] ${actionLabel} blocked: license inactive`);
@@ -384,12 +384,15 @@ export function DataProvider({ children }) {
       entityData,
     });
     if (limitResult.allowed) return false;
-    const message = `You have reached the free plan limit for ${limitResult.label} (${limitResult.limit}). Organia remains free for small usage. Activate to remove limits and keep adding data.`;
+    const message = t("license:freeLimit.message", {
+      label: limitResult.label,
+      limit: limitResult.limit,
+    });
     confirm({
-      title: "Free plan limit reached",
+      title: t("license:freeLimit.title"),
       message,
-      confirmText: "Activate / Upgrade",
-      cancelText: "Close",
+      confirmText: t("license:freeLimit.confirm"),
+      cancelText: t("license:freeLimit.cancel"),
       variant: "warning",
     }).then((accepted) => {
       if (accepted && typeof window !== "undefined") {

@@ -13,7 +13,7 @@ export const LANGUAGE_REGISTRY: LanguageDefinition[] = [
   { code: "ar", label: "العربية", direction: "rtl", locale: "ar-TN" },
 ];
 
-export const DEFAULT_LANGUAGE: LanguageCode = "fr";
+export const DEFAULT_LANGUAGE: LanguageCode = "en";
 export const FALLBACK_LANGUAGE: LanguageCode = DEFAULT_LANGUAGE;
 
 export const SUPPORTED_LANGUAGE_CODES: LanguageCode[] = LANGUAGE_REGISTRY.map(

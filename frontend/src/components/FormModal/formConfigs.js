@@ -1177,7 +1177,7 @@ export const officerAssignmentFormFields = [
 // INVOICE FORM (for Accounting tab)
 // ========================================
 
-export const getInvoiceFormFields = () => [
+export const getInvoiceFormFields = () => {
   const currency = getStoredCurrency();
   return [
   {
@@ -1275,6 +1275,7 @@ export const getInvoiceFormFields = () => [
     rows: 2,
   },
   ];
+};
 
 // ========================================
 // MISSION FORM (Huissier Mission)

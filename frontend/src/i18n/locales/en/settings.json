@@ -160,5 +160,196 @@
         "system": "System"
       }
     }
+  },
+  "domains": {
+    "general": {
+      "label": "General",
+      "description": "Language, theme, and date formats."
+    },
+    "workspace": {
+      "label": "Workspace",
+      "description": "Workspace defaults and import/export tools."
+    },
+    "notifications": {
+      "label": "Notifications",
+      "description": "Notification rules and reminder behavior."
+    },
+    "documents": {
+      "label": "Documents",
+      "description": "Templates and document generation behavior."
+    },
+    "security": {
+      "label": "Security & Access",
+      "description": "Workspace lock, license status, and access controls."
+    },
+    "advanced": {
+      "label": "Advanced",
+      "description": "Rarely used controls and training tools.",
+      "groupLabel": "Advanced"
+    }
+  },
+  "securityAccess": {
+    "workspaceLock": {
+      "title": "Workspace Lock",
+      "header": {
+        "title": "Workspace protection",
+        "enabledDescription": "Locked workspaces require a password at startup or after inactivity.",
+        "disabledDescription": "Add a local password to keep sensitive client data protected."
+      },
+      "status": {
+        "enabled": "Enabled",
+        "disabled": "Disabled"
+      },
+      "why": {
+        "title": "Why lock this workspace?",
+        "items": {
+          "protectsData": "Protects client data when you step away.",
+          "autoLock": "Auto-lock after inactivity or on startup.",
+          "localOnly": "Local-only password, no online account required."
+        }
+      },
+      "actions": {
+        "setup": "Set up workspace lock",
+        "enable": "Enable lock",
+        "cancel": "Cancel",
+        "changePassword": "Change password",
+        "updatePassword": "Update password",
+        "lockNow": "Lock now",
+        "disable": "Disable lock"
+      },
+      "preview": {
+        "title": "Security preview",
+        "description": "Configure startup and inactivity protection before enabling.",
+        "cards": {
+          "lockOnStartup": {
+            "title": "Lock on startup",
+            "description": "Require a password at launch."
+          },
+          "inactivity": {
+            "title": "Inactivity lock",
+            "description": "Auto-lock after set minutes."
+          }
+        }
+      },
+      "form": {
+        "title": "Set up workspace lock",
+        "subtitle": "Choose a local password and how the lock behaves.",
+        "warning": "If you forget this password, there is no recovery. You will need to reset the app to regain access. We strongly recommend writing it down and keeping it safe.",
+        "fields": {
+          "password": {
+            "label": "Password",
+            "placeholder": "Enter password (min. 6 characters)"
+          },
+          "confirmPassword": {
+            "label": "Confirm password",
+            "placeholder": "Re-enter password"
+          },
+          "lockOnStartup": {
+            "label": "Lock on startup",
+            "description": "Require password when the app opens."
+          },
+          "inactivityTimeout": {
+            "label": "Lock after inactivity (minutes)",
+            "hint": "Use 0 to disable automatic lock."
+          }
+        }
+      },
+      "settings": {
+        "title": "Lock settings",
+        "subtitle": "Fine-tune when the lock activates.",
+        "lockOnStartup": {
+          "label": "Lock on startup",
+          "description": "Require password when app starts."
+        },
+        "inactivityTimeout": {
+          "label": "Inactivity timeout (minutes)",
+          "disabled": "Automatic lock is disabled.",
+          "enabled": "Locks after {{minutes}} minutes of inactivity."
+        }
+      },
+      "changePassword": {
+        "title": "Change password",
+        "fields": {
+          "currentPassword": "Current password",
+          "newPassword": "New password",
+          "confirmNewPassword": "Confirm new password",
+          "newPasswordPlaceholder": "Min. 6 characters"
+        }
+      },
+      "messages": {
+        "lockEnabled": "Workspace lock enabled successfully",
+        "lockDisabled": "Workspace lock disabled",
+        "passwordChanged": "Password changed successfully",
+        "settingsUpdated": "Settings updated"
+      },
+      "errors": {
+        "passwordRequired": "Password is required",
+        "passwordTooShort": "Password must be at least 6 characters",
+        "passwordMismatch": "Passwords do not match",
+        "allFieldsRequired": "All password fields are required",
+        "newPasswordTooShort": "New password must be at least 6 characters",
+        "newPasswordMismatch": "New passwords do not match",
+        "currentPasswordIncorrect": "Current password is incorrect"
+      },
+      "disableConfirm": {
+        "title": "Disable workspace lock?",
+        "description": "Your workspace will no longer be protected until you enable it again."
+      }
+    },
+    "license": {
+      "title": "License",
+      "statusLabel": "Status",
+      "statusDescription": "Local license on this device",
+      "status": {
+        "free": "Free plan",
+        "unactivated": "Unactivated",
+        "activating": "Activating",
+        "active": "Active",
+        "expired": "Expired",
+        "error": "Error",
+        "inactive": "Inactive"
+      },
+      "plan": {
+        "paid": "Paid plan (Unlimited)",
+        "free": "Free plan (Test phase)"
+      },
+      "labels": {
+        "unknown": "Unknown",
+        "notApplicable": "N/A",
+        "never": "Never"
+      },
+      "cards": {
+        "licenseType": "License Type",
+        "nextBilling": "Next Billing",
+        "expirationDate": "Expiration Date",
+        "currentPlan": "Current Plan",
+        "planLimits": "Plan Limits"
+      },
+      "planLimits": {
+        "clients": "Free plan: Clients {{count}}",
+        "dossiers": "Free plan: Dossiers {{count}}",
+        "casesPerDossier": "Free plan: Cases per dossier {{count}}",
+        "activeTasks": "Free plan: Active tasks {{count}}",
+        "paidUnlimited": "Paid plan: Unlimited"
+      },
+      "freePlanNote": "Free access is limited by usage scale. Upgrade to remove limits.",
+      "actions": {
+        "activate": "Activate / Upgrade"
+      },
+      "emptyState": "No license Activated.",
+      "errors": {
+        "activationFailed": "Activation failed. Please try again."
+      },
+      "referral": {
+        "title": "Invite a colleague",
+        "subtitle": "Share your referral link after activation is complete.",
+        "loading": "Fetching referral link...",
+        "unavailable": "Referral link unavailable",
+        "retry": "Retry",
+        "copyLink": "Copy link",
+        "copied": "Copied",
+        "copyFailed": "Copy failed. Please try again."
+      }
+    }
   }
 }

@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { useSetup } from "../../contexts/SetupContext";
 import { useOperator } from "../../contexts/OperatorContext";
 import { updateOperatorForSetup, getCurrentOperator } from "../../services/api/operators";
 import { useLock } from "../../contexts/lockContext";
 
 function SetupFlow() {
+    const { t } = useTranslation("setupflow");
     const { completeSetup } = useSetup();
     const { refetchOperator } = useOperator();
     const { enableLock } = useLock();
@@ -48,6 +50,7 @@ function SetupFlow() {
     });
 
     const [errors, setErrors] = useState({});
+    const totalSteps = 3;
 
     const handleChange = (field, value) => {
         setFormData((prev) => ({ ...prev, [field]: value }));
@@ -60,10 +63,10 @@ function SetupFlow() {
         const newErrors = {};
 
         if (!formData.firstName.trim()) {
-            newErrors.firstName = "First name is required";
+            newErrors.firstName = t("errors.firstNameRequired");
         }
         if (!formData.lastName.trim()) {
-            newErrors.lastName = "Last name is required";
+            newErrors.lastName = t("errors.lastNameRequired");
         }
 
         setErrors(newErrors);
@@ -76,13 +79,13 @@ function SetupFlow() {
         const newErrors = {};
 
         if (!formData.password) {
-            newErrors.password = "Password is required";
+            newErrors.password = t("errors.passwordRequired");
         } else if (formData.password.length < 6) {
-            newErrors.password = "Password must be at least 6 characters";
+            newErrors.password = t("errors.passwordTooShort");
         }
 
         if (formData.password !== formData.confirmPassword) {
-            newErrors.confirmPassword = "Passwords do not match";
+            newErrors.confirmPassword = t("errors.passwordMismatch");
         }
 
         setErrors(newErrors);
@@ -145,14 +148,14 @@ function SetupFlow() {
             completeSetup();
         } catch (error) {
             console.error("Setup failed:", error);
-            setErrors({ general: "Failed to complete setup. Please try again." });
+            setErrors({ general: t("errors.general") });
         }
     };
 
     const stepTitles = {
-        1: { title: "Your Profile", subtitle: "Tell us about yourself to personalize your workspace" },
-        2: { title: "Firm Information", subtitle: "Add details about your practice or firm" },
-        3: { title: "Workspace Security", subtitle: "Protect your workspace with a password lock" },
+        1: { title: t("steps.profile.title"), subtitle: t("steps.profile.subtitle") },
+        2: { title: t("steps.firm.title"), subtitle: t("steps.firm.subtitle") },
+        3: { title: t("steps.security.title"), subtitle: t("steps.security.subtitle") },
     };
 
     return (
@@ -204,18 +207,18 @@ function SetupFlow() {
                             <div className="inline-flex items-center justify-center w-14 h-14 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl mb-6 shadow-lg shadow-blue-500/20 transition-transform duration-300 hover:scale-105">
                                 <i className="fas fa-scale-balanced text-white text-xl"></i>
                             </div>
-                            <h1 className="text-2xl font-semibold mb-2 tracking-tight">Welcome to Organia</h1>
+                            <h1 className="text-2xl font-semibold mb-2 tracking-tight">{t("intro.title")}</h1>
                             <p className="text-slate-400 text-sm leading-relaxed">
-                                Set up your workspace in a few simple steps
+                                {t("intro.subtitle")}
                             </p>
                         </div>
 
                         {/* Progress Steps - Vertical */}
                         <div className="space-y-1">
                             {[
-                                { num: 1, label: "Your Profile" },
-                                { num: 2, label: "Firm Information" },
-                                { num: 3, label: "Workspace Security" },
+                                { num: 1, label: t("progress.labels.profile") },
+                                { num: 2, label: t("progress.labels.firm") },
+                                { num: 3, label: t("progress.labels.security") },
                             ].map((s, idx) => (
                                 <div key={s.num} className="flex items-start gap-4">
                                     <div className="flex flex-col items-center">
@@ -248,7 +251,7 @@ function SetupFlow() {
                         </div>
 
                         <p className="text-xs text-slate-500 pt-4 border-t border-slate-800">
-                            All data is stored locally on your device
+                            {t("progress.localDataNote")}
                         </p>
                     </div>
 
@@ -259,7 +262,7 @@ function SetupFlow() {
                             <div className="flex items-start justify-between">
                                 <div key={step} className={slideDirection === "right" ? "animate-slide-in-right" : "animate-slide-in-left"}>
                                     <p className="text-xs font-medium text-blue-400 uppercase tracking-wider mb-2">
-                                        Step {step} of 3
+                                        {t("progress.stepOf", { step, total: totalSteps })}
                                     </p>
                                     <h2 className="text-xl font-semibold text-white mb-1">
                                         {stepTitles[step].title}
@@ -270,7 +273,7 @@ function SetupFlow() {
                                 </div>
                                 {step === 2 && (
                                     <span className="text-xs text-slate-500 bg-slate-800/80 px-3 py-1.5 rounded-full animate-fade-in">
-                                        Optional
+                                        {t("badges.optional")}
                                     </span>
                                 )}
                             </div>
@@ -288,11 +291,11 @@ function SetupFlow() {
                                 <div key="step1" className={`space-y-8 ${slideDirection === "right" ? "animate-slide-in-right" : "animate-slide-in-left"}`}>
                                     {/* Required Fields Group */}
                                     <div className="space-y-5 opacity-0 animate-fade-in stagger-1">
-                                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Required Information</p>
+                                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">{t("sections.requiredInfo")}</p>
                                         <div className="grid grid-cols-2 gap-5">
                                             <div className="group">
                                                 <label className="block text-sm font-medium text-slate-300 mb-2 transition-colors group-focus-within:text-blue-400">
-                                                    First Name
+                                                    {t("fields.firstName.label")}
                                                 </label>
                                                 <input
                                                     type="text"
@@ -302,7 +305,7 @@ function SetupFlow() {
                                                         ? "border-red-400/60 bg-red-500/5"
                                                         : "border-slate-700 bg-slate-800/50 hover:border-slate-600"
                                                         } rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500/40 transition-all duration-200`}
-                                                    placeholder="John"
+                                                    placeholder={t("fields.firstName.placeholder")}
                                                 />
                                                 {errors.firstName && (
                                                     <p className="mt-1.5 text-xs text-red-400 animate-fade-in">{errors.firstName}</p>
@@ -310,7 +313,7 @@ function SetupFlow() {
                                             </div>
                                             <div className="group">
                                                 <label className="block text-sm font-medium text-slate-300 mb-2 transition-colors group-focus-within:text-blue-400">
-                                                    Last Name
+                                                    {t("fields.lastName.label")}
                                                 </label>
                                                 <input
                                                     type="text"
@@ -320,7 +323,7 @@ function SetupFlow() {
                                                         ? "border-red-400/60 bg-red-500/5"
                                                         : "border-slate-700 bg-slate-800/50 hover:border-slate-600"
                                                         } rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500/40 transition-all duration-200`}
-                                                    placeholder="Doe"
+                                                    placeholder={t("fields.lastName.placeholder")}
                                                 />
                                                 {errors.lastName && (
                                                     <p className="mt-1.5 text-xs text-red-400 animate-fade-in">{errors.lastName}</p>
@@ -331,42 +334,42 @@ function SetupFlow() {
 
                                     {/* Professional Details Group */}
                                     <div className="space-y-5 opacity-0 animate-fade-in stagger-2">
-                                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Professional Details</p>
+                                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">{t("sections.professionalDetails")}</p>
                                         <div className="group">
                                             <label className="block text-sm font-medium text-slate-300 mb-2 transition-colors group-focus-within:text-blue-400">
-                                                Professional Title
+                                                {t("fields.role.label")}
                                             </label>
                                             <input
                                                 type="text"
                                                 value={formData.role}
                                                 onChange={(e) => handleChange("role", e.target.value)}
                                                 className="w-full px-4 py-2.5 border border-slate-700 bg-slate-800/50 hover:border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500/40 transition-all duration-200"
-                                                placeholder="e.g., Senior Attorney, Legal Consultant"
+                                                placeholder={t("fields.role.placeholder")}
                                             />
                                         </div>
                                         <div className="grid grid-cols-2 gap-5">
                                             <div className="group">
                                                 <label className="block text-sm font-medium text-slate-300 mb-2 transition-colors group-focus-within:text-blue-400">
-                                                    Specialization
+                                                    {t("fields.specialization.label")}
                                                 </label>
                                                 <input
                                                     type="text"
                                                     value={formData.specialization}
                                                     onChange={(e) => handleChange("specialization", e.target.value)}
                                                     className="w-full px-4 py-2.5 border border-slate-700 bg-slate-800/50 hover:border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500/40 transition-all duration-200"
-                                                    placeholder="e.g., Corporate Law"
+                                                    placeholder={t("fields.specialization.placeholder")}
                                                 />
                                             </div>
                                             <div className="group">
                                                 <label className="block text-sm font-medium text-slate-300 mb-2 transition-colors group-focus-within:text-blue-400">
-                                                    Bar Number
+                                                    {t("fields.barNumber.label")}
                                                 </label>
                                                 <input
                                                     type="text"
                                                     value={formData.barNumber}
                                                     onChange={(e) => handleChange("barNumber", e.target.value)}
                                                     className="w-full px-4 py-2.5 border border-slate-700 bg-slate-800/50 hover:border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500/40 transition-all duration-200"
-                                                    placeholder="ABC123456"
+                                                    placeholder={t("fields.barNumber.placeholder")}
                                                 />
                                             </div>
                                         </div>
@@ -374,30 +377,30 @@ function SetupFlow() {
 
                                     {/* Contact Details Group */}
                                     <div className="space-y-5 opacity-0 animate-fade-in stagger-3">
-                                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Contact Information</p>
+                                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">{t("sections.contactInformation")}</p>
                                         <div className="grid grid-cols-2 gap-5">
                                             <div className="group">
                                                 <label className="block text-sm font-medium text-slate-300 mb-2 transition-colors group-focus-within:text-blue-400">
-                                                    Email
+                                                    {t("fields.email.label")}
                                                 </label>
                                                 <input
                                                     type="email"
                                                     value={formData.email}
                                                     onChange={(e) => handleChange("email", e.target.value)}
                                                     className="w-full px-4 py-2.5 border border-slate-700 bg-slate-800/50 hover:border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500/40 transition-all duration-200"
-                                                    placeholder="john.doe@example.com"
+                                                    placeholder={t("fields.email.placeholder")}
                                                 />
                                             </div>
                                             <div className="group">
                                                 <label className="block text-sm font-medium text-slate-300 mb-2 transition-colors group-focus-within:text-blue-400">
-                                                    Phone
+                                                    {t("fields.phone.label")}
                                                 </label>
                                                 <input
                                                     type="tel"
                                                     value={formData.phone}
                                                     onChange={(e) => handleChange("phone", e.target.value)}
                                                     className="w-full px-4 py-2.5 border border-slate-700 bg-slate-800/50 hover:border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500/40 transition-all duration-200"
-                                                    placeholder="+216 XX XXX XXX"
+                                                    placeholder={t("fields.phone.placeholder")}
                                                 />
                                             </div>
                                         </div>
@@ -405,7 +408,7 @@ function SetupFlow() {
 
                                     <p className="text-xs text-slate-500 flex items-center gap-2 opacity-0 animate-fade-in stagger-4">
                                         <i className="fas fa-pen text-slate-600"></i>
-                                        You can edit these details later in Settings
+                                        {t("hints.editLater")}
                                     </p>
                                 </div>
                             )}
@@ -414,60 +417,60 @@ function SetupFlow() {
                                 <div key="step2" className={`space-y-6 ${slideDirection === "right" ? "animate-slide-in-right" : "animate-slide-in-left"}`}>
                                     <div className="group opacity-0 animate-fade-in stagger-1">
                                         <label className="block text-sm font-medium text-slate-300 mb-2 transition-colors group-focus-within:text-blue-400">
-                                            Firm / Practice Name
+                                            {t("fields.firmName.label")}
                                         </label>
                                         <input
                                             type="text"
                                             value={formData.firmName}
                                             onChange={(e) => handleChange("firmName", e.target.value)}
                                             className="w-full px-4 py-2.5 border border-slate-700 bg-slate-800/50 hover:border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500/40 transition-all duration-200"
-                                            placeholder="Law Firm & Associates"
+                                            placeholder={t("fields.firmName.placeholder")}
                                         />
                                     </div>
 
                                     <div className="group opacity-0 animate-fade-in stagger-2">
                                         <label className="block text-sm font-medium text-slate-300 mb-2 transition-colors group-focus-within:text-blue-400">
-                                            Address
+                                            {t("fields.firmAddress.label")}
                                         </label>
                                         <textarea
                                             value={formData.firmAddress}
                                             onChange={(e) => handleChange("firmAddress", e.target.value)}
                                             rows="2"
                                             className="w-full px-4 py-2.5 border border-slate-700 bg-slate-800/50 hover:border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500/40 transition-all duration-200 resize-none"
-                                            placeholder="123 Main Street, City, Country"
+                                            placeholder={t("fields.firmAddress.placeholder")}
                                         />
                                     </div>
 
                                     <div className="grid grid-cols-2 gap-5 opacity-0 animate-fade-in stagger-3">
                                         <div className="group">
                                             <label className="block text-sm font-medium text-slate-300 mb-2 transition-colors group-focus-within:text-blue-400">
-                                                Firm Phone
+                                                {t("fields.firmPhone.label")}
                                             </label>
                                             <input
                                                 type="tel"
                                                 value={formData.firmPhone}
                                                 onChange={(e) => handleChange("firmPhone", e.target.value)}
                                                 className="w-full px-4 py-2.5 border border-slate-700 bg-slate-800/50 hover:border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500/40 transition-all duration-200"
-                                                placeholder="+216 XX XXX XXX"
+                                                placeholder={t("fields.firmPhone.placeholder")}
                                             />
                                         </div>
                                         <div className="group">
                                             <label className="block text-sm font-medium text-slate-300 mb-2 transition-colors group-focus-within:text-blue-400">
-                                                Jurisdiction
+                                                {t("fields.jurisdiction.label")}
                                             </label>
                                             <input
                                                 type="text"
                                                 value={formData.jurisdiction}
                                                 onChange={(e) => handleChange("jurisdiction", e.target.value)}
                                                 className="w-full px-4 py-2.5 border border-slate-700 bg-slate-800/50 hover:border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500/40 transition-all duration-200"
-                                                placeholder="e.g., Tunisia"
+                                                placeholder={t("fields.jurisdiction.placeholder")}
                                             />
                                         </div>
                                     </div>
 
                                     <div className="flex items-start gap-2.5 text-xs text-slate-500 pt-2 opacity-0 animate-fade-in stagger-4">
                                         <i className="fas fa-info-circle text-slate-600 mt-0.5"></i>
-                                        <span>You can skip this step and add firm details later in Settings.</span>
+                                        <span>{t("hints.skipFirm")}</span>
                                     </div>
                                 </div>
                             )}
@@ -488,9 +491,9 @@ function SetupFlow() {
                                                     <i className={`fas fa-lock text-sm transition-colors duration-300 ${formData.enableLock ? "text-blue-400" : "text-slate-500"}`}></i>
                                                 </div>
                                                 <div>
-                                                    <p className="text-sm font-medium text-white">Enable workspace lock</p>
+                                                    <p className="text-sm font-medium text-white">{t("lock.enable.title")}</p>
                                                     <p className="text-xs text-slate-400 mt-0.5">
-                                                        Require a password to access your workspace
+                                                        {t("lock.enable.description")}
                                                     </p>
                                                 </div>
                                             </div>
@@ -515,7 +518,7 @@ function SetupFlow() {
                                             <div className="flex items-start gap-3 p-4 rounded-lg bg-amber-500/5 border border-amber-500/20 opacity-0 animate-fade-in stagger-1">
                                                 <i className="fas fa-triangle-exclamation text-amber-500 mt-0.5"></i>
                                                 <p className="text-xs text-amber-200/90 leading-relaxed">
-                                                    If you forget this password, there is no recovery option. You will need to reset the app to regain access.
+                                                    {t("lock.warning")}
                                                 </p>
                                             </div>
 
@@ -523,7 +526,7 @@ function SetupFlow() {
                                             <div className="grid grid-cols-2 gap-5 opacity-0 animate-fade-in stagger-2">
                                                 <div className="group">
                                                     <label className="block text-sm font-medium text-slate-300 mb-2 transition-colors group-focus-within:text-blue-400">
-                                                        Password
+                                                        {t("fields.password.label")}
                                                     </label>
                                                     <input
                                                         type="password"
@@ -531,7 +534,7 @@ function SetupFlow() {
                                                         onChange={(e) => handleChange("password", e.target.value)}
                                                         className={`w-full px-4 py-2.5 border ${errors.password ? "border-red-400/60 bg-red-500/5" : "border-slate-700 bg-slate-800/50 hover:border-slate-600"
                                                             } rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500/40 transition-all duration-200`}
-                                                        placeholder="Min. 6 characters"
+                                                        placeholder={t("fields.password.placeholder")}
                                                     />
                                                     {errors.password && (
                                                         <p className="mt-1.5 text-xs text-red-400 animate-fade-in">{errors.password}</p>
@@ -539,7 +542,7 @@ function SetupFlow() {
                                                 </div>
                                                 <div className="group">
                                                     <label className="block text-sm font-medium text-slate-300 mb-2 transition-colors group-focus-within:text-blue-400">
-                                                        Confirm Password
+                                                        {t("fields.confirmPassword.label")}
                                                     </label>
                                                     <input
                                                         type="password"
@@ -549,7 +552,7 @@ function SetupFlow() {
                                                             ? "border-red-400/60 bg-red-500/5"
                                                             : "border-slate-700 bg-slate-800/50 hover:border-slate-600"
                                                             } rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500/40 transition-all duration-200`}
-                                                        placeholder="Re-enter password"
+                                                        placeholder={t("fields.confirmPassword.placeholder")}
                                                     />
                                                     {errors.confirmPassword && (
                                                         <p className="mt-1.5 text-xs text-red-400 animate-fade-in">{errors.confirmPassword}</p>
@@ -559,12 +562,12 @@ function SetupFlow() {
 
                                             {/* Lock Options */}
                                             <div className="space-y-4 pt-2 opacity-0 animate-fade-in stagger-3">
-                                                <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Lock Options</p>
+                                                <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">{t("lock.options.title")}</p>
 
                                                 <div className="flex items-center justify-between py-3 border-b border-slate-800 transition-colors hover:border-slate-700">
                                                     <div>
-                                                        <p className="text-sm font-medium text-slate-300">Lock on startup</p>
-                                                        <p className="text-xs text-slate-500 mt-0.5">Require password when app launches</p>
+                                                        <p className="text-sm font-medium text-slate-300">{t("lock.options.lockOnStartup.title")}</p>
+                                                        <p className="text-xs text-slate-500 mt-0.5">{t("lock.options.lockOnStartup.description")}</p>
                                                     </div>
                                                     <button
                                                         type="button"
@@ -583,8 +586,8 @@ function SetupFlow() {
 
                                                 <div className="flex items-center justify-between py-3">
                                                     <div>
-                                                        <p className="text-sm font-medium text-slate-300">Inactivity timeout</p>
-                                                        <p className="text-xs text-slate-500 mt-0.5">Lock after idle (0 to disable)</p>
+                                                        <p className="text-sm font-medium text-slate-300">{t("lock.options.inactivityTimeout.title")}</p>
+                                                        <p className="text-xs text-slate-500 mt-0.5">{t("lock.options.inactivityTimeout.description")}</p>
                                                     </div>
                                                     <div className="flex items-center gap-2">
                                                         <input
@@ -597,7 +600,7 @@ function SetupFlow() {
                                                             }
                                                             className="w-20 px-3 py-1.5 border border-slate-700 bg-slate-800/50 hover:border-slate-600 rounded-lg text-white text-center text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500/40 transition-all duration-200"
                                                         />
-                                                        <span className="text-xs text-slate-500">min</span>
+                                                        <span className="text-xs text-slate-500">{t("units.minutesShort")}</span>
                                                     </div>
                                                 </div>
                                             </div>
@@ -608,7 +611,7 @@ function SetupFlow() {
                                         <div className="flex items-start gap-3 p-4 rounded-lg bg-slate-800/40 border border-slate-700/50 opacity-0 animate-fade-in stagger-2">
                                             <i className="fas fa-info-circle text-slate-500 mt-0.5"></i>
                                             <p className="text-xs text-slate-400 leading-relaxed">
-                                                Without a lock, anyone with access to this device can view your workspace data. You can enable this later in Settings.
+                                                {t("lock.disabledNotice")}
                                             </p>
                                         </div>
                                     )}
@@ -625,7 +628,7 @@ function SetupFlow() {
                                         className="px-4 py-2 text-slate-400 hover:text-white text-sm font-medium transition-all duration-200 flex items-center gap-2 hover:-translate-x-0.5 active:scale-95"
                                     >
                                         <i className="fas fa-arrow-left text-xs transition-transform group-hover:-translate-x-1"></i>
-                                        Back
+                                        {t("actions.back")}
                                     </button>
                                 )}
                             </div>
@@ -636,7 +639,7 @@ function SetupFlow() {
                                         onClick={handleSkipStep}
                                         className="px-5 py-2.5 text-slate-400 hover:text-white text-sm font-medium transition-all duration-200 active:scale-95"
                                     >
-                                        Skip
+                                        {t("actions.skip")}
                                     </button>
                                 )}
 
@@ -646,12 +649,12 @@ function SetupFlow() {
                                 >
                                     {step === 3 ? (
                                         <>
-                                            Complete Setup
+                                            {t("actions.complete")}
                                             <i className="fas fa-check text-xs"></i>
                                         </>
                                     ) : (
                                         <>
-                                            Continue
+                                            {t("actions.continue")}
                                             <i className="fas fa-arrow-right text-xs"></i>
                                         </>
                                     )}

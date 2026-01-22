@@ -435,35 +435,51 @@ export default function FormModal({
   const paddingClass = compact ? "p-4" : "p-6";
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
+    <div
+      className="fixed inset-0 z-50 overflow-hidden animate-in fade-in duration-300"
+      style={{
+        paddingTop: 'var(--titlebar-height, 0px)',
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
+      }}
+    >
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black bg-opacity-50 transition-opacity"
+        className="absolute inset-0 bg-gradient-to-br from-slate-900/50 via-slate-800/40 to-slate-900/50 dark:from-black/60 dark:via-slate-900/50 dark:to-black/60"
         onClick={onClose}
-      ></div>
+      />
 
       {/* Modal - Optimized positioning */}
-      <div className="flex min-h-screen items-center justify-center p-2 sm:p-4">
-        <div className={`relative w-full ${modalSizeClass} bg-white dark:bg-slate-800 rounded-xl shadow-2xl transform transition-all my-4 max-h-[95vh] flex flex-col`}>
+      <div className="relative flex h-full items-center justify-center p-4 sm:p-6 overflow-hidden">
+        <div
+          className={`relative w-full ${modalSizeClass} bg-white dark:bg-slate-900 rounded-2xl transform transition-all flex flex-col animate-in zoom-in-95 slide-in-from-bottom-4 duration-300 overflow-hidden`}
+          style={{
+            maxHeight: 'calc(100vh - var(--titlebar-height, 0px) - 48px)',
+            boxShadow: '0 0 0 1px rgba(148, 163, 184, 0.1), 0 24px 48px -12px rgba(0, 0, 0, 0.25), 0 12px 24px -8px rgba(0, 0, 0, 0.15)',
+          }}
+        >
+          {/* Top accent line */}
+          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-blue-500/50 to-transparent z-10" />
+
           {/* Header - Fixed */}
-          <div className={`${compact ? 'px-4 py-3' : 'px-6 py-4'} border-b border-slate-200 dark:border-slate-700 flex-shrink-0`}>
+          <div className={`${compact ? 'px-5 py-4' : 'px-6 py-5'} border-b border-slate-200 dark:border-slate-800 flex-shrink-0 bg-slate-50/50 dark:bg-slate-800/50`}>
             <div className="flex items-center justify-between">
               <div className="flex-1 min-w-0 pr-4">
                 <h2 className={`${compact ? 'text-lg' : 'text-xl'} font-bold text-slate-900 dark:text-white truncate`}>
                   {title}
                 </h2>
                 {subtitle && (
-                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 truncate">
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1.5 truncate">
                     {subtitle}
                   </p>
                 )}
               </div>
               <button
                 onClick={onClose}
-                className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors flex-shrink-0"
+                className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl transition-all flex-shrink-0 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
                 title={t("actions.close", { ns: "common" })}
               >
-                <i className="fas fa-times text-slate-500 dark:text-slate-400"></i>
+                <i className="fas fa-times"></i>
               </button>
             </div>
           </div>
@@ -516,20 +532,20 @@ export default function FormModal({
             </div>
 
             {/* Actions - Fixed at bottom */}
-            <div className={`${compact ? 'px-4 py-3' : 'px-6 py-4'} border-t border-slate-200 dark:border-slate-700 flex-shrink-0`}>
+            <div className={`${compact ? 'px-5 py-4' : 'px-6 py-5'} border-t border-slate-200 dark:border-slate-800 flex-shrink-0 bg-slate-50/50 dark:bg-slate-800/50`}>
               <div className="flex items-center justify-end gap-3">
                 <button
                   type="button"
                   onClick={onClose}
                   disabled={isLoading}
-                  className={`${compact ? 'px-3 py-1.5 text-sm' : 'px-4 py-2'} border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg font-medium transition-colors disabled:opacity-50`}
+                  className={`${compact ? 'px-4 py-2 text-sm' : 'px-5 py-2.5'} border-2 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600 text-slate-700 dark:text-slate-300 rounded-xl font-semibold transition-all disabled:opacity-50`}
                 >
                   {cancelText}
                 </button>
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className={`${compact ? 'px-3 py-1.5 text-sm' : 'px-4 py-2'} bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center gap-2 justify-center min-w-[140px]`}
+                  className={`${compact ? 'px-4 py-2 text-sm' : 'px-5 py-2.5'} bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white rounded-xl font-semibold transition-all disabled:opacity-50 flex items-center gap-2 justify-center min-w-[140px] shadow-lg shadow-blue-500/25`}
                 >
                   {isLoading ? (
                     <LoadingScreen variant="minimal" message="" />

@@ -1,0 +1,32 @@
+{
+  "title": "Espace de travail Organia verrouillé",
+  "subtitle": "Saisissez votre mot de passe pour accéder à votre espace de travail",
+  "fields": {
+    "password": {
+      "label": "Mot de passe",
+      "placeholder": "Saisissez le mot de passe"
+    },
+    "resetConfirm": {
+      "label": "Tapez {{token}} pour confirmer",
+      "placeholder": "{{token}}"
+    }
+  },
+  "actions": {
+    "unlock": "Déverrouiller l'espace de travail",
+    "unlocking": "Déverrouillage...",
+    "forgotReset": "Mot de passe oublié ? Réinitialiser l'application",
+    "cancel": "Annuler",
+    "reset": "Réinitialiser l'application",
+    "resetting": "Réinitialisation..."
+  },
+  "errors": {
+    "passwordRequired": "Veuillez saisir votre mot de passe",
+    "passwordIncorrect": "Mot de passe incorrect"
+  },
+  "footer": "Organia - Gestion de cabinet juridique",
+  "reset": {
+    "title": "Réinitialiser les données de l'application ?",
+    "description": "Cela efface toutes les données de l'espace de travail sur cet appareil, y compris les clients, les dossiers et les documents. Votre activation reste, mais vous devrez configurer l'espace de travail à nouveau.",
+    "countdown": "La réinitialisation sera activée dans {{seconds}} secondes."
+  }
+}

@@ -1,0 +1,62 @@
+{
+  "states": {
+    "free": "تسري حدود الخطة المجانية",
+    "unactivated": "فعّل Organia على هذا الجهاز",
+    "activating": "جارٍ التفعيل",
+    "active": "اكتمل التفعيل",
+    "expired": "انتهت صلاحية الترخيص - أعد تفعيل هذا الجهاز",
+    "error": "خطأ في التفعيل - حاول مرة أخرى"
+  },
+  "views": {
+    "waiting": {
+      "title": "تفعيل Organia",
+      "description": "أكمل الدفع في متصفحك. سيتم تفعيل التطبيق تلقائيًا عند انتهاء الدفع.",
+      "status": "بانتظار التفعيل..."
+    },
+    "success": {
+      "title": "اكتمل التفعيل",
+      "description": "تم تفعيل جهازك. تفاصيل الترخيص جاهزة."
+    },
+    "error": {
+      "title": "فشل التفعيل"
+    },
+    "freeSetup": {
+      "title": "إعداد الخطة المجانية",
+      "description": "جارٍ إعداد خطتك المجانية. لحظة واحدة...",
+      "status": "جارٍ تجهيز الخطة المجانية..."
+    },
+    "choice": {
+      "description": "يجب التحقق من هذا الجهاز لدى خادم تفعيل Organia قبل فتح صلاحية الكتابة."
+    }
+  },
+  "actions": {
+    "openActivation": "افتح صفحة التفعيل مرة أخرى",
+    "back": "رجوع",
+    "continue": "المتابعة إلى Organia",
+    "tryAgain": "حاول مرة أخرى",
+    "continueFree": "المتابعة بالخطة المجانية",
+    "activate": "تفعيل"
+  },
+  "details": {
+    "status": "الحالة: {{status}}",
+    "plan": "الخطة: {{plan}}",
+    "validUntil": "صالح حتى: {{date}}",
+    "statusDefaults": {
+      "active": "نشط"
+    },
+    "plans": {
+      "free": "مجانية",
+      "yearly": "سنوية",
+      "monthly": "شهرية",
+      "perpetual": "دائمة"
+    },
+    "validUntilValues": {
+      "lifetime": "مدى الحياة",
+      "unlimited": "غير محدود",
+      "fallbackDate": "2027-01-20"
+    }
+  },
+  "errors": {
+    "activationFailed": "فشل التفعيل. يرجى المحاولة مرة أخرى."
+  }
+}

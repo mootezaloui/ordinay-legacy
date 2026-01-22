@@ -311,41 +311,56 @@ export default function BlockerModal({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm"
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-4 overflow-hidden animate-in fade-in duration-300"
+      style={{
+        paddingTop: `calc(var(--titlebar-height, 0px) + 16px)`,
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
+      }}
       onClick={onClose}
     >
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-gradient-to-br from-slate-900/50 via-slate-800/40 to-slate-900/50 dark:from-black/60 dark:via-slate-900/50 dark:to-black/60" />
+
       <div
-        className="relative bg-white dark:bg-slate-800 rounded-lg shadow-2xl max-w-3xl w-full mx-4 max-h-[90vh] overflow-hidden"
+        className="relative bg-white dark:bg-slate-900 rounded-2xl max-w-3xl w-full overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-4 duration-300 flex flex-col"
+        style={{
+          maxHeight: 'calc(100vh - var(--titlebar-height, 0px) - 48px)',
+          boxShadow: '0 0 0 1px rgba(148, 163, 184, 0.1), 0 24px 48px -12px rgba(0, 0, 0, 0.25), 0 12px 24px -8px rgba(0, 0, 0, 0.15)',
+        }}
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Top accent line */}
+        <div className={`absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent ${allResolved ? 'via-emerald-500/50' : 'via-red-500/50'} to-transparent z-10`} />
+
         {/* Header */}
-        <div className={`border-b px-6 py-4 ${allResolved ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'}`}>
+        <div className={`border-b px-6 py-5 flex-shrink-0 ${allResolved ? 'bg-gradient-to-r from-emerald-50 to-green-50 dark:from-emerald-900/20 dark:to-green-900/20 border-emerald-200 dark:border-emerald-800/50' : 'bg-gradient-to-r from-red-50 to-rose-50 dark:from-red-900/20 dark:to-rose-900/20 border-red-200 dark:border-red-800/50'}`}>
           <div className="flex items-start justify-between gap-4">
-            <div className="flex items-start gap-3 flex-1 min-w-0">
-              <div className={`p-2 rounded-full flex-shrink-0 ${allResolved ? 'bg-green-100 dark:bg-green-900/40' : 'bg-red-100 dark:bg-red-900/40'}`}>
-                <i className={`text-xl ${allResolved ? 'fas fa-check-circle text-green-600 dark:text-green-400' : 'fas fa-exclamation-triangle text-red-600 dark:text-red-400'}`}></i>
+            <div className="flex items-start gap-4 flex-1 min-w-0">
+              <div className={`p-3 rounded-xl flex-shrink-0 ring-4 ${allResolved ? 'bg-gradient-to-br from-emerald-100 to-green-100 dark:from-emerald-900/40 dark:to-green-900/40 ring-emerald-200 dark:ring-emerald-800/50' : 'bg-gradient-to-br from-red-100 to-rose-100 dark:from-red-900/40 dark:to-rose-900/40 ring-red-200 dark:ring-red-800/50'}`}>
+                <i className={`text-xl ${allResolved ? 'fas fa-check-circle text-emerald-600 dark:text-emerald-400' : 'fas fa-exclamation-triangle text-red-500 dark:text-red-400'}`}></i>
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className={`text-lg font-bold ${allResolved ? 'text-green-900 dark:text-green-100' : 'text-red-900 dark:text-red-100'}`}>
+                <h3 className={`text-lg font-bold ${allResolved ? 'text-emerald-900 dark:text-emerald-100' : 'text-red-900 dark:text-red-100'}`}>
                   {allResolved ? t("detail.blocker.title.blockersResolved") : t("detail.blocker.title.actionNotPossible")}
                 </h3>
-                <p className={`text-sm mt-0.5 break-words overflow-wrap-anywhere ${allResolved ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'}`}>
+                <p className={`text-sm mt-1 break-words overflow-wrap-anywhere ${allResolved ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-700 dark:text-red-300'}`}>
                   {allResolved ? t("detail.blocker.subtitle.canRetry") : t("detail.blocker.subtitle.unableTo", { actionName: actionName.toLowerCase(), entityName: entityName ? ` ${entityName}` : '' })}
                 </p>
               </div>
             </div>
             <button
               onClick={onClose}
-              className={`transition-colors flex-shrink-0 ${allResolved ? 'text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-200' : 'text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-200'}`}
+              className={`p-2 rounded-xl transition-all flex-shrink-0 ${allResolved ? 'text-emerald-500 hover:text-emerald-700 hover:bg-emerald-100 dark:text-emerald-400 dark:hover:text-emerald-200 dark:hover:bg-emerald-900/30' : 'text-red-500 hover:text-red-700 hover:bg-red-100 dark:text-red-400 dark:hover:text-red-200 dark:hover:bg-red-900/30'}`}
               aria-label={t("aria.dialog.close", { ns: "common" })}
             >
-              <i className="fas fa-times text-xl"></i>
+              <i className="fas fa-times text-lg"></i>
             </button>
           </div>
         </div>
 
         {/* Content */}
-        <div className="px-6 py-5 overflow-y-auto overflow-x-hidden max-h-[calc(90vh-200px)]">
+        <div className="px-6 py-5 overflow-y-auto overflow-x-hidden flex-1 min-h-0">
           {hasEnrichedBlockers && activeBlockers.length > 0 && (
             <div className="mb-6">
               <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
@@ -496,12 +511,12 @@ export default function BlockerModal({
         </div>
 
         {/* Footer */}
-        <div className="bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-700 px-6 py-4">
+        <div className="bg-slate-50/80 dark:bg-slate-800/50 border-t border-slate-200 dark:border-slate-800 px-6 py-5 flex-shrink-0">
           <div className="flex justify-end gap-3">
             {allResolved && onRetry && (
               <button
                 onClick={handleRetry}
-                className="px-4 py-2 bg-green-600 hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700 text-white rounded-lg transition-colors font-medium"
+                className="px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600 text-white rounded-xl transition-all font-semibold shadow-lg shadow-emerald-500/25"
               >
                 <i className="fas fa-redo mr-2"></i>
                 {t("detail.blocker.actions.retryAction")}
@@ -509,9 +524,9 @@ export default function BlockerModal({
             )}
             <button
               onClick={onClose}
-              className={`px-4 py-2 rounded-lg transition-colors font-medium ${allResolved
-                ? 'bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-900 dark:text-white'
-                : 'bg-slate-600 hover:bg-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600 text-white'
+              className={`px-5 py-2.5 rounded-xl transition-all font-semibold ${allResolved
+                ? 'border-2 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
+                : 'bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800 dark:from-slate-700 dark:to-slate-800 dark:hover:from-slate-600 dark:hover:to-slate-700 text-white shadow-lg shadow-slate-500/25'
                 }`}
             >
               <i className="fas fa-times mr-2"></i>
@@ -539,19 +554,19 @@ function BlockerItem({ blocker, blockerIndex, onNavigate, onInlineAction, isReso
   const hasHelpText = !!blocker.helpText;
 
   return (
-    <div className="bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800 rounded-lg p-4">
+    <div className="bg-gradient-to-br from-red-50 to-rose-50 dark:from-red-900/15 dark:to-rose-900/10 border border-red-200 dark:border-red-800/50 rounded-xl p-5">
       {/* Main blocker reason */}
-      <div className="mb-3 space-y-2">
-        <p className="text-sm font-medium text-red-900 dark:text-red-100 whitespace-pre-wrap break-words overflow-wrap-anywhere">
+      <div className="mb-4 space-y-3">
+        <p className="text-sm font-semibold text-red-900 dark:text-red-100 whitespace-pre-wrap break-words overflow-wrap-anywhere">
           {blocker.reason}
         </p>
         {blocker.warning && (
-          <p className="text-xs text-red-700 dark:text-red-300 mt-2 italic">
+          <p className="text-xs text-red-700 dark:text-red-300 italic">
             {blocker.warning}
           </p>
         )}
         {hasHelpText && (
-          <div className="flex items-start gap-2 bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+          <div className="flex items-start gap-3 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/15 border border-blue-200 dark:border-blue-800/50 rounded-xl p-4">
             <i className="fas fa-info-circle text-blue-500 mt-0.5"></i>
             <p className="text-sm text-blue-900 dark:text-blue-100 whitespace-pre-wrap break-words">
               {blocker.helpText}
@@ -611,7 +626,7 @@ function BlockerItem({ blocker, blockerIndex, onNavigate, onInlineAction, isReso
             return (
               <div
                 key={idx}
-                className="bg-white dark:bg-slate-900 rounded-lg p-3 border border-red-100 dark:border-red-900"
+                className="bg-white dark:bg-slate-900/80 rounded-xl p-4 border border-red-100 dark:border-red-900/50 shadow-sm"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
@@ -695,12 +710,12 @@ function ActionButton({ action, item, blockerIndex, onNavigate, onInlineAction, 
     <button
       onClick={handleClick}
       disabled={isResolving}
-      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${isNavigation
-        ? 'bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
+      className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 ${isNavigation
+        ? 'bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 dark:hover:from-blue-900/50 dark:hover:to-indigo-900/50 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/50'
         : isSafe
-          ? 'bg-green-100 hover:bg-green-200 dark:bg-green-900/30 dark:hover:bg-green-900/50 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800'
-          : 'bg-amber-100 hover:bg-amber-200 dark:bg-amber-900/30 dark:hover:bg-amber-900/50 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
-        } ${isResolving ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-md'}`}
+          ? 'bg-gradient-to-r from-emerald-50 to-green-50 hover:from-emerald-100 hover:to-green-100 dark:from-emerald-900/30 dark:to-green-900/30 dark:hover:from-emerald-900/50 dark:hover:to-green-900/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/50'
+          : 'bg-gradient-to-r from-amber-50 to-orange-50 hover:from-amber-100 hover:to-orange-100 dark:from-amber-900/30 dark:to-orange-900/30 dark:hover:from-amber-900/50 dark:hover:to-orange-900/50 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/50'
+        } ${isResolving ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-md hover:-translate-y-0.5'}`}
       title={action.description}
     >
       {isResolving && action.type === 'inline-action' ? (

@@ -5,10 +5,12 @@
  */
 
 import { useEffect, useState, FormEvent } from "react";
+import { useTranslation } from "react-i18next";
 import { useLock } from "../../contexts/lockContext";
 import { resetAppData } from "../../services/appResetService";
 
 export default function LockScreen() {
+  const { t } = useTranslation("lock");
   const { unlock } = useLock();
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -17,13 +19,14 @@ export default function LockScreen() {
   const [isResetting, setIsResetting] = useState(false);
   const [resetConfirmText, setResetConfirmText] = useState("");
   const [resetCountdown, setResetCountdown] = useState(6);
+  const resetConfirmToken = "RESET";
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
 
     if (!password) {
-      setError("Please enter your password");
+      setError(t("errors.passwordRequired"));
       return;
     }
 
@@ -35,7 +38,7 @@ export default function LockScreen() {
     const success = unlock(password);
 
     if (!success) {
-      setError("Incorrect password");
+      setError(t("errors.passwordIncorrect"));
       setPassword("");
       setIsUnlocking(false);
     }
@@ -77,10 +80,10 @@ export default function LockScreen() {
             <i className="fas fa-lock text-white text-3xl"></i>
           </div>
           <h1 className="text-3xl font-bold text-white mb-2">
-            Organia Workspace Locked
+            {t("title")}
           </h1>
           <p className="text-slate-400">
-            Enter your password to access your workspace
+            {t("subtitle")}
           </p>
         </div>
 
@@ -88,7 +91,7 @@ export default function LockScreen() {
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <label htmlFor="password" className="sr-only">
-              Password
+              {t("fields.password.label")}
             </label>
             <div className="relative">
               <input
@@ -99,7 +102,7 @@ export default function LockScreen() {
                   setPassword(e.target.value);
                   setError("");
                 }}
-                placeholder="Enter password"
+                placeholder={t("fields.password.placeholder")}
                 autoFocus
                 autoComplete="current-password"
                 disabled={isUnlocking}
@@ -127,12 +130,12 @@ export default function LockScreen() {
             {isUnlocking ? (
               <>
                 <i className="fas fa-spinner fa-spin"></i>
-                <span>Unlocking...</span>
+                <span>{t("actions.unlocking")}</span>
               </>
             ) : (
               <>
                 <i className="fas fa-unlock"></i>
-                <span>Unlock Workspace</span>
+                <span>{t("actions.unlock")}</span>
               </>
             )}
           </button>
@@ -144,13 +147,13 @@ export default function LockScreen() {
             onClick={() => setShowResetConfirm(true)}
             className="text-xs text-slate-400 hover:text-slate-200 transition"
           >
-            Forgot password? Reset app
+            {t("actions.forgotReset")}
           </button>
         </div>
 
         {/* Footer */}
         <div className="mt-8 text-center text-slate-500 text-sm">
-          <p>Organia - Legal Practice Management</p>
+          <p>{t("footer")}</p>
         </div>
       </div>
 
@@ -166,25 +169,25 @@ export default function LockScreen() {
                 <i className="fas fa-exclamation"></i>
               </div>
               <div>
-                <h3 className="text-sm font-semibold">Reset app data?</h3>
+                <h3 className="text-sm font-semibold">{t("reset.title")}</h3>
                 <p className="text-xs text-slate-300 mt-1">
-                  This clears all workspace data on this device, including clients, cases, and documents. Your activation stays, but you will need to set up the workspace again.
+                  {t("reset.description")}
                 </p>
               </div>
             </div>
             <div className="mt-4">
               <label className="block text-xs font-medium text-slate-300 mb-2">
-                Type RESET to confirm
+                {t("fields.resetConfirm.label", { token: resetConfirmToken })}
               </label>
               <input
                 type="text"
                 value={resetConfirmText}
                 onChange={(e) => setResetConfirmText(e.target.value)}
-                placeholder="RESET"
+                placeholder={t("fields.resetConfirm.placeholder", { token: resetConfirmToken })}
                 className="w-full px-3 py-2 rounded-lg bg-slate-950/60 border border-slate-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               <p className="text-[11px] text-slate-400 mt-2">
-                Reset is enabled in {resetCountdown} seconds.
+                {t("reset.countdown", { seconds: resetCountdown })}
               </p>
             </div>
             <div className="mt-5 flex flex-wrap gap-2 justify-end">
@@ -194,21 +197,21 @@ export default function LockScreen() {
                 onClick={() => setShowResetConfirm(false)}
                 className="px-4 py-2 text-sm font-medium rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-100 transition disabled:opacity-60"
               >
-                Cancel
+                {t("actions.cancel")}
               </button>
               <button
                 type="button"
-                disabled={isResetting || resetCountdown > 0 || resetConfirmText !== "RESET"}
+                disabled={isResetting || resetCountdown > 0 || resetConfirmText !== resetConfirmToken}
                 onClick={handleResetApp}
                 className="px-4 py-2 text-sm font-semibold rounded-lg bg-red-600 hover:bg-red-500 text-white transition disabled:opacity-60 flex items-center gap-2"
               >
                 {isResetting ? (
                   <>
                     <i className="fas fa-spinner fa-spin"></i>
-                    Resetting...
+                    {t("actions.resetting")}
                   </>
                 ) : (
-                  "Reset app"
+                  t("actions.reset")
                 )}
               </button>
             </div>

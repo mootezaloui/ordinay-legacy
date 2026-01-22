@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useLock } from "./contexts/lockContext";
 import { useSetup } from "./contexts/SetupContext";
 import SetupFlow from "./components/setup/SetupFlow";
@@ -24,6 +25,7 @@ import {
 const FREE_PLAN_STORAGE_KEY = "organia_free_plan_continue";
 
 function App() {
+  const { t } = useTranslation("activation");
   const { isLocked } = useLock();
   const { isInitialized, completeSetup } = useSetup();
   const { licenseState, licenseData, activateLicense, setActivationState } =
@@ -135,7 +137,7 @@ function App() {
             validUntilParam,
           });
           setActivationState("ERROR", "Activation failed");
-          setActivationError("Activation failed. Please try again.");
+          setActivationError(t("errors.activationFailed"));
           setActivationView("error");
           return;
         }
@@ -162,11 +164,11 @@ function App() {
       } catch (error) {
         console.error("[License] Activation URL failed:", error);
         setActivationState("ERROR", "Activation failed");
-        setActivationError("Activation failed. Please try again.");
+        setActivationError(t("errors.activationFailed"));
         setActivationView("error");
       }
     });
-  }, [activateLicense, setActivationState]);
+  }, [activateLicense, setActivationState, t]);
 
   if (!isInitialized) {
     return (
@@ -281,22 +283,40 @@ function ActivationScreen({
   onRetryActivate: () => void;
   onCancelActivation: () => void;
 }) {
+  const { t } = useTranslation("activation");
   const activationLabels = {
-    FREE: "Free plan limits apply",
-    UNACTIVATED: "Activate Organia on this device",
-    ACTIVATING: "Activation in progress",
-    ACTIVE: "Activation complete",
-    EXPIRED: "License expired - Reactivate this device",
-    ERROR: "Activation error - Try again",
+    FREE: t("states.free"),
+    UNACTIVATED: t("states.unactivated"),
+    ACTIVATING: t("states.activating"),
+    ACTIVE: t("states.active"),
+    EXPIRED: t("states.expired"),
+    ERROR: t("states.error"),
   };
 
   const viewTitle = () => {
-    if (activationView === "waiting") return "Activating Organia";
-    if (activationView === "success") return "Activation complete";
-    if (activationView === "error") return "Activation failed";
-    if (activationView === "free_setup") return "Setting up free plan";
-    return activationLabels[licenseState] || "Activate Organia on this device";
+    if (activationView === "waiting") return t("views.waiting.title");
+    if (activationView === "success") return t("views.success.title");
+    if (activationView === "error") return t("views.error.title");
+    if (activationView === "free_setup") return t("views.freeSetup.title");
+    return activationLabels[licenseState] || t("states.unactivated");
   };
+
+  const statusLabel = t("details.status", {
+    status: licenseData?.status || t("details.statusDefaults.active"),
+  });
+  const planValue =
+    licenseData?.license_type ||
+    (licenseState === "FREE" ? "free" : "yearly");
+  const planLabel = t("details.plan", {
+    plan: t(`details.plans.${planValue}`, { defaultValue: planValue }),
+  });
+  const validUntilValue =
+    licenseData?.license_type === "perpetual"
+      ? t("details.validUntilValues.lifetime")
+      : licenseData?.license_type === "free" || licenseState === "FREE"
+        ? t("details.validUntilValues.unlimited")
+        : licenseData?.expires_at || t("details.validUntilValues.fallbackDate");
+  const validUntilLabel = t("details.validUntil", { date: validUntilValue });
 
   return (
     <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center px-6 py-12">
@@ -305,105 +325,91 @@ function ActivationScreen({
         {activationView === "waiting" ? (
           <>
             <p className="text-sm text-slate-300 mb-6">
-              Complete payment in your browser. This app will activate
-              automatically when payment finishes.
+              {t("views.waiting.description")}
             </p>
             <div className="flex items-center gap-3 text-sm text-slate-300">
               <i className="fas fa-spinner fa-spin"></i>
-              Waiting for activation...
+              {t("views.waiting.status")}
             </div>
             <div className="mt-6 space-y-3">
               <button
                 onClick={onActivate}
                 className="w-full rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold py-2.5 transition"
               >
-                Open activation page again
+                {t("actions.openActivation")}
               </button>
               <button
                 onClick={onCancelActivation}
                 className="w-full rounded-lg border border-slate-700 text-slate-200 py-2.5 hover:bg-slate-800 transition"
               >
-                Back
+                {t("actions.back")}
               </button>
             </div>
           </>
         ) : activationView === "success" ? (
           <>
             <p className="text-sm text-slate-300 mb-6">
-              Your device is now activated. License details are ready.
+              {t("views.success.description")}
             </p>
             <div className="rounded-xl border border-slate-800 bg-slate-900/40 px-4 py-3 text-sm text-slate-200 space-y-1">
-              <div>Status: {licenseData?.status || "active"}</div>
-              <div>
-                Plan:{" "}
-                {licenseData?.license_type ||
-                  (licenseState === "FREE" ? "free" : "yearly")}
-              </div>
-              <div>
-                Valid Until:{" "}
-                {licenseData?.license_type === "perpetual"
-                  ? "Lifetime"
-                  : licenseData?.license_type === "free" ||
-                      licenseState === "FREE"
-                    ? "Unlimited"
-                    : licenseData?.expires_at || "2027-01-20"}
-              </div>
+              <div>{statusLabel}</div>
+              <div>{planLabel}</div>
+              <div>{validUntilLabel}</div>
             </div>
             <button
               onClick={onContinueAfterSuccess}
               className="mt-6 w-full rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold py-2.5 transition"
             >
-              Continue to Organia
+              {t("actions.continue")}
             </button>
           </>
         ) : activationView === "error" ? (
           <>
             <p className="text-sm text-slate-300 mb-6">
-              {activationError || "Activation failed. Please try again."}
+              {activationError || t("errors.activationFailed")}
             </p>
             <div className="space-y-3">
               <button
                 onClick={onRetryActivate}
                 className="w-full rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold py-2.5 transition"
               >
-                Try again
+                {t("actions.tryAgain")}
               </button>
               <button
                 onClick={onContinueReadOnly}
                 className="w-full rounded-lg border border-slate-700 text-slate-200 py-2.5 hover:bg-slate-800 transition"
               >
-                Continue with free plan
+                {t("actions.continueFree")}
               </button>
             </div>
           </>
         ) : activationView === "free_setup" ? (
           <>
             <p className="text-sm text-slate-300 mb-6">
-              Setting up your free plan. One moment...
+              {t("views.freeSetup.description")}
             </p>
             <div className="flex items-center gap-3 text-sm text-slate-300">
               <i className="fas fa-spinner fa-spin"></i>
-              Preparing free plan...
+              {t("views.freeSetup.status")}
             </div>
           </>
         ) : (
           <>
             <p className="text-sm text-slate-300 mb-6">
-              This device must be verified with the Organia activation server
-              before write access is unlocked.
+              {t("views.choice.description")}
             </p>
             <div className="space-y-3">
               <button
                 onClick={onActivate}
                 className="w-full rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold py-2.5 transition"
               >
-                Activate
+                {t("actions.activate")}
               </button>
               <button
                 onClick={onContinueReadOnly}
                 className="w-full rounded-lg border border-slate-700 text-slate-200 py-2.5 hover:bg-slate-800 transition"
               >
-                Continue with free plan
+                {t("actions.continueFree")}
               </button>
             </div>
           </>

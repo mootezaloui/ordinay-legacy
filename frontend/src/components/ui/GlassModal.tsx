@@ -80,28 +80,39 @@ export default function GlassModal({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center p-4 animate-in fade-in duration-200"
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 overflow-hidden animate-in fade-in duration-300"
       style={{
-        backdropFilter: 'blur(8px)',
-        WebkitBackdropFilter: 'blur(8px)',
+        paddingTop: `calc(var(--titlebar-height, 0px) + 16px)`,
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
       }}
       onClick={onClose}
       role="dialog"
       aria-modal="true"
     >
-      {/* Backdrop Dimming Layer */}
-      <div className="absolute inset-0 bg-black/40 dark:bg-black/60"></div>
+      {/* Backdrop with gradient overlay */}
+      <div className="absolute inset-0 bg-gradient-to-br from-slate-900/50 via-slate-800/40 to-slate-900/50 dark:from-black/60 dark:via-slate-900/50 dark:to-black/60" />
 
-      {/* Floating Glass Sheet Modal */}
+      {/* Floating Glass Modal */}
       <div
-        className={`relative bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl rounded-2xl shadow-2xl ${maxWidthClass} w-full max-h-[85vh] flex flex-col animate-in zoom-in-95 duration-300`}
+        className={`relative ${maxWidthClass} w-full flex flex-col animate-in zoom-in-95 slide-in-from-bottom-4 duration-300`}
         style={{
-          boxShadow:
-            '0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(0, 0, 0, 0.05)',
+          maxHeight: 'calc(100vh - var(--titlebar-height, 0px) - 48px)',
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        {children}
+        {/* Glass card with refined styling */}
+        <div
+          className="relative bg-white dark:bg-slate-900 rounded-2xl overflow-hidden flex flex-col"
+          style={{
+            maxHeight: 'calc(100vh - var(--titlebar-height, 0px) - 48px)',
+            boxShadow: '0 0 0 1px rgba(148, 163, 184, 0.1), 0 24px 48px -12px rgba(0, 0, 0, 0.25), 0 12px 24px -8px rgba(0, 0, 0, 0.15)',
+          }}
+        >
+          {/* Subtle top accent line */}
+          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-blue-500/50 to-transparent" />
+          {children}
+        </div>
       </div>
     </div>,
     modalRoot
