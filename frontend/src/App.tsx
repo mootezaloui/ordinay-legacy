@@ -53,8 +53,15 @@ function App() {
         const params = parsed.searchParams;
         const device_id = params.get("device_id");
         const status = params.get("status") || "active";
-        const license_type = params.get("license_type") || "yearly";
-        const expires_at = params.get("expires_at") || "2026-12-31";
+        const plan = (params.get("plan") || params.get("license_plan") || "").toLowerCase();
+        const licenseTypeParam = params.get("license_type");
+        const validUntilParam = params.get("expires_at") || params.get("valid_until");
+        let license_type = licenseTypeParam || "yearly";
+        let expires_at = validUntilParam || "2026-12-31";
+        if (license_type === "perpetual" || plan.includes("lifetime") || plan.includes("perpetual")) {
+          license_type = "perpetual";
+          expires_at = null;
+        }
         if (!device_id || status !== "active") {
           setActivationState("ERROR", "Activation failed");
           setActivationError("Activation failed. Please try again.");
@@ -143,6 +150,12 @@ function App() {
           onRetryActivate={() => {
             setActivationError(null);
             setActivationView("choice");
+            setActivationState("FREE", null);
+          }}
+          onCancelActivation={() => {
+            setActivationError(null);
+            setActivationView("choice");
+            setActivationState("FREE", null);
           }}
         />
       </>
@@ -172,6 +185,7 @@ function ActivationScreen({
   onContinueReadOnly,
   onContinueAfterSuccess,
   onRetryActivate,
+  onCancelActivation,
 }: {
   licenseState: LicenseState;
   licenseData: any;
@@ -181,6 +195,7 @@ function ActivationScreen({
   onContinueReadOnly: () => void;
   onContinueAfterSuccess: () => void;
   onRetryActivate: () => void;
+  onCancelActivation: () => void;
 }) {
   const activationLabels = {
     FREE: "Free plan limits apply",
@@ -214,6 +229,20 @@ function ActivationScreen({
               <i className="fas fa-spinner fa-spin"></i>
               Waiting for activation...
             </div>
+            <div className="mt-6 space-y-3">
+              <button
+                onClick={onActivate}
+                className="w-full rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold py-2.5 transition"
+              >
+                Open activation page again
+              </button>
+              <button
+                onClick={onCancelActivation}
+                className="w-full rounded-lg border border-slate-700 text-slate-200 py-2.5 hover:bg-slate-800 transition"
+              >
+                Back
+              </button>
+            </div>
           </>
         ) : activationView === "success" ? (
           <>
@@ -224,7 +253,6 @@ function ActivationScreen({
               <div>Status: {licenseData?.status || "active"}</div>
               <div>Plan: {licenseData?.license_type || "yearly"}</div>
               <div>Valid Until: {licenseData?.expires_at || "2027-01-20"}</div>
-              <div>Device ID: {licenseData?.device_id || "-"}</div>
             </div>
             <button
               onClick={onContinueAfterSuccess}
