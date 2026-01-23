@@ -11,7 +11,7 @@ const allowedFields = [
   'copy_type',
   'client_id',
   'dossier_id',
-  'case_id',
+  'lawsuit_id',
   'mission_id',
   'task_id',
   'session_id',
@@ -23,7 +23,7 @@ function validateTarget(data) {
   const targets = [
     data.client_id,
     data.dossier_id,
-    data.case_id,
+    data.lawsuit_id,
     data.mission_id,
     data.task_id,
     data.session_id,
@@ -47,9 +47,9 @@ function list(filters = {}) {
     sql += ` AND dossier_id = @dossier_id`;
     params.dossier_id = filters.dossier_id;
   }
-  if (filters.case_id !== undefined) {
-    sql += ` AND case_id = @case_id`;
-    params.case_id = filters.case_id;
+  if (filters.lawsuit_id !== undefined) {
+    sql += ` AND lawsuit_id = @lawsuit_id`;
+    params.lawsuit_id = filters.lawsuit_id;
   }
   if (filters.mission_id !== undefined) {
     sql += ` AND mission_id = @mission_id`;
@@ -88,7 +88,7 @@ function create(payload) {
     copy_type: null,
     client_id: null,
     dossier_id: null,
-    case_id: null,
+    lawsuit_id: null,
     mission_id: null,
     task_id: null,
     session_id: null,
@@ -101,8 +101,8 @@ function create(payload) {
   validateTarget(insertData);
 
   const stmt = db.prepare(
-    `INSERT INTO ${table} (title, file_path, mime_type, size_bytes, notes, copy_type, client_id, dossier_id, case_id, mission_id, task_id, session_id, personal_task_id, financial_entry_id)
-     VALUES (@title, @file_path, @mime_type, @size_bytes, @notes, @copy_type, @client_id, @dossier_id, @case_id, @mission_id, @task_id, @session_id, @personal_task_id, @financial_entry_id)`
+    `INSERT INTO ${table} (title, file_path, mime_type, size_bytes, notes, copy_type, client_id, dossier_id, lawsuit_id, mission_id, task_id, session_id, personal_task_id, financial_entry_id)
+     VALUES (@title, @file_path, @mime_type, @size_bytes, @notes, @copy_type, @client_id, @dossier_id, @lawsuit_id, @mission_id, @task_id, @session_id, @personal_task_id, @financial_entry_id)`
   );
   const result = stmt.run(insertData);
   return get(result.lastInsertRowid);
@@ -116,7 +116,7 @@ function update(id, payload) {
     notes: null,
     client_id: null,
     dossier_id: null,
-    case_id: null,
+    lawsuit_id: null,
     mission_id: null,
     task_id: null,
     session_id: null,
@@ -127,7 +127,7 @@ function update(id, payload) {
   if (
     data.client_id !== undefined ||
     data.dossier_id !== undefined ||
-    data.case_id !== undefined ||
+    data.lawsuit_id !== undefined ||
     data.mission_id !== undefined ||
     data.task_id !== undefined ||
     data.session_id !== undefined ||
@@ -162,3 +162,4 @@ module.exports = {
   update,
   remove,
 };
+

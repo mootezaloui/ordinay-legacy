@@ -185,7 +185,6 @@
       "app": "Application",
       "client": "Client",
       "dossier": "Dossier",
-      "case": "Procès",
       "lawsuit": "Procès",
       "task": "Tâche",
       "personalTask": "Tâche personnelle",
@@ -230,7 +229,7 @@
     "clientAdded": "Le client \"{{clientName}}\" a été ajouté avec succès.",
     "dossierCreated": "Le dossier {{dossierNumber}} a été créé pour {{clientName}}.",
     "taskDue": "\"{{taskTitle}}\" est à échéance le {{dueDate}}.",
-    "hearingScheduled": "L'audience pour {{caseNumber}} est planifiée le {{hearingDate}}.",
+    "hearingScheduled": "L'audience pour {{lawsuitNumber}} est planifiée le {{hearingDate}}.",
     "paymentReceived": "{{clientName}} a effectué un paiement de {{amount}}.",
     "documentUploaded": "\"{{documentName}}\" a été téléversé dans le dossier {{dossierNumber}}.",
     "sessionScheduled": "\"{{sessionTitle}}\" est planifié pour le {{date}}.",
@@ -282,36 +281,36 @@
       "upcomingHearing": {
         "title_one": "Audience dans {{count}} Jour",
         "title_other": "Audience dans {{count}} Jours",
-        "message_one": "Audience planifiée pour le {{entityLabel}} \"{{caseNumber}}\" dans {{count}} jour.",
-        "message_other": "Audience planifiée pour le {{entityLabel}} \"{{caseNumber}}\" dans {{count}} jours.",
-        "messageWithLocation_one": "Audience planifiée pour le {{entityLabel}} \"{{caseNumber}}\" dans {{count}} jour. Lieu : {{location}}",
-        "messageWithLocation_other": "Audience planifiée pour le {{entityLabel}} \"{{caseNumber}}\" dans {{count}} jours. Lieu : {{location}}",
-        "messageNoLocation_one": "Audience planifiée pour le {{entityLabel}} \"{{caseNumber}}\" dans {{count}} jour. Vérifiez les documents et la préparation.",
-        "messageNoLocation_other": "Audience planifiée pour le {{entityLabel}} \"{{caseNumber}}\" dans {{count}} jours. Vérifiez les documents et la préparation."
+        "message_one": "Audience planifiée pour le {{entityLabel}} \"{{lawsuitNumber}}\" dans {{count}} jour.",
+        "message_other": "Audience planifiée pour le {{entityLabel}} \"{{lawsuitNumber}}\" dans {{count}} jours.",
+        "messageWithLocation_one": "Audience planifiée pour le {{entityLabel}} \"{{lawsuitNumber}}\" dans {{count}} jour. Lieu : {{location}}",
+        "messageWithLocation_other": "Audience planifiée pour le {{entityLabel}} \"{{lawsuitNumber}}\" dans {{count}} jours. Lieu : {{location}}",
+        "messageNoLocation_one": "Audience planifiée pour le {{entityLabel}} \"{{lawsuitNumber}}\" dans {{count}} jour. Vérifiez les documents et la préparation.",
+        "messageNoLocation_other": "Audience planifiée pour le {{entityLabel}} \"{{lawsuitNumber}}\" dans {{count}} jours. Vérifiez les documents et la préparation."
       },
       "hearingToday": {
         "title": "🔴 Audience Aujourd'hui",
-        "message": "Audience aujourd'hui pour le {{entityLabel}} \"{{caseNumber}}\" à {{time}}.",
-        "messageWithLocation": "Audience aujourd'hui pour le {{entityLabel}} \"{{caseNumber}}\" à {{time}}. Lieu : {{location}}"
+        "message": "Audience aujourd'hui pour le {{entityLabel}} \"{{lawsuitNumber}}\" à {{time}}.",
+        "messageWithLocation": "Audience aujourd'hui pour le {{entityLabel}} \"{{lawsuitNumber}}\" à {{time}}. Lieu : {{location}}"
       },
       "hearingOutcome": {
         "title": "Résultat de l'Audience - Documentation Requise",
-        "message_one": "L'audience pour le {{entityLabel}} \"{{caseNumber}}\" a eu lieu il y a {{count}} jour. Quel a été le résultat de l'audience ?",
-        "message_other": "L'audience pour le {{entityLabel}} \"{{caseNumber}}\" a eu lieu il y a {{count}} jours. Quel a été le résultat de l'audience ?"
+        "message_one": "L'audience pour le {{entityLabel}} \"{{lawsuitNumber}}\" a eu lieu il y a {{count}} jour. Quel a été le résultat de l'audience ?",
+        "message_other": "L'audience pour le {{entityLabel}} \"{{lawsuitNumber}}\" a eu lieu il y a {{count}} jours. Quel a été le résultat de l'audience ?"
       }
     },
-    "case": {
+    "lawsuit": {
       "missingHearing": {
         "title": "Audience Manquante - Procès sans Audience",
-        "message": "Le procès \"{{caseTitle}}\" (Priorité : {{priority}}) n'a pas d'audience planifiée. Une audience a-t-elle été créée ?"
+        "message": "Le procès \"{{lawsuitTitle}}\" (Priorité : {{priority}}) n'a pas d'audience planifiée. Une audience a-t-elle été créée ?"
       },
       "missingTasks": {
         "title": "Tâches Manquantes - Procès sans Tâches",
-        "message": "Le procès \"{{caseTitle}}\" (Priorité : {{priority}}) n'a aucune tâche associée. Des actions sont-elles prévues ?"
+        "message": "Le procès \"{{lawsuitTitle}}\" (Priorité : {{priority}}) n'a aucune tâche associée. Des actions sont-elles prévues ?"
       },
       "statusUpdate": {
         "title": "Mise à Jour de Statut - Procès",
-        "message": "Le procès \"{{caseTitle}}\" a {{activitySummary}}. Le statut du procès doit-il être mis à jour ? Y a-t-il eu un verdict ?",
+        "message": "Le procès \"{{lawsuitTitle}}\" a {{activitySummary}}. Le statut du procès doit-il être mis à jour ? Y a-t-il eu un verdict ?",
         "hearingsCompleted_one": "{{count}} audience terminée",
         "hearingsCompleted_other": "{{count}} audiences terminées",
         "tasksCompleted_one": "{{count}} tâche terminée",
@@ -379,19 +378,19 @@
       },
       "dossierClosed": {
         "title": "Dossier fermé",
-        "message": "Le Dossier {{caseNumber}} a été fermé."
+        "message": "Le Dossier {{lawsuitNumber}} a été fermé."
       },
       "dossierReopened": {
         "title": "Dossier réouvert",
-        "message": "Le Dossier {{caseNumber}} a été réouvert."
+        "message": "Le Dossier {{lawsuitNumber}} a été réouvert."
       },
-      "caseClosed": {
+      "lawsuitClosed": {
         "title": "Procès fermé",
-        "message": "Le procès {{caseNumber}} a été fermé."
+        "message": "Le procès {{lawsuitNumber}} a été fermé."
       },
-      "caseReopened": {
+      "lawsuitReopened": {
         "title": "Procès réouvert",
-        "message": "Le procès {{caseNumber}} a été réouvert."
+        "message": "Le procès {{lawsuitNumber}} a été réouvert."
       },
       "taskAssigned": {
         "title": "Tâche assignée",
@@ -592,8 +591,8 @@
         "tone": "professional",
         "title_one": "Audience dans {{count}} jour",
         "title_other": "Audience dans {{count}} jours",
-        "message_one": "Audience {{sessionTitle}} ({{entityLabel}}: {{caseNumber}}) dans {{count}} jour a {{time}}{{detailsLine}}",
-        "message_other": "Audience {{sessionTitle}} ({{entityLabel}}: {{caseNumber}}) dans {{count}} jours a {{time}}{{detailsLine}}"
+        "message_one": "Audience {{sessionTitle}} ({{entityLabel}}: {{lawsuitNumber}}) dans {{count}} jour a {{time}}{{detailsLine}}",
+        "message_other": "Audience {{sessionTitle}} ({{entityLabel}}: {{lawsuitNumber}}) dans {{count}} jours a {{time}}{{detailsLine}}"
       },
       {
         "tone": "focused",
@@ -608,12 +607,12 @@
       {
         "tone": "urgent",
         "title": "Audience aujourd'hui",
-        "message": "Audience aujourd'hui: {{sessionTitle}} ({{entityLabel}}: {{caseNumber}}) a {{time}}{{detailsLine}}"
+        "message": "Audience aujourd'hui: {{sessionTitle}} ({{entityLabel}}: {{lawsuitNumber}}) a {{time}}{{detailsLine}}"
       },
       {
         "tone": "professional",
         "title": "Audience prevue aujourd'hui",
-        "message": "Audience prevue: {{sessionTitle}} ({{entityLabel}}: {{caseNumber}}) a {{time}}{{detailsLine}}"
+        "message": "Audience prevue: {{sessionTitle}} ({{entityLabel}}: {{lawsuitNumber}}) a {{time}}{{detailsLine}}"
       }
     ],
     "content.session.participantReminder": [
@@ -621,8 +620,8 @@
         "tone": "actionable",
         "title_one": "Rappel: notifier les participants ({{count}} jour)",
         "title_other": "Rappel: notifier les participants ({{count}} jours)",
-        "message_one": "Envoyer un rappel aux participants pour {{sessionTitle}} ({{caseNumber}}) dans {{count}} jour a {{time}}{{detailsLine}}",
-        "message_other": "Envoyer un rappel aux participants pour {{sessionTitle}} ({{caseNumber}}) dans {{count}} jours a {{time}}{{detailsLine}}"
+        "message_one": "Envoyer un rappel aux participants pour {{sessionTitle}} ({{lawsuitNumber}}) dans {{count}} jour a {{time}}{{detailsLine}}",
+        "message_other": "Envoyer un rappel aux participants pour {{sessionTitle}} ({{lawsuitNumber}}) dans {{count}} jours a {{time}}{{detailsLine}}"
       },
       {
         "tone": "focused",
@@ -635,8 +634,8 @@
         "tone": "gentle",
         "title_one": "Petit rappel participants",
         "title_other": "Petit rappel participants",
-        "message_one": "Pensez a rappeler les participants pour {{sessionTitle}} ({{caseNumber}}) dans {{count}} jour a {{time}}{{detailsLine}}",
-        "message_other": "Pensez a rappeler les participants pour {{sessionTitle}} ({{caseNumber}}) dans {{count}} jours a {{time}}{{detailsLine}}"
+        "message_one": "Pensez a rappeler les participants pour {{sessionTitle}} ({{lawsuitNumber}}) dans {{count}} jour a {{time}}{{detailsLine}}",
+        "message_other": "Pensez a rappeler les participants pour {{sessionTitle}} ({{lawsuitNumber}}) dans {{count}} jours a {{time}}{{detailsLine}}"
       }
     ],
     
@@ -644,32 +643,32 @@
       {
         "tone": "professional",
         "title": "Notes d'audience requises",
-        "message_one": "L'audience pour le {{entityLabel}} \"{{caseNumber}}\" a eu lieu il y a {{count}} jour. Ajoutez vos notes.",
-        "message_other": "L'audience pour le {{entityLabel}} \"{{caseNumber}}\" a eu lieu il y a {{count}} jours. Ajoutez vos notes."
+        "message_one": "L'audience pour le {{entityLabel}} \"{{lawsuitNumber}}\" a eu lieu il y a {{count}} jour. Ajoutez vos notes.",
+        "message_other": "L'audience pour le {{entityLabel}} \"{{lawsuitNumber}}\" a eu lieu il y a {{count}} jours. Ajoutez vos notes."
       },
       {
         "tone": "follow-up",
         "title": "Noter l'audience",
-        "message_one": "{{entityLabel}} \"{{caseNumber}}\" s'est déroulé il y a {{count}} jour. Notez l'issue.",
-        "message_other": "{{entityLabel}} \"{{caseNumber}}\" s'est déroulé il y a {{count}} jours. Notez l'issue."
+        "message_one": "{{entityLabel}} \"{{lawsuitNumber}}\" s'est déroulé il y a {{count}} jour. Notez l'issue.",
+        "message_other": "{{entityLabel}} \"{{lawsuitNumber}}\" s'est déroulé il y a {{count}} jours. Notez l'issue."
       },
       {
         "tone": "friendly",
         "title": "Petit suivi",
-        "message_one": "Comment s'est passée {{entityLabel}} \"{{caseNumber}}\" ? Ajoutez vos notes d'il y a {{count}} jour.",
-        "message_other": "Comment s'est passée {{entityLabel}} \"{{caseNumber}}\" ? Ajoutez vos notes d'il y a {{count}} jours."
+        "message_one": "Comment s'est passée {{entityLabel}} \"{{lawsuitNumber}}\" ? Ajoutez vos notes d'il y a {{count}} jour.",
+        "message_other": "Comment s'est passée {{entityLabel}} \"{{lawsuitNumber}}\" ? Ajoutez vos notes d'il y a {{count}} jours."
       },
       {
         "tone": "gentle",
         "title": "Pense-bete notes",
-        "message_one": "Rappel : {{entityLabel}} \"{{caseNumber}}\" date d'il y a {{count}} jour. Notez le resultat.",
-        "message_other": "Rappel : {{entityLabel}} \"{{caseNumber}}\" date d'il y a {{count}} jours. Notez le resultat."
+        "message_one": "Rappel : {{entityLabel}} \"{{lawsuitNumber}}\" date d'il y a {{count}} jour. Notez le resultat.",
+        "message_other": "Rappel : {{entityLabel}} \"{{lawsuitNumber}}\" date d'il y a {{count}} jours. Notez le resultat."
       },
       {
         "tone": "supportive",
         "title": "Cloturer le suivi",
-        "message_one": "Completez le suivi de {{entityLabel}} \"{{caseNumber}}\" (il y a {{count}} jour) avec une note rapide.",
-        "message_other": "Completez le suivi de {{entityLabel}} \"{{caseNumber}}\" (il y a {{count}} jours) avec une note rapide."
+        "message_one": "Completez le suivi de {{entityLabel}} \"{{lawsuitNumber}}\" (il y a {{count}} jour) avec une note rapide.",
+        "message_other": "Completez le suivi de {{entityLabel}} \"{{lawsuitNumber}}\" (il y a {{count}} jours) avec une note rapide."
       }
     ],
     "content.session.today": [
@@ -1194,34 +1193,34 @@
         "tone": "check-in",
         "title_one": "🔍 Vérifiez l'avancement ({{count}} jour)",
         "title_other": "🔍 Vérifiez l'avancement ({{count}} jours)",
-        "message_one": "Le dossier {{caseNumber}} est ouvert depuis {{count}} jour. Tout se passe comme prévu ?",
-        "message_other": "Le dossier {{caseNumber}} est ouvert depuis {{count}} jours. Tout se passe comme prévu ?"
+        "message_one": "Le dossier {{lawsuitNumber}} est ouvert depuis {{count}} jour. Tout se passe comme prévu ?",
+        "message_other": "Le dossier {{lawsuitNumber}} est ouvert depuis {{count}} jours. Tout se passe comme prévu ?"
       },
       {
         "tone": "concerné",
-        "title_one": "Comment avance {{caseNumber}} ?",
-        "title_other": "Comment avance {{caseNumber}} ?",
+        "title_one": "Comment avance {{lawsuitNumber}} ?",
+        "title_other": "Comment avance {{lawsuitNumber}} ?",
         "message_one": "Ouvert depuis {{count}} jour. Besoin de soutien ou tout est sous contrôle ?",
         "message_other": "Ouvert depuis {{count}} jours. Besoin de soutien ou tout est sous contrôle ?"
       },
       {
         "tone": "collaboratif",
-        "title_one": "Point sur le dossier {{caseNumber}}",
-        "title_other": "Point sur le dossier {{caseNumber}}",
+        "title_one": "Point sur le dossier {{lawsuitNumber}}",
+        "title_other": "Point sur le dossier {{lawsuitNumber}}",
         "message_one": "Ça fait {{count}} jour. Un rapide check-in pour s'assurer que tout avance bien ?",
         "message_other": "Ça fait {{count}} jours. Un rapide check-in pour s'assurer que tout avance bien ?"
       },
       {
         "tone": "simple",
-        "title_one": "Revue : Dossier {{caseNumber}}",
-        "title_other": "Revue : Dossier {{caseNumber}}",
+        "title_one": "Revue : Dossier {{lawsuitNumber}}",
+        "title_other": "Revue : Dossier {{lawsuitNumber}}",
         "message_one": "Ouvert depuis {{count}} jour. À vérifier.",
         "message_other": "Ouvert depuis {{count}} jours. À vérifier."
       },
       {
         "tone": "encourageant",
-        "title_one": "Tout va bien sur {{caseNumber}} ?",
-        "title_other": "Tout va bien sur {{caseNumber}} ?",
+        "title_one": "Tout va bien sur {{lawsuitNumber}} ?",
+        "title_other": "Tout va bien sur {{lawsuitNumber}} ?",
         "message_one": "{{count}} jour d'ouverture. Un moment pour vérifier l'avancement ?",
         "message_other": "{{count}} jours d'ouverture. Un moment pour vérifier l'avancement ?"
       }
@@ -1356,55 +1355,55 @@
       }
 
     ],
-    "content.case.missingHearing": [
+    "content.lawsuit.missingHearing": [
       {
         "tone": "professional",
         "title": "Audience Manquante - Procès sans Audience",
-        "message": "Le procès \"{{caseTitle}}\" (Priorité : {{priority}}) n'a pas d'audience planifiée. Une audience a-t-elle été créée ?"
+        "message": "Le procès \"{{lawsuitTitle}}\" (Priorité : {{priority}}) n'a pas d'audience planifiée. Une audience a-t-elle été créée ?"
       },
       {
         "tone": "actionable",
         "title": "Planifiez une audience",
-        "message": "Le procès \"{{caseTitle}}\" ({{priority}}) n'a pas d'audience. Faut-il en programmer une ?"
+        "message": "Le procès \"{{lawsuitTitle}}\" ({{priority}}) n'a pas d'audience. Faut-il en programmer une ?"
       },
       {
         "tone": "concerned",
         "title": "Procès sans audience",
-        "message": "\"{{caseTitle}}\" (priorité {{priority}}) n'a toujours pas d'audience planifiée. Voulez-vous en créer une ?"
+        "message": "\"{{lawsuitTitle}}\" (priorité {{priority}}) n'a toujours pas d'audience planifiée. Voulez-vous en créer une ?"
       },
       {
         "tone": "direct",
         "title": "Audience requise",
-        "message": "{{caseTitle}} - aucune audience. Planifiez-en une."
+        "message": "{{lawsuitTitle}} - aucune audience. Planifiez-en une."
       }
     ],
-    "content.case.missingTasks": [
+    "content.lawsuit.missingTasks": [
       {
         "tone": "professional",
         "title": "Tâches Manquantes - Procès sans Tâches",
-        "message": "Le procès \"{{caseTitle}}\" (Priorité : {{priority}}) n'a aucune tâche associée. Des actions sont-elles prévues ?"
+        "message": "Le procès \"{{lawsuitTitle}}\" (Priorité : {{priority}}) n'a aucune tâche associée. Des actions sont-elles prévues ?"
       },
       {
         "tone": "actionable",
         "title": "Définissez les actions",
-        "message": "Le procès \"{{caseTitle}}\" ({{priority}}) n'a pas de tâches. Quelles sont les prochaines étapes ?"
+        "message": "Le procès \"{{lawsuitTitle}}\" ({{priority}}) n'a pas de tâches. Quelles sont les prochaines étapes ?"
       },
       {
         "tone": "planning",
         "title": "Plan d'action nécessaire",
-        "message": "\"{{caseTitle}}\" (priorité {{priority}}) nécessite un plan d'action. Créez des tâches."
+        "message": "\"{{lawsuitTitle}}\" (priorité {{priority}}) nécessite un plan d'action. Créez des tâches."
       },
       {
         "tone": "supportive",
         "title": "Besoin d'un plan ?",
-        "message": "Le procès \"{{caseTitle}}\" n'a pas de tâches. Voulez-vous que je vous aide à planifier ?"
+        "message": "Le procès \"{{lawsuitTitle}}\" n'a pas de tâches. Voulez-vous que je vous aide à planifier ?"
       }
     ],
-    "content.case.statusUpdate": [
+    "content.lawsuit.statusUpdate": [
       {
         "tone": "professional",
         "title": "Mise à Jour de Statut - Procès",
-        "message": "Le procès \"{{caseTitle}}\" a {{activitySummary}}. Le statut du procès doit-il être mis à jour ? Y a-t-il eu un verdict ?",
+        "message": "Le procès \"{{lawsuitTitle}}\" a {{activitySummary}}. Le statut du procès doit-il être mis à jour ? Y a-t-il eu un verdict ?",
         "hearingsCompleted_one": "{{count}} audience terminée",
         "hearingsCompleted_other": "{{count}} audiences terminées",
         "tasksCompleted_one": "{{count}} tâche terminée",
@@ -1414,7 +1413,7 @@
       {
         "tone": "follow-up",
         "title": "Verdict ou mise à jour ?",
-        "message": "\"{{caseTitle}}\" a progressé ({{activitySummary}}). Mettez à jour le statut.",
+        "message": "\"{{lawsuitTitle}}\" a progressé ({{activitySummary}}). Mettez à jour le statut.",
         "hearingsCompleted_one": "{{count}} audience",
         "hearingsCompleted_other": "{{count}} audiences",
         "tasksCompleted_one": "{{count}} tâche",
@@ -1424,7 +1423,7 @@
       {
         "tone": "direct",
         "title": "Statut du procès",
-        "message": "{{caseTitle}} : {{activitySummary}}. Verdict ?",
+        "message": "{{lawsuitTitle}} : {{activitySummary}}. Verdict ?",
         "hearingsCompleted_one": "{{count}} audience faite",
         "hearingsCompleted_other": "{{count}} audiences faites",
         "tasksCompleted_one": "{{count}} tâche faite",
@@ -1670,9 +1669,9 @@
       "dossierCreated": "Ouverture de Votre Dossier {{title}} ({{number}})",
       "dossierStatusChanged": "Mise à Jour de Dossier {{title}} ({{number}})",
       "dossierDeadlineChanged": "Modification d'Échéance - {{title}} ({{number}})",
-      "caseCreated": "Ouverture de Votre Procès {{title}} ({{number}})",
-      "caseStatusChanged": "Mise à Jour de Procès {{title}} ({{number}})",
-      "caseHearingChanged": "Modification de Date d'Audience - {{title}} ({{number}})",
+      "lawsuitCreated": "Ouverture de Votre Procès {{title}} ({{number}})",
+      "lawsuitStatusChanged": "Mise à Jour de Procès {{title}} ({{number}})",
+      "lawsuitHearingChanged": "Modification de Date d'Audience - {{title}} ({{number}})",
       "sessionScheduled": "Audience Planifiée - {{title}}",
       "sessionDateChanged": "Modification de Date d'Audience - {{title}}",
       "sessionCancelled": "Annulation d'Audience - {{number}}",
@@ -1691,7 +1690,7 @@
         "details": "Dossier : {{title}} ({{number}})\nNouveau Statut : {{newStatus}}\nDate : {{date}}",
         "footer": "Pour toute question, n'hésitez pas à nous contacter.",
         "statusExplanations": {
-          "Closed": "Votre Dossier est maintenant fermé. Tous les éléments de l'affaire ont été traités.",
+          "Closed": "Votre Dossier est maintenant fermé. Tous les éléments du procès ont été traités.",
           "Suspended": "Votre Dossier est temporairement suspendu en raison de circonstances nécessitant une pause dans le traitement.",
           "OpenAfterReopening": "Votre Dossier a été rouvert pour traitement suite à de nouveaux développements.",
           "Open": "Votre Dossier est maintenant actif et en cours de traitement."
@@ -1707,12 +1706,12 @@
         },
         "footer": "Pour toute question, n'hésitez pas à nous contacter."
       },
-      "caseCreated": {
+      "lawsuitCreated": {
         "confirmation": "Nous confirmons l'ouverture d'un nouveau procès vous concernant.",
         "details": "Procès : {{title}} ({{number}})\nJuridiction : {{court}}",
         "footer": "Nous vous tiendrons informé de chaque étape."
       },
-      "caseStatusChanged": {
+      "lawsuitStatusChanged": {
         "intro": "Nous vous informons d'un développement concernant votre procès.",
         "details": "Procès : {{title}} ({{number}})\nTribunal : {{court}}\nNouveau Statut : {{newStatus}}\nDate : {{date}}",
         "footer": "Nous restons à votre disposition pour toute information complémentaire.",
@@ -1721,7 +1720,7 @@
           "Suspendu": "Votre procès a été suspendu par le tribunal. Nous vous tiendrons informé de la reprise des procédures."
         }
       },
-      "caseHearingChanged": {
+      "lawsuitHearingChanged": {
         "intro": "Nous vous informons d'une modification concernant votre prochaine audience.",
         "details": "Procès : {{title}} ({{number}})\nTribunal : {{court}}\n\nDate précédente : {{oldDate}}\nNouvelle date : {{newDate}}",
         "footer": "Veuillez prendre note de ce changement et vous organiser en conséquence.\n\nPour toute question, n'hésitez pas à nous contacter."
@@ -1729,19 +1728,19 @@
       "sessionScheduled": {
         "intro": "Une audience a été planifiée pour votre Dossier.",
         "details": "Type : {{title}}\nDate : {{date}} à {{time}}\nLieu : {{location}}\nDurée estimée : {{duration}}",
-        "detailsWithCase": "Procès : {{caseTitle}} ({{caseNumber}})\nType : {{title}}\nDate : {{date}} à {{time}}\nLieu : {{location}}\nDurée estimée : {{duration}}",
+        "detailsWithLawsuit": "Procès : {{lawsuitTitle}} ({{lawsuitNumber}})\nType : {{title}}\nDate : {{date}} à {{time}}\nLieu : {{location}}\nDurée estimée : {{duration}}",
         "footer": "Nous vous tiendrons informé de tout développement."
       },
       "sessionDateChanged": {
         "intro": "Nous vous informons d'une modification concernant votre prochaine audience.",
         "details": "Audience : {{title}}\n\nDate précédente : {{oldDate}} à {{oldTime}}\nNouvelle date : {{newDate}} à {{newTime}}\n\nLieu : {{location}}",
-        "detailsWithCase": "Procès : {{caseTitle}} ({{caseNumber}})\nAudience : {{title}}\n\nDate précédente : {{oldDate}} à {{oldTime}}\nNouvelle date : {{newDate}} à {{newTime}}\n\nLieu : {{location}}",
+        "detailsWithLawsuit": "Procès : {{lawsuitTitle}} ({{lawsuitNumber}})\nAudience : {{title}}\n\nDate précédente : {{oldDate}} à {{oldTime}}\nNouvelle date : {{newDate}} à {{newTime}}\n\nLieu : {{location}}",
         "footer": "Veuillez prendre note de ce changement et vous organiser en conséquence.\n\nPour toute question, n'hésitez pas à nous contacter."
       },
       "sessionCancelled": {
         "intro": "Nous vous informons de l'annulation de l'audience planifiée.",
         "details": "Audience annulée : {{date}} à {{time}}\nLieu : {{location}}",
-        "detailsWithCase": "Procès : {{caseNumber}} - {{caseTitle}}\nAudience annulée : {{date}} à {{time}}\nLieu : {{location}}",
+        "detailsWithLawsuit": "Procès : {{lawsuitNumber}} - {{lawsuitTitle}}\nAudience annulée : {{date}} à {{time}}\nLieu : {{location}}",
         "footer": "Une nouvelle date vous sera communiquée dès que possible."
       },
       "financialEntryAdded": {
@@ -1780,6 +1779,8 @@
     }
   }
 }
+
+
 
 
 

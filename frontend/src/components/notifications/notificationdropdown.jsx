@@ -89,7 +89,7 @@ export default function NotificationDropdown({ isOpen, onToggle, onClose }) {
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={toggleDropdown}
-        className={`relative p-3 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200 ${isOpen ? "bg-slate-100 dark:bg-slate-800" : ""
+        className={`relative p-3 rounded-full border border-transparent hover:border-slate-200/80 dark:hover:border-slate-700/70 hover:bg-white/80 dark:hover:bg-slate-900/60 focus:outline-none focus:ring-2 focus:ring-blue-500/60 transition-all duration-200 ${isOpen ? "bg-white/90 dark:bg-slate-900/70 border-slate-200/80 dark:border-slate-700/70 shadow-sm" : ""
           }`}
         aria-label={t("dropdown.aria")}
       >
@@ -112,49 +112,54 @@ export default function NotificationDropdown({ isOpen, onToggle, onClose }) {
         </svg>
 
         {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[20px] h-5 px-1.5 bg-red-500 text-white text-xs font-bold rounded-full shadow-lg animate-pulse">
+          <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[20px] h-5 px-1.5 bg-gradient-to-r from-rose-500 to-red-500 text-white text-xs font-bold rounded-full shadow-lg shadow-red-500/30 ring-2 ring-white dark:ring-slate-900">
             {unreadCount > 99 ? "99+" : unreadCount}
           </span>
         )}
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-3 w-96 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 overflow-hidden z-50">
-          <div className="px-6 py-4 bg-gradient-to-r from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-white">{t("dropdown.title")}</h3>
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-blue-100 dark:text-blue-200">
-                  {t("dropdown.unreadCount", { count: unreadCount })}
-                </span>
-                {unreadCount > 0 && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      markAllAsRead();
-                    }}
-                    className="text-xs text-white hover:text-blue-100 underline"
-                    title={t("dropdown.actions.markAll")}
-                  >
-                    {t("dropdown.actions.markAll")}
-                  </button>
-                )}
+        <div className="absolute right-0 mt-3 w-[26rem] bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-200/80 dark:border-slate-700/70 overflow-hidden z-50 animate-in zoom-in-95 slide-in-from-top-1 duration-200">
+          <div className="px-5 py-4 bg-slate-50/90 dark:bg-slate-800/70 border-b border-slate-200/70 dark:border-slate-700/60">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center shadow-lg shadow-blue-500/25">
+                  <i className="fas fa-bell text-white text-sm"></i>
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">{t("dropdown.title")}</h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    {t("dropdown.unreadCount", { count: unreadCount })}
+                  </p>
+                </div>
               </div>
+              {unreadCount > 0 && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    markAllAsRead();
+                  }}
+                  className="px-2.5 py-1 text-xs font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-500/10 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-500/20 transition-colors"
+                  title={t("dropdown.actions.markAll")}
+                >
+                  {t("dropdown.actions.markAll")}
+                </button>
+              )}
             </div>
           </div>
 
           {recentNotifications.length > 0 ? (
-            <div className="max-h-[400px] overflow-y-auto scrollbar-default">
+            <div className="max-h-[420px] overflow-y-auto scrollbar-default">
               {recentNotifications.map((notification) => (
                 <div
                   key={notification.id}
                   onClick={() => handleNotificationClick(notification)}
-                  className={`group relative px-6 py-4 border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors duration-200 ${notification.link ? "cursor-pointer" : ""
+                  className={`group relative px-5 py-4 border-b border-slate-100/80 dark:border-slate-800/60 hover:bg-slate-100/70 dark:hover:bg-slate-800/60 transition-colors duration-200 ${notification.link ? "cursor-pointer" : ""
                     }`}
                 >
                   <div className="flex items-start gap-4">
-                    <div className={`flex-shrink-0 ${getPriorityColor(notification.priority)}`}>
-                      <i className={`${notification.icon || "fas fa-bell"} text-xl`}></i>
+                    <div className={`flex-shrink-0 w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center ${getPriorityColor(notification.priority)}`}>
+                      <i className={`${notification.icon || "fas fa-bell"} text-lg`}></i>
                     </div>
 
                     <div className="flex-1 min-w-0">
@@ -164,7 +169,7 @@ export default function NotificationDropdown({ isOpen, onToggle, onClose }) {
                           {notification.title}
                         </p>
                         {!notification.read && (
-                          <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 mt-2"></div>
+                          <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 mt-2 ring-4 ring-blue-500/10"></div>
                         )}
                       </div>
                       <p className={`text-sm text-slate-600 dark:text-slate-300 mt-1 ${!notification.read ? "" : "opacity-75"
@@ -195,7 +200,7 @@ export default function NotificationDropdown({ isOpen, onToggle, onClose }) {
             </div>
           ) : (
             <div className="py-12 px-6 text-center">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-700 mb-4">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-800 mb-4">
                 <i className="fas fa-bell-slash text-slate-400 dark:text-slate-500 text-2xl"></i>
               </div>
               <p className="text-slate-600 dark:text-slate-400 font-medium">
@@ -207,10 +212,10 @@ export default function NotificationDropdown({ isOpen, onToggle, onClose }) {
             </div>
           )}
 
-          <div className="grid grid-cols-2 divide-x divide-slate-200 dark:divide-slate-700 border-t border-slate-200 dark:border-slate-700">
+          <div className="grid grid-cols-2 divide-x divide-slate-200/70 dark:divide-slate-700/60 border-t border-slate-200/70 dark:border-slate-700/60 bg-slate-50/80 dark:bg-slate-800/50">
             <button
               onClick={viewAllNotifications}
-              className="px-6 py-4 text-sm font-medium text-blue-600 dark:text-blue-400 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors duration-200 flex items-center justify-center gap-2"
+              className="px-6 py-3.5 text-sm font-semibold text-blue-600 dark:text-blue-400 hover:bg-white/80 dark:hover:bg-slate-800/70 transition-colors duration-200 flex items-center justify-center gap-2"
             >
               <i className="fas fa-list"></i>
               {t("dropdown.actions.viewAll")}
@@ -218,7 +223,7 @@ export default function NotificationDropdown({ isOpen, onToggle, onClose }) {
             <button
               onClick={clearNotifications}
               disabled={visibleNotifications.length === 0}
-              className="px-6 py-4 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-6 py-3.5 text-sm font-semibold text-red-600 dark:text-red-400 hover:bg-white/80 dark:hover:bg-slate-800/70 transition-colors duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <i className="fas fa-trash"></i>
               {t("dropdown.actions.clear")}

@@ -37,7 +37,7 @@ const createEstimatedTimeLabelGetter = (t) => (value) => {
  * Task Entity Configuration - UPDATED with Quick Actions
  * ✅ Added inline quick actions for status, priority, assignedTo
  * ✅ Added structured edit mode for overview sections
- * ✅ UPDATED: Tasks can now belong to EITHER Dossier OR Case (Procès)
+ * ✅ UPDATED: Tasks can now belong to EITHER Dossier OR Lawsuit (Procès)
  * ✅ Fully internationalized with i18n support
  */
 export const createTaskConfig = (t) => {
@@ -73,9 +73,9 @@ export const createTaskConfig = (t) => {
       }
       if (!task) return null;
 
-      // ✅ Always resolve dossier and case from IDs using latest context data
+      // ✅ Always resolve dossier and lawsuit from IDs using latest context data
       const dossiers = contextData?.dossiers || [];
-      const cases = contextData?.cases || [];
+      const lawsuits = contextData?.lawsuits || [];
       const financialEntries = contextData?.financialEntries || [];
 
       let dossier = null;
@@ -84,29 +84,29 @@ export const createTaskConfig = (t) => {
         if (foundDossier) {
           dossier = {
             id: foundDossier.id,
-            caseNumber: foundDossier.caseNumber,
+            lawsuitNumber: foundDossier.lawsuitNumber,
             title: foundDossier.title
           };
         }
       }
 
-      let caseData = null;
-      if (task.caseId) {
-        const foundCase = cases.find(c => c.id === parseInt(task.caseId));
-        if (foundCase) {
-          caseData = {
-            id: foundCase.id,
-            caseNumber: foundCase.caseNumber,
-            title: foundCase.title
+      let lawsuitData = null;
+      if (task.lawsuitId) {
+        const foundLawsuit = lawsuits.find(c => c.id === parseInt(task.lawsuitId));
+        if (foundLawsuit) {
+          lawsuitData = {
+            id: foundLawsuit.id,
+            lawsuitNumber: foundLawsuit.lawsuitNumber,
+            title: foundLawsuit.title
           };
         }
       }
 
       // Filter financial entries based on parent relationship
       let relatedFinancialEntries = [];
-      if (task.parentType === "case" && task.caseId) {
+      if (task.parentType === "lawsuit" && task.lawsuitId) {
         relatedFinancialEntries = financialEntries.filter(entry =>
-          entry.caseId === task.caseId && entry.scope === 'client'
+          entry.lawsuitId === task.lawsuitId && entry.scope === 'client'
         );
       } else if (task.dossierId) {
         relatedFinancialEntries = financialEntries.filter(entry =>
@@ -117,7 +117,7 @@ export const createTaskConfig = (t) => {
       return {
         ...task,
         dossier: dossier || null,
-        case: caseData || null,
+        lawsuit: lawsuitData || null,
         financialEntries: relatedFinancialEntries,
       };
     },
@@ -127,7 +127,7 @@ export const createTaskConfig = (t) => {
 
       // Filter out any potential relationship fields - task entity should only contain task-specific data
       const taskFields = [
-        'title', 'parentType', 'dossierId', 'caseId', 'assignedTo', 'dueDate',
+        'title', 'parentType', 'dossierId', 'lawsuitId', 'assignedTo', 'dueDate',
         'priority', 'status', 'description', 'estimatedTime', 'notes'
       ];
       const taskData = Object.keys(data).reduce((acc, key) => {
@@ -228,14 +228,14 @@ export const createTaskConfig = (t) => {
       };
 
       // Determine parent link based on parentType
-      const parentLink = data.parentType === "case" && data.case
+      const parentLink = data.parentType === "lawsuit" && data.lawsuit
         ? (
           <Link
-            to={`/cases/${data.case.id}`}
+            to={`/lawsuits/${data.lawsuit.id}`}
             className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-2"
           >
             <i className="fas fa-gavel"></i>
-            {data.case.caseNumber} - {data.case.title}
+            {data.lawsuit.lawsuitNumber} - {data.lawsuit.title}
           </Link>
         )
         : data.dossier
@@ -245,7 +245,7 @@ export const createTaskConfig = (t) => {
               className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-2"
             >
               <i className="fas fa-folder-open"></i>
-              {data.dossier.caseNumber} - {data.dossier.title}
+              {data.dossier.lawsuitNumber} - {data.dossier.title}
             </Link>
           )
           : null;
@@ -406,7 +406,7 @@ export const createTaskConfig = (t) => {
             displayValue: (data, contextData) => {
               const parentTypeOptions = {
                 "dossier": t('detail.overview.fields.parentTypeOptions.dossier'),
-                "case": t('detail.overview.fields.parentTypeOptions.case')
+                "lawsuit": t('detail.overview.fields.parentTypeOptions.lawsuit')
               };
               return parentTypeOptions[data.parentType] || t('detail.overview.fields.parentTypeOptions.dossier');
             },
@@ -416,7 +416,7 @@ export const createTaskConfig = (t) => {
             required: true,
             options: [
               { value: "dossier", label: t('detail.overview.fields.parentTypeOptions.dossier') },
-              { value: "case", label: t('detail.overview.fields.parentTypeOptions.case') },
+              { value: "lawsuit", label: t('detail.overview.fields.parentTypeOptions.lawsuit') },
             ],
             helpText: t('detail.overview.fields.parentTypeHelp'),
           },
@@ -427,7 +427,7 @@ export const createTaskConfig = (t) => {
             displayValue: (data) => {
               if (!data.dossierId) return t('detail.fallback.none');
               // Use hydrated dossier object if available
-              if (data.dossier?.caseNumber) return `${data.dossier.caseNumber} - ${data.dossier.title}`;
+              if (data.dossier?.lawsuitNumber) return `${data.dossier.lawsuitNumber} - ${data.dossier.title}`;
               return t('detail.fallback.none');
             },
             icon: "fas fa-folder-open",
@@ -438,19 +438,19 @@ export const createTaskConfig = (t) => {
               { value: "", label: t('detail.overview.fields.dossierPlaceholder') },
               ...(contextData?.dossiers || []).map(d => ({
                 value: d.id,
-                label: `${d.caseNumber} - ${d.title}`
+                label: `${d.lawsuitNumber} - ${d.title}`
               }))
             ]),
             helpText: t('detail.overview.fields.dossierHelp')
           },
           {
-            key: "caseId",
-            label: t('detail.overview.fields.case'),
-            value: (data, contextData) => data.caseId || "",
+            key: "lawsuitId",
+            label: t('detail.overview.fields.lawsuit'),
+            value: (data, contextData) => data.lawsuitId || "",
             displayValue: (data) => {
-              if (!data.caseId) return t('detail.fallback.none');
-              // Use hydrated case object if available
-              if (data.case?.caseNumber) return `${data.case.caseNumber} - ${data.case.title}`;
+              if (!data.lawsuitId) return t('detail.fallback.none');
+              // Use hydrated lawsuit object if available
+              if (data.lawsuit?.lawsuitNumber) return `${data.lawsuit.lawsuitNumber} - ${data.lawsuit.title}`;
               return t('detail.fallback.none');
             },
             icon: "fas fa-gavel",
@@ -458,13 +458,13 @@ export const createTaskConfig = (t) => {
             editable: true,
             options: [],
             getOptions: (editedData, contextData) => ([
-              { value: "", label: t('detail.overview.fields.casePlaceholder') },
-              ...(contextData?.cases || []).map(c => ({
+              { value: "", label: t('detail.overview.fields.lawsuitPlaceholder') },
+              ...(contextData?.lawsuits || []).map(c => ({
                 value: c.id,
-                label: `${c.caseNumber} - ${c.title}`
+                label: `${c.lawsuitNumber} - ${c.title}`
               }))
             ]),
-            helpText: t('detail.overview.fields.caseHelp')
+            helpText: t('detail.overview.fields.lawsuitHelp')
           },
         ],
       },
@@ -493,3 +493,8 @@ export const createTaskConfig = (t) => {
   }
 
 };
+
+
+
+
+

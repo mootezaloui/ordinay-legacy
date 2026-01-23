@@ -259,7 +259,7 @@ export default function GenerateDocumentModal({
                 : data["dossier.reference"];
         return (
             resolved ||
-            entityData?.caseNumber ||
+            entityData?.lawsuitNumber ||
             entityData?.reference ||
             entityData?.id ||
             "-"
@@ -556,3 +556,4 @@ export default function GenerateDocumentModal({
         </div>
     );
 }
+

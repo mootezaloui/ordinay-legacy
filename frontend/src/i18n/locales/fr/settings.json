@@ -68,7 +68,7 @@
         "description": "Notification critique le jour de l'audience pour éviter tout oubli."
       }
     },
-    "cases": {
+    "lawsuits": {
       "title": "Procès",
       "basedOnPriority": "Selon la priorité du dossier parent",
       "automaticTitle": "Notifications automatiques :",
@@ -118,7 +118,7 @@
       "title": "Clients",
       "inactivity": {
         "label": "Rappel d'inactivité ({{days}} jours sans activité)",
-        "description": "Notification si le client n'a aucune activité (dossiers, tâches, audiences, paiements) pendant {{days}} jours."
+        "description": "Notification si le client n'a aucune activité (procès, tâches, audiences, paiements) pendant {{days}} jours."
       }
     }
   },
@@ -328,7 +328,7 @@
       "planLimits": {
         "clients": "Plan gratuit : Clients {{count}}",
         "dossiers": "Plan gratuit : Dossiers {{count}}",
-        "casesPerDossier": "Plan gratuit : Affaires par dossier {{count}}",
+        "lawsuitsPerDossier": "Plan gratuit : Procès par dossier {{count}}",
         "activeTasks": "Plan gratuit : Tâches actives {{count}}",
         "paidUnlimited": "Plan payant : Illimité"
       },

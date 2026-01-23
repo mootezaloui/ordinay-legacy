@@ -74,9 +74,9 @@ export const filterFinancialEntries = (filters = {}, allEntries = []) => {
     entries = entries.filter((e) => e.dossierId === filters.dossierId);
   }
 
-  // Filter by case (procès)
-  if (filters.caseId) {
-    entries = entries.filter((e) => e.caseId === filters.caseId);
+  // Filter by lawsuit (procès)
+  if (filters.lawsuitId) {
+    entries = entries.filter((e) => e.lawsuitId === filters.lawsuitId);
   }
 
   // Filter by mission
@@ -267,13 +267,13 @@ export const getDossierFinancialSummary = (dossierId, allEntries = []) => {
 };
 
 /**
- * Get financial summary for a specific case (procès)
- * @param {Number} caseId - Case ID
+ * Get financial summary for a specific lawsuit (procès)
+ * @param {Number} lawsuitId - Case ID
  * @param {Array} allEntries - All financial entries (from DataContext)
  * @returns {Object} Case financial summary
  */
-export const getCaseFinancialSummary = (caseId, allEntries = []) => {
-  return computeFinancialSummary({ caseId, scope: "client" }, allEntries);
+export const getLawsuitFinancialSummary = (lawsuitId, allEntries = []) => {
+  return computeFinancialSummary({ lawsuitId, scope: "client" }, allEntries);
 };
 
 /**
@@ -375,8 +375,8 @@ export const getFinancialEntriesForDisplay = (
         : `+${formatCurrency(entry.amount)}`,
 
     // Entity references for display
-    entityReference: entry.caseReference
-      ? `${entry.caseReference}`
+    entityReference: entry.lawsuitReference
+      ? `${entry.lawsuitReference}`
       : entry.dossierReference
       ? `${entry.dossierReference}`
       : entry.clientName || "-",
@@ -645,7 +645,7 @@ export default {
   computeFinancialSummary,
   getClientFinancialSummary,
   getDossierFinancialSummary,
-  getCaseFinancialSummary,
+  getLawsuitFinancialSummary,
   getMissionFinancialSummary,
   getOfficerFinancialSummary,
   getPersonalTaskFinancialSummary,
@@ -660,3 +660,4 @@ export default {
   getClientReceivableBalance,
   getDossierReceivableBalance,
 };
+

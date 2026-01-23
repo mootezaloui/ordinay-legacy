@@ -4,7 +4,7 @@ export const mockSessions: AgentSession[] = [
   {
     id: "s1",
     title: "Case Analysis - Dupont",
-    lastMessage: "Prepare a summary of the Dupont case",
+    lastMessage: "Prepare a summary of the Dupont lawsuit",
     timestamp: new Date(Date.now() - 3600000),
     messageCount: 8,
     createdAt: new Date(Date.now() - 86400000 * 7),

@@ -64,7 +64,7 @@
             "properties": {
               "type": {
                 "type": "string",
-                "enum": ["dossier", "case", "client", "session", "task"]
+                "enum": ["dossier", "lawsuit", "client", "session", "task"]
               },
               "id": {
                 "type": "integer",

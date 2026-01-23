@@ -10,7 +10,7 @@ const INTENT_CLASSIFICATION_PROMPT = `You are an intent classifier for a legal p
 Your task is to classify user messages into exactly ONE of these intents:
 
 - GENERAL_CHAT: User is greeting, asking general questions, or having casual conversation
-- EXPLAIN_ENTITY_STATE: User wants explanation of a client, dossier, task, case, session, or other entity
+- EXPLAIN_ENTITY_STATE: User wants explanation of a client, dossier, task, lawsuit, session, or other entity
 - SUMMARIZE_SESSION: User wants a summary or recap of a session, meeting, or hearing
 - ANALYZE_OPERATIONAL_RISKS: User wants risk analysis, risk assessment, or mitigation advice
 - DRAFT_INVITATION: User wants to draft an invitation letter or RSVP

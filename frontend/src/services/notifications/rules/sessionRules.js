@@ -49,18 +49,18 @@ export const SessionRules = {
         }
       }
 
-      // Get parent dossier/case to inherit priority
+      // Get parent dossier/lawsuit to inherit priority
       const dossiers = entities.dossiers || [];
-      const cases = entities.cases || [];
+      const lawsuits = entities.lawsuits || [];
 
       let priority = "Moyenne";
       let parentDossier = null;
 
-      // Try to find parent via case first
-      if (session.case_id) {
-        const parentCase = cases.find((c) => c.id === session.case_id);
-        if (parentCase && parentCase.dossier_id) {
-          parentDossier = dossiers.find((d) => d.id === parentCase.dossier_id);
+      // Try to find parent via lawsuit first
+      if (session.lawsuit_id) {
+        const parentLawsuit = lawsuits.find((c) => c.id === session.lawsuit_id);
+        if (parentLawsuit && parentLawsuit.dossier_id) {
+          parentDossier = dossiers.find((d) => d.id === parentLawsuit.dossier_id);
         }
       }
 
@@ -86,7 +86,7 @@ export const SessionRules = {
         notificationPriority = priorityWeight >= 3 ? "high" : "medium"; // High priority gets high, others medium
       }
 
-      // Resolve the correct entity (case/dossier/session)
+      // Resolve the correct entity (lawsuit/dossier/session)
       const entityInfo = resolveSessionEntity(session, entities);
       const entityReference = entityInfo ? entityInfo.reference : 'Audience';
       const entityLabel = entityInfo ? entityInfo.label : '';
@@ -109,7 +109,7 @@ export const SessionRules = {
           ? "content.session.upcomingHearing.messageWithLocation"
           : "content.session.upcomingHearing.messageNoLocation",
         messageParams: {
-          caseNumber: entityReference,
+          lawsuitNumber: entityReference,
           entityLabel: entityLabel,
           count: daysLeft,
           sessionTitle,
@@ -123,7 +123,7 @@ export const SessionRules = {
         },
         metadata: {
           sessionId: session.id,
-          caseNumber: entityReference,
+          lawsuitNumber: entityReference,
           entityLabel: entityLabel,
           entityType: entityInfo?.entityType,
           entityId: entityInfo?.entityId,
@@ -212,7 +212,7 @@ export const SessionRules = {
       messageKey: "content.session.participantReminder.message",
       messageParams: {
         sessionTitle,
-        caseNumber: entityReference,
+        lawsuitNumber: entityReference,
         entityLabel,
         count: daysLeft,
         time,
@@ -226,7 +226,7 @@ export const SessionRules = {
       },
       metadata: {
         sessionId: session.id,
-        caseNumber: entityReference,
+        lawsuitNumber: entityReference,
         entityLabel,
         entityType: entityInfo?.entityType,
         entityId: entityInfo?.entityId,
@@ -273,7 +273,7 @@ export const SessionRules = {
     const daysLeft = calculateDaysDifference(scheduledDate);
 
     if (daysLeft === 0) {
-      // Resolve the correct entity (case/dossier/session)
+      // Resolve the correct entity (lawsuit/dossier/session)
       const entityInfo = resolveSessionEntity(session, entities);
       const entityReference = entityInfo ? entityInfo.reference : "Audience";
       const entityLabel = entityInfo ? entityInfo.label : "";
@@ -297,7 +297,7 @@ export const SessionRules = {
           ? "content.session.hearingToday.messageWithLocation"
           : "content.session.hearingToday.message",
         messageParams: {
-          caseNumber: entityReference,
+          lawsuitNumber: entityReference,
           entityLabel,
           time,
           sessionTitle,
@@ -309,7 +309,7 @@ export const SessionRules = {
         },
         metadata: {
           sessionId: session.id,
-          caseNumber: entityReference,
+          lawsuitNumber: entityReference,
           entityLabel,
           entityType: entityInfo?.entityType,
           entityId: entityInfo?.entityId,
@@ -373,18 +373,18 @@ export const SessionRules = {
       // Hearing was more than 1 day ago and still no outcome
       const daysSinceHearing = Math.abs(daysLeft);
 
-      // Get parent dossier/case to inherit priority
+      // Get parent dossier/lawsuit to inherit priority
       const dossiers = entities.dossiers || [];
-      const cases = entities.cases || [];
+      const lawsuits = entities.lawsuits || [];
 
       let priority = "Moyenne";
       let parentDossier = null;
 
-      // Try to find parent via case first
-      if (session.case_id) {
-        const parentCase = cases.find((c) => c.id === session.case_id);
-        if (parentCase && parentCase.dossier_id) {
-          parentDossier = dossiers.find((d) => d.id === parentCase.dossier_id);
+      // Try to find parent via lawsuit first
+      if (session.lawsuit_id) {
+        const parentLawsuit = lawsuits.find((c) => c.id === session.lawsuit_id);
+        if (parentLawsuit && parentLawsuit.dossier_id) {
+          parentDossier = dossiers.find((d) => d.id === parentLawsuit.dossier_id);
         }
       }
 
@@ -399,7 +399,7 @@ export const SessionRules = {
 
       const priorityWeight = getPriorityWeight(priority);
 
-      // Resolve the correct entity (case/dossier/session)
+      // Resolve the correct entity (lawsuit/dossier/session)
       const entityInfo = resolveSessionEntity(session, entities);
       const entityReference = entityInfo ? entityInfo.reference : 'Audience';
       const entityLabel = entityInfo ? entityInfo.label : '';
@@ -417,13 +417,13 @@ export const SessionRules = {
         titleParams: variantIndex !== null ? { variantIndex } : {},
         messageKey: "content.session.hearingOutcome.message",
         messageParams: {
-          caseNumber: entityReference,
+          lawsuitNumber: entityReference,
           entityLabel: entityLabel,
           count: daysSinceHearing
         },
         metadata: {
           sessionId: session.id,
-          caseNumber: entityReference,
+          lawsuitNumber: entityReference,
           entityLabel: entityLabel,
           entityType: entityInfo?.entityType,
           entityId: entityInfo?.entityId,
@@ -438,3 +438,6 @@ export const SessionRules = {
     return new RuleResult(false);
   },
 };
+
+
+

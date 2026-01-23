@@ -127,11 +127,11 @@ export const PHASE2_STEPS: TutorialStep[] = [
   },
 ];
 
-// Phase 3: Cases/Lawsuits — Legal Proceedings
+// Phase 3: Lawsuits — Legal Proceedings
 export const PHASE3_STEPS: TutorialStep[] = [
   // Step 3.1: From dossiers list, select a dossier to open its detail view
   {
-    id: "select-dossier-for-cases",
+    id: "select-dossier-for-lawsuits",
     target: "dossiers-list-container",
     allowInteraction: true,
     requiresAction: true,
@@ -139,32 +139,32 @@ export const PHASE3_STEPS: TutorialStep[] = [
   },
   // Step 3.2: Click on Cases/Procès tab
   {
-    id: "dossier-cases-tab",
-    target: "dossier-cases-tab",
+    id: "dossier-lawsuits-tab",
+    target: "dossier-lawsuits-tab",
     allowInteraction: true,
     requiresAction: true,
     position: "bottom",
   },
-  // Step 3.3: Create a case from the dossier
+  // Step 3.3: Create a lawsuit from the dossier
   {
-    id: "create-case-from-dossier",
-    target: "add-case-from-dossier-button",
+    id: "create-lawsuit-from-dossier",
+    target: "add-lawsuit-from-dossier-button",
     allowInteraction: true,
     requiresAction: true,
     position: "top",
   },
-  // Step 3.4: Client notification for case creation - spotlight the notification modal
+  // Step 3.4: Client notification for lawsuit creation - spotlight the notification modal
   {
-    id: "case-notification-intro",
+    id: "lawsuit-notification-intro",
     target: "client-notification-modal",
     allowInteraction: true,
     requiresAction: true,
     position: "left",
   },
-  // Step 3.5: Case detail overview (after notification handled)
+  // Step 3.5: Lawsuit detail overview (after notification handled)
   {
-    id: "case-detail-overview",
-    target: "case-detail-header",
+    id: "lawsuit-detail-overview",
+    target: "lawsuit-detail-header",
     position: "bottom",
   },
   // Phase 3 Completion
@@ -468,8 +468,8 @@ interface TutorialContextValue extends TutorialState {
   // Compatibility alias for AggregatedRelatedTab (dossier creation)
   setCreatedDossier: (dossierId: number | string) => void;
 
-  // Compatibility alias for AggregatedRelatedTab (case creation)
-  setCreatedCase: (caseId: number | string) => void;
+  // Compatibility alias for AggregatedRelatedTab (lawsuit creation)
+  setCreatedLawsuit: (lawsuitId: number | string) => void;
 
   // Compatibility alias for AggregatedRelatedTab (task creation)
   setCreatedTask: (taskId: number | string) => void;
@@ -712,11 +712,11 @@ export function TutorialProvider({ children }: TutorialProviderProps) {
     [notifyActionComplete]
   );
 
-  // Compatibility function for AggregatedRelatedTab - triggers create-case-from-dossier step completion
-  const setCreatedCase = useCallback(
-    (caseId: number | string) => {
-      console.log("[Tutorial] Case created:", caseId);
-      notifyActionComplete("create-case-from-dossier");
+  // Compatibility function for AggregatedRelatedTab - triggers create-lawsuit-from-dossier step completion
+  const setCreatedLawsuit = useCallback(
+    (lawsuitId: number | string) => {
+      console.log("[Tutorial] Lawsuit created:", lawsuitId);
+      notifyActionComplete("create-lawsuit-from-dossier");
     },
     [notifyActionComplete]
   );
@@ -780,7 +780,7 @@ export function TutorialProvider({ children }: TutorialProviderProps) {
       notifyActionComplete,
       setCreatedClient,
       setCreatedDossier,
-      setCreatedCase,
+      setCreatedLawsuit,
       setCreatedTask,
       setCreatedSession,
       setCreatedMission,
@@ -805,7 +805,7 @@ export function TutorialProvider({ children }: TutorialProviderProps) {
       notifyActionComplete,
       setCreatedClient,
       setCreatedDossier,
-      setCreatedCase,
+      setCreatedLawsuit,
       setCreatedTask,
       setCreatedSession,
       setCreatedMission,
@@ -825,3 +825,5 @@ export function TutorialProvider({ children }: TutorialProviderProps) {
 }
 
 export default TutorialContext;
+
+

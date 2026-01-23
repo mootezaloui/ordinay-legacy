@@ -79,14 +79,14 @@
         "label": "مرتبطة بـ",
         "options": {
           "dossier": "ملف",
-          "case": "قضية"
+          "lawsuit": "قضية"
         },
         "helper": "اختر ما إذا كانت المهمة مرتبطة بملف أو بقضية."
       },
       "dossierId": {
         "label": "الملف"
       },
-      "caseId": {
+      "lawsuitId": {
         "label": "القضية"
       },
       "assignedTo": {
@@ -238,15 +238,15 @@
         "parentType": "نوع الربط",
         "parentTypeOptions": {
           "dossier": "ملف",
-          "case": "قضية"
+          "lawsuit": "قضية"
         },
         "parentTypeHelp": "يمكن ربط المهمة بملف أو بقضية",
         "dossier": "الملف",
         "dossierPlaceholder": "اختر ملفاً...",
         "dossierHelp": "اختر الملف المعني",
-        "case": "القضية",
-        "casePlaceholder": "اختر قضية...",
-        "caseHelp": "اختر القضية المعنية"
+        "lawsuit": "القضية",
+        "lawsuitPlaceholder": "اختر قضية...",
+        "lawsuitHelp": "اختر القضية المعنية"
       }
     }
   }

@@ -23,7 +23,7 @@ const allowedFields = [
   "description",
   "participants",
   "dossier_id",
-  "case_id",
+  "lawsuit_id",
 ];
 
 const parseParticipants = (value) => {
@@ -101,15 +101,15 @@ function create(payload) {
     description: null,
     participants: null,
     dossier_id: null,
-    case_id: null,
+    lawsuit_id: null,
     ...data,
   };
   if (insertData.participants !== undefined) {
     insertData.participants = serializeParticipants(insertData.participants);
   }
   ensureXor(
-    [insertData.dossier_id, insertData.case_id],
-    "Provide either dossier_id or case_id (exclusive)"
+    [insertData.dossier_id, insertData.lawsuit_id],
+    "Provide either dossier_id or lawsuit_id (exclusive)"
   );
   assert(insertData.scheduled_at, "scheduled_at is required");
   if (!insertData.session_type) insertData.session_type = "hearing";
@@ -117,8 +117,8 @@ function create(payload) {
 
   try {
     const stmt = db.prepare(
-      `INSERT INTO ${table} (title, session_type, status, scheduled_at, session_date, duration, location, court_room, judge, outcome, description, participants, dossier_id, case_id)
-       VALUES (@title, @session_type, @status, @scheduled_at, @session_date, @duration, @location, @court_room, @judge, @outcome, @description, @participants, @dossier_id, @case_id)`
+      `INSERT INTO ${table} (title, session_type, status, scheduled_at, session_date, duration, location, court_room, judge, outcome, description, participants, dossier_id, lawsuit_id)
+       VALUES (@title, @session_type, @status, @scheduled_at, @session_date, @duration, @location, @court_room, @judge, @outcome, @description, @participants, @dossier_id, @lawsuit_id)`
     );
     const result = stmt.run(insertData);
     const created = get(result.lastInsertRowid);
@@ -139,10 +139,10 @@ function create(payload) {
 
 function update(id, payload) {
   const data = normalizeData(filterPayload(payload, allowedFields));
-  if (data.dossier_id !== undefined || data.case_id !== undefined) {
+  if (data.dossier_id !== undefined || data.lawsuit_id !== undefined) {
     ensureXor(
-      [data.dossier_id, data.case_id],
-      "Provide either dossier_id or case_id (exclusive)"
+      [data.dossier_id, data.lawsuit_id],
+      "Provide either dossier_id or lawsuit_id (exclusive)"
     );
   }
 
@@ -190,7 +190,7 @@ function remove(id) {
   const stmt = db.prepare(`DELETE FROM ${table} WHERE id = @id`);
   const result = stmt.run({ id });
 
-  // Add deletion event to parent's history (dossier or case)
+  // Add deletion event to parent's history (dossier or lawsuit)
   if (result.changes > 0) {
     const sessionTitle = session.title || `Session (${session.session_type})`;
     if (session.dossier_id) {
@@ -200,10 +200,10 @@ function remove(id) {
         action: "child_deleted",
         description: `Session "${sessionTitle}" was deleted`,
       });
-    } else if (session.case_id) {
+    } else if (session.lawsuit_id) {
       historyService.create({
-        entity_type: "case",
-        entity_id: session.case_id,
+        entity_type: "lawsuit",
+        entity_id: session.lawsuit_id,
         action: "child_deleted",
         description: `Session "${sessionTitle}" was deleted`,
       });
@@ -220,3 +220,4 @@ module.exports = {
   update,
   remove,
 };
+

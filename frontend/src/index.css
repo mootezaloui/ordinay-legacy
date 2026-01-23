@@ -887,3 +887,392 @@ input[type="month"]::-webkit-calendar-picker-indicator,
 input[type="week"]::-webkit-calendar-picker-indicator {
   cursor: pointer;
 }
+
+/* =============================================
+   Organia Brand Loading Components
+   Canonical animations and styles for branded loaders
+   ============================================= */
+
+/* Loader color variables - matches app theme */
+:root {
+  --loader-primary: #3b82f6;
+  --loader-primary-light: #60a5fa;
+  --loader-accent: #3b82f6;
+  --loader-muted: #64748b;
+  --loader-muted-light: #94a3b8;
+  --loader-bg: #f1f5f9;
+  --loader-surface: #ffffff;
+  --loader-text: #64748b;
+}
+
+.dark {
+  --loader-primary: #3b82f6;
+  --loader-primary-light: #60a5fa;
+  --loader-accent: #60a5fa;
+  --loader-muted: #94a3b8;
+  --loader-muted-light: #64748b;
+  --loader-bg: #1e293b;
+  --loader-surface: #020617;
+  --loader-text: #94a3b8;
+}
+
+/* --------------------------
+   Logo Animations
+-------------------------- */
+
+/* Breathing animation - slow, calming pulse for startup */
+@keyframes organia-breathe {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.02);
+    opacity: 0.9;
+  }
+}
+
+.organia-logo-breathe {
+  animation: organia-breathe 3s ease-in-out infinite;
+}
+
+/* Pulse animation - subtle pulse for idle states */
+@keyframes organia-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.organia-logo-pulse {
+  animation: organia-pulse 2s ease-in-out infinite;
+}
+
+/* Ring rotation for loading states */
+@keyframes organia-ring-rotate {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* --------------------------
+   Orbital Motion Loader (Startup)
+   Static rings with orbiting dots
+-------------------------- */
+
+@keyframes organia-orbit {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes organia-orbit-reverse {
+  from { transform: rotate(360deg); }
+  to { transform: rotate(0deg); }
+}
+
+@keyframes organia-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.organia-orbital-loader {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.4s ease-out;
+}
+
+.organia-orbital-loader--fading {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.organia-orbital-loader__bg {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, #f1f5f9 0%, #ffffff 50%, #f1f5f9 100%);
+}
+
+.dark .organia-orbital-loader__bg {
+  background: linear-gradient(135deg, #1e293b 0%, #020617 50%, #1e293b 100%);
+}
+
+.organia-orbital-loader__content {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2rem;
+  animation: organia-fade-in 0.6s ease-out;
+}
+
+.organia-orbital-loader__orbit-container {
+  position: relative;
+  width: 192px;
+  height: 192px;
+}
+
+/* Static rings */
+.organia-orbital-loader__ring {
+  position: absolute;
+  border-radius: 50%;
+  border-style: solid;
+  border-color: #3b82f6;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.dark .organia-orbital-loader__ring {
+  border-color: #3b82f6;
+}
+
+.organia-orbital-loader__ring--outer {
+  width: 160px;
+  height: 160px;
+  border-width: 2px;
+  opacity: 0.2;
+}
+
+.organia-orbital-loader__ring--middle {
+  width: 112px;
+  height: 112px;
+  border-width: 2px;
+  opacity: 0.3;
+}
+
+.organia-orbital-loader__ring--inner {
+  width: 64px;
+  height: 64px;
+  border-width: 2px;
+  opacity: 0.4;
+}
+
+/* Core */
+.organia-orbital-loader__core {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background-color: #3b82f6;
+}
+
+.dark .organia-orbital-loader__core {
+  background-color: #3b82f6;
+}
+
+/* Orbiting containers */
+.organia-orbital-loader__orbit {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+}
+
+.organia-orbital-loader__orbit--1 {
+  animation: organia-orbit 3s linear infinite;
+}
+
+.organia-orbital-loader__orbit--2 {
+  animation: organia-orbit-reverse 4s linear infinite;
+}
+
+.organia-orbital-loader__orbit--3 {
+  animation: organia-orbit 2s linear infinite;
+}
+
+/* Orbiting points */
+.organia-orbital-loader__point {
+  position: absolute;
+  border-radius: 50%;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.organia-orbital-loader__point--gold {
+  width: 12px;
+  height: 12px;
+  background-color: #3b82f6;
+  left: 80px;
+}
+
+.organia-orbital-loader__point--primary {
+  width: 8px;
+  height: 8px;
+  background-color: #64748b;
+  left: 56px;
+}
+
+.dark .organia-orbital-loader__point--primary {
+  background-color: #94a3b8;
+}
+
+.organia-orbital-loader__point--muted {
+  width: 8px;
+  height: 8px;
+  background-color: #94a3b8;
+  opacity: 0.8;
+  left: 32px;
+}
+
+.dark .organia-orbital-loader__point--muted {
+  background-color: #64748b;
+}
+
+/* Message */
+.organia-orbital-loader__message {
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 0.9375rem;
+  font-weight: 400;
+  color: #64748b;
+}
+
+.dark .organia-orbital-loader__message {
+  color: #94a3b8;
+}
+
+/* --------------------------
+   Data Loader
+-------------------------- */
+
+.organia-data-loader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Page variant */
+.organia-data-loader--page {
+  min-height: 300px;
+  padding: 3rem;
+}
+
+.organia-data-loader--page .organia-data-loader__content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.organia-data-loader--page .organia-data-loader__spinner {
+  animation: organia-ring-rotate 2s linear infinite;
+}
+
+.organia-data-loader--page .organia-data-loader__message {
+  font-size: 0.875rem;
+  color: var(--color-muted-foreground, #64748b);
+  font-weight: 400;
+}
+
+/* Card variant */
+.organia-data-loader--card {
+  padding: 2rem;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.organia-data-loader--card .organia-data-loader__spinner--small {
+  animation: organia-ring-rotate 1.5s linear infinite;
+}
+
+.organia-data-loader--card .organia-data-loader__message--small {
+  font-size: 0.75rem;
+  color: var(--color-muted-foreground, #64748b);
+}
+
+/* Inline variant */
+.organia-data-loader--inline {
+  gap: 0.5rem;
+}
+
+.organia-data-loader--inline .organia-data-loader__spinner--inline {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.organia-data-loader--inline .organia-data-loader__message--inline {
+  font-size: 0.875rem;
+  color: var(--color-muted-foreground, #64748b);
+}
+
+/* Button variant */
+.organia-data-loader--button {
+  display: inline-flex;
+}
+
+/* Ring spinner (for button/inline) */
+.organia-data-loader__ring {
+  border-radius: 50%;
+  border: 2px solid var(--loader-primary, #3b82f6);
+  border-top-color: transparent;
+  animation: organia-ring-rotate 0.8s linear infinite;
+}
+
+/* Dots variant */
+.organia-data-loader--dots {
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.organia-data-loader__dots {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.organia-data-loader__dot {
+  display: block;
+  border-radius: 50%;
+  background-color: var(--loader-primary, #3b82f6);
+  animation: organia-dot-bounce 1s ease-in-out infinite;
+}
+
+@keyframes organia-dot-bounce {
+  0%, 80%, 100% {
+    opacity: 0.3;
+    transform: scale(0.8);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* --------------------------
+   Logo Class Variants (for external styling)
+-------------------------- */
+
+.organia-logo {
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.organia-ring {
+  transition: opacity 0.3s ease;
+}
+
+.organia-core {
+  transition: transform 0.3s ease;
+}
+
+.organia-accent {
+  transition: opacity 0.3s ease;
+}

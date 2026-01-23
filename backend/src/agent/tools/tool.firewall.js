@@ -31,7 +31,7 @@ const TOOL_DOMAIN_MAP = Object.freeze({
   // READ tools
   getClient: 'clients',
   getDossier: 'dossiers',
-  getCase: 'cases',
+  getLawsuit: 'lawsuits',
   getSession: 'sessions',
   listTasks: 'tasks',
   getTimeline: 'dossiers', // Timeline is dossier-scoped
@@ -61,7 +61,7 @@ const TOOL_DOMAIN_MAP = Object.freeze({
 const DATA_DOMAINS = Object.freeze({
   CLIENTS: 'clients',
   DOSSIERS: 'dossiers',
-  CASES: 'cases',
+  LAWSUITS: 'lawsuits',
   TASKS: 'tasks',
   SESSIONS: 'sessions',
   DOCUMENTS: 'documents',

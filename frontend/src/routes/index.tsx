@@ -9,7 +9,7 @@ import Dashboard from "../Screens/Dashboard";
 import Clients from "../Screens/Clients";
 import Dossiers from "../Screens/Dossiers";
 import Tasks from "../Screens/Tasks";
-import Cases from "../Screens/Cases";
+import Cases from "../Screens/lawsuits";
 import Sessions from "../Screens/Sessions";
 import PersonalTasks from "../Screens/PersonalTasks";
 import Officers from "../Screens/Officers";
@@ -105,15 +105,15 @@ export const routes: RouteConfig[] = [
     label: "Détails Tâche Personnelle",
   },
   {
-    path: "/cases",
+    path: "/lawsuits",
     component: Cases,
-    name: "Cases",
+    name: "lawsuits",
     icon: "fas fa-gavel",
     label: "Procès",
   },
   {
-    path: "/cases/:id",
-    component: () => <DetailView entityType="case" />,
+    path: "/lawsuits/:id",
+    component: () => <DetailView entityType="lawsuit" />,
     name: "CaseDetail",
     icon: "fas fa-gavel",
     label: "Détails Procès",
@@ -243,3 +243,6 @@ export const getRoutePaths = (): string[] => {
  * Default redirect route
  */
 export const DEFAULT_ROUTE = "/dashboard";
+
+
+

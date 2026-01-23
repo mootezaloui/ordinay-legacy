@@ -28,7 +28,7 @@ import {
   formatCurrency,
   getClientFinancialSummary,
   getDossierFinancialSummary,
-  getCaseFinancialSummary,
+  getLawsuitFinancialSummary,
   getOfficerFinancialSummary,
   getPersonalTaskFinancialSummary,
   getMissionFinancialSummary,
@@ -50,7 +50,7 @@ import { useTranslation } from "react-i18next";
  * This is a VIEW over the financial ledger - it does NOT store any financial data.
  *
  * Props:
- * - entityType: "client" | "dossier" | "case"
+ * - entityType: "client" | "dossier" | "lawsuit"
  * - entityId: The ID of the entity
  * - entityData: The entity data (for context)
  * - onUpdate: Callback when financial data changes
@@ -63,7 +63,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
   const {
     clients = [],
     dossiers = [],
-    cases = [],
+    lawsuits = [],
     tasks = [],
     sessions = [],
     missions = [],
@@ -96,8 +96,8 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
       return getClientFinancialSummary(entityId, financialEntries);
     } else if (entityType === "dossier") {
       return getDossierFinancialSummary(entityId, financialEntries);
-    } else if (entityType === "case") {
-      return getCaseFinancialSummary(entityId, financialEntries);
+    } else if (entityType === "lawsuit") {
+      return getLawsuitFinancialSummary(entityId, financialEntries);
     } else if (entityType === "officer") {
       // For officers (huissiers), get all mission expenses
       return getOfficerFinancialSummary(entityId, financialEntries);
@@ -109,8 +109,8 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
       return getPersonalTaskFinancialSummary(entityId, financialEntries);
     } else if (entityType === "task") {
       // For tasks, get financial data based on parent relationship
-      if (entityData.parentType === "case" && entityData.caseId) {
-        return getCaseFinancialSummary(entityData.caseId, financialEntries);
+      if (entityData.parentType === "lawsuit" && entityData.lawsuitId) {
+        return getLawsuitFinancialSummary(entityData.lawsuitId, financialEntries);
       } else if (entityData.dossierId) {
         return getDossierFinancialSummary(entityData.dossierId, financialEntries);
       }
@@ -138,8 +138,8 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
       filters = { scope: "client", clientId: entityId };
     } else if (entityType === "dossier") {
       filters = { scope: "client", dossierId: entityId };
-    } else if (entityType === "case") {
-      filters = { scope: "client", caseId: entityId };
+    } else if (entityType === "lawsuit") {
+      filters = { scope: "client", lawsuitId: entityId };
     } else if (entityType === "officer") {
       filters = { scope: "client", officerId: entityId };
     } else if (entityType === "mission") {
@@ -148,8 +148,8 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
       filters = { scope: "internal", personalTaskId: entityId };
     } else if (entityType === "task") {
       filters = { scope: "client" };
-      if (entityData.parentType === "case" && entityData.caseId) {
-        filters.caseId = entityData.caseId;
+      if (entityData.parentType === "lawsuit" && entityData.lawsuitId) {
+        filters.lawsuitId = entityData.lawsuitId;
       } else if (entityData.dossierId) {
         filters.dossierId = entityData.dossierId;
       }
@@ -166,7 +166,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
     // G£à Validate before allowing edit
     const result = canPerformAction('financialEntry', entry.id, 'edit', {
       data: entry,
-      entities: { clients, dossiers, cases, tasks, sessions, missions, officers, financialEntries }
+      entities: { clients, dossiers, lawsuits, tasks, sessions, missions, officers, financialEntries }
     });
 
     if (!result.allowed) {
@@ -266,7 +266,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
     const result = canPerformAction('financialEntry', entryId, action, {
       data,
       newData,
-      entities: { clients, dossiers, cases, tasks, sessions, missions, officers, financialEntries }
+      entities: { clients, dossiers, lawsuits, tasks, sessions, missions, officers, financialEntries }
     });
 
     if (!result.allowed) {
@@ -507,16 +507,16 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               ? dossiers.find((d) => d.id === entityData.dossierId)
               : null;
 
-        const caseItem = formData.caseId
-          ? cases.find((c) => c.id === parseInt(formData.caseId))
-          : entityType === "case"
-            ? cases.find((c) => c.id === entityId)
-            : entityType === "task" && entityData.caseId
-              ? cases.find((c) => c.id === entityData.caseId)
+        const lawsuitItem = formData.lawsuitId
+          ? lawsuits.find((c) => c.id === parseInt(formData.lawsuitId))
+          : entityType === "lawsuit"
+            ? lawsuits.find((c) => c.id === entityId)
+            : entityType === "task" && entityData.lawsuitId
+              ? lawsuits.find((c) => c.id === entityData.lawsuitId)
               : null;
 
-        if (entityType === "case" && caseItem && !client) {
-          dossier = dossiers.find((d) => d.id === caseItem.dossierId);
+        if (entityType === "lawsuit" && lawsuitItem && !client) {
+          dossier = dossiers.find((d) => d.id === lawsuitItem.dossierId);
         }
 
         const derivedClient = client
@@ -527,10 +527,10 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
           mission = entityData;
           if (mission.entityType === "dossier") {
             dossier = dossiers.find(d => d.id === mission.entityId) || dossier;
-          } else if (mission.entityType === "case") {
-            const linkedCase = cases.find(c => c.id === mission.entityId);
-            if (linkedCase) {
-              dossier = dossiers.find(d => d.id === linkedCase.dossierId) || dossier;
+          } else if (mission.entityType === "lawsuit") {
+            const linkedLawsuit = lawsuits.find(c => c.id === mission.entityId);
+            if (linkedLawsuit) {
+              dossier = dossiers.find(d => d.id === linkedLawsuit.dossierId) || dossier;
             }
           }
         } else if (formData.missionId && entityData?.missions) {
@@ -544,9 +544,9 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
           clientId: missionClient ? missionClient.id : null,
           clientName: missionClient ? missionClient.name : null,
           dossierId: dossier ? dossier.id : null,
-          dossierReference: dossier ? dossier.caseNumber : null,
-          caseId: caseItem ? caseItem.id : null,
-          caseReference: caseItem ? caseItem.caseNumber : null,
+          dossierReference: dossier ? dossier.lawsuitNumber : null,
+          lawsuitId: lawsuitItem ? lawsuitItem.id : null,
+          lawsuitReference: lawsuitItem ? lawsuitItem.lawsuitNumber : null,
           officerId: mission?.officerId || (entityType === "officer" ? entityData.id : null) || (formData.officerId ? parseInt(formData.officerId) : null),
           officerName: mission?.officerName || (entityType === "officer" ? entityData.name : null),
           missionId: mission ? mission.id : null,
@@ -578,7 +578,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
         if (createdEntry && createdEntry.id) {
           logEntityCreation('financialEntry', createdEntry.id, createdEntry.description || `Financial entry - ${formatCurrency(createdEntry.amount)}`);
 
-          // ✅ Also log child_created event for the parent entity (client, dossier, case, etc.)
+          // ✅ Also log child_created event for the parent entity (client, dossier, lawsuit, etc.)
           if (entityType && entityId) {
             const entryDescription = createdEntry.description || `${formatCurrency(createdEntry.amount)}`;
             logHistoryEvent({
@@ -632,7 +632,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
     const fields = populateRelationshipOptions(getFinancialEntryFormFields(), {
       clients,
       dossiers,
-      cases,
+      lawsuits,
       missions: missionsToShow,
     });
 
@@ -650,7 +650,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               displayValue: "Internal (office expenses)"
             };
           }
-          // Client, dossier, case, mission, officer are client-related expenses
+          // Client, dossier, lawsuit, mission, officer are client-related expenses
           return {
             ...field,
             type: "readonly",
@@ -659,7 +659,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
           };
         }
 
-        // For client detail view: show client as readonly, allow optional dossier/case selection
+        // For client detail view: show client as readonly, allow optional dossier/lawsuit selection
         if (entityType === "client") {
           const client = clients.find(c => c.id === entityId);
           if (field.name === "clientId" && client) {
@@ -670,24 +670,24 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               displayValue: client.name
             };
           }
-          // Get client's dossiers and cases for optional selection
+          // Get client's dossiers and lawsuits for optional selection
           if (field.name === "dossierId" && client) {
             const clientDossiers = dossiers.filter(d => d.clientId === entityId);
             return {
               ...field,
-              options: clientDossiers.map(d => ({ value: d.id, label: d.caseNumber }))
+              options: clientDossiers.map(d => ({ value: d.id, label: d.lawsuitNumber }))
             };
           }
-          if (field.name === "caseId" && client) {
-            const clientCases = cases.filter(c => c.clientId === entityId);
+          if (field.name === "lawsuitId" && client) {
+            const clientLawsuits = lawsuits.filter(c => c.clientId === entityId);
             return {
               ...field,
-              options: clientCases.map(c => ({ value: c.id, label: c.caseNumber }))
+              options: clientLawsuits.map(c => ({ value: c.id, label: c.lawsuitNumber }))
             };
           }
         }
 
-        // For dossier detail view: show dossier and client as readonly, allow optional case selection
+        // For dossier detail view: show dossier and client as readonly, allow optional lawsuit selection
         if (entityType === "dossier") {
           const dossier = dossiers.find(d => d.id === entityId);
           if (field.name === "dossierId" && dossier) {
@@ -695,7 +695,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               ...field,
               type: "readonly",
               defaultValue: editingEntry?.dossierId || entityId,
-              displayValue: dossier.caseNumber
+              displayValue: dossier.lawsuitNumber
             };
           }
           if (field.name === "clientId" && dossier) {
@@ -707,30 +707,30 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               displayValue: client ? client.name : t("detail.financial.fallback.unknownClient", { ns: "accounting" })
             };
           }
-          // Only allow cases from this dossier's client
-          if (field.name === "caseId" && dossier) {
-            const dossierCases = cases.filter(c => c.clientId === dossier.clientId);
+          // Only allow lawsuits from this dossier's client
+          if (field.name === "lawsuitId" && dossier) {
+            const dossierLawsuits = lawsuits.filter(c => c.clientId === dossier.clientId);
             return {
               ...field,
-              options: dossierCases.map(c => ({ value: c.id, label: c.caseNumber }))
+              options: dossierLawsuits.map(c => ({ value: c.id, label: c.lawsuitNumber }))
             };
           }
         }
 
-        // For case detail view: pre-fill and disable caseId AND clientId AND dossierId
-        if (entityType === "case") {
-          const caseItem = cases.find(c => c.id === entityId);
-          if (field.name === "caseId" && caseItem) {
+        // For lawsuit detail view: pre-fill and disable lawsuitId AND clientId AND dossierId
+        if (entityType === "lawsuit") {
+          const lawsuitItem = lawsuits.find(c => c.id === entityId);
+          if (field.name === "lawsuitId" && lawsuitItem) {
             return {
               ...field,
               type: "readonly",
-              defaultValue: editingEntry?.caseId || entityId,
-              displayValue: caseItem.caseNumber
+              defaultValue: editingEntry?.lawsuitId || entityId,
+              displayValue: lawsuitItem.lawsuitNumber
             };
           }
-          if (field.name === "clientId" && caseItem) {
-            // Get client through the dossier relationship since cases don't have direct clientId
-            const dossier = dossiers.find(d => d.id === caseItem.dossierId);
+          if (field.name === "clientId" && lawsuitItem) {
+            // Get client through the dossier relationship since lawsuits don't have direct clientId
+            const dossier = dossiers.find(d => d.id === lawsuitItem.dossierId);
             const client = dossier ? clients.find(cl => cl.id === dossier.clientId) : null;
             return {
               ...field,
@@ -739,13 +739,13 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               displayValue: client ? client.name : t("detail.financial.fallback.unknownClient", { ns: "accounting" })
             };
           }
-          if (field.name === "dossierId" && caseItem) {
-            const dossier = dossiers.find(d => d.id === caseItem.dossierId);
+          if (field.name === "dossierId" && lawsuitItem) {
+            const dossier = dossiers.find(d => d.id === lawsuitItem.dossierId);
             return {
               ...field,
               type: "readonly",
-              defaultValue: editingEntry?.dossierId || caseItem.dossierId,
-              displayValue: dossier ? dossier.caseNumber : t("detail.financial.fallback.unknownDossier", { ns: "accounting" })
+              defaultValue: editingEntry?.dossierId || lawsuitItem.dossierId,
+              displayValue: dossier ? dossier.lawsuitNumber : t("detail.financial.fallback.unknownDossier", { ns: "accounting" })
             };
           }
         }
@@ -754,23 +754,23 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
         if (entityType === "officer") {
           const missions = entityData?.missions || [];
 
-          // Extract unique dossiers and cases from this officer's missions
+          // Extract unique dossiers and lawsuits from this officer's missions
           const officerDossierIds = new Set();
-          const officerCaseIds = new Set();
+          const officerlawsuitIds = new Set();
           const officerClientIds = new Set();
 
           missions.forEach(mission => {
             if (mission.entityType === "dossier") {
-              const dossier = dossiers.find(d => d.caseNumber === mission.entityReference);
+              const dossier = dossiers.find(d => d.lawsuitNumber === mission.entityReference);
               if (dossier) {
                 officerDossierIds.add(dossier.id);
                 officerClientIds.add(dossier.clientId);
               }
-            } else if (mission.entityType === "case") {
-              const caseItem = cases.find(c => c.caseNumber === mission.entityReference);
-              if (caseItem) {
-                officerCaseIds.add(caseItem.id);
-                const dossier = dossiers.find(d => d.id === caseItem.dossierId);
+            } else if (mission.entityType === "lawsuit") {
+              const lawsuitItem = lawsuits.find(c => c.lawsuitNumber === mission.entityReference);
+              if (lawsuitItem) {
+                officerlawsuitIds.add(lawsuitItem.id);
+                const dossier = dossiers.find(d => d.id === lawsuitItem.dossierId);
                 if (dossier) {
                   officerDossierIds.add(dossier.id);
                   officerClientIds.add(dossier.clientId);
@@ -839,17 +839,17 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
 
                     // Auto-populate related entities based on mission type
                     if (selectedMission.entityType === "dossier") {
-                      const dossier = [].find(d => d.caseNumber === selectedMission.entityReference);
+                      const dossier = [].find(d => d.lawsuitNumber === selectedMission.entityReference);
                       if (dossier) {
                         updates.dossierId = dossier.id;
                         updates.clientId = dossier.clientId;
-                        updates.caseId = ""; // Clear case if it was set
+                        updates.lawsuitId = ""; // Clear lawsuit if it was set
                       }
-                    } else if (selectedMission.entityType === "case") {
-                      const caseItem = [].find(c => c.caseNumber === selectedMission.entityReference);
-                      if (caseItem) {
-                        updates.caseId = caseItem.id;
-                        const dossier = [].find(d => d.id === caseItem.dossierId);
+                    } else if (selectedMission.entityType === "lawsuit") {
+                      const lawsuitItem = [].find(c => c.lawsuitNumber === selectedMission.entityReference);
+                      if (lawsuitItem) {
+                        updates.lawsuitId = lawsuitItem.id;
+                        const dossier = [].find(d => d.id === lawsuitItem.dossierId);
                         if (dossier) {
                           updates.dossierId = dossier.id;
                           updates.clientId = dossier.clientId;
@@ -884,19 +884,19 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               ...field,
               options: [
                 { value: "", label: "Sélectionner un dossier..." },
-                ...dossiers.map(d => ({ value: d.id, label: d.caseNumber }))
+                ...dossiers.map(d => ({ value: d.id, label: d.lawsuitNumber }))
               ]
             };
           }
 
-          // Filter case dropdown to only show cases that have missions with this officer
-          if (field.name === "caseId") {
-            const cases = [].filter(c => officerCaseIds.has(c.id));
+          // Filter lawsuit dropdown to only show lawsuits that have missions with this officer
+          if (field.name === "lawsuitId") {
+            const lawsuits = [].filter(c => officerlawsuitIds.has(c.id));
             return {
               ...field,
               options: [
-                { value: "", label: "Select a case..." },
-                ...cases.map(c => ({ value: c.id, label: c.caseNumber }))
+                { value: "", label: "Select a lawsuit..." },
+                ...lawsuits.map(c => ({ value: c.id, label: c.lawsuitNumber }))
               ]
             };
           }
@@ -965,7 +965,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
 
             // If editing, use existing value, otherwise derive from mission
             if (!editingEntry) {
-              // Use dossierId or caseId directly from entityData instead of looking up by entityId
+              // Use dossierId or lawsuitId directly from entityData instead of looking up by entityId
               if (entityData.dossierId) {
                 const dossier = dossiers.find(d => d.id === entityData.dossierId);
                 if (dossier) {
@@ -973,10 +973,10 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
                   const client = clients.find(c => c.id === dossier.clientId);
                   clientName = client ? client.name : t("detail.financial.fallback.unknownClient", { ns: "accounting" });
                 }
-              } else if (entityData.caseId) {
-                const caseItem = cases.find(c => c.id === entityData.caseId);
-                if (caseItem) {
-                  const dossier = dossiers.find(d => d.id === caseItem.dossierId);
+              } else if (entityData.lawsuitId) {
+                const lawsuitItem = lawsuits.find(c => c.id === entityData.lawsuitId);
+                if (lawsuitItem) {
+                  const dossier = dossiers.find(d => d.id === lawsuitItem.dossierId);
                   if (dossier) {
                     clientId = dossier.clientId;
                     const client = clients.find(c => c.id === dossier.clientId);
@@ -1010,19 +1010,19 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               if (entityData.dossierId) {
                 dossierId = entityData.dossierId;
                 const dossier = dossiers.find(d => d.id === entityData.dossierId);
-                dossierRef = dossier ? `${dossier.caseNumber} - ${dossier.title}` : t("detail.financial.fallback.unknownDossier", { ns: "accounting" });
-              } else if (entityData.caseId) {
-                const caseItem = cases.find(c => c.id === entityData.caseId);
-                if (caseItem) {
-                  dossierId = caseItem.dossierId;
-                  const dossier = dossiers.find(d => d.id === caseItem.dossierId);
-                  dossierRef = dossier ? `${dossier.caseNumber} - ${dossier.title}` : t("detail.financial.fallback.unknownDossier", { ns: "accounting" });
+                dossierRef = dossier ? `${dossier.lawsuitNumber} - ${dossier.title}` : t("detail.financial.fallback.unknownDossier", { ns: "accounting" });
+              } else if (entityData.lawsuitId) {
+                const lawsuitItem = lawsuits.find(c => c.id === entityData.lawsuitId);
+                if (lawsuitItem) {
+                  dossierId = lawsuitItem.dossierId;
+                  const dossier = dossiers.find(d => d.id === lawsuitItem.dossierId);
+                  dossierRef = dossier ? `${dossier.lawsuitNumber} - ${dossier.title}` : t("detail.financial.fallback.unknownDossier", { ns: "accounting" });
                 }
               }
             } else {
               // When editing, get the display name from the stored dossierId
               const dossier = dossiers.find(d => d.id === dossierId);
-              dossierRef = dossier ? `${dossier.caseNumber} - ${dossier.title}` : t("detail.financial.fallback.unknownDossier", { ns: "accounting" });
+              dossierRef = dossier ? `${dossier.lawsuitNumber} - ${dossier.title}` : t("detail.financial.fallback.unknownDossier", { ns: "accounting" });
             }
 
             return {
@@ -1034,37 +1034,37 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
             };
           }
 
-          // Auto-fill case based on mission's entity (if applicable)
-          if (field.name === "caseId") {
-            let caseId = editingEntry?.caseId || null;
-            let caseRef = null;
+          // Auto-fill lawsuit based on mission's entity (if applicable)
+          if (field.name === "lawsuitId") {
+            let lawsuitId = editingEntry?.lawsuitId || null;
+            let lawsuitRef = null;
 
             // If editing, use existing value, otherwise derive from mission
             if (!editingEntry) {
-              // Use caseId directly from entityData
-              if (entityData.caseId) {
-                caseId = entityData.caseId;
-                const caseItem = cases.find(c => c.id === entityData.caseId);
-                caseRef = caseItem ? `${caseItem.caseNumber} - ${caseItem.title}` : t("detail.financial.fallback.unknownCase", { ns: "accounting" });
+              // Use lawsuitId directly from entityData
+              if (entityData.lawsuitId) {
+                lawsuitId = entityData.lawsuitId;
+                const lawsuitItem = lawsuits.find(c => c.id === entityData.lawsuitId);
+                lawsuitRef = lawsuitItem ? `${lawsuitItem.lawsuitNumber} - ${lawsuitItem.title}` : t("detail.financial.fallback.unknownLawsuit", { ns: "accounting" });
               }
             } else {
-              // When editing, get the display name from the stored caseId
-              if (caseId) {
-                const caseItem = cases.find(c => c.id === caseId);
-                caseRef = caseItem ? `${caseItem.caseNumber} - ${caseItem.title}` : t("detail.financial.fallback.unknownCase", { ns: "accounting" });
+              // When editing, get the display name from the stored lawsuitId
+              if (lawsuitId) {
+                const lawsuitItem = lawsuits.find(c => c.id === lawsuitId);
+                lawsuitRef = lawsuitItem ? `${lawsuitItem.lawsuitNumber} - ${lawsuitItem.title}` : t("detail.financial.fallback.unknownLawsuit", { ns: "accounting" });
               }
             }
 
-            if (caseId) {
+            if (lawsuitId) {
               return {
                 ...field,
                 type: "readonly",
-                defaultValue: caseId,
-                displayValue: caseRef,
-                helpText: t("detail.financial.help.missionCase", { ns: "accounting" })
+                defaultValue: lawsuitId,
+                displayValue: lawsuitRef,
+                helpText: t("detail.financial.help.missionLawsuit", { ns: "accounting" })
               };
             } else {
-              // Hide the field if mission is not linked to a case
+              // Hide the field if mission is not linked to a lawsuit
               return {
                 ...field,
                 type: "hidden",
@@ -1093,23 +1093,23 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
         if (entityType === "officer") {
           const missions = entityData?.missions || [];
 
-          // Extract unique dossiers and cases from this officer's missions
+          // Extract unique dossiers and lawsuits from this officer's missions
           const officerDossierIds = new Set();
-          const officerCaseIds = new Set();
+          const officerlawsuitIds = new Set();
           const officerClientIds = new Set();
 
           missions.forEach(mission => {
             if (mission.entityType === "dossier") {
-              const dossier = [].find(d => d.caseNumber === mission.entityReference);
+              const dossier = [].find(d => d.lawsuitNumber === mission.entityReference);
               if (dossier) {
                 officerDossierIds.add(dossier.id);
                 officerClientIds.add(dossier.clientId);
               }
-            } else if (mission.entityType === "case") {
-              const caseItem = [].find(c => c.caseNumber === mission.entityReference);
-              if (caseItem) {
-                officerCaseIds.add(caseItem.id);
-                const dossier = [].find(d => d.id === caseItem.dossierId);
+            } else if (mission.entityType === "lawsuit") {
+              const lawsuitItem = [].find(c => c.lawsuitNumber === mission.entityReference);
+              if (lawsuitItem) {
+                officerlawsuitIds.add(lawsuitItem.id);
+                const dossier = [].find(d => d.id === lawsuitItem.dossierId);
                 if (dossier) {
                   officerDossierIds.add(dossier.id);
                   officerClientIds.add(dossier.clientId);
@@ -1178,17 +1178,17 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
 
                     // Auto-populate related entities based on mission type
                     if (selectedMission.entityType === "dossier") {
-                      const dossier = [].find(d => d.caseNumber === selectedMission.entityReference);
+                      const dossier = [].find(d => d.lawsuitNumber === selectedMission.entityReference);
                       if (dossier) {
                         updates.dossierId = dossier.id;
                         updates.clientId = dossier.clientId;
-                        updates.caseId = ""; // Clear case if it was set
+                        updates.lawsuitId = ""; // Clear lawsuit if it was set
                       }
-                    } else if (selectedMission.entityType === "case") {
-                      const caseItem = [].find(c => c.caseNumber === selectedMission.entityReference);
-                      if (caseItem) {
-                        updates.caseId = caseItem.id;
-                        const dossier = [].find(d => d.id === caseItem.dossierId);
+                    } else if (selectedMission.entityType === "lawsuit") {
+                      const lawsuitItem = [].find(c => c.lawsuitNumber === selectedMission.entityReference);
+                      if (lawsuitItem) {
+                        updates.lawsuitId = lawsuitItem.id;
+                        const dossier = [].find(d => d.id === lawsuitItem.dossierId);
                         if (dossier) {
                           updates.dossierId = dossier.id;
                           updates.clientId = dossier.clientId;
@@ -1205,7 +1205,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
             };
           }
 
-          // Filter clients - only those with dossiers/cases assigned to this officer
+          // Filter clients - only those with dossiers/lawsuits assigned to this officer
           if (field.name === "clientId") {
             const filteredClients = [].filter(c => officerClientIds.has(c.id));
             return {
@@ -1231,7 +1231,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               displayValue: (formData) => {
                 if (formData.dossierId) {
                   const dossier = filteredDossiers.find(d => d.id === formData.dossierId);
-                  return dossier ? `${dossier.caseNumber} - ${dossier.title}` : t("detail.financial.fallback.unknownDossier", { ns: "accounting" });
+                  return dossier ? `${dossier.lawsuitNumber} - ${dossier.title}` : t("detail.financial.fallback.unknownDossier", { ns: "accounting" });
                 }
                 return "Sélectionnez d'abord une mission";
               },
@@ -1239,20 +1239,20 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
             };
           }
 
-          // Filter cases - only those assigned to this officer
-          if (field.name === "caseId") {
-            const filteredCases = [].filter(c => officerCaseIds.has(c.id));
+          // Filter lawsuits - only those assigned to this officer
+          if (field.name === "lawsuitId") {
+            const filteredLawsuits = [].filter(c => officerlawsuitIds.has(c.id));
             return {
               ...field,
               type: "readonly",
               displayValue: (formData) => {
-                if (formData.caseId) {
-                  const caseItem = filteredCases.find(c => c.id === formData.caseId);
-                  return caseItem ? `${caseItem.caseNumber} - ${caseItem.title}` : t("detail.financial.fallback.unknownCase", { ns: "accounting" });
+                if (formData.lawsuitId) {
+                  const lawsuitItem = filteredLawsuits.find(c => c.id === formData.lawsuitId);
+                  return lawsuitItem ? `${lawsuitItem.lawsuitNumber} - ${lawsuitItem.title}` : t("detail.financial.fallback.unknownLawsuit", { ns: "accounting" });
                 }
                 return "None (depends on the mission)";
               },
-              helpText: t("detail.financial.help.autoCaseFromMission", { ns: "accounting" })
+              helpText: t("detail.financial.help.autoLawsuitFromMission", { ns: "accounting" })
             };
           }
         }
@@ -1400,8 +1400,8 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
         </div>
       )}
 
-      {/* Summary for Dossier/Case */}
-      {(entityType === "dossier" || entityType === "case") && summary && (
+      {/* Summary for Dossier/Lawsuit */}
+      {(entityType === "dossier" || entityType === "lawsuit") && summary && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
             <div className="flex items-center justify-between mb-2">
@@ -1539,7 +1539,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
         entityType="financialEntry"
         entityId={editingEntry?.id}
         editingEntity={editingEntry}
-        entities={{ clients, dossiers, cases, missions, officers, financialEntries }}
+        entities={{ clients, dossiers, lawsuits, missions, officers, financialEntries }}
         isLoading={isLoading}
       />
 
@@ -1672,13 +1672,13 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
                       </p>
                     </div>
                   )}
-                  {selectedEntry.caseReference && (
+                  {selectedEntry.lawsuitReference && (
                     <div className="space-y-1.5">
                       <label className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                         Lawsuit
                       </label>
                       <p className="text-base text-slate-900 dark:text-white font-semibold font-mono">
-                        {selectedEntry.caseReference}
+                        {selectedEntry.lawsuitReference}
                       </p>
                     </div>
                   )}
@@ -1760,3 +1760,8 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
     </div>
   );
 }
+
+
+
+
+

@@ -36,7 +36,7 @@ const outputSchema = {
         completedTasks: { type: 'integer' },
         overdueTasks: { type: 'integer' },
         upcomingSessions: { type: 'integer' },
-        activeCases: { type: 'integer' },
+        activeLawsuits: { type: 'integer' },
         hasOverdueDeadline: { type: 'boolean' },
         daysUntilNextDeadline: { type: ['integer', 'null'] },
         completionRate: { type: 'number' },
@@ -46,7 +46,7 @@ const outputSchema = {
         'completedTasks',
         'overdueTasks',
         'upcomingSessions',
-        'activeCases',
+        'activeLawsuits',
         'hasOverdueDeadline',
         'daysUntilNextDeadline',
         'completionRate',
@@ -101,12 +101,12 @@ async function handler({ dossierId }) {
     )
     .get(dossierId, now, now);
 
-  // Count active cases
-  const activeCases = db
+  // Count active lawsuits
+  const activeLawsuits = db
     .prepare(
       `
       SELECT COUNT(*) as count
-      FROM cases
+      FROM lawsuits
       WHERE dossier_id = ?
         AND deleted_at IS NULL
         AND validated = 1
@@ -141,7 +141,7 @@ async function handler({ dossierId }) {
       completedTasks: taskStats.completed,
       overdueTasks: taskStats.overdue,
       upcomingSessions: upcomingSessions.count,
-      activeCases: activeCases.count,
+      activeLawsuits: activeLawsuits.count,
       hasOverdueDeadline,
       daysUntilNextDeadline,
       completionRate: Math.round(completionRate * 100) / 100, // round to 2 decimals
@@ -160,3 +160,4 @@ module.exports = {
   allowedAgentVersions: ['v1', 'v2', 'v3'],
   handler,
 };
+

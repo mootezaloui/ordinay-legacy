@@ -12,7 +12,7 @@ const { ToolRegistry } = require('./tool.registry');
 // READ tools
 const getClientTool = require('./read/getClient.tool');
 const getDossierTool = require('./read/getDossier.tool');
-const getCaseTool = require('./read/getCase.tool');
+const getLawsuitTool = require('./read/getLawsuit.tool');
 const getSessionTool = require('./read/getSession.tool');
 const listTasksTool = require('./read/listTasks.tool');
 const getTimelineTool = require('./read/getTimeline.tool');
@@ -43,7 +43,7 @@ function initializeToolRegistry() {
   // Register READ tools
   registry.register(getClientTool);
   registry.register(getDossierTool);
-  registry.register(getCaseTool);
+  registry.register(getLawsuitTool);
   registry.register(getSessionTool);
   registry.register(listTasksTool);
   registry.register(getTimelineTool);

@@ -14,14 +14,14 @@ import { formatDateValue } from "./dateFormat.js";
 import { filterOperationalEntities, isOperationalEntity } from "./importState";
 
 /**
- * Calculate the next upcoming hearing/session for a case (procès)
+ * Calculate the next upcoming hearing/session for a lawsuit (procès)
  *
- * @param {Object} caseEntity - The case/procès object
- * @param {Array} relatedSessions - Sessions linked to this case
+ * @param {Object} lawsuitEntity - The lawsuit/procès object
+ * @param {Array} relatedSessions - Sessions linked to this lawsuit
  * @returns {Object|null} - { date, type, label, entityId, entity } or null if no upcoming sessions
  */
-export function calculateNextHearing(caseEntity, relatedSessions = []) {
-  if (caseEntity && !isOperationalEntity(caseEntity)) {
+export function calculateNextHearing(lawsuitEntity, relatedSessions = []) {
+  if (lawsuitEntity && !isOperationalEntity(lawsuitEntity)) {
     return null;
   }
   const now = new Date();
@@ -66,8 +66,8 @@ export function calculateNextHearing(caseEntity, relatedSessions = []) {
   });
 
   // Include manual next_hearing if set
-  if (caseEntity.nextHearing) {
-    const manualHearing = parseDate(caseEntity.nextHearing);
+  if (lawsuitEntity.nextHearing) {
+    const manualHearing = parseDate(lawsuitEntity.nextHearing);
     if (manualHearing && manualHearing >= now) {
       candidates.push({
         date: manualHearing,
@@ -99,8 +99,8 @@ export function calculateNextHearing(caseEntity, relatedSessions = []) {
  * Calculate the next upcoming deadline from all related entities
  *
  * @param {Object} dossier - The dossier object
- * @param {Array} relatedSessions - Sessions linked to this dossier or its cases
- * @param {Array} relatedTasks - Tasks linked to this dossier or its cases
+ * @param {Array} relatedSessions - Sessions linked to this dossier or its lawsuits
+ * @param {Array} relatedTasks - Tasks linked to this dossier or its lawsuits
  * @param {Array} relatedFinancialEntries - Financial entries linked to this dossier
  * @returns {Object|null} - { date, type, label, entityId, entity } or null if no upcoming deadlines
  */
@@ -203,8 +203,8 @@ export function calculateNextDeadline(
  * Useful for displaying a list of upcoming events
  *
  * @param {Object} dossier - The dossier object
- * @param {Array} relatedSessions - Sessions linked to this dossier or its cases
- * @param {Array} relatedTasks - Tasks linked to this dossier or its cases
+ * @param {Array} relatedSessions - Sessions linked to this dossier or its lawsuits
+ * @param {Array} relatedTasks - Tasks linked to this dossier or its lawsuits
  * @param {Array} relatedFinancialEntries - Financial entries linked to this dossier
  * @param {number} limit - Maximum number of deadlines to return (default: 5)
  * @returns {Array} - Array of deadline objects sorted by date
@@ -410,3 +410,4 @@ export function getDeadlineUrgency(deadline) {
   if (daysUntil <= 7) return "soon"; // Within a week
   return "normal";
 }
+

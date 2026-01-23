@@ -1,7 +1,7 @@
 import { TaskRules } from "./taskRules";
 import { PersonalTaskRules } from "./personalTaskRules";
 import { SessionRules } from "./sessionRules";
-import { CaseRules } from "./caseRules";
+import { LawsuitRules } from "./lawsuitRules";
 import { MissionRules } from "./missionRules";
 import { FinancialRules } from "./financialRules";
 import { DossierRules } from "./dossierRules";
@@ -22,7 +22,7 @@ export const RuleRegistry = {
   task: TaskRules,
   personalTask: PersonalTaskRules,
   session: SessionRules,
-  case: CaseRules,
+  lawsuit: LawsuitRules,
   mission: MissionRules,
   financial: FinancialRules,
   dossier: DossierRules,
@@ -85,7 +85,7 @@ export function evaluateAllRules(currentDate = new Date(), context = {}) {
   const tasks = entities.tasks || [];
   const personalTasks = entities.personalTasks || [];
   const sessions = entities.sessions || [];
-  const cases = entities.cases || [];
+  const lawsuits = entities.lawsuits || [];
   const missions = entities.missions || [];
   const financialEntries = entities.financialEntries || [];
   const dossiers = entities.dossiers || [];
@@ -117,10 +117,10 @@ export function evaluateAllRules(currentDate = new Date(), context = {}) {
     allNotifications.push(...sessionNotifications);
   });
 
-  // Evaluate case/procès rules (missing hearings, status updates)
-  cases.forEach((caseItem) => {
-    const caseNotifications = evaluateEntityRules("case", caseItem, context);
-    allNotifications.push(...caseNotifications);
+  // Evaluate lawsuit/procès rules (missing hearings, status updates)
+  lawsuits.forEach((lawsuitItem) => {
+    const lawsuitNotifications = evaluateEntityRules("lawsuit", lawsuitItem, context);
+    allNotifications.push(...lawsuitNotifications);
   });
 
   // Evaluate mission rules (upcoming deadlines, completion reminders)
@@ -166,7 +166,7 @@ const notificationRules = {
   TaskRules,
   PersonalTaskRules,
   SessionRules,
-  CaseRules,
+  LawsuitRules,
   MissionRules,
   FinancialRules,
   DossierRules,
@@ -180,3 +180,5 @@ const notificationRules = {
 };
 
 export default notificationRules;
+
+

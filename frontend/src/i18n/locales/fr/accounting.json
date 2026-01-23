@@ -168,16 +168,16 @@
         "help": "Dossier concerné (facultatif)",
         "placeholder": "Sélectionner un dossier"
       },
-      "case": {
-        "label": "Affaire (facultatif)",
-        "help": "Affaire concernée (facultatif)",
-        "placeholder": "Sélectionner une affaire"
+      "lawsuit": {
+        "label": "Procès (facultatif)",
+        "help": "Procès concerné (facultatif)",
+        "placeholder": "Sélectionner un procès"
       },
       "mission": {
         "label": "Mission associée",
         "help": "Sélectionnez la mission d'huissier liée à ces frais",
-        "selectPrerequisite": "Veuillez d'abord sélectionner un dossier ou une affaire",
-        "noneForEntity": "Aucune mission pour ce dossier/affaire",
+        "selectPrerequisite": "Veuillez d'abord sélectionner un dossier ou un procès",
+        "noneForEntity": "Aucune mission pour ce dossier/procès",
         "selectMission": "Sélectionnez la mission liée à ces frais",
         "noneAvailable": "Aucune mission disponible",
         "fallbackOfficer": "Huissier non défini",
@@ -208,7 +208,7 @@
       "fallback": {
         "unknownClient": "Client inconnu",
         "unknownDossier": "Dossier inconnu",
-        "unknownCase": "Affaire inconnue"
+        "unknownLawsuit": "Procès inconnu"
       },
       "help": {
         "currentMission": "Mission en cours",

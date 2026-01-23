@@ -26,7 +26,7 @@
   "footer": "Organia - Legal Practice Management",
   "reset": {
     "title": "Reset app data?",
-    "description": "This clears all workspace data on this device, including clients, cases, and documents. Your activation stays, but you will need to set up the workspace again.",
+    "description": "This clears all workspace data on this device, including clients, lawsuits, and documents. Your activation stays, but you will need to set up the workspace again.",
     "countdown": "Reset is enabled in {{seconds}} seconds."
   }
 }

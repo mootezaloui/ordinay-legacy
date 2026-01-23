@@ -39,7 +39,7 @@ export default function Clients() {
   const {
     clients,
     dossiers,
-    cases,
+    lawsuits,
     tasks,
     sessions,
     officers,
@@ -208,7 +208,7 @@ export default function Clients() {
     const validationResult = canPerformAction('client', id, 'edit', {
       data: client,
       newData: { ...client, status: newStatus },
-      entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
+      entities: { clients, dossiers, lawsuits, tasks, sessions, officers, missions, financialEntries }
     });
 
     if (!validationResult.allowed) {
@@ -267,7 +267,7 @@ export default function Clients() {
     const client = clients.find(c => c.id === id);
     const result = canPerformAction('client', id, 'delete', {
       data: client,
-      entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
+      entities: { clients, dossiers, lawsuits, tasks, sessions, officers, missions, financialEntries }
     });
 
     if (!result.allowed) {
@@ -663,7 +663,7 @@ export default function Clients() {
         entityId={blockedClient?.id}
         action={blockedAction}
         context={{
-          entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
+          entities: { clients, dossiers, lawsuits, tasks, sessions, officers, missions, financialEntries }
         }}
         onUpdate={async () => {
           // Refresh data after inline action
@@ -689,3 +689,4 @@ export default function Clients() {
     </PageLayout>
   );
 }
+

@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import ContentSection from "../../layout/ContentSection";
 import { getStatusColor } from "./statusColors";
 import i18next from "i18next";
-import { dossierFormFields, caseFormFields, sessionFormFields, taskFormFields } from "../../FormModal/formConfigs";
+import { dossierFormFields, lawsuitFormFields, sessionFormFields, taskFormFields } from "../../FormModal/formConfigs";
 import { formatDateValue } from "../../../utils/dateFormat";
 
 /**
@@ -13,7 +13,7 @@ import { formatDateValue } from "../../../utils/dateFormat";
  */
 export const createClientConfig = (t) => {
   const tDossiers = i18next.getFixedT("dossiers");
-  const tCases = i18next.getFixedT("cases");
+  const tLawsuits = i18next.getFixedT("lawsuits");
   const tTasks = i18next.getFixedT("tasks");
   const tSessions = i18next.getFixedT("sessions");
 
@@ -45,24 +45,24 @@ export const createClientConfig = (t) => {
 
       // ✅ Compute aggregated related entities from contextData if available
       const dossiers = contextData?.dossiers || [];
-      const cases = contextData?.cases || [];
+      const lawsuits = contextData?.lawsuits || [];
       const sessions = contextData?.sessions || [];
       const tasks = contextData?.tasks || [];
       const financialEntries = contextData?.financialEntries || [];
 
       const relatedDossiers = dossiers.filter(d => d.clientId === numericId);
-      const relatedCases = cases.filter(cas =>
-        relatedDossiers.some(dossier => dossier.id === cas.dossierId)
+      const relatedLawsuits = lawsuits.filter(lawsuit =>
+        relatedDossiers.some(dossier => dossier.id === lawsuit.dossierId)
       );
-      // Aggregate all sessions related to this client (by related cases or dossiers)
+      // Aggregate all sessions related to this client (by related lawsuits or dossiers)
       const relatedSessions = sessions.filter(session =>
-        relatedCases.some(cas => cas.id === session.caseId) ||
+        relatedLawsuits.some(lawsuit => lawsuit.id === session.lawsuitId) ||
         relatedDossiers.some(dossier => dossier.id === session.dossierId)
       );
       const relatedTasks = tasks.filter(task =>
         task.clientId === numericId ||
         relatedDossiers.some(d => d.id === task.dossierId) ||
-        relatedCases.some(c => c.id === task.caseId)
+        relatedLawsuits.some(c => c.id === task.lawsuitId)
       );
       const relatedFinancialEntries = financialEntries.filter(entry =>
         entry.clientId === numericId && entry.scope === 'client'
@@ -71,7 +71,7 @@ export const createClientConfig = (t) => {
       return {
         ...client,
         relatedDossiers,
-        relatedCases,
+        relatedLawsuits,
         relatedSessions,
         relatedTasks,
         financialEntries: relatedFinancialEntries,
@@ -236,34 +236,34 @@ export const createClientConfig = (t) => {
         },
       },
       {
-        id: "cases",
-        label: t('detail.tabs.cases'),
+        id: "lawsuits",
+        label: t('detail.tabs.lawsuits'),
         icon: "fas fa-gavel",
         component: "aggregatedRelated",
-        aggregationType: "cases",
-        itemsKey: "relatedCases",
-        getCount: (data) => data.relatedCases?.length || 0,
+        aggregationType: "lawsuits",
+        itemsKey: "relatedLawsuits",
+        getCount: (data) => data.relatedLawsuits?.length || 0,
         allowAdd: true,
         addEnabled: (clientData) => (clientData.relatedDossiers || []).length > 0,
-        addDisabledText: t('detail.tabs.casesDisabled'),
+        addDisabledText: t('detail.tabs.lawsuitsDisabled'),
         allowDelete: false,
-        entityName: t('detail.tabs.casesEntity'),
-        addSubtitle: t('detail.tabs.casesAddSubtitle'),
+        entityName: t('detail.tabs.lawsuitsEntity'),
+        addSubtitle: t('detail.tabs.lawsuitsAddSubtitle'),
         // Dynamic form fields - dossierId options filtered to client's dossiers
         getFormFields: (clientData) => {
           const relatedDossiers = clientData.relatedDossiers || [];
-          const caseT = (key) => i18next.t(key, { ns: "cases" });
-          return caseFormFields(caseT).map(field => {
+          const lawsuitT = (key) => i18next.t(key, { ns: "lawsuits" });
+          return lawsuitFormFields(lawsuitT).map(field => {
             if (field.name === 'dossierId') {
               return {
                 ...field,
                 options: relatedDossiers.map(dossier => ({
                   value: dossier.id,
-                  label: `${dossier.caseNumber} - ${dossier.title}`
+                  label: `${dossier.lawsuitNumber} - ${dossier.title}`
                 })),
                 helpText: relatedDossiers.length === 0
                   ? t('detail.forms.dossiersEmpty')
-                  : t('detail.forms.casesDossierHelp')
+                  : t('detail.forms.lawsuitsDossierHelp')
               };
             }
             return field;
@@ -287,43 +287,43 @@ export const createClientConfig = (t) => {
         // Dynamic form fields - allow linking to either dossier or lawsuit
         getFormFields: (clientData) => {
           const relatedDossiers = clientData.relatedDossiers || [];
-          const relatedCases = clientData.relatedCases || [];
+          const relatedLawsuits = clientData.relatedLawsuits || [];
           const sessionT = (key) => i18next.t(key, { ns: "sessions" });
 
           return sessionFormFields(sessionT).map(field => {
-            // Allow linkType to be editable - choose between dossier and case
+            // Allow linkType to be editable - choose between dossier and lawsuit
             if (field.name === 'linkType') {
               return {
                 ...field,
                 // Not disabled - user can choose
-                defaultValue: 'case', // Default to case if available
-                helpText: relatedCases.length > 0
-                  ? t('detail.forms.sessionLinkHelpWithCases')
-                  : t('detail.forms.sessionLinkHelpNoCases')
+                defaultValue: 'lawsuit', // Default to lawsuit if available
+                helpText: relatedLawsuits.length > 0
+                  ? t('detail.forms.sessionLinkHelpWithLawsuits')
+                  : t('detail.forms.sessionLinkHelpNoLawsuits')
               };
             }
-            if (field.name === 'caseId') {
+            if (field.name === 'lawsuitId') {
               return {
                 ...field,
                 type: 'select', // Use regular select for better display
-                options: relatedCases.map(cas => {
-                  const parentDossier = relatedDossiers.find(d => d.id === cas.dossierId);
+                options: relatedLawsuits.map(lawsuit => {
+                  const parentDossier = relatedDossiers.find(d => d.id === lawsuit.dossierId);
                   return {
-                    value: cas.id,
-                    label: `${cas.caseNumber} - ${cas.title} (${parentDossier?.caseNumber || 'N/A'})`
+                    value: lawsuit.id,
+                    label: `${lawsuit.lawsuitNumber} - ${lawsuit.title} (${parentDossier?.lawsuitNumber || 'N/A'})`
                   };
                 }),
-                helpText: relatedCases.length === 0
-                  ? t('detail.forms.casesEmpty')
-                  : t('detail.forms.sessionCaseHelp'),
-                // Only show this field when linkType is 'case'
+                helpText: relatedLawsuits.length === 0
+                  ? t('detail.forms.lawsuitsEmpty')
+                  : t('detail.forms.sessionLawsuitHelp'),
+                // Only show this field when linkType is 'lawsuit'
                 getOptions: (formData) => {
-                  if (formData.linkType !== "case") return [];
-                  return relatedCases.map(cas => {
-                    const parentDossier = relatedDossiers.find(d => d.id === cas.dossierId);
+                  if (formData.linkType !== "lawsuit") return [];
+                  return relatedLawsuits.map(lawsuit => {
+                    const parentDossier = relatedDossiers.find(d => d.id === lawsuit.dossierId);
                     return {
-                      value: cas.id,
-                      label: `${cas.caseNumber} - ${cas.title} (${parentDossier?.caseNumber || 'N/A'})`
+                      value: lawsuit.id,
+                      label: `${lawsuit.lawsuitNumber} - ${lawsuit.title} (${parentDossier?.lawsuitNumber || 'N/A'})`
                     };
                   });
                 }
@@ -335,7 +335,7 @@ export const createClientConfig = (t) => {
                 type: 'select', // Use regular select for better display
                 options: relatedDossiers.map(dossier => ({
                   value: dossier.id,
-                  label: `${dossier.caseNumber} - ${dossier.title}`
+                  label: `${dossier.lawsuitNumber} - ${dossier.title}`
                 })),
                 helpText: relatedDossiers.length === 0
                   ? t('detail.forms.dossiersEmpty')
@@ -345,7 +345,7 @@ export const createClientConfig = (t) => {
                   if (formData.linkType !== "dossier") return [];
                   return relatedDossiers.map(dossier => ({
                     value: dossier.id,
-                    label: `${dossier.caseNumber} - ${dossier.title}`
+                    label: `${dossier.lawsuitNumber} - ${dossier.title}`
                   }));
                 }
               };
@@ -368,10 +368,10 @@ export const createClientConfig = (t) => {
         allowDelete: false,
         entityName: t('detail.tabs.tasksEntity'),
         addSubtitle: t('detail.tabs.tasksAddSubtitle'),
-        // Dynamic form fields - dossierId and caseId options filtered to client's entities
+        // Dynamic form fields - dossierId and lawsuitId options filtered to client's entities
         getFormFields: (clientData) => {
           const relatedDossiers = clientData.relatedDossiers || [];
-          const relatedCases = clientData.relatedCases || [];
+          const relatedLawsuits = clientData.relatedLawsuits || [];
           const taskT = (key) => i18next.t(key, { ns: "tasks" });
 
           return taskFormFields(taskT).map(field => {
@@ -381,7 +381,7 @@ export const createClientConfig = (t) => {
                 required: false,
                 options: relatedDossiers.map(dossier => ({
                   value: dossier.id,
-                  label: `${dossier.caseNumber} - ${dossier.title}`
+                  label: `${dossier.lawsuitNumber} - ${dossier.title}`
                 })),
                 helpText: relatedDossiers.length === 0
                   ? t('detail.forms.dossiersEmpty')
@@ -391,32 +391,32 @@ export const createClientConfig = (t) => {
                   if (formData.parentType !== "dossier") return [];
                   return relatedDossiers.map(dossier => ({
                     value: dossier.id,
-                    label: `${dossier.caseNumber} - ${dossier.title}`
+                    label: `${dossier.lawsuitNumber} - ${dossier.title}`
                   }));
                 }
               };
-            } else if (field.name === 'caseId') {
+            } else if (field.name === 'lawsuitId') {
               return {
                 ...field,
                 required: false,
-                options: relatedCases.map(cas => {
-                  const parentDossier = relatedDossiers.find(d => d.id === cas.dossierId);
+                options: relatedLawsuits.map(lawsuit => {
+                  const parentDossier = relatedDossiers.find(d => d.id === lawsuit.dossierId);
                   return {
-                    value: cas.id,
-                    label: `${cas.caseNumber} - ${cas.title} (${parentDossier?.caseNumber || 'N/A'})`
+                    value: lawsuit.id,
+                    label: `${lawsuit.lawsuitNumber} - ${lawsuit.title} (${parentDossier?.lawsuitNumber || 'N/A'})`
                   };
                 }),
-                helpText: relatedCases.length === 0
-                  ? t('detail.forms.casesEmpty')
-                  : t('detail.forms.taskCaseHelp'),
+                helpText: relatedLawsuits.length === 0
+                  ? t('detail.forms.lawsuitsEmpty')
+                  : t('detail.forms.taskLawsuitHelp'),
                 // Override getOptions to use filtered options
                 getOptions: (formData) => {
-                  if (formData.parentType !== "case") return [];
-                  return relatedCases.map(cas => {
-                    const parentDossier = relatedDossiers.find(d => d.id === cas.dossierId);
+                  if (formData.parentType !== "lawsuit") return [];
+                  return relatedLawsuits.map(lawsuit => {
+                    const parentDossier = relatedDossiers.find(d => d.id === lawsuit.dossierId);
                     return {
-                      value: cas.id,
-                      label: `${cas.caseNumber} - ${cas.title} (${parentDossier?.caseNumber || 'N/A'})`
+                      value: lawsuit.id,
+                      label: `${lawsuit.lawsuitNumber} - ${lawsuit.title} (${parentDossier?.lawsuitNumber || 'N/A'})`
                     };
                   });
                 }
@@ -582,3 +582,9 @@ export const createClientConfig = (t) => {
     ],
   };
 };
+
+
+
+
+
+

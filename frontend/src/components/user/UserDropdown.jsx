@@ -79,7 +79,7 @@ export default function UserDropdown({ isOpen, onToggle, onClose }) {
             {/* User Avatar Button */}
             <button
                 onClick={toggleDropdown}
-                className={`relative p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200 ${isOpen ? "bg-slate-100 dark:bg-slate-800" : ""
+                className={`relative p-2.5 rounded-full border border-transparent hover:border-slate-200/80 dark:hover:border-slate-700/70 hover:bg-white/80 dark:hover:bg-slate-900/60 focus:outline-none focus:ring-2 focus:ring-blue-500/60 transition-all duration-200 ${isOpen ? "bg-white/90 dark:bg-slate-900/70 border-slate-200/80 dark:border-slate-700/70 shadow-sm" : ""
                     }`}
                 aria-label={t("aria.userDropdown.userMenu", { ns: "common" })}
             >
@@ -119,16 +119,16 @@ export default function UserDropdown({ isOpen, onToggle, onClose }) {
 
             {/* Dropdown Menu */}
             {isOpen && (
-                <div className="absolute right-0 mt-3 w-64 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 overflow-hidden z-50">
+                <div className="absolute right-0 mt-3 w-72 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-200/80 dark:border-slate-700/70 overflow-hidden z-50 animate-in zoom-in-95 slide-in-from-top-1 duration-200">
                     {/* Header */}
-                    <div className="px-6 py-4 bg-gradient-to-r from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700">
+                    <div className="px-5 py-4 bg-slate-50/90 dark:bg-slate-800/70 border-b border-slate-200/70 dark:border-slate-700/60">
                         <div className="flex items-center gap-3">
-                            <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
+                            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center shadow-lg shadow-blue-500/25">
                                 <i className="fas fa-user text-white text-lg"></i>
                             </div>
-                            <div>
-                                <h3 className="text-base font-semibold text-white">{operator?.name || "User Name"}</h3>
-                                <p className="text-xs text-blue-100 dark:text-blue-200">
+                            <div className="min-w-0">
+                                <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">{operator?.name || "User Name"}</h3>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
                                     {operator?.role ? t(`header.roles.${operator.role}`, { defaultValue: operator.role }) : "Operator"}
                                 </p>
                             </div>
@@ -140,7 +140,7 @@ export default function UserDropdown({ isOpen, onToggle, onClose }) {
                         {menuItems.map((item, index) => (
                             <div key={index}>
                                 {item.divider && (
-                                    <div className="my-2 border-t border-slate-200 dark:border-slate-700"></div>
+                                    <div className="my-2 border-t border-slate-200/70 dark:border-slate-700/60"></div>
                                 )}
                                 <button
                                     onClick={() => {
@@ -150,10 +150,10 @@ export default function UserDropdown({ isOpen, onToggle, onClose }) {
                                             handleNavigation(item.path);
                                         }
                                     }}
-                                    className="w-full px-6 py-3 flex items-center gap-4 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors duration-200 group"
+                                    className="w-full px-5 py-3 flex items-center gap-3 hover:bg-slate-100/80 dark:hover:bg-slate-800/70 transition-colors duration-200 group"
                                 >
-                                    <div className={`flex-shrink-0 ${item.color}`}>
-                                        <i className={`${item.icon} text-lg`}></i>
+                                    <div className={`flex-shrink-0 w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center ${item.color}`}>
+                                        <i className={`${item.icon} text-base`}></i>
                                     </div>
                                     <span className="flex-1 text-left text-sm font-medium text-slate-700 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-white">
                                         {item.label}

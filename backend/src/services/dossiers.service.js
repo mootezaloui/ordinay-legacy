@@ -236,49 +236,49 @@ function remove(id) {
   };
 
   const deleteTransaction = db.transaction(() => {
-    const caseIds = db
-      .prepare(`SELECT id FROM cases WHERE dossier_id = ?`)
+    const lawsuitIds = db
+      .prepare(`SELECT id FROM lawsuits WHERE dossier_id = ?`)
       .all(id)
       .map((row) => row.id);
 
     const missionIds = db
       .prepare(
         `SELECT id FROM missions WHERE dossier_id = ?${
-          caseIds.length > 0
-            ? ` OR case_id IN (${caseIds.map(() => "?").join(", ")})`
+          lawsuitIds.length > 0
+            ? ` OR lawsuit_id IN (${lawsuitIds.map(() => "?").join(", ")})`
             : ""
         }`
       )
-      .all(id, ...caseIds)
+      .all(id, ...lawsuitIds)
       .map((row) => row.id);
 
     const taskIds = db
       .prepare(
         `SELECT id FROM tasks WHERE dossier_id = ?${
-          caseIds.length > 0
-            ? ` OR case_id IN (${caseIds.map(() => "?").join(", ")})`
+          lawsuitIds.length > 0
+            ? ` OR lawsuit_id IN (${lawsuitIds.map(() => "?").join(", ")})`
             : ""
         }`
       )
-      .all(id, ...caseIds)
+      .all(id, ...lawsuitIds)
       .map((row) => row.id);
 
     const sessionIds = db
       .prepare(
         `SELECT id FROM sessions WHERE dossier_id = ?${
-          caseIds.length > 0
-            ? ` OR case_id IN (${caseIds.map(() => "?").join(", ")})`
+          lawsuitIds.length > 0
+            ? ` OR lawsuit_id IN (${lawsuitIds.map(() => "?").join(", ")})`
             : ""
         }`
       )
-      .all(id, ...caseIds)
+      .all(id, ...lawsuitIds)
       .map((row) => row.id);
 
     const financialEntryIds = db
       .prepare(
         `SELECT id FROM financial_entries WHERE dossier_id = ?${
-          caseIds.length > 0
-            ? ` OR case_id IN (${caseIds.map(() => "?").join(", ")})`
+          lawsuitIds.length > 0
+            ? ` OR lawsuit_id IN (${lawsuitIds.map(() => "?").join(", ")})`
             : ""
         }${
           missionIds.length > 0
@@ -290,14 +290,14 @@ function remove(id) {
             : ""
         }`
       )
-      .all(id, ...caseIds, ...missionIds, ...taskIds)
+      .all(id, ...lawsuitIds, ...missionIds, ...taskIds)
       .map((row) => row.id);
 
     const documentIds = db
       .prepare(
         `SELECT id FROM documents WHERE dossier_id = ?${
-          caseIds.length > 0
-            ? ` OR case_id IN (${caseIds.map(() => "?").join(", ")})`
+          lawsuitIds.length > 0
+            ? ` OR lawsuit_id IN (${lawsuitIds.map(() => "?").join(", ")})`
             : ""
         }${
           missionIds.length > 0
@@ -319,7 +319,7 @@ function remove(id) {
       )
       .all(
         id,
-        ...caseIds,
+        ...lawsuitIds,
         ...missionIds,
         ...taskIds,
         ...sessionIds,
@@ -340,7 +340,7 @@ function remove(id) {
     deleteNotificationsByEntity("mission", missionIds);
     deleteNotificationsByEntity("task", taskIds);
     deleteNotificationsByEntity("session", sessionIds);
-    deleteNotificationsByEntity("case", caseIds);
+    deleteNotificationsByEntity("lawsuit", lawsuitIds);
     deleteNotificationsByEntity("dossier", dossierIds);
 
     deleteNotesByEntity("document", documentIds);
@@ -348,7 +348,7 @@ function remove(id) {
     deleteNotesByEntity("mission", missionIds);
     deleteNotesByEntity("task", taskIds);
     deleteNotesByEntity("session", sessionIds);
-    deleteNotesByEntity("case", caseIds);
+    deleteNotesByEntity("lawsuit", lawsuitIds);
     deleteNotesByEntity("dossier", dossierIds);
 
     deleteByEntity("document", documentIds);
@@ -356,14 +356,14 @@ function remove(id) {
     deleteByEntity("mission", missionIds);
     deleteByEntity("task", taskIds);
     deleteByEntity("session", sessionIds);
-    deleteByEntity("case", caseIds);
+    deleteByEntity("lawsuit", lawsuitIds);
     deleteByEntity("dossier", dossierIds);
 
     // Delete child entities
     deleteIn("missions", "id", missionIds);
     deleteIn("tasks", "id", taskIds);
     deleteIn("sessions", "id", sessionIds);
-    deleteIn("cases", "id", caseIds);
+    deleteIn("lawsuits", "id", lawsuitIds);
 
     // Delete the dossier
     const stmt = db.prepare(`DELETE FROM ${table} WHERE id = @id`);
@@ -392,3 +392,5 @@ module.exports = {
   update,
   remove,
 };
+
+

@@ -409,7 +409,7 @@ const FIELD_DEFINITIONS = {
       { key: 'notes', label: 'Notes', placeholder: '{{session.notes}}', example: 'Préparer le dossier', entities: ['session'] },
       { key: 'participants', label: 'Participants', placeholder: '{{session.participants}}', example: 'Client, Avocat, Juge', entities: ['session'] },
       { key: 'dossier_id', label: 'ID dossier', placeholder: '{{session.dossier_id}}', example: '42', entities: ['session'] },
-      { key: 'case_id', label: 'ID procès', placeholder: '{{session.case_id}}', example: '58', entities: ['session'] },
+      { key: 'lawsuit_id', label: 'ID procès', placeholder: '{{session.lawsuit_id}}', example: '58', entities: ['session'] },
       { key: 'created_at', label: 'Créée le', placeholder: '{{session.created_at}}', example: '2024-03-01 10:00', entities: ['session'] },
       { key: 'updated_at', label: 'Mise à jour le', placeholder: '{{session.updated_at}}', example: '2024-03-10 15:10', entities: ['session'] },
       { key: 'imported', label: 'Importée', placeholder: '{{session.imported}}', example: '1', entities: ['session'] },
@@ -428,7 +428,7 @@ const FIELD_DEFINITIONS = {
       { key: 'scope', label: 'Portée', placeholder: '{{financial_entry.scope}}', example: 'client', entities: ['dossier', 'proces', 'session'] },
       { key: 'client_id', label: 'ID client', placeholder: '{{financial_entry.client_id}}', example: '123', entities: ['dossier', 'proces', 'session'] },
       { key: 'dossier_id', label: 'ID dossier', placeholder: '{{financial_entry.dossier_id}}', example: '42', entities: ['dossier', 'proces', 'session'] },
-      { key: 'case_id', label: 'ID procès', placeholder: '{{financial_entry.case_id}}', example: '58', entities: ['dossier', 'proces', 'session'] },
+      { key: 'lawsuit_id', label: 'ID procès', placeholder: '{{financial_entry.lawsuit_id}}', example: '58', entities: ['dossier', 'proces', 'session'] },
       { key: 'mission_id', label: 'ID mission', placeholder: '{{financial_entry.mission_id}}', example: '7', entities: ['dossier', 'proces', 'session'] },
       { key: 'task_id', label: 'ID tâche', placeholder: '{{financial_entry.task_id}}', example: '19', entities: ['dossier', 'proces', 'session'] },
       { key: 'personal_task_id', label: 'ID tâche personnelle', placeholder: '{{financial_entry.personal_task_id}}', example: '5', entities: ['dossier', 'proces', 'session'] },
@@ -921,4 +921,5 @@ function TemplateModal({ template, onClose, onSave }) {
     modalRoot
   );
 }
+
 

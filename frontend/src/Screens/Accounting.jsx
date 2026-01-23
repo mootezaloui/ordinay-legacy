@@ -48,7 +48,7 @@ export default function Accounting() {
     financialEntries,
     clients,
     dossiers,
-    cases,
+    lawsuits,
     tasks,
     sessions,
     officers,
@@ -184,7 +184,7 @@ export default function Accounting() {
       entities: {
         clients,
         dossiers,
-        cases,
+        lawsuits,
         tasks,
         sessions,
         officers,
@@ -210,7 +210,7 @@ export default function Accounting() {
       entities: {
         clients,
         dossiers,
-        cases,
+        lawsuits,
         tasks,
         sessions,
         officers,
@@ -261,7 +261,7 @@ export default function Accounting() {
       entities: {
         clients,
         dossiers,
-        cases,
+        lawsuits,
         tasks,
         sessions,
         officers,
@@ -541,7 +541,7 @@ export default function Accounting() {
           entities: {
             clients,
             dossiers,
-            cases,
+            lawsuits,
             tasks,
             sessions,
             officers,
@@ -683,10 +683,10 @@ export default function Accounting() {
       populateRelationshipOptions(getFinancialEntryFormFields(), {
         clients,
         dossiers,
-        cases,
+        lawsuits,
         missions,
       }),
-    [clients, dossiers, cases, missions]
+    [clients, dossiers, lawsuits, missions]
   );
 
   const localizedEntryFields = useMemo(() => {
@@ -789,12 +789,12 @@ export default function Accounting() {
           placeholder: t("form.fields.dossier.placeholder"),
         };
       }
-      if (field.name === "caseId") {
+      if (field.name === "lawsuitId") {
         return {
           ...field,
-          label: t("form.fields.case.label"),
-          helpText: t("form.fields.case.help"),
-          placeholder: t("form.fields.case.placeholder"),
+          label: t("form.fields.lawsuit.label"),
+          helpText: t("form.fields.lawsuit.help"),
+          placeholder: t("form.fields.lawsuit.placeholder"),
         };
       }
       if (field.name === "missionId") {
@@ -806,7 +806,7 @@ export default function Accounting() {
           helpText: t("form.fields.mission.help"),
           getOptions: (formData, allOptions) => {
             const dossierId = formData.dossierId;
-            const caseId = formData.caseId;
+            const lawsuitId = formData.lawsuitId;
 
             if (!allOptions?.missions) {
               return [
@@ -822,11 +822,11 @@ export default function Accounting() {
                   m.entityType === "dossier" &&
                   String(m.entityId) === String(dossierId)
               );
-            } else if (caseId) {
+            } else if (lawsuitId) {
               filteredMissions = filteredMissions.filter(
                 (m) =>
-                  m.entityType === "case" &&
-                  String(m.entityId) === String(caseId)
+                  m.entityType === "lawsuit" &&
+                  String(m.entityId) === String(lawsuitId)
               );
             } else {
               return [
@@ -1137,7 +1137,7 @@ export default function Accounting() {
         entityType="financialEntry"
         entityId={editingEntry?.id}
         editingEntity={editingEntry}
-        entities={{ clients, dossiers, cases, missions }}
+        entities={{ clients, dossiers, lawsuits, missions }}
       />
 
       <BlockerModal
@@ -1154,3 +1154,6 @@ export default function Accounting() {
     </PageLayout>
   );
 }
+
+
+

@@ -2,7 +2,7 @@
   "welcome": {
     "title": "Welcome to Organia",
     "subtitle": "Your legal practice, organized.",
-    "description": "Organia helps you manage your clients, cases, tasks, and finances — all in one place. Let's take a quick tour to get you started.",
+    "description": "Organia helps you manage your clients, lawsuits, tasks, and finances — all in one place. Let's take a quick tour to get you started.",
     "startButton": "Start guided tour",
     "skipButton": "Skip for now",
     "skipNote": "You can always replay this from Settings."
@@ -19,7 +19,7 @@
       "title": "Your Control Center",
       "description": "This is your dashboard — the place you'll start each day.",
       "highlights": {
-        "stats": "See your key numbers at a glance: clients, active cases, pending tasks, and revenue.",
+        "stats": "See your key numbers at a glance: clients, active lawsuits, pending tasks, and revenue.",
         "upcoming": "Upcoming events and deadlines appear here. No need to check multiple places.",
         "quick": "Need to create something fast? Quick actions are always within reach."
       },
@@ -36,7 +36,7 @@
       },
       "dossiers": {
         "title": "Dossiers: Your Legal Matters",
-        "description": "A dossier represents a legal file or case. It belongs to a client and holds all related work.",
+        "description": "A dossier represents a legal file. It belongs to a client and holds all related work.",
         "detail": "Example: \"Divorce Proceedings - Smith\" or \"Contract Dispute - Acme Corp\". Each dossier tracks its own tasks, deadlines, and history."
       },
       "tasks": {

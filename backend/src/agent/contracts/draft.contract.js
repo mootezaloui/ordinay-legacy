@@ -30,7 +30,7 @@ const DRAFT_TYPE = Object.freeze({
 
   /**
    * CLIENT_EMAIL
-   * Email communication to a client regarding case/dossier
+   * Email communication to a client regarding lawsuit/dossier
    */
   CLIENT_EMAIL: 'CLIENT_EMAIL',
 

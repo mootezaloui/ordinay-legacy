@@ -145,7 +145,7 @@ export function SettingsProvider({ children }) {
       financial: "payments",
       mission: "missions",
       dossier: "dossiers",
-      case: "dossiers",
+      lawsuit: "lawsuits",
       client: "clients",
     };
 

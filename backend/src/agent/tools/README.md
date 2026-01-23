@@ -32,7 +32,7 @@ agent/tools/
 ├── read/                     # READ tools (safe, no side effects)
 │   ├── getClient.tool.js
 │   ├── getDossier.tool.js
-│   ├── getCase.tool.js
+│   ├── getLawsuit.tool.js
 │   ├── getSession.tool.js
 │   ├── listTasks.tool.js
 │   └── getTimeline.tool.js
@@ -65,7 +65,7 @@ agent/tools/
 **Examples**:
 - `getClient(clientId)` — Retrieve client record
 - `getDossier(dossierId)` — Retrieve dossier with client info
-- `getCase(caseId)` — Retrieve case with dossier info
+- `getLawsuit(lawsuitId)` — Retrieve lawsuit with dossier info
 - `getSession(sessionId)` — Retrieve session details
 - `listTasks(filters)` — List tasks with filters
 - `getTimeline(entityType, entityId)` — Get activity timeline

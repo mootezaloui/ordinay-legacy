@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import ContentSection from "../../layout/ContentSection";
 import i18next from "i18next";
 import { getStatusColor } from "./statusColors";
-import { taskFormFields, caseFormFields, sessionFormFields, getMissionFormFields } from "../../FormModal/formConfigs";
+import { taskFormFields, lawsuitFormFields, sessionFormFields, getMissionFormFields } from "../../FormModal/formConfigs";
 import { getAllPhases, addCustomPhase } from "../../../utils/phaseManager";
 import { getAllCategories, addCustomCategory } from "../../../utils/categoryManager";
 import { calculateNextDeadline, formatDate, getDeadlineNavigationPath, getDeadlineUrgency } from "../../../utils/deadlineUtils";
@@ -38,7 +38,6 @@ const DEFAULT_CATEGORIES = [
  * ✅ Fully internationalized with i18n support
  */
 export const createDossierConfig = (t, helpers = {}) => {
-  const tCases = i18next.getFixedT("cases");
   const tSessions = i18next.getFixedT("sessions");
   const formatCurrency = helpers?.formatCurrency || formatCurrencyValue;
 
@@ -76,23 +75,23 @@ export const createDossierConfig = (t, helpers = {}) => {
       // ✅ Compute aggregated related entities from contextData if available
       const sessions = contextData?.sessions || [];
       const tasks = contextData?.tasks || [];
-      const cases = contextData?.cases || [];
+      const lawsuits = contextData?.lawsuits || [];
       const financialEntries = contextData?.financialEntries || [];
 
-      // Always derive proceedings from the live cases list to stay in sync with deletions
-      const dossierCases = cases.filter(c => c.dossierId === numericId);
-      // Aggregate all sessions related to this dossier (by dossierId or by caseId)
+      // Always derive proceedings from the live lawsuits list to stay in sync with deletions
+      const dossierLawsuits = lawsuits.filter(lawsuit => lawsuit.dossierId === numericId);
+      // Aggregate all sessions related to this dossier (by dossierId or by lawsuitId)
       const relatedSessions = sessions.filter(session =>
         session.dossierId === numericId ||
-        dossierCases.some(cas => cas.id === session.caseId)
+        dossierLawsuits.some(lawsuit => lawsuit.id === session.lawsuitId)
       );
       const relatedTasks = tasks.filter(task =>
         (task.parentType === 'dossier' && task.dossierId === numericId) ||
-        (task.parentType === 'case' && dossierCases.some(cas => cas.id === task.caseId))
+        (task.parentType === 'lawsuit' && dossierLawsuits.some(lawsuit => lawsuit.id === task.lawsuitId))
       );
       const relatedFinancialEntries = financialEntries.filter(entry =>
         entry.dossierId === numericId ||
-        dossierCases.some(cas => cas.id === entry.caseId)
+        dossierLawsuits.some(lawsuit => lawsuit.id === entry.lawsuitId)
       );
 
       // ✅ Calculate dynamic next deadline from all related entities
@@ -128,7 +127,7 @@ export const createDossierConfig = (t, helpers = {}) => {
         client: client || { id: null, name: t('detail.fallback.unassignedClient') },
         sessions: relatedSessions,
         tasks: relatedTasks,
-        proceedings: dossierCases,
+        proceedings: dossierLawsuits,
         financialEntries: relatedFinancialEntries,
         documents,
         // ✅ Add computed next deadline
@@ -143,7 +142,7 @@ export const createDossierConfig = (t, helpers = {}) => {
 
       // Filter out relationship fields - dossier entity should only contain dossier-specific data
       const dossierFields = [
-        'caseNumber', 'title', 'clientId', 'category', 'priority', 'phase',
+        'lawsuitNumber', 'title', 'clientId', 'category', 'priority', 'phase',
         'openDate', 'nextDeadline', 'description', 'adversaryParty', 'adversaryLawyer', 'status', 'notes'
       ];
       const dossierData = Object.keys(data).reduce((acc, key) => {
@@ -183,7 +182,7 @@ export const createDossierConfig = (t, helpers = {}) => {
       }
     },
 
-    getTitle: (data) => data.caseNumber,
+    getTitle: (data) => data.lawsuitNumber,
     getSubtitle: (data) => data.title,
 
     // ✅ NEW: Quick Actions Configuration
@@ -368,7 +367,7 @@ export const createDossierConfig = (t, helpers = {}) => {
         label: t('detail.tabs.proceedings'),
         icon: "fas fa-gavel",
         component: "aggregatedRelated",
-        aggregationType: "cases",
+        aggregationType: "lawsuits",
         getCount: (data) => data.proceedings?.length || 0,
         itemsKey: "proceedings",
         allowAdd: true,
@@ -376,8 +375,8 @@ export const createDossierConfig = (t, helpers = {}) => {
         entityName: t('detail.tabs.proceedingsEntity'),
         addSubtitle: t('detail.tabs.proceedingsAddSubtitle'),
         getFormFields: () => {
-          const caseT = (key) => i18next.t(key, { ns: "cases" });
-          return caseFormFields(caseT).filter(field => field.name !== 'dossierId');
+          const lawsuitT = (key) => i18next.t(key, { ns: "lawsuits" });
+          return lawsuitFormFields(lawsuitT).filter(field => field.name !== 'dossierId');
         },
       },
       {
@@ -394,38 +393,38 @@ export const createDossierConfig = (t, helpers = {}) => {
         addSubtitle: t('detail.tabs.sessionsAddSubtitle'),
         // Dynamic form fields - allow linking to either this dossier or one of its procès
         getFormFields: (dossierData) => {
-          const dossierCases = dossierData.proceedings || [];
+          const dossierLawsuits = dossierData.proceedings || [];
           const sessionT = (key) => i18next.t(key, { ns: "sessions" });
 
           return sessionFormFields(sessionT).map(field => {
-            // Allow linkType to be editable - choose between dossier and case
+            // Allow linkType to be editable - choose between dossier and lawsuit
             if (field.name === 'linkType') {
               return {
                 ...field,
                 // Not disabled - user can choose
-                defaultValue: 'case', // Default to case if procès exist, else dossier
-                helpText: dossierCases.length > 0
-                  ? t('detail.forms.sessions.linkHelpWithCases')
-                  : t('detail.forms.sessions.linkHelpNoCases')
+                defaultValue: 'lawsuit', // Default to lawsuit if procès exist, else dossier
+                helpText: dossierLawsuits.length > 0
+                  ? t('detail.forms.sessions.linkHelpWithLawsuits')
+                  : t('detail.forms.sessions.linkHelpNoLawsuits')
               };
             }
-            if (field.name === 'caseId') {
+            if (field.name === 'lawsuitId') {
               return {
                 ...field,
                 type: 'select', // Use regular select for better display
-                options: dossierCases.map(cas => ({
-                  value: cas.id,
-                  label: `${cas.caseNumber} - ${cas.title}`
+                options: dossierLawsuits.map(lawsuit => ({
+                  value: lawsuit.id,
+                  label: `${lawsuit.lawsuitNumber} - ${lawsuit.title}`
                 })),
-                helpText: dossierCases.length === 0
-                  ? t('detail.forms.sessions.casesEmpty')
-                  : t('detail.forms.sessions.caseHelp'),
-                // Only show this field when linkType is 'case'
+                helpText: dossierLawsuits.length === 0
+                  ? t('detail.forms.sessions.lawsuitsEmpty')
+                  : t('detail.forms.sessions.lawsuitHelp'),
+                // Only show this field when linkType is 'lawsuit'
                 getOptions: (formData) => {
-                  if (formData.linkType !== "case") return [];
-                  return dossierCases.map(cas => ({
-                    value: cas.id,
-                    label: `${cas.caseNumber} - ${cas.title}`
+                  if (formData.linkType !== "lawsuit") return [];
+                  return dossierLawsuits.map(lawsuit => ({
+                    value: lawsuit.id,
+                    label: `${lawsuit.lawsuitNumber} - ${lawsuit.title}`
                   }));
                 }
               };
@@ -438,7 +437,7 @@ export const createDossierConfig = (t, helpers = {}) => {
                 disabled: true, // Make it read-only when shown
                 options: [{
                   value: dossierData.id,
-                  label: `${dossierData.caseNumber} - ${dossierData.title}`
+                  label: `${dossierData.lawsuitNumber} - ${dossierData.title}`
                 }],
                 helpText: t('detail.forms.sessions.dossierHelp'),
                 // Only show this field when linkType is 'dossier'
@@ -447,7 +446,7 @@ export const createDossierConfig = (t, helpers = {}) => {
                   if (formData.linkType !== "dossier") return [];
                   return [{
                     value: dossierData.id,
-                    label: `${dossierData.caseNumber} - ${dossierData.title}`
+                    label: `${dossierData.lawsuitNumber} - ${dossierData.title}`
                   }];
                 }
               };
@@ -468,9 +467,9 @@ export const createDossierConfig = (t, helpers = {}) => {
         allowDelete: false,
         entityName: t('detail.tabs.tasksEntity'),
         addSubtitle: t('detail.tabs.tasksAddSubtitle'),
-        // Dynamic form fields - dossierId and caseId options filtered to this dossier
+        // Dynamic form fields - dossierId and lawsuitId options filtered to this dossier
         getFormFields: (dossierData) => {
-          const dossierCases = dossierData.proceedings || [];
+          const dossierLawsuits = dossierData.proceedings || [];
           const tTasks = (key) => i18next.t(key, { ns: "tasks" });
 
           return taskFormFields(tTasks).map(field => {
@@ -479,9 +478,9 @@ export const createDossierConfig = (t, helpers = {}) => {
               return {
                 ...field,
                 defaultValue: 'dossier',
-                helpText: dossierCases.length > 0
-                  ? t('detail.forms.tasks.linkHelpWithCases')
-                  : t('detail.forms.tasks.linkHelpNoCases')
+                helpText: dossierLawsuits.length > 0
+                  ? t('detail.forms.tasks.linkHelpWithLawsuits')
+                  : t('detail.forms.tasks.linkHelpNoLawsuits')
               };
             } else if (field.name === 'dossierId') {
               // Show this field as disabled/read-only with the current dossier pre-filled
@@ -491,7 +490,7 @@ export const createDossierConfig = (t, helpers = {}) => {
                 disabled: true, // Make it read-only (unchangeable)
                 options: [{
                   value: dossierData.id,
-                  label: `${dossierData.caseNumber} - ${dossierData.title}`
+                  label: `${dossierData.lawsuitNumber} - ${dossierData.title}`
                 }],
                 helpText: t('detail.forms.tasks.dossierHelp'),
                 // Override getOptions to use this dossier only
@@ -499,26 +498,26 @@ export const createDossierConfig = (t, helpers = {}) => {
                   if (formData.parentType !== "dossier") return [];
                   return [{
                     value: dossierData.id,
-                    label: `${dossierData.caseNumber} - ${dossierData.title}`
+                    label: `${dossierData.lawsuitNumber} - ${dossierData.title}`
                   }];
                 }
               };
-            } else if (field.name === 'caseId') {
+            } else if (field.name === 'lawsuitId') {
               return {
                 ...field,
-                options: dossierCases.map(cas => ({
-                  value: cas.id,
-                  label: `${cas.caseNumber} - ${cas.title}`
+                options: dossierLawsuits.map(lawsuit => ({
+                  value: lawsuit.id,
+                  label: `${lawsuit.lawsuitNumber} - ${lawsuit.title}`
                 })),
-                helpText: dossierCases.length === 0
-                  ? t('detail.forms.tasks.casesEmpty')
-                  : t('detail.forms.tasks.caseHelp'),
+                helpText: dossierLawsuits.length === 0
+                  ? t('detail.forms.tasks.lawsuitsEmpty')
+                  : t('detail.forms.tasks.lawsuitHelp'),
                 // Override getOptions to use filtered options
                 getOptions: (formData) => {
-                  if (formData.parentType !== "case") return [];
-                  return dossierCases.map(cas => ({
-                    value: cas.id,
-                    label: `${cas.caseNumber} - ${cas.title}`
+                  if (formData.parentType !== "lawsuit") return [];
+                  return dossierLawsuits.map(lawsuit => ({
+                    value: lawsuit.id,
+                    label: `${lawsuit.lawsuitNumber} - ${lawsuit.title}`
                   }));
                 }
               };
@@ -555,9 +554,9 @@ export const createDossierConfig = (t, helpers = {}) => {
             } else if (field.name === 'entityReference') {
               return {
                 ...field,
-                defaultValue: dossierData.caseNumber,
+                defaultValue: dossierData.lawsuitNumber,
                 disabled: true,
-                helpText: t('detail.forms.missions.linkedToDossier', { caseNumber: dossierData.caseNumber }),
+                helpText: t('detail.forms.missions.linkedToDossier', { lawsuitNumber: dossierData.lawsuitNumber }),
               };
             } else if (field.name === 'missionNumber') {
               // Allow lawyers to enter their own reference or leave blank for auto-generation
@@ -626,13 +625,13 @@ export const createDossierConfig = (t, helpers = {}) => {
         editStrategy: "structured", // ✅ Requires explicit Edit button
         fields: [
           {
-            key: "caseNumber",
-            label: t('detail.overview.fields.caseNumber'),
-            value: (data) => data.caseNumber,
+            key: "lawsuitNumber",
+            label: t('detail.overview.fields.lawsuitNumber'),
+            value: (data) => data.lawsuitNumber,
             icon: "fas fa-hashtag",
             type: "text",
             editable: true,
-            helpText: t('detail.overview.fields.caseNumberHelp')
+            helpText: t('detail.overview.fields.lawsuitNumberHelp')
           },
           {
             key: "title",
@@ -874,4 +873,10 @@ function InfoCard({ icon, label, value, color, linkTo = null, subtitle = null })
 
   return <div className="flex items-center gap-3">{content}</div>;
 }
+
+
+
+
+
+
 

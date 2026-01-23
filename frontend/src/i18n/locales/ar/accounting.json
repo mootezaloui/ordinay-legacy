@@ -162,7 +162,7 @@
         "help": "الملف المعني (اختياري)",
         "placeholder": "اختر ملف"
       },
-      "case": {
+      "lawsuit": {
         "label": "القضية (اختياري)",
         "help": "القضية المعنية (اختياري)",
         "placeholder": "اختر قضية"
@@ -202,7 +202,7 @@
       "fallback": {
         "unknownClient": "عميل غير معروف",
         "unknownDossier": "ملف غير معروف",
-        "unknownCase": "قضية غير معروفة"
+        "unknownLawsuit": "قضية غير معروفة"
       },
       "help": {
         "currentMission": "المهمة الحالية",
@@ -235,7 +235,7 @@
       "date": "التاريخ",
       "dueDate": "تاريخ الاستحقاق",
       "dossier": "ملف",
-      "lawsuit": "دعوى",
+      "lawsuit": "قضية",
       "bailiff": "محضر"
     },
     "tabs": {
@@ -248,7 +248,7 @@
       "empty": "لا توجد كيانات مرتبطة",
       "client": "العميل",
       "dossier": "الملف",
-      "lawsuit": "الدعوى",
+      "lawsuit": "القضية",
       "bailiff": "المحضر"
     },
     "overview": {
@@ -277,9 +277,9 @@
         "dossier": "الملف",
         "dossierPlaceholder": "اختر ملف...",
         "dossierHelp": "يتم عرض ملفات العميل المختار فقط",
-        "lawsuit": "الدعوى",
-        "lawsuitPlaceholder": "اختر دعوى...",
-        "lawsuitHelp": "يتم عرض دعاوى الملف المختار فقط"
+        "lawsuit": "القضية",
+        "lawsuitPlaceholder": "اختر قضية...",
+        "lawsuitHelp": "يتم عرض قضايا الملف المختار فقط"
       },
       "categories": {
         "Fees": "أتعاب",

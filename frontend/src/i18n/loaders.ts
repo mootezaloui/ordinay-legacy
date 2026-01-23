@@ -24,7 +24,7 @@ const namespaceLoaders: Record<LanguageCode, NamespaceLoader> = {
     settings: await safeImport(() => import("./locales/en/settings.json"), "en/settings"),
     profile: await safeImport(() => import("./locales/en/profile.json"), "en/profile"),
     dossiers: await safeImport(() => import("./locales/en/dossiers.json"), "en/dossiers"),
-    cases: await safeImport(() => import("./locales/en/cases.json"), "en/cases"),
+    lawsuits: await safeImport(() => import("./locales/en/lawsuits.json"), "en/lawsuits"),
     tasks: await safeImport(() => import("./locales/en/tasks.json"), "en/tasks"),
     personalTasks: await safeImport(() => import("./locales/en/personalTasks.json"), "en/personalTasks"),
     officers: await safeImport(() => import("./locales/en/officers.json"), "en/officers"),
@@ -50,7 +50,7 @@ const namespaceLoaders: Record<LanguageCode, NamespaceLoader> = {
     settings: await safeImport(() => import("./locales/fr/settings.json"), "fr/settings"),
     profile: await safeImport(() => import("./locales/fr/profile.json"), "fr/profile"),
     dossiers: await safeImport(() => import("./locales/fr/dossiers.json"), "fr/dossiers"),
-    cases: await safeImport(() => import("./locales/fr/cases.json"), "fr/cases"),
+    lawsuits: await safeImport(() => import("./locales/fr/lawsuits.json"), "fr/lawsuits"),
     tasks: await safeImport(() => import("./locales/fr/tasks.json"), "fr/tasks"),
     personalTasks: await safeImport(() => import("./locales/fr/personalTasks.json"), "fr/personalTasks"),
     officers: await safeImport(() => import("./locales/fr/officers.json"), "fr/officers"),
@@ -76,7 +76,7 @@ const namespaceLoaders: Record<LanguageCode, NamespaceLoader> = {
     settings: await safeImport(() => import("./locales/ar/settings.json"), "ar/settings"),
     profile: await safeImport(() => import("./locales/ar/profile.json"), "ar/profile"),
     dossiers: await safeImport(() => import("./locales/ar/dossiers.json"), "ar/dossiers"),
-    cases: await safeImport(() => import("./locales/ar/cases.json"), "ar/cases"),
+    lawsuits: await safeImport(() => import("./locales/ar/lawsuits.json"), "ar/lawsuits"),
     tasks: await safeImport(() => import("./locales/ar/tasks.json"), "ar/tasks"),
     personalTasks: await safeImport(() => import("./locales/ar/personalTasks.json"), "ar/personalTasks"),
     officers: await safeImport(() => import("./locales/ar/officers.json"), "ar/officers"),
@@ -119,3 +119,4 @@ export const loadResourceStore = async (
 
   return Object.fromEntries(pairs);
 };
+

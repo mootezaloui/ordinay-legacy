@@ -1,4 +1,4 @@
-﻿{
+{
   "dashboard": {
     "title": "Tableau de Bord",
     "subtitle": "Vue d'ensemble des performances et activités de votre cabinet",
@@ -34,7 +34,7 @@
       },
       "placeholders": {
         "dossier": "Sélectionnez un dossier...",
-        "case": "Sélectionnez une affaire..."
+        "lawsuit": "Sélectionnez un procès..."
       }
     },
     "stats": {
@@ -160,7 +160,7 @@
     },
     "activities": {
       "newClient": "Nouveau client : {{name}}",
-      "dossierUpdated": "Dossier mis à jour : {{caseNumber}}",
+      "dossierUpdated": "Dossier mis à jour : {{lawsuitNumber}}",
       "scheduledHearing": "Audience programmée : {{title}}",
       "sessionDescription": "{{date}} à {{time}}",
       "deadline": "Échéance : {{title}}",
@@ -169,7 +169,7 @@
     "types": {
       "session": "Audience",
       "task": "Tâches",
-      "case": "Procès",
+      "lawsuit": "Procès",
       "dossier": "Dossier",
       "finance": "Finances",
       "mission": "Mission",
@@ -191,7 +191,7 @@
     "titles": {
       "client": { "new": "Nouveau Client", "edit": "Modifier Client" },
       "dossier": { "new": "Nouveau Dossier", "edit": "Modifier Dossier" },
-      "case": { "new": "Nouvelle Affaire", "edit": "Modifier Affaire" },
+      "lawsuit": { "new": "Nouveau Procès", "edit": "Modifier Procès" },
       "session": { "new": "Nouvelle Séance", "edit": "Modifier Séance" },
       "task": { "new": "Nouvelle Tâche", "edit": "Modifier Tâche" },
       "personalTask": { "new": "Nouvelle Tâche Personnelle", "edit": "Modifier Tâche Personnelle" },
@@ -519,6 +519,12 @@
       "addDefault": "Ajouter un élément",
       "edit": "Modifier",
       "disabledAction": "Action indisponible pour le moment.",
+      "errors": {
+        "createDossier": "Impossible de créer le dossier. Veuillez réessayer.",
+        "createLawsuit": "Impossible de créer le procès. Veuillez réessayer.",
+        "createSession": "Impossible de créer l'audience. Veuillez réessayer.",
+        "createTask": "Impossible de créer la tâche. Veuillez réessayer."
+      },
       "toast": {
         "addSuccess": "{{entityName}} ajouté avec succès !",
         "addError": "Erreur lors de l'ajout"
@@ -528,7 +534,7 @@
         "edit": "Modifier {{entity}}"
       },
       "help": {
-        "taskCaseLink": "Cette tâche sera liée à ce procès"
+        "taskLawsuitLink": "Cette tâche sera liée à ce procès"
       },
       "empty": {
         "noItems": "Aucun élément"
@@ -548,11 +554,11 @@
     "aggregated": {
       "empty": {
         "dossiers": "Aucun dossier pour ce client",
-        "lawsuitsClient": "Aucune affaire pour ce client",
-        "lawsuitsDossier": "Aucune affaire pour ce dossier",
-        "hearingsClient": "Aucune audience programmée pour ce client.\nPour ajouter une audience, créez un dossier ou une affaire.",
+        "lawsuitsClient": "Aucun procès pour ce client",
+        "lawsuitsDossier": "Aucun procès pour ce dossier",
+        "hearingsClient": "Aucune audience programmée pour ce client.\nPour ajouter une audience, créez un dossier ou un procès.",
         "hearingsDossier": "Aucune audience programmée pour ce dossier",
-        "hearingsLawsuit": "Aucune audience programmée pour cette affaire",
+        "hearingsLawsuit": "Aucune audience programmée pour ce procès",
         "tasksClient": "Aucune tâche pour ce client",
         "tasksDossier": "Aucune tâche pour ce dossier",
         "tasksLawsuit": "Aucune tâche pour ce procès",
@@ -643,7 +649,7 @@
           "taskComplete": "Tâche marquée comme terminée",
           "hearingComplete": "Audience marquée comme terminée",
           "entryPaid": "Entrée marquée comme payée",
-          "caseClosed": "Procès clos",
+          "lawsuitClosed": "Procès clos",
           "dossierClosed": "Dossier clos",
           "resolved": "Tous les blocages ont été résolus !"
         },
@@ -651,7 +657,7 @@
           "taskComplete": "Impossible de marquer cette tâche comme terminée",
           "hearingComplete": "Impossible de marquer cette audience comme terminée",
           "entryPaid": "Impossible de marquer cette entrée comme payée",
-          "caseClosed": "Impossible de clore ce procès",
+          "lawsuitClosed": "Impossible de clore ce procès",
           "dossierClosed": "Impossible de clore ce dossier",
           "unsupported": "Action non supportée",
           "generic": "Une erreur est survenue"
@@ -697,8 +703,8 @@
           "dossierOpenBeforeClient": "La date d'ouverture du dossier ({{openDate}}) ne peut pas être antérieure à la date d'inscription du client ({{joinDate}}).",
           "nextDeadlinePast": "La prochaine échéance ({{date}}) est dans le passé. Pensez à la mettre à jour.",
           "closingDateAfterOpening": "La date de clôture ({{closeDate}}) doit être postérieure à la date d'ouverture ({{openDate}}).",
-          "cannotCloseDossierOpenCases_one": "Impossible de clôturer le dossier : {{count}} procès est encore en cours.",
-          "cannotCloseDossierOpenCases_other": "Impossible de clôturer le dossier : {{count}} procès sont encore en cours.",
+          "cannotCloseDossierOpenLawsuits_one": "Impossible de clôturer le dossier : {{count}} procès est encore en cours.",
+          "cannotCloseDossierOpenLawsuits_other": "Impossible de clôturer le dossier : {{count}} procès sont encore en cours.",
           "filingDateFuture": "La date de dépôt ({{date}}) ne peut pas être dans le futur.",
           "filingBeforeDossierOpen": "La date de dépôt du procès ({{filingDate}}) ne peut pas être antérieure à la date d'ouverture du dossier ({{openDate}}).",
           "nextHearingPast": "La prochaine audience ({{date}}) est dans le passé. Mettez à jour cette date.",
@@ -779,7 +785,7 @@
       "noSelection": "Aucun élément sélectionné",
       "client": "Sélectionnez un client",
       "dossier": "Sélectionnez un dossier",
-      "case": "Sélectionnez un procès",
+      "lawsuit": "Sélectionnez un procès",
       "task": "Sélectionnez une tâche",
       "session": "Sélectionnez une audience",
       "officer": "Sélectionnez un huissier",
@@ -820,7 +826,7 @@
       "phone": "Téléphone",
       "name": "Nom",
       "status": "Statut",
-      "caseNumber": "Numéro d'affaire",
+      "lawsuitNumber": "Numéro du procès",
       "title": "Titre",
       "client": "Client",
       "date": "Date",
@@ -918,7 +924,7 @@
     "entities": {
       "client": "Client",
       "dossier": "Dossier",
-      "case": "Affaire",
+      "lawsuit": "Procès",
       "task": "Tache",
       "session": "Audience",
       "mission": "Mission",
@@ -1123,3 +1129,4 @@
     "loading": "Chargement..."
   }
 }
+

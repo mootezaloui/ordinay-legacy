@@ -43,10 +43,10 @@ const CONTEXT_SCOPE = Object.freeze({
   DOSSIER: 'DOSSIER',
 
   /**
-   * CASE
-   * Request scoped to a specific case
+   * LAWSUIT
+   * Request scoped to a specific lawsuit
    */
-  CASE: 'CASE',
+  LAWSUIT: 'LAWSUIT',
 
   /**
    * SESSION
@@ -114,9 +114,9 @@ function validateContextRefs(contextRefs, contextScope) {
       }
       break;
 
-    case CONTEXT_SCOPE.CASE:
-      if (!contextRefs.caseId || typeof contextRefs.caseId !== 'number') {
-        throw new Error('CASE scope requires contextRefs.caseId (number)');
+    case CONTEXT_SCOPE.LAWSUIT:
+      if (!contextRefs.lawsuitId || typeof contextRefs.lawsuitId !== 'number') {
+        throw new Error('LAWSUIT scope requires contextRefs.lawsuitId (number)');
       }
       break;
 
@@ -177,7 +177,7 @@ function generateRequestId(userId) {
  * @param {number} request.userId - User ID (required)
  * @param {string} request.agentVersion - Agent version (v1 | v2 | v3)
  * @param {string} request.intent - Intent from intent taxonomy
- * @param {string} request.contextScope - Context scope (GLOBAL | CLIENT | DOSSIER | CASE | SESSION | TASK)
+ * @param {string} request.contextScope - Context scope (GLOBAL | CLIENT | DOSSIER | LAWSUIT | SESSION | TASK)
  * @param {Object} request.contextRefs - Context references (validated based on scope)
  * @param {string} request.userMessage - User message (required, non-empty)
  * @param {string} request.language - ISO 639-1 language code (e.g., 'en', 'fr')
@@ -310,3 +310,4 @@ module.exports = {
   validateAgentRequest,
   extractAgentContext,
 };
+

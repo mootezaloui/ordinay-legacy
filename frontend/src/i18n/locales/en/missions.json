@@ -136,7 +136,7 @@
       },
       "entityTypes": {
         "dossier": "Dossier",
-        "case": "Lawsuit"
+        "lawsuit": "Lawsuit"
       },
       "help": {
         "entityType": "Select the type of entity this mission is linked to",
@@ -144,7 +144,7 @@
         "bailiff": "Warning: Changing the bailiff will transfer the mission to another bailiff"
       },
       "placeholders": {
-        "selectCase": "Select a lawsuit...",
+        "selectLawsuit": "Select a lawsuit...",
         "selectDossier": "Select a dossier..."
       }
     },
@@ -221,7 +221,7 @@
       "notes": "Additional notes..."
     },
     "help": {
-      "entityReference": "Reference of the dossier or case",
+      "entityReference": "Reference of the dossier or lawsuit",
       "missionNumber": "Optional - Leave blank for automatic generation (MIS-YEAR-XXX)",
       "result": "To be filled once the mission is completed",
       "completionDate": "Completion date of the mission (if completed)",

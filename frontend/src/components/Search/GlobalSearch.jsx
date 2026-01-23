@@ -20,7 +20,7 @@ export default function GlobalSearch() {
     clients,
     dossiers,
     tasks,
-    cases,
+    lawsuits,
     sessions,
     officers,
     financialEntries,
@@ -52,7 +52,7 @@ export default function GlobalSearch() {
         clients,
         dossiers,
         tasks,
-        cases,
+        lawsuits,
         sessions,
         officers,
         accounting: financialEntries,
@@ -70,7 +70,7 @@ export default function GlobalSearch() {
       client: `/clients/${id}`,
       dossier: `/dossiers/${id}`,
       task: `/tasks/${id}`,
-      case: `/cases/${id}`,
+      lawsuit: `/lawsuits/${id}`,
       session: `/sessions/${id}`,
       officer: `/officers/${id}`,
       accounting: `/accounting/${id}`,
@@ -197,7 +197,7 @@ export default function GlobalSearch() {
                   items={results.dossiers}
                   onItemClick={(item) => handleResultClick("dossier", item.id)}
                   renderItem={(item) => ({
-                    title: item.caseNumber,
+                    title: item.lawsuitNumber,
                     subtitle: item.title,
                     extra: item.client,
                     status: item.status,
@@ -224,16 +224,16 @@ export default function GlobalSearch() {
               )}
 
               {/* Cases */}
-              {results.cases?.length > 0 && (
+              {results.lawsuits?.length > 0 && (
                 <SearchSection
                   title={t("search.categories.lawsuits")}
                   icon="fas fa-gavel"
                   iconColor="text-red-600 dark:text-red-400"
                   bgColor="bg-red-100 dark:bg-red-900/20"
-                  items={results.cases}
-                  onItemClick={(item) => handleResultClick("case", item.id)}
+                  items={results.lawsuits}
+                  onItemClick={(item) => handleResultClick("lawsuit", item.id)}
                   renderItem={(item) => ({
-                    title: item.caseNumber,
+                    title: item.lawsuitNumber,
                     subtitle: item.title,
                     extra: item.court,
                     status: item.status,
@@ -365,3 +365,7 @@ function SearchSection({ title, icon, iconColor, bgColor, items, onItemClick, re
     </div>
   );
 }
+
+
+
+

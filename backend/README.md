@@ -32,15 +32,15 @@ Database-first backend with an Express HTTP layer. SQLite schema is enforced; th
 - DB: connection helper and schema; `better-sqlite3` used synchronously.
 
 ## Schema highlights (how it maps to the frontend)
-- `clients` → `dossiers` → `cases` mirror the existing hierarchy (1:N per step).
-- Tasks: `tasks` link to either a dossier or a case; `personal_tasks` are standalone.
-- Hearings/consultations: `sessions` attach to either a case or a dossier (polymorphic) with status checks.
-- Missions/officers: `missions` link to a case or dossier and may be assigned to an `officer`.
-- Documents: single required target among client/dossier/case/mission/task/session/personal_task/financial_entry.
-- Money: `financial_entries` always link to a client, optionally to a dossier or case (but never both together).
+- `clients` → `dossiers` → `lawsuits` mirror the existing hierarchy (1:N per step).
+- Tasks: `tasks` link to either a dossier or a lawsuit; `personal_tasks` are standalone.
+- Hearings/consultations: `sessions` attach to either a lawsuit or a dossier (polymorphic) with status checks.
+- Missions/officers: `missions` link to a lawsuit or dossier and may be assigned to an `officer`.
+- Documents: single required target among client/dossier/lawsuit/mission/task/session/personal_task/financial_entry.
+- Money: `financial_entries` always link to a client, optionally to a dossier or lawsuit (but never both together).
 - Activity: `notifications` (lightweight reminders) and `history_events` (audit trail) capture timeline data.
 - Every table is soft-delete ready (`deleted_at`) and timestamps creation/updates.
-- Reference codes: dossiers (`DOS-YYYY-XXX`), cases (`PRO-YYYY-XXX`), missions (`MIS-YYYY-XXX`) are UNIQUE with format guards.
+- Reference codes: dossiers (`DOS-YYYY-XXX`), lawsuits (`PRO-YYYY-XXX`), missions (`MIS-YYYY-XXX`) are UNIQUE with format guards.
 
 ## Connection helper
 `connection.js` uses `better-sqlite3` (synchronous, low overhead) which suits a desktop app and keeps query code simple. It enables foreign keys and runs `schema.sql` automatically the first time (`clients` table check). Install dependencies once in the backend package: `npm install`.
@@ -54,4 +54,4 @@ Database-first backend with an Express HTTP layer. SQLite schema is enforced; th
 ## Notes for future backend/web sync
 - Keep `schema.sql` as the single source of truth; migrations can be added later.
 - When introducing multi-user or remote sync, revisit auth fields and row-level ownership.
-- Triggers can later enforce cross-entity invariants if needed (e.g., case ↔ dossier consistency for finances).
+- Triggers can later enforce cross-entity invariants if needed (e.g., lawsuit ↔ dossier consistency for finances).

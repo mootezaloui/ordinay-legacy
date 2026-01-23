@@ -293,11 +293,11 @@ export function NotificationProvider({ children }) {
         console.log("[NOTIFICATION] Loading entity data for scheduler...");
 
         // Fetch all entities from APIs using apiClient
-        const [tasks, personalTasks, sessions, cases, missions, financialEntries, dossiers, clients, officers] = await Promise.all([
+        const [tasks, personalTasks, sessions, lawsuits, missions, financialEntries, dossiers, clients, officers] = await Promise.all([
           apiClient.get('/tasks').catch(err => { console.error('[NOTIFICATION] Failed to load tasks:', err); return []; }),
           apiClient.get('/personal-tasks').catch(err => { console.error('[NOTIFICATION] Failed to load personal-tasks:', err); return []; }),
           apiClient.get('/sessions').catch(err => { console.error('[NOTIFICATION] Failed to load sessions:', err); return []; }),
-          apiClient.get('/cases').catch(err => { console.error('[NOTIFICATION] Failed to load cases:', err); return []; }),
+          apiClient.get('/lawsuits').catch(err => { console.error('[NOTIFICATION] Failed to load lawsuits:', err); return []; }),
           apiClient.get('/missions').catch(err => { console.error('[NOTIFICATION] Failed to load missions:', err); return []; }),
           apiClient.get('/financial').catch(err => { console.error('[NOTIFICATION] Failed to load financial:', err); return []; }),
           apiClient.get('/dossiers').catch(err => { console.error('[NOTIFICATION] Failed to load dossiers:', err); return []; }),
@@ -313,7 +313,7 @@ export function NotificationProvider({ children }) {
           tasks: toOperational(tasks),
           personalTasks: toOperational(personalTasks),
           sessions: toOperational(sessions),
-          cases: toOperational(cases),
+          lawsuits: toOperational(lawsuits),
           missions: toOperational(missions),
           financialEntries: toOperational(financialEntries),
           dossiers: toOperational(dossiers),
@@ -326,7 +326,7 @@ export function NotificationProvider({ children }) {
           tasks: schedulerData.tasks.length,
           personalTasks: schedulerData.personalTasks.length,
           sessions: schedulerData.sessions.length,
-          cases: schedulerData.cases.length,
+          lawsuits: schedulerData.lawsuits.length,
           missions: schedulerData.missions.length,
           financialEntries: schedulerData.financialEntries.length,
           dossiers: schedulerData.dossiers.length,
@@ -340,7 +340,7 @@ export function NotificationProvider({ children }) {
           tasks: [],
           personalTasks: [],
           sessions: [],
-          cases: [],
+          lawsuits: [],
           missions: [],
           financialEntries: [],
           dossiers: [],
@@ -528,14 +528,14 @@ export function NotificationProvider({ children }) {
     });
   }, [addNotification]);
 
-  const notifyUpcomingHearing = useCallback((caseNumber, hearingDate) => {
+  const notifyUpcomingHearing = useCallback((lawsuitNumber, hearingDate) => {
     return addNotification({
       type: "hearing",
       priority: "high",
       template_key: "templates.hearingScheduled",
-      params: { caseNumber, hearingDate },
+      params: { lawsuitNumber, hearingDate },
       icon: "fas fa-gavel",
-      link: "/cases",
+      link: "/lawsuits",
     });
   }, [addNotification]);
 
@@ -696,3 +696,6 @@ export function NotificationProvider({ children }) {
     </NotificationContext.Provider>
   );
 }
+
+
+

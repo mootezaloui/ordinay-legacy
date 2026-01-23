@@ -8,22 +8,22 @@ import { formatDateValue } from "../../../utils/dateFormat";
 import { translateStatus } from "../../../utils/entityTranslations";
 
 /**
- * Case (Procès) Entity Configuration - UPDATED with Quick Actions
+ * Lawsuit (Procès) Entity Configuration - UPDATED with Quick Actions
  * ✅ Added inline quick actions for status
  * ✅ Added structured edit mode for overview sections
  * ✅ Audiences tab creates Sessions (Séances Juridiques)
- * ✅ UPDATED: Added Tasks tab for case-specific tasks
+ * ✅ UPDATED: Added Tasks tab for lawsuit-specific tasks
  * ✅ Fully internationalized with i18n support
  */
-export const createCaseConfig = (t) => {
+export const createLawsuitConfig = (t) => {
   const tSessions = i18next.getFixedT("sessions");
 
   return ({
     // Basic info
-    entityType: "case",
+    entityType: "lawsuit",
     entityName: t('detail.entityName'),
     icon: "fas fa-gavel",
-    listRoute: "/cases",
+    listRoute: "/lawsuits",
 
     // Messages
     notFoundMessage: t('detail.notFound'),
@@ -35,21 +35,21 @@ export const createCaseConfig = (t) => {
 
     // Data fetching
     fetchData: async (id, contextData = null) => {
-      console.log('[caseConfig] fetchData called with id:', id);
+      console.log('[lawsuitConfig] fetchData called with id:', id);
       const numericId = parseInt(id);
 
-      let caseData;
-      if (contextData?.cases) {
-        // Use contextData.cases from DataContext (this is the live data)
-        console.log('[caseConfig] Using contextData.cases');
-        caseData = contextData.cases.find(c => c.id === numericId);
+      let lawsuitData;
+      if (contextData?.lawsuits) {
+        // Use contextData.lawsuits from DataContext (this is the live data)
+        console.log('[lawsuitConfig] Using contextData.lawsuits');
+        lawsuitData = contextData.lawsuits.find(c => c.id === numericId);
       } else {
         // Fallback to null (static data)
-        console.log('[caseConfig] null keys:', Object.keys(null));
-        caseData = null[numericId];
+        console.log('[lawsuitConfig] null keys:', Object.keys(null));
+        lawsuitData = null[numericId];
       }
-      console.log('[caseConfig] Found case:', caseData);
-      if (!caseData) return null;
+      console.log('[lawsuitConfig] Found lawsuit:', lawsuitData);
+      if (!lawsuitData) return null;
 
       // ✅ Always resolve dossier from dossierId using latest context data
       const sessions = contextData?.sessions || [];
@@ -57,42 +57,42 @@ export const createCaseConfig = (t) => {
       const dossiers = contextData?.dossiers || [];
       const financialEntries = contextData?.financialEntries || [];
       let dossier = null;
-      if (caseData.dossierId) {
-        const foundDossier = dossiers.find(d => d.id === parseInt(caseData.dossierId));
+      if (lawsuitData.dossierId) {
+        const foundDossier = dossiers.find(d => d.id === parseInt(lawsuitData.dossierId));
         if (foundDossier) {
           dossier = {
             id: foundDossier.id,
-            caseNumber: foundDossier.caseNumber,
+            lawsuitNumber: foundDossier.lawsuitNumber,
             title: foundDossier.title
           };
         }
       }
 
-      // Only include sessions directly linked to this case
-      const caseSessions = sessions.filter((s) => s.caseId === numericId);
+      // Only include sessions directly linked to this lawsuit
+      const lawsuitSessions = sessions.filter((s) => s.lawsuitId === numericId);
       const relatedFinancialEntries = financialEntries.filter(entry =>
-        entry.caseId === numericId && entry.scope === 'client'
+        entry.lawsuitId === numericId && entry.scope === 'client'
       );
 
       // ✅ Calculate dynamic next hearing from all related sessions
-      const nextHearingObj = calculateNextHearing(caseData, caseSessions);
+      const nextHearingObj = calculateNextHearing(lawsuitData, lawsuitSessions);
 
-      // Fetch documents for this case
+      // Fetch documents for this lawsuit
       let documents = [];
       try {
         const documentService = (await import("../../../services/documentService")).default;
-        documents = await documentService.getEntityDocuments("case", numericId);
-        console.log('[caseConfig] Loaded documents:', documents);
+        documents = await documentService.getEntityDocuments("lawsuit", numericId);
+        console.log('[lawsuitConfig] Loaded documents:', documents);
       } catch (err) {
-        console.error('[caseConfig] Failed to load documents:', err);
+        console.error('[lawsuitConfig] Failed to load documents:', err);
       }
 
       return {
-        ...caseData,
-        dossier: dossier || { id: null, caseNumber: t('detail.fallback.na'), title: t('detail.fallback.unknownDossier') },
+        ...lawsuitData,
+        dossier: dossier || { id: null, lawsuitNumber: t('detail.fallback.na'), title: t('detail.fallback.unknownDossier') },
         // Always derive related collections from live context (avoid stale embedded arrays)
-        sessions: caseSessions,
-        tasks: tasks.filter((t) => t.parentType === "case" && t.caseId === numericId),
+        sessions: lawsuitSessions,
+        tasks: tasks.filter((t) => t.parentType === "lawsuit" && t.lawsuitId === numericId),
         financialEntries: relatedFinancialEntries,
         documents,
         // ✅ Add computed next hearing
@@ -103,51 +103,51 @@ export const createCaseConfig = (t) => {
     updateData: async (id, data, contextData = null) => {
       const numericId = parseInt(id);
 
-      // Filter out relationship fields - case entity should only contain case-specific data
-      const caseFields = [
-        'caseNumber', 'title', 'dossierId', 'court',
+      // Filter out relationship fields - lawsuit entity should only contain lawsuit-specific data
+      const lawsuitFields = [
+        'lawsuitNumber', 'title', 'dossierId', 'court',
         'filingDate', 'nextHearing', 'courtReference', 'adversaryParty',
         'adversaryLawyer', 'judgmentNumber', 'judgmentDate', 'status', 'description', 'notes'
       ];
-      const caseData = Object.keys(data).reduce((acc, key) => {
-        if (caseFields.includes(key)) {
+      const lawsuitData = Object.keys(data).reduce((acc, key) => {
+        if (lawsuitFields.includes(key)) {
           acc[key] = data[key];
         }
         return acc;
       }, {});
 
-      // Only update if there are actual case fields to update
-      if (Object.keys(caseData).length > 0) {
-        if (contextData?.updateCase) {
+      // Only update if there are actual lawsuit fields to update
+      if (Object.keys(lawsuitData).length > 0) {
+        if (contextData?.updateLawsuit) {
           // Use DataContext to update (this persists to localStorage)
-          contextData.updateCase(numericId, caseData);
+          contextData.updateLawsuit(numericId, lawsuitData);
         } else {
           // Fallback to updating null
           if (null[numericId]) {
             null[numericId] = {
               ...null[numericId],
-              ...caseData,
+              ...lawsuitData,
             };
           }
         }
       }
-      // If no case fields to update, skip the update (this happens when only relationship fields change)
+      // If no lawsuit fields to update, skip the update (this happens when only relationship fields change)
       await new Promise(resolve => setTimeout(resolve, 500));
     },
 
     deleteData: async (id, contextData = null) => {
       const numericId = parseInt(id);
 
-      if (contextData?.deleteCase) {
+      if (contextData?.deleteLawsuit) {
         // Use DataContext to delete (this persists to localStorage)
-        contextData.deleteCase(numericId);
+        contextData.deleteLawsuit(numericId);
       } else {
-        console.log("Deleting case:", numericId);
+        console.log("Deleting lawsuit:", numericId);
       }
     },
 
     // Header display
-    getTitle: (data) => data.caseNumber,
+    getTitle: (data) => data.lawsuitNumber,
     getSubtitle: (data) => data.title,
 
     // ✅ NEW: Quick Actions Configuration
@@ -169,7 +169,7 @@ export const createCaseConfig = (t) => {
     renderHeader: (data) => {
       return (
         <ContentSection>
-          <div className="p-6" data-tutorial="case-detail-header">
+          <div className="p-6" data-tutorial="lawsuit-detail-header">
             <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
               <div>
                 <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
@@ -181,7 +181,7 @@ export const createCaseConfig = (t) => {
                     className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-2"
                   >
                     <i className="fas fa-folder-open"></i>
-                    {data.dossier.caseNumber} - {data.dossier.title}
+                    {data.dossier.lawsuitNumber} - {data.dossier.title}
                   </Link>
                 ) : (
                   <span className="text-slate-500 dark:text-slate-400 flex items-center gap-2">
@@ -191,7 +191,7 @@ export const createCaseConfig = (t) => {
                 )}
               </div>
               <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(data.status)}`}>
-                {translateStatus(data.status, "cases", t)}
+                {translateStatus(data.status, "lawsuits", t)}
               </span>
             </div>
 
@@ -293,36 +293,36 @@ export const createCaseConfig = (t) => {
         entityName: t('detail.sessions.entityName'),
         addSubtitle: t('detail.sessions.addSubtitle'),
 
-        // Dynamic form fields - caseId pre-filled and disabled since we're in case context
-        getFormFields: (caseData) => {
-          // If the case is not linked to a dossier, return an empty array to trigger the UX message in AggregatedRelatedTab
-          if (!caseData.dossierId) {
+        // Dynamic form fields - lawsuitId pre-filled and disabled since we're in lawsuit context
+        getFormFields: (lawsuitData) => {
+          // If the lawsuit is not linked to a dossier, return an empty array to trigger the UX message in AggregatedRelatedTab
+          if (!lawsuitData.dossierId) {
             return [];
           }
           return sessionFormFields(tSessions).map(field => {
-            if (field.name === 'caseId') {
+            if (field.name === 'lawsuitId') {
               return {
                 ...field,
                 type: 'select', // Use regular select instead of searchable-select when disabled
-                defaultValue: caseData.id,
+                defaultValue: lawsuitData.id,
                 disabled: true, // Make it read-only
                 options: [{
-                  value: caseData.id,
-                  label: `${caseData.caseNumber} - ${caseData.title}`
+                  value: lawsuitData.id,
+                  label: `${lawsuitData.lawsuitNumber} - ${lawsuitData.title}`
                 }],
-                helpText: t('detail.sessions.help.caseLink'),
+                helpText: t('detail.sessions.help.lawsuitLink'),
               };
             }
-            // Make linkType field non-editable - always linked to case
+            // Make linkType field non-editable - always linked to lawsuit
             if (field.name === 'linkType') {
               return {
                 ...field,
                 disabled: true, // Make it read-only
-                defaultValue: 'case',
+                defaultValue: 'lawsuit',
                 helpText: t('detail.sessions.help.linkType'),
               };
             }
-            // Hide dossierId field - not needed when adding to case
+            // Hide dossierId field - not needed when adding to lawsuit
             if (field.name === 'dossierId') {
               return {
                 ...field,
@@ -359,37 +359,37 @@ export const createCaseConfig = (t) => {
         allowDelete: false,
         entityName: t('detail.tasks.entityName'),
         addSubtitle: t('detail.tasks.addSubtitle'),
-        // Dynamic form fields - caseId and dossierId pre-filled based on context
-        getFormFields: (caseData) => {
+        // Dynamic form fields - lawsuitId and dossierId pre-filled based on context
+        getFormFields: (lawsuitData) => {
           // Get parent dossier data
-          const parentDossier = caseData.dossier;
+          const parentDossier = lawsuitData.dossier;
           const tTasks = (key) => i18next.t(key, { ns: "tasks" });
 
           return taskFormFields(tTasks).map(field => {
-            // Default parentType to 'case' since we're in case context (opposite of dossier)
+            // Default parentType to 'lawsuit' since we're in lawsuit context (opposite of dossier)
             if (field.name === 'parentType') {
               return {
                 ...field,
-                defaultValue: 'case',
+                defaultValue: 'lawsuit',
                 helpText: t('detail.tasks.help.parentType')
               };
-            } else if (field.name === 'caseId') {
-              // Show this case (disabled/read-only)
+            } else if (field.name === 'lawsuitId') {
+              // Show this lawsuit (disabled/read-only)
               return {
                 ...field,
-                defaultValue: caseData.id,
+                defaultValue: lawsuitData.id,
                 disabled: true, // Make it read-only
                 options: [{
-                  value: caseData.id,
-                  label: `${caseData.caseNumber} - ${caseData.title}`
+                  value: lawsuitData.id,
+                  label: `${lawsuitData.lawsuitNumber} - ${lawsuitData.title}`
                 }],
-                helpText: t('detail.tasks.help.caseLink'),
-                // Override getOptions to use this case only when parentType is 'case'
+                helpText: t('detail.tasks.help.lawsuitLink'),
+                // Override getOptions to use this lawsuit only when parentType is 'lawsuit'
                 getOptions: (formData) => {
-                  if (formData.parentType !== "case") return [];
+                  if (formData.parentType !== "lawsuit") return [];
                   return [{
-                    value: caseData.id,
-                    label: `${caseData.caseNumber} - ${caseData.title}`
+                    value: lawsuitData.id,
+                    label: `${lawsuitData.lawsuitNumber} - ${lawsuitData.title}`
                   }];
                 }
               };
@@ -401,7 +401,7 @@ export const createCaseConfig = (t) => {
                 disabled: true, // Make it read-only
                 options: parentDossier ? [{
                   value: parentDossier.id,
-                  label: `${parentDossier.caseNumber} - ${parentDossier.title}`
+                  label: `${parentDossier.lawsuitNumber} - ${parentDossier.title}`
                 }] : [],
                 helpText: t('detail.tasks.help.dossierLink'),
                 // Override getOptions to use parent dossier only when parentType is 'dossier'
@@ -409,7 +409,7 @@ export const createCaseConfig = (t) => {
                   if (formData.parentType !== "dossier") return [];
                   return parentDossier ? [{
                     value: parentDossier.id,
-                    label: `${parentDossier.caseNumber} - ${parentDossier.title}`
+                    label: `${parentDossier.lawsuitNumber} - ${parentDossier.title}`
                   }] : [];
                 }
               };
@@ -431,7 +431,7 @@ export const createCaseConfig = (t) => {
         entityName: t('detail.missions.entityName'),
         addSubtitle: t('detail.missions.addSubtitle'),
         // Dynamic form fields - entityType and entityReference pre-filled
-        getFormFields: (caseData, contextData) => {
+        getFormFields: (lawsuitData, contextData) => {
           // Generate a default mission number
           const year = new Date().getFullYear();
           const randomNum = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
@@ -441,15 +441,15 @@ export const createCaseConfig = (t) => {
             if (field.name === 'entityType') {
               return {
                 ...field,
-                defaultValue: 'case',
+                defaultValue: 'lawsuit',
                 disabled: true,
               };
             } else if (field.name === 'entityReference') {
               return {
                 ...field,
-                defaultValue: caseData.caseNumber,
+                defaultValue: lawsuitData.lawsuitNumber,
                 disabled: true,
-                helpText: t('detail.missions.help.caseLink', { caseNumber: caseData.caseNumber }),
+                helpText: t('detail.missions.help.lawsuitLink', { lawsuitNumber: lawsuitData.lawsuitNumber }),
               };
             } else if (field.name === 'missionNumber') {
               // Let lawyers input their own reference or leave blank for auto-generation
@@ -518,9 +518,9 @@ export const createCaseConfig = (t) => {
         editStrategy: "structured",
         fields: [
           {
-            key: "caseNumber",
-            label: t('detail.overview.fields.caseNumber'),
-            value: (data) => data.caseNumber,
+            key: "lawsuitNumber",
+            label: t('detail.overview.fields.lawsuitNumber'),
+            value: (data) => data.lawsuitNumber,
             icon: "fas fa-hashtag",
             type: "text",
             editable: true
@@ -737,9 +737,9 @@ export const createCaseConfig = (t) => {
               if (!data.dossierId) return t('detail.fallback.noDossier');
               const dossiers = contextData?.dossiers || [];
               const dossier = dossiers.find(d => d.id === parseInt(data.dossierId));
-              if (dossier) return `${dossier.caseNumber} - ${dossier.title}`;
+              if (dossier) return `${dossier.lawsuitNumber} - ${dossier.title}`;
               // Fallback to hydrated dossier object if available
-              if (data.dossier?.caseNumber) return `${data.dossier.caseNumber} - ${data.dossier.title}`;
+              if (data.dossier?.lawsuitNumber) return `${data.dossier.lawsuitNumber} - ${data.dossier.title}`;
               return t('detail.fallback.noDossier');
             },
             icon: "fas fa-folder-open",
@@ -748,7 +748,7 @@ export const createCaseConfig = (t) => {
             required: true,
             getOptions: (editedData, contextData) => (contextData?.dossiers || []).map(d => ({
               value: d.id,
-              label: `${d.caseNumber} - ${d.title}`
+              label: `${d.lawsuitNumber} - ${d.title}`
             })),
             helpText: t('detail.overview.help.associatedDossier'),
             placeholder: t('detail.overview.placeholders.associatedDossier')
@@ -797,4 +797,10 @@ function InfoCard({ icon, label, value, color, linkTo = null, subtitle = null })
 
   return <div className="flex items-center gap-3">{content}</div>;
 }
+
+
+
+
+
+
 

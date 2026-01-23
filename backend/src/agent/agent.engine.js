@@ -90,7 +90,7 @@ class AgentEngine {
    * Checks if a data domain is accessible based on context.dataAccess permissions.
    * This is the AUTHORITATIVE enforcement point for data access control.
    *
-   * @param {string} domain - Domain to check (clients, dossiers, cases, tasks, sessions, etc.)
+   * @param {string} domain - Domain to check (clients, dossiers, lawsuits, tasks, sessions, etc.)
    * @param {Object} context - Request context containing dataAccess permissions
    * @returns {{ permitted: boolean, message?: string }} Check result
    * @private

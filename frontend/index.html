@@ -5,11 +5,180 @@
     <link rel="icon" type="image/svg" sizes="192x192" href="/Organia.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Organia</title>
+    <!-- Theme detection script - must run before splash renders -->
+    <script>
+      (function() {
+        var pref = localStorage.getItem('themePreference') || 'system';
+        var resolved = localStorage.getItem('theme');
+        var isDark;
+        if (pref === 'dark') {
+          isDark = true;
+        } else if (pref === 'light') {
+          isDark = false;
+        } else if (resolved === 'dark' || resolved === 'light') {
+          isDark = resolved === 'dark';
+        } else {
+          isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        }
+        if (isDark) {
+          document.documentElement.classList.add('dark');
+          document.documentElement.setAttribute('data-splash-theme', 'dark');
+        } else {
+          document.documentElement.classList.add('light');
+          document.documentElement.setAttribute('data-splash-theme', 'light');
+        }
+      })();
+    </script>
+    <style>
+      /* Pre-React splash - Orbital Motion concept (App color scheme) */
+      #organia-splash {
+        position: fixed;
+        inset: 0;
+        z-index: 99999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #f1f5f9 0%, #ffffff 50%, #f1f5f9 100%);
+        transition: opacity 0.4s ease-out;
+      }
+      #organia-splash.hidden {
+        opacity: 0;
+        pointer-events: none;
+      }
+      #organia-splash-content {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2rem;
+      }
+      #organia-splash-orbit {
+        position: relative;
+        width: 192px;
+        height: 192px;
+      }
+      .splash-ring {
+        position: absolute;
+        border-radius: 50%;
+        border: 2px solid #3b82f6;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+      }
+      .splash-ring--outer { width: 160px; height: 160px; opacity: 0.2; }
+      .splash-ring--middle { width: 112px; height: 112px; opacity: 0.3; }
+      .splash-ring--inner { width: 64px; height: 64px; opacity: 0.4; }
+      .splash-core {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: #3b82f6;
+      }
+      .splash-orbit-path {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 0;
+        height: 0;
+      }
+      .splash-orbit-path--1 { animation: splash-orbit 3s linear infinite; }
+      .splash-orbit-path--2 { animation: splash-orbit 4s linear infinite reverse; }
+      .splash-orbit-path--3 { animation: splash-orbit 2s linear infinite; }
+      @keyframes splash-orbit {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+      }
+      .splash-point {
+        position: absolute;
+        border-radius: 50%;
+        top: 50%;
+        transform: translateY(-50%);
+      }
+      .splash-point--gold { width: 12px; height: 12px; background: #3b82f6; left: 80px; }
+      .splash-point--primary { width: 8px; height: 8px; background: #64748b; left: 56px; }
+      .splash-point--muted { width: 8px; height: 8px; background: #94a3b8; opacity: 0.8; left: 32px; }
+      #organia-splash-message {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        font-size: 0.9375rem;
+        font-weight: 400;
+        color: #64748b;
+      }
+      /* Dark mode - uses class instead of media query for consistency with app */
+      html[data-splash-theme="dark"] #organia-splash {
+        background: linear-gradient(135deg, #1e293b 0%, #020617 50%, #1e293b 100%);
+      }
+      html[data-splash-theme="dark"] .splash-ring { border-color: #3b82f6; }
+      html[data-splash-theme="dark"] .splash-core { background: #3b82f6; }
+      html[data-splash-theme="dark"] .splash-point--gold { background: #60a5fa; }
+      html[data-splash-theme="dark"] .splash-point--primary { background: #94a3b8; }
+      html[data-splash-theme="dark"] .splash-point--muted { background: #64748b; }
+      html[data-splash-theme="dark"] #organia-splash-message { color: #94a3b8; }
+    </style>
   </head>
   <body>
+    <!-- Pre-React splash - Orbital Motion -->
+    <div id="organia-splash">
+      <div id="organia-splash-content">
+        <div id="organia-splash-orbit">
+          <!-- Static rings -->
+          <div class="splash-ring splash-ring--outer"></div>
+          <div class="splash-ring splash-ring--middle"></div>
+          <div class="splash-ring splash-ring--inner"></div>
+          <!-- Core -->
+          <div class="splash-core"></div>
+          <!-- Orbiting points -->
+          <div class="splash-orbit-path splash-orbit-path--1">
+            <div class="splash-point splash-point--gold"></div>
+          </div>
+          <div class="splash-orbit-path splash-orbit-path--2">
+            <div class="splash-point splash-point--primary"></div>
+          </div>
+          <div class="splash-orbit-path splash-orbit-path--3">
+            <div class="splash-point splash-point--muted"></div>
+          </div>
+        </div>
+        <div id="organia-splash-message">Finding natural balance...</div>
+      </div>
+    </div>
+
     <div id="root"></div>
     <div id="modal-root"></div>
     <div id="tutorial-root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      (function() {
+        var splash = document.getElementById('organia-splash');
+        var readyFlags = { setup: false, i18n: false };
+
+        function hideSplash() {
+          if (!splash || splash.classList.contains('hidden')) return;
+          splash.classList.add('hidden');
+          setTimeout(function() { splash.remove(); }, 400);
+        }
+
+        function checkReady() {
+          if (readyFlags.setup && readyFlags.i18n) {
+            hideSplash();
+          }
+        }
+
+        window.__organiaSplash = {
+          markReady: function(key) {
+            if (Object.prototype.hasOwnProperty.call(readyFlags, key)) {
+              readyFlags[key] = true;
+              checkReady();
+            }
+          }
+        };
+
+        // Fallback: remove splash after max 8 seconds
+        setTimeout(function() {
+          hideSplash();
+        }, 8000);
+      })();
+    </script>
   </body>
 </html>

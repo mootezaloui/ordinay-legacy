@@ -164,26 +164,26 @@ ${t('notifications:clientEmail.body.closing', {
 // TEMPLATE: PROCÈS STATUS CHANGED
 // ========================================
 
-function caseStatusChangedTemplate(eventData, customT = null) {
+function lawsuitStatusChangedTemplate(eventData, customT = null) {
   const t = getT(customT);
-  const { caseNumber, caseTitle, court, clientName, oldStatus, newStatus } =
+  const { lawsuitNumber, lawsuitTitle, court, clientName, oldStatus, newStatus } =
     eventData;
 
-  const explanationKey = `notifications:clientEmail.body.caseStatusChanged.statusExplanations.${newStatus}`;
+  const explanationKey = `notifications:clientEmail.body.lawsuitStatusChanged.statusExplanations.${newStatus}`;
   const explanation = t(explanationKey, '');
 
-  const subject = t('notifications:clientEmail.subjects.caseStatusChanged', {
-    title: caseTitle,
-    number: caseNumber
+  const subject = t('notifications:clientEmail.subjects.lawsuitStatusChanged', {
+    title: lawsuitTitle,
+    number: lawsuitNumber
   });
 
   const body = `${t('notifications:clientEmail.body.greeting', { name: clientName })}
 
-${t('notifications:clientEmail.body.caseStatusChanged.intro')}
+${t('notifications:clientEmail.body.lawsuitStatusChanged.intro')}
 
-${t('notifications:clientEmail.body.caseStatusChanged.details', {
-    title: caseTitle,
-    number: caseNumber,
+${t('notifications:clientEmail.body.lawsuitStatusChanged.details', {
+    title: lawsuitTitle,
+    number: lawsuitNumber,
     court,
     newStatus,
     date: formatEmailDate(new Date())
@@ -191,7 +191,7 @@ ${t('notifications:clientEmail.body.caseStatusChanged.details', {
 
 ${explanation}
 
-${t('notifications:clientEmail.body.caseStatusChanged.footer')}
+${t('notifications:clientEmail.body.lawsuitStatusChanged.footer')}
 
 ${t('notifications:clientEmail.body.closing', {
     senderName: eventData?.senderName || t('notifications:clientEmail.body.defaultFirm', 'Your Law Firm')
@@ -204,26 +204,26 @@ ${t('notifications:clientEmail.body.closing', {
 // TEMPLATE: PROCÈS CREATED
 // ========================================
 
-function caseCreatedTemplate(eventData, customT = null) {
+function lawsuitCreatedTemplate(eventData, customT = null) {
   const t = getT(customT);
-  const { caseNumber, caseTitle, court, clientName } = eventData;
+  const { lawsuitNumber, lawsuitTitle, court, clientName } = eventData;
 
-  const subject = t('notifications:clientEmail.subjects.caseCreated', {
-    title: caseTitle,
-    number: caseNumber
+  const subject = t('notifications:clientEmail.subjects.lawsuitCreated', {
+    title: lawsuitTitle,
+    number: lawsuitNumber
   });
 
   const body = `${t('notifications:clientEmail.body.greeting', { name: clientName })}
 
-${t('notifications:clientEmail.body.caseCreated.confirmation')}
+${t('notifications:clientEmail.body.lawsuitCreated.confirmation')}
 
-${t('notifications:clientEmail.body.caseCreated.details', {
-    title: caseTitle,
-    number: caseNumber,
+${t('notifications:clientEmail.body.lawsuitCreated.details', {
+    title: lawsuitTitle,
+    number: lawsuitNumber,
     court: court || "N/A"
   })}
 
-${t('notifications:clientEmail.body.caseCreated.footer')}
+${t('notifications:clientEmail.body.lawsuitCreated.footer')}
 
 ${t('notifications:clientEmail.body.closing', {
     senderName: eventData?.senderName || t('notifications:clientEmail.body.defaultFirm', 'Your Law Firm')
@@ -236,32 +236,32 @@ ${t('notifications:clientEmail.body.closing', {
 // TEMPLATE: PROCÈS HEARING DATE CHANGED
 // ========================================
 
-function caseHearingChangedTemplate(eventData, customT = null) {
+function lawsuitHearingChangedTemplate(eventData, customT = null) {
   const t = getT(customT);
-  const { caseNumber, caseTitle, court, clientName, oldDate, newDate } =
+  const { lawsuitNumber, lawsuitTitle, court, clientName, oldDate, newDate } =
     eventData;
 
   const oldDateFormatted = oldDate ? formatEmailDate(oldDate) : t('notifications:clientEmail.body.notDefined', 'Not defined');
   const newDateFormatted = newDate ? formatEmailDate(newDate) : t('notifications:clientEmail.body.notDefined', 'Not defined');
 
-  const subject = t('notifications:clientEmail.subjects.caseHearingChanged', {
-    title: caseTitle,
-    number: caseNumber
+  const subject = t('notifications:clientEmail.subjects.lawsuitHearingChanged', {
+    title: lawsuitTitle,
+    number: lawsuitNumber
   });
 
   const body = `${t('notifications:clientEmail.body.greeting', { name: clientName })}
 
-${t('notifications:clientEmail.body.caseHearingChanged.intro')}
+${t('notifications:clientEmail.body.lawsuitHearingChanged.intro')}
 
-${t('notifications:clientEmail.body.caseHearingChanged.details', {
-    title: caseTitle,
-    number: caseNumber,
+${t('notifications:clientEmail.body.lawsuitHearingChanged.details', {
+    title: lawsuitTitle,
+    number: lawsuitNumber,
     court,
     oldDate: oldDateFormatted,
     newDate: newDateFormatted
   })}
 
-${t('notifications:clientEmail.body.caseHearingChanged.footer')}
+${t('notifications:clientEmail.body.lawsuitHearingChanged.footer')}
 
 ${t('notifications:clientEmail.body.closing', {
     senderName: eventData?.senderName || t('notifications:clientEmail.body.defaultFirm', 'Your Law Firm')
@@ -283,8 +283,8 @@ function sessionScheduledTemplate(eventData, customT = null) {
     time,
     location,
     duration,
-    caseNumber,
-    caseTitle,
+    lawsuitNumber,
+    lawsuitTitle,
     clientName,
   } = eventData;
 
@@ -293,13 +293,13 @@ function sessionScheduledTemplate(eventData, customT = null) {
   const subjectTitle = sessionTitle || sessionType || t('notifications:clientEmail.body.session.hearing', 'Hearing');
   const subject = t('notifications:clientEmail.subjects.sessionScheduled', { title: subjectTitle });
 
-  const detailsKey = caseNumber
-    ? 'notifications:clientEmail.body.sessionScheduled.detailsWithCase'
+  const detailsKey = lawsuitNumber
+    ? 'notifications:clientEmail.body.sessionScheduled.detailsWithLawsuit'
     : 'notifications:clientEmail.body.sessionScheduled.details';
 
   const details = t(detailsKey, {
-    caseTitle: caseTitle || 'N/A',
-    caseNumber,
+    lawsuitTitle: lawsuitTitle || 'N/A',
+    lawsuitNumber,
     title: sessionTitle,
     date: dateFormatted,
     time,
@@ -335,8 +335,8 @@ function sessionDateChangedTemplate(eventData, customT = null) {
     oldTime,
     newDate,
     newTime,
-    caseNumber,
-    caseTitle,
+    lawsuitNumber,
+    lawsuitTitle,
     clientName,
   } = eventData;
 
@@ -345,13 +345,13 @@ function sessionDateChangedTemplate(eventData, customT = null) {
 
   const subject = t('notifications:clientEmail.subjects.sessionDateChanged', { title: sessionTitle || t('notifications:clientEmail.body.session.hearing', 'Hearing') });
 
-  const detailsKey = caseNumber
-    ? 'notifications:clientEmail.body.sessionDateChanged.detailsWithCase'
+  const detailsKey = lawsuitNumber
+    ? 'notifications:clientEmail.body.sessionDateChanged.detailsWithLawsuit'
     : 'notifications:clientEmail.body.sessionDateChanged.details';
 
   const details = t(detailsKey, {
-    caseTitle: caseTitle || 'N/A',
-    caseNumber,
+    lawsuitTitle: lawsuitTitle || 'N/A',
+    lawsuitNumber,
     title: sessionTitle,
     oldDate: oldDateFormatted,
     oldTime,
@@ -386,22 +386,22 @@ function sessionCancelledTemplate(eventData, customT = null) {
     date,
     time,
     location,
-    caseNumber,
-    caseTitle,
+    lawsuitNumber,
+    lawsuitTitle,
     clientName,
   } = eventData;
 
   const dateFormatted = formatEmailDate(date);
 
-  const subject = t('notifications:clientEmail.subjects.sessionCancelled', { number: caseNumber || t('notifications:clientEmail.body.yourDossier', 'Your Dossier') });
+  const subject = t('notifications:clientEmail.subjects.sessionCancelled', { number: lawsuitNumber || t('notifications:clientEmail.body.yourDossier', 'Your Dossier') });
 
-  const detailsKey = caseNumber
-    ? 'notifications:clientEmail.body.sessionCancelled.detailsWithCase'
+  const detailsKey = lawsuitNumber
+    ? 'notifications:clientEmail.body.sessionCancelled.detailsWithLawsuit'
     : 'notifications:clientEmail.body.sessionCancelled.details';
 
   const details = t(detailsKey, {
-    caseNumber,
-    caseTitle,
+    lawsuitNumber,
+    lawsuitTitle,
     date: dateFormatted,
     time,
     location
@@ -476,11 +476,12 @@ export const emailTemplates = {
   dossier_created: dossierCreatedTemplate,
   dossier_status_changed: dossierStatusChangedTemplate,
   dossier_deadline_changed: dossierDeadlineChangedTemplate,
-  case_created: caseCreatedTemplate,
-  case_status_changed: caseStatusChangedTemplate,
-  case_hearing_changed: caseHearingChangedTemplate,
+  lawsuit_created: lawsuitCreatedTemplate,
+  lawsuit_status_changed: lawsuitStatusChangedTemplate,
+  lawsuit_hearing_changed: lawsuitHearingChangedTemplate,
   session_scheduled: sessionScheduledTemplate,
   session_date_changed: sessionDateChangedTemplate,
   session_cancelled: sessionCancelledTemplate,
   financial_entry_added: financialEntryAddedTemplate,
 };
+

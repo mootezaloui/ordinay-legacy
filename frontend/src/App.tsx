@@ -284,7 +284,8 @@ function ActivationScreen({
   onCancelActivation: () => void;
 }) {
   const { t } = useTranslation("activation");
-  const activationLabels = {
+  const activationLabels: Record<string, string> = {
+    LOADING: t("states.loading", { defaultValue: "Loading..." }),
     FREE: t("states.free"),
     UNACTIVATED: t("states.unactivated"),
     ACTIVATING: t("states.activating"),

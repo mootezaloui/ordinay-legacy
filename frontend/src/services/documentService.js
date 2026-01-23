@@ -74,11 +74,11 @@ class DocumentService {
       copy_type: copy_type || null,
     };
 
-    // Map entityType to backend foreign key field, always use 'case' for case
+    // Map entityType to backend foreign key field, always use 'lawsuit' for legal proceedings
     let entityField, directoryType;
-    if (entityType === "case") {
-      entityField = "case_id";
-      directoryType = "case";
+    if (entityType === "lawsuit") {
+      entityField = "lawsuit_id";
+      directoryType = "lawsuit";
     } else if (entityType === "personalTask") {
       entityField = "personal_task_id";
       directoryType = "personalTask";
@@ -88,7 +88,7 @@ class DocumentService {
     }
     payload[entityField] = parseInt(entityId, 10);
 
-    // Ensure file_path uses correct directory for case
+    // Ensure file_path uses legacy storage directory for lawsuits
     if (payload.file_path && payload.file_path.startsWith("proces/")) {
       payload.file_path = payload.file_path.replace("proces/", "case/");
     }
@@ -153,8 +153,8 @@ class DocumentService {
 
       // 1. Store file blob in IndexedDB
       const extension = file.name.split(".").pop();
-      // Map 'proces' to 'case' for storage and backend if needed
-      let mappedEntityType = entityType === "proces" ? "case" : entityType;
+      // Map 'proces' to 'lawsuit' for storage and backend if needed
+      let mappedEntityType = entityType === "proces" ? "lawsuit" : entityType;
       const storageResult = await this.storageProvider.storeFile(file, {
         directory: mappedEntityType,
       });
@@ -237,8 +237,8 @@ class DocumentService {
     try {
       // Map entityType to backend query parameter
       let entityField;
-      if (entityType === "case") {
-        entityField = "case_id";
+      if (entityType === "lawsuit") {
+        entityField = "lawsuit_id";
       } else if (entityType === "personalTask") {
         entityField = "personal_task_id";
       } else if (entityType === "officer") {
@@ -588,3 +588,5 @@ class DocumentService {
 // Export singleton instance
 const documentService = new DocumentService();
 export default documentService;
+
+

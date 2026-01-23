@@ -16,7 +16,7 @@ import {
 } from "../../services/api/agent";
 
 export interface ContextIndicator {
-  type: "client" | "dossier" | "case" | "session" | "task" | "global";
+  type: "client" | "dossier" | "lawsuit" | "session" | "task" | "global";
   label: string;
   id?: number;
 }
@@ -276,7 +276,7 @@ export function AgentInput({
         return "👤";
       case "dossier":
         return "📁";
-      case "case":
+      case "lawsuit":
         return "⚖️";
       case "session":
         return "📅";
@@ -554,7 +554,7 @@ export function AgentInput({
                   }, 150);
                 }}
                 rows={3}
-                placeholder="Ask Organia anything about your cases, clients, tasks, or request reports and analysis..."
+                placeholder="Ask Organia anything about your lawsuits, clients, tasks, or request reports and analysis..."
                 className="flex-1 resize-none bg-transparent px-2 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none"
               />
 
@@ -634,3 +634,5 @@ export function AgentInput({
     </div>
   );
 }
+
+

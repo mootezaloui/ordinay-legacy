@@ -14,7 +14,7 @@ export function resolveEntityId(metadata = {}, fallbackId = null) {
     metadata.missionId ??
     metadata.financialEntryId ??
     metadata.dossierId ??
-    metadata.caseId ??
+    metadata.lawsuitId ??
     fallbackId
   );
 }
@@ -34,7 +34,7 @@ export function getStableDedupeKey(entityType, subType, entityId, metadata = {})
   if (type === "mission") {
     return `MISSION_DEADLINE:${resolvedId}`;
   }
-  if (type === "session" || type === "case" || type === "dossier") {
+  if (type === "session" || type === "lawsuit" || type === "dossier") {
     const sessionId = metadata.sessionId || resolvedId;
     if (!sessionId) return null;
     const scheduledAt =
@@ -51,3 +51,5 @@ export function getStableDedupeKey(entityType, subType, entityId, metadata = {})
   }
   return null;
 }
+
+

@@ -43,11 +43,11 @@ export const FinancialRules = {
       // Look up parent entities to get context
       const clients = entities.clients || [];
       const dossiers = entities.dossiers || [];
-      const cases = entities.cases || [];
+      const lawsuits = entities.lawsuits || [];
 
       const clientId = financialEntry.client_id ?? financialEntry.clientId;
       const dossierId = financialEntry.dossier_id ?? financialEntry.dossierId;
-      const caseId = financialEntry.case_id ?? financialEntry.caseId;
+      const lawsuitId = financialEntry.lawsuit_id ?? financialEntry.lawsuitId;
 
       let clientName = "Client";
       let parentType = null;
@@ -66,7 +66,7 @@ export const FinancialRules = {
         const dossier = dossiers.find((d) => d.id === dossierId);
         if (dossier) {
           parentType = "dossier";
-          parentReference = dossier.case_number || dossier.reference;
+          parentReference = dossier.lawsuitNumber || dossier.reference;
           // If no client found yet, get from dossier
           if (clientName === "Client" && dossier.client_id) {
             const client = clients.find((c) => c.id === dossier.client_id);
@@ -75,15 +75,15 @@ export const FinancialRules = {
         }
       }
 
-      // Try to get case context
-      if (caseId) {
-        const caseItem = cases.find((c) => c.id === caseId);
-        if (caseItem) {
-          parentType = "case";
-          parentReference = caseItem.case_number || caseItem.reference;
-          // Get dossier from case to find client
-          if (clientName === "Client" && caseItem.dossier_id) {
-            const dossier = dossiers.find((d) => d.id === caseItem.dossier_id);
+      // Try to get lawsuit context
+      if (lawsuitId) {
+        const lawsuitItem = lawsuits.find((c) => c.id === lawsuitId);
+        if (lawsuitItem) {
+          parentType = "lawsuit";
+          parentReference = lawsuitItem.lawsuitNumber || lawsuitItem.reference;
+          // Get dossier from lawsuit to find client
+          if (clientName === "Client" && lawsuitItem.dossier_id) {
+            const dossier = dossiers.find((d) => d.id === lawsuitItem.dossier_id);
             if (dossier && dossier.client_id) {
               const client = clients.find((c) => c.id === dossier.client_id);
               if (client) clientName = client.name;
@@ -140,7 +140,7 @@ export const FinancialRules = {
           daysLeft,
           entryType: financialEntry.entry_type,
           dossierId: financialEntry.dossier_id,
-          caseId: financialEntry.case_id,
+          lawsuitId: financialEntry.lawsuit_id,
         },
       });
     }
@@ -181,10 +181,10 @@ export const FinancialRules = {
         // Look up parent entities to get context
         const clients = entities.clients || [];
         const dossiers = entities.dossiers || [];
-        const cases = entities.cases || [];
+        const lawsuits = entities.lawsuits || [];
         const clientId = financialEntry.client_id ?? financialEntry.clientId;
         const dossierId = financialEntry.dossier_id ?? financialEntry.dossierId;
-        const caseId = financialEntry.case_id ?? financialEntry.caseId;
+        const lawsuitId = financialEntry.lawsuit_id ?? financialEntry.lawsuitId;
 
         let clientName = "Client";
         let parentType = null;
@@ -203,7 +203,7 @@ export const FinancialRules = {
           const dossier = dossiers.find((d) => d.id === dossierId);
           if (dossier) {
             parentType = "dossier";
-            parentReference = dossier.case_number || dossier.reference;
+            parentReference = dossier.lawsuitNumber || dossier.reference;
             // If no client found yet, get from dossier
             if (clientName === "Client" && dossier.client_id) {
               const client = clients.find((c) => c.id === dossier.client_id);
@@ -212,16 +212,16 @@ export const FinancialRules = {
           }
         }
 
-        // Try to get case context
-        if (caseId) {
-          const caseItem = cases.find((c) => c.id === caseId);
-          if (caseItem) {
-            parentType = "case";
-            parentReference = caseItem.case_number || caseItem.reference;
-            // Get dossier from case to find client
-            if (clientName === "Client" && caseItem.dossier_id) {
+        // Try to get lawsuit context
+        if (lawsuitId) {
+          const lawsuitItem = lawsuits.find((c) => c.id === lawsuitId);
+          if (lawsuitItem) {
+            parentType = "lawsuit";
+            parentReference = lawsuitItem.lawsuitNumber || lawsuitItem.reference;
+            // Get dossier from lawsuit to find client
+            if (clientName === "Client" && lawsuitItem.dossier_id) {
               const dossier = dossiers.find(
-                (d) => d.id === caseItem.dossier_id
+                (d) => d.id === lawsuitItem.dossier_id
               );
               if (dossier && dossier.client_id) {
                 const client = clients.find((c) => c.id === dossier.client_id);
@@ -273,7 +273,7 @@ export const FinancialRules = {
             daysOverdue,
             entryType: financialEntry.entry_type,
             dossierId: financialEntry.dossier_id,
-            caseId: financialEntry.case_id,
+            lawsuitId: financialEntry.lawsuit_id,
           },
         });
       }
@@ -282,3 +282,7 @@ export const FinancialRules = {
     return new RuleResult(false);
   },
 };
+
+
+
+

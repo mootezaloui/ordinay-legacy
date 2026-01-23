@@ -7,7 +7,7 @@ import { streamAgentMessage, ContextScope, AgentVersion, DataAccessPermissions }
 const DEFAULT_DATA_ACCESS: DataAccessPermissions = {
   clients: true,
   dossiers: true,
-  cases: true,
+  lawsuits: true,
   tasks: true,
   personalTasks: true,
   missions: true,
@@ -536,3 +536,4 @@ export function useAgentState() {
     startAgentStream,
   };
 }
+

@@ -45,7 +45,7 @@
     },
     "contextScope": {
       "type": "string",
-      "enum": ["GLOBAL", "CLIENT", "DOSSIER", "CASE", "SESSION", "TASK"],
+      "enum": ["GLOBAL", "CLIENT", "DOSSIER", "LAWSUIT", "SESSION", "TASK"],
       "description": "Scope of the request (determines which entities are relevant)"
     },
     "contextRefs": {
@@ -63,10 +63,10 @@
           "minimum": 1,
           "description": "Dossier ID (required for DOSSIER scope)"
         },
-        "caseId": {
+        "lawsuitId": {
           "type": "integer",
           "minimum": 1,
-          "description": "Case ID (required for CASE scope)"
+          "description": "Lawsuit ID (required for LAWSUIT scope)"
         },
         "sessionId": {
           "type": "integer",
@@ -165,3 +165,4 @@
     ]
   }
 }
+

@@ -20,7 +20,7 @@ const getData = (context = {}) => ({
   tasks: context.tasks || context.entities?.tasks || [],
   sessions: context.sessions || context.entities?.sessions || [],
   dossiers: context.dossiers || context.entities?.dossiers || [],
-  cases: context.cases || context.entities?.cases || [],
+  lawsuits: context.lawsuits || context.entities?.lawsuits || [],
   missions: context.missions || context.entities?.missions || [],
   financialEntries:
     context.financialEntries || context.entities?.financialEntries || [],
@@ -179,21 +179,21 @@ function parseTaskBlocker(blocker, entityType, entityId, data) {
   if (entityType === "dossier") {
     const dossier = data.dossiers.find((d) => d.id == entityId);
     if (dossier) {
-      const proceedings = data.cases.filter((c) => c.dossierId === dossier.id);
+      const proceedings = data.lawsuits.filter((c) => c.dossierId === dossier.id);
       tasks = data.tasks
         .filter(
           (task) =>
             (task.parentType === "dossier" && task.dossierId == entityId) ||
-            (task.parentType === "case" &&
-              proceedings.some((p) => p.id == task.caseId))
+            (task.parentType === "lawsuit" &&
+              proceedings.some((p) => p.id == task.lawsuitId))
         )
         .filter((task) => task.status !== "Done");
     }
-  } else if (entityType === "case") {
+  } else if (entityType === "lawsuit") {
     tasks = data.tasks.filter(
       (task) =>
-        task.parentType === "case" &&
-        task.caseId == entityId &&
+        task.parentType === "lawsuit" &&
+        task.lawsuitId == entityId &&
         task.status !== "Done"
     );
   }
@@ -244,16 +244,16 @@ function parseTaskBlocker(blocker, entityType, entityId, data) {
 }
 
 /**
- * Parse open cases blocker
+ * Parse open lawsuits blocker
  */
 function parseCaseBlocker(blocker, entityType, entityId, data) {
-  let cases = [];
+  let lawsuits = [];
 
   if (entityType === "dossier") {
     const dossier = data.dossiers.find((d) => d.id == entityId);
     if (dossier) {
-      const proceedings = data.cases.filter((c) => c.dossierId === dossier.id);
-      cases = proceedings.filter((proc) => proc.status !== "Closed");
+      const proceedings = data.lawsuits.filter((c) => c.dossierId === dossier.id);
+      lawsuits = proceedings.filter((proc) => proc.status !== "Closed");
     }
   }
 
@@ -261,16 +261,16 @@ function parseCaseBlocker(blocker, entityType, entityId, data) {
     return parseClosedParentBlocker(blocker, entityType, entityId, data);
   }
 
-  const items = cases.slice(0, 5).map((caseData) => ({
+  const items = lawsuits.slice(0, 5).map((caseData) => ({
     entityId: caseData.id,
-    entityLabel: `${caseData.caseNumber} - ${caseData.title}`,
-    entityType: "case",
+    entityLabel: `${caseData.lawsuitNumber} - ${caseData.title}`,
+    entityType: "lawsuit",
     status: caseData.status,
     actions: [
       {
         label: t("detail.blocker.enrichment.actions.viewLawsuit"),
         type: "navigate",
-        route: "/cases",
+        route: "/lawsuits",
         entityId: caseData.id,
         icon: "fas fa-external-link-alt",
       },
@@ -278,7 +278,7 @@ function parseCaseBlocker(blocker, entityType, entityId, data) {
         label: t("detail.blocker.enrichment.actions.closeLawsuit"),
         type: "inline-action",
         action: "close",
-        entityType: "case",
+        entityType: "lawsuit",
         entityId: caseData.id,
         icon: "fas fa-times-circle",
         safe: false,
@@ -288,13 +288,13 @@ function parseCaseBlocker(blocker, entityType, entityId, data) {
   }));
 
   return {
-    type: "case",
+    type: "lawsuit",
     reason: blocker,
     items,
     summary:
-      cases.length > 1
-        ? t("detail.blocker.enrichment.summary.openLawsuits", { count: cases.length })
-        : t("detail.blocker.enrichment.summary.openLawsuit", { count: cases.length }),
+      lawsuits.length > 1
+        ? t("detail.blocker.enrichment.summary.openLawsuits", { count: lawsuits.length })
+        : t("detail.blocker.enrichment.summary.openLawsuit", { count: lawsuits.length }),
     helpText: t("detail.blocker.enrichment.helpText.closeDossierLawsuits"),
     actions: [],
   };
@@ -306,10 +306,10 @@ function parseCaseBlocker(blocker, entityType, entityId, data) {
 function parseSessionBlocker(blocker, entityType, entityId, data) {
   let sessions = [];
 
-  if (entityType === "case") {
+  if (entityType === "lawsuit") {
     const today = new Date();
     sessions = data.sessions
-      .filter((session) => session.caseId == entityId)
+      .filter((session) => session.lawsuitId == entityId)
       .filter((session) => {
         const sessionDate = new Date(session.date);
         return (
@@ -376,12 +376,12 @@ function parseMissionBlocker(blocker, entityType, entityId, data) {
           mission.status !== "Cancelled"
       );
     }
-  } else if (entityType === "case") {
-    const caseData = data.cases.find((c) => c.id == entityId);
+  } else if (entityType === "lawsuit") {
+    const caseData = data.lawsuits.find((c) => c.id == entityId);
     if (caseData) {
       missions = allMissions.filter(
         (mission) =>
-          mission.entityType === "case" &&
+          mission.entityType === "lawsuit" &&
           mission.entityId === caseData.id &&
           mission.status !== "Completed" &&
           mission.status !== "Cancelled"
@@ -557,19 +557,19 @@ function parseClosedParentBlocker(blocker, entityType, entityId, data) {
           parentInfo = {
             entityType: "dossier",
             entityId: dossier.id,
-            entityLabel: `${dossier.caseNumber || dossier.id} - ${
+            entityLabel: `${dossier.lawsuitNumber || dossier.id} - ${
               dossier.title
             }`,
             status: dossier.status,
           };
         }
-      } else if (task.parentType === "case") {
-        const caseData = data.cases.find((c) => c.id == task.caseId);
+      } else if (task.parentType === "lawsuit") {
+        const caseData = data.lawsuits.find((c) => c.id == task.lawsuitId);
         if (caseData) {
           parentInfo = {
-            entityType: "case",
+            entityType: "lawsuit",
             entityId: caseData.id,
-            entityLabel: `${caseData.caseNumber || caseData.id} - ${
+            entityLabel: `${caseData.lawsuitNumber || caseData.id} - ${
               caseData.title
             }`,
             status: caseData.status,
@@ -580,13 +580,13 @@ function parseClosedParentBlocker(blocker, entityType, entityId, data) {
   } else if (entityType === "session") {
     const session = data.sessions.find((s) => s.id == entityId);
     if (session) {
-      if (session.caseId) {
-        const caseData = data.cases.find((c) => c.id == session.caseId);
+      if (session.lawsuitId) {
+        const caseData = data.lawsuits.find((c) => c.id == session.lawsuitId);
         if (caseData) {
           parentInfo = {
-            entityType: "case",
+            entityType: "lawsuit",
             entityId: caseData.id,
-            entityLabel: `${caseData.caseNumber || caseData.id} - ${
+            entityLabel: `${caseData.lawsuitNumber || caseData.id} - ${
               caseData.title
             }`,
             status: caseData.status,
@@ -598,7 +598,7 @@ function parseClosedParentBlocker(blocker, entityType, entityId, data) {
           parentInfo = {
             entityType: "dossier",
             entityId: dossier.id,
-            entityLabel: `${dossier.caseNumber || dossier.id} - ${
+            entityLabel: `${dossier.lawsuitNumber || dossier.id} - ${
               dossier.title
             }`,
             status: dossier.status,
@@ -618,7 +618,7 @@ function parseClosedParentBlocker(blocker, entityType, entityId, data) {
             : t("detail.blocker.entityTypes.lawsuit"),
       }),
       type: "navigate",
-      route: parentInfo.entityType === "dossier" ? "/dossiers" : "/cases",
+      route: parentInfo.entityType === "dossier" ? "/dossiers" : "/lawsuits",
       entityId: parentInfo.entityId,
       icon: "fas fa-external-link-alt",
     });
@@ -632,7 +632,7 @@ function parseClosedParentBlocker(blocker, entityType, entityId, data) {
               : t("detail.blocker.entityTypes.lawsuit"),
         }),
         type: "navigate",
-        route: parentInfo.entityType === "dossier" ? "/dossiers" : "/cases",
+        route: parentInfo.entityType === "dossier" ? "/dossiers" : "/lawsuits",
         entityId: parentInfo.entityId,
         icon: "fas fa-folder-open",
         description: t("detail.blocker.enrichment.helpText.closedParent"),
@@ -719,7 +719,7 @@ function parseDossierBlockerEnglish(blocker, entityType, entityId, data) {
 
   const items = dossiers.slice(0, 5).map((dossier) => ({
     entityId: dossier.id,
-    entityLabel: `${dossier.caseNumber} - ${dossier.title}`,
+    entityLabel: `${dossier.lawsuitNumber} - ${dossier.title}`,
     entityType: "dossier",
     status: dossier.status,
     actions: [
@@ -754,11 +754,11 @@ function parseDossierBlockerEnglish(blocker, entityType, entityId, data) {
  * Parse open Lawsuits blocker (English)
  */
 function parseCaseBlockerEnglish(blocker, entityType, entityId, data) {
-  let cases = [];
+  let lawsuits = [];
 
   if (entityType === "client") {
     const clientDossiers = data.dossiers.filter((d) => d.clientId == entityId);
-    cases = data.cases.filter(
+    lawsuits = data.lawsuits.filter(
       (c) =>
         clientDossiers.some((d) => d.id === c.dossierId) &&
         c.status !== "Closed"
@@ -766,22 +766,22 @@ function parseCaseBlockerEnglish(blocker, entityType, entityId, data) {
   } else if (entityType === "dossier") {
     const dossier = data.dossiers.find((d) => d.id == entityId);
     if (dossier) {
-      cases = data.cases.filter(
+      lawsuits = data.lawsuits.filter(
         (c) => c.dossierId === dossier.id && c.status !== "Closed"
       );
     }
   }
 
-  const items = cases.slice(0, 5).map((caseData) => ({
+  const items = lawsuits.slice(0, 5).map((caseData) => ({
     entityId: caseData.id,
-    entityLabel: `${caseData.caseNumber} - ${caseData.title}`,
-    entityType: "case",
+    entityLabel: `${caseData.lawsuitNumber} - ${caseData.title}`,
+    entityType: "lawsuit",
     status: caseData.status,
     actions: [
       {
         label: t("detail.blocker.enrichment.actions.viewLawsuit"),
         type: "navigate",
-        route: "/cases",
+        route: "/lawsuits",
         entityId: caseData.id,
         icon: "fas fa-external-link-alt",
       },
@@ -789,7 +789,7 @@ function parseCaseBlockerEnglish(blocker, entityType, entityId, data) {
         label: t("detail.blocker.enrichment.actions.closeLawsuit"),
         type: "inline-action",
         action: "close",
-        entityType: "case",
+        entityType: "lawsuit",
         entityId: caseData.id,
         icon: "fas fa-times-circle",
         safe: false,
@@ -807,13 +807,13 @@ function parseCaseBlockerEnglish(blocker, entityType, entityId, data) {
   }
 
   return {
-    type: "case",
+    type: "lawsuit",
     reason: blocker,
     items,
     summary:
-      cases.length > 1
-        ? t("detail.blocker.enrichment.summary.openLawsuits", { count: cases.length })
-        : t("detail.blocker.enrichment.summary.openLawsuit", { count: cases.length }),
+      lawsuits.length > 1
+        ? t("detail.blocker.enrichment.summary.openLawsuits", { count: lawsuits.length })
+        : t("detail.blocker.enrichment.summary.openLawsuit", { count: lawsuits.length }),
     helpText,
     actions: [],
   };
@@ -827,7 +827,7 @@ function parseTaskBlockerEnglish(blocker, entityType, entityId, data) {
 
   if (entityType === "client") {
     const clientDossiers = data.dossiers.filter((d) => d.clientId == entityId);
-    const clientCases = data.cases.filter((c) =>
+    const clientCases = data.lawsuits.filter((c) =>
       clientDossiers.some((d) => d.id === c.dossierId)
     );
 
@@ -839,9 +839,9 @@ function parseTaskBlockerEnglish(blocker, entityType, entityId, data) {
           task.status !== "Cancelled"
         );
       }
-      if (task.caseId && task.parentType === "case") {
+      if (task.lawsuitId && task.parentType === "lawsuit") {
         return (
-          clientCases.some((c) => c.id === task.caseId) &&
+          clientCases.some((c) => c.id === task.lawsuitId) &&
           task.status !== "Done" &&
           task.status !== "Cancelled"
         );
@@ -851,23 +851,23 @@ function parseTaskBlockerEnglish(blocker, entityType, entityId, data) {
   } else if (entityType === "dossier") {
     const dossier = data.dossiers.find((d) => d.id == entityId);
     if (dossier) {
-      const proceedings = data.cases.filter((c) => c.dossierId === dossier.id);
+      const proceedings = data.lawsuits.filter((c) => c.dossierId === dossier.id);
       tasks = data.tasks
         .filter(
           (task) =>
             (task.parentType === "dossier" && task.dossierId == entityId) ||
-            (task.parentType === "case" &&
-              proceedings.some((p) => p.id == task.caseId))
+            (task.parentType === "lawsuit" &&
+              proceedings.some((p) => p.id == task.lawsuitId))
         )
         .filter(
           (task) => task.status !== "Done" && task.status !== "Cancelled"
         );
     }
-  } else if (entityType === "case") {
+  } else if (entityType === "lawsuit") {
     tasks = data.tasks.filter(
       (task) =>
-        task.parentType === "case" &&
-        task.caseId == entityId &&
+        task.parentType === "lawsuit" &&
+        task.lawsuitId == entityId &&
         task.status !== "Done" &&
         task.status !== "Cancelled"
     );
@@ -901,7 +901,7 @@ function parseTaskBlockerEnglish(blocker, entityType, entityId, data) {
   let helpText = t("detail.blocker.enrichment.helpText.closeDossierTasks");
   if (entityType === "dossier") {
     helpText = t("detail.blocker.enrichment.helpText.closeDossierTasks");
-  } else if (entityType === "case") {
+  } else if (entityType === "lawsuit") {
     helpText = t("detail.blocker.enrichment.helpText.closeLawsuitTasks");
   } else if (entityType === "client") {
     helpText = t("detail.blocker.enrichment.helpText.inactivateClientTasks");
@@ -928,7 +928,7 @@ function parseSessionBlockerEnglish(blocker, entityType, entityId, data) {
 
   if (entityType === "client") {
     const clientDossiers = data.dossiers.filter((d) => d.clientId == entityId);
-    const clientCases = data.cases.filter((c) =>
+    const clientCases = data.lawsuits.filter((c) =>
       clientDossiers.some((d) => d.id === c.dossierId)
     );
 
@@ -940,9 +940,9 @@ function parseSessionBlockerEnglish(blocker, entityType, entityId, data) {
           session.status !== "Cancelled"
         );
       }
-      if (session.caseId) {
+      if (session.lawsuitId) {
         return (
-          clientCases.some((c) => c.id === session.caseId) &&
+          clientCases.some((c) => c.id === session.lawsuitId) &&
           session.status !== "Completed" &&
           session.status !== "Cancelled"
         );
@@ -953,7 +953,7 @@ function parseSessionBlockerEnglish(blocker, entityType, entityId, data) {
     const dossier = data.dossiers.find((d) => d.id == entityId);
     if (dossier) {
       const today = new Date();
-      const proceedings = data.cases.filter((c) => c.dossierId === dossier.id);
+      const proceedings = data.lawsuits.filter((c) => c.dossierId === dossier.id);
 
       sessions = data.sessions.filter((session) => {
         const sessionDate = new Date(session.date);
@@ -964,16 +964,16 @@ function parseSessionBlockerEnglish(blocker, entityType, entityId, data) {
         if (session.dossierId == entityId) {
           return isFuture && isNotComplete;
         }
-        if (session.caseId && proceedings.some((p) => p.id == session.caseId)) {
+        if (session.lawsuitId && proceedings.some((p) => p.id == session.lawsuitId)) {
           return isFuture && isNotComplete;
         }
         return false;
       });
     }
-  } else if (entityType === "case") {
+  } else if (entityType === "lawsuit") {
     const today = new Date();
     sessions = data.sessions
-      .filter((session) => session.caseId == entityId)
+      .filter((session) => session.lawsuitId == entityId)
       .filter((session) => {
         const sessionDate = new Date(session.date);
         return (
@@ -1012,7 +1012,7 @@ function parseSessionBlockerEnglish(blocker, entityType, entityId, data) {
   let helpText = t("detail.blocker.enrichment.helpText.closeLawsuitHearings");
   if (entityType === "dossier") {
     helpText = t("detail.blocker.enrichment.helpText.closeDossierHearings");
-  } else if (entityType === "case") {
+  } else if (entityType === "lawsuit") {
     helpText = t("detail.blocker.enrichment.helpText.closeLawsuitHearings");
   } else if (entityType === "client") {
     helpText = t("detail.blocker.enrichment.helpText.inactivateClientHearings");
@@ -1129,7 +1129,7 @@ function parseFinancialBlockerEnglish(blocker, entityType, entityId, data) {
 export function getEntityRoute(entityType) {
   const routes = {
     dossier: "/dossiers",
-    case: "/cases",
+    lawsuit: "/lawsuits",
     task: "/tasks",
     session: "/sessions",
     client: "/clients",
@@ -1140,3 +1140,8 @@ export function getEntityRoute(entityType) {
 
   return routes[entityType] || "/";
 }
+
+
+
+
+

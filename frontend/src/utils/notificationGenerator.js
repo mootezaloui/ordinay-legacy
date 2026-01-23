@@ -96,11 +96,8 @@ export function generateTaskNotifications(tasks, context = {}) {
     if (session.dossier) {
       return { parentType: "dossier", parentReference: session.dossier };
     }
-    if (session.caseName) {
-      return { parentType: "case", parentReference: session.caseName };
-    }
-    if (session.case) {
-      return { parentType: "case", parentReference: session.case };
+    if (session.lawsuit) {
+      return { parentType: "lawsuit", parentReference: session.lawsuit };
     }
     return null;
   };
@@ -114,25 +111,25 @@ export function generateTaskNotifications(tasks, context = {}) {
     if (task.dossier) {
       return { parentType: "dossier", parentReference: task.dossier };
     }
-    if (task.case) {
-      return { parentType: "case", parentReference: task.case };
+    if (task.lawsuit) {
+      return { parentType: "lawsuit", parentReference: task.lawsuit };
     }
 
     const dossiers = context.dossiers || [];
-    const cases = context.cases || [];
+    const lawsuits = context.lawsuits || [];
     const dossierId = task.dossier_id ?? task.dossierId;
-    const caseId = task.case_id ?? task.caseId;
+    const lawsuitId = task.lawsuit_id ?? task.lawsuitId;
 
-    if (caseId) {
-      const parentCase = cases.find((item) => item.id === caseId);
-      if (parentCase) {
+    if (lawsuitId) {
+      const parentLawsuit = lawsuits.find((item) => item.id === lawsuitId);
+      if (parentLawsuit) {
         return {
-          parentType: "case",
+          parentType: "lawsuit",
           parentReference:
-            parentCase.case_number ||
-            parentCase.reference_number ||
-            parentCase.title ||
-            `Case #${parentCase.id}`,
+            parentLawsuit.lawsuitNumber ||
+            parentLawsuit.reference ||
+            parentLawsuit.title ||
+            `Lawsuit #${parentLawsuit.id}`,
         };
       }
     }
@@ -143,8 +140,8 @@ export function generateTaskNotifications(tasks, context = {}) {
         return {
           parentType: "dossier",
           parentReference:
+            parentDossier.lawsuitNumber ||
             parentDossier.reference ||
-            parentDossier.case_number ||
             parentDossier.title ||
             `Dossier #${parentDossier.id}`,
         };
@@ -280,11 +277,11 @@ export function generateSessionNotifications(sessions) {
     if (session.dossier) {
       return { parentType: "dossier", parentReference: session.dossier };
     }
-    if (session.caseName) {
-      return { parentType: "case", parentReference: session.caseName };
+    if (session.lawsuit) {
+      return { parentType: "lawsuit", parentReference: session.lawsuit };
     }
-    if (session.case) {
-      return { parentType: "case", parentReference: session.case };
+    if (session.lawsuit) {
+      return { parentType: "lawsuit", parentReference: session.lawsuit };
     }
     return null;
   };
@@ -391,11 +388,11 @@ export function generatePaymentNotifications(financialEntries) {
     if (session.dossier) {
       return { parentType: "dossier", parentReference: session.dossier };
     }
-    if (session.caseName) {
-      return { parentType: "case", parentReference: session.caseName };
+    if (session.lawsuit) {
+      return { parentType: "lawsuit", parentReference: session.lawsuit };
     }
-    if (session.case) {
-      return { parentType: "case", parentReference: session.case };
+    if (session.lawsuit) {
+      return { parentType: "lawsuit", parentReference: session.lawsuit };
     }
     return null;
   };
@@ -416,8 +413,8 @@ export function generatePaymentNotifications(financialEntries) {
       daysLeft: Math.abs(daysLeft),
       daysOverdue: Math.abs(daysLeft),
       dueDate: entry.dueDate,
-      parentType: entry.dossierReference ? "dossier" : entry.caseReference ? "case" : null,
-      parentReference: entry.dossierReference || entry.caseReference || "",
+      parentType: entry.dossierReference ? "dossier" : entry.lawsuitReference ? "lawsuit" : null,
+      parentReference: entry.dossierReference || entry.lawsuitReference || "",
     };
 
     // Overdue payments
@@ -444,7 +441,7 @@ export function generatePaymentNotifications(financialEntries) {
             entityId: entry.id,
             clientId: entry.clientId,
             dossierId: entry.dossierId,
-            caseId: entry.caseId,
+            lawsuitId: entry.lawsuitId,
             missionId: entry.missionId,
           }),
           metadata: {
@@ -456,7 +453,7 @@ export function generatePaymentNotifications(financialEntries) {
             dueDate: entry.dueDate,
             clientId: entry.clientId,
             dossierId: entry.dossierId,
-            caseId: entry.caseId,
+            lawsuitId: entry.lawsuitId,
             missionId: entry.missionId,
             parentType: payment.parentType,
             parentReference: payment.parentReference,
@@ -485,7 +482,7 @@ export function generatePaymentNotifications(financialEntries) {
             entityId: entry.id,
             clientId: entry.clientId,
             dossierId: entry.dossierId,
-            caseId: entry.caseId,
+            lawsuitId: entry.lawsuitId,
             missionId: entry.missionId,
           }),
           metadata: {
@@ -496,7 +493,7 @@ export function generatePaymentNotifications(financialEntries) {
             dueDate: entry.dueDate,
             clientId: entry.clientId,
             dossierId: entry.dossierId,
-            caseId: entry.caseId,
+            lawsuitId: entry.lawsuitId,
             missionId: entry.missionId,
             parentType: payment.parentType,
             parentReference: payment.parentReference,
@@ -526,7 +523,7 @@ export function generatePaymentNotifications(financialEntries) {
             entityId: entry.id,
             clientId: entry.clientId,
             dossierId: entry.dossierId,
-            caseId: entry.caseId,
+            lawsuitId: entry.lawsuitId,
             missionId: entry.missionId,
           }),
           metadata: {
@@ -538,7 +535,7 @@ export function generatePaymentNotifications(financialEntries) {
             dueDate: entry.dueDate,
             clientId: entry.clientId,
             dossierId: entry.dossierId,
-            caseId: entry.caseId,
+            lawsuitId: entry.lawsuitId,
             missionId: entry.missionId,
             parentType: payment.parentType,
             parentReference: payment.parentReference,
@@ -575,11 +572,11 @@ export function generateMissionNotifications(missions) {
     if (session.dossier) {
       return { parentType: "dossier", parentReference: session.dossier };
     }
-    if (session.caseName) {
-      return { parentType: "case", parentReference: session.caseName };
+    if (session.lawsuit) {
+      return { parentType: "lawsuit", parentReference: session.lawsuit };
     }
-    if (session.case) {
-      return { parentType: "case", parentReference: session.case };
+    if (session.lawsuit) {
+      return { parentType: "lawsuit", parentReference: session.lawsuit };
     }
     return null;
   };
@@ -692,11 +689,11 @@ export function generateDossierNotifications(dossiers) {
     if (session.dossier) {
       return { parentType: "dossier", parentReference: session.dossier };
     }
-    if (session.caseName) {
-      return { parentType: "case", parentReference: session.caseName };
+    if (session.lawsuit) {
+      return { parentType: "lawsuit", parentReference: session.lawsuit };
     }
-    if (session.case) {
-      return { parentType: "case", parentReference: session.case };
+    if (session.lawsuit) {
+      return { parentType: "lawsuit", parentReference: session.lawsuit };
     }
     return null;
   };
@@ -709,8 +706,7 @@ export function generateDossierNotifications(dossiers) {
     )
       return;
 
-    const dossierNumber =
-      dossier.case_number || dossier.caseNumber || dossier.reference;
+    const dossierNumber = dossier.lawsuitNumber || dossier.reference;
 
     // Check for dossiers not updated in a while
     if (dossier.lastUpdateDate || dossier.updated_at || dossier.updatedAt) {
@@ -728,12 +724,12 @@ export function generateDossierNotifications(dossiers) {
             subType: "statusUpdate",
             priority: daysSinceUpdate >= 14 ? "high" : "medium",
             template_key: "content.dossier.statusUpdateNeeded",
-            params: { caseNumber: dossierNumber, count: daysSinceUpdate },
+            params: { lawsuitNumber: dossierNumber, count: daysSinceUpdate },
             icon: "fas fa-folder-open",
             timestamp: now.toISOString(),
             metadata: {
               dossierId: dossier.id,
-              caseNumber: dossierNumber,
+              lawsuitNumber: dossierNumber,
               daysSinceUpdate,
             },
           })
@@ -755,12 +751,12 @@ export function generateDossierNotifications(dossiers) {
             subType: "review",
             priority: "info",
             template_key: "content.dossier.review",
-            params: { caseNumber: dossierNumber, count: daysOpen },
+            params: { lawsuitNumber: dossierNumber, count: daysOpen },
             icon: "fas fa-search",
             timestamp: now.toISOString(),
             metadata: {
               dossierId: dossier.id,
-              caseNumber: dossierNumber,
+              lawsuitNumber: dossierNumber,
               daysOpen,
             },
           })
@@ -779,7 +775,7 @@ export function generateAllDateNotifications(data) {
   const allNotifications = [
     ...generateTaskNotifications(data.tasks || [], {
       dossiers: data.dossiers || [],
-      cases: data.cases || [],
+      lawsuits: data.lawsuits || [],
     }),
     ...generateTaskNotifications(data.personalTasks || []),
     ...generateSessionNotifications(data.sessions || []),
@@ -873,6 +869,11 @@ export function generateDomainEventNotification(eventKey, context = {}) {
     linkOverride: link,
   });
 }
+
+
+
+
+
 
 
 

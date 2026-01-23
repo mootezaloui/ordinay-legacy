@@ -7,7 +7,7 @@ async function list(req, res, next) {
     const filters = {};
     if (req.query.client_id) filters.client_id = parseInt(req.query.client_id, 10);
     if (req.query.dossier_id) filters.dossier_id = parseInt(req.query.dossier_id, 10);
-    if (req.query.case_id) filters.case_id = parseInt(req.query.case_id, 10);
+    if (req.query.lawsuit_id) filters.lawsuit_id = parseInt(req.query.lawsuit_id, 10);
     if (req.query.mission_id) filters.mission_id = parseInt(req.query.mission_id, 10);
     if (req.query.task_id) filters.task_id = parseInt(req.query.task_id, 10);
     if (req.query.session_id) filters.session_id = parseInt(req.query.session_id, 10);
@@ -70,3 +70,4 @@ module.exports = {
   update,
   remove,
 };
+

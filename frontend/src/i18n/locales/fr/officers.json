@@ -133,7 +133,7 @@
     "tabs": {
       "overview": "Aperçu",
       "missions": "Missions",
-      "cases": "Dossiers/Demandes liés",
+      "lawsuits": "Dossiers/Procès liés",
       "financial": "Comptabilité",
       "financialDescription": "Suivi financier de toutes les missions pour cet huissier",
       "documents": "Documents",
@@ -145,12 +145,12 @@
       "addSubtitle": "Assigner une nouvelle mission à cet huissier",
       "help": {
         "assigned": "Cette mission sera assignée à {{name}}",
-        "entityType": "Sélectionnez si cette mission concerne un dossier ou une demande",
-        "entityReference": "Sélectionnez le dossier ou la demande pour cette mission"
+        "entityType": "Sélectionnez si cette mission concerne un dossier ou un procès",
+        "entityReference": "Sélectionnez le dossier ou le procès pour cette mission"
       }
     },
-    "cases": {
-      "empty": "Aucun dossier/demande lié pour cet huissier"
+    "lawsuits": {
+      "empty": "Aucun dossier/procès lié pour cet huissier"
     },
     "overview": {
       "general": "Informations générales",

@@ -27,7 +27,7 @@
 /**
  * Document link to an entity
  * @typedef {Object} DocumentLink
- * @property {string} entityType - Type of entity (client, dossier, case, task, etc.)
+ * @property {string} entityType - Type of entity (client, dossier, lawsuit, task, etc.)
  * @property {number|string} entityId - ID of the linked entity
  * @property {string} linkedDate - ISO date string when link was created
  * @property {string} linkedBy - User who created the link (future use)

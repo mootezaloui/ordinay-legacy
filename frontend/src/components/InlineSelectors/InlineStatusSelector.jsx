@@ -402,7 +402,7 @@ export default function InlineStatusSelector({
         warnings={validationResult?.warnings || []}
         entityName={
           entityData?.name ||
-          entityData?.caseNumber ||
+          entityData?.lawsuitNumber ||
           entityData?.title ||
           entityData?.missionNumber ||
           `${entityType} #${entityId}`
@@ -441,3 +441,4 @@ export default function InlineStatusSelector({
     </>
   );
 }
+

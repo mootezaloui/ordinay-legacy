@@ -85,7 +85,7 @@
       "statusLocked": "The status can only be changed via the selector in the list"
     },
     "fields": {
-      "caseNumber": {
+      "lawsuitNumber": {
         "label": "Reference / Number",
         "placeholder": "Ex: DOS-2025-001 (auto-generated if empty)",
         "helper": "Optional - Leave blank for automatic generation (DOS-YEAR-XXX)"
@@ -278,21 +278,21 @@
     },
     "forms": {
       "sessions": {
-        "linkHelpWithCases": "Choose if this hearing is linked to this Dossier or a specific lawsuit",
-        "linkHelpNoCases": "This hearing will be linked to this Dossier (no lawsuits available)",
-        "casesEmpty": "No lawsuits available. Please create a lawsuit first.",
-        "caseHelp": "Select the lawsuit to which this hearing will be linked",
+        "linkHelpWithLawsuits": "Choose if this hearing is linked to this Dossier or a specific lawsuit",
+        "linkHelpNoLawsuits": "This hearing will be linked to this Dossier (no lawsuits available)",
+        "lawsuitsEmpty": "No lawsuits available. Please create a lawsuit first.",
+        "lawsuitHelp": "Select the lawsuit to which this hearing will be linked",
         "dossierHelp": "This hearing will be linked to this Dossier"
       },
       "tasks": {
-        "linkHelpWithCases": "Choose if this task concerns the Dossier in general or a specific lawsuit",
-        "linkHelpNoCases": "This task will be linked to the Dossier (no lawsuits available)",
-        "casesEmpty": "No lawsuits available. Please create a lawsuit first.",
-        "caseHelp": "Select the lawsuit to which this task will be linked",
+        "linkHelpWithLawsuits": "Choose if this task concerns the Dossier in general or a specific lawsuit",
+        "linkHelpNoLawsuits": "This task will be linked to the Dossier (no lawsuits available)",
+        "lawsuitsEmpty": "No lawsuits available. Please create a lawsuit first.",
+        "lawsuitHelp": "Select the lawsuit to which this task will be linked",
         "dossierHelp": "This task will be linked to this Dossier"
       },
       "missions": {
-        "linkedToDossier": "This mission will be linked to the Dossier {{caseNumber}}"
+        "linkedToDossier": "This mission will be linked to the Dossier {{lawsuitNumber}}"
       }
     },
     "overview": {
@@ -301,8 +301,8 @@
       "adverse": "Adverse Party",
       "legal": "Legal Information",
       "fields": {
-        "caseNumber": "Dossier Number",
-        "caseNumberHelp": "Format: DOS-YEAR-NUMBER",
+        "lawsuitNumber": "Dossier Number",
+        "lawsuitNumberHelp": "Format: DOS-YEAR-NUMBER",
         "title": "Dossier Title",
         "client": "Client",
         "clientHelp": "Attention: Changing the client will transfer the file to another client",
@@ -319,3 +319,4 @@
     }
   }
 }
+

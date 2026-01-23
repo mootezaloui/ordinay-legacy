@@ -40,7 +40,7 @@ export default function Sidebar() {
       items: [
         { icon: "fas fa-users", label: t("sidebar.clients"), route: "/clients" },
         { icon: "fas fa-folder-open", label: t("sidebar.dossiers"), route: "/dossiers" },
-        { icon: "fas fa-gavel", label: t("sidebar.cases"), route: "/cases" },
+        { icon: "fas fa-gavel", label: t("sidebar.lawsuits"), route: "/lawsuits" },
       ]
     },
     {
@@ -83,62 +83,8 @@ export default function Sidebar() {
         <i className={`${isCollapsed ? "fas fa-chevron-right text-xs" : "fas fa-chevron-left text-xs"} text-slate-600 dark:text-slate-400`}></i>
       </button>
 
-      {/* Header - Logo only */}
-      <div className="relative px-4 py-5 border-b border-slate-200 dark:border-slate-800 bg-gradient-to-br from-white to-slate-50 dark:from-slate-900 dark:to-slate-950">
-        <div className="flex items-center justify-center">
-          <div className="relative w-10 h-10">
-            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-blue-600/10 dark:from-blue-400/10 dark:to-blue-500/10 rounded-xl blur-sm"></div>
-            <svg
-              className="relative w-10 h-10"
-              viewBox="0 0 32 32"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-              aria-label="Organia"
-            >
-              {/* Outer ring */}
-              <circle
-                cx="16"
-                cy="16"
-                r="13"
-                stroke="currentColor"
-                strokeWidth="0.5"
-                fill="none"
-                className="text-blue-500/30 dark:text-blue-400/30"
-              />
-              {/* Middle ring */}
-              <circle
-                cx="16"
-                cy="16"
-                r="9"
-                stroke="currentColor"
-                strokeWidth="1"
-                fill="none"
-                className="text-blue-600/50 dark:text-blue-500/50"
-              />
-              {/* Inner ring */}
-              <circle
-                cx="16"
-                cy="16"
-                r="5"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                fill="none"
-                className="text-blue-600 dark:text-blue-500"
-              />
-              {/* Orbital dots */}
-              <circle cx="16" cy="3" r="1.5" fill="currentColor" className="text-blue-600 dark:text-blue-500" />
-              <circle cx="29" cy="16" r="1.5" fill="currentColor" className="text-blue-600 dark:text-blue-500" />
-              <circle cx="16" cy="29" r="1.5" fill="currentColor" className="text-blue-600 dark:text-blue-500" />
-              <circle cx="3" cy="16" r="1.5" fill="currentColor" className="text-blue-600 dark:text-blue-500" />
-              {/* Center accent */}
-              <circle cx="16" cy="16" r="2" fill="currentColor" className="text-blue-600 dark:text-blue-500" />
-            </svg>
-          </div>
-        </div>
-      </div>
-
       {/* Navigation - Grouped with enhanced hierarchy */}
-      <nav className="flex-1 py-3 overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700 scrollbar-track-transparent">
+      <nav className="flex-1 pt-6 pb-3 overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700 scrollbar-track-transparent">
         <div className="space-y-6">
           {navigationGroups.map((group) => (
             <div key={group.id} className="px-3">
@@ -285,3 +231,5 @@ export default function Sidebar() {
     </aside>
   );
 }
+
+

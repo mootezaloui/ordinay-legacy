@@ -212,7 +212,7 @@ class TemplateService {
       "session.notes": MISSING_VALUE,
       "session.participants": MISSING_VALUE,
       "session.dossier_id": MISSING_VALUE,
-      "session.case_id": MISSING_VALUE,
+      "session.lawsuit_id": MISSING_VALUE,
       "session.created_at": MISSING_VALUE,
       "session.updated_at": MISSING_VALUE,
       "session.imported": MISSING_VALUE,
@@ -225,7 +225,7 @@ class TemplateService {
       "financial_entry.scope": MISSING_VALUE,
       "financial_entry.client_id": MISSING_VALUE,
       "financial_entry.dossier_id": MISSING_VALUE,
-      "financial_entry.case_id": MISSING_VALUE,
+      "financial_entry.lawsuit_id": MISSING_VALUE,
       "financial_entry.mission_id": MISSING_VALUE,
       "financial_entry.task_id": MISSING_VALUE,
       "financial_entry.personal_task_id": MISSING_VALUE,
@@ -363,7 +363,7 @@ class TemplateService {
 
       const reference =
         dossierSource.reference ||
-        dossierSource.caseNumber ||
+        dossierSource.lawsuitNumber ||
         dossierSource.case_number ||
         null;
       const clientId =
@@ -448,10 +448,10 @@ class TemplateService {
 
       const reference =
         caseSource.reference ||
-        caseSource.caseNumber ||
+        caseSource.lawsuitNumber ||
         caseSource.case_number ||
         null;
-      const caseNumber = caseSource.case_number || caseSource.caseNumber || null;
+      const lawsuitNumber = caseSource.case_number || caseSource.lawsuitNumber || null;
       const dossierId =
         caseSource.dossierId ||
         caseSource.dossier_id ||
@@ -498,7 +498,7 @@ class TemplateService {
       data["proces.reference"] =
         toText(reference) || data["proces.reference"];
       data["proces.case_number"] =
-        toText(caseNumber) || data["proces.case_number"];
+        toText(lawsuitNumber) || data["proces.case_number"];
       data["proces.dossier_id"] =
         toText(dossierId) || data["proces.dossier_id"];
       data["proces.title"] = toText(caseSource.title) || data["proces.title"];
@@ -571,10 +571,10 @@ class TemplateService {
         sessionSource.dossier_id ||
         sessionSource.dossier?.id ||
         null;
-      const caseId =
-        sessionSource.caseId ||
-        sessionSource.case_id ||
-        sessionSource.case?.id ||
+      const lawsuitId =
+        sessionSource.lawsuitId ||
+        sessionSource.lawsuit_id ||
+        sessionSource.lawsuit?.id ||
         null;
       const participants =
         sessionSource.participants ||
@@ -611,8 +611,8 @@ class TemplateService {
         toText(participants) || data["session.participants"];
       data["session.dossier_id"] =
         toText(dossierId) || data["session.dossier_id"];
-      data["session.case_id"] =
-        toText(caseId) || data["session.case_id"];
+      data["session.lawsuit_id"] =
+        toText(lawsuitId) || data["session.lawsuit_id"];
       data["session.created_at"] =
         toText(sessionSource.created_at || sessionSource.createdAt) ||
         data["session.created_at"];
@@ -662,15 +662,15 @@ class TemplateService {
         }
       }
       if (entityType === "session") {
-        const cases = Array.isArray(contextData?.cases) ? contextData.cases : [];
+        const lawsuits = Array.isArray(contextData?.lawsuits) ? contextData.lawsuits : [];
         const dossiers = Array.isArray(contextData?.dossiers)
           ? contextData.dossiers
           : [];
         const clients = Array.isArray(contextData?.clients)
           ? contextData.clients
           : [];
-        const caseItem = entityData?.caseId
-          ? cases.find((item) => String(item.id) === String(entityData.caseId))
+        const caseItem = entityData?.lawsuitId
+          ? lawsuits.find((item) => String(item.id) === String(entityData.lawsuitId))
           : null;
         const dossierItem = entityData?.dossierId
           ? dossiers.find((item) => String(item.id) === String(entityData.dossierId))
@@ -733,7 +733,7 @@ class TemplateService {
     if (entityType === "proces") {
       applyCaseFields(entityData);
       data["proces.reference"] =
-        toText(entityData?.caseNumber) || data["proces.reference"] || MISSING_VALUE;
+        toText(entityData?.lawsuitNumber) || data["proces.reference"] || MISSING_VALUE;
       data["court.name"] = entityData?.court || MISSING_VALUE;
       data["court.address"] =
         entityData?.courtAddress ||
@@ -746,14 +746,14 @@ class TemplateService {
         entityData?.court?.city ||
         MISSING_VALUE;
 
-      if (entityData?.dossier?.caseNumber) {
-        data["dossier.reference"] = entityData.dossier.caseNumber;
+      if (entityData?.dossier?.lawsuitNumber) {
+        data["dossier.reference"] = entityData.dossier.lawsuitNumber;
       } else if (entityData?.dossierId && contextData?.dossiers) {
         const dossier = contextData.dossiers.find(
           (d) => String(d.id) === String(entityData.dossierId),
         );
-        if (dossier?.caseNumber) {
-          data["dossier.reference"] = dossier.caseNumber;
+        if (dossier?.lawsuitNumber) {
+          data["dossier.reference"] = dossier.lawsuitNumber;
         }
       }
 
@@ -792,12 +792,12 @@ class TemplateService {
       }
     } else if (entityType === "session") {
       applySessionFields(entityData);
-      const cases = Array.isArray(contextData?.cases) ? contextData.cases : [];
+      const lawsuits = Array.isArray(contextData?.lawsuits) ? contextData.lawsuits : [];
       const dossiers = Array.isArray(contextData?.dossiers) ? contextData.dossiers : [];
       const clients = Array.isArray(contextData?.clients) ? contextData.clients : [];
 
-      const caseItem = entityData?.caseId
-        ? cases.find((caseEntry) => String(caseEntry.id) === String(entityData.caseId))
+      const caseItem = entityData?.lawsuitId
+        ? lawsuits.find((caseEntry) => String(caseEntry.id) === String(entityData.lawsuitId))
         : null;
       const dossierItem = entityData?.dossierId
         ? dossiers.find((dossierEntry) => String(dossierEntry.id) === String(entityData.dossierId))
@@ -809,8 +809,8 @@ class TemplateService {
         applyCaseFields(caseItem);
       }
 
-      if (caseItem?.caseNumber) {
-        data["proces.reference"] = caseItem.caseNumber;
+      if (caseItem?.lawsuitNumber) {
+        data["proces.reference"] = caseItem.lawsuitNumber;
       }
       if (caseItem?.court) {
         data["court.name"] = caseItem.court;
@@ -822,8 +822,8 @@ class TemplateService {
         data["court.city"] = caseItem.courtCity || caseItem.court_city;
       }
 
-      if (dossierItem?.caseNumber) {
-        data["dossier.reference"] = dossierItem.caseNumber;
+      if (dossierItem?.lawsuitNumber) {
+        data["dossier.reference"] = dossierItem.lawsuitNumber;
       }
 
       if (this.isMissingValue(data["client.name"]) && dossierItem?.clientId) {
@@ -909,7 +909,7 @@ class TemplateService {
         ? contextData.sessions
         : [];
       const caseSessions = sessions.filter(
-        (session) => String(session?.caseId) === String(entityData?.id),
+        (session) => String(session?.lawsuitId) === String(entityData?.id),
       );
       if (caseSessions.length > 0 && caseSessions[0]?.date) {
         data["session.date"] = caseSessions[0].date;
@@ -1092,3 +1092,7 @@ class TemplateService {
 // Export singleton
 const templateService = new TemplateService();
 export default templateService;
+
+
+
+

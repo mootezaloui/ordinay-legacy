@@ -34,7 +34,7 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
   const {
     clients,
     dossiers,
-    cases,
+    lawsuits,
     tasks,
     sessions,
     officers,
@@ -68,7 +68,7 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
   const [pendingFormData, setPendingFormData] = useState(null);
   const [blockerModalOpen, setBlockerModalOpen] = useState(false);
   const allowAdd = tabConfig.allowAdd !== false;
-  const hasParentEntities = (Array.isArray(dossiers) && dossiers.length > 0) || (Array.isArray(cases) && cases.length > 0);
+  const hasParentEntities = (Array.isArray(dossiers) && dossiers.length > 0) || (Array.isArray(lawsuits) && lawsuits.length > 0);
   const canAddMission = allowAdd && hasParentEntities;
 
   // Filter missions by status and search
@@ -134,7 +134,7 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
       const result = canPerformAction('mission', editingMissionId, 'edit', {
         data: currentMission,
         newData: submittedFormData,
-        entities: { clients, dossiers, cases, tasks, sessions, officers, missions: allMissions, financialEntries }
+        entities: { clients, dossiers, lawsuits, tasks, sessions, officers, missions: allMissions, financialEntries }
       });
 
       if (!result.allowed) {
@@ -153,7 +153,7 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
     } else {
       const result = canPerformAction('mission', null, 'add', {
         newData: submittedFormData,
-        entities: { clients, dossiers, cases, tasks, sessions, officers, missions: allMissions, financialEntries }
+        entities: { clients, dossiers, lawsuits, tasks, sessions, officers, missions: allMissions, financialEntries }
       });
       if (!result.allowed) {
         setValidationResult(result);
@@ -204,22 +204,22 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
         // Extract financial entries, documents, and notes to create separately after mission creation
         const { financialEntries, documents, notes, entityType, entityReference, ...restFormData } = submittedFormData;
 
-        // Derive relational context based on parent entity (dossier, case, officer)
+        // Derive relational context based on parent entity (dossier, lawsuit, officer)
         const relationshipFields = (() => {
           const rel = {};
           if (config?.entityType === "dossier") {
             rel.dossierId = data.id;
-          } else if (config?.entityType === "case") {
-            rel.caseId = data.id;
+          } else if (config?.entityType === "lawsuit") {
+            rel.lawsuitId = data.id;
           } else if (config?.entityType === "officer") {
             // When creating from officer view, convert entityReference to ID
             if (entityType && entityReference) {
               if (entityType === 'dossier') {
-                const dossier = contextData?.dossiers?.find(d => d.caseNumber === entityReference);
+                const dossier = contextData?.dossiers?.find(d => d.lawsuitNumber === entityReference);
                 if (dossier) rel.dossierId = dossier.id;
-              } else if (entityType === 'case') {
-                const caseEntity = contextData?.cases?.find(c => c.caseNumber === entityReference);
-                if (caseEntity) rel.caseId = caseEntity.id;
+              } else if (entityType === 'lawsuit') {
+                const caseEntity = contextData?.lawsuits?.find(c => c.lawsuitNumber === entityReference);
+                if (caseEntity) rel.lawsuitId = caseEntity.id;
               }
             }
           }
@@ -237,10 +237,10 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
           missionData.entityType = entityType || config?.entityType;
         }
 
-        // Enforce dossier/case XOR before hitting the API (case wins conflicts, like tasks)
-        const normalizedCaseId = missionData.caseId ?? missionData.case_id;
+        // Enforce dossier/lawsuit XOR before hitting the API (lawsuit wins conflicts, like tasks)
+        const normalizedlawsuitId = missionData.lawsuitId ?? missionData.lawsuit_id;
         const normalizedDossierId = missionData.dossierId ?? missionData.dossier_id;
-        if (normalizedCaseId && normalizedDossierId) {
+        if (normalizedlawsuitId && normalizedDossierId) {
           missionData.dossierId = null;
           missionData.dossier_id = null;
         }
@@ -262,16 +262,16 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
               ...entry,
               // ✅ Link to the mission we just created
               missionId: createdMission.id,
-              // Link to the client from the dossier/case
+              // Link to the client from the dossier/lawsuit
               clientId: relationshipFields.dossierId
                 ? contextData?.dossiers?.find(d => d.id === relationshipFields.dossierId)?.clientId
-                : relationshipFields.caseId
-                  ? contextData?.cases?.find(c => c.id === relationshipFields.caseId)?.dossierId
-                    ? contextData?.dossiers?.find(d => d.id === contextData.cases.find(c => c.id === relationshipFields.caseId).dossierId)?.clientId
+                : relationshipFields.lawsuitId
+                  ? contextData?.lawsuits?.find(c => c.id === relationshipFields.lawsuitId)?.dossierId
+                    ? contextData?.dossiers?.find(d => d.id === contextData.lawsuits.find(c => c.id === relationshipFields.lawsuitId).dossierId)?.clientId
                     : null
                   : null,
               dossierId: relationshipFields.dossierId || null,
-              caseId: relationshipFields.caseId || null,
+              lawsuitId: relationshipFields.lawsuitId || null,
               type: 'expense', // Officer fees are expenses
               category: 'Bailiff_fees',
               status: entry.status || 'Draft',
@@ -439,7 +439,7 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
     const mission = missions.find(m => m.id === missionId);
     const result = canPerformAction('mission', missionId, 'delete', {
       data: mission,
-      entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
+      entities: { clients, dossiers, lawsuits, tasks, sessions, officers, missions, financialEntries }
     });
 
     if (!result.allowed) {
@@ -615,7 +615,7 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
       const validation = canPerformAction("financialEntry", null, "add", {
         data: newEntry,
         newData: newEntry,
-        entities: { clients, dossiers, cases, tasks, sessions, officers, missions: allMissions, financialEntries }
+        entities: { clients, dossiers, lawsuits, tasks, sessions, officers, missions: allMissions, financialEntries }
       });
       if (!validation.allowed) {
         setValidationResult(validation);
@@ -1122,26 +1122,26 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
             const baseFields = populateRelationshipOptions(getFinancialEntryFormFields(), {
               clients,
               dossiers,
-              cases,
+              lawsuits,
               missions: allMissions
             });
 
             // Auto-populate fields based on mission
-            // The mission object already has dossierId and caseId from the database
+            // The mission object already has dossierId and lawsuitId from the database
             let clientId = null;
             let dossierId = selectedMissionForFinance.dossierId || null;
-            let caseId = selectedMissionForFinance.caseId || null;
+            let lawsuitId = selectedMissionForFinance.lawsuitId || null;
 
-            // Get client from dossier or case
+            // Get client from dossier or lawsuit
             if (dossierId) {
               const dossier = dossiers.find(d => d.id === dossierId);
               if (dossier) {
                 clientId = dossier.clientId;
               }
-            } else if (caseId) {
-              const caseItem = cases.find(c => c.id === caseId);
+            } else if (lawsuitId) {
+              const caseItem = lawsuits.find(c => c.id === lawsuitId);
               if (caseItem) {
-                // Get dossier from case to find client
+                // Get dossier from lawsuit to find client
                 const dossier = dossiers.find(d => d.id === caseItem.dossierId);
                 if (dossier) {
                   clientId = dossier.clientId;
@@ -1174,16 +1174,16 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
                   ...field,
                   type: "readonly",
                   defaultValue: dossierId || "",
-                  displayValue: doss ? `${doss.caseNumber} - ${doss.title}` : t("fallback.unknownDossier", { ns: "missions" })
+                  displayValue: doss ? `${doss.lawsuitNumber} - ${doss.title}` : t("fallback.unknownDossier", { ns: "missions" })
                 };
               }
-              if (field.name === "caseId") {
-                const caseItem = cases.find(c => c.id === caseId);
+              if (field.name === "lawsuitId") {
+                const caseItem = lawsuits.find(c => c.id === lawsuitId);
                 return {
                   ...field,
                   type: "readonly",
-                  defaultValue: caseId || "",
-                  displayValue: caseItem ? `${caseItem.caseNumber} - ${caseItem.title}` : t("fallback.noLawsuit", { ns: "missions" })
+                  defaultValue: lawsuitId || "",
+                  displayValue: caseItem ? `${caseItem.lawsuitNumber} - ${caseItem.title}` : t("fallback.noLawsuit", { ns: "missions" })
                 };
               }
               if (field.name === "missionId") {
@@ -1211,7 +1211,7 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
           })()}
           isLoading={false}
           entityType="financialEntry"
-          entities={{ clients, dossiers, cases, missions: allMissions }}
+          entities={{ clients, dossiers, lawsuits, missions: allMissions }}
         />
       )}
 
@@ -1262,3 +1262,8 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
     </>
   );
 }
+
+
+
+
+

@@ -1,16 +1,16 @@
 {
   "page": {
-    "title": "الدعاوى",
-    "subtitle": "{{total}} دعوى في المجموع",
-    "subtitleFiltered": "{{total}} دعوى في المجموع · عرض {{displayed}}",
+    "title": "القضايا",
+    "subtitle": "{{total}} قضية في المجموع",
+    "subtitleFiltered": "{{total}} قضية في المجموع · عرض {{displayed}}",
     "actions": {
-      "newCase": "دعوى جديدة",
-      "newCaseDisabled": "لا يمكن إنشاء دعوى بدون ملفات. يرجى إنشاء ملف أولاً."
+      "newLawsuit": "قضية جديدة",
+      "newLawsuitDisabled": "لا يمكن إنشاء قضية بدون ملفات. يرجى إنشاء ملف أولاً."
     },
-    "loading": "جاري تحميل الدعاوى..."
+    "loading": "جاري تحميل القضايا..."
   },
   "stats": {
-    "total": "إجمالي الدعاوى",
+    "total": "إجمالي القضايا",
     "inProgress": "قيد التنفيذ",
     "upcoming": "جلسات قادمة",
     "upcomingTrend": "خلال 7 أيام",
@@ -18,7 +18,7 @@
   },
   "table": {
     "columns": {
-      "caseNumber": "رقم الدعوى",
+      "lawsuitNumber": "رقم القضية",
       "title": "العنوان",
       "dossier": "الملف",
       "court": "المحكمة",
@@ -41,43 +41,43 @@
       "edit": "تعديل",
       "delete": "حذف"
     },
-    "empty": "لم يتم العثور على دعاوى",
-    "emptyNoDossier": "يرجى إضافة ملف قبل إضافة دعوى.",
+    "empty": "لم يتم العثور على قضايا",
+    "emptyNoDossier": "يرجى إضافة ملف قبل إضافة قضية.",
     "emptyFiltered": "لم يتم العثور على نتائج"
   },
   "confirm": {
     "delete": {
-      "title": "حذف الدعوى",
-      "message": "هل أنت متأكد أنك تريد حذف هذه الدعوى؟",
+      "title": "حذف القضية",
+      "message": "هل أنت متأكد أنك تريد حذف هذه القضية؟",
       "confirm": "حذف",
       "cancel": "إلغاء"
     }
   },
   "form": {
     "title": {
-      "edit": "تعديل الدعوى",
-      "create": "دعوى جديدة"
+      "edit": "تعديل القضية",
+      "create": "قضية جديدة"
     },
     "subtitle": {
-      "edit": "تعديل معلومات الدعوى",
-      "create": "إضافة دعوى جديدة"
+      "edit": "تعديل معلومات القضية",
+      "create": "إضافة قضية جديدة"
     },
     "help": {
       "statusLocked": "يمكن تغيير الحالة فقط باستخدام المحدد في القائمة"
     },
     "fields": {
-      "caseNumber": {
+      "lawsuitNumber": {
         "label": "المرجع / الرقم",
         "placeholder": "مثال: PRO-2025-001 (يتم إنشاؤه تلقائياً إذا كان فارغاً)",
         "helper": "اختياري - اتركه فارغاً للإنشاء التلقائي (PRO-السنة-XXX)"
       },
       "title": {
-        "label": "عنوان الدعوى",
+        "label": "عنوان القضية",
         "placeholder": "مثال: نزاع تجاري - جلسة"
       },
       "dossierId": {
         "label": "الملف",
-        "helper": "يجب ربط كل دعوى بملف"
+        "helper": "يجب ربط كل قضية بملف"
       },
       "court": {
         "label": "المحكمة",
@@ -116,33 +116,33 @@
     }
   },
   "toasts": {
-    "statusTitle": "حالة الدعوى",
+    "statusTitle": "حالة القضية",
     "statusUpdated": "تم تحديث الحالة: {{status}}",
     "deleteSuccess": {
       "title": "تم الحذف",
-      "body": "تم حذف الدعوى"
+      "body": "تم حذف القضية"
     },
     "cascadeError": "حدث خطأ أثناء الحذف المتتالي",
     "cascadeSuccess": {
       "title": "حذف متتالي",
-      "body": "تم حذف الدعوى وجميع الكيانات المرتبطة بها"
+      "body": "تم حذف القضية وجميع الكيانات المرتبطة بها"
     },
-    "updateSuccess": "تم تحديث الدعوى بنجاح!",
-    "createSuccess": "تم إضافة الدعوى بنجاح!",
+    "updateSuccess": "تم تحديث القضية بنجاح!",
+    "createSuccess": "تم إضافة القضية بنجاح!",
     "saveError": "حدث خطأ أثناء الحفظ",
-    "missingId": "معرف الدعوى مفقود"
+    "missingId": "معرف القضية مفقود"
   },
   "blockerModal": {
-    "actionName": "تعديل/حذف الدعوى",
-    "entityFallback": "دعوى"
+    "actionName": "تعديل/حذف القضية",
+    "entityFallback": "قضية"
   },
   "confirmImpact": {
-    "action": "تغيير ارتباط الدعوى"
+    "action": "تغيير ارتباط القضية"
   },
   "detail": {
-    "entityName": "دعوى",
-    "notFound": "لم يتم العثور على الدعوى",
-    "deleteConfirm": "هل أنت متأكد أنك تريد حذف هذه الدعوى؟",
+    "entityName": "قضية",
+    "notFound": "لم يتم العثور على القضية",
+    "deleteConfirm": "هل أنت متأكد أنك تريد حذف هذه القضية؟",
     "quickActions": {
       "status": {
         "label": "الحالة",
@@ -182,7 +182,7 @@
       "entityName": "جلسة",
       "addSubtitle": "إنشاء جلسة قضائية جديدة لهذه القضية",
       "help": {
-        "caseLink": "ستكون هذه الجلسة مرتبطة بهذه القضية",
+        "lawsuitLink": "ستكون هذه الجلسة مرتبطة بهذه القضية",
         "linkType": "هذه الجلسة مرتبطة بهذه القضية"
       },
       "placeholders": {
@@ -193,29 +193,29 @@
       "entityName": "مهمة",
       "addSubtitle": "إنشاء مهمة جديدة لهذه القضية",
       "help": {
-        "parentType": "اختر ما إذا كانت هذه المهمة تتعلق بالدعوى أو بالملف الأصلي",
-        "caseLink": "ستكون هذه المهمة مرتبطة بهذه الدعوى",
+        "parentType": "اختر ما إذا كانت هذه المهمة تتعلق بالقضية أو بالملف الأصلي",
+        "lawsuitLink": "ستكون هذه المهمة مرتبطة بهذه القضية",
         "dossierLink": "ستكون هذه المهمة مرتبطة بالملف الأصلي"
       }
     },
     "missions": {
       "entityName": "مهمة",
-      "addSubtitle": "إنشاء مهمة محضر جديدة لهذه الدعوى",
+      "addSubtitle": "إنشاء مهمة محضر جديدة لهذه القضية",
       "help": {
-        "caseLink": "ستكون هذه المهمة مرتبطة بالدعوى {{caseNumber}}"
+        "lawsuitLink": "ستكون هذه المهمة مرتبطة بالقضية {{lawsuitNumber}}"
       }
     },
     "overview": {
       "general": "معلومات عامة",
-      "description": "وصف الدعوى",
+      "description": "وصف القضية",
       "courtInfo": "معلومات المحكمة",
       "dates": "تواريخ مهمة",
       "parties": "الأطراف",
       "judgment": "الحكم",
       "relatedDossier": "الملف المرتبط",
       "fields": {
-        "caseNumber": "رقم الدعوى",
-        "title": "عنوان الدعوى",
+        "lawsuitNumber": "رقم القضية",
+        "title": "عنوان القضية",
         "court": "المحكمة",
         "courtReference": "رقم المرجع القضائي",
         "filingDate": "تاريخ التقديم",

@@ -13,7 +13,7 @@ const allowedFields = [
   "scope",
   "client_id",
   "dossier_id",
-  "case_id",
+  "lawsuit_id",
   "mission_id",
   "task_id",
   "personal_task_id",
@@ -87,9 +87,9 @@ function canHardDelete(entry) {
 }
 
 function validateParentCombination(data) {
-  if (data.dossier_id !== undefined && data.case_id !== undefined) {
-    if (data.dossier_id !== null && data.case_id !== null) {
-      assert(false, "Provide at most one of dossier_id or case_id");
+  if (data.dossier_id !== undefined && data.lawsuit_id !== undefined) {
+    if (data.dossier_id !== null && data.lawsuit_id !== null) {
+      assert(false, "Provide at most one of dossier_id or lawsuit_id");
     }
   }
 }
@@ -105,7 +105,7 @@ function list(includeDeleted = false) {
 
 /**
  * List entries for balance calculations (excludes cancelled entries)
- * @param {object} filters - Optional filters { clientId, dossierId, caseId, direction }
+ * @param {object} filters - Optional filters { clientId, dossierId, lawsuitId, direction }
  * @returns {Array} Active financial entries
  */
 function listForBalance(filters = {}) {
@@ -124,9 +124,9 @@ function listForBalance(filters = {}) {
     where.push("dossier_id = @dossierId");
     params.dossierId = filters.dossierId;
   }
-  if (filters.caseId) {
-    where.push("case_id = @caseId");
-    params.caseId = filters.caseId;
+  if (filters.lawsuitId) {
+    where.push("lawsuit_id = @lawsuitId");
+    params.lawsuitId = filters.lawsuitId;
   }
   if (filters.direction) {
     where.push("direction = @direction");
@@ -195,7 +195,7 @@ function create(payload) {
   const insertData = {
     scope: "client", // Default to client scope
     dossier_id: null,
-    case_id: null,
+    lawsuit_id: null,
     mission_id: null,
     task_id: null,
     personal_task_id: null,
@@ -238,8 +238,8 @@ function create(payload) {
 
   try {
     const stmt = db.prepare(
-      `INSERT INTO ${table} (scope, client_id, dossier_id, case_id, mission_id, task_id, personal_task_id, entry_type, status, category, amount, currency, occurred_at, due_date, paid_at, title, description, reference, direction)
-       VALUES (@scope, @client_id, @dossier_id, @case_id, @mission_id, @task_id, @personal_task_id, @entry_type, @status, @category, @amount, @currency, @occurred_at, @due_date, @paid_at, @title, @description, @reference, @direction)`
+      `INSERT INTO ${table} (scope, client_id, dossier_id, lawsuit_id, mission_id, task_id, personal_task_id, entry_type, status, category, amount, currency, occurred_at, due_date, paid_at, title, description, reference, direction)
+       VALUES (@scope, @client_id, @dossier_id, @lawsuit_id, @mission_id, @task_id, @personal_task_id, @entry_type, @status, @category, @amount, @currency, @occurred_at, @due_date, @paid_at, @title, @description, @reference, @direction)`
     );
     const result = stmt.run(insertData);
 
@@ -511,7 +511,7 @@ function cancel(id, options = {}) {
 
 /**
  * Check if parent entity can be deleted/closed based on financial entries
- * @param {string} parentType - 'client' | 'dossier' | 'case'
+ * @param {string} parentType - 'client' | 'dossier' | 'lawsuit'
  * @param {number} parentId - Parent entity ID
  * @returns {object} { canDelete, blockers, activeEntries }
  */
@@ -526,8 +526,8 @@ function checkParentDeletionAllowed(parentType, parentId) {
     case "dossier":
       whereClause = "dossier_id = @parentId";
       break;
-    case "case":
-      whereClause = "case_id = @parentId";
+    case "lawsuit":
+      whereClause = "lawsuit_id = @parentId";
       break;
     default:
       return { canDelete: true, blockers: [], activeEntries: [] };
@@ -583,3 +583,5 @@ module.exports = {
   canHardDelete,
   CANONICAL_STATUSES,
 };
+
+

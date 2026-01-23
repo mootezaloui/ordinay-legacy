@@ -7,10 +7,10 @@ const {
 } = require("./_utils");
 const notesService = require("./notes.service");
 
-const table = "cases";
+const table = "lawsuits";
 const allowedFields = [
   "reference",
-  "case_number",
+  "lawsuit_number",
   "dossier_id",
   "title",
   "description",
@@ -35,19 +35,19 @@ function generateReference() {
   const year = new Date().getFullYear();
   const prefix = `PRO-${year}-`;
 
-  // Get all existing case numbers for current year from database
-  const existingCases = db
+  // Get all existing lawsuit numbers for current year from database
+  const existingLawsuits = db
     .prepare(
-      `SELECT case_number FROM ${table} 
+      `SELECT lawsuit_number FROM ${table} 
      WHERE deleted_at IS NULL 
-     AND case_number LIKE @prefix`
+     AND lawsuit_number LIKE @prefix`
     )
     .all({ prefix: `${prefix}%` });
 
   // Extract numbers from existing references
-  const existingNumbers = existingCases
-    .map((c) => {
-      const match = c.case_number?.match(/(\d+)$/);
+  const existingNumbers = existingLawsuits
+    .map((lawsuit) => {
+      const match = lawsuit.lawsuit_number?.match(/(\d+)$/);
       return match ? parseInt(match[1], 10) : 0;
     })
     .filter((num) => !isNaN(num));
@@ -64,28 +64,28 @@ function generateReference() {
 }
 
 function list() {
-  const cases = db
+  const lawsuits = db
     .prepare(`SELECT * FROM ${table} WHERE deleted_at IS NULL`)
     .all();
 
-  // Attach notes for each case so UI gets the persisted notes on initial load
-  return cases.map((caseItem) => ({
-    ...caseItem,
-    notes: notesService.getNotesForEntity("case", caseItem.id),
+  // Attach notes for each lawsuit so UI gets the persisted notes on initial load
+  return lawsuits.map((lawsuit) => ({
+    ...lawsuit,
+    notes: notesService.getNotesForEntity("lawsuit", lawsuit.id),
   }));
 }
 
 function get(id) {
-  const caseData = db
+  const lawsuitData = db
     .prepare(`SELECT * FROM ${table} WHERE id = @id AND deleted_at IS NULL`)
     .get({ id });
-  if (!caseData) return null;
+  if (!lawsuitData) return null;
 
   // Load notes from notes table
-  const notes = notesService.getNotesForEntity("case", id);
-  caseData.notes = notes;
+  const notes = notesService.getNotesForEntity("lawsuit", id);
+  lawsuitData.notes = notes;
 
-  return caseData;
+  return lawsuitData;
 }
 
 function create(payload) {
@@ -102,7 +102,7 @@ function create(payload) {
     judgment_number: null,
     judgment_date: null,
     reference_number: null,
-    case_number: null,
+    lawsuit_number: null,
     opened_at: new Date().toISOString(),
     closed_at: null,
     ...data,
@@ -113,30 +113,30 @@ function create(payload) {
   if (!insertData.priority) insertData.priority = "medium";
 
   // ✅ FIXED: Check if provided reference already exists, regenerate if needed
-  if (insertData.reference || insertData.case_number) {
-    const checkRef = insertData.reference || insertData.case_number;
+  if (insertData.reference || insertData.lawsuit_number) {
+    const checkRef = insertData.reference || insertData.lawsuit_number;
     const existing = db
       .prepare(
-        `SELECT id FROM ${table} WHERE case_number = @ref AND deleted_at IS NULL`
+        `SELECT id FROM ${table} WHERE lawsuit_number = @ref AND deleted_at IS NULL`
       )
       .get({ ref: checkRef });
 
     if (existing) {
       console.log(
-        `[cases.service] Reference ${checkRef} already exists, generating new one`
+        `[lawsuits.service] Reference ${checkRef} already exists, generating new one`
       );
       insertData.reference = generateReference();
-      insertData.case_number = insertData.reference;
+      insertData.lawsuit_number = insertData.reference;
     } else {
-      // Sync reference and case_number fields
-      if (!insertData.reference) insertData.reference = insertData.case_number;
-      if (!insertData.case_number)
-        insertData.case_number = insertData.reference;
+      // Sync reference and lawsuit_number fields
+      if (!insertData.reference) insertData.reference = insertData.lawsuit_number;
+      if (!insertData.lawsuit_number)
+        insertData.lawsuit_number = insertData.reference;
     }
   } else {
     // Generate new reference if none provided
     insertData.reference = generateReference();
-    insertData.case_number = insertData.reference;
+    insertData.lawsuit_number = insertData.reference;
   }
 
   if (!insertData.opened_at) insertData.opened_at = new Date().toISOString();
@@ -145,7 +145,7 @@ function create(payload) {
     const stmt = db.prepare(
       `INSERT INTO ${table} (
         reference,
-        case_number,
+        lawsuit_number,
         dossier_id,
         title,
         description,
@@ -165,7 +165,7 @@ function create(payload) {
         closed_at
       ) VALUES (
         @reference,
-        @case_number,
+        @lawsuit_number,
         @dossier_id,
         @title,
         @description,
@@ -188,9 +188,9 @@ function create(payload) {
     const result = stmt.run(insertData);
     return get(result.lastInsertRowid);
   } catch (error) {
-    console.error("[cases.service] Create failed:", error.message);
+    console.error("[lawsuits.service] Create failed:", error.message);
     console.error(
-      "[cases.service] Insert data:",
+      "[lawsuits.service] Insert data:",
       JSON.stringify(insertData, null, 2)
     );
     throw error;
@@ -207,7 +207,7 @@ function update(id, payload) {
     delete data.notes; // Remove from main update
   }
 
-  // Only update case table if there are fields other than notes
+  // Only update lawsuit table if there are fields other than notes
   if (Object.keys(data).length > 0) {
     const setClause = buildUpdateClause(data);
     const stmt = db.prepare(
@@ -219,7 +219,7 @@ function update(id, payload) {
 
   // Save notes if provided
   if (notesArray !== null) {
-    notesService.saveNotesForEntity("case", id, notesArray);
+    notesService.saveNotesForEntity("lawsuit", id, notesArray);
   }
 
   return get(id);
@@ -228,27 +228,27 @@ function update(id, payload) {
 function remove(id) {
   const historyService = require("./history.service");
 
-  // Get the case to know which dossier to update
-  const caseRecord = get(id);
-  if (!caseRecord) return false;
+  // Get the lawsuit to know which dossier to update
+  const lawsuitRecord = get(id);
+  if (!lawsuitRecord) return false;
 
-  // Delete all history events for this case
-  historyService.deleteByEntity("case", id);
+  // Delete all history events for this lawsuit
+  historyService.deleteByEntity("lawsuit", id);
 
-  // Delete all notes for this case
-  notesService.deleteNotesForEntity("case", id);
+  // Delete all notes for this lawsuit
+  notesService.deleteNotesForEntity("lawsuit", id);
 
-  // Delete the case
+  // Delete the lawsuit
   const stmt = db.prepare(`DELETE FROM ${table} WHERE id = @id`);
   const result = stmt.run({ id });
 
   // Add deletion event to parent dossier's history
-  if (result.changes > 0 && caseRecord.dossier_id) {
+  if (result.changes > 0 && lawsuitRecord.dossier_id) {
     historyService.create({
       entity_type: "dossier",
-      entity_id: caseRecord.dossier_id,
+      entity_id: lawsuitRecord.dossier_id,
       action: "child_deleted",
-      description: `Case "${caseRecord.title}" (${caseRecord.reference}) was deleted`,
+      description: `Lawsuit "${lawsuitRecord.title}" (${lawsuitRecord.reference}) was deleted`,
     });
   }
 

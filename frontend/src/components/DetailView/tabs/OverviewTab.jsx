@@ -71,6 +71,9 @@ const normalizeNotesValue = (value, fallback = "") => {
  */
 function StructuredEditSection({ section, data, onSave, onSaveWithOptions, entityType, entityId, contextData = {} }) {
   const { t } = useTranslation("common");
+  const clients = contextData.clients || [];
+  const dossiers = contextData.dossiers || [];
+  const lawsuits = contextData.lawsuits || [];
   const [isEditing, setIsEditing] = useState(false);
   const [editedData, setEditedData] = useState({});
   const [isSaving, setIsSaving] = useState(false);
@@ -88,7 +91,7 @@ function StructuredEditSection({ section, data, onSave, onSaveWithOptions, entit
           financialEntries: contextData.financialEntries || [],
           clients: contextData.clients || [],
           dossiers: contextData.dossiers || [],
-          cases: contextData.cases || [],
+          lawsuits: contextData.lawsuits || [],
           officers: contextData.officers || [],
           missions: contextData.missions || [],
           tasks: contextData.tasks || [],
@@ -191,75 +194,75 @@ function StructuredEditSection({ section, data, onSave, onSaveWithOptions, entit
 
     // ✅ Handle linkType clearing (for sessions)
     if (fieldKey === "linkType") {
-      if (value === "case") {
+      if (value === "lawsuit") {
         newData.dossierId = "";
       } else if (value === "dossier") {
-        newData.caseId = "";
+        newData.lawsuitId = "";
       }
     }
 
     // ✅ Handle parentType clearing (for tasks)
     if (fieldKey === "parentType") {
-      if (value === "case") {
+      if (value === "lawsuit") {
         newData.dossierId = "";
         newData.dossier = null;
       } else if (value === "dossier") {
-        newData.caseId = "";
-        newData.case = null;
+        newData.lawsuitId = "";
+        newData.lawsuit = null;
       }
     }
 
-    // ✅ Handle clientId change - clear dependent dossier and case (for financial entries)
+    // ✅ Handle clientId change - clear dependent dossier and lawsuit (for financial entries)
     if (fieldKey === "clientId") {
       newData.dossierId = "";
       newData.dossierReference = "";
-      newData.caseId = "";
-      newData.caseReference = "";
+      newData.lawsuitId = "";
+      newData.lawsuitReference = "";
     }
 
-    // ✅ Handle dossierId change - clear dependent case and update client (for financial entries)
+    // ✅ Handle dossierId change - clear dependent lawsuit and update client (for financial entries)
     if (fieldKey === "dossierId") {
-      const selectedDossier = [].find(d => d.id === parseInt(value));
+      const selectedDossier = dossiers.find(d => d.id === parseInt(value));
       if (selectedDossier) {
         newData.dossier = {
           id: selectedDossier.id,
-          caseNumber: selectedDossier.caseNumber,
+          lawsuitNumber: selectedDossier.lawsuitNumber,
           title: selectedDossier.title
         };
-        newData.dossierReference = selectedDossier.caseNumber;
+        newData.dossierReference = selectedDossier.lawsuitNumber;
         // Auto-fill client if not already set
         if (!newData.clientId) {
           newData.clientId = selectedDossier.clientId;
-          const client = [].find(c => c.id === selectedDossier.clientId);
+          const client = clients.find(c => c.id === selectedDossier.clientId);
           if (client) {
             newData.clientName = client.name;
           }
         }
       }
-      // Clear case when dossier changes
-      newData.caseId = "";
-      newData.caseReference = "";
+      // Clear lawsuit when dossier changes
+      newData.lawsuitId = "";
+      newData.lawsuitReference = "";
     }
 
-    // ✅ Update the full case object when caseId changes (for all entities)
-    if (fieldKey === "caseId") {
-      const selectedCase = [].find(c => c.id === parseInt(value));
-      if (selectedCase) {
-        newData.case = {
-          id: selectedCase.id,
-          caseNumber: selectedCase.caseNumber,
-          title: selectedCase.title
+    // ✅ Update the full lawsuit object when lawsuitId changes (for all entities)
+    if (fieldKey === "lawsuitId") {
+      const selectedLawsuit = lawsuits.find(c => c.id === parseInt(value));
+      if (selectedLawsuit) {
+        newData.lawsuit = {
+          id: selectedLawsuit.id,
+          lawsuitNumber: selectedLawsuit.lawsuitNumber,
+          title: selectedLawsuit.title
         };
-        newData.caseReference = selectedCase.caseNumber;
+        newData.lawsuitReference = selectedLawsuit.lawsuitNumber;
         // Auto-fill dossier and client if not already set
-        if (!newData.dossierId && selectedCase.dossierId) {
-          newData.dossierId = selectedCase.dossierId;
-          const dossier = [].find(d => d.id === selectedCase.dossierId);
+        if (!newData.dossierId && selectedLawsuit.dossierId) {
+          newData.dossierId = selectedLawsuit.dossierId;
+          const dossier = dossiers.find(d => d.id === selectedLawsuit.dossierId);
           if (dossier) {
-            newData.dossierReference = dossier.caseNumber;
+            newData.dossierReference = dossier.lawsuitNumber;
             if (!newData.clientId) {
               newData.clientId = dossier.clientId;
-              const client = [].find(c => c.id === dossier.clientId);
+              const client = clients.find(c => c.id === dossier.clientId);
               if (client) {
                 newData.clientName = client.name;
               }
@@ -380,7 +383,7 @@ function StructuredEditSection({ section, data, onSave, onSaveWithOptions, entit
               const currentParentType = isEditing ? editedData.parentType : data.parentType;
 
               // Hide fields based on linkType (sessions)
-              if (hasLinkType && fieldKey === "caseId" && currentLinkType !== "case") {
+              if (hasLinkType && fieldKey === "lawsuitId" && currentLinkType !== "lawsuit") {
                 return null;
               }
               if (hasLinkType && fieldKey === "dossierId" && currentLinkType !== "dossier") {
@@ -388,7 +391,7 @@ function StructuredEditSection({ section, data, onSave, onSaveWithOptions, entit
               }
 
               // Hide fields based on parentType (tasks)
-              if (hasParentType && fieldKey === "caseId" && currentParentType !== "case") {
+              if (hasParentType && fieldKey === "lawsuitId" && currentParentType !== "lawsuit") {
                 return null;
               }
               if (hasParentType && fieldKey === "dossierId" && currentParentType !== "dossier") {
@@ -399,11 +402,11 @@ function StructuredEditSection({ section, data, onSave, onSaveWithOptions, entit
                 // ✅ Determine if field is conditionally required
                 const isConditionallyRequired =
                   (hasLinkType && (
-                    (fieldKey === "caseId" && currentLinkType === "case") ||
+                    (fieldKey === "lawsuitId" && currentLinkType === "lawsuit") ||
                     (fieldKey === "dossierId" && currentLinkType === "dossier")
                   )) ||
                   (hasParentType && (
-                    (fieldKey === "caseId" && currentParentType === "case") ||
+                    (fieldKey === "lawsuitId" && currentParentType === "lawsuit") ||
                     (fieldKey === "dossierId" && currentParentType === "dossier")
                   ));
 
@@ -537,7 +540,7 @@ function StructuredEditSection({ section, data, onSave, onSaveWithOptions, entit
         actionName={section.title ? `${t("actions.edit")} ${section.title}` : t("actions.edit")}
         blockers={validationResult?.blockers || []}
         warnings={validationResult?.warnings || []}
-        entityName={data?.caseNumber || data?.title || data?.name || ""}
+        entityName={data?.lawsuitNumber || data?.title || data?.name || ""}
       />
 
       <ConfirmImpactModal
@@ -549,7 +552,7 @@ function StructuredEditSection({ section, data, onSave, onSaveWithOptions, entit
         onConfirm={handleConfirmImpact}
         actionName={t("detail.overview.editAttachment")}
         impactSummary={validationResult?.impactSummary || []}
-        entityName={data?.caseNumber || data?.title || data?.name || ""}
+        entityName={data?.lawsuitNumber || data?.title || data?.name || ""}
       />
     </ContentSection>
   );
@@ -565,33 +568,33 @@ function RegularSection({ section, data, isEditing, onDataChange, contextData = 
   const handleFieldChange = (fieldKey, value) => {
     let newData = { ...editedData, [fieldKey]: value };
 
-    // Handle special cases
+    // Handle special lawsuits
     if (fieldKey === "linkType") {
-      if (value === "case") {
+      if (value === "lawsuit") {
         newData.dossierId = "";
       } else if (value === "dossier") {
-        newData.caseId = "";
+        newData.lawsuitId = "";
       }
     }
 
     if (fieldKey === "dossierId") {
-      const selectedDossier = [].find(d => d.id === parseInt(value));
+      const selectedDossier = dossiers.find(d => d.id === parseInt(value));
       if (selectedDossier) {
         newData.dossier = {
           id: selectedDossier.id,
-          caseNumber: selectedDossier.caseNumber,
+          lawsuitNumber: selectedDossier.lawsuitNumber,
           title: selectedDossier.title
         };
       }
     }
 
-    if (fieldKey === "caseId") {
-      const selectedCase = [].find(c => c.id === parseInt(value));
-      if (selectedCase) {
-        newData.case = {
-          id: selectedCase.id,
-          caseNumber: selectedCase.caseNumber,
-          title: selectedCase.title
+    if (fieldKey === "lawsuitId") {
+      const selectedLawsuit = lawsuits.find(c => c.id === parseInt(value));
+      if (selectedLawsuit) {
+        newData.lawsuit = {
+          id: selectedLawsuit.id,
+          lawsuitNumber: selectedLawsuit.lawsuitNumber,
+          title: selectedLawsuit.title
         };
       }
     }
@@ -665,7 +668,7 @@ function RegularSection({ section, data, isEditing, onDataChange, contextData = 
 
               const hasLinkType = "linkType" in editedData;
 
-              if (hasLinkType && fieldKey === "caseId" && editedData.linkType !== "case") {
+              if (hasLinkType && fieldKey === "lawsuitId" && editedData.linkType !== "lawsuit") {
                 return null;
               }
               if (hasLinkType && fieldKey === "dossierId" && editedData.linkType !== "dossier") {
@@ -674,7 +677,7 @@ function RegularSection({ section, data, isEditing, onDataChange, contextData = 
 
               if (isEditing && field.editable !== false) {
                 const isConditionallyRequired = hasLinkType && (
-                  (fieldKey === "caseId" && editedData.linkType === "case") ||
+                  (fieldKey === "lawsuitId" && editedData.linkType === "lawsuit") ||
                   (fieldKey === "dossierId" && editedData.linkType === "dossier")
                 );
 
@@ -792,3 +795,7 @@ function RegularSection({ section, data, isEditing, onDataChange, contextData = 
     </ContentSection>
   );
 }
+
+
+
+

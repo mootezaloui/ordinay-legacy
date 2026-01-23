@@ -18,7 +18,7 @@ export default function ActivityFeed({ activities, maxItems = 5 }) {
       document: { icon: "fas fa-file-upload", color: "indigo" },
       payment: { icon: "fas fa-dollar-sign", color: "emerald" },
       meeting: { icon: "fas fa-handshake", color: "cyan" },
-      case: { icon: "fas fa-gavel", color: "rose" },
+      lawsuit: { icon: "fas fa-gavel", color: "rose" },
       default: { icon: "fas fa-bell", color: "slate" },
     };
     return icons[type] || icons.default;

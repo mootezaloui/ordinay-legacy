@@ -1,4 +1,4 @@
-﻿import { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useData } from "../contexts/DataContext";
 import { useNavigate } from "react-router-dom";
 import { useAdvancedTable } from "../hooks/useAdvancedTable";
@@ -33,7 +33,7 @@ export default function Officers() {
     officers: rawOfficers,
     clients,
     dossiers,
-    cases,
+    lawsuits,
     tasks,
     sessions,
     missions,
@@ -214,7 +214,7 @@ export default function Officers() {
     // ✅ Validate before allowing edit
     const result = canPerformAction('officer', officer.id, 'edit', {
       data: officer,
-      entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
+      entities: { clients, dossiers, lawsuits, tasks, sessions, officers, missions, financialEntries }
     });
 
     if (!result.allowed) {
@@ -239,7 +239,7 @@ export default function Officers() {
     const officer = officers.find(o => o.id === id);
     const result = canPerformAction('officer', id, 'delete', {
       data: officer,
-      entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
+      entities: { clients, dossiers, lawsuits, tasks, sessions, officers, missions, financialEntries }
     });
 
     if (!result.allowed) {
@@ -307,7 +307,7 @@ export default function Officers() {
       });
 
       // CRITICAL: Force page reload to clear any cached mission data
-      // This ensures no orphaned missions remain visible in dossier/case views
+      // This ensures no orphaned missions remain visible in dossier/lawsuit views
       console.log('[Officers.handleForceDelete] Reloading page to clear cached data...');
       setTimeout(() => {
         window.location.reload();
@@ -331,7 +331,7 @@ export default function Officers() {
       const result = canPerformAction('officer', editingOfficer.id, 'edit', {
         data: editingOfficer,
         newData: formData,
-        entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
+        entities: { clients, dossiers, lawsuits, tasks, sessions, officers, missions, financialEntries }
       });
 
       if (!result.allowed) {
@@ -627,4 +627,5 @@ export default function Officers() {
     </PageLayout>
   );
 }
+
 

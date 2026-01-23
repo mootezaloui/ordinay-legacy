@@ -74,7 +74,7 @@ const mapBackendEventToFrontend = (event) => {
  * Log a history event
  *
  * @param {Object} params
- * @param {string} params.entityType - Type of entity (client, dossier, case, task, etc.)
+ * @param {string} params.entityType - Type of entity (client, dossier, lawsuit, task, etc.)
  * @param {number|string} params.entityId - Unique ID of the entity
  * @param {string} params.eventType - Type of event (lifecycle, status, assignment, finance, system)
  * @param {string} params.label - Short human-readable title (in French)

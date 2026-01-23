@@ -133,7 +133,7 @@
     "tabs": {
       "overview": "Overview",
       "missions": "Missions",
-      "cases": "Related Lawsuits/Dossiers",
+      "lawsuits": "Related Lawsuits/Dossiers",
       "financial": "Accounting",
       "financialDescription": "Financial tracking of all missions for this bailiff",
       "documents": "Documents",
@@ -145,11 +145,11 @@
       "addSubtitle": "Assign a new mission to this bailiff",
       "help": {
         "assigned": "This mission will be assigned to {{name}}",
-        "entityType": "Select if this mission concerns a dossier or a case",
-        "entityReference": "Select the dossier or case for this mission"
+        "entityType": "Select if this mission concerns a dossier or a lawsuit",
+        "entityReference": "Select the dossier or lawsuit for this mission"
       }
     },
-    "cases": {
+    "lawsuits": {
       "empty": "No related lawsuits/dossiers for this bailiff"
     },
     "overview": {

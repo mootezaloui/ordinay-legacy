@@ -14,7 +14,7 @@ const allowedFields = [
 const allowedEntityTypes = new Set([
   "client",
   "dossier",
-  "case",
+  "lawsuit",
   "task",
   "session",
   "mission",
@@ -31,6 +31,8 @@ const normalizeEntityType = (rawType) => {
     financialentry: "financial_entry",
     personalTask: "personal_task",
     personaltask: "personal_task",
+    // Legacy alias: normalize "case" to canonical "lawsuit"
+    case: "lawsuit",
   };
   const lowered = String(rawType).toLowerCase();
   return map[rawType] || map[lowered] || lowered;

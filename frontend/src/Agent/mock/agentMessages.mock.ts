@@ -40,13 +40,13 @@ export const mockConversation: AgentMessage[] = [
   {
     id: "3",
     role: "user",
-    content: "Prepare a summary of the Dupont case",
+    content: "Prepare a summary of the Dupont lawsuit",
     timestamp: new Date(Date.now() - 120000),
   },
   {
     id: "4",
     role: "agent",
-    content: "I've prepared a comprehensive summary of the Dupont case:",
+    content: "I've prepared a comprehensive summary of the Dupont lawsuit:",
     timestamp: new Date(Date.now() - 60000),
     data: {
       type: "report",

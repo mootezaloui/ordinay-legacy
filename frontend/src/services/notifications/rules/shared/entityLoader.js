@@ -10,7 +10,7 @@ export let entities = {
   sessions: [],
   missions: [],
   dossiers: [],
-  cases: [],
+  lawsuits: [],
   clients: [],
   officers: [],
   financialEntries: [],
@@ -24,7 +24,7 @@ export function loadEntities(context = {}) {
     sessions: context.entities?.sessions || context.sessions || [],
     missions: context.entities?.missions || context.missions || [],
     dossiers: context.entities?.dossiers || context.dossiers || [],
-    cases: context.entities?.cases || context.cases || [],
+    lawsuits: context.entities?.lawsuits || context.lawsuits || [],
     clients: context.entities?.clients || context.clients || [],
     officers: context.entities?.officers || context.officers || [],
     financialEntries:
@@ -44,8 +44,8 @@ export function getAllDossiers() {
   return entities.dossiers || [];
 }
 
-export function getAllCases() {
-  return entities.cases || [];
+export function getAllLawsuits() {
+  return entities.lawsuits || [];
 }
 
 export function getAllTasks() {
@@ -71,3 +71,4 @@ export function getAllOfficers() {
 export function getAllFinancialEntries() {
   return entities.financialEntries || [];
 }
+

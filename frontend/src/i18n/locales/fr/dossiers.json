@@ -85,7 +85,7 @@
       "statusLocked": "Le statut ne peut être changé que via le sélecteur dans la liste"
     },
     "fields": {
-      "caseNumber": {
+      "lawsuitNumber": {
         "label": "Référence / Numéro",
         "placeholder": "Ex : DOS-2025-001 (auto-généré si vide)",
         "helper": "Optionnel - Laissez vide pour la génération automatique (DOS-ANNÉE-XXX)"
@@ -278,21 +278,21 @@
     },
     "forms": {
       "sessions": {
-        "linkHelpWithCases": "Choisissez si cette audience est liée à ce dossier ou à un procès spécifique",
-        "linkHelpNoCases": "Cette audience sera liée à ce dossier (aucun procès disponible)",
-        "casesEmpty": "Aucun procès disponible. Veuillez d'abord créer un procès.",
-        "caseHelp": "Sélectionnez le procès auquel cette audience sera liée",
+        "linkHelpWithLawsuits": "Choisissez si cette audience est liée à ce dossier ou à un procès spécifique",
+        "linkHelpNoLawsuits": "Cette audience sera liée à ce dossier (aucun procès disponible)",
+        "lawsuitsEmpty": "Aucun procès disponible. Veuillez d'abord créer un procès.",
+        "lawsuitHelp": "Sélectionnez le procès auquel cette audience sera liée",
         "dossierHelp": "Cette audience sera liée à ce dossier"
       },
       "tasks": {
-        "linkHelpWithCases": "Choisissez si cette tâche concerne le dossier en général ou un procès spécifique",
-        "linkHelpNoCases": "Cette tâche sera liée au dossier (aucun procès disponible)",
-        "casesEmpty": "Aucun procès disponible. Veuillez d'abord créer un procès.",
-        "caseHelp": "Sélectionnez le procès auquel cette tâche sera liée",
+        "linkHelpWithLawsuits": "Choisissez si cette tâche concerne le dossier en général ou un procès spécifique",
+        "linkHelpNoLawsuits": "Cette tâche sera liée au dossier (aucun procès disponible)",
+        "lawsuitsEmpty": "Aucun procès disponible. Veuillez d'abord créer un procès.",
+        "lawsuitHelp": "Sélectionnez le procès auquel cette tâche sera liée",
         "dossierHelp": "Cette tâche sera liée à ce dossier"
       },
       "missions": {
-        "linkedToDossier": "Cette mission sera liée au dossier {{caseNumber}}"
+        "linkedToDossier": "Cette mission sera liée au dossier {{lawsuitNumber}}"
       }
     },
     "overview": {
@@ -301,8 +301,8 @@
       "adverse": "Partie adverse",
       "legal": "Informations juridiques",
       "fields": {
-        "caseNumber": "Numéro du dossier",
-        "caseNumberHelp": "Format : DOS-ANNÉE-NUMÉRO",
+        "lawsuitNumber": "Numéro du dossier",
+        "lawsuitNumberHelp": "Format : DOS-ANNÉE-NUMÉRO",
         "title": "Titre du dossier",
         "client": "Client",
         "clientHelp": "Attention : Changer le client transférera le dossier à un autre client",
@@ -319,3 +319,4 @@
     }
   }
 }
+

@@ -21,10 +21,10 @@ const inputSchema = {
       minimum: 1,
       description: 'Dossier ID to attach task to',
     },
-    caseId: {
+    lawsuitId: {
       type: ['integer', 'null'],
       minimum: 1,
-      description: 'Case ID to attach task to',
+      description: 'Lawsuit ID to attach task to',
     },
     title: {
       type: 'string',
@@ -87,3 +87,4 @@ module.exports = {
   confirmationRequired: true, // Requires explicit confirmation
   handler,
 };
+

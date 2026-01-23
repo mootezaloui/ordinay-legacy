@@ -45,10 +45,10 @@ import { emailTemplates } from "./emailTemplates";
 /**
  * Determines if an action warrants prompting for client notification
  *
- * @param {string} entityType - Type of entity (dossier, case, session, etc.)
+ * @param {string} entityType - Type of entity (dossier, lawsuit, session, etc.)
  * @param {string} action - Action performed (changeStatus, create, edit, delete)
  * @param {object} context - Action context (oldValue, newValue, data, etc.)
- * @param {object} entities - All entities data { clients, dossiers, cases, etc. }
+ * @param {object} entities - All entities data { clients, dossiers, lawsuits, etc. }
  * @returns {object|null} { shouldPrompt: true, eventType: "dossier_closed", eventData: {...} } or null
  */
 export function shouldPromptClientNotification(
@@ -79,7 +79,7 @@ function resolveClientInfo(data = {}, entities) {
     entities = {};
   }
 
-  const { clients = [], dossiers = [], cases = [] } = entities;
+  const { clients = [], dossiers = [], lawsuits = [] } = entities;
 
   // Prefer explicit clientId
   let clientId = data.clientId || data.client?.id;
@@ -90,26 +90,26 @@ function resolveClientInfo(data = {}, entities) {
     if (dossier) clientId = dossier.clientId || dossier.client_id;
   }
 
-  // Try case reference
-  if (!clientId && data.caseId) {
-    const caseItem = cases.find((c) => c.id === parseInt(data.caseId, 10));
-    if (caseItem) {
+  // Try lawsuit reference
+  if (!clientId && data.lawsuitId) {
+    const lawsuitItem = lawsuits.find((c) => c.id === parseInt(data.lawsuitId, 10));
+    if (lawsuitItem) {
       clientId =
-        caseItem.clientId ||
-        caseItem.client_id ||
+        lawsuitItem.clientId ||
+        lawsuitItem.client_id ||
         (() => {
           const dossier = dossiers.find(
-            (d) => d.id === caseItem.dossierId || caseItem.dossier_id
+            (d) => d.id === lawsuitItem.dossierId || lawsuitItem.dossier_id
           );
           return dossier?.clientId || dossier?.client_id;
         })();
     }
   }
 
-  // Try nested case/dossier objects
+  // Try nested lawsuit/dossier objects
   if (!clientId && data.dossier?.clientId) clientId = data.dossier.clientId;
-  if (!clientId && data.case?.dossier?.clientId)
-    clientId = data.case.dossier.clientId;
+  if (!clientId && data.lawsuit?.dossier?.clientId)
+    clientId = data.lawsuit.dossier.clientId;
 
   const client = clients.find((c) => c.id === clientId);
   return {
@@ -128,10 +128,10 @@ const EVENT_DETECTORS = {
     changeStatus: detectDossierStatusChange,
     edit: detectDossierDeadlineChange,
   },
-  case: {
-    create: detectCaseCreated,
-    changeStatus: detectCaseStatusChange,
-    edit: detectCaseHearingChange,
+  lawsuit: {
+    create: detectLawsuitCreated,
+    changeStatus: detectLawsuitStatusChange,
+    edit: detectLawsuitHearingChange,
   },
   session: {
     create: detectSessionCreated,
@@ -157,7 +157,7 @@ function detectDossierCreated(context, entities) {
     shouldPrompt: true,
     eventType: "dossier_created",
     eventData: {
-      dossierNumber: data.caseNumber,
+      dossierNumber: data.lawsuitNumber,
       dossierTitle: data.title,
       clientId,
       clientName,
@@ -189,7 +189,7 @@ function detectDossierStatusChange(context, entities) {
     shouldPrompt: true,
     eventType: "dossier_status_changed",
     eventData: {
-      dossierNumber: data.caseNumber,
+      dossierNumber: data.lawsuitNumber,
       dossierTitle: data.title,
       clientId,
       clientName,
@@ -240,7 +240,7 @@ function detectDossierDeadlineChange(context, entities) {
     shouldPrompt: true,
     eventType: "dossier_deadline_changed",
     eventData: {
-      dossierNumber: data.caseNumber,
+      dossierNumber: data.lawsuitNumber,
       dossierTitle: data.title,
       clientId,
       clientName,
@@ -252,9 +252,9 @@ function detectDossierDeadlineChange(context, entities) {
 }
 
 /**
- * Detect Procès (Case) creation
+ * Detect Procès (Lawsuit) creation
  */
-function detectCaseCreated(context, entities) {
+function detectLawsuitCreated(context, entities) {
   const { data } = context;
 
   const { clientId, clientName } = resolveClientInfo(data, entities);
@@ -263,10 +263,10 @@ function detectCaseCreated(context, entities) {
 
   return {
     shouldPrompt: true,
-    eventType: "case_created",
+    eventType: "lawsuit_created",
     eventData: {
-      caseNumber: data.caseNumber,
-      caseTitle: data.title,
+      lawsuitNumber: data.lawsuitNumber,
+      lawsuitTitle: data.title,
       court: data.court,
       clientId,
       clientName,
@@ -275,9 +275,9 @@ function detectCaseCreated(context, entities) {
 }
 
 /**
- * Detect Procès (Case) status changes
+ * Detect Procès (Lawsuit) status changes
  */
-function detectCaseStatusChange(context, entities) {
+function detectLawsuitStatusChange(context, entities) {
   const { oldValue, newValue, data } = context;
 
   // Client-relevant status changes
@@ -287,15 +287,15 @@ function detectCaseStatusChange(context, entities) {
     return null;
   }
 
-  // Get client info from dossier/case refs
+  // Get client info from dossier/lawsuit refs
   const { clientId, clientName } = resolveClientInfo(data, entities);
 
   return {
     shouldPrompt: true,
-    eventType: "case_status_changed",
+    eventType: "lawsuit_status_changed",
     eventData: {
-      caseNumber: data.caseNumber,
-      caseTitle: data.title,
+      lawsuitNumber: data.lawsuitNumber,
+      lawsuitTitle: data.title,
       court: data.court,
       clientId,
       clientName,
@@ -308,7 +308,7 @@ function detectCaseStatusChange(context, entities) {
 /**
  * Detect next hearing date changes
  */
-function detectCaseHearingChange(context, entities) {
+function detectLawsuitHearingChange(context, entities) {
   const { data, newData } = context;
 
   // Check if nextHearing field is being changed
@@ -332,10 +332,10 @@ function detectCaseHearingChange(context, entities) {
 
   return {
     shouldPrompt: true,
-    eventType: "case_hearing_changed",
+    eventType: "lawsuit_hearing_changed",
     eventData: {
-      caseNumber: data.caseNumber,
-      caseTitle: data.title,
+      lawsuitNumber: data.lawsuitNumber,
+      lawsuitTitle: data.title,
       court: data.court,
       clientId,
       clientName,
@@ -351,7 +351,7 @@ function detectCaseHearingChange(context, entities) {
 function detectSessionCreated(context) {
   const { data } = context;
 
-  // Get client info from linked case or dossier (fallback to ids)
+  // Get client info from linked lawsuit or dossier (fallback to ids)
   const { clientId, clientName } = resolveClientInfo(data);
 
   if (!clientId) {
@@ -368,8 +368,8 @@ function detectSessionCreated(context) {
       time: data.time,
       location: data.location,
       duration: data.duration,
-      caseNumber: data.case?.caseNumber || data.caseId,
-      caseTitle: data.case?.title,
+      lawsuitNumber: data.lawsuit?.lawsuitNumber || data.lawsuitId,
+      lawsuitTitle: data.lawsuit?.title,
       clientId,
       clientName,
     },
@@ -410,8 +410,8 @@ function detectSessionDateChange(context, entities) {
       oldTime: data.time,
       newDate: newData.date || data.date,
       newTime: newData.time || data.time,
-      caseNumber: data.case?.caseNumber,
-      caseTitle: data.case?.title,
+      lawsuitNumber: data.lawsuit?.lawsuitNumber,
+      lawsuitTitle: data.lawsuit?.title,
       clientId,
       clientName,
     },
@@ -444,8 +444,8 @@ function detectSessionCancellation(context, entities) {
       date: data.date,
       time: data.time,
       location: data.location,
-      caseNumber: data.case?.caseNumber,
-      caseTitle: data.case?.title,
+      lawsuitNumber: data.lawsuit?.lawsuitNumber,
+      lawsuitTitle: data.lawsuit?.title,
       clientId,
       clientName,
     },
@@ -486,7 +486,7 @@ function detectFinancialEntryAdded(context, entities) {
 /**
  * Generate client email based on event type
  *
- * @param {string} eventType - Type of event (dossier_closed, case_hearing_changed, etc.)
+ * @param {string} eventType - Type of event (dossier_closed, lawsuit_hearing_changed, etc.)
  * @param {object} eventData - Event-specific data
  * @returns {object} { subject, body, clientEmail }
  */
@@ -545,37 +545,45 @@ export function generateClientEmail(eventType, eventData) {
 // ========================================
 
 /**
- * Send email notification to client (MVP implementation)
+ * Send email notification to client via backend API.
  *
- * CURRENT: Frontend-only simulation (logs to console)
- * FUTURE: Backend API call to email service
+ * If the backend email service is not configured, this will gracefully
+ * return false without throwing errors.
  *
  * @param {object} email - Email object { subject, body, clientEmail }
  * @returns {Promise<boolean>} Success status
  */
 export async function sendEmailNotification(email) {
-  console.log("📧 CLIENT EMAIL NOTIFICATION (MVP - Simulated)");
+  console.log("📧 CLIENT EMAIL NOTIFICATION");
   console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
   console.log(`To: ${email.clientEmail}`);
   console.log(`Subject: ${email.subject}`);
   console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-  console.log(email.body);
-  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
-  // FUTURE: Replace with actual backend call
-  // const response = await fetch('/api/notifications/email', {
-  //   method: 'POST',
-  //   headers: { 'Content-Type': 'application/json' },
-  //   body: JSON.stringify(email),
-  // });
-  // return response.ok;
+  try {
+    const response = await fetch("/api/email/send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        to: email.clientEmail,
+        subject: email.subject,
+        body: email.body,
+      }),
+    });
 
-  // MVP: Simulate success
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve(true);
-    }, 500);
-  });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error("❌ Email API error:", errorData);
+      return false;
+    }
+
+    const result = await response.json();
+    console.log("✅ Email sent:", result.messageId || "success");
+    return true;
+  } catch (error) {
+    console.error("❌ Network error sending email:", error);
+    return false;
+  }
 }
 
 /**
@@ -688,3 +696,6 @@ export function getPendingNotification() {
 export function clearPendingNotification() {
   pendingNotification = null;
 }
+
+
+

@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { useToast } from "../../contexts/ToastContext";
 import { useConfirm } from "../../contexts/ConfirmContext";
@@ -6,6 +6,7 @@ import { useData } from "../../contexts/DataContext";
 import { useTutorialSafe } from "../../contexts/TutorialContext";
 import PageLayout from "../layout/PageLayout";
 import PageHeader from "../layout/PageHeader";
+import { PageLoader } from "../brand/OrganiaDataLoader";
 import { getEntityConfig } from "./config/entityConfigs";
 import OverviewTab from "./tabs/OverviewTab";
 import DocumentsTab from "./tabs/DocumentsTab";
@@ -66,7 +67,7 @@ export default function DetailView({ entityType }) {
       'client': 'clients',
       'dossier': 'dossiers',
       'task': 'tasks',
-      'case': 'cases',
+      'lawsuit': 'lawsuits',
       'officer': 'officers',
       'personalTask': 'personalTasks',
       'session': 'sessions',
@@ -104,7 +105,7 @@ export default function DetailView({ entityType }) {
     // and hide the overlay until the user chooses send or ignore.
     const isCreationStep = (
       currentStepRef.current?.id === "create-dossier-from-client" ||
-      currentStepRef.current?.id === "create-case-from-dossier"
+      currentStepRef.current?.id === "create-lawsuit-from-dossier"
     );
     if (notificationPrompt.isOpen && isCreationStep && nextStepRef.current) {
       if (setWaitingForActionRef.current) {
@@ -206,7 +207,7 @@ export default function DetailView({ entityType }) {
     return () => {
       isMounted = false;
     };
-  }, [id, entityType, contextData.clients, contextData.dossiers, contextData.cases, contextData.tasks, contextData.sessions, contextData.officers, contextData.personalTasks]);
+  }, [id, entityType, contextData.clients, contextData.dossiers, contextData.lawsuits, contextData.tasks, contextData.sessions, contextData.officers, contextData.personalTasks]);
 
   // Show pending notification once data is loaded to avoid pre-navigation flicker
   useEffect(() => {
@@ -224,12 +225,7 @@ export default function DetailView({ entityType }) {
   if (loading || globalLoading) {
     return (
       <PageLayout>
-        <div className="flex items-center justify-center py-12">
-          <div className="text-center">
-            <i className="fas fa-spinner fa-spin text-4xl text-blue-600 dark:text-blue-400 mb-4"></i>
-            <p className="text-slate-600 dark:text-slate-400">{t("status.loading", { ns: "common" })}</p>
-          </div>
-        </div>
+        <PageLoader message={t("status.loading", { ns: "common" })} />
       </PageLayout>
     );
   }
@@ -660,7 +656,7 @@ export default function DetailView({ entityType }) {
           bgColor: "bg-blue-100 dark:bg-blue-900/20",
           route: "/dossiers",
           emptyMessage: t("detail.aggregated.empty.dossiers", { ns: "common" }),
-          getTitle: (item) => item.caseNumber,
+          getTitle: (item) => item.lawsuitNumber,
           getSubtitle: (item) => {
             const translatedCategory = item.category ? translateCategory(item.category, t) : 'N/A';
             return `${item.title} • ${t("detail.aggregated.labels.category", { ns: "common" })}: ${translatedCategory}`;
@@ -669,21 +665,21 @@ export default function DetailView({ entityType }) {
         };
         break;
 
-      case "cases":
+      case "lawsuits":
         if (isClient) {
           // Client entity: Get all Procès related to this client (via Dossiers)
           const relatedDossiers = data.relatedDossiers || [];
 
           // ✅ Merge newly added items with existing items
-          const existingCases = (latestContextRef.current.cases || []).filter(cas =>
+          const existingLawsuits = (latestContextRef.current.lawsuits || []).filter(cas =>
             relatedDossiers.some(dossier => dossier.id === cas.dossierId)
           );
 
-          const newlyAddedCases = data.relatedCases || [];
-          const caseIds = new Set(newlyAddedCases.map(c => c.id));
-          const uniqueExistingCases = existingCases.filter(c => !caseIds.has(c.id));
+          const newlyAddedLawsuits = data.relatedLawsuits || [];
+          const lawsuitIds = new Set(newlyAddedLawsuits.map(c => c.id));
+          const uniqueExistingLawsuits = existingLawsuits.filter(c => !lawsuitIds.has(c.id));
 
-          items = [...newlyAddedCases, ...uniqueExistingCases];
+          items = [...newlyAddedLawsuits, ...uniqueExistingLawsuits];
 
           getParentContext = (cas) => {
             const parentDossier = relatedDossiers.find(d => d.id === cas.dossierId);
@@ -695,16 +691,16 @@ export default function DetailView({ entityType }) {
             icon: "fas fa-gavel",
             iconColor: "text-purple-600 dark:text-purple-400",
             bgColor: "bg-purple-100 dark:bg-purple-900/20",
-            route: "/cases",
+            route: "/lawsuits",
             emptyMessage: t("detail.aggregated.empty.lawsuitsClient", { ns: "common" }),
-            getTitle: (item) => item.caseNumber,
+            getTitle: (item) => item.lawsuitNumber,
             getSubtitle: (item) => `${item.title} • ${t("detail.aggregated.labels.nextHearing", { ns: "common" })}: ${item.nextHearing ? formatDate(item.nextHearing) : t("detail.aggregated.labels.notScheduled", { ns: "common" })}`,
             getStatus: (item) => item.status,
           };
         } else if (isDossier) {
           // Dossier entity: Direct children - proceedings of this dossier
-          // ✅ Merge newly added items (data.proceedings) with existing items (filtered from latestContextRef.current.cases || [])
-          const existingProceedings = (latestContextRef.current.cases || []).filter(c => c.dossierId === data.id);
+          // ✅ Merge newly added items (data.proceedings) with existing items (filtered from latestContextRef.current.lawsuits || [])
+          const existingProceedings = (latestContextRef.current.lawsuits || []).filter(c => c.dossierId === data.id);
 
           // Combine and deduplicate
           const newlyAddedProceedings = data.proceedings || [];
@@ -719,9 +715,9 @@ export default function DetailView({ entityType }) {
             icon: "fas fa-gavel",
             iconColor: "text-purple-600 dark:text-purple-400",
             bgColor: "bg-purple-100 dark:bg-purple-900/20",
-            route: "/cases",
+            route: "/lawsuits",
             emptyMessage: t("detail.aggregated.empty.lawsuitsDossier", { ns: "common" }),
-            getTitle: (item) => item.caseNumber,
+            getTitle: (item) => item.lawsuitNumber,
             getSubtitle: (item) => `${item.title} • ${t("detail.aggregated.labels.nextHearing", { ns: "common" })}: ${item.nextHearing ? formatDate(item.nextHearing) : t("detail.aggregated.labels.notScheduled", { ns: "common" })}`,
             getStatus: (item) => item.status,
           };
@@ -730,16 +726,16 @@ export default function DetailView({ entityType }) {
 
       case "sessions": {
         const allSessions = latestContextRef.current.sessions || [];
-        const allCases = latestContextRef.current.cases || latestContextRef.current.cases || [];
+        const allLawsuits = latestContextRef.current.lawsuits || latestContextRef.current.lawsuits || [];
         const allDossiers = latestContextRef.current.dossiers || [];
 
         if (isClient) {
           const relatedDossiers = allDossiers.filter((d) => d.clientId === data.id);
-          const relatedCases = allCases.filter((c) => relatedDossiers.some((d) => d.id === c.dossierId));
+          const relatedLawsuits = allLawsuits.filter((c) => relatedDossiers.some((d) => d.id === c.dossierId));
 
           const existingSessions = allSessions.filter(
             (s) =>
-              (s.caseId && relatedCases.some((c) => c.id === s.caseId)) ||
+              (s.lawsuitId && relatedLawsuits.some((c) => c.id === s.lawsuitId)) ||
               (s.dossierId && relatedDossiers.some((d) => d.id === s.dossierId))
           );
 
@@ -752,11 +748,11 @@ export default function DetailView({ entityType }) {
           );
 
           getParentContext = (session) => {
-            const parentCase = session.caseId ? relatedCases.find((c) => c.id === session.caseId) : null;
-            const parentDossier = parentCase
-              ? relatedDossiers.find((d) => d.id === parentCase.dossierId)
+            const parentLawsuit = session.lawsuitId ? relatedLawsuits.find((c) => c.id === session.lawsuitId) : null;
+            const parentDossier = parentLawsuit
+              ? relatedDossiers.find((d) => d.id === parentLawsuit.dossierId)
               : relatedDossiers.find((d) => d.id === session.dossierId);
-            return { dossier: parentDossier, case: parentCase };
+            return { dossier: parentDossier, lawsuit: parentLawsuit };
           };
 
           entityConfig = {
@@ -771,12 +767,12 @@ export default function DetailView({ entityType }) {
             getStatus: (item) => item.status,
           };
         } else if (isDossier) {
-          const dossierCases = (latestContextRef.current.cases || []).filter((c) => c.dossierId === data.id);
+          const dossierLawsuits = (latestContextRef.current.lawsuits || []).filter((c) => c.dossierId === data.id);
 
           const existingSessions = allSessions.filter(
             (s) =>
               s.dossierId === data.id ||
-              (s.caseId && dossierCases.some((c) => c.id === s.caseId))
+              (s.lawsuitId && dossierLawsuits.some((c) => c.id === s.lawsuitId))
           );
 
           const newlyAddedSessions = data.sessions || [];
@@ -788,8 +784,8 @@ export default function DetailView({ entityType }) {
           );
 
           getParentContext = (session) => {
-            const parentCase = session.caseId ? dossierCases.find((c) => c.id === session.caseId) : null;
-            return { case: parentCase };
+            const parentLawsuit = session.lawsuitId ? dossierLawsuits.find((c) => c.id === session.lawsuitId) : null;
+            return { lawsuit: parentLawsuit };
           };
 
           entityConfig = {
@@ -803,11 +799,11 @@ export default function DetailView({ entityType }) {
             getSubtitle: formatSessionSubtitle,
             getStatus: (item) => item.status,
           };
-        } else if (config.entityType === 'case') {
+        } else if (config.entityType === 'lawsuit') {
           items =
             data.sessions ||
             allSessions.filter(
-              (s) => s.caseId === data.id || s.dossierId === data.dossier?.id
+              (s) => s.lawsuitId === data.id || s.dossierId === data.dossier?.id
             );
           items = items.sort((a, b) => new Date(a.date) - new Date(b.date));
           getParentContext = null; // No parent context needed (direct children)
@@ -831,7 +827,7 @@ export default function DetailView({ entityType }) {
         if (isClient) {
           // Client entity: Get all Tasks related to this client (via Dossiers or Procès)
           const relatedDossiers = data.relatedDossiers || [];
-          const relatedCasesForTasks = (latestContextRef.current.cases || []).filter(cas =>
+          const relatedLawsuitsForTasks = (latestContextRef.current.lawsuits || []).filter(cas =>
             relatedDossiers.some(dossier => dossier.id === cas.dossierId)
           );
 
@@ -839,8 +835,8 @@ export default function DetailView({ entityType }) {
           const existingTasks = (latestContextRef.current.tasks || []).filter(task => {
             if (task.parentType === 'dossier') {
               return relatedDossiers.some(dossier => dossier.id === task.dossierId);
-            } else if (task.parentType === 'case') {
-              return relatedCasesForTasks.some(cas => cas.id === task.caseId);
+            } else if (task.parentType === 'lawsuit') {
+              return relatedLawsuitsForTasks.some(cas => cas.id === task.lawsuitId);
             }
             return false;
           });
@@ -857,12 +853,12 @@ export default function DetailView({ entityType }) {
             if (task.parentType === 'dossier') {
               const parentDossier = relatedDossiers.find(d => d.id === task.dossierId);
               return { dossier: parentDossier };
-            } else if (task.parentType === 'case') {
-              const parentCase = relatedCasesForTasks.find(c => c.id === task.caseId);
-              const parentDossier = parentCase ? relatedDossiers.find(d => d.id === parentCase.dossierId) : null;
+            } else if (task.parentType === 'lawsuit') {
+              const parentLawsuit = relatedLawsuitsForTasks.find(c => c.id === task.lawsuitId);
+              const parentDossier = parentLawsuit ? relatedDossiers.find(d => d.id === parentLawsuit.dossierId) : null;
               return {
                 dossier: parentDossier,
-                case: parentCase
+                lawsuit: parentLawsuit
               };
             }
             return null;
@@ -881,14 +877,14 @@ export default function DetailView({ entityType }) {
           };
         } else if (isDossier) {
           // Dossier entity: Get all Tasks for THIS dossier or its procès
-          const dossierCases = data.proceedings || [];
+          const dossierLawsuits = data.proceedings || [];
 
           // ✅ Merge newly added items (data.tasks) with existing items (filtered from latestContextRef.current.tasks || [])
           const existingTasks = (latestContextRef.current.tasks || []).filter(task => {
             if (task.parentType === 'dossier' && task.dossierId === data.id) {
               return true;
-            } else if (task.parentType === 'case') {
-              return dossierCases.some(cas => cas.id === task.caseId);
+            } else if (task.parentType === 'lawsuit') {
+              return dossierLawsuits.some(cas => cas.id === task.lawsuitId);
             }
             return false;
           });
@@ -902,9 +898,9 @@ export default function DetailView({ entityType }) {
           items = items.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
 
           getParentContext = (task) => {
-            if (task.parentType === 'case') {
-              const parentCase = dossierCases.find(c => c.id === task.caseId);
-              return { case: parentCase };
+            if (task.parentType === 'lawsuit') {
+              const parentLawsuit = dossierLawsuits.find(c => c.id === task.lawsuitId);
+              return { lawsuit: parentLawsuit };
             }
             return null; // Task directly linked to dossier, no parent context needed
           };
@@ -920,14 +916,14 @@ export default function DetailView({ entityType }) {
             getSubtitle: formatTaskSubtitle,
             getStatus: (item) => item.status,
           };
-        } else if (config.entityType === 'case') {
-          // Case entity: Get all Tasks for THIS case or its parent dossier
+        } else if (config.entityType === 'lawsuit') {
+          // Lawsuit entity: Get all Tasks for THIS lawsuit or its parent dossier
           const parentDossier = data.dossier;
 
           // ✅ PRIORITY 1: Use data from entity object if available (newly added items)
           // ✅ PRIORITY 2: Fall back to filtering global array (existing items)
           items = data.tasks || (latestContextRef.current.tasks || []).filter(task => {
-            if (task.parentType === 'case' && task.caseId === data.id) {
+            if (task.parentType === 'lawsuit' && task.lawsuitId === data.id) {
               return true;
             } else if (task.parentType === 'dossier' && parentDossier && task.dossierId === parentDossier.id) {
               return true;
@@ -940,7 +936,7 @@ export default function DetailView({ entityType }) {
             if (task.parentType === 'dossier') {
               return { dossier: parentDossier };
             }
-            return null; // Task directly linked to case, no parent context needed
+            return null; // Task directly linked to lawsuit, no parent context needed
           };
 
           entityConfig = {
@@ -958,7 +954,7 @@ export default function DetailView({ entityType }) {
         break;
 
       case "missions":
-        // Missions are directly available on dossier or case data
+        // Missions are directly available on dossier or lawsuit data
         if (isDossier) {
           items = data.missions || [];
           getParentContext = null;
@@ -978,7 +974,7 @@ export default function DetailView({ entityType }) {
             },
             getStatus: (item) => item.status,
           };
-        } else if (config.entityType === 'case') {
+        } else if (config.entityType === 'lawsuit') {
           items = data.missions || [];
           getParentContext = null;
 
@@ -1034,8 +1030,8 @@ export default function DetailView({ entityType }) {
               {t("actions.back", { ns: "common" })}
             </button>
 
-            {/* Generate Document Button - Only for dossier and case (proces) */}
-            {(entityType === 'dossier' || entityType === 'case' || entityType === 'session') && (
+            {/* Generate Document Button - Only for dossier and lawsuit (proces) */}
+            {(entityType === 'dossier' || entityType === 'lawsuit' || entityType === 'session') && (
               <button
                 onClick={() => {
                   console.log('[DEBUG] Generate Document button clicked. entityType:', entityType);
@@ -1107,7 +1103,7 @@ export default function DetailView({ entityType }) {
               // Determine tutorial attribute based on entity type and tab id
               const getTutorialAttribute = () => {
                 if (entityType === "client" && tab.id === "dossiers") return "client-dossiers-tab";
-                if (entityType === "dossier" && tab.id === "proceedings") return "dossier-cases-tab";
+                if (entityType === "dossier" && tab.id === "proceedings") return "dossier-lawsuits-tab";
                 if (entityType === "dossier" && tab.id === "tasks") return "dossier-tasks-tab";
                 if (entityType === "dossier" && tab.id === "missions") return "dossier-missions-tab";
                 if (entityType === "dossier" && tab.id === "documents") return "dossier-documents-tab";
@@ -1186,9 +1182,9 @@ export default function DetailView({ entityType }) {
             if (tutorial?.setWaitingForAction) {
               tutorial.setWaitingForAction(false);
             }
-            // Advance tutorial after notification is handled (for both dossier and case creation)
+            // Advance tutorial after notification is handled (for both dossier and lawsuit creation)
             if ((tutorial?.currentStep?.id === "client-notification-intro" ||
-              tutorial?.currentStep?.id === "case-notification-intro") && tutorial?.nextStep) {
+              tutorial?.currentStep?.id === "lawsuit-notification-intro") && tutorial?.nextStep) {
               tutorial.nextStep();
             }
           }
@@ -1200,24 +1196,24 @@ export default function DetailView({ entityType }) {
           if (tutorial?.setWaitingForAction) {
             tutorial.setWaitingForAction(false);
           }
-          // Advance tutorial after notification is dismissed (for both dossier and case creation)
+          // Advance tutorial after notification is dismissed (for both dossier and lawsuit creation)
           if ((tutorial?.currentStep?.id === "client-notification-intro" ||
-            tutorial?.currentStep?.id === "case-notification-intro") && tutorial?.nextStep) {
+            tutorial?.currentStep?.id === "lawsuit-notification-intro") && tutorial?.nextStep) {
             tutorial.nextStep();
           }
         }}
       />
 
       {/* Generate Document Modal (always rendered at root level) */}
-      {(entityType === 'dossier' || entityType === 'case' || entityType === 'session') && (
+      {(entityType === 'dossier' || entityType === 'lawsuit' || entityType === 'session') && (
         <>
           {console.log('[DEBUG] Render GenerateDocumentModal. isOpen:', generateDocModalOpen, 'entityType:', entityType)}
           {console.log('[DEBUG] Operator context for document:', getContextDataWithOperator())}
-          {/** Map 'case' to 'proces' for document generation */}
+          {/** Map 'lawsuit' to 'proces' for document generation */}
           <GenerateDocumentModal
             isOpen={generateDocModalOpen}
             onClose={() => setGenerateDocModalOpen(false)}
-            entityType={entityType === 'case' ? 'proces' : entityType}
+            entityType={entityType === 'lawsuit' ? 'proces' : entityType}
             entityData={data}
             contextData={getContextDataWithOperator()}
             onDocumentGenerated={handleDocumentGenerated}
@@ -1227,3 +1223,9 @@ export default function DetailView({ entityType }) {
     </PageLayout>
   );
 }
+
+
+
+
+
+

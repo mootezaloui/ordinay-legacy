@@ -79,14 +79,14 @@
         "label": "Linked to",
         "options": {
           "dossier": "Dossier",
-          "case": "Lawsuit"
+          "lawsuit": "Lawsuit"
         },
         "helper": "Select whether this task is linked to a dossier or a lawsuit."
       },
       "dossierId": {
         "label": "Dossier"
       },
-      "caseId": {
+      "lawsuitId": {
         "label": "Lawsuit"
       },
       "assignedTo": {
@@ -238,15 +238,15 @@
         "parentType": "Link Type",
         "parentTypeOptions": {
           "dossier": "Dossier",
-          "case": "Lawsuit"
+          "lawsuit": "Lawsuit"
         },
         "parentTypeHelp": "A task can be linked to either a Dossier or a Lawsuit",
         "dossier": "Dossier",
         "dossierPlaceholder": "Select a dossier...",
         "dossierHelp": "Select the relevant dossier",
-        "case": "Lawsuit",
-        "casePlaceholder": "Select a lawsuit...",
-        "caseHelp": "Select the relevant lawsuit"
+        "lawsuit": "Lawsuit",
+        "lawsuitPlaceholder": "Select a lawsuit...",
+        "lawsuitHelp": "Select the relevant lawsuit"
       }
     }
   }

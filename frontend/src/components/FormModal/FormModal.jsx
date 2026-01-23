@@ -65,10 +65,10 @@ export default function FormModal({
   size = "auto", // 'sm' | 'md' | 'lg' | 'xl' | 'auto'
   compact = false, // Compact spacing
   // ✅ NEW: Domain rule validation (CRITICAL for integrity)
-  entityType = null, // Entity type for validation (e.g., 'dossier', 'case', 'task')
+  entityType = null, // Entity type for validation (e.g., 'dossier', 'lawsuit', 'task')
   entityId = null, // Entity ID for edit mode validation
   editingEntity = null, // Current entity data for edit mode
-  entities = null, // Entities data for domain rule validation { clients, dossiers, cases, etc. }
+  entities = null, // Entities data for domain rule validation { clients, dossiers, lawsuits, etc. }
 }) {
   const [internalFormData, setInternalFormData] = useState({});
   const [errors, setErrors] = useState({});
@@ -197,16 +197,16 @@ export default function FormModal({
       if (field.hideIf && typeof field.hideIf === 'function' && field.hideIf(formData)) {
         return;
       }
-      if (hasLinkTypeField && field.name === "caseId" && formData.linkType !== "case") {
+      if (hasLinkTypeField && field.name === "lawsuitId" && formData.linkType !== "lawsuit") {
         return;
       }
       if (hasLinkTypeField && field.name === "dossierId" && formData.linkType !== "dossier") {
         return;
       }
 
-      // Make caseId/dossierId required based on linkType
+      // Make lawsuitId/dossierId required based on linkType
       const isConditionallyRequired = hasLinkTypeField && (
-        (field.name === "caseId" && formData.linkType === "case") ||
+        (field.name === "lawsuitId" && formData.linkType === "lawsuit") ||
         (field.name === "dossierId" && formData.linkType === "dossier")
       );
 
@@ -242,8 +242,8 @@ export default function FormModal({
 
     // Step 1.5: Reference validation & auto-generation (CRITICAL - ensures uniqueness)
     const referenceFieldMapping = {
-      dossier: "caseNumber",
-      case: "caseNumber",
+      dossier: "lawsuitNumber",
+      lawsuit: "lawsuitNumber",
       mission: "missionNumber",
     };
 
@@ -506,7 +506,7 @@ export default function FormModal({
                   // Legacy: Conditional visibility for session form fields
                   const hasLinkTypeField = fields.some(f => f.name === "linkType");
 
-                  if (hasLinkTypeField && field.name === "caseId" && formData.linkType !== "case") {
+                  if (hasLinkTypeField && field.name === "lawsuitId" && formData.linkType !== "lawsuit") {
                     return null;
                   }
                   if (hasLinkTypeField && field.name === "dossierId" && formData.linkType !== "dossier") {
@@ -582,7 +582,7 @@ export default function FormModal({
         }
         blockers={validationResult?.blockers || []}
         warnings={validationResult?.warnings || []}
-        entityName={editingEntity?.title || editingEntity?.name || editingEntity?.caseNumber || ""}
+        entityName={editingEntity?.title || editingEntity?.name || editingEntity?.lawsuitNumber || ""}
       />
 
       <ConfirmImpactModal
@@ -594,7 +594,7 @@ export default function FormModal({
         onConfirm={handleConfirmImpact}
         actionName={t("impact.actions.changeLink", { ns: "domain" })}
         impactSummary={validationResult?.impactSummary || []}
-        entityName={editingEntity?.title || editingEntity?.name || editingEntity?.caseNumber || ""}
+        entityName={editingEntity?.title || editingEntity?.name || editingEntity?.lawsuitNumber || ""}
       />
 
       {/* 📧 Client Notification Prompt */}
@@ -1182,7 +1182,7 @@ function FormField({ field, value, onChange, error, formData, compact = false, e
   // Determine if field is conditionally required
   const hasLinkType = "linkType" in formData;
   const isConditionallyRequired = hasLinkType && (
-    (field.name === "caseId" && formData.linkType === "case") ||
+    (field.name === "lawsuitId" && formData.linkType === "lawsuit") ||
     (field.name === "dossierId" && formData.linkType === "dossier")
   );
 
@@ -1219,3 +1219,7 @@ function FormField({ field, value, onChange, error, formData, compact = false, e
     </div>
   );
 }
+
+
+
+

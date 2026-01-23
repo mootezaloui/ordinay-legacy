@@ -9,7 +9,7 @@ import { apiClient } from './client';
 import { getApiBase } from '../../lib/apiConfig';
 
 // Context scopes supported by the agent
-export type ContextScope = 'GLOBAL' | 'CLIENT' | 'DOSSIER' | 'CASE' | 'SESSION' | 'TASK';
+export type ContextScope = 'GLOBAL' | 'CLIENT' | 'DOSSIER' | 'lawsuit' | 'SESSION' | 'TASK';
 
 // Agent versions
 export type AgentVersion = 'v1' | 'v2' | 'v3';
@@ -21,7 +21,7 @@ export type ResponseStatus = 'SUCCESS' | 'BLOCKED' | 'FAILED';
 export interface ContextRefs {
   clientId?: number;
   dossierId?: number;
-  caseId?: number;
+  lawsuitId?: number;
   sessionId?: number;
   taskId?: number;
 }
@@ -30,7 +30,7 @@ export interface ContextRefs {
 export interface DataAccessPermissions {
   clients: boolean;
   dossiers: boolean;
-  cases: boolean;
+  lawsuits: boolean;
   tasks: boolean;
   personalTasks: boolean;
   missions: boolean;
@@ -231,7 +231,7 @@ export const INTENT_EXAMPLES: Record<string, string[]> = {
   EXPLAIN_ENTITY_STATE: [
     'Explain the current status of this dossier',
     'What is the state of this client account?',
-    'Summarize this case status',
+    'Summarize this lawsuit status',
   ],
   ANALYZE_OPERATIONAL_RISKS: [
     'What are the operational risks for this dossier?',
@@ -248,7 +248,7 @@ export const INTENT_EXAMPLES: Record<string, string[]> = {
   ],
   PROPOSE_ACTIONS: [
     'What actions should I take next?',
-    'Suggest next steps for this case',
+    'Suggest next steps for this lawsuit',
   ],
 };
 
@@ -455,3 +455,6 @@ export function streamAgentMessage(
 
   return abortController;
 }
+
+
+

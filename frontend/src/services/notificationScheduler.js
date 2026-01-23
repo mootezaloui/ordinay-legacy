@@ -37,7 +37,7 @@ function resolveEntityId(metadata = {}, fallbackId = null) {
     metadata.missionId ??
     metadata.financialEntryId ??
     metadata.dossierId ??
-    metadata.caseId ??
+    metadata.lawsuitId ??
     fallbackId
   );
 }
@@ -53,7 +53,7 @@ function getStableDedupeKey(entityType, subType, entityId, metadata = {}) {
   if (type === "mission") {
     return `MISSION_DEADLINE:${resolvedId}`;
   }
-  if (type === "session" || type === "case" || type === "dossier") {
+  if (type === "session" || type === "lawsuit" || type === "dossier") {
     const sessionId = metadata.sessionId || resolvedId;
     if (!sessionId) return null;
     const scheduledAt =
@@ -106,7 +106,7 @@ function pickGroupCategory(ruleResult = {}) {
   const type = (ruleResult.entityType || ruleResult.metadata?.entityType || "").toLowerCase();
   if (type === "task" || type === "personaltask") return null;
   if (type === "mission") return null;
-  if (type === "session" || type === "case") return null;
+  if (type === "session" || type === "lawsuit") return null;
   if (type === "financial" || type === "payment" || type === "financial_entry" || type === "financialentry") return null;
   return null;
 }
@@ -142,7 +142,7 @@ function groupRuleNotifications(ruleNotifications = []) {
     const title =
       rule.messageParams?.taskTitle ||
       rule.messageParams?.missionTitle ||
-      rule.messageParams?.caseNumber ||
+      rule.messageParams?.lawsuitNumber ||
       rule.messageParams?.dossierNumber ||
       rule.messageParams?.clientName ||
       rule.metadata?.entityLabel ||
@@ -204,7 +204,7 @@ function filterOperationalData(data = {}) {
     sessions: filterOperationalEntities(data.sessions || []),
     missions: filterOperationalEntities(data.missions || []),
     dossiers: filterOperationalEntities(data.dossiers || []),
-    cases: filterOperationalEntities(data.cases || []),
+    lawsuits: filterOperationalEntities(data.lawsuits || []),
     clients: filterOperationalEntities(data.clients || []),
     officers: filterOperationalEntities(data.officers || []),
     financialEntries: filterOperationalEntities(data.financialEntries || []),
@@ -236,7 +236,7 @@ class NotificationScheduler {
       missions: [],
       financialEntries: [],
       dossiers: [],
-      cases: [],
+      lawsuits: [],
       clients: [],
       personalTasks: [],
     };
@@ -304,7 +304,7 @@ class NotificationScheduler {
         if (preferences.tasks.enabled) {
           const taskNotifs = generateTaskNotifications(data.tasks || [], {
             dossiers: data.dossiers || [],
-            cases: data.cases || [],
+            lawsuits: data.lawsuits || [],
           });
           // NOTE: Personal tasks are handled by the rules-based system (PersonalTaskRules)
           // not by the old generator, so we don't call generateTaskNotifications for them
@@ -616,7 +616,7 @@ class NotificationScheduler {
     const link = resolveEntityLink(baseNotification.entityType, {
       entityId: baseNotification.entityId,
       dossierId: scheduledNotif.dossierId,
-      caseId: scheduledNotif.caseId,
+      lawsuitId: scheduledNotif.lawsuitId,
       clientId: scheduledNotif.clientId,
       missionId: scheduledNotif.missionId,
     });
@@ -771,7 +771,7 @@ class NotificationScheduler {
     if (preferences.tasks.enabled) {
       allNotifications.push(...generateTaskNotifications(operationalData.tasks || [], {
         dossiers: operationalData.dossiers || [],
-        cases: operationalData.cases || [],
+        lawsuits: operationalData.lawsuits || [],
       }));
       // NOTE: Personal tasks are handled by the rules-based system (PersonalTaskRules)
       // not by the old generator
@@ -835,3 +835,7 @@ class NotificationScheduler {
 const notificationScheduler = new NotificationScheduler();
 
 export default notificationScheduler;
+
+
+
+

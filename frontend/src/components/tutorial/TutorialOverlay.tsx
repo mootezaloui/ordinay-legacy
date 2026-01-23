@@ -250,9 +250,9 @@ export default function TutorialOverlayComponent() {
       }
     }
 
-    // For select-dossier-for-cases step: advance when user opens a dossier detail page
+    // For select-dossier-for-lawsuits step: advance when user opens a dossier detail page
     if (
-      currentStep.id === "select-dossier-for-cases" &&
+      currentStep.id === "select-dossier-for-lawsuits" &&
       isDossierDetailRoute(location.pathname)
     ) {
       // Small delay to let the navigation complete
@@ -262,8 +262,8 @@ export default function TutorialOverlayComponent() {
       return () => clearTimeout(timeout);
     }
 
-    // For dossier-cases-tab step: advance when user clicks on the Cases/Proceedings tab
-    if (currentStep.id === "dossier-cases-tab") {
+    // For dossier-lawsuits-tab step: advance when user clicks on the Cases/Proceedings tab
+    if (currentStep.id === "dossier-lawsuits-tab") {
       const searchParams = new URLSearchParams(searchString);
       if (searchParams.get("tab") === "proceedings") {
         // Small delay to let the tab switch complete
@@ -843,3 +843,4 @@ export default function TutorialOverlayComponent() {
     tutorialRoot
   );
 }
+

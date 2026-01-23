@@ -11,7 +11,7 @@ export const NotificationTypes = {
   TASK: "task",
   DOSSIER: "dossier",
   CLIENT: "client",
-  LAWSUIT: "case", // Note: stored as 'case' for DB/code clarity
+  LAWSUIT: "lawsuit", // Note: stored as 'lawsuit' for DB/code clarity
   HEARING: "session", // Note: stored as 'session' internally
   FINANCIAL: "financialEntry",
   PERSONAL: "personalTask", // Personal tasks
@@ -55,3 +55,4 @@ export function isValidNotificationType(type) {
 export function getNotificationTypeLabel(type) {
   return NotificationTypeLabels[type] || "notifications.types.system";
 }
+

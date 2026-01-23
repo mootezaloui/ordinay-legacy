@@ -79,15 +79,15 @@
         "label": "Liée à",
         "options": {
           "dossier": "Dossier",
-          "case": "Affaire"
+          "lawsuit": "Procès"
         },
-        "helper": "Sélectionnez si cette tâche est liée à un dossier ou à une affaire."
+        "helper": "Sélectionnez si cette tâche est liée à un dossier ou à un procès."
       },
       "dossierId": {
         "label": "Dossier"
       },
-      "caseId": {
-        "label": "Affaire"
+      "lawsuitId": {
+        "label": "Procès"
       },
       "assignedTo": {
         "label": "Assignée à",
@@ -238,15 +238,15 @@
         "parentType": "Type de lien",
         "parentTypeOptions": {
           "dossier": "Dossier",
-          "case": "Affaire"
+          "lawsuit": "Procès"
         },
-        "parentTypeHelp": "Une tâche peut être liée à un dossier ou à une affaire",
+        "parentTypeHelp": "Une tâche peut être liée à un dossier ou à un procès",
         "dossier": "Dossier",
         "dossierPlaceholder": "Sélectionner un dossier...",
         "dossierHelp": "Sélectionnez le dossier concerné",
-        "case": "Affaire",
-        "casePlaceholder": "Sélectionner une affaire...",
-        "caseHelp": "Sélectionnez l'affaire concernée"
+        "lawsuit": "Procès",
+        "lawsuitPlaceholder": "Sélectionner un procès...",
+        "lawsuitHelp": "Sélectionnez le procès concerné"
       }
     }
   }

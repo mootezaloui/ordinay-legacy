@@ -163,10 +163,10 @@
     "tabs": {
       "dossiers": "Dossiers",
       "dossiersAddSubtitle": "Créer un nouveau dossier pour ce client",
-      "cases": "Affaires",
-      "casesEntity": "affaire",
-      "casesDisabled": "Veuillez d'abord ajouter un dossier avant de créer une affaire pour ce client.",
-      "casesAddSubtitle": "Créer une nouvelle affaire pour ce client",
+      "lawsuits": "Procès",
+      "lawsuitsEntity": "procès",
+      "lawsuitsDisabled": "Veuillez d'abord ajouter un dossier avant de créer un procès pour ce client.",
+      "lawsuitsAddSubtitle": "Créer un nouveau procès pour ce client",
       "sessions": "Audiences",
       "sessionsDisabled": "Veuillez d'abord ajouter un dossier avant de planifier une audience.",
       "sessionsEntity": "une audience",
@@ -182,14 +182,14 @@
     },
     "forms": {
       "dossiersEmpty": "Aucun dossier disponible. Veuillez d'abord créer un dossier.",
-      "casesEmpty": "Aucune affaire disponible. Veuillez d'abord créer une affaire.",
-      "casesDossierHelp": "Sélectionnez le dossier auquel cette affaire sera liée",
-      "sessionLinkHelpWithCases": "Choisissez si cette audience est liée à un dossier ou à une affaire spécifique",
-      "sessionLinkHelpNoCases": "Choisissez si cette audience est liée à un dossier",
-      "sessionCaseHelp": "Sélectionnez l'affaire à laquelle cette audience sera liée",
+      "lawsuitsEmpty": "Aucun procès disponible. Veuillez d'abord créer un procès.",
+      "lawsuitsDossierHelp": "Sélectionnez le dossier auquel ce procès sera lié",
+      "sessionLinkHelpWithLawsuits": "Choisissez si cette audience est liée à un dossier ou à un procès spécifique",
+      "sessionLinkHelpNoLawsuits": "Choisissez si cette audience est liée à un dossier",
+      "sessionLawsuitHelp": "Sélectionnez le procès auquel cette audience sera liée",
       "sessionDossierHelp": "Sélectionnez le dossier auquel cette audience sera liée",
       "taskDossierHelp": "Sélectionnez le dossier auquel cette tâche sera liée",
-      "taskCaseHelp": "Sélectionnez l'affaire à laquelle cette tâche sera attachée"
+      "taskLawsuitHelp": "Sélectionnez le procès auquel cette tâche sera attachée"
     },
     "overview": {
       "personal": "Informations Personnelles",

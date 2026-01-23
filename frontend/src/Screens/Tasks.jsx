@@ -1,4 +1,4 @@
-﻿import { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAdvancedTable } from "../hooks/useAdvancedTable";
 import { useToast } from "../contexts/ToastContext";
@@ -36,7 +36,7 @@ export default function Tasks() {
   const {
     tasks,
     dossiers,
-    cases,
+    lawsuits,
     clients,
     sessions,
     officers,
@@ -137,12 +137,12 @@ export default function Tasks() {
       label: t("table.columns.parent"),
       sortable: true,
       render: (task) => {
-        if (task.parentType === "case" && task.case) {
+        if (task.parentType === "lawsuit" && task.lawsuit) {
           return (
             <div className="flex items-center gap-1">
               <i className="fas fa-gavel text-purple-500 dark:text-purple-400 text-xs"></i>
               <span className="font-mono text-xs text-purple-600 dark:text-purple-400">
-                {task.case}
+                {task.lawsuit}
               </span>
             </div>
           );
@@ -275,7 +275,7 @@ export default function Tasks() {
     initialSortBy: null,
     initialSortDirection: "asc",
     initialItemsPerPage: 10,
-    searchableFields: ["title", "dossier", "case", "assignedTo", "status", "priority"],
+    searchableFields: ["title", "dossier", "lawsuit", "assignedTo", "status", "priority"],
     entityType: "task",
     enableIntelligentOrdering: true,
   });
@@ -317,7 +317,7 @@ export default function Tasks() {
     // ? Validate before allowing edit
     const result = canPerformAction('task', task.id, 'edit', {
       data: task,
-      entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
+      entities: { clients, dossiers, lawsuits, tasks, sessions, officers, missions, financialEntries }
     });
 
     if (!result.allowed) {
@@ -335,7 +335,7 @@ export default function Tasks() {
     const task = tasks.find(t => t.id === id);
     const result = canPerformAction('task', id, 'delete', {
       data: task,
-      entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
+      entities: { clients, dossiers, lawsuits, tasks, sessions, officers, missions, financialEntries }
     });
 
     if (!result.allowed) {
@@ -370,7 +370,7 @@ export default function Tasks() {
       const result = canPerformAction('task', editingTask.id, 'edit', {
         data: editingTask,
         newData: formData,
-        entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
+        entities: { clients, dossiers, lawsuits, tasks, sessions, officers, missions, financialEntries }
       });
 
       if (!result.allowed) {
@@ -389,7 +389,7 @@ export default function Tasks() {
     } else {
       const result = canPerformAction('task', null, 'add', {
         formData,
-        entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
+        entities: { clients, dossiers, lawsuits, tasks, sessions, officers, missions, financialEntries }
       });
       if (!result.allowed) {
         setValidationResult(result);
@@ -431,25 +431,25 @@ export default function Tasks() {
         const taskTitle = createdEntity?.title || formData.title || "Task";
         const taskLabel = tCommon("detail.history.labels.taskCreated");
         const historyLabel = `${taskLabel}: ${taskTitle}`;
-        if (createdEntity?.caseId) {
+        if (createdEntity?.lawsuitId) {
           logHistoryEvent({
-            entityType: "case",
-            entityId: createdEntity.caseId,
+            entityType: "lawsuit",
+            entityId: createdEntity.lawsuitId,
             eventType: EVENT_TYPES.RELATION,
             label: historyLabel,
             details: historyLabel,
             metadata: { childType: "task", childId: createdId },
           });
-          const caseItem = cases.find((c) => String(c.id) === String(createdEntity.caseId));
-          if (caseItem?.dossierId) {
-            const dossierLabel = caseItem.caseNumber ? `${historyLabel} (${caseItem.caseNumber})` : historyLabel;
+          const lawsuitItem = lawsuits.find((c) => String(c.id) === String(createdEntity.lawsuitId));
+          if (lawsuitItem?.dossierId) {
+            const dossierLabel = lawsuitItem.lawsuitNumber ? `${historyLabel} (${lawsuitItem.lawsuitNumber})` : historyLabel;
             logHistoryEvent({
               entityType: "dossier",
-              entityId: caseItem.dossierId,
+              entityId: lawsuitItem.dossierId,
               eventType: EVENT_TYPES.RELATION,
               label: dossierLabel,
               details: dossierLabel,
-              metadata: { childType: "case", childId: caseItem.id, relatedType: "task", relatedId: createdId },
+              metadata: { childType: "lawsuit", childId: lawsuitItem.id, relatedType: "task", relatedId: createdId },
             });
           }
         } else if (createdEntity?.dossierId) {
@@ -527,16 +527,16 @@ export default function Tasks() {
         ...field,
         options: dossiers.map(dossier => ({
           value: dossier.id,
-          label: `${dossier.caseNumber} - ${dossier.title}`
+          label: `${dossier.lawsuitNumber} - ${dossier.title}`
         }))
       };
     }
-    if (field.name === "caseId") {
+    if (field.name === "lawsuitId") {
       return {
         ...field,
-        options: cases.map(cs => ({
+        options: lawsuits.map(cs => ({
           value: cs.id,
-          label: `${cs.caseNumber} - ${cs.title}`
+          label: `${cs.lawsuitNumber} - ${cs.title}`
         }))
       };
     }
@@ -704,6 +704,10 @@ export default function Tasks() {
     </PageLayout>
   );
 }
+
+
+
+
 
 
 

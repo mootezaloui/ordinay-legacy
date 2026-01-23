@@ -122,7 +122,7 @@ export function getIconBackground(priority) {
 
 /**
  * Parse and highlight ALL scan-critical data in notification messages
- * Covers: titles, names, dates, times, amounts, locations, durations, priorities, status, case numbers
+ * Covers: titles, names, dates, times, amounts, locations, durations, priorities, status, lawsuit numbers
  * Visual hierarchy: instant data extraction without reading full text
  * @param {string} message - Notification message text
  * @returns {string} HTML string with highlighted spans
@@ -238,18 +238,18 @@ export function renderHighlightedMessage(message) {
       replacement: '<span class="inline-flex items-center gap-0.5 font-semibold text-red-500 dark:text-red-400"><span>📆</span>$1</span>'
     },
 
-    // === CASE/DOSSIER NUMBERS ===
+    // === LAWSUIT/DOSSIER NUMBERS ===
     {
       regex: /dossier\s+([A-Z0-9\-\/]+)/gi,
       replacement: 'dossier <span class="inline-flex items-center gap-0.5 font-semibold text-indigo-600 dark:text-indigo-400"><span>📁</span>$1</span>'
     },
     {
-      regex: /\baffaire\s+([A-Z0-9\-\/]+)/gi,
-      replacement: 'affaire <span class="inline-flex items-center gap-0.5 font-semibold text-indigo-600 dark:text-indigo-400"><span>📁</span>$1</span>'
+      regex: /\b(procès|proces)\s+([A-Z0-9\-\/]+)/gi,
+      replacement: 'procès <span class="inline-flex items-center gap-0.5 font-semibold text-indigo-600 dark:text-indigo-400"><span>📁</span>$2</span>'
     },
     {
-      regex: /case\s+([A-Z0-9\-\/]+)/gi,
-      replacement: 'case <span class="inline-flex items-center gap-0.5 font-semibold text-indigo-600 dark:text-indigo-400"><span>📁</span>$1</span>'
+      regex: /lawsuit\s+([A-Z0-9\-\/]+)/gi,
+      replacement: 'lawsuit <span class="inline-flex items-center gap-0.5 font-semibold text-indigo-600 dark:text-indigo-400"><span>📁</span>$1</span>'
     }
   ];
 

@@ -72,7 +72,7 @@
     },
     "subtitle": {
       "edit": "Edit the personal task",
-      "create": "Add a task not linked to cases or clients"
+      "create": "Add a task not linked to lawsuits or clients"
     },
     "fields": {
       "title": {

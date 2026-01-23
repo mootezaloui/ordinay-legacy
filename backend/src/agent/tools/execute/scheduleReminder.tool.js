@@ -18,7 +18,7 @@ const inputSchema = {
   properties: {
     entityType: {
       type: 'string',
-      enum: ['dossier', 'case', 'session', 'task'],
+      enum: ['dossier', 'lawsuit', 'session', 'task'],
       description: 'Type of entity to set reminder for',
     },
     entityId: {

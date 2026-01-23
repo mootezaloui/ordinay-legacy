@@ -36,17 +36,17 @@ export const buildTasksBlocker = (incompleteTasks) => {
 };
 
 /**
- * Build blocker message for open cases
+ * Build blocker message for open lawsuits
  */
 export const buildCasesBlocker = (openCases, entityType = "dossier") => {
   const count = openCases.length;
-  const key = count > 1 ? "casesOpen_plural" : "casesOpen";
+  const key = count > 1 ? "lawsuitsOpen_plural" : "lawsuitsOpen";
 
   return (
     t(`${entityType}.close.blocked.${key}`, { count }) +
     openCases
       .slice(0, 3)
-      .map((c) => `\n  • ${c.caseNumber} - ${c.title} (${c.status})`)
+      .map((c) => `\n  • ${c.lawsuitNumber} - ${c.title} (${c.status})`)
       .join("") +
     (count > 3
       ? `\n  • ` +
@@ -71,7 +71,7 @@ export const buildDossiersBlocker = (openDossiers) => {
     t(`client.archive.blocked.${key}`, { count }) +
     openDossiers
       .slice(0, 3)
-      .map((d) => `\n  • ${d.caseNumber} - ${d.title} (${d.status})`)
+      .map((d) => `\n  • ${d.lawsuitNumber} - ${d.title} (${d.status})`)
       .join("") +
     (count > 3
       ? `\n  • ` +
@@ -235,18 +235,18 @@ export const validators = {
       dossierNotFound: () => t("dossier.delete.blocked.dossierNotFound"),
     },
   },
-  case: {
+  lawsuit: {
     add: {
-      noDossiers: () => t("case.add.blocked.noDossiers"),
-      dossierNotFound: () => t("case.add.blocked.dossierNotFound"),
-      dossierClosed: (status, caseNumber, title) => [
-        t("case.add.blocked.dossierClosed", { status: status.toLowerCase() }),
-        t("case.add.blocked.dossierDetails", { caseNumber, title }),
-        t("case.add.blocked.reopenRequired"),
+      noDossiers: () => t("lawsuit.add.blocked.noDossiers"),
+      dossierNotFound: () => t("lawsuit.add.blocked.dossierNotFound"),
+      dossierClosed: (status, lawsuitNumber, title) => [
+        t("lawsuit.add.blocked.dossierClosed", { status: status.toLowerCase() }),
+        t("lawsuit.add.blocked.dossierDetails", { lawsuitNumber, title }),
+        t("lawsuit.add.blocked.reopenRequired"),
       ],
     },
     close: {
-      caseNotFound: () => t("case.close.blocked.caseNotFound"),
+      lawsuitNotFound: () => t("lawsuit.close.blocked.lawsuitNotFound"),
     },
   },
   client: {
@@ -262,89 +262,89 @@ export const validators = {
   task: {
     add: {
       noDossiers: () => t("task.add.blocked.noDossiers"),
-      parentClosed: (parentType, status, caseNumber, title) => [
+      parentClosed: (parentType, status, lawsuitNumber, title) => [
         t(`task.add.blocked.${parentType}Closed`, {
           status: status.toLowerCase(),
         }),
-        t(`task.add.blocked.${parentType}Details`, { caseNumber, title }),
+        t(`task.add.blocked.${parentType}Details`, { lawsuitNumber, title }),
         t("task.add.blocked.reopenRequired", { parentType }),
       ],
     },
     edit: {
       taskNotFound: () => t("task.edit.blocked.taskNotFound"),
-      dossierClosed: (caseNumber, status) =>
+      dossierClosed: (lawsuitNumber, status) =>
         t("task.edit.blocked.dossierClosed", {
-          caseNumber,
+          lawsuitNumber,
           status: status.toLowerCase(),
         }),
-      caseClosed: (caseNumber) =>
-        t("task.edit.blocked.caseClosed", { caseNumber }),
+      lawsuitClosed: (lawsuitNumber) =>
+        t("task.edit.blocked.lawsuitClosed", { lawsuitNumber }),
     },
   },
   session: {
     add: {
       noDossiers: () => t("session.add.blocked.noDossiers"),
-      parentClosed: (parentType, status, caseNumber, title) => [
+      parentClosed: (parentType, status, lawsuitNumber, title) => [
         t(`session.add.blocked.${parentType}Closed`, {
           status: status.toLowerCase(),
         }),
-        t(`session.add.blocked.${parentType}Details`, { caseNumber, title }),
+        t(`session.add.blocked.${parentType}Details`, { lawsuitNumber, title }),
         t("session.add.blocked.reopenRequired", { parentType }),
       ],
     },
     edit: {
       sessionNotFound: () => t("session.edit.blocked.sessionNotFound"),
-      dossierClosed: (caseNumber, status) =>
+      dossierClosed: (lawsuitNumber, status) =>
         t("session.edit.blocked.dossierClosed", {
-          caseNumber,
+          lawsuitNumber,
           status: status.toLowerCase(),
         }),
-      caseClosed: (caseNumber) =>
-        t("session.edit.blocked.caseClosed", { caseNumber }),
+      lawsuitClosed: (lawsuitNumber) =>
+        t("session.edit.blocked.lawsuitClosed", { lawsuitNumber }),
     },
   },
   mission: {
     add: {
       dossierNotFound: () => t("mission.add.blocked.dossierNotFound"),
-      caseNotFound: () => t("mission.add.blocked.caseNotFound"),
-      parentClosed: (parentType, status, caseNumber, title) => [
+      lawsuitNotFound: () => t("mission.add.blocked.lawsuitNotFound"),
+      parentClosed: (parentType, status, lawsuitNumber, title) => [
         t(`mission.add.blocked.${parentType}Closed`, {
           status: status.toLowerCase(),
         }),
-        t(`mission.add.blocked.${parentType}Details`, { caseNumber, title }),
+        t(`mission.add.blocked.${parentType}Details`, { lawsuitNumber, title }),
         t("mission.add.blocked.reopenRequired", { parentType }),
       ],
     },
     edit: {
       missionNotFound: () => t("mission.edit.blocked.missionNotFound"),
-      dossierClosed: (caseNumber, status) =>
+      dossierClosed: (lawsuitNumber, status) =>
         t("mission.edit.blocked.dossierClosed", {
-          caseNumber,
+          lawsuitNumber,
           status: status.toLowerCase(),
         }),
-      caseClosed: (caseNumber) =>
-        t("mission.edit.blocked.caseClosed", { caseNumber }),
+      lawsuitClosed: (lawsuitNumber) =>
+        t("mission.edit.blocked.lawsuitClosed", { lawsuitNumber }),
     },
   },
   financialEntry: {
     add: {
-      dossierClosed: (caseNumber, status) =>
+      dossierClosed: (lawsuitNumber, status) =>
         t("financialEntry.add.blocked.dossierClosed", {
-          caseNumber,
+          lawsuitNumber,
           status: status.toLowerCase(),
         }),
-      caseClosed: (caseNumber) =>
-        t("financialEntry.add.blocked.caseClosed", { caseNumber }),
+      lawsuitClosed: (lawsuitNumber) =>
+        t("financialEntry.add.blocked.lawsuitClosed", { lawsuitNumber }),
     },
     edit: {
       entryNotFound: () => t("financialEntry.edit.blocked.entryNotFound"),
-      dossierClosed: (caseNumber, status) =>
+      dossierClosed: (lawsuitNumber, status) =>
         t("financialEntry.edit.blocked.dossierClosed", {
-          caseNumber,
+          lawsuitNumber,
           status: status.toLowerCase(),
         }),
-      caseClosed: (caseNumber) =>
-        t("financialEntry.edit.blocked.caseClosed", { caseNumber }),
+      lawsuitClosed: (lawsuitNumber) =>
+        t("financialEntry.edit.blocked.lawsuitClosed", { lawsuitNumber }),
     },
     warning: {
       entryPaid: () => t("financialEntry.edit.warning.entryPaid"),
@@ -372,3 +372,5 @@ export const validators = {
     },
   },
 };
+
+

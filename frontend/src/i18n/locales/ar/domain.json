@@ -19,8 +19,8 @@
       "blocked": {
         "tasksOpen": "{{count}} مهمة مفتوحة:",
         "tasksOpen_plural": "{{count}} مهام مفتوحة:",
-        "casesOpen": "{{count}} دعوى مفتوحة:",
-        "casesOpen_plural": "{{count}} دعاوى مفتوحة:",
+        "lawsuitsOpen": "{{count}} قضية مفتوحة:",
+        "lawsuitsOpen_plural": "{{count}} قضايا مفتوحة:",
         "unpaidBalance": "الرصيد غير المدفوع: {{amount}} د.ت",
         "sessionsOpen": "{{count}} جلسة مفتوحة:",
         "sessionsOpen_plural": "{{count}} جلسات مفتوحة:",
@@ -38,8 +38,8 @@
         "dossierNotFound": "الملف غير موجود"
       },
       "warning": {
-        "casesWillDelete": "يحتوي هذا الملف على {{count}} دعوى سيتم حذفها.",
-        "casesWillDelete_plural": "يحتوي هذا الملف على {{count}} دعاوى سيتم حذفها.",
+        "lawsuitsWillDelete": "يحتوي هذا الملف على {{count}} قضية سيتم حذفها.",
+        "lawsuitsWillDelete_plural": "يحتوي هذا الملف على {{count}} قضايا سيتم حذفها.",
         "tasksWillDelete": "يحتوي هذا الملف على {{count}} مهمة سيتم حذفها.",
         "tasksWillDelete_plural": "يحتوي هذا الملف على {{count}} مهام سيتم حذفها.",
         "sessionsWillDelete": "يحتوي هذا الملف على {{count}} جلسة سيتم حذفها.",
@@ -49,8 +49,8 @@
         "financialsWillDelete": "يحتوي هذا الملف على {{count}} قيد مالي سيتم حذفه.",
         "financialsWillDelete_plural": "يحتوي هذا الملف على {{count}} قيود مالية سيتم حذفها."
       },
-      "forceDeleteMessage": "⚠️ تحذير: حذف هذا الملف سيحذف أيضًا {{count}} كيان مرتبط (دعاوى، مهام، جلسات، مهام، قيود مالية). هذا الإجراء لا يمكن الرجوع فيه.",
-      "forceDeleteMessage_plural": "⚠️ تحذير: حذف هذا الملف سيحذف أيضًا {{count}} كيانات مرتبطة (دعاوى، مهام، جلسات، مهام، قيود مالية). هذا الإجراء لا يمكن الرجوع فيه."
+      "forceDeleteMessage": "⚠️ تحذير: حذف هذا الملف سيحذف أيضًا {{count}} كيان مرتبط (قضايا، مهام، جلسات، مهام، قيود مالية). هذا الإجراء لا يمكن الرجوع فيه.",
+      "forceDeleteMessage_plural": "⚠️ تحذير: حذف هذا الملف سيحذف أيضًا {{count}} كيانات مرتبطة (قضايا، مهام، جلسات، مهام، قيود مالية). هذا الإجراء لا يمكن الرجوع فيه."
     },
     "impact": {
       "reference": {
@@ -58,7 +58,7 @@
         "current": "**رقم الملف الحالي**: {{value}}",
         "new": "**رقم الملف الجديد**: {{value}}",
         "impact1": "• سيتم تعديل مرجع الملف",
-        "impact2": "• جميع الدعاوى المرتبطة ستحتفظ برابطها مع هذا الملف",
+        "impact2": "• جميع القضايا المرتبطة ستحتفظ برابطها مع هذا الملف",
         "impact3": "• يجب تحديث المستندات والتقارير",
         "impact4": "• القيود المالية ستحتفظ بالمرجع الجديد"
       },
@@ -68,26 +68,26 @@
         "new": "**العميل الجديد**: {{value}}",
         "unknown": "غير معروف",
         "impactTitle": "**التأثير**:",
-        "impact1": "• جميع الدعاوى المرتبطة ستبقى مرفقة بهذا الملف",
+        "impact1": "• جميع القضايا المرتبطة ستبقى مرفقة بهذا الملف",
         "impact2": "• القيود المالية ستبقى مرتبطة بالملف",
         "impact3": "• سيظهر الملف الآن تحت العميل الجديد",
         "impact4": "• سيتم إعادة حساب مؤشرات المتابعة"
       }
     }
   },
-  "case": {
+  "lawsuit": {
     "add": {
       "blocked": {
-        "noDossiers": "يُرجى إضافة ملف قبل إنشاء دعوى.",
+        "noDossiers": "يُرجى إضافة ملف قبل إنشاء قضية.",
         "dossierNotFound": "الملف الرئيسي غير موجود",
-        "dossierClosed": "لا يمكن إنشاء دعوى تحت ملف {{status}}",
-        "dossierDetails": "الملف: {{caseNumber}} - {{title}}",
-        "reopenRequired": "يجب أولاً إعادة فتح الملف لإضافة دعاوى"
+        "dossierClosed": "لا يمكن إنشاء قضية تحت ملف {{status}}",
+        "dossierDetails": "الملف: {{lawsuitNumber}} - {{title}}",
+        "reopenRequired": "يجب أولاً إعادة فتح الملف لإضافة قضايا"
       }
     },
     "close": {
       "blocked": {
-        "caseNotFound": "الدعوى غير موجودة",
+        "lawsuitNotFound": "القضية غير موجودة",
         "sessionsOpen": "{{count}} جلسة مفتوحة:",
         "sessionsOpen_plural": "{{count}} جلسات مفتوحة:",
         "tasksOpen": "{{count}} مهمة مفتوحة:",
@@ -100,23 +100,23 @@
     },
     "delete": {
       "warning": {
-        "sessionsWillDelete": "تحتوي هذه الدعوى على {{count}} جلسة سيتم حذفها.",
-        "sessionsWillDelete_plural": "تحتوي هذه الدعوى على {{count}} جلسات سيتم حذفها.",
-        "tasksWillDelete": "تحتوي هذه الدعوى على {{count}} مهمة سيتم حذفها.",
-        "tasksWillDelete_plural": "تحتوي هذه الدعوى على {{count}} مهام سيتم حذفها.",
-        "missionsWillDelete": "تحتوي هذه الدعوى على {{count}} مهمة سيتم حذفها.",
-        "missionsWillDelete_plural": "تحتوي هذه الدعوى على {{count}} مهام سيتم حذفها."
+        "sessionsWillDelete": "تحتوي هذه القضية على {{count}} جلسة سيتم حذفها.",
+        "sessionsWillDelete_plural": "تحتوي هذه القضية على {{count}} جلسات سيتم حذفها.",
+        "tasksWillDelete": "تحتوي هذه القضية على {{count}} مهمة سيتم حذفها.",
+        "tasksWillDelete_plural": "تحتوي هذه القضية على {{count}} مهام سيتم حذفها.",
+        "missionsWillDelete": "تحتوي هذه القضية على {{count}} مهمة سيتم حذفها.",
+        "missionsWillDelete_plural": "تحتوي هذه القضية على {{count}} مهام سيتم حذفها."
       },
-      "forceDeleteMessage": "⚠️ تحذير: حذف هذه الدعوى سيحذف أيضًا {{count}} كيان مرتبط (جلسات، مهام، مهام). هذا الإجراء لا يمكن الرجوع فيه.",
-      "forceDeleteMessage_plural": "⚠️ تحذير: حذف هذه الدعوى سيحذف أيضًا {{count}} كيانات مرتبطة (جلسات، مهام، مهام). هذا الإجراء لا يمكن الرجوع فيه."
+      "forceDeleteMessage": "⚠️ تحذير: حذف هذه القضية سيحذف أيضًا {{count}} كيان مرتبط (جلسات، مهام، مهام). هذا الإجراء لا يمكن الرجوع فيه.",
+      "forceDeleteMessage_plural": "⚠️ تحذير: حذف هذه القضية سيحذف أيضًا {{count}} كيانات مرتبطة (جلسات، مهام، مهام). هذا الإجراء لا يمكن الرجوع فيه."
     },
     "impact": {
       "reference": {
-        "field": "رقم الدعوى",
-        "current": "**رقم الدعوى الحالي**: {{value}}",
-        "new": "**رقم الدعوى الجديد**: {{value}}",
-        "impact1": "• سيتم تعديل مرجع الدعوى",
-        "impact2": "• جميع الجلسات المرتبطة ستحتفظ برابطها مع هذه الدعوى",
+        "field": "رقم القضية",
+        "current": "**رقم القضية الحالي**: {{value}}",
+        "new": "**رقم القضية الجديد**: {{value}}",
+        "impact1": "• سيتم تعديل مرجع القضية",
+        "impact2": "• جميع الجلسات المرتبطة ستحتفظ برابطها مع هذه القضية",
         "impact3": "• يجب تحديث المستندات والتقارير",
         "impact4": "• القيود المالية ستحتفظ بالمرجع الجديد"
       },
@@ -128,7 +128,7 @@
         "impactTitle": "**التأثير**:",
         "impact1": "• قد يتغير العميل المرتبط",
         "impact2": "• سيتم تجميع القيود المالية تحت الملف الجديد",
-        "impact3": "• سيتم نقل المهام والجلسات المرتبطة بالدعوى",
+        "impact3": "• سيتم نقل المهام والجلسات المرتبطة بالقضية",
         "impact4": "• سيتم إعادة حساب مؤشرات المتابعة"
       }
     }
@@ -139,8 +139,8 @@
         "clientNotFound": "العميل غير موجود",
         "dossiersOpen": "{{count}} ملف مفتوح:",
         "dossiersOpen_plural": "{{count}} ملفات مفتوحة:",
-        "casesOpen": "{{count}} دعوى مفتوحة:",
-        "casesOpen_plural": "{{count}} دعاوى مفتوحة:",
+        "lawsuitsOpen": "{{count}} قضية مفتوحة:",
+        "lawsuitsOpen_plural": "{{count}} قضايا مفتوحة:",
         "tasksOpen": "{{count}} مهمة مفتوحة:",
         "tasksOpen_plural": "{{count}} مهام مفتوحة:",
         "sessionsOpen": "{{count}} جلسة مفتوحة:",
@@ -158,8 +158,8 @@
       "warning": {
         "dossiersWillDelete": "هذا العميل لديه {{count}} ملف سيتم حذفه.",
         "dossiersWillDelete_plural": "هذا العميل لديه {{count}} ملفات سيتم حذفها.",
-        "casesWillDelete": "هذا العميل لديه {{count}} دعوى سيتم حذفها.",
-        "casesWillDelete_plural": "هذا العميل لديه {{count}} دعاوى سيتم حذفها.",
+        "lawsuitsWillDelete": "هذا العميل لديه {{count}} قضية سيتم حذفها.",
+        "lawsuitsWillDelete_plural": "هذا العميل لديه {{count}} قضايا سيتم حذفها.",
         "tasksWillDelete": "هذا العميل لديه {{count}} مهمة سيتم حذفها.",
         "tasksWillDelete_plural": "هذا العميل لديه {{count}} مهام سيتم حذفها.",
         "sessionsWillDelete": "هذا العميل لديه {{count}} جلسة سيتم حذفها.",
@@ -169,14 +169,14 @@
         "financialsWillDelete": "هذا العميل لديه {{count}} قيد مالي سيتم حذفه.",
         "financialsWillDelete_plural": "هذا العميل لديه {{count}} قيود مالية سيتم حذفها."
       },
-      "forceDeleteMessage": "⚠️ تحذير: حذف هذا العميل سيحذف أيضًا {{count}} كيان مرتبط (ملفات، دعاوى، مهام، جلسات، مهام، قيود مالية). هذا الإجراء لا يمكن الرجوع فيه.",
-      "forceDeleteMessage_plural": "⚠️ تحذير: حذف هذا العميل سيحذف أيضًا {{count}} كيانات مرتبطة (ملفات، دعاوى، مهام، جلسات، مهام، قيود مالية). هذا الإجراء لا يمكن الرجوع فيه."
+      "forceDeleteMessage": "⚠️ تحذير: حذف هذا العميل سيحذف أيضًا {{count}} كيان مرتبط (ملفات، قضايا، مهام، جلسات، مهام، قيود مالية). هذا الإجراء لا يمكن الرجوع فيه.",
+      "forceDeleteMessage_plural": "⚠️ تحذير: حذف هذا العميل سيحذف أيضًا {{count}} كيانات مرتبطة (ملفات، قضايا، مهام، جلسات، مهام، قيود مالية). هذا الإجراء لا يمكن الرجوع فيه."
     }
   },
   "accounting": {
     "edit": {
       "blocked": {
-        "readOnly": "التعديل ممنوع من شاشة المحاسبة\n\nشاشة المحاسبة هي واجهة مطابقة للقراءة فقط.\nيجب إجراء التعديلات من الشاشة المخصصة للكيان:\n  • العملاء → قائمة العملاء\n  • الملفات → قائمة الملفات\n  • الدعاوى → قائمة الدعاوى\n  • المحضرين → قائمة المحضرين\n\nيمكنك النقر على اسم الكيان للوصول إليه مباشرة."
+        "readOnly": "التعديل ممنوع من شاشة المحاسبة\n\nشاشة المحاسبة هي واجهة مطابقة للقراءة فقط.\nيجب إجراء التعديلات من الشاشة المخصصة للكيان:\n  • العملاء → قائمة العملاء\n  • الملفات → قائمة الملفات\n  • القضايا → قائمة القضايا\n  • المحضرين → قائمة المحضرين\n\nيمكنك النقر على اسم الكيان للوصول إليه مباشرة."
       }
     }
   },
@@ -185,9 +185,9 @@
       "blocked": {
         "noDossiers": "يُرجى إضافة ملف قبل إنشاء مهمة.",
         "dossierClosed": "لا يمكن إنشاء مهمة تحت ملف {{status}}",
-        "dossierDetails": "الملف: {{caseNumber}} - {{title}}",
-        "caseClosed": "لا يمكن إنشاء مهمة تحت دعوى {{status}}",
-        "caseDetails": "الدعوى: {{caseNumber}} - {{title}}",
+        "dossierDetails": "الملف: {{lawsuitNumber}} - {{title}}",
+        "lawsuitClosed": "لا يمكن إنشاء مهمة تحت قضية {{status}}",
+        "lawsuitDetails": "القضية: {{lawsuitNumber}} - {{title}}",
         "reopenRequired": "يجب أولاً إعادة فتح {{parentType}} لإضافة مهام"
       },
       "warning": {
@@ -197,8 +197,8 @@
     "edit": {
       "blocked": {
         "taskNotFound": "المهمة غير موجودة",
-        "dossierClosed": "هذه المهمة تابعة للملف \"{{caseNumber}}\" وهو {{status}}.\n\nلم تعد التعديلات مسموحة على الملفات المغلقة.",
-        "caseClosed": "هذه المهمة تابعة للدعوى \"{{caseNumber}}\" وهي مغلقة.\n\nلم تعد التعديلات مسموحة على الدعاوى المغلقة."
+        "dossierClosed": "هذه المهمة تابعة للملف \"{{lawsuitNumber}}\" وهو {{status}}.\n\nلم تعد التعديلات مسموحة على الملفات المغلقة.",
+        "lawsuitClosed": "هذه المهمة تابعة للقضية \"{{lawsuitNumber}}\" وهي مغلقة.\n\nلم تعد التعديلات مسموحة على القضايا المغلقة."
       }
     },
     "impact": {
@@ -206,8 +206,8 @@
         "current": "**الأصل الحالي**: {{value}}",
         "new": "**الأصل الجديد**: {{value}}",
         "notAssigned": "غير معين",
-        "dossierLabel": "الملف {{caseNumber}} - {{title}}",
-        "caseLabel": "الدعوى {{caseNumber}} - {{title}}",
+        "dossierLabel": "الملف {{lawsuitNumber}} - {{title}}",
+        "lawsuitLabel": "القضية {{lawsuitNumber}} - {{title}}",
         "impactTitle": "**التأثير**:",
         "impact1": "• سيتم إزالة المهمة من سياقها الحالي",
         "impact2": "• سيتم إعادة حساب مؤشرات المتابعة",
@@ -220,9 +220,9 @@
       "blocked": {
         "noDossiers": "يُرجى إضافة ملف قبل جدولة جلسة.",
         "dossierClosed": "لا يمكن إنشاء جلسة تحت ملف {{status}}",
-        "dossierDetails": "الملف: {{caseNumber}} - {{title}}",
-        "caseClosed": "لا يمكن إنشاء جلسة تحت دعوى {{status}}",
-        "caseDetails": "الدعوى: {{caseNumber}} - {{title}}",
+        "dossierDetails": "الملف: {{lawsuitNumber}} - {{title}}",
+        "lawsuitClosed": "لا يمكن إنشاء جلسة تحت قضية {{status}}",
+        "lawsuitDetails": "القضية: {{lawsuitNumber}} - {{title}}",
         "reopenRequired": "يجب أولاً إعادة فتح {{parentType}} لإضافة جلسات"
       },
       "warning": {
@@ -232,8 +232,8 @@
     "edit": {
       "blocked": {
         "sessionNotFound": "الجلسة غير موجودة",
-        "caseClosed": "هذه الجلسة تابعة للدعوى \"{{caseNumber}}\" وهي مغلقة.\n\nلم تعد التعديلات مسموحة على الدعاوى المغلقة.",
-        "dossierClosed": "هذه الجلسة تابعة للملف \"{{caseNumber}}\" وهو {{status}}.\n\nلم تعد التعديلات مسموحة على الملفات المغلقة."
+        "lawsuitClosed": "هذه الجلسة تابعة للقضية \"{{lawsuitNumber}}\" وهي مغلقة.\n\nلم تعد التعديلات مسموحة على القضايا المغلقة.",
+        "dossierClosed": "هذه الجلسة تابعة للملف \"{{lawsuitNumber}}\" وهو {{status}}.\n\nلم تعد التعديلات مسموحة على الملفات المغلقة."
       }
     },
     "impact": {
@@ -241,8 +241,8 @@
         "current": "**المرفق الحالي**: {{value}}",
         "new": "**المرفق الجديد**: {{value}}",
         "notAssigned": "غير معين",
-        "dossierLabel": "الملف {{caseNumber}} - {{title}}",
-        "caseLabel": "الدعوى {{caseNumber}} - {{title}}",
+        "dossierLabel": "الملف {{lawsuitNumber}} - {{title}}",
+        "lawsuitLabel": "القضية {{lawsuitNumber}} - {{title}}",
         "impactTitle": "**التأثير**:",
         "impact1": "• سيتم إزالة الجلسة من سياقها الحالي",
         "impact2": "• سيتم إعادة حساب مؤشرات المتابعة",
@@ -254,19 +254,19 @@
     "add": {
       "blocked": {
         "dossierNotFound": "الملف الرئيسي غير موجود",
-        "caseNotFound": "الدعوى الرئيسية غير موجودة",
+        "lawsuitNotFound": "القضية الرئيسية غير موجودة",
         "dossierClosed": "لا يمكن إنشاء مهمة تحت ملف {{status}}",
-        "dossierDetails": "الملف: {{caseNumber}} - {{title}}",
-        "caseClosed": "لا يمكن إنشاء مهمة تحت دعوى {{status}}",
-        "caseDetails": "الدعوى: {{caseNumber}} - {{title}}",
+        "dossierDetails": "الملف: {{lawsuitNumber}} - {{title}}",
+        "lawsuitClosed": "لا يمكن إنشاء مهمة تحت قضية {{status}}",
+        "lawsuitDetails": "القضية: {{lawsuitNumber}} - {{title}}",
         "reopenRequired": "يجب أولاً إعادة فتح {{parentType}} لإنشاء مهام"
       }
     },
     "edit": {
       "blocked": {
         "missionNotFound": "المهمة غير موجودة",
-        "dossierClosed": "هذه المهمة مرتبطة بالملف \"{{caseNumber}}\" وهو {{status}}.\n\nلم تعد التعديلات مسموحة على الملفات المغلقة.",
-        "caseClosed": "هذه المهمة مرتبطة بالدعوى \"{{caseNumber}}\" وهي مغلقة.\n\nلم تعد التعديلات مسموحة على الدعاوى المغلقة."
+        "dossierClosed": "هذه المهمة مرتبطة بالملف \"{{lawsuitNumber}}\" وهو {{status}}.\n\nلم تعد التعديلات مسموحة على الملفات المغلقة.",
+        "lawsuitClosed": "هذه المهمة مرتبطة بالقضية \"{{lawsuitNumber}}\" وهي مغلقة.\n\nلم تعد التعديلات مسموحة على القضايا المغلقة."
       }
     },
     "delete": {
@@ -306,15 +306,15 @@
   "financialEntry": {
     "add": {
       "blocked": {
-        "dossierClosed": "الملف \"{{caseNumber}}\" {{status}}.\n\nلا يمكن إضافة قيود مالية جديدة إلى الملفات المغلقة.",
-        "caseClosed": "الدعوى \"{{caseNumber}}\" مغلقة.\n\nلا يمكن إضافة قيود مالية جديدة إلى الدعاوى المغلقة."
+        "dossierClosed": "الملف \"{{lawsuitNumber}}\" {{status}}.\n\nلا يمكن إضافة قيود مالية جديدة إلى الملفات المغلقة.",
+        "lawsuitClosed": "القضية \"{{lawsuitNumber}}\" مغلقة.\n\nلا يمكن إضافة قيود مالية جديدة إلى القضايا المغلقة."
       }
     },
     "edit": {
       "blocked": {
         "entryNotFound": "القيد المالي غير موجود",
-        "dossierClosed": "هذا القيد مرتبط بالملف \"{{caseNumber}}\" وهو {{status}}.\n\nلا يمكن تعديل القيود من الملفات المغلقة.",
-        "caseClosed": "هذا القيد مرتبط بالدعوى \"{{caseNumber}}\" وهي مغلقة.\n\nلا يمكن تعديل القيود من الدعاوى المغلقة.",
+        "dossierClosed": "هذا القيد مرتبط بالملف \"{{lawsuitNumber}}\" وهو {{status}}.\n\nلا يمكن تعديل القيود من الملفات المغلقة.",
+        "lawsuitClosed": "هذا القيد مرتبط بالقضية \"{{lawsuitNumber}}\" وهي مغلقة.\n\nلا يمكن تعديل القيود من القضايا المغلقة.",
         "entryCancelled": "تم إلغاء هذا القيد المالي ولا يمكن تعديله.\n\nيتم الاحتفاظ بالقيود الملغاة لأغراض التدقيق."
       },
       "warning": {

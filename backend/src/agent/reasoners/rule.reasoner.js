@@ -348,18 +348,18 @@ class RuleReasoner extends BaseReasoner {
   }
 
   _draftClientEmail(context) {
-    const caseId = this._requireString(context.caseId, 'caseId');
+    const lawsuitId = this._requireString(context.lawsuitId, 'lawsuitId');
     const updateSummary = this._requireString(context.updateSummary, 'updateSummary');
     const recipientName = this._requireString(context.recipientName, 'recipientName');
     const senderName = this._requireString(context.senderName, 'senderName');
     const audience = this._stringOrDefault(context.audience, 'client');
     const timestamp = this._now();
 
-    const subject = `Case ${caseId} - Client Update`;
+    const subject = `Lawsuit ${lawsuitId} - Client Update`;
     const body = [
       `Dear ${recipientName},`,
       '',
-      `We are providing an update on case ${caseId}.`,
+      `We are providing an update on lawsuit ${lawsuitId}.`,
       `Summary: ${updateSummary}`,
       `Open items: ${this._stringOrDefault(
         context.openItems,
@@ -380,9 +380,9 @@ class RuleReasoner extends BaseReasoner {
       audience,
       tone: 'formal',
       sensitivity: 'medium',
-      placeholders: ['{{recipient_name}}', '{{case_reference}}', '{{meeting_time}}'],
+      placeholders: ['{{recipient_name}}', '{{lawsuit_reference}}', '{{meeting_time}}'],
       assumptions: this._collectAssumptions(context),
-      contextReferences: this._collectContextReferences({ ...context, caseId }),
+      contextReferences: this._collectContextReferences({ ...context, lawsuitId }),
       timestamp,
       source: 'rule-based',
       status: 'draft',
@@ -439,8 +439,8 @@ class RuleReasoner extends BaseReasoner {
       return context.contextReferences;
     }
     const refs = [];
-    if (context.caseId) {
-      refs.push(`case:${context.caseId}`);
+    if (context.lawsuitId) {
+      refs.push(`lawsuit:${context.lawsuitId}`);
     }
     if (context.sessionId) {
       refs.push(`session:${context.sessionId}`);
@@ -481,3 +481,4 @@ class RuleReasoner extends BaseReasoner {
 }
 
 module.exports = RuleReasoner;
+

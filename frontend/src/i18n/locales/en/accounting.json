@@ -168,16 +168,16 @@
         "help": "Concerned dossier (optional)",
         "placeholder": "Select dossier"
       },
-      "case": {
-        "label": "Case (optional)",
-        "help": "Concerned case (optional)",
-        "placeholder": "Select case"
+      "lawsuit": {
+        "label": "Lawsuit (optional)",
+        "help": "Concerned lawsuit (optional)",
+        "placeholder": "Select lawsuit"
       },
       "mission": {
         "label": "Associated Mission",
         "help": "Select the bailiff mission related to these fees",
-        "selectPrerequisite": "Please first select a dossier or case",
-        "noneForEntity": "No mission for this dossier/case",
+        "selectPrerequisite": "Please first select a dossier or lawsuit",
+        "noneForEntity": "No mission for this dossier/lawsuit",
         "selectMission": "Select the mission related to these fees",
         "noneAvailable": "No mission available",
         "fallbackOfficer": "Bailiff not defined",
@@ -208,7 +208,7 @@
       "fallback": {
         "unknownClient": "Unknown client",
         "unknownDossier": "Unknown dossier",
-        "unknownCase": "Unknown lawsuit"
+        "unknownLawsuit": "Unknown lawsuit"
       },
       "help": {
         "currentMission": "Current mission",

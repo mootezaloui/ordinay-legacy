@@ -31,8 +31,8 @@ export const menuItems = [
   },
   {
     icon: "fas fa-gavel",
-    label: "Cases",
-    route: "/cases",
+    label: "lawsuits",
+    route: "/lawsuits",
   },
   {
     icon: "fas fa-calendar",
@@ -74,3 +74,5 @@ export const secondaryMenuItems = [
 export const getMenuItemByRoute = (route) => {
   return menuItems.find((item) => item.route === route);
 };
+
+

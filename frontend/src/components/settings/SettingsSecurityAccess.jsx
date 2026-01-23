@@ -308,6 +308,10 @@ export default function SettingsSecurityAccess() {
 
 
   const licenseStatusLabel = () => {
+    // LOADING: license not yet resolved - show loading indicator, not "inactive"
+    if (licenseState === "LOADING") {
+      return t("securityAccess.license.status.loading", { defaultValue: "Loading..." });
+    }
     const labels = {
       FREE: t("securityAccess.license.status.free"),
       UNACTIVATED: t("securityAccess.license.status.unactivated"),
@@ -896,9 +900,9 @@ export default function SettingsSecurityAccess() {
                       <i className="fas fa-briefcase text-amber-600 dark:text-amber-400"></i>
                     </div>
                     <p className={`text-lg font-bold ${isPaidPlan ? "text-emerald-600 dark:text-emerald-400" : "text-slate-900 dark:text-white"}`}>
-                      {isPaidPlan ? "∞" : FREE_PLAN_LIMITS.casesPerDossier}
+                      {isPaidPlan ? "∞" : FREE_PLAN_LIMITS.lawsuitsPerDossier}
                     </p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Cases/Dossier</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Lawsuits/Dossier</p>
                   </div>
                   <div className="text-center p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50">
                     <div className="w-10 h-10 mx-auto rounded-xl bg-rose-100 dark:bg-rose-900/30 flex items-center justify-center mb-2">

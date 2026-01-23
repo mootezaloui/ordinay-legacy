@@ -7,7 +7,7 @@
 /**
  * Translate status values based on entity type
  * @param {string} status - Raw status value (e.g., "Open", "In Progress")
- * @param {string} aggregationType - Entity type (e.g., "dossiers", "cases", "sessions")
+ * @param {string} aggregationType - Entity type (e.g., "dossiers", "lawsuits", "sessions")
  * @param {function} t - i18next translation function
  * @returns {string} Translated status or original value if no translation found
  */
@@ -17,7 +17,7 @@ export function translateStatus(status, aggregationType, t) {
   // Define namespace mapping for each entity type
   const namespaceMap = {
     dossiers: "dossiers",
-    cases: "cases",
+    lawsuits: "lawsuits",
     sessions: "sessions",
     tasks: "tasks",
     missions: "missions",
@@ -470,3 +470,5 @@ export function translatePersonalTaskCategory(category, t) {
 
   return normalizedCategory;
 }
+
+

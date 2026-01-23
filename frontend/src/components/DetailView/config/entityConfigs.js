@@ -2,7 +2,7 @@ import { createClientConfig } from "./clientConfig.jsx";
 import { createDossierConfig } from "./dossierConfig.jsx";
 import { createTaskConfig } from "./taskConfig.jsx";
 import { createSessionConfig } from "./sessionConfig.jsx";
-import { createCaseConfig } from "./caseConfig.jsx";
+import { createLawsuitConfig } from "./lawsuitConfig.jsx";
 import { createOfficerConfig } from "./officerConfig.jsx";
 import { createPersonalTaskConfig } from "./personalTaskConfig.jsx";
 import { createFinancialEntryConfig } from "./financialEntryConfig.jsx";
@@ -19,7 +19,7 @@ const entityConfigFactories = {
   dossier: createDossierConfig,
   task: createTaskConfig,
   session: createSessionConfig,
-  case: createCaseConfig,
+  lawsuit: createLawsuitConfig,
   officer: createOfficerConfig,
   personalTask: createPersonalTaskConfig,
   financialEntry: createFinancialEntryConfig,

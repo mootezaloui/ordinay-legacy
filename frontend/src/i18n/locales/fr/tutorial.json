@@ -40,12 +40,12 @@
     },
     "client-dossiers-tab": {
       "title": "Afficher les Dossiers 📁",
-      "description": "Voyez toutes les affaires juridiques liées à ce client. Créez et gérez les dossiers ici.",
+      "description": "Voyez tous les dossiers liés à ce client. Créez et gérez les dossiers ici.",
       "action": "Ouvrir l'onglet Dossiers"
     },
     "create-dossier-from-client": {
       "title": "Créer un Dossier 📋",
-      "description": "Un dossier = une affaire juridique. Créons-en un pour ce client.",
+      "description": "Un dossier = un dossier juridique. Créons-en un pour ce client.",
       "action": "Cliquez sur 'Ajouter un dossier'"
     },
     "client-notification-intro": {
@@ -68,29 +68,29 @@
     },
     "phase2-complete": {
       "title": "Maître des Dossiers ! ✅",
-      "description": "Vous maîtrisez les dossiers sur le bout des doigts. Suivant : les procès et affaires judiciaires."
+      "description": "Vous maîtrisez les dossiers sur le bout des doigts. Suivant : les procès."
     },
-    "select-dossier-for-cases": {
+    "select-dossier-for-lawsuits": {
       "title": "Ouvrir un Dossier 📂",
       "description": "Pour apprendre les procès, sélectionnez d'abord un dossier.",
       "action": "Cliquer sur un dossier pour l'ouvrir"
     },
-    "dossier-cases-tab": {
+    "dossier-lawsuits-tab": {
       "title": "Gérer les Procès ⚖️",
-      "description": "Les procès sont vos affaires judiciaires formelles — litiges, contentieux, affaires de cour. Un dossier peut contenir plusieurs procès.",
+      "description": "Les procès sont vos procédures judiciaires formelles — litiges, contentieux, procédures de cour. Un dossier peut contenir plusieurs procès.",
       "action": "Ouvrir l'onglet Procès"
     },
-    "create-case-from-dossier": {
+    "create-lawsuit-from-dossier": {
       "title": "Créer un Procès 📝",
-      "description": "Ajoutez un procès avec sa cour, ses parties et son statut. Suivez chaque affaire.",
+      "description": "Ajoutez un procès avec sa cour, ses parties et son statut. Suivez chaque procès.",
       "action": "Cliquez sur 'Ajouter un procès'"
     },
-    "case-notification-intro": {
+    "lawsuit-notification-intro": {
       "title": "Tenez les Clients Informés 📢",
       "description": "Nouveau procès ? Organia peut notifier votre client automatiquement. Gardez-les dans la boucle.",
       "action": "Choisir d'envoyer ou passer"
     },
-    "case-detail-overview": {
+    "lawsuit-detail-overview": {
       "title": "Aperçu du Procès 🔍",
       "description": "Suivez la cour, le statut, les audiences, les résultats — tout documenté au même endroit."
     },
@@ -146,11 +146,11 @@
     },
     "sessions-list-overview": {
       "title": "Votre Calendrier 🗓️",
-      "description": "Toutes les sessions programmées en un seul endroit. Chacune liée à son dossier ou affaire."
+      "description": "Toutes les sessions programmées en un seul endroit. Chacune liée à son dossier ou procès."
     },
     "create-session": {
       "title": "Planifier une Session 📌",
-      "description": "Ajoutez une audience ou réunion. Définissez date, heure, lieu et liez à votre affaire.",
+      "description": "Ajoutez une audience ou réunion. Définissez date, heure, lieu et liez à votre procès.",
       "action": "Cliquez sur 'Ajouter une session'"
     },
     "session-detail-overview": {

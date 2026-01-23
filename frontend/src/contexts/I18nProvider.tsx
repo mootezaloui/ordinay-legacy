@@ -35,20 +35,17 @@ export function I18nProvider({ children }: I18nProviderProps) {
     void changeAppLanguage(targetLanguage);
   }, [ready, settings?.language]);
 
+  useEffect(() => {
+    if (!ready) return;
+    const splash = (window as any).__organiaSplash;
+    if (splash && typeof splash.markReady === "function") {
+      splash.markReady("i18n");
+    }
+  }, [ready]);
+
   // Wait for i18n to be ready before rendering children
   if (!ready) {
-    return (
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        minHeight: '100vh',
-        fontSize: '1.2rem',
-        color: '#666'
-      }}>
-        Loading translations...
-      </div>
-    );
+    return null;
   }
 
   return <I18nextProvider i18n={i18nInstance}>{children}</I18nextProvider>;

@@ -150,7 +150,7 @@
     },
     "activities": {
       "newClient": "عميل جديد: {{name}}",
-      "dossierUpdated": "تم تحديث الملف: {{caseNumber}}",
+      "dossierUpdated": "تم تحديث الملف: {{lawsuitNumber}}",
       "scheduledHearing": "جلسات مجدولة: {{title}}",
       "sessionDescription": "{{date}} في {{time}}",
       "deadline": "الموعد النهائي: {{title}}",
@@ -159,7 +159,7 @@
     "types": {
       "session": "جلسة",
       "task": "مهام",
-      "case": "دعوى",
+      "lawsuit": "قضية",
       "dossier": "ملف",
       "finance": "مالية",
       "mission": "مهمة",
@@ -187,9 +187,9 @@
         "new": "ملف جديد",
         "edit": "تعديل الملف"
       },
-      "case": {
-        "new": "دعوى جديدة",
-        "edit": "تعديل الدعوى"
+      "lawsuit": {
+        "new": "قضية جديدة",
+        "edit": "تعديل القضية"
       },
       "session": {
         "new": "جلسة جديدة",
@@ -297,7 +297,7 @@
         "completed": "مكتمل",
         "cancelled": "ملغي",
         "dossierCreated": "تم إنشاء الملف",
-        "lawsuitCreated": "تم إنشاء الدعوى",
+        "lawsuitCreated": "تم إنشاء القضية",
         "hearingCreated": "تم إنشاء الجلسة",
         "taskCreated": "تم إنشاء المهمة",
         "missionCreated": "تم إنشاء المهمة",
@@ -433,10 +433,10 @@
       "fallback": {
         "unknownClient": "عميل غير معروف",
         "unknownDossier": "ملف غير معروف",
-        "noLawsuit": "لا توجد دعوى"
+        "noLawsuit": "لا توجد قضية"
       },
       "blockers": {
-        "missingParent": "أضف ملفًا أو دعوى قبل إنشاء مهمة."
+        "missingParent": "أضف ملفًا أو قضية قبل إنشاء مهمة."
       }
     },
     "financial": {
@@ -501,7 +501,7 @@
         "amount": "المبلغ",
         "client": "العميل",
         "dossier": "الملف",
-        "lawsuit": "الدعوى",
+        "lawsuit": "القضية",
         "createdBy": "تم الإنشاء بواسطة",
         "description": "الوصف"
       },
@@ -539,6 +539,12 @@
       "addDefault": "إضافة عنصر",
       "edit": "تعديل",
       "disabledAction": "الإجراء غير متاح في الوقت الحالي.",
+      "errors": {
+        "createDossier": "تعذر إنشاء الملف. يرجى المحاولة مرة أخرى.",
+        "createLawsuit": "تعذر إنشاء القضية. يرجى المحاولة مرة أخرى.",
+        "createSession": "تعذر إنشاء الجلسة. يرجى المحاولة مرة أخرى.",
+        "createTask": "تعذر إنشاء المهمة. يرجى المحاولة مرة أخرى."
+      },
       "toast": {
         "addSuccess": "تمت إضافة {{entityName}} بنجاح!",
         "addError": "حدث خطأ أثناء الإضافة"
@@ -548,7 +554,7 @@
         "edit": "تعديل {{entity}}"
       },
       "help": {
-        "taskCaseLink": "ستكون هذه المهمة مرتبطة بهذه الدعوى"
+        "taskLawsuitLink": "ستكون هذه المهمة مرتبطة بهذه القضية"
       },
       "empty": {
         "noItems": "لا توجد عناصر"
@@ -568,16 +574,16 @@
     "aggregated": {
       "empty": {
         "dossiers": "لا توجد ملفات لهذا العميل",
-        "lawsuitsClient": "لا توجد دعاوى لهذا العميل",
-        "lawsuitsDossier": "لا توجد دعاوى لهذا الملف",
-        "hearingsClient": "لا توجد جلسات مجدولة لهذا العميل.\nلإضافة جلسة، أنشئ ملفًا أو دعوى.",
+        "lawsuitsClient": "لا توجد قضايا لهذا العميل",
+        "lawsuitsDossier": "لا توجد قضايا لهذا الملف",
+        "hearingsClient": "لا توجد جلسات مجدولة لهذا العميل.\nلإضافة جلسة، أنشئ ملفًا أو قضية.",
         "hearingsDossier": "لا توجد جلسات مجدولة لهذا الملف",
-        "hearingsLawsuit": "لا توجد جلسات مجدولة لهذه الدعوى",
+        "hearingsLawsuit": "لا توجد جلسات مجدولة لهذه القضية",
         "tasksClient": "لا توجد مهام لهذا العميل",
         "tasksDossier": "لا توجد مهام لهذا الملف",
-        "tasksLawsuit": "لا توجد مهام لهذه الدعوى",
+        "tasksLawsuit": "لا توجد مهام لهذه القضية",
         "missionsDossier": "لا توجد مهام محضر لهذا الملف",
-        "missionsLawsuit": "لا توجد مهام محضر لهذه الدعوى"
+        "missionsLawsuit": "لا توجد مهام محضر لهذه القضية"
       },
       "labels": {
         "category": "الفئة",
@@ -645,8 +651,8 @@
         "clients": "عملاء",
         "dossier": "ملف",
         "dossiers": "ملفات",
-        "lawsuit": "دعوى",
-        "lawsuits": "دعاوى",
+        "lawsuit": "قضية",
+        "lawsuits": "قضايا",
         "task": "مهمة",
         "tasks": "مهام",
         "session": "جلسة",
@@ -663,7 +669,7 @@
           "taskComplete": "تم تحديد المهمة كمكتملة",
           "hearingComplete": "تم تحديد الجلسة كمكتملة",
           "entryPaid": "تم تحديد الإدخال كمدفوع",
-          "caseClosed": "تم إغلاق الدعوى",
+          "lawsuitClosed": "تم إغلاق القضية",
           "dossierClosed": "تم إغلاق الملف",
           "resolved": "تم حل جميع العوائق!"
         },
@@ -671,7 +677,7 @@
           "taskComplete": "تعذر تحديد هذه المهمة كمكتملة",
           "hearingComplete": "تعذر تحديد هذه الجلسة كمكتملة",
           "entryPaid": "تعذر تحديد هذا الإدخال كمدفوع",
-          "caseClosed": "تعذر إغلاق هذه الدعوى",
+          "lawsuitClosed": "تعذر إغلاق هذه القضية",
           "dossierClosed": "تعذر إغلاق هذا الملف",
           "unsupported": "الإجراء غير مدعوم",
           "generic": "حدث خطأ"
@@ -681,8 +687,8 @@
         "actions": {
           "viewTask": "عرض المهمة",
           "markComplete": "تحديد كمكتمل",
-          "viewLawsuit": "عرض الدعوى",
-          "closeLawsuit": "إغلاق الدعوى",
+          "viewLawsuit": "عرض القضية",
+          "closeLawsuit": "إغلاق القضية",
           "viewHearing": "عرض الجلسة",
           "viewMission": "عرض المهمة",
           "completeMission": "إكمال المهمة",
@@ -696,8 +702,8 @@
         "summary": {
           "incompleteTask": "{{count}} مهمة غير مكتملة",
           "incompleteTasks": "{{count}} مهام غير مكتملة",
-          "openLawsuit": "{{count}} دعوى مفتوحة",
-          "openLawsuits": "{{count}} دعاوى مفتوحة",
+          "openLawsuit": "{{count}} قضية مفتوحة",
+          "openLawsuits": "{{count}} قضايا مفتوحة",
           "upcomingHearing": "{{count}} جلسة قادمة",
           "upcomingHearings": "{{count}} جلسات قادمة",
           "activeMission": "{{count}} مهمة نشطة",
@@ -717,27 +723,27 @@
           "dossierOpenBeforeClient": "تاريخ فتح الملف ({{openDate}}) لا يمكن أن يكون قبل تاريخ تسجيل العميل ({{joinDate}}).",
           "nextDeadlinePast": "الموعد النهائي التالي ({{date}}) في الماضي. يرجى تحديثه.",
           "closingDateAfterOpening": "تاريخ الإغلاق ({{closeDate}}) يجب أن يكون بعد تاريخ الفتح ({{openDate}}).",
-          "cannotCloseDossierOpenCases_one": "لا يمكن إغلاق الملف: {{count}} دعوى ما زالت قيد المعالجة.",
-          "cannotCloseDossierOpenCases_other": "لا يمكن إغلاق الملف: {{count}} دعاوى ما زالت قيد المعالجة.",
+          "cannotCloseDossierOpenLawsuits_one": "لا يمكن إغلاق الملف: {{count}} قضية ما زالت قيد المعالجة.",
+          "cannotCloseDossierOpenLawsuits_other": "لا يمكن إغلاق الملف: {{count}} قضايا ما زالت قيد المعالجة.",
           "filingDateFuture": "تاريخ الإيداع ({{date}}) لا يمكن أن يكون في المستقبل.",
-          "filingBeforeDossierOpen": "تاريخ إيداع الدعوى ({{filingDate}}) لا يمكن أن يكون قبل تاريخ فتح الملف ({{openDate}}).",
+          "filingBeforeDossierOpen": "تاريخ إيداع القضية ({{filingDate}}) لا يمكن أن يكون قبل تاريخ فتح الملف ({{openDate}}).",
           "nextHearingPast": "الجلسة التالية ({{date}}) في الماضي. حدّث هذا التاريخ.",
           "closingDateAfterFiling": "تاريخ الإغلاق ({{closeDate}}) يجب أن يكون بعد تاريخ الإيداع ({{filingDate}}).",
-          "cannotCloseLawsuitFutureHearings_one": "لا يمكن إغلاق الدعوى: توجد {{count}} جلسة مستقبلية مجدولة.",
-          "cannotCloseLawsuitFutureHearings_other": "لا يمكن إغلاق الدعوى: توجد {{count}} جلسات مستقبلية مجدولة.",
+          "cannotCloseLawsuitFutureHearings_one": "لا يمكن إغلاق القضية: توجد {{count}} جلسة مستقبلية مجدولة.",
+          "cannotCloseLawsuitFutureHearings_other": "لا يمكن إغلاق القضية: توجد {{count}} جلسات مستقبلية مجدولة.",
           "judgmentBeforeFiling": "تاريخ الحكم ({{judgmentDate}}) لا يمكن أن يكون قبل تاريخ الإيداع ({{filingDate}}).",
           "dueDatePast": "تاريخ الاستحقاق ({{date}}) في الماضي.",
-          "taskDueAfterHearing": "تاريخ استحقاق المهمة ({{dueDate}}) بعد الجلسة التالية للدعوى ({{hearingDate}}). تحقق من الاتساق.",
+          "taskDueAfterHearing": "تاريخ استحقاق المهمة ({{dueDate}}) بعد الجلسة التالية للقضية ({{hearingDate}}). تحقق من الاتساق.",
           "taskParentClosed": "لا يمكن إنشاء مهمة: الأصل {{parentType}} مغلق بالفعل.",
           "completionBeforeCreation": "تاريخ الإنجاز ({{completionDate}}) لا يمكن أن يكون قبل تاريخ الإنشاء ({{createdDate}}).",
           "startAfterDue": "تاريخ البدء ({{startDate}}) يجب أن يكون قبل تاريخ الاستحقاق ({{dueDate}}).",
           "hearingDatePastStatus": "تاريخ الجلسة ({{date}}) في الماضي لكن حالتها ليست \"مكتملة\".",
           "endTimeBeforeStart": "وقت الانتهاء ({{endTime}}) يجب أن يكون بعد وقت البداية ({{startTime}}).",
-          "hearingAfterCaseClosed": "لا يمكن جدولة الجلسة بعد إغلاق الدعوى ({{closeDate}}).",
-          "hearingCreateClosedCase": "لا يمكن إنشاء جلسة: الدعوى الأصلية مغلقة بالفعل.",
+          "hearingAfterLawsuitClosed": "لا يمكن جدولة الجلسة بعد إغلاق القضية ({{closeDate}}).",
+          "hearingCreateClosedLawsuit": "لا يمكن إنشاء جلسة: القضية الأصلية مغلقة بالفعل.",
           "hearingAfterDossierClosed": "لا يمكن جدولة الجلسة بعد إغلاق الملف ({{closeDate}}).",
           "hearingCreateClosedDossier": "لا يمكن إنشاء جلسة: الملف الأصل مغلق بالفعل.",
-          "hearingBeforeFiling": "تاريخ الجلسة ({{date}}) لا يمكن أن يكون قبل تاريخ إيداع الدعوى ({{filingDate}}).",
+          "hearingBeforeFiling": "تاريخ الجلسة ({{date}}) لا يمكن أن يكون قبل تاريخ إيداع القضية ({{filingDate}}).",
           "assignmentDateFuture": "تاريخ التكليف ({{date}}) لا يمكن أن يكون في المستقبل.",
           "missionDueAfterAssign": "تاريخ الاستحقاق ({{dueDate}}) يجب أن يكون بعد تاريخ التكليف ({{assignDate}}).",
           "missionDueOverdue": "تاريخ استحقاق المهمة ({{dueDate}}) متأخر. الحالة الحالية: {{status}}.",
@@ -755,15 +761,15 @@
         },
         "helpText": {
           "closeDossierTasks": "لإغلاق هذا الملف، يجب أولاً إكمال جميع المهام المرتبطة. يمكنك تحديد المهام كمكتملة بشكل فردي.",
-          "closeLawsuitTasks": "لإغلاق هذه الدعوى، يجب أولاً إكمال جميع المهام المرتبطة. يمكنك تحديد المهام كمكتملة بشكل فردي.",
-          "closeDossierLawsuits": "لإغلاق هذا الملف، يجب أولاً إغلاق جميع الدعاوى المرتبطة. يمكنك إغلاق كل دعوى بشكل فردي.",
-          "closeLawsuitHearings": "لإغلاق هذه الدعوى، يجب أولاً إكمال أو إلغاء جميع الجلسات القادمة. يمكنك تحديد الجلسات كمكتملة بشكل فردي.",
+          "closeLawsuitTasks": "لإغلاق هذه القضية، يجب أولاً إكمال جميع المهام المرتبطة. يمكنك تحديد المهام كمكتملة بشكل فردي.",
+          "closeDossierLawsuits": "لإغلاق هذا الملف، يجب أولاً إغلاق جميع القضايا المرتبطة. يمكنك إغلاق كل قضية بشكل فردي.",
+          "closeLawsuitHearings": "لإغلاق هذه القضية، يجب أولاً إكمال أو إلغاء جميع الجلسات القادمة. يمكنك تحديد الجلسات كمكتملة بشكل فردي.",
           "closeDossierHearings": "لإغلاق هذا الملف، يجب أولاً إكمال أو إلغاء جميع الجلسات القادمة. يمكنك تحديد الجلسات كمكتملة بشكل فردي.",
           "closeDossierMissions": "لإغلاق هذا الملف، يجب أولاً إكمال جميع مهام المحضر النشطة.",
-          "closeLawsuitMissions": "لإغلاق هذه الدعوى، يجب أولاً إكمال جميع مهام المحضر النشطة.",
+          "closeLawsuitMissions": "لإغلاق هذه القضية، يجب أولاً إكمال جميع مهام المحضر النشطة.",
           "closeDossierFinancial": "لإغلاق هذا الملف، يجب أولاً تحديد جميع الإدخالات المالية غير المدفوعة كمدفوعة.",
-          "closeLawsuitFinancial": "لإغلاق هذه الدعوى، يجب أولاً تحديد جميع الإدخالات المالية غير المدفوعة كمدفوعة.",
-          "inactivateClientLawsuits": "لتحديد هذا العميل كغير نشط، يجب أولاً إغلاق جميع الدعاوى المرتبطة. يمكنك إغلاق كل دعوى بشكل فردي.",
+          "closeLawsuitFinancial": "لإغلاق هذه القضية، يجب أولاً تحديد جميع الإدخالات المالية غير المدفوعة كمدفوعة.",
+          "inactivateClientLawsuits": "لتحديد هذا العميل كغير نشط، يجب أولاً إغلاق جميع القضايا المرتبطة. يمكنك إغلاق كل قضية بشكل فردي.",
           "inactivateClientTasks": "لتحديد هذا العميل كغير نشط، يجب أولاً إكمال جميع المهام المرتبطة. يمكنك تحديد المهام كمكتملة بشكل فردي.",
           "inactivateClientHearings": "لتحديد هذا العميل كغير نشط، يجب أولاً إكمال جميع الجلسات المرتبطة. يمكنك تحديد الجلسات كمكتملة بشكل فردي.",
           "closedParent": "ينتمي هذا العنصر إلى كيان أصل مغلق ولا يمكن تعديله. يجب أولاً إعادة فتح الأصل.",
@@ -799,7 +805,7 @@
       "noSelection": "لم يتم اختيار عنصر",
       "client": "اختر عميلاً",
       "dossier": "اختر ملفًا",
-      "case": "اختر دعوى",
+      "lawsuit": "اختر قضية",
       "task": "اختر مهمة",
       "session": "اختر جلسة",
       "officer": "اختر محضرًا",
@@ -839,7 +845,7 @@
       "phone": "الهاتف",
       "name": "الاسم",
       "status": "الحالة",
-      "caseNumber": "رقم القضية",
+      "lawsuitNumber": "رقم القضية",
       "title": "العنوان",
       "client": "العميل",
       "date": "التاريخ",
@@ -969,7 +975,7 @@
       "clients": "العملاء",
       "dossiers": "الملفات",
       "tasks": "المهام",
-      "lawsuits": "الدعاوى",
+      "lawsuits": "القضايا",
       "hearings": "الجلسات",
       "bailiffs": "المحضرون"
     },
@@ -996,7 +1002,7 @@
   },
   "entities": {
     "dossiers": "الملفات",
-    "lawsuits": "الدعاوى",
+    "lawsuits": "القضايا",
     "hearings": "الجلسات",
     "tasks": "المهام",
     "missionsBailiff": "مهام المحضر"
@@ -1087,7 +1093,7 @@
     "entities": {
       "client": "Client",
       "dossier": "Dossier",
-      "case": "Case",
+      "lawsuit": "قضية",
       "task": "Task",
       "session": "Session",
       "mission": "Mission",
@@ -1140,3 +1146,4 @@
     }
   }
 }
+

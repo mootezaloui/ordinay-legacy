@@ -17,7 +17,7 @@ import TableToolbar from "../components/table/TableToolbar";
 import Pagination from "../components/table/Pagination";
 import StatCard from "../components/dashboard/StatCard";
 import FormModal from "../components/FormModal/FormModal";
-import { caseFormFields } from "../components/FormModal/formConfigs";
+import { lawsuitFormFields } from "../components/FormModal/formConfigs";
 import InlineStatusSelector from "../components/InlineSelectors/InlineStatusSelector";
 import LoadingScreen from "../components/loading/LoadingScreen";
 import BlockerModal from "../components/ui/BlockerModal";
@@ -28,27 +28,27 @@ import { logEntityCreation } from "../services/historyService";
 import { calculateNextHearing, formatDate, getDeadlineUrgency } from "../utils/deadlineUtils";
 import { useTranslation } from "react-i18next";
 
-export default function Cases() {
+export default function Lawsuits() {
   const navigate = useNavigate();
   const { showToast } = useToast();
   const { confirm } = useConfirm();
-  const { cases, dossiers, clients, sessions, tasks, missions, officers, financialEntries, addCase, updateCase, deleteCase, deleteCaseCascade, loading, loadError } = useData();
-  const { t } = useTranslation("cases");
+  const { lawsuits, dossiers, clients, sessions, tasks, missions, officers, financialEntries, addLawsuit, updateLawsuit, deleteLawsuit, deleteLawsuitCascade, loading, loadError } = useData();
+  const { t } = useTranslation("lawsuits");
 
-  // Compute next hearing for each case
-  const enhancedCases = useMemo(() => {
-    return cases.map(caseItem => {
-      const caseSessions = sessions.filter(s => s.caseId === caseItem.id || s.dossierId === caseItem.dossierId);
-      const nextHearingObj = calculateNextHearing(caseItem, caseSessions);
+  // Compute next hearing for each lawsuit
+  const enhancedLawsuits = useMemo(() => {
+    return lawsuits.map(lawsuitItem => {
+      const lawsuitSessions = sessions.filter(s => s.lawsuitId === lawsuitItem.id || s.dossierId === lawsuitItem.dossierId);
+      const nextHearingObj = calculateNextHearing(lawsuitItem, lawsuitSessions);
       return {
-        ...caseItem,
+        ...lawsuitItem,
         computedNextHearing: nextHearingObj,
       };
     });
-  }, [cases, sessions]);
+  }, [lawsuits, sessions]);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingCase, setEditingCase] = useState(null);
+  const [editingLawsuit, setEditingLawsuit] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [blockerModalOpen, setBlockerModalOpen] = useState(false);
   const [validationResult, setValidationResult] = useState(null);
@@ -72,13 +72,13 @@ export default function Cases() {
   // Define table columns
   const columns = [
     {
-      id: "caseNumber",
-      label: t("table.columns.caseNumber"),
+      id: "lawsuitNumber",
+      label: t("table.columns.lawsuitNumber"),
       sortable: true,
       locked: true,
-      render: (caseItem) => (
+      render: (lawsuitItem) => (
         <span className="font-mono text-xs font-semibold text-purple-600 dark:text-purple-400">
-          {caseItem.caseNumber}
+          {lawsuitItem.lawsuitNumber}
         </span>
       ),
     },
@@ -86,15 +86,15 @@ export default function Cases() {
       id: "title",
       label: t("table.columns.title"),
       sortable: true,
-      render: (caseItem) => <span className="font-medium">{caseItem.title}</span>,
+      render: (lawsuitItem) => <span className="font-medium">{lawsuitItem.title}</span>,
     },
     {
       id: "dossier",
       label: t("table.columns.dossier"),
       sortable: true,
-      render: (caseItem) => (
+      render: (lawsuitItem) => (
         <span className="font-mono text-xs text-blue-600 dark:text-blue-400">
-          {caseItem.dossier}
+          {lawsuitItem.dossier}
         </span>
       ),
     },
@@ -102,10 +102,10 @@ export default function Cases() {
       id: "court",
       label: t("table.columns.court"),
       sortable: true,
-      render: (caseItem) => (
+      render: (lawsuitItem) => (
         <div className="flex items-center gap-2">
           <i className="fas fa-landmark text-slate-500 dark:text-slate-400 text-xs"></i>
-          <span className="text-sm">{caseItem.court}</span>
+          <span className="text-sm">{lawsuitItem.court}</span>
         </div>
       ),
     },
@@ -113,8 +113,8 @@ export default function Cases() {
       id: "nextHearing",
       label: t("table.columns.nextHearing"),
       sortable: true,
-      render: (caseItem) => {
-        const hearing = caseItem.computedNextHearing;
+      render: (lawsuitItem) => {
+        const hearing = lawsuitItem.computedNextHearing;
         if (!hearing) return <span className="text-slate-400 italic">{t("table.nextHearing.none")}</span>;
         const urgency = getDeadlineUrgency(hearing);
         const urgencyColor = {
@@ -134,18 +134,18 @@ export default function Cases() {
       id: "status",
       label: t("table.columns.status"),
       sortable: true,
-      render: (caseItem) => (
+      render: (lawsuitItem) => (
         <InlineStatusSelector
-          value={caseItem.status}
-          onChange={(newStatus) => handleStatusChange(caseItem.id, newStatus)}
+          value={lawsuitItem.status}
+          onChange={(newStatus) => handleStatusChange(lawsuitItem.id, newStatus)}
           statusOptions={[
             { value: "In Progress", label: statusLabelMap["In Progress"], icon: "fas fa-hourglass-half", color: "blue" },
             { value: "On Hold", label: statusLabelMap["On Hold"], icon: "fas fa-pause-circle", color: "amber" },
             { value: "Closed", label: statusLabelMap["Closed"], icon: "fas fa-gavel", color: "slate" },
           ]}
-          entityType="case"
-          entityId={caseItem.id}
-          entityData={caseItem}
+          entityType="lawsuit"
+          entityId={lawsuitItem.id}
+          entityData={lawsuitItem}
         />
       ),
     },
@@ -154,7 +154,7 @@ export default function Cases() {
       label: t("table.columns.actions"),
       sortable: false,
       locked: true,
-      render: (caseItem) => (
+      render: (lawsuitItem) => (
         <TableActions>
           <IconButton
             icon="view"
@@ -162,7 +162,7 @@ export default function Cases() {
             title={t("table.actions.view")}
             onClick={(e) => {
               e.stopPropagation();
-              handleView(caseItem.id);
+              handleView(lawsuitItem.id);
             }}
           />
           <IconButton
@@ -171,7 +171,7 @@ export default function Cases() {
             title={t("table.actions.edit")}
             onClick={(e) => {
               e.stopPropagation();
-              handleEdit(caseItem);
+              handleEdit(lawsuitItem);
             }}
           />
           <IconButton
@@ -180,7 +180,7 @@ export default function Cases() {
             title={t("table.actions.delete")}
             onClick={(e) => {
               e.stopPropagation();
-              handleDelete(caseItem.id);
+              handleDelete(lawsuitItem.id);
             }}
           />
         </TableActions>
@@ -190,9 +190,9 @@ export default function Cases() {
 
   // Calculate stats
   const stats = {
-    total: enhancedCases.length,
-    active: enhancedCases.filter(c => c.status === "In Progress").length,
-    upcoming: enhancedCases.filter(c => {
+    total: enhancedLawsuits.length,
+    active: enhancedLawsuits.filter(c => c.status === "In Progress").length,
+    upcoming: enhancedLawsuits.filter(c => {
       const hearing = c.computedNextHearing;
       if (!hearing) return false;
       const hearingDate = new Date(hearing.date);
@@ -200,18 +200,18 @@ export default function Cases() {
       nextWeek.setDate(nextWeek.getDate() + 7);
       return hearingDate <= nextWeek && hearingDate >= new Date();
     }).length,
-    closed: enhancedCases.filter(c => c.status === "Completed").length,
+    closed: enhancedLawsuits.filter(c => c.status === "Completed").length,
   };
 
   // Initialize advanced table with intelligent ordering
-  // Cases: Upcoming hearings first, then active cases, closed cases de-emphasized
-  const table = useAdvancedTable(enhancedCases, columns, {
+  // Lawsuits: Upcoming hearings first, then active lawsuits, closed lawsuits de-emphasized
+  const table = useAdvancedTable(enhancedLawsuits, columns, {
     // Remove initialSortBy to enable intelligent ordering by default
     initialSortBy: null,
     initialSortDirection: "asc",
     initialItemsPerPage: 10,
-    searchableFields: ["caseNumber", "title", "dossier", "court", "status"],
-    entityType: "case",
+    searchableFields: ["lawsuitNumber", "title", "dossier", "court", "status"],
+    entityType: "lawsuit",
     enableIntelligentOrdering: true,
   });
 
@@ -248,14 +248,14 @@ export default function Cases() {
 
 
   const handleView = (id) => {
-    navigate(`/cases/${id}`);
+    navigate(`/lawsuits/${id}`);
   };
 
-  const handleEdit = (caseItem) => {
+  const handleEdit = (lawsuitItem) => {
     // â Validate before allowing edit
-    const result = canPerformAction('case', caseItem.id, 'edit', {
-      data: caseItem,
-      entities: { clients, dossiers, cases, sessions, tasks, missions, officers, financialEntries }
+    const result = canPerformAction('lawsuit', lawsuitItem.id, 'edit', {
+      data: lawsuitItem,
+      entities: { clients, dossiers, lawsuits, sessions, tasks, missions, officers, financialEntries }
     });
 
     if (!result.allowed) {
@@ -264,16 +264,16 @@ export default function Cases() {
       return;
     }
 
-    setEditingCase(caseItem);
+    setEditingLawsuit(lawsuitItem);
     setIsModalOpen(true);
   };
 
   const handleDelete = async (id) => {
     // â Validate before allowing delete
-    const caseItem = cases.find(c => c.id === id);
-    const result = canPerformAction('case', id, 'delete', {
-      data: caseItem,
-      entities: { clients, dossiers, cases, sessions, tasks, missions, officers, financialEntries }
+    const lawsuitItem = lawsuits.find(c => c.id === id);
+    const result = canPerformAction('lawsuit', id, 'delete', {
+      data: lawsuitItem,
+      entities: { clients, dossiers, lawsuits, sessions, tasks, missions, officers, financialEntries }
     });
 
     if (!result.allowed) {
@@ -290,10 +290,10 @@ export default function Cases() {
       cancelText: t("confirm.delete.cancel"),
       variant: "danger"
     })) {
-      deleteCase(id);
+      deleteLawsuit(id);
       showToast(t("toasts.deleteSuccess.body"), "warning", {
         title: t("toasts.deleteSuccess.title"),
-        context: "case",
+        context: "lawsuit",
       });
     }
   };
@@ -304,48 +304,48 @@ export default function Cases() {
     setBlockerModalOpen(false);
 
     try {
-      const result = await deleteCaseCascade(pendingDeleteId);
+      const result = await deleteLawsuitCascade(pendingDeleteId);
 
       if (!result || !result.ok) {
-        console.error('[Cases.handleForceDelete] Cascade delete failed:', result);
+        console.error('[Lawsuits.handleForceDelete] Cascade delete failed:', result);
         showToast(t("toasts.cascadeError"), "error");
         return;
       }
 
       showToast(t("toasts.cascadeSuccess.body"), "success", {
         title: t("toasts.cascadeSuccess.title"),
-        context: "case",
+        context: "lawsuit",
       });
 
       setPendingDeleteId(null);
       setValidationResult(null);
-      navigate("/cases");
+      navigate("/lawsuits");
     } catch (error) {
-      console.error('[Cases.handleForceDelete] Error:', error);
+      console.error('[Lawsuits.handleForceDelete] Error:', error);
       showToast(t("toasts.cascadeError"), "error");
     }
   };
 
   const handleStatusChange = (id, newStatus) => {
-    updateCase(id, { status: newStatus });
+    updateLawsuit(id, { status: newStatus });
     showToast(t("toasts.statusUpdated", { status: getStatusLabel(newStatus) }), "info", {
       title: t("toasts.statusTitle"),
-      context: "case",
+      context: "lawsuit",
     });
   };
 
-  const handleAddCase = () => {
-    setEditingCase(null);
+  const handleAddLawsuit = () => {
+    setEditingLawsuit(null);
     setIsModalOpen(true);
   };
 
   const handleSubmit = async (formData) => {
     // ?. Validate before submitting
-    if (editingCase) {
-      const result = canPerformAction('case', editingCase.id, 'edit', {
-        data: editingCase,
+    if (editingLawsuit) {
+      const result = canPerformAction('lawsuit', editingLawsuit.id, 'edit', {
+        data: editingLawsuit,
         newData: formData,
-        entities: { clients, dossiers, cases, sessions, tasks, missions, officers, financialEntries }
+        entities: { clients, dossiers, lawsuits, sessions, tasks, missions, officers, financialEntries }
       });
 
       if (!result.allowed) {
@@ -362,9 +362,9 @@ export default function Cases() {
         return;
       }
     } else {
-      const result = canPerformAction('case', null, 'add', {
+      const result = canPerformAction('lawsuit', null, 'add', {
         formData,
-        entities: { clients, dossiers, cases, sessions, tasks, missions, officers, financialEntries }
+        entities: { clients, dossiers, lawsuits, sessions, tasks, missions, officers, financialEntries }
       });
       if (!result.allowed) {
         setValidationResult(result);
@@ -389,32 +389,32 @@ export default function Cases() {
     try {
       await new Promise((resolve) => setTimeout(resolve, 500));
 
-      if (editingCase) {
-        await updateCase(editingCase.id, formData);
+      if (editingLawsuit) {
+        await updateLawsuit(editingLawsuit.id, formData);
         showToast(t("toasts.updateSuccess"), "success");
         } else {
-          const creation = await addCase(formData);
+          const creation = await addLawsuit(formData);
           if (creation?.ok === false) {
             return;
           }
           const createdEntity = creation?.created || creation;
           const createdId = createdEntity?.id;
-          const createdRef = createdEntity?.caseNumber || createdEntity?.reference || formData.caseNumber;
+          const createdRef = createdEntity?.lawsuitNumber || createdEntity?.reference || formData.lawsuitNumber;
           if (!createdId) throw new Error(t("toasts.missingId"));
         showToast(t("toasts.createSuccess"), "success");
 
-        logEntityCreation("case", createdId, createdRef);
+        logEntityCreation("lawsuit", createdId, createdRef);
 
-        const detailRoute = resolveDetailRoute("case", createdId);
+        const detailRoute = resolveDetailRoute("lawsuit", createdId);
         if (detailRoute) {
           setTimeout(() => navigate(detailRoute), 100);
         }
       }
 
       setIsModalOpen(false);
-      setEditingCase(null);
+      setEditingLawsuit(null);
     } catch (error) {
-      console.error("Error submitting case:", error);
+      console.error("Error submitting lawsuit:", error);
       showToast(t("toasts.saveError"), "error");
     } finally {
       setIsLoading(false);
@@ -433,11 +433,11 @@ export default function Cases() {
       .map(col => col.label)
       .join(",");
 
-    const rows = table.allData.map(caseItem =>
+    const rows = table.allData.map(lawsuitItem =>
       table.columns
         .filter(col => col.id !== "actions")
         .map(col => {
-          const value = caseItem[col.id] || "";
+          const value = lawsuitItem[col.id] || "";
           return `"${value}"`;
         })
         .join(",")
@@ -448,30 +448,30 @@ export default function Cases() {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `cases-${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `lawsuits-${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
     window.URL.revokeObjectURL(url);
   };
 
   // Populate dossier options and protect status field in edit mode
-  const translatedCaseFormFields = caseFormFields(t);
+  const translatedLawsuitFormFields = lawsuitFormFields(t);
 
-  const populatedCaseFormFields = translatedCaseFormFields.map(field => {
+  const populatedLawsuitFormFields = translatedLawsuitFormFields.map(field => {
     if (field.name === "dossierId") {
       return {
         ...field,
         options: dossiers.map(d => ({
           value: d.id,
-          label: `${d.caseNumber} - ${d.title}`
+          label: `${d.lawsuitNumber} - ${d.title}`
         }))
       };
     }
     // Protect status field in edit mode
-    if (field.name === "status" && editingCase) {
+    if (field.name === "status" && editingLawsuit) {
       return {
         ...field,
         type: 'readonly',
-        displayValue: getStatusLabel(editingCase.status),
+        displayValue: getStatusLabel(editingLawsuit.status),
         helpText: t("form.help.statusLocked")
       };
     }
@@ -486,16 +486,16 @@ export default function Cases() {
         icon="fas fa-gavel"
         actions={
           <button
-            onClick={handleAddCase}
+            onClick={handleAddLawsuit}
             disabled={dossiers.length === 0}
             className={`px-4 py-2 rounded-lg font-medium transition-colors duration-200 flex items-center gap-2 ${dossiers.length === 0
               ? "bg-gray-400 cursor-not-allowed text-gray-200"
               : "bg-blue-600 hover:bg-blue-700 text-white"
               }`}
-            title={dossiers.length === 0 ? t("page.actions.newCaseDisabled") : undefined}
+            title={dossiers.length === 0 ? t("page.actions.newLawsuitDisabled") : undefined}
           >
             <i className="fas fa-plus"></i>
-            {t("page.actions.newCase")}
+            {t("page.actions.newLawsuit")}
           </button>
         }
       />
@@ -559,11 +559,11 @@ export default function Cases() {
             enableReorder={true}
           />
           <TableBody isEmpty={table.data.length === 0} emptyMessage={tableEmptyMessage}>
-            {table.data.map((caseItem) => (
+            {table.data.map((lawsuitItem) => (
               <TableRow
-                key={caseItem.id}
-                onClick={() => handleView(caseItem.id)}
-                emphasis={table.getItemEmphasis(caseItem)}
+                key={lawsuitItem.id}
+                onClick={() => handleView(lawsuitItem.id)}
+                emphasis={table.getItemEmphasis(lawsuitItem)}
                 className="cursor-pointer"
               >
                 {table.columns.map((column) => (
@@ -572,7 +572,7 @@ export default function Cases() {
                     truncate={!['status', 'priority'].includes(column.id)}
                     adaptive={['status', 'priority'].includes(column.id)}
                   >
-                    {column.render ? column.render(caseItem) : caseItem[column.id]}
+                    {column.render ? column.render(lawsuitItem) : lawsuitItem[column.id]}
                   </TableCell>
                 ))}
               </TableRow>
@@ -594,18 +594,18 @@ export default function Cases() {
         isOpen={isModalOpen}
         onClose={() => {
           setIsModalOpen(false);
-          setEditingCase(null);
+          setEditingLawsuit(null);
         }}
         onSubmit={handleSubmit}
-        title={editingCase ? t("form.title.edit") : t("form.title.create")}
-        subtitle={editingCase ? t("form.subtitle.edit") : t("form.subtitle.create")}
-        fields={populatedCaseFormFields}
-        initialData={editingCase}
+        title={editingLawsuit ? t("form.title.edit") : t("form.title.create")}
+        subtitle={editingLawsuit ? t("form.subtitle.edit") : t("form.subtitle.create")}
+        fields={populatedLawsuitFormFields}
+        initialData={editingLawsuit}
         isLoading={isLoading}
         entityType="lawsuit"
-        entityId={editingCase?.id}
-        editingEntity={editingCase}
-        entities={{ clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }}
+        entityId={editingLawsuit?.id}
+        editingEntity={editingLawsuit}
+        entities={{ clients, dossiers, lawsuits, tasks, sessions, officers, missions, financialEntries }}
       />
 
       <BlockerModal
@@ -618,7 +618,7 @@ export default function Cases() {
         actionName={t("blockerModal.actionName")}
         blockers={validationResult?.blockers || []}
         warnings={validationResult?.warnings || []}
-        entityName={validationResult?.entityData?.caseNumber || t("blockerModal.entityFallback")}
+        entityName={validationResult?.entityData?.lawsuitNumber || t("blockerModal.entityFallback")}
         requiresForceDelete={validationResult?.requiresForceDelete || false}
         affectedEntities={validationResult?.affectedEntities || []}
         forceDeleteMessage={validationResult?.forceDeleteMessage || ""}
@@ -634,8 +634,14 @@ export default function Cases() {
         onConfirm={handleConfirmImpact}
         actionName={t("confirmImpact.action")}
         impactSummary={validationResult?.impactSummary || []}
-        entityName={editingCase?.caseNumber || ""}
+        entityName={editingLawsuit?.lawsuitNumber || ""}
       />
     </PageLayout>
   );
 }
+
+
+
+
+
+

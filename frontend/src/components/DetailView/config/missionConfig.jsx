@@ -189,10 +189,10 @@ export const createMissionConfig = (t) => ({
                         />
                         {data.entityReference && (
                             <InfoCard
-                                icon={data.entityType === 'case' ? "fas fa-gavel" : "fas fa-folder"}
-                                label={data.entityType === 'case' ? t('detail.relations.lawsuit') : t('detail.relations.dossier')}
+                                icon={data.entityType === 'lawsuit' ? "fas fa-gavel" : "fas fa-folder"}
+                                label={data.entityType === 'lawsuit' ? t('detail.relations.lawsuit') : t('detail.relations.dossier')}
                                 value={data.entityReference}
-                                color={data.entityType === 'case' ? "red" : "indigo"}
+                                color={data.entityType === 'lawsuit' ? "red" : "indigo"}
                             />
                         )}
                     </div>
@@ -329,9 +329,9 @@ export const createMissionConfig = (t) => ({
                                 </a>
                             )}
 
-                            {data.entityType === 'case' && data.entityId && (
+                            {data.entityType === 'lawsuit' && data.entityId && (
                                 <a
-                                    href={`/cases/${data.entityId}`}
+                                    href={`/lawsuits/${data.entityId}`}
                                     className="flex items-center justify-between p-4 bg-white dark:bg-slate-800 rounded-lg border-2 border-red-200 dark:border-red-800 hover:border-red-400 dark:hover:border-red-600 transition-all group"
                                 >
                                     <div className="flex items-center gap-4">
@@ -497,7 +497,7 @@ export const createMissionConfig = (t) => ({
                     editable: true,
                     options: [
                         { value: "dossier", label: t('detail.overview.entityTypes.dossier') },
-                        { value: "case", label: t('detail.overview.entityTypes.case') },
+                        { value: "lawsuit", label: t('detail.overview.entityTypes.lawsuit') },
                     ],
                     helpText: t('detail.overview.help.entityType'),
                 },
@@ -509,15 +509,15 @@ export const createMissionConfig = (t) => ({
                         if (!data?.entityId) return t('detail.fallback.none');
                         const entityType = data.entityType || "dossier";
                         const dossiers = contextData?.dossiers || [];
-                        const cases = contextData?.cases || [];
+                        const lawsuits = contextData?.lawsuits || [];
                         if (entityType === "dossier") {
                             const dossier = dossiers.find(d => d.id === parseInt(data.entityId));
-                            if (dossier) return `${dossier.caseNumber} - ${dossier.title}`;
+                            if (dossier) return `${dossier.lawsuitNumber} - ${dossier.title}`;
                             return data.entityReference || `Dossier #${data.entityId}`;
                         }
-                        if (entityType === "case") {
-                            const caseItem = cases.find(c => c.id === parseInt(data.entityId));
-                            if (caseItem) return `${caseItem.caseNumber} - ${caseItem.title}`;
+                        if (entityType === "lawsuit") {
+                            const lawsuitItem = lawsuits.find(c => c.id === parseInt(data.entityId));
+                            if (lawsuitItem) return `${lawsuitItem.lawsuitNumber} - ${lawsuitItem.title}`;
                             return data.entityReference || `Lawsuit #${data.entityId}`;
                         }
                         return data.entityReference || `#${data.entityId}`;
@@ -527,21 +527,21 @@ export const createMissionConfig = (t) => ({
                     editable: true,
                     getOptions: (editedData = {}, contextData) => {
                         const dossiers = contextData?.dossiers || [];
-                        const cases = contextData?.cases || [];
+                        const lawsuits = contextData?.lawsuits || [];
                         const currentType = editedData.entityType || "dossier";
                         const emptyOption = {
                             value: "",
                             label:
-                                currentType === "case"
-                                    ? t('detail.overview.placeholders.selectCase')
+                                currentType === "lawsuit"
+                                    ? t('detail.overview.placeholders.selectLawsuit')
                                     : t('detail.overview.placeholders.selectDossier'),
                         };
-                        if (currentType === "case") {
+                        if (currentType === "lawsuit") {
                             return [
                                 emptyOption,
-                                ...cases.map((c) => ({
+                                ...lawsuits.map((c) => ({
                                     value: c.id,
-                                    label: `${c.caseNumber} - ${c.title}`,
+                                    label: `${c.lawsuitNumber} - ${c.title}`,
                                 })),
                             ];
                         }
@@ -549,7 +549,7 @@ export const createMissionConfig = (t) => ({
                             emptyOption,
                             ...dossiers.map((d) => ({
                                 value: d.id,
-                                label: `${d.caseNumber} - ${d.title}`,
+                                label: `${d.lawsuitNumber} - ${d.title}`,
                             })),
                         ];
                     },
@@ -644,3 +644,7 @@ function InfoCard({ icon, label, value, color }) {
 }
 
 export default createMissionConfig;
+
+
+
+

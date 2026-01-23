@@ -96,12 +96,12 @@
       "linkType": {
         "label": "مرتبطة بـ",
         "options": {
-          "case": "قضية",
-          "dossier": "ملف"
+          "dossier": "ملف",
+          "lawsuit": "قضية"
         },
         "helper": "يمكن ربط الجلسة بقضية أو مباشرة بملف"
       },
-      "caseId": {
+      "lawsuitId": {
         "label": "القضية",
         "helper": "اختر القضية المعنية"
       },
@@ -251,13 +251,13 @@
         "title": "عنوان الجلسة",
         "linkType": "مرتبطة بـ",
         "linkTypeOptions": {
-          "case": "قضية",
-          "dossier": "ملف"
+          "dossier": "ملف",
+          "lawsuit": "قضية"
         },
         "linkTypeHelp": "يمكن ربط الجلسة بقضية أو مباشرة بملف",
-        "case": "القضية",
-        "casePlaceholder": "اختر قضية...",
-        "caseHelp": "اختر القضية المعنية",
+        "lawsuit": "القضية",
+        "lawsuitPlaceholder": "اختر قضية...",
+        "lawsuitHelp": "اختر القضية المعنية",
         "dossier": "الملف",
         "dossierPlaceholder": "اختر ملفاً...",
         "dossierHelp": "اختر الملف المعني",

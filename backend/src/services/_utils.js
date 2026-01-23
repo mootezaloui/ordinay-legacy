@@ -42,7 +42,7 @@ function ensureAtLeastOne(fields, message) {
 function normalizeData(data) {
   const normalized = { ...data };
 
-  // Status value mappings for special cases
+  // Status value mappings for special values
   const statusMappings = {
     // Client statuses
     Active: "active",
@@ -56,12 +56,12 @@ function normalizeData(data) {
     busy: "busy",
     inActive: "inActive", // Officers use camelCase 'inActive', PRESERVE it exactly as sent!
 
-    // Dossier/Case statuses (shared)
+    // Dossier/Lawsuit statuses (shared)
     Open: "open",
     open: "open",
     "In Progress": "in_progress",
     in_progress: "in_progress",
-    "On Hold": "on_hold", // ✅ For dossiers/cases
+    "On Hold": "on_hold", // ✅ For dossiers/lawsuits
     on_hold: "on_hold",
     Closed: "closed",
     closed: "closed",

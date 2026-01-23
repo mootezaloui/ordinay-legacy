@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useToast } from "../../../contexts/ToastContext";
 import { useConfirm } from "../../../contexts/ConfirmContext";
@@ -46,13 +46,13 @@ export default function AggregatedRelatedTab({
   const tutorial = useTutorialSafe(); // Safe hook that returns null if not in provider
   const {
     addDossier,
-    addCase,
+    addLawsuit,
     addSession,
     addTask,
     addMission,
     addFinancialEntry,
     deleteDossier,
-    deleteCase,
+    deleteLawsuit,
     deleteSession,
     deleteTask,
     deleteMission,
@@ -78,36 +78,36 @@ export default function AggregatedRelatedTab({
     // Dossier context
     if (config?.entityType === "dossier") {
       ctx.dossierId = data.id;
-      ctx.dossier = data.caseNumber;
+      ctx.dossier = data.lawsuitNumber;
       ctx.clientId = ctx.clientId || data.clientId;
       ctx.clientName = ctx.clientName || data.client?.name || data.client;
     }
 
-    // Case context
-    if (config?.entityType === "case") {
-      ctx.caseId = data.id;
-      ctx.caseNumber = data.caseNumber;
-      ctx.caseTitle = data.title;
+    // Lawsuit context
+    if (config?.entityType === "lawsuit") {
+      ctx.lawsuitId = data.id;
+      ctx.lawsuitNumber = data.lawsuitNumber;
+      ctx.lawsuitTitle = data.title;
       ctx.dossierId = data.dossierId || ctx.dossierId;
       ctx.clientId = ctx.clientId || data.clientId;
       ctx.clientName = ctx.clientName || data.client?.name || data.client;
     }
 
-    // Sessions and tasks can default linkType when coming from dossier/case
+    // Sessions and tasks can default linkType when coming from dossier/lawsuit
     if (tabConfig?.aggregationType === "sessions" && config?.entityType === "dossier") {
       ctx.linkType = "dossier";
       ctx.dossierId = ctx.dossierId || data.id;
     }
-    if (tabConfig?.aggregationType === "sessions" && config?.entityType === "case") {
-      ctx.linkType = "case";
-      ctx.caseId = ctx.caseId || data.id;
+    if (tabConfig?.aggregationType === "sessions" && config?.entityType === "lawsuit") {
+      ctx.linkType = "lawsuit";
+      ctx.lawsuitId = ctx.lawsuitId || data.id;
     }
     if (tabConfig?.aggregationType === "sessions" && config?.entityType === "client") {
       const relatedDossiers = data.relatedDossiers || [];
       if (relatedDossiers.length === 1) {
         ctx.linkType = "dossier";
         ctx.dossierId = relatedDossiers[0].id;
-        ctx.dossier = relatedDossiers[0].caseNumber;
+        ctx.dossier = relatedDossiers[0].lawsuitNumber;
         ctx.clientId = ctx.clientId || data.id;
       }
     }
@@ -115,9 +115,9 @@ export default function AggregatedRelatedTab({
       if (config?.entityType === "dossier") {
         ctx.parentType = "dossier";
         ctx.dossierId = ctx.dossierId || data.id;
-      } else if (config?.entityType === "case") {
-        ctx.parentType = "case";
-        ctx.caseId = ctx.caseId || data.id;
+      } else if (config?.entityType === "lawsuit") {
+        ctx.parentType = "lawsuit";
+        ctx.lawsuitId = ctx.lawsuitId || data.id;
       }
     }
 
@@ -131,7 +131,7 @@ export default function AggregatedRelatedTab({
 
   // Normalize aggregation key to a reference-aware entity type (plural -> singular)
   const referenceEntityType = tabConfig?.referenceEntityType
-    || (tabConfig?.aggregationType === "cases" ? "case"
+    || (tabConfig?.aggregationType === "lawsuits" ? "lawsuit"
       : tabConfig?.aggregationType === "dossiers" ? "dossier"
         : tabConfig?.aggregationType === "missions" ? "mission"
           : tabConfig?.aggregationType === "tasks" ? "task"
@@ -148,7 +148,7 @@ export default function AggregatedRelatedTab({
     switch (tabConfig?.aggregationType) {
       case "dossiers":
         return t("detail.history.labels.dossierCreated");
-      case "cases":
+      case "lawsuits":
         return t("detail.history.labels.lawsuitCreated");
       case "sessions":
         return t("detail.history.labels.hearingCreated");
@@ -170,14 +170,14 @@ export default function AggregatedRelatedTab({
     switch (aggregationType) {
       case "dossiers": {
         const title = item.title || "";
-        const reference = item.caseNumber || item.reference || "";
+        const reference = item.lawsuitNumber || item.reference || "";
         if (title && reference) return `${title} (${reference})`;
         return title || reference || tabConfig?.entityName || "Element";
       }
 
-      case "cases": {
+      case "lawsuits": {
         const title = item.title || "";
-        const reference = item.caseNumber || item.reference || "";
+        const reference = item.lawsuitNumber || item.reference || "";
         if (title && reference) return `${title} (${reference})`;
         return title || reference || tabConfig?.entityName || "Element";
       }
@@ -210,7 +210,7 @@ export default function AggregatedRelatedTab({
           item.title ||
           item.name ||
           item.description ||
-          item.caseNumber ||
+          item.lawsuitNumber ||
           item.reference ||
           tabConfig?.entityName ||
           "Element"
@@ -230,7 +230,7 @@ export default function AggregatedRelatedTab({
         ...mergedFormData,
         clientId: toIntOrNull(mergedFormData.clientId),
         dossierId: toIntOrNull(mergedFormData.dossierId),
-        caseId: toIntOrNull(mergedFormData.caseId),
+        lawsuitId: toIntOrNull(mergedFormData.lawsuitId),
         officerId: toIntOrNull(mergedFormData.officerId),
         missionId: toIntOrNull(mergedFormData.missionId),
       };
@@ -245,22 +245,22 @@ export default function AggregatedRelatedTab({
           rel.client = data.name;
         }
 
-        // Session creation from Dossier or Case detail
+        // Session creation from Dossier or Lawsuit detail
         if (tabConfig?.aggregationType === "sessions") {
           if (config?.entityType === "dossier") {
             rel.linkType = "dossier";
             rel.dossierId = data.id;
-          } else if (config?.entityType === "case") {
-            rel.linkType = "case";
-            rel.caseId = data.id;
+          } else if (config?.entityType === "lawsuit") {
+            rel.linkType = "lawsuit";
+            rel.lawsuitId = data.id;
           }
         }
 
         // Procès creation
-        if (tabConfig?.aggregationType === "cases") {
+        if (tabConfig?.aggregationType === "lawsuits") {
           if (config?.entityType === "dossier") {
             rel.dossierId = data.id;
-            rel.dossier = data.caseNumber;
+            rel.dossier = data.lawsuitNumber;
             const clientId = data.clientId || data.client?.id;
             const clientName = data.client?.name || data.client;
             if (clientId) rel.clientId = parseInt(clientId, 10);
@@ -271,7 +271,7 @@ export default function AggregatedRelatedTab({
             );
             if (parentDossier) {
               rel.dossierId = parentDossier.id;
-              rel.dossier = parentDossier.caseNumber;
+              rel.dossier = parentDossier.lawsuitNumber;
               const clientId = parentDossier.clientId || data.id;
               const clientName = parentDossier.client || data.name;
               if (clientId) rel.clientId = parseInt(clientId, 10);
@@ -299,7 +299,8 @@ export default function AggregatedRelatedTab({
             const creation = await addDossier({ ...normalizedFormData, ...relationshipFields });
             if (!creation.ok) {
               console.error("Dossier creation failed:", creation.result);
-              showToast(t("detail.related.errors.createDossier"), "error");
+              const message = creation.result?.message || t("detail.related.errors.createDossier");
+              showToast(message, "error");
               return;
             }
             const created = creation.created || creation;
@@ -308,18 +309,19 @@ export default function AggregatedRelatedTab({
             if (tutorial?.setCreatedDossier) tutorial.setCreatedDossier(created.id);
           }
           break;
-        case "cases":
+        case "lawsuits":
           {
-            const creation = await addCase({ ...normalizedFormData, ...relationshipFields });
+            const creation = await addLawsuit({ ...normalizedFormData, ...relationshipFields });
             if (!creation.ok) {
-              console.error("Case creation failed:", creation.result);
-              showToast(t("detail.related.errors.createCase"), "error");
+              console.error("Lawsuit creation failed:", creation.result);
+              const message = creation.result?.message || t("detail.related.errors.createLawsuit");
+              showToast(message, "error");
               return;
             }
             const created = creation.created || creation;
             newItem = { ...created };
             // Notify tutorial
-            if (tutorial?.setCreatedCase) tutorial.setCreatedCase(created.id);
+            if (tutorial?.setCreatedLawsuit) tutorial.setCreatedLawsuit(created.id);
           }
           break;
         case "sessions":
@@ -327,7 +329,8 @@ export default function AggregatedRelatedTab({
             const creation = await addSession({ ...normalizedFormData, ...relationshipFields });
             if (!creation.ok) {
               console.error("Session creation failed:", creation.result);
-              showToast(t("detail.related.errors.createSession"), "error");
+              const message = creation.result?.message || t("detail.related.errors.createSession");
+              showToast(message, "error");
               return;
             }
             const created = creation.created || creation;
@@ -341,7 +344,8 @@ export default function AggregatedRelatedTab({
             const creation = await addTask({ ...normalizedFormData, ...relationshipFields });
             if (!creation.ok) {
               console.error("Task creation failed:", creation.result);
-              showToast(t("detail.related.errors.createTask"), "error");
+              const message = creation.result?.message || t("detail.related.errors.createTask");
+              showToast(message, "error");
               return;
             }
             const created = creation.created || creation;
@@ -362,15 +366,15 @@ export default function AggregatedRelatedTab({
             newItem = { ...created };
             if (normalizedFormData.financialEntries && Array.isArray(normalizedFormData.financialEntries) && normalizedFormData.financialEntries.length > 0) {
               const dossierId = normalizedFormData.dossierId || null;
-              const caseId = normalizedFormData.caseId || null;
+              const lawsuitId = normalizedFormData.lawsuitId || null;
               let clientId = normalizedFormData.clientId || null;
               if (!clientId && dossierId) {
                 const dossier = contextData?.dossiers?.find(d => d.id === dossierId);
                 if (dossier) clientId = dossier.clientId;
-              } else if (!clientId && caseId) {
-                const caseItem = contextData?.cases?.find(c => c.id === caseId);
-                if (caseItem?.dossierId) {
-                  const dossier = contextData?.dossiers?.find(d => d.id === caseItem.dossierId);
+              } else if (!clientId && lawsuitId) {
+                const lawsuitItem = contextData?.lawsuits?.find(c => c.id === lawsuitId);
+                if (lawsuitItem?.dossierId) {
+                  const dossier = contextData?.dossiers?.find(d => d.id === lawsuitItem.dossierId);
                   if (dossier) clientId = dossier.clientId;
                 }
               }
@@ -380,7 +384,7 @@ export default function AggregatedRelatedTab({
                   missionId: created.id,
                   clientId,
                   dossierId,
-                  caseId,
+                  lawsuitId,
                   type: "expense",
                   category: "bailiff_fees",
                   status: entry.status || "draft",
@@ -411,45 +415,45 @@ export default function AggregatedRelatedTab({
             childId: newItem.id,
           },
         });
-        if (tabConfig?.aggregationType === "sessions" && config?.entityType === "case" && data?.dossierId) {
+        if (tabConfig?.aggregationType === "sessions" && config?.entityType === "lawsuit" && data?.dossierId) {
           logHistoryEvent({
             entityType: "dossier",
             entityId: data.dossierId,
             eventType: EVENT_TYPES.RELATION,
-            label: `${getCreatedLabel()}: ${itemTitle} (${data.caseNumber || data.title || ""})`,
-            details: `${getCreatedLabel()}: ${itemTitle} (${data.caseNumber || data.title || ""})`,
+            label: `${getCreatedLabel()}: ${itemTitle} (${data.lawsuitNumber || data.title || ""})`,
+            details: `${getCreatedLabel()}: ${itemTitle} (${data.lawsuitNumber || data.title || ""})`,
             metadata: {
-              childType: "case",
+              childType: "lawsuit",
               childId: data.id,
               relatedType: referenceEntityType,
               relatedId: newItem.id,
             },
           });
         }
-        if (tabConfig?.aggregationType === "tasks" && config?.entityType === "case" && data?.dossierId) {
+        if (tabConfig?.aggregationType === "tasks" && config?.entityType === "lawsuit" && data?.dossierId) {
           logHistoryEvent({
             entityType: "dossier",
             entityId: data.dossierId,
             eventType: EVENT_TYPES.RELATION,
-            label: `${getCreatedLabel()}: ${itemTitle} (${data.caseNumber || data.title || ""})`,
-            details: `${getCreatedLabel()}: ${itemTitle} (${data.caseNumber || data.title || ""})`,
+            label: `${getCreatedLabel()}: ${itemTitle} (${data.lawsuitNumber || data.title || ""})`,
+            details: `${getCreatedLabel()}: ${itemTitle} (${data.lawsuitNumber || data.title || ""})`,
             metadata: {
-              childType: "case",
+              childType: "lawsuit",
               childId: data.id,
               relatedType: referenceEntityType,
               relatedId: newItem.id,
             },
           });
         }
-        if (tabConfig?.aggregationType === "missions" && config?.entityType === "case" && data?.dossierId) {
+        if (tabConfig?.aggregationType === "missions" && config?.entityType === "lawsuit" && data?.dossierId) {
           logHistoryEvent({
             entityType: "dossier",
             entityId: data.dossierId,
             eventType: EVENT_TYPES.RELATION,
-            label: `${getCreatedLabel()}: ${itemTitle} (${data.caseNumber || data.title || ""})`,
-            details: `${getCreatedLabel()}: ${itemTitle} (${data.caseNumber || data.title || ""})`,
+            label: `${getCreatedLabel()}: ${itemTitle} (${data.lawsuitNumber || data.title || ""})`,
+            details: `${getCreatedLabel()}: ${itemTitle} (${data.lawsuitNumber || data.title || ""})`,
             metadata: {
-              childType: "case",
+              childType: "lawsuit",
               childId: data.id,
               relatedType: referenceEntityType,
               relatedId: newItem.id,
@@ -511,8 +515,8 @@ export default function AggregatedRelatedTab({
         case "dossiers":
           deleteDossier(itemId);
           break;
-        case "cases":
-          deleteCase(itemId);
+        case "lawsuits":
+          deleteLawsuit(itemId);
           break;
         case "sessions":
           deleteSession(itemId);
@@ -542,24 +546,24 @@ export default function AggregatedRelatedTab({
     ? tabConfig.getFormFields(data, contextData)
     : tabConfig?.formFields || [];
 
-  // Adjust task form when adding from a Lawsuit detail: lock linkage to the current case
+  // Adjust task form when adding from a Lawsuit detail: lock linkage to the current lawsuit
   const finalFormFields = formFields.map((field) => {
-    if (tabConfig?.aggregationType === "tasks" && config?.entityType === "case") {
+    if (tabConfig?.aggregationType === "tasks" && config?.entityType === "lawsuit") {
       if (field.name === "parentType") {
         return {
           ...field,
-          defaultValue: "case",
+          defaultValue: "lawsuit",
           disabled: true,
-          helpText: t("detail.related.help.taskCaseLink"),
+          helpText: t("detail.related.help.taskLawsuitLink"),
         };
       }
-      if (field.name === "caseId") {
+      if (field.name === "lawsuitId") {
         return {
           ...field,
           required: true,
           disabled: true,
           hideIf: () => false, // always show the locked lawsuit context
-          helpText: t("detail.related.help.taskCaseLink"),
+          helpText: t("detail.related.help.taskLawsuitLink"),
         };
       }
       if (field.name === "dossierId") {
@@ -574,7 +578,7 @@ export default function AggregatedRelatedTab({
 
   const hasFormFields = finalFormFields && finalFormFields.length > 0;
 
-  // Check if required parent entities exist (e.g., dossierId or caseId)
+  // Check if required parent entities exist (e.g., dossierId or lawsuitId)
   const canAdd = hasFormFields && finalFormFields.every(field => {
     if (field.required && field.type === 'searchable-select') {
       // Check if field has static options or a getOptions function
@@ -582,13 +586,13 @@ export default function AggregatedRelatedTab({
     }
     return true;
   }) && (tabConfig.aggregationType !== 'tasks' || (() => {
-    // Special logic for tasks: check if there are options for either dossierId or caseId
+    // Special logic for tasks: check if there are options for either dossierId or lawsuitId
     const dossierField = finalFormFields.find(f => f.name === 'dossierId');
-    const caseField = finalFormFields.find(f => f.name === 'caseId');
+    const lawsuitField = finalFormFields.find(f => f.name === 'lawsuitId');
     // Check for static options or getOptions function
     const hasDossierOptions = (dossierField?.options && dossierField.options.length > 0) || dossierField?.getOptions;
-    const hasCaseOptions = (caseField?.options && caseField.options.length > 0) || caseField?.getOptions;
-    return hasDossierOptions || hasCaseOptions;
+    const hasLawsuitOptions = (lawsuitField?.options && lawsuitField.options.length > 0) || lawsuitField?.getOptions;
+    return hasDossierOptions || hasLawsuitOptions;
   })());
 
   if (localItems.length === 0) {
@@ -632,10 +636,10 @@ export default function AggregatedRelatedTab({
                     tabConfig?.aggregationType === "missions") {
                     tutorial.setWaitingForAction(true);
                   }
-                  // Handle tutorial state when adding case from dossier detail
+                  // Handle tutorial state when adding lawsuit from dossier detail
                   if (tutorial?.setWaitingForAction &&
-                    tutorial?.currentStep?.id === "create-case-from-dossier" &&
-                    tabConfig?.aggregationType === "cases") {
+                    tutorial?.currentStep?.id === "create-lawsuit-from-dossier" &&
+                    tabConfig?.aggregationType === "lawsuits") {
                     tutorial.setWaitingForAction(true);
                   }
                   setIsAddModalOpen(true);
@@ -643,8 +647,8 @@ export default function AggregatedRelatedTab({
                 data-tutorial={
                   tabConfig?.aggregationType === "dossiers" && config?.entityType === "client"
                     ? "add-dossier-from-client-button"
-                    : tabConfig?.aggregationType === "cases" && config?.entityType === "dossier"
-                      ? "add-case-from-dossier-button"
+                    : tabConfig?.aggregationType === "lawsuits" && config?.entityType === "dossier"
+                      ? "add-lawsuit-from-dossier-button"
                       : tabConfig?.aggregationType === "tasks" && config?.entityType === "dossier"
                         ? "add-task-from-dossier-button"
                         : tabConfig?.aggregationType === "missions" && config?.entityType === "dossier"
@@ -751,10 +755,10 @@ export default function AggregatedRelatedTab({
                     tabConfig?.aggregationType === "missions") {
                     tutorial.setWaitingForAction(true);
                   }
-                  // Handle tutorial state when adding case from dossier detail
+                  // Handle tutorial state when adding lawsuit from dossier detail
                   if (tutorial?.setWaitingForAction &&
-                    tutorial?.currentStep?.id === "create-case-from-dossier" &&
-                    tabConfig?.aggregationType === "cases") {
+                    tutorial?.currentStep?.id === "create-lawsuit-from-dossier" &&
+                    tabConfig?.aggregationType === "lawsuits") {
                     tutorial.setWaitingForAction(true);
                   }
                   setIsAddModalOpen(true);
@@ -762,8 +766,8 @@ export default function AggregatedRelatedTab({
                 data-tutorial={
                   tabConfig?.aggregationType === "dossiers" && config?.entityType === "client"
                     ? "add-dossier-from-client-button"
-                    : tabConfig?.aggregationType === "cases" && config?.entityType === "dossier"
-                      ? "add-case-from-dossier-button"
+                    : tabConfig?.aggregationType === "lawsuits" && config?.entityType === "dossier"
+                      ? "add-lawsuit-from-dossier-button"
                       : tabConfig?.aggregationType === "tasks" && config?.entityType === "dossier"
                         ? "add-task-from-dossier-button"
                         : tabConfig?.aggregationType === "missions" && config?.entityType === "dossier"
@@ -880,14 +884,14 @@ function ItemRow({ item, parentContext, entityConfig, aggregationType, allowDele
                 {parentContext.dossier && (
                   <>
                     <i className="fas fa-folder-open"></i>
-                    <span className="truncate">{parentContext.dossier.caseNumber}</span>
+                    <span className="truncate">{parentContext.dossier.lawsuitNumber}</span>
                   </>
                 )}
-                {parentContext.case && (
+                {parentContext.lawsuit && (
                   <>
                     <i className="fas fa-chevron-right text-xs"></i>
                     <i className="fas fa-gavel"></i>
-                    <span className="truncate">{parentContext.case.caseNumber}</span>
+                    <span className="truncate">{parentContext.lawsuit.lawsuitNumber}</span>
                   </>
                 )}
               </div>
@@ -918,3 +922,8 @@ function ItemRow({ item, parentContext, entityConfig, aggregationType, allowDele
     </div>
   );
 }
+
+
+
+
+

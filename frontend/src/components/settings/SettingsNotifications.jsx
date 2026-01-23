@@ -226,23 +226,23 @@ export default function SettingsNotifications() {
               <div className="flex items-center gap-2">
                 <i className="fas fa-balance-scale text-red-600"></i>
                 <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
-                  {t("appointments.cases.title")}
+                  {t("appointments.lawsuits.title")}
                 </h3>
               </div>
               <div className="text-xs text-slate-500 dark:text-slate-400 italic">
-                {t("appointments.cases.basedOnPriority")}
+                {t("appointments.lawsuits.basedOnPriority")}
               </div>
             </div>
             <div className="ml-6 text-xs text-slate-600 dark:text-slate-400">
               <p className="mb-2">
-                <strong>{t("appointments.cases.automaticTitle")}</strong>
+                <strong>{t("appointments.lawsuits.automaticTitle")}</strong>
               </p>
               <ul className="list-disc list-inside space-y-1 ml-2">
-                <li>{t("appointments.cases.items.noSession")}</li>
-                <li>{t("appointments.cases.items.updateSuggestion")}</li>
+                <li>{t("appointments.lawsuits.items.noSession")}</li>
+                <li>{t("appointments.lawsuits.items.updateSuggestion")}</li>
               </ul>
               <p className="mt-2 text-slate-500 dark:text-slate-500 italic">
-                {t("appointments.cases.inherits")}
+                {t("appointments.lawsuits.inherits")}
               </p>
             </div>
           </div>
@@ -473,3 +473,4 @@ export default function SettingsNotifications() {
     </div>
   );
 }
+

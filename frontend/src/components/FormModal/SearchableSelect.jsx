@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 /**
  * SearchableSelect - A searchable dropdown component
  * Allows users to search/filter options by typing
- * Ideal for large lists of items (clients, dossiers, cases, etc.)
+ * Ideal for large lists of items (clients, dossiers, lawsuits, etc.)
  * 
  * ✅ VISUAL CONSISTENCY: Matches native select styling exactly
  * ✅ NEW: Support for adding new options on-the-fly
@@ -290,3 +290,4 @@ export default function SearchableSelect({
     </div>
   );
 }
+

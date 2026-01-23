@@ -26,11 +26,11 @@ export function mapTypeToEntityType(type) {
     'hearing': 'session',
     'payment': 'financial_entry',
     'deadline': 'dossier',
-    'proceeding': 'case',
+    'proceeding': 'lawsuit',
     // Valid types that map directly
     'client': 'client',
     'dossier': 'dossier',
-    'case': 'case',
+    'lawsuit': 'lawsuit',
     'task': 'task',
     'session': 'session',
     'mission': 'mission',
@@ -57,7 +57,7 @@ export function getIconForEntityType(entityType, severity) {
   const iconMap = {
     client: "fas fa-user",
     dossier: "fas fa-folder",
-    case: "fas fa-gavel",
+    lawsuit: "fas fa-gavel",
     task: "fas fa-tasks",
     session: "fas fa-calendar-check",
     mission: "fas fa-briefcase",
@@ -78,7 +78,7 @@ export function getLinkForEntity(entityType, entityId) {
   const linkMap = {
     client: `/clients/${entityId}`,
     dossier: `/dossiers/${entityId}`,
-    case: `/cases/${entityId}`,
+    lawsuit: `/lawsuits/${entityId}`,
     task: `/tasks/${entityId}`,
     session: `/sessions/${entityId}`,
     mission: `/missions/${entityId}`,
@@ -98,7 +98,7 @@ export function mapEntityTypeToNotificationType(entityType) {
     'task': 'task',
     'personal_task': 'personalTask',
     'session': 'session',
-    'case': 'case',
+    'lawsuit': 'lawsuit',
     'mission': 'mission',
     'financial_entry': 'financialEntry',
     'dossier': 'dossier',
@@ -107,3 +107,5 @@ export function mapEntityTypeToNotificationType(entityType) {
   };
   return entityType ? typeMap[entityType] || 'app' : 'app';
 }
+
+

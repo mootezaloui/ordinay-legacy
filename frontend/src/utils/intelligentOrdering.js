@@ -297,9 +297,9 @@ export function calculatePersonalTaskImportance(task) {
  *
  * Domain Logic:
  * - Cases with upcoming hearings are CRITICAL
- * - Active cases need attention
- * - On Hold cases are secondary
- * - Closed cases sink to bottom
+ * - Active lawsuits need attention
+ * - On Hold lawsuits are secondary
+ * - Closed lawsuits sink to bottom
  *
  * Order: Hearing Today → Hearing This Week → In Progress → On Hold → Closed
  */
@@ -556,7 +556,7 @@ export function getRowEmphasis(entityType, entity) {
     case "task":
     case "personalTask":
       return getTaskEmphasis(entity);
-    case "case":
+    case "lawsuit":
       return getCaseEmphasis(entity);
     case "session":
       return getSessionEmphasis(entity);
@@ -711,7 +711,7 @@ export function getImportanceCalculator(entityType) {
       return calculateTaskImportance;
     case "personalTask":
       return calculatePersonalTaskImportance;
-    case "case":
+    case "lawsuit":
       return calculateCaseImportance;
     case "session":
       return calculateSessionImportance;
@@ -783,7 +783,7 @@ export function isEntityCompleted(entityType, entity) {
     case "task":
     case "personalTask":
       return ["Completed", "Done", "Cancelled"].includes(entity.status);
-    case "case":
+    case "lawsuit":
       return ["Closed", "Completed"].includes(entity.status);
     case "session":
       return ["Completed", "Cancelled"].includes(entity.status);
@@ -816,7 +816,7 @@ export function isEntityUrgent(entityType, entity) {
       const days = daysUntil(entity.dueDate);
       return days !== null && days < 0; // Overdue
     }
-    case "case": {
+    case "lawsuit": {
       const nextHearing =
         entity.computedNextHearing?.date || entity.nextHearing;
       const days = nextHearing ? daysUntil(nextHearing) : null;
@@ -851,3 +851,5 @@ export default {
   calculateMissionImportance,
   calculateFinancialImportance,
 };
+
+

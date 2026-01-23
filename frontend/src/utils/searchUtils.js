@@ -17,7 +17,7 @@ export function searchAllData(query, data = {}) {
     clients = [],
     dossiers = [],
     tasks = [],
-    cases = [],
+    lawsuits = [],
     sessions = [],
     officers = [],
     accounting = [],
@@ -27,7 +27,7 @@ export function searchAllData(query, data = {}) {
     clients: searchClients(searchTerm, clients),
     dossiers: searchDossiers(searchTerm, dossiers),
     tasks: searchTasks(searchTerm, tasks),
-    cases: searchCases(searchTerm, cases),
+    lawsuits: searchCases(searchTerm, lawsuits),
     sessions: searchSessions(searchTerm, sessions),
     officers: searchOfficers(searchTerm, officers),
     accounting: searchAccounting(searchTerm, accounting),
@@ -50,7 +50,7 @@ function searchClients(query, clients) {
 function searchDossiers(query, dossiers) {
   return dossiers.filter((dossier) => {
     return (
-      dossier.caseNumber?.toLowerCase().includes(query) ||
+      dossier.lawsuitNumber?.toLowerCase().includes(query) ||
       dossier.title?.toLowerCase().includes(query) ||
       dossier.client?.toLowerCase().includes(query) ||
       dossier.category?.toLowerCase().includes(query) ||
@@ -71,10 +71,10 @@ function searchTasks(query, tasks) {
   });
 }
 
-function searchCases(query, cases) {
-  return cases.filter((caseItem) => {
+function searchCases(query, lawsuits) {
+  return lawsuits.filter((caseItem) => {
     return (
-      caseItem.caseNumber?.toLowerCase().includes(query) ||
+      caseItem.lawsuitNumber?.toLowerCase().includes(query) ||
       caseItem.title?.toLowerCase().includes(query) ||
       caseItem.dossier?.toLowerCase().includes(query) ||
       caseItem.court?.toLowerCase().includes(query)
@@ -163,3 +163,5 @@ export function clearRecentSearches() {
     console.error("Failed to clear recent searches:", error);
   }
 }
+
+

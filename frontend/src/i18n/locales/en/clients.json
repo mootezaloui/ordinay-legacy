@@ -163,10 +163,10 @@
     "tabs": {
       "dossiers": "Dossiers",
       "dossiersAddSubtitle": "Create a new dossier for this client",
-      "cases": "Cases",
-      "casesEntity": "case",
-      "casesDisabled": "Please add a dossier first before creating a case for this client.",
-      "casesAddSubtitle": "Create a new case for this client",
+      "lawsuits": "Lawsuits",
+      "lawsuitsEntity": "lawsuit",
+      "lawsuitsDisabled": "Please add a dossier first before creating a lawsuit for this client.",
+      "lawsuitsAddSubtitle": "Create a new lawsuit for this client",
       "sessions": "Hearings",
       "sessionsDisabled": "Please add a dossier first before scheduling a hearing.",
       "sessionsEntity": "a hearing",
@@ -182,14 +182,14 @@
     },
     "forms": {
       "dossiersEmpty": "No dossiers available. Please create a dossier first.",
-      "casesEmpty": "No lawsuits available. Please create a lawsuit first.",
-      "casesDossierHelp": "Select the dossier to which this lawsuit will be linked",
-      "sessionLinkHelpWithCases": "Choose if this hearing is linked to a dossier or a specific lawsuit",
-      "sessionLinkHelpNoCases": "Choose if this hearing is linked to a dossier",
-      "sessionCaseHelp": "Select the lawsuit to which this hearing will be linked",
+      "lawsuitsEmpty": "No lawsuits available. Please create a lawsuit first.",
+      "lawsuitsDossierHelp": "Select the dossier to which this lawsuit will be linked",
+      "sessionLinkHelpWithLawsuits": "Choose if this hearing is linked to a dossier or a specific lawsuit",
+      "sessionLinkHelpNoLawsuits": "Choose if this hearing is linked to a dossier",
+      "sessionLawsuitHelp": "Select the lawsuit to which this hearing will be linked",
       "sessionDossierHelp": "Select the dossier to which this hearing will be linked",
       "taskDossierHelp": "Select the dossier to which this task will be linked",
-      "taskCaseHelp": "Select the lawsuit to which this task will be attached"
+      "taskLawsuitHelp": "Select the lawsuit to which this task will be attached"
     },
     "overview": {
       "personal": "Personal Information",

@@ -3,7 +3,7 @@
  * Updated form configurations with proper relationship fields
  *
  * KEY CHANGES:
- * - Added relationship dropdowns (clientId, dossierId, caseId)
+ * - Added relationship dropdowns (clientId, dossierId, lawsuitId)
  * - Options will be populated dynamically from mockData
  * - Forms now properly handle entity relationships
  */
@@ -240,12 +240,12 @@ export const dossierFormFields = (t) => {
 
   return [
     {
-      name: "caseNumber",
-      label: t("form.fields.caseNumber.label"),
+      name: "lawsuitNumber",
+      label: t("form.fields.lawsuitNumber.label"),
       type: "text",
-      placeholder: t("form.fields.caseNumber.placeholder"),
+      placeholder: t("form.fields.lawsuitNumber.placeholder"),
       required: false,
-      helpText: t("form.fields.caseNumber.helper"),
+      helpText: t("form.fields.lawsuitNumber.helper"),
     },
     {
       name: "title",
@@ -394,17 +394,17 @@ export const dossierFormFields = (t) => {
   ];
 };
 // ========================================
-// CASE (PROCÈS) FORM
+// LAWSUIT (PROCÈS) FORM
 // ========================================
 
-export const caseFormFields = (t) => [
+export const lawsuitFormFields = (t) => [
   {
-    name: "caseNumber",
-    label: t("form.fields.caseNumber.label"),
+    name: "lawsuitNumber",
+    label: t("form.fields.lawsuitNumber.label"),
     type: "text",
-    placeholder: t("form.fields.caseNumber.placeholder"),
+    placeholder: t("form.fields.lawsuitNumber.placeholder"),
     required: false,
-    helpText: t("form.fields.caseNumber.helper"),
+    helpText: t("form.fields.lawsuitNumber.helper"),
   },
   {
     name: "title",
@@ -567,11 +567,11 @@ export const sessionFormFields = (t) => [
     label: t("form.fields.linkType.label", { ns: "sessions" }),
     type: "select",
     required: true,
-    defaultValue: "case",
+    defaultValue: "lawsuit",
     options: [
       {
-        value: "case",
-        label: t("form.fields.linkType.options.case", { ns: "sessions" }),
+        value: "lawsuit",
+        label: t("form.fields.linkType.options.lawsuit", { ns: "sessions" }),
       },
       {
         value: "dossier",
@@ -584,20 +584,20 @@ export const sessionFormFields = (t) => [
       setFormData({
         ...formData,
         linkType: value,
-        caseId: value === "case" ? formData.caseId : "",
+        lawsuitId: value === "lawsuit" ? formData.lawsuitId : "",
         dossierId: value === "dossier" ? formData.dossierId : "",
       });
     },
   },
   {
-    // ✅ RELATIONSHIP FIELD - Procès (shown when linkType is "case")
-    name: "caseId",
-    label: t("form.fields.caseId.label", { ns: "sessions" }),
+    // ✅ RELATIONSHIP FIELD - Procès (shown when linkType is "lawsuit")
+    name: "lawsuitId",
+    label: t("form.fields.lawsuitId.label", { ns: "sessions" }),
     type: "searchable-select", // ✅ Use searchable select for scalability
     required: false,
     options: [], // ← Will be populated dynamically with []
-    helpText: t("form.fields.caseId.helper", { ns: "sessions" }),
-    hideIf: (formData) => formData.linkType !== "case",
+    helpText: t("form.fields.lawsuitId.helper", { ns: "sessions" }),
+    hideIf: (formData) => formData.linkType !== "lawsuit",
   },
   {
     // ✅ RELATIONSHIP FIELD - Dossier (shown when linkType is "dossier")
@@ -801,7 +801,7 @@ export const taskFormFields = (t) => [
     defaultValue: "dossier",
     options: [
       { value: "dossier", label: t("form.fields.parentType.options.dossier") },
-      { value: "case", label: t("form.fields.parentType.options.case") },
+      { value: "lawsuit", label: t("form.fields.parentType.options.lawsuit") },
     ],
     helpText: t("form.fields.parentType.helper"),
   },
@@ -816,12 +816,12 @@ export const taskFormFields = (t) => [
   },
   {
     // ?. RELATIONSHIP FIELD - Case (conditionally shown)
-    name: "caseId",
-    label: t("form.fields.caseId.label"),
+    name: "lawsuitId",
+    label: t("form.fields.lawsuitId.label"),
     type: "searchable-select",
     required: false,
     options: [],
-    hideIf: (formData) => formData.parentType !== "case",
+    hideIf: (formData) => formData.parentType !== "lawsuit",
   },
   {
     name: "assignedTo",
@@ -1055,7 +1055,7 @@ export const officerAssignmentFormFields = [
     required: true,
     options: [
       { value: "dossier", label: t("form.fields.dossierId.label") },
-      { value: "case", label: "Lawsuite" },
+      { value: "lawsuit", label: "Lawsuite" },
     ],
     helpText: "This mission concerns a Dossier or a Lawsuite",
     // ✅ This field triggers the entityReference field update
@@ -1082,8 +1082,8 @@ export const officerAssignmentFormFields = [
       if (entityType === "dossier") {
         // Return dossiers from mockData - will be populated dynamically
         return []; // Placeholder, will be populated by populateRelationshipOptions
-      } else if (entityType === "case") {
-        // Return cases/procès from mockData - will be populated dynamically
+      } else if (entityType === "lawsuit") {
+        // Return lawsuits/procès from mockData - will be populated dynamically
         return []; // Placeholder, will be populated by populateRelationshipOptions
       }
 
@@ -1313,8 +1313,8 @@ export const getMissionFormFields = () => {
           }),
         },
         {
-          value: "case",
-          label: tMissions("detail.overview.entityTypes.case", {
+          value: "lawsuit",
+          label: tMissions("detail.overview.entityTypes.lawsuit", {
             defaultValue: "Lawsuit",
           }),
         },
@@ -1329,7 +1329,7 @@ export const getMissionFormFields = () => {
       required: true,
       disabled: true, // Will be pre-filled based on context
       helpText: tMissions("form.help.entityReference", {
-        defaultValue: "Reference of the dossier or case",
+        defaultValue: "Reference of the dossier or lawsuit",
       }),
     },
     {
@@ -1567,14 +1567,14 @@ export const getFinancialEntryFormFields = () => {
           "Choose 'Client' for client-related operations, 'Internal' for office expenses",
       }),
       onChange: (value, formData, setFormData) => {
-        // Clear client/dossier/case when switching to internal
+        // Clear client/dossier/lawsuit when switching to internal
         if (value === "internal") {
           setFormData({
             ...formData,
             scope: value,
             clientId: "",
             dossierId: "",
-            caseId: "",
+            lawsuitId: "",
           });
         } else {
           setFormData({
@@ -1835,12 +1835,12 @@ export const getFinancialEntryFormFields = () => {
         return null;
       },
       onChange: (value, formData, setFormData) => {
-        // Clear dossier and case when client changes
+        // Clear dossier and lawsuit when client changes
         setFormData({
           ...formData,
           clientId: value,
           dossierId: "",
-          caseId: "",
+          lawsuitId: "",
         });
       },
     },
@@ -1860,39 +1860,39 @@ export const getFinancialEntryFormFields = () => {
         }
         return allOptions.dossiers
           .filter((d) => d.clientId === clientId)
-          .map((d) => ({ value: d.id, label: `${d.caseNumber} - ${d.title}` }));
+          .map((d) => ({ value: d.id, label: `${d.lawsuitNumber} - ${d.title}` }));
       },
       hideIf: (formData) => formData.scope === "internal",
       helpText: tAccounting("form.fields.dossier.help", {
         defaultValue: "Concerned dossier (optional)",
       }),
       onChange: (value, formData, setFormData) => {
-        // Clear case when dossier changes (DB constraint: only one can be set)
-        // However, if the current case belongs to this dossier, we can keep both
+        // Clear lawsuit when dossier changes (DB constraint: only one can be set)
+        // However, if the current lawsuit belongs to this dossier, we can keep both
         setFormData({
           ...formData,
           dossierId: value,
-          caseId: "", // Always clear case when dossier changes to avoid constraint violation
+          lawsuitId: "", // Always clear lawsuit when dossier changes to avoid constraint violation
         });
       },
     },
     {
-      name: "caseId",
-      label: tAccounting("form.fields.case.label", {
+      name: "lawsuitId",
+      label: tAccounting("form.fields.lawsuit.label", {
         defaultValue: "Case (optional)",
       }),
       type: "searchable-select",
       required: false,
       options: [], // Base options - will be filtered by getOptions
       getOptions: (formData, allOptions) => {
-        // Filter cases by selected client or dossier
+        // Filter lawsuits by selected client or dossier
         const clientId = formData.clientId;
         const dossierId = formData.dossierId;
-        if (!allOptions?.cases) {
+        if (!allOptions?.lawsuits) {
           return [];
         }
 
-        let filteredCases = allOptions.cases;
+        let filteredCases = allOptions.lawsuits;
 
         // If dossier is selected, filter by dossier
         if (dossierId) {
@@ -1908,20 +1908,20 @@ export const getFinancialEntryFormFields = () => {
 
         return filteredCases.map((c) => ({
           value: c.id,
-          label: `${c.caseNumber} - ${c.title}`,
+          label: `${c.lawsuitNumber} - ${c.title}`,
         }));
       },
       hideIf: (formData) => formData.scope === "internal",
-      helpText: tAccounting("form.fields.case.help", {
-        defaultValue: "Concerned case (optional)",
+      helpText: tAccounting("form.fields.lawsuit.help", {
+        defaultValue: "Concerned lawsuit (optional)",
       }),
       onChange: (value, formData, setFormData) => {
-        // Clear dossier when case is selected (DB constraint: only one can be set)
-        // The case already has a dossier_id in the cases table, so we don't need to duplicate it here
+        // Clear dossier when lawsuit is selected (DB constraint: only one can be set)
+        // The lawsuit already has a dossier_id in the lawsuits table, so we don't need to duplicate it here
         setFormData({
           ...formData,
-          caseId: value,
-          dossierId: value ? "" : formData.dossierId, // Clear dossierId only if selecting a case
+          lawsuitId: value,
+          dossierId: value ? "" : formData.dossierId, // Clear dossierId only if selecting a lawsuit
         });
       },
     },
@@ -1934,9 +1934,9 @@ export const getFinancialEntryFormFields = () => {
       required: false,
       options: [], // Base options - will be filtered by getOptions
       getOptions: (formData, allOptions) => {
-        // Only show missions related to selected dossier or case
+        // Only show missions related to selected dossier or lawsuit
         const dossierId = formData.dossierId;
-        const caseId = formData.caseId;
+        const lawsuitId = formData.lawsuitId;
 
         if (!allOptions?.missions) {
           return [
@@ -1958,18 +1958,18 @@ export const getFinancialEntryFormFields = () => {
               m.entityType === "dossier" &&
               String(m.entityId) === String(dossierId)
           );
-        } else if (caseId) {
+        } else if (lawsuitId) {
           filteredMissions = filteredMissions.filter(
             (m) =>
-              m.entityType === "case" && String(m.entityId) === String(caseId)
+              m.entityType === "lawsuit" && String(m.entityId) === String(lawsuitId)
           );
         } else {
-          // No dossier or case selected - don't show missions
+          // No dossier or lawsuit selected - don't show missions
           return [
             {
               value: "",
               label: tAccounting("form.fields.mission.selectPrerequisite", {
-                defaultValue: "Please first select a dossier or case",
+                defaultValue: "Please first select a dossier or lawsuit",
               }),
             },
           ];
@@ -1980,7 +1980,7 @@ export const getFinancialEntryFormFields = () => {
             {
               value: "",
               label: tAccounting("form.fields.mission.noneForEntity", {
-                defaultValue: "No mission for this dossier/case",
+                defaultValue: "No mission for this dossier/lawsuit",
               }),
             },
           ];
@@ -2052,7 +2052,7 @@ export function getFormFields(entityType) {
   const fieldsMap = {
     client: clientFormFields,
     dossier: dossierFormFields,
-    case: caseFormFields(i18next.getFixedT("cases")),
+    lawsuit: lawsuitFormFields(i18next.getFixedT("lawsuits")),
     session: sessionFormFields(i18next.getFixedT("sessions")),
     task: taskFormFields,
     personalTask: personalTaskFormFields,
@@ -2072,7 +2072,7 @@ export function getFormTitle(entityType, isEdit = false) {
   const defaultTitles = {
     client: { new: "New Client", edit: "Edit Client" },
     dossier: { new: "New Dossier", edit: "Edit Dossier" },
-    case: { new: "New Case", edit: "Edit Case" },
+    lawsuit: { new: "New Lawsuit", edit: "Edit Lawsuit" },
     session: { new: "New Session", edit: "Edit Session" },
     task: { new: "New Task", edit: "Edit Task" },
     personalTask: { new: "New Personal Task", edit: "Edit Personal Task" },
@@ -2102,14 +2102,14 @@ export function getFormTitle(entityType, isEdit = false) {
  * so the function can filter dynamically based on formData
  */
 export function populateRelationshipOptions(fields, data) {
-  const { clients, dossiers, cases, officers, missions } = data;
+  const { clients, dossiers, lawsuits, officers, missions } = data;
 
   return fields.map((field) => {
     // For fields with getOptions, pass the raw data so they can filter dynamically
     if (field.getOptions) {
       return {
         ...field,
-        allOptions: { clients, dossiers, cases, officers, missions },
+        allOptions: { clients, dossiers, lawsuits, officers, missions },
       };
     }
 
@@ -2125,19 +2125,19 @@ export function populateRelationshipOptions(fields, data) {
         ...field,
         options: dossiers.map((d) => ({
           value: d.id,
-          label: `${d.caseNumber} - ${d.title}`,
+          label: `${d.lawsuitNumber} - ${d.title}`,
         })),
       };
     }
-    if (field.name === "caseId" && cases) {
+    if (field.name === "lawsuitId" && lawsuits) {
       // Only populate static options if no getOptions function
       return {
         ...field,
         options: [
           { value: null, label: "None (consultation)" },
-          ...cases.map((c) => ({
+          ...lawsuits.map((c) => ({
             value: c.id,
-            label: `${c.caseNumber} - ${c.title}`,
+            label: `${c.lawsuitNumber} - ${c.title}`,
           })),
         ],
       };
@@ -2154,3 +2154,8 @@ export function populateRelationshipOptions(fields, data) {
     return field;
   });
 }
+
+
+
+
+

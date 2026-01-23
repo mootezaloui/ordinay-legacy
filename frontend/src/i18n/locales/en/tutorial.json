@@ -8,7 +8,7 @@
     "exit": "Exit tutorial",
     "pressEscToExit": "Press Esc to exit tutorial",
     "continuePhase2": "Continue to Dossiers",
-    "continuePhase3": "Continue to Cases",
+    "continuePhase3": "Continue to Lawsuits",
     "continuePhase4": "Continue to Tasks",
     "continuePhase5": "Continue to Sessions",
     "continuePhase6": "Continue to Officers",
@@ -18,7 +18,7 @@
   "steps": {
     "dashboard-intro": {
       "title": "Welcome to Your Dashboard ✨",
-      "description": "Your complete overview in one glance: clients, dossiers, cases, tasks, and revenue. Everything you need to lead efficiently."
+      "description": "Your complete overview in one glance: clients, dossiers, lawsuits, tasks, and revenue. Everything you need to lead efficiently."
     },
     "sidebar-clients": {
       "title": "Start with Clients 👥",
@@ -68,35 +68,35 @@
     },
     "phase2-complete": {
       "title": "Dossier Master! ✅",
-      "description": "You understand dossiers inside and out. Next: cases and legal proceedings."
+      "description": "You understand dossiers inside and out. Next: lawsuits and legal proceedings."
     },
-    "select-dossier-for-cases": {
+    "select-dossier-for-lawsuits": {
       "title": "Open a Dossier 📂",
-      "description": "To learn about cases, first select a dossier.",
+      "description": "To learn about lawsuits, first select a dossier.",
       "action": "Click a dossier to open it"
     },
-    "dossier-cases-tab": {
-      "title": "Manage Cases ⚖️",
-      "description": "Cases are your formal legal proceedings — lawsuits, disputes, court matters. One dossier can have multiple cases.",
-      "action": "Open the Cases tab"
+    "dossier-lawsuits-tab": {
+      "title": "Manage Lawsuits ⚖️",
+      "description": "Lawsuits are your formal legal proceedings — disputes, court matters. One dossier can have multiple lawsuits.",
+      "action": "Open the Lawsuits tab"
     },
-    "create-case-from-dossier": {
-      "title": "Create a Case 📝",
-      "description": "Add a case with court, parties, and status. Track every legal proceeding.",
-      "action": "Click 'Add Case'"
+    "create-lawsuit-from-dossier": {
+      "title": "Create a Lawsuit 📝",
+      "description": "Add a lawsuit with court, parties, and status. Track every legal proceeding.",
+      "action": "Click 'Add Lawsuit'"
     },
-    "case-notification-intro": {
+    "lawsuit-notification-intro": {
       "title": "Keep Clients Informed 📢",
-      "description": "A new case? Organia can notify your client automatically. Keep them in the loop.",
+      "description": "A new lawsuit? Organia can notify your client automatically. Keep them in the loop.",
       "action": "Choose to send or skip"
     },
-    "case-detail-overview": {
-      "title": "Case Overview 🔍",
+    "lawsuit-detail-overview": {
+      "title": "Lawsuit Overview 🔍",
       "description": "Track the court, status, hearings, outcomes — all documented in one place."
     },
     "phase3-complete": {
-      "title": "Cases Under Control! ✅",
-      "description": "You know how to manage cases. Next: tasks — your daily workflow."
+      "title": "Lawsuits Under Control! ✅",
+      "description": "You know how to manage lawsuits. Next: tasks — your daily workflow."
     },
     "sidebar-dossiers-for-tasks": {
       "title": "Return to Dossiers 🔙",
@@ -146,11 +146,11 @@
     },
     "sessions-list-overview": {
       "title": "Your Calendar 🗓️",
-      "description": "All scheduled sessions in one place. Each linked to its dossier or case."
+      "description": "All scheduled sessions in one place. Each linked to its dossier or lawsuit."
     },
     "create-session": {
       "title": "Schedule a Session 📌",
-      "description": "Add a hearing or meeting. Set date, time, location, and link to your case.",
+      "description": "Add a hearing or meeting. Set date, time, location, and link to your lawsuit.",
       "action": "Click 'Add Session'"
     },
     "session-detail-overview": {
@@ -231,7 +231,7 @@
     },
     "tutorial-complete": {
       "title": "Congratulations! 🎉",
-      "description": "You've completed the Organia tutorial. You're ready to manage clients, dossiers, cases, tasks, sessions, missions, finances, and documents. Go lead your practice with confidence."
+      "description": "You've completed the Organia tutorial. You're ready to manage clients, dossiers, lawsuits, tasks, sessions, missions, finances, and documents. Go lead your practice with confidence."
     }
   },
   "completion": {

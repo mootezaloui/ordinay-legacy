@@ -96,14 +96,14 @@
       "linkType": {
         "label": "Liée à",
         "options": {
-          "case": "Affaire",
-          "dossier": "Dossier"
+          "dossier": "Dossier",
+          "lawsuit": "Procès"
         },
-        "helper": "Une audience peut être liée à une affaire ou directement à un dossier"
+        "helper": "Une audience peut être liée à un procès ou directement à un dossier"
       },
-      "caseId": {
-        "label": "Affaire",
-        "helper": "Sélectionnez l'affaire concernée"
+      "lawsuitId": {
+        "label": "Procès",
+        "helper": "Sélectionnez le procès concerné"
       },
       "dossierId": {
         "label": "Dossier",
@@ -251,13 +251,13 @@
         "title": "Titre de l'audience",
         "linkType": "Liée à",
         "linkTypeOptions": {
-          "case": "Affaire",
-          "dossier": "Dossier"
+          "dossier": "Dossier",
+          "lawsuit": "Procès"
         },
-        "linkTypeHelp": "Une audience peut être liée à une affaire ou directement à un dossier",
-        "case": "Affaire",
-        "casePlaceholder": "Sélectionner une affaire...",
-        "caseHelp": "Sélectionnez l'affaire concernée",
+        "linkTypeHelp": "Une audience peut être liée à un procès ou directement à un dossier",
+        "lawsuit": "Procès",
+        "lawsuitPlaceholder": "Sélectionner un procès...",
+        "lawsuitHelp": "Sélectionnez le procès concerné",
         "dossier": "Dossier",
         "dossierPlaceholder": "Sélectionner un dossier...",
         "dossierHelp": "Sélectionnez le dossier concerné",

@@ -163,10 +163,10 @@
     "tabs": {
       "dossiers": "الملفات",
       "dossiersAddSubtitle": "إنشاء ملف جديد لهذا العميل",
-      "cases": "القضايا",
-      "casesEntity": "قضية",
-      "casesDisabled": "يرجى أولاً إضافة ملف قبل إنشاء قضية لهذا العميل.",
-      "casesAddSubtitle": "إنشاء قضية جديدة لهذا العميل",
+      "lawsuits": "القضايا",
+      "lawsuitsEntity": "قضية",
+      "lawsuitsDisabled": "يرجى أولاً إضافة ملف قبل إنشاء قضية لهذا العميل.",
+      "lawsuitsAddSubtitle": "إنشاء قضية جديدة لهذا العميل",
       "sessions": "الجلسات",
       "sessionsDisabled": "يرجى أولاً إضافة ملف قبل جدولة جلسة.",
       "sessionsEntity": "جلسة",
@@ -182,14 +182,14 @@
     },
     "forms": {
       "dossiersEmpty": "لا توجد ملفات متاحة. يرجى أولاً إنشاء ملف.",
-      "casesEmpty": "لا توجد قضايا متاحة. يرجى أولاً إنشاء قضية.",
-      "casesDossierHelp": "حدد الملف الذي ستكون هذه القضية مرتبطة به",
-      "sessionLinkHelpWithCases": "اختر ما إذا كانت هذه الجلسة مرتبطة بملف أو بقضية محددة",
-      "sessionLinkHelpNoCases": "اختر ما إذا كانت هذه الجلسة مرتبطة بملف",
-      "sessionCaseHelp": "حدد القضية التي ستكون هذه الجلسة مرتبطة بها",
+      "lawsuitsEmpty": "لا توجد قضايا متاحة. يرجى أولاً إنشاء قضية.",
+      "lawsuitsDossierHelp": "حدد الملف الذي ستكون هذه القضية مرتبطة به",
+      "sessionLinkHelpWithLawsuits": "اختر ما إذا كانت هذه الجلسة مرتبطة بملف أو بقضية محددة",
+      "sessionLinkHelpNoLawsuits": "اختر ما إذا كانت هذه الجلسة مرتبطة بملف",
+      "sessionLawsuitHelp": "حدد القضية التي ستكون هذه الجلسة مرتبطة بها",
       "sessionDossierHelp": "حدد الملف الذي ستكون هذه الجلسة مرتبطة به",
       "taskDossierHelp": "حدد الملف الذي ستكون هذه المهمة مرتبطة به",
-      "taskCaseHelp": "حدد القضية التي ستكون هذه المهمة مرتبطة بها"
+      "taskLawsuitHelp": "حدد القضية التي ستكون هذه المهمة مرتبطة بها"
     },
     "overview": {
       "personal": "المعلومات الشخصية",

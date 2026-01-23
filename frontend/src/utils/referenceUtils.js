@@ -29,7 +29,7 @@ const REFERENCE_FORMATS = {
     format: "DOS-YYYY-XXX",
     example: "DOS-2025-001",
   },
-  case: {
+  lawsuit: {
     prefix: "PRO",
     format: "PRO-YYYY-XXX",
     example: "PRO-2025-001",
@@ -43,8 +43,8 @@ const REFERENCE_FORMATS = {
 
 /**
  * Get all existing references for a given entity type
- * @param {string} entityType - 'dossier', 'case', or 'mission'
- * @param {Object} entities - All entities data { dossiers, cases, missions, etc. }
+ * @param {string} entityType - 'dossier', 'lawsuit', or 'mission'
+ * @param {Object} entities - All entities data { dossiers, lawsuits, missions, etc. }
  * @returns {Array<{id: number, reference: string}>} - Array of {id, reference} objects
  */
 function getExistingReferences(entityType, entities) {
@@ -57,12 +57,12 @@ function getExistingReferences(entityType, entities) {
     case "dossier":
       return (entities.dossiers || []).map((d) => ({
         id: d.id,
-        reference: d.caseNumber || d.reference,
+        reference: d.lawsuitNumber || d.reference,
       }));
-    case "case":
-      return (entities.cases || []).map((c) => ({
+    case "lawsuit":
+      return (entities.lawsuits || []).map((c) => ({
         id: c.id,
-        reference: c.caseNumber || c.reference,
+        reference: c.lawsuitNumber || c.reference,
       }));
     case "mission":
       return (entities.missions || []).map((m) => ({
@@ -78,8 +78,8 @@ function getExistingReferences(entityType, entities) {
  * Generate next reference number for a given entity type
  * Automatically increments based on existing references for current year
  *
- * @param {string} entityType - 'dossier', 'case', or 'mission'
- * @param {Object} entities - All entities data { dossiers, cases, missions, etc. }
+ * @param {string} entityType - 'dossier', 'lawsuit', or 'mission'
+ * @param {Object} entities - All entities data { dossiers, lawsuits, missions, etc. }
  * @returns {string} - Generated reference (e.g., "DOS-2025-001")
  */
 export function generateEntityReference(entityType, entities = {}) {
@@ -121,10 +121,10 @@ export function generateEntityReference(entityType, entities = {}) {
 /**
  * Check if a reference is unique across the entity type
  *
- * @param {string} entityType - 'dossier', 'case', or 'mission'
+ * @param {string} entityType - 'dossier', 'lawsuit', or 'mission'
  * @param {string} reference - Reference to validate
  * @param {number|null} currentEntityId - ID of entity being edited (exclude from check)
- * @param {Object} entities - All entities data { dossiers, cases, missions, etc. }
+ * @param {Object} entities - All entities data { dossiers, lawsuits, missions, etc. }
  * @returns {boolean} - true if unique, false if duplicate
  */
 export function isReferenceUnique(
@@ -156,7 +156,7 @@ export function isReferenceUnique(
  * Validate reference format (optional - for future use)
  * Checks if reference follows expected pattern
  *
- * @param {string} entityType - 'dossier', 'case', or 'mission'
+ * @param {string} entityType - 'dossier', 'lawsuit', or 'mission'
  * @param {string} reference - Reference to validate
  * @returns {boolean} - true if format is valid
  */
@@ -196,7 +196,7 @@ export function isReferenceFormatValid(entityType, reference, options = {}) {
 /**
  * Get reference format information for display
  *
- * @param {string} entityType - 'dossier', 'case', or 'mission'
+ * @param {string} entityType - 'dossier', 'lawsuit', or 'mission'
  * @returns {object|null} - Format information
  */
 export function getReferenceFormat(entityType) {
@@ -206,14 +206,14 @@ export function getReferenceFormat(entityType) {
 /**
  * Get user-friendly error message for duplicate reference
  *
- * @param {string} entityType - 'dossier', 'case', or 'mission'
+ * @param {string} entityType - 'dossier', 'lawsuit', or 'mission'
  * @param {string} reference - The duplicate reference
  * @returns {string} - Localized error message
  */
 export function getDuplicateReferenceError(entityType, reference) {
   const entityNames = {
     dossier: "dossier",
-    case: "lawsuit",
+    lawsuit: "lawsuit",
     mission: "mission",
   };
 
@@ -227,7 +227,7 @@ export function getDuplicateReferenceError(entityType, reference) {
  * Ensures reference starts with correct prefix for entity type
  *
  * @param {string} reference - Reference to normalize
- * @param {string} entityType - 'dossier', 'case', or 'mission' (optional - for prefix correction)
+ * @param {string} entityType - 'dossier', 'lawsuit', or 'mission' (optional - for prefix correction)
  * @returns {string} - Normalized reference
  */
 export function normalizeReference(reference, entityType = null, options = {}) {
@@ -255,3 +255,6 @@ export function normalizeReference(reference, entityType = null, options = {}) {
 
   return normalized;
 }
+
+
+

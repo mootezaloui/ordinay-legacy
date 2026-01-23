@@ -47,7 +47,7 @@ export function pickGroupCategory(ruleResult = {}) {
   const type = (ruleResult.entityType || ruleResult.metadata?.entityType || "").toLowerCase();
   if (type === "task" || type === "personaltask") return null;
   if (type === "mission") return null;
-  if (type === "session" || type === "case") return null;
+  if (type === "session" || type === "lawsuit") return null;
   if (type === "financial" || type === "payment" || type === "financial_entry" || type === "financialentry") return null;
   return null;
 }
@@ -90,7 +90,7 @@ export function groupRuleNotifications(ruleNotifications = []) {
     const title =
       rule.messageParams?.taskTitle ||
       rule.messageParams?.missionTitle ||
-      rule.messageParams?.caseNumber ||
+      rule.messageParams?.lawsuitNumber ||
       rule.messageParams?.dossierNumber ||
       rule.messageParams?.clientName ||
       rule.metadata?.entityLabel ||
@@ -144,3 +144,5 @@ export function groupRuleNotifications(ruleNotifications = []) {
 
   return { individualRules, groupedNotifications };
 }
+
+

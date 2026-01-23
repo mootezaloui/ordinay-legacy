@@ -185,7 +185,6 @@
       "app": "Application",
       "client": "Client",
       "dossier": "Dossier",
-      "case": "Case",
       "lawsuit": "Lawsuit",
       "task": "Task",
       "personalTask": "Personal task",
@@ -230,7 +229,7 @@
     "clientAdded": "Client \"{{clientName}}\" has been successfully added.",
     "dossierCreated": "Dossier {{dossierNumber}} has been created for {{clientName}}.",
     "taskDue": "\"{{taskTitle}}\" is due on {{dueDate}}.",
-    "hearingScheduled": "Hearing for {{caseNumber}} is scheduled for {{hearingDate}}.",
+    "hearingScheduled": "Hearing for {{lawsuitNumber}} is scheduled for {{hearingDate}}.",
     "paymentReceived": "{{clientName}} has made a payment of {{amount}}.",
     "documentUploaded": "\"{{documentName}}\" has been uploaded to dossier {{dossierNumber}}.",
     "sessionScheduled": "\"{{sessionTitle}}\" is scheduled for {{date}}.",
@@ -282,36 +281,36 @@
       "upcomingHearing": {
         "title_one": "Hearing in {{count}} Day",
         "title_other": "Hearing in {{count}} Days",
-        "message_one": "Hearing scheduled for {{entityLabel}} \"{{caseNumber}}\" in {{count}} day.",
-        "message_other": "Hearing scheduled for {{entityLabel}} \"{{caseNumber}}\" in {{count}} days.",
-        "messageWithLocation_one": "Hearing scheduled for {{entityLabel}} \"{{caseNumber}}\" in {{count}} day. Location: {{location}}",
-        "messageWithLocation_other": "Hearing scheduled for {{entityLabel}} \"{{caseNumber}}\" in {{count}} days. Location: {{location}}",
-        "messageNoLocation_one": "Hearing scheduled for {{entityLabel}} \"{{caseNumber}}\" in {{count}} day. Check documents and preparation.",
-        "messageNoLocation_other": "Hearing scheduled for {{entityLabel}} \"{{caseNumber}}\" in {{count}} days. Check documents and preparation."
+        "message_one": "Hearing scheduled for {{entityLabel}} \"{{lawsuitNumber}}\" in {{count}} day.",
+        "message_other": "Hearing scheduled for {{entityLabel}} \"{{lawsuitNumber}}\" in {{count}} days.",
+        "messageWithLocation_one": "Hearing scheduled for {{entityLabel}} \"{{lawsuitNumber}}\" in {{count}} day. Location: {{location}}",
+        "messageWithLocation_other": "Hearing scheduled for {{entityLabel}} \"{{lawsuitNumber}}\" in {{count}} days. Location: {{location}}",
+        "messageNoLocation_one": "Hearing scheduled for {{entityLabel}} \"{{lawsuitNumber}}\" in {{count}} day. Check documents and preparation.",
+        "messageNoLocation_other": "Hearing scheduled for {{entityLabel}} \"{{lawsuitNumber}}\" in {{count}} days. Check documents and preparation."
       },
       "hearingToday": {
         "title": "🔴 Hearing Today",
-        "message": "Hearing today for {{entityLabel}} \"{{caseNumber}}\" at {{time}}.",
-        "messageWithLocation": "Hearing today for {{entityLabel}} \"{{caseNumber}}\" at {{time}}. Location: {{location}}"
+        "message": "Hearing today for {{entityLabel}} \"{{lawsuitNumber}}\" at {{time}}.",
+        "messageWithLocation": "Hearing today for {{entityLabel}} \"{{lawsuitNumber}}\" at {{time}}. Location: {{location}}"
       },
       "hearingOutcome": {
         "title": "Hearing Outcome - Documentation Required",
-        "message_one": "Hearing for {{entityLabel}} \"{{caseNumber}}\" took place {{count}} day ago. What was the hearing outcome?",
-        "message_other": "Hearing for {{entityLabel}} \"{{caseNumber}}\" took place {{count}} days ago. What was the hearing outcome?"
+        "message_one": "Hearing for {{entityLabel}} \"{{lawsuitNumber}}\" took place {{count}} day ago. What was the hearing outcome?",
+        "message_other": "Hearing for {{entityLabel}} \"{{lawsuitNumber}}\" took place {{count}} days ago. What was the hearing outcome?"
       }
     },
-    "case": {
+    "lawsuit": {
       "missingHearing": {
-        "title": "Missing Hearing - Case Without Hearing",
-        "message": "Case \"{{caseTitle}}\" (Priority: {{priority}}) has no scheduled hearing. Has a hearing been created?"
+        "title": "Missing Hearing - Lawsuit Without Hearing",
+        "message": "Lawsuit \"{{lawsuitTitle}}\" (Priority: {{priority}}) has no scheduled hearing. Has a hearing been created?"
       },
       "missingTasks": {
-        "title": "Missing Tasks - Case Without Tasks",
-        "message": "Case \"{{caseTitle}}\" (Priority: {{priority}}) has no associated tasks. Are any actions planned?"
+        "title": "Missing Tasks - Lawsuit Without Tasks",
+        "message": "Lawsuit \"{{lawsuitTitle}}\" (Priority: {{priority}}) has no associated tasks. Are any actions planned?"
       },
       "statusUpdate": {
-        "title": "Status Update - Case",
-        "message": "Case \"{{caseTitle}}\" has {{activitySummary}}. Should the case status be updated? Was there a verdict?",
+        "title": "Status Update - Lawsuit",
+        "message": "Lawsuit \"{{lawsuitTitle}}\" has {{activitySummary}}. Should the lawsuit status be updated? Was there a verdict?",
         "hearingsCompleted_one": "{{count}} hearing completed",
         "hearingsCompleted_other": "{{count}} hearings completed",
         "tasksCompleted_one": "{{count}} task completed",
@@ -379,19 +378,19 @@
       },
       "dossierClosed": {
         "title": "Dossier closed",
-        "message": "Dossier {{caseNumber}} has been closed."
+        "message": "Dossier {{lawsuitNumber}} has been closed."
       },
       "dossierReopened": {
         "title": "Dossier reopened",
-        "message": "Dossier {{caseNumber}} has been reopened."
+        "message": "Dossier {{lawsuitNumber}} has been reopened."
       },
-      "caseClosed": {
-        "title": "Case closed",
-        "message": "Case {{caseNumber}} has been closed."
+      "lawsuitClosed": {
+        "title": "Lawsuit closed",
+        "message": "Lawsuit {{lawsuitNumber}} has been closed."
       },
-      "caseReopened": {
-        "title": "Case reopened",
-        "message": "Case {{caseNumber}} has been reopened."
+      "lawsuitReopened": {
+        "title": "Lawsuit reopened",
+        "message": "Lawsuit {{lawsuitNumber}} has been reopened."
       },
       "taskAssigned": {
         "title": "Task assigned",
@@ -592,8 +591,8 @@
         "tone": "professional",
         "title_one": "Hearing in {{count}} day",
         "title_other": "Hearing in {{count}} days",
-        "message_one": "Hearing {{sessionTitle}} ({{entityLabel}}: {{caseNumber}}) in {{count}} day at {{time}}{{detailsLine}}",
-        "message_other": "Hearing {{sessionTitle}} ({{entityLabel}}: {{caseNumber}}) in {{count}} days at {{time}}{{detailsLine}}"
+        "message_one": "Hearing {{sessionTitle}} ({{entityLabel}}: {{lawsuitNumber}}) in {{count}} day at {{time}}{{detailsLine}}",
+        "message_other": "Hearing {{sessionTitle}} ({{entityLabel}}: {{lawsuitNumber}}) in {{count}} days at {{time}}{{detailsLine}}"
       },
       {
         "tone": "focused",
@@ -608,12 +607,12 @@
       {
         "tone": "urgent",
         "title": "Hearing today",
-        "message": "Hearing today: {{sessionTitle}} ({{entityLabel}}: {{caseNumber}}) at {{time}}{{detailsLine}}"
+        "message": "Hearing today: {{sessionTitle}} ({{entityLabel}}: {{lawsuitNumber}}) at {{time}}{{detailsLine}}"
       },
       {
         "tone": "professional",
         "title": "Hearing scheduled today",
-        "message": "Hearing scheduled: {{sessionTitle}} ({{entityLabel}}: {{caseNumber}}) at {{time}}{{detailsLine}}"
+        "message": "Hearing scheduled: {{sessionTitle}} ({{entityLabel}}: {{lawsuitNumber}}) at {{time}}{{detailsLine}}"
       }
     ],
     "content.session.participantReminder": [
@@ -621,8 +620,8 @@
         "tone": "actionable",
         "title_one": "Reminder: notify participants ({{count}} day)",
         "title_other": "Reminder: notify participants ({{count}} days)",
-        "message_one": "Send reminder to participants for {{sessionTitle}} ({{caseNumber}}) in {{count}} day at {{time}}{{detailsLine}}",
-        "message_other": "Send reminder to participants for {{sessionTitle}} ({{caseNumber}}) in {{count}} days at {{time}}{{detailsLine}}"
+        "message_one": "Send reminder to participants for {{sessionTitle}} ({{lawsuitNumber}}) in {{count}} day at {{time}}{{detailsLine}}",
+        "message_other": "Send reminder to participants for {{sessionTitle}} ({{lawsuitNumber}}) in {{count}} days at {{time}}{{detailsLine}}"
       },
       {
         "tone": "focused",
@@ -635,8 +634,8 @@
         "tone": "gentle",
         "title_one": "Quick participant reminder",
         "title_other": "Quick participant reminder",
-        "message_one": "Remember to remind participants for {{sessionTitle}} ({{caseNumber}}) in {{count}} day at {{time}}{{detailsLine}}",
-        "message_other": "Remember to remind participants for {{sessionTitle}} ({{caseNumber}}) in {{count}} days at {{time}}{{detailsLine}}"
+        "message_one": "Remember to remind participants for {{sessionTitle}} ({{lawsuitNumber}}) in {{count}} day at {{time}}{{detailsLine}}",
+        "message_other": "Remember to remind participants for {{sessionTitle}} ({{lawsuitNumber}}) in {{count}} days at {{time}}{{detailsLine}}"
       }
     ],
     
@@ -644,32 +643,32 @@
       {
         "tone": "professional",
         "title": "Hearing notes required",
-        "message_one": "Hearing for {{entityLabel}} \"{{caseNumber}}\" took place {{count}} day ago. Add your notes.",
-        "message_other": "Hearing for {{entityLabel}} \"{{caseNumber}}\" took place {{count}} days ago. Add your notes."
+        "message_one": "Hearing for {{entityLabel}} \"{{lawsuitNumber}}\" took place {{count}} day ago. Add your notes.",
+        "message_other": "Hearing for {{entityLabel}} \"{{lawsuitNumber}}\" took place {{count}} days ago. Add your notes."
       },
       {
         "tone": "follow-up",
         "title": "Note the hearing",
-        "message_one": "{{entityLabel}} \"{{caseNumber}}\" took place {{count}} day ago. Note the outcome.",
-        "message_other": "{{entityLabel}} \"{{caseNumber}}\" took place {{count}} days ago. Note the outcome."
+        "message_one": "{{entityLabel}} \"{{lawsuitNumber}}\" took place {{count}} day ago. Note the outcome.",
+        "message_other": "{{entityLabel}} \"{{lawsuitNumber}}\" took place {{count}} days ago. Note the outcome."
       },
       {
         "tone": "friendly",
         "title": "Quick follow-up",
-        "message_one": "How did {{entityLabel}} \"{{caseNumber}}\" go? Add your notes from {{count}} day ago.",
-        "message_other": "How did {{entityLabel}} \"{{caseNumber}}\" go? Add your notes from {{count}} days ago."
+        "message_one": "How did {{entityLabel}} \"{{lawsuitNumber}}\" go? Add your notes from {{count}} day ago.",
+        "message_other": "How did {{entityLabel}} \"{{lawsuitNumber}}\" go? Add your notes from {{count}} days ago."
       },
       {
         "tone": "gentle",
         "title": "Note reminder",
-        "message_one": "Reminder: {{entityLabel}} \"{{caseNumber}}\" was {{count}} day ago. Note the result.",
-        "message_other": "Reminder: {{entityLabel}} \"{{caseNumber}}\" was {{count}} days ago. Note the result."
+        "message_one": "Reminder: {{entityLabel}} \"{{lawsuitNumber}}\" was {{count}} day ago. Note the result.",
+        "message_other": "Reminder: {{entityLabel}} \"{{lawsuitNumber}}\" was {{count}} days ago. Note the result."
       },
       {
         "tone": "supportive",
         "title": "Complete follow-up",
-        "message_one": "Complete follow-up for {{entityLabel}} \"{{caseNumber}}\" ({{count}} day ago) with a quick note.",
-        "message_other": "Complete follow-up for {{entityLabel}} \"{{caseNumber}}\" ({{count}} days ago) with a quick note."
+        "message_one": "Complete follow-up for {{entityLabel}} \"{{lawsuitNumber}}\" ({{count}} day ago) with a quick note.",
+        "message_other": "Complete follow-up for {{entityLabel}} \"{{lawsuitNumber}}\" ({{count}} days ago) with a quick note."
       }
     ],
     "content.session.today": [
@@ -1194,34 +1193,34 @@
         "tone": "check-in",
         "title_one": "🔍 Check progress ({{count}} day)",
         "title_other": "🔍 Check progress ({{count}} days)",
-        "message_one": "Dossier {{caseNumber}} has been open for {{count}} day. Everything going as planned?",
-        "message_other": "Dossier {{caseNumber}} has been open for {{count}} days. Everything going as planned?"
+        "message_one": "Dossier {{lawsuitNumber}} has been open for {{count}} day. Everything going as planned?",
+        "message_other": "Dossier {{lawsuitNumber}} has been open for {{count}} days. Everything going as planned?"
       },
       {
         "tone": "concerned",
-        "title_one": "How is {{caseNumber}} progressing?",
-        "title_other": "How is {{caseNumber}} progressing?",
+        "title_one": "How is {{lawsuitNumber}} progressing?",
+        "title_other": "How is {{lawsuitNumber}} progressing?",
         "message_one": "Open for {{count}} day. Need support or all under control?",
         "message_other": "Open for {{count}} days. Need support or all under control?"
       },
       {
         "tone": "collaborative",
-        "title_one": "Check-in on dossier {{caseNumber}}",
-        "title_other": "Check-in on dossier {{caseNumber}}",
+        "title_one": "Check-in on dossier {{lawsuitNumber}}",
+        "title_other": "Check-in on dossier {{lawsuitNumber}}",
         "message_one": "It's been {{count}} day. A quick check-in to ensure everything is progressing well?",
         "message_other": "It's been {{count}} days. A quick check-in to ensure everything is progressing well?"
       },
       {
         "tone": "simple",
-        "title_one": "Review: Dossier {{caseNumber}}",
-        "title_other": "Review: Dossier {{caseNumber}}",
+        "title_one": "Review: Dossier {{lawsuitNumber}}",
+        "title_other": "Review: Dossier {{lawsuitNumber}}",
         "message_one": "Open for {{count}} day. To check.",
         "message_other": "Open for {{count}} days. To check."
       },
       {
         "tone": "encouraging",
-        "title_one": "Everything ok with {{caseNumber}}?",
-        "title_other": "Everything ok with {{caseNumber}}?",
+        "title_one": "Everything ok with {{lawsuitNumber}}?",
+        "title_other": "Everything ok with {{lawsuitNumber}}?",
         "message_one": "{{count}} day open. A moment to check progress?",
         "message_other": "{{count}} days open. A moment to check progress?"
       }
@@ -1356,55 +1355,55 @@
       }
 
     ],
-    "content.case.missingHearing": [
+    "content.lawsuit.missingHearing": [
       {
         "tone": "professional",
-        "title": "Missing Hearing - Case Without Hearing",
-        "message": "Case \"{{caseTitle}}\" (Priority: {{priority}}) has no scheduled hearing. Has a hearing been created?"
+        "title": "Missing Hearing - Lawsuit Without Hearing",
+        "message": "Lawsuit \"{{lawsuitTitle}}\" (Priority: {{priority}}) has no scheduled hearing. Has a hearing been created?"
       },
       {
         "tone": "actionable",
         "title": "Schedule a hearing",
-        "message": "Case \"{{caseTitle}}\" ({{priority}}) has no hearing. Should one be scheduled?"
+        "message": "Lawsuit \"{{lawsuitTitle}}\" ({{priority}}) has no hearing. Should one be scheduled?"
       },
       {
         "tone": "concerned",
-        "title": "Case without hearing",
-        "message": "\"{{caseTitle}}\" (priority {{priority}}) still has no scheduled hearing. Want to create one?"
+        "title": "Lawsuit without hearing",
+        "message": "\"{{lawsuitTitle}}\" (priority {{priority}}) still has no scheduled hearing. Want to create one?"
       },
       {
         "tone": "direct",
         "title": "Hearing required",
-        "message": "{{caseTitle}} - no hearing. Schedule one."
+        "message": "{{lawsuitTitle}} - no hearing. Schedule one."
       }
     ],
-    "content.case.missingTasks": [
+    "content.lawsuit.missingTasks": [
       {
         "tone": "professional",
-        "title": "Missing Tasks - Case Without Tasks",
-        "message": "Case \"{{caseTitle}}\" (Priority: {{priority}}) has no associated tasks. Are any actions planned?"
+        "title": "Missing Tasks - Lawsuit Without Tasks",
+        "message": "Lawsuit \"{{lawsuitTitle}}\" (Priority: {{priority}}) has no associated tasks. Are any actions planned?"
       },
       {
         "tone": "actionable",
         "title": "Define actions",
-        "message": "Case \"{{caseTitle}}\" ({{priority}}) has no tasks. What are the next steps?"
+        "message": "Lawsuit \"{{lawsuitTitle}}\" ({{priority}}) has no tasks. What are the next steps?"
       },
       {
         "tone": "planning",
         "title": "Action plan needed",
-        "message": "\"{{caseTitle}}\" (priority {{priority}}) requires an action plan. Create tasks."
+        "message": "\"{{lawsuitTitle}}\" (priority {{priority}}) requires an action plan. Create tasks."
       },
       {
         "tone": "supportive",
         "title": "Need a plan?",
-        "message": "Case \"{{caseTitle}}\" has no tasks. Want me to help you plan?"
+        "message": "Lawsuit \"{{lawsuitTitle}}\" has no tasks. Want me to help you plan?"
       }
     ],
-    "content.case.statusUpdate": [
+    "content.lawsuit.statusUpdate": [
       {
         "tone": "professional",
-        "title": "Status Update - Case",
-        "message": "Case \"{{caseTitle}}\" has {{activitySummary}}. Should the case status be updated? Was there a verdict?",
+        "title": "Status Update - Lawsuit",
+        "message": "Lawsuit \"{{lawsuitTitle}}\" has {{activitySummary}}. Should the lawsuit status be updated? Was there a verdict?",
         "hearingsCompleted_one": "{{count}} hearing completed",
         "hearingsCompleted_other": "{{count}} hearings completed",
         "tasksCompleted_one": "{{count}} task completed",
@@ -1414,7 +1413,7 @@
       {
         "tone": "follow-up",
         "title": "Verdict or update?",
-        "message": "\"{{caseTitle}}\" has progressed ({{activitySummary}}). Update status.",
+        "message": "\"{{lawsuitTitle}}\" has progressed ({{activitySummary}}). Update status.",
         "hearingsCompleted_one": "{{count}} hearing",
         "hearingsCompleted_other": "{{count}} hearings",
         "tasksCompleted_one": "{{count}} task",
@@ -1423,8 +1422,8 @@
       },
       {
         "tone": "direct",
-        "title": "Case status",
-        "message": "{{caseTitle}}: {{activitySummary}}. Verdict?",
+        "title": "Lawsuit status",
+        "message": "{{lawsuitTitle}}: {{activitySummary}}. Verdict?",
         "hearingsCompleted_one": "{{count}} hearing done",
         "hearingsCompleted_other": "{{count}} hearings done",
         "tasksCompleted_one": "{{count}} task done",
@@ -1670,9 +1669,9 @@
       "dossierCreated": "Opening of Your Dossier {{title}} ({{number}})",
       "dossierStatusChanged": "Dossier Update {{title}} ({{number}})",
       "dossierDeadlineChanged": "Deadline Change - {{title}} ({{number}})",
-      "caseCreated": "Opening of Your Case {{title}} ({{number}})",
-      "caseStatusChanged": "Case Update {{title}} ({{number}})",
-      "caseHearingChanged": "Hearing Date Change - {{title}} ({{number}})",
+      "lawsuitCreated": "Opening of Your Lawsuit {{title}} ({{number}})",
+      "lawsuitStatusChanged": "Lawsuit Update {{title}} ({{number}})",
+      "lawsuitHearingChanged": "Hearing Date Change - {{title}} ({{number}})",
       "sessionScheduled": "Hearing Scheduled - {{title}}",
       "sessionDateChanged": "Hearing Date Change - {{title}}",
       "sessionCancelled": "Hearing Cancellation - {{number}}",
@@ -1691,7 +1690,7 @@
         "details": "Dossier: {{title}} ({{number}})\nNew Status: {{newStatus}}\nDate: {{date}}",
         "footer": "For any questions, do not hesitate to contact us.",
         "statusExplanations": {
-          "Closed": "Your Dossier is now closed. All elements of the case have been processed.",
+          "Closed": "Your Dossier is now closed. All elements of the lawsuit have been processed.",
           "Suspended": "Your Dossier is temporarily suspended due to circumstances requiring a pause in processing.",
           "OpenAfterReopening": "Your Dossier has been reopened for processing following new developments.",
           "Open": "Your Dossier is now active and under processing."
@@ -1707,41 +1706,41 @@
         },
         "footer": "For any questions, do not hesitate to contact us."
       },
-      "caseCreated": {
-        "confirmation": "We confirm the opening of a new case concerning you.",
-        "details": "Case: {{title}} ({{number}})\nJurisdiction: {{court}}",
+      "lawsuitCreated": {
+        "confirmation": "We confirm the opening of a new lawsuit concerning you.",
+        "details": "Lawsuit: {{title}} ({{number}})\nJurisdiction: {{court}}",
         "footer": "We will keep you informed of each step."
       },
-      "caseStatusChanged": {
-        "intro": "We inform you of a development concerning your case.",
-        "details": "Case: {{title}} ({{number}})\nCourt: {{court}}\nNew Status: {{newStatus}}\nDate: {{date}}",
+      "lawsuitStatusChanged": {
+        "intro": "We inform you of a development concerning your lawsuit.",
+        "details": "Lawsuit: {{title}} ({{number}})\nCourt: {{court}}\nNew Status: {{newStatus}}\nDate: {{date}}",
         "footer": "We remain at your disposal for any additional information.",
         "statusExplanations": {
-          "Closed": "Your case is now closed. A final decision has been rendered.",
-          "Suspended": "Your case has been suspended by the court. We will inform you of the resumption of proceedings."
+          "Closed": "Your lawsuit is now closed. A final decision has been rendered.",
+          "Suspended": "Your lawsuit has been suspended by the court. We will inform you of the resumption of proceedings."
         }
       },
-      "caseHearingChanged": {
+      "lawsuitHearingChanged": {
         "intro": "We inform you of a change concerning your next hearing.",
-        "details": "Case: {{title}} ({{number}})\nCourt: {{court}}\n\nPrevious date: {{oldDate}}\nNew date: {{newDate}}",
+        "details": "Lawsuit: {{title}} ({{number}})\nCourt: {{court}}\n\nPrevious date: {{oldDate}}\nNew date: {{newDate}}",
         "footer": "Please note this change and organize accordingly.\n\nFor any questions, do not hesitate to contact us."
       },
       "sessionScheduled": {
         "intro": "A hearing has been scheduled for your Dossier.",
         "details": "Type: {{title}}\nDate: {{date}} at {{time}}\nLocation: {{location}}\nEstimated duration: {{duration}}",
-        "detailsWithCase": "Case: {{caseTitle}} ({{caseNumber}})\nType: {{title}}\nDate: {{date}} at {{time}}\nLocation: {{location}}\nEstimated duration: {{duration}}",
+        "detailsWithLawsuit": "Lawsuit: {{lawsuitTitle}} ({{lawsuitNumber}})\nType: {{title}}\nDate: {{date}} at {{time}}\nLocation: {{location}}\nEstimated duration: {{duration}}",
         "footer": "We will keep you informed of any developments."
       },
       "sessionDateChanged": {
         "intro": "We inform you of a change concerning your next hearing.",
         "details": "Hearing: {{title}}\n\nPrevious date: {{oldDate}} at {{oldTime}}\nNew date: {{newDate}} at {{newTime}}\n\nLocation: {{location}}",
-        "detailsWithCase": "Case: {{caseTitle}} ({{caseNumber}})\nHearing: {{title}}\n\nPrevious date: {{oldDate}} at {{oldTime}}\nNew date: {{newDate}} at {{newTime}}\n\nLocation: {{location}}",
+        "detailsWithLawsuit": "Lawsuit: {{lawsuitTitle}} ({{lawsuitNumber}})\nHearing: {{title}}\n\nPrevious date: {{oldDate}} at {{oldTime}}\nNew date: {{newDate}} at {{newTime}}\n\nLocation: {{location}}",
         "footer": "Please note this change and organize accordingly.\n\nFor any questions, do not hesitate to contact us."
       },
       "sessionCancelled": {
         "intro": "We inform you of the cancellation of the scheduled hearing.",
         "details": "Cancelled hearing: {{date}} at {{time}}\nLocation: {{location}}",
-        "detailsWithCase": "Case: {{caseNumber}} - {{caseTitle}}\nCancelled hearing: {{date}} at {{time}}\nLocation: {{location}}",
+        "detailsWithLawsuit": "Lawsuit: {{lawsuitNumber}} - {{lawsuitTitle}}\nCancelled hearing: {{date}} at {{time}}\nLocation: {{location}}",
         "footer": "A new date will be communicated as soon as possible."
       },
       "financialEntryAdded": {
@@ -1780,4 +1779,6 @@
     }
   }
 }
+
+
 

@@ -22,7 +22,7 @@ import useBodyScrollLock from "../../hooks/useBodyScrollLock";
  * - blockers: string[] | object[] (array of blocker reasons or structured blockers)
  * - warnings: string[] (optional non-blocking warnings)
  * - entityName: string (e.g., "DOS-2024-001")
- * - entityType: string (e.g., "dossier", "case", "task")
+ * - entityType: string (e.g., "dossier", "lawsuit", "task")
  * - entityId: number|string (ID of the entity being validated)
  * - action: string (e.g., "close", "edit", "delete")
  * - context: object (additional context for enrichment)
@@ -53,7 +53,7 @@ export default function BlockerModal({
 }) {
   const navigate = useNavigate();
   const { showToast } = useToast();
-  const { updateTask, updateSession, updateFinancialEntry, updateCase, updateDossier } = useData();
+  const { updateTask, updateSession, updateFinancialEntry, updateLawsuit, updateDossier } = useData();
   const [enrichedBlockers, setEnrichedBlockers] = useState([]);
   const [resolvedBlockers, setResolvedBlockers] = useState(new Set());
   const [isResolving, setIsResolving] = useState(false);
@@ -200,15 +200,15 @@ export default function BlockerModal({
           break;
 
         case 'close':
-          // Close case or dossier
-          if (targetEntityType === 'case') {
+          // Close lawsuit or dossier
+          if (targetEntityType === 'lawsuit') {
             try {
-              await updateCase(targetEntityId, { status: 'Closed' });
+              await updateLawsuit(targetEntityId, { status: 'Closed' });
               success = true;
-              message = t("detail.blocker.toast.success.caseClosed");
+              message = t("detail.blocker.toast.success.lawsuitClosed");
             } catch (error) {
-              console.error('Error closing case:', error);
-              showToast(t("detail.blocker.toast.error.caseClosed"), 'error');
+              console.error('Error closing lawsuit:', error);
+              showToast(t("detail.blocker.toast.error.lawsuitClosed"), 'error');
             }
           } else if (targetEntityType === 'dossier') {
             try {
@@ -545,7 +545,7 @@ export default function BlockerModal({
 function BlockerItem({ blocker, blockerIndex, onNavigate, onInlineAction, isResolving }) {
   const { t } = useTranslation("common");
   const { t: tDossiers } = useTranslation("dossiers");
-  const { t: tCases } = useTranslation("cases");
+  const { t: tLawsuits } = useTranslation("lawsuits");
   const { t: tTasks } = useTranslation("tasks");
   const { t: tSessions } = useTranslation("sessions");
   const hasItems = blocker.items && blocker.items.length > 0;
@@ -604,9 +604,8 @@ function BlockerItem({ blocker, blockerIndex, onNavigate, onInlineAction, isReso
                 switch (item.entityType) {
                   case 'dossier':
                     return tDossiers(`status.${statusKey}`, item.status);
-                  case 'case':
                   case 'lawsuit':
-                    return tCases(`status.${statusKey}`, item.status);
+                    return tLawsuits(`status.${statusKey}`, item.status);
                   case 'task':
                     return tTasks(`status.${statusKey}`, item.status);
                   case 'session':
@@ -734,7 +733,7 @@ function getEntityTypeLabel(type, count = 1, t) {
   const entityTypeMap = {
     clients: count > 1 ? 'clients' : 'client',
     dossiers: count > 1 ? 'dossiers' : 'dossier',
-    cases: count > 1 ? 'lawsuits' : 'lawsuit',
+    lawsuits: count > 1 ? 'lawsuits' : 'lawsuit',
     tasks: count > 1 ? 'tasks' : 'task',
     sessions: count > 1 ? 'sessions' : 'session',
     missions: count > 1 ? 'missions' : 'mission',
@@ -745,3 +744,6 @@ function getEntityTypeLabel(type, count = 1, t) {
   const entityKey = entityTypeMap[type] || type;
   return t(`detail.blocker.entityTypes.${entityKey}`, { defaultValue: type });
 }
+
+
+

@@ -147,8 +147,8 @@ Merci de confirmer votre disponibilité.`;
 
     switch (purpose) {
       case "update":
-        subject = `Update - Case ${dossier.reference}`;
-        bodyContent = `We are writing to inform you about the progress of your case "${
+        subject = `Update - Case file ${dossier.reference}`;
+        bodyContent = `We are writing to inform you about the progress of your case file "${
           dossier.title
         }" (Reference: ${dossier.reference}).
 
@@ -167,8 +167,8 @@ Feel free to contact us if you have any questions.`;
         break;
 
       case "request_info":
-        subject = `Information request - Case ${dossier.reference}`;
-        bodyContent = `As part of the follow-up on your case "${dossier.title}" (Reference: ${dossier.reference}), we need the following information:
+        subject = `Information request - Case file ${dossier.reference}`;
+        bodyContent = `As part of the follow-up on your case file "${dossier.title}" (Reference: ${dossier.reference}), we need the following information:
 
 [Please specify required information]
 
@@ -176,8 +176,8 @@ Thank you for sending us these elements as soon as possible.`;
         break;
 
       case "confirm_appointment":
-        subject = `Appointment confirmation - Case ${dossier.reference}`;
-        bodyContent = `We would like to confirm our appointment regarding your case "${dossier.title}" (Reference: ${dossier.reference}).
+        subject = `Appointment confirmation - Case file ${dossier.reference}`;
+        bodyContent = `We would like to confirm our appointment regarding your case file "${dossier.title}" (Reference: ${dossier.reference}).
 
 [Please add appointment details]
 
@@ -186,8 +186,8 @@ Please confirm your availability.`;
 
       case "general":
       default:
-        subject = `Case ${dossier.reference}`;
-        bodyContent = `We are contacting you about your case "${dossier.title}" (Reference: ${dossier.reference}).
+        subject = `Case file ${dossier.reference}`;
+        bodyContent = `We are contacting you about your case file "${dossier.title}" (Reference: ${dossier.reference}).
 
 [Please add your message content]`;
     }

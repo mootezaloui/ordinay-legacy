@@ -37,12 +37,12 @@
 // Live data is provided by callers through the context parameter.
 // We keep legacy variable names to avoid touching downstream logic.
 let mockDossiersExtended = {};
-let mockCasesExtended = {};
+let mockLawsuitsExtended = {};
 let mockClientsExtended = {};
 let mockClients = [];
 let mockDossiers = [];
 let mockTasks = [];
-let mockCases = [];
+let mockLawsuits = [];
 let mockSessions = [];
 let mockOfficers = [];
 let mockOfficersExtended = {};
@@ -71,32 +71,32 @@ const loadContextData = (context = {}) => {
   const entities = context.entities || {};
   mockClients = entities.clients || [];
   mockDossiers = entities.dossiers || [];
-  mockCases = entities.cases || [];
+  mockLawsuits = entities.lawsuits || [];
   mockTasks = entities.tasks || [];
   mockSessions = entities.sessions || [];
   missionsCache = entities.missions || [];
   mockOfficers = entities.officers || [];
   financialLedger = entities.financialEntries || [];
 
-  const casesById = new Map(mockCases.map((c) => [c.id, c]));
+  const lawsuitsById = new Map(mockLawsuits.map((c) => [c.id, c]));
 
   mockDossiersExtended = mockDossiers.reduce((acc, dossier) => {
-    const proceedings = mockCases.filter((c) => c.dossierId === dossier.id);
+    const proceedings = mockLawsuits.filter((c) => c.dossierId === dossier.id);
     const dossierTasks = mockTasks.filter(
       (task) =>
         (task.parentType === "dossier" && task.dossierId === dossier.id) ||
-        (task.parentType === "case" &&
-          proceedings.some((p) => p.id === task.caseId))
+        (task.parentType === "lawsuit" &&
+          proceedings.some((p) => p.id === task.lawsuitId))
     );
     const dossierSessions = mockSessions.filter(
       (session) =>
         session.dossierId === dossier.id ||
-        proceedings.some((p) => p.id === session.caseId)
+        proceedings.some((p) => p.id === session.lawsuitId)
     );
     const dossierMissions = missionsCache.filter(
       (mission) =>
         (mission.entityType === "dossier" && mission.entityId === dossier.id) ||
-        (mission.entityType === "case" &&
+        (mission.entityType === "lawsuit" &&
           proceedings.some((p) => p.id === mission.entityId))
     );
     acc[dossier.id] = {
@@ -109,18 +109,18 @@ const loadContextData = (context = {}) => {
     return acc;
   }, {});
 
-  mockCasesExtended = mockCases.reduce((acc, caseItem) => {
-    acc[caseItem.id] = {
-      ...caseItem,
+  mockLawsuitsExtended = mockLawsuits.reduce((acc, lawsuitItem) => {
+    acc[lawsuitItem.id] = {
+      ...lawsuitItem,
       tasks: mockTasks.filter(
-        (task) => task.parentType === "case" && task.caseId === caseItem.id
+        (task) => task.parentType === "lawsuit" && task.lawsuitId === lawsuitItem.id
       ),
       sessions: mockSessions.filter(
-        (session) => session.caseId === caseItem.id
+        (session) => session.lawsuitId === lawsuitItem.id
       ),
       missions: missionsCache.filter(
         (mission) =>
-          mission.entityType === "case" && mission.entityId === caseItem.id
+          mission.entityType === "lawsuit" && mission.entityId === lawsuitItem.id
       ),
     };
     return acc;
@@ -128,13 +128,13 @@ const loadContextData = (context = {}) => {
 
   mockClientsExtended = mockClients.reduce((acc, client) => {
     const clientDossiers = mockDossiers.filter((d) => d.clientId === client.id);
-    const clientCases = mockCases.filter((c) =>
+    const clientLawsuits = mockLawsuits.filter((c) =>
       clientDossiers.some((d) => d.id === c.dossierId)
     );
     acc[client.id] = {
       ...client,
       dossiers: clientDossiers,
-      proceedings: clientCases,
+      proceedings: clientLawsuits,
     };
     return acc;
   }, {});
@@ -157,7 +157,7 @@ const loadContextData = (context = {}) => {
 /**
  * Main entry point for domain rule validation
  *
- * @param {string} entityType - Type of entity (dossier, case, client, etc.)
+ * @param {string} entityType - Type of entity (dossier, lawsuit, client, etc.)
  * @param {number|string} entityId - ID of the entity
  * @param {string} action - Action being attempted (close, archive, delete, edit, etc.)
  * @param {object} context - Additional context (newValue, currentData, etc.)
@@ -301,7 +301,7 @@ function detectRelationalImpact(entityType, currentData, newData) {
   const detectors = {
     mission: detectMissionImpact,
     dossier: detectDossierImpact,
-    case: detectCaseImpact,
+    lawsuit: detectLawsuitImpact,
     task: detectTaskImpact,
     session: detectSessionImpact,
   };
@@ -389,7 +389,7 @@ function detectMissionImpact(currentData, newData) {
 function detectDossierImpact(currentData, newData) {
   const changes = [];
 
-  const referenceField = "caseNumber";
+  const referenceField = "lawsuitNumber";
   if (
     referenceField in newData &&
     currentData[referenceField] !== newData[referenceField]
@@ -440,10 +440,10 @@ function detectDossierImpact(currentData, newData) {
     changeDetails: changes[0], // Primary change for backward compatibility
   };
 }
-function detectCaseImpact(currentData, newData) {
+function detectLawsuitImpact(currentData, newData) {
   const changes = [];
 
-  const referenceField = "caseNumber";
+  const referenceField = "lawsuitNumber";
   if (
     referenceField in newData &&
     currentData[referenceField] !== newData[referenceField]
@@ -453,10 +453,10 @@ function detectCaseImpact(currentData, newData) {
       from: currentData[referenceField],
       to: newData[referenceField],
       impact: [
-        t("case.impact.reference.impact1"),
-        t("case.impact.reference.impact2"),
-        t("case.impact.reference.impact3"),
-        t("case.impact.reference.impact4"),
+        t("lawsuit.impact.reference.impact1"),
+        t("lawsuit.impact.reference.impact2"),
+        t("lawsuit.impact.reference.impact3"),
+        t("lawsuit.impact.reference.impact4"),
       ],
     });
   }
@@ -471,11 +471,11 @@ function detectCaseImpact(currentData, newData) {
       const newDossier = mockDossiers.find((d) => d.id == newData.dossierId);
 
       const formatDossierLabel = (dossier) => {
-        if (!dossier) return t("case.impact.dossier.notAssigned");
-        const label = `${dossier.caseNumber || ""} - ${
+        if (!dossier) return t("lawsuit.impact.dossier.notAssigned");
+        const label = `${dossier.lawsuitNumber || ""} - ${
           dossier.title || ""
         }`.trim();
-        return label || t("case.impact.dossier.notAssigned");
+        return label || t("lawsuit.impact.dossier.notAssigned");
       };
 
       changes.push({
@@ -483,10 +483,10 @@ function detectCaseImpact(currentData, newData) {
         from: formatDossierLabel(oldDossier),
         to: formatDossierLabel(newDossier),
         impact: [
-          t("case.impact.dossier.impact1"),
-          t("case.impact.dossier.impact2"),
-          t("case.impact.dossier.impact3"),
-          t("case.impact.dossier.impact4"),
+          t("lawsuit.impact.dossier.impact1"),
+          t("lawsuit.impact.dossier.impact2"),
+          t("lawsuit.impact.dossier.impact3"),
+          t("lawsuit.impact.dossier.impact4"),
         ],
       });
     }
@@ -496,7 +496,7 @@ function detectCaseImpact(currentData, newData) {
     return { requiresConfirmation: false };
   }
 
-  const impactSummary = buildImpactSummary(changes, "case");
+  const impactSummary = buildImpactSummary(changes, "lawsuit");
 
   return {
     requiresConfirmation: true,
@@ -507,9 +507,9 @@ function detectCaseImpact(currentData, newData) {
 function detectTaskImpact(currentData, newData) {
   const parentTypeInNewData = "parentType" in newData;
   const dossierIdInNewData = "dossierId" in newData;
-  const caseIdInNewData = "caseId" in newData;
+  const lawsuitIdInNewData = "lawsuitId" in newData;
 
-  if (!parentTypeInNewData && !dossierIdInNewData && !caseIdInNewData) {
+  if (!parentTypeInNewData && !dossierIdInNewData && !lawsuitIdInNewData) {
     return { requiresConfirmation: false };
   }
 
@@ -518,11 +518,11 @@ function detectTaskImpact(currentData, newData) {
 
   const dossierIdChanged =
     dossierIdInNewData && currentData.dossierId !== newData.dossierId;
-  const caseIdChanged =
-    caseIdInNewData && currentData.caseId !== newData.caseId;
+  const lawsuitIdChanged =
+    lawsuitIdInNewData && currentData.lawsuitId !== newData.lawsuitId;
 
   const hasParentChange =
-    parentTypeChanged || dossierIdChanged || caseIdChanged;
+    parentTypeChanged || dossierIdChanged || lawsuitIdChanged;
 
   if (!hasParentChange) {
     return { requiresConfirmation: false };
@@ -532,12 +532,12 @@ function detectTaskImpact(currentData, newData) {
     if (!entity) return t("task.impact.parent.notAssigned");
     if (entityType === "dossier") {
       return t("task.impact.parent.dossierLabel", {
-        caseNumber: entity.caseNumber || "",
+        lawsuitNumber: entity.lawsuitNumber || "",
         title: entity.title || "",
       });
     }
-    return t("task.impact.parent.caseLabel", {
-      caseNumber: entity.caseNumber || "",
+    return t("task.impact.parent.lawsuitLabel", {
+      lawsuitNumber: entity.lawsuitNumber || "",
       title: entity.title || "",
     });
   };
@@ -548,17 +548,17 @@ function detectTaskImpact(currentData, newData) {
   if (currentData.parentType === "dossier" && currentData.dossierId) {
     const dossier = mockDossiers.find((d) => d.id == currentData.dossierId);
     oldParentLabel = formatParentLabel("dossier", dossier);
-  } else if (currentData.parentType === "case" && currentData.caseId) {
-    const caseData = mockCases.find((c) => c.id == currentData.caseId);
-    oldParentLabel = formatParentLabel("case", caseData);
+  } else if (currentData.parentType === "lawsuit" && currentData.lawsuitId) {
+    const lawsuitData = mockLawsuits.find((c) => c.id == currentData.lawsuitId);
+    oldParentLabel = formatParentLabel("lawsuit", lawsuitData);
   }
 
   if (newData.parentType === "dossier" && newData.dossierId) {
     const dossier = mockDossiers.find((d) => d.id == newData.dossierId);
     newParentLabel = formatParentLabel("dossier", dossier);
-  } else if (newData.parentType === "case" && newData.caseId) {
-    const caseData = mockCases.find((c) => c.id == newData.caseId);
-    newParentLabel = formatParentLabel("case", caseData);
+  } else if (newData.parentType === "lawsuit" && newData.lawsuitId) {
+    const lawsuitData = mockLawsuits.find((c) => c.id == newData.lawsuitId);
+    newParentLabel = formatParentLabel("lawsuit", lawsuitData);
   }
 
   const impactSummary = buildImpactSummary(
@@ -588,18 +588,18 @@ function detectTaskImpact(currentData, newData) {
   };
 }
 function detectSessionImpact(currentData, newData) {
-  const caseIdInNewData = "caseId" in newData;
+  const lawsuitIdInNewData = "lawsuitId" in newData;
   const dossierIdInNewData = "dossierId" in newData;
 
-  if (!caseIdInNewData && !dossierIdInNewData) {
+  if (!lawsuitIdInNewData && !dossierIdInNewData) {
     return { requiresConfirmation: false };
   }
 
-  const caseIdChanged = caseIdInNewData && currentData.caseId != newData.caseId;
+  const lawsuitIdChanged = lawsuitIdInNewData && currentData.lawsuitId != newData.lawsuitId;
   const dossierIdChanged =
     dossierIdInNewData && currentData.dossierId != newData.dossierId;
 
-  if (!caseIdChanged && !dossierIdChanged) {
+  if (!lawsuitIdChanged && !dossierIdChanged) {
     return { requiresConfirmation: false };
   }
 
@@ -607,12 +607,12 @@ function detectSessionImpact(currentData, newData) {
     if (!entity) return t("session.impact.parent.notAssigned");
     if (entityType === "dossier") {
       return t("session.impact.parent.dossierLabel", {
-        caseNumber: entity.caseNumber || "",
+        lawsuitNumber: entity.lawsuitNumber || "",
         title: entity.title || "",
       });
     }
-    return t("session.impact.parent.caseLabel", {
-      caseNumber: entity.caseNumber || "",
+    return t("session.impact.parent.lawsuitLabel", {
+      lawsuitNumber: entity.lawsuitNumber || "",
       title: entity.title || "",
     });
   };
@@ -620,17 +620,17 @@ function detectSessionImpact(currentData, newData) {
   let oldParentLabel = t("session.impact.parent.notAssigned");
   let newParentLabel = t("session.impact.parent.notAssigned");
 
-  if (currentData.caseId) {
-    const caseData = mockCases.find((c) => c.id == currentData.caseId);
-    oldParentLabel = formatParentLabel("case", caseData);
+  if (currentData.lawsuitId) {
+    const lawsuitData = mockLawsuits.find((c) => c.id == currentData.lawsuitId);
+    oldParentLabel = formatParentLabel("lawsuit", lawsuitData);
   } else if (currentData.dossierId) {
     const dossier = mockDossiers.find((d) => d.id == currentData.dossierId);
     oldParentLabel = formatParentLabel("dossier", dossier);
   }
 
-  if (newData.caseId) {
-    const caseData = mockCases.find((c) => c.id == newData.caseId);
-    newParentLabel = formatParentLabel("case", caseData);
+  if (newData.lawsuitId) {
+    const lawsuitData = mockLawsuits.find((c) => c.id == newData.lawsuitId);
+    newParentLabel = formatParentLabel("lawsuit", lawsuitData);
   } else if (newData.dossierId) {
     const dossier = mockDossiers.find((d) => d.id == newData.dossierId);
     newParentLabel = formatParentLabel("dossier", dossier);
@@ -674,11 +674,11 @@ const VALIDATORS = {
     delete: validateDossierDelete,
     changeStatus: validateDossierStatusChange,
   },
-  case: {
-    add: validateCaseAdd, // NEW: Prevent creating lawsuit under closed dossier
-    close: validateCaseClose,
-    delete: validateCaseDelete,
-    changeStatus: validateCaseStatusChange,
+  lawsuit: {
+    add: validateLawsuitAdd, // NEW: Prevent creating lawsuit under closed dossier
+    close: validateLawsuitClose,
+    delete: validateLawsuitDelete,
+    changeStatus: validateLawsuitStatusChange,
   },
   client: {
     archive: validateClientArchive,
@@ -689,7 +689,7 @@ const VALIDATORS = {
   accounting: {
     editClient: validateAccountingEditRestriction,
     editDossier: validateAccountingEditRestriction,
-    editCase: validateAccountingEditRestriction,
+    editLawsuit: validateAccountingEditRestriction,
     editOfficer: validateAccountingEditRestriction,
   },
   // PHASE 2: Child entity mutation guards
@@ -807,8 +807,8 @@ function validateDossierClose(dossierId, context = {}) {
   const dossierTasks = allTasks.filter(
     (task) =>
       (task.parentType === "dossier" && task.dossierId === dossierId) ||
-      (task.parentType === "case" &&
-        dossier.proceedings?.some((proc) => proc.id === task.caseId))
+      (task.parentType === "lawsuit" &&
+        dossier.proceedings?.some((proc) => proc.id === task.lawsuitId))
   );
 
   const incompleteTasks = dossierTasks.filter(
@@ -832,23 +832,23 @@ function validateDossierClose(dossierId, context = {}) {
     );
   }
 
-  // Rule 2: Check for open Procès (cases)
-  const allCases = context.cases || context.entities?.cases || mockCases || [];
-  const dossierCases = allCases.filter(
+  // Rule 2: Check for open Procès (lawsuits)
+  const allLawsuits = context.lawsuits || context.entities?.lawsuits || mockLawsuits || [];
+  const dossierLawsuits = allLawsuits.filter(
     (c) => String(c.dossierId) === String(dossierId)
   );
-  const openCases = dossierCases.filter((proc) => proc.status !== "Closed");
+  const openLawsuits = dossierLawsuits.filter((proc) => proc.status !== "Closed");
 
-  if (openCases.length > 0) {
+  if (openLawsuits.length > 0) {
     blockers.push(
-      `${openCases.length} open Lawsuit${openCases.length > 1 ? "s" : ""}:` +
-        openCases
+      `${openLawsuits.length} open Lawsuit${openLawsuits.length > 1 ? "s" : ""}:` +
+        openLawsuits
           .slice(0, 3)
-          .map((c) => `\n  • ${c.caseNumber} - ${c.title} (${c.status})`)
+          .map((c) => `\n  • ${c.lawsuitNumber} - ${c.title} (${c.status})`)
           .join("") +
-        (openCases.length > 3
-          ? `\n  • ... and ${openCases.length - 3} other${
-              openCases.length - 3 > 1 ? "s" : ""
+        (openLawsuits.length > 3
+          ? `\n  • ... and ${openLawsuits.length - 3} other${
+              openLawsuits.length - 3 > 1 ? "s" : ""
             }`
           : "")
     );
@@ -875,12 +875,12 @@ function validateDossierClose(dossierId, context = {}) {
   const allSessions =
     context.sessions || context.entities?.sessions || mockSessions || [];
 
-  // Get sessions for this dossier and its related cases
+  // Get sessions for this dossier and its related lawsuits
   const dossierSessions = allSessions.filter((session) => {
     if (session.dossierId === dossierId) {
       return true;
     }
-    if (session.caseId && dossierCases.some((c) => c.id === session.caseId)) {
+    if (session.lawsuitId && dossierLawsuits.some((c) => c.id === session.lawsuitId)) {
       return true;
     }
     return false;
@@ -914,7 +914,7 @@ function validateDossierClose(dossierId, context = {}) {
   const dossierMissions = allMissions.filter(
     (mission) =>
       mission.entityType === "dossier" &&
-      mission.entityReference === dossier.caseNumber &&
+      mission.entityReference === dossier.lawsuitNumber &&
       mission.status !== "Completed" &&
       mission.status !== "Cancelled"
   );
@@ -965,7 +965,7 @@ function validateDossierDelete(dossierId, context = {}) {
   const affectedEntities = [];
 
   const tasks = context.tasks || context.entities?.tasks || [];
-  const cases = context.cases || context.entities?.cases || [];
+  const lawsuits = context.lawsuits || context.entities?.lawsuits || [];
   const sessions = context.sessions || context.entities?.sessions || [];
   const missions = context.missions || context.entities?.missions || [];
   const financialEntries =
@@ -982,16 +982,16 @@ function validateDossierDelete(dossierId, context = {}) {
     return { allowed: true, blockers: [], warnings: [] };
   }
 
-  const dossierCases = cases.filter(
+  const dossierLawsuits = lawsuits.filter(
     (c) => String(c.dossierId) === String(dossierId)
   );
-  if (dossierCases.length > 0) {
+  if (dossierLawsuits.length > 0) {
     affectedEntities.push({
-      type: "cases",
-      count: dossierCases.length,
-      items: dossierCases.slice(0, 5).map((c) => ({
+      type: "lawsuits",
+      count: dossierLawsuits.length,
+      items: dossierLawsuits.slice(0, 5).map((c) => ({
         id: c.id,
-        label: `${c.caseNumber} - ${c.title}`,
+        label: `${c.lawsuitNumber} - ${c.title}`,
       })),
     });
   }
@@ -1097,7 +1097,7 @@ function validateDossierStatusChange(dossierId, context = {}) {
  * Business Rules:
  * - Cannot create if parent Dossier is closed/archived
  */
-function validateCaseAdd(caseId, context = {}) {
+function validateLawsuitAdd(lawsuitId, context = {}) {
   const blockers = [];
   const warnings = [];
 
@@ -1110,7 +1110,7 @@ function validateCaseAdd(caseId, context = {}) {
   if (!dossierId) {
     // No dossier specified - check if there are any dossiers available
     if (dossiers.length === 0) {
-      blockers.push("Please add a Dossier before creating a case.");
+      blockers.push("Please add a Dossier before creating a lawsuit.");
       return { allowed: false, blockers, warnings: [] };
     }
     // No parent validation needed if dossier will be selected
@@ -1136,9 +1136,9 @@ function validateCaseAdd(caseId, context = {}) {
   // Check if parent dossier is closed
   if (dossier.status === "Closed") {
     blockers.push(
-      `Cannot create a case under a ${dossier.status.toLowerCase()} Dossier`,
-      `Dossier: ${dossier.caseNumber} - ${dossier.title}`,
-      `You must first reopen the Dossier to add cases`
+      `Cannot create a lawsuit under a ${dossier.status.toLowerCase()} Dossier`,
+      `Dossier: ${dossier.lawsuitNumber} - ${dossier.title}`,
+      `You must first reopen the Dossier to add lawsuits`
     );
   }
 
@@ -1153,7 +1153,7 @@ function validateCaseAdd(caseId, context = {}) {
  * - Cannot close if any related Hearing is upcoming or not completed
  * - Cannot close if any related Task is not "Done"
  */
-function validateCaseClose(caseId, context = {}) {
+function validateLawsuitClose(lawsuitId, context = {}) {
   const blockers = [];
   const warnings = [];
 
@@ -1161,25 +1161,25 @@ function validateCaseClose(caseId, context = {}) {
     context.sessions || context.entities?.sessions || mockSessions || [];
   const tasks = context.tasks || context.entities?.tasks || mockTasks || [];
 
-  // Fetch case data
-  const caseData =
-    mockCasesExtended[caseId] ||
-    mockCasesExtended[Number(caseId)] ||
-    (context.cases || context.entities?.cases || []).find(
-      (c) => String(c.id) === String(caseId)
+  // Fetch lawsuit data
+  const lawsuitData =
+    mockLawsuitsExtended[lawsuitId] ||
+    mockLawsuitsExtended[Number(lawsuitId)] ||
+    (context.lawsuits || context.entities?.lawsuits || []).find(
+      (c) => String(c.id) === String(lawsuitId)
     );
 
-  if (!caseData) {
-    return { allowed: false, blockers: ["Case not found"], warnings: [] };
+  if (!lawsuitData) {
+    return { allowed: false, blockers: ["Lawsuit not found"], warnings: [] };
   }
 
   // Rule 1: Check for upcoming or incomplete Séances
-  const caseSessions = sessions.filter(
-    (session) => String(session.caseId) === String(caseId)
+  const lawsuitSessions = sessions.filter(
+    (session) => String(session.lawsuitId) === String(lawsuitId)
   );
 
   const today = new Date();
-  const upcomingSessions = caseSessions.filter((session) => {
+  const upcomingSessions = lawsuitSessions.filter((session) => {
     const sessionDate = new Date(session.date);
     return (
       sessionDate >= today &&
@@ -1206,12 +1206,12 @@ function validateCaseClose(caseId, context = {}) {
   }
 
   // Rule 2: Check for open tasks
-  const caseTasks = tasks.filter(
+  const lawsuitTasks = tasks.filter(
     (task) =>
-      task.parentType === "case" && String(task.caseId) === String(caseId)
+      task.parentType === "lawsuit" && String(task.lawsuitId) === String(lawsuitId)
   );
 
-  const incompleteTasks = caseTasks.filter(
+  const incompleteTasks = lawsuitTasks.filter(
     (task) => task.status !== "Done" && task.status !== "Cancelled"
   );
 
@@ -1234,26 +1234,26 @@ function validateCaseClose(caseId, context = {}) {
 
   // Rule 3: Check for active missions
   const allMissions = getAllMissions();
-  const caseMissions = allMissions.filter(
+  const lawsuitMissions = allMissions.filter(
     (mission) =>
-      mission.entityType === "case" &&
-      mission.entityReference === caseData.caseNumber &&
+      mission.entityType === "lawsuit" &&
+      mission.entityReference === lawsuitData.lawsuitNumber &&
       mission.status !== "Completed" &&
       mission.status !== "Cancelled"
   );
 
-  if (caseMissions.length > 0) {
+  if (lawsuitMissions.length > 0) {
     blockers.push(
-      `${caseMissions.length} active bailiff mission${
-        caseMissions.length > 1 ? "s" : ""
+      `${lawsuitMissions.length} active bailiff mission${
+        lawsuitMissions.length > 1 ? "s" : ""
       } :` +
-        caseMissions
+        lawsuitMissions
           .slice(0, 3)
           .map((m) => `\n  • ${m.missionNumber} - ${m.title} (${m.status})`)
           .join("") +
-        (caseMissions.length > 3
-          ? `\n  • ... and ${caseMissions.length - 3} other${
-              caseMissions.length - 3 > 1 ? "s" : ""
+        (lawsuitMissions.length > 3
+          ? `\n  • ... and ${lawsuitMissions.length - 3} other${
+              lawsuitMissions.length - 3 > 1 ? "s" : ""
             }`
           : "")
     );
@@ -1267,7 +1267,7 @@ function validateCaseClose(caseId, context = {}) {
 /**
  * Validate deleting a Procès
  */
-function validateCaseDelete(caseId, context = {}) {
+function validateLawsuitDelete(lawsuitId, context = {}) {
   const blockers = [];
   const affectedEntities = [];
 
@@ -1275,59 +1275,59 @@ function validateCaseDelete(caseId, context = {}) {
   const tasks = context.tasks || context.entities?.tasks || [];
   const missions = context.missions || context.entities?.missions || [];
 
-  const caseData =
-    mockCasesExtended[caseId] ||
-    mockCasesExtended[Number(caseId)] ||
-    (context.cases || context.entities?.cases || []).find(
-      (c) => String(c.id) === String(caseId)
+  const lawsuitData =
+    mockLawsuitsExtended[lawsuitId] ||
+    mockLawsuitsExtended[Number(lawsuitId)] ||
+    (context.lawsuits || context.entities?.lawsuits || []).find(
+      (c) => String(c.id) === String(lawsuitId)
     );
 
-  if (!caseData) {
+  if (!lawsuitData) {
     return { allowed: true, blockers: [], warnings: [] };
   }
 
-  const caseSessions = sessions.filter(
-    (session) => String(session.caseId) === String(caseId)
+  const lawsuitSessions = sessions.filter(
+    (session) => String(session.lawsuitId) === String(lawsuitId)
   );
 
-  if (caseSessions.length > 0) {
+  if (lawsuitSessions.length > 0) {
     affectedEntities.push({
       type: "sessions",
-      count: caseSessions.length,
-      items: caseSessions.slice(0, 5).map((s) => ({
+      count: lawsuitSessions.length,
+      items: lawsuitSessions.slice(0, 5).map((s) => ({
         id: s.id,
         label: `${s.type} - ${s.date}`,
       })),
     });
   }
 
-  const caseTasks = tasks.filter(
+  const lawsuitTasks = tasks.filter(
     (task) =>
-      task.parentType === "case" && String(task.caseId) === String(caseId)
+      task.parentType === "lawsuit" && String(task.lawsuitId) === String(lawsuitId)
   );
 
-  if (caseTasks.length > 0) {
+  if (lawsuitTasks.length > 0) {
     affectedEntities.push({
       type: "tasks",
-      count: caseTasks.length,
-      items: caseTasks.slice(0, 5).map((t) => ({
+      count: lawsuitTasks.length,
+      items: lawsuitTasks.slice(0, 5).map((t) => ({
         id: t.id,
         label: t.title,
       })),
     });
   }
 
-  const caseMissions = missions.filter(
+  const lawsuitMissions = missions.filter(
     (mission) =>
-      mission.entityType === "case" &&
-      String(mission.entityId) === String(caseId)
+      mission.entityType === "lawsuit" &&
+      String(mission.entityId) === String(lawsuitId)
   );
 
-  if (caseMissions.length > 0) {
+  if (lawsuitMissions.length > 0) {
     affectedEntities.push({
       type: "missions",
-      count: caseMissions.length,
-      items: caseMissions.slice(0, 5).map((m) => ({
+      count: lawsuitMissions.length,
+      items: lawsuitMissions.slice(0, 5).map((m) => ({
         id: m.id,
         label: `${m.missionNumber} - ${m.title}`,
       })),
@@ -1339,21 +1339,21 @@ function validateCaseDelete(caseId, context = {}) {
     return {
       allowed: false,
       blockers: [],
-      warnings: buildDeleteWarnings(affectedEntities, "case"),
+      warnings: buildDeleteWarnings(affectedEntities, "lawsuit"),
       requiresForceDelete: true,
       affectedEntities,
-      forceDeleteMessage: buildForceDeleteMessage(totalCount, "case"),
+      forceDeleteMessage: buildForceDeleteMessage(totalCount, "lawsuit"),
     };
   }
 
   return { allowed: true, blockers: [], warnings: [] };
 }
 
-function validateCaseStatusChange(caseId, context = {}) {
+function validateLawsuitStatusChange(lawsuitId, context = {}) {
   const { newValue } = context;
 
   if (newValue === "Closed") {
-    return validateCaseClose(caseId, context);
+    return validateLawsuitClose(lawsuitId, context);
   }
 
   return { allowed: true, blockers: [], warnings: [] };
@@ -1410,27 +1410,27 @@ function validateClientArchive(clientId, context = {}) {
               "dossiers",
               (key, options) => i18nInstance.t(key, options)
             );
-            return `\n  • ${d.caseNumber} - ${d.title} (${translatedStatus})`;
+            return `\n  • ${d.lawsuitNumber} - ${d.title} (${translatedStatus})`;
           })
           .join("") +
         andMoreText
     );
   }
 
-  // Rule 2: Check for open Lawsuits (Cases)
-  const clientCases = clientExtended.proceedings || [];
-  const openCases = clientCases.filter((c) => c.status !== "Closed");
+  // Rule 2: Check for open Lawsuits (Procès)
+  const clientLawsuits = clientExtended.proceedings || [];
+  const openLawsuits = clientLawsuits.filter((c) => c.status !== "Closed");
 
-  if (openCases.length > 0) {
+  if (openLawsuits.length > 0) {
     blockers.push(
-      `${openCases.length} open Lawsuit${openCases.length > 1 ? "s" : ""}:` +
-        openCases
+      `${openLawsuits.length} open Lawsuit${openLawsuits.length > 1 ? "s" : ""}:` +
+        openLawsuits
           .slice(0, 3)
-          .map((c) => `\n  • ${c.caseNumber} - ${c.title} (${c.status})`)
+          .map((c) => `\n  • ${c.lawsuitNumber} - ${c.title} (${c.status})`)
           .join("") +
-        (openCases.length > 3
-          ? `\n  • ... and ${openCases.length - 3} other${
-              openCases.length - 3 > 1 ? "s" : ""
+        (openLawsuits.length > 3
+          ? `\n  • ... and ${openLawsuits.length - 3} other${
+              openLawsuits.length - 3 > 1 ? "s" : ""
             }`
           : "")
     );
@@ -1438,12 +1438,12 @@ function validateClientArchive(clientId, context = {}) {
 
   // Rule 3: Check for open Tasks
   const clientTasks = mockTasks.filter((task) => {
-    // Tasks can be linked via dossier or case
+    // Tasks can be linked via dossier or lawsuit
     if (task.dossierId) {
       return clientDossiers.some((d) => d.id === task.dossierId);
     }
-    if (task.caseId && task.parentType === "case") {
-      return clientCases.some((c) => c.id === task.caseId);
+    if (task.lawsuitId && task.parentType === "lawsuit") {
+      return clientLawsuits.some((c) => c.id === task.lawsuitId);
     }
     return false;
   });
@@ -1471,12 +1471,12 @@ function validateClientArchive(clientId, context = {}) {
   const sessionsSource =
     context.sessions || context.entities?.sessions || mockSessions || [];
   const clientSessions = sessionsSource.filter((session) => {
-    // Sessions can be linked via dossier or case
+    // Sessions can be linked via dossier or lawsuit
     if (session.dossierId) {
       return clientDossiers.some((d) => d.id === session.dossierId);
     }
-    if (session.caseId) {
-      return clientCases.some((c) => c.id === session.caseId);
+    if (session.lawsuitId) {
+      return clientLawsuits.some((c) => c.id === session.lawsuitId);
     }
     return false;
   });
@@ -1533,7 +1533,7 @@ function validateClientDelete(clientId, context = {}) {
   }
 
   const tasks = context.tasks || context.entities?.tasks || [];
-  const cases = context.cases || context.entities?.cases || [];
+  const lawsuits = context.lawsuits || context.entities?.lawsuits || [];
   const sessions = context.sessions || context.entities?.sessions || [];
   const missions = context.missions || context.entities?.missions || [];
 
@@ -1544,22 +1544,22 @@ function validateClientDelete(clientId, context = {}) {
       count: clientDossiers.length,
       items: clientDossiers.slice(0, 5).map((d) => ({
         id: d.id,
-        label: `${d.caseNumber} - ${d.title}`,
+        label: `${d.lawsuitNumber} - ${d.title}`,
       })),
     });
   }
 
-  const clientCases = cases.filter((c) =>
+  const clientLawsuits = lawsuits.filter((c) =>
     clientDossiers.some((d) => d.id === c.dossierId)
   );
 
-  if (clientCases.length > 0) {
+  if (clientLawsuits.length > 0) {
     affectedEntities.push({
-      type: "cases",
-      count: clientCases.length,
-      items: clientCases.slice(0, 5).map((c) => ({
+      type: "lawsuits",
+      count: clientLawsuits.length,
+      items: clientLawsuits.slice(0, 5).map((c) => ({
         id: c.id,
-        label: `${c.caseNumber} - ${c.title}`,
+        label: `${c.lawsuitNumber} - ${c.title}`,
       })),
     });
   }
@@ -1568,8 +1568,8 @@ function validateClientDelete(clientId, context = {}) {
     (task) =>
       (task.parentType === "dossier" &&
         clientDossiers.some((d) => d.id === task.dossierId)) ||
-      (task.parentType === "case" &&
-        clientCases.some((c) => c.id === task.caseId))
+      (task.parentType === "lawsuit" &&
+        clientLawsuits.some((c) => c.id === task.lawsuitId))
   );
 
   if (clientTasks.length > 0) {
@@ -1586,7 +1586,7 @@ function validateClientDelete(clientId, context = {}) {
   const clientSessions = sessions.filter(
     (session) =>
       clientDossiers.some((d) => d.id === session.dossierId) ||
-      clientCases.some((c) => c.id === session.caseId)
+      clientLawsuits.some((c) => c.id === session.lawsuitId)
   );
 
   if (clientSessions.length > 0) {
@@ -1604,8 +1604,8 @@ function validateClientDelete(clientId, context = {}) {
     (mission) =>
       (mission.entityType === "dossier" &&
         clientDossiers.some((d) => d.id === mission.entityId)) ||
-      (mission.entityType === "case" &&
-        clientCases.some((c) => c.id === mission.entityId))
+      (mission.entityType === "lawsuit" &&
+        clientLawsuits.some((c) => c.id === mission.entityId))
   );
 
   if (clientMissions.length > 0) {
@@ -1697,7 +1697,7 @@ function validateAccountingEditRestriction(entityId, context = {}) {
   return {
     allowed: false,
     blockers: [
-      "Modification prohibited from Accounting screen\n\nThe Accounting screen is a read-only reconciliation surface.\nModifications must be made from the entity's dedicated screen:\n  • Clients → Clients Menu\n  • Dossiers → Dossiers Menu\n  • Cases → Cases Menu\n  • Bailiffs → Bailiffs Menu\n\nYou can click on the entity name to access it directly.",
+      "Modification prohibited from Accounting screen\n\nThe Accounting screen is a read-only reconciliation surface.\nModifications must be made from the entity's dedicated screen:\n  • Clients → Clients Menu\n  • Dossiers → Dossiers Menu\n  • Lawsuits → Lawsuits Menu\n  • Bailiffs → Bailiffs Menu\n\nYou can click on the entity name to access it directly.",
     ],
     warnings: [],
   };
@@ -1720,15 +1720,15 @@ function validateTaskAdd(taskId, context = {}) {
 
   // Get entities from context
   const dossiers = context?.entities?.dossiers || mockDossiers || [];
-  const cases = context?.entities?.cases || mockCases || [];
+  const lawsuits = context?.entities?.lawsuits || mockLawsuits || [];
 
   // Get parent info from context (formData for new tasks)
   const parentType = context?.formData?.parentType || context?.data?.parentType;
   const dossierId = context?.formData?.dossierId || context?.data?.dossierId;
-  const caseId = context?.formData?.caseId || context?.data?.caseId;
+  const lawsuitId = context?.formData?.lawsuitId || context?.data?.lawsuitId;
 
   // If no parent specified and no dossiers exist, block creation
-  if (!dossierId && !caseId && dossiers.length === 0) {
+  if (!dossierId && !lawsuitId && dossiers.length === 0) {
     blockers.push("Please add a Dossier before creating a task.");
     return { allowed: false, blockers, warnings: [] };
   }
@@ -1745,22 +1745,22 @@ function validateTaskAdd(taskId, context = {}) {
     if (dossier && dossier.status === "Closed") {
       blockers.push(
         `Cannot create a task under a ${dossier.status.toLowerCase()} Dossier`,
-        `Dossier: ${dossier.caseNumber} - ${dossier.title}`,
+        `Dossier: ${dossier.lawsuitNumber} - ${dossier.title}`,
         `You must first reopen the Dossier to add tasks`
       );
     }
-  } else if (parentType === "case" && caseId) {
-    const caseData =
-      cases.find((c) => c.id === parseInt(caseId)) || mockCasesExtended[caseId];
-    if (!caseData) {
-      warnings.push("Parent case not resolved (check after saving).");
+  } else if (parentType === "lawsuit" && lawsuitId) {
+    const lawsuitData =
+      lawsuits.find((c) => c.id === parseInt(lawsuitId)) || mockLawsuitsExtended[lawsuitId];
+    if (!lawsuitData) {
+      warnings.push("Parent lawsuit not resolved (check after saving).");
     }
 
-    if (caseData && caseData.status === "Closed") {
+    if (lawsuitData && lawsuitData.status === "Closed") {
       blockers.push(
-        `Cannot create a task under a ${caseData.status.toLowerCase()} case`,
-        `Case: ${caseData.caseNumber} - ${caseData.title}`,
-        `You must first reopen the case to add tasks`
+        `Cannot create a task under a ${lawsuitData.status.toLowerCase()} lawsuit`,
+        `Lawsuit: ${lawsuitData.lawsuitNumber} - ${lawsuitData.title}`,
+        `You must first reopen the lawsuit to add tasks`
       );
     }
   }
@@ -1781,7 +1781,7 @@ function validateTaskEdit(taskId, context = {}) {
   const warnings = [];
 
   // ✅ Use provided task data if available, otherwise look it up
-  const task = context.data || [].find((t) => t.id === taskId);
+  const task = context.data || mockTasks.find((t) => t.id === taskId);
   if (!task) {
     return { allowed: false, blockers: ["Task not found"], warnings: [] };
   }
@@ -1792,15 +1792,15 @@ function validateTaskEdit(taskId, context = {}) {
     if (dossier && dossier.status === "Closed") {
       blockers.push(
         `This task belongs to Dossier "${
-          dossier.caseNumber
+          dossier.lawsuitNumber
         }" which is ${dossier.status.toLowerCase()}.\n\nModifications are no longer allowed on closed Dossiers.`
       );
     }
-  } else if (task.parentType === "case" && task.caseId) {
-    const caseData = mockCasesExtended[task.caseId];
-    if (caseData && caseData.status === "Closed") {
+  } else if (task.parentType === "lawsuit" && task.lawsuitId) {
+    const lawsuitData = mockLawsuitsExtended[task.lawsuitId];
+    if (lawsuitData && lawsuitData.status === "Closed") {
       blockers.push(
-        `This task belongs to case "${caseData.caseNumber}" which is closed.\n\nModifications are no longer allowed on closed cases.`
+        `This task belongs to lawsuit "${lawsuitData.lawsuitNumber}" which is closed.\n\nModifications are no longer allowed on closed lawsuits.`
       );
     }
   }
@@ -1842,15 +1842,15 @@ function validateSessionAdd(sessionId, context = {}) {
 
   // Get entities from context
   const dossiers = context?.entities?.dossiers || mockDossiers || [];
-  const cases = context?.entities?.cases || mockCases || [];
+  const lawsuits = context?.entities?.lawsuits || mockLawsuits || [];
 
   // Get parent info from context
   const linkType = context?.formData?.linkType || context?.data?.linkType;
   const dossierId = context?.formData?.dossierId || context?.data?.dossierId;
-  const caseId = context?.formData?.caseId || context?.data?.caseId;
+  const lawsuitId = context?.formData?.lawsuitId || context?.data?.lawsuitId;
 
   // If no parent specified and no dossiers exist, block creation
-  if (!dossierId && !caseId && dossiers.length === 0) {
+  if (!dossierId && !lawsuitId && dossiers.length === 0) {
     blockers.push("Please add a Dossier before scheduling a hearing.");
     return { allowed: false, blockers, warnings: [] };
   }
@@ -1868,22 +1868,22 @@ function validateSessionAdd(sessionId, context = {}) {
     if (dossier && dossier.status === "Closed") {
       blockers.push(
         `Cannot create a session under a ${dossier.status.toLowerCase()} Dossier`,
-        `Dossier: ${dossier.caseNumber} - ${dossier.title}`,
+        `Dossier: ${dossier.lawsuitNumber} - ${dossier.title}`,
         `You must first reopen the Dossier to add sessions`
       );
     }
-  } else if (linkType === "case" && caseId) {
-    const caseData =
-      cases.find((c) => c.id === parseInt(caseId)) || mockCasesExtended[caseId];
-    if (!caseData) {
-      warnings.push("Parent case not resolved (check after saving).");
+  } else if (linkType === "lawsuit" && lawsuitId) {
+    const lawsuitData =
+      lawsuits.find((c) => c.id === parseInt(lawsuitId)) || mockLawsuitsExtended[lawsuitId];
+    if (!lawsuitData) {
+      warnings.push("Parent lawsuit not resolved (check after saving).");
     }
 
-    if (caseData && caseData.status === "Closed") {
+    if (lawsuitData && lawsuitData.status === "Closed") {
       blockers.push(
-        `Cannot create a session under a ${caseData.status.toLowerCase()} case`,
-        `Case: ${caseData.caseNumber} - ${caseData.title}`,
-        `You must first reopen the case to add sessions`
+        `Cannot create a session under a ${lawsuitData.status.toLowerCase()} lawsuit`,
+        `Lawsuit: ${lawsuitData.lawsuitNumber} - ${lawsuitData.title}`,
+        `You must first reopen the lawsuit to add sessions`
       );
     }
   }
@@ -1904,17 +1904,17 @@ function validateSessionEdit(sessionId, context = {}) {
   const warnings = [];
 
   // ✅ Use provided session data if available, otherwise look it up
-  const session = context.data || [].find((s) => s.id === sessionId);
+  const session = context.data || mockSessions.find((s) => s.id === sessionId);
   if (!session) {
     return { allowed: false, blockers: ["Session not found"], warnings: [] };
   }
 
   // Check if linked to a Procès
-  if (session.caseId) {
-    const caseData = mockCasesExtended[session.caseId];
-    if (caseData && caseData.status === "Closed") {
+  if (session.lawsuitId) {
+    const lawsuitData = mockLawsuitsExtended[session.lawsuitId];
+    if (lawsuitData && lawsuitData.status === "Closed") {
       blockers.push(
-        `This session belongs to case "${caseData.caseNumber}" which is closed.\n\nModifications are no longer allowed on closed cases.`
+        `This session belongs to lawsuit "${lawsuitData.lawsuitNumber}" which is closed.\n\nModifications are no longer allowed on closed lawsuits.`
       );
     }
   }
@@ -1925,7 +1925,7 @@ function validateSessionEdit(sessionId, context = {}) {
     if (dossier && dossier.status === "Closed") {
       blockers.push(
         `This session belongs to Dossier "${
-          dossier.caseNumber
+          dossier.lawsuitNumber
         }" which is ${dossier.status.toLowerCase()}.\n\nModifications are no longer allowed on closed Dossiers.`
       );
     }
@@ -1961,7 +1961,7 @@ function validateMissionAdd(missionId, context = {}) {
   // Get parent info from context
   const entityType = context?.formData?.entityType || context?.data?.entityType;
   const dossierId = context?.formData?.dossierId || context?.data?.dossierId;
-  const caseId = context?.formData?.caseId || context?.data?.caseId;
+  const lawsuitId = context?.formData?.lawsuitId || context?.data?.lawsuitId;
 
   // Check based on entity type
   if (entityType === "dossier" && dossierId) {
@@ -1977,25 +1977,25 @@ function validateMissionAdd(missionId, context = {}) {
     if (dossier.status === "Closed") {
       blockers.push(
         `Cannot create a mission under a ${dossier.status.toLowerCase()} Dossier`,
-        `Dossier: ${dossier.caseNumber} - ${dossier.title}`,
+        `Dossier: ${dossier.lawsuitNumber} - ${dossier.title}`,
         `You must first reopen the Dossier to create missions`
       );
     }
-  } else if (entityType === "case" && caseId) {
-    const caseData = mockCasesExtended[caseId];
-    if (!caseData) {
+  } else if (entityType === "lawsuit" && lawsuitId) {
+    const lawsuitData = mockLawsuitsExtended[lawsuitId];
+    if (!lawsuitData) {
       return {
         allowed: false,
-        blockers: ["Parent case not found"],
+        blockers: ["Parent lawsuit not found"],
         warnings: [],
       };
     }
 
-    if (caseData.status === "Closed") {
+    if (lawsuitData.status === "Closed") {
       blockers.push(
-        `Cannot create a mission under a ${caseData.status.toLowerCase()} case`,
-        `Case: ${caseData.caseNumber} - ${caseData.title}`,
-        `You must first reopen the case to create missions`
+        `Cannot create a mission under a ${lawsuitData.status.toLowerCase()} lawsuit`,
+        `Lawsuit: ${lawsuitData.lawsuitNumber} - ${lawsuitData.title}`,
+        `You must first reopen the lawsuit to create missions`
       );
     }
   }
@@ -2028,27 +2028,27 @@ function validateMissionEdit(missionId, context = {}) {
 
   // Check parent entity based on entityType
   if (mission.entityType === "dossier") {
-    // Find dossier by caseNumber (entityReference)
+    // Find dossier by lawsuitNumber (entityReference)
     const dossier = mockDossiers.find(
-      (d) => d.caseNumber === mission.entityReference
+      (d) => d.lawsuitNumber === mission.entityReference
     );
 
     if (dossier && dossier.status === "Closed") {
       blockers.push(
         `This mission is linked to Dossier "${
-          dossier.caseNumber
+          dossier.lawsuitNumber
         }" which is ${dossier.status.toLowerCase()}.\n\nModifications are no longer allowed on closed Dossiers.`
       );
     }
-  } else if (mission.entityType === "case") {
-    // Find case by caseNumber (entityReference)
-    const caseData = mockCases.find(
-      (c) => c.caseNumber === mission.entityReference
+  } else if (mission.entityType === "lawsuit") {
+    // Find lawsuit by lawsuitNumber (entityReference)
+    const lawsuitData = mockLawsuits.find(
+      (c) => c.lawsuitNumber === mission.entityReference
     );
 
-    if (caseData && caseData.status === "Closed") {
+    if (lawsuitData && lawsuitData.status === "Closed") {
       blockers.push(
-        `This mission is linked to case "${caseData.caseNumber}" which is closed.\n\nModifications are no longer allowed on closed cases.`
+        `This mission is linked to lawsuit "${lawsuitData.lawsuitNumber}" which is closed.\n\nModifications are no longer allowed on closed lawsuits.`
       );
     }
   }
@@ -2170,18 +2170,18 @@ function validateFinancialEntryAdd(entryId, context = {}) {
     if (dossier && dossier.status === "Closed") {
       blockers.push(
         `Dossier "${
-          dossier.caseNumber
+          dossier.lawsuitNumber
         }" is ${dossier.status.toLowerCase()}.\n\nNo new financial entries can be added to closed Dossiers.`
       );
     }
   }
 
   // Check if linked to a closed Procès
-  if (data.caseId) {
-    const caseData = mockCasesExtended[data.caseId];
-    if (caseData && caseData.status === "Closed") {
+  if (data.lawsuitId) {
+    const lawsuitData = mockLawsuitsExtended[data.lawsuitId];
+    if (lawsuitData && lawsuitData.status === "Closed") {
       blockers.push(
-        `Case "${caseData.caseNumber}" is closed.\n\nNo new financial entries can be added to closed cases.`
+        `Lawsuit "${lawsuitData.lawsuitNumber}" is closed.\n\nNo new financial entries can be added to closed lawsuits.`
       );
     }
   }
@@ -2239,18 +2239,18 @@ function validateFinancialEntryEdit(entryId, context = {}) {
     if (dossier && dossier.status === "Closed") {
       blockers.push(
         `This entry is linked to Dossier "${
-          dossier.caseNumber
+          dossier.lawsuitNumber
         }" which is ${dossier.status.toLowerCase()}.\n\nEntries from closed Dossiers cannot be modified.`
       );
     }
   }
 
   // Rule 3: Check parent Procès
-  if (entry.caseId) {
-    const caseData = mockCasesExtended[entry.caseId];
-    if (caseData && caseData.status === "Closed") {
+  if (entry.lawsuitId) {
+    const lawsuitData = mockLawsuitsExtended[entry.lawsuitId];
+    if (lawsuitData && lawsuitData.status === "Closed") {
       blockers.push(
-        `This entry is linked to case "${caseData.caseNumber}" which is closed.\n\nEntries from closed cases cannot be modified.`
+        `This entry is linked to lawsuit "${lawsuitData.lawsuitNumber}" which is closed.\n\nEntries from closed lawsuits cannot be modified.`
       );
     }
   }
@@ -2633,3 +2633,8 @@ export function formatWarningMessage(warnings) {
 
 // Export all validators for testing
 export const validators = VALIDATORS;
+
+
+
+
+

@@ -65,14 +65,14 @@ export default function RelatedItemsTab({ data, config, tabConfig, onItemsChange
 
       // ✅ Special handling for tasks: set parentType based on parent entity
       if (tabConfig.itemsKey === 'tasks') {
-        newItem.parentType = config.entityType; // 'dossier' or 'case'
+        newItem.parentType = config.entityType; // 'dossier' or 'lawsuit'
 
         // Set the appropriate parent ID and clear the other
         if (config.entityType === 'dossier') {
           newItem.dossierId = data.id;
-          newItem.caseId = null;
-        } else if (config.entityType === 'case') {
-          newItem.caseId = data.id;
+          newItem.lawsuitId = null;
+        } else if (config.entityType === 'lawsuit') {
+          newItem.lawsuitId = data.id;
           newItem.dossierId = null;
         }
       }
@@ -105,7 +105,7 @@ export default function RelatedItemsTab({ data, config, tabConfig, onItemsChange
         'tasks': 'task',
         'sessions': 'session',
         'dossiers': 'dossier',
-        'cases': 'case',
+        'lawsuits': 'lawsuit',
         'officers': 'officer',
         'missions': 'mission'
       };
@@ -357,3 +357,6 @@ export default function RelatedItemsTab({ data, config, tabConfig, onItemsChange
     </>
   );
 }
+
+
+

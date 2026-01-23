@@ -19,8 +19,8 @@
       "blocked": {
         "tasksOpen": "{{count}} tâche ouverte :",
         "tasksOpen_plural": "{{count}} tâches ouvertes :",
-        "casesOpen": "{{count}} procès ouvert :",
-        "casesOpen_plural": "{{count}} procès ouverts :",
+        "lawsuitsOpen": "{{count}} procès ouvert :",
+        "lawsuitsOpen_plural": "{{count}} procès ouverts :",
         "unpaidBalance": "Solde impayé : {{amount}}",
         "sessionsOpen": "{{count}} audience ouverte :",
         "sessionsOpen_plural": "{{count}} audiences ouvertes :",
@@ -38,8 +38,8 @@
         "dossierNotFound": "Dossier introuvable"
       },
       "warning": {
-        "casesWillDelete": "Ce dossier contient {{count}} procès qui sera supprimé.",
-        "casesWillDelete_plural": "Ce dossier contient {{count}} procès qui seront supprimés.",
+        "lawsuitsWillDelete": "Ce dossier contient {{count}} procès qui sera supprimé.",
+        "lawsuitsWillDelete_plural": "Ce dossier contient {{count}} procès qui seront supprimés.",
         "tasksWillDelete": "Ce dossier contient {{count}} tâche qui sera supprimée.",
         "tasksWillDelete_plural": "Ce dossier contient {{count}} tâches qui seront supprimées.",
         "sessionsWillDelete": "Ce dossier contient {{count}} audience qui sera supprimée.",
@@ -75,19 +75,19 @@
       }
     }
   },
-  "case": {
+  "lawsuit": {
     "add": {
       "blocked": {
         "noDossiers": "Veuillez ajouter un dossier avant de créer un procès.",
         "dossierNotFound": "Dossier parent introuvable",
         "dossierClosed": "Impossible de créer un procès sous un dossier {{status}}",
-        "dossierDetails": "Dossier : {{caseNumber}} - {{title}}",
+        "dossierDetails": "Dossier : {{lawsuitNumber}} - {{title}}",
         "reopenRequired": "Vous devez d'abord rouvrir le dossier pour ajouter des procès"
       }
     },
     "close": {
       "blocked": {
-        "caseNotFound": "Procès introuvable",
+        "lawsuitNotFound": "Procès introuvable",
         "sessionsOpen": "{{count}} audience ouverte :",
         "sessionsOpen_plural": "{{count}} audiences ouvertes :",
         "tasksOpen": "{{count}} tâche ouverte :",
@@ -139,8 +139,8 @@
         "clientNotFound": "Client introuvable",
         "dossiersOpen": "{{count}} dossier ouvert :",
         "dossiersOpen_plural": "{{count}} dossiers ouverts :",
-        "casesOpen": "{{count}} procès ouvert :",
-        "casesOpen_plural": "{{count}} procès ouverts :",
+        "lawsuitsOpen": "{{count}} procès ouvert :",
+        "lawsuitsOpen_plural": "{{count}} procès ouverts :",
         "tasksOpen": "{{count}} tâche ouverte :",
         "tasksOpen_plural": "{{count}} tâches ouvertes :",
         "sessionsOpen": "{{count}} audience ouverte :",
@@ -158,8 +158,8 @@
       "warning": {
         "dossiersWillDelete": "Ce client a {{count}} dossier qui sera supprimé.",
         "dossiersWillDelete_plural": "Ce client a {{count}} dossiers qui seront supprimés.",
-        "casesWillDelete": "Ce client a {{count}} procès qui sera supprimé.",
-        "casesWillDelete_plural": "Ce client a {{count}} procès qui seront supprimés.",
+        "lawsuitsWillDelete": "Ce client a {{count}} procès qui sera supprimé.",
+        "lawsuitsWillDelete_plural": "Ce client a {{count}} procès qui seront supprimés.",
         "tasksWillDelete": "Ce client a {{count}} tâche qui sera supprimée.",
         "tasksWillDelete_plural": "Ce client a {{count}} tâches qui seront supprimées.",
         "sessionsWillDelete": "Ce client a {{count}} audience qui sera supprimée.",
@@ -185,9 +185,9 @@
       "blocked": {
         "noDossiers": "Veuillez ajouter un dossier avant de créer une tâche.",
         "dossierClosed": "Impossible de créer une tâche sous un dossier {{status}}",
-        "dossierDetails": "Dossier : {{caseNumber}} - {{title}}",
-        "caseClosed": "Impossible de créer une tâche sous un procès {{status}}",
-        "caseDetails": "Procès : {{caseNumber}} - {{title}}",
+        "dossierDetails": "Dossier : {{lawsuitNumber}} - {{title}}",
+        "lawsuitClosed": "Impossible de créer une tâche sous un procès {{status}}",
+        "lawsuitDetails": "Procès : {{lawsuitNumber}} - {{title}}",
         "reopenRequired": "Vous devez d'abord rouvrir le {{parentType}} pour ajouter des tâches"
       },
       "warning": {
@@ -197,8 +197,8 @@
     "edit": {
       "blocked": {
         "taskNotFound": "Tâche introuvable",
-        "dossierClosed": "Cette tâche appartient au dossier \"{{caseNumber}}\" qui est {{status}}.\n\nLes modifications ne sont plus autorisées sur les dossiers fermés.",
-        "caseClosed": "Cette tâche appartient au procès \"{{caseNumber}}\" qui est fermé.\n\nLes modifications ne sont plus autorisées sur les procès fermés."
+        "dossierClosed": "Cette tâche appartient au dossier \"{{lawsuitNumber}}\" qui est {{status}}.\n\nLes modifications ne sont plus autorisées sur les dossiers fermés.",
+        "lawsuitClosed": "Cette tâche appartient au procès \"{{lawsuitNumber}}\" qui est fermé.\n\nLes modifications ne sont plus autorisées sur les procès fermés."
       }
     },
     "impact": {
@@ -206,8 +206,8 @@
         "current": "**Parent actuel** : {{value}}",
         "new": "**Nouveau parent** : {{value}}",
         "notAssigned": "Non assigné",
-        "dossierLabel": "Dossier {{caseNumber}} - {{title}}",
-        "caseLabel": "Procès {{caseNumber}} - {{title}}",
+        "dossierLabel": "Dossier {{lawsuitNumber}} - {{title}}",
+        "lawsuitLabel": "Procès {{lawsuitNumber}} - {{title}}",
         "impactTitle": "**Impact** :",
         "impact1": "• La tâche sera retirée de son contexte actuel",
         "impact2": "• Les indicateurs de suivi seront recalculés",
@@ -220,9 +220,9 @@
       "blocked": {
         "noDossiers": "Veuillez ajouter un dossier avant de planifier une audience.",
         "dossierClosed": "Impossible de créer une audience sous un dossier {{status}}",
-        "dossierDetails": "Dossier : {{caseNumber}} - {{title}}",
-        "caseClosed": "Impossible de créer une audience sous un procès {{status}}",
-        "caseDetails": "Procès : {{caseNumber}} - {{title}}",
+        "dossierDetails": "Dossier : {{lawsuitNumber}} - {{title}}",
+        "lawsuitClosed": "Impossible de créer une audience sous un procès {{status}}",
+        "lawsuitDetails": "Procès : {{lawsuitNumber}} - {{title}}",
         "reopenRequired": "Vous devez d'abord rouvrir le {{parentType}} pour ajouter des audiences"
       },
       "warning": {
@@ -232,8 +232,8 @@
     "edit": {
       "blocked": {
         "sessionNotFound": "Audience introuvable",
-        "caseClosed": "Cette audience appartient au procès \"{{caseNumber}}\" qui est fermé.\n\nLes modifications ne sont plus autorisées sur les procès fermés.",
-        "dossierClosed": "Cette audience appartient au dossier \"{{caseNumber}}\" qui est {{status}}.\n\nLes modifications ne sont plus autorisées sur les dossiers fermés."
+        "lawsuitClosed": "Cette audience appartient au procès \"{{lawsuitNumber}}\" qui est fermé.\n\nLes modifications ne sont plus autorisées sur les procès fermés.",
+        "dossierClosed": "Cette audience appartient au dossier \"{{lawsuitNumber}}\" qui est {{status}}.\n\nLes modifications ne sont plus autorisées sur les dossiers fermés."
       }
     },
     "impact": {
@@ -241,8 +241,8 @@
         "current": "**Pièce jointe actuelle** : {{value}}",
         "new": "**Nouvelle pièce jointe** : {{value}}",
         "notAssigned": "Non assigné",
-        "dossierLabel": "Dossier {{caseNumber}} - {{title}}",
-        "caseLabel": "Procès {{caseNumber}} - {{title}}",
+        "dossierLabel": "Dossier {{lawsuitNumber}} - {{title}}",
+        "lawsuitLabel": "Procès {{lawsuitNumber}} - {{title}}",
         "impactTitle": "**Impact** :",
         "impact1": "• L'audience sera retirée de son contexte actuel",
         "impact2": "• Les indicateurs de suivi seront recalculés",
@@ -254,19 +254,19 @@
     "add": {
       "blocked": {
         "dossierNotFound": "Dossier parent introuvable",
-        "caseNotFound": "Procès parent introuvable",
+        "lawsuitNotFound": "Procès parent introuvable",
         "dossierClosed": "Impossible de créer une mission sous un dossier {{status}}",
-        "dossierDetails": "Dossier : {{caseNumber}} - {{title}}",
-        "caseClosed": "Impossible de créer une mission sous un procès {{status}}",
-        "caseDetails": "Procès : {{caseNumber}} - {{title}}",
+        "dossierDetails": "Dossier : {{lawsuitNumber}} - {{title}}",
+        "lawsuitClosed": "Impossible de créer une mission sous un procès {{status}}",
+        "lawsuitDetails": "Procès : {{lawsuitNumber}} - {{title}}",
         "reopenRequired": "Vous devez d'abord rouvrir le {{parentType}} pour créer des missions"
       }
     },
     "edit": {
       "blocked": {
         "missionNotFound": "Mission introuvable",
-        "dossierClosed": "Cette mission est liée au dossier \"{{caseNumber}}\" qui est {{status}}.\n\nLes modifications ne sont plus autorisées sur les dossiers fermés.",
-        "caseClosed": "Cette mission est liée au procès \"{{caseNumber}}\" qui est fermé.\n\nLes modifications ne sont plus autorisées sur les procès fermés."
+        "dossierClosed": "Cette mission est liée au dossier \"{{lawsuitNumber}}\" qui est {{status}}.\n\nLes modifications ne sont plus autorisées sur les dossiers fermés.",
+        "lawsuitClosed": "Cette mission est liée au procès \"{{lawsuitNumber}}\" qui est fermé.\n\nLes modifications ne sont plus autorisées sur les procès fermés."
       }
     },
     "delete": {
@@ -306,16 +306,16 @@
   "financialEntry": {
     "add": {
       "blocked": {
-        "dossierClosed": "Le dossier \"{{caseNumber}}\" est {{status}}.\n\nAucune nouvelle écriture comptable ne peut être ajoutée aux dossiers fermés.",
-        "caseClosed": "Le procès \"{{caseNumber}}\" est fermé.\n\nAucune nouvelle écriture comptable ne peut être ajoutée aux procès fermés."
+        "dossierClosed": "Le dossier \"{{lawsuitNumber}}\" est {{status}}.\n\nAucune nouvelle écriture comptable ne peut être ajoutée aux dossiers fermés.",
+        "lawsuitClosed": "Le procès \"{{lawsuitNumber}}\" est fermé.\n\nAucune nouvelle écriture comptable ne peut être ajoutée aux procès fermés."
       }
     },
     "edit": {
       "blocked": {
         "entryNotFound": "Écriture comptable introuvable",
         "entryCancelled": "Cette écriture comptable a été annulée et ne peut pas être modifiée.\n\nLes écritures annulées sont conservées à des fins d'audit.",
-        "dossierClosed": "Cette écriture est liée au dossier \"{{caseNumber}}\" qui est {{status}}.\n\nLes écritures des dossiers fermés ne peuvent pas être modifiées.",
-        "caseClosed": "Cette écriture est liée au procès \"{{caseNumber}}\" qui est fermé.\n\nLes écritures des procès fermés ne peuvent pas être modifiées."
+        "dossierClosed": "Cette écriture est liée au dossier \"{{lawsuitNumber}}\" qui est {{status}}.\n\nLes écritures des dossiers fermés ne peuvent pas être modifiées.",
+        "lawsuitClosed": "Cette écriture est liée au procès \"{{lawsuitNumber}}\" qui est fermé.\n\nLes écritures des procès fermés ne peuvent pas être modifiées."
       },
       "warning": {
         "entryPaid": "Cette écriture est marquée comme payée. La modifier sera journalisé et recalculera les soldes.",
@@ -396,3 +396,4 @@
     }
   }
 }
+

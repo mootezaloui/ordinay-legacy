@@ -39,7 +39,7 @@ export default function Dossiers() {
   const {
     dossiers,
     clients,
-    cases,
+    lawsuits,
     tasks,
     sessions,
     officers,
@@ -87,13 +87,13 @@ export default function Dossiers() {
   // Define table columns
   const columns = [
     {
-      id: "caseNumber",
+      id: "lawsuitNumber",
       label: t("table.columns.number"),
       sortable: true,
       locked: true,
       render: (dossier) => (
         <span className="font-mono font-semibold text-blue-600 dark:text-blue-400">
-          {dossier.caseNumber}
+          {dossier.lawsuitNumber}
         </span>
       ),
     },
@@ -201,7 +201,7 @@ export default function Dossiers() {
     initialSortBy: null,
     initialSortDirection: "desc",
     initialItemsPerPage: 10,
-    searchableFields: ["caseNumber", "title", "client", "category", "status"],
+    searchableFields: ["lawsuitNumber", "title", "client", "category", "status"],
     entityType: "dossier",
     enableIntelligentOrdering: true,
   });
@@ -238,7 +238,7 @@ export default function Dossiers() {
     // ✅ Validate before allowing edit
     const result = canPerformAction('dossier', dossier.id, 'edit', {
       data: dossier,
-      entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
+      entities: { clients, dossiers, lawsuits, tasks, sessions, officers, missions, financialEntries }
     });
 
     if (!result.allowed) {
@@ -256,7 +256,7 @@ export default function Dossiers() {
     const dossier = dossiers.find(d => d.id === id);
     const result = canPerformAction('dossier', id, 'delete', {
       data: dossier,
-      entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
+      entities: { clients, dossiers, lawsuits, tasks, sessions, officers, missions, financialEntries }
     });
 
     if (!result.allowed) {
@@ -340,7 +340,7 @@ export default function Dossiers() {
       const result = canPerformAction('dossier', editingDossier.id, 'edit', {
         data: editingDossier,
         newData: formData,
-        entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
+        entities: { clients, dossiers, lawsuits, tasks, sessions, officers, missions, financialEntries }
       })
 
       if (!result.allowed) {
@@ -358,7 +358,7 @@ export default function Dossiers() {
     } else {
       const result = canPerformAction('dossier', null, 'add', {
         formData,
-        entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
+        entities: { clients, dossiers, lawsuits, tasks, sessions, officers, missions, financialEntries }
       })
       if (!result.allowed) {
         setValidationResult(result)
@@ -392,11 +392,11 @@ export default function Dossiers() {
           }
           const createdEntity = creation?.created || creation;
           const createdId = createdEntity?.id;
-          const createdCaseNumber = createdEntity?.caseNumber || createdEntity?.reference || formData.caseNumber;
+          const createdlawsuitNumber = createdEntity?.lawsuitNumber || createdEntity?.reference || formData.lawsuitNumber;
           if (!createdId) throw new Error(t("errors.missingId"));
         showToast(t("toasts.createSuccess"), "success");
 
-        logEntityCreation('dossier', createdId, createdCaseNumber);
+        logEntityCreation('dossier', createdId, createdlawsuitNumber);
 
         // Notify tutorial that dossier was created (advances tutorial if on CREATE_DOSSIER step)
         if (tutorial?.setCreatedDossier) {
@@ -608,7 +608,7 @@ export default function Dossiers() {
         entityType="dossier"
         entityId={editingDossier?.id}
         editingEntity={editingDossier}
-        entities={{ clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }}
+        entities={{ clients, dossiers, lawsuits, tasks, sessions, officers, missions, financialEntries }}
       />
 
       <BlockerModal
@@ -621,7 +621,7 @@ export default function Dossiers() {
         actionName={t("blocker.action")}
         blockers={validationResult?.blockers || []}
         warnings={validationResult?.warnings || []}
-        entityName={validationResult?.entityData?.caseNumber || t("blocker.entityFallback")}
+        entityName={validationResult?.entityData?.lawsuitNumber || t("blocker.entityFallback")}
         requiresForceDelete={validationResult?.requiresForceDelete || false}
         affectedEntities={validationResult?.affectedEntities || []}
         forceDeleteMessage={validationResult?.forceDeleteMessage || ""}
@@ -637,8 +637,10 @@ export default function Dossiers() {
         onConfirm={handleConfirmImpact}
         actionName={t("confirmImpact.action")}
         impactSummary={validationResult?.impactSummary || []}
-        entityName={editingDossier?.caseNumber || ""}
+        entityName={editingDossier?.lawsuitNumber || ""}
       />
     </PageLayout>
   );
 }
+
+

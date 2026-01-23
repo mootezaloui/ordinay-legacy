@@ -58,7 +58,7 @@
         "properties": {
           "type": {
             "type": "string",
-            "description": "Entity type (dossier, case, task, etc.)"
+            "description": "Entity type (dossier, lawsuit, task, etc.)"
           },
           "id": {
             "type": ["integer", "string"],

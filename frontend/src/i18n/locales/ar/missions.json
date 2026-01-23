@@ -89,7 +89,7 @@
       "title": "الكيانات المرتبطة",
       "bailiff": "المحضر",
       "dossier": "الملف",
-      "lawsuit": "الدعوى",
+      "lawsuit": "القضية",
       "empty": "لا يوجد كيان مرتبط"
     },
     "overview": {
@@ -135,15 +135,15 @@
       },
       "entityTypes": {
         "dossier": "ملف",
-        "case": "دعوى"
+        "lawsuit": "قضية"
       },
       "help": {
         "entityType": "حدد نوع الكيان المرتبط بهذه المهمة",
-        "entity": "حدد الملف أو الدعوى المعنية",
+        "entity": "حدد الملف أو القضية المعنية",
         "bailiff": "انتباه: تغيير المحضر سينقل المهمة إلى محضر آخر"
       },
       "placeholders": {
-        "selectCase": "حدد دعوى...",
+        "selectLawsuit": "حدد قضية...",
         "selectDossier": "حدد ملف..."
       }
     },
@@ -178,7 +178,7 @@
   "fallback": {
     "unknownClient": "عميل غير معروف",
     "unknownDossier": "ملف غير معروف",
-    "noLawsuit": "لا توجد دعوى"
+    "noLawsuit": "لا توجد قضية"
   },
   "form": {
     "title": {
@@ -220,15 +220,15 @@
       "notes": "ملاحظات إضافية..."
     },
     "help": {
-      "entityReference": "مرجع الملف أو الدعوى",
+      "entityReference": "مرجع الملف أو القضية",
       "missionNumber": "اختياري - اتركه فارغًا للإنشاء التلقائي (MIS-السنة-XXX)",
       "result": "يتم تعبئته بعد إكمال المهمة",
       "completionDate": "تاريخ إنجاز المهمة (إذا تم إكمالها)",
       "documents": "أضف مستندات متعلقة بهذه المهمة (PDF, DOC, XLS, PPT, صور، أرشيفات)",
       "financialEntries": "أضف رسومًا متعلقة بهذه المهمة. ستكون هذه الرسوم مرتبطة تلقائيًا بالمهمة والعميل.",
       "bailiffAssigned": "ستُعين هذه المهمة لـ {{name}}",
-      "entityType": "حدد ما إذا كانت المهمة تتعلق بملف أو بدعوى",
-      "entityReferenceSelect": "حدد الملف أو الدعوى لهذه المهمة"
+      "entityType": "حدد ما إذا كانت المهمة تتعلق بملف أو بقضية",
+      "entityReferenceSelect": "حدد الملف أو القضية لهذه المهمة"
     },
     "options": {
       "missionType": {

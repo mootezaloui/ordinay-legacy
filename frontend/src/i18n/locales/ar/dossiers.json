@@ -85,7 +85,7 @@
       "statusLocked": "يمكن تغيير الحالة فقط من خلال محدد القائمة"
     },
     "fields": {
-      "caseNumber": {
+      "lawsuitNumber": {
         "label": "المرجع / الرقم",
         "placeholder": "مثال: DOS-2025-001 (يتم إنشاؤه تلقائيًا إذا كان فارغًا)",
         "helper": "اختياري - اتركه فارغًا للإنشاء التلقائي (DOS-السنة-XXX)"
@@ -254,14 +254,14 @@
     "stats": {
       "documents": "المستندات",
       "tasks": "المهام",
-      "lawsuits": "الدعاوى",
+      "lawsuits": "القضايا",
       "netProfit": "صافي الربح"
     },
     "tabs": {
       "overview": "نظرة عامة",
-      "proceedings": "الدعاوى",
-      "proceedingsEntity": "دعوى",
-      "proceedingsAddSubtitle": "إنشاء دعوى جديدة لهذا الملف",
+      "proceedings": "القضايا",
+      "proceedingsEntity": "قضية",
+      "proceedingsAddSubtitle": "إنشاء قضية جديدة لهذا الملف",
       "sessions": "الجلسات",
       "sessionsEntity": "جلسة",
       "sessionsAddSubtitle": "إنشاء جلسة جديدة لهذا الملف",
@@ -278,21 +278,21 @@
     },
     "forms": {
       "sessions": {
-        "linkHelpWithCases": "اختر ما إذا كانت هذه الجلسة مرتبطة بهذا الملف أو بدعوى محددة",
-        "linkHelpNoCases": "ستكون هذه الجلسة مرتبطة بهذا الملف (لا توجد دعاوى متاحة)",
-        "casesEmpty": "لا توجد دعاوى متاحة. يُرجى إنشاء دعوى أولاً.",
-        "caseHelp": "حدد الدعوى المرتبطة بهذه الجلسة",
+        "linkHelpWithLawsuits": "اختر ما إذا كانت هذه الجلسة مرتبطة بهذا الملف أو بقضية محددة",
+        "linkHelpNoLawsuits": "ستكون هذه الجلسة مرتبطة بهذا الملف (لا توجد قضايا متاحة)",
+        "lawsuitsEmpty": "لا توجد قضايا متاحة. يُرجى إنشاء قضية أولاً.",
+        "lawsuitHelp": "حدد القضية المرتبطة بهذه الجلسة",
         "dossierHelp": "ستكون هذه الجلسة مرتبطة بهذا الملف"
       },
       "tasks": {
-        "linkHelpWithCases": "اختر ما إذا كانت هذه المهمة تتعلق بالملف بشكل عام أو بدعوى محددة",
-        "linkHelpNoCases": "ستكون هذه المهمة مرتبطة بالملف (لا توجد دعاوى متاحة)",
-        "casesEmpty": "لا توجد دعاوى متاحة. يُرجى إنشاء دعوى أولاً.",
-        "caseHelp": "حدد الدعوى المرتبطة بهذه المهمة",
+        "linkHelpWithLawsuits": "اختر ما إذا كانت هذه المهمة تتعلق بالملف بشكل عام أو بقضية محددة",
+        "linkHelpNoLawsuits": "ستكون هذه المهمة مرتبطة بالملف (لا توجد قضايا متاحة)",
+        "lawsuitsEmpty": "لا توجد قضايا متاحة. يُرجى إنشاء قضية أولاً.",
+        "lawsuitHelp": "حدد القضية المرتبطة بهذه المهمة",
         "dossierHelp": "ستكون هذه المهمة مرتبطة بهذا الملف"
       },
       "missions": {
-        "linkedToDossier": "ستكون هذه المهمة مرتبطة بالملف {{caseNumber}}"
+        "linkedToDossier": "ستكون هذه المهمة مرتبطة بالملف {{lawsuitNumber}}"
       }
     },
     "overview": {
@@ -301,8 +301,8 @@
       "adverse": "الطرف الخصم",
       "legal": "معلومات قانونية",
       "fields": {
-        "caseNumber": "رقم الملف",
-        "caseNumberHelp": "التنسيق: DOS-السنة-الرقم",
+        "lawsuitNumber": "رقم الملف",
+        "lawsuitNumberHelp": "التنسيق: DOS-السنة-الرقم",
         "title": "عنوان الملف",
         "client": "العميل",
         "clientHelp": "انتباه: تغيير العميل سينقل الملف إلى عميل آخر",

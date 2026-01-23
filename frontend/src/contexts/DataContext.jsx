@@ -1,4 +1,4 @@
-﻿import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { useRef } from "react";
 import { logHistoryEvent, EVENT_TYPES, deleteEntityHistory } from "../services/historyService";
 import { canPerformAction } from "../services/domainRules";
@@ -13,7 +13,7 @@ import { useOperator } from "./OperatorContext";
 import { useLicense } from "./LicenseContext";
 import { checkFreePlanLimit } from "../services/licenseService";
 import {
-  adaptCase,
+  adaptLawsuit,
   adaptClient,
   adaptDossier,
   adaptSession,
@@ -32,7 +32,12 @@ const STORAGE_PREFIX = "lawyer-app:data:";
  * This ensures the backend can properly identify existing notes by their IDs
  */
 const notesToBackendFormat = (notes) => {
-  if (!notes || !Array.isArray(notes)) return notes;
+  if (notes === undefined || notes === null) return notes;
+  if (typeof notes === "string") {
+    const trimmed = notes.trim();
+    return trimmed ? [{ content: trimmed }] : [];
+  }
+  if (!Array.isArray(notes)) return notes;
 
   return notes.map(note => ({
     id: note.id,
@@ -169,7 +174,7 @@ const buildChangeSummary = (entityType, entityName, prevEntity, updates) => {
 
 const logCreationHistory = (entityType, entity, actor = null) => {
   if (!entity?.id) return;
-  const name = entity.name || entity.title || entity.caseNumber || entity.description || `#${entity.id}`;
+  const name = entity.name || entity.title || entity.lawsuitNumber || entity.description || `#${entity.id}`;
   logEntityCreation(entityType, entity.id, name, actor);
 };
 
@@ -252,14 +257,14 @@ const normalizeId = (value) => {
   return value;
 };
 
-const reconcileEntities = (clients, dossiers, cases, tasks, sessions) => {
+const reconcileEntities = (clients, dossiers, lawsuits, tasks, sessions) => {
   const issues = [];
 
   const byId = (arr) => new Map(arr.map((item) => [item.id, item]));
 
   const clientsById = byId(clients);
   const dossiersById = byId(dossiers);
-  const casesById = byId(cases);
+  const lawsuitsById = byId(lawsuits);
 
   const normalizedClients = clients.map((c) => ({
     ...c,
@@ -278,7 +283,7 @@ const reconcileEntities = (clients, dossiers, cases, tasks, sessions) => {
     return normalized;
   });
 
-  const normalizedCases = cases.map((c) => {
+  const normalizedLawsuits = lawsuits.map((c) => {
     const normalized = {
       ...c,
       id: normalizeId(c.id),
@@ -286,7 +291,7 @@ const reconcileEntities = (clients, dossiers, cases, tasks, sessions) => {
     };
     if (normalized.dossierId && !dossiersById.has(normalized.dossierId)) {
       issues.push({
-        entityType: "case",
+        entityType: "lawsuit",
         entityId: normalized.id,
         message: "Lawsuit with no parent dossier in persisted data.",
       });
@@ -299,9 +304,9 @@ const reconcileEntities = (clients, dossiers, cases, tasks, sessions) => {
       ...t,
       id: normalizeId(t.id),
       dossierId: normalizeId(t.dossierId),
-      caseId: normalizeId(t.caseId),
+      lawsuitId: normalizeId(t.lawsuitId),
     };
-    if (normalized.parentType === "case" && normalized.caseId && !casesById.has(normalized.caseId)) {
+    if (normalized.parentType === "lawsuit" && normalized.lawsuitId && !lawsuitsById.has(normalized.lawsuitId)) {
       issues.push({
         entityType: "task",
         entityId: normalized.id,
@@ -323,9 +328,9 @@ const reconcileEntities = (clients, dossiers, cases, tasks, sessions) => {
       ...s,
       id: normalizeId(s.id),
       dossierId: normalizeId(s.dossierId),
-      caseId: normalizeId(s.caseId),
+      lawsuitId: normalizeId(s.lawsuitId),
     };
-    if (normalized.caseId && !casesById.has(normalized.caseId)) {
+    if (normalized.lawsuitId && !lawsuitsById.has(normalized.lawsuitId)) {
       issues.push({
         entityType: "session",
         entityId: normalized.id,
@@ -345,7 +350,7 @@ const reconcileEntities = (clients, dossiers, cases, tasks, sessions) => {
   return {
     normalizedClients,
     normalizedDossiers,
-    normalizedCases,
+    normalizedLawsuits,
     normalizedTasks,
     normalizedSessions,
     issues,
@@ -378,7 +383,7 @@ export function DataProvider({ children }) {
       licenseState,
       clients,
       dossiers,
-      cases,
+      lawsuits,
       tasks,
       entityType,
       entityData,
@@ -409,7 +414,7 @@ export function DataProvider({ children }) {
   // State is initialized from localStorage and then updated from backend
   const [clients, setClients] = useState(() => loadFromStorage("clients", []));
   const [dossiers, setDossiers] = useState(() => loadFromStorage("dossiers", []));
-  const [cases, setCases] = useState(() => loadFromStorage("cases", []));
+  const [lawsuits, setLawsuits] = useState(() => loadFromStorage("lawsuits", []));
   const [sessions, setSessions] = useState(() => loadFromStorage("sessions", []));
   const [tasks, setTasks] = useState(() => loadFromStorage("tasks", []));
   const [missions, setMissions] = useState(() => loadFromStorage("missions", []));
@@ -429,7 +434,7 @@ export function DataProvider({ children }) {
     tRef.current = t;
   }, [t]);
 
-  // Read-only fetch from backend (clients -> dossiers -> cases -> tasks -> sessions -> officers -> missions -> financial)
+  // Read-only fetch from backend (clients -> dossiers -> lawsuits -> tasks -> sessions -> officers -> missions -> financial)
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
@@ -444,22 +449,22 @@ export function DataProvider({ children }) {
         const dossiersAdapted = apiDossiers.map((d) => adaptDossier(d, clientsById));
         const dossiersById = Object.fromEntries(dossiersAdapted.map((d) => [d.id, d]));
 
-        const apiCases = await apiClient.get("/cases");
-        const casesAdapted = apiCases.map((c) => adaptCase(c, dossiersById));
-        const casesById = Object.fromEntries(casesAdapted.map((c) => [c.id, c]));
+        const apiLawsuits = await apiClient.get("/lawsuits");
+        const lawsuitsAdapted = apiLawsuits.map((c) => adaptLawsuit(c, dossiersById));
+        const lawsuitsById = Object.fromEntries(lawsuitsAdapted.map((c) => [c.id, c]));
 
         const apiTasks = await apiClient.get("/tasks");
-        const tasksAdapted = apiTasks.map((t) => adaptTask(t, dossiersById, casesById));
+        const tasksAdapted = apiTasks.map((t) => adaptTask(t, dossiersById, lawsuitsById));
 
         const apiSessions = await apiClient.get("/sessions");
-        const sessionsAdapted = apiSessions.map((s) => adaptSession(s, dossiersById, casesById));
+        const sessionsAdapted = apiSessions.map((s) => adaptSession(s, dossiersById, lawsuitsById));
 
         const apiOfficers = await apiClient.get("/officers");
         const officersAdapted = apiOfficers.map(adaptOfficer);
         const officersById = Object.fromEntries(officersAdapted.map((o) => [o.id, o]));
 
         const apiMissions = await apiClient.get("/missions");
-        const missionsAdapted = apiMissions.map((m) => adaptMission(m, dossiersById, casesById));
+        const missionsAdapted = apiMissions.map((m) => adaptMission(m, dossiersById, lawsuitsById));
         const missionsWithOfficer = missionsAdapted.map((mission) => ({
           ...mission,
           officerName: mission.officerId ? officersById[mission.officerId]?.name || "" : "",
@@ -470,7 +475,7 @@ export function DataProvider({ children }) {
 
         const missionsByOfficer = {};
         const missionsByDossier = {};
-        const missionsByCase = {};
+        const missionsByLawsuit = {};
 
         missionsWithOfficer.forEach((mission) => {
           if (mission.officerId) {
@@ -481,9 +486,9 @@ export function DataProvider({ children }) {
             missionsByDossier[mission.entityId] = missionsByDossier[mission.entityId] || [];
             missionsByDossier[mission.entityId].push(mission);
           }
-          if (mission.entityType === "case" && mission.entityId) {
-            missionsByCase[mission.entityId] = missionsByCase[mission.entityId] || [];
-            missionsByCase[mission.entityId].push(mission);
+          if (mission.entityType === "lawsuit" && mission.entityId) {
+            missionsByLawsuit[mission.entityId] = missionsByLawsuit[mission.entityId] || [];
+            missionsByLawsuit[mission.entityId].push(mission);
           }
         });
 
@@ -494,7 +499,7 @@ export function DataProvider({ children }) {
 
         const apiFinancial = await apiClient.get("/financial");
         const financialAdapted = apiFinancial.map((f) =>
-          adaptFinancialEntry(f, clientsById, dossiersById, casesById)
+          adaptFinancialEntry(f, clientsById, dossiersById, lawsuitsById)
         );
 
         const apiHistoryClients = await apiClient.get("/history?entity_type=client");
@@ -508,14 +513,14 @@ export function DataProvider({ children }) {
         const {
           normalizedClients,
           normalizedDossiers,
-          normalizedCases,
+          normalizedLawsuits,
           normalizedTasks,
           normalizedSessions,
           issues,
         } = reconcileEntities(
           clientsAdapted,
           dossiersAdapted,
-          casesAdapted,
+          lawsuitsAdapted,
           tasksAdapted,
           sessionsAdapted
         );
@@ -530,9 +535,9 @@ export function DataProvider({ children }) {
           missions: missionsByDossier[dossier.id] || dossier.missions || [],
         }));
 
-        const casesWithMissions = normalizedCases.map((caseItem) => ({
-          ...caseItem,
-          missions: missionsByCase[caseItem.id] || caseItem.missions || [],
+        const lawsuitsWithMissions = normalizedLawsuits.map((lawsuitItem) => ({
+          ...lawsuitItem,
+          missions: missionsByLawsuit[lawsuitItem.id] || lawsuitItem.missions || [],
         }));
 
         if (cancelled) return;
@@ -543,7 +548,7 @@ export function DataProvider({ children }) {
 
         setClients(clientsWithTimeline);
         setDossiers(dossiersWithMissions);
-        setCases(casesWithMissions);
+        setLawsuits(lawsuitsWithMissions);
         setTasks(normalizedTasks);
         setSessions(normalizedSessions);
         setPersonalTasks(personalTasksAdapted);
@@ -552,7 +557,7 @@ export function DataProvider({ children }) {
         setFinancialEntries(financialAdapted);
         saveToStorage("clients", clientsWithTimeline);
         saveToStorage("dossiers", dossiersWithMissions);
-        saveToStorage("cases", casesWithMissions);
+        saveToStorage("lawsuits", lawsuitsWithMissions);
         saveToStorage("tasks", normalizedTasks);
         saveToStorage("sessions", normalizedSessions);
         saveToStorage("personalTasks", personalTasksAdapted);
@@ -587,7 +592,7 @@ export function DataProvider({ children }) {
     const validation = validateMutation("client", "add", client?.id, {
       data: client,
       newData: client,
-      entities: { clients, dossiers, cases, tasks, sessions, missions, personalTasks, officers, financialEntries },
+      entities: { clients, dossiers, lawsuits, tasks, sessions, missions, personalTasks, officers, financialEntries },
     }, integrityIssues);
     if (!validation.ok) return validation;
 
@@ -603,7 +608,7 @@ export function DataProvider({ children }) {
       profession: client.profession,
       company: client.company,
       tax_id: client.taxId,
-      notes: client.notes,
+      notes: notesToBackendFormat(client.notes),
       join_date: client.joinDate,
     };
 
@@ -630,7 +635,7 @@ export function DataProvider({ children }) {
       return { ok: false, result: { message: "License inactive" } };
     }
     const prev = clients.find((c) => c.id === id);
-    const validation = validateMutation("client", "edit", id, { data: prev, newData: { ...prev, ...updates }, entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries } }, integrityIssues);
+    const validation = validateMutation("client", "edit", id, { data: prev, newData: { ...prev, ...updates }, entities: { clients, dossiers, lawsuits, tasks, sessions, officers, missions, financialEntries } }, integrityIssues);
     if (!validation.ok) return validation;
 
     console.log('[DataContext.updateClient] Updating client ID:', id, 'with:', updates);
@@ -695,7 +700,7 @@ export function DataProvider({ children }) {
     const prev = clients.find((c) => c.id === id);
     const validation = validateMutation("client", "delete", id, {
       data: prev,
-      entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
+      entities: { clients, dossiers, lawsuits, tasks, sessions, officers, missions, financialEntries }
     }, integrityIssues);
     if (!validation.ok) return validation;
 
@@ -776,13 +781,13 @@ export function DataProvider({ children }) {
     const validation = validateMutation("dossier", "add", dossier?.id, {
       data: dossier,
       newData: dossier,
-      entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
+      entities: { clients, dossiers, lawsuits, tasks, sessions, officers, missions, financialEntries }
     }, integrityIssues);
     if (!validation.ok) return validation;
 
     const payload = {
-      reference: dossier.reference || dossier.caseNumber,
-      case_number: dossier.caseNumber || dossier.reference,
+      reference: dossier.reference || dossier.lawsuitNumber,
+      lawsuit_number: dossier.lawsuitNumber || dossier.reference,
       client_id: dossier.clientId || dossier.client_id || dossier.client?.id,
       title: dossier.title,
       description: dossier.description,
@@ -826,10 +831,10 @@ export function DataProvider({ children }) {
     // 🚨 CRITICAL FIX: Build payload with ONLY the fields present in updates (PATCH semantics)
     const payload = {};
 
-    if (updates.caseNumber !== undefined || updates.reference !== undefined) {
-      const refValue = updates.caseNumber || updates.reference;
+    if (updates.lawsuitNumber !== undefined || updates.reference !== undefined) {
+      const refValue = updates.lawsuitNumber || updates.reference;
       payload.reference = refValue;
-      payload.case_number = refValue;
+      payload.lawsuit_number = refValue;
     }
     if (updates.clientId !== undefined || updates.client_id !== undefined) {
       payload.client_id = updates.clientId || updates.client_id;
@@ -920,7 +925,7 @@ export function DataProvider({ children }) {
     const prev = dossiers.find((d) => d.id === id);
     const validation = validateMutation("dossier", "delete", id, {
       data: prev,
-      entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
+      entities: { clients, dossiers, lawsuits, tasks, sessions, officers, missions, financialEntries }
     }, integrityIssues);
     if (!validation.ok) return validation;
 
@@ -952,12 +957,12 @@ export function DataProvider({ children }) {
     console.log('[DataContext.deleteDossierCascade] Force deleting dossier and all related entities:', id);
 
     try {
-      // Find all related cases
-      const dossierCases = cases.filter(c => String(c.dossierId) === String(id));
+      // Find all related lawsuits
+      const dossierLawsuits = lawsuits.filter(lawsuit => String(lawsuit.dossierId) === String(id));
 
-      // Delete each case (which will cascade delete its children and their history)
-      for (const caseItem of dossierCases) {
-        await deleteCaseCascade(caseItem.id);
+      // Delete each lawsuit (which will cascade delete its children and their history)
+      for (const lawsuitItem of dossierLawsuits) {
+        await deleteLawsuitCascade(lawsuitItem.id);
       }
 
       // Find and delete all missions for this dossier
@@ -977,7 +982,7 @@ export function DataProvider({ children }) {
       }
 
       // Find and delete all sessions for this dossier
-      const dossierSessions = sessions.filter(s => String(s.dossierId) === String(id) && !s.caseId);
+      const dossierSessions = sessions.filter(s => String(s.dossierId) === String(id) && !s.lawsuitId);
       for (const session of dossierSessions) {
         await deleteSession(session.id);
         // Delete history for each session
@@ -987,7 +992,7 @@ export function DataProvider({ children }) {
       // Find and delete all financial entries for this dossier
         const dossierFinancials = financialEntries.filter(e => String(e.dossierId) === String(id)
           && !e.missionId
-          && !e.caseId
+          && !e.lawsuitId
           && !e.taskId);
       for (const entry of dossierFinancials) {
         await deleteFinancialEntry(entry.id);
@@ -1018,17 +1023,17 @@ export function DataProvider({ children }) {
     }
   };
 
-  // --- Cases ---
-  const addCase = async (caseItem) => {
-    if (blockWrite("add case")) {
+  // --- Lawsuits ---
+  const addLawsuit = async (lawsuitItem) => {
+    if (blockWrite("add lawsuit")) {
       return { ok: false, result: { message: "License inactive" } };
     }
-    const limitBlock = blockFreeLimit("case", caseItem);
+    const limitBlock = blockFreeLimit("lawsuit", lawsuitItem);
     if (limitBlock) return limitBlock;
-    const validation = validateMutation("case", "add", caseItem?.id, {
-      data: caseItem,
-      newData: caseItem,
-      entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
+    const validation = validateMutation("lawsuit", "add", lawsuitItem?.id, {
+      data: lawsuitItem,
+      newData: lawsuitItem,
+      entities: { clients, dossiers, lawsuits, tasks, sessions, officers, missions, financialEntries }
     }, integrityIssues);
     if (!validation.ok) return validation;
 
@@ -1036,51 +1041,51 @@ export function DataProvider({ children }) {
     const emptyToNull = (value) => (value === "" || value === undefined) ? null : value;
 
     const payload = {
-      dossier_id: caseItem.dossierId || caseItem.dossier_id,
-      title: caseItem.title,
-      description: emptyToNull(caseItem.description),
-      adversary: emptyToNull(caseItem.adversaire || caseItem.adversary),
-      adversary_party: emptyToNull(caseItem.adversaryParty || caseItem.adversary_party),
+      dossier_id: lawsuitItem.dossierId || lawsuitItem.dossier_id,
+      title: lawsuitItem.title,
+      description: emptyToNull(lawsuitItem.description),
+      adversary: emptyToNull(lawsuitItem.adversaire || lawsuitItem.adversary),
+      adversary_party: emptyToNull(lawsuitItem.adversaryParty || lawsuitItem.adversary_party),
       adversary_name: emptyToNull(
-        caseItem.adversaryName ||
-          caseItem.adversary_name ||
-          caseItem.adversaryParty ||
-          caseItem.adversary_party ||
-          caseItem.adversaire ||
-          caseItem.adversary
+        lawsuitItem.adversaryName ||
+          lawsuitItem.adversary_name ||
+          lawsuitItem.adversaryParty ||
+          lawsuitItem.adversary_party ||
+          lawsuitItem.adversaire ||
+          lawsuitItem.adversary
       ),
-      adversary_lawyer: emptyToNull(caseItem.adversaryLawyer || caseItem.adversary_lawyer),
-      court: emptyToNull(caseItem.court),
-      filing_date: emptyToNull(caseItem.filingDate),
-      next_hearing: emptyToNull(caseItem.nextHearing),
-      judgment_number: emptyToNull(caseItem.judgmentNumber || caseItem.judgment_number),
-      judgment_date: emptyToNull(caseItem.judgmentDate || caseItem.judgment_date),
-      reference_number: emptyToNull(caseItem.courtReference || caseItem.reference_number),
-      status: caseItem.status,
-      priority: caseItem.priority === "High" ? "high" : caseItem.priority === "Medium" ? "medium" : caseItem.priority === "Low" ? "low" : caseItem.priority,
-      opened_at: emptyToNull(caseItem.openDate),
-      reference: emptyToNull(caseItem.caseNumber),
-      case_number: emptyToNull(caseItem.caseNumber),
+      adversary_lawyer: emptyToNull(lawsuitItem.adversaryLawyer || lawsuitItem.adversary_lawyer),
+      court: emptyToNull(lawsuitItem.court),
+      filing_date: emptyToNull(lawsuitItem.filingDate),
+      next_hearing: emptyToNull(lawsuitItem.nextHearing),
+      judgment_number: emptyToNull(lawsuitItem.judgmentNumber || lawsuitItem.judgment_number),
+      judgment_date: emptyToNull(lawsuitItem.judgmentDate || lawsuitItem.judgment_date),
+      reference_number: emptyToNull(lawsuitItem.courtReference || lawsuitItem.reference_number),
+      status: lawsuitItem.status,
+      priority: lawsuitItem.priority === "High" ? "high" : lawsuitItem.priority === "Medium" ? "medium" : lawsuitItem.priority === "Low" ? "low" : lawsuitItem.priority,
+      opened_at: emptyToNull(lawsuitItem.openDate),
+      reference: emptyToNull(lawsuitItem.lawsuitNumber),
+      lawsuit_number: emptyToNull(lawsuitItem.lawsuitNumber),
     };
 
-    const created = await apiClient.post("/cases", payload);
-    const adapted = adaptCase(created, Object.fromEntries(dossiers.map((d) => [d.id, d])));
+    const created = await apiClient.post("/lawsuits", payload);
+    const adapted = adaptLawsuit(created, Object.fromEntries(dossiers.map((d) => [d.id, d])));
 
-    setCases((prev) => {
+    setLawsuits((prev) => {
       const next = [...prev, adapted];
-      saveToStorage("cases", next);
+      saveToStorage("lawsuits", next);
       if (adapted.dossierId) {
         const title = adapted.title || "";
-        const reference = adapted.caseNumber || "";
-        const caseDescription = title && reference ? `${title} (${reference})` : title || reference || t("entities.lawsuits");
+        const reference = adapted.lawsuitNumber || "";
+        const lawsuitDescription = title && reference ? `${title} (${reference})` : title || reference || t("entities.lawsuits");
         logHistoryEvent({
           entityType: "dossier",
           entityId: adapted.dossierId,
           eventType: EVENT_TYPES.RELATION,
-          label: `${t("detail.history.labels.lawsuitCreated")}: ${caseDescription}`,
-          details: `${t("detail.history.labels.lawsuitCreated")}: ${caseDescription}`,
+          label: `${t("detail.history.labels.lawsuitCreated")}: ${lawsuitDescription}`,
+          details: `${t("detail.history.labels.lawsuitCreated")}: ${lawsuitDescription}`,
           metadata: {
-            childType: "case",
+            childType: "lawsuit",
             childId: adapted.id,
           },
         });
@@ -1088,19 +1093,19 @@ export function DataProvider({ children }) {
       return next;
     });
 
-    logCreationHistory("case", created, actorName);
+    logCreationHistory("lawsuit", created, actorName);
     return { ok: true, result: validation.result, created: adapted };
   };
 
-  const updateCase = async (id, updates) => {
-    if (blockWrite("update case")) {
+  const updateLawsuit = async (id, updates) => {
+    if (blockWrite("update lawsuit")) {
       return { ok: false, result: { message: "License inactive" } };
     }
-    const prev = cases.find((c) => c.id === id);
-    const validation = validateMutation("case", "edit", id, { data: prev, newData: { ...prev, ...updates } }, integrityIssues);
+    const prev = lawsuits.find((c) => c.id === id);
+    const validation = validateMutation("lawsuit", "edit", id, { data: prev, newData: { ...prev, ...updates } }, integrityIssues);
     if (!validation.ok) return validation;
 
-    console.log('[DataContext.updateCase] Updating case ID:', id, 'with:', updates);
+    console.log('[DataContext.updateLawsuit] Updating lawsuit ID:', id, 'with:', updates);
 
     const emptyToNull = (value) => (value === "" || value === undefined) ? null : value;
 
@@ -1170,42 +1175,42 @@ export function DataProvider({ children }) {
     if (updates.openDate !== undefined) {
       payload.opened_at = emptyToNull(updates.openDate);
     }
-    if (updates.caseNumber !== undefined) {
-      payload.reference = emptyToNull(updates.caseNumber);
-      payload.case_number = emptyToNull(updates.caseNumber);
+    if (updates.lawsuitNumber !== undefined) {
+      payload.reference = emptyToNull(updates.lawsuitNumber);
+      payload.lawsuit_number = emptyToNull(updates.lawsuitNumber);
     }
     if (updates.notes !== undefined) {
       // ✅ Convert notes to backend format (camelCase → snake_case)
       payload.notes = notesToBackendFormat(updates.notes);
     }
 
-    const updated = await apiClient.put(`/cases/${id}`, payload);
+    const updated = await apiClient.put(`/lawsuits/${id}`, payload);
     const dossiersById = Object.fromEntries(dossiers.map((d) => [d.id, d]));
-    const adapted = adaptCase(updated, dossiersById);
+    const adapted = adaptLawsuit(updated, dossiersById);
 
-    setCases((prev) => {
-      const next = prev.map((caseItem) =>
-        caseItem.id === id ? adapted : caseItem
+    setLawsuits((prev) => {
+      const next = prev.map((lawsuitItem) =>
+        lawsuitItem.id === id ? adapted : lawsuitItem
       );
-      saveToStorage("cases", next);
+      saveToStorage("lawsuits", next);
       return next;
     });
-    logUpdateHistory("case", prev, updates, actorName);
-    logStatusHistory("case", prev, updates, actorName);
+    logUpdateHistory("lawsuit", prev, updates, actorName);
+    logStatusHistory("lawsuit", prev, updates, actorName);
 
     // Log to parent dossier with change details
     if (adapted.dossierId) {
-      const caseTitle = adapted.title || adapted.caseNumber || prev?.title || "Case";
-      const changeSummary = buildChangeSummary("Affaire", caseTitle, prev, updates);
-      const caseUpdateLabel = changeSummary?.label || `Affaire modifiée: ${caseTitle}`;
+      const lawsuitTitle = adapted.title || adapted.lawsuitNumber || prev?.title || "lawsuit";
+      const changeSummary = buildChangeSummary("Affaire", lawsuitTitle, prev, updates);
+      const lawsuitUpdateLabel = changeSummary?.label || `Affaire modifiée: ${lawsuitTitle}`;
       const changeMetadata = changeSummary?.changes || {};
       logHistoryEvent({
         entityType: "dossier",
         entityId: adapted.dossierId,
         eventType: EVENT_TYPES.RELATION,
-        label: caseUpdateLabel,
-        details: caseUpdateLabel,
-        metadata: { childType: "case", childId: adapted.id, ...changeMetadata },
+        label: lawsuitUpdateLabel,
+        details: lawsuitUpdateLabel,
+        metadata: { childType: "lawsuit", childId: adapted.id, ...changeMetadata },
         actor: actorName,
       });
     }
@@ -1213,88 +1218,88 @@ export function DataProvider({ children }) {
     return validation;
   };
 
-  const deleteCase = async (id) => {
-    if (blockWrite("delete case")) {
+  const deleteLawsuit = async (id) => {
+    if (blockWrite("delete lawsuit")) {
       return { ok: false, result: { message: "License inactive" } };
     }
-    const prev = cases.find((c) => c.id === id);
-    const validation = validateMutation("case", "delete", id, {
+    const prev = lawsuits.find((c) => c.id === id);
+    const validation = validateMutation("lawsuit", "delete", id, {
       data: prev,
-      entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
+      entities: { clients, dossiers, lawsuits, tasks, sessions, officers, missions, financialEntries }
     }, integrityIssues);
     if (!validation.ok) return validation;
 
-    console.log('[DataContext.deleteCase] Deleting case ID:', id);
+    console.log('[DataContext.deleteLawsuit] Deleting lawsuit ID:', id);
 
-    await apiClient.delete(`/cases/${id}`);
+    await apiClient.delete(`/lawsuits/${id}`);
 
-    // Delete history for this case
-    await deleteEntityHistory('case', id);
+    // Delete history for this lawsuit
+    await deleteEntityHistory('lawsuit', id);
 
-    setCases((prev) => {
-      const next = prev.filter((caseItem) => caseItem.id !== id);
-      saveToStorage("cases", next);
+    setLawsuits((prev) => {
+      const next = prev.filter((lawsuitItem) => lawsuitItem.id !== id);
+      saveToStorage("lawsuits", next);
       return next;
     });
 
-    logDeletionHistory("case", prev, actorName);
+    logDeletionHistory("lawsuit", prev, actorName);
     return { ok: true, result: validation.result };
   };
 
   /**
-   * CASCADE DELETE: Delete case and all related entities
+   * CASCADE DELETE: Delete lawsuit and all related entities
    * Called when user confirms force delete from BlockerModal
    */
-  const deleteCaseCascade = async (id) => {
-    if (blockWrite("delete case cascade")) {
+  const deleteLawsuitCascade = async (id) => {
+    if (blockWrite("delete lawsuit cascade")) {
       return { ok: false, result: { message: "License inactive" } };
     }
-    console.log('[DataContext.deleteCaseCascade] Force deleting case and all related entities:', id);
+    console.log('[DataContext.deleteLawsuitCascade] Force deleting lawsuit and all related entities:', id);
 
     try {
-      // Find and delete all missions for this case
-      const caseMissions = missions.filter(m => String(m.caseId) === String(id));
-      for (const mission of caseMissions) {
+      // Find and delete all missions for this lawsuit
+      const lawsuitMissions = missions.filter(m => String(m.lawsuitId) === String(id));
+      for (const mission of lawsuitMissions) {
         await deleteMission(mission.id);
         // Delete history for each mission
         await deleteEntityHistory('mission', mission.id);
       }
 
-      // Find and delete all sessions for this case
-      const caseSessions = sessions.filter(s => String(s.caseId) === String(id));
-      for (const session of caseSessions) {
+      // Find and delete all sessions for this lawsuit
+      const lawsuitSessions = sessions.filter(s => String(s.lawsuitId) === String(id));
+      for (const session of lawsuitSessions) {
         await deleteSession(session.id);
         // Delete history for each session
         await deleteEntityHistory('session', session.id);
       }
 
-      // Find and delete all tasks for this case
-      const caseTasks = tasks.filter(t => t.parentType === 'case' && String(t.caseId) === String(id));
-      for (const task of caseTasks) {
+      // Find and delete all tasks for this lawsuit
+      const lawsuitTasks = tasks.filter(t => t.parentType === 'lawsuit' && String(t.lawsuitId) === String(id));
+      for (const task of lawsuitTasks) {
         await deleteTask(task.id);
         // Delete history for each task
         await deleteEntityHistory('task', task.id);
       }
 
-      // Delete the case from backend
-      await apiClient.delete(`/cases/${id}`);
+      // Delete the lawsuit from backend
+      await apiClient.delete(`/lawsuits/${id}`);
 
-      // Delete all history for this case
-      await deleteEntityHistory('case', id);
+      // Delete all history for this lawsuit
+      await deleteEntityHistory('lawsuit', id);
 
-      setCases((prev) => {
-        const next = prev.filter((caseItem) => caseItem.id !== id);
-        saveToStorage("cases", next);
+      setLawsuits((prev) => {
+        const next = prev.filter((lawsuitItem) => lawsuitItem.id !== id);
+        saveToStorage("lawsuits", next);
         return next;
       });
 
-      const prev = cases.find((c) => c.id === id);
-      logDeletionHistory("case", prev, actorName);
+      const prev = lawsuits.find((c) => c.id === id);
+      logDeletionHistory("lawsuit", prev, actorName);
 
-      console.log('[DataContext.deleteCaseCascade] Successfully deleted case and all related entities');
+      console.log('[DataContext.deleteLawsuitCascade] Successfully deleted lawsuit and all related entities');
       return { ok: true, result: { message: 'Case and all related entities deleted successfully' } };
     } catch (error) {
-      console.error('[DataContext.deleteCaseCascade] Error during cascade delete:', error);
+      console.error('[DataContext.deleteLawsuitCascade] Error during cascade delete:', error);
       return { ok: false, result: { message: 'Error during cascade delete' } };
     }
   };
@@ -1307,7 +1312,7 @@ export function DataProvider({ children }) {
     const validation = validateMutation("session", "add", sessionItem?.id, {
       data: sessionItem,
       newData: sessionItem,
-      entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
+      entities: { clients, dossiers, lawsuits, tasks, sessions, officers, missions, financialEntries }
     }, integrityIssues);
     if (!validation.ok) return validation;
 
@@ -1361,16 +1366,17 @@ export function DataProvider({ children }) {
       duration: emptyToNull(sessionItem.duration),
       outcome: emptyToNull(sessionItem.outcome),
       description: emptyToNull(sessionItem.description),
-      notes: emptyToNull(sessionItem.notes),
+      // Backend expects an array for notes (even if empty)
+      notes: notesToBackendFormat(sessionItem.notes ?? []),
       participants: Array.isArray(sessionItem.participants) ? sessionItem.participants : emptyToNull(sessionItem.participants),
     };
 
-    // Only include dossier_id OR case_id, not both (backend requires XOR)
-    const caseId = emptyToNull(sessionItem.caseId || sessionItem.case_id);
+    // Only include dossier_id OR lawsuit_id, not both (backend requires XOR)
+    const lawsuitId = emptyToNull(sessionItem.lawsuitId || sessionItem.lawsuit_id);
     const dossierId = emptyToNull(sessionItem.dossierId || sessionItem.dossier_id);
-    // Prefer explicit case linkage when both exist (e.g., hearings added from a lawsuit tab)
-    if (caseId) {
-      payload.case_id = caseId;
+    // Prefer explicit lawsuit linkage when both exist (e.g., hearings added from a lawsuit tab)
+    if (lawsuitId) {
+      payload.lawsuit_id = lawsuitId;
     } else if (dossierId) {
       payload.dossier_id = dossierId;
     }
@@ -1379,8 +1385,8 @@ export function DataProvider({ children }) {
 
     const created = await apiClient.post("/sessions", payload);
     const dossiersById = Object.fromEntries(dossiers.map((d) => [d.id, d]));
-    const casesById = Object.fromEntries(cases.map((c) => [c.id, c]));
-    const adapted = adaptSession(created, dossiersById, casesById);
+    const lawsuitsById = Object.fromEntries(lawsuits.map((c) => [c.id, c]));
+    const adapted = adaptSession(created, dossiersById, lawsuitsById);
 
     setSessions((prev) => {
       const next = [...prev, adapted];
@@ -1485,8 +1491,8 @@ export function DataProvider({ children }) {
     if (updates.dossierId !== undefined || updates.dossier_id !== undefined) {
       payload.dossier_id = emptyToNull(updates.dossierId || updates.dossier_id);
     }
-    if (updates.caseId !== undefined || updates.case_id !== undefined) {
-      payload.case_id = emptyToNull(updates.caseId || updates.case_id);
+    if (updates.lawsuitId !== undefined || updates.lawsuit_id !== undefined) {
+      payload.lawsuit_id = emptyToNull(updates.lawsuitId || updates.lawsuit_id);
     }
 
     // Remove undefined values (though they shouldn't be there now)
@@ -1494,8 +1500,8 @@ export function DataProvider({ children }) {
 
     const updated = await apiClient.put(`/sessions/${id}`, payload);
     const dossiersById = Object.fromEntries(dossiers.map((d) => [d.id, d]));
-    const casesById = Object.fromEntries(cases.map((c) => [c.id, c]));
-    const adapted = adaptSession(updated, dossiersById, casesById);
+    const lawsuitsById = Object.fromEntries(lawsuits.map((c) => [c.id, c]));
+    const adapted = adaptSession(updated, dossiersById, lawsuitsById);
 
     setSessions((prev) => {
       const next = prev.map((session) =>
@@ -1510,27 +1516,27 @@ export function DataProvider({ children }) {
     const changeSummary = buildChangeSummary("Session", sessionTitle, prev, updates);
     const updateLabel = changeSummary?.label || `Session modifié: ${sessionTitle}`;
     const changeMetadata = changeSummary?.changes || {};
-    if (adapted.caseId) {
+    if (adapted.lawsuitId) {
       logHistoryEvent({
-        entityType: "case",
-        entityId: adapted.caseId,
+        entityType: "lawsuit",
+        entityId: adapted.lawsuitId,
         eventType: EVENT_TYPES.RELATION,
         label: updateLabel,
         details: updateLabel,
         metadata: { childType: "session", childId: adapted.id, ...changeMetadata },
         actor: actorName,
       });
-      const caseItem = cases.find((c) => String(c.id) === String(adapted.caseId));
-      if (caseItem?.dossierId) {
-        const caseRef = caseItem.caseNumber || caseItem.title || "";
-        const dossierLabel = caseRef ? `${updateLabel} (${caseRef})` : updateLabel;
+      const lawsuitItem = lawsuits.find((c) => String(c.id) === String(adapted.lawsuitId));
+      if (lawsuitItem?.dossierId) {
+        const lawsuitRef = lawsuitItem.lawsuitNumber || lawsuitItem.title || "";
+        const dossierLabel = lawsuitRef ? `${updateLabel} (${lawsuitRef})` : updateLabel;
         logHistoryEvent({
           entityType: "dossier",
-          entityId: caseItem.dossierId,
+          entityId: lawsuitItem.dossierId,
           eventType: EVENT_TYPES.RELATION,
           label: dossierLabel,
           details: dossierLabel,
-          metadata: { childType: "case", childId: caseItem.id, relatedType: "session", relatedId: adapted.id, ...changeMetadata },
+          metadata: { childType: "lawsuit", childId: lawsuitItem.id, relatedType: "session", relatedId: adapted.id, ...changeMetadata },
           actor: actorName,
         });
       }
@@ -1556,7 +1562,7 @@ export function DataProvider({ children }) {
     const prev = sessions.find((s) => s.id === id);
     const validation = validateMutation("session", "delete", id, {
       data: prev,
-      entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
+      entities: { clients, dossiers, lawsuits, tasks, sessions, officers, missions, financialEntries }
     }, integrityIssues);
     if (!validation.ok) return validation;
 
@@ -1574,20 +1580,20 @@ export function DataProvider({ children }) {
     });
 
     logDeletionHistory("session", prev, actorName);
-    if (prev?.caseId) {
-      const caseItem = cases.find((c) => String(c.id) === String(prev.caseId));
-      if (caseItem?.dossierId) {
+    if (prev?.lawsuitId) {
+      const lawsuitItem = lawsuits.find((c) => String(c.id) === String(prev.lawsuitId));
+      if (lawsuitItem?.dossierId) {
         const sessionTitle = prev.title || "Session";
         const deleteLabel = `Session deleted: ${sessionTitle}`;
-        const caseRef = caseItem.caseNumber || caseItem.title || "";
-        const dossierLabel = caseRef ? `${deleteLabel} (${caseRef})` : deleteLabel;
+        const lawsuitRef = lawsuitItem.lawsuitNumber || lawsuitItem.title || "";
+        const dossierLabel = lawsuitRef ? `${deleteLabel} (${lawsuitRef})` : deleteLabel;
         logHistoryEvent({
           entityType: "dossier",
-          entityId: caseItem.dossierId,
+          entityId: lawsuitItem.dossierId,
           eventType: EVENT_TYPES.RELATION,
           label: dossierLabel,
           details: dossierLabel,
-          metadata: { childType: "case", childId: caseItem.id, relatedType: "session", relatedId: prev.id },
+          metadata: { childType: "lawsuit", childId: lawsuitItem.id, relatedType: "session", relatedId: prev.id },
           actor: actorName,
         });
       }
@@ -1595,7 +1601,7 @@ export function DataProvider({ children }) {
     return { ok: true, result: validation.result };
   };
 
-  // --- Tasks (linked to dossiers/cases) ---
+  // --- Tasks (linked to dossiers/lawsuits) ---
   const addTask = async (taskItem) => {
     if (blockWrite("add task")) {
       return { ok: false, result: { message: "License inactive" } };
@@ -1605,7 +1611,7 @@ export function DataProvider({ children }) {
     const validation = validateMutation("task", "add", taskItem?.id, {
       data: taskItem,
       newData: taskItem,
-      entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
+      entities: { clients, dossiers, lawsuits, tasks, sessions, officers, missions, financialEntries }
     }, integrityIssues);
     if (!validation.ok) return validation;
 
@@ -1623,20 +1629,20 @@ export function DataProvider({ children }) {
       priority: taskItem.priority || "Moyenne",
     };
 
-    // Only include dossier_id OR case_id, not both (backend requires XOR)
-    const caseId = emptyToNull(taskItem.caseId || taskItem.case_id);
+    // Only include dossier_id OR lawsuit_id, not both (backend requires XOR)
+    const lawsuitId = emptyToNull(taskItem.lawsuitId || taskItem.lawsuit_id);
     const dossierId = emptyToNull(taskItem.dossierId || taskItem.dossier_id);
-    // Prefer explicit case linkage when both exist (tasks added from a lawsuit tab)
-    if (caseId) {
-      payload.case_id = caseId;
+    // Prefer explicit lawsuit linkage when both exist (tasks added from a lawsuit tab)
+    if (lawsuitId) {
+      payload.lawsuit_id = lawsuitId;
     } else if (dossierId) {
       payload.dossier_id = dossierId;
     }
 
     const created = await apiClient.post("/tasks", payload);
     const dossiersById = Object.fromEntries(dossiers.map((d) => [d.id, d]));
-    const casesById = Object.fromEntries(cases.map((c) => [c.id, c]));
-    const adapted = adaptTask(created, dossiersById, casesById);
+    const lawsuitsById = Object.fromEntries(lawsuits.map((c) => [c.id, c]));
+    const adapted = adaptTask(created, dossiersById, lawsuitsById);
 
     setTasks((prev) => {
       const next = [...prev, adapted];
@@ -1673,8 +1679,8 @@ export function DataProvider({ children }) {
     if (updates.dossierId !== undefined || updates.dossier_id !== undefined) {
       payload.dossier_id = emptyToNull(updates.dossierId || updates.dossier_id);
     }
-    if (updates.caseId !== undefined || updates.case_id !== undefined) {
-      payload.case_id = emptyToNull(updates.caseId || updates.case_id);
+    if (updates.lawsuitId !== undefined || updates.lawsuit_id !== undefined) {
+      payload.lawsuit_id = emptyToNull(updates.lawsuitId || updates.lawsuit_id);
     }
     if (updates.assignedTo !== undefined || updates.assigned_to !== undefined) {
       payload.assigned_to = emptyToNull(updates.assignedTo || updates.assigned_to);
@@ -1709,8 +1715,8 @@ export function DataProvider({ children }) {
 
     const updated = await apiClient.put(`/tasks/${id}`, payload);
     const dossiersById = Object.fromEntries(dossiers.map((d) => [d.id, d]));
-    const casesById = Object.fromEntries(cases.map((c) => [c.id, c]));
-    const adapted = adaptTask(updated, dossiersById, casesById);
+    const lawsuitsById = Object.fromEntries(lawsuits.map((c) => [c.id, c]));
+    const adapted = adaptTask(updated, dossiersById, lawsuitsById);
 
     setTasks((prev) => {
       const next = prev.map((task) =>
@@ -1725,27 +1731,27 @@ export function DataProvider({ children }) {
     const changeSummary = buildChangeSummary("Tâche", taskTitle, prev, updates);
     const updateLabel = changeSummary?.label || `Tâche modifiée: ${taskTitle}`;
     const changeMetadata = changeSummary?.changes || {};
-    if (adapted.caseId) {
+    if (adapted.lawsuitId) {
       logHistoryEvent({
-        entityType: "case",
-        entityId: adapted.caseId,
+        entityType: "lawsuit",
+        entityId: adapted.lawsuitId,
         eventType: EVENT_TYPES.RELATION,
         label: updateLabel,
         details: updateLabel,
         metadata: { childType: "task", childId: adapted.id, ...changeMetadata },
         actor: actorName,
       });
-      const caseItem = cases.find((c) => String(c.id) === String(adapted.caseId));
-      if (caseItem?.dossierId) {
-        const caseRef = caseItem.caseNumber || caseItem.title || "";
-        const dossierLabel = caseRef ? `${updateLabel} (${caseRef})` : updateLabel;
+      const lawsuitItem = lawsuits.find((c) => String(c.id) === String(adapted.lawsuitId));
+      if (lawsuitItem?.dossierId) {
+        const lawsuitRef = lawsuitItem.lawsuitNumber || lawsuitItem.title || "";
+        const dossierLabel = lawsuitRef ? `${updateLabel} (${lawsuitRef})` : updateLabel;
         logHistoryEvent({
           entityType: "dossier",
-          entityId: caseItem.dossierId,
+          entityId: lawsuitItem.dossierId,
           eventType: EVENT_TYPES.RELATION,
           label: dossierLabel,
           details: dossierLabel,
-          metadata: { childType: "case", childId: caseItem.id, relatedType: "task", relatedId: adapted.id, ...changeMetadata },
+          metadata: { childType: "lawsuit", childId: lawsuitItem.id, relatedType: "task", relatedId: adapted.id, ...changeMetadata },
           actor: actorName,
         });
       }
@@ -1771,7 +1777,7 @@ export function DataProvider({ children }) {
     const prev = tasks.find((t) => t.id === id);
     const validation = validateMutation("task", "delete", id, {
       data: prev,
-      entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
+      entities: { clients, dossiers, lawsuits, tasks, sessions, officers, missions, financialEntries }
     }, integrityIssues);
     if (!validation.ok) return validation;
 
@@ -1789,20 +1795,20 @@ export function DataProvider({ children }) {
     });
 
     logDeletionHistory("task", prev, actorName);
-    if (prev?.caseId) {
-      const caseItem = cases.find((c) => String(c.id) === String(prev.caseId));
-      if (caseItem?.dossierId) {
+    if (prev?.lawsuitId) {
+      const lawsuitItem = lawsuits.find((c) => String(c.id) === String(prev.lawsuitId));
+      if (lawsuitItem?.dossierId) {
         const taskTitle = prev.title || "Task";
         const deleteLabel = `Task deleted: ${taskTitle}`;
-        const caseRef = caseItem.caseNumber || caseItem.title || "";
-        const dossierLabel = caseRef ? `${deleteLabel} (${caseRef})` : deleteLabel;
+        const lawsuitRef = lawsuitItem.lawsuitNumber || lawsuitItem.title || "";
+        const dossierLabel = lawsuitRef ? `${deleteLabel} (${lawsuitRef})` : deleteLabel;
         logHistoryEvent({
           entityType: "dossier",
-          entityId: caseItem.dossierId,
+          entityId: lawsuitItem.dossierId,
           eventType: EVENT_TYPES.RELATION,
           label: dossierLabel,
           details: dossierLabel,
-          metadata: { childType: "case", childId: caseItem.id, relatedType: "task", relatedId: prev.id },
+          metadata: { childType: "lawsuit", childId: lawsuitItem.id, relatedType: "task", relatedId: prev.id },
           actor: actorName,
         });
       }
@@ -1818,7 +1824,7 @@ export function DataProvider({ children }) {
     const validation = validateMutation("personalTask", "add", task?.id, {
       data: task,
       newData: task,
-      entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries, personalTasks }
+      entities: { clients, dossiers, lawsuits, tasks, sessions, officers, missions, financialEntries, personalTasks }
     }, integrityIssues);
     if (!validation.ok) return validation;
 
@@ -1897,7 +1903,8 @@ export function DataProvider({ children }) {
       priority: normalizePriority(task.priority),
       due_date: emptyToNull(task.dueDate || task.due_date),
       completed_at: emptyToNull(task.completedAt || task.completed_at),
-      notes: emptyToNull(task.notes),
+      // Backend expects an array for notes (even if empty)
+      notes: notesToBackendFormat(task.notes ?? []),
     };
 
     console.log('[DataContext.addPersonalTask] Sending payload:', payload);
@@ -2036,7 +2043,7 @@ export function DataProvider({ children }) {
     const prev = personalTasks.find((t) => t.id === id);
     const validation = validateMutation("personalTask", "delete", id, {
       data: prev,
-      entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
+      entities: { clients, dossiers, lawsuits, tasks, sessions, officers, missions, financialEntries }
     }, integrityIssues);
     if (!validation.ok) return validation;
 
@@ -2062,7 +2069,7 @@ export function DataProvider({ children }) {
     const validation = validateMutation("officer", "add", officer?.id, {
       data: officer,
       newData: officer,
-      entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
+      entities: { clients, dossiers, lawsuits, tasks, sessions, officers, missions, financialEntries }
     }, integrityIssues);
     if (!validation.ok) return validation;
 
@@ -2089,7 +2096,8 @@ export function DataProvider({ children }) {
       location: emptyToNull(officer.location),
       agency: emptyToNull(officer.agency),
       status: normalizeOfficerStatus(officer.status),
-      notes: emptyToNull(officer.notes),
+      // Backend expects an array for notes (even if empty)
+      notes: notesToBackendFormat(officer.notes ?? []),
     };
 
     console.log('[DataContext.addOfficer] Sending payload:', payload);
@@ -2194,7 +2202,7 @@ export function DataProvider({ children }) {
     const prev = officers.find((o) => o.id === id);
     const validation = validateMutation("officer", "delete", id, {
       data: prev,
-      entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
+      entities: { clients, dossiers, lawsuits, tasks, sessions, officers, missions, financialEntries }
     }, integrityIssues);
     if (!validation.ok) return validation;
 
@@ -2284,7 +2292,7 @@ export function DataProvider({ children }) {
     const validation = validateMutation("mission", "add", mission?.id, {
       data: mission,
       newData: mission,
-      entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
+      entities: { clients, dossiers, lawsuits, tasks, sessions, officers, missions, financialEntries }
     }, integrityIssues);
     if (!validation.ok) return validation;
 
@@ -2295,28 +2303,28 @@ export function DataProvider({ children }) {
     // Determine which entity to link based on entityType or which ID is provided
     const entityType = mission.entityType;
     const dossierId = emptyToNull(mission.dossierId ?? mission.dossier_id);
-    const caseId = emptyToNull(mission.caseId ?? mission.case_id);
+    const lawsuitId = emptyToNull(mission.lawsuitId ?? mission.lawsuit_id);
 
-    // Backend requires EITHER dossier_id OR case_id (exclusive)
-    // Prefer the explicit entityType, otherwise mirror the task XOR rule (case wins ties)
+    // Backend requires EITHER dossier_id OR lawsuit_id (exclusive)
+    // Prefer the explicit entityType, otherwise mirror the task XOR rule (lawsuit wins ties)
     let finalDossierId = null;
-    let finalCaseId = null;
+    let finallawsuitId = null;
 
-    if (entityType === "case") {
-      finalCaseId = caseId || null;
-      if (!finalCaseId && dossierId) {
+    if (entityType === "lawsuit") {
+      finallawsuitId = lawsuitId || null;
+      if (!finallawsuitId && dossierId) {
         finalDossierId = dossierId;
       }
     } else if (entityType === "dossier") {
       finalDossierId = dossierId || null;
-      if (!finalDossierId && caseId) {
-        finalCaseId = caseId;
+      if (!finalDossierId && lawsuitId) {
+        finallawsuitId = lawsuitId;
       }
-    } else if (caseId && dossierId) {
-      // Ambiguous: default to case linkage to align with tasks
-      finalCaseId = caseId;
-    } else if (caseId) {
-      finalCaseId = caseId;
+    } else if (lawsuitId && dossierId) {
+      // Ambiguous: default to lawsuit linkage to align with tasks
+      finallawsuitId = lawsuitId;
+    } else if (lawsuitId) {
+      finallawsuitId = lawsuitId;
     } else if (dossierId) {
       finalDossierId = dossierId;
     }
@@ -2349,7 +2357,7 @@ export function DataProvider({ children }) {
       result: emptyToNull(mission.result),
       notes: emptyToNull(mission.notes),
       dossier_id: finalDossierId,
-      case_id: finalCaseId,
+      lawsuit_id: finallawsuitId,
       officer_id: emptyToNull(mission.officerId || mission.officer_id),
       reference: emptyToNull(mission.missionNumber || mission.reference),
     };
@@ -2358,8 +2366,8 @@ export function DataProvider({ children }) {
 
     const created = await apiClient.post("/missions", payload);
     const dossiersById = Object.fromEntries(dossiers.map((d) => [d.id, d]));
-    const casesById = Object.fromEntries(cases.map((c) => [c.id, c]));
-    const adapted = adaptMission(created, dossiersById, casesById);
+    const lawsuitsById = Object.fromEntries(lawsuits.map((c) => [c.id, c]));
+    const adapted = adaptMission(created, dossiersById, lawsuitsById);
 
     setMissions((prev) => {
       const next = [...prev, adapted];
@@ -2367,7 +2375,7 @@ export function DataProvider({ children }) {
       return next;
     });
 
-    // Update parent dossier or case with the new mission
+    // Update parent dossier or lawsuit with the new mission
     if (adapted.entityType === "dossier" && adapted.dossierId) {
       setDossiers((prev) => {
         const next = prev.map((d) =>
@@ -2378,14 +2386,14 @@ export function DataProvider({ children }) {
         saveToStorage("dossiers", next);
         return next;
       });
-    } else if (adapted.entityType === "case" && adapted.caseId) {
-      setCases((prev) => {
+    } else if (adapted.entityType === "lawsuit" && adapted.lawsuitId) {
+      setLawsuits((prev) => {
         const next = prev.map((c) =>
-          c.id === adapted.caseId
+          c.id === adapted.lawsuitId
             ? { ...c, missions: [...(c.missions || []), adapted] }
             : c
         );
-        saveToStorage("cases", next);
+        saveToStorage("lawsuits", next);
         return next;
       });
     }
@@ -2393,27 +2401,27 @@ export function DataProvider({ children }) {
     logCreationHistory("mission", created, actorName);
     const createdTitle = adapted.title || created.title || "Mission";
     const missionCreateLabel = `Mission created: ${createdTitle}`;
-    if (adapted.caseId) {
+    if (adapted.lawsuitId) {
       logHistoryEvent({
-        entityType: "case",
-        entityId: adapted.caseId,
+        entityType: "lawsuit",
+        entityId: adapted.lawsuitId,
         eventType: EVENT_TYPES.RELATION,
         label: missionCreateLabel,
         details: missionCreateLabel,
         metadata: { childType: "mission", childId: adapted.id },
         actor: actorName,
       });
-      const caseItem = cases.find((c) => String(c.id) === String(adapted.caseId));
-      if (caseItem?.dossierId) {
-        const caseRef = caseItem.caseNumber || caseItem.title || "";
-        const dossierLabel = caseRef ? `${missionCreateLabel} (${caseRef})` : missionCreateLabel;
+      const lawsuitItem = lawsuits.find((c) => String(c.id) === String(adapted.lawsuitId));
+      if (lawsuitItem?.dossierId) {
+        const lawsuitRef = lawsuitItem.lawsuitNumber || lawsuitItem.title || "";
+        const dossierLabel = lawsuitRef ? `${missionCreateLabel} (${lawsuitRef})` : missionCreateLabel;
         logHistoryEvent({
           entityType: "dossier",
-          entityId: caseItem.dossierId,
+          entityId: lawsuitItem.dossierId,
           eventType: EVENT_TYPES.RELATION,
           label: dossierLabel,
           details: dossierLabel,
-          metadata: { childType: "case", childId: caseItem.id, relatedType: "mission", relatedId: adapted.id },
+          metadata: { childType: "lawsuit", childId: lawsuitItem.id, relatedType: "mission", relatedId: adapted.id },
           actor: actorName,
         });
       }
@@ -2502,8 +2510,8 @@ export function DataProvider({ children }) {
     if (updates.dossierId !== undefined || updates.dossier_id !== undefined) {
       payload.dossier_id = emptyToNull(updates.dossierId || updates.dossier_id);
     }
-    if (updates.caseId !== undefined || updates.case_id !== undefined) {
-      payload.case_id = emptyToNull(updates.caseId || updates.case_id);
+    if (updates.lawsuitId !== undefined || updates.lawsuit_id !== undefined) {
+      payload.lawsuit_id = emptyToNull(updates.lawsuitId || updates.lawsuit_id);
     }
     if (updates.officerId !== undefined || updates.officer_id !== undefined) {
       payload.officer_id = emptyToNull(updates.officerId || updates.officer_id);
@@ -2514,8 +2522,8 @@ export function DataProvider({ children }) {
 
     const updated = await apiClient.put(`/missions/${id}`, payload);
     const dossiersById = Object.fromEntries(dossiers.map((d) => [d.id, d]));
-    const casesById = Object.fromEntries(cases.map((c) => [c.id, c]));
-    const adapted = adaptMission(updated, dossiersById, casesById);
+    const lawsuitsById = Object.fromEntries(lawsuits.map((c) => [c.id, c]));
+    const adapted = adaptMission(updated, dossiersById, lawsuitsById);
 
     setMissions((prev) => {
       const next = prev.map((mission) =>
@@ -2530,27 +2538,27 @@ export function DataProvider({ children }) {
     const changeSummary = buildChangeSummary("Mission", updatedTitle, prev, updates);
     const missionUpdateLabel = changeSummary?.label || `Mission modifiée: ${updatedTitle}`;
     const changeMetadata = changeSummary?.changes || {};
-    if (adapted.caseId) {
+    if (adapted.lawsuitId) {
       logHistoryEvent({
-        entityType: "case",
-        entityId: adapted.caseId,
+        entityType: "lawsuit",
+        entityId: adapted.lawsuitId,
         eventType: EVENT_TYPES.RELATION,
         label: missionUpdateLabel,
         details: missionUpdateLabel,
         metadata: { childType: "mission", childId: adapted.id, ...changeMetadata },
         actor: actorName,
       });
-      const caseItem = cases.find((c) => String(c.id) === String(adapted.caseId));
-      if (caseItem?.dossierId) {
-        const caseRef = caseItem.caseNumber || caseItem.title || "";
-        const dossierLabel = caseRef ? `${missionUpdateLabel} (${caseRef})` : missionUpdateLabel;
+      const lawsuitItem = lawsuits.find((c) => String(c.id) === String(adapted.lawsuitId));
+      if (lawsuitItem?.dossierId) {
+        const lawsuitRef = lawsuitItem.lawsuitNumber || lawsuitItem.title || "";
+        const dossierLabel = lawsuitRef ? `${missionUpdateLabel} (${lawsuitRef})` : missionUpdateLabel;
         logHistoryEvent({
           entityType: "dossier",
-          entityId: caseItem.dossierId,
+          entityId: lawsuitItem.dossierId,
           eventType: EVENT_TYPES.RELATION,
           label: dossierLabel,
           details: dossierLabel,
-          metadata: { childType: "case", childId: caseItem.id, relatedType: "mission", relatedId: adapted.id, ...changeMetadata },
+          metadata: { childType: "lawsuit", childId: lawsuitItem.id, relatedType: "mission", relatedId: adapted.id, ...changeMetadata },
           actor: actorName,
         });
       }
@@ -2601,8 +2609,8 @@ export function DataProvider({ children }) {
     const payload = { status };
     const updated = await apiClient.put(`/missions/${id}`, payload);
     const dossiersById = Object.fromEntries(dossiers.map((d) => [d.id, d]));
-    const casesById = Object.fromEntries(cases.map((c) => [c.id, c]));
-    const adapted = adaptMission(updated, dossiersById, casesById);
+    const lawsuitsById = Object.fromEntries(lawsuits.map((c) => [c.id, c]));
+    const adapted = adaptMission(updated, dossiersById, lawsuitsById);
 
     setMissions((prevMissions) => {
       const next = prevMissions.map((mission) =>
@@ -2617,27 +2625,27 @@ export function DataProvider({ children }) {
     const changeSummary = buildChangeSummary("Mission", updatedTitle, prev, updates);
     const missionUpdateLabel = changeSummary?.label || `Mission modifiée: ${updatedTitle}`;
     const changeMetadata = changeSummary?.changes || {};
-    if (adapted.caseId) {
+    if (adapted.lawsuitId) {
       logHistoryEvent({
-        entityType: "case",
-        entityId: adapted.caseId,
+        entityType: "lawsuit",
+        entityId: adapted.lawsuitId,
         eventType: EVENT_TYPES.RELATION,
         label: missionUpdateLabel,
         details: missionUpdateLabel,
         metadata: { childType: "mission", childId: adapted.id, ...changeMetadata },
         actor: actorName,
       });
-      const caseItem = cases.find((c) => String(c.id) === String(adapted.caseId));
-      if (caseItem?.dossierId) {
-        const caseRef = caseItem.caseNumber || caseItem.title || "";
-        const dossierLabel = caseRef ? `${missionUpdateLabel} (${caseRef})` : missionUpdateLabel;
+      const lawsuitItem = lawsuits.find((c) => String(c.id) === String(adapted.lawsuitId));
+      if (lawsuitItem?.dossierId) {
+        const lawsuitRef = lawsuitItem.lawsuitNumber || lawsuitItem.title || "";
+        const dossierLabel = lawsuitRef ? `${missionUpdateLabel} (${lawsuitRef})` : missionUpdateLabel;
         logHistoryEvent({
           entityType: "dossier",
-          entityId: caseItem.dossierId,
+          entityId: lawsuitItem.dossierId,
           eventType: EVENT_TYPES.RELATION,
           label: dossierLabel,
           details: dossierLabel,
-          metadata: { childType: "case", childId: caseItem.id, relatedType: "mission", relatedId: adapted.id, ...changeMetadata },
+          metadata: { childType: "lawsuit", childId: lawsuitItem.id, relatedType: "mission", relatedId: adapted.id, ...changeMetadata },
           actor: actorName,
         });
       }
@@ -2674,7 +2682,7 @@ export function DataProvider({ children }) {
     const prev = missions.find((m) => m.id === id);
     const validation = validateMutation("mission", "delete", id, {
       data: prev,
-      entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
+      entities: { clients, dossiers, lawsuits, tasks, sessions, officers, missions, financialEntries }
     }, integrityIssues);
     if (!validation.ok) return validation;
 
@@ -2689,29 +2697,29 @@ export function DataProvider({ children }) {
     });
 
     logDeletionHistory("mission", prev, actorName);
-    if (prev?.caseId) {
+    if (prev?.lawsuitId) {
       const deleteTitle = prev.title || "Mission";
       const missionDeleteLabel = `Mission deleted: ${deleteTitle}`;
       logHistoryEvent({
-        entityType: "case",
-        entityId: prev.caseId,
+        entityType: "lawsuit",
+        entityId: prev.lawsuitId,
         eventType: EVENT_TYPES.RELATION,
         label: missionDeleteLabel,
         details: missionDeleteLabel,
         metadata: { childType: "mission", childId: prev.id },
         actor: actorName,
       });
-      const caseItem = cases.find((c) => String(c.id) === String(prev.caseId));
-      if (caseItem?.dossierId) {
-        const caseRef = caseItem.caseNumber || caseItem.title || "";
-        const dossierLabel = caseRef ? `${missionDeleteLabel} (${caseRef})` : missionDeleteLabel;
+      const lawsuitItem = lawsuits.find((c) => String(c.id) === String(prev.lawsuitId));
+      if (lawsuitItem?.dossierId) {
+        const lawsuitRef = lawsuitItem.lawsuitNumber || lawsuitItem.title || "";
+        const dossierLabel = lawsuitRef ? `${missionDeleteLabel} (${lawsuitRef})` : missionDeleteLabel;
         logHistoryEvent({
           entityType: "dossier",
-          entityId: caseItem.dossierId,
+          entityId: lawsuitItem.dossierId,
           eventType: EVENT_TYPES.RELATION,
           label: dossierLabel,
           details: dossierLabel,
-          metadata: { childType: "case", childId: caseItem.id, relatedType: "mission", relatedId: prev.id },
+          metadata: { childType: "lawsuit", childId: lawsuitItem.id, relatedType: "mission", relatedId: prev.id },
           actor: actorName,
         });
       }
@@ -2786,29 +2794,29 @@ export function DataProvider({ children }) {
 
       const prev = missions.find((m) => m.id === id);
       logDeletionHistory("mission", prev, actorName);
-      if (prev?.caseId) {
+      if (prev?.lawsuitId) {
         const deleteTitle = prev.title || "Mission";
         const missionDeleteLabel = `Mission deleted: ${deleteTitle}`;
         logHistoryEvent({
-          entityType: "case",
-          entityId: prev.caseId,
+          entityType: "lawsuit",
+          entityId: prev.lawsuitId,
           eventType: EVENT_TYPES.RELATION,
           label: missionDeleteLabel,
           details: missionDeleteLabel,
           metadata: { childType: "mission", childId: prev.id },
           actor: actorName,
         });
-        const caseItem = cases.find((c) => String(c.id) === String(prev.caseId));
-        if (caseItem?.dossierId) {
-          const caseRef = caseItem.caseNumber || caseItem.title || "";
-          const dossierLabel = caseRef ? `${missionDeleteLabel} (${caseRef})` : missionDeleteLabel;
+        const lawsuitItem = lawsuits.find((c) => String(c.id) === String(prev.lawsuitId));
+        if (lawsuitItem?.dossierId) {
+          const lawsuitRef = lawsuitItem.lawsuitNumber || lawsuitItem.title || "";
+          const dossierLabel = lawsuitRef ? `${missionDeleteLabel} (${lawsuitRef})` : missionDeleteLabel;
           logHistoryEvent({
             entityType: "dossier",
-            entityId: caseItem.dossierId,
+            entityId: lawsuitItem.dossierId,
             eventType: EVENT_TYPES.RELATION,
             label: dossierLabel,
             details: dossierLabel,
-            metadata: { childType: "case", childId: caseItem.id, relatedType: "mission", relatedId: prev.id },
+            metadata: { childType: "lawsuit", childId: lawsuitItem.id, relatedType: "mission", relatedId: prev.id },
             actor: actorName,
           });
         }
@@ -2888,15 +2896,15 @@ export function DataProvider({ children }) {
     if (entry.dossierId) {
       logTarget("dossier", entry.dossierId);
     }
-    if (entry.caseId) {
-      logTarget("case", entry.caseId);
-      const caseItem = cases.find((c) => String(c.id) === String(entry.caseId));
-      if (caseItem?.dossierId) {
-        const caseRef = caseItem.caseNumber || caseItem.title || "";
-        const dossierLabel = caseRef ? `${baseLabel} (${caseRef})` : baseLabel;
-        logTarget("dossier", caseItem.dossierId, dossierLabel, {
-          childType: "case",
-          childId: caseItem.id,
+    if (entry.lawsuitId) {
+      logTarget("lawsuit", entry.lawsuitId);
+      const lawsuitItem = lawsuits.find((c) => String(c.id) === String(entry.lawsuitId));
+      if (lawsuitItem?.dossierId) {
+        const lawsuitRef = lawsuitItem.lawsuitNumber || lawsuitItem.title || "";
+        const dossierLabel = lawsuitRef ? `${baseLabel} (${lawsuitRef})` : baseLabel;
+        logTarget("dossier", lawsuitItem.dossierId, dossierLabel, {
+          childType: "lawsuit",
+          childId: lawsuitItem.id,
           relatedType: "financial_entry",
           relatedId: entry.id,
         });
@@ -2905,21 +2913,21 @@ export function DataProvider({ children }) {
     if (entry.missionId) {
       logTarget("mission", entry.missionId);
       const missionItem = missions.find((m) => String(m.id) === String(entry.missionId));
-      if (missionItem?.entityType === "case" && missionItem?.entityId) {
-        const caseRef = missionItem.entityReference || "";
-        const caseLabel = caseRef ? `${baseLabel} (${caseRef})` : baseLabel;
-        logTarget("case", missionItem.entityId, caseLabel, {
+      if (missionItem?.entityType === "lawsuit" && missionItem?.entityId) {
+        const lawsuitRef = missionItem.entityReference || "";
+        const lawsuitLabel = lawsuitRef ? `${baseLabel} (${lawsuitRef})` : baseLabel;
+        logTarget("lawsuit", missionItem.entityId, lawsuitLabel, {
           childType: "mission",
           childId: missionItem.id,
           relatedType: "financial_entry",
           relatedId: entry.id,
         });
-        const caseItem = cases.find((c) => String(c.id) === String(missionItem.entityId));
-        if (caseItem?.dossierId) {
-          const dossierLabel = caseRef ? `${baseLabel} (${caseRef})` : baseLabel;
-          logTarget("dossier", caseItem.dossierId, dossierLabel, {
-            childType: "case",
-            childId: caseItem.id,
+        const lawsuitItem = lawsuits.find((c) => String(c.id) === String(missionItem.entityId));
+        if (lawsuitItem?.dossierId) {
+          const dossierLabel = lawsuitRef ? `${baseLabel} (${lawsuitRef})` : baseLabel;
+          logTarget("dossier", lawsuitItem.dossierId, dossierLabel, {
+            childType: "lawsuit",
+            childId: lawsuitItem.id,
             relatedType: "financial_entry",
             relatedId: entry.id,
           });
@@ -2946,22 +2954,22 @@ export function DataProvider({ children }) {
     if (entry.taskId) {
       logTarget("task", entry.taskId);
       const taskItem = tasks.find((t) => String(t.id) === String(entry.taskId));
-      if (taskItem?.caseId) {
-        const caseItem = cases.find((c) => String(c.id) === String(taskItem.caseId));
-        if (caseItem) {
-          const caseRef = caseItem.caseNumber || caseItem.title || "";
-          const caseLabel = caseRef ? `${baseLabel} (${caseRef})` : baseLabel;
-          logTarget("case", caseItem.id, caseLabel, {
+      if (taskItem?.lawsuitId) {
+        const lawsuitItem = lawsuits.find((c) => String(c.id) === String(taskItem.lawsuitId));
+        if (lawsuitItem) {
+          const lawsuitRef = lawsuitItem.lawsuitNumber || lawsuitItem.title || "";
+          const lawsuitLabel = lawsuitRef ? `${baseLabel} (${lawsuitRef})` : baseLabel;
+          logTarget("lawsuit", lawsuitItem.id, lawsuitLabel, {
             childType: "task",
             childId: taskItem.id,
             relatedType: "financial_entry",
             relatedId: entry.id,
           });
-          if (caseItem.dossierId) {
-            const dossierLabel = caseRef ? `${baseLabel} (${caseRef})` : baseLabel;
-            logTarget("dossier", caseItem.dossierId, dossierLabel, {
-              childType: "case",
-              childId: caseItem.id,
+          if (lawsuitItem.dossierId) {
+            const dossierLabel = lawsuitRef ? `${baseLabel} (${lawsuitRef})` : baseLabel;
+            logTarget("dossier", lawsuitItem.dossierId, dossierLabel, {
+              childType: "lawsuit",
+              childId: lawsuitItem.id,
               relatedType: "financial_entry",
               relatedId: entry.id,
             });
@@ -2984,7 +2992,7 @@ export function DataProvider({ children }) {
     const validation = validateMutation("financialEntry", "add", entry?.id, {
       data: entry,
       newData: entry,
-      entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
+      entities: { clients, dossiers, lawsuits, tasks, sessions, officers, missions, financialEntries }
     }, integrityIssues);
     if (!validation.ok) return validation;
 
@@ -3015,7 +3023,7 @@ export function DataProvider({ children }) {
       scope: entry.scope || "client", // Default to client scope if not specified
       client_id: emptyToNull(entry.clientId || entry.client_id),
       dossier_id: emptyToNull(entry.dossierId || entry.dossier_id),
-      case_id: emptyToNull(entry.caseId || entry.case_id),
+      lawsuit_id: emptyToNull(entry.lawsuitId || entry.lawsuit_id),
       mission_id: emptyToNull(entry.missionId || entry.mission_id),
       task_id: emptyToNull(entry.taskId || entry.task_id),
       personal_task_id: emptyToNull(entry.personalTaskId || entry.personal_task_id),
@@ -3037,8 +3045,8 @@ export function DataProvider({ children }) {
     const created = await apiClient.post("/financial", payload);
     const clientsById = Object.fromEntries(clients.map((c) => [c.id, c]));
     const dossiersById = Object.fromEntries(dossiers.map((d) => [d.id, d]));
-    const casesById = Object.fromEntries(cases.map((c) => [c.id, c]));
-    const adapted = adaptFinancialEntry(created, clientsById, dossiersById, casesById);
+    const lawsuitsById = Object.fromEntries(lawsuits.map((c) => [c.id, c]));
+    const adapted = adaptFinancialEntry(created, clientsById, dossiersById, lawsuitsById);
 
     setFinancialEntries((prev) => {
       const next = [...prev, adapted];
@@ -3064,7 +3072,7 @@ export function DataProvider({ children }) {
     const validation = validateMutation("financialEntry", "edit", id, {
       data: prev,
       newData: { ...prev, ...updates },
-      entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
+      entities: { clients, dossiers, lawsuits, tasks, sessions, officers, missions, financialEntries }
     }, integrityIssues);
     if (!validation.ok) return validation;
 
@@ -3073,7 +3081,7 @@ export function DataProvider({ children }) {
     const payload = {
       client_id: updates.clientId,
       dossier_id: updates.dossierId,
-      case_id: updates.caseId,
+      lawsuit_id: updates.lawsuitId,
       task_id: updates.taskId,
       personal_task_id: updates.personalTaskId,
       entry_type: updates.type || updates.entryType,
@@ -3093,8 +3101,8 @@ export function DataProvider({ children }) {
     const updated = await apiClient.put(`/financial/${id}`, payload);
     const clientsById = Object.fromEntries(clients.map((c) => [c.id, c]));
     const dossiersById = Object.fromEntries(dossiers.map((d) => [d.id, d]));
-    const casesById = Object.fromEntries(cases.map((c) => [c.id, c]));
-    const adapted = adaptFinancialEntry(updated, clientsById, dossiersById, casesById);
+    const lawsuitsById = Object.fromEntries(lawsuits.map((c) => [c.id, c]));
+    const adapted = adaptFinancialEntry(updated, clientsById, dossiersById, lawsuitsById);
 
     setFinancialEntries((prev) => {
       const next = prev.map((entry) =>
@@ -3125,7 +3133,7 @@ export function DataProvider({ children }) {
     const validation = validateMutation("financialEntry", "changeStatus", id, {
       data: prev,
       newData: { ...prev, ...updates },
-      entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries },
+      entities: { clients, dossiers, lawsuits, tasks, sessions, officers, missions, financialEntries },
     }, integrityIssues, skipConfirmation);
     if (!validation.ok) return validation;
 
@@ -3139,8 +3147,8 @@ export function DataProvider({ children }) {
     const updated = await apiClient.put(`/financial/${id}`, payload);
     const clientsById = Object.fromEntries(clients.map((c) => [c.id, c]));
     const dossiersById = Object.fromEntries(dossiers.map((d) => [d.id, d]));
-    const casesById = Object.fromEntries(cases.map((c) => [c.id, c]));
-    const adapted = adaptFinancialEntry(updated, clientsById, dossiersById, casesById);
+    const lawsuitsById = Object.fromEntries(lawsuits.map((c) => [c.id, c]));
+    const adapted = adaptFinancialEntry(updated, clientsById, dossiersById, lawsuitsById);
 
     setFinancialEntries((prevEntries) => {
       const next = prevEntries.map((entry) =>
@@ -3164,7 +3172,7 @@ export function DataProvider({ children }) {
     const prev = financialEntries.find((e) => e.id === id);
     const validation = validateMutation("financialEntry", "delete", id, {
       data: prev,
-      entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries }
+      entities: { clients, dossiers, lawsuits, tasks, sessions, officers, missions, financialEntries }
     }, integrityIssues, skipConfirmation);
     if (!validation.ok) return validation;
 
@@ -3196,7 +3204,7 @@ export function DataProvider({ children }) {
     () => ({
       clients,
       dossiers,
-      cases,
+      lawsuits,
       sessions,
       tasks,
       missions,
@@ -3213,10 +3221,10 @@ export function DataProvider({ children }) {
       updateDossier,
       deleteDossier,
       deleteDossierCascade,
-      addCase,
-      updateCase,
-      deleteCase,
-      deleteCaseCascade,
+      addLawsuit,
+      updateLawsuit,
+      deleteLawsuit,
+      deleteLawsuitCascade,
       addSession,
       updateSession,
       deleteSession,
@@ -3245,7 +3253,7 @@ export function DataProvider({ children }) {
     [
       clients,
       dossiers,
-      cases,
+      lawsuits,
       sessions,
       tasks,
       missions,
@@ -3269,3 +3277,10 @@ export const useData = () => {
   }
   return context;
 };
+
+
+
+
+
+
+

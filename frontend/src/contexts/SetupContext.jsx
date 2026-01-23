@@ -15,12 +15,17 @@ export function SetupProvider({ children }) {
         setIsInitialized(true);
     };
 
+    useEffect(() => {
+        if (isInitialized !== null) {
+            const splash = window.__organiaSplash;
+            if (splash && typeof splash.markReady === 'function') {
+                splash.markReady('setup');
+            }
+        }
+    }, [isInitialized]);
+
     if (isInitialized === null) {
-        return (
-            <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex items-center justify-center">
-                <div className="text-slate-600 dark:text-slate-400">Loading workspace...</div>
-            </div>
-        );
+        return null;
     }
 
     return (

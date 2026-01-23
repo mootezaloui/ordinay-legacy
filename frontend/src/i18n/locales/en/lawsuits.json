@@ -4,8 +4,8 @@
     "subtitle": "{{total}} lawsuits in total",
     "subtitleFiltered": "{{total}} lawsuits in total, {{displayed}} displayed",
     "actions": {
-      "newCase": "New Lawsuit",
-      "newCaseDisabled": "Cannot create a lawsuit without dossiers. Please create a dossier first."
+      "newLawsuit": "New Lawsuit",
+      "newLawsuitDisabled": "Cannot create a lawsuit without dossiers. Please create a dossier first."
     },
     "loading": "Loading lawsuits..."
   },
@@ -18,7 +18,7 @@
   },
   "table": {
     "columns": {
-      "caseNumber": "Lawsuit #",
+      "lawsuitNumber": "Lawsuit #",
       "title": "Title",
       "dossier": "Dossier",
       "court": "Court",
@@ -47,8 +47,8 @@
   },
   "confirm": {
     "delete": {
-      "title": "Delete case",
-      "message": "Are you sure you want to delete this case?",
+      "title": "Delete lawsuit",
+      "message": "Are you sure you want to delete this lawsuit?",
       "confirm": "Delete",
       "cancel": "Cancel"
     }
@@ -66,7 +66,7 @@
       "statusLocked": "Status can only be changed using the selector in the list"
     },
     "fields": {
-      "caseNumber": {
+      "lawsuitNumber": {
         "label": "Reference / Number",
         "placeholder": "Ex: PRO-2025-001 (auto-generated if empty)",
         "helper": "Optional - leave blank to auto-generate (PRO-YEAR-XXX)"
@@ -89,7 +89,7 @@
       "courtReference": {
         "label": "Court Reference Number",
         "placeholder": "Ex: TPI-2024-COM-1234",
-        "helper": "Court's reference number for this case (optional)"
+        "helper": "Court's reference number for this lawsuit (optional)"
       },
       "adversaryParty": {
         "label": "Opposing Party",
@@ -100,7 +100,7 @@
         "placeholder": "Me. Lawyer's name"
       },
       "status": {
-        "label": "Case Status",
+        "label": "Lawsuit Status",
         "options": {
           "inProgress": "In Progress",
           "onHold": "On Hold",
@@ -109,26 +109,26 @@
       },
       "description": {
         "label": "Description",
-        "placeholder": "Description of the case..."
+        "placeholder": "Description of the lawsuit..."
       }
     }
   },
   "toasts": {
-    "statusTitle": "Case status",
+    "statusTitle": "Lawsuit status",
     "statusUpdated": "Status updated: {{status}}",
     "deleteSuccess": {
       "title": "Deleted",
-      "body": "Case deleted"
+      "body": "Lawsuit deleted"
     },
     "cascadeError": "Error during cascade deletion",
     "cascadeSuccess": {
       "title": "Cascade deletion",
-      "body": "Case and all related entities deleted"
+      "body": "Lawsuit and all related entities deleted"
     },
-    "updateSuccess": "Case updated successfully!",
-    "createSuccess": "Case added successfully!",
+    "updateSuccess": "Lawsuit updated successfully!",
+    "createSuccess": "Lawsuit added successfully!",
     "saveError": "Error while saving",
-    "missingId": "Missing case identifier"
+    "missingId": "Missing lawsuit identifier"
   },
   "blockerModal": {
     "actionName": "Edit/Delete Lawsuit",
@@ -176,10 +176,10 @@
     },
     "sessions": {
       "entityName": "a hearing",
-      "addSubtitle": "Create a new legal hearing for this case",
+      "addSubtitle": "Create a new legal hearing for this lawsuit",
       "help": {
-        "caseLink": "This hearing will be linked to this case",
-        "linkType": "This hearing is linked to this case"
+        "lawsuitLink": "This hearing will be linked to this lawsuit",
+        "linkType": "This hearing is linked to this lawsuit"
       },
       "placeholders": {
         "location": "Hearing room / Meeting location"
@@ -187,10 +187,10 @@
     },
     "tasks": {
       "entityName": "a task",
-      "addSubtitle": "Create a new task for this case",
+      "addSubtitle": "Create a new task for this lawsuit",
       "help": {
         "parentType": "Choose if this task concerns the lawsuit or the parent dossier",
-        "caseLink": "This task will be linked to this lawsuit",
+        "lawsuitLink": "This task will be linked to this lawsuit",
         "dossierLink": "This task will be linked to the parent dossier"
       }
     },
@@ -198,7 +198,7 @@
       "entityName": "mission",
       "addSubtitle": "Create a new bailiff mission for this lawsuit",
       "help": {
-        "caseLink": "This mission will be linked to the lawsuit {{caseNumber}}"
+        "lawsuitLink": "This mission will be linked to the lawsuit {{lawsuitNumber}}"
       }
     },
     "overview": {
@@ -210,7 +210,7 @@
       "judgment": "Judgment",
       "relatedDossier": "Related Dossier",
       "fields": {
-        "caseNumber": "Lawsuit Number",
+        "lawsuitNumber": "Lawsuit Number",
         "title": "Lawsuit Title",
         "court": "Court",
         "courtReference": "Court Reference Number",
@@ -227,7 +227,7 @@
         "cassation": "Court of Cassation"
       },
       "help": {
-        "associatedDossier": "Select the dossier associated with this case"
+        "associatedDossier": "Select the dossier associated with this lawsuit"
       },
       "placeholders": {
         "associatedDossier": "Search for a dossier..."
@@ -244,3 +244,4 @@
     }
   }
 }
+

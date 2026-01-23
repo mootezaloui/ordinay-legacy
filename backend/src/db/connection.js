@@ -109,7 +109,7 @@ function initialize() {
     db.exec(`
       CREATE TABLE IF NOT EXISTS legacy_imports (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        entity_type TEXT NOT NULL CHECK (entity_type IN ('client', 'dossier', 'case', 'task', 'session', 'mission', 'financial_entry', 'personal_task', 'officer', 'document')),
+        entity_type TEXT NOT NULL CHECK (entity_type IN ('client', 'dossier', 'lawsuit', 'task', 'session', 'mission', 'financial_entry', 'personal_task', 'officer', 'document')),
         payload TEXT NOT NULL,
         normalized_payload TEXT,
         validation_errors TEXT,
@@ -218,7 +218,7 @@ function initialize() {
     { name: "import_source", definition: "TEXT" },
     { name: "imported_at", definition: "DATETIME" },
   ];
-  const caseColumns = [
+  const lawsuitColumns = [
     { name: "adversary_name", definition: "TEXT" },
     { name: "judgment_number", definition: "TEXT" },
     { name: "judgment_date", definition: "DATE" },
@@ -230,7 +230,7 @@ function initialize() {
   [
     "clients",
     "dossiers",
-    "cases",
+    "lawsuits",
     "tasks",
     "sessions",
     "missions",
@@ -239,7 +239,7 @@ function initialize() {
     "financial_entries",
     "documents",
   ].forEach((table) => ensureTableColumns(table, importColumns));
-  ensureTableColumns("cases", caseColumns);
+  ensureTableColumns("lawsuits", lawsuitColumns);
   ensureTableColumns("dossiers", dossierColumns);
   ensureTableColumns("sessions", sessionColumns);
   ensureTableColumns("documents", documentColumns);

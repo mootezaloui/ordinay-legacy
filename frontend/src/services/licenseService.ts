@@ -11,6 +11,7 @@ export interface LicenseData {
 }
 
 export type LicenseState =
+  | "LOADING" // Uninitialized: license not yet resolved. No license UI may render.
   | "FREE"
   | "UNACTIVATED"
   | "ACTIVATING"
@@ -18,7 +19,8 @@ export type LicenseState =
   | "EXPIRED"
   | "ERROR";
 
-export let appLicenseState: LicenseState = "FREE";
+// Default to LOADING, not FREE. Unknown ≠ locked. No UI renders until resolved.
+export let appLicenseState: LicenseState = "LOADING";
 
 const DEVICE_ID_STORAGE_KEY = "organia_device_id";
 const PENDING_REFERRAL_STORAGE_KEY = "organia_pending_referral_code";
@@ -398,7 +400,7 @@ export async function verifyLicenseWithServer(
 export const FREE_PLAN_LIMITS = {
   clients: 3,
   dossiers: 3,
-  casesPerDossier: 1,
+  lawsuitsPerDossier: 1,
   activeTasks: 10,
 };
 
@@ -420,7 +422,7 @@ export function checkFreePlanLimit({
   licenseState,
   clients,
   dossiers,
-  cases,
+  lawsuits,
   tasks,
   entityType,
   entityData,
@@ -428,9 +430,9 @@ export function checkFreePlanLimit({
   licenseState: LicenseState;
   clients: Array<any>;
   dossiers: Array<any>;
-  cases: Array<any>;
+  lawsuits: Array<any>;
   tasks: Array<any>;
-  entityType: "client" | "dossier" | "case" | "task";
+  entityType: "client" | "dossier" | "lawsuit" | "task";
   entityData?: any;
 }): FreeLimitResult {
   if (!isFreePlanState(licenseState)) {
@@ -461,16 +463,16 @@ export function checkFreePlanLimit({
     }
   }
 
-  if (entityType === "case") {
+  if (entityType === "lawsuit") {
     const dossierId = entityData?.dossierId ?? entityData?.dossier_id ?? null;
     if (dossierId) {
-      const current = cases.filter((item) => String(item.dossierId) === String(dossierId)).length;
-      if (current >= FREE_PLAN_LIMITS.casesPerDossier) {
+      const current = lawsuits.filter((item) => String(item.dossierId) === String(dossierId)).length;
+      if (current >= FREE_PLAN_LIMITS.lawsuitsPerDossier) {
         return {
           allowed: false,
-          limit: FREE_PLAN_LIMITS.casesPerDossier,
+          limit: FREE_PLAN_LIMITS.lawsuitsPerDossier,
           current,
-          label: "Cases per dossier",
+          label: "Lawsuits per dossier",
         };
       }
     }
@@ -493,3 +495,5 @@ export function checkFreePlanLimit({
 
   return { allowed: true };
 }
+
+

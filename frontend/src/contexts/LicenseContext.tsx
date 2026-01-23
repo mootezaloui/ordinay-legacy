@@ -34,18 +34,24 @@ const LicenseContext = createContext<LicenseContextValue | undefined>(
 );
 
 export function LicenseProvider({ children }: { children: ReactNode }) {
+  // Initial state is LOADING (not FREE). No license UI renders until resolved.
   const [licenseState, setLicenseState] =
     useState<LicenseState>(getAppLicenseState());
   const [licenseData, setLicenseData] = useState<LicenseData | null>(null);
   const [licenseError, setLicenseError] = useState<string | null>(null);
-  // Prevents transient UI (e.g. license alerts) until initial state is resolved.
-  const [licenseLoaded, setLicenseLoaded] = useState(false);
 
+  // Derived from state: LOADING = not loaded, anything else = loaded.
+  // Kept for backward compatibility with components that check licenseLoaded.
+  const licenseLoaded = licenseState !== "LOADING";
+
+  // One-way state transition: LOADING → resolved state (ACTIVE, FREE, etc.)
+  // State only transitions once; no intermediate renders occur.
   useEffect(() => {
     let mounted = true;
     Promise.all([loadLicenseFromDisk(), readLicenseDataFromDisk()]).then(
       ([state, dataResult]) => {
         if (!mounted) return;
+        // Single atomic state update: LOADING → resolved state
         setLicenseState(state);
         setLicenseData(dataResult.data);
         // Suppress error for FREE plan, even if license file is malformed
@@ -54,8 +60,6 @@ export function LicenseProvider({ children }: { children: ReactNode }) {
         } else {
           setLicenseError(dataResult.error || null);
         }
-        // Mark license as fully resolved to allow UI to render stable state.
-        setLicenseLoaded(true);
       },
     );
     return () => {

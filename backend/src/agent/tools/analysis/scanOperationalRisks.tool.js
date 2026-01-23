@@ -3,7 +3,7 @@
 /**
  * ANALYSIS TOOL: scanOperationalRisks
  *
- * Scan for operational risks in a dossier or case.
+ * Scan for operational risks in a dossier or lawsuit.
  * Uses STRICT operational risk taxonomy - no free-text categories.
  * NO legal predictions, NO probability estimates, NO outcome speculation.
  * Factual observations only.
@@ -24,7 +24,7 @@ const inputSchema = {
   properties: {
     entityType: {
       type: "string",
-      enum: ["dossier", "case"],
+      enum: ["dossier", "lawsuit"],
       description: "Type of entity to scan",
     },
     entityId: {
@@ -59,12 +59,12 @@ async function handler({ entityType, entityId }) {
 
   // Build queries based on entity type
   const taskCondition =
-    entityType === "dossier" ? "dossier_id = ?" : "case_id = ?";
+    entityType === "dossier" ? "dossier_id = ?" : "lawsuit_id = ?";
   const sessionCondition =
-    entityType === "dossier" ? "dossier_id = ?" : "case_id = ?";
+    entityType === "dossier" ? "dossier_id = ?" : "lawsuit_id = ?";
 
   // Get entity name for context
-  const entityTable = entityType === "dossier" ? "dossiers" : "cases";
+  const entityTable = entityType === "dossier" ? "dossiers" : "lawsuits";
   const entity = db
     .prepare(
       `SELECT id, title, reference FROM ${entityTable} WHERE id = ? AND validated = 1`
@@ -309,3 +309,4 @@ module.exports = {
   allowedAgentVersions: ["v1", "v2", "v3"],
   handler,
 };
+

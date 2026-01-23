@@ -3,7 +3,7 @@
 /**
  * READ TOOL: getSession
  *
- * Retrieve a single session by ID with related dossier/case information.
+ * Retrieve a single session by ID with related dossier/lawsuit information.
  * Read-only, no side effects, safe for all agent versions.
  */
 
@@ -42,14 +42,14 @@ async function handler({ sessionId }) {
       SELECT
         s.id, s.title, s.session_type, s.status, s.scheduled_at,
         s.duration, s.location, s.court_room, s.judge, s.outcome,
-        s.description, s.notes, s.participants, s.dossier_id, s.case_id,
+        s.description, s.notes, s.participants, s.dossier_id, s.lawsuit_id,
         s.created_at, s.updated_at,
         d.reference as dossier_reference, d.title as dossier_title,
-        c.reference as case_reference, c.title as case_title,
+        c.reference as lawsuit_reference, c.title as lawsuit_title,
         cl.name as client_name
       FROM sessions s
       LEFT JOIN dossiers d ON d.id = s.dossier_id
-      LEFT JOIN cases c ON c.id = s.case_id
+      LEFT JOIN lawsuits c ON c.id = s.lawsuit_id
       LEFT JOIN clients cl ON cl.id = d.client_id OR cl.id = (SELECT client_id FROM dossiers WHERE id = c.dossier_id)
       WHERE s.id = ? AND s.deleted_at IS NULL
       `
@@ -70,3 +70,5 @@ module.exports = {
   allowedAgentVersions: ['v1', 'v2', 'v3'],
   handler,
 };
+
+

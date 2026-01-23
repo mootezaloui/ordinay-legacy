@@ -1,7 +1,7 @@
 import { RuleResult, daysSinceUpdate, getPriorityWeight, getVariantIndexFromText } from "./shared";
 import { entities } from "./shared/entityLoader";
 
-export const CaseRules = {
+export const LawsuitRules = {
   /**
    * RULE: Missing Hearing/Audience Reminder
    * Triggers: When a proc├¿s has no upcoming hearings scheduled
@@ -9,22 +9,22 @@ export const CaseRules = {
    * - High priority: every 3 days
    * - Medium priority: every 5 days
    * - Low priority: every 10 days
-   * Only applies to active/open cases
+   * Only applies to active/open lawsuits
    */
-  missingHearingReminder(caseItem, context = {}) {
+  missingHearingReminder(lawsuitItem, context = {}) {
     const sessions = context.sessions || [];
     const dossiers = entities.dossiers || [];
 
-    // Skip closed/suspended cases
+    // Skip closed/suspended lawsuits
     const closedStatuses = ["Clos", "closed", "Suspendu", "on_hold"];
-    if (closedStatuses.includes(caseItem.status)) {
+    if (closedStatuses.includes(lawsuitItem.status)) {
       return new RuleResult(false);
     }
 
-    // Check if case has any upcoming hearings
-    const caseId = caseItem.id;
+    // Check if lawsuit has any upcoming hearings
+    const lawsuitId = lawsuitItem.id;
     const hasUpcomingHearings = sessions.some((session) => {
-      const belongsToCase = session.case_id === caseId;
+      const belongsToLawsuit = session.lawsuit_id === lawsuitId;
       const isHearing =
         session.session_type === "hearing" ||
         session.session_type === "Audience";
@@ -35,7 +35,7 @@ export const CaseRules = {
       const sessionDate = new Date(session.scheduled_at);
       const isFuture = sessionDate > new Date();
 
-      return belongsToCase && isHearing && isNotCancelled && isFuture;
+      return belongsToLawsuit && isHearing && isNotCancelled && isFuture;
     });
 
     // If has upcoming hearings, no need to remind
@@ -44,18 +44,18 @@ export const CaseRules = {
     }
 
     // Check last reminder time to avoid spamming
-    const openedDate = caseItem.opened_at || caseItem.created_at;
+    const openedDate = lawsuitItem.opened_at || lawsuitItem.created_at;
     if (!openedDate) return new RuleResult(false);
 
     const daysSinceOpened = daysSinceUpdate(openedDate);
 
-    // Don't send reminder for very new cases (give at least 2 days)
+    // Don't send reminder for very new lawsuits (give at least 2 days)
     if (daysSinceOpened < 2) {
       return new RuleResult(false);
     }
 
-    // Inherit priority from parent dossier (cases don't have their own priority)
-    const parentDossier = dossiers.find((d) => d.id === caseItem.dossier_id);
+    // Inherit priority from parent dossier (lawsuits don't have their own priority)
+    const parentDossier = dossiers.find((d) => d.id === lawsuitItem.dossier_id);
     const priority = parentDossier?.priority || "Medium";
     const priorityWeight = getPriorityWeight(priority);
 
@@ -74,24 +74,24 @@ export const CaseRules = {
       priorityLabel = "low";
     }
 
-    // Check if enough time has passed since case opened (use modulo to trigger periodically)
+    // Check if enough time has passed since lawsuit opened (use modulo to trigger periodically)
     const shouldRemind = daysSinceOpened % reminderIntervalDays === 0;
 
     if (shouldRemind) {
-      const caseTitle =
-        caseItem.title || caseItem.case_number || caseItem.reference;
-      const variantIndex = getVariantIndexFromText(caseItem.description);
+      const lawsuitTitle =
+        lawsuitItem.title || lawsuitItem.lawsuitNumber || lawsuitItem.reference;
+      const variantIndex = getVariantIndexFromText(lawsuitItem.description);
 
       return new RuleResult(true, {
         priority: priorityWeight >= 3 ? "high" : "medium",
         subType: "missingHearing",
-        titleKey: "content.case.missingHearing.title",
+        titleKey: "content.lawsuit.missingHearing.title",
         titleParams: variantIndex !== null ? { variantIndex } : {},
-        messageKey: "content.case.missingHearing.message",
-        messageParams: { caseTitle, priority: priorityLabel },
+        messageKey: "content.lawsuit.missingHearing.message",
+        messageParams: { lawsuitTitle, priority: priorityLabel },
         metadata: {
-          caseNumber: caseItem.case_number || caseItem.reference,
-          caseTitle,
+          lawsuitNumber: lawsuitItem.lawsuitNumber || lawsuitItem.reference,
+          lawsuitTitle,
           priority: priorityLabel,
           dossierId: parentDossier?.id,
           daysSinceOpened,
@@ -106,40 +106,40 @@ export const CaseRules = {
   /**
    * RULE: Status Update Reminder
    * Triggers: When a proc├¿s has completed activities (hearings/tasks) but hasn't been updated recently
-   * Suggests checking if the case status should be updated (e.g., verdict reached, case closed)
+   * Suggests checking if the lawsuit status should be updated (e.g., verdict reached, lawsuit closed)
    * Frequency depends on priority (inherited from parent dossier):
    * - High priority: every 7 days
    * - Medium priority: every 14 days
    * - Low priority: every 21 days
    */
-  statusUpdateReminder(caseItem, context = {}) {
+  statusUpdateReminder(lawsuitItem, context = {}) {
     const sessions = context.sessions || [];
     const tasks = context.tasks || [];
     const dossiers = entities.dossiers || [];
 
-    // Skip closed cases - they don't need status updates
+    // Skip closed lawsuits - they don't need status updates
     const closedStatuses = ["Clos", "closed"];
-    if (closedStatuses.includes(caseItem.status)) {
+    if (closedStatuses.includes(lawsuitItem.status)) {
       return new RuleResult(false);
     }
 
-    // Check for completed hearings for this case
+    // Check for completed hearings for this lawsuit
     const completedHearings = sessions.filter((session) => {
-      const belongsToCase = session.case_id === caseItem.id;
+      const belongsToLawsuit = session.lawsuit_id === lawsuitItem.id;
       const isHearing =
         session.session_type === "hearing" ||
         session.session_type === "Audience";
       const isCompleted =
         session.status === "completed" || session.status === "Terminee";
-      return belongsToCase && isHearing && isCompleted;
+      return belongsToLawsuit && isHearing && isCompleted;
     });
 
-    // Check for completed tasks for this case
+    // Check for completed tasks for this lawsuit
     const completedTasks = tasks.filter((task) => {
-      const belongsToCase = task.case_id === caseItem.id;
+      const belongsToLawsuit = task.lawsuit_id === lawsuitItem.id;
       const isCompleted =
         task.status === "Termin├⌐e" || task.status === "completed";
-      return belongsToCase && isCompleted;
+      return belongsToLawsuit && isCompleted;
     });
 
     // Only remind if there's been some activity (at least 1 completed hearing or 2 completed tasks)
@@ -150,14 +150,14 @@ export const CaseRules = {
       return new RuleResult(false);
     }
 
-    // Check when the case was last updated
-    const lastUpdate = caseItem.updated_at || caseItem.updatedAt;
+    // Check when the lawsuit was last updated
+    const lastUpdate = lawsuitItem.updated_at || lawsuitItem.updatedAt;
     if (!lastUpdate) return new RuleResult(false);
 
     const daysSinceLastUpdate = daysSinceUpdate(lastUpdate);
 
-    // Inherit priority from parent dossier (cases don't have their own priority)
-    const parentDossier = dossiers.find((d) => d.id === caseItem.dossier_id);
+    // Inherit priority from parent dossier (lawsuits don't have their own priority)
+    const parentDossier = dossiers.find((d) => d.id === lawsuitItem.dossier_id);
     const priority = parentDossier?.priority || "Moyenne";
     const priorityWeight = getPriorityWeight(priority);
 
@@ -173,9 +173,9 @@ export const CaseRules = {
 
     // Only remind if enough time has passed since last update
     if (daysSinceLastUpdate >= reminderIntervalDays) {
-      const caseTitle =
-        caseItem.title || caseItem.case_number || caseItem.reference;
-      const variantIndex = getVariantIndexFromText(caseItem.description);
+      const lawsuitTitle =
+        lawsuitItem.title || lawsuitItem.lawsuitNumber || lawsuitItem.reference;
+      const variantIndex = getVariantIndexFromText(lawsuitItem.description);
 
       // Build activity summary - keep for backward compatibility
       // The rendering component will use completedHearings/completedTasks counts
@@ -192,21 +192,21 @@ export const CaseRules = {
       return new RuleResult(true, {
         priority: priorityWeight >= 3 ? "high" : "medium",
         subType: "statusUpdate",
-        titleKey: "content.case.statusUpdate.title",
+        titleKey: "content.lawsuit.statusUpdate.title",
         titleParams: variantIndex !== null ? { variantIndex } : {},
-        messageKey: "content.case.statusUpdate.message",
+        messageKey: "content.lawsuit.statusUpdate.message",
         messageParams: {
-          caseTitle,
+          lawsuitTitle,
           activitySummary, // Temp fallback - rendering should build from counts
           completedHearings: completedHearings.length,
           completedTasks: completedTasks.length,
         },
         metadata: {
-          caseNumber: caseItem.case_number || caseItem.reference,
-          caseTitle,
+          lawsuitNumber: lawsuitItem.lawsuitNumber || lawsuitItem.reference,
+          lawsuitTitle,
           completedHearings: completedHearings.length,
           completedTasks: completedTasks.length,
-          currentStatus: caseItem.status,
+          currentStatus: lawsuitItem.status,
           daysSinceUpdate: daysSinceLastUpdate,
           dossierId: parentDossier?.id,
           dossierPriority: priority,
@@ -224,27 +224,27 @@ export const CaseRules = {
    * - High priority: every 3 days
    * - Medium priority: every 5 days
    * - Low priority: every 10 days
-   * Only applies to active/open cases
+   * Only applies to active/open lawsuits
    */
-  missingTasksReminder(caseItem, context = {}) {
+  missingTasksReminder(lawsuitItem, context = {}) {
     const tasks = context.tasks || [];
     const dossiers = entities.dossiers || [];
 
-    // Skip closed/suspended cases
+    // Skip closed/suspended lawsuits
     const closedStatuses = ["Clos", "closed", "Suspendu", "on_hold"];
-    if (closedStatuses.includes(caseItem.status)) {
+    if (closedStatuses.includes(lawsuitItem.status)) {
       return new RuleResult(false);
     }
 
-    // Check if case has any active tasks
+    // Check if lawsuit has any active tasks
     // Active = not done, not cancelled
-    const caseId = caseItem.id;
+    const lawsuitId = lawsuitItem.id;
     const hasActiveTasks = tasks.some((task) => {
-      const belongsToCase = task.case_id === caseId;
+      const belongsToLawsuit = task.lawsuit_id === lawsuitId;
       const activeStatuses = ["todo", "in_progress", "blocked"];
       const isActive = activeStatuses.includes(task.status);
 
-      return belongsToCase && isActive;
+      return belongsToLawsuit && isActive;
     });
 
     // If has active tasks, no need to remind
@@ -252,19 +252,19 @@ export const CaseRules = {
       return new RuleResult(false);
     }
 
-    // Check when case was opened
-    const openedDate = caseItem.opened_at || caseItem.created_at;
+    // Check when lawsuit was opened
+    const openedDate = lawsuitItem.opened_at || lawsuitItem.created_at;
     if (!openedDate) return new RuleResult(false);
 
     const daysSinceOpened = daysSinceUpdate(openedDate);
 
-    // Don't send reminder for very new cases (give at least 2 days to add tasks)
+    // Don't send reminder for very new lawsuits (give at least 2 days to add tasks)
     if (daysSinceOpened < 2) {
       return new RuleResult(false);
     }
 
     // Inherit priority from parent dossier
-    const parentDossier = dossiers.find((d) => d.id === caseItem.dossier_id);
+    const parentDossier = dossiers.find((d) => d.id === lawsuitItem.dossier_id);
     const priority = parentDossier?.priority || "Moyenne";
     const priorityWeight = getPriorityWeight(priority);
 
@@ -286,20 +286,20 @@ export const CaseRules = {
     const shouldRemind = daysSinceOpened % reminderIntervalDays === 0;
 
     if (shouldRemind) {
-      const caseTitle =
-        caseItem.title || caseItem.case_number || caseItem.reference;
-      const variantIndex = getVariantIndexFromText(caseItem.description);
+      const lawsuitTitle =
+        lawsuitItem.title || lawsuitItem.lawsuitNumber || lawsuitItem.reference;
+      const variantIndex = getVariantIndexFromText(lawsuitItem.description);
 
       return new RuleResult(true, {
         priority: priorityWeight >= 3 ? "high" : "medium",
         subType: "missingTasks",
-        titleKey: "content.case.missingTasks.title",
+        titleKey: "content.lawsuit.missingTasks.title",
         titleParams: variantIndex !== null ? { variantIndex } : {},
-        messageKey: "content.case.missingTasks.message",
-        messageParams: { caseTitle, priority: priorityLabel },
+        messageKey: "content.lawsuit.missingTasks.message",
+        messageParams: { lawsuitTitle, priority: priorityLabel },
         metadata: {
-          caseNumber: caseItem.case_number || caseItem.reference,
-          caseTitle,
+          lawsuitNumber: lawsuitItem.lawsuitNumber || lawsuitItem.reference,
+          lawsuitTitle,
           priority: priorityLabel,
           dossierId: parentDossier?.id,
           daysSinceOpened,
@@ -311,3 +311,7 @@ export const CaseRules = {
     return new RuleResult(false);
   },
 };
+
+
+
+

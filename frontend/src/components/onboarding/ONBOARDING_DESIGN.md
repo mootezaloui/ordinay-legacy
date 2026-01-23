@@ -145,7 +145,7 @@ function MyComponent() {
 1. Add phase constant to `TUTORIAL_PHASES` in `OnboardingContext.tsx`
 2. Add phase to `PHASE_ORDER` array
 3. Create phase component in `TutorialPhases.tsx`
-4. Add rendering case in `OnboardingTutorial.tsx`
+4. Add rendering lawsuit in `OnboardingTutorial.tsx`
 5. Add translations to all locale files
 
 ### Adding New Languages

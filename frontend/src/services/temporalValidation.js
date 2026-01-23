@@ -31,7 +31,7 @@ import { i18nInstance } from "../i18n";
 let entities = {
   clients: [],
   dossiers: [],
-  cases: [],
+  lawsuits: [],
   tasks: [],
   sessions: [],
   missions: [],
@@ -42,7 +42,7 @@ const loadEntities = (context = {}) => {
   entities = {
     clients: context.entities?.clients || [],
     dossiers: context.entities?.dossiers || [],
-    cases: context.entities?.cases || [],
+    lawsuits: context.entities?.lawsuits || [],
     tasks: context.entities?.tasks || [],
     sessions: context.entities?.sessions || [],
     missions: context.entities?.missions || [],
@@ -211,7 +211,7 @@ function findEntity(entityType, entityId) {
   const lookupMap = {
     client: entities.clients,
     dossier: entities.dossiers,
-    case: entities.cases,
+    lawsuit: entities.lawsuits,
     task: entities.tasks,
     session: entities.sessions,
     mission: getAllMissions(),
@@ -230,12 +230,12 @@ function getParentEntity(entityType, entity) {
   if (!entity) return null;
 
   switch (entityType) {
-    case "case": // Procès → Dossier
+    case "lawsuit": // Procès → Dossier
       return findEntity("dossier", entity.dossierId);
 
     case "session": // Session → Procès (or Dossier directly)
-      if (entity.caseId) {
-        return findEntity("case", entity.caseId);
+      if (entity.lawsuitId) {
+        return findEntity("lawsuit", entity.lawsuitId);
       }
       if (entity.dossierId) {
         return findEntity("dossier", entity.dossierId);
@@ -243,8 +243,8 @@ function getParentEntity(entityType, entity) {
       return null;
 
     case "task": // Task → Dossier or Procès
-      if (entity.parentType === "case" && entity.caseId) {
-        return findEntity("case", entity.caseId);
+      if (entity.parentType === "lawsuit" && entity.lawsuitId) {
+        return findEntity("lawsuit", entity.lawsuitId);
       }
       if (entity.parentType === "dossier" && entity.dossierId) {
         return findEntity("dossier", entity.dossierId);
@@ -255,8 +255,8 @@ function getParentEntity(entityType, entity) {
       if (entity.entityType === "dossier" && entity.entityId) {
         return findEntity("dossier", entity.entityId);
       }
-      if (entity.entityType === "case" && entity.entityId) {
-        return findEntity("case", entity.entityId);
+      if (entity.entityType === "lawsuit" && entity.entityId) {
+        return findEntity("lawsuit", entity.entityId);
       }
       return null;
 
@@ -295,8 +295,8 @@ function determineEntityType(entity) {
   if (!entity) return null;
 
   // Check distinctive fields
-  if (entity.caseNumber && entity.clientId) return "dossier";
-  if (entity.caseNumber && entity.dossierId) return "case";
+  if (entity.lawsuitNumber && entity.clientId) return "dossier";
+  if (entity.lawsuitNumber && entity.dossierId) return "lawsuit";
   if (entity.parentType !== undefined) return "task";
   if (entity.missionNumber) return "mission";
   if (entity.dateOfBirth !== undefined) return "client";
@@ -367,6 +367,7 @@ function validateClientDates(clientData, action, context = {}) {
 function validateDossierDates(dossierData, action, context = {}) {
   const blockers = [];
   const warnings = [];
+  const lawsuits = context.lawsuits || [];
 
   // Rule: Open date should be in the past or today
   if (dossierData.openDate) {
@@ -422,19 +423,19 @@ function validateDossierDates(dossierData, action, context = {}) {
     }
   }
 
-  // Rule: If closing, check all child cases are closed
+  // Rule: If closing, check all child lawsuits are closed
   if (
     action === "close" ||
     (dossierData.status === "Closed" && context.data?.status !== "Closed")
   ) {
-    const childCases = [].filter((c) => c.dossierId == dossierData.id);
-    const openCases = childCases.filter(
+    const childLawsuits = lawsuits.filter((c) => c.dossierId == dossierData.id);
+    const openLawsuits = childLawsuits.filter(
       (c) => c.status !== "Completed" && c.status !== "Closed"
     );
 
-    if (openCases.length > 0) {
+    if (openLawsuits.length > 0) {
       blockers.push(
-        tTemporal("cannotCloseDossierOpenCases", { count: openCases.length })
+        tTemporal("cannotCloseDossierOpenLawsuits", { count: openLawsuits.length })
       );
     }
   }
@@ -443,35 +444,36 @@ function validateDossierDates(dossierData, action, context = {}) {
 }
 
 // ========================================
-// CASE (PROCÈS) TEMPORAL VALIDATION
+// LAWSUIT (PROCÈS) TEMPORAL VALIDATION
 // ========================================
 
 /**
- * Validate Case (Procès) date fields
+ * Validate Lawsuit (Procès) date fields
  */
-function validateCaseDates(caseData, action, context = {}) {
+function validateLawsuitDates(lawsuitData, action, context = {}) {
   const blockers = [];
   const warnings = [];
+  const sessions = context.sessions || [];
 
   // Rule: Filing date should be in the past or today
-  if (caseData.filingDate) {
-    if (isInFuture(caseData.filingDate)) {
+  if (lawsuitData.filingDate) {
+    if (isInFuture(lawsuitData.filingDate)) {
       blockers.push(
         tTemporal("filingDateFuture", {
-          date: formatDate(caseData.filingDate),
+          date: formatDate(lawsuitData.filingDate),
         })
       );
     }
   }
 
   // Rule: Filing date should not be before dossier open date
-  if (caseData.filingDate && caseData.dossierId) {
-    const dossier = findEntity("dossier", caseData.dossierId);
+  if (lawsuitData.filingDate && lawsuitData.dossierId) {
+    const dossier = findEntity("dossier", lawsuitData.dossierId);
     if (dossier && dossier.openDate) {
-      if (compareDates(caseData.filingDate, dossier.openDate) === -1) {
+      if (compareDates(lawsuitData.filingDate, dossier.openDate) === -1) {
         blockers.push(
           tTemporal("filingBeforeDossierOpen", {
-            filingDate: formatDate(caseData.filingDate),
+            filingDate: formatDate(lawsuitData.filingDate),
             openDate: formatDate(dossier.openDate),
           })
         );
@@ -480,36 +482,36 @@ function validateCaseDates(caseData, action, context = {}) {
   }
 
   // Rule: Next hearing should be in the future
-  if (caseData.nextHearing) {
-    if (isInPast(caseData.nextHearing)) {
+  if (lawsuitData.nextHearing) {
+    if (isInPast(lawsuitData.nextHearing)) {
       warnings.push(
         tTemporal("nextHearingPast", {
-          date: formatDate(caseData.nextHearing),
+          date: formatDate(lawsuitData.nextHearing),
         })
       );
     }
   }
 
   // Rule: Close date should be after filing date
-  if (caseData.closeDate && caseData.filingDate) {
-    if (compareDates(caseData.closeDate, caseData.filingDate) <= 0) {
+  if (lawsuitData.closeDate && lawsuitData.filingDate) {
+    if (compareDates(lawsuitData.closeDate, lawsuitData.filingDate) <= 0) {
       blockers.push(
         tTemporal("closingDateAfterFiling", {
-          closeDate: formatDate(caseData.closeDate),
-          filingDate: formatDate(caseData.filingDate),
+          closeDate: formatDate(lawsuitData.closeDate),
+          filingDate: formatDate(lawsuitData.filingDate),
         })
       );
     }
   }
 
-  // Rule: Cannot have sessions after case is closed
+  // Rule: Cannot have sessions after lawsuit is closed
   if (
     action === "close" ||
-    (caseData.status === "Completed" && context.data?.status !== "Completed")
+    (lawsuitData.status === "Completed" && context.data?.status !== "Completed")
   ) {
-    const futureSessions = [].filter(
+    const futureSessions = sessions.filter(
       (s) =>
-        s.caseId == caseData.id &&
+        s.lawsuitId == lawsuitData.id &&
         isInFuture(s.date) &&
         s.status !== "Cancelled"
     );
@@ -524,12 +526,12 @@ function validateCaseDates(caseData, action, context = {}) {
   }
 
   // Rule: Judgment date should be after filing date
-  if (caseData.judgmentDate && caseData.filingDate) {
-    if (compareDates(caseData.judgmentDate, caseData.filingDate) === -1) {
+  if (lawsuitData.judgmentDate && lawsuitData.filingDate) {
+    if (compareDates(lawsuitData.judgmentDate, lawsuitData.filingDate) === -1) {
       blockers.push(
         tTemporal("judgmentBeforeFiling", {
-          judgmentDate: formatDate(caseData.judgmentDate),
-          filingDate: formatDate(caseData.filingDate),
+          judgmentDate: formatDate(lawsuitData.judgmentDate),
+          filingDate: formatDate(lawsuitData.filingDate),
         })
       );
     }
@@ -565,15 +567,15 @@ function validateTaskDates(taskData, action, context = {}) {
     }
   }
 
-  // Rule: Task deadline should not exceed next case hearing (if linked to case)
-  if (taskData.dueDate && taskData.parentType === "case" && taskData.caseId) {
-    const parentCase = findEntity("case", taskData.caseId);
-    if (parentCase && parentCase.nextHearing) {
-      if (compareDates(taskData.dueDate, parentCase.nextHearing) === 1) {
+  // Rule: Task deadline should not exceed next lawsuit hearing (if linked to lawsuit)
+  if (taskData.dueDate && taskData.parentType === "lawsuit" && taskData.lawsuitId) {
+    const parentLawsuit = findEntity("lawsuit", taskData.lawsuitId);
+    if (parentLawsuit && parentLawsuit.nextHearing) {
+      if (compareDates(taskData.dueDate, parentLawsuit.nextHearing) === 1) {
         warnings.push(
           tTemporal("taskDueAfterHearing", {
             dueDate: formatDate(taskData.dueDate),
-            hearingDate: formatDate(parentCase.nextHearing),
+            hearingDate: formatDate(parentLawsuit.nextHearing),
           })
         );
       }
@@ -585,8 +587,8 @@ function validateTaskDates(taskData, action, context = {}) {
     let parent = null;
     let parentType = null;
 
-    if (taskData.parentType === "case" && taskData.caseId) {
-      parent = findEntity("case", taskData.caseId);
+    if (taskData.parentType === "lawsuit" && taskData.lawsuitId) {
+      parent = findEntity("lawsuit", taskData.lawsuitId);
       parentType = "lawsuit";
     } else if (taskData.parentType === "dossier" && taskData.dossierId) {
       parent = findEntity("dossier", taskData.dossierId);
@@ -681,18 +683,18 @@ function validateSessionDates(sessionData, action, context = {}) {
     }
   }
 
-  // Rule: Session cannot occur after closed parent case
-  if (sessionData.caseId) {
-    const parentCase = findEntity("case", sessionData.caseId);
-    if (parentCase) {
+  // Rule: Session cannot occur after closed parent lawsuit
+  if (sessionData.lawsuitId) {
+    const parentLawsuit = findEntity("lawsuit", sessionData.lawsuitId);
+    if (parentLawsuit) {
       const isClosed =
-        parentCase.status === "Completed" || parentCase.status === "Closed";
+        parentLawsuit.status === "Completed" || parentLawsuit.status === "Closed";
 
-      if (isClosed && parentCase.closeDate && sessionData.date) {
-        if (compareDates(sessionData.date, parentCase.closeDate) === 1) {
+      if (isClosed && parentLawsuit.closeDate && sessionData.date) {
+        if (compareDates(sessionData.date, parentLawsuit.closeDate) === 1) {
           blockers.push(
-            tTemporal("hearingAfterCaseClosed", {
-              closeDate: formatDate(parentCase.closeDate),
+            tTemporal("hearingAfterLawsuitClosed", {
+              closeDate: formatDate(parentLawsuit.closeDate),
             })
           );
         }
@@ -701,14 +703,14 @@ function validateSessionDates(sessionData, action, context = {}) {
       // Create action
       if (action === "create" && isClosed) {
         blockers.push(
-          tTemporal("hearingCreateClosedCase")
+          tTemporal("hearingCreateClosedLawsuit")
         );
       }
     }
   }
 
   // Rule: Session cannot occur after closed parent dossier
-  if (sessionData.dossierId && !sessionData.caseId) {
+  if (sessionData.dossierId && !sessionData.lawsuitId) {
     const parentDossier = findEntity("dossier", sessionData.dossierId);
     if (parentDossier) {
       const isClosed = parentDossier.status === "Closed";
@@ -733,14 +735,14 @@ function validateSessionDates(sessionData, action, context = {}) {
   }
 
   // Rule: Session date should not contradict parent lifecycle
-  if (sessionData.date && sessionData.caseId) {
-    const parentCase = findEntity("case", sessionData.caseId);
-    if (parentCase && parentCase.filingDate) {
-      if (compareDates(sessionData.date, parentCase.filingDate) === -1) {
+  if (sessionData.date && sessionData.lawsuitId) {
+    const parentLawsuit = findEntity("lawsuit", sessionData.lawsuitId);
+    if (parentLawsuit && parentLawsuit.filingDate) {
+      if (compareDates(sessionData.date, parentLawsuit.filingDate) === -1) {
         blockers.push(
           tTemporal("hearingBeforeFiling", {
             date: formatDate(sessionData.date),
-            filingDate: formatDate(parentCase.filingDate),
+            filingDate: formatDate(parentLawsuit.filingDate),
           })
         );
       }
@@ -819,8 +821,8 @@ function validateMissionDates(missionData, action, context = {}) {
     let parent = null;
     let parentType = null;
 
-    if (missionData.entityType === "case" && missionData.entityId) {
-      parent = findEntity("case", missionData.entityId);
+    if (missionData.entityType === "lawsuit" && missionData.entityId) {
+      parent = findEntity("lawsuit", missionData.entityId);
       parentType = "lawsuit";
     } else if (missionData.entityType === "dossier" && missionData.entityId) {
       parent = findEntity("dossier", missionData.entityId);
@@ -975,7 +977,7 @@ function validatePersonalTaskDates(personalTaskData, action, context = {}) {
 /**
  * Main validation function - validates all date fields for any entity
  *
- * @param {string} entityType - Type of entity (client, dossier, case, task, etc.)
+ * @param {string} entityType - Type of entity (client, dossier, lawsuit, task, etc.)
  * @param {object} entityData - Entity data to validate
  * @param {string} action - Action being performed (create, edit, close, etc.)
  * @param {object} context - Additional context (current data, etc.)
@@ -999,7 +1001,7 @@ export function validateTemporalConstraints(
   const validators = {
     client: validateClientDates,
     dossier: validateDossierDates,
-    case: validateCaseDates,
+    lawsuit: validateLawsuitDates,
     task: validateTaskDates,
     session: validateSessionDates,
     mission: validateMissionDates,
@@ -1039,3 +1041,7 @@ export const TemporalUtils = {
   combineDateAndTime,
   formatDate,
 };
+
+
+
+

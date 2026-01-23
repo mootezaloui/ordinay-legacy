@@ -30,7 +30,7 @@ import { logEntityCreation } from "../../services/historyService";
 export default function QuickActions({ onDataChange }) {
   const [activeModal, setActiveModal] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
-  const { t } = useTranslation(["common", "clients", "dossiers", "cases", "tasks", "sessions"]);
+  const { t } = useTranslation(["common", "clients", "dossiers", "lawsuits", "tasks", "sessions"]);
   const tClients = (key) => t(key, { ns: "clients" });
   const tDossiers = (key) => t(key, { ns: "dossiers" });
   const tTasks = (key) => t(key, { ns: "tasks" });
@@ -41,7 +41,7 @@ export default function QuickActions({ onDataChange }) {
   const {
     clients,
     dossiers,
-    cases,
+    lawsuits,
     addClient,
     addDossier,
     addTask,
@@ -57,17 +57,17 @@ export default function QuickActions({ onDataChange }) {
     () =>
       dossiers.map((dossier) => ({
         value: dossier.id,
-        label: `${dossier.caseNumber} - ${dossier.title}`,
+        label: `${dossier.lawsuitNumber} - ${dossier.title}`,
       })),
     [dossiers]
   );
-  const caseOptions = useMemo(
+  const lawsuitOptions = useMemo(
     () =>
-      cases.map((caseItem) => ({
-        value: caseItem.id,
-        label: `${caseItem.caseNumber} - ${caseItem.title}`,
+      lawsuits.map((lawsuitItem) => ({
+        value: lawsuitItem.id,
+        label: `${lawsuitItem.lawsuitNumber} - ${lawsuitItem.title}`,
       })),
-    [cases]
+    [lawsuits]
   );
 
   const navigateToDetail = (entityType, entityId) => {
@@ -115,13 +115,13 @@ export default function QuickActions({ onDataChange }) {
           const createdId = createdEntity?.id;
           if (!createdId) throw new Error("dossier ID is missing");
           newEntity = { ...createdEntity };
-          logEntityCreation("dossier", createdId, createdEntity?.caseNumber);
+          logEntityCreation("dossier", createdId, createdEntity?.lawsuitNumber);
           // Notify tutorial
           if (tutorial?.setCreatedDossier) tutorial.setCreatedDossier(createdId);
           break;
         }
         case "task": {
-          const parentType = formData.parentType || (formData.caseId ? "case" : "dossier");
+          const parentType = formData.parentType || (formData.lawsuitId ? "lawsuit" : "dossier");
           const payload = {
             ...formData,
             parentType,
@@ -157,7 +157,7 @@ export default function QuickActions({ onDataChange }) {
 
       const messages = {
         client: t("dashboard.quickActions.toasts.clientSuccess", { name: formData.name, ns: "common" }),
-        dossier: t("dashboard.quickActions.toasts.dossierSuccess", { reference: formData.caseNumber || formData.title, ns: "common" }),
+        dossier: t("dashboard.quickActions.toasts.dossierSuccess", { reference: formData.lawsuitNumber || formData.title, ns: "common" }),
         task: t("dashboard.quickActions.toasts.taskSuccess", { title: formData.title, ns: "common" }),
         session: t("dashboard.quickActions.toasts.sessionSuccess", { title: formData.title, ns: "common" }),
       };
@@ -208,12 +208,12 @@ export default function QuickActions({ onDataChange }) {
               ],
             };
           }
-          if (field.name === "caseId") {
+          if (field.name === "lawsuitId") {
             return {
               ...field,
               options: [
-                { value: "", label: t("dashboard.quickActions.placeholders.case", { ns: "common" }) },
-                ...caseOptions,
+                { value: "", label: t("dashboard.quickActions.placeholders.lawsuit", { ns: "common" }) },
+                ...lawsuitOptions,
               ],
             };
           }
@@ -225,12 +225,12 @@ export default function QuickActions({ onDataChange }) {
 
       case "session":
         return sessionFormFields(tSessions).map((field) => {
-          if (field.name === "caseId") {
+          if (field.name === "lawsuitId") {
             return {
               ...field,
               options: [
-                { value: "", label: t("dashboard.quickActions.placeholders.case", { ns: "common" }) },
-                ...caseOptions,
+                { value: "", label: t("dashboard.quickActions.placeholders.lawsuit", { ns: "common" }) },
+                ...lawsuitOptions,
               ],
             };
           }
@@ -332,3 +332,8 @@ export default function QuickActions({ onDataChange }) {
     </>
   );
 }
+
+
+
+
+

@@ -25,7 +25,7 @@ export const DossierRules = {
 
     if (daysSinceLastUpdate >= 7) {
       const dossierNumber =
-        dossier.case_number || dossier.caseNumber || dossier.reference;
+        dossier.lawsuitNumber || dossier.lawsuitNumber || dossier.reference;
       const variantIndex = getVariantIndexFromText(dossier.description);
 
       return new RuleResult(true, {
@@ -89,7 +89,7 @@ export const DossierRules = {
         priorityWeight >= 3 ? "high" : priorityWeight === 2 ? "medium" : "low";
 
       const dossierNumber =
-        dossier.case_number || dossier.caseNumber || dossier.reference;
+        dossier.lawsuitNumber || dossier.lawsuitNumber || dossier.reference;
       const variantIndex = getVariantIndexFromText(dossier.description);
 
       return new RuleResult(true, {
@@ -130,7 +130,7 @@ export const DossierRules = {
    */
   missingTasksReminder(dossier, context = {}) {
     const tasks = context.tasks || [];
-    const cases = context.cases || [];
+    const lawsuits = context.lawsuits || [];
 
     // Skip closed/archived dossiers
     const closedStatuses = ["Clos", "closed", "archived", "Archiv├⌐"];
@@ -150,19 +150,19 @@ export const DossierRules = {
     });
 
     // Check if any proc├¿s under this dossier has active tasks
-    const dossierCases = cases.filter((c) => c.dossier_id === dossierId);
-    const hasActiveCaseTasks = dossierCases.some((caseItem) => {
+    const dossierLawsuits = lawsuits.filter((c) => c.dossier_id === dossierId);
+    const hasActiveLawsuitTasks = dossierLawsuits.some((lawsuitItem) => {
       return tasks.some((task) => {
-        const belongsToCase = task.case_id === caseItem.id;
+      const belongsToLawsuit = task.lawsuit_id === lawsuitItem.id;
         const activeStatuses = ["todo", "in_progress", "blocked"];
         const isActive = activeStatuses.includes(task.status);
 
-        return belongsToCase && isActive;
+        return belongsToLawsuit && isActive;
       });
     });
 
-    // If has any active tasks (dossier-level or case-level), no need to remind
-    if (hasActiveDossierTasks || hasActiveCaseTasks) {
+    // If has any active tasks (dossier-level or lawsuit-level), no need to remind
+    if (hasActiveDossierTasks || hasActiveLawsuitTasks) {
       return new RuleResult(false);
     }
 
@@ -227,3 +227,6 @@ export const DossierRules = {
     return new RuleResult(false);
   },
 };
+
+
+

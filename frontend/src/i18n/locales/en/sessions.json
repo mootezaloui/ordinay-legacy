@@ -96,12 +96,12 @@
       "linkType": {
         "label": "Linked to",
         "options": {
-          "case": "Lawsuit",
-          "dossier": "Dossier"
+          "dossier": "Dossier",
+          "lawsuit": "Lawsuit"
         },
         "helper": "A hearing can be linked to a lawsuit or directly to a dossier"
       },
-      "caseId": {
+      "lawsuitId": {
         "label": "Lawsuit",
         "helper": "Select the concerned lawsuit"
       },
@@ -251,13 +251,13 @@
         "title": "Session Title",
         "linkType": "Linked To",
         "linkTypeOptions": {
-          "case": "Lawsuit",
-          "dossier": "Dossier"
+          "dossier": "Dossier",
+          "lawsuit": "Lawsuit"
         },
         "linkTypeHelp": "A session can be linked to a lawsuit or directly to a dossier",
-        "case": "Lawsuit",
-        "casePlaceholder": "Select a lawsuit...",
-        "caseHelp": "Select the relevant lawsuit",
+        "lawsuit": "Lawsuit",
+        "lawsuitPlaceholder": "Select a lawsuit...",
+        "lawsuitHelp": "Select the relevant lawsuit",
         "dossier": "Dossier",
         "dossierPlaceholder": "Select a dossier...",
         "dossierHelp": "Select the relevant dossier",

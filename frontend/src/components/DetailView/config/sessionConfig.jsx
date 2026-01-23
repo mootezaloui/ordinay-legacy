@@ -39,40 +39,40 @@ export const createSessionConfig = (t) => ({
     }
     if (!session) return null;
 
-    // ✅ Ensure case/dossier objects are populated
-    const cases = contextData?.cases || [];
+    // ✅ Ensure lawsuit/dossier objects are populated
+    const lawsuits = contextData?.lawsuits || [];
     const dossiers = contextData?.dossiers || [];
 
     // Always resolve parents from live data (avoid undefined)
-    const caseData = session.caseId
+    const lawsuitData = session.lawsuitId
       ? (() => {
-        const foundCase = cases.find(c => c.id === parseInt(session.caseId));
-        return foundCase
-          ? { id: foundCase.id, caseNumber: foundCase.caseNumber, title: foundCase.title, dossierId: foundCase.dossierId }
-          : session.case || null;
+        const foundLawsuit = lawsuits.find(c => c.id === parseInt(session.lawsuitId));
+        return foundLawsuit
+          ? { id: foundLawsuit.id, lawsuitNumber: foundLawsuit.lawsuitNumber, title: foundLawsuit.title, dossierId: foundLawsuit.dossierId }
+          : session.lawsuit || null;
       })()
-      : session.case || null;
+      : session.lawsuit || null;
 
     const dossier = session.dossierId
       ? (() => {
         const foundDossier = dossiers.find(d => d.id === parseInt(session.dossierId));
         return foundDossier
-          ? { id: foundDossier.id, caseNumber: foundDossier.caseNumber, title: foundDossier.title }
+          ? { id: foundDossier.id, lawsuitNumber: foundDossier.lawsuitNumber, title: foundDossier.title }
           : session.dossier || null;
       })()
-      : // if linked to a case, derive dossier via case.dossierId
-      (caseData?.dossierId
+      : // if linked to a lawsuit, derive dossier via lawsuit.dossierId
+      (lawsuitData?.dossierId
         ? (() => {
-          const found = dossiers.find(d => d.id === parseInt(caseData.dossierId));
+          const found = dossiers.find(d => d.id === parseInt(lawsuitData.dossierId));
           return found
-            ? { id: found.id, caseNumber: found.caseNumber, title: found.title }
+            ? { id: found.id, lawsuitNumber: found.lawsuitNumber, title: found.title }
             : null;
         })()
         : session.dossier || null);
 
     return {
       ...session,
-      case: caseData || null,
+      lawsuit: lawsuitData || null,
       dossier: dossier || null
     };
   },
@@ -82,7 +82,7 @@ export const createSessionConfig = (t) => ({
 
     // Filter out any potential relationship fields - session entity should only contain session-specific data
     const sessionFields = [
-      'title', 'type', 'linkType', 'caseId', 'dossierId', 'date', 'time',
+      'title', 'type', 'linkType', 'lawsuitId', 'dossierId', 'date', 'time',
       'duration', 'location', 'courtRoom', 'judge', 'status', 'description', 'participants', 'notes'
     ];
     const sessionData = Object.keys(data).reduce((acc, key) => {
@@ -376,76 +376,76 @@ export const createSessionConfig = (t) => ({
         {
           key: "linkType",
           label: t('detail.overview.fields.linkType'),
-          value: (data, contextData) => data.linkType || (data.dossierId || data.dossier ? "dossier" : "case"),
+          value: (data, contextData) => data.linkType || (data.dossierId || data.dossier ? "dossier" : "lawsuit"),
           displayValue: (data, contextData) => {
             const linkTypeOptions = {
-              "case": t('detail.overview.fields.linkTypeOptions.case'),
+              "lawsuit": t('detail.overview.fields.linkTypeOptions.lawsuit'),
               "dossier": t('detail.overview.fields.linkTypeOptions.dossier')
             };
-            const rawValue = data.linkType || (data.dossierId || data.dossier ? "dossier" : "case");
-            return linkTypeOptions[rawValue] || t('detail.overview.fields.linkTypeOptions.case');
+            const rawValue = data.linkType || (data.dossierId || data.dossier ? "dossier" : "lawsuit");
+            return linkTypeOptions[rawValue] || t('detail.overview.fields.linkTypeOptions.lawsuit');
           },
           icon: "fas fa-link",
           type: "select",
           editable: true,
           required: true,
           options: [
-            { value: "case", label: t('detail.overview.fields.linkTypeOptions.case') },
+            { value: "lawsuit", label: t('detail.overview.fields.linkTypeOptions.lawsuit') },
             { value: "dossier", label: t('detail.overview.fields.linkTypeOptions.dossier') },
           ],
           helpText: t('detail.overview.fields.linkTypeHelp')
         },
         {
-          key: "caseId",
-          label: t('detail.overview.fields.case'),
-          value: (data, contextData) => data.caseId || "",
-          displayValue: (data) => data.case ? `${data.case.caseNumber} - ${data.case.title}` : t('detail.fallback.none'),
+          key: "lawsuitId",
+          label: t('detail.overview.fields.lawsuit'),
+          value: (data, contextData) => data.lawsuitId || "",
+          displayValue: (data) => data.lawsuit ? `${data.lawsuit.lawsuitNumber} - ${data.lawsuit.title}` : t('detail.fallback.none'),
           icon: "fas fa-gavel",
           type: "searchable-select",
           editable: true,
           options: [],
           getOptions: (editedData, contextData) => ([
-            { value: "", label: t('detail.overview.fields.casePlaceholder') },
-            ...(contextData?.cases || []).map(c => ({
+            { value: "", label: t('detail.overview.fields.lawsuitPlaceholder') },
+            ...(contextData?.lawsuits || []).map(c => ({
               value: c.id,
-              label: `${c.caseNumber} - ${c.title}`
+              label: `${c.lawsuitNumber} - ${c.title}`
             }))
           ]),
-          helpText: t('detail.overview.fields.caseHelp')
+          helpText: t('detail.overview.fields.lawsuitHelp')
         },
         {
           key: "dossierId",
           label: t('detail.overview.fields.dossier'),
           value: (data, contextData) => {
-            // If linked to a case, get the parent dossier
-            if (data.caseId) {
-              const parentCase = (contextData?.cases || []).find(c => c.id === parseInt(data.caseId));
-              if (parentCase && parentCase.dossierId) {
-                return parentCase.dossierId;
+            // If linked to a lawsuit, get the parent dossier
+            if (data.lawsuitId) {
+              const parentLawsuit = (contextData?.lawsuits || []).find(c => c.id === parseInt(data.lawsuitId));
+              if (parentLawsuit && parentLawsuit.dossierId) {
+                return parentLawsuit.dossierId;
               }
             }
             // Otherwise use direct dossier link
             return data.dossierId || "";
           },
           displayValue: (data, contextData) => {
-            // If linked to a case, show the parent dossier
-            if (data.caseId) {
-              const parentCase = (contextData?.cases || []).find(c => c.id === parseInt(data.caseId));
-              if (parentCase && parentCase.dossierId) {
-                const parentDossier = (contextData?.dossiers || []).find(d => d.id === parseInt(parentCase.dossierId));
+            // If linked to a lawsuit, show the parent dossier
+            if (data.lawsuitId) {
+              const parentLawsuit = (contextData?.lawsuits || []).find(c => c.id === parseInt(data.lawsuitId));
+              if (parentLawsuit && parentLawsuit.dossierId) {
+                const parentDossier = (contextData?.dossiers || []).find(d => d.id === parseInt(parentLawsuit.dossierId));
                 if (parentDossier) {
-                  return `${parentDossier.caseNumber} - ${parentDossier.title}`;
+                  return `${parentDossier.lawsuitNumber} - ${parentDossier.title}`;
                 }
               }
             }
             // Otherwise show direct dossier link
             if (data.dossier) {
-              return `${data.dossier.caseNumber} - ${data.dossier.title}`;
+              return `${data.dossier.lawsuitNumber} - ${data.dossier.title}`;
             }
             if (data.dossierId) {
               const dossier = (contextData?.dossiers || []).find(d => d.id === parseInt(data.dossierId));
               if (dossier) {
-                return `${dossier.caseNumber} - ${dossier.title}`;
+                return `${dossier.lawsuitNumber} - ${dossier.title}`;
               }
             }
             return t('detail.fallback.none');
@@ -458,7 +458,7 @@ export const createSessionConfig = (t) => ({
             { value: "", label: t('detail.overview.fields.dossierPlaceholder') },
             ...(contextData?.dossiers || []).map(d => ({
               value: d.id,
-              label: `${d.caseNumber} - ${d.title}`
+              label: `${d.lawsuitNumber} - ${d.title}`
             }))
           ]),
           helpText: t('detail.overview.fields.dossierHelp')
@@ -590,3 +590,7 @@ function InfoCard({ icon, label, value, color }) {
     </div >
   );
 }
+
+
+
+

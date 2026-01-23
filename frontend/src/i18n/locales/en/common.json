@@ -34,7 +34,7 @@
       },
       "placeholders": {
         "dossier": "Select a dossier...",
-        "case": "Select a case..."
+        "lawsuit": "Select a lawsuit..."
       }
     },
     "stats": {
@@ -159,7 +159,7 @@
     },
     "activities": {
       "newClient": "New client: {{name}}",
-      "dossierUpdated": "Dossier updated: {{caseNumber}}",
+      "dossierUpdated": "Dossier updated: {{lawsuitNumber}}",
       "scheduledHearing": "Scheduled hearings: {{title}}",
       "sessionDescription": "{{date}} at {{time}}",
       "deadline": "Deadline: {{title}}",
@@ -168,7 +168,7 @@
     "types": {
       "session": "Hearing",
       "task": "Tasks",
-      "case": "Lawsuit",
+      "lawsuit": "Lawsuit",
       "dossier": "Dossier",
       "finance": "Finance",
       "mission": "Mission",
@@ -190,7 +190,7 @@
     "titles": {
       "client": { "new": "New Client", "edit": "Edit Client" },
       "dossier": { "new": "New Dossier", "edit": "Edit Dossier" },
-      "case": { "new": "New Case", "edit": "Edit Case" },
+      "lawsuit": { "new": "New Lawsuit", "edit": "Edit Lawsuit" },
       "session": { "new": "New Session", "edit": "Edit Session" },
       "task": { "new": "New Task", "edit": "Edit Task" },
       "personalTask": { "new": "New Personal Task", "edit": "Edit Personal Task" },
@@ -518,6 +518,12 @@
       "addDefault": "Add an item",
       "edit": "Edit",
       "disabledAction": "Action unavailable at the moment.",
+      "errors": {
+        "createDossier": "Unable to create dossier. Please try again.",
+        "createLawsuit": "Unable to create lawsuit. Please try again.",
+        "createSession": "Unable to create hearing. Please try again.",
+        "createTask": "Unable to create task. Please try again."
+      },
       "toast": {
         "addSuccess": "{{entityName}} added successfully!",
         "addError": "Error adding item"
@@ -527,7 +533,7 @@
         "edit": "Edit {{entity}}"
       },
       "help": {
-        "taskCaseLink": "This task will be linked to this lawsuit"
+        "taskLawsuitLink": "This task will be linked to this lawsuit"
       },
       "empty": {
         "noItems": "No items"
@@ -547,11 +553,11 @@
     "aggregated": {
       "empty": {
         "dossiers": "No dossiers for this client",
-        "lawsuitsClient": "No cases for this client",
-        "lawsuitsDossier": "No cases for this dossier",
-        "hearingsClient": "No hearings scheduled for this client.\nTo add a hearing, create a dossier or a case.",
+        "lawsuitsClient": "No lawsuits for this client",
+        "lawsuitsDossier": "No lawsuits for this dossier",
+        "hearingsClient": "No hearings scheduled for this client.\nTo add a hearing, create a dossier or a lawsuit.",
         "hearingsDossier": "No hearings scheduled for this dossier",
-        "hearingsLawsuit": "No hearings scheduled for this case",
+        "hearingsLawsuit": "No hearings scheduled for this lawsuit",
         "tasksClient": "No tasks for this client",
         "tasksDossier": "No tasks for this dossier",
         "tasksLawsuit": "No tasks for this lawsuit",
@@ -642,7 +648,7 @@
           "taskComplete": "Task marked as completed",
           "hearingComplete": "Hearing marked as completed",
           "entryPaid": "Entry marked as paid",
-          "caseClosed": "Lawsuit closed",
+          "lawsuitClosed": "Lawsuit closed",
           "dossierClosed": "Dossier closed",
           "resolved": "All blockers have been resolved!"
         },
@@ -650,7 +656,7 @@
           "taskComplete": "Unable to mark this task as completed",
           "hearingComplete": "Unable to mark this hearing as completed",
           "entryPaid": "Unable to mark this entry as paid",
-          "caseClosed": "Unable to close this lawsuit",
+          "lawsuitClosed": "Unable to close this lawsuit",
           "dossierClosed": "Unable to close this dossier",
           "unsupported": "Action not supported",
           "generic": "An error occurred"
@@ -696,8 +702,8 @@
           "dossierOpenBeforeClient": "The dossier opening date ({{openDate}}) cannot be before the client's registration date ({{joinDate}}).",
           "nextDeadlinePast": "The next deadline ({{date}}) is in the past. Consider updating it.",
           "closingDateAfterOpening": "The closing date ({{closeDate}}) must be after the opening date ({{openDate}}).",
-          "cannotCloseDossierOpenCases_one": "Cannot close the dossier: {{count}} lawsuit is still in progress.",
-          "cannotCloseDossierOpenCases_other": "Cannot close the dossier: {{count}} lawsuits are still in progress.",
+          "cannotCloseDossierOpenLawsuits_one": "Cannot close the dossier: {{count}} lawsuit is still in progress.",
+          "cannotCloseDossierOpenLawsuits_other": "Cannot close the dossier: {{count}} lawsuits are still in progress.",
           "filingDateFuture": "The filing date ({{date}}) cannot be in the future.",
           "filingBeforeDossierOpen": "The lawsuit filing date ({{filingDate}}) cannot be before the dossier opening date ({{openDate}}).",
           "nextHearingPast": "The next hearing ({{date}}) is in the past. Update this date.",
@@ -712,8 +718,8 @@
           "startAfterDue": "The start date ({{startDate}}) must be before the due date ({{dueDate}}).",
           "hearingDatePastStatus": "The hearing date ({{date}}) is in the past, but its status is not \"Completed\".",
           "endTimeBeforeStart": "The end time ({{endTime}}) must be after the start time ({{startTime}}).",
-          "hearingAfterCaseClosed": "The hearing cannot be scheduled after the lawsuit is closed ({{closeDate}}).",
-          "hearingCreateClosedCase": "Cannot create a hearing: the parent lawsuit is already closed.",
+          "hearingAfterLawsuitClosed": "The hearing cannot be scheduled after the lawsuit is closed ({{closeDate}}).",
+          "hearingCreateClosedLawsuit": "Cannot create a hearing: the parent lawsuit is already closed.",
           "hearingAfterDossierClosed": "The hearing cannot be scheduled after the dossier's closing date ({{closeDate}}).",
           "hearingCreateClosedDossier": "Cannot create a hearing: the parent dossier is already closed.",
           "hearingBeforeFiling": "The hearing date ({{date}}) cannot be before the lawsuit's filing date ({{filingDate}}).",
@@ -778,7 +784,7 @@
       "noSelection": "No item selected",
       "client": "Select a client",
       "dossier": "Select a dossier",
-      "case": "Select a case",
+      "lawsuit": "Select a lawsuit",
       "task": "Select a task",
       "session": "Select a session",
       "officer": "Select an officer",
@@ -819,7 +825,7 @@
       "phone": "Phone",
       "name": "Name",
       "status": "Status",
-      "caseNumber": "Case Number",
+      "lawsuitNumber": "Lawsuit Number",
       "title": "Title",
       "client": "Client",
       "date": "Date",
@@ -916,7 +922,7 @@
     "entities": {
       "client": "Client",
       "dossier": "Dossier",
-      "case": "Case",
+      "lawsuit": "Lawsuit",
       "task": "Task",
       "session": "Session",
       "mission": "Mission",
@@ -1120,3 +1126,4 @@
     "loading": "Loading..."
   }
 }
+

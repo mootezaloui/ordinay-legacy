@@ -1,4 +1,4 @@
-﻿import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import PageLayout from "../components/layout/PageLayout";
 import ContentSection from "../components/layout/ContentSection";
@@ -21,12 +21,12 @@ export default function Dashboard() {
   const [isWorkloadCollapsed, setWorkloadCollapsed] = useState(false);
   const [isLoadMapCollapsed, setLoadMapCollapsed] = useState(false);
   const { formatDate: formatDisplayDate, formatCurrency } = useSettings();
-  const { clients, dossiers, tasks, sessions, cases, missions, financialEntries } = useData();
+  const { clients, dossiers, tasks, sessions, lawsuits, missions, financialEntries } = useData();
   const operationalClients = useMemo(() => filterOperationalEntities(clients), [clients]);
   const operationalDossiers = useMemo(() => filterOperationalEntities(dossiers), [dossiers]);
   const operationalTasks = useMemo(() => filterOperationalEntities(tasks), [tasks]);
   const operationalSessions = useMemo(() => filterOperationalEntities(sessions), [sessions]);
-  const operationalCases = useMemo(() => filterOperationalEntities(cases), [cases]);
+  const operationalLawsuits = useMemo(() => filterOperationalEntities(lawsuits), [lawsuits]);
   const operationalMissions = useMemo(() => filterOperationalEntities(missions), [missions]);
   const operationalFinancialEntries = useMemo(
     () => filterOperationalEntities(financialEntries),
@@ -50,7 +50,7 @@ export default function Dashboard() {
       setWorkloadCollapsed(true);
       setLoadMapCollapsed(true);
     }
-  }, [sessions, cases, tasks, t]);
+  }, [sessions, lawsuits, tasks, t]);
 
   useEffect(() => {
     let isMounted = true;
@@ -125,7 +125,7 @@ export default function Dashboard() {
       activities.push({
         id: `dossier-${dossier.id}`,
         type: "dossier",
-        title: t("dashboard.activities.dossierUpdated", { caseNumber: dossier.caseNumber }),
+        title: t("dashboard.activities.dossierUpdated", { lawsuitNumber: dossier.lawsuitNumber }),
         description: dossier.title,
         timestamp: dossier.openDate || new Date().toISOString(),
         user: "Me. Sassi",
@@ -173,17 +173,17 @@ export default function Dashboard() {
       }
     });
 
-    // Upcoming hearings from cases (use i18n-aware label)
-    operationalCases.forEach(caseItem => {
-      const hearing = calculateNextHearing(caseItem, [], [], [], t);
+    // Upcoming hearings from lawsuits (use i18n-aware label)
+    operationalLawsuits.forEach(lawsuitItem => {
+      const hearing = calculateNextHearing(lawsuitItem, [], [], [], t);
       if (hearing && hearing.date > now) {
         events.push({
-          id: `case-${caseItem.id}`,
+          id: `lawsuit-${lawsuitItem.id}`,
           type: "hearing",
           title: hearing.label,
           date: hearing.date.toISOString(),
-          location: caseItem.court,
-          link: `/cases/${caseItem.id}`,
+          location: lawsuitItem.court,
+          link: `/lawsuits/${lawsuitItem.id}`,
         });
       }
     });
@@ -208,7 +208,7 @@ export default function Dashboard() {
 
     // Sort by date
     return events.sort((a, b) => new Date(a.date) - new Date(b.date));
-  }, [operationalSessions, operationalCases, operationalTasks, t]);
+  }, [operationalSessions, operationalLawsuits, operationalTasks, t]);
 
   // Get urgent tasks (high priority or due soon)
   const urgentTasks = useMemo(() => {
@@ -269,9 +269,9 @@ export default function Dashboard() {
       items.push({ date, type: "hearing" });
     });
 
-    operationalCases.forEach((caseItem) => {
-      if (isInactive(caseItem.status)) return;
-      const date = toDate(caseItem.nextHearing);
+    operationalLawsuits.forEach((lawsuitItem) => {
+      if (isInactive(lawsuitItem.status)) return;
+      const date = toDate(lawsuitItem.nextHearing);
       if (!date) return;
       items.push({ date, type: "hearing" });
     });
@@ -286,7 +286,7 @@ export default function Dashboard() {
     });
 
     return items.sort((a, b) => a.date - b.date);
-  }, [operationalTasks, operationalSessions, operationalCases, operationalMissions]);
+  }, [operationalTasks, operationalSessions, operationalLawsuits, operationalMissions]);
 
   const workloadBuckets = useMemo(() => {
     const bucketDefs = [
@@ -884,4 +884,7 @@ export default function Dashboard() {
     </PageLayout>
   );
 }
+
+
+
 

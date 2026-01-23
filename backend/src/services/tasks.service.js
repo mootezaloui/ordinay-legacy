@@ -11,7 +11,7 @@ const notesService = require('./notes.service');
 const table = "tasks";
 const allowedFields = [
   "dossier_id",
-  "case_id",
+  "lawsuit_id",
   "title",
   "description",
   "assigned_to",
@@ -50,7 +50,7 @@ function create(payload) {
   const data = normalizeData(filterPayload(payload, allowedFields));
   const insertData = {
     dossier_id: null,
-    case_id: null,
+    lawsuit_id: null,
     description: null,
     assigned_to: null,
     due_date: null,
@@ -60,8 +60,8 @@ function create(payload) {
   };
   insertData.title = insertData.title || "Nouvelle tâche";
   ensureXor(
-    [insertData.dossier_id, insertData.case_id],
-    "Provide either dossier_id or case_id (exclusive)"
+    [insertData.dossier_id, insertData.lawsuit_id],
+    "Provide either dossier_id or lawsuit_id (exclusive)"
   );
   assert(insertData.title, "title is required");
   if (!insertData.status) insertData.status = "Non commencee";
@@ -71,7 +71,7 @@ function create(payload) {
     const stmt = db.prepare(
       `INSERT INTO ${table} (
         dossier_id,
-        case_id,
+        lawsuit_id,
         title,
         description,
         assigned_to,
@@ -82,7 +82,7 @@ function create(payload) {
         completed_at
       ) VALUES (
         @dossier_id,
-        @case_id,
+        @lawsuit_id,
         @title,
         @description,
         @assigned_to,
@@ -107,10 +107,10 @@ function create(payload) {
 
 function update(id, payload) {
   const data = normalizeData(filterPayload(payload, allowedFields));
-  if (data.dossier_id !== undefined || data.case_id !== undefined) {
+  if (data.dossier_id !== undefined || data.lawsuit_id !== undefined) {
     ensureXor(
-      [data.dossier_id, data.case_id],
-      "Provide either dossier_id or case_id (exclusive)"
+      [data.dossier_id, data.lawsuit_id],
+      "Provide either dossier_id or lawsuit_id (exclusive)"
     );
   }
 
@@ -156,7 +156,7 @@ function remove(id) {
   const stmt = db.prepare(`DELETE FROM ${table} WHERE id = @id`);
   const result = stmt.run({ id });
 
-  // Add deletion event to parent's history (dossier or case)
+  // Add deletion event to parent's history (dossier or lawsuit)
   if (result.changes > 0) {
     if (task.dossier_id) {
       historyService.create({
@@ -165,10 +165,10 @@ function remove(id) {
         action: "child_deleted",
         description: `Task "${task.title}" was deleted`,
       });
-    } else if (task.case_id) {
+    } else if (task.lawsuit_id) {
       historyService.create({
-        entity_type: "case",
-        entity_id: task.case_id,
+        entity_type: "lawsuit",
+        entity_id: task.lawsuit_id,
         action: "child_deleted",
         description: `Task "${task.title}" was deleted`,
       });
@@ -185,3 +185,4 @@ module.exports = {
   update,
   remove,
 };
+

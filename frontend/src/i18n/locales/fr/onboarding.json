@@ -32,11 +32,11 @@
       "clients": {
         "title": "Commencez par les Clients",
         "description": "Chaque travail commence par un client. Ajoutez vos clients d'abord — ils sont la base de tout.",
-        "detail": "Chaque client peut avoir plusieurs affaires juridiques. Considérez les clients comme les conteneurs de tout le reste."
+        "detail": "Chaque client peut avoir plusieurs procès. Considérez les clients comme les conteneurs de tout le reste."
       },
       "dossiers": {
         "title": "Dossiers : Vos Affaires Juridiques",
-        "description": "Un dossier représente une affaire ou un cas juridique. Il appartient à un client et contient tout le travail associé.",
+        "description": "Un dossier représente un dossier juridique. Il appartient à un client et contient tout le travail associé.",
         "detail": "Exemple : « Procédure de Divorce - Dupont » ou « Litige Commercial - Société ABC ». Chaque dossier suit ses propres tâches, échéances et historique."
       },
       "tasks": {
@@ -90,7 +90,7 @@
       "tips": {
         "title": "Rappels rapides",
         "tip1": "Commencez par ajouter un client",
-        "tip2": "Créez un dossier pour son affaire juridique",
+        "tip2": "Créez un dossier pour ce client",
         "tip3": "Ajoutez des tâches pour suivre votre travail",
         "tip4": "Consultez votre tableau de bord quotidiennement"
       },

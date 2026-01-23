@@ -4,8 +4,8 @@
     "subtitle": "{{total}} procès au total",
     "subtitleFiltered": "{{total}} procès au total, {{displayed}} affichés",
     "actions": {
-      "newCase": "Nouveau Procès",
-      "newCaseDisabled": "Impossible de créer un procès sans dossiers. Veuillez d'abord créer un dossier."
+      "newLawsuit": "Nouveau Procès",
+      "newLawsuitDisabled": "Impossible de créer un procès sans dossiers. Veuillez d'abord créer un dossier."
     },
     "loading": "Chargement des procès..."
   },
@@ -18,7 +18,7 @@
   },
   "table": {
     "columns": {
-      "caseNumber": "Procès #",
+      "lawsuitNumber": "Procès #",
       "title": "Titre",
       "dossier": "Dossier",
       "court": "Tribunal",
@@ -66,7 +66,7 @@
       "statusLocked": "Le statut ne peut être modifié qu'à l'aide du sélecteur dans la liste"
     },
     "fields": {
-      "caseNumber": {
+      "lawsuitNumber": {
         "label": "Référence / Numéro",
         "placeholder": "Ex : PRO-2025-001 (auto-généré si vide)",
         "helper": "Optionnel - laisser vide pour auto-génération (PRO-ANNÉE-XXX)"
@@ -89,7 +89,7 @@
       "courtReference": {
         "label": "Numéro de référence du tribunal",
         "placeholder": "Ex : TPI-2024-COM-1234",
-        "helper": "Numéro de référence du tribunal pour cette affaire (optionnel)"
+        "helper": "Numéro de référence du tribunal pour ce procès (optionnel)"
       },
       "adversaryParty": {
         "label": "Partie adverse",
@@ -100,7 +100,7 @@
         "placeholder": "Me. Nom de l'avocat"
       },
       "status": {
-        "label": "Statut de l'affaire",
+        "label": "Statut du procès",
         "options": {
           "inProgress": "En Cours",
           "onHold": "En Attente",
@@ -109,7 +109,7 @@
       },
       "description": {
         "label": "Description",
-        "placeholder": "Description de l'affaire..."
+        "placeholder": "Description du procès..."
       }
     }
   },
@@ -178,10 +178,10 @@
     },
     "sessions": {
       "entityName": "une audience",
-      "addSubtitle": "Créer une nouvelle audience judiciaire pour cette affaire",
+      "addSubtitle": "Créer une nouvelle audience judiciaire pour ce procès",
       "help": {
-        "caseLink": "Cette audience sera liée à cette affaire",
-        "linkType": "Cette audience est liée à cette affaire"
+        "lawsuitLink": "Cette audience sera liée à ce procès",
+        "linkType": "Cette audience est liée à ce procès"
       },
       "placeholders": {
         "location": "Salle d'audience / Lieu de réunion"
@@ -189,10 +189,10 @@
     },
     "tasks": {
       "entityName": "une tâche",
-      "addSubtitle": "Créer une nouvelle tâche pour cette affaire",
+      "addSubtitle": "Créer une nouvelle tâche pour ce procès",
       "help": {
         "parentType": "Choisissez si cette tâche concerne le procès ou le dossier parent",
-        "caseLink": "Cette tâche sera liée à ce procès",
+        "lawsuitLink": "Cette tâche sera liée à ce procès",
         "dossierLink": "Cette tâche sera liée au dossier parent"
       }
     },
@@ -200,7 +200,7 @@
       "entityName": "mission",
       "addSubtitle": "Créer une nouvelle mission d'huissier pour ce procès",
       "help": {
-        "caseLink": "Cette mission sera liée au procès {{caseNumber}}"
+        "lawsuitLink": "Cette mission sera liée au procès {{lawsuitNumber}}"
       }
     },
     "overview": {
@@ -212,7 +212,7 @@
       "judgment": "Jugement",
       "relatedDossier": "Dossier Associé",
       "fields": {
-        "caseNumber": "Numéro du Procès",
+        "lawsuitNumber": "Numéro du Procès",
         "title": "Titre du Procès",
         "court": "Tribunal",
         "courtReference": "Numéro de référence du tribunal",
@@ -229,7 +229,7 @@
         "cassation": "Cour de cassation"
       },
       "help": {
-        "associatedDossier": "Sélectionnez le dossier associé à cette affaire"
+        "associatedDossier": "Sélectionnez le dossier associé à ce procès"
       },
       "placeholders": {
         "associatedDossier": "Rechercher un dossier..."

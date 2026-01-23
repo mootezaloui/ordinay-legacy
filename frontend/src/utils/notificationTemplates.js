@@ -22,11 +22,11 @@ export function resolveEntityLink(entityType, context = {}) {
         : ctx.entityId
         ? `/dossiers/${ctx.entityId}`
         : null,
-    case: (ctx) =>
-      ctx.caseId
-        ? `/cases/${ctx.caseId}`
+    lawsuit: (ctx) =>
+      ctx.lawsuitId
+        ? `/lawsuits/${ctx.lawsuitId}`
         : ctx.entityId
-        ? `/cases/${ctx.entityId}`
+        ? `/lawsuits/${ctx.entityId}`
         : null,
     task: (ctx) =>
       ctx.taskId
@@ -64,7 +64,7 @@ export function resolveEntityLink(entityType, context = {}) {
       const entryId = ctx.financialEntryId ?? ctx.entityId;
       if (entryId) return `/accounting/${entryId}`;
       if (ctx.dossierId) return `/dossiers/${ctx.dossierId}`;
-      if (ctx.caseId) return `/cases/${ctx.caseId}`;
+      if (ctx.lawsuitId) return `/lawsuits/${ctx.lawsuitId}`;
       if (ctx.clientId) return `/clients/${ctx.clientId}`;
       if (ctx.missionId) return `/missions/${ctx.missionId}`;
       return null;
@@ -356,7 +356,7 @@ export const dossierNotificationTemplates = {
     {
       title: "Update Required",
       getMessage: (dossier) =>
-        `The Dossier ${dossier.caseNumber} has not been updated for ${dossier.daysSinceUpdate} days. Any news?`,
+        `The Dossier ${dossier.lawsuitNumber} has not been updated for ${dossier.daysSinceUpdate} days. Any news?`,
     },
   ],
 
@@ -364,7 +364,7 @@ export const dossierNotificationTemplates = {
     {
       title: "Dossier Review",
       getMessage: (dossier) =>
-        `The Dossier ${dossier.caseNumber} has been open for ${dossier.daysOpen} days. Is everything progressing well?`,
+        `The Dossier ${dossier.lawsuitNumber} has been open for ${dossier.daysOpen} days. Is everything progressing well?`,
     },
   ],
 };
@@ -401,7 +401,7 @@ export const domainEventTemplates = {
     title: "Dossier closed",
     getMessage: (ctx) =>
       `The Dossier ${
-        ctx.caseNumber || ctx.entityName || ctx.entityId
+        ctx.lawsuitNumber || ctx.entityName || ctx.entityId
       } has been closed.`,
   },
   dossierReopened: {
@@ -411,27 +411,27 @@ export const domainEventTemplates = {
     title: "Dossier reopened",
     getMessage: (ctx) =>
       `The Dossier ${
-        ctx.caseNumber || ctx.entityName || ctx.entityId
+        ctx.lawsuitNumber || ctx.entityName || ctx.entityId
       } has been reopened.`,
   },
-  caseClosed: {
-    type: "case",
+  lawsuitClosed: {
+    type: "lawsuit",
     priority: "info",
     icon: "fas fa-gavel",
-    title: "Case closed",
+    title: "Lawsuit closed",
     getMessage: (ctx) =>
-      `The case ${
-        ctx.caseNumber || ctx.entityName || ctx.entityId
+      `The lawsuit ${
+        ctx.lawsuitNumber || ctx.entityName || ctx.entityId
       } has been closed.`,
   },
-  caseReopened: {
-    type: "case",
+  lawsuitReopened: {
+    type: "lawsuit",
     priority: "success",
     icon: "fas fa-gavel",
-    title: "Case reopened",
+    title: "Lawsuit reopened",
     getMessage: (ctx) =>
-      `The case ${
-        ctx.caseNumber || ctx.entityName || ctx.entityId
+      `The lawsuit ${
+        ctx.lawsuitNumber || ctx.entityName || ctx.entityId
       } has been reopened.`,
   },
 
@@ -637,3 +637,7 @@ export function calculateHoursDifference(date1, date2 = new Date()) {
   const diffHours = Math.ceil(diffTime / (1000 * 60 * 60));
   return diffHours;
 }
+
+
+
+

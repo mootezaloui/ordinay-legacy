@@ -102,12 +102,12 @@
     },
     "context": {
       "type": ["object", "null"],
-      "description": "Optional context (dossier, case, session references)",
+      "description": "Optional context (dossier, lawsuit, session references)",
       "properties": {
         "dossierId": {
           "type": ["integer", "null"]
         },
-        "caseId": {
+        "lawsuitId": {
           "type": ["integer", "null"]
         },
         "sessionId": {
@@ -120,3 +120,4 @@
     }
   }
 }
+

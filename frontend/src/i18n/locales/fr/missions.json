@@ -136,7 +136,7 @@
       },
       "entityTypes": {
         "dossier": "Dossier",
-        "case": "Procès"
+        "lawsuit": "Procès"
       },
       "help": {
         "entityType": "Sélectionnez le type d'entité à laquelle cette mission est liée",
@@ -144,7 +144,7 @@
         "bailiff": "Attention : Changer l'huissier transférera la mission à un autre huissier"
       },
       "placeholders": {
-        "selectCase": "Sélectionnez un procès...",
+        "selectLawsuit": "Sélectionnez un procès...",
         "selectDossier": "Sélectionnez un dossier..."
       }
     },

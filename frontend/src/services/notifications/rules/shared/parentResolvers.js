@@ -1,6 +1,6 @@
 /**
  * Parent entity resolvers for notification rules
- * Used to get parent context (dossier/case) for tasks, sessions, etc.
+ * Used to get parent context (dossier/lawsuit) for tasks, sessions, etc.
  */
 
 import { getEntities } from "./entityLoader";
@@ -34,25 +34,25 @@ export function isTaskClosedStatus(status) {
 }
 
 /**
- * Resolve parent (dossier or case) for a task
+ * Resolve parent (dossier or lawsuit) for a task
  */
 export function resolveTaskParent(task) {
   const entities = getEntities();
   const dossiers = entities.dossiers || [];
-  const cases = entities.cases || [];
+  const lawsuits = entities.lawsuits || [];
   const dossierId = task.dossier_id ?? task.dossierId;
-  const caseId = task.case_id ?? task.caseId;
+  const lawsuitId = task.lawsuit_id ?? task.lawsuitId;
 
-  if (caseId) {
-    const parentCase = cases.find((item) => item.id === caseId);
-    if (parentCase) {
+  if (lawsuitId) {
+    const parentLawsuit = lawsuits.find((item) => item.id === lawsuitId);
+    if (parentLawsuit) {
       return {
-        parentType: "case",
+        parentType: "lawsuit",
         parentReference:
-          parentCase.case_number ||
-          parentCase.reference_number ||
-          parentCase.title ||
-          `Case #${parentCase.id}`,
+          parentLawsuit.lawsuitNumber ||
+          parentLawsuit.reference_number ||
+          parentLawsuit.title ||
+          `Lawsuit #${parentLawsuit.id}`,
       };
     }
   }
@@ -64,7 +64,7 @@ export function resolveTaskParent(task) {
         parentType: "dossier",
         parentReference:
           parentDossier.reference ||
-          parentDossier.case_number ||
+          parentDossier.lawsuitNumber ||
           parentDossier.title ||
           `Dossier #${parentDossier.id}`,
       };
@@ -79,29 +79,29 @@ export function resolveTaskParent(task) {
  * Returns an object with: { reference, entityType, entityId, label }
  *
  * Resolution rules:
- * 1. If session has case_id → look up case, return case reference/title + "procès"
+ * 1. If session has lawsuit_id → look up lawsuit, return lawsuit reference/title + "procès"
  * 2. Else if session has dossier_id → look up dossier, return dossier reference + "dossier"
  * 3. Else if session has title → use session title + "audience"
  * 4. Else → return null (will display as "Audience")
  */
 export function resolveSessionEntity(session, entities = getEntities()) {
-  const cases = entities.cases || [];
+  const lawsuits = entities.lawsuits || [];
   const dossiers = entities.dossiers || [];
 
-  // Priority 1: Case (procès)
-  if (session.case_id) {
-    const parentCase = cases.find((c) => c.id === session.case_id);
-    if (parentCase) {
+  // Priority 1: Lawsuit (procès)
+  if (session.lawsuit_id) {
+    const parentLawsuit = lawsuits.find((c) => c.id === session.lawsuit_id);
+    if (parentLawsuit) {
       const reference =
-        parentCase.case_number ||
-        parentCase.reference ||
-        parentCase.reference_number ||
-        parentCase.title ||
-        `Procès #${parentCase.id}`;
+        parentLawsuit.lawsuitNumber ||
+        parentLawsuit.reference ||
+        parentLawsuit.reference_number ||
+        parentLawsuit.title ||
+        `Procès #${parentLawsuit.id}`;
       return {
         reference,
-        entityType: "case",
-        entityId: parentCase.id,
+        entityType: "lawsuit",
+        entityId: parentLawsuit.id,
         label: "procès",
       };
     }
@@ -170,14 +170,14 @@ export function buildFinancialParentContexts(financialEntry) {
 
   const missionId = financialEntry.mission_id ?? financialEntry.missionId;
   const dossierId = financialEntry.dossier_id ?? financialEntry.dossierId;
-  const caseId = financialEntry.case_id ?? financialEntry.caseId;
+  const lawsuitId = financialEntry.lawsuit_id ?? financialEntry.lawsuitId;
   const taskId = financialEntry.task_id ?? financialEntry.taskId;
   const personalTaskId =
     financialEntry.personal_task_id ?? financialEntry.personalTaskId;
 
   const missions = entities.missions || [];
   const dossiers = entities.dossiers || [];
-  const cases = entities.cases || [];
+  const lawsuits = entities.lawsuits || [];
   const tasks = entities.tasks || [];
   const personalTasks = entities.personalTasks || [];
   const officers = entities.officers || [];
@@ -203,22 +203,22 @@ export function buildFinancialParentContexts(financialEntry) {
     const dossier = dossiers.find((item) => item.id === dossierId);
     const dossierRef =
       dossier?.reference ||
-      dossier?.case_number ||
-      dossier?.caseNumber ||
+      dossier?.lawsuitNumber ||
+      dossier?.lawsuitNumber ||
       dossier?.title ||
       `Dossier #${dossierId}`;
     addContext("dossier", dossierRef);
   }
 
-  if (caseId) {
-    const caseItem = cases.find((item) => item.id === caseId);
-    const caseRef =
-      caseItem?.reference ||
-      caseItem?.case_number ||
-      caseItem?.caseNumber ||
-      caseItem?.title ||
-      `Case #${caseId}`;
-    addContext("case", caseRef);
+  if (lawsuitId) {
+    const lawsuitItem = lawsuits.find((item) => item.id === lawsuitId);
+    const lawsuitRef =
+      lawsuitItem?.reference ||
+      lawsuitItem?.lawsuitNumber ||
+      lawsuitItem?.lawsuitNumber ||
+      lawsuitItem?.title ||
+      `Lawsuit #${lawsuitId}`;
+    addContext("lawsuit", lawsuitRef);
   }
 
   if (taskId) {
@@ -238,3 +238,8 @@ export function buildFinancialParentContexts(financialEntry) {
 
   return contexts;
 }
+
+
+
+
+

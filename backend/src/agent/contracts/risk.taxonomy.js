@@ -36,7 +36,7 @@ const RISK_CATEGORY = Object.freeze({
   /**
    * STATE_INCONSISTENCY
    * Entity state does not match expected state or business rules.
-   * Example: Case status is "closed" but has open tasks.
+   * Example: Lawsuit status is "closed" but has open tasks.
    */
   STATE_INCONSISTENCY: 'STATE_INCONSISTENCY',
 
@@ -141,7 +141,7 @@ function validateRiskSeverity(severity) {
  * @param {string} risk.severity - Risk severity (must be from RISK_SEVERITY enum)
  * @param {string} risk.description - Factual description of the risk
  * @param {Object} risk.affectedEntityRef - Reference to affected entity
- * @param {string} risk.affectedEntityRef.type - Entity type (dossier, case, task, etc.)
+ * @param {string} risk.affectedEntityRef.type - Entity type (dossier, lawsuit, task, etc.)
  * @param {number} risk.affectedEntityRef.id - Entity ID
  * @param {Array} [risk.affectedItems] - Optional array of specific affected items
  * @returns {Object} Validated risk object

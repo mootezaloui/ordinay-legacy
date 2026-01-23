@@ -184,8 +184,7 @@
       "app": "التطبيق",
       "client": "العميل",
       "dossier": "ملف",
-      "case": "قضية",
-      "lawsuit": "دعوى",
+      "lawsuit": "قضية",
       "task": "مهمة",
       "personalTask": "مهمة شخصية",
       "personal": "شخصية",
@@ -229,7 +228,7 @@
     "clientAdded": "تمت إضافة العميل \"{{clientName}}\" بنجاح.",
     "dossierCreated": "تم إنشاء الملف {{dossierNumber}} للعميل {{clientName}}.",
     "taskDue": "\"{{taskTitle}}\" مستحقة بتاريخ {{dueDate}}.",
-    "hearingScheduled": "تمت جدولة جلسة للقضية {{caseNumber}} بتاريخ {{hearingDate}}.",
+    "hearingScheduled": "تمت جدولة جلسة للقضية {{lawsuitNumber}} بتاريخ {{hearingDate}}.",
     "paymentReceived": "قام العميل {{clientName}} بدفع مبلغ {{amount}}.",
     "documentUploaded": "تم تحميل المستند \"{{documentName}}\" في الملف {{dossierNumber}}.",
     "sessionScheduled": "تمت جدولة جلسة \"{{sessionTitle}}\" بتاريخ {{date}}.",
@@ -281,36 +280,36 @@
       "upcomingHearing": {
         "title_one": "جلسة بعد {{count}} يوم",
         "title_other": "جلسة بعد {{count}} يوم",
-        "message_one": "تمت جدولة جلسة لـ {{entityLabel}} \"{{caseNumber}}\" بعد {{count}} يوم.",
-        "message_other": "تمت جدولة جلسة لـ {{entityLabel}} \"{{caseNumber}}\" بعد {{count}} يوم.",
-        "messageWithLocation_one": "تمت جدولة جلسة لـ {{entityLabel}} \"{{caseNumber}}\" بعد {{count}} يوم. المكان: {{location}}",
-        "messageWithLocation_other": "تمت جدولة جلسة لـ {{entityLabel}} \"{{caseNumber}}\" بعد {{count}} يوم. المكان: {{location}}",
-        "messageNoLocation_one": "تمت جدولة جلسة لـ {{entityLabel}} \"{{caseNumber}}\" بعد {{count}} يوم. تحقق من المستندات والإعداد.",
-        "messageNoLocation_other": "تمت جدولة جلسة لـ {{entityLabel}} \"{{caseNumber}}\" بعد {{count}} يوم. تحقق من المستندات والإعداد."
+        "message_one": "تمت جدولة جلسة لـ {{entityLabel}} \"{{lawsuitNumber}}\" بعد {{count}} يوم.",
+        "message_other": "تمت جدولة جلسة لـ {{entityLabel}} \"{{lawsuitNumber}}\" بعد {{count}} يوم.",
+        "messageWithLocation_one": "تمت جدولة جلسة لـ {{entityLabel}} \"{{lawsuitNumber}}\" بعد {{count}} يوم. المكان: {{location}}",
+        "messageWithLocation_other": "تمت جدولة جلسة لـ {{entityLabel}} \"{{lawsuitNumber}}\" بعد {{count}} يوم. المكان: {{location}}",
+        "messageNoLocation_one": "تمت جدولة جلسة لـ {{entityLabel}} \"{{lawsuitNumber}}\" بعد {{count}} يوم. تحقق من المستندات والإعداد.",
+        "messageNoLocation_other": "تمت جدولة جلسة لـ {{entityLabel}} \"{{lawsuitNumber}}\" بعد {{count}} يوم. تحقق من المستندات والإعداد."
       },
       "hearingToday": {
         "title": "🔴 جلسة اليوم",
-        "message": "جلسة اليوم لـ {{entityLabel}} \"{{caseNumber}}\" الساعة {{time}}.",
-        "messageWithLocation": "جلسة اليوم لـ {{entityLabel}} \"{{caseNumber}}\" الساعة {{time}}. المكان: {{location}}"
+        "message": "جلسة اليوم لـ {{entityLabel}} \"{{lawsuitNumber}}\" الساعة {{time}}.",
+        "messageWithLocation": "جلسة اليوم لـ {{entityLabel}} \"{{lawsuitNumber}}\" الساعة {{time}}. المكان: {{location}}"
       },
       "hearingOutcome": {
         "title": "نتيجة الجلسة - توثيق مطلوب",
-        "message_one": "عُقدت جلسة لـ {{entityLabel}} \"{{caseNumber}}\" منذ {{count}} يوم. ما هي نتيجة الجلسة؟",
-        "message_other": "عُقدت جلسة لـ {{entityLabel}} \"{{caseNumber}}\" منذ {{count}} يوم. ما هي نتيجة الجلسة؟"
+        "message_one": "عُقدت جلسة لـ {{entityLabel}} \"{{lawsuitNumber}}\" منذ {{count}} يوم. ما هي نتيجة الجلسة؟",
+        "message_other": "عُقدت جلسة لـ {{entityLabel}} \"{{lawsuitNumber}}\" منذ {{count}} يوم. ما هي نتيجة الجلسة؟"
       }
     },
-    "case": {
+    "lawsuit": {
       "missingHearing": {
         "title": "جلسة مفقودة - قضية بدون جلسة",
-        "message": "القضية \"{{caseTitle}}\" (الأولوية: {{priority}}) ليس لديها جلسة مجدولة. هل تم إنشاء جلسة؟"
+        "message": "القضية \"{{lawsuitTitle}}\" (الأولوية: {{priority}}) ليس لديها جلسة مجدولة. هل تم إنشاء جلسة؟"
       },
       "missingTasks": {
         "title": "مهام مفقودة - قضية بدون مهام",
-        "message": "القضية \"{{caseTitle}}\" (الأولوية: {{priority}}) ليس لديها مهام مرتبطة. هل هناك إجراءات مخطط لها؟"
+        "message": "القضية \"{{lawsuitTitle}}\" (الأولوية: {{priority}}) ليس لديها مهام مرتبطة. هل هناك إجراءات مخطط لها؟"
       },
       "statusUpdate": {
         "title": "تحديث الحالة - قضية",
-        "message": "القضية \"{{caseTitle}}\" لديها {{activitySummary}}. هل يجب تحديث حالة القضية؟ هل تم إصدار حكم؟",
+        "message": "القضية \"{{lawsuitTitle}}\" لديها {{activitySummary}}. هل يجب تحديث حالة القضية؟ هل تم إصدار حكم؟",
         "hearingsCompleted_one": "{{count}} جلسة مكتملة",
         "hearingsCompleted_other": "{{count}} جلسة مكتملة",
         "tasksCompleted_one": "{{count}} مهمة مكتملة",
@@ -378,19 +377,19 @@
       },
       "dossierClosed": {
         "title": "ملف مغلق",
-        "message": "تم إغلاق الملف {{caseNumber}}."
+        "message": "تم إغلاق الملف {{lawsuitNumber}}."
       },
       "dossierReopened": {
         "title": "ملف مُعاد فتحه",
-        "message": "تم إعادة فتح الملف {{caseNumber}}."
+        "message": "تم إعادة فتح الملف {{lawsuitNumber}}."
       },
-      "caseClosed": {
+      "lawsuitClosed": {
         "title": "قضية مغلقة",
-        "message": "تم إغلاق القضية {{caseNumber}}."
+        "message": "تم إغلاق القضية {{lawsuitNumber}}."
       },
-      "caseReopened": {
+      "lawsuitReopened": {
         "title": "قضية مُعاد فتحها",
-        "message": "تم إعادة فتح القضية {{caseNumber}}."
+        "message": "تم إعادة فتح القضية {{lawsuitNumber}}."
       },
       "taskAssigned": {
         "title": "مهمة مُسندة",
@@ -591,8 +590,8 @@
         "tone": "professional",
         "title_one": "جلسة بعد {{count}} يوم",
         "title_other": "جلسة بعد {{count}} يوم",
-        "message_one": "جلسة {{sessionTitle}} ({{entityLabel}}: {{caseNumber}}) بعد {{count}} يوم الساعة {{time}}{{detailsLine}}",
-        "message_other": "جلسة {{sessionTitle}} ({{entityLabel}}: {{caseNumber}}) بعد {{count}} يوم الساعة {{time}}{{detailsLine}}"
+        "message_one": "جلسة {{sessionTitle}} ({{entityLabel}}: {{lawsuitNumber}}) بعد {{count}} يوم الساعة {{time}}{{detailsLine}}",
+        "message_other": "جلسة {{sessionTitle}} ({{entityLabel}}: {{lawsuitNumber}}) بعد {{count}} يوم الساعة {{time}}{{detailsLine}}"
       },
       {
         "tone": "focused",
@@ -607,12 +606,12 @@
       {
         "tone": "urgent",
         "title": "جلسة اليوم",
-        "message": "جلسة اليوم: {{sessionTitle}} ({{entityLabel}}: {{caseNumber}}) الساعة {{time}}{{detailsLine}}"
+        "message": "جلسة اليوم: {{sessionTitle}} ({{entityLabel}}: {{lawsuitNumber}}) الساعة {{time}}{{detailsLine}}"
       },
       {
         "tone": "professional",
         "title": "جلسة مجدولة اليوم",
-        "message": "جلسة مجدولة: {{sessionTitle}} ({{entityLabel}}: {{caseNumber}}) الساعة {{time}}{{detailsLine}}"
+        "message": "جلسة مجدولة: {{sessionTitle}} ({{entityLabel}}: {{lawsuitNumber}}) الساعة {{time}}{{detailsLine}}"
       }
     ],
     "content.session.participantReminder": [
@@ -620,8 +619,8 @@
         "tone": "actionable",
         "title_one": "تذكير: إشعار المشاركين ({{count}} يوم)",
         "title_other": "تذكير: إشعار المشاركين ({{count}} يوم)",
-        "message_one": "إرسال تذكير للمشاركين لـ {{sessionTitle}} ({{caseNumber}}) بعد {{count}} يوم الساعة {{time}}{{detailsLine}}",
-        "message_other": "إرسال تذكير للمشاركين لـ {{sessionTitle}} ({{caseNumber}}) بعد {{count}} يوم الساعة {{time}}{{detailsLine}}"
+        "message_one": "إرسال تذكير للمشاركين لـ {{sessionTitle}} ({{lawsuitNumber}}) بعد {{count}} يوم الساعة {{time}}{{detailsLine}}",
+        "message_other": "إرسال تذكير للمشاركين لـ {{sessionTitle}} ({{lawsuitNumber}}) بعد {{count}} يوم الساعة {{time}}{{detailsLine}}"
       },
       {
         "tone": "focused",
@@ -634,8 +633,8 @@
         "tone": "gentle",
         "title_one": "تذكير صغير للمشاركين",
         "title_other": "تذكير صغير للمشاركين",
-        "message_one": "تذكر بتذكير المشاركين لـ {{sessionTitle}} ({{caseNumber}}) بعد {{count}} يوم الساعة {{time}}{{detailsLine}}",
-        "message_other": "تذكر بتذكير المشاركين لـ {{sessionTitle}} ({{caseNumber}}) بعد {{count}} يوم الساعة {{time}}{{detailsLine}}"
+        "message_one": "تذكر بتذكير المشاركين لـ {{sessionTitle}} ({{lawsuitNumber}}) بعد {{count}} يوم الساعة {{time}}{{detailsLine}}",
+        "message_other": "تذكر بتذكير المشاركين لـ {{sessionTitle}} ({{lawsuitNumber}}) بعد {{count}} يوم الساعة {{time}}{{detailsLine}}"
       }
     ],
     
@@ -643,32 +642,32 @@
       {
         "tone": "professional",
         "title": "ملاحظات الجلسة مطلوبة",
-        "message_one": "عُقدت جلسة لـ {{entityLabel}} \"{{caseNumber}}\" منذ {{count}} يوم. أضف ملاحظاتك.",
-        "message_other": "عُقدت جلسة لـ {{entityLabel}} \"{{caseNumber}}\" منذ {{count}} يوم. أضف ملاحظاتك."
+        "message_one": "عُقدت جلسة لـ {{entityLabel}} \"{{lawsuitNumber}}\" منذ {{count}} يوم. أضف ملاحظاتك.",
+        "message_other": "عُقدت جلسة لـ {{entityLabel}} \"{{lawsuitNumber}}\" منذ {{count}} يوم. أضف ملاحظاتك."
       },
       {
         "tone": "follow-up",
         "title": "تسجيل الجلسة",
-        "message_one": "{{entityLabel}} \"{{caseNumber}}\" عُقدت منذ {{count}} يوم. سجل النتيجة.",
-        "message_other": "{{entityLabel}} \"{{caseNumber}}\" عُقدت منذ {{count}} يوم. سجل النتيجة."
+        "message_one": "{{entityLabel}} \"{{lawsuitNumber}}\" عُقدت منذ {{count}} يوم. سجل النتيجة.",
+        "message_other": "{{entityLabel}} \"{{lawsuitNumber}}\" عُقدت منذ {{count}} يوم. سجل النتيجة."
       },
       {
         "tone": "friendly",
         "title": "متابعة صغيرة",
-        "message_one": "كيف كانت جلسة {{entityLabel}} \"{{caseNumber}}\"؟ أضف ملاحظاتك منذ {{count}} يوم.",
-        "message_other": "كيف كانت جلسة {{entityLabel}} \"{{caseNumber}}\"؟ أضف ملاحظاتك منذ {{count}} يوم."
+        "message_one": "كيف كانت جلسة {{entityLabel}} \"{{lawsuitNumber}}\"؟ أضف ملاحظاتك منذ {{count}} يوم.",
+        "message_other": "كيف كانت جلسة {{entityLabel}} \"{{lawsuitNumber}}\"؟ أضف ملاحظاتك منذ {{count}} يوم."
       },
       {
         "tone": "gentle",
         "title": "تذكير بالملاحظات",
-        "message_one": "تذكير: {{entityLabel}} \"{{caseNumber}}\" كانت منذ {{count}} يوم. سجل النتيجة.",
-        "message_other": "تذكير: {{entityLabel}} \"{{caseNumber}}\" كانت منذ {{count}} يوم. سجل النتيجة."
+        "message_one": "تذكير: {{entityLabel}} \"{{lawsuitNumber}}\" كانت منذ {{count}} يوم. سجل النتيجة.",
+        "message_other": "تذكير: {{entityLabel}} \"{{lawsuitNumber}}\" كانت منذ {{count}} يوم. سجل النتيجة."
       },
       {
         "tone": "supportive",
         "title": "إنهاء المتابعة",
-        "message_one": "أكمل متابعة {{entityLabel}} \"{{caseNumber}}\" (منذ {{count}} يوم) بملاحظة سريعة.",
-        "message_other": "أكمل متابعة {{entityLabel}} \"{{caseNumber}}\" (منذ {{count}} يوم) بملاحظة سريعة."
+        "message_one": "أكمل متابعة {{entityLabel}} \"{{lawsuitNumber}}\" (منذ {{count}} يوم) بملاحظة سريعة.",
+        "message_other": "أكمل متابعة {{entityLabel}} \"{{lawsuitNumber}}\" (منذ {{count}} يوم) بملاحظة سريعة."
       }
     ],
     "content.session.today": [
@@ -1193,34 +1192,34 @@
         "tone": "check-in",
         "title_one": "🔍 تحقق من التقدم ({{count}} يوم)",
         "title_other": "🔍 تحقق من التقدم ({{count}} يوم)",
-        "message_one": "الملف {{caseNumber}} مفتوح منذ {{count}} يوم. هل كل شيء يسير كما هو مخطط؟",
-        "message_other": "الملف {{caseNumber}} مفتوح منذ {{count}} يوم. هل كل شيء يسير كما هو مخطط؟"
+        "message_one": "الملف {{lawsuitNumber}} مفتوح منذ {{count}} يوم. هل كل شيء يسير كما هو مخطط؟",
+        "message_other": "الملف {{lawsuitNumber}} مفتوح منذ {{count}} يوم. هل كل شيء يسير كما هو مخطط؟"
       },
       {
         "tone": "concerned",
-        "title_one": "كيف يتقدم {{caseNumber}}؟",
-        "title_other": "كيف يتقدم {{caseNumber}}؟",
+        "title_one": "كيف يتقدم {{lawsuitNumber}}؟",
+        "title_other": "كيف يتقدم {{lawsuitNumber}}؟",
         "message_one": "مفتوح منذ {{count}} يوم. هل تحتاج إلى دعم أم كل شيء تحت السيطرة؟",
         "message_other": "مفتوح منذ {{count}} يوم. هل تحتاج إلى دعم أم كل شيء تحت السيطرة؟"
       },
       {
         "tone": "collaborative",
-        "title_one": "تحديث عن الملف {{caseNumber}}",
-        "title_other": "تحديث عن الملف {{caseNumber}}",
+        "title_one": "تحديث عن الملف {{lawsuitNumber}}",
+        "title_other": "تحديث عن الملف {{lawsuitNumber}}",
         "message_one": "مرّ {{count}} يوم. تحقق سريع للتأكد من أن كل شيء يسير بشكل جيد؟",
         "message_other": "مرّ {{count}} يوم. تحقق سريع للتأكد من أن كل شيء يسير بشكل جيد؟"
       },
       {
         "tone": "simple",
-        "title_one": "مراجعة: ملف {{caseNumber}}",
-        "title_other": "مراجعة: ملف {{caseNumber}}",
+        "title_one": "مراجعة: ملف {{lawsuitNumber}}",
+        "title_other": "مراجعة: ملف {{lawsuitNumber}}",
         "message_one": "مفتوح منذ {{count}} يوم. للتحقق.",
         "message_other": "مفتوح منذ {{count}} يوم. للتحقق."
       },
       {
         "tone": "encouraging",
-        "title_one": "هل كل شيء على ما يرام مع {{caseNumber}}؟",
-        "title_other": "هل كل شيء على ما يرام مع {{caseNumber}}؟",
+        "title_one": "هل كل شيء على ما يرام مع {{lawsuitNumber}}؟",
+        "title_other": "هل كل شيء على ما يرام مع {{lawsuitNumber}}؟",
         "message_one": "{{count}} يوم من الفتح. لحظة للتحقق من التقدم؟",
         "message_other": "{{count}} يوم من الفتح. لحظة للتحقق من التقدم؟"
       }
@@ -1355,55 +1354,55 @@
       }
 
     ],
-    "content.case.missingHearing": [
+    "content.lawsuit.missingHearing": [
       {
         "tone": "professional",
         "title": "جلسة مفقودة - قضية بدون جلسة",
-        "message": "القضية \"{{caseTitle}}\" (الأولوية: {{priority}}) ليس لديها جلسة مجدولة. هل تم إنشاء جلسة؟"
+        "message": "القضية \"{{lawsuitTitle}}\" (الأولوية: {{priority}}) ليس لديها جلسة مجدولة. هل تم إنشاء جلسة؟"
       },
       {
         "tone": "actionable",
         "title": "جدولة جلسة",
-        "message": "القضية \"{{caseTitle}}\" ({{priority}}) ليس لديها جلسة. هل يجب جدولة واحدة؟"
+        "message": "القضية \"{{lawsuitTitle}}\" ({{priority}}) ليس لديها جلسة. هل يجب جدولة واحدة؟"
       },
       {
         "tone": "concerned",
         "title": "قضية بدون جلسة",
-        "message": "\"{{caseTitle}}\" (الأولوية {{priority}}) ليس لديها جلسة مجدولة بعد. هل ترغب في إنشاء واحدة؟"
+        "message": "\"{{lawsuitTitle}}\" (الأولوية {{priority}}) ليس لديها جلسة مجدولة بعد. هل ترغب في إنشاء واحدة؟"
       },
       {
         "tone": "direct",
         "title": "جلسة مطلوبة",
-        "message": "{{caseTitle}} - لا توجد جلسة. جدول واحدة."
+        "message": "{{lawsuitTitle}} - لا توجد جلسة. جدول واحدة."
       }
     ],
-    "content.case.missingTasks": [
+    "content.lawsuit.missingTasks": [
       {
         "tone": "professional",
         "title": "مهام مفقودة - قضية بدون مهام",
-        "message": "القضية \"{{caseTitle}}\" (الأولوية: {{priority}}) ليس لديها مهام مرتبطة. هل هناك إجراءات مخطط لها؟"
+        "message": "القضية \"{{lawsuitTitle}}\" (الأولوية: {{priority}}) ليس لديها مهام مرتبطة. هل هناك إجراءات مخطط لها؟"
       },
       {
         "tone": "actionable",
         "title": "حدد الإجراءات",
-        "message": "القضية \"{{caseTitle}}\" ({{priority}}) ليس لديها مهام. ما هي الخطوات التالية؟"
+        "message": "القضية \"{{lawsuitTitle}}\" ({{priority}}) ليس لديها مهام. ما هي الخطوات التالية؟"
       },
       {
         "tone": "planning",
         "title": "خطة عمل مطلوبة",
-        "message": "\"{{caseTitle}}\" (الأولوية {{priority}}) تحتاج إلى خطة عمل. أنشئ مهامًا."
+        "message": "\"{{lawsuitTitle}}\" (الأولوية {{priority}}) تحتاج إلى خطة عمل. أنشئ مهامًا."
       },
       {
         "tone": "supportive",
         "title": "هل تحتاج إلى خطة؟",
-        "message": "القضية \"{{caseTitle}}\" ليس لديها مهام. هل تريد مساعدتي في التخطيط؟"
+        "message": "القضية \"{{lawsuitTitle}}\" ليس لديها مهام. هل تريد مساعدتي في التخطيط؟"
       }
     ],
-    "content.case.statusUpdate": [
+    "content.lawsuit.statusUpdate": [
       {
         "tone": "professional",
         "title": "تحديث الحالة - قضية",
-        "message": "القضية \"{{caseTitle}}\" لديها {{activitySummary}}. هل يجب تحديث حالة القضية؟ هل تم إصدار حكم؟",
+        "message": "القضية \"{{lawsuitTitle}}\" لديها {{activitySummary}}. هل يجب تحديث حالة القضية؟ هل تم إصدار حكم؟",
         "hearingsCompleted_one": "{{count}} جلسة مكتملة",
         "hearingsCompleted_other": "{{count}} جلسة مكتملة",
         "tasksCompleted_one": "{{count}} مهمة مكتملة",
@@ -1413,7 +1412,7 @@
       {
         "tone": "follow-up",
         "title": "حكم أو تحديث؟",
-        "message": "\"{{caseTitle}}\" تقدمت ({{activitySummary}}). قم بتحديث الحالة.",
+        "message": "\"{{lawsuitTitle}}\" تقدمت ({{activitySummary}}). قم بتحديث الحالة.",
         "hearingsCompleted_one": "{{count}} جلسة",
         "hearingsCompleted_other": "{{count}} جلسة",
         "tasksCompleted_one": "{{count}} مهمة",
@@ -1423,7 +1422,7 @@
       {
         "tone": "direct",
         "title": "حالة القضية",
-        "message": "{{caseTitle}}: {{activitySummary}}. حكم؟",
+        "message": "{{lawsuitTitle}}: {{activitySummary}}. حكم؟",
         "hearingsCompleted_one": "{{count}} جلسة مكتملة",
         "hearingsCompleted_other": "{{count}} جلسة مكتملة",
         "tasksCompleted_one": "{{count}} مهمة مكتملة",
@@ -1669,9 +1668,9 @@
       "dossierCreated": "فتح ملفك {{title}} ({{number}})",
       "dossierStatusChanged": "تحديث ملف {{title}} ({{number}})",
       "dossierDeadlineChanged": "تعديل الموعد النهائي - {{title}} ({{number}})",
-      "caseCreated": "فتح قضيتك {{title}} ({{number}})",
-      "caseStatusChanged": "تحديث قضية {{title}} ({{number}})",
-      "caseHearingChanged": "تعديل تاريخ الجلسة - {{title}} ({{number}})",
+      "lawsuitCreated": "فتح قضيتك {{title}} ({{number}})",
+      "lawsuitStatusChanged": "تحديث قضية {{title}} ({{number}})",
+      "lawsuitHearingChanged": "تعديل تاريخ الجلسة - {{title}} ({{number}})",
       "sessionScheduled": "جلسة مجدولة - {{title}}",
       "sessionDateChanged": "تعديل تاريخ الجلسة - {{title}}",
       "sessionCancelled": "إلغاء جلسة - {{number}}",
@@ -1706,12 +1705,12 @@
         },
         "footer": "لأي استفسار، لا تتردد في الاتصال بنا."
       },
-      "caseCreated": {
+      "lawsuitCreated": {
         "confirmation": "نؤكد فتح قضية جديدة تخصك.",
         "details": "القضية: {{title}} ({{number}})\nالمحكمة: {{court}}",
         "footer": "سنبقيك على اطلاع بكل خطوة."
       },
-      "caseStatusChanged": {
+      "lawsuitStatusChanged": {
         "intro": "نعلمك بتطور يتعلق بقضيتك.",
         "details": "القضية: {{title}} ({{number}})\nالمحكمة: {{court}}\nالحالة الجديدة: {{newStatus}}\nالتاريخ: {{date}}",
         "footer": "نحن في خدمتكم لأي معلومات إضافية.",
@@ -1720,7 +1719,7 @@
           "Suspendu": "قضيتك معلقة من قبل المحكمة. سنبقيك على اطلاع باستئناف الإجراءات."
         }
       },
-      "caseHearingChanged": {
+      "lawsuitHearingChanged": {
         "intro": "نعلمك بتعديل يتعلق بجلستك القادمة.",
         "details": "القضية: {{title}} ({{number}})\nالمحكمة: {{court}}\n\nالتاريخ السابق: {{oldDate}}\nالتاريخ الجديد: {{newDate}}",
         "footer": "يرجى ملاحظة هذا التغيير والترتيب وفقًا لذلك.\n\nلأي استفسار، لا تتردد في الاتصال بنا."
@@ -1728,19 +1727,19 @@
       "sessionScheduled": {
         "intro": "تمت جدولة جلسة لملفك.",
         "details": "النوع: {{title}}\nالتاريخ: {{date}} الساعة {{time}}\nالمكان: {{location}}\nالمدة المتوقعة: {{duration}}",
-        "detailsWithCase": "القضية: {{caseTitle}} ({{caseNumber}})\nالنوع: {{title}}\nالتاريخ: {{date}} الساعة {{time}}\nالمكان: {{location}}\nالمدة المتوقعة: {{duration}}",
+        "detailsWithLawsuit": "القضية: {{lawsuitTitle}} ({{lawsuitNumber}})\nالنوع: {{title}}\nالتاريخ: {{date}} الساعة {{time}}\nالمكان: {{location}}\nالمدة المتوقعة: {{duration}}",
         "footer": "سنبقيك على اطلاع بأي تطور."
       },
       "sessionDateChanged": {
         "intro": "نعلمك بتعديل يتعلق بجلستك القادمة.",
         "details": "الجلسة: {{title}}\n\nالتاريخ السابق: {{oldDate}} الساعة {{oldTime}}\nالتاريخ الجديد: {{newDate}} الساعة {{newTime}}\n\nالمكان: {{location}}",
-        "detailsWithCase": "القضية: {{caseTitle}} ({{caseNumber}})\nالجلسة: {{title}}\n\nالتاريخ السابق: {{oldDate}} الساعة {{oldTime}}\nالتاريخ الجديد: {{newDate}} الساعة {{newTime}}\n\nالمكان: {{location}}",
+        "detailsWithLawsuit": "القضية: {{lawsuitTitle}} ({{lawsuitNumber}})\nالجلسة: {{title}}\n\nالتاريخ السابق: {{oldDate}} الساعة {{oldTime}}\nالتاريخ الجديد: {{newDate}} الساعة {{newTime}}\n\nالمكان: {{location}}",
         "footer": "يرجى ملاحظة هذا التغيير والترتيب وفقًا لذلك.\n\nلأي استفسار، لا تتردد في الاتصال بنا."
       },
       "sessionCancelled": {
         "intro": "نعلمك بإلغاء الجلسة المجدولة.",
         "details": "الجلسة الملغاة: {{date}} الساعة {{time}}\nالمكان: {{location}}",
-        "detailsWithCase": "القضية: {{caseNumber}} - {{caseTitle}}\nالجلسة الملغاة: {{date}} الساعة {{time}}\nالمكان: {{location}}",
+        "detailsWithLawsuit": "القضية: {{lawsuitNumber}} - {{lawsuitTitle}}\nالجلسة الملغاة: {{date}} الساعة {{time}}\nالمكان: {{location}}",
         "footer": "سيتم إبلاغك بتاريخ جديد في أقرب وقت ممكن."
       },
       "financialEntryAdded": {
@@ -1779,4 +1778,6 @@
     }
   }
 }
+
+
 

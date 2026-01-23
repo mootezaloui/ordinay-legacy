@@ -27,7 +27,7 @@ export default function InlinePrioritySelector({
     task: "tasks",
     personalTask: "personalTasks",
     mission: "missions",
-    case: "cases",
+    lawsuit: "lawsuits",
   };
 
   const resolvedNamespace = namespaceMap[entityType] || entityType || "common";
@@ -300,3 +300,4 @@ export default function InlinePrioritySelector({
     </>
   );
 }
+

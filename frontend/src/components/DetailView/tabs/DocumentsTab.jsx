@@ -5,6 +5,7 @@ import { useSettings } from "../../../contexts/SettingsContext";
 import ContentSection from "../../layout/ContentSection";
 import documentService from "../../../services/documentService.js";
 import { useTranslation } from "react-i18next";
+import { InlineLoader } from "../../brand/OrganiaDataLoader";
 
 /**
  * Documents Tab - Centralized document management
@@ -321,12 +322,7 @@ export default function DocumentsTab({ data, config, onDocumentsChange, reloadKe
         {/* Loading Indicator */}
         {uploading && (
           <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-            <div className="flex items-center gap-3">
-              <i className="fas fa-spinner fa-spin text-blue-600 dark:text-blue-400"></i>
-              <span className="text-sm text-blue-900 dark:text-blue-300">
-                {t("detail.documents.status.uploading")}
-              </span>
-            </div>
+            <InlineLoader message={t("detail.documents.status.uploading")} size="sm" />
           </div>
         )}
 

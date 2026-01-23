@@ -150,11 +150,11 @@ function extractParentContext(event) {
     // Try to extract entity name and reference from description
     const patterns = [
         // "Mission "Name" (REF-123)" pattern
-        /(?:Mission|Task|Session|Case|Dossier|Financial entry|Entrée financière)\s+"([^"]+)"\s*\(([^)]+)\)/i,
+        /(?:Mission|Task|Session|Lawsuit|Dossier|Financial entry|Entrée financière)\s+"([^"]+)"\s*\(([^)]+)\)/i,
         // "to Mission "Name"" pattern
-        /(?:to|à|dans|in)\s+(?:Mission|Task|Session|Case|Dossier)\s+"([^"]+)"/i,
-        // "in Case "Name"" pattern
-        /(?:in|dans)\s+(?:Case|Dossier)\s+"([^"]+)"/i,
+        /(?:to|à|dans|in)\s+(?:Mission|Task|Session|Lawsuit|Dossier)\s+"([^"]+)"/i,
+        // "in Lawsuit "Name"" pattern
+        /(?:in|dans)\s+(?:Lawsuit|Dossier)\s+"([^"]+)"/i,
     ];
 
     for (const pattern of patterns) {

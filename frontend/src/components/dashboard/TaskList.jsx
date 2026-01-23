@@ -43,12 +43,12 @@ export default function TaskList({ tasks, title = "Urgent Tasks", maxItems = 5 }
         const translatedStatus = translateStatus(task.status, "tasks", t);
         const translatedPriority = translatePriority(task.priority, t, "tasks");
         const translatedAssignee = translateAssignee(task.assignedTo, t, "tasks");
-        const hasCase = Boolean(task.case);
+        const hasLawsuit = Boolean(task.lawsuit);
         const hasDossier = Boolean(task.dossier);
-        const isCaseTask = task.parentType === "case" || (hasCase && !hasDossier);
-        const parentLabel = isCaseTask ? task.case : task.dossier;
-        const parentIcon = isCaseTask ? "fas fa-gavel" : "fas fa-folder-open";
-        const parentColor = isCaseTask
+        const isLawsuitTask = task.parentType === "lawsuit" || (hasLawsuit && !hasDossier);
+        const parentLabel = isLawsuitTask ? task.lawsuit : task.dossier;
+        const parentIcon = isLawsuitTask ? "fas fa-gavel" : "fas fa-folder-open";
+        const parentColor = isLawsuitTask
           ? "text-purple-600 dark:text-purple-400"
           : "text-blue-600 dark:text-blue-400";
 
@@ -67,7 +67,7 @@ export default function TaskList({ tasks, title = "Urgent Tasks", maxItems = 5 }
                 </p>
 
                 <div className="flex items-center gap-3 mt-2 flex-wrap">
-                  {/* Parent reference (dossier or case) */}
+                  {/* Parent reference (dossier or lawsuit) */}
                   {parentLabel && (
                     <span className={`inline-flex items-center gap-1 text-xs font-mono ${parentColor}`}>
                       <i className={`${parentIcon} text-[10px]`}></i>
@@ -134,3 +134,4 @@ export default function TaskList({ tasks, title = "Urgent Tasks", maxItems = 5 }
     </div>
   );
 }
+

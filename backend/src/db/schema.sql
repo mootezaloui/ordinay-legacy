@@ -69,10 +69,10 @@ CREATE INDEX IF NOT EXISTS idx_dossiers_status ON dossiers(status);
 CREATE INDEX IF NOT EXISTS idx_dossiers_priority ON dossiers(priority);
 CREATE INDEX IF NOT EXISTS idx_dossiers_next_deadline ON dossiers(next_deadline);
 
-CREATE TABLE IF NOT EXISTS cases (
+CREATE TABLE IF NOT EXISTS lawsuits (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     reference TEXT NOT NULL UNIQUE,
-    case_number TEXT UNIQUE,
+    lawsuit_number TEXT UNIQUE,
     dossier_id INTEGER NOT NULL,
     title TEXT NOT NULL,
     description TEXT,
@@ -100,10 +100,10 @@ CREATE TABLE IF NOT EXISTS cases (
     CHECK (reference IS NOT NULL AND length(reference) > 0),
     FOREIGN KEY (dossier_id) REFERENCES dossiers(id) ON DELETE RESTRICT
 );
-CREATE INDEX IF NOT EXISTS idx_cases_dossier_id ON cases(dossier_id);
-CREATE INDEX IF NOT EXISTS idx_cases_status ON cases(status);
-CREATE INDEX IF NOT EXISTS idx_cases_priority ON cases(priority);
-CREATE INDEX IF NOT EXISTS idx_cases_next_hearing ON cases(next_hearing);
+CREATE INDEX IF NOT EXISTS idx_lawsuits_dossier_id ON lawsuits(dossier_id);
+CREATE INDEX IF NOT EXISTS idx_lawsuits_status ON lawsuits(status);
+CREATE INDEX IF NOT EXISTS idx_lawsuits_priority ON lawsuits(priority);
+CREATE INDEX IF NOT EXISTS idx_lawsuits_next_hearing ON lawsuits(next_hearing);
 
 CREATE TABLE IF NOT EXISTS officers (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -142,7 +142,7 @@ CREATE TABLE IF NOT EXISTS missions (
     result TEXT,
     notes TEXT,
     dossier_id INTEGER,
-    case_id INTEGER,
+    lawsuit_id INTEGER,
     officer_id INTEGER,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -152,13 +152,13 @@ CREATE TABLE IF NOT EXISTS missions (
     imported_at DATETIME,
     deleted_at DATETIME,
     CHECK (reference IS NOT NULL AND length(reference) > 0),
-    CHECK ((dossier_id IS NOT NULL AND case_id IS NULL) OR (dossier_id IS NULL AND case_id IS NOT NULL)),
+    CHECK ((dossier_id IS NOT NULL AND lawsuit_id IS NULL) OR (dossier_id IS NULL AND lawsuit_id IS NOT NULL)),
     FOREIGN KEY (dossier_id) REFERENCES dossiers(id) ON DELETE RESTRICT,
-    FOREIGN KEY (case_id) REFERENCES cases(id) ON DELETE RESTRICT,
+    FOREIGN KEY (lawsuit_id) REFERENCES lawsuits(id) ON DELETE RESTRICT,
     FOREIGN KEY (officer_id) REFERENCES officers(id)
 );
 CREATE INDEX IF NOT EXISTS idx_missions_dossier_id ON missions(dossier_id);
-CREATE INDEX IF NOT EXISTS idx_missions_case_id ON missions(case_id);
+CREATE INDEX IF NOT EXISTS idx_missions_lawsuit_id ON missions(lawsuit_id);
 CREATE INDEX IF NOT EXISTS idx_missions_officer_id ON missions(officer_id);
 CREATE INDEX IF NOT EXISTS idx_missions_status ON missions(status);
 CREATE INDEX IF NOT EXISTS idx_missions_priority ON missions(priority);
@@ -168,7 +168,7 @@ CREATE INDEX IF NOT EXISTS idx_missions_due_date ON missions(due_date);
 CREATE TABLE IF NOT EXISTS tasks (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     dossier_id INTEGER,
-    case_id INTEGER,
+    lawsuit_id INTEGER,
     title TEXT NOT NULL,
     description TEXT,
     assigned_to TEXT,
@@ -184,12 +184,12 @@ CREATE TABLE IF NOT EXISTS tasks (
     import_source TEXT,
     imported_at DATETIME,
     deleted_at DATETIME,
-    CHECK ((dossier_id IS NOT NULL AND case_id IS NULL) OR (case_id IS NOT NULL AND dossier_id IS NULL)),
+    CHECK ((dossier_id IS NOT NULL AND lawsuit_id IS NULL) OR (lawsuit_id IS NOT NULL AND dossier_id IS NULL)),
     FOREIGN KEY (dossier_id) REFERENCES dossiers(id) ON DELETE RESTRICT,
-    FOREIGN KEY (case_id) REFERENCES cases(id) ON DELETE RESTRICT
+    FOREIGN KEY (lawsuit_id) REFERENCES lawsuits(id) ON DELETE RESTRICT
 );
 CREATE INDEX IF NOT EXISTS idx_tasks_dossier_id ON tasks(dossier_id);
-CREATE INDEX IF NOT EXISTS idx_tasks_case_id ON tasks(case_id);
+CREATE INDEX IF NOT EXISTS idx_tasks_lawsuit_id ON tasks(lawsuit_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
 CREATE INDEX IF NOT EXISTS idx_tasks_priority ON tasks(priority);
 CREATE INDEX IF NOT EXISTS idx_tasks_due_date ON tasks(due_date);
@@ -209,7 +209,7 @@ CREATE TABLE IF NOT EXISTS sessions (
     description TEXT,
     participants TEXT,
     dossier_id INTEGER,
-    case_id INTEGER,
+    lawsuit_id INTEGER,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     imported INTEGER NOT NULL DEFAULT 0,
@@ -217,11 +217,11 @@ CREATE TABLE IF NOT EXISTS sessions (
     import_source TEXT,
     imported_at DATETIME,
     deleted_at DATETIME,
-    CHECK ((case_id IS NOT NULL AND dossier_id IS NULL) OR (case_id IS NULL AND dossier_id IS NOT NULL)),
-    FOREIGN KEY (case_id) REFERENCES cases(id) ON DELETE RESTRICT,
+    CHECK ((lawsuit_id IS NOT NULL AND dossier_id IS NULL) OR (lawsuit_id IS NULL AND dossier_id IS NOT NULL)),
+    FOREIGN KEY (lawsuit_id) REFERENCES lawsuits(id) ON DELETE RESTRICT,
     FOREIGN KEY (dossier_id) REFERENCES dossiers(id) ON DELETE RESTRICT
 );
-CREATE INDEX IF NOT EXISTS idx_sessions_case_id ON sessions(case_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_lawsuit_id ON sessions(lawsuit_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_dossier_id ON sessions(dossier_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_status ON sessions(status);
 CREATE INDEX IF NOT EXISTS idx_sessions_scheduled_at ON sessions(scheduled_at);
@@ -251,7 +251,7 @@ CREATE TABLE IF NOT EXISTS financial_entries (
     scope TEXT NOT NULL DEFAULT 'client' CHECK (scope IN ('client','internal')),
     client_id INTEGER,
     dossier_id INTEGER,
-    case_id INTEGER,
+    lawsuit_id INTEGER,
     mission_id INTEGER,
     task_id INTEGER,
     personal_task_id INTEGER,
@@ -276,16 +276,16 @@ CREATE TABLE IF NOT EXISTS financial_entries (
     import_source TEXT,
     imported_at DATETIME,
     deleted_at DATETIME,
-    CHECK ((dossier_id IS NULL) OR (case_id IS NULL)),
+    CHECK ((dossier_id IS NULL) OR (lawsuit_id IS NULL)),
     CHECK ((scope = 'client' AND client_id IS NOT NULL) OR (scope = 'internal' AND client_id IS NULL)),
     FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE RESTRICT,
     FOREIGN KEY (dossier_id) REFERENCES dossiers(id) ON DELETE RESTRICT,
-    FOREIGN KEY (case_id) REFERENCES cases(id) ON DELETE RESTRICT,
+    FOREIGN KEY (lawsuit_id) REFERENCES lawsuits(id) ON DELETE RESTRICT,
     FOREIGN KEY (mission_id) REFERENCES missions(id) ON DELETE RESTRICT
 );
 CREATE INDEX IF NOT EXISTS idx_financial_entries_client_id ON financial_entries(client_id);
 CREATE INDEX IF NOT EXISTS idx_financial_entries_dossier_id ON financial_entries(dossier_id);
-CREATE INDEX IF NOT EXISTS idx_financial_entries_case_id ON financial_entries(case_id);
+CREATE INDEX IF NOT EXISTS idx_financial_entries_lawsuit_id ON financial_entries(lawsuit_id);
 CREATE INDEX IF NOT EXISTS idx_financial_entries_mission_id ON financial_entries(mission_id);
 CREATE INDEX IF NOT EXISTS idx_financial_entries_task_id ON financial_entries(task_id);
 CREATE INDEX IF NOT EXISTS idx_financial_entries_personal_task_id ON financial_entries(personal_task_id);
@@ -307,7 +307,7 @@ CREATE TABLE IF NOT EXISTS documents (
     uploaded_by TEXT,
     client_id INTEGER,
     dossier_id INTEGER,
-    case_id INTEGER,
+    lawsuit_id INTEGER,
     mission_id INTEGER,
     task_id INTEGER,
     session_id INTEGER,
@@ -323,7 +323,7 @@ CREATE TABLE IF NOT EXISTS documents (
     CHECK (
         (client_id IS NOT NULL) +
         (dossier_id IS NOT NULL) +
-        (case_id IS NOT NULL) +
+        (lawsuit_id IS NOT NULL) +
         (mission_id IS NOT NULL) +
         (task_id IS NOT NULL) +
         (session_id IS NOT NULL) +
@@ -332,7 +332,7 @@ CREATE TABLE IF NOT EXISTS documents (
     ),
     FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE RESTRICT,
     FOREIGN KEY (dossier_id) REFERENCES dossiers(id) ON DELETE RESTRICT,
-    FOREIGN KEY (case_id) REFERENCES cases(id) ON DELETE RESTRICT,
+    FOREIGN KEY (lawsuit_id) REFERENCES lawsuits(id) ON DELETE RESTRICT,
     FOREIGN KEY (mission_id) REFERENCES missions(id) ON DELETE RESTRICT,
     FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE RESTRICT,
     FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE RESTRICT,
@@ -341,7 +341,7 @@ CREATE TABLE IF NOT EXISTS documents (
 );
 CREATE INDEX IF NOT EXISTS idx_documents_client_id ON documents(client_id);
 CREATE INDEX IF NOT EXISTS idx_documents_dossier_id ON documents(dossier_id);
-CREATE INDEX IF NOT EXISTS idx_documents_case_id ON documents(case_id);
+CREATE INDEX IF NOT EXISTS idx_documents_lawsuit_id ON documents(lawsuit_id);
 CREATE INDEX IF NOT EXISTS idx_documents_mission_id ON documents(mission_id);
 CREATE INDEX IF NOT EXISTS idx_documents_task_id ON documents(task_id);
 CREATE INDEX IF NOT EXISTS idx_documents_session_id ON documents(session_id);
@@ -358,7 +358,7 @@ CREATE TABLE IF NOT EXISTS notifications (
     dedupe_key TEXT NOT NULL UNIQUE,
     severity TEXT NOT NULL CHECK (severity IN ('info', 'warning', 'error')),
     status TEXT NOT NULL DEFAULT 'unread' CHECK (status IN ('unread', 'read', 'archived')),
-    entity_type TEXT CHECK (entity_type IN ('client', 'dossier', 'case', 'task', 'session', 'mission', 'financial_entry', 'personal_task', 'document')),
+    entity_type TEXT CHECK (entity_type IN ('client', 'dossier', 'lawsuit', 'task', 'session', 'mission', 'financial_entry', 'personal_task', 'document')),
     entity_id INTEGER,
     scheduled_at DATETIME,
     read_at DATETIME,
@@ -373,7 +373,7 @@ CREATE INDEX IF NOT EXISTS idx_notifications_entity ON notifications(entity_type
 
 CREATE TABLE IF NOT EXISTS notes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    entity_type TEXT NOT NULL CHECK (entity_type IN ('client', 'dossier', 'case', 'task', 'session', 'mission', 'officer', 'financial_entry', 'document', 'personal_task')),
+    entity_type TEXT NOT NULL CHECK (entity_type IN ('client', 'dossier', 'lawsuit', 'task', 'session', 'mission', 'officer', 'financial_entry', 'document', 'personal_task')),
     entity_id INTEGER NOT NULL,
     content TEXT NOT NULL,
     created_by TEXT,
@@ -409,7 +409,7 @@ CREATE TABLE IF NOT EXISTS operators (
 
 CREATE TABLE IF NOT EXISTS history_events (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    entity_type TEXT NOT NULL CHECK (entity_type IN ('client', 'dossier', 'case', 'task', 'session', 'mission', 'officer', 'financial_entry', 'document', 'personal_task')),
+    entity_type TEXT NOT NULL CHECK (entity_type IN ('client', 'dossier', 'lawsuit', 'task', 'session', 'mission', 'officer', 'financial_entry', 'document', 'personal_task')),
     entity_id INTEGER NOT NULL,
     action TEXT NOT NULL,
     description TEXT,

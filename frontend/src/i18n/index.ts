@@ -64,7 +64,7 @@ export const initI18n = async (language?: string) => {
           "settings",
           "profile",
           "dossiers",
-          "cases",
+          "lawsuits",
           "tasks",
           "personalTasks",
           "officers",

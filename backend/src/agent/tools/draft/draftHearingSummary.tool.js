@@ -61,13 +61,13 @@ async function handler({ sessionId, language = "fr" }) {
       SELECT
         s.id, s.title, s.session_type, s.scheduled_at, s.location,
         s.court_room, s.judge, s.outcome, s.description, s.notes,
-        s.participants, s.dossier_id, s.case_id,
+        s.participants, s.dossier_id, s.lawsuit_id,
         d.reference as dossier_reference, d.title as dossier_title,
-        c.reference as case_reference, c.title as case_title,
+        c.reference as lawsuit_reference, c.title as lawsuit_title,
         cl.name as client_name
       FROM sessions s
       LEFT JOIN dossiers d ON d.id = s.dossier_id
-      LEFT JOIN cases c ON c.id = s.case_id
+      LEFT JOIN lawsuits c ON c.id = s.lawsuit_id
       LEFT JOIN clients cl ON cl.id = d.client_id OR cl.id = (SELECT client_id FROM dossiers WHERE id = c.dossier_id)
       WHERE s.id = ? AND s.deleted_at IS NULL
       `
@@ -103,8 +103,8 @@ async function handler({ sessionId, language = "fr" }) {
     }
   );
 
-  const reference = session.dossier_reference || session.case_reference || "";
-  const caseTitle = session.dossier_title || session.case_title || "";
+  const reference = session.dossier_reference || session.lawsuit_reference || "";
+  const lawsuitTitle = session.dossier_title || session.lawsuit_title || "";
 
   // Build sections
   let header, body, footer;
@@ -114,7 +114,7 @@ async function handler({ sessionId, language = "fr" }) {
     header = `COMPTE-RENDU DE ${session.session_type.toUpperCase()}
 
 Référence dossier : ${reference}
-Affaire : ${caseTitle}
+Procès : ${lawsuitTitle}
 Client : ${session.client_name || "N/A"}
 Date : ${dateStr}
 Heure : ${timeStr}
@@ -141,8 +141,8 @@ Généré le : ${new Date().toISOString()}`;
     // HEADER: Title and general information
     header = `${session.session_type.toUpperCase()} SUMMARY
 
-Case reference: ${reference}
-Matter: ${caseTitle}
+Lawsuit reference: ${reference}
+Lawsuit: ${lawsuitTitle}
 Client: ${session.client_name || "N/A"}
 Date: ${dateStr}
 Time: ${timeStr}
@@ -171,7 +171,7 @@ Generated on: ${new Date().toISOString()}`;
   const context = {
     sessionId: session.id,
     dossierId: session.dossier_id,
-    caseId: session.case_id,
+    lawsuitId: session.lawsuit_id,
     reference,
   };
 
@@ -208,3 +208,6 @@ module.exports = {
   allowedAgentVersions: ["v1", "v2", "v3"],
   handler,
 };
+
+
+

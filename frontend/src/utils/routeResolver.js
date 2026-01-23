@@ -11,7 +11,7 @@
 /**
  * Resolves the detail view route for a given entity type and ID
  *
- * @param {string} entityType - The type of entity (client, dossier, case, etc.)
+ * @param {string} entityType - The type of entity (client, dossier, lawsuit, etc.)
  * @param {number|string} entityId - The ID of the entity
  * @returns {string|null} - The route path, or null if entity type is not supported
  */
@@ -23,7 +23,7 @@ export function resolveDetailRoute(entityType, entityId) {
   const routeMap = {
     client: `/clients/${entityId}`,
     dossier: `/dossiers/${entityId}`,
-    case: `/cases/${entityId}`,
+    lawsuit: `/lawsuits/${entityId}`,
     task: `/tasks/${entityId}`,
     session: `/sessions/${entityId}`,
     mission: `/missions/${entityId}`,
@@ -45,7 +45,7 @@ export function supportsDetailView(entityType) {
   const supportedTypes = [
     "client",
     "dossier",
-    "case",
+    "lawsuit",
     "task",
     "session",
     "mission",
@@ -56,3 +56,5 @@ export function supportsDetailView(entityType) {
 
   return supportedTypes.includes(entityType);
 }
+
+

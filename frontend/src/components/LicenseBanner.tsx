@@ -3,14 +3,15 @@ import { useLicense } from "../contexts/LicenseContext";
 
 export default function LicenseBanner() {
   const { t } = useTranslation("license");
-  const { licenseState, licenseLoaded } = useLicense();
+  const { licenseState } = useLicense();
 
-  // Prevent transient flash: only render once license state is fully resolved.
-  if (!licenseLoaded || licenseState === "ACTIVE") {
+  // HARD RENDER GATE: No license UI while state is unresolved.
+  // LOADING = unknown, not locked. Renders nothing until one-way transition completes.
+  if (licenseState === "LOADING" || licenseState === "ACTIVE") {
     return null;
   }
 
-  const messages = {
+  const messages: Record<string, string> = {
     FREE: t("banner.messages.FREE"),
     UNACTIVATED: t("banner.messages.UNACTIVATED"),
     ACTIVATING: t("banner.messages.ACTIVATING"),

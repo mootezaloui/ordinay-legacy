@@ -19,7 +19,7 @@ const allowedFields = [
 const entityTableByType = {
   client: "clients",
   dossier: "dossiers",
-  case: "cases",
+  lawsuit: "lawsuits",
   task: "tasks",
   session: "sessions",
   mission: "missions",

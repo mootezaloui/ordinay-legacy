@@ -9,7 +9,7 @@ const { classifyIntentWithLLM } = require('./llm.client');
 const DATA_REQUIREMENTS = Object.freeze({
   CLIENT: 'client',
   DOSSIER: 'dossier',
-  CASE: 'case',
+  LAWSUIT: 'lawsuit',
   TASK: 'task',
   SESSION: 'session',
   OVERDUE_TASKS: 'overdue_tasks',
@@ -272,7 +272,7 @@ function detectDataRequirements(message, context = {}) {
   const entityTypePatterns = {
     client: /\b(client|clients)\b/i,
     dossier: /\b(dossier|dossiers|case\s*file|matter)\b/i,
-    case: /\b(case|cases|hearing)\b/i,
+    lawsuit: /\b(lawsuit|lawsuits|case|cases)\b/i,
     task: /\b(task|tasks|todo|to-do)\b/i,
     session: /\b(session|sessions|meeting|appointment)\b/i,
   };
@@ -310,7 +310,7 @@ function detectDataRequirements(message, context = {}) {
 
   // Extract potential entity name hints (quoted names or capitalized words after possessive)
   // Pattern: "Emma's dossier" → hint: { type: 'client', name: 'Emma' }
-  const possessiveMatch = normalized.match(/(\w+)(?:'s|s')\s+(dossier|case|task|matter|file)/i);
+  const possessiveMatch = normalized.match(/(\w+)(?:'s|s')\s+(dossier|lawsuit|case|task|matter|file)/i);
   if (possessiveMatch) {
     entityHints.push({
       type: 'client',
@@ -320,7 +320,7 @@ function detectDataRequirements(message, context = {}) {
   }
 
   // Pattern: "dossier for Emma" or "client Emma"
-  const forClientMatch = normalized.match(/(dossier|case|matter)\s+for\s+(\w+)/i);
+  const forClientMatch = normalized.match(/(dossier|lawsuit|case|matter)\s+for\s+(\w+)/i);
   if (forClientMatch) {
     entityHints.push({
       type: 'client',
@@ -374,10 +374,10 @@ function detectDataRequirements(message, context = {}) {
 function extractEntityHints(message) {
   const hints = [];
   // Possessive pattern: "Emma's dossier"
-  const possMatch = message.match(/(\w+)(?:'s|s')\s+(dossier|client|task|case)/i);
+  const possMatch = message.match(/(\w+)(?:'s|s')\s+(dossier|client|task|lawsuit|case)/i);
   if (possMatch) hints.push({ type: 'name', value: possMatch[1] });
   // "for X" pattern: "dossier for Emma"
-  const forMatch = message.match(/(?:dossier|case|task)\s+for\s+(\w+)/i);
+  const forMatch = message.match(/(?:dossier|lawsuit|case|task)\s+for\s+(\w+)/i);
   if (forMatch) hints.push({ type: 'name', value: forMatch[1] });
   // Dossier reference: DOS-2024-123456
   const refMatch = message.match(/DOS-\d{4}-\d+/i);
@@ -679,7 +679,7 @@ function detectFollowUp(message, context = {}) {
   ];
 
   // Entity keywords that indicate a NEW query, not a follow-up
-  const entityKeywords = /\b(client|clients|dossier|dossiers|task|tasks|session|sessions|meeting|meetings|hearing|hearings|appointment|appointments|case|cases|matter|matters)\b/i;
+  const entityKeywords = /\b(client|clients|dossier|dossiers|task|tasks|session|sessions|meeting|meetings|hearing|hearings|appointment|appointments|lawsuit|lawsuits|case|cases|matter|matters)\b/i;
 
   // Pattern 3: Pronoun references (refer to prior context)
   const pronounPatterns = [

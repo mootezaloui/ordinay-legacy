@@ -15,7 +15,7 @@ const statusMapCommon: Record<string, string> = {
   closed: "Closed",
 };
 
-const caseStatusMap: Record<string, string> = {
+const lawsuitStatusMap: Record<string, string> = {
   open: "Open",
   in_progress: "In Progress",
   on_hold: "On Hold",
@@ -214,7 +214,7 @@ export function adaptDossier(api: any, clientsById: Record<number, any>) {
   const adversaryName = api.adversary_name ?? api.adversary_party ?? "";
   return {
     id: api.id,
-    caseNumber: api.reference ?? api.case_number ?? "",
+    lawsuitNumber: api.reference ?? api.lawsuit_number ?? "",
     title: api.title ?? "",
     clientId: api.client_id,
     client: clientName,
@@ -238,17 +238,17 @@ export function adaptDossier(api: any, clientsById: Record<number, any>) {
   };
 }
 
-export function adaptCase(api: any, dossiersById: Record<number, any>) {
-  const dossierTitle = dossiersById[api.dossier_id]?.caseNumber ?? "";
+export function adaptLawsuit(api: any, dossiersById: Record<number, any>) {
+  const dossierTitle = dossiersById[api.dossier_id]?.lawsuitNumber ?? "";
   const adversaryName =
     api.adversary_name ?? api.adversary_party ?? api.adversary ?? "";
   return {
     id: api.id,
-    caseNumber: api.reference ?? api.case_number ?? "",
+    lawsuitNumber: api.reference ?? api.lawsuit_number ?? "",
     title: api.title ?? "",
     dossierId: api.dossier_id,
     dossier: dossierTitle,
-    status: caseStatusMap[api.status] ?? api.status ?? "",
+    status: lawsuitStatusMap[api.status] ?? api.status ?? "",
     openDate: dateOnly(api.opened_at),
     priority: priorityMap[api.priority] ?? api.priority ?? "",
     adversaryName,
@@ -267,15 +267,15 @@ export function adaptCase(api: any, dossiersById: Record<number, any>) {
   };
 }
 
-export function adaptTask(api: any, dossiersById: Record<number, any>, casesById: Record<number, any>) {
-  const parentType = api.dossier_id ? "dossier" : "case";
+export function adaptTask(api: any, dossiersById: Record<number, any>, lawsuitsById: Record<number, any>) {
+  const parentType = api.dossier_id ? "dossier" : "lawsuit";
   const dossierLabel =
     api.dossier_id && dossiersById[api.dossier_id]
-      ? dossiersById[api.dossier_id].caseNumber ?? dossiersById[api.dossier_id].title
+      ? dossiersById[api.dossier_id].lawsuitNumber ?? dossiersById[api.dossier_id].title
       : "";
-  const caseLabel =
-    api.case_id && casesById[api.case_id]
-      ? casesById[api.case_id].caseNumber ?? casesById[api.case_id].title
+  const lawsuitLabel =
+    api.lawsuit_id && lawsuitsById[api.lawsuit_id]
+      ? lawsuitsById[api.lawsuit_id].lawsuitNumber ?? lawsuitsById[api.lawsuit_id].title
       : "";
 
   return {
@@ -283,9 +283,9 @@ export function adaptTask(api: any, dossiersById: Record<number, any>, casesById
     title: api.title ?? "",
     parentType,
     dossierId: api.dossier_id ?? null,
-    caseId: api.case_id ?? null,
+    lawsuitId: api.lawsuit_id ?? null,
     dossier: dossierLabel,
-    case: caseLabel,
+    lawsuit: lawsuitLabel,
     assignedTo: api.assigned_to ?? "",
     dueDate: dateOnly(api.due_date),
     estimatedTime: api.estimated_time ?? "",
@@ -298,23 +298,23 @@ export function adaptTask(api: any, dossiersById: Record<number, any>, casesById
   };
 }
 
-export function adaptSession(api: any, dossiersById: Record<number, any>, casesById: Record<number, any>) {
+export function adaptSession(api: any, dossiersById: Record<number, any>, lawsuitsById: Record<number, any>) {
   const dossierLabel =
     api.dossier_id && dossiersById[api.dossier_id]
-      ? dossiersById[api.dossier_id].caseNumber ?? dossiersById[api.dossier_id].title
+      ? dossiersById[api.dossier_id].lawsuitNumber ?? dossiersById[api.dossier_id].title
       : "";
-  const caseLabel =
-    api.case_id && casesById[api.case_id]
-      ? casesById[api.case_id].caseNumber ?? casesById[api.case_id].title
+  const lawsuitLabel =
+    api.lawsuit_id && lawsuitsById[api.lawsuit_id]
+      ? lawsuitsById[api.lawsuit_id].lawsuitNumber ?? lawsuitsById[api.lawsuit_id].title
       : "";
   return {
     id: api.id,
     title: api.title || api.notes || api.session_type || "Session",
     type: sessionTypeMap[api.session_type] ?? api.session_type ?? "",
     dossierId: api.dossier_id ?? null,
-    caseId: api.case_id ?? null,
+    lawsuitId: api.lawsuit_id ?? null,
     dossier: dossierLabel,
-    caseName: caseLabel,
+    lawsuit: lawsuitLabel,
     date: dateOnly(api.session_date) || dateOnly(api.scheduled_at),
     sessionDate: dateOnly(api.session_date) || dateOnly(api.scheduled_at),
     time: api.scheduled_at ? api.scheduled_at.split("T")[1]?.slice(0, 5) ?? "" : "",
@@ -355,12 +355,12 @@ export function adaptFinancialEntry(
   api: any,
   clientsById: Record<number, any>,
   dossiersById: Record<number, any>,
-  casesById: Record<number, any>
+  lawsuitsById: Record<number, any>
 ) {
   const currency = getStoredCurrency();
   const clientName = api.client_id ? (clientsById[api.client_id]?.name ?? `Client #${api.client_id}`) : "";
-  const dossierRef = api.dossier_id ? (dossiersById[api.dossier_id]?.caseNumber ?? `DOS-${api.dossier_id}`) : "";
-  const caseRef = api.case_id ? (casesById[api.case_id]?.caseNumber ?? `PRO-${api.case_id}`) : "";
+  const dossierRef = api.dossier_id ? (dossiersById[api.dossier_id]?.lawsuitNumber ?? `DOS-${api.dossier_id}`) : "";
+  const lawsuitRef = api.lawsuit_id ? (lawsuitsById[api.lawsuit_id]?.lawsuitNumber ?? `PRO-${api.lawsuit_id}`) : "";
 
   const dueDate = dateOnly(api.due_date);
   const occurredDate = dateOnly(api.occurred_at) || dateOnly(api.created_at) || "";
@@ -401,8 +401,8 @@ export function adaptFinancialEntry(
     clientName,
     dossierId: api.dossier_id ?? null,
     dossierReference: dossierRef,
-    caseId: api.case_id ?? null,
-    caseReference: caseRef,
+    lawsuitId: api.lawsuit_id ?? null,
+    lawsuitReference: lawsuitRef,
     missionId: api.mission_id ?? null,
     taskId: api.task_id ?? null,
     personalTaskId: api.personal_task_id ?? null,
@@ -418,16 +418,16 @@ export function adaptFinancialEntry(
 export function adaptMission(
   api: any,
   dossiersById: Record<number, any>,
-  casesById: Record<number, any>
+  lawsuitsById: Record<number, any>
 ) {
-  const entityType = api.dossier_id ? "dossier" : api.case_id ? "case" : null;
+  const entityType = api.dossier_id ? "dossier" : api.lawsuit_id ? "lawsuit" : null;
   const dossierRef =
     api.dossier_id && dossiersById[api.dossier_id]
-      ? dossiersById[api.dossier_id].caseNumber ?? `DOS-${api.dossier_id}`
+      ? dossiersById[api.dossier_id].lawsuitNumber ?? `DOS-${api.dossier_id}`
       : "";
-  const caseRef =
-    api.case_id && casesById[api.case_id]
-      ? casesById[api.case_id].caseNumber ?? `PRO-${api.case_id}`
+  const lawsuitRef =
+    api.lawsuit_id && lawsuitsById[api.lawsuit_id]
+      ? lawsuitsById[api.lawsuit_id].lawsuitNumber ?? `PRO-${api.lawsuit_id}`
       : "";
 
   return {
@@ -446,12 +446,12 @@ export function adaptMission(
     ...adaptImportState(api),
     description: api.description ?? "",
     dossierId: api.dossier_id ?? null,
-    caseId: api.case_id ?? null,
+    lawsuitId: api.lawsuit_id ?? null,
     officerId: api.officer_id ?? null,
     officerName: "",
     entityType,
-    entityId: api.dossier_id ?? api.case_id ?? null,
-    entityReference: entityType === "dossier" ? dossierRef : caseRef,
+    entityId: api.dossier_id ?? api.lawsuit_id ?? null,
+    entityReference: entityType === "dossier" ? dossierRef : lawsuitRef,
   };
 }
 
@@ -505,3 +505,6 @@ export function adaptHistory(api: any) {
     },
   };
 }
+
+
+

@@ -7,7 +7,7 @@ const db = require('../db/connection');
 
 /**
  * Get all notes for an entity
- * @param {string} entityType - Type of entity (mission, dossier, case, etc.)
+ * @param {string} entityType - Type of entity (mission, dossier, lawsuit, etc.)
  * @param {number} entityId - ID of the entity
  * @returns {Array} Array of notes
  */

@@ -17,7 +17,7 @@ import { DataAccessPermissions } from "../../services/api/agent";
 const DATA_SOURCE_CONFIG = [
   { id: "dossiers", label: "Dossiers", icon: FolderOpen },
   { id: "clients", label: "Clients", icon: Users },
-  { id: "cases", label: "Cases", icon: FileText },
+  { id: "lawsuits", label: "lawsuits", icon: FileText },
   { id: "tasks", label: "Tasks", icon: CheckSquare },
   { id: "personalTasks", label: "Personal Tasks", icon: CheckSquare },
   { id: "missions", label: "Missions", icon: Zap },
@@ -40,7 +40,7 @@ const capabilities = [
     title: "Reports & Summaries",
     icon: FileText,
     examples: [
-      "Prepare a summary of the Dupont case",
+      "Prepare a summary of the Dupont lawsuit",
       "Generate monthly activity report",
     ],
   },
@@ -75,7 +75,7 @@ export function AgentResultPreview({
   dataAccess,
   setDataAccess,
 }: AgentResultPreviewProps) {
-  const { dossiers, clients, cases, tasks, personalTasks, missions, sessions } =
+  const { dossiers, clients, lawsuits, tasks, personalTasks, missions, sessions } =
     useData();
 
   const handleToggleSource = (id: keyof DataAccessPermissions) => {
@@ -141,7 +141,7 @@ export function AgentResultPreview({
             let value: string | number = "--";
             if (source.id === "dossiers" && dossiers) value = dossiers.length;
             else if (source.id === "clients" && clients) value = clients.length;
-            else if (source.id === "cases" && cases) value = cases.length;
+            else if (source.id === "lawsuits" && lawsuits) value = lawsuits.length;
             else if (source.id === "tasks" && tasks) value = tasks.length;
             else if (source.id === "personalTasks" && personalTasks)
               value = personalTasks.length;
@@ -240,3 +240,5 @@ export function AgentResultPreview({
     </div>
   );
 }
+
+

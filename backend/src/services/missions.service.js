@@ -17,7 +17,7 @@ const allowedFields = [
   'result',
   'notes',
   'dossier_id',
-  'case_id',
+  'lawsuit_id',
   'officer_id',
 ];
 
@@ -52,7 +52,7 @@ function create(payload) {
   const data = normalizeData(filterPayload(payload, allowedFields));
   const insertData = {
     dossier_id: null,
-    case_id: null,
+    lawsuit_id: null,
     description: null,
     mission_type: null,
     assign_date: null,
@@ -64,7 +64,7 @@ function create(payload) {
     officer_id: null,
     ...data,
   };
-  ensureXor([insertData.dossier_id, insertData.case_id], 'Provide either dossier_id or case_id (exclusive)');
+  ensureXor([insertData.dossier_id, insertData.lawsuit_id], 'Provide either dossier_id or lawsuit_id (exclusive)');
   assert(insertData.title, 'title is required');
   if (!insertData.status) insertData.status = 'planned';
   if (!insertData.priority) insertData.priority = 'medium';
@@ -74,8 +74,8 @@ function create(payload) {
 
   try {
     const stmt = db.prepare(
-      `INSERT INTO ${table} (reference, title, description, mission_type, status, priority, assign_date, due_date, completion_date, closed_at, result, notes, dossier_id, case_id, officer_id)
-       VALUES (@reference, @title, @description, @mission_type, @status, @priority, @assign_date, @due_date, @completion_date, @closed_at, @result, @notes, @dossier_id, @case_id, @officer_id)`
+      `INSERT INTO ${table} (reference, title, description, mission_type, status, priority, assign_date, due_date, completion_date, closed_at, result, notes, dossier_id, lawsuit_id, officer_id)
+       VALUES (@reference, @title, @description, @mission_type, @status, @priority, @assign_date, @due_date, @completion_date, @closed_at, @result, @notes, @dossier_id, @lawsuit_id, @officer_id)`
     );
     const result = stmt.run(insertData);
     return get(result.lastInsertRowid);
@@ -88,8 +88,8 @@ function create(payload) {
 
 function update(id, payload) {
   const data = normalizeData(filterPayload(payload, allowedFields));
-  if (data.dossier_id !== undefined || data.case_id !== undefined) {
-    ensureXor([data.dossier_id, data.case_id], 'Provide either dossier_id or case_id (exclusive)');
+  if (data.dossier_id !== undefined || data.lawsuit_id !== undefined) {
+    ensureXor([data.dossier_id, data.lawsuit_id], 'Provide either dossier_id or lawsuit_id (exclusive)');
   }
 
   // Handle notes separately - save to notes table
@@ -285,7 +285,7 @@ function remove(id) {
     const stmt = db.prepare(`DELETE FROM ${table} WHERE id = @id`);
     const result = stmt.run({ id });
 
-    // 7. Add deletion event to parent's history (dossier or case)
+    // 7. Add deletion event to parent's history (dossier or lawsuit)
     if (result.changes > 0) {
       if (mission.dossier_id) {
         historyService.create({
@@ -294,10 +294,10 @@ function remove(id) {
           action: 'child_deleted',
           description: `Mission "${mission.title}" (${mission.reference}) was deleted with all dependencies`,
         });
-      } else if (mission.case_id) {
+      } else if (mission.lawsuit_id) {
         historyService.create({
-          entity_type: 'case',
-          entity_id: mission.case_id,
+          entity_type: 'lawsuit',
+          entity_id: mission.lawsuit_id,
           action: 'child_deleted',
           description: `Mission "${mission.title}" (${mission.reference}) was deleted with all dependencies`,
         });
@@ -318,3 +318,4 @@ module.exports = {
   remove,
   getDeleteImpact,
 };
+

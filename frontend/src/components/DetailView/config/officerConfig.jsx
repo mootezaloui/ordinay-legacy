@@ -43,21 +43,21 @@ export const createOfficerConfig = (t) => ({
 
     // ✅ Compute aggregated related entities from contextData if available
     const missions = contextData?.missions || [];
-    const cases = contextData?.cases || [];
+    const lawsuits = contextData?.lawsuits || [];
     const dossiers = contextData?.dossiers || [];
     const financialEntries = contextData?.financialEntries || [];
 
     // Filter missions assigned to this officer
     const officerMissions = missions.filter(m => String(m.officerId) === String(numericId));
 
-    // Filter cases where this officer has missions
-    const relatedCaseIds = new Set(
+    // Filter lawsuits where this officer has missions
+    const relatedlawsuitIds = new Set(
       missions
-        .filter(m => String(m.officerId) === String(numericId) && (m.caseId || (m.entityType === "case" && m.entityId)))
-        .map(m => m.caseId || (m.entityType === "case" ? m.entityId : null))
+        .filter(m => String(m.officerId) === String(numericId) && (m.lawsuitId || (m.entityType === "lawsuit" && m.entityId)))
+        .map(m => m.lawsuitId || (m.entityType === "lawsuit" ? m.entityId : null))
         .filter(Boolean)
     );
-    const officerCases = cases.filter(c => relatedCaseIds.has(c.id));
+    const officerLawsuits = lawsuits.filter(c => relatedlawsuitIds.has(c.id));
 
     // Filter dossiers where this officer has missions
     const relatedDossierIds = new Set(
@@ -79,7 +79,7 @@ export const createOfficerConfig = (t) => ({
     return {
       ...officer,
       missions: officerMissions,
-      cases: [...officerDossiers, ...officerCases],
+      lawsuits: [...officerDossiers, ...officerLawsuits],
       dossiers: officerDossiers,
       financialEntries: relatedFinancialEntries,
     };
@@ -88,15 +88,15 @@ export const createOfficerConfig = (t) => ({
   updateData: async (id, data, contextData = null) => {
     const numericId = parseInt(id);
 
-    // 🚨 CRITICAL SAFETY: Relational arrays (missions, cases, dossiers) should NEVER trigger officer table updates
+    // 🚨 CRITICAL SAFETY: Relational arrays (missions, lawsuits, dossiers) should NEVER trigger officer table updates
     // These are read-only computed properties from the backend
-    const relationalFields = ['missions', 'cases', 'dossiers'];
+    const relationalFields = ['missions', 'lawsuits', 'dossiers'];
     const hasOnlyRelationalFields = Object.keys(data).every(key => relationalFields.includes(key));
 
     if (hasOnlyRelationalFields) {
       console.log('[officerConfig.updateData] BLOCKED: Attempted to update officer with only relational fields:', Object.keys(data));
-      console.log('[officerConfig.updateData] Relational data changes are handled by their respective entities (missions/cases/dossiers)');
-      // These updates are safe to ignore - the relational data is managed by the mission/case/dossier services
+      console.log('[officerConfig.updateData] Relational data changes are handled by their respective entities (missions/lawsuits/dossiers)');
+      // These updates are safe to ignore - the relational data is managed by the mission/lawsuit/dossier services
       return;
     }
 
@@ -267,7 +267,7 @@ export const createOfficerConfig = (t) => ({
       entityName: t('detail.missions.entityName', { ns: 'missions', defaultValue: 'Mission' }),
       addSubtitle: t('form.subtitle.add', { ns: 'missions', defaultValue: 'Create a new mission' }),
 
-      // ✅ UPDATED: Use same getFormFields pattern as dossier and case
+      // ✅ UPDATED: Use same getFormFields pattern as dossier and lawsuit
       getFormFields: (officerData, contextData) => {
         const fields = getMissionFormFields().map(field => {
           // Pre-fill and disable officerId with current officer
@@ -281,7 +281,7 @@ export const createOfficerConfig = (t) => ({
               helpText: t('form.help.bailiffAssigned', { ns: 'missions', name: officerData.name, defaultValue: `This mission will be assigned to ${officerData.name}` }),
             };
           }
-          // Mission reference: editable/optional like dossier/case; leave blank to auto-generate
+          // Mission reference: editable/optional like dossier/lawsuit; leave blank to auto-generate
           if (field.name === 'missionNumber') {
             return {
               ...field,
@@ -309,13 +309,13 @@ export const createOfficerConfig = (t) => ({
 
                 if (entityType === 'dossier') {
                   return (contextData?.dossiers || []).map(d => ({
-                    value: d.caseNumber,
-                    label: `${d.caseNumber} - ${d.title}`,
+                    value: d.lawsuitNumber,
+                    label: `${d.lawsuitNumber} - ${d.title}`,
                   }));
-                } else if (entityType === 'case') {
-                  return (contextData?.cases || []).map(c => ({
-                    value: c.caseNumber,
-                    label: `${c.caseNumber} - ${c.title}`,
+                } else if (entityType === 'lawsuit') {
+                  return (contextData?.lawsuits || []).map(c => ({
+                    value: c.lawsuitNumber,
+                    label: `${c.lawsuitNumber} - ${c.title}`,
                   }));
                 }
 
@@ -330,31 +330,31 @@ export const createOfficerConfig = (t) => ({
       },
     },
     {
-      id: "cases",
-      label: t('detail.tabs.cases'),
+      id: "lawsuits",
+      label: t('detail.tabs.lawsuits'),
       icon: "fas fa-folder-open",
       component: "relatedItems",
-      getCount: (data) => data.cases?.length || 0,
+      getCount: (data) => data.lawsuits?.length || 0,
 
-      itemsKey: "cases",
-      emptyMessage: t('detail.cases.empty'),
+      itemsKey: "lawsuits",
+      emptyMessage: t('detail.lawsuits.empty'),
       itemRoute: (item) => {
-        // Determine if it's a dossier or case based on caseNumber prefix
-        if (item.caseNumber.startsWith('DOS-')) {
+        // Determine if it's a dossier or lawsuit based on lawsuitNumber prefix
+        if (item.lawsuitNumber.startsWith('DOS-')) {
           return '/dossiers';
-        } else if (item.caseNumber.startsWith('PRO-')) {
-          return '/cases';
+        } else if (item.lawsuitNumber.startsWith('PRO-')) {
+          return '/lawsuits';
         }
         return '/dossiers';
       },
       renderItem: (item) => {
-        // Determine type and icon based on caseNumber prefix
-        const isDossier = item.caseNumber.startsWith('DOS-');
+        // Determine type and icon based on lawsuitNumber prefix
+        const isDossier = item.lawsuitNumber.startsWith('DOS-');
         const icon = isDossier ? 'fas fa-folder-open' : 'fas fa-gavel';
         const iconColor = isDossier ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400';
 
         return {
-          title: item.caseNumber,
+          title: item.lawsuitNumber,
           subtitle: item.title,
           status: item.status,
           icon: icon,
@@ -496,3 +496,9 @@ export const createOfficerConfig = (t) => ({
     },
   ],
 });
+
+
+
+
+
+

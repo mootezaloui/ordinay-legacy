@@ -72,10 +72,10 @@ const buildParentContext = (params, t) => {
   }
 
   const parentReference =
-    params.parentReference || params.dossierNumber || params.caseNumber;
+    params.parentReference || params.dossierNumber || params.lawsuitNumber;
   const parentType =
     params.parentType ||
-    (params.dossierNumber ? "dossier" : params.caseNumber ? "case" : null);
+    (params.dossierNumber ? "dossier" : params.lawsuitNumber ? "lawsuit" : null);
   if (!parentReference || !parentType) return "";
 
   return ` - ${formatContext(parentType, parentReference)}`;
@@ -163,7 +163,7 @@ export function useNotificationTranslation(notification) {
       formattedParams.taskTitle,
       formattedParams.missionTitle,
       formattedParams.sessionTitle,
-      formattedParams.caseNumber,
+      formattedParams.lawsuitNumber,
       formattedParams.dossierNumber,
       formattedParams.clientName,
       formattedParams.title,
@@ -243,7 +243,7 @@ export function useNotificationListTranslation(notifications) {
         formattedParams.taskTitle,
         formattedParams.missionTitle,
         formattedParams.sessionTitle,
-        formattedParams.caseNumber,
+        formattedParams.lawsuitNumber,
         formattedParams.dossierNumber,
         formattedParams.clientName,
         formattedParams.title,
@@ -330,3 +330,5 @@ export function translateSeverityTitle(severity, t) {
   const key = titleKeys[severity] || titleKeys.info;
   return t(`notifications:${key}`);
 }
+
+

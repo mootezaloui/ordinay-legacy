@@ -242,7 +242,7 @@ export const createFinancialEntryConfig = (t) => ({
                         {data.caseReference && (
                             <InfoCard
                                 icon="fas fa-gavel"
-                                label={t('detail.header.lawsuit', { ns: 'cases', defaultValue: 'Affaire' })}
+                                label={t('detail.header.lawsuit', { ns: 'lawsuits', defaultValue: 'Affaire' })}
                                 value={data.caseReference}
                                 color="red"
                             />
@@ -425,7 +425,7 @@ export const createFinancialEntryConfig = (t) => ({
                     displayValue: (data, contextData) => {
                         if (!data.dossierId) return t('detail.fallback.none');
                         const dossier = (contextData?.dossiers || []).find(d => d.id === parseInt(data.dossierId));
-                        if (dossier) return `${dossier.caseNumber} - ${dossier.title}`;
+                        if (dossier) return `${dossier.lawsuitNumber} - ${dossier.title}`;
                         return data.dossierReference || t('detail.fallback.none');
                     },
                     icon: "fas fa-folder",
@@ -442,21 +442,21 @@ export const createFinancialEntryConfig = (t) => ({
                             { value: "", label: t('detail.overview.fields.dossierPlaceholder') },
                             ...filteredDossiers.map(d => ({
                                 value: d.id,
-                                label: `${d.caseNumber} - ${d.title}`
+                                label: `${d.lawsuitNumber} - ${d.title}`
                             }))
                         ];
                     },
                     helpText: t('detail.overview.fields.dossierHelp')
                 },
                 {
-                    key: "caseId",
+                    key: "lawsuitId",
                     label: t('detail.overview.fields.lawsuit'),
-                    value: (data, contextData) => data.caseId || "",
+                    value: (data, contextData) => data.lawsuitId || "",
                     displayValue: (data, contextData) => {
-                        if (!data.caseId) return t('detail.fallback.none');
-                        const cases = contextData?.cases || [];
-                        const caseItem = cases.find(c => c.id === parseInt(data.caseId));
-                        if (caseItem) return `${caseItem.caseNumber} - ${caseItem.title}`;
+                        if (!data.lawsuitId) return t('detail.fallback.none');
+                        const lawsuits = contextData?.lawsuits || [];
+                        const caseItem = lawsuits.find(c => c.id === parseInt(data.lawsuitId));
+                        if (caseItem) return `${caseItem.lawsuitNumber} - ${caseItem.title}`;
                         return data.caseReference || t('detail.fallback.none');
                     },
                     icon: "fas fa-gavel",
@@ -464,16 +464,16 @@ export const createFinancialEntryConfig = (t) => ({
                     editable: true,
                     getOptions: (editedData = {}, contextData) => {
                         const dossierId = editedData?.dossierId;
-                        const cases = contextData?.cases || [];
+                        const lawsuits = contextData?.lawsuits || [];
                         const filteredCases = dossierId
-                            ? cases.filter(c => c.dossierId === parseInt(dossierId))
-                            : cases;
+                            ? lawsuits.filter(c => c.dossierId === parseInt(dossierId))
+                            : lawsuits;
 
                         return [
                             { value: "", label: t('detail.overview.fields.lawsuitPlaceholder') },
                             ...filteredCases.map(c => ({
                                 value: c.id,
-                                label: `${c.caseNumber} - ${c.title}`
+                                label: `${c.lawsuitNumber} - ${c.title}`
                             }))
                         ];
                     },
@@ -556,9 +556,9 @@ export const createFinancialEntryConfig = (t) => ({
                                 </a>
                             )}
 
-                            {data.caseId && (
+                            {data.lawsuitId && (
                                 <a
-                                    href={`/cases/${data.caseId}`}
+                                    href={`/lawsuits/${data.lawsuitId}`}
                                     className="flex items-center justify-between p-4 bg-white dark:bg-slate-800 rounded-lg border-2 border-red-200 dark:border-red-800 hover:border-red-400 dark:hover:border-red-600 transition-all group"
                                 >
                                     <div className="flex items-center gap-4">
@@ -592,7 +592,7 @@ export const createFinancialEntryConfig = (t) => ({
                                 </a>
                             )}
 
-                            {!data.clientId && !data.dossierId && !data.caseId && !data.officerId && (
+                            {!data.clientId && !data.dossierId && !data.lawsuitId && !data.officerId && (
                                 <div className="text-center py-12">
                                     <i className="fas fa-unlink text-slate-300 dark:text-slate-600 text-4xl mb-3"></i>
                                     <p className="text-slate-500 dark:text-slate-400">{t('detail.relations.empty')}</p>
@@ -652,3 +652,8 @@ function InfoCard({ icon, label, value, color }) {
 }
 
 export default createFinancialEntryConfig;
+
+
+
+
+

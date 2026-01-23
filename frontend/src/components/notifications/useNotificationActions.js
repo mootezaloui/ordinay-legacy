@@ -129,7 +129,7 @@ export function useNotificationActions() {
     const dossier = dossiers.find((item) => item.id === dossierId);
     const dossierNumber =
       notification?.params?.dossierNumber ||
-      dossier?.caseNumber ||
+      dossier?.lawsuitNumber ||
       dossier?.reference ||
       dossier?.title ||
       t("center.types.dossier");
@@ -268,7 +268,7 @@ export function useNotificationActions() {
     const session = sessions.find((item) => item.id === sessionId);
     const sessionTitle =
       notification?.params?.sessionTitle ||
-      notification?.params?.caseNumber ||
+      notification?.params?.lawsuitNumber ||
       session?.title ||
       t("center.types.session");
 
@@ -311,7 +311,7 @@ export function useNotificationActions() {
     const session = sessions.find((item) => item.id === sessionId);
     const sessionTitle =
       notification?.params?.sessionTitle ||
-      notification?.params?.caseNumber ||
+      notification?.params?.lawsuitNumber ||
       session?.title ||
       t("center.types.session");
 
@@ -587,3 +587,4 @@ export function useNotificationActions() {
     handleSendParticipantReminder,
   };
 }
+

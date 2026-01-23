@@ -3,7 +3,7 @@
 /**
  * READ TOOL: getTimeline
  *
- * Retrieve activity timeline for a dossier or case.
+ * Retrieve activity timeline for a dossier or lawsuit.
  * Aggregates tasks, sessions, and missions chronologically.
  * Read-only, no side effects, safe for all agent versions.
  */
@@ -16,7 +16,7 @@ const inputSchema = {
   properties: {
     entityType: {
       type: 'string',
-      enum: ['dossier', 'case'],
+      enum: ['dossier', 'lawsuit'],
       description: 'Type of entity to get timeline for',
     },
     entityId: {
@@ -59,7 +59,7 @@ async function handler({ entityType, entityId, limit = 100 }) {
   // Get tasks
   const taskQuery = entityType === 'dossier'
     ? 'SELECT id, title, status, priority, due_date, created_at, "task" as type FROM tasks WHERE dossier_id = ? AND deleted_at IS NULL'
-    : 'SELECT id, title, status, priority, due_date, created_at, "task" as type FROM tasks WHERE case_id = ? AND deleted_at IS NULL';
+    : 'SELECT id, title, status, priority, due_date, created_at, "task" as type FROM tasks WHERE lawsuit_id = ? AND deleted_at IS NULL';
 
   const tasks = db.prepare(taskQuery).all(entityId);
   timeline.push(...tasks.map(t => ({
@@ -70,7 +70,7 @@ async function handler({ entityType, entityId, limit = 100 }) {
   // Get sessions
   const sessionQuery = entityType === 'dossier'
     ? 'SELECT id, title, session_type, status, scheduled_at, created_at, "session" as type FROM sessions WHERE dossier_id = ? AND deleted_at IS NULL'
-    : 'SELECT id, title, session_type, status, scheduled_at, created_at, "session" as type FROM sessions WHERE case_id = ? AND deleted_at IS NULL';
+    : 'SELECT id, title, session_type, status, scheduled_at, created_at, "session" as type FROM sessions WHERE lawsuit_id = ? AND deleted_at IS NULL';
 
   const sessions = db.prepare(sessionQuery).all(entityId);
   timeline.push(...sessions.map(s => ({
@@ -81,7 +81,7 @@ async function handler({ entityType, entityId, limit = 100 }) {
   // Get missions
   const missionQuery = entityType === 'dossier'
     ? 'SELECT id, title, mission_type, status, priority, due_date, created_at, "mission" as type FROM missions WHERE dossier_id = ? AND deleted_at IS NULL'
-    : 'SELECT id, title, mission_type, status, priority, due_date, created_at, "mission" as type FROM missions WHERE case_id = ? AND deleted_at IS NULL';
+    : 'SELECT id, title, mission_type, status, priority, due_date, created_at, "mission" as type FROM missions WHERE lawsuit_id = ? AND deleted_at IS NULL';
 
   const missions = db.prepare(missionQuery).all(entityId);
   timeline.push(...missions.map(m => ({
@@ -108,7 +108,7 @@ async function handler({ entityType, entityId, limit = 100 }) {
 module.exports = {
   name: 'getTimeline',
   category: TOOL_CATEGORIES.READ,
-  description: 'Retrieve activity timeline for a dossier or case',
+  description: 'Retrieve activity timeline for a dossier or lawsuit',
   inputSchema,
   outputSchema,
   reversibility: true,
@@ -116,3 +116,4 @@ module.exports = {
   allowedAgentVersions: ['v1', 'v2', 'v3'],
   handler,
 };
+

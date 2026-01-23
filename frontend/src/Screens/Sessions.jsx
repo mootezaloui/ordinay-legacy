@@ -38,7 +38,7 @@ export default function Sessions() {
   const {
     sessions,
     dossiers,
-    cases,
+    lawsuits,
     clients,
     tasks,
     officers,
@@ -238,7 +238,7 @@ export default function Sessions() {
   const handleEdit = (session) => {
     const result = canPerformAction("session", session.id, "edit", {
       data: session,
-      entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries },
+      entities: { clients, dossiers, lawsuits, tasks, sessions, officers, missions, financialEntries },
     });
 
     if (!result.allowed) {
@@ -247,7 +247,7 @@ export default function Sessions() {
       return;
     }
 
-    const linkType = session.caseId ? "case" : "dossier";
+    const linkType = session.lawsuitId ? "lawsuit" : "dossier";
     setEditingSession({ ...session, linkType });
     setIsModalOpen(true);
   };
@@ -256,7 +256,7 @@ export default function Sessions() {
     const session = sessions.find((s) => s.id === id);
     const result = canPerformAction("session", id, "delete", {
       data: session,
-      entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries },
+      entities: { clients, dossiers, lawsuits, tasks, sessions, officers, missions, financialEntries },
     });
 
     if (!result.allowed) {
@@ -309,7 +309,7 @@ export default function Sessions() {
       const result = canPerformAction("session", editingSession.id, "edit", {
         data: editingSession,
         newData: formData,
-        entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries },
+        entities: { clients, dossiers, lawsuits, tasks, sessions, officers, missions, financialEntries },
       });
 
       if (!result.allowed) {
@@ -327,7 +327,7 @@ export default function Sessions() {
     } else {
       const result = canPerformAction("session", null, "add", {
         formData,
-        entities: { clients, dossiers, cases, tasks, sessions, officers, missions, financialEntries },
+        entities: { clients, dossiers, lawsuits, tasks, sessions, officers, missions, financialEntries },
       });
       if (!result.allowed) {
         setValidationResult(result);
@@ -368,25 +368,25 @@ export default function Sessions() {
           const hearingLabel = tCommon("detail.history.labels.hearingCreated");
           const historyLabel = `${hearingLabel}: ${sessionTitle}`;
 
-          if (createdSession.caseId) {
+          if (createdSession.lawsuitId) {
             logHistoryEvent({
-              entityType: "case",
-              entityId: createdSession.caseId,
+              entityType: "lawsuit",
+              entityId: createdSession.lawsuitId,
               eventType: EVENT_TYPES.RELATION,
               label: historyLabel,
               details: historyLabel,
               metadata: { childType: "session", childId: createdSession.id },
             });
-            const caseItem = cases.find((c) => String(c.id) === String(createdSession.caseId));
+            const caseItem = lawsuits.find((c) => String(c.id) === String(createdSession.lawsuitId));
             if (caseItem?.dossierId) {
-              const dossierLabel = caseItem.caseNumber ? `${historyLabel} (${caseItem.caseNumber})` : historyLabel;
+              const dossierLabel = caseItem.lawsuitNumber ? `${historyLabel} (${caseItem.lawsuitNumber})` : historyLabel;
               logHistoryEvent({
                 entityType: "dossier",
                 entityId: caseItem.dossierId,
                 eventType: EVENT_TYPES.RELATION,
                 label: dossierLabel,
                 details: dossierLabel,
-                metadata: { childType: "case", childId: caseItem.id, relatedType: "session", relatedId: createdSession.id },
+                metadata: { childType: "lawsuit", childId: caseItem.id, relatedType: "session", relatedId: createdSession.id },
               });
             }
           } else if (createdSession.dossierId) {
@@ -456,12 +456,12 @@ export default function Sessions() {
   const translatedSessionFormFields = sessionFormFields(t);
 
   const populatedSessionFormFields = translatedSessionFormFields.map((field) => {
-    if (field.name === "caseId") {
+    if (field.name === "lawsuitId") {
       return {
         ...field,
-        options: cases.map((c) => ({
+        options: lawsuits.map((c) => ({
           value: c.id,
-          label: `${c.caseNumber} - ${c.title}`,
+          label: `${c.lawsuitNumber} - ${c.title}`,
         })),
       };
     }
@@ -470,7 +470,7 @@ export default function Sessions() {
         ...field,
         options: dossiers.map((d) => ({
           value: d.id,
-          label: `${d.caseNumber} - ${d.title}`,
+          label: `${d.lawsuitNumber} - ${d.title}`,
         })),
       };
     }
@@ -632,3 +632,7 @@ export default function Sessions() {
     </PageLayout>
   );
 }
+
+
+
+

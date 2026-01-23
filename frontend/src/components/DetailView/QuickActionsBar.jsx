@@ -298,7 +298,7 @@ function QuickActionField({ action, value, onChange, entityType, entityId, entit
                 entityName={
                     entityData?.name ||              // For clients
                     entityData?.title ||             // For dossiers, tasks, sessions
-                    entityData?.caseNumber ||        // For cases
+                    entityData?.lawsuitNumber ||        // For lawsuits
                     entityData?.missionNumber ||     // For missions
                     `#${entityId}`                   // Fallback
                 }
@@ -375,8 +375,10 @@ function QuickActionField({ action, value, onChange, entityType, entityId, entit
                 }}
                 actionName={`change ${action.label}`}
                 impactSummary={validationResult?.impactSummary || []}
-                entityName={entityData?.caseNumber || entityData?.title || `#${entityId}`}
+                entityName={entityData?.lawsuitNumber || entityData?.title || `#${entityId}`}
             />
         </div>
     );
 }
+
+

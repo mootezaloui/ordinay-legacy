@@ -11,7 +11,7 @@ const ENTITY_TABLES = {
 const STATUS_ENUMS = {
   client: ["active", "inActive"],
   dossier: ["open", "in_progress", "on_hold", "closed"],
-  case: ["open", "in_progress", "on_hold", "closed"],
+  lawsuit: ["open", "in_progress", "on_hold", "closed"],
   task: ["todo", "in_progress", "blocked", "done", "cancelled"],
   session: ["scheduled", "confirmed", "pending", "completed", "cancelled"],
   mission: ["planned", "in_progress", "completed", "cancelled"],
@@ -28,7 +28,7 @@ const FINANCIAL_ENTRY_TYPES = ["income", "expense", "revenue"];
 const REQUIRED_FIELDS = {
   client: ["name"],
   dossier: ["reference", "client_id", "title", "status"],
-  case: ["reference", "dossier_id", "title", "status"],
+  lawsuit: ["reference", "dossier_id", "title", "status"],
   task: ["title", "status"],
   session: ["session_type", "status", "scheduled_at"],
   mission: ["reference", "title", "status"],
@@ -61,7 +61,7 @@ const CLIENT_FIELD_ALIASES = {
 };
 
 const DOSSIER_FIELD_ALIASES = {
-  reference: ["reference", "ref", "case_number", "dossier_number", "filenumber", "numerodossier", "numero"],
+  reference: ["reference", "ref", "lawsuit_number", "dossier_number", "filenumber", "numerodossier", "numero"],
   title: ["title", "titre", "objet", "subject", "name"],
   client_id: ["client_id", "clientid"],
   client_name: ["client", "client_name", "nom_client", "clientname"],
@@ -80,9 +80,9 @@ const DOSSIER_FIELD_ALIASES = {
   closed_at: ["closed_at", "close_date", "date_cloture", "datecloture"],
 };
 
-const CASE_FIELD_ALIASES = {
-  reference: ["reference", "ref", "case_reference", "case_ref", "lawsuit_reference", "reference_number", "numero_affaire", "case_number"],
-  case_number: ["case_number", "numero_affaire", "numero", "casenumber"],
+const LAWSUIT_FIELD_ALIASES = {
+  reference: ["reference", "ref", "case_reference", "case_ref", "lawsuit_reference", "reference_number", "numero_affaire", "lawsuit_number"],
+  lawsuit_number: ["lawsuit_number", "numero_affaire", "numero", "casenumber"],
   dossier_id: ["dossier_id", "dossierid"],
   dossier_reference: ["dossier_reference", "dossier_ref", "dossier", "dossier_number", "dossierreference"],
   title: ["title", "titre", "objet", "subject", "name"],
@@ -154,7 +154,7 @@ const DOSSIER_STATUS_MAP = {
   ferme: "closed",
 };
 
-const CASE_STATUS_MAP = DOSSIER_STATUS_MAP;
+const LAWSUIT_STATUS_MAP = DOSSIER_STATUS_MAP;
 
 function normalizePayload(value) {
   if (value === null || value === undefined) return null;
@@ -263,7 +263,7 @@ function normalizeStatus(entityType, value) {
   if (entityType === "client") {
     return CLIENT_STATUS_MAP[normalized] || null;
   }
-  return CASE_STATUS_MAP[normalized] || null;
+  return LAWSUIT_STATUS_MAP[normalized] || null;
 }
 
 function normalizeNumber(value) {
@@ -356,7 +356,7 @@ function validateParentReference(payload, errors) {
   const parentFields = [
     "client_id",
     "dossier_id",
-    "case_id",
+    "lawsuit_id",
     "mission_id",
     "task_id",
     "session_id",
@@ -413,22 +413,22 @@ function validateNormalizedPayload(entityType, payload, options = {}) {
 
   if (entityType === "session") {
     validateEnum("session_type", payload.session_type, SESSION_TYPES, errors);
-    validateXor(["dossier_id", "case_id"], payload, errors);
+    validateXor(["dossier_id", "lawsuit_id"], payload, errors);
   }
 
   if (entityType === "mission") {
-    validateXor(["dossier_id", "case_id"], payload, errors);
+    validateXor(["dossier_id", "lawsuit_id"], payload, errors);
   }
 
   if (entityType === "task") {
-    validateXor(["dossier_id", "case_id"], payload, errors);
+    validateXor(["dossier_id", "lawsuit_id"], payload, errors);
   }
 
   if (entityType === "financial_entry") {
     validateEnum("scope", payload.scope, FINANCIAL_SCOPES, errors);
     validateEnum("entry_type", payload.entry_type, FINANCIAL_ENTRY_TYPES, errors);
     validateEnum("status", payload.status, STATUS_ENUMS.financial_entry, errors);
-    validateExclusivePair("dossier_id", "case_id", payload, errors);
+    validateExclusivePair("dossier_id", "lawsuit_id", payload, errors);
 
     if (payload.scope === "client" && isMissing(payload.client_id)) {
       missingFields.push("client_id");
@@ -466,30 +466,30 @@ function validateNormalizedPayload(entityType, payload, options = {}) {
     checkReference("clients", payload.client_id, errors, "client_id");
   }
 
-  if (entityType === "case") {
+  if (entityType === "lawsuit") {
     checkReference("dossiers", payload.dossier_id, errors, "dossier_id");
   }
 
   if (entityType === "task") {
     checkReference("dossiers", payload.dossier_id, errors, "dossier_id");
-    checkReference("cases", payload.case_id, errors, "case_id");
+    checkReference("lawsuits", payload.lawsuit_id, errors, "lawsuit_id");
   }
 
   if (entityType === "session") {
     checkReference("dossiers", payload.dossier_id, errors, "dossier_id");
-    checkReference("cases", payload.case_id, errors, "case_id");
+    checkReference("lawsuits", payload.lawsuit_id, errors, "lawsuit_id");
   }
 
   if (entityType === "mission") {
     checkReference("dossiers", payload.dossier_id, errors, "dossier_id");
-    checkReference("cases", payload.case_id, errors, "case_id");
+    checkReference("lawsuits", payload.lawsuit_id, errors, "lawsuit_id");
     checkReference("officers", payload.officer_id, errors, "officer_id");
   }
 
   if (entityType === "financial_entry") {
     checkReference("clients", payload.client_id, errors, "client_id");
     checkReference("dossiers", payload.dossier_id, errors, "dossier_id");
-    checkReference("cases", payload.case_id, errors, "case_id");
+    checkReference("lawsuits", payload.lawsuit_id, errors, "lawsuit_id");
     checkReference("missions", payload.mission_id, errors, "mission_id");
     checkReference("tasks", payload.task_id, errors, "task_id");
     checkReference("personal_tasks", payload.personal_task_id, errors, "personal_task_id");
@@ -498,7 +498,7 @@ function validateNormalizedPayload(entityType, payload, options = {}) {
   if (entityType === "document") {
     checkReference("clients", payload.client_id, errors, "client_id");
     checkReference("dossiers", payload.dossier_id, errors, "dossier_id");
-    checkReference("cases", payload.case_id, errors, "case_id");
+    checkReference("lawsuits", payload.lawsuit_id, errors, "lawsuit_id");
     checkReference("missions", payload.mission_id, errors, "mission_id");
     checkReference("tasks", payload.task_id, errors, "task_id");
     checkReference("sessions", payload.session_id, errors, "session_id");
@@ -510,7 +510,7 @@ function validateNormalizedPayload(entityType, payload, options = {}) {
     typeof payload.status === "string" ? payload.status.toLowerCase() : payload.status;
 
   if (
-    (entityType === "dossier" || entityType === "case") &&
+    (entityType === "dossier" || entityType === "lawsuit") &&
     statusValue === "closed" &&
     isMissing(payload.closed_at)
   ) {
@@ -569,12 +569,12 @@ function resolveClientId(rawMap, clientsByName) {
 }
 
 function resolveDossierId(rawMap, dossiersByReference) {
-  const direct = pickValue(rawMap, CASE_FIELD_ALIASES.dossier_id);
+  const direct = pickValue(rawMap, LAWSUIT_FIELD_ALIASES.dossier_id);
   if (direct !== null && direct !== undefined) {
     const parsed = parseInt(direct, 10);
     if (!Number.isNaN(parsed)) return parsed;
   }
-  const reference = pickValue(rawMap, CASE_FIELD_ALIASES.dossier_reference);
+  const reference = pickValue(rawMap, LAWSUIT_FIELD_ALIASES.dossier_reference);
   if (!reference) return null;
   return dossiersByReference.get(String(reference).trim().toLowerCase()) || null;
 }
@@ -663,28 +663,28 @@ function normalizeDossierPayload(raw, lookups) {
   return payload;
 }
 
-function normalizeCasePayload(raw, lookups) {
+function normalizeLawsuitPayload(raw, lookups) {
   const rawMap = buildKeyMap(raw);
   const payload = {};
 
-  const caseNumber = pickValue(rawMap, CASE_FIELD_ALIASES.case_number);
-  const reference = pickValue(rawMap, CASE_FIELD_ALIASES.reference) || caseNumber;
+  const lawsuitNumber = pickValue(rawMap, LAWSUIT_FIELD_ALIASES.lawsuit_number);
+  const reference = pickValue(rawMap, LAWSUIT_FIELD_ALIASES.reference) || lawsuitNumber;
 
   payload.reference = reference;
-  if (caseNumber) payload.case_number = caseNumber;
+  if (lawsuitNumber) payload.lawsuit_number = lawsuitNumber;
   payload.dossier_id = resolveDossierId(rawMap, lookups.dossiersByReference);
-  payload.title = pickValue(rawMap, CASE_FIELD_ALIASES.title);
-  payload.status = normalizeStatus("case", pickValue(rawMap, CASE_FIELD_ALIASES.status));
-  payload.priority = normalizePriority(pickValue(rawMap, CASE_FIELD_ALIASES.priority));
-  payload.court = pickValue(rawMap, CASE_FIELD_ALIASES.court);
-  payload.adversary = pickValue(rawMap, CASE_FIELD_ALIASES.adversary);
-  payload.adversary_party = pickValue(rawMap, CASE_FIELD_ALIASES.adversary_party);
-  payload.adversary_lawyer = pickValue(rawMap, CASE_FIELD_ALIASES.adversary_lawyer);
-  payload.filing_date = normalizeDate(pickValue(rawMap, CASE_FIELD_ALIASES.filing_date));
-  payload.next_hearing = normalizeDate(pickValue(rawMap, CASE_FIELD_ALIASES.next_hearing));
-  payload.reference_number = pickValue(rawMap, CASE_FIELD_ALIASES.reference_number);
-  payload.opened_at = normalizeDate(pickValue(rawMap, CASE_FIELD_ALIASES.opened_at));
-  payload.closed_at = normalizeDate(pickValue(rawMap, CASE_FIELD_ALIASES.closed_at));
+  payload.title = pickValue(rawMap, LAWSUIT_FIELD_ALIASES.title);
+  payload.status = normalizeStatus("lawsuit", pickValue(rawMap, LAWSUIT_FIELD_ALIASES.status));
+  payload.priority = normalizePriority(pickValue(rawMap, LAWSUIT_FIELD_ALIASES.priority));
+  payload.court = pickValue(rawMap, LAWSUIT_FIELD_ALIASES.court);
+  payload.adversary = pickValue(rawMap, LAWSUIT_FIELD_ALIASES.adversary);
+  payload.adversary_party = pickValue(rawMap, LAWSUIT_FIELD_ALIASES.adversary_party);
+  payload.adversary_lawyer = pickValue(rawMap, LAWSUIT_FIELD_ALIASES.adversary_lawyer);
+  payload.filing_date = normalizeDate(pickValue(rawMap, LAWSUIT_FIELD_ALIASES.filing_date));
+  payload.next_hearing = normalizeDate(pickValue(rawMap, LAWSUIT_FIELD_ALIASES.next_hearing));
+  payload.reference_number = pickValue(rawMap, LAWSUIT_FIELD_ALIASES.reference_number);
+  payload.opened_at = normalizeDate(pickValue(rawMap, LAWSUIT_FIELD_ALIASES.opened_at));
+  payload.closed_at = normalizeDate(pickValue(rawMap, LAWSUIT_FIELD_ALIASES.closed_at));
 
   Object.keys(payload).forEach((key) => {
     if (payload[key] === null || payload[key] === undefined) {
@@ -698,7 +698,7 @@ function normalizeCasePayload(raw, lookups) {
 function buildNormalizedPayload(entityType, raw, lookups) {
   if (entityType === "client") return normalizeClientPayload(raw);
   if (entityType === "dossier") return normalizeDossierPayload(raw, lookups);
-  if (entityType === "case") return normalizeCasePayload(raw, lookups);
+  if (entityType === "lawsuit") return normalizeLawsuitPayload(raw, lookups);
   return {};
 }
 
@@ -781,7 +781,7 @@ function buildLookups(entityType) {
     });
   }
 
-  if (entityType === "case") {
+  if (entityType === "lawsuit") {
     const dossiers = db
       .prepare("SELECT id, reference, title FROM dossiers WHERE deleted_at IS NULL")
       .all();
@@ -1198,3 +1198,6 @@ module.exports = {
   normalize,
   validateAndApply,
 };
+
+
+
