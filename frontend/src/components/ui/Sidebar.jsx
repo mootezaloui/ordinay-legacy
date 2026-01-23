@@ -71,9 +71,8 @@ export default function Sidebar() {
 
   return (
     <aside
-      className={`fixed left-0 flex flex-col transition-all duration-300 border-r z-40 titlebar-offset-top titlebar-offset-height ${
-        isCollapsed ? "w-[72px]" : "w-64"
-      } bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 border-slate-200 dark:border-slate-800`}
+      className={`fixed left-0 flex flex-col transition-all duration-300 border-r z-40 titlebar-offset-top titlebar-offset-height ${isCollapsed ? "w-[72px]" : "w-64"
+        } bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 border-slate-200 dark:border-slate-800`}
     >
       {/* Toggle */}
       <button
@@ -103,7 +102,7 @@ export default function Sidebar() {
       </div>
 
       {/* Navigation - Grouped with enhanced hierarchy */}
-      <nav className="flex-1 py-3 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700 scrollbar-track-transparent">
+      <nav className="flex-1 py-3 overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700 scrollbar-track-transparent">
         <div className="space-y-6">
           {navigationGroups.map((group) => (
             <div key={group.id} className="px-3">
@@ -133,43 +132,38 @@ export default function Sidebar() {
                         to={item.route}
                         data-tutorial={
                           item.route === "/dashboard" ? "sidebar-dashboard-link" :
-                          item.route === "/clients" ? "sidebar-clients-link" :
-                          item.route === "/dossiers" ? "sidebar-dossiers-link" :
-                          item.route === "/personal-tasks" ? "sidebar-personal-tasks-link" :
-                          item.route === "/sessions" ? "sidebar-sessions-link" :
-                          item.route === "/officers" ? "sidebar-officers-link" :
-                          item.route === "/accounting" ? "sidebar-accounting-link" :
-                          undefined
+                            item.route === "/clients" ? "sidebar-clients-link" :
+                              item.route === "/dossiers" ? "sidebar-dossiers-link" :
+                                item.route === "/personal-tasks" ? "sidebar-personal-tasks-link" :
+                                  item.route === "/sessions" ? "sidebar-sessions-link" :
+                                    item.route === "/officers" ? "sidebar-officers-link" :
+                                      item.route === "/accounting" ? "sidebar-accounting-link" :
+                                        undefined
                         }
-                        className={`group relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 ${
-                          isCollapsed ? "justify-center" : "justify-start"
-                        } ${
-                          isActive
+                        className={`group relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 ${isCollapsed ? "justify-center" : "justify-start"
+                          } ${isActive
                             ? "bg-blue-600 dark:bg-blue-600 text-white shadow-lg shadow-blue-500/30 dark:shadow-blue-600/40"
                             : "hover:bg-white dark:hover:bg-slate-900 text-slate-700 dark:text-slate-300 hover:shadow-sm"
-                        }`}
+                          }`}
                       >
                         {/* Icon container with enhanced styling */}
-                        <span className={`relative flex items-center justify-center w-5 transition-transform duration-200 ${
-                          isActive ? "scale-110" : "group-hover:scale-105"
-                        }`}>
+                        <span className={`relative flex items-center justify-center w-5 transition-transform duration-200 ${isActive ? "scale-110" : "group-hover:scale-105"
+                          }`}>
                           <i
-                            className={`${item.icon} text-base transition-all duration-200 ${
-                              isActive
+                            className={`${item.icon} text-base transition-all duration-200 ${isActive
                                 ? "text-white"
                                 : "text-slate-500 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200"
-                            }`}
+                              }`}
                           ></i>
                         </span>
 
                         {/* Label */}
                         {!isCollapsed && (
                           <span
-                            className={`text-[13px] font-medium transition-all duration-200 ${
-                              isActive
+                            className={`text-[13px] font-medium transition-all duration-200 ${isActive
                                 ? "text-white"
                                 : "text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white"
-                            } ${isActive && activeFlash ? "animate-pop" : ""}`}
+                              } ${isActive && activeFlash ? "animate-pop" : ""}`}
                           >
                             {item.label}
                           </span>
@@ -203,9 +197,8 @@ export default function Sidebar() {
           {/* Theme toggle */}
           <button
             onClick={toggleTheme}
-            className={`w-full group flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 hover:bg-white dark:hover:bg-slate-900 text-slate-700 dark:text-slate-300 hover:shadow-sm ${
-              isCollapsed ? "justify-center" : "justify-start"
-            }`}
+            className={`w-full group flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 hover:bg-white dark:hover:bg-slate-900 text-slate-700 dark:text-slate-300 hover:shadow-sm ${isCollapsed ? "justify-center" : "justify-start"
+              }`}
           >
             <span className="relative flex items-center justify-center w-5">
               <i className={`${isDark ? "fas fa-sun" : "fas fa-moon"} text-base text-slate-500 dark:text-slate-400 group-hover:text-amber-500 transition-all duration-200`}></i>
@@ -226,9 +219,8 @@ export default function Sidebar() {
           {/* Exit button */}
           <button
             onClick={handleExit}
-            className={`w-full group flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 hover:bg-red-50 dark:hover:bg-red-950/50 text-slate-700 dark:text-slate-300 hover:text-red-600 dark:hover:text-red-400 ${
-              isCollapsed ? "justify-center" : "justify-start"
-            }`}
+            className={`w-full group flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 hover:bg-red-50 dark:hover:bg-red-950/50 text-slate-700 dark:text-slate-300 hover:text-red-600 dark:hover:text-red-400 ${isCollapsed ? "justify-center" : "justify-start"
+              }`}
           >
             <span className="relative flex items-center justify-center w-5">
               <i className="fas fa-sign-out-alt text-base text-red-500 dark:text-red-400 transition-all duration-200"></i>

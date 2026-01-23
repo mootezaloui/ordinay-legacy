@@ -23,9 +23,9 @@ export default function PageLayout({ children }) {
         {/* Header */}
         <HeaderBar />
 
-        {/* Content Area - pt-20 accounts for fixed header height (64px + extra spacing) */}
-        <main className="px-4 sm:px-6 lg:px-8 pb-4 sm:pb-6 lg:pb-8 pt-20 min-h-full w-full">
-          <div className="w-full min-h-full">
+        {/* Content Area - pt-20 accounts for fixed header height */}
+        <main className="px-4 sm:px-6 lg:px-8 pb-8 pt-20 min-h-full w-full overflow-x-hidden">
+          <div className="w-full min-h-full max-w-[1600px] mx-auto">
             {children}
           </div>
         </main>

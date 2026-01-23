@@ -1,7 +1,6 @@
 ﻿import { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import PageLayout from "../components/layout/PageLayout";
-import PageHeader from "../components/layout/PageHeader";
 import ContentSection from "../components/layout/ContentSection";
 import StatCard from "../components/dashboard/StatCard";
 import ActivityFeed from "../components/dashboard/ActivityFeed";
@@ -14,6 +13,7 @@ import { useTranslation } from "react-i18next";
 import { getDashboardSummary } from "../services/api/dashboard";
 import { filterOperationalEntities } from "../utils/importState";
 import { calculateNextHearing } from "../utils/deadlineUtils";
+import { getGreetingKey, getContextMessage } from "../utils/greetings";
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -423,27 +423,43 @@ export default function Dashboard() {
   const immediateStyles = getLevelStyles(immediateLevel);
   const totalWorkloadCount = workloadBuckets.buckets.reduce((sum, bucket) => sum + bucket.total, 0);
 
+  // Get user name from settings (placeholder for now)
+  const userName = null; // TODO: Get from user context when available
+
+  // Generate greeting
+  const greetingKey = getGreetingKey(userName);
+  const contextKey = getContextMessage();
+  const greeting = t(greetingKey, { userName });
+  const context = contextKey ? t(contextKey) : null;
+
   return (
     <PageLayout>
-      <PageHeader
-        title={t("dashboard.title")}
-        subtitle={t("dashboard.subtitle")}
-        icon="fas fa-chart-line"
-      />
+      {/* Hero Section with Greeting */}
+      <div className="mb-10">
+        <div className="flex flex-col gap-2">
+          <h1 className="text-4xl font-bold text-slate-900 dark:text-white leading-tight tracking-tight">
+            {greeting}
+          </h1>
+          {context && (
+            <p className="text-lg text-slate-600 dark:text-slate-400">
+              {context}
+            </p>
+          )}
+          {!context && (
+            <p className="text-lg text-slate-600 dark:text-slate-400">
+              {t("dashboard.subtitle")}
+            </p>
+          )}
+        </div>
+      </div>
 
-      <div className="space-y-6">
-        {/* Quick Actions */}
-        <ContentSection>
-          <div className="p-6">
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
-              {t("dashboard.quickActions.title")}
-            </h2>
-            <QuickActions />
-          </div>
-        </ContentSection>
-
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" data-tutorial="dashboard-stats">
+      <div className="space-y-8">
+        {/* Stats Grid - Primary Focus */}
+        <div>
+          <h2 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-4">
+            {t("dashboard.title")}
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5" data-tutorial="dashboard-stats">
           <StatCard
             label={t("dashboard.stats.totalClients")}
             value={isLoadingSummary ? "—" : stats.clients.total}
@@ -491,7 +507,18 @@ export default function Dashboard() {
             trendLabel={!isLoadingSummary ? t("dashboard.stats.trendVsLastMonth") : undefined}
             onClick={() => navigate("/accounting")}
           />
+          </div>
         </div>
+
+        {/* Quick Actions */}
+        <ContentSection>
+          <div className="p-6">
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
+              {t("dashboard.quickActions.title")}
+            </h2>
+            <QuickActions />
+          </div>
+        </ContentSection>
 
         {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

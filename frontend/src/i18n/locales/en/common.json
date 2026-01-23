@@ -2,6 +2,24 @@
   "dashboard": {
     "title": "Dashboard",
     "subtitle": "Overview of your law firm's performance and activities",
+    "greeting": {
+      "morning": {
+        "default": "Good morning.",
+        "withName": "Good morning, {{userName}}."
+      },
+      "afternoon": {
+        "default": "Good afternoon.",
+        "withName": "Good afternoon, {{userName}}."
+      },
+      "evening": {
+        "default": "Good evening.",
+        "withName": "Good evening, {{userName}}."
+      }
+    },
+    "context": {
+      "afternoon": "Let's continue where you left off.",
+      "evening": "Wrapping up today's work."
+    },
     "quickActions": {
       "title": "Quick Actions",
       "newClient": "New client",

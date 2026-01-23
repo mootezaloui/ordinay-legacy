@@ -287,6 +287,44 @@ async function resetBackendData() {
  */
 function createWindow() {
   const windowIcon = resolveWindowIcon();
+
+  // Configure Content Security Policy
+  const session = require("electron").session;
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    const cspDirectives = isDev
+      ? [
+          "default-src 'self'",
+          "script-src 'self' 'unsafe-inline'", // unsafe-inline needed for Vite HMR in dev
+          "style-src 'self' 'unsafe-inline'", // unsafe-inline needed for styled-components/CSS-in-JS
+          "img-src 'self' data: blob:",
+          "font-src 'self' data:",
+          "connect-src 'self' http://localhost:* ws://localhost:*", // Allow backend + Vite HMR
+          "object-src 'none'",
+          "base-uri 'self'",
+          "form-action 'self'",
+          "frame-ancestors 'none'",
+        ]
+      : [
+          "default-src 'self'",
+          "script-src 'self'",
+          "style-src 'self' 'unsafe-inline'", // unsafe-inline still needed for CSS-in-JS in production
+          "img-src 'self' data: blob:",
+          "font-src 'self' data:",
+          `connect-src 'self' http://localhost:${backendPort}`, // Only allow configured backend port
+          "object-src 'none'",
+          "base-uri 'self'",
+          "form-action 'self'",
+          "frame-ancestors 'none'",
+        ];
+
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        "Content-Security-Policy": [cspDirectives.join("; ")],
+      },
+    });
+  });
+
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,

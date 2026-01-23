@@ -2,6 +2,24 @@
   "dashboard": {
     "title": "Tableau de Bord",
     "subtitle": "Vue d'ensemble des performances et activités de votre cabinet",
+    "greeting": {
+      "morning": {
+        "default": "Bonjour.",
+        "withName": "Bonjour, {{userName}}."
+      },
+      "afternoon": {
+        "default": "Bon après-midi.",
+        "withName": "Bon après-midi, {{userName}}."
+      },
+      "evening": {
+        "default": "Bonsoir.",
+        "withName": "Bonsoir, {{userName}}."
+      }
+    },
+    "context": {
+      "afternoon": "Continuons là où nous nous sommes arrêtés.",
+      "evening": "Clôturons le travail du jour."
+    },
     "quickActions": {
       "title": "Actions Rapides",
       "newClient": "Nouveau client",

@@ -2,6 +2,24 @@
   "dashboard": {
     "title": "لوحة التحكم",
     "subtitle": "نظرة عامة على أداء ونشاط مكتبك القانوني",
+    "greeting": {
+      "morning": {
+        "default": "صباح الخير.",
+        "withName": "صباح الخير، {{userName}}."
+      },
+      "afternoon": {
+        "default": "مساء الخير.",
+        "withName": "مساء الخير، {{userName}}."
+      },
+      "evening": {
+        "default": "مساء الخير.",
+        "withName": "مساء الخير، {{userName}}."
+      }
+    },
+    "context": {
+      "afternoon": "لنستكمل من حيث توقفنا.",
+      "evening": "لننهي عمل اليوم."
+    },
     "quickActions": {
       "title": "إجراءات سريعة",
       "newClient": "عميل جديد",
