@@ -83,21 +83,57 @@ export default function Sidebar() {
         <i className={`${isCollapsed ? "fas fa-chevron-right text-xs" : "fas fa-chevron-left text-xs"} text-slate-600 dark:text-slate-400`}></i>
       </button>
 
-      {/* Header - Enhanced branding */}
+      {/* Header - Logo only */}
       <div className="relative px-4 py-5 border-b border-slate-200 dark:border-slate-800 bg-gradient-to-br from-white to-slate-50 dark:from-slate-900 dark:to-slate-950">
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-gradient-to-br from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700 shadow-lg shadow-blue-500/20 dark:shadow-blue-600/30">
-              <i className="fas fa-scale-balanced text-white text-base"></i>
-            </div>
-            <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-white dark:border-slate-900 rounded-full"></div>
+        <div className="flex items-center justify-center">
+          <div className="relative w-10 h-10">
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-blue-600/10 dark:from-blue-400/10 dark:to-blue-500/10 rounded-xl blur-sm"></div>
+            <svg
+              className="relative w-10 h-10"
+              viewBox="0 0 32 32"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              aria-label="Organia"
+            >
+              {/* Outer ring */}
+              <circle
+                cx="16"
+                cy="16"
+                r="13"
+                stroke="currentColor"
+                strokeWidth="0.5"
+                fill="none"
+                className="text-blue-500/30 dark:text-blue-400/30"
+              />
+              {/* Middle ring */}
+              <circle
+                cx="16"
+                cy="16"
+                r="9"
+                stroke="currentColor"
+                strokeWidth="1"
+                fill="none"
+                className="text-blue-600/50 dark:text-blue-500/50"
+              />
+              {/* Inner ring */}
+              <circle
+                cx="16"
+                cy="16"
+                r="5"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                fill="none"
+                className="text-blue-600 dark:text-blue-500"
+              />
+              {/* Orbital dots */}
+              <circle cx="16" cy="3" r="1.5" fill="currentColor" className="text-blue-600 dark:text-blue-500" />
+              <circle cx="29" cy="16" r="1.5" fill="currentColor" className="text-blue-600 dark:text-blue-500" />
+              <circle cx="16" cy="29" r="1.5" fill="currentColor" className="text-blue-600 dark:text-blue-500" />
+              <circle cx="3" cy="16" r="1.5" fill="currentColor" className="text-blue-600 dark:text-blue-500" />
+              {/* Center accent */}
+              <circle cx="16" cy="16" r="2" fill="currentColor" className="text-blue-600 dark:text-blue-500" />
+            </svg>
           </div>
-          {!isCollapsed && (
-            <div className="flex flex-col">
-              <span className="font-bold text-base text-slate-900 dark:text-white leading-tight">{t("sidebar.brand")}</span>
-              <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Pro</span>
-            </div>
-          )}
         </div>
       </div>
 
@@ -242,7 +278,7 @@ export default function Sidebar() {
         {/* Version footer */}
         <div className={`px-4 py-3 ${isCollapsed ? "text-center" : ""}`}>
           <p className="text-[10px] text-slate-400 dark:text-slate-600 font-medium">
-            {isCollapsed ? "©" : t("sidebar.footer")}
+            {isCollapsed ? "©" : "© 2025"}
           </p>
         </div>
       </div>

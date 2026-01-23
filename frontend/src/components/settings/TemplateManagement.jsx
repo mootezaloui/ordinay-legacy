@@ -90,7 +90,7 @@ export default function TemplateManagement() {
             Gestion des modèles
           </h2>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Créez et gérez vos modèles de documents personnalisés
+            Créez et gérez vos modèles Word. Organia remplace automatiquement les champs à partir de vos dossiers.
           </p>
         </div>
         <button
@@ -100,6 +100,33 @@ export default function TemplateManagement() {
           <i className="fas fa-plus"></i>
           Nouveau modèle
         </button>
+      </div>
+
+      {/* Quick Guide */}
+      <div className="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 p-4">
+        <div className="flex items-start gap-3">
+          <i className="fas fa-info-circle text-blue-600 dark:text-blue-400 mt-0.5"></i>
+          <div className="flex-1">
+            <p className="text-sm text-blue-800 dark:text-blue-300 font-medium">
+              Guide rapide : créer votre propre modèle
+            </p>
+            <p className="text-xs text-blue-700 dark:text-blue-400 mt-1">
+              Rédigez votre document dans Word, insérez des champs depuis la liste ci‑dessous, puis importez le fichier .docx.
+            </p>
+            <details className="mt-3">
+              <summary className="text-xs text-blue-700 dark:text-blue-300 cursor-pointer select-none">
+                Voir les étapes détaillées
+              </summary>
+              <ol className="mt-2 text-xs text-blue-700 dark:text-blue-300 list-decimal list-inside space-y-1">
+                <li>Préparez le document dans Word (titre, paragraphes, en-tête, etc.).</li>
+                <li>Insérez les champs Organia aux endroits qui changent (client, dossier, dates…).</li>
+                <li>Enregistrez le fichier en .docx.</li>
+                <li>Importez-le ici via “Nouveau modèle”.</li>
+                <li>Générez un document depuis un dossier ou un procès.</li>
+              </ol>
+            </details>
+          </div>
+        </div>
       </div>
 
       {/* System Templates */}
@@ -726,7 +753,7 @@ function TemplateModal({ template, onClose, onSave }) {
               {isEdit ? 'Modifier le modèle' : 'Nouveau modèle de document'}
             </h3>
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-              Créez un modèle Word avec des champs dynamiques
+              Créez un modèle Word et laissez Organia remplir les informations automatiquement.
             </p>
           </div>
           <button
@@ -746,6 +773,9 @@ function TemplateModal({ template, onClose, onSave }) {
               <h4 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                 Configuration
               </h4>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Choisissez le type de dossier, la langue, puis importez votre fichier .docx.
+              </p>
 
               {/* Template Name */}
               <div>
@@ -860,7 +890,7 @@ function TemplateModal({ template, onClose, onSave }) {
               <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
                 <p className="text-sm text-blue-800 dark:text-blue-300">
                   <i className="fas fa-hand-pointer mr-2 text-blue-500"></i>
-                  <strong>Astuce :</strong> Cliquez sur un champ pour le copier, puis collez-le dans votre document Word. Les champs doivent être en texte brut, sans mise en forme.
+                  <strong>Astuce :</strong> Cliquez sur un champ pour le copier, puis collez-le dans votre document Word à l’endroit voulu. Gardez les champs en texte simple.
                 </p>
               </div>
 

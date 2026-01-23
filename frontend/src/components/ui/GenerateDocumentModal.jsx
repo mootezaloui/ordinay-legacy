@@ -155,7 +155,7 @@ export default function GenerateDocumentModal({
             showToast("Document généré. Choisissez une action.", "success");
         } catch (error) {
             console.error("[GenerateDocumentModal] Error:", error);
-            showToast(`Erreur lors de la generation: ${error.message}`, "error");
+            showToast(`Erreur lors de la génération: ${error.message}`, "error");
         } finally {
             setIsGenerating(false);
         }
@@ -198,7 +198,7 @@ export default function GenerateDocumentModal({
             if (onDocumentGenerated) {
                 onDocumentGenerated(uploadResult.document);
             }
-            showToast("Document enregistre dans l'onglet Documents.", "success");
+            showToast("Document enregistré dans l'onglet Documents.", "success");
             return uploadResult.document;
         } catch (error) {
             console.error("[GenerateDocumentModal] Save error:", error);
@@ -310,7 +310,7 @@ export default function GenerateDocumentModal({
                                 className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white rounded-lg font-medium transition-colors"
                             >
                                 <i className="fas fa-save mr-2"></i>
-                                Enregistrér
+                                Enregistrer
                             </button>
                             <button
                                 onClick={handleDownload}
@@ -326,7 +326,7 @@ export default function GenerateDocumentModal({
                                 className="w-full px-4 py-2 border border-blue-300 text-blue-700 hover:bg-blue-50 dark:border-blue-500 dark:text-blue-200 dark:hover:bg-blue-900/30 rounded-lg font-medium transition-colors"
                             >
                                 <i className="fas fa-save mr-2"></i>
-                                Enregistrér + Télécharger
+                                Enregistrer + Télécharger
                             </button>
                         </div>
                     </div>
@@ -363,6 +363,11 @@ export default function GenerateDocumentModal({
                 </div>
 
                 <div className="px-6 py-4 space-y-6">
+                    <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-blue-50 dark:bg-blue-900/20 p-4">
+                        <p className="text-sm text-blue-800 dark:text-blue-300">
+                            Choisissez un modèle, puis cliquez sur “Générer”. Organia remplit automatiquement les informations du dossier.
+                        </p>
+                    </div>
                     <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/40 p-4 space-y-6">
                         <p className="text-sm font-semibold text-slate-900 dark:text-white">
                             Configuration
@@ -422,7 +427,7 @@ export default function GenerateDocumentModal({
                             </div>
                             {templateOptions.length === 0 && (
                                 <p className="text-xs text-slate-500 dark:text-slate-500 mt-2">
-                                    Aucun modele disponible pour ce type d'entite et cette langue.
+                                    Aucun modèle disponible pour ce type d'entité et cette langue. Créez-en un dans Paramètres → Documents.
                                 </p>
                             )}
                         </div>
@@ -516,8 +521,8 @@ export default function GenerateDocumentModal({
                         )}
 
                         <p className="text-xs text-slate-500 dark:text-slate-400">
-                            Le document sera généré au format Word (.docx) et pourra etre ouvert
-                            et modifie avec votre editeur habituel.
+                            Le document sera généré au format Word (.docx) et pourra être ouvert
+                            et modifié avec votre éditeur habituel.
                         </p>
                     </div>
                 </div>
@@ -531,7 +536,7 @@ export default function GenerateDocumentModal({
                         {isGenerating ? (
                             <>
                                 <i className="fas fa-spinner fa-spin mr-2"></i>
-                                Generation...
+                                Génération...
                             </>
                         ) : (
                             <>

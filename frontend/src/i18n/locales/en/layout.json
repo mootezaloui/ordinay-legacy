@@ -1,6 +1,5 @@
 {
   "sidebar": {
-    "brand": "Organia",
     "dashboard": "Dashboard",
     "clients": "Clients",
     "dossiers": "Dossiers",
@@ -17,9 +16,12 @@
     },
     "logout": "Exit application",
     "exitApp": "Exit application",
-    "footer": "© 2025 Organia"
+    "groups": {
+      "core": "Core",
+      "workflow": "Workflow",
+      "operations": "Operations",
+      "tools": "Tools"
+    }
   },
-  "header": {
-    "brand": "LawFirm"
-  }
+  "header": {}
 }
