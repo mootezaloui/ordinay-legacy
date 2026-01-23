@@ -213,10 +213,10 @@ function QuickActionField({ action, value, onChange, entityType, entityId, entit
                     value={value || ''}
                     onChange={handleChange}
                     options={options}
-                    placeholder={`Select ${action.label}...`}
+                    placeholder={t("form.select.default")}
                     allowCreate={action.allowCreate || false}
                     onCreateOption={action.allowCreate ? handleCreateOption : undefined}
-                    createLabel={action.createLabel || "Add"}
+                    createLabel={action.createLabel || t("form.select.createLabel")}
                     compact={false}
                 />
             ) : (

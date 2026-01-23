@@ -2,7 +2,11 @@
   "dropdown": {
     "aria": "الإشعارات",
     "title": "الإشعارات",
+    "unreadCount_zero": "{{count}} غير مقروءة",
     "unreadCount_one": "{{count}} غير مقروءة",
+    "unreadCount_two": "{{count}} غير مقروءة",
+    "unreadCount_few": "{{count}} غير مقروءة",
+    "unreadCount_many": "{{count}} غير مقروءة",
     "unreadCount_other": "{{count}} غير مقروءة",
     "time": {
       "justNow": "الآن",
@@ -1662,6 +1666,16 @@
         "decline": "لا، لا تشعر العميل",
         "confirm": "نعم، أرسل بريدًا إلكترونيًا",
         "sending": "جاري الإرسال..."
+      }
+    },
+    "toast": {
+      "success": {
+        "title": "تم إرسال البريد الإلكتروني",
+        "message": "تم إشعار العميل."
+      },
+      "failed": {
+        "title": "لم يتم إرسال البريد الإلكتروني",
+        "message": "تعذر إرسال البريد الإلكتروني. يرجى التحقق من إعدادات البريد الإلكتروني."
       }
     },
     "subjects": {

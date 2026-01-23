@@ -57,7 +57,7 @@ export default function UpcomingEvents({ events, maxItems = 5 }) {
           <div
             key={event.id}
             onClick={() => event.link && navigate(event.link)}
-            className={`flex items-center justify-between p-4 ${colors.bg} rounded-lg ${event.link ? "cursor-pointer hover:shadow-md" : ""
+            className={`flex items-center justify-between p-4 ${colors.bg} rounded-2xl border border-slate-200 dark:border-slate-700 ${event.link ? "cursor-pointer hover:shadow-md" : ""
               } transition-all`}
           >
             <div className="flex-1 min-w-0">
@@ -81,7 +81,7 @@ export default function UpcomingEvents({ events, maxItems = 5 }) {
             </div>
 
             <span
-              className={`px-3 py-1 text-xs font-medium ${colors.badge} rounded-full whitespace-nowrap ml-3 ${isUrgent ? "animate-pulse" : ""
+              className={`px-3 py-1 text-xs font-semibold ${colors.badge} rounded-full whitespace-nowrap ml-3 ${isUrgent ? "animate-pulse" : ""
                 }`}
             >
               {timeUntil}

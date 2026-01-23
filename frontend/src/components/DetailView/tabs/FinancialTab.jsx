@@ -1563,7 +1563,9 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
                         }`}
                     >
                       <i className={`fas ${selectedEntry.type === "revenue" ? "fa-arrow-up" : "fa-arrow-down"} mr-1.5 text-xs`}></i>
-                      {selectedEntry.type === "revenue" ? "Revenue" : "Expense"}
+                      {selectedEntry.type === "revenue"
+                        ? t("detail.financial.types.revenue", { ns: "common" })
+                        : t("detail.financial.types.expense", { ns: "common" })}
                     </span>
                     <span
                       className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold tracking-wide bg-${selectedEntry.statusColor}-100 text-${selectedEntry.statusColor}-700 dark:bg-${selectedEntry.statusColor}-900/40 dark:text-${selectedEntry.statusColor}-300`}
@@ -1593,12 +1595,12 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               {/* Entry Details Grid */}
               <div>
                 <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-4 uppercase tracking-wider">
-                  Entry Details
+                  {t("detail.financial.detail.sectionTitle", { ns: "common" })}
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <div className="space-y-1.5">
                     <label className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                      Date
+                      {t("detail.financial.detail.date", { ns: "common" })}
                     </label>
                     <p className="text-base text-slate-900 dark:text-white font-semibold">
                       {formatDateValue(selectedEntry.date)}
@@ -1606,7 +1608,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                      Category
+                      {t("detail.financial.detail.category", { ns: "common" })}
                     </label>
                     <p className="text-base font-semibold flex items-center gap-2">
                       <i className={`${financialCategories[selectedEntry.category]?.icon} ${
@@ -1625,7 +1627,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                      Status
+                      {t("detail.financial.detail.status", { ns: "common" })}
                     </label>
                     <div className="flex gap-2 mt-1">
                       <InlineStatusSelector
@@ -1633,7 +1635,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
                         onChange={(newStatus) => handleStatusChange(selectedEntry.id, newStatus)}
                         statusOptions={Object.keys(financialStatuses).map((status) => ({
                           value: status,
-                          label: financialStatuses[status].label,
+                          label: t(`table.status.${status}`, { ns: "accounting" }),
                           color: financialStatuses[status].color,
                         }))}
                       />
@@ -1641,7 +1643,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                      Amount
+                      {t("detail.financial.detail.amount", { ns: "common" })}
                     </label>
                     <p
                       className={`text-3xl font-bold ${selectedEntry.type === "revenue"
@@ -1655,7 +1657,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
                   {selectedEntry.clientName && (
                     <div className="space-y-1.5">
                       <label className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                        Client
+                        {t("detail.financial.detail.client", { ns: "common" })}
                       </label>
                       <p className="text-base text-slate-900 dark:text-white font-semibold">
                         {selectedEntry.clientName}
@@ -1665,7 +1667,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
                   {selectedEntry.dossierReference && (
                     <div className="space-y-1.5">
                       <label className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                        Dossier
+                        {t("detail.financial.detail.dossier", { ns: "common" })}
                       </label>
                       <p className="text-base text-slate-900 dark:text-white font-semibold font-mono">
                         {selectedEntry.dossierReference}
@@ -1675,7 +1677,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
                   {selectedEntry.lawsuitReference && (
                     <div className="space-y-1.5">
                       <label className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                        Lawsuit
+                        {t("detail.financial.detail.lawsuit", { ns: "common" })}
                       </label>
                       <p className="text-base text-slate-900 dark:text-white font-semibold font-mono">
                         {selectedEntry.lawsuitReference}
@@ -1685,7 +1687,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
                   {selectedEntry.createdBy && (
                     <div className="space-y-1.5">
                       <label className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                        Created by
+                        {t("detail.financial.detail.createdBy", { ns: "common" })}
                       </label>
                       <p className="text-base text-slate-900 dark:text-white font-semibold">
                         {selectedEntry.createdBy}
@@ -1698,7 +1700,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               {/* Description Section */}
               <div className="space-y-3">
                 <h3 className="text-sm font-semibold text-slate-900 dark:text-white uppercase tracking-wider">
-                  Description
+                  {t("detail.financial.detail.description", { ns: "common" })}
                 </h3>
                 <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200/50 dark:border-slate-700/50 p-4 rounded-xl">
                   <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">
@@ -1720,14 +1722,14 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
                     className="flex-1 px-5 py-3 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-xl font-semibold transition-all duration-200 inline-flex items-center justify-center gap-2.5 shadow-lg shadow-blue-600/25 hover:shadow-xl hover:shadow-blue-600/30 hover:scale-[1.02] active:scale-[0.98]"
                   >
                     <i className="fas fa-edit text-sm"></i>
-                    <span>Edit</span>
+                    <span>{t("actions.edit", { ns: "common" })}</span>
                   </button>
                   <button
                     onClick={() => handleDelete(selectedEntry.id)}
                     className="px-5 py-3 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white rounded-xl font-semibold transition-all duration-200 inline-flex items-center justify-center gap-2.5 shadow-lg shadow-red-600/25 hover:shadow-xl hover:shadow-red-600/30 hover:scale-[1.02] active:scale-[0.98]"
                   >
                     <i className="fas fa-trash text-sm"></i>
-                    <span>Delete</span>
+                    <span>{t("actions.delete", { ns: "common" })}</span>
                   </button>
                 </div>
               </div>
@@ -1740,7 +1742,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
       <BlockerModal
         isOpen={blockerModalOpen}
         onClose={() => setBlockerModalOpen(false)}
-        actionName="Edit/Delete Financial Entry"
+        actionName={t("detail.financial.blocker.actionName", { ns: "common" })}
         blockers={validationResult?.blockers || []}
         warnings={validationResult?.warnings || []}
         entityName={`Entry #${validationResult?.entityId || ''}`}

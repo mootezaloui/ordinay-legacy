@@ -50,11 +50,11 @@ export default function ActivityFeed({ activities, maxItems = 5 }) {
         return (
           <div
             key={activity.id}
-            className={`flex items-start gap-4 ${!isLast ? "pb-4 border-b border-slate-200 dark:border-slate-700" : ""
+            className={`flex items-start gap-4 ${!isLast ? "pb-4 border-b border-slate-200/70 dark:border-slate-700/60" : ""
               }`}
           >
             {/* Icon */}
-            <div className={`flex-shrink-0 w-10 h-10 rounded-full bg-${color}-100 dark:bg-${color}-900/20 flex items-center justify-center`}>
+            <div className={`flex-shrink-0 w-10 h-10 rounded-2xl bg-${color}-100/80 dark:bg-${color}-900/25 flex items-center justify-center ring-1 ring-slate-200/60 dark:ring-slate-700/60`}>
               <i className={`${icon} text-${color}-600 dark:text-${color}-400 text-sm`}></i>
             </div>
 
@@ -87,7 +87,7 @@ export default function ActivityFeed({ activities, maxItems = 5 }) {
             {activity.onClick && (
               <button
                 onClick={activity.onClick}
-                className="flex-shrink-0 p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                className="flex-shrink-0 p-2 hover:bg-slate-100/80 dark:hover:bg-slate-800/60 rounded-lg transition-colors"
               >
                 <i className="fas fa-chevron-right text-slate-400 text-xs"></i>
               </button>

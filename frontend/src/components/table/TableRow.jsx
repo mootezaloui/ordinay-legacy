@@ -17,7 +17,7 @@ export default function TableRow({
   emphasis = 'normal',
   className = ""
 }) {
-  const hoverClass = hoverable ? "hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors duration-150" : "";
+  const hoverClass = hoverable ? "hover:bg-slate-50/80 dark:hover:bg-slate-800/60 transition-colors duration-150" : "";
   const cursorClass = onClick ? "cursor-pointer" : "";
 
   // Map emphasis to CSS class

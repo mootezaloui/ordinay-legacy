@@ -56,7 +56,7 @@ export default function TaskList({ tasks, title = "Urgent Tasks", maxItems = 5 }
           <div
             key={task.id}
             onClick={() => navigate(`/tasks/${task.id}`)}
-            className="p-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg hover:shadow-md transition-all cursor-pointer group"
+            className="p-4 bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded-2xl hover:shadow-md transition-all cursor-pointer group"
           >
             <div className="flex items-start gap-3">
               {/* Task Info */}
@@ -100,7 +100,7 @@ export default function TaskList({ tasks, title = "Urgent Tasks", maxItems = 5 }
 
               {/* Priority Badge */}
               <div className="flex-shrink-0">
-                <span className={`inline-flex items-center gap-1 px-2 py-1 ${priorityColors.bg} ${priorityColors.text} rounded text-xs font-medium`}>
+                <span className={`inline-flex items-center gap-1 px-2 py-1 ${priorityColors.bg} ${priorityColors.text} rounded-full text-xs font-medium`}>
                   <i className={`${priorityColors.icon} text-xs`}></i>
                   {translatedPriority}
                 </span>

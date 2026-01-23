@@ -1665,6 +1665,16 @@
         "sending": "Envoi en cours..."
       }
     },
+    "toast": {
+      "success": {
+        "title": "E-mail envoyé",
+        "message": "Le client a été notifié."
+      },
+      "failed": {
+        "title": "E-mail non envoyé",
+        "message": "L'e-mail n'a pas pu être envoyé. Veuillez vérifier votre configuration e-mail."
+      }
+    },
     "subjects": {
       "dossierCreated": "Ouverture de Votre Dossier {{title}} ({{number}})",
       "dossierStatusChanged": "Mise à Jour de Dossier {{title}} ({{number}})",

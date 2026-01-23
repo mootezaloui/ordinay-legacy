@@ -228,7 +228,7 @@ export const createClientConfig = (t) => {
         itemsKey: "relatedDossiers",
         allowAdd: true,
         allowDelete: true,
-        entityName: "dossier",
+        entityName: t('detail.tabs.dossiersEntity'),
         addSubtitle: t('detail.tabs.dossiersAddSubtitle'),
         getFormFields: () => {
           const dossierT = (key) => i18next.t(key, { ns: "dossiers" });

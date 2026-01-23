@@ -3,7 +3,7 @@ import { getNotificationPreferences } from "../utils/scheduledNotifications";
 import { formatDateTimeValue, formatDateValue, getDefaultDateFormat } from "../utils/dateFormat";
 import { DEFAULT_LANGUAGE, SUPPORTED_LANGUAGE_CODES, getLanguageLocale } from "../i18n/config";
 import { i18nInstance } from "../i18n";
-import { DEFAULT_CURRENCY, formatCurrency as formatCurrencyValue, getCurrencyFromSettings, normalizeCurrencyCode } from "../utils/currency";
+import { DEFAULT_CURRENCY, formatCurrency as formatCurrencyValue, getCurrencyDisplayLabel, getCurrencyFromSettings, normalizeCurrencyCode } from "../utils/currency";
 
 const STORAGE_KEY = "organia_settings";
 
@@ -115,6 +115,10 @@ export function SettingsProvider({ children }) {
     () => getLanguageLocale(settings?.language),
     [settings?.language]
   );
+  const currencyDisplay = useMemo(
+    () => getCurrencyDisplayLabel(currency, currencyLocale),
+    [currency, currencyLocale]
+  );
 
   useEffect(() => {
     if (!i18nInstance?.options) return;
@@ -122,10 +126,10 @@ export function SettingsProvider({ children }) {
     i18nInstance.options.interpolation = interpolation;
     interpolation.defaultVariables = {
       ...(interpolation.defaultVariables || {}),
-      currency,
+      currency: currencyDisplay,
     };
     i18nInstance.emit?.("languageChanged", i18nInstance.language);
-  }, [currency]);
+  }, [currencyDisplay]);
 
   const canNotifyType = useCallback((type) => {
     // Global notification toggle
@@ -162,6 +166,7 @@ export function SettingsProvider({ children }) {
     hydrated,
     settings,
     currency,
+    currencyDisplay,
     notificationPrefs,
     updateSettings,
     updateNotificationPrefs,

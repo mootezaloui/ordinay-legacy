@@ -34,7 +34,7 @@ export default function Pagination({
   const endItem = Math.min(currentPage * itemsPerPage, totalItems);
 
   return (
-    <div className="flex items-center justify-between px-6 py-4 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-700">
+    <div className="flex items-center justify-between px-6 py-4 bg-white/85 dark:bg-slate-900/75 border-t border-slate-200/70 dark:border-slate-700/60">
       {/* Left side - Items info */}
       <div className="flex items-center gap-4">
         <p className="text-sm text-slate-700 dark:text-slate-300">
@@ -49,7 +49,7 @@ export default function Pagination({
         <select
           value={itemsPerPage}
           onChange={(e) => onItemsPerPageChange(Number(e.target.value))}
-          className="px-3 py-1 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="px-3 py-1.5 text-sm border border-slate-200/80 dark:border-slate-700/60 rounded-2xl bg-white/85 dark:bg-slate-900/70 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/60 shadow-sm"
         >
           <option value={5}>{t("table.pagination.perPage", { count: 5 })}</option>
           <option value={10}>{t("table.pagination.perPage", { count: 10 })}</option>
@@ -64,7 +64,7 @@ export default function Pagination({
         <button
           onClick={() => onPageChange(currentPage - 1)}
           disabled={currentPage === 1}
-          className="px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+          className="px-3 py-2 text-sm font-semibold text-slate-700 dark:text-slate-300 bg-white/85 dark:bg-slate-900/70 border border-slate-200/80 dark:border-slate-700/60 rounded-2xl hover:bg-slate-100/80 dark:hover:bg-slate-800/70 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 shadow-sm"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -76,7 +76,7 @@ export default function Pagination({
           <>
             <button
               onClick={() => onPageChange(1)}
-              className="px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors duration-200"
+              className="px-3 py-2 text-sm font-semibold text-slate-700 dark:text-slate-300 bg-white/85 dark:bg-slate-900/70 border border-slate-200/80 dark:border-slate-700/60 rounded-2xl hover:bg-slate-100/80 dark:hover:bg-slate-800/70 transition-colors duration-200 shadow-sm"
             >
               1
             </button>
@@ -90,10 +90,10 @@ export default function Pagination({
           <button
             key={page}
             onClick={() => onPageChange(page)}
-            className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors duration-200 ${
+            className={`px-3 py-2 text-sm font-semibold rounded-2xl transition-colors duration-200 ${
               page === currentPage
-                ? "bg-blue-600 text-white"
-                : "text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700"
+                ? "bg-blue-600 text-white shadow-sm shadow-blue-500/30"
+                : "text-slate-700 dark:text-slate-300 bg-white/85 dark:bg-slate-900/70 border border-slate-200/80 dark:border-slate-700/60 hover:bg-slate-100/80 dark:hover:bg-slate-800/70 shadow-sm"
             }`}
           >
             {page}
@@ -107,7 +107,7 @@ export default function Pagination({
             )}
             <button
               onClick={() => onPageChange(totalPages)}
-              className="px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors duration-200"
+              className="px-3 py-2 text-sm font-semibold text-slate-700 dark:text-slate-300 bg-white/85 dark:bg-slate-900/70 border border-slate-200/80 dark:border-slate-700/60 rounded-2xl hover:bg-slate-100/80 dark:hover:bg-slate-800/70 transition-colors duration-200 shadow-sm"
             >
               {totalPages}
             </button>
@@ -118,7 +118,7 @@ export default function Pagination({
         <button
           onClick={() => onPageChange(currentPage + 1)}
           disabled={currentPage === totalPages}
-          className="px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+          className="px-3 py-2 text-sm font-semibold text-slate-700 dark:text-slate-300 bg-white/85 dark:bg-slate-900/70 border border-slate-200/80 dark:border-slate-700/60 rounded-2xl hover:bg-slate-100/80 dark:hover:bg-slate-800/70 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 shadow-sm"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />

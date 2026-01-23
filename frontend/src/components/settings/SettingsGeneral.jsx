@@ -2,11 +2,12 @@ import { useSettings } from "../../contexts/SettingsContext";
 import { useTheme } from "../../contexts/ThemeProvider";
 import { useTranslation } from "react-i18next";
 import ContentSection from "../layout/ContentSection";
-import { LANGUAGE_REGISTRY } from "../../i18n/config";
-import { SUPPORTED_CURRENCIES } from "../../utils/currency";
+import { LANGUAGE_REGISTRY, getLanguageLocale } from "../../i18n/config";
+import { SUPPORTED_CURRENCIES, getCurrencyDisplayLabel } from "../../utils/currency";
 
 export default function SettingsGeneral() {
   const { settings, updateSettings } = useSettings();
+  const currencyLocale = getLanguageLocale(settings.language);
   const { setThemePreference } = useTheme();
   const { t } = useTranslation(["settings"]);
 
@@ -89,7 +90,7 @@ export default function SettingsGeneral() {
             >
               {SUPPORTED_CURRENCIES.map((code) => (
                 <option key={code} value={code}>
-                  {code}
+                  {code} ({getCurrencyDisplayLabel(code, currencyLocale)})
                 </option>
               ))}
             </select>

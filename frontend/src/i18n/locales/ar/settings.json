@@ -6,13 +6,27 @@
   "sections": {
     "general": "الإعدادات العامة",
     "notifications": "الإشعارات",
+    "clientEmails": "إشعارات البريد الإلكتروني للعملاء",
     "appointments": "إشعارات المواعيد والمواعيد النهائية",
     "accountSecurity": "الحساب والأمان",
     "appearance": "المظهر",
     "imports": "الاستيراد التاريخي"
   },
+  "clientEmails": {
+    "enabled": {
+      "title": "طلبات البريد الإلكتروني للعميل",
+      "description": "إظهار طلب لإشعار العملاء عبر البريد الإلكتروني بعد الإجراءات المهمة"
+    },
+    "categoriesDescription": "اختر الأحداث التي يمكن أن تُنشئ طلبات بريد إلكتروني للعميل:",
+    "categories": {
+      "dossiers": "تحديثات الملفات (تغييرات الحالة، المواعيد النهائية)",
+      "lawsuits": "تحديثات القضايا (الحالة، تواريخ الجلسات)",
+      "sessions": "جدولة وتغييرات الجلسات",
+      "financial": "القيود المالية"
+    }
+  },
   "imports": {
-    "subtitle": "Review raw legacy intake records for clients."
+    "subtitle": "راجع سجلات الاستيراد التاريخية الخام للعملاء."
   },
   "general": {
     "language": {

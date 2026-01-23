@@ -13,28 +13,33 @@ export default function StatCard({
 }) {
   const colors = {
     blue: {
-      bg: "bg-blue-100 dark:bg-blue-900/20",
+      bg: "bg-blue-100/80 dark:bg-blue-900/25",
       icon: "text-blue-600 dark:text-blue-400",
+      ring: "ring-blue-500/20",
       trend: "text-blue-600 dark:text-blue-400"
     },
     purple: {
-      bg: "bg-purple-100 dark:bg-purple-900/20",
+      bg: "bg-purple-100/80 dark:bg-purple-900/25",
       icon: "text-purple-600 dark:text-purple-400",
+      ring: "ring-purple-500/20",
       trend: "text-purple-600 dark:text-purple-400"
     },
     amber: {
-      bg: "bg-amber-100 dark:bg-amber-900/20",
+      bg: "bg-amber-100/80 dark:bg-amber-900/25",
       icon: "text-amber-600 dark:text-amber-400",
+      ring: "ring-amber-500/20",
       trend: "text-amber-600 dark:text-amber-400"
     },
     green: {
-      bg: "bg-green-100 dark:bg-green-900/20",
+      bg: "bg-green-100/80 dark:bg-green-900/25",
       icon: "text-green-600 dark:text-green-400",
+      ring: "ring-green-500/20",
       trend: "text-green-600 dark:text-green-400"
     },
     red: {
-      bg: "bg-red-100 dark:bg-red-900/20",
+      bg: "bg-red-100/80 dark:bg-red-900/25",
       icon: "text-red-600 dark:text-red-400",
+      ring: "ring-red-500/20",
       trend: "text-red-600 dark:text-red-400"
     },
   };
@@ -45,8 +50,8 @@ export default function StatCard({
 
   return (
     <div 
-      className={`p-6 bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-lg transition-all duration-200 ${
-        onClick ? 'cursor-pointer hover:scale-105' : ''
+      className={`p-6 bg-white dark:bg-slate-900/75 rounded-2xl shadow-md border border-slate-300 dark:border-slate-700 hover:shadow-lg transition-all duration-200 ${
+        onClick ? 'cursor-pointer hover:-translate-y-0.5' : ''
       }`}
       onClick={onClick}
     >
@@ -59,7 +64,7 @@ export default function StatCard({
             {value}
           </p>
         </div>
-        <div className={`p-3 ${colorScheme.bg} rounded-lg flex-shrink-0`}>
+        <div className={`p-3 ${colorScheme.bg} rounded-2xl flex-shrink-0 ring-1 ${colorScheme.ring}`}>
           <i className={`${icon} ${colorScheme.icon} text-xl`}></i>
         </div>
       </div>

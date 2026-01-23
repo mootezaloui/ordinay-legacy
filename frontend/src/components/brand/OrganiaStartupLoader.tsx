@@ -5,7 +5,8 @@
  * Static rings with orbiting dots at different speeds.
  */
 
-import { useEffect, useState, memo } from 'react';
+import { useEffect, useMemo, useState, memo } from 'react';
+import { i18nInstance } from '../../i18n';
 
 export interface OrganiaStartupLoaderProps {
   isLoading?: boolean;
@@ -16,10 +17,16 @@ export interface OrganiaStartupLoaderProps {
 const OrganiaStartupLoader = memo(function OrganiaStartupLoader({
   isLoading = true,
   onFadeOutComplete,
-  message = 'Finding natural balance...',
+  message,
 }: OrganiaStartupLoaderProps) {
   const [isVisible, setIsVisible] = useState(true);
   const [isFadingOut, setIsFadingOut] = useState(false);
+  const resolvedMessage = useMemo(() => {
+    if (typeof message === 'string') return message;
+    return i18nInstance.t('common:startup.splashMessage', {
+      defaultValue: 'Finding natural balance...',
+    });
+  }, [message]);
 
   useEffect(() => {
     if (!isLoading && isVisible) {
@@ -64,8 +71,8 @@ const OrganiaStartupLoader = memo(function OrganiaStartupLoader({
         </div>
 
         {/* Message */}
-        {message && (
-          <p className="organia-orbital-loader__message">{message}</p>
+        {resolvedMessage && (
+          <p className="organia-orbital-loader__message">{resolvedMessage}</p>
         )}
       </div>
     </div>

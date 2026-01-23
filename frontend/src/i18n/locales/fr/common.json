@@ -551,6 +551,19 @@
         "create": "Créer un nouveau {{entityName}}"
       }
     },
+    "deadlines": {
+      "labels": {
+        "session": "Audience – {{title}}",
+        "task": "Tâche – {{title}}",
+        "financial": "Échéance de paiement – {{title}}",
+        "manual": "Échéance manuelle"
+      },
+      "defaults": {
+        "sessionTitle": "Audience",
+        "taskTitle": "Tâche",
+        "financialTitle": "Paiement"
+      }
+    },
     "aggregated": {
       "empty": {
         "dossiers": "Aucun dossier pour ce client",
@@ -782,6 +795,10 @@
     "select": {
       "default": "Choisissez une option",
       "searching": "Recherche...",
+      "noResults": "Aucun résultat trouvé",
+      "noResultsFor": "pour \"{{term}}\"",
+      "createLabel": "Ajouter",
+      "createOption": "{{label}} \"{{term}}\"",
       "noSelection": "Aucun élément sélectionné",
       "client": "Sélectionnez un client",
       "dossier": "Sélectionnez un dossier",
@@ -1124,6 +1141,362 @@
     "hearings": "Audiences",
     "tasks": "Tâches",
     "missionsBailiff": "Missions d'Huissier"
+  },
+  "documentGeneration": {
+    "title": "Générer un document",
+    "subtitle": "Choisissez un modèle, puis cliquez sur “Générer”. Organia remplit automatiquement les informations du dossier.",
+    "sections": {
+      "configuration": "Configuration"
+    },
+    "labels": {
+      "entity": "Entité:",
+      "reference": "Référence:",
+      "templateType": "Type de document",
+      "customTemplate": "Perso",
+      "language": "Langue",
+      "variant": "Variante"
+    },
+    "entities": {
+      "dossier": "Dossier",
+      "proces": "Procès",
+      "session": "Audience"
+    },
+    "languages": {
+      "en": "Anglais",
+      "fr": "Français",
+      "ar": "Arabe"
+    },
+    "footerNote": "Le document sera généré au format Word (.docx) et pourra être ouvert et modifié avec votre éditeur habituel.",
+    "actions": {
+      "generate": "Générer le document",
+      "generating": "Génération...",
+      "save": "Enregistrer",
+      "download": "Télécharger",
+      "saveAndDownload": "Enregistrer + Télécharger"
+    },
+    "generated": {
+      "title": "Document généré",
+      "template": "Modèle: {{name}}",
+      "language": "Langue: {{language}}",
+      "saved": "Enregistré dans Documents."
+    },
+    "confirm": {
+      "title": "Données manquantes",
+      "message": "Certaines données sont manquantes. Générer quand même?\n\n{{details}}",
+      "confirm": "Générer",
+      "cancel": "Annuler"
+    },
+    "warnings": {
+      "missingFields": "Champs manquants: {{fields}}",
+      "unknownFields": "Champs inconnus: {{fields}}",
+      "noVariant": "Aucune variante sélectionnée."
+    },
+    "toast": {
+      "generated": "Document généré. Choisissez une action.",
+      "generateError": "Erreur lors de la génération: {{error}}",
+      "saveMissingEntity": "Impossible d'enregistrer: entité introuvable.",
+      "saved": "Document enregistré dans l'onglet Documents.",
+      "saveError": "Erreur lors de l'enregistrement: {{error}}"
+    },
+    "defaults": {
+      "document": "Document",
+      "generatedLabel": "Document généré"
+    },
+    "emptyTemplates": "Aucun modèle disponible pour ce type d'entité et cette langue. Créez-en un dans Paramètres → Documents."
+  },
+  "templateManagement": {
+    "header": {
+      "title": "Gestion des modèles",
+      "subtitle": "Créez et gérez vos modèles Word. Organia remplace automatiquement les champs à partir de vos dossiers."
+    },
+    "actions": {
+      "newTemplate": "Nouveau modèle",
+      "createFirst": "Créer votre premier modèle",
+      "createTemplate": "Créer le modèle"
+    },
+    "sections": {
+      "system": "Modèles système",
+      "user": "Mes modèles"
+    },
+    "empty": {
+      "system": "Aucun modèle système",
+      "user": "Vous n'avez pas encore de modèle personnalisé"
+    },
+    "badges": {
+      "system": "Système"
+    },
+    "labels": {
+      "createdAt": "Créé le {{date}}"
+    },
+    "confirmDelete": {
+      "title": "Supprimer le modèle",
+      "message": "Voulez-vous vraiment supprimer le modèle \"{{name}}\" ?",
+      "confirm": "Supprimer",
+      "cancel": "Annuler"
+    },
+    "toasts": {
+      "systemEditBlocked": "Les modèles système ne peuvent pas être modifiés",
+      "systemDeleteBlocked": "Les modèles système ne peuvent pas être supprimés",
+      "deleted": "Modèle supprimé avec succès",
+      "updated": "Modèle mis à jour avec succès",
+      "created": "Modèle créé avec succès",
+      "genericError": "Erreur: {{error}}"
+    },
+    "quickGuide": {
+      "title": "Guide rapide : créer votre propre modèle",
+      "subtitle": "Rédigez votre document dans Word, insérez des champs depuis la liste ci‑dessous, puis importez le fichier .docx.",
+      "toggle": "Voir les étapes détaillées",
+      "steps": {
+        "prepare": "Préparez le document dans Word (titre, paragraphes, en-tête, etc.).",
+        "insert": "Insérez les champs Organia aux endroits qui changent (client, dossier, dates…).",
+        "save": "Enregistrez le fichier en .docx.",
+        "import": "Importez-le ici via “Nouveau modèle”.",
+        "generate": "Générez un document depuis un dossier ou un procès."
+      }
+    },
+    "fieldPicker": {
+      "total": "{{count}} champs disponibles",
+      "example": "Ex: {{example}}",
+      "actions": {
+        "expandAll": "Tout déplier",
+        "collapseAll": "Tout replier",
+        "copyAll": "Copier tout",
+        "copyGroup": "Copier le groupe",
+        "copyGroupTitle": "Copier tous les champs {{name}}",
+        "copyFieldTitle": "Copier le champ \"{{name}}\"",
+        "copy": "Copier",
+        "copied": "Copié"
+      },
+      "toasts": {
+        "fieldCopied": "Champ copié ! Collez-le dans votre document Word.",
+        "groupCopied": "Groupe de champs copié ! Collez-les dans votre document Word.",
+        "allCopied": "Tous les champs ont été copiés.",
+        "copyError": "Erreur lors de la copie"
+      }
+    },
+    "modal": {
+      "title": {
+        "create": "Nouveau modèle de document",
+        "edit": "Modifier le modèle"
+      },
+      "subtitle": "Créez un modèle Word et laissez Organia remplir les informations automatiquement.",
+      "sections": {
+        "configuration": "Configuration",
+        "file": "Fichier template"
+      },
+      "description": "Choisissez le type d'entité, la langue, puis importez votre fichier .docx.",
+      "fields": {
+        "name": "Nom du modèle *",
+        "entityType": "Type d'entité *",
+        "language": "Langue *"
+      },
+      "placeholders": {
+        "name": "Ex: Demande d'extraction"
+      },
+      "fileDrop": "Glissez votre fichier .docx ici",
+      "fileBrowse": "ou cliquez pour parcourir",
+      "currentFile": "Actuel: {{name}}",
+      "fieldsAvailable": "Champs disponibles",
+      "tipTitle": "Astuce :",
+      "tip": "Cliquez sur un champ pour le copier, puis collez-le dans votre document Word à l’endroit voulu. Gardez les champs en texte simple.",
+      "errors": {
+        "nameRequired": "Le nom du modèle est requis",
+        "fileRequired": "Le fichier DOCX est requis"
+      }
+    }
+  },
+  "templateFields": {
+    "client": {
+      "label": "Client",
+      "fields": {
+        "id": "ID client",
+        "name": "Nom complet",
+        "email": "Email",
+        "phone": "Téléphone",
+        "alternate_phone": "Téléphone secondaire",
+        "address": "Adresse",
+        "status": "Statut",
+        "cin": "CIN",
+        "date_of_birth": "Date de naissance",
+        "profession": "Profession",
+        "company": "Société",
+        "tax_id": "Identifiant fiscal",
+        "notes": "Notes",
+        "missing_fields": "Champs manquants",
+        "created_at": "Créé le",
+        "updated_at": "Mis à jour le",
+        "imported": "Importé",
+        "validated": "Validé",
+        "imported_at": "Importé le",
+        "deleted_at": "Supprimé le"
+      }
+    },
+    "dossier": {
+      "label": "Dossier",
+      "fields": {
+        "id": "ID dossier",
+        "reference": "Référence",
+        "client_id": "ID client",
+        "title": "Titre",
+        "description": "Description",
+        "category": "Catégorie",
+        "phase": "Phase",
+        "adversary_party": "Partie adverse",
+        "adversary_lawyer": "Avocat adverse",
+        "estimated_value": "Valeur estimée",
+        "court_reference": "Référence tribunal",
+        "assigned_lawyer": "Avocat assigné",
+        "status": "Statut",
+        "priority": "Priorité",
+        "opened_at": "Ouvert le",
+        "next_deadline": "Prochaine échéance",
+        "closed_at": "Clôturé le",
+        "created_at": "Créé le",
+        "updated_at": "Mis à jour le",
+        "imported": "Importé",
+        "validated": "Validé",
+        "imported_at": "Importé le",
+        "deleted_at": "Supprimé le"
+      }
+    },
+    "proces": {
+      "label": "Procès",
+      "fields": {
+        "id": "ID procès",
+        "reference": "Référence",
+        "case_number": "Numéro de procès",
+        "dossier_id": "ID dossier",
+        "title": "Titre",
+        "description": "Description",
+        "adversary": "Adversaire",
+        "adversary_party": "Partie adverse",
+        "adversary_lawyer": "Avocat adverse",
+        "court": "Tribunal",
+        "filing_date": "Date de dépôt",
+        "next_hearing": "Prochaine audience",
+        "judgment_number": "Numéro de jugement",
+        "judgment_date": "Date de jugement",
+        "reference_number": "Référence tribunal",
+        "status": "Statut",
+        "priority": "Priorité",
+        "opened_at": "Ouvert le",
+        "closed_at": "Clôturé le",
+        "created_at": "Créé le",
+        "updated_at": "Mis à jour le",
+        "imported": "Importé",
+        "validated": "Validé",
+        "imported_at": "Importé le",
+        "deleted_at": "Supprimé le"
+      }
+    },
+    "court": {
+      "label": "Tribunal",
+      "fields": {
+        "name": "Nom",
+        "address": "Adresse",
+        "city": "Ville"
+      }
+    },
+    "lawyer": {
+      "label": "Avocat",
+      "fields": {
+        "name": "Nom complet",
+        "title": "Titre",
+        "firm_name": "Nom du cabinet",
+        "office_name": "Nom du bureau",
+        "office_address": "Adresse du bureau",
+        "phone": "Téléphone",
+        "fax": "Fax",
+        "mobile": "Mobile",
+        "email": "Email",
+        "bar_id": "N° Barreau",
+        "vpa": "VPA"
+      }
+    },
+    "session": {
+      "label": "Audience / Session",
+      "fields": {
+        "id": "ID audience",
+        "title": "Titre",
+        "status": "Statut",
+        "scheduled_at": "Planifiée le",
+        "session_date": "Date de session",
+        "duration": "Durée",
+        "location": "Lieu",
+        "court_room": "Salle",
+        "judge": "Juge",
+        "outcome": "Résultat",
+        "description": "Description",
+        "notes": "Notes",
+        "participants": "Participants",
+        "dossier_id": "ID dossier",
+        "lawsuit_id": "ID procès",
+        "created_at": "Créée le",
+        "updated_at": "Mise à jour le",
+        "imported": "Importée",
+        "validated": "Validée",
+        "imported_at": "Importée le",
+        "deleted_at": "Supprimée le",
+        "date": "Date (raccourci)"
+      }
+    },
+    "financial_entry": {
+      "label": "Entrées financières",
+      "fields": {
+        "id": "ID entrée",
+        "scope": "Portée",
+        "client_id": "ID client",
+        "dossier_id": "ID dossier",
+        "lawsuit_id": "ID procès",
+        "mission_id": "ID mission",
+        "task_id": "ID tâche",
+        "personal_task_id": "ID tâche personnelle",
+        "status": "Statut",
+        "category": "Catégorie",
+        "amount": "Montant",
+        "currency": "Devise",
+        "occurred_at": "Date opération",
+        "paid_at": "Payée le",
+        "title": "Titre",
+        "description": "Description",
+        "reference": "Référence",
+        "notes": "Notes",
+        "direction": "Sens",
+        "cancelled_at": "Annulée le",
+        "created_at": "Créée le",
+        "updated_at": "Mise à jour le",
+        "imported": "Importée",
+        "validated": "Validée",
+        "imported_at": "Importée le",
+        "deleted_at": "Supprimée le"
+      }
+    },
+    "adversary": {
+      "label": "Partie adverse",
+      "fields": {
+        "name": "Nom"
+      }
+    },
+    "judgment": {
+      "label": "Jugement",
+      "fields": {
+        "number": "Numéro",
+        "date": "Date"
+      }
+    },
+    "document": {
+      "label": "Document",
+      "fields": {
+        "copy_type": "Type de copie"
+      }
+    },
+    "today": {
+      "label": "Dates",
+      "fields": {}
+    }
+  },
+  "startup": {
+    "splashMessage": "Retrouver l'équilibre naturel..."
   },
   "status": {
     "loading": "Chargement..."

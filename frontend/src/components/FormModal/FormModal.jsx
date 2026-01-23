@@ -25,7 +25,6 @@ import {
 import { useTranslation } from "react-i18next";
 import { useSettings } from "../../contexts/SettingsContext";
 import useBodyScrollLock from "../../hooks/useBodyScrollLock";
-import { formatCurrency } from "../../utils/currency";
 
 const interpolateCurrency = (value, currency) => {
   if (typeof value !== "string") return value;
@@ -55,8 +54,8 @@ export default function FormModal({
   subtitle,
   fields = [],
   initialData = null,
-  submitText = "Enregistrer",
-  cancelText = "Annuler",
+  submitText = null,
+  cancelText = null,
   isLoading = false,
   // ✅ Optional external formData control
   formData: externalFormData,
@@ -75,7 +74,7 @@ export default function FormModal({
   const [initialized, setInitialized] = useState(false);
   const { notify } = useNotifications();
   const { t } = useTranslation(["common", "domain"]);
-  const { formatCurrency, currency } = useSettings();
+  const { formatCurrency, currencyDisplay } = useSettings();
   useBodyScrollLock(isOpen);
 
   // ✅ Domain rule validation state
@@ -375,7 +374,8 @@ export default function FormModal({
         entityType,
         action,
         context,
-        entities
+        entities,
+        notificationPrefs
       );
 
       if (notificationCheck?.shouldPrompt) {
@@ -441,7 +441,9 @@ export default function FormModal({
   const columnLayoutClass = getColumnLayout();
   const spacingClass = compact ? "gap-3" : "gap-5";
   const paddingClass = compact ? "p-4" : "p-6";
-  const resolveCurrencyString = (value) => interpolateCurrency(value, currency);
+  const resolveCurrencyString = (value) => interpolateCurrency(value, currencyDisplay);
+  const submitLabel = submitText || t("actions.save", { ns: "common" });
+  const cancelLabel = cancelText || t("actions.cancel", { ns: "common" });
 
   return (
     <div
@@ -549,7 +551,7 @@ export default function FormModal({
                   disabled={isLoading}
                   className={`${compact ? 'px-4 py-2 text-sm' : 'px-5 py-2.5'} border-2 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600 text-slate-700 dark:text-slate-300 rounded-xl font-semibold transition-all disabled:opacity-50`}
                 >
-                  {cancelText}
+                  {cancelLabel}
                 </button>
                 <button
                   type="submit"
@@ -561,7 +563,7 @@ export default function FormModal({
                   ) : (
                     <>
                       <i className="fas fa-save"></i>
-                      {submitText}
+                      {submitLabel}
                     </>
                   )}
                 </button>
@@ -614,11 +616,11 @@ export default function FormModal({
  */
 function FormField({ field, value, onChange, error, formData, compact = false, entityType = null }) {
   const { t } = useTranslation(["common", "domain"]);
-  const { currency } = useSettings();
-  const resolvedLabel = interpolateCurrency(field.label, currency);
-  const resolvedPlaceholder = interpolateCurrency(field.placeholder, currency);
-  const resolvedHelpText = interpolateCurrency(field.helpText, currency);
-  const resolvedCheckboxLabel = interpolateCurrency(field.checkboxLabel, currency);
+  const { currencyDisplay } = useSettings();
+  const resolvedLabel = interpolateCurrency(field.label, currencyDisplay);
+  const resolvedPlaceholder = interpolateCurrency(field.placeholder, currencyDisplay);
+  const resolvedHelpText = interpolateCurrency(field.helpText, currencyDisplay);
+  const resolvedCheckboxLabel = interpolateCurrency(field.checkboxLabel, currencyDisplay);
   const baseInputClass = `w-full ${compact ? 'px-3 py-1.5 text-sm' : 'px-3.5 py-2.5'} border-2 rounded-lg shadow-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all duration-200 ${error
     ? "border-red-400 dark:border-red-500 focus:border-red-500 focus:ring-red-500/30"
     : "border-slate-300 dark:border-slate-600 hover:border-slate-400 dark:hover:border-slate-500 hover:shadow-md"
@@ -798,7 +800,7 @@ function FormField({ field, value, onChange, error, formData, compact = false, e
             compact={compact}
             allowCreate={field.allowCreate || false}
             onCreateOption={handleCreateOption}
-            createLabel={field.createLabel || "Add"}
+            createLabel={field.createLabel}
             placement={field.placement || "bottom"}
           />
         );
@@ -1072,7 +1074,7 @@ function FormField({ field, value, onChange, error, formData, compact = false, e
                         <div>
                           <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                             <i className="fas fa-money-bill-wave mr-1 text-green-600 dark:text-green-400"></i>
-                            Amount ({currency}) *
+                            Amount ({currencyDisplay}) *
                           </label>
                           <input
                             type="number"

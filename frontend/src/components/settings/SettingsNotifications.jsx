@@ -51,6 +51,89 @@ export default function SettingsNotifications() {
         </div>
       </ContentSection>
 
+      <ContentSection title={t("sections.clientEmails", "Client Email Notifications")}>
+        <div className="p-6 space-y-4">
+          <div className="flex items-center justify-between py-3">
+            <div>
+              <label className="text-sm font-medium text-slate-900 dark:text-white">
+                {t("clientEmails.enabled.title", "Client Email Prompts")}
+              </label>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                {t("clientEmails.enabled.description", "Show a prompt to notify clients via email after relevant actions")}
+              </p>
+            </div>
+            <button
+              onClick={() => handleNotificationPrefChange("clientEmails", "enabled", !notificationPrefs.clientEmails?.enabled)}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                notificationPrefs.clientEmails?.enabled !== false ? "bg-blue-600" : "bg-slate-300 dark:bg-slate-600"
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  notificationPrefs.clientEmails?.enabled !== false ? "translate-x-6" : "translate-x-1"
+                }`}
+              />
+            </button>
+          </div>
+
+          {notificationPrefs.clientEmails?.enabled !== false && (
+            <div className="ml-6 space-y-3 text-xs border-t border-slate-200 dark:border-slate-700 pt-4">
+              <p className="text-slate-500 dark:text-slate-400 mb-3">
+                {t("clientEmails.categoriesDescription", "Choose which events can trigger client email prompts:")}
+              </p>
+
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={notificationPrefs.clientEmails?.dossiers !== false}
+                  onChange={(e) => handleNotificationPrefChange("clientEmails", "dossiers", e.target.checked)}
+                  className="rounded border-slate-300 dark:border-slate-600"
+                />
+                <span className="text-slate-700 dark:text-slate-300">
+                  {t("clientEmails.categories.dossiers", "Dossier updates (status changes, deadlines)")}
+                </span>
+              </label>
+
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={notificationPrefs.clientEmails?.lawsuits !== false}
+                  onChange={(e) => handleNotificationPrefChange("clientEmails", "lawsuits", e.target.checked)}
+                  className="rounded border-slate-300 dark:border-slate-600"
+                />
+                <span className="text-slate-700 dark:text-slate-300">
+                  {t("clientEmails.categories.lawsuits", "Lawsuit updates (status, hearing dates)")}
+                </span>
+              </label>
+
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={notificationPrefs.clientEmails?.sessions !== false}
+                  onChange={(e) => handleNotificationPrefChange("clientEmails", "sessions", e.target.checked)}
+                  className="rounded border-slate-300 dark:border-slate-600"
+                />
+                <span className="text-slate-700 dark:text-slate-300">
+                  {t("clientEmails.categories.sessions", "Hearing scheduling and changes")}
+                </span>
+              </label>
+
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={notificationPrefs.clientEmails?.financial !== false}
+                  onChange={(e) => handleNotificationPrefChange("clientEmails", "financial", e.target.checked)}
+                  className="rounded border-slate-300 dark:border-slate-600"
+                />
+                <span className="text-slate-700 dark:text-slate-300">
+                  {t("clientEmails.categories.financial", "Financial entries")}
+                </span>
+              </label>
+            </div>
+          )}
+        </div>
+      </ContentSection>
+
       <ContentSection title={t("sections.appointments")}>
         <div className="p-6 space-y-6">
           <div className="space-y-3">

@@ -56,7 +56,7 @@ export function IconButton({
     <button
       onClick={onClick}
       title={title}
-      className={`p-2 rounded-lg transition-colors duration-200 ${variants[variant]}`}
+      className={`p-2 rounded-xl transition-colors duration-200 bg-slate-100/80 dark:bg-slate-800/70 hover:bg-slate-200/80 dark:hover:bg-slate-700/70 ${variants[variant]}`}
     >
       {icons[icon] || icons.more}
     </button>

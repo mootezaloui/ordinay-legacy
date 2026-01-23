@@ -39,7 +39,7 @@ export default function DetailView({ entityType }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { formatDate, formatCurrency } = useSettings();
+  const { formatDate, formatCurrency, notificationPrefs } = useSettings();
   const { showToast } = useToast();
   const { confirm } = useConfirm();
   const contextData = useData(); // Get all data from context
@@ -303,12 +303,15 @@ export default function DetailView({ entityType }) {
       // Pass skipConfirmation option if validation was already handled
       await config.updateData(id, { [field]: value }, contextData, { skipConfirmation: skipValidation });
 
+      // Get operator name from context
+      const { operator } = useOperator();
+      const operatorName = operator?.name || "Principal Lawyer";
       // Create timeline entry
       const timelineEntry = {
         type: `${field}_change`,
         event: `${field} modified`,
         timestamp: new Date().toISOString(),
-        user: "Me. Hammami", // TODO: Get from auth context
+        user: operatorName,
         oldValue,
         newValue: value,
       };
@@ -332,7 +335,8 @@ export default function DetailView({ entityType }) {
             data,
             newData,
           },
-          contextData
+          contextData,
+          notificationPrefs
         );
 
         if (notificationCheck?.shouldPrompt) {
@@ -1040,7 +1044,7 @@ export default function DetailView({ entityType }) {
                 className="px-4 py-2 border border-blue-600 dark:border-blue-500 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-lg font-medium transition-colors duration-200"
               >
                 <i className="fas fa-file-alt mr-2"></i>
-                Générer un document
+                {t("documentGeneration.actions.generate", { ns: "common" })}
               </button>
             )}
 

@@ -9,6 +9,7 @@ import {
   sendClientNotification,
 } from "../../services/clientCommunication";
 import { useData } from "../../contexts/DataContext";
+import { useSettings } from "../../contexts/SettingsContext";
 import { getStatusColor } from "../DetailView/config/statusColors";
 import { useTranslation } from "react-i18next";
 
@@ -56,6 +57,7 @@ export default function InlineStatusSelector({
 }) {
   const { t } = useTranslation("common");
   const contextData = useData();
+  const { notificationPrefs } = useSettings();
   const [isOpen, setIsOpen] = useState(false);
   const [blockerModalOpen, setBlockerModalOpen] = useState(false);
   const [validationResult, setValidationResult] = useState(null);
@@ -115,7 +117,9 @@ export default function InlineStatusSelector({
           oldValue: value,
           newValue: newValue,
           data: entityData,
-        }
+        },
+        contextData,
+        notificationPrefs
       );
 
       if (notificationCheck?.shouldPrompt) {

@@ -19,6 +19,7 @@ import {
   determineDirection,
   CANONICAL_STATUSES,
 } from "./financialConstants";
+import i18next from "i18next";
 import { isOperationalEntity } from "./importState";
 import { formatCurrency as formatCurrencyValue } from "./currency";
 
@@ -364,10 +365,17 @@ export const getFinancialEntriesForDisplay = (
   return entries.map((entry) => ({
     ...entry,
     // Display fields
-    categoryLabel: financialCategories[entry.category]?.label || entry.category,
+    categoryLabel: i18next.t(`table.category.${entry.category}`, {
+      ns: "accounting",
+      defaultValue: financialCategories[entry.category]?.label || entry.category,
+    }),
     categoryColor: financialCategories[entry.category]?.color || "gray",
-    statusLabel: financialStatuses[entry.status]?.label || entry.status,
-    statusColor: financialStatuses[entry.status]?.color || "gray",
+    statusLabel: i18next.t(`table.status.${normalizeFinancialStatus(entry.status)}`, {
+      ns: "accounting",
+      defaultValue: financialStatuses[entry.status]?.label || entry.status,
+    }),
+    statusColor:
+      financialStatuses[normalizeFinancialStatus(entry.status)]?.color || "gray",
     amountFormatted: formatCurrency(entry.amount),
     amountWithSign:
       entry.type === "expense"

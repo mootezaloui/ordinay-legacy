@@ -6,10 +6,24 @@
   "sections": {
     "general": "General Settings",
     "notifications": "Notifications",
+    "clientEmails": "Client Email Notifications",
     "appointments": "Appointment & Deadline Notifications",
     "accountSecurity": "Account & Security",
     "appearance": "Appearance",
     "imports": "Legacy Imports"
+  },
+  "clientEmails": {
+    "enabled": {
+      "title": "Client Email Prompts",
+      "description": "Show a prompt to notify clients via email after relevant actions"
+    },
+    "categoriesDescription": "Choose which events can trigger client email prompts:",
+    "categories": {
+      "dossiers": "Dossier updates (status changes, deadlines)",
+      "lawsuits": "Lawsuit updates (status, hearing dates)",
+      "sessions": "Hearing scheduling and changes",
+      "financial": "Financial entries"
+    }
   },
   "imports": {
     "subtitle": "Review raw legacy intake records for clients."

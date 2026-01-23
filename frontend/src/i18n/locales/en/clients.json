@@ -162,6 +162,7 @@
     },
     "tabs": {
       "dossiers": "Dossiers",
+      "dossiersEntity": "case file",
       "dossiersAddSubtitle": "Create a new dossier for this client",
       "lawsuits": "Lawsuits",
       "lawsuitsEntity": "lawsuit",

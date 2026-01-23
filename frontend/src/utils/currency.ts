@@ -60,8 +60,10 @@ export const formatCurrency = (
   const {
     minimumFractionDigits = 0,
     maximumFractionDigits = 2,
-    currencyDisplay = "code",
   } = options;
+  const currencyDisplay =
+    options.currencyDisplay ||
+    (locale.toLowerCase().startsWith("ar") ? "narrowSymbol" : "code");
 
   return new Intl.NumberFormat(locale, {
     style: "currency",
@@ -70,4 +72,25 @@ export const formatCurrency = (
     minimumFractionDigits,
     maximumFractionDigits,
   }).format(numeric);
+};
+
+export const getCurrencyDisplayLabel = (
+  currencyCode?: string | null,
+  locale?: string
+): string => {
+  const currency = normalizeCurrencyCode(currencyCode || getStoredCurrency());
+  const resolvedLocale = resolveLocale(locale);
+  const currencyDisplay = resolvedLocale.toLowerCase().startsWith("ar")
+    ? "narrowSymbol"
+    : "code";
+
+  const formatted = new Intl.NumberFormat(resolvedLocale, {
+    style: "currency",
+    currency,
+    currencyDisplay,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(0);
+
+  return formatted.replace(/[0-9\s.,]/g, "").trim();
 };

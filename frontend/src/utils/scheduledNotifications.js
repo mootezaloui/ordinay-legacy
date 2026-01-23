@@ -181,6 +181,16 @@ export const notificationFrequencySettings = {
     inactivityReminder: true,
     inactivityDays: 60, // Notify if no activity for 60+ days
   },
+
+  // Client email notification preferences
+  // Controls when the "Notify client?" prompt appears after actions
+  clientEmails: {
+    enabled: true, // Global toggle for all client email prompts
+    dossiers: true, // Dossier events (create, status change, deadline)
+    lawsuits: true, // Lawsuit events (create, status change, hearing)
+    sessions: true, // Session events (schedule, reschedule, cancel)
+    financial: true, // Financial entry events
+  },
 };
 
 /**

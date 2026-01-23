@@ -1665,6 +1665,16 @@
         "sending": "Sending..."
       }
     },
+    "toast": {
+      "success": {
+        "title": "Email sent",
+        "message": "The client has been notified."
+      },
+      "failed": {
+        "title": "Email not sent",
+        "message": "The email could not be sent. Please check your email configuration."
+      }
+    },
     "subjects": {
       "dossierCreated": "Opening of Your Dossier {{title}} ({{number}})",
       "dossierStatusChanged": "Dossier Update {{title}} ({{number}})",

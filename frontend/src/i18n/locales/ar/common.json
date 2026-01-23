@@ -40,9 +40,17 @@
       "revenue": "الإيرادات",
       "currency": "د.ت",
       "trendVsLastMonth": "مقارنة بالشهر الماضي",
+      "newThisWeek_zero": "{{count}} جديد هذا الأسبوع",
       "newThisWeek_one": "{{count}} جديد هذا الأسبوع",
+      "newThisWeek_two": "{{count}} جديد هذا الأسبوع",
+      "newThisWeek_few": "{{count}} جديد هذا الأسبوع",
+      "newThisWeek_many": "{{count}} جديد هذا الأسبوع",
       "newThisWeek_other": "{{count}} جديد هذا الأسبوع",
+      "dueToday_zero": "{{count}} مستحق اليوم",
       "dueToday_one": "{{count}} مستحق اليوم",
+      "dueToday_two": "{{count}} مستحق اليوم",
+      "dueToday_few": "{{count}} مستحق اليوم",
+      "dueToday_many": "{{count}} مستحق اليوم",
       "dueToday_other": "{{count}} مستحقة اليوم"
     },
     "urgentTasks": {
@@ -54,10 +62,10 @@
       "empty": "لا توجد أحداث قادمة مجدولة."
     },
     "workload": {
-      "title": "صحة العبء (٩٠ يوماً)",
+      "title": "صحة العبء (90 يوماً)",
       "show": "إظهار العبء",
       "hide": "إخفاء",
-      "subtitle": "إشارة عن مستوى الانشغال خلال ٩٠ يوماً القادمة - أرقام فقط بدون عناوين.",
+      "subtitle": "إشارة عن مستوى الانشغال خلال 90 يوماً القادمة - أرقام فقط بدون عناوين.",
       "guiding": "التوقع يعني استباق الضغط، وليس عرض قائمة أحداث.",
       "pressureLabel": "الحمل: {{level}}",
       "pressureHint": "يعتمد على الأيام السبعة القادمة",
@@ -77,11 +85,23 @@
         "missions": "مهام موكل بها"
       },
       "counts": {
+        "task_zero": "{{count}} مهمة",
         "task_one": "{{count}} مهمة",
+        "task_two": "{{count}} مهمة",
+        "task_few": "{{count}} مهمة",
+        "task_many": "{{count}} مهمة",
         "task_other": "{{count}} مهمة",
+        "hearing_zero": "{{count}} جلسة",
         "hearing_one": "{{count}} جلسة",
+        "hearing_two": "{{count}} جلسة",
+        "hearing_few": "{{count}} جلسة",
+        "hearing_many": "{{count}} جلسة",
         "hearing_other": "{{count}} جلسة",
+        "mission_zero": "{{count}} مهمة موكل بها",
         "mission_one": "{{count}} مهمة موكل بها",
+        "mission_two": "{{count}} مهمة موكل بها",
+        "mission_few": "{{count}} مهمة موكل بها",
+        "mission_many": "{{count}} مهمة موكل بها",
         "mission_other": "{{count}} مهمة موكل بها"
       },
       "pressure": {
@@ -90,7 +110,7 @@
         "heavy": "مرتفع",
         "critical": "حرج"
       },
-      "empty": "لا يوجد عبء عمل قادم خلال ٩٠ يوماً المقبلة.",
+      "empty": "لا يوجد عبء عمل قادم خلال 90 يوماً المقبلة.",
       "emptyBucket": "لا يوجد عناصر في هذه الفترة."
     },
     "projection": {
@@ -274,11 +294,23 @@
       },
       "time": {
         "justNow": "الآن",
+        "minutesAgo_zero": "منذ {{count}} دقيقة",
         "minutesAgo_one": "منذ {{count}} دقيقة",
+        "minutesAgo_two": "منذ {{count}} دقيقة",
+        "minutesAgo_few": "منذ {{count}} دقيقة",
+        "minutesAgo_many": "منذ {{count}} دقيقة",
         "minutesAgo_other": "منذ {{count}} دقيقة",
+        "hoursAgo_zero": "منذ {{count}} ساعة",
         "hoursAgo_one": "منذ {{count}} ساعة",
+        "hoursAgo_two": "منذ {{count}} ساعة",
+        "hoursAgo_few": "منذ {{count}} ساعة",
+        "hoursAgo_many": "منذ {{count}} ساعة",
         "hoursAgo_other": "منذ {{count}} ساعة",
+        "daysAgo_zero": "منذ {{count}} يوم",
         "daysAgo_one": "منذ {{count}} يوم",
+        "daysAgo_two": "منذ {{count}} يوم",
+        "daysAgo_few": "منذ {{count}} يوم",
+        "daysAgo_many": "منذ {{count}} يوم",
         "daysAgo_other": "منذ {{count}} يوم"
       },
       "labels": {
@@ -571,6 +603,19 @@
         "create": "إنشاء {{entityName}} جديد"
       }
     },
+    "deadlines": {
+      "labels": {
+        "session": "جلسة – {{title}}",
+        "task": "مهمة – {{title}}",
+        "financial": "استحقاق الدفع – {{title}}",
+        "manual": "موعد يدوي"
+      },
+      "defaults": {
+        "sessionTitle": "جلسة",
+        "taskTitle": "مهمة",
+        "financialTitle": "دفعة"
+      }
+    },
     "aggregated": {
       "empty": {
         "dossiers": "لا توجد ملفات لهذا العميل",
@@ -802,6 +847,10 @@
     "select": {
       "default": "اختر خيارًا",
       "searching": "البحث...",
+      "noResults": "لا توجد نتائج",
+      "noResultsFor": "لـ \"{{term}}\"",
+      "createLabel": "إضافة",
+      "createOption": "{{label}} \"{{term}}\"",
       "noSelection": "لم يتم اختيار عنصر",
       "client": "اختر عميلاً",
       "dossier": "اختر ملفًا",
@@ -831,6 +880,7 @@
       "columns": "الأعمدة",
       "manageColumns": "إدارة الأعمدة",
       "export": "تصدير",
+      "import": "استيراد",
       "reset": "إعادة تعيين"
     },
     "pagination": {
@@ -1011,139 +1061,495 @@
     "loading": "جاري التحميل..."
   },
   "import": {
-    "title": "Import legacy {{entity}}",
-    "subtitle": "Best-effort mapping. Valid rows are imported as unvalidated; invalid rows stay quarantined.",
-    "notice": "Valid records are stored as imported (not active). Complete missing data before activation.",
-    "sourceLabel": "Import source (optional)",
-    "sourcePlaceholder": "e.g. Excel export, old system",
-    "fileLabel": "File",
-    "fileHint": "CSV, JSON, or JSONL. Data is stored as-is.",
-    "fileEmpty": "No file selected",
-    "recordsFound": "{{count}} record(s) ready to import",
-    "parsing": "Parsing file...",
-    "uploading": "Uploading {{current}} / {{total}}",
+    "title": "استيراد {{entity}} التاريخي",
+    "subtitle": "مطابقة قدر الإمكان. تُستورد الصفوف الصحيحة كغير مُتحقَّق منها وتبقى الصفوف غير الصحيحة معزولة.",
+    "notice": "يتم حفظ السجلات الصحيحة كمستوردة (غير نشطة). أكمل البيانات الناقصة قبل التفعيل.",
+    "sourceLabel": "مصدر الاستيراد (اختياري)",
+    "sourcePlaceholder": "مثال: تصدير Excel، نظام قديم",
+    "fileLabel": "الملف",
+    "fileHint": "CSV أو JSON أو JSONL. يتم حفظ البيانات كما هي.",
+    "fileEmpty": "لم يتم اختيار ملف",
+    "recordsFound": "{{count}} سجل جاهز للاستيراد",
+    "parsing": "جارٍ تحليل الملف...",
+    "uploading": "جارٍ الرفع {{current}} / {{total}}",
     "actions": {
-      "chooseFile": "Choose file",
-      "import": "Import"
+      "chooseFile": "اختر ملفًا",
+      "import": "استيراد"
     },
     "errors": {
-      "unsupported": "Unsupported file type. Use CSV, JSON, or JSONL.",
-      "parse": "Unable to parse file.",
-      "empty": "No records found in the file.",
-      "upload": "Import failed. No changes were applied."
+      "unsupported": "نوع ملف غير مدعوم. استخدم CSV أو JSON أو JSONL.",
+      "parse": "تعذر تحليل الملف.",
+      "empty": "لم يتم العثور على سجلات في الملف.",
+      "upload": "فشل الاستيراد. لم يتم تطبيق أي تغييرات."
     },
-    "success": "{{count}} record(s) queued for validation.",
+    "success": "تمت إضافة {{count}} سجلًا إلى قائمة التحقق.",
     "auto": {
-      "success": "{{created}} imported, {{queued}} queued ({{total}} total).",
-      "successWithDuplicates": "{{created}} imported, {{queued}} queued, {{duplicates}} duplicates skipped ({{total}} total)."
+      "success": "{{created}} تم استيرادها، {{queued}} في الانتظار (الإجمالي {{total}}).",
+      "successWithDuplicates": "{{created}} تم استيرادها، {{queued}} في الانتظار، تم تخطي {{duplicates}} مكرر (الإجمالي {{total}})."
     }
   },
   "importQueue": {
-    "title": "Imported data (read-only)",
-    "subtitle": "Valid rows are imported as unvalidated; invalid rows stay quarantined.",
-    "loading": "Loading imports...",
-    "showing": "Showing {{shown}} of {{total}}",
-    "empty": "No imported records found.",
+    "title": "البيانات المستوردة (للقراءة فقط)",
+    "subtitle": "تُستورد الصفوف الصحيحة كغير مُتحقَّق منها وتبقى الصفوف غير الصحيحة معزولة.",
+    "loading": "جارٍ تحميل الاستيرادات...",
+    "showing": "عرض {{shown}} من {{total}}",
+    "empty": "لا توجد سجلات مستوردة.",
     "filters": {
-      "entity": "Entity",
-      "status": "Status",
-      "pending": "Pending",
-      "validated": "Validated",
-      "all": "All",
-      "allEntities": "All entities"
+      "entity": "الكيان",
+      "status": "الحالة",
+      "pending": "معلّق",
+      "validated": "مُتحقَّق منه",
+      "all": "الكل",
+      "allEntities": "كل الكيانات"
     },
     "columns": {
-      "id": "Import ID",
-      "entity": "Entity",
-      "importedAt": "Imported at",
-      "source": "Source",
-      "status": "Status",
-      "preview": "Payload preview",
-      "actions": "Actions",
-      "issues": "Issues"
+      "id": "معرّف الاستيراد",
+      "entity": "الكيان",
+      "importedAt": "تاريخ الاستيراد",
+      "source": "المصدر",
+      "status": "الحالة",
+      "preview": "معاينة البيانات",
+      "actions": "الإجراءات",
+      "issues": "المشكلات"
     },
     "status": {
-      "pending": "Pending validation",
-      "validated": "Validated",
-      "resolved": "Resolved entity #{{id}}",
-      "issues": "Validation issues flagged",
-      "archived": "Archived"
+      "pending": "بانتظار التحقق",
+      "validated": "تم التحقق",
+      "resolved": "تم حل الكيان #{{id}}",
+      "issues": "ملاحظات تحقق",
+      "archived": "مؤرشف"
     },
     "summary": {
-      "total": "Total",
-      "pending": "Pending",
-      "validated": "Validated",
-      "issues": "Issues",
-      "duplicates": "Duplicates",
-      "archived": "Archived"
+      "total": "الإجمالي",
+      "pending": "معلّق",
+      "validated": "مُتحقَّق منه",
+      "issues": "مشكلات",
+      "duplicates": "مكررات",
+      "archived": "مؤرشف"
     },
     "sessions": {
-      "header": "Import sessions",
-      "title": "Import session",
-      "records": "{{count}} record(s)"
+      "header": "جلسات الاستيراد",
+      "title": "جلسة استيراد",
+      "records": "{{count}} سجل(ات)"
     },
     "issues": {
-      "ok": "OK",
-      "review": "Needs review",
-      "duplicate": "Duplicate"
+      "ok": "جيد",
+      "review": "تحتاج مراجعة",
+      "duplicate": "مكرر"
     },
     "preview": {
-      "empty": "No payload stored."
+      "empty": "لا توجد بيانات محفوظة."
     },
     "entities": {
-      "client": "Client",
-      "dossier": "Dossier",
+      "client": "عميل",
+      "dossier": "ملف",
       "lawsuit": "قضية",
-      "task": "Task",
-      "session": "Session",
-      "mission": "Mission",
-      "financialEntry": "Financial entry",
-      "personalTask": "Personal task",
-      "officer": "Officer",
-      "document": "Document"
+      "task": "مهمة",
+      "session": "جلسة",
+      "mission": "مهمة",
+      "financialEntry": "إدخال مالي",
+      "personalTask": "مهمة شخصية",
+      "officer": "محضر",
+      "document": "مستند"
     },
     "actions": {
-      "refresh": "Refresh",
-      "loadMore": "Load more",
-      "viewPayload": "View payload",
-      "review": "Review",
-      "normalize": "Check validation",
-      "validate": "Validate & apply",
-      "archive": "Archive",
-      "restore": "Restore",
-      "showArchived": "Show archived",
-      "hideArchived": "Hide archived",
-      "archiveValidated": "Archive validated",
-      "openSession": "View records",
-      "closeSession": "Hide records"
+      "refresh": "تحديث",
+      "loadMore": "تحميل المزيد",
+      "viewPayload": "عرض البيانات",
+      "review": "مراجعة",
+      "normalize": "فحص التحقق",
+      "validate": "تحقق وتطبيق",
+      "archive": "أرشفة",
+      "restore": "استعادة",
+      "showArchived": "إظهار المؤرشف",
+      "hideArchived": "إخفاء المؤرشف",
+      "archiveValidated": "أرشفة المُتحقَّق منه",
+      "openSession": "عرض السجلات",
+      "closeSession": "إخفاء السجلات"
     },
     "errors": {
-      "load": "Unable to load import queue."
+      "load": "تعذر تحميل قائمة الاستيراد."
     },
     "review": {
-      "title": "Review import #{{id}} ({{entity}})",
-      "subtitle": "Provide a normalized payload. No automatic mapping is applied.",
-      "notice": "Raw intake stays quarantined. Only validated records become active.",
-      "payload": "Raw payload (read-only)",
-      "normalized": "Normalized payload",
-      "normalizedHelp": "Paste a normalized JSON payload matching the domain schema.",
+      "title": "مراجعة الاستيراد رقم {{id}} ({{entity}})",
+      "subtitle": "قدّم حمولة مُنقَّحة. لا يتم تطبيق أي مطابقة تلقائية.",
+      "notice": "تظل البيانات الخام معزولة. تصبح السجلات المُتحقَّق منها فقط نشطة.",
+      "payload": "البيانات الخام (للقراءة فقط)",
+      "normalized": "البيانات المُنقَّحة",
+      "normalizedHelp": "الصق حمولة JSON مُنقَّحة تطابق مخطط المجال.",
       "normalizedPlaceholder": "{\n  \"name\": \"...\",\n  \"status\": \"active\"\n}",
-      "hint": "Normalization is manual. Missing fields or conflicts must be fixed before validation.",
-      "validationTitle": "Validation status",
-      "validationOk": "Validation passed. You can apply this import.",
-      "missingFields": "Missing fields: {{fields}}",
-      "conflicts": "Conflicts: {{fields}}",
-      "errors": "{{count}} validation error(s).",
-      "parseRequired": "Normalized payload is required.",
-      "parseError": "Normalized payload must be valid JSON.",
-      "normalizeSuccess": "Validation completed.",
-      "normalizeError": "Validation failed.",
-      "validationFailed": "Fix validation issues before applying.",
-      "validateError": "Apply failed.",
-      "applySuccess": "Import applied successfully.",
-      "normalizing": "Checking...",
-      "validating": "Applying..."
+      "hint": "التنقيح يدوي. يجب إصلاح الحقول الناقصة أو التعارضات قبل التحقق.",
+      "validationTitle": "حالة التحقق",
+      "validationOk": "تم التحقق. يمكنك تطبيق هذا الاستيراد.",
+      "missingFields": "الحقول الناقصة: {{fields}}",
+      "conflicts": "التعارضات: {{fields}}",
+      "errors": "{{count}} خطأ تحقق.",
+      "parseRequired": "البيانات المُنقَّحة مطلوبة.",
+      "parseError": "يجب أن تكون البيانات المُنقَّحة JSON صالحًا.",
+      "normalizeSuccess": "اكتمل التحقق.",
+      "normalizeError": "فشل التحقق.",
+      "validationFailed": "أصلح مشكلات التحقق قبل التطبيق.",
+      "validateError": "فشل التطبيق.",
+      "applySuccess": "تم تطبيق الاستيراد بنجاح.",
+      "normalizing": "جارٍ الفحص...",
+      "validating": "جارٍ التطبيق..."
     }
+  },
+  "documentGeneration": {
+    "title": "إنشاء مستند",
+    "subtitle": "اختر نموذجًا ثم اضغط على “إنشاء”. يقوم Organia بملء بيانات الملف تلقائيًا.",
+    "sections": {
+      "configuration": "الإعدادات"
+    },
+    "labels": {
+      "entity": "الكيان:",
+      "reference": "المرجع:",
+      "templateType": "نوع المستند",
+      "customTemplate": "مخصص",
+      "language": "اللغة",
+      "variant": "النسخة"
+    },
+    "entities": {
+      "dossier": "ملف",
+      "proces": "قضية",
+      "session": "جلسة"
+    },
+    "languages": {
+      "en": "الإنجليزية",
+      "fr": "الفرنسية",
+      "ar": "العربية"
+    },
+    "footerNote": "سيتم إنشاء المستند بصيغة Word (.docx) ويمكن فتحه وتعديله باستخدام محررك المعتاد.",
+    "actions": {
+      "generate": "إنشاء المستند",
+      "generating": "جارٍ الإنشاء...",
+      "save": "حفظ",
+      "download": "تحميل",
+      "saveAndDownload": "حفظ + تحميل"
+    },
+    "generated": {
+      "title": "تم إنشاء المستند",
+      "template": "النموذج: {{name}}",
+      "language": "اللغة: {{language}}",
+      "saved": "تم حفظه في المستندات."
+    },
+    "confirm": {
+      "title": "بيانات ناقصة",
+      "message": "بعض البيانات مفقودة. هل تريد الإنشاء على أي حال؟\n\n{{details}}",
+      "confirm": "إنشاء",
+      "cancel": "إلغاء"
+    },
+    "warnings": {
+      "missingFields": "حقول ناقصة: {{fields}}",
+      "unknownFields": "حقول غير معروفة: {{fields}}",
+      "noVariant": "لم يتم تحديد نسخة."
+    },
+    "toast": {
+      "generated": "تم إنشاء المستند. اختر إجراءً.",
+      "generateError": "خطأ أثناء الإنشاء: {{error}}",
+      "saveMissingEntity": "تعذر الحفظ: الكيان غير موجود.",
+      "saved": "تم حفظ المستند في تبويب المستندات.",
+      "saveError": "خطأ أثناء الحفظ: {{error}}"
+    },
+    "defaults": {
+      "document": "مستند",
+      "generatedLabel": "مستند مُولّد"
+    },
+    "emptyTemplates": "لا توجد قوالب لهذا النوع من الكيانات وهذه اللغة. أنشئ قالبًا من الإعدادات → المستندات."
+  },
+  "templateManagement": {
+    "header": {
+      "title": "إدارة القوالب",
+      "subtitle": "أنشئ وأدر قوالب Word الخاصة بك. يقوم Organia باستبدال الحقول تلقائيًا من ملفاتك."
+    },
+    "actions": {
+      "newTemplate": "قالب جديد",
+      "createFirst": "أنشئ قالبك الأول",
+      "createTemplate": "إنشاء القالب"
+    },
+    "sections": {
+      "system": "قوالب النظام",
+      "user": "قوالبي"
+    },
+    "empty": {
+      "system": "لا توجد قوالب نظام",
+      "user": "ليس لديك أي قالب مخصص بعد"
+    },
+    "badges": {
+      "system": "نظام"
+    },
+    "labels": {
+      "createdAt": "تم الإنشاء في {{date}}"
+    },
+    "confirmDelete": {
+      "title": "حذف القالب",
+      "message": "هل تريد حذف القالب \"{{name}}\"؟",
+      "confirm": "حذف",
+      "cancel": "إلغاء"
+    },
+    "toasts": {
+      "systemEditBlocked": "لا يمكن تعديل قوالب النظام",
+      "systemDeleteBlocked": "لا يمكن حذف قوالب النظام",
+      "deleted": "تم حذف القالب بنجاح",
+      "updated": "تم تحديث القالب بنجاح",
+      "created": "تم إنشاء القالب بنجاح",
+      "genericError": "خطأ: {{error}}"
+    },
+    "quickGuide": {
+      "title": "دليل سريع: إنشاء قالبك الخاص",
+      "subtitle": "اكتب المستند في Word، وأدرج الحقول من القائمة أدناه، ثم استورد ملف .docx.",
+      "toggle": "عرض الخطوات التفصيلية",
+      "steps": {
+        "prepare": "جهّز المستند في Word (العنوان، الفقرات، الترويسة، إلخ).",
+        "insert": "أدرج حقول Organia في الأماكن المتغيرة (العميل، الملف، التواريخ…).",
+        "save": "احفظ الملف بصيغة .docx.",
+        "import": "استورده هنا عبر “قالب جديد”.",
+        "generate": "أنشئ مستندًا من ملف أو قضية."
+      }
+    },
+    "fieldPicker": {
+      "total": "{{count}} حقل متاح",
+      "example": "مثال: {{example}}",
+      "actions": {
+        "expandAll": "توسيع الكل",
+        "collapseAll": "طيّ الكل",
+        "copyAll": "نسخ الكل",
+        "copyGroup": "نسخ المجموعة",
+        "copyGroupTitle": "نسخ جميع حقول {{name}}",
+        "copyFieldTitle": "نسخ الحقل \"{{name}}\"",
+        "copy": "نسخ",
+        "copied": "تم النسخ"
+      },
+      "toasts": {
+        "fieldCopied": "تم نسخ الحقل! الصقه في مستند Word.",
+        "groupCopied": "تم نسخ مجموعة الحقول! الصقها في مستند Word.",
+        "allCopied": "تم نسخ جميع الحقول.",
+        "copyError": "فشل النسخ"
+      }
+    },
+    "modal": {
+      "title": {
+        "create": "قالب مستند جديد",
+        "edit": "تعديل القالب"
+      },
+      "subtitle": "أنشئ قالب Word ودع Organia يملأ المعلومات تلقائيًا.",
+      "sections": {
+        "configuration": "الإعدادات",
+        "file": "ملف القالب"
+      },
+      "description": "اختر نوع الكيان واللغة، ثم استورد ملف .docx.",
+      "fields": {
+        "name": "اسم القالب *",
+        "entityType": "نوع الكيان *",
+        "language": "اللغة *"
+      },
+      "placeholders": {
+        "name": "مثال: طلب استخراج"
+      },
+      "fileDrop": "اسحب ملف .docx هنا",
+      "fileBrowse": "أو انقر للتصفح",
+      "currentFile": "الحالي: {{name}}",
+      "fieldsAvailable": "الحقول المتاحة",
+      "tipTitle": "نصيحة:",
+      "tip": "انقر على الحقل لنسخه ثم الصقه في مستند Word في المكان المطلوب. اجعل الحقول نصًا عاديًا.",
+      "errors": {
+        "nameRequired": "اسم القالب مطلوب",
+        "fileRequired": "ملف DOCX مطلوب"
+      }
+    }
+  },
+  "templateFields": {
+    "client": {
+      "label": "العميل",
+      "fields": {
+        "id": "رقم العميل",
+        "name": "الاسم الكامل",
+        "email": "البريد الإلكتروني",
+        "phone": "الهاتف",
+        "alternate_phone": "هاتف ثانوي",
+        "address": "العنوان",
+        "status": "الحالة",
+        "cin": "رقم الهوية",
+        "date_of_birth": "تاريخ الميلاد",
+        "profession": "المهنة",
+        "company": "الشركة",
+        "tax_id": "المعرف الجبائي",
+        "notes": "الملاحظات",
+        "missing_fields": "الحقول الناقصة",
+        "created_at": "تاريخ الإنشاء",
+        "updated_at": "تاريخ التحديث",
+        "imported": "مستورد",
+        "validated": "مُتحقَّق",
+        "imported_at": "تاريخ الاستيراد",
+        "deleted_at": "تاريخ الحذف"
+      }
+    },
+    "dossier": {
+      "label": "الملف",
+      "fields": {
+        "id": "رقم الملف",
+        "reference": "المرجع",
+        "client_id": "رقم العميل",
+        "title": "العنوان",
+        "description": "الوصف",
+        "category": "الفئة",
+        "phase": "المرحلة",
+        "adversary_party": "الخصم",
+        "adversary_lawyer": "محامي الخصم",
+        "estimated_value": "القيمة التقديرية",
+        "court_reference": "مرجع المحكمة",
+        "assigned_lawyer": "المحامي المكلّف",
+        "status": "الحالة",
+        "priority": "الأولوية",
+        "opened_at": "تاريخ الفتح",
+        "next_deadline": "الموعد القادم",
+        "closed_at": "تاريخ الإغلاق",
+        "created_at": "تاريخ الإنشاء",
+        "updated_at": "تاريخ التحديث",
+        "imported": "مستورد",
+        "validated": "مُتحقَّق",
+        "imported_at": "تاريخ الاستيراد",
+        "deleted_at": "تاريخ الحذف"
+      }
+    },
+    "proces": {
+      "label": "القضية",
+      "fields": {
+        "id": "رقم القضية",
+        "reference": "المرجع",
+        "case_number": "رقم القضية",
+        "dossier_id": "رقم الملف",
+        "title": "العنوان",
+        "description": "الوصف",
+        "adversary": "الخصم",
+        "adversary_party": "الخصم",
+        "adversary_lawyer": "محامي الخصم",
+        "court": "المحكمة",
+        "filing_date": "تاريخ الإيداع",
+        "next_hearing": "الجلسة القادمة",
+        "judgment_number": "رقم الحكم",
+        "judgment_date": "تاريخ الحكم",
+        "reference_number": "مرجع المحكمة",
+        "status": "الحالة",
+        "priority": "الأولوية",
+        "opened_at": "تاريخ الفتح",
+        "closed_at": "تاريخ الإغلاق",
+        "created_at": "تاريخ الإنشاء",
+        "updated_at": "تاريخ التحديث",
+        "imported": "مستورد",
+        "validated": "مُتحقَّق",
+        "imported_at": "تاريخ الاستيراد",
+        "deleted_at": "تاريخ الحذف"
+      }
+    },
+    "court": {
+      "label": "المحكمة",
+      "fields": {
+        "name": "الاسم",
+        "address": "العنوان",
+        "city": "المدينة"
+      }
+    },
+    "lawyer": {
+      "label": "المحامي",
+      "fields": {
+        "name": "الاسم الكامل",
+        "title": "اللقب",
+        "firm_name": "اسم المكتب",
+        "office_name": "اسم الفرع",
+        "office_address": "عنوان المكتب",
+        "phone": "الهاتف",
+        "fax": "الفاكس",
+        "mobile": "الجوال",
+        "email": "البريد الإلكتروني",
+        "bar_id": "رقم النقابة",
+        "vpa": "VPA"
+      }
+    },
+    "session": {
+      "label": "جلسة / موعد",
+      "fields": {
+        "id": "رقم الجلسة",
+        "title": "العنوان",
+        "status": "الحالة",
+        "scheduled_at": "تاريخ الجدولة",
+        "session_date": "تاريخ الجلسة",
+        "duration": "المدة",
+        "location": "المكان",
+        "court_room": "القاعة",
+        "judge": "القاضي",
+        "outcome": "النتيجة",
+        "description": "الوصف",
+        "notes": "الملاحظات",
+        "participants": "المشاركون",
+        "dossier_id": "رقم الملف",
+        "lawsuit_id": "رقم القضية",
+        "created_at": "تاريخ الإنشاء",
+        "updated_at": "تاريخ التحديث",
+        "imported": "مستوردة",
+        "validated": "مُتحقَّق",
+        "imported_at": "تاريخ الاستيراد",
+        "deleted_at": "تاريخ الحذف",
+        "date": "التاريخ (اختصار)"
+      }
+    },
+    "financial_entry": {
+      "label": "الإدخالات المالية",
+      "fields": {
+        "id": "رقم الإدخال",
+        "scope": "النطاق",
+        "client_id": "رقم العميل",
+        "dossier_id": "رقم الملف",
+        "lawsuit_id": "رقم القضية",
+        "mission_id": "رقم المهمة",
+        "task_id": "رقم المهمة",
+        "personal_task_id": "رقم المهمة الشخصية",
+        "status": "الحالة",
+        "category": "الفئة",
+        "amount": "المبلغ",
+        "currency": "العملة",
+        "occurred_at": "تاريخ العملية",
+        "paid_at": "تاريخ الدفع",
+        "title": "العنوان",
+        "description": "الوصف",
+        "reference": "المرجع",
+        "notes": "الملاحظات",
+        "direction": "الاتجاه",
+        "cancelled_at": "تاريخ الإلغاء",
+        "created_at": "تاريخ الإنشاء",
+        "updated_at": "تاريخ التحديث",
+        "imported": "مستوردة",
+        "validated": "مُتحقَّق",
+        "imported_at": "تاريخ الاستيراد",
+        "deleted_at": "تاريخ الحذف"
+      }
+    },
+    "adversary": {
+      "label": "الخصم",
+      "fields": {
+        "name": "الاسم"
+      }
+    },
+    "judgment": {
+      "label": "الحكم",
+      "fields": {
+        "number": "الرقم",
+        "date": "التاريخ"
+      }
+    },
+    "document": {
+      "label": "المستند",
+      "fields": {
+        "copy_type": "نوع النسخة"
+      }
+    },
+    "today": {
+      "label": "التواريخ",
+      "fields": {}
+    }
+  },
+  "startup": {
+    "splashMessage": "نبحث عن التوازن الطبيعي..."
   }
 }
 

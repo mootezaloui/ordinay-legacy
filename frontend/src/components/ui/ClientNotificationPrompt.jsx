@@ -12,6 +12,7 @@ import React, { useState } from 'react';
 import { X, Mail, Send, Eye, EyeOff } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { generateClientEmail } from '../../services/clientCommunication';
+import { useNotifications } from '../../contexts/NotificationContext';
 import useBodyScrollLock from "../../hooks/useBodyScrollLock";
 
 export default function ClientNotificationPrompt({
@@ -22,6 +23,7 @@ export default function ClientNotificationPrompt({
   eventData,
 }) {
   const { t } = useTranslation('notifications');
+  const { addAlert } = useNotifications();
   const [showPreview, setShowPreview] = useState(false);
   const [isSending, setIsSending] = useState(false);
   useBodyScrollLock(isOpen);
@@ -38,8 +40,22 @@ export default function ClientNotificationPrompt({
 
   const handleConfirm = async () => {
     setIsSending(true);
-    await onConfirm();
+    const success = await onConfirm();
     setIsSending(false);
+
+    if (success) {
+      addAlert({
+        type: 'success',
+        title: t('clientEmail.toast.success.title', 'Email sent'),
+        message: t('clientEmail.toast.success.message', 'The client has been notified.'),
+      });
+    } else {
+      addAlert({
+        type: 'warning',
+        title: t('clientEmail.toast.failed.title', 'Email not sent'),
+        message: t('clientEmail.toast.failed.message', 'The email could not be sent. Please check your email configuration.'),
+      });
+    }
   };
 
   const handleDecline = () => {

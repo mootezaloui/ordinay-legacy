@@ -6,10 +6,24 @@
   "sections": {
     "general": "Paramètres généraux",
     "notifications": "Notifications",
+    "clientEmails": "Notifications par e-mail aux clients",
     "appointments": "Notifications de rendez-vous et d'échéances",
     "accountSecurity": "Compte & sécurité",
     "appearance": "Apparence",
     "imports": "Imports historiques"
+  },
+  "clientEmails": {
+    "enabled": {
+      "title": "Invitations d'e-mail client",
+      "description": "Afficher une invite pour notifier les clients par e-mail après les actions pertinentes"
+    },
+    "categoriesDescription": "Choisissez les événements qui peuvent déclencher une invite d'e-mail client :",
+    "categories": {
+      "dossiers": "Mises à jour des dossiers (changements de statut, échéances)",
+      "lawsuits": "Mises à jour des procès (statut, dates d'audience)",
+      "sessions": "Planification et modifications des audiences",
+      "financial": "Écritures financières"
+    }
   },
   "imports": {
     "subtitle": "Consultez les imports bruts pour les clients."

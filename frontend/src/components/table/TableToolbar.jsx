@@ -40,7 +40,7 @@ export default function TableToolbar({
   }, []);
 
   return (
-    <div className="relative z-20 px-6 py-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+    <div className="relative z-20 px-6 py-4 border-b border-slate-200/70 dark:border-slate-700/60 bg-slate-50/80 dark:bg-slate-800/50">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         {/* Left side - Search */}
         <div className="flex-1 max-w-md">
@@ -50,7 +50,7 @@ export default function TableToolbar({
               placeholder={t("table.searching")}
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
-              className="w-full pl-10 pr-10 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+              className="w-full pl-10 pr-10 py-2.5 border border-slate-200/80 dark:border-slate-700/60 rounded-2xl bg-white/85 dark:bg-slate-900/70 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/60 focus:border-transparent transition-all shadow-sm"
             />
             <svg
               className="absolute left-3 top-2.5 w-5 h-5 text-slate-400 dark:text-slate-500"
@@ -93,9 +93,9 @@ export default function TableToolbar({
               onClick={onImport}
               disabled={importDisabled}
               title={importTitle || resolvedImportLabel}
-              className={`px-4 py-2 border rounded-lg transition-colors flex items-center gap-2 text-sm font-medium ${importDisabled
-                ? "bg-slate-200 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed"
-                : "bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300"
+              className={`px-4 py-2.5 border rounded-2xl transition-colors flex items-center gap-2 text-sm font-semibold ${importDisabled
+                ? "bg-slate-200/70 dark:bg-slate-800/60 border-slate-200/70 dark:border-slate-700/60 text-slate-400 dark:text-slate-500 cursor-not-allowed"
+                : "bg-white/85 dark:bg-slate-900/70 border-slate-200/80 dark:border-slate-700/60 hover:bg-slate-100/80 dark:hover:bg-slate-800/70 text-slate-700 dark:text-slate-300 shadow-sm"
                 }`}
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -109,7 +109,7 @@ export default function TableToolbar({
           <div className="relative z-30" ref={columnMenuRef}>
             <button
               onClick={() => setShowColumnMenu(!showColumnMenu)}
-              className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300"
+              className="px-4 py-2.5 bg-white/85 dark:bg-slate-900/70 border border-slate-200/80 dark:border-slate-700/60 rounded-2xl hover:bg-slate-100/80 dark:hover:bg-slate-800/70 transition-colors flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-300 shadow-sm"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
@@ -122,15 +122,15 @@ export default function TableToolbar({
 
             {/* Column menu dropdown */}
             {showColumnMenu && (
-              <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-slate-800 rounded-lg shadow-2xl border border-slate-200 dark:border-slate-700 z-40 max-h-[calc(100vh-200px)] overflow-y-auto">
-                <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700">
+              <div className="absolute right-0 mt-2 w-64 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-200/80 dark:border-slate-700/60 z-40 max-h-[calc(100vh-200px)] overflow-y-auto">
+                <div className="px-4 py-3 border-b border-slate-200/70 dark:border-slate-700/60 bg-slate-50/80 dark:bg-slate-800/50">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-semibold text-slate-900 dark:text-white">
                       {t("table.toolbar.manageColumns")}
                     </span>
                     <button
                       onClick={onResetColumns}
-                      className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                      className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 px-2 py-1 rounded-lg transition-colors"
                     >
                       {t("table.toolbar.reset")}
                     </button>
@@ -141,7 +141,7 @@ export default function TableToolbar({
                   {columns.map((column) => (
                     <label
                       key={column.id}
-                      className="flex items-center px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer"
+                      className="flex items-center px-4 py-2 hover:bg-slate-100/80 dark:hover:bg-slate-800/60 cursor-pointer"
                     >
                       <input
                         type="checkbox"
@@ -162,7 +162,7 @@ export default function TableToolbar({
                   ))}
                 </div>
 
-                <div className="px-4 py-3 border-t border-slate-200 dark:border-slate-700 text-xs text-slate-500 dark:text-slate-400">
+                <div className="px-4 py-3 border-t border-slate-200/70 dark:border-slate-700/60 text-xs text-slate-500 dark:text-slate-400 bg-slate-50/80 dark:bg-slate-800/50">
                   💡 Drag and drop columns to reorder
                 </div>
               </div>
@@ -173,7 +173,7 @@ export default function TableToolbar({
           {onExport && (
             <button
               onClick={onExport}
-              className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300"
+              className="px-4 py-2.5 bg-white/85 dark:bg-slate-900/70 border border-slate-200/80 dark:border-slate-700/60 rounded-2xl hover:bg-slate-100/80 dark:hover:bg-slate-800/70 transition-colors flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-300 shadow-sm"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -185,7 +185,7 @@ export default function TableToolbar({
           {/* Refresh button */}
           <button
             onClick={() => window.location.reload()}
-            className="p-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors text-slate-700 dark:text-slate-300"
+            className="p-2.5 bg-white/85 dark:bg-slate-900/70 border border-slate-200/80 dark:border-slate-700/60 rounded-2xl hover:bg-slate-100/80 dark:hover:bg-slate-800/70 transition-colors text-slate-700 dark:text-slate-300 shadow-sm"
             title="Refresh"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

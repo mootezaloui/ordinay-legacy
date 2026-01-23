@@ -49,14 +49,33 @@ import { emailTemplates } from "./emailTemplates";
  * @param {string} action - Action performed (changeStatus, create, edit, delete)
  * @param {object} context - Action context (oldValue, newValue, data, etc.)
  * @param {object} entities - All entities data { clients, dossiers, lawsuits, etc. }
+ * @param {object} notificationPrefs - User notification preferences (from SettingsContext)
  * @returns {object|null} { shouldPrompt: true, eventType: "dossier_closed", eventData: {...} } or null
  */
 export function shouldPromptClientNotification(
   entityType,
   action,
   context = {},
-  entities = {}
+  entities = {},
+  notificationPrefs = null
 ) {
+  // Check global email notification preference
+  if (notificationPrefs?.clientEmails?.enabled === false) {
+    return null;
+  }
+
+  // Check category-specific preference
+  const categoryMap = {
+    dossier: "dossiers",
+    lawsuit: "lawsuits",
+    session: "sessions",
+    financialEntry: "financial",
+  };
+  const category = categoryMap[entityType];
+  if (category && notificationPrefs?.clientEmails?.[category] === false) {
+    return null;
+  }
+
   const detector = EVENT_DETECTORS[entityType];
 
   if (!detector) {
@@ -92,14 +111,16 @@ function resolveClientInfo(data = {}, entities) {
 
   // Try lawsuit reference
   if (!clientId && data.lawsuitId) {
-    const lawsuitItem = lawsuits.find((c) => c.id === parseInt(data.lawsuitId, 10));
+    const lawsuitItem = lawsuits.find(
+      (c) => c.id === parseInt(data.lawsuitId, 10),
+    );
     if (lawsuitItem) {
       clientId =
         lawsuitItem.clientId ||
         lawsuitItem.client_id ||
         (() => {
           const dossier = dossiers.find(
-            (d) => d.id === lawsuitItem.dossierId || lawsuitItem.dossier_id
+            (d) => d.id === lawsuitItem.dossierId || lawsuitItem.dossier_id,
           );
           return dossier?.clientId || dossier?.client_id;
         })();
@@ -327,7 +348,7 @@ function detectLawsuitHearingChange(context, entities) {
   // Get client info
   const { clientId, clientName } = resolveClientInfo(
     { ...data, ...newData },
-    entities
+    entities,
   );
 
   return {
@@ -393,7 +414,7 @@ function detectSessionDateChange(context, entities) {
   // Get client info
   const { clientId, clientName } = resolveClientInfo(
     { ...data, ...newData },
-    entities
+    entities,
   );
 
   if (!clientId) {
@@ -520,7 +541,7 @@ export function generateClientEmail(eventType, eventData) {
   if (!clientEmail) {
     console.warn(
       "[clientCommunication] Client email missing for clientId:",
-      eventData.clientId
+      eventData.clientId,
     );
     return null;
   }
@@ -628,7 +649,7 @@ export async function sendInAppNotification(notification) {
 export async function sendClientNotification(
   eventType,
   eventData,
-  options = {}
+  options = {},
 ) {
   const channels = options.channels || ["email"]; // Default: email only
 
@@ -696,6 +717,3 @@ export function getPendingNotification() {
 export function clearPendingNotification() {
   pendingNotification = null;
 }
-
-
-

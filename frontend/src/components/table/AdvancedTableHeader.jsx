@@ -51,7 +51,7 @@ export default function AdvancedTableHeader({
   };
 
   return (
-    <thead className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
+    <thead className="bg-slate-50/80 dark:bg-slate-800/70 border-b border-slate-200/70 dark:border-slate-700/60">
       <tr>
         {columns.map((column, index) => (
           <th
@@ -62,8 +62,8 @@ export default function AdvancedTableHeader({
             onDrop={(e) => handleDrop(e, index)}
             onDragEnd={handleDragEnd}
             style={getColumnStyle(column)}
-            className={`relative group px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider ${column.sortable !== false ? "cursor-pointer select-none" : ""
-              } ${draggedIndex === index ? "opacity-50" : ""} ${enableReorder && !column.locked ? "hover:bg-slate-100 dark:hover:bg-slate-700" : ""
+            className={`relative group px-6 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider ${column.sortable !== false ? "cursor-pointer select-none" : ""
+              } ${draggedIndex === index ? "opacity-50" : ""} ${enableReorder && !column.locked ? "hover:bg-slate-100/80 dark:hover:bg-slate-800/70" : ""
               } transition-colors`}
             onClick={() => column.sortable !== false && onSort(column.id)}
           >

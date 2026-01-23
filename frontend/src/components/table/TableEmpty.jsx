@@ -35,7 +35,7 @@ export default function TableEmpty({
   };
 
   return (
-    <div className="py-12 px-6 text-center bg-white dark:bg-slate-900">
+    <div className="py-12 px-6 text-center bg-white/85 dark:bg-slate-900/75">
       {icons[icon] || icons.inbox}
       <p className="text-slate-600 dark:text-slate-400 mb-4">{displayMessage}</p>
       {action && <div className="mt-4">{action}</div>}

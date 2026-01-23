@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useTranslation } from "react-i18next";
 import { createPortal } from 'react-dom';
 import { useToast } from '../../contexts/ToastContext';
 import { useConfirm } from '../../contexts/ConfirmContext';
@@ -22,6 +23,7 @@ import { useSettings } from '../../contexts/SettingsContext';
  * - Simple CRUD operations
  */
 export default function TemplateManagement() {
+  const { t, i18n } = useTranslation("common");
   const { showToast } = useToast();
   const { confirm } = useConfirm();
 
@@ -46,7 +48,7 @@ export default function TemplateManagement() {
 
   const handleEditTemplate = (template) => {
     if (template.template_type === 'system') {
-      showToast('Les modèles système ne peuvent pas être modifiés', 'error');
+      showToast(t("templateManagement.toasts.systemEditBlocked"), 'error');
       return;
     }
     setEditingTemplate(template);
@@ -55,15 +57,17 @@ export default function TemplateManagement() {
 
   const handleDeleteTemplate = async (template) => {
     if (template.template_type === 'system') {
-      showToast('Les modèles système ne peuvent pas être supprimés', 'error');
+      showToast(t("templateManagement.toasts.systemDeleteBlocked"), 'error');
       return;
     }
 
     const confirmed = await confirm({
-      title: 'Supprimer le modèle',
-      message: `Voulez-vous vraiment supprimer le modèle "${template.name}" ?`,
-      confirmText: 'Supprimer',
-      cancelText: 'Annuler',
+      title: t("templateManagement.confirmDelete.title"),
+      message: t("templateManagement.confirmDelete.message", {
+        name: template.name,
+      }),
+      confirmText: t("templateManagement.confirmDelete.confirm"),
+      cancelText: t("templateManagement.confirmDelete.cancel"),
       variant: 'danger',
     });
 
@@ -71,9 +75,9 @@ export default function TemplateManagement() {
       try {
         await templateManager.deleteUserTemplate(template.id);
         loadTemplates();
-        showToast('Modèle supprimé avec succès', 'success');
+        showToast(t("templateManagement.toasts.deleted"), 'success');
       } catch (error) {
-        showToast(`Erreur: ${error.message}`, 'error');
+        showToast(t("templateManagement.toasts.genericError", { error: error.message }), 'error');
       }
     }
   };
@@ -87,10 +91,10 @@ export default function TemplateManagement() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
-            Gestion des modèles
+            {t("templateManagement.header.title")}
           </h2>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Créez et gérez vos modèles Word. Organia remplace automatiquement les champs à partir de vos dossiers.
+            {t("templateManagement.header.subtitle")}
           </p>
         </div>
         <button
@@ -98,7 +102,7 @@ export default function TemplateManagement() {
           className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
         >
           <i className="fas fa-plus"></i>
-          Nouveau modèle
+          {t("templateManagement.actions.newTemplate")}
         </button>
       </div>
 
@@ -108,21 +112,21 @@ export default function TemplateManagement() {
           <i className="fas fa-info-circle text-blue-600 dark:text-blue-400 mt-0.5"></i>
           <div className="flex-1">
             <p className="text-sm text-blue-800 dark:text-blue-300 font-medium">
-              Guide rapide : créer votre propre modèle
+              {t("templateManagement.quickGuide.title")}
             </p>
             <p className="text-xs text-blue-700 dark:text-blue-400 mt-1">
-              Rédigez votre document dans Word, insérez des champs depuis la liste ci‑dessous, puis importez le fichier .docx.
+              {t("templateManagement.quickGuide.subtitle")}
             </p>
             <details className="mt-3">
               <summary className="text-xs text-blue-700 dark:text-blue-300 cursor-pointer select-none">
-                Voir les étapes détaillées
+                {t("templateManagement.quickGuide.toggle")}
               </summary>
               <ol className="mt-2 text-xs text-blue-700 dark:text-blue-300 list-decimal list-inside space-y-1">
-                <li>Préparez le document dans Word (titre, paragraphes, en-tête, etc.).</li>
-                <li>Insérez les champs Organia aux endroits qui changent (client, dossier, dates…).</li>
-                <li>Enregistrez le fichier en .docx.</li>
-                <li>Importez-le ici via “Nouveau modèle”.</li>
-                <li>Générez un document depuis un dossier ou un procès.</li>
+                <li>{t("templateManagement.quickGuide.steps.prepare")}</li>
+                <li>{t("templateManagement.quickGuide.steps.insert")}</li>
+                <li>{t("templateManagement.quickGuide.steps.save")}</li>
+                <li>{t("templateManagement.quickGuide.steps.import")}</li>
+                <li>{t("templateManagement.quickGuide.steps.generate")}</li>
               </ol>
             </details>
           </div>
@@ -130,11 +134,11 @@ export default function TemplateManagement() {
       </div>
 
       {/* System Templates */}
-      <ContentSection title="Modèles système">
+      <ContentSection title={t("templateManagement.sections.system")}>
         <div className="p-6">
           {systemTemplates.length === 0 ? (
             <p className="text-sm text-slate-500 dark:text-slate-400">
-              Aucun modèle système
+              {t("templateManagement.empty.system")}
             </p>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -153,19 +157,19 @@ export default function TemplateManagement() {
       </ContentSection>
 
       {/* User Templates */}
-      <ContentSection title="Mes modèles">
+      <ContentSection title={t("templateManagement.sections.user")}>
         <div className="p-6">
           {userTemplates.length === 0 ? (
             <div className="text-center py-8">
               <i className="fas fa-file-alt text-4xl text-slate-300 dark:text-slate-600 mb-3"></i>
               <p className="text-slate-600 dark:text-slate-400 mb-4">
-                Vous n'avez pas encore de modèle personnalisé
+                {t("templateManagement.empty.user")}
               </p>
               <button
                 onClick={handleCreateTemplate}
                 className="text-blue-600 dark:text-blue-400 hover:underline"
               >
-                Créer votre premier modèle
+                {t("templateManagement.actions.createFirst")}
               </button>
             </div>
           ) : (
@@ -206,15 +210,17 @@ export default function TemplateManagement() {
  * Template Card Component
  */
 function TemplateCard({ template, onEdit, onDelete, readOnly = false }) {
+  const { t, i18n } = useTranslation("common");
   const entityTypeLabels = {
-    dossier: 'Dossier',
-    proces: 'Procès',
-    session: 'Audience',
+    dossier: t("documentGeneration.entities.dossier"),
+    proces: t("documentGeneration.entities.proces"),
+    session: t("documentGeneration.entities.session"),
   };
 
   const languageLabels = {
-    ar: 'العربية',
-    fr: 'Français',
+    ar: t("documentGeneration.languages.ar"),
+    fr: t("documentGeneration.languages.fr"),
+    en: t("documentGeneration.languages.en"),
   };
 
   return (
@@ -234,7 +240,7 @@ function TemplateCard({ template, onEdit, onDelete, readOnly = false }) {
             {template.template_type === 'system' && (
               <span className="px-2 py-0.5 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 text-xs rounded flex items-center gap-1">
                 <i className="fas fa-lock text-xs"></i>
-                Système
+                {t("templateManagement.badges.system")}
               </span>
             )}
           </div>
@@ -245,14 +251,14 @@ function TemplateCard({ template, onEdit, onDelete, readOnly = false }) {
               <button
                 onClick={() => onEdit(template)}
                 className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors opacity-0 group-hover:opacity-100"
-                title="Modifier"
+                title={t("actions.edit")}
               >
                 <i className="fas fa-edit text-slate-600 dark:text-slate-400"></i>
               </button>
               <button
                 onClick={() => onDelete(template)}
                 className="p-2 hover:bg-red-100 dark:hover:bg-red-900/20 rounded transition-colors opacity-0 group-hover:opacity-100"
-                title="Supprimer"
+                title={t("actions.delete")}
               >
                 <i className="fas fa-trash text-red-600 dark:text-red-400"></i>
               </button>
@@ -261,7 +267,11 @@ function TemplateCard({ template, onEdit, onDelete, readOnly = false }) {
         </div>
       </div>
       <div className="text-xs text-slate-500 dark:text-slate-400">
-        Créé le {new Date(template.created_at).toLocaleDateString('fr-FR')}
+        {t("templateManagement.labels.createdAt", {
+          date: new Date(template.created_at).toLocaleDateString(
+            i18n.language || "en"
+          ),
+        })}
       </div>
     </div>
   );
@@ -491,6 +501,7 @@ const FIELD_DEFINITIONS = {
  * Field Picker Component - Displays fields grouped by category with copy functionality
  */
 function FieldPicker({ entityType, showToast }) {
+  const { t } = useTranslation("common");
   const { currency } = useSettings();
   const [copiedField, setCopiedField] = useState(null);
   const [copiedGroup, setCopiedGroup] = useState(null);
@@ -516,10 +527,10 @@ function FieldPicker({ entityType, showToast }) {
     try {
       await navigator.clipboard.writeText(field.placeholder);
       setCopiedField(field.key + field.placeholder);
-      showToast('Champ copié ! Collez-le dans votre document Word.', 'success');
+      showToast(t("templateManagement.fieldPicker.toasts.fieldCopied"), 'success');
       setTimeout(() => setCopiedField(null), 2000);
     } catch {
-      showToast('Erreur lors de la copie', 'error');
+      showToast(t("templateManagement.fieldPicker.toasts.copyError"), 'error');
     }
   };
 
@@ -528,10 +539,10 @@ function FieldPicker({ entityType, showToast }) {
     try {
       await navigator.clipboard.writeText(placeholders);
       setCopiedGroup(category.key);
-      showToast('Groupe de champs copié ! Collez-les dans votre document Word.', 'success');
+      showToast(t("templateManagement.fieldPicker.toasts.groupCopied"), 'success');
       setTimeout(() => setCopiedGroup(null), 2000);
     } catch {
-      showToast('Erreur lors de la copie', 'error');
+      showToast(t("templateManagement.fieldPicker.toasts.copyError"), 'error');
     }
   };
 
@@ -540,10 +551,10 @@ function FieldPicker({ entityType, showToast }) {
     try {
       await navigator.clipboard.writeText(placeholders.join('\n'));
       setCopiedAll(true);
-      showToast('Tous les champs ont été copiés.', 'success');
+      showToast(t("templateManagement.fieldPicker.toasts.allCopied"), 'success');
       setTimeout(() => setCopiedAll(false), 2000);
     } catch {
-      showToast('Erreur lors de la copie', 'error');
+      showToast(t("templateManagement.fieldPicker.toasts.copyError"), 'error');
     }
   };
 
@@ -574,12 +585,16 @@ function FieldPicker({ entityType, showToast }) {
   const visibleCategories = getVisibleCategories();
   const totalFields = visibleCategories.reduce((sum, category) => sum + category.fields.length, 0);
   const allExpanded = visibleCategories.length > 0 && visibleCategories.every((category) => expandedCategories.has(category.key));
+  const getCategoryLabel = (category) =>
+    t(`templateFields.${category.key}.label`, { defaultValue: category.label });
+  const getFieldLabel = (categoryKey, field) =>
+    t(`templateFields.${categoryKey}.fields.${field.key}`, { defaultValue: field.label });
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="text-xs text-slate-500 dark:text-slate-400">
-          {totalFields} champs disponibles
+          {t("templateManagement.fieldPicker.total", { count: totalFields })}
         </span>
         <div className="flex items-center gap-2">
           <button
@@ -593,7 +608,9 @@ function FieldPicker({ entityType, showToast }) {
             }}
             className="px-3 py-1 text-xs rounded bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
           >
-            {allExpanded ? 'Tout replier' : 'Tout déplier'}
+            {allExpanded
+              ? t("templateManagement.fieldPicker.actions.collapseAll")
+              : t("templateManagement.fieldPicker.actions.expandAll")}
           </button>
           <button
             type="button"
@@ -605,80 +622,96 @@ function FieldPicker({ entityType, showToast }) {
             }`}
           >
             <i className={`fas ${copiedAll ? 'fa-check' : 'fa-copy'} text-xs`}></i>
-            {copiedAll ? 'Copié' : 'Copier tout'}
+            {copiedAll
+              ? t("templateManagement.fieldPicker.actions.copied")
+              : t("templateManagement.fieldPicker.actions.copyAll")}
           </button>
         </div>
       </div>
-      {visibleCategories.map((category) => (
-        <div key={category.key} className="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
-          {/* Category Header */}
-          <div className="px-3 py-2 bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
-            <div className="flex items-center justify-between gap-2">
-              <button
-                type="button"
-                onClick={() => toggleCategory(category.key)}
-                className="flex items-center gap-2 text-left flex-1 min-w-0"
-                aria-expanded={expandedCategories.has(category.key)}
-              >
-                <i className={`fas ${category.icon} text-slate-500 dark:text-slate-400 text-sm`}></i>
-                <span className="font-medium text-slate-700 dark:text-slate-300 text-sm truncate">{category.label}</span>
-                <span className="text-xs text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-700 px-2 py-0.5 rounded">
-                  {category.fields.length}
-                </span>
-                <i className={`fas ${expandedCategories.has(category.key) ? 'fa-chevron-up' : 'fa-chevron-down'} text-xs text-slate-400`}></i>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleCopyCategory(category)}
-                className={`px-3 py-1 text-xs rounded transition-all flex items-center gap-1 ${
-                  copiedGroup === category.key
-                    ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
-                    : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50'
-                }`}
-                title={`Copier tous les champs ${category.label}`}
-              >
-                <i className={`fas ${copiedGroup === category.key ? 'fa-check' : 'fa-layer-group'} text-xs`}></i>
-                {copiedGroup === category.key ? 'Copié' : 'Copier le groupe'}
-              </button>
+      {visibleCategories.map((category) => {
+        const categoryLabel = getCategoryLabel(category);
+        return (
+          <div key={category.key} className="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
+            {/* Category Header */}
+            <div className="px-3 py-2 bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
+              <div className="flex items-center justify-between gap-2">
+                <button
+                  type="button"
+                  onClick={() => toggleCategory(category.key)}
+                  className="flex items-center gap-2 text-left flex-1 min-w-0"
+                  aria-expanded={expandedCategories.has(category.key)}
+                >
+                  <i className={`fas ${category.icon} text-slate-500 dark:text-slate-400 text-sm`}></i>
+                  <span className="font-medium text-slate-700 dark:text-slate-300 text-sm truncate">{categoryLabel}</span>
+                  <span className="text-xs text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-700 px-2 py-0.5 rounded">
+                    {category.fields.length}
+                  </span>
+                  <i className={`fas ${expandedCategories.has(category.key) ? 'fa-chevron-up' : 'fa-chevron-down'} text-xs text-slate-400`}></i>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleCopyCategory(category)}
+                  className={`px-3 py-1 text-xs rounded transition-all flex items-center gap-1 ${
+                    copiedGroup === category.key
+                      ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
+                      : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50'
+                  }`}
+                  title={t("templateManagement.fieldPicker.actions.copyGroupTitle", {
+                    name: categoryLabel,
+                  })}
+                >
+                  <i className={`fas ${copiedGroup === category.key ? 'fa-check' : 'fa-layer-group'} text-xs`}></i>
+                  {copiedGroup === category.key
+                    ? t("templateManagement.fieldPicker.actions.copied")
+                    : t("templateManagement.fieldPicker.actions.copyGroup")}
+                </button>
+              </div>
             </div>
-          </div>
-          {/* Fields */}
-          {expandedCategories.has(category.key) && (
-            <div className="divide-y divide-slate-100 dark:divide-slate-700">
-              {category.fields.map((field) => {
-                const isCopied = copiedField === field.key + field.placeholder;
-                return (
-                  <div
-                    key={field.key}
-                    className="flex items-center justify-between px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors group"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <span className="text-sm text-slate-700 dark:text-slate-300">{field.label}</span>
-                      {/* Tooltip with example */}
-                      <div className="text-xs text-slate-400 dark:text-slate-500 truncate">
-                        Ex: {field.example}
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleCopyField(field)}
-                      className={`ml-2 px-3 py-1 text-xs rounded transition-all flex items-center gap-1 ${
-                        isCopied
-                          ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
-                          : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50'
-                      }`}
-                      title={`Copier le champ "${field.label}"`}
+            {/* Fields */}
+            {expandedCategories.has(category.key) && (
+              <div className="divide-y divide-slate-100 dark:divide-slate-700">
+                {category.fields.map((field) => {
+                  const fieldLabel = getFieldLabel(category.key, field);
+                  const isCopied = copiedField === field.key + field.placeholder;
+                  return (
+                    <div
+                      key={field.key}
+                      className="flex items-center justify-between px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors group"
                     >
-                      <i className={`fas ${isCopied ? 'fa-check' : 'fa-copy'} text-xs`}></i>
-                      {isCopied ? 'Copié' : 'Copier'}
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      ))}
+                      <div className="flex-1 min-w-0">
+                        <span className="text-sm text-slate-700 dark:text-slate-300">{fieldLabel}</span>
+                        {/* Tooltip with example */}
+                        <div className="text-xs text-slate-400 dark:text-slate-500 truncate">
+                          {t("templateManagement.fieldPicker.example", {
+                            example: field.example,
+                          })}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleCopyField(field)}
+                        className={`ml-2 px-3 py-1 text-xs rounded transition-all flex items-center gap-1 ${
+                          isCopied
+                            ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
+                            : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50'
+                        }`}
+                        title={t("templateManagement.fieldPicker.actions.copyFieldTitle", {
+                          name: fieldLabel,
+                        })}
+                      >
+                        <i className={`fas ${isCopied ? 'fa-check' : 'fa-copy'} text-xs`}></i>
+                        {isCopied
+                          ? t("templateManagement.fieldPicker.actions.copied")
+                          : t("templateManagement.fieldPicker.actions.copy")}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -687,6 +720,7 @@ function FieldPicker({ entityType, showToast }) {
  * Template Creation/Edit Modal
  */
 function TemplateModal({ template, onClose, onSave }) {
+  const { t } = useTranslation("common");
   const { showToast } = useToast();
   const isEdit = !!template;
   const entityTypeLabels = {
@@ -720,26 +754,26 @@ function TemplateModal({ template, onClose, onSave }) {
   const handleSubmit = async () => {
     // Validate required fields
     if (!formData.name) {
-      showToast('Le nom du modèle est requis', 'error');
+      showToast(t("templateManagement.modal.errors.nameRequired"), 'error');
       return;
     }
 
     if (!isEdit && !formData.file) {
-      showToast('Le fichier DOCX est requis', 'error');
+      showToast(t("templateManagement.modal.errors.fileRequired"), 'error');
       return;
     }
 
     try {
       if (isEdit) {
         await templateManager.updateUserTemplate(template.id, formData);
-        showToast('Modèle mis à jour avec succès', 'success');
+        showToast(t("templateManagement.toasts.updated"), 'success');
       } else {
         await templateManager.createUserTemplate(formData);
-        showToast('Modèle créé avec succès', 'success');
+        showToast(t("templateManagement.toasts.created"), 'success');
       }
       onSave();
     } catch (error) {
-      showToast(`Erreur: ${error.message}`, 'error');
+      showToast(t("templateManagement.toasts.genericError", { error: error.message }), 'error');
     }
   };
 
@@ -750,10 +784,12 @@ function TemplateModal({ template, onClose, onSave }) {
         <div className="flex-shrink-0 px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
           <div>
             <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
-              {isEdit ? 'Modifier le modèle' : 'Nouveau modèle de document'}
+              {isEdit
+                ? t("templateManagement.modal.title.edit")
+                : t("templateManagement.modal.title.create")}
             </h3>
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-              Créez un modèle Word et laissez Organia remplir les informations automatiquement.
+              {t("templateManagement.modal.subtitle")}
             </p>
           </div>
           <button
@@ -771,22 +807,22 @@ function TemplateModal({ template, onClose, onSave }) {
             <div className="p-5 space-y-4 overflow-y-auto flex-1">
               {/* Section Title */}
               <h4 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                Configuration
+                {t("templateManagement.modal.sections.configuration")}
               </h4>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Choisissez le type de dossier, la langue, puis importez votre fichier .docx.
+                {t("templateManagement.modal.description")}
               </p>
 
               {/* Template Name */}
               <div>
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
-                  Nom du modèle *
+                  {t("templateManagement.modal.fields.name")}
                 </label>
                 <input
                   type="text"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="Ex: Demande d'extraction"
+                  placeholder={t("templateManagement.modal.placeholders.name")}
                   className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 />
               </div>
@@ -794,38 +830,38 @@ function TemplateModal({ template, onClose, onSave }) {
               {/* Entity Type */}
               <div>
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
-                  Type d'entité *
+                  {t("templateManagement.modal.fields.entityType")}
                 </label>
                 <select
                   value={formData.entity_type}
                   onChange={(e) => setFormData({ ...formData, entity_type: e.target.value })}
                   className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 >
-                  <option value="dossier">Dossier</option>
-                  <option value="proces">Procès</option>
-                  <option value="session">Audience</option>
+                  <option value="dossier">{t("documentGeneration.entities.dossier")}</option>
+                  <option value="proces">{t("documentGeneration.entities.proces")}</option>
+                  <option value="session">{t("documentGeneration.entities.session")}</option>
                 </select>
               </div>
 
               {/* Language */}
               <div>
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
-                  Langue *
+                  {t("templateManagement.modal.fields.language")}
                 </label>
                 <select
                   value={formData.language}
                   onChange={(e) => setFormData({ ...formData, language: e.target.value })}
                   className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 >
-                  <option value="fr">Français</option>
-                  <option value="ar">العربية</option>
+                  <option value="fr">{t("documentGeneration.languages.fr")}</option>
+                  <option value="ar">{t("documentGeneration.languages.ar")}</option>
                 </select>
               </div>
 
               {/* Divider */}
               <div className="border-t border-slate-200 dark:border-slate-700 pt-4">
                 <h4 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">
-                  Fichier template
+                  {t("templateManagement.modal.sections.file")}
                 </h4>
 
                 {/* File Upload Zone */}
@@ -841,16 +877,20 @@ function TemplateModal({ template, onClose, onSave }) {
                     {formData.file ? (
                       <span className="text-blue-600 dark:text-blue-400 font-medium">{formData.file.name}</span>
                     ) : (
-                      <>Glissez votre fichier <strong>.docx</strong> ici</>
+                      <>{t("templateManagement.modal.fileDrop")}</>
                     )}
                   </p>
-                  <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">ou cliquez pour parcourir</p>
+                  <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
+                    {t("templateManagement.modal.fileBrowse")}
+                  </p>
                 </div>
 
                 {template?.file_path && !formData.file && (
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 flex items-center gap-1">
                     <i className="fas fa-paperclip"></i>
-                    Actuel: {template.file_path.split('/').pop()}
+                    {t("templateManagement.modal.currentFile", {
+                      name: template.file_path.split('/').pop(),
+                    })}
                   </p>
                 )}
 
@@ -876,7 +916,7 @@ function TemplateModal({ template, onClose, onSave }) {
               <div className="flex items-center justify-between">
                 <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
                   <i className="fas fa-th-list text-blue-500"></i>
-                  Champs disponibles
+                  {t("templateManagement.modal.fieldsAvailable")}
                 </h4>
                 <span className="text-xs font-medium text-white bg-blue-600 px-2 py-1 rounded">
                   {entityTypeLabels[formData.entity_type] || formData.entity_type}
@@ -890,7 +930,8 @@ function TemplateModal({ template, onClose, onSave }) {
               <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
                 <p className="text-sm text-blue-800 dark:text-blue-300">
                   <i className="fas fa-hand-pointer mr-2 text-blue-500"></i>
-                  <strong>Astuce :</strong> Cliquez sur un champ pour le copier, puis collez-le dans votre document Word à l’endroit voulu. Gardez les champs en texte simple.
+                  <strong>{t("templateManagement.modal.tipTitle")}</strong>{" "}
+                  {t("templateManagement.modal.tip")}
                 </p>
               </div>
 
@@ -906,14 +947,16 @@ function TemplateModal({ template, onClose, onSave }) {
             onClick={onClose}
             className="px-4 py-2 border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg font-medium transition-colors text-sm"
           >
-            Annuler
+            {t("actions.cancel")}
           </button>
           <button
             onClick={handleSubmit}
             className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors text-sm flex items-center gap-2"
           >
             <i className={`fas ${isEdit ? 'fa-save' : 'fa-plus'}`}></i>
-            {isEdit ? 'Enregistrer' : 'Créer le modèle'}
+            {isEdit
+              ? t("actions.save")
+              : t("templateManagement.actions.createTemplate")}
           </button>
         </div>
       </div>

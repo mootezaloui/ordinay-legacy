@@ -287,29 +287,46 @@ export default function QuickActions({ onDataChange }) {
   ];
 
   const colors = {
-    blue: "bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600",
-    purple: "bg-purple-600 hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600",
-    amber: "bg-amber-600 hover:bg-amber-700 dark:bg-amber-500 dark:hover:bg-amber-600",
-    green: "bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600",
+    blue: {
+      bg: "from-blue-500/15 via-blue-500/5 to-transparent dark:from-blue-500/25 dark:via-blue-500/10",
+      icon: "bg-blue-500/15 text-blue-700 dark:text-blue-400",
+      border: "border-blue-300 dark:border-blue-500/30",
+    },
+    purple: {
+      bg: "from-purple-500/15 via-purple-500/5 to-transparent dark:from-purple-500/25 dark:via-purple-500/10",
+      icon: "bg-purple-500/15 text-purple-700 dark:text-purple-400",
+      border: "border-purple-300 dark:border-purple-500/30",
+    },
+    amber: {
+      bg: "from-amber-500/15 via-amber-500/5 to-transparent dark:from-amber-500/25 dark:via-amber-500/10",
+      icon: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
+      border: "border-amber-300 dark:border-amber-500/30",
+    },
+    green: {
+      bg: "from-emerald-500/15 via-emerald-500/5 to-transparent dark:from-emerald-500/25 dark:via-emerald-500/10",
+      icon: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
+      border: "border-emerald-300 dark:border-emerald-500/30",
+    },
   };
 
   return (
     <>
       {/* Quick Action Buttons */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {actions.map((action) => (
           <button
             key={action.id}
             onClick={() => setActiveModal(action.type)}
-            className={`p-4 ${colors[action.color]} text-white rounded-xl transition-all duration-200 hover:shadow-lg hover:scale-105 group`}
+            className={`p-4 rounded-2xl border ${colors[action.color].border} bg-slate-50 dark:bg-slate-900/70 shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 group text-slate-900 dark:text-white`}
           >
             <div className="flex flex-col items-center gap-2">
-              <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center group-hover:bg-white/30 transition-colors">
-                <i className={`${action.icon} text-xl`}></i>
+              <div className={`w-12 h-12 rounded-2xl ${colors[action.color].icon} flex items-center justify-center transition-colors`}>
+                <i className={`${action.icon} text-lg`}></i>
               </div>
-              <span className="text-sm font-medium text-center">
+              <span className="text-sm font-semibold text-center">
                 {action.label}
               </span>
+              <span className={`h-1 w-12 rounded-full bg-gradient-to-r ${colors[action.color].bg}`}></span>
             </div>
           </button>
         ))}

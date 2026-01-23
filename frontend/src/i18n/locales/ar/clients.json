@@ -162,6 +162,7 @@
     },
     "tabs": {
       "dossiers": "الملفات",
+      "dossiersEntity": "ملف",
       "dossiersAddSubtitle": "إنشاء ملف جديد لهذا العميل",
       "lawsuits": "القضايا",
       "lawsuitsEntity": "قضية",

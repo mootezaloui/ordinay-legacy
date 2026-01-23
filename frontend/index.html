@@ -143,6 +143,43 @@
         <div id="organia-splash-message">Finding natural balance...</div>
       </div>
     </div>
+    <script>
+      (function() {
+        var defaultMessage = "Finding natural balance...";
+        var messages = {
+          en: "Finding natural balance...",
+          fr: "Retrouver l'équilibre naturel...",
+          ar: "...نبحث عن التوازن الطبيعي"
+        };
+
+        var language = "en";
+        try {
+          var rawSettings = localStorage.getItem("organia_settings");
+          if (rawSettings) {
+            var parsed = JSON.parse(rawSettings);
+            language = (parsed && parsed.settings && parsed.settings.language) || language;
+          }
+        } catch (_err) {
+          language = "en";
+        }
+
+        if (typeof language === "string") {
+          language = language.toLowerCase();
+          if (language.indexOf("-") !== -1) {
+            language = language.split("-")[0];
+          }
+        }
+
+        var message = messages[language] || defaultMessage;
+        var messageEl = document.getElementById("organia-splash-message");
+        if (messageEl) {
+          messageEl.textContent = message;
+        }
+        if (language) {
+          document.documentElement.setAttribute("lang", language);
+        }
+      })();
+    </script>
 
     <div id="root"></div>
     <div id="modal-root"></div>

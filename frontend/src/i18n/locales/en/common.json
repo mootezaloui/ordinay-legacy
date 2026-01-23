@@ -550,6 +550,19 @@
         "create": "Create a new {{entityName}}"
       }
     },
+    "deadlines": {
+      "labels": {
+        "session": "Hearing – {{title}}",
+        "task": "Task – {{title}}",
+        "financial": "Payment due – {{title}}",
+        "manual": "Manual deadline"
+      },
+      "defaults": {
+        "sessionTitle": "Hearing",
+        "taskTitle": "Task",
+        "financialTitle": "Payment"
+      }
+    },
     "aggregated": {
       "empty": {
         "dossiers": "No dossiers for this client",
@@ -781,6 +794,10 @@
     "select": {
       "default": "Choose an option",
       "searching": "Searching...",
+      "noResults": "No results found",
+      "noResultsFor": "for \"{{term}}\"",
+      "createLabel": "Add",
+      "createOption": "{{label}} \"{{term}}\"",
       "noSelection": "No item selected",
       "client": "Select a client",
       "dossier": "Select a dossier",
@@ -1121,6 +1138,362 @@
     "hearings": "Hearings",
     "tasks": "Tasks",
     "missionsBailiff": "Bailiff Missions"
+  },
+  "documentGeneration": {
+    "title": "Generate a document",
+    "subtitle": "Choose a template, then click “Generate”. Organia will auto-fill the dossier information.",
+    "sections": {
+      "configuration": "Configuration"
+    },
+    "labels": {
+      "entity": "Entity:",
+      "reference": "Reference:",
+      "templateType": "Document type",
+      "customTemplate": "Custom",
+      "language": "Language",
+      "variant": "Variant"
+    },
+    "entities": {
+      "dossier": "Dossier",
+      "proces": "Lawsuit",
+      "session": "Hearing"
+    },
+    "languages": {
+      "en": "English",
+      "fr": "French",
+      "ar": "Arabic"
+    },
+    "footerNote": "The document will be generated as Word (.docx) and can be opened and edited with your usual editor.",
+    "actions": {
+      "generate": "Generate document",
+      "generating": "Generating...",
+      "save": "Save",
+      "download": "Download",
+      "saveAndDownload": "Save + Download"
+    },
+    "generated": {
+      "title": "Document generated",
+      "template": "Template: {{name}}",
+      "language": "Language: {{language}}",
+      "saved": "Saved in Documents."
+    },
+    "confirm": {
+      "title": "Missing data",
+      "message": "Some data is missing. Generate anyway?\n\n{{details}}",
+      "confirm": "Generate",
+      "cancel": "Cancel"
+    },
+    "warnings": {
+      "missingFields": "Missing fields: {{fields}}",
+      "unknownFields": "Unknown fields: {{fields}}",
+      "noVariant": "No variant selected."
+    },
+    "toast": {
+      "generated": "Document generated. Choose an action.",
+      "generateError": "Generation error: {{error}}",
+      "saveMissingEntity": "Unable to save: entity not found.",
+      "saved": "Document saved in the Documents tab.",
+      "saveError": "Save error: {{error}}"
+    },
+    "defaults": {
+      "document": "Document",
+      "generatedLabel": "Generated Document"
+    },
+    "emptyTemplates": "No template available for this entity type and language. Create one in Settings → Documents."
+  },
+  "templateManagement": {
+    "header": {
+      "title": "Template management",
+      "subtitle": "Create and manage your Word templates. Organia automatically fills fields from your dossiers."
+    },
+    "actions": {
+      "newTemplate": "New template",
+      "createFirst": "Create your first template",
+      "createTemplate": "Create template"
+    },
+    "sections": {
+      "system": "System templates",
+      "user": "My templates"
+    },
+    "empty": {
+      "system": "No system templates",
+      "user": "You don’t have any custom templates yet"
+    },
+    "badges": {
+      "system": "System"
+    },
+    "labels": {
+      "createdAt": "Created on {{date}}"
+    },
+    "confirmDelete": {
+      "title": "Delete template",
+      "message": "Do you really want to delete the template \"{{name}}\"?",
+      "confirm": "Delete",
+      "cancel": "Cancel"
+    },
+    "toasts": {
+      "systemEditBlocked": "System templates cannot be edited",
+      "systemDeleteBlocked": "System templates cannot be deleted",
+      "deleted": "Template deleted successfully",
+      "updated": "Template updated successfully",
+      "created": "Template created successfully",
+      "genericError": "Error: {{error}}"
+    },
+    "quickGuide": {
+      "title": "Quick guide: create your own template",
+      "subtitle": "Draft your document in Word, insert fields from the list below, then import the .docx file.",
+      "toggle": "View detailed steps",
+      "steps": {
+        "prepare": "Prepare the document in Word (title, paragraphs, header, etc.).",
+        "insert": "Insert Organia fields where values change (client, dossier, dates…).",
+        "save": "Save the file as .docx.",
+        "import": "Import it here via “New template”.",
+        "generate": "Generate a document from a dossier or lawsuit."
+      }
+    },
+    "fieldPicker": {
+      "total": "{{count}} fields available",
+      "example": "Example: {{example}}",
+      "actions": {
+        "expandAll": "Expand all",
+        "collapseAll": "Collapse all",
+        "copyAll": "Copy all",
+        "copyGroup": "Copy group",
+        "copyGroupTitle": "Copy all fields in {{name}}",
+        "copyFieldTitle": "Copy field \"{{name}}\"",
+        "copy": "Copy",
+        "copied": "Copied"
+      },
+      "toasts": {
+        "fieldCopied": "Field copied! Paste it into your Word document.",
+        "groupCopied": "Field group copied! Paste them into your Word document.",
+        "allCopied": "All fields were copied.",
+        "copyError": "Copy failed"
+      }
+    },
+    "modal": {
+      "title": {
+        "create": "New document template",
+        "edit": "Edit template"
+      },
+      "subtitle": "Create a Word template and let Organia fill in the information automatically.",
+      "sections": {
+        "configuration": "Configuration",
+        "file": "Template file"
+      },
+      "description": "Choose the entity type and language, then import your .docx file.",
+      "fields": {
+        "name": "Template name *",
+        "entityType": "Entity type *",
+        "language": "Language *"
+      },
+      "placeholders": {
+        "name": "e.g. Extraction request"
+      },
+      "fileDrop": "Drop your .docx file here",
+      "fileBrowse": "or click to browse",
+      "currentFile": "Current: {{name}}",
+      "fieldsAvailable": "Available fields",
+      "tipTitle": "Tip:",
+      "tip": "Click a field to copy it, then paste it into your Word document where needed. Keep fields as plain text.",
+      "errors": {
+        "nameRequired": "Template name is required",
+        "fileRequired": "DOCX file is required"
+      }
+    }
+  },
+  "templateFields": {
+    "client": {
+      "label": "Client",
+      "fields": {
+        "id": "Client ID",
+        "name": "Full name",
+        "email": "Email",
+        "phone": "Phone",
+        "alternate_phone": "Secondary phone",
+        "address": "Address",
+        "status": "Status",
+        "cin": "National ID",
+        "date_of_birth": "Date of birth",
+        "profession": "Profession",
+        "company": "Company",
+        "tax_id": "Tax ID",
+        "notes": "Notes",
+        "missing_fields": "Missing fields",
+        "created_at": "Created at",
+        "updated_at": "Updated at",
+        "imported": "Imported",
+        "validated": "Validated",
+        "imported_at": "Imported at",
+        "deleted_at": "Deleted at"
+      }
+    },
+    "dossier": {
+      "label": "Dossier",
+      "fields": {
+        "id": "Dossier ID",
+        "reference": "Reference",
+        "client_id": "Client ID",
+        "title": "Title",
+        "description": "Description",
+        "category": "Category",
+        "phase": "Phase",
+        "adversary_party": "Adverse party",
+        "adversary_lawyer": "Adverse lawyer",
+        "estimated_value": "Estimated value",
+        "court_reference": "Court reference",
+        "assigned_lawyer": "Assigned lawyer",
+        "status": "Status",
+        "priority": "Priority",
+        "opened_at": "Opened at",
+        "next_deadline": "Next deadline",
+        "closed_at": "Closed at",
+        "created_at": "Created at",
+        "updated_at": "Updated at",
+        "imported": "Imported",
+        "validated": "Validated",
+        "imported_at": "Imported at",
+        "deleted_at": "Deleted at"
+      }
+    },
+    "proces": {
+      "label": "Lawsuit",
+      "fields": {
+        "id": "Lawsuit ID",
+        "reference": "Reference",
+        "case_number": "Case number",
+        "dossier_id": "Dossier ID",
+        "title": "Title",
+        "description": "Description",
+        "adversary": "Adversary",
+        "adversary_party": "Adverse party",
+        "adversary_lawyer": "Adverse lawyer",
+        "court": "Court",
+        "filing_date": "Filing date",
+        "next_hearing": "Next hearing",
+        "judgment_number": "Judgment number",
+        "judgment_date": "Judgment date",
+        "reference_number": "Court reference",
+        "status": "Status",
+        "priority": "Priority",
+        "opened_at": "Opened at",
+        "closed_at": "Closed at",
+        "created_at": "Created at",
+        "updated_at": "Updated at",
+        "imported": "Imported",
+        "validated": "Validated",
+        "imported_at": "Imported at",
+        "deleted_at": "Deleted at"
+      }
+    },
+    "court": {
+      "label": "Court",
+      "fields": {
+        "name": "Name",
+        "address": "Address",
+        "city": "City"
+      }
+    },
+    "lawyer": {
+      "label": "Lawyer",
+      "fields": {
+        "name": "Full name",
+        "title": "Title",
+        "firm_name": "Firm name",
+        "office_name": "Office name",
+        "office_address": "Office address",
+        "phone": "Phone",
+        "fax": "Fax",
+        "mobile": "Mobile",
+        "email": "Email",
+        "bar_id": "Bar ID",
+        "vpa": "VPA"
+      }
+    },
+    "session": {
+      "label": "Hearing / Session",
+      "fields": {
+        "id": "Hearing ID",
+        "title": "Title",
+        "status": "Status",
+        "scheduled_at": "Scheduled at",
+        "session_date": "Session date",
+        "duration": "Duration",
+        "location": "Location",
+        "court_room": "Court room",
+        "judge": "Judge",
+        "outcome": "Outcome",
+        "description": "Description",
+        "notes": "Notes",
+        "participants": "Participants",
+        "dossier_id": "Dossier ID",
+        "lawsuit_id": "Lawsuit ID",
+        "created_at": "Created at",
+        "updated_at": "Updated at",
+        "imported": "Imported",
+        "validated": "Validated",
+        "imported_at": "Imported at",
+        "deleted_at": "Deleted at",
+        "date": "Date (shortcut)"
+      }
+    },
+    "financial_entry": {
+      "label": "Financial entries",
+      "fields": {
+        "id": "Entry ID",
+        "scope": "Scope",
+        "client_id": "Client ID",
+        "dossier_id": "Dossier ID",
+        "lawsuit_id": "Lawsuit ID",
+        "mission_id": "Mission ID",
+        "task_id": "Task ID",
+        "personal_task_id": "Personal task ID",
+        "status": "Status",
+        "category": "Category",
+        "amount": "Amount",
+        "currency": "Currency",
+        "occurred_at": "Transaction date",
+        "paid_at": "Paid at",
+        "title": "Title",
+        "description": "Description",
+        "reference": "Reference",
+        "notes": "Notes",
+        "direction": "Direction",
+        "cancelled_at": "Canceled at",
+        "created_at": "Created at",
+        "updated_at": "Updated at",
+        "imported": "Imported",
+        "validated": "Validated",
+        "imported_at": "Imported at",
+        "deleted_at": "Deleted at"
+      }
+    },
+    "adversary": {
+      "label": "Adverse party",
+      "fields": {
+        "name": "Name"
+      }
+    },
+    "judgment": {
+      "label": "Judgment",
+      "fields": {
+        "number": "Number",
+        "date": "Date"
+      }
+    },
+    "document": {
+      "label": "Document",
+      "fields": {
+        "copy_type": "Copy type"
+      }
+    },
+    "today": {
+      "label": "Dates",
+      "fields": {}
+    }
+  },
+  "startup": {
+    "splashMessage": "Finding natural balance..."
   },
   "status": {
     "loading": "Loading..."

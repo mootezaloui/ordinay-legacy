@@ -8,6 +8,7 @@ import UpcomingEvents from "../components/dashboard/UpcomingEvents";
 import QuickActions from "../components/dashboard/QuickActions";
 import TaskList from "../components/dashboard/TaskList";
 import { useSettings } from "../contexts/SettingsContext";
+import { useOperator } from '../contexts/OperatorContext';
 import { useData } from "../contexts/DataContext";
 import { useTranslation } from "react-i18next";
 import { getDashboardSummary } from "../services/api/dashboard";
@@ -18,6 +19,7 @@ import { getGreetingKey, getContextMessage } from "../utils/greetings";
 export default function Dashboard() {
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const { operator } = useOperator();
   const [isWorkloadCollapsed, setWorkloadCollapsed] = useState(false);
   const [isLoadMapCollapsed, setLoadMapCollapsed] = useState(false);
   const { formatDate: formatDisplayDate, formatCurrency } = useSettings();
@@ -44,6 +46,22 @@ export default function Dashboard() {
   };
   const [summary, setSummary] = useState(initialSummary);
   const [isLoadingSummary, setIsLoadingSummary] = useState(true);
+  const latinizeDigits = (value) => {
+    const text = String(value ?? "");
+    const map = {
+      "٠": "0",
+      "١": "1",
+      "٢": "2",
+      "٣": "3",
+      "٤": "4",
+      "٥": "5",
+      "٦": "6",
+      "٧": "7",
+      "٨": "8",
+      "٩": "9",
+    };
+    return text.replace(/[٠-٩]/g, (match) => map[match] || match);
+  };
 
   useEffect(() => {
     if (typeof window !== "undefined" && window.innerWidth < 768) {
@@ -107,6 +125,9 @@ export default function Dashboard() {
   const recentActivities = useMemo(() => {
     const activities = [];
 
+    // Use operator name or fallback
+    const operatorName = operator?.name || "Principal Lawyer";
+
     // Recent clients
     operationalClients.slice(0, 2).forEach(client => {
       activities.push({
@@ -115,7 +136,7 @@ export default function Dashboard() {
         title: t("dashboard.activities.newClient", { name: client.name }),
         description: client.email,
         timestamp: client.joinDate || new Date().toISOString(),
-        user: "Me. Hammami",
+        user: operatorName,
         onClick: () => navigate(`/clients/${client.id}`),
       });
     });
@@ -128,7 +149,7 @@ export default function Dashboard() {
         title: t("dashboard.activities.dossierUpdated", { lawsuitNumber: dossier.lawsuitNumber }),
         description: dossier.title,
         timestamp: dossier.openDate || new Date().toISOString(),
-        user: "Me. Sassi",
+        user: operatorName,
         onClick: () => navigate(`/dossiers/${dossier.id}`),
       });
     });
@@ -144,14 +165,14 @@ export default function Dashboard() {
           time: session.time,
         }),
         timestamp: new Date().toISOString(),
-        user: "Me. Cherif",
+        user: operatorName,
         onClick: () => navigate(`/sessions/${session.id}`),
       });
     });
 
     // Sort by timestamp
     return activities.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-  }, [operationalClients, operationalDossiers, operationalSessions, formatDisplayDate, navigate, t]);
+  }, [operationalClients, operationalDossiers, operationalSessions, formatDisplayDate, navigate, t, operator]);
 
   // Get upcoming events
   const upcomingEvents = useMemo(() => {
@@ -435,87 +456,108 @@ export default function Dashboard() {
   return (
     <PageLayout>
       {/* Hero Section with Greeting */}
-      <div className="mb-10">
-        <div className="flex flex-col gap-2">
-          <h1 className="text-4xl font-bold text-slate-900 dark:text-white leading-tight tracking-tight">
-            {greeting}
-          </h1>
-          {context && (
-            <p className="text-lg text-slate-600 dark:text-slate-400">
-              {context}
-            </p>
-          )}
-          {!context && (
-            <p className="text-lg text-slate-600 dark:text-slate-400">
-              {t("dashboard.subtitle")}
-            </p>
-          )}
+      <div className="mb-8">
+        <div className="rounded-2xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900/70 backdrop-blur-xl shadow-md px-6 py-5">
+          <div className="flex flex-col gap-2">
+            <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              <span className="h-2 w-2 rounded-full bg-blue-500 shadow-sm shadow-blue-500/40"></span>
+              {t("dashboard.title")}
+            </div>
+            <h1 className="text-3xl sm:text-4xl font-semibold text-slate-900 dark:text-white leading-tight tracking-tight">
+              {greeting}
+            </h1>
+            {context && (
+              <p className="text-base sm:text-lg text-slate-600 dark:text-slate-400">
+                {context}
+              </p>
+            )}
+            {!context && (
+              <p className="text-base sm:text-lg text-slate-600 dark:text-slate-400">
+                {t("dashboard.subtitle")}
+              </p>
+            )}
+          </div>
         </div>
       </div>
 
       <div className="space-y-8">
         {/* Stats Grid - Primary Focus */}
         <div>
-          <h2 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-4">
-            {t("dashboard.title")}
-          </h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+              {t("dashboard.title")}
+            </h2>
+            <div className="hidden sm:flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+              <span className="px-2 py-1 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200/70 dark:border-slate-700/60">
+                {t("dashboard.stats.trendVsLastMonth")}
+              </span>
+            </div>
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5" data-tutorial="dashboard-stats">
-          <StatCard
-            label={t("dashboard.stats.totalClients")}
-            value={isLoadingSummary ? "—" : stats.clients.total}
-            icon="fas fa-users"
-            color="blue"
-            trend={isLoadingSummary ? undefined : stats.clients.trend}
-            trendLabel={!isLoadingSummary ? t("dashboard.stats.trendVsLastMonth") : undefined}
-            onClick={() => navigate("/clients")}
-          />
+            <StatCard
+              label={t("dashboard.stats.totalClients")}
+              value={isLoadingSummary ? "—" : latinizeDigits(stats.clients.total)}
+              icon="fas fa-users"
+              color="blue"
+              trend={isLoadingSummary ? undefined : stats.clients.trend}
+              trendLabel={
+                !isLoadingSummary ? latinizeDigits(t("dashboard.stats.trendVsLastMonth")) : undefined
+              }
+              onClick={() => navigate("/clients")}
+            />
 
-          <StatCard
-            label={t("dashboard.stats.activeDossiers")}
-            value={isLoadingSummary ? "—" : stats.dossiers.active}
-            icon="fas fa-folder-open"
-            color="purple"
-            trendLabel={
-              !isLoadingSummary
-                ? t("dashboard.stats.newThisWeek", { count: stats.dossiers.newThisWeek })
-                : undefined
-            }
-            onClick={() => navigate("/dossiers")}
-          />
+            <StatCard
+              label={t("dashboard.stats.activeDossiers")}
+              value={isLoadingSummary ? "—" : latinizeDigits(stats.dossiers.active)}
+              icon="fas fa-folder-open"
+              color="purple"
+              trendLabel={
+                !isLoadingSummary
+                  ? latinizeDigits(t("dashboard.stats.newThisWeek", { count: stats.dossiers.newThisWeek }))
+                  : undefined
+              }
+              onClick={() => navigate("/dossiers")}
+            />
 
-          <StatCard
-            label={t("dashboard.stats.pendingTasks")}
-            value={isLoadingSummary ? "—" : stats.tasks.pending}
-            icon="fas fa-tasks"
-            color="amber"
-            trendLabel={
-              !isLoadingSummary ? t("dashboard.stats.dueToday", { count: stats.tasks.dueToday }) : undefined
-            }
-            onClick={() => navigate("/tasks")}
-          />
+            <StatCard
+              label={t("dashboard.stats.pendingTasks")}
+              value={isLoadingSummary ? "—" : latinizeDigits(stats.tasks.pending)}
+              icon="fas fa-tasks"
+              color="amber"
+              trendLabel={
+                !isLoadingSummary
+                  ? latinizeDigits(t("dashboard.stats.dueToday", { count: stats.tasks.dueToday }))
+                  : undefined
+              }
+              onClick={() => navigate("/tasks")}
+            />
 
-          <StatCard
-            label={t("dashboard.stats.revenue")}
-            value={
-              isLoadingSummary
-                ? "—"
-                : formatCurrency(stats.revenue.total)
-            }
-            icon="fas fa-dollar-sign"
-            color="green"
-            trend={isLoadingSummary ? undefined : stats.revenue.trend}
-            trendLabel={!isLoadingSummary ? t("dashboard.stats.trendVsLastMonth") : undefined}
-            onClick={() => navigate("/accounting")}
-          />
+            <StatCard
+              label={t("dashboard.stats.revenue")}
+              value={
+                isLoadingSummary
+                  ? "—"
+                  : formatCurrency(stats.revenue.total)
+              }
+              icon="fas fa-dollar-sign"
+              color="green"
+              trend={isLoadingSummary ? undefined : stats.revenue.trend}
+              trendLabel={
+                !isLoadingSummary ? latinizeDigits(t("dashboard.stats.trendVsLastMonth")) : undefined
+              }
+              onClick={() => navigate("/accounting")}
+            />
           </div>
         </div>
 
         {/* Quick Actions */}
-        <ContentSection>
-          <div className="p-6">
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
+        <ContentSection className="bg-white dark:bg-slate-900/75 border-slate-300 dark:border-slate-700 rounded-2xl shadow-md">
+          <div className="px-6 py-5 border-b border-slate-200/70 dark:border-slate-700/60">
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
               {t("dashboard.quickActions.title")}
             </h2>
+          </div>
+          <div className="p-6">
             <QuickActions />
           </div>
         </ContentSection>
@@ -523,14 +565,20 @@ export default function Dashboard() {
         {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Urgent Tasks */}
-          <ContentSection title={t("dashboard.urgentTasks.title", { count: urgentTasks.length })}>
+          <ContentSection
+            title={latinizeDigits(t("dashboard.urgentTasks.title", { count: urgentTasks.length }))}
+            className="bg-white dark:bg-slate-900/75 border-slate-300 dark:border-slate-700 rounded-2xl shadow-md"
+          >
             <div className="p-6">
               <TaskList tasks={urgentTasks} maxItems={5} />
             </div>
           </ContentSection>
 
           {/* Upcoming Events */}
-          <ContentSection title={t("dashboard.upcomingEvents.title", { count: upcomingEvents.length })}>
+          <ContentSection
+            title={latinizeDigits(t("dashboard.upcomingEvents.title", { count: upcomingEvents.length }))}
+            className="bg-white dark:bg-slate-900/75 border-slate-300 dark:border-slate-700 rounded-2xl shadow-md"
+          >
             <div className="p-6">
               <UpcomingEvents events={upcomingEvents} maxItems={5} />
             </div>
@@ -546,11 +594,12 @@ export default function Dashboard() {
               actions={
                 <button
                   onClick={() => setWorkloadCollapsed(!isWorkloadCollapsed)}
-                  className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                  className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 px-2 py-1 rounded-lg transition-colors"
                 >
                   {isWorkloadCollapsed ? t("dashboard.workload.show") : t("dashboard.workload.hide")}
                 </button>
               }
+              className="bg-white dark:bg-slate-900/75 border-slate-300 dark:border-slate-700 rounded-2xl shadow-md"
             >
               {!isWorkloadCollapsed && (
                 <div className="p-6 space-y-5">
@@ -563,7 +612,7 @@ export default function Dashboard() {
                         {t("dashboard.workload.guiding")}
                       </p>
                     </div>
-                    <div className={`flex items-center gap-2 px-3 py-1 rounded-full ${immediateStyles.badge}`}>
+                    <div className={`flex items-center gap-2 px-3 py-1 rounded-full ${immediateStyles.badge} border border-slate-200/40 dark:border-slate-700/30`}>
                       <span className="text-xs font-semibold uppercase tracking-wide">
                         {t("dashboard.workload.pressureLabel", {
                           level: t(`dashboard.workload.pressure.${immediateLevel}`),
@@ -593,7 +642,7 @@ export default function Dashboard() {
                         return (
                           <div
                             key={bucket.key}
-                            className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm"
+                            className="p-4 rounded-2xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/60 shadow-sm"
                           >
                             <div className="flex items-start justify-between gap-3">
                               <div>
@@ -611,9 +660,9 @@ export default function Dashboard() {
 
                             <div className="mt-3 flex items-center gap-3">
                               <div className="text-3xl font-semibold text-slate-900 dark:text-white">
-                                {bucket.total}
+                                {latinizeDigits(bucket.total)}
                               </div>
-                              <div className="flex-1 h-2 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
+                              <div className="flex-1 h-2 rounded-full bg-slate-200 dark:bg-slate-800/80 overflow-hidden">
                                 <div
                                   className={`h-full ${styles.bar}`}
                                   style={{ width: `${Math.min(100, bucket.total * 12)}%` }}
@@ -632,9 +681,11 @@ export default function Dashboard() {
                                     <span>{workloadTypeLabels[type.key]}</span>
                                   </div>
                                   <span className="font-semibold text-slate-900 dark:text-white">
-                                    {t(`dashboard.workload.counts.${type.key}`, {
-                                      count: bucket.byType[type.key] || 0,
-                                    })}
+                                    {latinizeDigits(
+                                      t(`dashboard.workload.counts.${type.key}`, {
+                                        count: bucket.byType[type.key] || 0,
+                                      })
+                                    )}
                                   </span>
                                 </div>
                               ))}
@@ -662,11 +713,12 @@ export default function Dashboard() {
               actions={
                 <button
                   onClick={() => setLoadMapCollapsed(!isLoadMapCollapsed)}
-                  className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                  className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 px-2 py-1 rounded-lg transition-colors"
                 >
                   {isLoadMapCollapsed ? t("dashboard.loadMap.show") : t("dashboard.loadMap.hide")}
                 </button>
               }
+              className="bg-white dark:bg-slate-900/75 border-slate-300 dark:border-slate-700 rounded-2xl shadow-md"
             >
               {!isLoadMapCollapsed && (
                 <div className="p-6">
@@ -693,17 +745,19 @@ export default function Dashboard() {
                         return (
                           <div
                             key={week.key}
-                            className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
+                            className="p-4 rounded-2xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/60"
                           >
                             <div className="flex items-start justify-between gap-3">
                               <div>
                                 <p className="text-sm font-semibold text-slate-800 dark:text-white">{week.label}</p>
                                 <p className="text-xs text-slate-500 dark:text-slate-400">{week.range}</p>
                               </div>
-                              <span className="text-sm font-semibold text-slate-900 dark:text-white">{week.total}</span>
+                              <span className="text-sm font-semibold text-slate-900 dark:text-white">
+                                {latinizeDigits(week.total)}
+                              </span>
                             </div>
 
-                            <div className="mt-3 h-2 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
+                            <div className="mt-3 h-2 rounded-full bg-slate-200 dark:bg-slate-800/80 overflow-hidden">
                               <div
                                 className={`h-full ${intensityClasses}`}
                                 style={{ width: `${barWidth}%` }}
@@ -718,9 +772,11 @@ export default function Dashboard() {
                                     <span>{workloadTypeLabels[type.key]}</span>
                                   </div>
                                   <span className="font-semibold text-slate-900 dark:text-white">
-                                    {t(`dashboard.workload.counts.${type.key}`, {
-                                      count: week.byType[type.key] || 0,
-                                    })}
+                                    {latinizeDigits(
+                                      t(`dashboard.workload.counts.${type.key}`, {
+                                        count: week.byType[type.key] || 0,
+                                      })
+                                    )}
                                   </span>
                                 </div>
                               ))}
@@ -737,7 +793,10 @@ export default function Dashboard() {
 
           {/* Recent Activity - takes 2 columns */}
           <div className="lg:col-span-2">
-            <ContentSection title={t("dashboard.recentActivity.title")}>
+            <ContentSection
+              title={t("dashboard.recentActivity.title")}
+              className="bg-white dark:bg-slate-900/75 border-slate-300 dark:border-slate-700 rounded-2xl shadow-md"
+            >
               <div className="p-6">
                 <ActivityFeed activities={recentActivities} maxItems={6} />
               </div>
@@ -745,7 +804,10 @@ export default function Dashboard() {
           </div>
 
           {/* Quick Stats Panel */}
-          <ContentSection title={t("dashboard.quickStats.title")}>
+          <ContentSection
+            title={t("dashboard.quickStats.title")}
+            className="bg-white dark:bg-slate-900/75 border-slate-300 dark:border-slate-700 rounded-2xl shadow-md"
+          >
             <div className="p-6 space-y-4">
               {/* Dossiers by Status */}
               <div>

@@ -12,6 +12,10 @@
 
 import { formatDateValue } from "./dateFormat.js";
 import { filterOperationalEntities, isOperationalEntity } from "./importState";
+import i18next from "i18next";
+
+const tDeadline = (key, options = {}) =>
+  i18next.t(key, { ns: "common", ...options });
 
 /**
  * Calculate the next upcoming hearing/session for a lawsuit (procès)
@@ -35,6 +39,8 @@ export function calculateNextHearing(lawsuitEntity, relatedSessions = []) {
     if (session.date) {
       const sessionDate = parseDate(session.date);
       if (sessionDate && sessionDate >= now) {
+        const sessionTitle =
+          session.title || tDeadline("detail.deadlines.defaults.sessionTitle");
         // Combine date and time for more accurate sorting
         let sessionDateTime = sessionDate;
         if (session.time) {
@@ -55,7 +61,7 @@ export function calculateNextHearing(lawsuitEntity, relatedSessions = []) {
           datetime: sessionDateTime,
           time: session.time,
           type: "session",
-          label: session.title || "Audience",
+          label: sessionTitle,
           location: session.location,
           entityId: session.id,
           entity: session,
@@ -69,22 +75,18 @@ export function calculateNextHearing(lawsuitEntity, relatedSessions = []) {
   if (lawsuitEntity.nextHearing) {
     const manualHearing = parseDate(lawsuitEntity.nextHearing);
     if (manualHearing && manualHearing >= now) {
-      candidates.push({
-        date: manualHearing,
-        datetime: manualHearing,
-        time: null,
-        type: "manual",
-        // Use i18n if provided, fallback to old string
-        label:
-          typeof t === "function"
-            ? t("common:scheduledHearing", { title: "" })
-            : "Audience programmée",
-        location: null,
-        entityId: null,
-        entity: null,
-        sortKey: manualHearing.getTime(),
-      });
-    }
+        candidates.push({
+          date: manualHearing,
+          datetime: manualHearing,
+          time: null,
+          type: "manual",
+          label: tDeadline("detail.deadlines.labels.manual"),
+          location: null,
+          entityId: null,
+          entity: null,
+          sortKey: manualHearing.getTime(),
+        });
+      }
   }
 
   if (candidates.length === 0) {
@@ -128,10 +130,14 @@ export function calculateNextDeadline(
     if (session.date) {
       const sessionDate = parseDate(session.date);
       if (sessionDate && sessionDate >= now) {
+        const sessionTitle =
+          session.title || tDeadline("detail.deadlines.defaults.sessionTitle");
         candidates.push({
           date: sessionDate,
           type: "session",
-          label: `Audience – ${session.title || "Session"}`,
+          label: tDeadline("detail.deadlines.labels.session", {
+            title: sessionTitle,
+          }),
           entityId: session.id,
           entity: session,
           sortKey: sessionDate.getTime(),
@@ -145,10 +151,14 @@ export function calculateNextDeadline(
     if (task.dueDate) {
       const taskDate = parseDate(task.dueDate);
       if (taskDate && taskDate >= now) {
+        const taskTitle =
+          task.title || tDeadline("detail.deadlines.defaults.taskTitle");
         candidates.push({
           date: taskDate,
           type: "task",
-          label: `Tâche – ${task.title || "Task"}`,
+          label: tDeadline("detail.deadlines.labels.task", {
+            title: taskTitle,
+          }),
           entityId: task.id,
           entity: task,
           sortKey: taskDate.getTime(),
@@ -162,10 +172,15 @@ export function calculateNextDeadline(
     if (entry.date && entry.type === "expense" && entry.status !== "paid") {
       const entryDate = parseDate(entry.date);
       if (entryDate && entryDate >= now) {
+        const entryTitle =
+          entry.description ||
+          tDeadline("detail.deadlines.defaults.financialTitle");
         candidates.push({
           date: entryDate,
           type: "financial",
-          label: `Échéance de paiement – ${entry.description || "Payment"}`,
+          label: tDeadline("detail.deadlines.labels.financial", {
+            title: entryTitle,
+          }),
           entityId: entry.id,
           entity: entry,
           sortKey: entryDate.getTime(),
@@ -181,7 +196,7 @@ export function calculateNextDeadline(
       candidates.push({
         date: manualDeadline,
         type: "manual",
-        label: "Manual deadline",
+        label: tDeadline("detail.deadlines.labels.manual"),
         entityId: null,
         entity: null,
         sortKey: manualDeadline.getTime(),
@@ -234,10 +249,14 @@ export function getAllUpcomingDeadlines(
     if (session.date) {
       const sessionDate = parseDate(session.date);
       if (sessionDate && sessionDate >= now) {
+        const sessionTitle =
+          session.title || tDeadline("detail.deadlines.defaults.sessionTitle");
         candidates.push({
           date: sessionDate,
           type: "session",
-          label: `Audience – ${session.title || "Session"}`,
+          label: tDeadline("detail.deadlines.labels.session", {
+            title: sessionTitle,
+          }),
           entityId: session.id,
           entity: session,
           sortKey: sessionDate.getTime(),
@@ -250,10 +269,14 @@ export function getAllUpcomingDeadlines(
     if (task.dueDate) {
       const taskDate = parseDate(task.dueDate);
       if (taskDate && taskDate >= now) {
+        const taskTitle =
+          task.title || tDeadline("detail.deadlines.defaults.taskTitle");
         candidates.push({
           date: taskDate,
           type: "task",
-          label: `Tâche – ${task.title || "Task"}`,
+          label: tDeadline("detail.deadlines.labels.task", {
+            title: taskTitle,
+          }),
           entityId: task.id,
           entity: task,
           sortKey: taskDate.getTime(),
@@ -266,10 +289,15 @@ export function getAllUpcomingDeadlines(
     if (entry.date && entry.type === "expense" && entry.status !== "paid") {
       const entryDate = parseDate(entry.date);
       if (entryDate && entryDate >= now) {
+        const entryTitle =
+          entry.description ||
+          tDeadline("detail.deadlines.defaults.financialTitle");
         candidates.push({
           date: entryDate,
           type: "financial",
-          label: `Échéance de paiement – ${entry.description || "Payment"}`,
+          label: tDeadline("detail.deadlines.labels.financial", {
+            title: entryTitle,
+          }),
           entityId: entry.id,
           entity: entry,
           sortKey: entryDate.getTime(),
@@ -284,7 +312,7 @@ export function getAllUpcomingDeadlines(
       candidates.push({
         date: manualDeadline,
         type: "manual",
-        label: "Manual deadline",
+        label: tDeadline("detail.deadlines.labels.manual"),
         entityId: null,
         entity: null,
         sortKey: manualDeadline.getTime(),

@@ -21,7 +21,7 @@ export default function SearchableSelect({
   compact = false, // ✅ NEW: Compact mode support
   allowCreate = false, // ✅ NEW: Allow creating new options
   onCreateOption = null, // ✅ NEW: Callback when creating new option
-  createLabel = "Ajouter", // ✅ NEW: Label for create button
+  createLabel = null, // ✅ NEW: Label for create button
   placement = "bottom", // NEW: allow opening above when dropdown would be clipped
 }) {
   const { t } = useTranslation("common");
@@ -190,6 +190,7 @@ export default function SearchableSelect({
     ? "border-red-500 dark:border-red-500"
     : "border-slate-300 dark:border-slate-600"
     } ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-text hover:border-slate-400 dark:hover:border-slate-500"} ${className}`;
+  const resolvedCreateLabel = createLabel || t("form.select.createLabel");
 
   return (
     <div ref={containerRef} className="relative">
@@ -262,10 +263,10 @@ export default function SearchableSelect({
           ) : (
             <div className={`px-3 ${compact ? 'py-4' : 'py-6'} text-center text-slate-500 dark:text-slate-400 text-sm`}>
               <i className={`fas fa-search ${compact ? 'text-xl' : 'text-2xl'} mb-2 opacity-50`}></i>
-              <p>No results found</p>
+              <p>{t("form.select.noResults")}</p>
               {searchTerm && (
                 <p className="text-xs mt-1">
-                  for "{searchTerm}"
+                  {t("form.select.noResultsFor", { term: searchTerm })}
                 </p>
               )}
             </div>
@@ -280,7 +281,7 @@ export default function SearchableSelect({
                 className="w-full px-3 py-2 text-left text-sm font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors flex items-center gap-2"
               >
                 <i className="fas fa-plus"></i>
-                <span>{createLabel} "{searchTerm.trim()}"</span>
+                <span>{t("form.select.createOption", { term: searchTerm.trim(), label: resolvedCreateLabel })}</span>
               </button>
             </div>
           )}
