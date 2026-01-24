@@ -231,6 +231,33 @@
       "entityType": "Sélectionnez si la mission concerne un dossier ou un procès",
       "entityReferenceSelect": "Sélectionnez le dossier ou le procès pour cette mission"
     },
+    "feesSection": {
+      "title": "Frais d'huissier",
+      "summary_one": "{{count}} entrée • Total : {{total}}",
+      "summary_other": "{{count}} entrées • Total : {{total}}",
+      "add": "Ajouter",
+      "entryTitle": "Frais {{index}}",
+      "delete": "Supprimer ces frais",
+      "labels": {
+        "amount": "Montant ({{currency}})",
+        "date": "Date",
+        "status": "Statut",
+        "description": "Description"
+      },
+      "placeholders": {
+        "amount": "0,00",
+        "description": "Ex : frais de service, frais de déplacement..."
+      },
+      "status": {
+        "draft": "Brouillon",
+        "confirmed": "Confirmé",
+        "paid": "Payé"
+      },
+      "empty": {
+        "title": "Aucun frais ajouté pour le moment.",
+        "subtitle": "Cliquez sur « Ajouter » pour enregistrer les frais de cette mission"
+      }
+    },
     "options": {
       "missionType": {
         "Service": "Signification",

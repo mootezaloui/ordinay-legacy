@@ -231,6 +231,37 @@
       "entityType": "حدد ما إذا كانت المهمة تتعلق بملف أو بقضية",
       "entityReferenceSelect": "حدد الملف أو القضية لهذه المهمة"
     },
+    "feesSection": {
+      "title": "رسوم المحضر",
+      "summary_zero": "لا توجد إدخالات • المجموع: {{total}}",
+      "summary_one": "إدخال واحد • المجموع: {{total}}",
+      "summary_two": "إدخالان • المجموع: {{total}}",
+      "summary_few": "{{count}} إدخالات • المجموع: {{total}}",
+      "summary_many": "{{count}} إدخالًا • المجموع: {{total}}",
+      "summary_other": "{{count}} إدخال • المجموع: {{total}}",
+      "add": "إضافة",
+      "entryTitle": "رسوم {{index}}",
+      "delete": "حذف هذه الرسوم",
+      "labels": {
+        "amount": "المبلغ ({{currency}})",
+        "date": "التاريخ",
+        "status": "الحالة",
+        "description": "الوصف"
+      },
+      "placeholders": {
+        "amount": "0.00",
+        "description": "مثال: رسوم الخدمة، مصاريف التنقل..."
+      },
+      "status": {
+        "draft": "مسودة",
+        "confirmed": "مؤكد",
+        "paid": "مدفوع"
+      },
+      "empty": {
+        "title": "لم تتم إضافة رسوم بعد.",
+        "subtitle": "اضغط «إضافة» لحفظ رسوم هذه المهمة"
+      }
+    },
     "options": {
       "missionType": {
         "Service": "تبليغ",

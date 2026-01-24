@@ -231,6 +231,33 @@
       "entityType": "Select whether the mission concerns a dossier or a lawsuit",
       "entityReferenceSelect": "Select the dossier or lawsuit for this mission"
     },
+    "feesSection": {
+      "title": "Bailiff Fees",
+      "summary_one": "{{count}} entry • Total: {{total}}",
+      "summary_other": "{{count}} entries • Total: {{total}}",
+      "add": "Add",
+      "entryTitle": "Fee {{index}}",
+      "delete": "Delete this fee",
+      "labels": {
+        "amount": "Amount ({{currency}})",
+        "date": "Date",
+        "status": "Status",
+        "description": "Description"
+      },
+      "placeholders": {
+        "amount": "0.00",
+        "description": "Ex: Service fees, travel expenses..."
+      },
+      "status": {
+        "draft": "Draft",
+        "confirmed": "Confirmed",
+        "paid": "Paid"
+      },
+      "empty": {
+        "title": "No fees added yet.",
+        "subtitle": "Click \"Add\" to save the fees for this mission"
+      }
+    },
     "options": {
       "missionType": {
         "Service": "Service",

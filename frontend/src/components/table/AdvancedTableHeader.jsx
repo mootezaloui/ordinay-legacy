@@ -59,7 +59,7 @@ export default function AdvancedTableHeader({
   };
 
   return (
-    <thead className="bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700">
+    <thead className="bg-slate-100/70 dark:bg-slate-800 border-b border-slate-300 dark:border-slate-700">
       <tr>
         {columns.map((column, index) => {
           const isSorted = sortBy === column.id;
@@ -79,16 +79,16 @@ export default function AdvancedTableHeader({
               onDrop={(e) => handleDrop(e, index)}
               onDragEnd={handleDragEnd}
               style={getColumnStyle(column)}
-              className={`
-                h-12 px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider
+            className={`
+                h-12 px-6 py-3 text-left text-[11px] font-semibold uppercase tracking-wider
                 transition-colors duration-150
                 ${isEmpty
                   ? "text-slate-400 dark:text-slate-500"
-                  : "text-slate-500 dark:text-slate-400"
+                  : "text-slate-600 dark:text-slate-300"
                 }
                 ${isSortable && isInteractive ? "cursor-pointer select-none" : ""}
                 ${isDragging ? "opacity-50" : ""}
-                ${canDrag && isInteractive ? "hover:bg-slate-100/60 dark:hover:bg-slate-700/40" : ""}
+                ${canDrag && isInteractive ? "hover:bg-slate-200/60 dark:hover:bg-slate-700/50" : ""}
               `}
               onClick={() => isSortable && isInteractive && onSort(column.id)}
             >
@@ -100,7 +100,7 @@ export default function AdvancedTableHeader({
                   {/* Drag handle */}
                   {canDrag && (
                     <svg
-                      className="w-4 h-4 flex-shrink-0 text-slate-300 dark:text-slate-600"
+                      className="w-4 h-4 flex-shrink-0 text-slate-400 dark:text-slate-600"
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
@@ -126,7 +126,7 @@ export default function AdvancedTableHeader({
                           </svg>
                         )
                       ) : (
-                        <svg className="w-3 h-3 text-slate-300 dark:text-slate-600" fill="currentColor" viewBox="0 0 20 20">
+                        <svg className="w-3 h-3 text-slate-400 dark:text-slate-600" fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
                         </svg>
                       )}

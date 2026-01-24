@@ -118,7 +118,7 @@ export default function TableToolbar({
   };
 
   return (
-    <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80">
+    <div className="px-6 py-4 border-b border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         {/* Left side - Search */}
         <div className="flex-1 max-w-md">
@@ -128,7 +128,7 @@ export default function TableToolbar({
               placeholder={t("table.searching")}
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
-              className="w-full pl-10 pr-10 py-2.5 border border-slate-200/80 dark:border-slate-700/60 rounded-2xl bg-white/85 dark:bg-slate-900/70 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/60 focus:border-transparent transition-all shadow-sm"
+              className="w-full pl-10 pr-10 py-2.5 border border-slate-300 dark:border-slate-700/60 rounded-2xl bg-white dark:bg-slate-900/70 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/60 focus:border-transparent transition-all shadow-sm"
             />
             <svg
               className="absolute left-3 top-2.5 w-5 h-5 text-slate-400 dark:text-slate-500"
@@ -172,8 +172,8 @@ export default function TableToolbar({
               disabled={importDisabled}
               title={importTitle || resolvedImportLabel}
               className={`px-4 py-2.5 border rounded-2xl transition-colors flex items-center gap-2 text-sm font-semibold ${importDisabled
-                ? "bg-slate-200/70 dark:bg-slate-800/60 border-slate-200/70 dark:border-slate-700/60 text-slate-400 dark:text-slate-500 cursor-not-allowed"
-                : "bg-white/85 dark:bg-slate-900/70 border-slate-200/80 dark:border-slate-700/60 hover:bg-slate-100/80 dark:hover:bg-slate-800/70 text-slate-700 dark:text-slate-300 shadow-sm"
+                ? "bg-slate-200/70 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed"
+                : "bg-white dark:bg-slate-900/70 border-slate-300 dark:border-slate-700/60 hover:bg-slate-100 dark:hover:bg-slate-800/70 text-slate-700 dark:text-slate-300 shadow-sm"
                 }`}
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -188,7 +188,7 @@ export default function TableToolbar({
             <button
               ref={columnButtonRef}
               onClick={handleToggleMenu}
-              className="px-4 py-2.5 bg-white/85 dark:bg-slate-900/70 border border-slate-200/80 dark:border-slate-700/60 rounded-2xl hover:bg-slate-100/80 dark:hover:bg-slate-800/70 transition-colors flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-300 shadow-sm"
+              className="px-4 py-2.5 bg-white dark:bg-slate-900/70 border border-slate-300 dark:border-slate-700/60 rounded-2xl hover:bg-slate-100 dark:hover:bg-slate-800/70 transition-colors flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-300 shadow-sm"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
@@ -204,7 +204,7 @@ export default function TableToolbar({
           {showColumnMenu && menuPosition && createPortal(
             <div
               ref={menuRef}
-              className="fixed w-64 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-200/80 dark:border-slate-700/60 overflow-hidden"
+              className="fixed w-64 bg-white dark:bg-slate-900/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-300 dark:border-slate-700/60 overflow-hidden"
               style={{
                 top: `${menuPosition.top}px`,
                 left: `${menuPosition.left}px`,
@@ -212,7 +212,7 @@ export default function TableToolbar({
                 zIndex: 9999,
               }}
             >
-              <div className="px-4 py-3 border-b border-slate-200/70 dark:border-slate-700/60 bg-slate-50/80 dark:bg-slate-800/50">
+              <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700/60 bg-slate-50 dark:bg-slate-800/50">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-semibold text-slate-900 dark:text-white">
                     {t("table.toolbar.manageColumns")}
@@ -230,7 +230,7 @@ export default function TableToolbar({
                 {columns.map((column) => (
                   <label
                     key={column.id}
-                    className="flex items-center px-4 py-2 hover:bg-slate-100/80 dark:hover:bg-slate-800/60 cursor-pointer"
+                    className="flex items-center px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-800/60 cursor-pointer"
                   >
                     <input
                       type="checkbox"
@@ -251,7 +251,7 @@ export default function TableToolbar({
                 ))}
               </div>
 
-              <div className="px-4 py-3 border-t border-slate-200/70 dark:border-slate-700/60 text-xs text-slate-500 dark:text-slate-400 bg-slate-50/80 dark:bg-slate-800/50">
+              <div className="px-4 py-3 border-t border-slate-200 dark:border-slate-700/60 text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/50">
                 {t("table.toolbar.reorderHint")}
               </div>
             </div>,
@@ -262,7 +262,7 @@ export default function TableToolbar({
           {onExport && (
             <button
               onClick={onExport}
-              className="px-4 py-2.5 bg-white/85 dark:bg-slate-900/70 border border-slate-200/80 dark:border-slate-700/60 rounded-2xl hover:bg-slate-100/80 dark:hover:bg-slate-800/70 transition-colors flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-300 shadow-sm"
+              className="px-4 py-2.5 bg-white dark:bg-slate-900/70 border border-slate-300 dark:border-slate-700/60 rounded-2xl hover:bg-slate-100 dark:hover:bg-slate-800/70 transition-colors flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-300 shadow-sm"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -274,7 +274,7 @@ export default function TableToolbar({
           {/* Refresh button */}
           <button
             onClick={() => window.location.reload()}
-            className="p-2.5 bg-white/85 dark:bg-slate-900/70 border border-slate-200/80 dark:border-slate-700/60 rounded-2xl hover:bg-slate-100/80 dark:hover:bg-slate-800/70 transition-colors text-slate-700 dark:text-slate-300 shadow-sm"
+            className="p-2.5 bg-white dark:bg-slate-900/70 border border-slate-300 dark:border-slate-700/60 rounded-2xl hover:bg-slate-100 dark:hover:bg-slate-800/70 transition-colors text-slate-700 dark:text-slate-300 shadow-sm"
             title="Refresh"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

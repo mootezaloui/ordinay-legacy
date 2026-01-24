@@ -615,7 +615,8 @@ export default function FormModal({
  * FormField - Compact & responsive design
  */
 function FormField({ field, value, onChange, error, formData, compact = false, entityType = null }) {
-  const { t } = useTranslation(["common", "domain"]);
+  const { t } = useTranslation(["common", "domain", "missions"]);
+  const tMissions = (key, options) => t(key, { ns: "missions", ...options });
   const { currencyDisplay, formatCurrency } = useSettings();
   const resolvedLabel = interpolateCurrency(field.label, currencyDisplay);
   const resolvedPlaceholder = interpolateCurrency(field.placeholder, currencyDisplay);
@@ -1013,10 +1014,13 @@ function FormField({ field, value, onChange, error, formData, compact = false, e
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-slate-900 dark:text-white">
-                    Bailiff Fees
+                    {tMissions("form.feesSection.title")}
                   </p>
                   <p className="text-xs text-slate-600 dark:text-slate-400">
-                    {entries.length} {entries.length === 1 ? 'entry' : 'entries'} • Total: {formatCurrency(totalAmount)}
+                    {tMissions("form.feesSection.summary", {
+                      count: entries.length,
+                      total: formatCurrency(totalAmount),
+                    })}
                   </p>
                 </div>
               </div>
@@ -1026,7 +1030,7 @@ function FormField({ field, value, onChange, error, formData, compact = false, e
                 className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 dark:bg-amber-700 dark:hover:bg-amber-600 text-white rounded-lg font-medium transition-colors text-sm inline-flex items-center gap-2 shadow-sm"
               >
                 <i className="fas fa-plus text-xs"></i>
-                Add
+                {tMissions("form.feesSection.add")}
               </button>
             </div>
 
@@ -1047,7 +1051,7 @@ function FormField({ field, value, onChange, error, formData, compact = false, e
                           </span>
                         </div>
                         <h4 className="text-sm font-semibold text-slate-900 dark:text-white">
-                          Frais {index + 1}
+                          {tMissions("form.feesSection.entryTitle", { index: index + 1 })}
                         </h4>
                         <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${entry.status === 'paid'
                           ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
@@ -1055,14 +1059,18 @@ function FormField({ field, value, onChange, error, formData, compact = false, e
                             ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
                             : 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300'
                           }`}>
-                          {entry.status === 'paid' ? 'Paid' : entry.status === 'confirmed' ? 'Confirmed' : 'Draft'}
+                          {entry.status === 'paid'
+                            ? tMissions("form.feesSection.status.paid")
+                            : entry.status === 'confirmed'
+                              ? tMissions("form.feesSection.status.confirmed")
+                              : tMissions("form.feesSection.status.draft")}
                         </span>
                       </div>
                       <button
                         type="button"
                         onClick={() => removeEntry(entry.id)}
                         className="p-1.5 hover:bg-red-100 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                        title="Delete this fee"
+                        title={tMissions("form.feesSection.delete")}
                       >
                         <i className="fas fa-trash text-red-600 dark:text-red-400 text-sm"></i>
                       </button>
@@ -1074,13 +1082,13 @@ function FormField({ field, value, onChange, error, formData, compact = false, e
                         <div>
                           <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                             <i className="fas fa-money-bill-wave mr-1 text-green-600 dark:text-green-400"></i>
-                            Amount ({currencyDisplay}) *
+                            {tMissions("form.feesSection.labels.amount", { currency: currencyDisplay })} *
                           </label>
                           <input
                             type="number"
                             value={entry.amount}
                             onChange={(e) => updateEntry(entry.id, "amount", e.target.value)}
-                            placeholder="0.00"
+                            placeholder={tMissions("form.feesSection.placeholders.amount")}
                             min="0"
                             step="0.01"
                             className="w-full px-3 py-2 border-2 border-slate-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:border-amber-500 dark:focus:border-amber-500 focus:ring-2 focus:ring-amber-200 dark:focus:ring-amber-900/50 outline-none transition-colors text-sm font-semibold"
@@ -1091,7 +1099,7 @@ function FormField({ field, value, onChange, error, formData, compact = false, e
                         <div>
                           <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                             <i className="fas fa-calendar mr-1 text-blue-600 dark:text-blue-400"></i>
-                            Date *
+                            {tMissions("form.feesSection.labels.date")} *
                           </label>
                           <input
                             type="date"
@@ -1106,15 +1114,15 @@ function FormField({ field, value, onChange, error, formData, compact = false, e
                       <div>
                         <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                           <i className="fas fa-flag mr-1 text-purple-600 dark:text-purple-400"></i>
-                          Status *
+                          {tMissions("form.feesSection.labels.status")} *
                         </label>
                         <InlineStatusSelector
                           value={entry.status}
                           onChange={(newValue) => updateEntry(entry.id, "status", newValue)}
                           statusOptions={[
-                            { value: "draft", label: "Draft", color: "slate" },
-                            { value: "confirmed", label: "Confirmed", color: "blue" },
-                            { value: "paid", label: "Paid", color: "green" }
+                            { value: "draft", label: tMissions("form.feesSection.status.draft"), color: "slate" },
+                            { value: "confirmed", label: tMissions("form.feesSection.status.confirmed"), color: "blue" },
+                            { value: "paid", label: tMissions("form.feesSection.status.paid"), color: "green" }
                           ]}
                           entityType="financialEntry"
                           size="sm"
@@ -1124,12 +1132,12 @@ function FormField({ field, value, onChange, error, formData, compact = false, e
                       <div>
                         <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                           <i className="fas fa-align-left mr-1 text-slate-600 dark:text-slate-400"></i>
-                          Description *
+                          {tMissions("form.feesSection.labels.description")} *
                         </label>
                         <textarea
                           value={entry.description}
                           onChange={(e) => updateEntry(entry.id, "description", e.target.value)}
-                          placeholder="Ex: Service fees, travel expenses..."
+                          placeholder={tMissions("form.feesSection.placeholders.description")}
                           rows={2}
                           className="w-full px-3 py-2 border-2 border-slate-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:border-amber-500 dark:focus:border-amber-500 focus:ring-2 focus:ring-amber-200 dark:focus:ring-amber-900/50 outline-none transition-colors text-sm resize-none"
                           required
@@ -1145,10 +1153,10 @@ function FormField({ field, value, onChange, error, formData, compact = false, e
                   <i className="fas fa-coins text-2xl text-amber-600 dark:text-amber-400"></i>
                 </div>
                 <p className="text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">
-                  No fees added yet.
+                  {tMissions("form.feesSection.empty.title")}
                 </p>
                 <p className="text-xs text-slate-500 dark:text-slate-500">
-                  Click "Add" to save the fees for this mission
+                  {tMissions("form.feesSection.empty.subtitle")}
                 </p>
               </div>
             )}

@@ -27,7 +27,13 @@
   },
   "priority": {
     "title": "العناصر ذات الأولوية ({{count}})",
-    "more": "و{{count}} عناصر أخرى..."
+    "more": "و{{count}} عناصر أخرى...",
+    "statusHints": {
+      "draft": "بحاجة إلى تأكيد",
+      "confirmed": "بانتظار الدفع أو التسوية",
+      "paid": "مدفوع",
+      "cancelled": "إدخال ملغي"
+    }
   },
   "table": {
     "columns": {

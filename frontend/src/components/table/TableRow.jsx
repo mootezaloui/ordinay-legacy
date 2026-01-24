@@ -23,7 +23,7 @@ export default function TableRow({
 }) {
   // Hover only affects background color - no padding/margin/border changes
   const hoverClass = hoverable
-    ? "hover:bg-slate-50/80 dark:hover:bg-slate-800/50"
+    ? "hover:bg-slate-100/70 dark:hover:bg-slate-800/60"
     : "";
 
   const cursorClass = onClick ? "cursor-pointer" : "";

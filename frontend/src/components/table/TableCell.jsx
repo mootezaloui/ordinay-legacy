@@ -39,7 +39,7 @@ export default function TableCell({
 
   return (
     <td
-      className={`px-6 py-4 text-sm text-slate-800 dark:text-slate-100 h-14 ${alignClass} ${className}`}
+      className={`px-6 py-4 text-sm text-slate-700 dark:text-slate-100 h-14 ${alignClass} ${className}`}
     >
       {content}
     </td>

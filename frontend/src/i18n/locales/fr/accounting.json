@@ -29,7 +29,7 @@
     "title": "Éléments prioritaires ({{count}})",
     "more": "et {{count}} autres éléments...",
     "statusHints": {
-      "draft": "Brouillon• À confirmer",
+      "draft": "À confirmer",
       "confirmed": "En attente de paiement ou rapprochement",
       "paid": "Payé",
       "cancelled": "Entrée annulée"

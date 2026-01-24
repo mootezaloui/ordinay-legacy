@@ -40,11 +40,11 @@ export default function TableEmpty({
   };
 
   return (
-    <div className="min-h-[200px] py-12 px-6 flex flex-col items-center justify-center text-center bg-transparent">
+    <div className="min-h-[200px] py-12 px-6 flex flex-col items-center justify-center text-center bg-slate-50/80 dark:bg-slate-900/60 border border-dashed border-slate-300 dark:border-slate-700 rounded-2xl">
       <div className="mb-4">
         {icons[icon] || icons.inbox}
       </div>
-      <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md">
+      <p className="text-sm text-slate-600 dark:text-slate-400 max-w-md">
         {displayMessage}
       </p>
       {action && <div className="mt-6">{action}</div>}
