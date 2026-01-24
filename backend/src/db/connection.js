@@ -225,7 +225,10 @@ function initialize() {
   ];
   const dossierColumns = [{ name: "adversary_name", definition: "TEXT" }];
   const sessionColumns = [{ name: "session_date", definition: "DATE" }];
-  const documentColumns = [{ name: "copy_type", definition: "TEXT" }];
+  const documentColumns = [
+    { name: "copy_type", definition: "TEXT" },
+    { name: "officer_id", definition: "INTEGER" },
+  ];
 
   [
     "clients",

@@ -36,7 +36,7 @@ Database-first backend with an Express HTTP layer. SQLite schema is enforced; th
 - Tasks: `tasks` link to either a dossier or a lawsuit; `personal_tasks` are standalone.
 - Hearings/consultations: `sessions` attach to either a lawsuit or a dossier (polymorphic) with status checks.
 - Missions/officers: `missions` link to a lawsuit or dossier and may be assigned to an `officer`.
-- Documents: single required target among client/dossier/lawsuit/mission/task/session/personal_task/financial_entry.
+- Documents: single required target among client/dossier/lawsuit/mission/task/session/personal_task/financial_entry/officer.
 - Money: `financial_entries` always link to a client, optionally to a dossier or lawsuit (but never both together).
 - Activity: `notifications` (lightweight reminders) and `history_events` (audit trail) capture timeline data.
 - Every table is soft-delete ready (`deleted_at`) and timestamps creation/updates.

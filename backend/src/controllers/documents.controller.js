@@ -13,6 +13,7 @@ async function list(req, res, next) {
     if (req.query.session_id) filters.session_id = parseInt(req.query.session_id, 10);
     if (req.query.personal_task_id) filters.personal_task_id = parseInt(req.query.personal_task_id, 10);
     if (req.query.financial_entry_id) filters.financial_entry_id = parseInt(req.query.financial_entry_id, 10);
+    if (req.query.officer_id) filters.officer_id = parseInt(req.query.officer_id, 10);
 
     const documents = service.list(filters);
     res.json(documents);

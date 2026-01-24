@@ -82,9 +82,17 @@ class DocumentService {
     } else if (entityType === "personalTask") {
       entityField = "personal_task_id";
       directoryType = "personalTask";
-    } else {
+    } else if (entityType === "financialEntry") {
+      entityField = "financial_entry_id";
+      directoryType = "financialEntry";
+    } else if (entityType === "officer") {
+      entityField = "officer_id";
+      directoryType = "officer";
+    } else if (["client", "dossier", "mission", "task", "session"].includes(entityType)) {
       entityField = `${entityType}_id`;
       directoryType = entityType;
+    } else {
+      throw new Error(`Unsupported document target: ${entityType}`);
     }
     payload[entityField] = parseInt(entityId, 10);
 
@@ -241,8 +249,10 @@ class DocumentService {
         entityField = "lawsuit_id";
       } else if (entityType === "personalTask") {
         entityField = "personal_task_id";
+      } else if (entityType === "financialEntry") {
+        entityField = "financial_entry_id";
       } else if (entityType === "officer") {
-        return [];
+        entityField = "officer_id";
       } else {
         entityField = `${entityType}_id`;
       }

@@ -313,6 +313,7 @@ CREATE TABLE IF NOT EXISTS documents (
     session_id INTEGER,
     personal_task_id INTEGER,
     financial_entry_id INTEGER,
+    officer_id INTEGER,
     uploaded_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     imported INTEGER NOT NULL DEFAULT 0,
@@ -328,7 +329,8 @@ CREATE TABLE IF NOT EXISTS documents (
         (task_id IS NOT NULL) +
         (session_id IS NOT NULL) +
         (personal_task_id IS NOT NULL) +
-        (financial_entry_id IS NOT NULL) = 1
+        (financial_entry_id IS NOT NULL) +
+        (officer_id IS NOT NULL) = 1
     ),
     FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE RESTRICT,
     FOREIGN KEY (dossier_id) REFERENCES dossiers(id) ON DELETE RESTRICT,
@@ -337,7 +339,8 @@ CREATE TABLE IF NOT EXISTS documents (
     FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE RESTRICT,
     FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE RESTRICT,
     FOREIGN KEY (personal_task_id) REFERENCES personal_tasks(id) ON DELETE RESTRICT,
-    FOREIGN KEY (financial_entry_id) REFERENCES financial_entries(id) ON DELETE RESTRICT
+    FOREIGN KEY (financial_entry_id) REFERENCES financial_entries(id) ON DELETE RESTRICT,
+    FOREIGN KEY (officer_id) REFERENCES officers(id) ON DELETE RESTRICT
 );
 CREATE INDEX IF NOT EXISTS idx_documents_client_id ON documents(client_id);
 CREATE INDEX IF NOT EXISTS idx_documents_dossier_id ON documents(dossier_id);
@@ -347,6 +350,7 @@ CREATE INDEX IF NOT EXISTS idx_documents_task_id ON documents(task_id);
 CREATE INDEX IF NOT EXISTS idx_documents_session_id ON documents(session_id);
 CREATE INDEX IF NOT EXISTS idx_documents_personal_task_id ON documents(personal_task_id);
 CREATE INDEX IF NOT EXISTS idx_documents_financial_entry_id ON documents(financial_entry_id);
+CREATE INDEX IF NOT EXISTS idx_documents_officer_id ON documents(officer_id);
 CREATE INDEX IF NOT EXISTS idx_documents_uploaded_at ON documents(uploaded_at);
 
 CREATE TABLE IF NOT EXISTS notifications (

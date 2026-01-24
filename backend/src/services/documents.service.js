@@ -17,6 +17,7 @@ const allowedFields = [
   'session_id',
   'personal_task_id',
   'financial_entry_id',
+  'officer_id',
 ];
 
 function validateTarget(data) {
@@ -29,6 +30,7 @@ function validateTarget(data) {
     data.session_id,
     data.personal_task_id,
     data.financial_entry_id,
+    data.officer_id,
   ];
   const count = targets.filter((v) => v !== null && v !== undefined).length;
   assert(count === 1, 'Exactly one parent reference is required for documents');
@@ -71,6 +73,10 @@ function list(filters = {}) {
     sql += ` AND financial_entry_id = @financial_entry_id`;
     params.financial_entry_id = filters.financial_entry_id;
   }
+  if (filters.officer_id !== undefined) {
+    sql += ` AND officer_id = @officer_id`;
+    params.officer_id = filters.officer_id;
+  }
 
   return db.prepare(sql).all(params);
 }
@@ -94,6 +100,7 @@ function create(payload) {
     session_id: null,
     personal_task_id: null,
     financial_entry_id: null,
+    officer_id: null,
     ...data,
   };
   assert(insertData.title, 'title is required');
@@ -101,8 +108,8 @@ function create(payload) {
   validateTarget(insertData);
 
   const stmt = db.prepare(
-    `INSERT INTO ${table} (title, file_path, mime_type, size_bytes, notes, copy_type, client_id, dossier_id, lawsuit_id, mission_id, task_id, session_id, personal_task_id, financial_entry_id)
-     VALUES (@title, @file_path, @mime_type, @size_bytes, @notes, @copy_type, @client_id, @dossier_id, @lawsuit_id, @mission_id, @task_id, @session_id, @personal_task_id, @financial_entry_id)`
+    `INSERT INTO ${table} (title, file_path, mime_type, size_bytes, notes, copy_type, client_id, dossier_id, lawsuit_id, mission_id, task_id, session_id, personal_task_id, financial_entry_id, officer_id)
+     VALUES (@title, @file_path, @mime_type, @size_bytes, @notes, @copy_type, @client_id, @dossier_id, @lawsuit_id, @mission_id, @task_id, @session_id, @personal_task_id, @financial_entry_id, @officer_id)`
   );
   const result = stmt.run(insertData);
   return get(result.lastInsertRowid);
@@ -122,6 +129,7 @@ function update(id, payload) {
     session_id: null,
     personal_task_id: null,
     financial_entry_id: null,
+    officer_id: null,
     ...data,
   };
   if (
@@ -132,7 +140,8 @@ function update(id, payload) {
     data.task_id !== undefined ||
     data.session_id !== undefined ||
     data.personal_task_id !== undefined ||
-    data.financial_entry_id !== undefined
+    data.financial_entry_id !== undefined ||
+    data.officer_id !== undefined
   ) {
     validateTarget(updatable);
   }

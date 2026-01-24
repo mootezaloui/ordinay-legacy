@@ -72,15 +72,15 @@ export default function Sidebar() {
   return (
     <aside
       className={`fixed left-0 flex flex-col transition-all duration-300 border-r z-40 titlebar-offset-top titlebar-offset-height ${isCollapsed ? "w-[72px]" : "w-64"
-        } bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 border-slate-200 dark:border-slate-800`}
+        } bg-background text-foreground border-border`}
     >
       {/* Toggle */}
       <button
         onClick={toggleSidebar}
-        className="absolute -right-3 top-6 rounded-full p-1.5 border shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 z-50 transition-all"
+        className="absolute -right-3 top-6 rounded-full p-1.5 border shadow-sm focus:outline-none focus:ring-2 focus:ring-primary bg-card border-border hover:bg-muted z-50 transition-all"
         aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
       >
-        <i className={`${isCollapsed ? "fas fa-chevron-right text-xs" : "fas fa-chevron-left text-xs"} text-slate-600 dark:text-slate-400`}></i>
+        <i className={`${isCollapsed ? "fas fa-chevron-right text-xs" : "fas fa-chevron-left text-xs"} text-muted-foreground`}></i>
       </button>
 
       {/* Navigation - Grouped with enhanced hierarchy */}
@@ -91,7 +91,7 @@ export default function Sidebar() {
               {/* Section label - only show when expanded */}
               {group.label && !isCollapsed && (
                 <div className="px-3 mb-2">
-                  <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-500 uppercase tracking-wider">
+                  <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
                     {group.label}
                   </span>
                 </div>
@@ -100,7 +100,7 @@ export default function Sidebar() {
               {/* Collapsed section indicator */}
               {group.label && isCollapsed && group.id !== "primary" && (
                 <div className="flex justify-center mb-2">
-                  <div className="w-6 h-px bg-slate-300 dark:bg-slate-700"></div>
+                  <div className="w-6 h-px bg-border"></div>
                 </div>
               )}
 
@@ -124,8 +124,8 @@ export default function Sidebar() {
                         }
                         className={`group relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 ${isCollapsed ? "justify-center" : "justify-start"
                           } ${isActive
-                            ? "bg-blue-600 dark:bg-blue-600 text-white shadow-lg shadow-blue-500/30 dark:shadow-blue-600/40"
-                            : "hover:bg-white dark:hover:bg-slate-900 text-slate-700 dark:text-slate-300 hover:shadow-sm"
+                            ? "bg-primary text-primary-foreground shadow-lg shadow-primary/30"
+                            : "hover:bg-muted text-foreground hover:shadow-sm"
                           }`}
                       >
                         {/* Icon container with enhanced styling */}
@@ -133,8 +133,8 @@ export default function Sidebar() {
                           }`}>
                           <i
                             className={`${item.icon} text-base transition-all duration-200 ${isActive
-                                ? "text-white"
-                                : "text-slate-500 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200"
+                                ? "text-primary-foreground"
+                                : "text-muted-foreground group-hover:text-foreground"
                               }`}
                           ></i>
                         </span>
@@ -143,8 +143,8 @@ export default function Sidebar() {
                         {!isCollapsed && (
                           <span
                             className={`text-[13px] font-medium transition-all duration-200 ${isActive
-                                ? "text-white"
-                                : "text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white"
+                                ? "text-primary-foreground"
+                                : "text-foreground"
                               } ${isActive && activeFlash ? "animate-pop" : ""}`}
                           >
                             {item.label}
@@ -153,14 +153,14 @@ export default function Sidebar() {
 
                         {/* Active indicator glow */}
                         {isActive && (
-                          <span className="absolute inset-0 rounded-xl bg-blue-400/10 dark:bg-blue-400/10 blur-sm"></span>
+                          <span className="absolute inset-0 rounded-xl bg-primary/10 blur-sm"></span>
                         )}
 
                         {/* Tooltip for collapsed state */}
                         {isCollapsed && (
-                          <span className="absolute left-full ml-4 px-3 py-1.5 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-medium rounded-lg opacity-0 invisible pointer-events-none group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-50 shadow-xl">
+                          <span className="absolute left-full ml-4 px-3 py-1.5 bg-foreground text-background text-xs font-medium rounded-lg opacity-0 invisible pointer-events-none group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-50 shadow-xl">
                             {item.label}
-                            <span className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-slate-900 dark:border-r-slate-100"></span>
+                            <span className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-foreground"></span>
                           </span>
                         )}
                       </Link>
@@ -174,16 +174,16 @@ export default function Sidebar() {
       </nav>
 
       {/* Footer - System actions with clear separation */}
-      <div className="border-t border-slate-200 dark:border-slate-800 bg-gradient-to-b from-transparent to-slate-100/50 dark:to-slate-900/50">
+      <div className="border-t border-border bg-gradient-to-b from-transparent to-secondary/60">
         <div className="p-3 space-y-1">
           {/* Theme toggle */}
           <button
             onClick={toggleTheme}
-            className={`w-full group flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 hover:bg-white dark:hover:bg-slate-900 text-slate-700 dark:text-slate-300 hover:shadow-sm ${isCollapsed ? "justify-center" : "justify-start"
+            className={`w-full group flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 hover:bg-muted text-foreground hover:shadow-sm ${isCollapsed ? "justify-center" : "justify-start"
               }`}
           >
             <span className="relative flex items-center justify-center w-5">
-              <i className={`${isDark ? "fas fa-sun" : "fas fa-moon"} text-base text-slate-500 dark:text-slate-400 group-hover:text-amber-500 transition-all duration-200`}></i>
+              <i className={`${isDark ? "fas fa-sun" : "fas fa-moon"} text-base text-muted-foreground group-hover:text-amber-500 transition-all duration-200`}></i>
             </span>
             {!isCollapsed && (
               <span className="text-[13px] font-medium">{isDark ? t("sidebar.theme.light") : t("sidebar.theme.dark")}</span>
@@ -191,9 +191,9 @@ export default function Sidebar() {
 
             {/* Tooltip for collapsed */}
             {isCollapsed && (
-              <span className="absolute left-full ml-4 px-3 py-1.5 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-medium rounded-lg opacity-0 invisible pointer-events-none group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-50 shadow-xl">
+              <span className="absolute left-full ml-4 px-3 py-1.5 bg-foreground text-background text-xs font-medium rounded-lg opacity-0 invisible pointer-events-none group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-50 shadow-xl">
                 {isDark ? t("sidebar.theme.light") : t("sidebar.theme.dark")}
-                <span className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-slate-900 dark:border-r-slate-100"></span>
+                <span className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-foreground"></span>
               </span>
             )}
           </button>
@@ -201,7 +201,7 @@ export default function Sidebar() {
           {/* Exit button */}
           <button
             onClick={handleExit}
-            className={`w-full group flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 hover:bg-red-50 dark:hover:bg-red-950/50 text-slate-700 dark:text-slate-300 hover:text-red-600 dark:hover:text-red-400 ${isCollapsed ? "justify-center" : "justify-start"
+            className={`w-full group flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 hover:bg-red-50 dark:hover:bg-red-950/50 text-foreground hover:text-red-600 dark:hover:text-red-400 ${isCollapsed ? "justify-center" : "justify-start"
               }`}
           >
             <span className="relative flex items-center justify-center w-5">
@@ -213,9 +213,9 @@ export default function Sidebar() {
 
             {/* Tooltip for collapsed */}
             {isCollapsed && (
-              <span className="absolute left-full ml-4 px-3 py-1.5 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-medium rounded-lg opacity-0 invisible pointer-events-none group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-50 shadow-xl">
+              <span className="absolute left-full ml-4 px-3 py-1.5 bg-foreground text-background text-xs font-medium rounded-lg opacity-0 invisible pointer-events-none group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-50 shadow-xl">
                 {t("sidebar.exitApp")}
-                <span className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-slate-900 dark:border-r-slate-100"></span>
+                <span className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-foreground"></span>
               </span>
             )}
           </button>
@@ -223,7 +223,7 @@ export default function Sidebar() {
 
         {/* Version footer */}
         <div className={`px-4 py-3 ${isCollapsed ? "text-center" : ""}`}>
-          <p className="text-[10px] text-slate-400 dark:text-slate-600 font-medium">
+          <p className="text-[10px] text-muted-foreground font-medium">
             {isCollapsed ? "©" : "© 2025"}
           </p>
         </div>
