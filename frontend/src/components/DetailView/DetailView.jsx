@@ -1036,10 +1036,7 @@ export default function DetailView({ entityType }) {
             {/* Generate Document Button - Only for dossier and lawsuit (proces) */}
             {(entityType === 'dossier' || entityType === 'lawsuit' || entityType === 'session') && (
               <button
-                onClick={() => {
-                  console.log('[DEBUG] Generate Document button clicked. entityType:', entityType);
-                  setGenerateDocModalOpen(true);
-                }}
+                onClick={() => setGenerateDocModalOpen(true)}
                 className="px-4 py-2 border border-blue-600 dark:border-blue-500 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-lg font-medium transition-colors duration-200"
               >
                 <i className="fas fa-file-alt mr-2"></i>
@@ -1130,17 +1127,11 @@ export default function DetailView({ entityType }) {
                 >
                   <i className={tab.icon}></i>
                   {tab.label}
-                  {tab.getCount && (() => {
-                    const badge = tab.getCount(data);
-                    if (tab.id === 'documents') {
-                      console.debug('[Tabs] Documents tab badge count:', badge, 'data.documents:', data?.documents);
-                    }
-                    return (
-                      <span className="px-2 py-0.5 bg-slate-100 dark:bg-slate-700 rounded-full text-xs">
-                        {badge}
-                      </span>
-                    );
-                  })()}
+                  {tab.getCount && (
+                    <span className="px-2 py-0.5 bg-slate-100 dark:bg-slate-700 rounded-full text-xs">
+                      {tab.getCount(data)}
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -1214,8 +1205,6 @@ export default function DetailView({ entityType }) {
       {/* Generate Document Modal (always rendered at root level) */}
       {(entityType === 'dossier' || entityType === 'lawsuit' || entityType === 'session') && (
         <>
-          {console.log('[DEBUG] Render GenerateDocumentModal. isOpen:', generateDocModalOpen, 'entityType:', entityType)}
-          {console.log('[DEBUG] Operator context for document:', getContextDataWithOperator())}
           {/** Map 'lawsuit' to 'proces' for document generation */}
           <GenerateDocumentModal
             isOpen={generateDocModalOpen}

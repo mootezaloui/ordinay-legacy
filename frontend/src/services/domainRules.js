@@ -748,15 +748,6 @@ function validateDossierAdd(dossierId, context = {}) {
   // Note: FormModal passes form data as 'data' or 'formData' depending on the caller
   const formData = context?.formData || context?.data || {};
 
-  // 🐛 DEBUG: Log to see what we're receiving
-  console.log("🔍 validateDossierAdd DEBUG:", {
-    clientsCount: clients.length,
-    formData,
-    clientIdInForm: formData.clientId,
-    contextKeys: Object.keys(context),
-    fullContext: context,
-  });
-
   // Check if any clients exist in the system
   if (clients.length === 0) {
     blockers.push("Please add a client before creating a Dossier.");

@@ -55,14 +55,6 @@ const loadFromStorage = (key, fallback) => {
   try {
     const stored = window.localStorage.getItem(`${STORAGE_PREFIX}${key}`);
     const parsed = stored ? JSON.parse(stored) : fallback;
-
-    // Debug logging for dossiers to check if notes are loaded
-    if (key === "dossiers" && parsed.length > 0) {
-      console.log('[DataContext.loadFromStorage] Loading dossiers from localStorage:',
-        parsed.map(d => ({ id: d.id, title: d.title, notes: d.notes, notesCount: d.notes?.length }))
-      );
-    }
-
     return parsed;
   } catch (error) {
     console.warn(`[DataContext] Failed to load ${key} from storage`, error);
@@ -541,10 +533,6 @@ export function DataProvider({ children }) {
         }));
 
         if (cancelled) return;
-
-        console.log('[DataContext] Before saving to localStorage, dossiersWithMissions:',
-          dossiersWithMissions.map(d => ({ id: d.id, title: d.title, notes: d.notes }))
-        );
 
         setClients(clientsWithTimeline);
         setDossiers(dossiersWithMissions);

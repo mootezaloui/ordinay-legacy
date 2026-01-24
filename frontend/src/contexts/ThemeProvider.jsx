@@ -49,9 +49,6 @@ export function ThemeProvider({ children }) {
     // Persist to localStorage
     localStorage.setItem(THEME_STORAGE_KEY, resolvedTheme);
     localStorage.setItem(THEME_PREFERENCE_KEY, themePreference);
-    
-    // Debug log
-    console.log('Theme applied:', resolvedTheme, 'HTML classes:', root.classList.toString());
   }, [resolvedTheme, themePreference]);
 
   // Listen for system theme changes (optional but nice UX)
@@ -65,7 +62,6 @@ export function ThemeProvider({ children }) {
         const root = document.documentElement;
         root.classList.remove('light', 'dark');
         root.classList.add(next);
-        console.log('System theme change detected, applying', next);
       }
     };
 
@@ -75,7 +71,6 @@ export function ThemeProvider({ children }) {
 
   const toggleTheme = () => {
     const newTheme = resolvedTheme === 'dark' ? 'light' : 'dark';
-    console.log('Toggling theme from', resolvedTheme, 'to', newTheme);
     setThemePreference(newTheme);
   };
 

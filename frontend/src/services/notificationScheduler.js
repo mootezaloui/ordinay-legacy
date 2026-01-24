@@ -256,8 +256,6 @@ class NotificationScheduler {
 
     this.onNotificationGenerated = onNotificationGenerated;
 
-    console.log("[SCHEDULER] Notification Scheduler started");
-
     // Run immediately on start
     this.checkAndGenerateNotifications();
 
@@ -274,7 +272,6 @@ class NotificationScheduler {
     if (this.intervalId) {
       clearInterval(this.intervalId);
       this.intervalId = null;
-      console.log("[SCHEDULER] Notification Scheduler stopped");
     }
   }
 
@@ -292,7 +289,6 @@ class NotificationScheduler {
     const shouldRunDailyCheck = this.lastCheckDate !== currentDate;
 
     if (shouldRunDailyCheck) {
-      console.log("[SCHEDULER] Running daily notification check for real data");
       this.lastCheckDate = currentDate;
       this.sentNotificationIds.clear(); // Reset sent notifications for new day
 
@@ -378,19 +374,12 @@ class NotificationScheduler {
 
           // Send generated notifications
           if (newNotifications.length > 0) {
-            console.log(
-              `[SCHEDULER] Generated ${newNotifications.length} new notification(s) from real data (after dismissed check)`
-            );
             newNotifications.forEach((notification) => {
               if (this.onNotificationGenerated) {
                 this.onNotificationGenerated(notification);
                 this.sentNotificationIds.add(notification.id);
               }
             });
-          } else {
-            console.log(
-              "[SCHEDULER] No new notifications to send today (after dismissed check)"
-            );
           }
         })();
       } catch (error) {
@@ -416,10 +405,6 @@ class NotificationScheduler {
             ),
             ...groupedNotifications,
           ];
-
-          console.log(
-            `[SCHEDULER] Rules engine generated ${preparedRuleNotifications.length} notification(s) after grouping`
-          );
 
           const ruleChecks = await Promise.all(
             preparedRuleNotifications.map(async (notification) => {
@@ -466,10 +451,6 @@ class NotificationScheduler {
     );
 
     if (dueNotifications.length > 0) {
-      console.log(
-        `[SCHEDULER] Found ${dueNotifications.length} scheduled notification(s) due now`
-      );
-
       dueNotifications.forEach((scheduledNotif) => {
         (async () => {
           try {

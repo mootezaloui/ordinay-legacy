@@ -75,7 +75,6 @@ export function NotificationProvider({ children }) {
       return null;
     }
     if (!shouldNotify(notification)) {
-      console.log("[NOTIFICATION] Skipped due to user preferences", notification);
       return null;
     }
 
@@ -172,7 +171,6 @@ export function NotificationProvider({ children }) {
         isLocalOnly: false,
       };
 
-      console.log("[NOTIFICATION] Upserting notification:", frontendNotification);
       setNotificationsSorted(prev => {
         const filtered = prev.filter(n => n.dedupe_key !== frontendNotification.dedupe_key && n.id !== frontendNotification.id);
         return [frontendNotification, ...filtered];
@@ -290,8 +288,6 @@ export function NotificationProvider({ children }) {
   useEffect(() => {
     async function loadEntityData() {
       try {
-        console.log("[NOTIFICATION] Loading entity data for scheduler...");
-
         // Fetch all entities from APIs using apiClient
         const [tasks, personalTasks, sessions, lawsuits, missions, financialEntries, dossiers, clients, officers] = await Promise.all([
           apiClient.get('/tasks').catch(err => { console.error('[NOTIFICATION] Failed to load tasks:', err); return []; }),
@@ -321,18 +317,6 @@ export function NotificationProvider({ children }) {
           officers: toOperational(officers),
         };
 
-        const schedulerData = notificationScheduler.data;
-        console.log("[NOTIFICATION] Entity data loaded:", {
-          tasks: schedulerData.tasks.length,
-          personalTasks: schedulerData.personalTasks.length,
-          sessions: schedulerData.sessions.length,
-          lawsuits: schedulerData.lawsuits.length,
-          missions: schedulerData.missions.length,
-          financialEntries: schedulerData.financialEntries.length,
-          dossiers: schedulerData.dossiers.length,
-          clients: schedulerData.clients.length,
-          officers: schedulerData.officers.length,
-        });
       } catch (error) {
         console.error("[NOTIFICATION] Failed to load entity data:", error);
         // Set empty arrays to prevent crashes
@@ -390,7 +374,6 @@ export function NotificationProvider({ children }) {
   // Add alert (temporary banner notification)
   const addAlert = useCallback((alert) => {
     if (!shouldNotify(alert)) {
-      console.log("[NOTIFICATION] Alert suppressed by user preferences", alert);
       return null;
     }
 

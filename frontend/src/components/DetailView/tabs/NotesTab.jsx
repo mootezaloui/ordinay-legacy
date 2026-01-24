@@ -19,17 +19,8 @@ export default function NotesTab({ data, config, tabConfig, onUpdate }) {
   // Default to "notes" for backward compatibility
   const fieldKey = tabConfig?.fieldKey || tabConfig?.id || "notes";
 
-  console.log('[NotesTab] Component initialized:', {
-    fieldKey,
-    dataKeys: Object.keys(data),
-    notesData: data[fieldKey],
-    notesType: Array.isArray(data[fieldKey]) ? 'array' : typeof data[fieldKey],
-    notesLength: Array.isArray(data[fieldKey]) ? data[fieldKey].length : 'N/A'
-  });
-
   // Parse notes: support both string (legacy) and array (new multi-note)
   const parseNotes = (notesData) => {
-    console.log('[NotesTab.parseNotes] Parsing:', { notesData, isArray: Array.isArray(notesData) });
     if (!notesData) return [];
     if (Array.isArray(notesData)) return notesData;
     // Legacy: single string note → convert to array with one note
@@ -49,11 +40,6 @@ export default function NotesTab({ data, config, tabConfig, onUpdate }) {
   // Synchronize local notes state with parent data prop
   useEffect(() => {
     const parsed = parseNotes(data[fieldKey]);
-    console.log('[NotesTab.useEffect] Syncing notes:', {
-      raw: data[fieldKey],
-      parsed,
-      parsedIds: parsed.map(n => n.id)
-    });
     setNotesList(parsed);
   }, [data[fieldKey], fieldKey]);
 
@@ -64,14 +50,12 @@ export default function NotesTab({ data, config, tabConfig, onUpdate }) {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
-    console.log('[NotesTab.handleAddNote] Adding new note:', newNote);
     setEditingNoteId(newNote.id);
     setEditContent("");
     setNotesList([newNote, ...notesList]);
   };
 
   const handleEditNote = (note) => {
-    console.log('[NotesTab.handleEditNote] Editing note:', note);
     setEditingNoteId(note.id);
     setEditContent(note.content);
   };
@@ -97,13 +81,6 @@ export default function NotesTab({ data, config, tabConfig, onUpdate }) {
           ? { ...note, content: editContent, updatedAt: new Date().toISOString() }
           : note
       );
-
-      console.log('[NotesTab.handleSaveNote] Saving notes:', {
-        editingNoteId,
-        notesList,
-        updatedNotes,
-        updatedNotesIds: updatedNotes.map(n => n.id)
-      });
 
       // Call the onUpdate callback to save notes array to backend
       // ✅ Use dynamic field key (notes, comments, etc.)
