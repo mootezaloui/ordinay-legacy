@@ -42,17 +42,35 @@
           "**/*",
           "!**/organia.db"
         ]
-      },
-      {
-        "from": "build/node.exe",
-        "to": "backend/node.exe"
       }
     ],
     "win": {
       "sign": false,
       "signAndEditExecutable": false,
       "verifyUpdateCodeSignature": false,
-      "target": "nsis"
+      "target": "nsis",
+      "extraResources": [
+        {
+          "from": "build/node.exe",
+          "to": "backend/node.exe"
+        }
+      ]
+    },
+    "mac": {
+      "extraResources": [
+        {
+          "from": "build/node",
+          "to": "backend/node"
+        }
+      ]
+    },
+    "linux": {
+      "extraResources": [
+        {
+          "from": "build/node",
+          "to": "backend/node"
+        }
+      ]
     }
   },
   "dependencies": {

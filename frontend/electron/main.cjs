@@ -117,9 +117,17 @@ function getNodePath() {
     // In development, use system Node
     return process.execPath.includes("electron") ? "node" : process.execPath;
   } else {
-    // In production on Windows, use bundled node or system node
-    // For simplicity, we'll use the node that comes with Electron
-    return "node";
+    // In production, never assume a system Node install (many users won't have one).
+    const nodeBinaryName = process.platform === "win32" ? "node.exe" : "node";
+    const bundledNodePath = path.join(getBackendPath(), nodeBinaryName);
+
+    if (!fs.existsSync(bundledNodePath)) {
+      throw new Error(
+        `[Electron] Bundled Node.js not found at: ${bundledNodePath}`
+      );
+    }
+
+    return bundledNodePath;
   }
 }
 

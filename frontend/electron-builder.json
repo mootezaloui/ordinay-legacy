@@ -34,7 +34,13 @@
       }
     ],
     "icon": "build/icon.ico",
-    "artifactName": "${productName}-Setup-${version}.${ext}"
+    "artifactName": "${productName}-Setup-${version}.${ext}",
+    "extraResources": [
+      {
+        "from": "build/node.exe",
+        "to": "backend/node.exe"
+      }
+    ]
   },
   "nsis": {
     "oneClick": false,
@@ -53,7 +59,13 @@
     ],
     "icon": "build/icon.icns",
     "category": "public.app-category.business",
-    "artifactName": "${productName}-${version}-${arch}.${ext}"
+    "artifactName": "${productName}-${version}-${arch}.${ext}",
+    "extraResources": [
+      {
+        "from": "build/node",
+        "to": "backend/node"
+      }
+    ]
   },
   "linux": {
     "target": [
@@ -64,7 +76,13 @@
     ],
     "icon": "build/icons",
     "category": "Office",
-    "artifactName": "${productName}-${version}.${ext}"
+    "artifactName": "${productName}-${version}.${ext}",
+    "extraResources": [
+      {
+        "from": "build/node",
+        "to": "backend/node"
+      }
+    ]
   },
   "publish": null
 }
