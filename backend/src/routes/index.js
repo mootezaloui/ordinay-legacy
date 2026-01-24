@@ -18,7 +18,12 @@ const operatorsRouter = require('./operators.routes');
 const profileRouter = require('./profile.routes');
 const dashboardRouter = require('./dashboard.routes');
 const importsRouter = require('./imports.routes');
-const agentRouter = require('../agent/agent.router');
+const { FEATURE_AI_AGENT } = require('../config/features');
+
+let agentRouter = null;
+if (FEATURE_AI_AGENT) {
+  agentRouter = require('../agent/agent.router');
+}
 
 const router = express.Router();
 
@@ -40,6 +45,8 @@ router.use('/operators', operatorsRouter);
 router.use('/profile', profileRouter);
 router.use('/dashboard', dashboardRouter);
 router.use('/imports', importsRouter);
-router.use('/', agentRouter);
+if (agentRouter) {
+  router.use('/', agentRouter);
+}
 
 module.exports = router;

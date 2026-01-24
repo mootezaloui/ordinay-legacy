@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useLock } from "./contexts/lockContext";
+import { useLock } from "./contexts/LockContext";
 import { useSetup } from "./contexts/SetupContext";
 import SetupFlow from "./components/setup/SetupFlow";
 import { useInactivityLock } from "./hooks/useInactivityLock";
@@ -11,6 +11,8 @@ import TutorialOverlay from "./components/tutorial/TutorialOverlay";
 import LicenseBanner from "./components/LicenseBanner";
 import TitleBar from "./components/ui/TitleBar";
 import { useLicense } from "./contexts/LicenseContext";
+import { useNotifications } from "./contexts/NotificationContext";
+import { useUpdateStatus } from "./hooks/useUpdateStatus";
 import {
   clearPendingReferralCode,
   extractPendingReferralFromUrl,
@@ -20,16 +22,35 @@ import {
   storePendingReferralCode,
   submitReferralOnActivation,
   type LicenseState,
+  type LicenseType,
 } from "./services/licenseService";
 
 const FREE_PLAN_STORAGE_KEY = "organia_free_plan_continue";
+const normalizeLicenseType = (value: string | null): LicenseType => {
+  const normalized = (value || "yearly").toLowerCase();
+  if (
+    normalized === "monthly" ||
+    normalized === "yearly" ||
+    normalized === "perpetual"
+  ) {
+    return normalized;
+  }
+  return "yearly";
+};
 
 function App() {
   const { t } = useTranslation("activation");
+  const { t: tSettings } = useTranslation("settings");
   const { isLocked } = useLock();
   const { isInitialized, completeSetup } = useSetup();
   const { licenseState, licenseData, activateLicense, setActivationState } =
     useLicense();
+  const { addAlert } = useNotifications();
+  const updateStatus = useUpdateStatus();
+  const updateAlertRef = useRef({
+    lastStatus: "",
+    lastVersionNotified: "",
+  });
   const [deviceId, setDeviceId] = useState<string | null>(null);
   const [activationError, setActivationError] = useState<string | null>(null);
   const [activationView, setActivationView] = useState<
@@ -84,13 +105,12 @@ function App() {
         const planIndicators = `${planParam} ${licenseTypeParam ?? ""} ${statusParam ?? ""} ${rawUrl}`.toLowerCase();
         const validUntilParam =
           getParam("expires_at") || getParam("valid_until");
-        let license_type = (licenseTypeParam || "yearly").toLowerCase();
-        let expires_at = validUntilParam || "2026-12-31";
+        let license_type: LicenseType = normalizeLicenseType(licenseTypeParam);
+        let expires_at: string | null = validUntilParam || "2026-12-31";
         const activationDeviceId =
           getParam("device_id") || (await getOrCreateDeviceId());
         // If the plan is free, set state and error to FREE (single block)
-        const isFreeActivation =
-          planIndicators.includes("free") || license_type === "free";
+        const isFreeActivation = planIndicators.includes("free");
         if (isFreeActivation) {
           setActivationState("FREE", null);
           setActivationError(null);
@@ -170,11 +190,49 @@ function App() {
     });
   }, [activateLicense, setActivationState, t]);
 
+  useEffect(() => {
+    if (!updateStatus) return;
+    const status = updateStatus.status || "";
+
+    if (
+      status === "update-available" &&
+      updateStatus.availableVersion &&
+      updateAlertRef.current.lastVersionNotified !== updateStatus.availableVersion
+    ) {
+      addAlert({
+        type: "info",
+        title: tSettings("updates.notice.availableTitle"),
+        message: tSettings("updates.notice.availableMessage"),
+      });
+      updateAlertRef.current.lastVersionNotified =
+        updateStatus.availableVersion;
+    }
+
+    if (
+      status === "download-failed" &&
+      updateAlertRef.current.lastStatus !== "download-failed"
+    ) {
+      addAlert({
+        type: "error",
+        title: tSettings("updates.notice.downloadFailedTitle"),
+        message: tSettings("updates.notice.downloadFailedMessage"),
+      });
+    }
+
+    updateAlertRef.current.lastStatus = status;
+  }, [
+    addAlert,
+    tSettings,
+    updateStatus,
+    updateStatus.availableVersion,
+    updateStatus.status,
+  ]);
+
   if (!isInitialized) {
     return (
       <>
         <TitleBar />
-        <SetupFlow onComplete={completeSetup} />
+        <SetupFlow />
       </>
     );
   }

@@ -290,6 +290,15 @@
         "title": "لا يوجد سجل متاح حتى الآن",
         "description": "ستظهر الأحداث المهمة هنا: الإنشاءات، تغييرات الحالة، التعيينات، والإجراءات الهامة."
       },
+      "actions": {
+        "created": "تم الإنشاء",
+        "updated": "تم التعديل",
+        "deleted": "تم الحذف",
+        "cancelled": "تم الإلغاء",
+        "closed": "تم الإغلاق",
+        "archived": "تم الأرشفة",
+        "reopened": "تمت إعادة الفتح"
+      },
       "badges": {
         "lifecycle": "دورة الحياة",
         "status": "الحالة",
@@ -300,6 +309,22 @@
         "childCreated": "تم إنشاء فرعي",
         "childDeleted": "تم حذف فرعي"
       },
+      "fields": {
+        "amount": "المبلغ",
+        "status": "الحالة",
+        "paidAt": "تاريخ الدفع",
+        "assignment": "التعيين",
+        "title": "العنوان",
+        "priority": "الأولوية",
+        "dueDate": "تاريخ الاستحقاق",
+        "scheduledAt": "الموعد المجدول",
+        "sessionDate": "تاريخ الجلسة",
+        "location": "المكان",
+        "outcome": "النتيجة",
+        "description": "الوصف",
+        "type": "النوع"
+      },
+      "changes": "التغييرات",
       "metadata": {
         "oldStatus": "الحالة القديمة",
         "newStatus": "الحالة الجديدة",
@@ -333,6 +358,8 @@
         "creation": "إنشاء",
         "entityAdded": "تمت إضافة {{name}}",
         "entityCreated": "تم إنشاء الكيان",
+        "entityUpdated": "تم تحديث {{entity}}",
+        "entityDeleted": "تم حذف {{entity}}",
         "statusChanged": "تم تغيير الحالة: {{oldStatus}} → {{newStatus}}",
         "reassigned": "تم إعادة التعيين إلى: {{previousAssignee}} → {{assignedTo}}",
         "assigned": "تم تعيينه لـ {{assignedTo}}",

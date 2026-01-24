@@ -6,6 +6,8 @@ const path = require("path");
 const { spawn } = require("child_process");
 const net = require("net");
 const fs = require("fs");
+const dns = require("dns").promises;
+const https = require("https");
 
 // ============================================================
 // CONFIGURATION
@@ -20,12 +22,30 @@ const DOCUMENTS_PATH = path.join(USER_DATA_PATH, "documents");
 const LICENSE_PATH = path.join(USER_DATA_PATH, "organia_license.json");
 const DEVICE_ID_PATH = path.join(USER_DATA_PATH, "organia_device_id.txt");
 const ACTIVATION_PROTOCOL = "organia";
+const UPDATE_CACHE_PATH = path.join(USER_DATA_PATH, "updates");
+const RAW_UPDATE_URL = (process.env.ORGANIA_UPDATE_URL || "").trim();
+const UPDATE_FEED_URL = RAW_UPDATE_URL.startsWith("https://")
+  ? RAW_UPDATE_URL
+  : "";
+const ALLOW_DEV_UPDATES = process.env.ORGANIA_DEV_UPDATES === "1";
 
 // Backend configuration
 let backendProcess = null;
 let backendPort = null;
 let mainWindow = null;
 let resetting = false;
+let updateDownloadUrl = null;
+let downloadedUpdatePath = null;
+let updateState = {
+  status: "idle",
+  version: app.getVersion(),
+  availableVersion: null,
+  progress: null,
+  lastCheckedAt: null,
+  updatesEnabled: Boolean(UPDATE_FEED_URL) && (!isDev || ALLOW_DEV_UPDATES),
+};
+let updateStatusBeforeCheck = null;
+let lastUpdateAction = null;
 
 // ============================================================
 // UTILITY FUNCTIONS
@@ -279,6 +299,223 @@ async function resetBackendData() {
 }
 
 // ============================================================
+// UPDATE MANAGEMENT
+// ============================================================
+
+function updatesEnabled() {
+  return Boolean(UPDATE_FEED_URL) && (!isDev || ALLOW_DEV_UPDATES);
+}
+
+function setUpdateState(patch) {
+  updateState = { ...updateState, ...patch };
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send("update-status", updateState);
+  }
+}
+
+function getPlatformKey() {
+  if (process.platform === "win32") return "windows";
+  if (process.platform === "darwin") return "mac";
+  return "linux";
+}
+
+function compareVersions(a, b) {
+  const normalize = (value) =>
+    String(value || "")
+      .split(/[.+-]/)[0]
+      .split(".")
+      .map((part) => Number.parseInt(part, 10) || 0);
+  const aParts = normalize(a);
+  const bParts = normalize(b);
+  const length = Math.max(aParts.length, bParts.length);
+  for (let i = 0; i < length; i += 1) {
+    const diff = (aParts[i] || 0) - (bParts[i] || 0);
+    if (diff > 0) return 1;
+    if (diff < 0) return -1;
+  }
+  return 0;
+}
+
+async function canReachUpdateHost(timeoutMs = 1500) {
+  if (!UPDATE_FEED_URL) return false;
+  let hostname = "";
+  try {
+    hostname = new URL(UPDATE_FEED_URL).hostname;
+  } catch {
+    return false;
+  }
+
+  try {
+    await Promise.race([
+      dns.lookup(hostname),
+      new Promise((_resolve, reject) =>
+        setTimeout(() => reject(new Error("timeout")), timeoutMs)
+      ),
+    ]);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function fetchUpdateFeed() {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 2500);
+  try {
+    const response = await fetch(UPDATE_FEED_URL, {
+      method: "GET",
+      cache: "no-store",
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      throw new Error(`Update feed failed: ${response.status}`);
+    }
+    return await response.json();
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function resolveDownloadUrl(feed) {
+  const platformKey = getPlatformKey();
+  const downloads = feed?.downloads || {};
+  const url = downloads[platformKey];
+  if (typeof url !== "string" || !url.startsWith("https://")) {
+    return null;
+  }
+  return url;
+}
+
+async function checkForUpdates({ userInitiated = false } = {}) {
+  if (!updatesEnabled()) return updateState;
+  const online = await canReachUpdateHost();
+  if (!online) return updateState;
+  updateStatusBeforeCheck = updateState.status;
+  lastUpdateAction = "check";
+  try {
+    if (userInitiated) {
+      setUpdateState({ status: "checking", progress: null });
+    }
+    const feed = await fetchUpdateFeed();
+    const feedVersion = feed?.version;
+    const currentVersion = app.getVersion();
+    const versionCompare = compareVersions(feedVersion, currentVersion);
+    updateDownloadUrl =
+      versionCompare > 0 ? resolveDownloadUrl(feed) : null;
+    downloadedUpdatePath = null;
+    if (versionCompare > 0 && updateDownloadUrl) {
+      setUpdateState({
+        status: "update-available",
+        availableVersion: feedVersion,
+        progress: null,
+        lastCheckedAt: new Date().toISOString(),
+      });
+    } else {
+      setUpdateState({
+        status: "up-to-date",
+        availableVersion: null,
+        progress: null,
+        lastCheckedAt: new Date().toISOString(),
+      });
+    }
+  } catch (error) {
+    if (updateStatusBeforeCheck) {
+      setUpdateState({ status: updateStatusBeforeCheck });
+    } else {
+      setUpdateState({ status: "idle" });
+    }
+    console.warn("[Updater] Check failed:", error?.message || error);
+  } finally {
+    lastUpdateAction = null;
+  }
+  return updateState;
+}
+
+async function downloadToFile(url, targetPath) {
+  return new Promise((resolve, reject) => {
+    const request = https.get(url, (response) => {
+      if (response.statusCode !== 200) {
+        response.resume();
+        reject(new Error(`Download failed: ${response.statusCode}`));
+        return;
+      }
+      const total = Number.parseInt(response.headers["content-length"] || "0", 10);
+      let received = 0;
+      const fileStream = fs.createWriteStream(targetPath);
+      response.on("data", (chunk) => {
+        received += chunk.length;
+        if (total > 0) {
+          const percent = Math.round((received / total) * 100);
+          setUpdateState({ status: "downloading", progress: percent });
+        }
+      });
+      response.on("error", (error) => {
+        fileStream.close();
+        reject(error);
+      });
+      fileStream.on("finish", () => {
+        fileStream.close(() => resolve());
+      });
+      fileStream.on("error", (error) => {
+        response.destroy();
+        fileStream.close();
+        reject(error);
+      });
+      response.pipe(fileStream);
+    });
+
+    request.on("error", (error) => reject(error));
+    request.on("timeout", () => {
+      request.destroy(new Error("Download timeout"));
+    });
+  });
+}
+
+async function downloadUpdate() {
+  if (!updatesEnabled()) return updateState;
+  const online = await canReachUpdateHost();
+  if (!online) return updateState;
+  if (!updateDownloadUrl) return updateState;
+  lastUpdateAction = "download";
+  try {
+    if (!fs.existsSync(UPDATE_CACHE_PATH)) {
+      fs.mkdirSync(UPDATE_CACHE_PATH, { recursive: true });
+    }
+    const fileName = path.basename(new URL(updateDownloadUrl).pathname);
+    const targetPath = path.join(UPDATE_CACHE_PATH, fileName);
+    setUpdateState({ status: "downloading", progress: 0 });
+    await downloadToFile(updateDownloadUrl, targetPath);
+    downloadedUpdatePath = targetPath;
+    setUpdateState({
+      status: "downloaded",
+      availableVersion: updateState.availableVersion,
+      progress: 100,
+    });
+  } catch (error) {
+    setUpdateState({ status: "download-failed", progress: null });
+    console.warn("[Updater] Download failed:", error?.message || error);
+  } finally {
+    lastUpdateAction = null;
+  }
+  return updateState;
+}
+
+function installUpdate() {
+  if (!updatesEnabled()) return;
+  if (!downloadedUpdatePath) return;
+  if (process.platform !== "win32") return;
+  try {
+    spawn(downloadedUpdatePath, [], {
+      detached: true,
+      stdio: "ignore",
+    }).unref();
+    app.quit();
+  } catch (error) {
+    console.warn("[Updater] Install failed:", error?.message || error);
+  }
+}
+
+// ============================================================
 // WINDOW MANAGEMENT
 // ============================================================
 
@@ -346,6 +583,7 @@ function createWindow() {
   // Show window when ready to prevent visual flash
   mainWindow.once("ready-to-show", () => {
     mainWindow.show();
+    setUpdateState({ version: app.getVersion() });
   });
 
   // Load the frontend
@@ -456,6 +694,23 @@ function setupIPC() {
     return shell.openExternal(url);
   });
 
+  ipcMain.handle("updates-get-status", () => updateState);
+
+  ipcMain.handle("updates-check", async () => {
+    await checkForUpdates({ userInitiated: true });
+    return updateState;
+  });
+
+  ipcMain.handle("updates-download", async () => {
+    await downloadUpdate();
+    return updateState;
+  });
+
+  ipcMain.handle("updates-install", () => {
+    installUpdate();
+    return { ok: true };
+  });
+
   ipcMain.handle("reset-app-data", async () => {
     try {
       await resetBackendData();
@@ -518,6 +773,13 @@ app.whenReady().then(async () => {
 
     // Create the main window
     createWindow();
+
+    // Initialize update checks (non-blocking, offline-safe)
+    if (updatesEnabled()) {
+      setTimeout(() => {
+        checkForUpdates().catch(() => null);
+      }, 1500);
+    }
 
     // Register custom protocol for activation deep link
     if (process.defaultApp && process.argv.length >= 2) {

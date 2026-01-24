@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useRef } from 'react';
-import { useLock } from '../contexts/LockContext';
+import { useLock } from "../contexts/LockContext";
 
 const ACTIVITY_EVENTS = ['mousedown', 'keydown', 'scroll', 'touchstart', 'mousemove'];
 

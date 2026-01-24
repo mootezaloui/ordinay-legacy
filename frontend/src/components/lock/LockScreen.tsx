@@ -6,7 +6,7 @@
 
 import { useEffect, useState, FormEvent } from "react";
 import { useTranslation } from "react-i18next";
-import { useLock } from "../../contexts/lockContext";
+import { useLock } from "../../contexts/LockContext";
 import { resetAppData } from "../../services/appResetService";
 
 export default function LockScreen() {

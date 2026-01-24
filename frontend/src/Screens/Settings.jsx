@@ -8,6 +8,7 @@ import SettingsNotifications from '../components/settings/SettingsNotifications'
 import SettingsDocuments from '../components/settings/SettingsDocuments';
 import SettingsSecurityAccess from '../components/settings/SettingsSecurityAccess';
 import SettingsAdvanced from '../components/settings/SettingsAdvanced';
+import SettingsUpdates from '../components/settings/SettingsUpdates';
 import { useLocation } from 'react-router-dom';
 
 export default function Settings() {
@@ -43,6 +44,12 @@ export default function Settings() {
       label: t('domains.security.label'),
       description: t('domains.security.description'),
       component: SettingsSecurityAccess,
+    },
+    {
+      id: 'updates',
+      label: t('domains.updates.label'),
+      description: t('domains.updates.description'),
+      component: SettingsUpdates,
     },
     {
       id: 'advanced',

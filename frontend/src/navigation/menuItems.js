@@ -56,7 +56,7 @@ export const menuItems = [
   },
   {
     icon: "fas fa-robot",
-    label: "ChatBot",
+    label: "Organia Intelligence",
     route: "/chatbot",
   },
 ];
@@ -74,5 +74,3 @@ export const secondaryMenuItems = [
 export const getMenuItemByRoute = (route) => {
   return menuItems.find((item) => item.route === route);
 };
-
-

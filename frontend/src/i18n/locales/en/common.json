@@ -233,6 +233,15 @@
         "title": "No history available yet",
         "description": "Important events will appear here: creations, status changes, assignments, and significant actions."
       },
+      "actions": {
+        "created": "Created",
+        "updated": "Updated",
+        "deleted": "Deleted",
+        "cancelled": "Cancelled",
+        "closed": "Closed",
+        "archived": "Archived",
+        "reopened": "Reopened"
+      },
       "badges": {
         "lifecycle": "Lifecycle",
         "status": "Status",
@@ -243,6 +252,22 @@
         "childCreated": "Child created",
         "childDeleted": "Child deleted"
       },
+      "fields": {
+        "amount": "Amount",
+        "status": "Status",
+        "paidAt": "Paid at",
+        "assignment": "Assignment",
+        "title": "Title",
+        "priority": "Priority",
+        "dueDate": "Due date",
+        "scheduledAt": "Scheduled at",
+        "sessionDate": "Session date",
+        "location": "Location",
+        "outcome": "Outcome",
+        "description": "Description",
+        "type": "Type"
+      },
+      "changes": "Changes",
       "metadata": {
         "oldStatus": "Old status",
         "newStatus": "New status",
@@ -264,6 +289,8 @@
         "creation": "Creation",
         "entityAdded": "{{name}} was added",
         "entityCreated": "Entity created",
+        "entityUpdated": "{{entity}} updated",
+        "entityDeleted": "{{entity}} deleted",
         "statusChanged": "Status changed: {{oldStatus}} → {{newStatus}}",
         "reassigned": "Reassigned to: {{previousAssignee}} → {{assignedTo}}",
         "assigned": "Assigned to {{assignedTo}}",

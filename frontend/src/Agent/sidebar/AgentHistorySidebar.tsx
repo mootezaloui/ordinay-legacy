@@ -21,7 +21,7 @@ interface AgentHistorySidebarProps {
   activeSessionId: string;
   onSessionClick: (sessionId: string) => void;
   onNewChat: (folderId?: string | null) => void;
-  onCreateFolder: () => void;
+  onCreateFolder: () => AgentFolder;
   onRenameSession: (sessionId: string, title: string) => void;
   onDeleteSession: (sessionId: string) => void;
   onRenameFolder: (folderId: string, title: string) => void;

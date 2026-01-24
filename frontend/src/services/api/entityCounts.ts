@@ -1,4 +1,4 @@
-import { apiClient } from "./api/client";
+import { apiClient } from "./client";
 
 export async function fetchEntityCounts() {
   // Adjust endpoints as needed to match your backend API

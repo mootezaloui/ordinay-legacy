@@ -175,6 +175,30 @@
       }
     }
   },
+  "updates": {
+    "sectionTitle": "التحديثات",
+    "currentVersion": "الإصدار الحالي",
+    "versionUnavailable": "غير متوفر",
+    "statusLabel": "حالة التحديث",
+    "availableVersion": "متوفر: {{version}}",
+    "available": "تحديث متوفر",
+    "checking": "جارٍ التحقق من التحديثات",
+    "downloading": "جارٍ تنزيل التحديث",
+    "downloadProgress": "التنزيل: {{percent}}٪",
+    "upToDate": "محدّث",
+    "updateFailed": "فشل التحديث",
+    "actions": {
+      "check": "التحقق من التحديثات",
+      "download": "تنزيل التحديث",
+      "install": "التثبيت وإعادة التشغيل"
+    },
+    "notice": {
+      "availableTitle": "تحديث متوفر",
+      "availableMessage": "نسخة جديدة جاهزة عندما ترغب.",
+      "downloadFailedTitle": "فشل التحديث",
+      "downloadFailedMessage": "فشل التنزيل. يمكنك المحاولة مرة أخرى في أي وقت."
+    }
+  },
   "domains": {
     "general": {
       "label": "عام",
@@ -195,6 +219,10 @@
     "security": {
       "label": "الأمان والوصول",
       "description": "قفل مساحة العمل وحالة الترخيص وضوابط الوصول."
+    },
+    "updates": {
+      "label": "التحديثات",
+      "description": "حالة الإصدار وتحديثات التطبيق."
     },
     "advanced": {
       "label": "متقدم",

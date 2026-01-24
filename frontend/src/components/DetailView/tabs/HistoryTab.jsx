@@ -198,6 +198,98 @@ function extractFinancialData(metadata = {}) {
 }
 
 /**
+ * Resolve localized entity names for history labels
+ */
+function resolveEntityName(type, t) {
+    if (!type) return "";
+    const normalized = `${type}`.toLowerCase().replace(/[_\s-]/g, "");
+    const map = {
+        client: { ns: "clients", key: "detail.entityName" },
+        dossier: { ns: "dossiers", key: "detail.entityName" },
+        lawsuit: { ns: "lawsuits", key: "detail.entityName" },
+        session: { ns: "sessions", key: "detail.entityName" },
+        task: { ns: "tasks", key: "detail.entityName" },
+        mission: { ns: "missions", key: "detail.entityName" },
+        officer: { ns: "officers", key: "detail.entityName" },
+        personaltask: { ns: "personalTasks", key: "detail.entityName" },
+        financialentry: { ns: "accounting", key: "detail.entityName" },
+    };
+    const config = map[normalized] || map[`${type}`.toLowerCase()];
+    if (!config) return "";
+    return t(config.key, { ns: config.ns });
+}
+
+/**
+ * Get a localized label for a history event when stored labels are not localized.
+ */
+function getLocalizedEventLabel(event, t, entityType) {
+    const label = event?.label || "";
+    const details = event?.details || "";
+    const metadata = event?.metadata || {};
+    const eventType = event?.eventType || "";
+
+    const extractSuffix = (text) => {
+        if (!text) return "";
+        const parts = text.split(":");
+        if (parts.length <= 1) return "";
+        return parts.slice(1).join(":").trim();
+    };
+
+    const suffix = extractSuffix(label) || extractSuffix(details);
+
+    const financeActionFromLabel = () => {
+        const lower = label.toLowerCase();
+        if (lower.startsWith("financial entry added") || lower.startsWith("entrée financière ajoutée")) return "entryAdded";
+        if (lower.startsWith("financial entry updated") || lower.startsWith("entrée financière mise à jour")) return "entryUpdated";
+        if (lower.startsWith("financial entry deleted") || lower.startsWith("entrée financière supprimée")) return "entryDeleted";
+        return null;
+    };
+
+    const relationLabelKeyFromChild = (childType) => {
+        const normalized = `${childType || ""}`.toLowerCase();
+        if (normalized === "dossier") return "detail.history.labels.dossierCreated";
+        if (normalized === "lawsuit") return "detail.history.labels.lawsuitCreated";
+        if (normalized === "session") return "detail.history.labels.hearingCreated";
+        if (normalized === "task") return "detail.history.labels.taskCreated";
+        if (normalized === "mission") return "detail.history.labels.missionCreated";
+        return "detail.history.labels.itemCreated";
+    };
+
+    // Finance events: translate prefix, keep suffix
+    if (eventType === "finance" || metadata.childType === "financial_entry") {
+        const actionKey = metadata.actionType || financeActionFromLabel();
+        const map = {
+            entryAdded: "detail.history.labels.finance.entryAdded",
+            entryUpdated: "detail.history.labels.finance.entryUpdated",
+            entryDeleted: "detail.history.labels.finance.entryDeleted",
+        };
+        const base = map[actionKey] ? t(map[actionKey]) : t("detail.history.labels.finance.entryAdded");
+        return suffix ? `${base}: ${suffix}` : base;
+    }
+
+    // Relation events: translate created label, keep suffix
+    if (eventType === "relation" && metadata.childType) {
+        const base = t(relationLabelKeyFromChild(metadata.childType));
+        return suffix ? `${base}: ${suffix}` : base;
+    }
+
+    // Generic updates/creates/deletes from stored English/French labels
+    const lower = label.toLowerCase();
+    const entityName = resolveEntityName(entityType, t) || "";
+    if (lower.includes("updated") || lower.includes("modifié") || lower.includes("mise à jour")) {
+        return t("detail.history.labels.entityUpdated", { entity: entityName });
+    }
+    if (lower.includes("deleted") || lower.includes("supprimé")) {
+        return t("detail.history.labels.entityDeleted", { entity: entityName });
+    }
+    if (lower.includes("created") || lower.includes("créé") || lower.includes("ajouté")) {
+        return t("detail.history.labels.entityCreated", { entity: entityName });
+    }
+
+    return label;
+}
+
+/**
  * Calculate event depth based on metadata and action
  */
 function getEventDepth(event) {
@@ -227,7 +319,18 @@ function getEventDepth(event) {
  * History Tab - Read-only audit trail
  */
 export default function HistoryTab({ entityType, entityId, label }) {
-    const { t, i18n } = useTranslation("common");
+    const { t, i18n } = useTranslation([
+        "common",
+        "clients",
+        "dossiers",
+        "lawsuits",
+        "sessions",
+        "tasks",
+        "missions",
+        "officers",
+        "personalTasks",
+        "accounting",
+    ]);
     const [history, setHistory] = useState([]);
     const [loading, setLoading] = useState(true);
     const { formatDateTime, formatCurrency } = useSettings();
@@ -286,6 +389,7 @@ export default function HistoryTab({ entityType, entityId, label }) {
                                 formatCurrency={formatCurrency}
                                 t={t}
                                 i18n={i18n}
+                                entityType={entityType}
                             />
                         ))}
                     </div>
@@ -298,13 +402,14 @@ export default function HistoryTab({ entityType, entityId, label }) {
 /**
  * Single history event component with visual hierarchy
  */
-function HistoryEvent({ event, isFirst, isLast, formatDateTime, formatCurrency, t, i18n }) {
+function HistoryEvent({ event, isFirst, isLast, formatDateTime, formatCurrency, t, i18n, entityType }) {
     const depth = getEventDepth(event);
     const action = getActionType(event);
     const { icon, bgColor } = getActionIcon(action, event.eventType, event.metadata, depth);
     const changeDetails = extractChangeDetails(event.metadata, formatCurrency);
     const parentContext = extractParentContext(event);
     const financialData = event.eventType === 'finance' ? extractFinancialData(event.metadata) : null;
+    const displayLabel = getLocalizedEventLabel(event, t, entityType);
 
     // Visual hierarchy styles based on depth
     const depthStyles = {
@@ -340,7 +445,7 @@ function HistoryEvent({ event, isFirst, isLast, formatDateTime, formatCurrency, 
                     <div className="flex items-start justify-between gap-3">
                         <div className="flex-1 min-w-0">
                             <h4 className={`${style.titleClass} overflow-wrap-anywhere`}>
-                                {event.label}
+                                {displayLabel}
                             </h4>
                             {/* Parent context line */}
                             {parentContext && (
@@ -479,17 +584,17 @@ function getEventTypeIcon(eventType, iconSize) {
  */
 function ActionBadge({ action, t }) {
     const actionConfig = {
-        created: { label: t('detail.history.actions.created', 'Créé'), color: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' },
-        child_created: { label: t('detail.history.actions.created', 'Créé'), color: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' },
-        updated: { label: t('detail.history.actions.updated', 'Modifié'), color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' },
-        deleted: { label: t('detail.history.actions.deleted', 'Supprimé'), color: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' },
-        hard_deleted: { label: t('detail.history.actions.deleted', 'Supprimé'), color: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' },
-        child_deleted: { label: t('detail.history.actions.deleted', 'Supprimé'), color: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' },
-        cancelled: { label: t('detail.history.actions.cancelled', 'Annulé'), color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300' },
-        closed: { label: t('detail.history.actions.closed', 'Clôturé'), color: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300' },
-        archived: { label: t('detail.history.actions.archived', 'Archivé'), color: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300' },
-        reopened: { label: t('detail.history.actions.reopened', 'Réouvert'), color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' },
-        reactivated: { label: t('detail.history.actions.reopened', 'Réouvert'), color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' },
+        created: { label: t('detail.history.actions.created'), color: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' },
+        child_created: { label: t('detail.history.actions.created'), color: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' },
+        updated: { label: t('detail.history.actions.updated'), color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' },
+        deleted: { label: t('detail.history.actions.deleted'), color: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' },
+        hard_deleted: { label: t('detail.history.actions.deleted'), color: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' },
+        child_deleted: { label: t('detail.history.actions.deleted'), color: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' },
+        cancelled: { label: t('detail.history.actions.cancelled'), color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300' },
+        closed: { label: t('detail.history.actions.closed'), color: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300' },
+        archived: { label: t('detail.history.actions.archived'), color: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300' },
+        reopened: { label: t('detail.history.actions.reopened'), color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' },
+        reactivated: { label: t('detail.history.actions.reopened'), color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' },
     };
 
     const config = actionConfig[action];
@@ -507,14 +612,14 @@ function ActionBadge({ action, t }) {
  */
 function CategoryBadge({ eventType, t }) {
     const categoryConfig = {
-        lifecycle: { label: t('detail.history.badges.lifecycle', 'Cycle de vie'), color: 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400' },
-        status: { label: t('detail.history.badges.status', 'Statut'), color: 'bg-purple-50 text-purple-600 dark:bg-purple-900/20 dark:text-purple-400' },
-        assignment: { label: t('detail.history.badges.assignment', 'Affectation'), color: 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/20 dark:text-indigo-400' },
-        finance: { label: t('detail.history.badges.finance', 'Finances'), color: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400' },
-        system: { label: t('detail.history.badges.system', 'Système'), color: 'bg-orange-50 text-orange-600 dark:bg-orange-900/20 dark:text-orange-400' },
-        relation: { label: t('detail.history.badges.relation', 'Relation'), color: 'bg-cyan-50 text-cyan-600 dark:bg-cyan-900/20 dark:text-cyan-400' },
-        child_created: { label: t('detail.history.badges.child', 'Enfant'), color: 'bg-slate-50 text-slate-600 dark:bg-slate-800 dark:text-slate-400' },
-        child_deleted: { label: t('detail.history.badges.child', 'Enfant'), color: 'bg-slate-50 text-slate-600 dark:bg-slate-800 dark:text-slate-400' },
+        lifecycle: { label: t('detail.history.badges.lifecycle'), color: 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400' },
+        status: { label: t('detail.history.badges.status'), color: 'bg-purple-50 text-purple-600 dark:bg-purple-900/20 dark:text-purple-400' },
+        assignment: { label: t('detail.history.badges.assignment'), color: 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/20 dark:text-indigo-400' },
+        finance: { label: t('detail.history.badges.finance'), color: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400' },
+        system: { label: t('detail.history.badges.system'), color: 'bg-orange-50 text-orange-600 dark:bg-orange-900/20 dark:text-orange-400' },
+        relation: { label: t('detail.history.badges.relation'), color: 'bg-cyan-50 text-cyan-600 dark:bg-cyan-900/20 dark:text-cyan-400' },
+        child_created: { label: t('detail.history.badges.childCreated'), color: 'bg-slate-50 text-slate-600 dark:bg-slate-800 dark:text-slate-400' },
+        child_deleted: { label: t('detail.history.badges.childDeleted'), color: 'bg-slate-50 text-slate-600 dark:bg-slate-800 dark:text-slate-400' },
     };
 
     const config = categoryConfig[eventType];
@@ -534,24 +639,25 @@ function ChangeDetailsBlock({ changes, t }) {
     if (!changes || changes.length === 0) return null;
 
     const fieldLabels = {
-        amount: t('detail.history.fields.amount', 'Montant'),
-        status: t('detail.history.fields.status', 'Statut'),
-        paid_at: t('detail.history.fields.paidAt', 'Date de paiement'),
-        assignment: t('detail.history.fields.assignment', 'Affectation'),
-        title: t('detail.history.fields.title', 'Titre'),
-        priority: t('detail.history.fields.priority', 'Priorité'),
-        due_date: t('detail.history.fields.dueDate', 'Échéance'),
-        scheduled_at: t('detail.history.fields.scheduledAt', 'Date prévue'),
-        session_date: t('detail.history.fields.sessionDate', 'Date de session'),
-        location: t('detail.history.fields.location', 'Lieu'),
-        outcome: t('detail.history.fields.outcome', 'Résultat'),
-        description: t('detail.history.fields.description', 'Description'),
+        amount: t('detail.history.fields.amount'),
+        status: t('detail.history.fields.status'),
+        paid_at: t('detail.history.fields.paidAt'),
+        assignment: t('detail.history.fields.assignment'),
+        title: t('detail.history.fields.title'),
+        priority: t('detail.history.fields.priority'),
+        due_date: t('detail.history.fields.dueDate'),
+        scheduled_at: t('detail.history.fields.scheduledAt'),
+        session_date: t('detail.history.fields.sessionDate'),
+        location: t('detail.history.fields.location'),
+        outcome: t('detail.history.fields.outcome'),
+        description: t('detail.history.fields.description'),
+        type: t('detail.history.fields.type'),
     };
 
     return (
         <div className="mt-3 p-3 bg-amber-50/50 dark:bg-amber-900/10 rounded-lg border border-amber-200/50 dark:border-amber-800/30">
             <p className="text-xs font-medium text-amber-700 dark:text-amber-400 mb-2">
-                {t('detail.history.changes', 'Modifications')}:
+                {t('detail.history.changes')}:
             </p>
             <div className="space-y-1">
                 {changes.map((change, idx) => (
@@ -588,26 +694,26 @@ function FinancialDataBlock({ data, t, formatCurrency }) {
         <div className="mt-3 p-3 bg-emerald-50/50 dark:bg-emerald-900/10 rounded-lg border border-emerald-200/50 dark:border-emerald-800/30">
             <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
                 <div>
-                    <span className="text-slate-500 dark:text-slate-400">{t('detail.history.fields.amount', 'Montant')}:</span>
+                    <span className="text-slate-500 dark:text-slate-400">{t('detail.history.fields.amount')}:</span>
                     <span className="ml-2 font-semibold text-emerald-700 dark:text-emerald-400">
                         {formatAmount(data.amount)}
                     </span>
                 </div>
                 {data.type && (
                     <div>
-                        <span className="text-slate-500 dark:text-slate-400">{t('detail.history.fields.type', 'Type')}:</span>
+                        <span className="text-slate-500 dark:text-slate-400">{t('detail.history.fields.type')}:</span>
                         <span className="ml-2 text-slate-700 dark:text-slate-300">{data.type}</span>
                     </div>
                 )}
                 {data.status && (
                     <div>
-                        <span className="text-slate-500 dark:text-slate-400">{t('detail.history.fields.status', 'Statut')}:</span>
+                        <span className="text-slate-500 dark:text-slate-400">{t('detail.history.fields.status')}:</span>
                         <span className="ml-2 text-slate-700 dark:text-slate-300">{data.status}</span>
                     </div>
                 )}
                 {data.description && (
                     <div className="col-span-2">
-                        <span className="text-slate-500 dark:text-slate-400">{t('detail.history.fields.description', 'Description')}:</span>
+                        <span className="text-slate-500 dark:text-slate-400">{t('detail.history.fields.description')}:</span>
                         <span className="ml-2 text-slate-700 dark:text-slate-300">{data.description}</span>
                     </div>
                 )}

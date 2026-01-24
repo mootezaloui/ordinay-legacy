@@ -77,6 +77,40 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onActivationUrl: (handler) => ipcRenderer.on('activation-url', (_event, url) => handler(url)),
 
   /**
+   * Get current update status
+   * @returns {Promise<object>}
+   */
+  getUpdateStatus: () => ipcRenderer.invoke('updates-get-status'),
+
+  /**
+   * Listen for update status changes
+   * @param {(status: object) => void} handler
+   */
+  onUpdateStatus: (handler) => {
+    const listener = (_event, status) => handler(status);
+    ipcRenderer.on('update-status', listener);
+    return () => ipcRenderer.removeListener('update-status', listener);
+  },
+
+  /**
+   * Trigger a manual update check
+   * @returns {Promise<object>}
+   */
+  checkForUpdates: () => ipcRenderer.invoke('updates-check'),
+
+  /**
+   * Download the available update
+   * @returns {Promise<object>}
+   */
+  downloadUpdate: () => ipcRenderer.invoke('updates-download'),
+
+  /**
+   * Install the downloaded update and restart
+   * @returns {Promise<{ok: boolean}>}
+   */
+  installUpdate: () => ipcRenderer.invoke('updates-install'),
+
+  /**
    * Window control methods
    */
   windowMinimize: () => ipcRenderer.send('window-minimize'),

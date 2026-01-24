@@ -234,6 +234,15 @@
         "title": "Aucun historique disponible pour le moment",
         "description": "Les événements importants apparaîtront ici : créations, changements de statut, attributions et actions significatives."
       },
+      "actions": {
+        "created": "Créé",
+        "updated": "Modifié",
+        "deleted": "Supprimé",
+        "cancelled": "Annulé",
+        "closed": "Clôturé",
+        "archived": "Archivé",
+        "reopened": "Réouvert"
+      },
       "badges": {
         "lifecycle": "Cycle de vie",
         "status": "Statut",
@@ -244,6 +253,22 @@
         "childCreated": "Enfant créé",
         "childDeleted": "Enfant supprimé"
       },
+      "fields": {
+        "amount": "Montant",
+        "status": "Statut",
+        "paidAt": "Date de paiement",
+        "assignment": "Affectation",
+        "title": "Titre",
+        "priority": "Priorité",
+        "dueDate": "Échéance",
+        "scheduledAt": "Date prévue",
+        "sessionDate": "Date de session",
+        "location": "Lieu",
+        "outcome": "Résultat",
+        "description": "Description",
+        "type": "Type"
+      },
+      "changes": "Modifications",
       "metadata": {
         "oldStatus": "Ancien statut",
         "newStatus": "Nouveau statut",
@@ -265,6 +290,8 @@
         "creation": "Création",
         "entityAdded": "{{name}} a été ajouté",
         "entityCreated": "Entité créée",
+        "entityUpdated": "{{entity}} mis à jour",
+        "entityDeleted": "{{entity}} supprimé",
         "statusChanged": "Statut changé : {{oldStatus}} → {{newStatus}}",
         "reassigned": "Réassigné à : {{previousAssignee}} → {{assignedTo}}",
         "assigned": "Assigné à {{assignedTo}}",

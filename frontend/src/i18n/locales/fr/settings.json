@@ -175,6 +175,30 @@
       }
     }
   },
+  "updates": {
+    "sectionTitle": "Mises à jour",
+    "currentVersion": "Version actuelle",
+    "versionUnavailable": "Indisponible",
+    "statusLabel": "Statut de mise à jour",
+    "availableVersion": "Disponible : {{version}}",
+    "available": "Mise à jour disponible",
+    "checking": "Recherche de mises à jour",
+    "downloading": "Téléchargement de la mise à jour",
+    "downloadProgress": "Téléchargement : {{percent}} %",
+    "upToDate": "À jour",
+    "updateFailed": "Échec de la mise à jour",
+    "actions": {
+      "check": "Vérifier les mises à jour",
+      "download": "Télécharger la mise à jour",
+      "install": "Installer et redémarrer"
+    },
+    "notice": {
+      "availableTitle": "Mise à jour disponible",
+      "availableMessage": "Une nouvelle version est prête quand vous le souhaitez.",
+      "downloadFailedTitle": "Échec de la mise à jour",
+      "downloadFailedMessage": "Téléchargement échoué. Vous pouvez réessayer à tout moment."
+    }
+  },
   "domains": {
     "general": {
       "label": "Général",
@@ -195,6 +219,10 @@
     "security": {
       "label": "Sécurité & accès",
       "description": "Verrouillage, statut de licence et contrôles d'accès."
+    },
+    "updates": {
+      "label": "Mises à jour",
+      "description": "Version et mises à jour de l'application."
     },
     "advanced": {
       "label": "Avancé",

@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useSetup } from "../../contexts/SetupContext";
 import { useOperator } from "../../contexts/OperatorContext";
 import { updateOperatorForSetup, getCurrentOperator } from "../../services/api/operators";
-import { useLock } from "../../contexts/lockContext";
+import { useLock } from "../../contexts/LockContext";
 
 function SetupFlow() {
     const { t } = useTranslation("setupflow");

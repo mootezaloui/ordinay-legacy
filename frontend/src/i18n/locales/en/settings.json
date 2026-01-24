@@ -175,6 +175,30 @@
       }
     }
   },
+  "updates": {
+    "sectionTitle": "Updates",
+    "currentVersion": "Current version",
+    "versionUnavailable": "Unavailable",
+    "statusLabel": "Update status",
+    "availableVersion": "Available: {{version}}",
+    "available": "Update available",
+    "checking": "Checking for updates",
+    "downloading": "Downloading update",
+    "downloadProgress": "Download: {{percent}}%",
+    "upToDate": "Up to date",
+    "updateFailed": "Update failed",
+    "actions": {
+      "check": "Check for updates",
+      "download": "Download update",
+      "install": "Install and restart"
+    },
+    "notice": {
+      "availableTitle": "Update available",
+      "availableMessage": "A new version is ready when you are.",
+      "downloadFailedTitle": "Update failed",
+      "downloadFailedMessage": "Download failed. You can try again anytime."
+    }
+  },
   "domains": {
     "general": {
       "label": "General",
@@ -195,6 +219,10 @@
     "security": {
       "label": "Security & Access",
       "description": "Workspace lock, license status, and access controls."
+    },
+    "updates": {
+      "label": "Updates",
+      "description": "Version status and app updates."
     },
     "advanced": {
       "label": "Advanced",

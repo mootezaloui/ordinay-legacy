@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import ContentSection from "../../layout/ContentSection";
 
 /**
@@ -5,6 +6,7 @@ import ContentSection from "../../layout/ContentSection";
  * Works for any entity with a timeline array
  */
 export default function TimelineTab({ data, config }) {
+  const { t } = useTranslation("common");
   const timeline = data.timeline || [];
 
   const typeConfig = {
@@ -48,13 +50,13 @@ export default function TimelineTab({ data, config }) {
 
   if (timeline.length === 0) {
     return (
-      <ContentSection data-tutorial="dossier-history-section" title="History">
+      <ContentSection data-tutorial="dossier-history-section" title={t("detail.timeline.title")}>
         <div className="p-12 text-center">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-800 mb-4">
             <i className="fas fa-history text-slate-400 dark:text-slate-600 text-2xl"></i>
           </div>
           <p className="text-slate-600 dark:text-slate-400">
-            No events in history
+            {t("detail.timeline.empty")}
           </p>
         </div>
       </ContentSection>
@@ -62,7 +64,7 @@ export default function TimelineTab({ data, config }) {
   }
 
   return (
-    <ContentSection data-tutorial="dossier-history-section" title="History">
+    <ContentSection data-tutorial="dossier-history-section" title={t("detail.timeline.title")}>
       <div className="p-6">
         <div className="space-y-6">
           {timeline.map((event, index) => {

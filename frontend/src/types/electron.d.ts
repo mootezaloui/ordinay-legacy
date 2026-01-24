@@ -17,6 +17,22 @@ export interface AppPaths {
   database: string;
 }
 
+export interface UpdateStatus {
+  status:
+    | "idle"
+    | "checking"
+    | "update-available"
+    | "up-to-date"
+    | "downloading"
+    | "downloaded"
+    | "download-failed";
+  version: string;
+  availableVersion: string | null;
+  progress: number | null;
+  lastCheckedAt: string | null;
+  updatesEnabled: boolean;
+}
+
 export interface ElectronAPI {
   /**
    * Get backend configuration (port, URLs)
@@ -67,6 +83,31 @@ export interface ElectronAPI {
    * Listen for activation deep link
    */
   onActivationUrl: (handler: (url: string) => void) => void;
+
+  /**
+   * Get current update status
+   */
+  getUpdateStatus: () => Promise<UpdateStatus>;
+
+  /**
+   * Listen for update status changes
+   */
+  onUpdateStatus: (handler: (status: UpdateStatus) => void) => () => void;
+
+  /**
+   * Trigger a manual update check
+   */
+  checkForUpdates: () => Promise<UpdateStatus>;
+
+  /**
+   * Download the available update
+   */
+  downloadUpdate: () => Promise<UpdateStatus>;
+
+  /**
+   * Install the downloaded update and restart
+   */
+  installUpdate: () => Promise<{ ok: boolean }>;
 
   /**
    * Reset app data (backend DB + documents)

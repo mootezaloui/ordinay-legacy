@@ -4,17 +4,17 @@
  * All application routes are defined here
  */
 
-import { ComponentType, ReactNode } from "react";
+import { ComponentType, ReactNode, Suspense, lazy } from "react";
 import Dashboard from "../Screens/Dashboard";
 import Clients from "../Screens/Clients";
 import Dossiers from "../Screens/Dossiers";
 import Tasks from "../Screens/Tasks";
-import Cases from "../Screens/lawsuits";
+import Cases from "../Screens/Lawsuits";
 import Sessions from "../Screens/Sessions";
 import PersonalTasks from "../Screens/PersonalTasks";
 import Officers from "../Screens/Officers";
 import Accounting from "../Screens/Accounting";
-import ChatBot from "../Screens/ChatBot";
+import ComingSoonAI from "../Screens/ComingSoonAI";
 import Profile from "../Screens/Profile";
 import Settings from "../Screens/Settings";
 import NotFound from "../Screens/NotFound";
@@ -23,6 +23,7 @@ import SignUp from "../Screens/Auth/SignUp";
 import ForgotPassword from "../Screens/Auth/ForgetPassword";
 import NotificationCenter from "../components/notifications/NotificationCenter";
 import DetailView from "../components/DetailView/DetailView";
+import { FEATURE_AI_AGENT } from "../config/features";
 import { t } from "../i18n";
 
 /**
@@ -34,6 +35,22 @@ export interface RouteConfig {
   name: string;
   icon: string;
   label?: string;
+}
+
+let ChatBotRouteComponent: RouteConfig["component"] = ComingSoonAI;
+if (FEATURE_AI_AGENT) {
+  const ChatBot = lazy(() => import("../Screens/ChatBot"));
+  ChatBotRouteComponent = () => (
+    <Suspense
+      fallback={
+        <div className="min-h-[50vh] flex items-center justify-center text-slate-500">
+          Loading Organia Intelligence...
+        </div>
+      }
+    >
+      <ChatBot />
+    </Suspense>
+  );
 }
 
 /**
@@ -171,10 +188,10 @@ export const routes: RouteConfig[] = [
 
   {
     path: "/chatbot",
-    component: ChatBot,
+    component: ChatBotRouteComponent,
     name: "ChatBot",
     icon: "fas fa-robot",
-    label: "ChatBot",
+    label: "Organia Intelligence (Coming Soon)",
   },
   {
     path: "/profile",

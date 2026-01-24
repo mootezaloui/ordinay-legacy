@@ -17,6 +17,7 @@
       "to": "backend",
       "filter": [
         "src/**/*",
+        "!src/agent/**",
         "package.json",
         "node_modules/**/*",
         "!node_modules/.cache/**",
