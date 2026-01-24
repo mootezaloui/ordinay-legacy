@@ -208,11 +208,22 @@
       "fallback": {
         "unknownClient": "Unknown client",
         "unknownDossier": "Unknown dossier",
-        "unknownLawsuit": "Unknown lawsuit"
+        "unknownLawsuit": "Unknown lawsuit",
+        "selectMissionFirst": "Select a mission first",
+        "missionDependent": "None (depends on the mission)"
       },
       "help": {
         "currentMission": "Current mission",
-        "missionOfficer": "Bailiff for this mission"
+        "missionOfficer": "Bailiff for this mission",
+        "bailiffExpensesOnly": "Bailiff expenses only",
+        "expensesForBailiff": "Expenses for this bailiff",
+        "selectMissionExpenses": "Select the mission related to these fees",
+        "feesAreExpenses": "These fees are treated as expenses",
+        "autoCategoryBailiffFees": "Category auto-set to bailiff fees",
+        "missionClient": "Client auto-filled from the mission",
+        "missionDossier": "Dossier auto-filled from the mission",
+        "missionLawsuit": "Lawsuit auto-filled from the mission",
+        "personalTasksInternalOnly": "Personal tasks are office expenses"
       }
     },
     "quickActions": {

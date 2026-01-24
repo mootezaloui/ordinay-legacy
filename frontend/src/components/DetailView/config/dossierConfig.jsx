@@ -38,7 +38,7 @@ const DEFAULT_CATEGORIES = [
  * ✅ Fully internationalized with i18n support
  */
 export const createDossierConfig = (t, helpers = {}) => {
-  const tSessions = i18next.getFixedT("sessions");
+  const tSessions = (key, options) => i18next.t(key, { ns: "sessions", ...options });
   const formatCurrency = helpers?.formatCurrency || formatCurrencyValue;
 
   return {

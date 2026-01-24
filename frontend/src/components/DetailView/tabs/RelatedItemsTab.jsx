@@ -8,6 +8,7 @@ import FormModal from "../../FormModal/FormModal";
 import { resolveDetailRoute } from "../../../utils/routeResolver";
 import { useTranslation } from "react-i18next";
 import { getStatusColor } from "../config/statusColors";
+import { translateStatus } from "../../../utils/entityTranslations";
 
 /**
  * RelatedItems Tab - Enhanced with dynamic field options
@@ -287,7 +288,12 @@ export default function RelatedItemsTab({ data, config, tabConfig, onItemsChange
                     )}
                     {renderedItem.status && (
                       <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(renderedItem.status)}`}>
-                        {renderedItem.status}
+                        {renderedItem.statusLabel ||
+                          translateStatus(
+                            renderedItem.status,
+                            renderedItem.statusNamespace || tabConfig.statusNamespace || tabConfig.itemsKey,
+                            t
+                          )}
                       </span>
                     )}
 

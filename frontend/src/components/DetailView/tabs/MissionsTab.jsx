@@ -9,7 +9,7 @@ import ConfirmImpactModal from "../../ui/ConfirmImpactModal";
 import BlockerModal from "../../ui/BlockerModal";
 import { canPerformAction } from "../../../services/domainRules";
 import { getStatusColor } from "../config/statusColors";
-import { translateMissionStatus } from "../../../utils/entityTranslations";
+import { translateMissionStatus, translateMissionType } from "../../../utils/entityTranslations";
 import {
   getFinancialEntryFormFields,
   populateRelationshipOptions
@@ -1030,7 +1030,7 @@ export default function MissionsTab({ data, config, tabConfig, onItemsChange, co
                     <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-600 dark:text-slate-400">
                       <span>
                         <i className="fas fa-tag mr-1"></i>
-                        {mission.missionType}
+                        {translateMissionType(mission.missionType, t)}
                       </span>
                       <span>
                         <i className="fas fa-folder mr-1"></i>

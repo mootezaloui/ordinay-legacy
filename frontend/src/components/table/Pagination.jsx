@@ -34,7 +34,7 @@ export default function Pagination({
   const endItem = Math.min(currentPage * itemsPerPage, totalItems);
 
   return (
-    <div className="flex items-center justify-between px-6 py-4 bg-white/85 dark:bg-slate-900/75 border-t border-slate-200/70 dark:border-slate-700/60">
+    <div className="flex items-center justify-between px-6 py-4 bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700">
       {/* Left side - Items info */}
       <div className="flex items-center gap-4">
         <p className="text-sm text-slate-700 dark:text-slate-300">

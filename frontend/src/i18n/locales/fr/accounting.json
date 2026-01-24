@@ -208,11 +208,22 @@
       "fallback": {
         "unknownClient": "Client inconnu",
         "unknownDossier": "Dossier inconnu",
-        "unknownLawsuit": "Procès inconnu"
+        "unknownLawsuit": "Procès inconnu",
+        "selectMissionFirst": "Sélectionnez d'abord une mission",
+        "missionDependent": "Aucune (dépend de la mission)"
       },
       "help": {
         "currentMission": "Mission en cours",
-        "missionOfficer": "Huissier pour cette mission"
+        "missionOfficer": "Huissier pour cette mission",
+        "bailiffExpensesOnly": "Frais d'huissier uniquement",
+        "expensesForBailiff": "Dépenses pour cet huissier",
+        "selectMissionExpenses": "Sélectionnez la mission liée à ces frais",
+        "feesAreExpenses": "Ces frais sont considérés comme des dépenses",
+        "autoCategoryBailiffFees": "Catégorie définie automatiquement sur les frais d'huissier",
+        "missionClient": "Client rempli automatiquement depuis la mission",
+        "missionDossier": "Dossier rempli automatiquement depuis la mission",
+        "missionLawsuit": "Procès rempli automatiquement depuis la mission",
+        "personalTasksInternalOnly": "Les tâches personnelles sont des dépenses de bureau"
       }
     },
     "quickActions": {

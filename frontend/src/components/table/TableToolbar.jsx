@@ -1,9 +1,15 @@
 /**
  * TableToolbar.jsx
  * Advanced table controls: search, column visibility, filters, export
+ *
+ * Architecture note:
+ * The column menu dropdown uses createPortal to render to document.body,
+ * ensuring it escapes any overflow constraints in the layout hierarchy.
+ * This is the standard pattern for floating UI in the app.
  */
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useLayoutEffect } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 
 export default function TableToolbar({
@@ -24,23 +30,95 @@ export default function TableToolbar({
 }) {
   const { t } = useTranslation("common");
   const [showColumnMenu, setShowColumnMenu] = useState(false);
-  const columnMenuRef = useRef(null);
+  const [menuPosition, setMenuPosition] = useState(null);
+  const columnButtonRef = useRef(null);
+  const menuRef = useRef(null);
   const resolvedImportLabel = importLabel || t("table.toolbar.import");
+
+  // Compute menu position relative to viewport
+  const computeMenuPosition = () => {
+    if (!columnButtonRef.current) return null;
+    const rect = columnButtonRef.current.getBoundingClientRect();
+    const menuWidth = 256; // w-64
+    const menuMaxHeight = Math.min(400, window.innerHeight - 200);
+    const spaceBelow = window.innerHeight - rect.bottom - 16;
+    const spaceAbove = rect.top - 16;
+
+    // Prefer below, but flip above if not enough space
+    const placeAbove = spaceBelow < menuMaxHeight && spaceAbove > spaceBelow;
+
+    let left = rect.right - menuWidth;
+    // Keep within viewport bounds
+    if (left < 8) left = 8;
+    if (left + menuWidth > window.innerWidth - 8) {
+      left = window.innerWidth - menuWidth - 8;
+    }
+
+    const top = placeAbove
+      ? rect.top - Math.min(menuMaxHeight, spaceAbove) - 8
+      : rect.bottom + 8;
+
+    return { top, left, maxHeight: placeAbove ? spaceAbove : spaceBelow };
+  };
+
+  // Update position on scroll/resize while open
+  useLayoutEffect(() => {
+    if (!showColumnMenu) return;
+
+    const updatePosition = () => {
+      const pos = computeMenuPosition();
+      if (pos) setMenuPosition(pos);
+    };
+
+    updatePosition();
+
+    window.addEventListener("scroll", updatePosition, true);
+    window.addEventListener("resize", updatePosition);
+
+    return () => {
+      window.removeEventListener("scroll", updatePosition, true);
+      window.removeEventListener("resize", updatePosition);
+    };
+  }, [showColumnMenu]);
 
   // Close column menu when clicking outside
   useEffect(() => {
+    if (!showColumnMenu) return;
+
     const handleClickOutside = (e) => {
-      if (columnMenuRef.current && !columnMenuRef.current.contains(e.target)) {
+      const isButtonClick = columnButtonRef.current?.contains(e.target);
+      const isMenuClick = menuRef.current?.contains(e.target);
+      if (!isButtonClick && !isMenuClick) {
         setShowColumnMenu(false);
       }
     };
 
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  }, [showColumnMenu]);
+
+  // Close on Escape key
+  useEffect(() => {
+    if (!showColumnMenu) return;
+
+    const handleEscape = (e) => {
+      if (e.key === "Escape") setShowColumnMenu(false);
+    };
+
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [showColumnMenu]);
+
+  const handleToggleMenu = () => {
+    if (!showColumnMenu) {
+      const pos = computeMenuPosition();
+      setMenuPosition(pos);
+    }
+    setShowColumnMenu(!showColumnMenu);
+  };
 
   return (
-    <div className="relative z-20 px-6 py-4 border-b border-slate-200/70 dark:border-slate-700/60 bg-slate-50/80 dark:bg-slate-800/50">
+    <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         {/* Left side - Search */}
         <div className="flex-1 max-w-md">
@@ -106,9 +184,10 @@ export default function TableToolbar({
           )}
 
           {/* Column visibility */}
-          <div className="relative z-30" ref={columnMenuRef}>
+          <div className="relative">
             <button
-              onClick={() => setShowColumnMenu(!showColumnMenu)}
+              ref={columnButtonRef}
+              onClick={handleToggleMenu}
               className="px-4 py-2.5 bg-white/85 dark:bg-slate-900/70 border border-slate-200/80 dark:border-slate-700/60 rounded-2xl hover:bg-slate-100/80 dark:hover:bg-slate-800/70 transition-colors flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-300 shadow-sm"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -119,55 +198,65 @@ export default function TableToolbar({
                 {visibleColumns.length}/{columns.length}
               </span>
             </button>
+          </div>
 
-            {/* Column menu dropdown */}
-            {showColumnMenu && (
-              <div className="absolute right-0 mt-2 w-64 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-200/80 dark:border-slate-700/60 z-40 max-h-[calc(100vh-200px)] overflow-y-auto">
-                <div className="px-4 py-3 border-b border-slate-200/70 dark:border-slate-700/60 bg-slate-50/80 dark:bg-slate-800/50">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-semibold text-slate-900 dark:text-white">
-                      {t("table.toolbar.manageColumns")}
-                    </span>
-                    <button
-                      onClick={onResetColumns}
-                      className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 px-2 py-1 rounded-lg transition-colors"
-                    >
-                      {t("table.toolbar.reset")}
-                    </button>
-                  </div>
-                </div>
-
-                <div className="py-2">
-                  {columns.map((column) => (
-                    <label
-                      key={column.id}
-                      className="flex items-center px-4 py-2 hover:bg-slate-100/80 dark:hover:bg-slate-800/60 cursor-pointer"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={visibleColumns.includes(column.id)}
-                        onChange={() => onToggleColumn(column.id)}
-                        disabled={column.locked}
-                        className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-2 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-700"
-                      />
-                      <span className="ml-3 text-sm text-slate-700 dark:text-slate-300">
-                        {column.label}
-                        {column.locked && (
-                          <svg className="inline w-3 h-3 ml-1 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                          </svg>
-                        )}
-                      </span>
-                    </label>
-                  ))}
-                </div>
-
-                <div className="px-4 py-3 border-t border-slate-200/70 dark:border-slate-700/60 text-xs text-slate-500 dark:text-slate-400 bg-slate-50/80 dark:bg-slate-800/50">
-                  💡 Drag and drop columns to reorder
+          {/* Column menu dropdown - rendered via portal to escape overflow constraints */}
+          {showColumnMenu && menuPosition && createPortal(
+            <div
+              ref={menuRef}
+              className="fixed w-64 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-200/80 dark:border-slate-700/60 overflow-hidden"
+              style={{
+                top: `${menuPosition.top}px`,
+                left: `${menuPosition.left}px`,
+                maxHeight: `${menuPosition.maxHeight}px`,
+                zIndex: 9999,
+              }}
+            >
+              <div className="px-4 py-3 border-b border-slate-200/70 dark:border-slate-700/60 bg-slate-50/80 dark:bg-slate-800/50">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold text-slate-900 dark:text-white">
+                    {t("table.toolbar.manageColumns")}
+                  </span>
+                  <button
+                    onClick={onResetColumns}
+                    className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 px-2 py-1 rounded-lg transition-colors"
+                  >
+                    {t("table.toolbar.reset")}
+                  </button>
                 </div>
               </div>
-            )}
-          </div>
+
+              <div className="py-2 overflow-y-auto" style={{ maxHeight: `${menuPosition.maxHeight - 100}px` }}>
+                {columns.map((column) => (
+                  <label
+                    key={column.id}
+                    className="flex items-center px-4 py-2 hover:bg-slate-100/80 dark:hover:bg-slate-800/60 cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={visibleColumns.includes(column.id)}
+                      onChange={() => onToggleColumn(column.id)}
+                      disabled={column.locked}
+                      className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-2 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-700"
+                    />
+                    <span className="ml-3 text-sm text-slate-700 dark:text-slate-300">
+                      {column.label}
+                      {column.locked && (
+                        <svg className="inline w-3 h-3 ml-1 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                        </svg>
+                      )}
+                    </span>
+                  </label>
+                ))}
+              </div>
+
+              <div className="px-4 py-3 border-t border-slate-200/70 dark:border-slate-700/60 text-xs text-slate-500 dark:text-slate-400 bg-slate-50/80 dark:bg-slate-800/50">
+                {t("table.toolbar.reorderHint")}
+              </div>
+            </div>,
+            document.body
+          )}
 
           {/* Export button */}
           {onExport && (

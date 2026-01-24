@@ -645,19 +645,19 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
           if (entityType === "personalTask") {
             return {
               ...field,
-              type: "readonly",
-              defaultValue: editingEntry?.scope || "internal",
-              displayValue: "Internal (office expenses)"
-            };
-          }
-          // Client, dossier, lawsuit, mission, officer are client-related expenses
-          return {
-            ...field,
-            type: "readonly",
-            defaultValue: editingEntry?.scope || "client",
-            displayValue: "Client (affects client balance)"
-          };
-        }
+          type: "readonly",
+          defaultValue: editingEntry?.scope || "internal",
+          displayValue: t("form.fields.scope.options.internal", { ns: "accounting" })
+        };
+      }
+      // Client, dossier, lawsuit, mission, officer are client-related expenses
+      return {
+        ...field,
+        type: "readonly",
+        defaultValue: editingEntry?.scope || "client",
+        displayValue: t("form.fields.scope.options.client", { ns: "accounting" })
+      };
+    }
 
         // For client detail view: show client as readonly, allow optional dossier/lawsuit selection
         if (entityType === "client") {
@@ -785,7 +785,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               ...field,
               type: "readonly",
               defaultValue: "expense",
-              displayValue: "Expenses (Bailiff fees)",
+              displayValue: t("form.fields.type.options.expense", { ns: "accounting" }),
               helpText: t("detail.financial.help.bailiffExpensesOnly", { ns: "accounting" })
             };
           }
@@ -817,7 +817,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               label: "Associated Mission *",
               helpText: t("detail.financial.help.selectMissionExpenses", { ns: "accounting" }),
               options: [
-                { value: "", label: "Select a mission..." },
+                { value: "", label: t("form.fields.mission.selectMission", { ns: "accounting" }) },
                 ...missions.map((m) => ({
                   value: m.id,
                   label: `${m.missionNumber} - ${m.title} (${m.status})`,
@@ -910,7 +910,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               ...field,
               type: "readonly",
               defaultValue: editingEntry?.type || "expense",
-              displayValue: "Expense (bailiff fees)",
+              displayValue: t("form.fields.type.options.expense", { ns: "accounting" }),
               helpText: t("detail.financial.help.feesAreExpenses", { ns: "accounting" })
             };
           }
@@ -921,7 +921,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               ...field,
               type: "readonly",
               defaultValue: editingEntry?.category || "bailiff_fees",
-              displayValue: "Bailiff Fees",
+              displayValue: t("table.category.frais_huissier", { ns: "accounting" }),
               helpText: t("detail.financial.help.autoCategoryBailiffFees", { ns: "accounting" })
             };
           }
@@ -932,7 +932,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               ...field,
               type: "readonly",
               defaultValue: editingEntry?.scope || "client",
-              displayValue: "Client (affects client balance)",
+              displayValue: t("form.fields.scope.options.client", { ns: "accounting" }),
             };
           }
 
@@ -1124,7 +1124,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               ...field,
               type: "readonly",
               defaultValue: "expense",
-              displayValue: "Expense (bailiff fees)",
+              displayValue: t("form.fields.type.options.expense", { ns: "accounting" }),
               helpText: t("detail.financial.help.bailiffExpensesOnly", { ns: "accounting" })
             };
           }
@@ -1156,7 +1156,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               label: "Associated Mission *",
               helpText: t("detail.financial.help.selectMissionFees", { ns: "accounting" }),
               options: [
-                { value: "", label: "Select a mission..." },
+                { value: "", label: t("form.fields.mission.selectMission", { ns: "accounting" }) },
                 ...missions.map((m) => ({
                   value: m.id,
                   label: `${m.missionNumber} - ${m.title} (${m.status})`,
@@ -1216,9 +1216,9 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
                   const client = filteredClients.find(c => c.id === formData.clientId);
                   return client ? client.name : t("detail.financial.fallback.unknownClient", { ns: "accounting" });
                 }
-                return "Select a mission first";
+                return t("detail.financial.fallback.selectMissionFirst", { ns: "accounting" });
               },
-              helpText: t("detail.financial.help.autoClientFromMission", { ns: "accounting" })
+              helpText: t("detail.financial.help.missionClient", { ns: "accounting" })
             };
           }
 
@@ -1233,9 +1233,9 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
                   const dossier = filteredDossiers.find(d => d.id === formData.dossierId);
                   return dossier ? `${dossier.lawsuitNumber} - ${dossier.title}` : t("detail.financial.fallback.unknownDossier", { ns: "accounting" });
                 }
-                return "Sélectionnez d'abord une mission";
+                return t("detail.financial.fallback.selectMissionFirst", { ns: "accounting" });
               },
-              helpText: "Dossier auto-rempli depuis la mission sélectionnée"
+              helpText: t("detail.financial.help.missionDossier", { ns: "accounting" })
             };
           }
 
@@ -1250,9 +1250,9 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
                   const lawsuitItem = filteredLawsuits.find(c => c.id === formData.lawsuitId);
                   return lawsuitItem ? `${lawsuitItem.lawsuitNumber} - ${lawsuitItem.title}` : t("detail.financial.fallback.unknownLawsuit", { ns: "accounting" });
                 }
-                return "None (depends on the mission)";
+                return t("detail.financial.fallback.missionDependent", { ns: "accounting" });
               },
-              helpText: t("detail.financial.help.autoLawsuitFromMission", { ns: "accounting" })
+              helpText: t("detail.financial.help.missionLawsuit", { ns: "accounting" })
             };
           }
         }
@@ -1265,7 +1265,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
               ...field,
               type: "readonly",
               defaultValue: editingEntry?.scope || "internal",
-              displayValue: "Internal (office expenses)",
+              displayValue: t("form.fields.scope.options.internal", { ns: "accounting" }),
               helpText: t("detail.financial.help.personalTasksInternalOnly", { ns: "accounting" })
             };
           }
@@ -1481,6 +1481,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
             onSort={table.handleSort}
             onReorder={table.reorderColumns}
             enableReorder={true}
+            isEmpty={table.data.length === 0}
           />
           <TableBody
             isEmpty={table.data.length === 0}

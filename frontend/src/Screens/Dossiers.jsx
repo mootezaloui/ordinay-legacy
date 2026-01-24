@@ -29,6 +29,7 @@ import { resolveDetailRoute } from "../utils/routeResolver";
 import { logEntityCreation } from "../services/historyService";
 import { useSettings } from "../contexts/SettingsContext";
 import { useTranslation } from "react-i18next";
+import { translateCategory } from "../utils/entityTranslations";
 
 export default function Dossiers() {
   const navigate = useNavigate();
@@ -113,7 +114,7 @@ export default function Dossiers() {
       id: "category",
       label: t("table.columns.category"),
       sortable: true,
-      render: (dossier) => dossier.category,
+      render: (dossier) => translateCategory(dossier.category, t),
     },
     {
       id: "status",
@@ -551,6 +552,7 @@ export default function Dossiers() {
             onSort={table.handleSort}
             onReorder={table.reorderColumns}
             enableReorder={true}
+            isEmpty={table.data.length === 0}
           />
           <TableBody
             isEmpty={table.data.length === 0}

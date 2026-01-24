@@ -1,6 +1,12 @@
 /**
  * AdvancedTableHeader.jsx
  * Table header with sorting and drag-and-drop reordering
+ *
+ * Styling architecture:
+ * - Fixed height ensures consistent header geometry across all states
+ * - When isEmpty=true: shows only column labels (muted), no icons
+ * - When isEmpty=false: shows drag handles and sort indicators
+ * - Uses block display for labels to maintain column width in table-fixed layout
  */
 
 import { useState } from "react";
@@ -12,24 +18,25 @@ export default function AdvancedTableHeader({
   onSort = () => { },
   onReorder = () => { },
   enableReorder = true,
+  isEmpty = false,
   tableId = null,
 }) {
   const [draggedIndex, setDraggedIndex] = useState(null);
 
   const handleDragStart = (e, index) => {
-    if (!enableReorder) return;
+    if (!enableReorder || isEmpty) return;
     setDraggedIndex(index);
     e.dataTransfer.effectAllowed = "move";
   };
 
   const handleDragOver = (e) => {
-    if (!enableReorder) return;
+    if (!enableReorder || isEmpty) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
   };
 
   const handleDrop = (e, dropIndex) => {
-    if (!enableReorder || draggedIndex === null) return;
+    if (!enableReorder || isEmpty || draggedIndex === null) return;
     e.preventDefault();
 
     if (draggedIndex !== dropIndex) {
@@ -45,64 +52,91 @@ export default function AdvancedTableHeader({
   const getColumnStyle = (column) => {
     const style = {};
     if (column.width) style.width = `${column.width}px`;
-    if (column.minWidth) style.minWidth = `${column.minWidth}px`;
+    // Ensure minimum width for table-fixed layout stability
+    style.minWidth = column.minWidth ? `${column.minWidth}px` : '100px';
     if (column.maxWidth) style.maxWidth = `${column.maxWidth}px`;
     return style;
   };
 
   return (
-    <thead className="bg-slate-50/80 dark:bg-slate-800/70 border-b border-slate-200/70 dark:border-slate-700/60">
+    <thead className="bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700">
       <tr>
-        {columns.map((column, index) => (
-          <th
-            key={column.id}
-            draggable={enableReorder && !column.locked}
-            onDragStart={(e) => handleDragStart(e, index)}
-            onDragOver={handleDragOver}
-            onDrop={(e) => handleDrop(e, index)}
-            onDragEnd={handleDragEnd}
-            style={getColumnStyle(column)}
-            className={`relative group px-6 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider ${column.sortable !== false ? "cursor-pointer select-none" : ""
-              } ${draggedIndex === index ? "opacity-50" : ""} ${enableReorder && !column.locked ? "hover:bg-slate-100/80 dark:hover:bg-slate-800/70" : ""
-              } transition-colors`}
-            onClick={() => column.sortable !== false && onSort(column.id)}
-          >
-            <div className="flex items-center gap-2 min-w-0">
-              {/* Drag handle */}
-              {enableReorder && !column.locked && (
-                <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
-                </svg>
-              )}
+        {columns.map((column, index) => {
+          const isSorted = sortBy === column.id;
+          const isSortable = column.sortable !== false;
+          const canDrag = enableReorder && !column.locked;
+          const isDragging = draggedIndex === index;
 
-              {/* Column label */}
-              <span className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap">
-                {column.label}
-              </span>
+          // When empty, disable all interactions
+          const isInteractive = !isEmpty;
 
-              {/* Sort indicator */}
-              {column.sortable !== false && (
-                <div className="flex flex-col">
-                  {sortBy === column.id ? (
-                    sortDirection === "asc" ? (
-                      <svg className="w-4 h-4 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
-                      </svg>
-                    ) : (
-                      <svg className="w-4 h-4 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                      </svg>
-                    )
-                  ) : (
-                    <svg className="w-4 h-4 text-slate-300 dark:text-slate-600 opacity-0 group-hover:opacity-100" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+          return (
+            <th
+              key={column.id}
+              draggable={canDrag && isInteractive}
+              onDragStart={(e) => handleDragStart(e, index)}
+              onDragOver={handleDragOver}
+              onDrop={(e) => handleDrop(e, index)}
+              onDragEnd={handleDragEnd}
+              style={getColumnStyle(column)}
+              className={`
+                h-12 px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider
+                transition-colors duration-150
+                ${isEmpty
+                  ? "text-slate-400 dark:text-slate-500"
+                  : "text-slate-500 dark:text-slate-400"
+                }
+                ${isSortable && isInteractive ? "cursor-pointer select-none" : ""}
+                ${isDragging ? "opacity-50" : ""}
+                ${canDrag && isInteractive ? "hover:bg-slate-100/60 dark:hover:bg-slate-700/40" : ""}
+              `}
+              onClick={() => isSortable && isInteractive && onSort(column.id)}
+            >
+              {/* When empty: just show label. When populated: show full controls */}
+              {isEmpty ? (
+                <span className="block truncate">{column.label}</span>
+              ) : (
+                <div className="flex items-center gap-2 h-full">
+                  {/* Drag handle */}
+                  {canDrag && (
+                    <svg
+                      className="w-4 h-4 flex-shrink-0 text-slate-300 dark:text-slate-600"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
                     </svg>
+                  )}
+
+                  {/* Column label */}
+                  <span className="flex-1 truncate">{column.label}</span>
+
+                  {/* Sort indicator */}
+                  {isSortable && (
+                    <span className="w-4 h-4 flex-shrink-0 flex items-center justify-center">
+                      {isSorted ? (
+                        sortDirection === "asc" ? (
+                          <svg className="w-4 h-4 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
+                          </svg>
+                        ) : (
+                          <svg className="w-4 h-4 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                          </svg>
+                        )
+                      ) : (
+                        <svg className="w-3 h-3 text-slate-300 dark:text-slate-600" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                        </svg>
+                      )}
+                    </span>
                   )}
                 </div>
               )}
-            </div>
-          </th>
-        ))}
+            </th>
+          );
+        })}
       </tr>
     </thead>
   );

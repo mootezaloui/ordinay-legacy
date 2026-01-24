@@ -829,7 +829,8 @@
       "manageColumns": "Gérer les Colonnes",
       "export": "Exporter",
       "import": "Importer",
-      "reset": "Réinitialiser"
+      "reset": "Réinitialiser",
+      "reorderHint": "💡 Faites glisser-déposer les colonnes pour réordonner"
     },
     "pagination": {
       "showing": "Affichage de {{from}} à {{to}} sur {{total}} résultats",

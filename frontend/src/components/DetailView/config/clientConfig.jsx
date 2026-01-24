@@ -12,10 +12,10 @@ import { formatDateValue } from "../../../utils/dateFormat";
  * ✅ Fully internationalized with i18n support
  */
 export const createClientConfig = (t) => {
-  const tDossiers = i18next.getFixedT("dossiers");
-  const tLawsuits = i18next.getFixedT("lawsuits");
-  const tTasks = i18next.getFixedT("tasks");
-  const tSessions = i18next.getFixedT("sessions");
+  const tDossiers = (key, options) => i18next.t(key, { ns: "dossiers", ...options });
+  const tLawsuits = (key, options) => i18next.t(key, { ns: "lawsuits", ...options });
+  const tTasks = (key, options) => i18next.t(key, { ns: "tasks", ...options });
+  const tSessions = (key, options) => i18next.t(key, { ns: "sessions", ...options });
 
   return {
     entityType: "client",

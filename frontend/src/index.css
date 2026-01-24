@@ -81,11 +81,18 @@
   }
 
 
-  html, body, #root {
+  html, body {
     min-height: 100vh;
-    /* width: 100vw; */
     @apply bg-slate-50 dark:bg-slate-900;
+    /* overflow-x: hidden only on html/body to prevent page-level horizontal scroll
+       while allowing portaled elements (dropdowns, modals) to render freely */
     overflow-x: hidden;
+  }
+
+  #root {
+    min-height: 100vh;
+    @apply bg-slate-50 dark:bg-slate-900;
+    /* No overflow constraint on #root - allows flex children and portals to work correctly */
   }
 
   body {

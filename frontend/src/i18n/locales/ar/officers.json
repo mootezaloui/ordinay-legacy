@@ -126,13 +126,13 @@
       "location": "الموقع"
     },
     "stats": {
-      "totalMissions": "إجمالي المهام",
+      "totalMissions": "إجمالي مهام المحضر",
       "inProgress": "قيد التنفيذ",
       "completed": "مكتملة"
     },
     "tabs": {
       "overview": "نظرة عامة",
-      "missions": "المهام",
+      "missions": "مهام المحضر",
       "lawsuits": "القضايا/الملفات المرتبطة",
       "financial": "المحاسبة",
       "financialDescription": "تتبع مالي لجميع مهام هذا المحضر",
@@ -140,9 +140,9 @@
       "history": "السجل"
     },
     "missions": {
-      "empty": "لا توجد مهام معينة لهذا المحضر",
-      "entityName": "مهمة",
-      "addSubtitle": "تعيين مهمة جديدة لهذا المحضر",
+      "empty": "لا توجد مهام محضر معينة لهذا المحضر",
+      "entityName": "مهمة محضر",
+      "addSubtitle": "تعيين مهمة محضر جديدة لهذا المحضر",
       "help": {
         "assigned": "ستُعين هذه المهمة لـ {{name}}",
         "entityType": "حدد ما إذا كانت هذه المهمة تتعلق بملف أو قضية",

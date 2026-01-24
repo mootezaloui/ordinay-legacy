@@ -357,6 +357,7 @@ export const createOfficerConfig = (t) => ({
           title: item.lawsuitNumber,
           subtitle: item.title,
           status: item.status,
+          statusNamespace: isDossier ? "dossiers" : "lawsuits",
           icon: icon,
           iconColor: iconColor,
         };

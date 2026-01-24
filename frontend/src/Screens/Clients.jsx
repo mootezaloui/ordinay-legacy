@@ -571,6 +571,7 @@ export default function Clients() {
             onSort={table.handleSort}
             onReorder={table.reorderColumns}
             enableReorder={true}
+            isEmpty={table.data.length === 0}
           />
           <TableBody
             isEmpty={table.data.length === 0}

@@ -5,6 +5,7 @@
   },
   "filter": {
     "all": "الكل ({{count}})",
+    "planned": "مجدولة ({{count}})",
     "scheduled": "مجدولة ({{count}})",
     "inProgress": "قيد التنفيذ ({{count}})",
     "completed": "مكتملة ({{count}})",

@@ -59,7 +59,23 @@
     },
     "upcomingEvents": {
       "title": "الأحداث القادمة ({{count}})",
-      "empty": "لا توجد أحداث قادمة مجدولة."
+      "empty": "لا توجد أحداث قادمة مجدولة.",
+      "time": {
+        "inHours_zero": "خلال {{count}} ساعة",
+        "inHours_one": "خلال {{count}} ساعة",
+        "inHours_two": "خلال {{count}} ساعتين",
+        "inHours_few": "خلال {{count}} ساعات",
+        "inHours_many": "خلال {{count}} ساعة",
+        "inHours_other": "خلال {{count}} ساعة",
+        "inDays_zero": "خلال {{count}} يوم",
+        "inDays_one": "خلال {{count}} يوم",
+        "inDays_two": "خلال {{count}} يومين",
+        "inDays_few": "خلال {{count}} أيام",
+        "inDays_many": "خلال {{count}} يوماً",
+        "inDays_other": "خلال {{count}} يوم",
+        "soon": "قريباً",
+        "passed": "انقضى"
+      }
     },
     "workload": {
       "title": "صحة العبء (90 يوماً)",
@@ -881,7 +897,8 @@
       "manageColumns": "إدارة الأعمدة",
       "export": "تصدير",
       "import": "استيراد",
-      "reset": "إعادة تعيين"
+      "reset": "إعادة تعيين",
+      "reorderHint": "💡 اسحب وأفلت الأعمدة لإعادة الترتيب"
     },
     "pagination": {
       "showing": "عرض {{from}} إلى {{to}} من أصل {{total}} نتيجة",

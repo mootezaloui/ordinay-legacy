@@ -2049,11 +2049,13 @@ export const financialEntryFormFields = getFinancialEntryFormFields();
  * Get form fields for a specific entity type
  */
 export function getFormFields(entityType) {
+  const tWithNs = (ns) => (key, options) =>
+    i18next.t(key, { ns, ...options });
   const fieldsMap = {
     client: clientFormFields,
     dossier: dossierFormFields,
-    lawsuit: lawsuitFormFields(i18next.getFixedT("lawsuits")),
-    session: sessionFormFields(i18next.getFixedT("sessions")),
+    lawsuit: lawsuitFormFields(tWithNs("lawsuits")),
+    session: sessionFormFields(tWithNs("sessions")),
     task: taskFormFields,
     personalTask: personalTaskFormFields,
     invoice: getInvoiceFormFields(),

@@ -616,7 +616,7 @@ export default function FormModal({
  */
 function FormField({ field, value, onChange, error, formData, compact = false, entityType = null }) {
   const { t } = useTranslation(["common", "domain"]);
-  const { currencyDisplay } = useSettings();
+  const { currencyDisplay, formatCurrency } = useSettings();
   const resolvedLabel = interpolateCurrency(field.label, currencyDisplay);
   const resolvedPlaceholder = interpolateCurrency(field.placeholder, currencyDisplay);
   const resolvedHelpText = interpolateCurrency(field.helpText, currencyDisplay);

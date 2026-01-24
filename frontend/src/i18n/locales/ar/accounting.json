@@ -202,11 +202,22 @@
       "fallback": {
         "unknownClient": "عميل غير معروف",
         "unknownDossier": "ملف غير معروف",
-        "unknownLawsuit": "قضية غير معروفة"
+        "unknownLawsuit": "قضية غير معروفة",
+        "selectMissionFirst": "اختر مهمة أولاً",
+        "missionDependent": "لا شيء (يعتمد على المهمة)"
       },
       "help": {
         "currentMission": "المهمة الحالية",
-        "missionOfficer": "المحضر لهذه المهمة"
+        "missionOfficer": "المحضر لهذه المهمة",
+        "bailiffExpensesOnly": "فقط مصروفات المحضر",
+        "expensesForBailiff": "المصروفات لهذا المحضر",
+        "selectMissionExpenses": "حدد المهمة المرتبطة بهذه المصروفات",
+        "feesAreExpenses": "تُعامل هذه المصروفات كمصروفات",
+        "autoCategoryBailiffFees": "تم تعيين الفئة تلقائيًا إلى مصروفات المحضر",
+        "missionClient": "تم تعبئة العميل تلقائيًا من المهمة",
+        "missionDossier": "تم تعبئة الملف تلقائيًا من المهمة",
+        "missionLawsuit": "تم تعبئة القضية تلقائيًا من المهمة",
+        "personalTasksInternalOnly": "المهام الشخصية هي مصروفات داخلية"
       }
     },
     "quickActions": {

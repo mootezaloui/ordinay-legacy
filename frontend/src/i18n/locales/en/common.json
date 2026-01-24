@@ -828,7 +828,8 @@
       "manageColumns": "Manage Columns",
       "export": "Export",
       "import": "Import",
-      "reset": "Reset"
+      "reset": "Reset",
+      "reorderHint": "💡 Drag and drop columns to reorder"
     },
     "pagination": {
       "showing": "Showing {{from}} to {{to}} of {{total}} results",

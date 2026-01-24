@@ -557,6 +557,7 @@ export default function Lawsuits() {
             onSort={table.handleSort}
             onReorder={table.reorderColumns}
             enableReorder={true}
+            isEmpty={table.data.length === 0}
           />
           <TableBody isEmpty={table.data.length === 0} emptyMessage={tableEmptyMessage}>
             {table.data.map((lawsuitItem) => (
