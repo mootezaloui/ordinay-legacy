@@ -546,50 +546,6 @@ function installUpdate() {
 function createWindow() {
   const windowIcon = resolveWindowIcon();
 
-  // Configure Content Security Policy
-  const session = require("electron").session;
-  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
-    const connectSrcExtras = [
-      "https://organia.app",
-      "https://*.organia.app",
-      "http://localhost:5174",
-      "http://localhost:3000",
-      "http://127.0.0.1:3000",
-    ];
-    const cspDirectives = isDev
-      ? [
-          "default-src 'self'",
-          "script-src 'self' 'unsafe-inline'", // unsafe-inline needed for Vite HMR in dev
-          "style-src 'self' 'unsafe-inline'", // unsafe-inline needed for styled-components/CSS-in-JS
-          "img-src 'self' data: blob:",
-          "font-src 'self' data:",
-          "connect-src 'self' http://localhost:* ws://localhost:*", // Allow backend + Vite HMR
-          "object-src 'none'",
-          "base-uri 'self'",
-          "form-action 'self'",
-          "frame-ancestors 'none'",
-        ]
-      : [
-          "default-src 'self'",
-          "script-src 'self' 'unsafe-inline'",
-          "style-src 'self' 'unsafe-inline'", // unsafe-inline still needed for CSS-in-JS in production
-          "img-src 'self' data: blob:",
-          "font-src 'self' data:",
-          `connect-src 'self' http://localhost:${backendPort} ${connectSrcExtras.join(" ")}`, // Backend + activation/referral
-          "object-src 'none'",
-          "base-uri 'self'",
-          "form-action 'self'",
-          "frame-ancestors 'none'",
-        ];
-
-    callback({
-      responseHeaders: {
-        ...details.responseHeaders,
-        "Content-Security-Policy": [cspDirectives.join("; ")],
-      },
-    });
-  });
-
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
@@ -652,6 +608,54 @@ function resolveWindowIcon() {
   }
 
   return null;
+}
+
+/**
+ * Register Content Security Policy handler once per app lifecycle.
+ */
+function registerContentSecurityPolicyHandler() {
+  const { session } = require("electron");
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    const connectSrcExtras = [
+      "https://organia.app",
+      "https://*.organia.app",
+      "http://localhost:5174",
+      "http://localhost:3000",
+      "http://127.0.0.1:3000",
+    ];
+    const cspDirectives = isDev
+      ? [
+          "default-src 'self'",
+          "script-src 'self' 'unsafe-inline'", // unsafe-inline needed for Vite HMR in dev
+          "style-src 'self' 'unsafe-inline'", // unsafe-inline needed for styled-components/CSS-in-JS
+          "img-src 'self' data: blob:",
+          "font-src 'self' data:",
+          "connect-src 'self' http://localhost:* ws://localhost:*", // Allow backend + Vite HMR
+          "object-src 'none'",
+          "base-uri 'self'",
+          "form-action 'self'",
+          "frame-ancestors 'none'",
+        ]
+      : [
+          "default-src 'self'",
+          "script-src 'self' 'unsafe-inline'",
+          "style-src 'self' 'unsafe-inline'", // unsafe-inline still needed for CSS-in-JS in production
+          "img-src 'self' data: blob:",
+          "font-src 'self' data:",
+          `connect-src 'self' http://localhost:${backendPort} ${connectSrcExtras.join(" ")}`, // Backend + activation/referral
+          "object-src 'none'",
+          "base-uri 'self'",
+          "form-action 'self'",
+          "frame-ancestors 'none'",
+        ];
+
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        "Content-Security-Policy": [cspDirectives.join("; ")],
+      },
+    });
+  });
 }
 
 // ============================================================
@@ -798,6 +802,9 @@ app.whenReady().then(async () => {
 
     // Start the backend
     await startBackend();
+
+    // Configure Content Security Policy handler (register once)
+    registerContentSecurityPolicyHandler();
 
     // Create the main window
     createWindow();
