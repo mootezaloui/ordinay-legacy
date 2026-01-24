@@ -2,11 +2,11 @@ import { createContext, useContext, useState, useEffect, useCallback, useMemo } 
 import notificationScheduler from "../services/notificationScheduler";
 import { useSettings } from "./SettingsContext";
 import * as notificationService from "../services/notificationService";
-import { apiClient } from "../services/api/client";
 import { useSeverityConfig } from "../hooks/useNotificationTranslation";
 import { buildDedupeKey } from "../utils/notificationDedupe";
 import { getAppLicenseState } from "../services/licenseService";
 import { filterOperationalEntities } from "../utils/importState";
+import { useData } from "./DataContext";
 import {
   mapPriorityToSeverity,
   mapTypeToEntityType,
@@ -38,6 +38,53 @@ export function useNotifications() {
     throw new Error("useNotifications must be used within NotificationProvider");
   }
   return context;
+}
+
+export function NotificationDataBridge() {
+  const {
+    tasks,
+    personalTasks,
+    sessions,
+    lawsuits,
+    missions,
+    financialEntries,
+    dossiers,
+    clients,
+    officers,
+  } = useData();
+
+  const schedulerData = useMemo(() => {
+    const toOperational = (items) =>
+      filterOperationalEntities(Array.isArray(items) ? items : []);
+
+    return {
+      tasks: toOperational(tasks),
+      personalTasks: toOperational(personalTasks),
+      sessions: toOperational(sessions),
+      lawsuits: toOperational(lawsuits),
+      missions: toOperational(missions),
+      financialEntries: toOperational(financialEntries),
+      dossiers: toOperational(dossiers),
+      clients: toOperational(clients),
+      officers: toOperational(officers),
+    };
+  }, [
+    tasks,
+    personalTasks,
+    sessions,
+    lawsuits,
+    missions,
+    financialEntries,
+    dossiers,
+    clients,
+    officers,
+  ]);
+
+  useEffect(() => {
+    notificationScheduler.data = schedulerData;
+  }, [schedulerData]);
+
+  return null;
 }
 
 export function NotificationProvider({ children }) {
@@ -282,67 +329,6 @@ export function NotificationProvider({ children }) {
     }
 
     loadNotifications();
-  }, [setNotificationsSorted]);
-
-  // Load entity data for the notification scheduler
-  useEffect(() => {
-    async function loadEntityData() {
-      try {
-        // Fetch all entities from APIs using apiClient
-        const [tasks, personalTasks, sessions, lawsuits, missions, financialEntries, dossiers, clients, officers] = await Promise.all([
-          apiClient.get('/tasks').catch(err => { console.error('[NOTIFICATION] Failed to load tasks:', err); return []; }),
-          apiClient.get('/personal-tasks').catch(err => { console.error('[NOTIFICATION] Failed to load personal-tasks:', err); return []; }),
-          apiClient.get('/sessions').catch(err => { console.error('[NOTIFICATION] Failed to load sessions:', err); return []; }),
-          apiClient.get('/lawsuits').catch(err => { console.error('[NOTIFICATION] Failed to load lawsuits:', err); return []; }),
-          apiClient.get('/missions').catch(err => { console.error('[NOTIFICATION] Failed to load missions:', err); return []; }),
-          apiClient.get('/financial').catch(err => { console.error('[NOTIFICATION] Failed to load financial:', err); return []; }),
-          apiClient.get('/dossiers').catch(err => { console.error('[NOTIFICATION] Failed to load dossiers:', err); return []; }),
-          apiClient.get('/clients').catch(err => { console.error('[NOTIFICATION] Failed to load clients:', err); return []; }),
-          apiClient.get('/officers').catch(err => { console.error('[NOTIFICATION] Failed to load officers:', err); return []; }),
-        ]);
-
-        const toOperational = (items) =>
-          filterOperationalEntities(Array.isArray(items) ? items : []);
-
-        // Feed data to scheduler
-        notificationScheduler.data = {
-          tasks: toOperational(tasks),
-          personalTasks: toOperational(personalTasks),
-          sessions: toOperational(sessions),
-          lawsuits: toOperational(lawsuits),
-          missions: toOperational(missions),
-          financialEntries: toOperational(financialEntries),
-          dossiers: toOperational(dossiers),
-          clients: toOperational(clients),
-          officers: toOperational(officers),
-        };
-
-      } catch (error) {
-        console.error("[NOTIFICATION] Failed to load entity data:", error);
-        // Set empty arrays to prevent crashes
-        notificationScheduler.data = {
-          tasks: [],
-          personalTasks: [],
-          sessions: [],
-          lawsuits: [],
-          missions: [],
-          financialEntries: [],
-          dossiers: [],
-          clients: [],
-          officers: [],
-        };
-      }
-    }
-
-    // Load data immediately
-    loadEntityData();
-
-    // Reload every 30 minutes (instead of hourly) to keep data fresh
-    const dataRefreshInterval = setInterval(loadEntityData, 30 * 60 * 1000);
-
-    return () => {
-      clearInterval(dataRefreshInterval);
-    };
   }, [setNotificationsSorted]);
 
   // Start scheduler in separate effect with proper dependencies

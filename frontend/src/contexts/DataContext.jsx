@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { useRef } from "react";
 import { logHistoryEvent, EVENT_TYPES, deleteEntityHistory } from "../services/historyService";
 import { canPerformAction } from "../services/domainRules";
@@ -359,50 +359,6 @@ export function DataProvider({ children }) {
   const showToastRef = useRef(showToast);
   const tRef = useRef(t);
 
-  const isLicenseLocked = ["ACTIVATING", "ERROR"].includes(licenseState);
-  const blockWrite = (actionLabel) => {
-    if (!isLicenseLocked) return false;
-    showToastRef.current(t("license:toast.inactive.message"), "error", {
-      title: t("license:toast.inactive.title"),
-      addToBell: false,
-    });
-    console.warn(`[DataContext] ${actionLabel} blocked: license inactive`);
-    return true;
-  };
-
-  const blockFreeLimit = (entityType, entityData) => {
-    const limitResult = checkFreePlanLimit({
-      licenseState,
-      clients,
-      dossiers,
-      lawsuits,
-      tasks,
-      entityType,
-      entityData,
-    });
-    if (limitResult.allowed) return false;
-    const message = t("license:freeLimit.message", {
-      label: limitResult.label,
-      limit: limitResult.limit,
-    });
-    confirm({
-      title: t("license:freeLimit.title"),
-      message,
-      confirmText: t("license:freeLimit.confirm"),
-      cancelText: t("license:freeLimit.cancel"),
-      variant: "warning",
-    }).then((accepted) => {
-      if (accepted && typeof window !== "undefined") {
-        window.location.href = "/settings?tab=security";
-      }
-    });
-    console.warn(`[DataContext] ${entityType} blocked: free plan limit reached`);
-    return { ok: false, result: { message, limit: limitResult.limit, current: limitResult.current } };
-  };
-
-  // Get operator name for history attribution
-  const actorName = operator?.name || null;
-
   // State is initialized from localStorage and then updated from backend
   const [clients, setClients] = useState(() => loadFromStorage("clients", []));
   const [dossiers, setDossiers] = useState(() => loadFromStorage("dossiers", []));
@@ -417,6 +373,86 @@ export function DataProvider({ children }) {
   const [reconciled, setReconciled] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState(null);
+
+  const isLicenseLocked = useMemo(
+    () => ["ACTIVATING", "ERROR"].includes(licenseState),
+    [licenseState]
+  );
+  const blockWrite = useCallback(
+    (actionLabel) => {
+      if (!isLicenseLocked) return false;
+      const translate = tRef.current || t;
+      showToastRef.current(translate("license:toast.inactive.message"), "error", {
+        title: translate("license:toast.inactive.title"),
+        addToBell: false,
+      });
+      console.warn(`[DataContext] ${actionLabel} blocked: license inactive`);
+      return true;
+    },
+    [isLicenseLocked, t]
+  );
+
+  const blockFreeLimit = useCallback(
+    (entityType, entityData) => {
+      const limitResult = checkFreePlanLimit({
+        licenseState,
+        clients,
+        dossiers,
+        lawsuits,
+        tasks,
+        entityType,
+        entityData,
+      });
+      if (limitResult.allowed) return false;
+      const translate = tRef.current || t;
+      const message = translate("license:freeLimit.message", {
+        label: limitResult.label,
+        limit: limitResult.limit,
+      });
+      confirm({
+        title: translate("license:freeLimit.title"),
+        message,
+        confirmText: translate("license:freeLimit.confirm"),
+        cancelText: translate("license:freeLimit.cancel"),
+        variant: "warning",
+      }).then((accepted) => {
+        if (accepted && typeof window !== "undefined") {
+          window.location.href = "/settings?tab=security";
+        }
+      });
+      console.warn(`[DataContext] ${entityType} blocked: free plan limit reached`);
+      return { ok: false, result: { message, limit: limitResult.limit, current: limitResult.current } };
+    },
+    [confirm, clients, dossiers, licenseState, lawsuits, tasks, t]
+  );
+
+  // Get operator name for history attribution
+  const actorName = operator?.name || null;
+
+  const entities = useMemo(
+    () => ({
+      clients,
+      dossiers,
+      lawsuits,
+      sessions,
+      tasks,
+      missions,
+      personalTasks,
+      officers,
+      financialEntries,
+    }),
+    [
+      clients,
+      dossiers,
+      lawsuits,
+      sessions,
+      tasks,
+      missions,
+      personalTasks,
+      officers,
+      financialEntries,
+    ]
+  );
 
   useEffect(() => {
     showToastRef.current = showToast;
@@ -571,7 +607,7 @@ export function DataProvider({ children }) {
   }, []);
 
   // --- Clients ---
-  const addClient = async (client) => {
+  const addClient = useCallback(async (client) => {
     if (blockWrite("add client")) {
       return { ok: false, result: { message: "License inactive" } };
     }
@@ -580,7 +616,7 @@ export function DataProvider({ children }) {
     const validation = validateMutation("client", "add", client?.id, {
       data: client,
       newData: client,
-      entities: { clients, dossiers, lawsuits, tasks, sessions, missions, personalTasks, officers, financialEntries },
+      entities,
     }, integrityIssues);
     if (!validation.ok) return validation;
 
@@ -616,14 +652,18 @@ export function DataProvider({ children }) {
 
     logCreationHistory("client", created, actorName);
     return { ok: true, result: validation.result, created: adaptedWithTimeline };
-  };
+  }, [actorName, blockFreeLimit, blockWrite, entities, integrityIssues]);
 
-  const updateClient = async (id, updates) => {
+  const updateClient = useCallback(async (id, updates) => {
     if (blockWrite("update client")) {
       return { ok: false, result: { message: "License inactive" } };
     }
     const prev = clients.find((c) => c.id === id);
-    const validation = validateMutation("client", "edit", id, { data: prev, newData: { ...prev, ...updates }, entities: { clients, dossiers, lawsuits, tasks, sessions, officers, missions, financialEntries } }, integrityIssues);
+    const validation = validateMutation("client", "edit", id, {
+      data: prev,
+      newData: { ...prev, ...updates },
+      entities,
+    }, integrityIssues);
     if (!validation.ok) return validation;
 
     console.log('[DataContext.updateClient] Updating client ID:', id, 'with:', updates);
@@ -679,16 +719,16 @@ export function DataProvider({ children }) {
     logStatusHistory("client", prev, updates, actorName);
 
     return validation;
-  };
+  }, [actorName, blockWrite, clients, entities, integrityIssues]);
 
-  const deleteClient = async (id) => {
+  const deleteClient = useCallback(async (id) => {
     if (blockWrite("delete client")) {
       return { ok: false, result: { message: "License inactive" } };
     }
     const prev = clients.find((c) => c.id === id);
     const validation = validateMutation("client", "delete", id, {
       data: prev,
-      entities: { clients, dossiers, lawsuits, tasks, sessions, officers, missions, financialEntries }
+      entities,
     }, integrityIssues);
     if (!validation.ok) return validation;
 
@@ -707,7 +747,7 @@ export function DataProvider({ children }) {
 
     logDeletionHistory("client", prev, actorName);
     return { ok: true, result: validation.result };
-  };
+  }, [actorName, blockWrite, clients, entities, integrityIssues]);
 
   /**
    * CASCADE DELETE: Delete client and all related entities
@@ -760,7 +800,7 @@ export function DataProvider({ children }) {
   };
 
   // --- Dossiers ---
-  const addDossier = async (dossier) => {
+  const addDossier = useCallback(async (dossier) => {
     if (blockWrite("add dossier")) {
       return { ok: false, result: { message: "License inactive" } };
     }
@@ -769,7 +809,7 @@ export function DataProvider({ children }) {
     const validation = validateMutation("dossier", "add", dossier?.id, {
       data: dossier,
       newData: dossier,
-      entities: { clients, dossiers, lawsuits, tasks, sessions, officers, missions, financialEntries }
+      entities,
     }, integrityIssues);
     if (!validation.ok) return validation;
 
@@ -804,9 +844,9 @@ export function DataProvider({ children }) {
 
     logCreationHistory("dossier", created, actorName);
     return { ok: true, result: validation.result, created: adapted };
-  };
+  }, [actorName, blockFreeLimit, blockWrite, clients, entities, integrityIssues]);
 
-  const updateDossier = async (id, updates, skipConfirmation = false) => {
+  const updateDossier = useCallback(async (id, updates, skipConfirmation = false) => {
     if (blockWrite("update dossier")) {
       return { ok: false, result: { message: "License inactive" } };
     }
@@ -904,16 +944,16 @@ export function DataProvider({ children }) {
     logStatusHistory("dossier", prev, updates, actorName);
 
     return validation;
-  };
+  }, [actorName, blockWrite, clients, dossiers, integrityIssues]);
 
-  const deleteDossier = async (id) => {
+  const deleteDossier = useCallback(async (id) => {
     if (blockWrite("delete dossier")) {
       return { ok: false, result: { message: "License inactive" } };
     }
     const prev = dossiers.find((d) => d.id === id);
     const validation = validateMutation("dossier", "delete", id, {
       data: prev,
-      entities: { clients, dossiers, lawsuits, tasks, sessions, officers, missions, financialEntries }
+      entities,
     }, integrityIssues);
     if (!validation.ok) return validation;
 
@@ -932,7 +972,7 @@ export function DataProvider({ children }) {
 
     logDeletionHistory("dossier", prev, actorName);
     return { ok: true, result: validation.result };
-  };
+  }, [actorName, blockWrite, dossiers, entities, integrityIssues]);
 
   /**
    * CASCADE DELETE: Delete dossier and all related entities
@@ -1012,7 +1052,7 @@ export function DataProvider({ children }) {
   };
 
   // --- Lawsuits ---
-  const addLawsuit = async (lawsuitItem) => {
+  const addLawsuit = useCallback(async (lawsuitItem) => {
     if (blockWrite("add lawsuit")) {
       return { ok: false, result: { message: "License inactive" } };
     }
@@ -1021,7 +1061,7 @@ export function DataProvider({ children }) {
     const validation = validateMutation("lawsuit", "add", lawsuitItem?.id, {
       data: lawsuitItem,
       newData: lawsuitItem,
-      entities: { clients, dossiers, lawsuits, tasks, sessions, officers, missions, financialEntries }
+      entities,
     }, integrityIssues);
     if (!validation.ok) return validation;
 
@@ -1058,6 +1098,7 @@ export function DataProvider({ children }) {
 
     const created = await apiClient.post("/lawsuits", payload);
     const adapted = adaptLawsuit(created, Object.fromEntries(dossiers.map((d) => [d.id, d])));
+    const translate = tRef.current || t;
 
     setLawsuits((prev) => {
       const next = [...prev, adapted];
@@ -1065,13 +1106,13 @@ export function DataProvider({ children }) {
       if (adapted.dossierId) {
         const title = adapted.title || "";
         const reference = adapted.lawsuitNumber || "";
-        const lawsuitDescription = title && reference ? `${title} (${reference})` : title || reference || t("entities.lawsuits");
+        const lawsuitDescription = title && reference ? `${title} (${reference})` : title || reference || translate("entities.lawsuits");
         logHistoryEvent({
           entityType: "dossier",
           entityId: adapted.dossierId,
           eventType: EVENT_TYPES.RELATION,
-          label: `${t("detail.history.labels.lawsuitCreated")}: ${lawsuitDescription}`,
-          details: `${t("detail.history.labels.lawsuitCreated")}: ${lawsuitDescription}`,
+          label: `${translate("detail.history.labels.lawsuitCreated")}: ${lawsuitDescription}`,
+          details: `${translate("detail.history.labels.lawsuitCreated")}: ${lawsuitDescription}`,
           metadata: {
             childType: "lawsuit",
             childId: adapted.id,
@@ -1083,9 +1124,9 @@ export function DataProvider({ children }) {
 
     logCreationHistory("lawsuit", created, actorName);
     return { ok: true, result: validation.result, created: adapted };
-  };
+  }, [actorName, blockFreeLimit, blockWrite, dossiers, entities, integrityIssues, t]);
 
-  const updateLawsuit = async (id, updates) => {
+  const updateLawsuit = useCallback(async (id, updates) => {
     if (blockWrite("update lawsuit")) {
       return { ok: false, result: { message: "License inactive" } };
     }
@@ -1204,16 +1245,16 @@ export function DataProvider({ children }) {
     }
 
     return validation;
-  };
+  }, [actorName, blockWrite, dossiers, integrityIssues, lawsuits]);
 
-  const deleteLawsuit = async (id) => {
+  const deleteLawsuit = useCallback(async (id) => {
     if (blockWrite("delete lawsuit")) {
       return { ok: false, result: { message: "License inactive" } };
     }
     const prev = lawsuits.find((c) => c.id === id);
     const validation = validateMutation("lawsuit", "delete", id, {
       data: prev,
-      entities: { clients, dossiers, lawsuits, tasks, sessions, officers, missions, financialEntries }
+      entities,
     }, integrityIssues);
     if (!validation.ok) return validation;
 
@@ -1232,7 +1273,7 @@ export function DataProvider({ children }) {
 
     logDeletionHistory("lawsuit", prev, actorName);
     return { ok: true, result: validation.result };
-  };
+  }, [actorName, blockWrite, entities, integrityIssues, lawsuits]);
 
   /**
    * CASCADE DELETE: Delete lawsuit and all related entities
@@ -1293,14 +1334,14 @@ export function DataProvider({ children }) {
   };
 
   // --- Sessions ---
-  const addSession = async (sessionItem) => {
+  const addSession = useCallback(async (sessionItem) => {
     if (blockWrite("add session")) {
       return { ok: false, result: { message: "License inactive" } };
     }
     const validation = validateMutation("session", "add", sessionItem?.id, {
       data: sessionItem,
       newData: sessionItem,
-      entities: { clients, dossiers, lawsuits, tasks, sessions, officers, missions, financialEntries }
+      entities,
     }, integrityIssues);
     if (!validation.ok) return validation;
 
@@ -1384,9 +1425,9 @@ export function DataProvider({ children }) {
 
     logCreationHistory("session", created, actorName);
     return { ok: true, result: validation.result, created: adapted };
-  };
+  }, [actorName, blockWrite, dossiers, entities, integrityIssues, lawsuits]);
 
-  const updateSession = async (id, updates, options = {}) => {
+  const updateSession = useCallback(async (id, updates, options = {}) => {
     if (blockWrite("update session")) {
       return { ok: false, result: { message: "License inactive" } };
     }
@@ -1541,16 +1582,16 @@ export function DataProvider({ children }) {
     }
 
     return validation;
-  };
+  }, [actorName, blockWrite, dossiers, integrityIssues, lawsuits, sessions]);
 
-  const deleteSession = async (id) => {
+  const deleteSession = useCallback(async (id) => {
     if (blockWrite("delete session")) {
       return { ok: false, result: { message: "License inactive" } };
     }
     const prev = sessions.find((s) => s.id === id);
     const validation = validateMutation("session", "delete", id, {
       data: prev,
-      entities: { clients, dossiers, lawsuits, tasks, sessions, officers, missions, financialEntries }
+      entities,
     }, integrityIssues);
     if (!validation.ok) return validation;
 
@@ -1587,10 +1628,10 @@ export function DataProvider({ children }) {
       }
     }
     return { ok: true, result: validation.result };
-  };
+  }, [actorName, blockWrite, entities, integrityIssues, lawsuits, sessions]);
 
   // --- Tasks (linked to dossiers/lawsuits) ---
-  const addTask = async (taskItem) => {
+  const addTask = useCallback(async (taskItem) => {
     if (blockWrite("add task")) {
       return { ok: false, result: { message: "License inactive" } };
     }
@@ -1599,7 +1640,7 @@ export function DataProvider({ children }) {
     const validation = validateMutation("task", "add", taskItem?.id, {
       data: taskItem,
       newData: taskItem,
-      entities: { clients, dossiers, lawsuits, tasks, sessions, officers, missions, financialEntries }
+      entities,
     }, integrityIssues);
     if (!validation.ok) return validation;
 
@@ -1640,9 +1681,9 @@ export function DataProvider({ children }) {
 
     logCreationHistory("task", created, actorName);
     return { ok: true, result: validation.result, created: adapted };
-  };
+  }, [actorName, blockFreeLimit, blockWrite, dossiers, entities, integrityIssues, lawsuits]);
 
-  const updateTask = async (id, updates, options = {}) => {
+  const updateTask = useCallback(async (id, updates, options = {}) => {
     if (blockWrite("update task")) {
       return { ok: false, result: { message: "License inactive" } };
     }
@@ -1756,16 +1797,16 @@ export function DataProvider({ children }) {
     }
 
     return validation;
-  };
+  }, [actorName, blockWrite, dossiers, integrityIssues, lawsuits, tasks]);
 
-  const deleteTask = async (id) => {
+  const deleteTask = useCallback(async (id) => {
     if (blockWrite("delete task")) {
       return { ok: false, result: { message: "License inactive" } };
     }
     const prev = tasks.find((t) => t.id === id);
     const validation = validateMutation("task", "delete", id, {
       data: prev,
-      entities: { clients, dossiers, lawsuits, tasks, sessions, officers, missions, financialEntries }
+      entities,
     }, integrityIssues);
     if (!validation.ok) return validation;
 
@@ -1802,17 +1843,17 @@ export function DataProvider({ children }) {
       }
     }
     return { ok: true, result: validation.result };
-  };
+  }, [actorName, blockWrite, entities, integrityIssues, lawsuits, tasks]);
 
   // --- Personal Tasks (non-linked) ---
-  const addPersonalTask = async (task) => {
+  const addPersonalTask = useCallback(async (task) => {
     if (blockWrite("add personal task")) {
       return { ok: false, result: { message: "License inactive" } };
     }
     const validation = validateMutation("personalTask", "add", task?.id, {
       data: task,
       newData: task,
-      entities: { clients, dossiers, lawsuits, tasks, sessions, officers, missions, financialEntries, personalTasks }
+      entities,
     }, integrityIssues);
     if (!validation.ok) return validation;
 
@@ -1908,9 +1949,9 @@ export function DataProvider({ children }) {
 
     logCreationHistory("personalTask", created, actorName);
     return { ok: true, result: validation.result, created: adapted };
-  };
+  }, [actorName, blockWrite, entities, integrityIssues]);
 
-  const updatePersonalTask = async (id, updates) => {
+  const updatePersonalTask = useCallback(async (id, updates) => {
     if (blockWrite("update personal task")) {
       return { ok: false, result: { message: "License inactive" } };
     }
@@ -2022,16 +2063,16 @@ export function DataProvider({ children }) {
     logStatusHistory("personalTask", prev, updates, actorName);
 
     return validation;
-  };
+  }, [actorName, blockWrite, integrityIssues, personalTasks]);
 
-  const deletePersonalTask = async (id) => {
+  const deletePersonalTask = useCallback(async (id) => {
     if (blockWrite("delete personal task")) {
       return { ok: false, result: { message: "License inactive" } };
     }
     const prev = personalTasks.find((t) => t.id === id);
     const validation = validateMutation("personalTask", "delete", id, {
       data: prev,
-      entities: { clients, dossiers, lawsuits, tasks, sessions, officers, missions, financialEntries }
+      entities,
     }, integrityIssues);
     if (!validation.ok) return validation;
 
@@ -2047,17 +2088,17 @@ export function DataProvider({ children }) {
 
     logDeletionHistory("personalTask", prev, actorName);
     return { ok: true, result: validation.result };
-  };
+  }, [actorName, blockWrite, entities, integrityIssues, personalTasks]);
 
   // --- Officers ---
-  const addOfficer = async (officer) => {
+  const addOfficer = useCallback(async (officer) => {
     if (blockWrite("add officer")) {
       return { ok: false, result: { message: "License inactive" } };
     }
     const validation = validateMutation("officer", "add", officer?.id, {
       data: officer,
       newData: officer,
-      entities: { clients, dossiers, lawsuits, tasks, sessions, officers, missions, financialEntries }
+      entities,
     }, integrityIssues);
     if (!validation.ok) return validation;
 
@@ -2101,9 +2142,9 @@ export function DataProvider({ children }) {
 
     logCreationHistory("officer", created, actorName);
     return { ok: true, result: validation.result, created: adapted };
-  };
+  }, [actorName, blockWrite, entities, integrityIssues]);
 
-  const updateOfficer = async (id, updates) => {
+  const updateOfficer = useCallback(async (id, updates) => {
     if (blockWrite("update officer")) {
       return { ok: false, result: { message: "License inactive" } };
     }
@@ -2181,16 +2222,16 @@ export function DataProvider({ children }) {
     logStatusHistory("officer", prev, updates, actorName);
 
     return validation;
-  };
+  }, [actorName, blockWrite, integrityIssues, officers]);
 
-  const deleteOfficer = async (id) => {
+  const deleteOfficer = useCallback(async (id) => {
     if (blockWrite("delete officer")) {
       return { ok: false, result: { message: "License inactive" } };
     }
     const prev = officers.find((o) => o.id === id);
     const validation = validateMutation("officer", "delete", id, {
       data: prev,
-      entities: { clients, dossiers, lawsuits, tasks, sessions, officers, missions, financialEntries }
+      entities,
     }, integrityIssues);
     if (!validation.ok) return validation;
 
@@ -2206,7 +2247,7 @@ export function DataProvider({ children }) {
 
     logDeletionHistory("officer", prev, actorName);
     return { ok: true, result: validation.result };
-  };
+  }, [actorName, blockWrite, entities, integrityIssues, officers]);
 
   /**
    * CASCADE DELETE: Delete officer and all related entities
@@ -2273,14 +2314,14 @@ export function DataProvider({ children }) {
   };
 
   // --- Missions ---
-  const addMission = async (mission) => {
+  const addMission = useCallback(async (mission) => {
     if (blockWrite("add mission")) {
       return { ok: false, result: { message: "License inactive" } };
     }
     const validation = validateMutation("mission", "add", mission?.id, {
       data: mission,
       newData: mission,
-      entities: { clients, dossiers, lawsuits, tasks, sessions, officers, missions, financialEntries }
+      entities,
     }, integrityIssues);
     if (!validation.ok) return validation;
 
@@ -2437,7 +2478,7 @@ export function DataProvider({ children }) {
       });
     }
     return { ok: true, result: validation.result, created: adapted };
-  };
+  }, [actorName, blockWrite, dossiers, entities, integrityIssues, lawsuits]);
 
   const updateMission = async (id, updates, skipConfirmation = false) => {
     if (blockWrite("update mission")) {
@@ -2576,7 +2617,7 @@ export function DataProvider({ children }) {
     return adapted;
   };
 
-  const updateMissionStatus = async (id, status, skipConfirmation = false) => {
+  const updateMissionStatus = useCallback(async (id, status, skipConfirmation = false) => {
     if (blockWrite("update mission status")) {
       return { ok: false, result: { message: "License inactive" } };
     }
@@ -2661,16 +2702,16 @@ export function DataProvider({ children }) {
     }
 
     return adapted;
-  };
+  }, [actorName, blockWrite, dossiers, integrityIssues, lawsuits, missions]);
 
-  const deleteMission = async (id) => {
+  const deleteMission = useCallback(async (id) => {
     if (blockWrite("delete mission")) {
       return { ok: false, result: { message: "License inactive" } };
     }
     const prev = missions.find((m) => m.id === id);
     const validation = validateMutation("mission", "delete", id, {
       data: prev,
-      entities: { clients, dossiers, lawsuits, tasks, sessions, officers, missions, financialEntries }
+      entities,
     }, integrityIssues);
     if (!validation.ok) return validation;
 
@@ -2738,7 +2779,7 @@ export function DataProvider({ children }) {
       });
     }
     return { ok: true, result: validation.result };
-  };
+  }, [actorName, blockWrite, entities, integrityIssues, lawsuits, missions]);
 
   const deleteMissionCascade = async (id) => {
     if (blockWrite("delete mission cascade")) {
@@ -2843,7 +2884,7 @@ export function DataProvider({ children }) {
     }
   };
 
-  const logFinancialEntryParentHistory = (entry, actionLabel) => {
+  const logFinancialEntryParentHistory = useCallback((entry, actionLabel) => {
     if (!entry?.id) return;
     const amountLabel =
       entry?.amount !== null && entry?.amount !== undefined
@@ -2970,17 +3011,17 @@ export function DataProvider({ children }) {
     if (entry.personalTaskId) {
       logTarget("personalTask", entry.personalTaskId);
     }
-  };
+  }, [actorName, formatCurrency, lawsuits, missions, tasks]);
 
   // --- Financial Entries ---
-  const addFinancialEntry = async (entry) => {
+  const addFinancialEntry = useCallback(async (entry) => {
     if (blockWrite("add financial entry")) {
       return { ok: false, result: { message: "License inactive" } };
     }
     const validation = validateMutation("financialEntry", "add", entry?.id, {
       data: entry,
       newData: entry,
-      entities: { clients, dossiers, lawsuits, tasks, sessions, officers, missions, financialEntries }
+      entities,
     }, integrityIssues);
     if (!validation.ok) return validation;
 
@@ -3045,7 +3086,17 @@ export function DataProvider({ children }) {
     logCreationHistory("financialEntry", created, actorName);
     logFinancialEntryParentHistory(adapted, "Financial entry added");
     return { ok: true, result: validation.result, created: adapted };
-  };
+  }, [
+    actorName,
+    blockWrite,
+    clients,
+    dossiers,
+    entities,
+    integrityIssues,
+    currency,
+    lawsuits,
+    logFinancialEntryParentHistory,
+  ]);
 
   const updateFinancialEntry = async (id, updates) => {
     if (blockWrite("update financial entry")) {
@@ -3060,7 +3111,7 @@ export function DataProvider({ children }) {
     const validation = validateMutation("financialEntry", "edit", id, {
       data: prev,
       newData: { ...prev, ...updates },
-      entities: { clients, dossiers, lawsuits, tasks, sessions, officers, missions, financialEntries }
+      entities,
     }, integrityIssues);
     if (!validation.ok) return validation;
 
@@ -3107,7 +3158,7 @@ export function DataProvider({ children }) {
     return validation;
   };
 
-  const updateFinancialEntryStatus = async (id, status, skipConfirmation = false) => {
+  const updateFinancialEntryStatus = useCallback(async (id, status, skipConfirmation = false) => {
     if (blockWrite("update financial entry status")) {
       return { ok: false, result: { message: "License inactive" } };
     }
@@ -3121,7 +3172,7 @@ export function DataProvider({ children }) {
     const validation = validateMutation("financialEntry", "changeStatus", id, {
       data: prev,
       newData: { ...prev, ...updates },
-      entities: { clients, dossiers, lawsuits, tasks, sessions, officers, missions, financialEntries },
+      entities,
     }, integrityIssues, skipConfirmation);
     if (!validation.ok) return validation;
 
@@ -3151,16 +3202,26 @@ export function DataProvider({ children }) {
     logFinancialEntryParentHistory(adapted, "Financial entry updated");
 
     return adapted;
-  };
+  }, [
+    actorName,
+    blockWrite,
+    clients,
+    dossiers,
+    entities,
+    financialEntries,
+    integrityIssues,
+    lawsuits,
+    logFinancialEntryParentHistory,
+  ]);
 
-  const deleteFinancialEntry = async (id, { skipConfirmation = false } = {}) => {
+  const deleteFinancialEntry = useCallback(async (id, { skipConfirmation = false } = {}) => {
     if (blockWrite("delete financial entry")) {
       return { ok: false, result: { message: "License inactive" } };
     }
     const prev = financialEntries.find((e) => e.id === id);
     const validation = validateMutation("financialEntry", "delete", id, {
       data: prev,
-      entities: { clients, dossiers, lawsuits, tasks, sessions, officers, missions, financialEntries }
+      entities,
     }, integrityIssues, skipConfirmation);
     if (!validation.ok) return validation;
 
@@ -3186,7 +3247,7 @@ export function DataProvider({ children }) {
     logDeletionHistory("financialEntry", prev, actorName);
     logFinancialEntryParentHistory(prev, "Financial entry deleted");
     return { ok: true, result: validation.result };
-  };
+  }, [actorName, blockWrite, entities, financialEntries, integrityIssues, logFinancialEntryParentHistory]);
 
   const value = useMemo(
     () => ({

@@ -14,7 +14,7 @@ import { OnboardingProvider } from "./contexts/OnboardingContext";
 import { TutorialProvider } from "./contexts/TutorialContext";
 import { LicenseProvider } from "./contexts/LicenseContext";
 import "@fortawesome/fontawesome-free/css/all.min.css";
-import { NotificationProvider } from "./contexts/NotificationContext";
+import { NotificationDataBridge, NotificationProvider } from "./contexts/NotificationContext";
 import AlertBanner from "./components/notifications/AlertBanner";
 import { SettingsProvider } from "./contexts/SettingsContext";
 import ErrorBoundary from "./components/ErrorBoundary";
@@ -49,6 +49,7 @@ async function bootstrap() {
                             <LicenseProvider>
                               <ConfirmProvider>
                                 <DataProvider>
+                                  <NotificationDataBridge />
                                   <AlertBanner />
                                   <SidebarProvider>
                                     <HashRouter>
