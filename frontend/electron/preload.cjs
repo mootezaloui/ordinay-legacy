@@ -74,7 +74,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
    * Listen for activation deep links
    * @param {(url: string) => void} handler
    */
-  onActivationUrl: (handler) => ipcRenderer.on('activation-url', (_event, url) => handler(url)),
+  onActivationUrl: (handler) => {
+    const listener = (_event, url) => handler(url);
+    ipcRenderer.on('activation-url', listener);
+    return () => ipcRenderer.removeListener('activation-url', listener);
+  },
 
   /**
    * Get current update status

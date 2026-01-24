@@ -60,8 +60,24 @@ function App() {
     if (typeof window === "undefined") return false;
     return window.localStorage.getItem(FREE_PLAN_STORAGE_KEY) === "1";
   });
+  const activationContextRef = useRef({
+    t,
+    activateLicense,
+    setActivationState,
+    licenseData,
+  });
+  const activationInFlightRef = useRef<string | null>(null);
   // Monitor user activity for inactivity lock
   useInactivityLock();
+
+  useEffect(() => {
+    activationContextRef.current = {
+      t,
+      activateLicense,
+      setActivationState,
+      licenseData,
+    };
+  }, [activateLicense, licenseData, setActivationState, t]);
 
   useEffect(() => {
     let mounted = true;
@@ -75,15 +91,25 @@ function App() {
 
   useEffect(() => {
     if (!window.electronAPI?.onActivationUrl) return;
-    window.electronAPI.onActivationUrl(async (url) => {
+    // Register once; handler pulls latest deps from refs and cleans up on unmount.
+    const unsubscribe = window.electronAPI.onActivationUrl(async (url) => {
+      const rawUrl = String(url || "");
+      if (!rawUrl) return;
+      if (activationInFlightRef.current === rawUrl) return;
+      activationInFlightRef.current = rawUrl;
       try {
-        const rawUrl = String(url || "");
+        const {
+          t: tActivation,
+          activateLicense: activateLicenseCurrent,
+          setActivationState: setActivationStateCurrent,
+          licenseData: licenseDataCurrent,
+        } = activationContextRef.current;
         const pendingReferral = extractPendingReferralFromUrl(rawUrl);
         if (pendingReferral) {
           storePendingReferralCode(pendingReferral);
           return;
         }
-        setActivationState("ACTIVATING", null);
+        setActivationStateCurrent("ACTIVATING", null);
         let parsed: URL | null = null;
         try {
           parsed = new URL(rawUrl);
@@ -112,7 +138,7 @@ function App() {
         // If the plan is free, set state and error to FREE (single block)
         const isFreeActivation = planIndicators.includes("free");
         if (isFreeActivation) {
-          setActivationState("FREE", null);
+          setActivationStateCurrent("FREE", null);
           setActivationError(null);
           setActivationView("success");
           const freeLicenseData = {
@@ -125,8 +151,8 @@ function App() {
           if (typeof window !== "undefined") {
             window.localStorage.setItem(FREE_PLAN_STORAGE_KEY, "1");
           }
-          if (licenseData && typeof licenseData === "object") {
-            Object.assign(licenseData, freeLicenseData);
+          if (licenseDataCurrent && typeof licenseDataCurrent === "object") {
+            Object.assign(licenseDataCurrent, freeLicenseData);
           }
           return;
         }
@@ -156,15 +182,15 @@ function App() {
             licenseTypeParam,
             validUntilParam,
           });
-          setActivationState("ERROR", "Activation failed");
-          setActivationError(t("errors.activationFailed"));
+          setActivationStateCurrent("ERROR", "Activation failed");
+          setActivationError(tActivation("errors.activationFailed"));
           setActivationView("error");
           return;
         }
         if (typeof window !== "undefined") {
           window.localStorage.removeItem(FREE_PLAN_STORAGE_KEY);
         }
-        await activateLicense({
+        await activateLicenseCurrent({
           device_id: activationDeviceId,
           status: "active",
           license_type,
@@ -183,12 +209,23 @@ function App() {
         setActivationView("success");
       } catch (error) {
         console.error("[License] Activation URL failed:", error);
-        setActivationState("ERROR", "Activation failed");
-        setActivationError(t("errors.activationFailed"));
+        const { t: tActivation, setActivationState: setActivationStateCurrent } =
+          activationContextRef.current;
+        setActivationStateCurrent("ERROR", "Activation failed");
+        setActivationError(tActivation("errors.activationFailed"));
         setActivationView("error");
+      } finally {
+        if (activationInFlightRef.current === rawUrl) {
+          activationInFlightRef.current = null;
+        }
       }
     });
-  }, [activateLicense, setActivationState, t]);
+    return () => {
+      if (typeof unsubscribe === "function") {
+        unsubscribe();
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!updateStatus) return;

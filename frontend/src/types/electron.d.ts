@@ -82,7 +82,7 @@ export interface ElectronAPI {
   /**
    * Listen for activation deep link
    */
-  onActivationUrl: (handler: (url: string) => void) => void;
+  onActivationUrl: (handler: (url: string) => void) => () => void;
 
   /**
    * Get current update status
