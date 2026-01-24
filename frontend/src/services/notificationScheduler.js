@@ -16,6 +16,7 @@ import {
 import { resolveEntityLink } from "../utils/notificationTemplates";
 import { evaluateAllRules } from "./notificationRules";
 import { filterOperationalEntities } from "../utils/importState";
+import { t } from "../i18n";
 
 // Helper to check if a notification is dismissed for the user (OWNER, id=1)
 async function isNotificationDismissed(dedupe_key, user_id = 1) {
@@ -580,67 +581,83 @@ class NotificationScheduler {
     // This would fetch the actual entity data and generate the notification
     // For now, we'll create a placeholder notification
 
-    const baseNotification = {
-      id: `${scheduledNotif.type}_${scheduledNotif.subType}_${
-        scheduledNotif.entityId || Math.random().toString(16).slice(2)
-      }`,
-      timestamp: new Date().toISOString(),
-      read: false,
-      type: scheduledNotif.type,
-      subType: scheduledNotif.subType,
-      priority: scheduledNotif.priority,
-      icon: this.getIconForType(scheduledNotif.type),
-      entityId: scheduledNotif.entityId,
-      entityType: scheduledNotif.entityType || scheduledNotif.type,
-    };
+    if (!scheduledNotif || typeof scheduledNotif !== "object") {
+      console.error(
+        "[SCHEDULER] Invalid scheduled notification payload:",
+        scheduledNotif
+      );
+      return null;
+    }
 
-    const link = resolveEntityLink(baseNotification.entityType, {
-      entityId: baseNotification.entityId,
-      dossierId: scheduledNotif.dossierId,
-      lawsuitId: scheduledNotif.lawsuitId,
-      clientId: scheduledNotif.clientId,
-      missionId: scheduledNotif.missionId,
-    });
+    try {
+      const baseNotification = {
+        id: `${scheduledNotif.type}_${scheduledNotif.subType}_${
+          scheduledNotif.entityId || Math.random().toString(16).slice(2)
+        }`,
+        timestamp: new Date().toISOString(),
+        read: false,
+        type: scheduledNotif.type,
+        subType: scheduledNotif.subType,
+        priority: scheduledNotif.priority,
+        icon: this.getIconForType(scheduledNotif.type),
+        entityId: scheduledNotif.entityId,
+        entityType: scheduledNotif.entityType || scheduledNotif.type,
+      };
 
-    // Get message using i18n - try specific subType first, then fallback to generic
-    const getMessageForType = (type, subType, entityId) => {
-      // Try specific subType message key
-      const subTypeKey = `notifications:content.${type}.${subType}.message`;
-      const genericKey = `notifications:content.${type}.generic.message`;
-
-      // Get translated message with entityId as fallback context
-      const message = t(subTypeKey, { id: entityId, defaultValue: "" });
-      if (message) return message;
-
-      // Try generic message for the entity type
-      const genericMessage = t(genericKey, { id: entityId, defaultValue: "" });
-      if (genericMessage) return genericMessage;
-
-      // Final fallback using center types
-      return t(`notifications:center.types.${type}`, {
-        defaultValue: t("notifications:center.notification"),
+      const link = resolveEntityLink(baseNotification.entityType, {
+        entityId: baseNotification.entityId,
+        dossierId: scheduledNotif.dossierId,
+        lawsuitId: scheduledNotif.lawsuitId,
+        clientId: scheduledNotif.clientId,
+        missionId: scheduledNotif.missionId,
       });
-    };
 
-    const titleMap = {
-      task: this.getTitleForTaskNotification(scheduledNotif.subType),
-      session: this.getTitleForSessionNotification(scheduledNotif.subType),
-      payment: this.getTitleForPaymentNotification(scheduledNotif.subType),
-      mission: this.getTitleForMissionNotification(scheduledNotif.subType),
-      dossier: this.getTitleForDossierNotification(scheduledNotif.subType),
-    };
+      // Get message using i18n - try specific subType first, then fallback to generic
+      const getMessageForType = (type, subType, entityId) => {
+        // Try specific subType message key
+        const subTypeKey = `notifications:content.${type}.${subType}.message`;
+        const genericKey = `notifications:content.${type}.generic.message`;
 
-    return {
-      ...baseNotification,
-      title:
-        titleMap[scheduledNotif.type] || t("notifications:center.notification"),
-      message: getMessageForType(
-        scheduledNotif.type,
-        scheduledNotif.subType,
-        scheduledNotif.entityId
-      ),
-      link,
-    };
+        // Get translated message with entityId as fallback context
+        const message = t(subTypeKey, { id: entityId, defaultValue: "" });
+        if (message) return message;
+
+        // Try generic message for the entity type
+        const genericMessage = t(genericKey, { id: entityId, defaultValue: "" });
+        if (genericMessage) return genericMessage;
+
+        // Final fallback using center types
+        return t(`notifications:center.types.${type}`, {
+          defaultValue: t("notifications:center.notification"),
+        });
+      };
+
+      const titleMap = {
+        task: this.getTitleForTaskNotification(scheduledNotif.subType),
+        session: this.getTitleForSessionNotification(scheduledNotif.subType),
+        payment: this.getTitleForPaymentNotification(scheduledNotif.subType),
+        mission: this.getTitleForMissionNotification(scheduledNotif.subType),
+        dossier: this.getTitleForDossierNotification(scheduledNotif.subType),
+      };
+
+      return {
+        ...baseNotification,
+        title:
+          titleMap[scheduledNotif.type] || t("notifications:center.notification"),
+        message: getMessageForType(
+          scheduledNotif.type,
+          scheduledNotif.subType,
+          scheduledNotif.entityId
+        ),
+        link,
+      };
+    } catch (error) {
+      console.error(
+        "[SCHEDULER] Failed to generate scheduled notification:",
+        error
+      );
+      return null;
+    }
   }
 
   /**
