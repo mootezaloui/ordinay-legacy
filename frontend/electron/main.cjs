@@ -594,17 +594,35 @@ function createWindow() {
 }
 
 /**
- * Resolve a window icon for development runs.
- * In production, the packaged app icon is used by the OS.
+ * Resolve the window icon for BrowserWindow.
+ *
+ * Icon Configuration Overview:
+ * ----------------------------
+ * Windows icons are configured in three places:
+ * 1. electron-builder.json → win.icon: Embeds icon into the .exe (Start Menu, Desktop, Explorer)
+ * 2. electron-builder.json → nsis.installerIcon: Icon for the installer .exe
+ * 3. main.cjs → BrowserWindow.icon: Runtime icon for taskbar and window thumbnail
+ *
+ * All three must be set to ensure Organia branding appears everywhere.
+ * The icon.ico file at build/icon.ico contains multiple resolutions (16-256px).
  */
 function resolveWindowIcon() {
-  if (!isDev) {
+  if (process.platform !== "win32") {
+    // macOS uses the app bundle icon automatically
+    // Linux uses the icon specified in electron-builder.json
     return null;
   }
 
-  if (process.platform === "win32") {
+  if (isDev) {
+    // Development: load from build directory
     const iconPath = path.join(__dirname, "..", "build", "icon.ico");
     return fs.existsSync(iconPath) ? iconPath : null;
+  }
+
+  // Production: icon is copied to resources via extraResources in electron-builder.json
+  const resourcesIconPath = path.join(process.resourcesPath, "icon.ico");
+  if (fs.existsSync(resourcesIconPath)) {
+    return resourcesIconPath;
   }
 
   return null;

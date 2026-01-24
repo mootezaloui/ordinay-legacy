@@ -21,57 +21,8 @@
     "electron:build": "npm run build:renderer && npm run prepare:node && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder",
     "electron:build:win": "npm run build:renderer && npm run prepare:node && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win",
     "electron:build:dir": "npm run build:renderer && npm run prepare:node && electron-builder --dir",
-    "prepare:node": "node scripts/copy-node.cjs"
-  },
-  "build": {
-    "appId": "com.organialegal.app",
-    "productName": "Organia",
-    "directories": {
-      "output": "release"
-    },
-    "files": [
-      "dist/**",
-      "electron/**",
-      "package.json"
-    ],
-    "extraResources": [
-      {
-        "from": "../backend",
-        "to": "backend",
-        "filter": [
-          "**/*",
-          "!**/organia.db"
-        ]
-      }
-    ],
-    "win": {
-      "sign": false,
-      "signAndEditExecutable": false,
-      "verifyUpdateCodeSignature": false,
-      "target": "nsis",
-      "extraResources": [
-        {
-          "from": "build/node.exe",
-          "to": "backend/node.exe"
-        }
-      ]
-    },
-    "mac": {
-      "extraResources": [
-        {
-          "from": "build/node",
-          "to": "backend/node"
-        }
-      ]
-    },
-    "linux": {
-      "extraResources": [
-        {
-          "from": "build/node",
-          "to": "backend/node"
-        }
-      ]
-    }
+    "prepare:node": "node scripts/copy-node.cjs",
+    "generate:icons": "node build/generate-icons.cjs"
   },
   "dependencies": {
     "@fortawesome/fontawesome-free": "^7.1.0",
@@ -118,8 +69,10 @@
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",
     "globals": "^16.5.0",
+    "png-to-ico": "^3.0.1",
     "postcss": "^8.5.6",
     "shadcn-ui": "^0.9.5",
+    "sharp": "^0.34.5",
     "tailwindcss": "^3.4.18",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.46.4",

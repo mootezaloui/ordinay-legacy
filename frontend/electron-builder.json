@@ -35,10 +35,17 @@
     ],
     "icon": "build/icon.ico",
     "artifactName": "${productName}-Setup-${version}.${ext}",
+    "sign": false,
+    "signAndEditExecutable": false,
+    "verifyUpdateCodeSignature": false,
     "extraResources": [
       {
         "from": "build/node.exe",
         "to": "backend/node.exe"
+      },
+      {
+        "from": "build/icon.ico",
+        "to": "icon.ico"
       }
     ]
   },
@@ -48,7 +55,10 @@
     "allowToChangeInstallationDirectory": true,
     "deleteAppDataOnUninstall": false,
     "createDesktopShortcut": true,
-    "createStartMenuShortcut": true
+    "createStartMenuShortcut": true,
+    "installerIcon": "build/icon.ico",
+    "uninstallerIcon": "build/icon.ico",
+    "installerHeaderIcon": "build/icon.ico"
   },
   "mac": {
     "target": [
