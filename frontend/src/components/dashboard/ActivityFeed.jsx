@@ -25,9 +25,12 @@ export default function ActivityFeed({ activities, maxItems = 5 }) {
   };
 
   const formatTimeAgo = (dateString) => {
+    if (!dateString) return "";
     const date = new Date(dateString);
+    if (Number.isNaN(date.getTime())) return "";
     const now = new Date();
     const diffMs = now - date;
+    if (diffMs < 0) return formatDate(date);
     const diffMins = Math.floor(diffMs / 60000);
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);

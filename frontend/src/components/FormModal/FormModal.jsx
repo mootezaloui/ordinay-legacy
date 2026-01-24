@@ -74,7 +74,7 @@ export default function FormModal({
   const [initialized, setInitialized] = useState(false);
   const { notify } = useNotifications();
   const { t } = useTranslation(["common", "domain"]);
-  const { formatCurrency, currencyDisplay } = useSettings();
+  const { formatCurrency, currencyDisplay, notificationPrefs } = useSettings();
   useBodyScrollLock(isOpen);
 
   // ✅ Domain rule validation state

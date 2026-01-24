@@ -7,7 +7,8 @@
  * - This is the SINGLE source of border-radius for table layouts
  * - overflow-hidden clips all children to the rounded corners
  * - Inner components (Table, Toolbar, Pagination) should NOT have their own radius
- * - Dropdowns/popovers use portals to document.body, so overflow-hidden is safe
+ * - Some inline dropdowns (e.g. quick actions) render in-place, so allowOverflow
+ *   switches to overflow-visible to prevent clipping.
  */
 
 export default function ContentSection({
@@ -15,12 +16,14 @@ export default function ContentSection({
   title,
   actions,
   className = "",
-  allowOverflow, // Destructure to prevent passing to DOM (legacy prop, now always overflow-hidden)
+  allowOverflow, // Allow dropdowns/popovers to escape rounded container when needed
   ...rest // Pass through additional props like data-tutorial
 }) {
+  const overflowClass = allowOverflow ? "overflow-visible" : "overflow-hidden";
+
   return (
     <div
-      className={`bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden ${className}`}
+      className={`bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 ${overflowClass} ${className}`}
       {...rest}
     >
       {/* Optional section header */}

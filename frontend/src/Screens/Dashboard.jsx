@@ -125,17 +125,38 @@ export default function Dashboard() {
   const recentActivities = useMemo(() => {
     const activities = [];
 
+    const pickTimestamp = (...candidates) => {
+      for (const value of candidates) {
+        if (value) return value;
+      }
+      return null;
+    };
+
+    const toDateTimeStamp = (dateStr, timeStr) => {
+      if (!dateStr) return null;
+      if (!timeStr) return dateStr;
+      return `${dateStr}T${timeStr}`;
+    };
+
     // Use operator name or fallback
     const operatorName = operator?.name || "Principal Lawyer";
 
     // Recent clients
     operationalClients.slice(0, 2).forEach(client => {
+      const timestamp = pickTimestamp(
+        client.createdAt,
+        client.created_at,
+        client.updated_at,
+        client.updatedAt,
+        client.joinDate
+      );
+      if (!timestamp) return;
       activities.push({
         id: `client-${client.id}`,
         type: "client",
         title: t("dashboard.activities.newClient", { name: client.name }),
         description: client.email,
-        timestamp: client.joinDate || new Date().toISOString(),
+        timestamp,
         user: operatorName,
         onClick: () => navigate(`/clients/${client.id}`),
       });
@@ -143,12 +164,21 @@ export default function Dashboard() {
 
     // Recent dossiers
     operationalDossiers.slice(0, 1).forEach(dossier => {
+      const timestamp = pickTimestamp(
+        dossier.updatedAt,
+        dossier.updated_at,
+        dossier.lastUpdateDate,
+        dossier.created_at,
+        dossier.createdAt,
+        dossier.openDate
+      );
+      if (!timestamp) return;
       activities.push({
         id: `dossier-${dossier.id}`,
         type: "dossier",
         title: t("dashboard.activities.dossierUpdated", { lawsuitNumber: dossier.lawsuitNumber }),
         description: dossier.title,
-        timestamp: dossier.openDate || new Date().toISOString(),
+        timestamp,
         user: operatorName,
         onClick: () => navigate(`/dossiers/${dossier.id}`),
       });
@@ -156,6 +186,13 @@ export default function Dashboard() {
 
     // Recent sessions
     operationalSessions.slice(0, 1).forEach(session => {
+      const timestamp = pickTimestamp(
+        session.scheduledAt,
+        toDateTimeStamp(session.date, session.time),
+        session.created_at,
+        session.createdAt
+      );
+      if (!timestamp) return;
       activities.push({
         id: `session-${session.id}`,
         type: "session",
@@ -164,7 +201,7 @@ export default function Dashboard() {
           date: formatDisplayDate(session.date),
           time: session.time,
         }),
-        timestamp: new Date().toISOString(),
+        timestamp,
         user: operatorName,
         onClick: () => navigate(`/sessions/${session.id}`),
       });
@@ -457,7 +494,7 @@ export default function Dashboard() {
     <PageLayout>
       {/* Hero Section with Greeting */}
       <div className="mb-8">
-        <div className="rounded-2xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900/70 backdrop-blur-xl shadow-md px-6 py-5">
+        <div className="flex items-center gap-6">
           <div className="flex flex-col gap-2">
             <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
               <span className="h-2 w-2 rounded-full bg-blue-500 shadow-sm shadow-blue-500/40"></span>

@@ -20,7 +20,7 @@ export default function HeaderBar() {
   };
 
   return (
-    <header className={`bg-white dark:bg-slate-900 backdrop-blur-sm text-slate-900 dark:text-white transition-all duration-300 fixed right-0 z-30 border-b border-slate-300 dark:border-slate-700 shadow-md titlebar-offset-top ${isCollapsed ? "left-20" : "left-64"}`}>
+    <header className={`bg-white/70 dark:bg-slate-900/70 backdrop-blur-sm text-slate-800 dark:text-slate-100 transition-all duration-300 fixed right-0 z-30 titlebar-offset-top ${isCollapsed ? "left-20" : "left-64"}`}>
       <div className="w-full px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-14 gap-4">
           {/* Global Search */}

@@ -849,7 +849,7 @@
 }
 
 .titlebar-offset-header {
-  top: calc(var(--titlebar-height) + 64px);
+  top: calc(var(--titlebar-height) + 48px);
 }
 
 /* =============================================

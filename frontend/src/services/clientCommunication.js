@@ -566,43 +566,39 @@ export function generateClientEmail(eventType, eventData) {
 // ========================================
 
 /**
- * Send email notification to client via backend API.
+ * Send email notification to client via mailto: link (MVP).
  *
- * If the backend email service is not configured, this will gracefully
- * return false without throwing errors.
+ * Opens the user's default email client with pre-filled content.
+ * This is simple and requires no backend configuration.
+ *
+ * FUTURE: Can be switched to backend API for automated sending.
  *
  * @param {object} email - Email object { subject, body, clientEmail }
  * @returns {Promise<boolean>} Success status
  */
 export async function sendEmailNotification(email) {
-  console.log("📧 CLIENT EMAIL NOTIFICATION");
+  console.log("📧 CLIENT EMAIL NOTIFICATION (mailto)");
   console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
   console.log(`To: ${email.clientEmail}`);
   console.log(`Subject: ${email.subject}`);
   console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
   try {
-    const response = await fetch("/api/email/send", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        to: email.clientEmail,
-        subject: email.subject,
-        body: email.body,
-      }),
-    });
+    // Build mailto: URL with encoded parameters
+    const mailtoUrl = `mailto:${encodeURIComponent(email.clientEmail)}?subject=${encodeURIComponent(email.subject)}&body=${encodeURIComponent(email.body)}`;
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      console.error("❌ Email API error:", errorData);
-      return false;
+    // Use Electron's shell.openExternal for proper mailto handling (no empty window)
+    if (window.electronAPI?.openExternal) {
+      await window.electronAPI.openExternal(mailtoUrl);
+    } else {
+      // Fallback for non-Electron environments (dev browser)
+      window.location.href = mailtoUrl;
     }
 
-    const result = await response.json();
-    console.log("✅ Email sent:", result.messageId || "success");
+    console.log("✅ Email client opened");
     return true;
   } catch (error) {
-    console.error("❌ Network error sending email:", error);
+    console.error("❌ Error opening email client:", error);
     return false;
   }
 }

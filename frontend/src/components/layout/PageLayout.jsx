@@ -23,9 +23,8 @@ export default function PageLayout({ children }) {
         {/* Header */}
         <HeaderBar />
 
-        {/* Content Area - pt-20 accounts for fixed header height
-            flex-1 and min-h-0 enable proper flex child behavior for nested scrolling */}
-        <main className="px-4 sm:px-6 lg:px-8 pb-8 pt-20 flex-1 min-h-0">
+        {/* Content Area - use spacing to soften the header transition */}
+        <main className="px-4 sm:px-6 lg:px-8 pb-8 pt-16 flex-1 min-h-0">
           <div className="w-full h-full max-w-[1600px] mx-auto">
             {children}
           </div>

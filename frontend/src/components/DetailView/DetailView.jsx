@@ -303,8 +303,7 @@ export default function DetailView({ entityType }) {
       // Pass skipConfirmation option if validation was already handled
       await config.updateData(id, { [field]: value }, contextData, { skipConfirmation: skipValidation });
 
-      // Get operator name from context
-      const { operator } = useOperator();
+      // Get operator name from context (hook is already at component scope)
       const operatorName = operator?.name || "Principal Lawyer";
       // Create timeline entry
       const timelineEntry = {
@@ -1175,10 +1174,13 @@ export default function DetailView({ entityType }) {
         eventData={notificationPrompt.eventData}
         onConfirm={async () => {
           const { eventType, eventData } = notificationPrompt;
+          let success = false;
           try {
-            await sendClientNotification(eventType, eventData, { channels: ["email"] });
+            const result = await sendClientNotification(eventType, eventData, { channels: ["email"] });
+            success = result?.success ?? false;
           } catch (error) {
             console.error("Error sending client notification:", error);
+            success = false;
           } finally {
             clearPendingNotification?.();
             setNotificationPrompt({ isOpen: false, eventType: null, eventData: null });
@@ -1192,6 +1194,7 @@ export default function DetailView({ entityType }) {
               tutorial.nextStep();
             }
           }
+          return success;
         }}
         onClose={() => {
           clearPendingNotification?.();

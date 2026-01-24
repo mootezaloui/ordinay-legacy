@@ -1,6 +1,6 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { BrowserRouter } from "react-router-dom";
+import { HashRouter } from "react-router-dom";
 import { LockProvider } from "./contexts/LockContext";
 import { ThemeProvider } from "./contexts/ThemeProvider";
 import { SidebarProvider } from "./contexts/SidebarContext";
@@ -53,9 +53,9 @@ async function bootstrap() {
                                 <DataProvider>
                                   <AlertBanner />
                                   <SidebarProvider>
-                                    <BrowserRouter>
+                                    <HashRouter>
                                       <App />
-                                    </BrowserRouter>
+                                    </HashRouter>
                                   </SidebarProvider>
                                 </DataProvider>
                               </ConfirmProvider>

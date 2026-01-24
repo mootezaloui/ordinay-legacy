@@ -23,10 +23,15 @@ const LICENSE_PATH = path.join(USER_DATA_PATH, "organia_license.json");
 const DEVICE_ID_PATH = path.join(USER_DATA_PATH, "organia_device_id.txt");
 const ACTIVATION_PROTOCOL = "organia";
 const UPDATE_CACHE_PATH = path.join(USER_DATA_PATH, "updates");
-const RAW_UPDATE_URL = (process.env.ORGANIA_UPDATE_URL || "").trim();
-const UPDATE_FEED_URL = RAW_UPDATE_URL.startsWith("https://")
-  ? RAW_UPDATE_URL
-  : "";
+const RAW_UPDATE_URL = (
+  process.env.ORGANIA_UPDATE_URL || "http://localhost:5174/updates/latest.json"
+).trim();
+const isLocalHttpUrl = (value) =>
+  value.startsWith("http://localhost") || value.startsWith("http://127.0.0.1");
+const UPDATE_FEED_URL =
+  RAW_UPDATE_URL.startsWith("https://") || isLocalHttpUrl(RAW_UPDATE_URL)
+    ? RAW_UPDATE_URL
+    : "";
 const ALLOW_DEV_UPDATES = process.env.ORGANIA_DEV_UPDATES === "1";
 
 // Backend configuration
@@ -213,7 +218,7 @@ function waitForBackend(port, maxAttempts = 30) {
       client.on("error", () => {
         if (attempts >= maxAttempts) {
           reject(
-            new Error(`Backend failed to start after ${maxAttempts} attempts`)
+            new Error(`Backend failed to start after ${maxAttempts} attempts`),
           );
         } else {
           setTimeout(check, 200);
@@ -349,7 +354,7 @@ async function canReachUpdateHost(timeoutMs = 1500) {
     await Promise.race([
       dns.lookup(hostname),
       new Promise((_resolve, reject) =>
-        setTimeout(() => reject(new Error("timeout")), timeoutMs)
+        setTimeout(() => reject(new Error("timeout")), timeoutMs),
       ),
     ]);
     return true;
@@ -380,10 +385,16 @@ function resolveDownloadUrl(feed) {
   const platformKey = getPlatformKey();
   const downloads = feed?.downloads || {};
   const url = downloads[platformKey];
-  if (typeof url !== "string" || !url.startsWith("https://")) {
+  if (typeof url !== "string") {
     return null;
   }
-  return url;
+  if (url.startsWith("https://")) {
+    return url;
+  }
+  if (isLocalHttpUrl(url)) {
+    return url;
+  }
+  return null;
 }
 
 async function checkForUpdates({ userInitiated = false } = {}) {
@@ -400,8 +411,7 @@ async function checkForUpdates({ userInitiated = false } = {}) {
     const feedVersion = feed?.version;
     const currentVersion = app.getVersion();
     const versionCompare = compareVersions(feedVersion, currentVersion);
-    updateDownloadUrl =
-      versionCompare > 0 ? resolveDownloadUrl(feed) : null;
+    updateDownloadUrl = versionCompare > 0 ? resolveDownloadUrl(feed) : null;
     downloadedUpdatePath = null;
     if (versionCompare > 0 && updateDownloadUrl) {
       setUpdateState({
@@ -439,7 +449,10 @@ async function downloadToFile(url, targetPath) {
         reject(new Error(`Download failed: ${response.statusCode}`));
         return;
       }
-      const total = Number.parseInt(response.headers["content-length"] || "0", 10);
+      const total = Number.parseInt(
+        response.headers["content-length"] || "0",
+        10,
+      );
       let received = 0;
       const fileStream = fs.createWriteStream(targetPath);
       response.on("data", (chunk) => {
@@ -528,6 +541,13 @@ function createWindow() {
   // Configure Content Security Policy
   const session = require("electron").session;
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    const connectSrcExtras = [
+      "https://organia.app",
+      "https://*.organia.app",
+      "http://localhost:5174",
+      "http://localhost:3000",
+      "http://127.0.0.1:3000",
+    ];
     const cspDirectives = isDev
       ? [
           "default-src 'self'",
@@ -543,11 +563,11 @@ function createWindow() {
         ]
       : [
           "default-src 'self'",
-          "script-src 'self'",
+          "script-src 'self' 'unsafe-inline'",
           "style-src 'self' 'unsafe-inline'", // unsafe-inline still needed for CSS-in-JS in production
           "img-src 'self' data: blob:",
           "font-src 'self' data:",
-          `connect-src 'self' http://localhost:${backendPort}`, // Only allow configured backend port
+          `connect-src 'self' http://localhost:${backendPort} ${connectSrcExtras.join(" ")}`, // Backend + activation/referral
           "object-src 'none'",
           "base-uri 'self'",
           "form-action 'self'",
@@ -758,7 +778,7 @@ function handleActivationUrl(url) {
 app.whenReady().then(async () => {
   console.log("[Electron] App ready");
   console.log(
-    `[Electron] Running in ${isDev ? "development" : "production"} mode`
+    `[Electron] Running in ${isDev ? "development" : "production"} mode`,
   );
 
   try {
@@ -821,7 +841,9 @@ if (!gotLock) {
   app.quit();
 } else {
   app.on("second-instance", (_event, argv) => {
-    const urlArg = argv.find((arg) => arg.startsWith(`${ACTIVATION_PROTOCOL}://`));
+    const urlArg = argv.find((arg) =>
+      arg.startsWith(`${ACTIVATION_PROTOCOL}://`),
+    );
     if (urlArg) {
       handleActivationUrl(urlArg);
     }
@@ -856,7 +878,7 @@ process.on("unhandledRejection", (reason, promise) => {
     "[Electron] Unhandled rejection at:",
     promise,
     "reason:",
-    reason
+    reason,
   );
 });
 
