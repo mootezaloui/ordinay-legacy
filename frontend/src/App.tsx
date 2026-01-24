@@ -21,6 +21,7 @@ import {
   getPendingReferralCode,
   storePendingReferralCode,
   submitReferralOnActivation,
+  type LicenseData,
   type LicenseState,
   type LicenseType,
 } from "./services/licenseService";
@@ -42,7 +43,7 @@ function App() {
   const { t } = useTranslation("activation");
   const { t: tSettings } = useTranslation("settings");
   const { isLocked } = useLock();
-  const { isInitialized, completeSetup } = useSetup();
+  const { isInitialized } = useSetup();
   const { licenseState, licenseData, activateLicense, setActivationState } =
     useLicense();
   const { addAlert } = useNotifications();
@@ -369,7 +370,7 @@ function ActivationScreen({
   onCancelActivation,
 }: {
   licenseState: LicenseState;
-  licenseData: any;
+  licenseData: LicenseData | null;
   activationView: "choice" | "waiting" | "success" | "error" | "free_setup";
   activationError: string | null;
   onActivate: () => void | Promise<void>;

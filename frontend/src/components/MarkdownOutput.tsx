@@ -9,13 +9,19 @@ interface MarkdownOutputProps {
 }
 
 export const MarkdownOutput: React.FC<MarkdownOutputProps> = ({ content }) => {
+  type CodeProps = React.ComponentPropsWithoutRef<"code"> & {
+    inline?: boolean;
+    className?: string;
+    children?: React.ReactNode;
+  };
+
   return (
     <div className="prose prose-slate dark:prose-invert max-w-none break-words text-sm leading-relaxed">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[rehypeRaw, rehypeSanitize]}
         components={{
-          code({ node, inline, className, children, ...props }: any) {
+          code({ inline, className, children, ...props }: CodeProps) {
             return !inline ? (
               <pre className="bg-muted/50 p-4 rounded-lg overflow-x-auto my-2 border">
                 <code className={className} {...props}>

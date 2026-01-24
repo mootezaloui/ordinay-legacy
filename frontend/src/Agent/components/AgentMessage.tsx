@@ -1,6 +1,5 @@
 import React, { useRef, useState, useEffect } from "react";
 import {
-  Loader2,
   AlertCircle,
   FileText,
   Shield,
@@ -12,6 +11,13 @@ import {
   RotateCw,
 } from "lucide-react";
 import { AgentMessage as AgentMessageType } from "../types/agentMessage";
+import type {
+  ActionProposal,
+  DraftOutput,
+  ExplanationOutput,
+  RiskAnalysisOutput,
+  RiskItem,
+} from "../../services/api/agent";
 import { MarkdownOutput } from "../../components/MarkdownOutput";
 import { useAgentSessions } from "../hooks/useAgentSessions";
 import { useAgentState } from "../hooks/useAgentState";
@@ -93,7 +99,7 @@ export function AgentMessage({ message, getRelativeTime }: AgentMessageProps) {
         window.clearTimeout(copyTimeoutRef.current);
       }
       copyTimeoutRef.current = window.setTimeout(() => setCopied(false), 1500);
-    } catch (e) {
+    } catch {
       // Fallback for older browsers
       const textarea = document.createElement("textarea");
       textarea.value = text;
@@ -326,7 +332,7 @@ function RetryButton({ message }: { message: AgentMessageType }) {
     const msgs = activeSession.messages || [];
     const idx = msgs.findIndex((m) => m.id === message.id);
     if (idx === -1) return;
-    let userMsg = null as any;
+    let userMsg: AgentMessageType | null = null;
     for (let i = idx - 1; i >= 0; i--) {
       if (msgs[i].role === "user") {
         userMsg = msgs[i];
@@ -367,7 +373,7 @@ function RetryButton({ message }: { message: AgentMessageType }) {
 }
 
 // Explanation Section Component
-function ExplanationSection({ data }: { data: any }) {
+function ExplanationSection({ data }: { data: ExplanationOutput }) {
   return (
     <div className="pt-3 border-t border-slate-200 dark:border-slate-700 agent-animate-scaffold">
       <div className="flex items-center gap-2 mb-3 agent-animate-item agent-animate-item-delay-1">
@@ -398,7 +404,7 @@ function ExplanationSection({ data }: { data: any }) {
 }
 
 // Risk Section Component
-function RiskSection({ data }: { data: any }) {
+function RiskSection({ data }: { data: RiskAnalysisOutput }) {
   const severityColors: Record<string, string> = {
     CRITICAL:
       "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800",
@@ -426,7 +432,7 @@ function RiskSection({ data }: { data: any }) {
         </span>
       </div>
       <div className="space-y-3">
-        {data.risks?.map((risk: any, idx: number) => (
+        {data.risks?.map((risk: RiskItem, idx: number) => (
           <div
             key={idx}
             className={`p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 agent-animate-item agent-animate-item-delay-${Math.min(idx + 2, 8)}`}
@@ -459,7 +465,7 @@ function RiskSection({ data }: { data: any }) {
 }
 
 // Draft Section Component
-function DraftSection({ data }: { data: any }) {
+function DraftSection({ data }: { data: DraftOutput }) {
   return (
     <div className="pt-3 border-t border-slate-200 dark:border-slate-700 agent-animate-scaffold">
       <div className="flex items-center gap-2 mb-3 agent-animate-item agent-animate-item-delay-1">
@@ -517,7 +523,7 @@ function DraftSection({ data }: { data: any }) {
 }
 
 // Actions Section Component
-function ActionsSection({ data }: { data: any[] }) {
+function ActionsSection({ data }: { data: ActionProposal[] }) {
   return (
     <div className="pt-3 border-t border-slate-200 dark:border-slate-700 agent-animate-scaffold">
       <div className="flex items-center gap-2 mb-3 agent-animate-item agent-animate-item-delay-1">
@@ -527,7 +533,7 @@ function ActionsSection({ data }: { data: any[] }) {
         </span>
       </div>
       <div className="space-y-2">
-        {data.map((action: any, idx: number) => (
+        {data.map((action: ActionProposal, idx: number) => (
           <div
             key={idx}
             className={`p-3 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center justify-between agent-animate-item agent-animate-item-delay-${Math.min(idx + 2, 8)}`}

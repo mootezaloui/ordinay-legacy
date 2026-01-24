@@ -320,7 +320,7 @@ export type StreamEventType = 'start' | 'chunk' | 'result' | 'done' | 'error' | 
 export interface StreamCallbacks {
   onStart?: (data: { intent: string; agentVersion: string }) => void;
   onChunk?: (content: string) => void;
-  onResult?: (data: { output: any; intent: string }) => void;
+  onResult?: (data: { output: unknown; intent: string }) => void;
   onDone?: (data: { timestamp: string; fullContent?: string }) => void;
   onError?: (error: string) => void;
   onCancelled?: () => void;

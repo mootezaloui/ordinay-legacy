@@ -33,7 +33,6 @@ export function AgentLayout() {
   } = useAgentState();
 
   const {
-    sessions,
     folders,
     activeSessionId,
     setActiveSessionId,
@@ -61,7 +60,6 @@ export function AgentLayout() {
     <div className={`fixed right-0 bottom-0 ${isCollapsed ? "left-20" : "left-64"} z-0 flex min-h-0 overflow-hidden transition-all duration-300 titlebar-offset-header`}>
       {showHistorySidebar && (
         <AgentHistorySidebar
-          sessions={sessions}
           folders={folders}
           activeSessionId={activeSessionId}
           onSessionClick={handleSessionClick}

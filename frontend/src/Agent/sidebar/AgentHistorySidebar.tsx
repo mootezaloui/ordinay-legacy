@@ -16,7 +16,6 @@ interface DragState {
 }
 
 interface AgentHistorySidebarProps {
-  sessions: AgentSession[];
   folders: AgentFolder[];
   activeSessionId: string;
   onSessionClick: (sessionId: string) => void;
@@ -39,7 +38,6 @@ interface AgentHistorySidebarProps {
 }
 
 export function AgentHistorySidebar({
-  sessions,
   folders,
   activeSessionId,
   onSessionClick,
@@ -124,7 +122,7 @@ export function AgentHistorySidebar({
   // ============================================================================
 
   const handleSessionDragOver = useCallback(
-    (e: React.DragEvent, targetSession: AgentSession, targetIndex: number) => {
+    (e: React.DragEvent, targetSession: AgentSession) => {
       e.preventDefault();
       e.stopPropagation();
       const currentDrag = dragStateRef.current;

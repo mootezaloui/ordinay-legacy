@@ -21,6 +21,19 @@ export default function LockScreen() {
   const [resetCountdown, setResetCountdown] = useState(6);
   const resetConfirmToken = "RESET";
 
+  const openResetConfirm = () => {
+    setResetConfirmText("");
+    setResetCountdown(6);
+    setShowResetConfirm(true);
+  };
+
+  const closeResetConfirm = () => {
+    if (isResetting) return;
+    setShowResetConfirm(false);
+    setResetConfirmText("");
+    setResetCountdown(6);
+  };
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
@@ -51,13 +64,8 @@ export default function LockScreen() {
   };
 
   useEffect(() => {
-    if (!showResetConfirm) {
-      setResetConfirmText("");
-      setResetCountdown(6);
-      return;
-    }
+    if (!showResetConfirm) return;
 
-    setResetCountdown(6);
     const timer = window.setInterval(() => {
       setResetCountdown((prev) => {
         if (prev <= 1) {
@@ -144,7 +152,7 @@ export default function LockScreen() {
         <div className="mt-4 text-center">
           <button
             type="button"
-            onClick={() => setShowResetConfirm(true)}
+            onClick={openResetConfirm}
             className="text-xs text-slate-400 hover:text-slate-200 transition"
           >
             {t("actions.forgotReset")}
@@ -161,7 +169,7 @@ export default function LockScreen() {
         <div className="fixed inset-0 z-[10000] flex items-center justify-center px-4">
           <div
             className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm"
-            onClick={() => !isResetting && setShowResetConfirm(false)}
+            onClick={closeResetConfirm}
           />
           <div className="relative w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900/90 p-6 shadow-2xl text-white">
             <div className="flex items-start gap-3">
@@ -194,7 +202,7 @@ export default function LockScreen() {
               <button
                 type="button"
                 disabled={isResetting}
-                onClick={() => setShowResetConfirm(false)}
+                onClick={closeResetConfirm}
                 className="px-4 py-2 text-sm font-medium rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-100 transition disabled:opacity-60"
               >
                 {t("actions.cancel")}

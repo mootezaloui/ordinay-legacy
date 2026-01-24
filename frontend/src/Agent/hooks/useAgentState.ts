@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { AgentMessage, AgentMessageData } from "../types/agentMessage";
 import { useAgentSessions } from "./useAgentSessions";
 import { streamAgentMessage, ContextScope, AgentVersion, DataAccessPermissions } from "../../services/api/agent";
@@ -63,7 +63,9 @@ export function useAgentState() {
     createSession,
   } = useAgentSessions();
 
-  const [input, setInput] = useState("");
+  const [inputBySession, setInputBySession] = useState<Record<string, string>>(
+    {}
+  );
   const [showHistorySidebar, setShowHistorySidebar] = useState(true);
   const [showContextSidebar, setShowContextSidebar] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
@@ -80,8 +82,22 @@ export function useAgentState() {
   const lastMessageContentRef = useRef<string>("");
   const isUserScrolledUpRef = useRef(false);
 
+  const pendingSessionKey = "__pending__";
+  const inputKey = activeSessionId || pendingSessionKey;
+  const input = inputBySession[inputKey] ?? activeSession?.draft ?? "";
+
+  const setInput = useCallback(
+    (value: string) => {
+      setInputBySession((prev) => ({ ...prev, [inputKey]: value }));
+    },
+    [inputKey]
+  );
+
   // Get messages from active session
-  const conversation = activeSession?.messages || [];
+  const conversation = useMemo(
+    () => activeSession?.messages ?? [],
+    [activeSession?.messages]
+  );
 
   // Scroll to bottom utility
   const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
@@ -106,15 +122,6 @@ export function useAgentState() {
     // User is "scrolled up" if they're more than 100px from bottom
     isUserScrolledUpRef.current = distanceFromBottom > 100;
   }, []);
-
-  // Restore input draft when switching sessions
-  useEffect(() => {
-    if (activeSession?.draft !== undefined) {
-      setInput(activeSession.draft);
-    } else {
-      setInput("");
-    }
-  }, [activeSessionId]);
 
   // Abort any active stream when session changes
   useEffect(() => {
@@ -229,7 +236,7 @@ export function useAgentState() {
     return () => clearTimeout(timeout);
   }, [input, activeSessionId, updateSessionDraft]);
 
-  const handleSubmit = useCallback((e: React.FormEvent) => {
+  const handleSubmit = useCallback((e: React.SyntheticEvent) => {
     e.preventDefault();
     const trimmed = input.trim();
     if (!trimmed || isLoading) return;
@@ -372,12 +379,12 @@ export function useAgentState() {
     );
 
     streamAbortRef.current = abortController;
-  }, [input, activeSessionId, activeSession, conversation, updateSessionMessages, updateSessionDraft, createSession, isLoading, contextScope, agentVersion, dataAccess]);
+  }, [input, activeSessionId, activeSession, conversation, updateSessionMessages, updateSessionDraft, createSession, isLoading, contextScope, agentVersion, dataAccess, setInput]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      handleSubmit(e as any);
+      handleSubmit(e);
     }
   }, [handleSubmit]);
 
@@ -506,7 +513,7 @@ export function useAgentState() {
   const handleExampleClick = useCallback((example: string) => {
     setInput(example);
     inputRef.current?.focus();
-  }, []);
+  }, [setInput]);
 
   return {
     input,

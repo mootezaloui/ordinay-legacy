@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
   X,
   Paperclip,
@@ -30,11 +30,19 @@ interface AttachedFile {
   documentId?: number;
 }
 
+interface MockDocument {
+  id: number;
+  name: string;
+  type: string;
+  size: string;
+  date: string;
+}
+
 interface AgentInputProps {
   input: string;
   setInput: (value: string) => void;
   inputRef: React.RefObject<HTMLTextAreaElement | null>;
-  onSubmit: (e: React.FormEvent) => void;
+  onSubmit: (e: React.SyntheticEvent) => void;
   onKeyDown: (e: React.KeyboardEvent) => void;
   isStreaming?: boolean;
   onStopGeneration?: () => void;
@@ -58,8 +66,7 @@ export function AgentInput({
   context,
 }: AgentInputProps) {
   const [commands, setCommands] = useState<SlashCommand[]>([]);
-  const [filteredCommands, setFilteredCommands] = useState<SlashCommand[]>([]);
-  const [showDropdown, setShowDropdown] = useState(false);
+  const [manualDropdownOpen, setManualDropdownOpen] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
   const [showDocumentPicker, setShowDocumentPicker] = useState(false);
@@ -69,8 +76,9 @@ export function AgentInput({
   const documentPickerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const attachmentIdRef = useRef(0);
 
-  const mockDocuments = [
+  const mockDocuments: MockDocument[] = [
     {
       id: 1,
       name: "Contract_2024.pdf",
@@ -108,6 +116,11 @@ export function AgentInput({
     },
   ];
 
+  const getNextAttachmentId = useCallback(() => {
+    attachmentIdRef.current += 1;
+    return `attachment-${attachmentIdRef.current}`;
+  }, []);
+
   const filteredDocuments = mockDocuments.filter((doc) =>
     doc.name.toLowerCase().includes(documentSearch.toLowerCase())
   );
@@ -116,36 +129,40 @@ export function AgentInput({
     getSlashCommands().then(setCommands);
   }, []);
 
-  useEffect(() => {
+  const autoFilteredCommands = useMemo(() => {
+    if (!input.startsWith("/")) return [];
+    return filterCommands(input, commands);
+  }, [input, commands]);
+
+  const filteredCommands = useMemo(() => {
     if (input.startsWith("/")) {
-      const filtered = filterCommands(input, commands);
-      setFilteredCommands(filtered);
-      setShowDropdown(filtered.length > 0);
-      setSelectedIndex(0);
-    } else if (!showDropdown) {
-      setFilteredCommands([]);
+      return autoFilteredCommands;
     }
-  }, [input, commands, showDropdown]);
+    return manualDropdownOpen ? commands : [];
+  }, [input, autoFilteredCommands, commands, manualDropdownOpen]);
+
+  const showDropdown = input.startsWith("/")
+    ? autoFilteredCommands.length > 0
+    : manualDropdownOpen;
 
   const selectCommand = useCallback(
     (cmd: SlashCommand) => {
       setInput(cmd.usage.split(" ")[0] + " ");
-      setShowDropdown(false);
+      setManualDropdownOpen(false);
       inputRef.current?.focus();
     },
     [setInput, inputRef]
   );
 
   const handleSlashClick = useCallback(() => {
-    if (showDropdown) {
-      setShowDropdown(false);
-    } else {
-      setFilteredCommands(commands);
-      setShowDropdown(commands.length > 0);
-      setSelectedIndex(0);
-      inputRef.current?.focus();
+    if (manualDropdownOpen) {
+      setManualDropdownOpen(false);
+      return;
     }
-  }, [showDropdown, commands, inputRef]);
+    setManualDropdownOpen(commands.length > 0);
+    setSelectedIndex(0);
+    inputRef.current?.focus();
+  }, [manualDropdownOpen, commands, inputRef]);
 
   const handleKeyDownWithCommands = useCallback(
     (e: React.KeyboardEvent) => {
@@ -184,7 +201,7 @@ export function AgentInput({
 
     Array.from(files).forEach((file) => {
       const newFile: AttachedFile = {
-        id: Math.random().toString(36).substr(2, 9),
+        id: getNextAttachmentId(),
         name: file.name,
         type: "file",
         size: file.size,
@@ -202,7 +219,7 @@ export function AgentInput({
       const reader = new FileReader();
       reader.onload = (event) => {
         const newFile: AttachedFile = {
-          id: Math.random().toString(36).substr(2, 9),
+          id: getNextAttachmentId(),
           name: file.name,
           type: "image",
           size: file.size,
@@ -215,9 +232,9 @@ export function AgentInput({
     setShowAttachMenu(false);
   };
 
-  const handleDocumentSelect = (doc: any) => {
+  const handleDocumentSelect = (doc: MockDocument) => {
     const newFile: AttachedFile = {
-      id: Math.random().toString(36).substr(2, 9),
+      id: getNextAttachmentId(),
       name: doc.name,
       type: "document",
       documentId: doc.id,
@@ -544,12 +561,19 @@ export function AgentInput({
               <textarea
                 ref={inputRef}
                 value={input}
-                onChange={(e) => setInput(e.target.value)}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setInput(value);
+                  if (value.startsWith("/")) {
+                    setManualDropdownOpen(false);
+                    setSelectedIndex(0);
+                  }
+                }}
                 onKeyDown={handleKeyDownWithCommands}
                 onBlur={() => {
                   setTimeout(() => {
                     if (!input.startsWith("/")) {
-                      setShowDropdown(false);
+                      setManualDropdownOpen(false);
                     }
                   }, 150);
                 }}
@@ -583,7 +607,10 @@ export function AgentInput({
                 ) : (
                   <button
                     type="button"
-                    onClick={(e: any) => onSubmit(e)}
+                    onClick={(event: React.MouseEvent<HTMLButtonElement>) => {
+                      event.preventDefault();
+                      onSubmit(event);
+                    }}
                     disabled={!input.trim()}
                     className="px-5 py-2 bg-gradient-to-r from-blue-600 via-purple-600 to-blue-700 text-white text-sm font-bold rounded-xl hover:from-blue-700 hover:via-purple-700 hover:to-blue-800 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl hover:scale-105 flex items-center gap-2"
                   >

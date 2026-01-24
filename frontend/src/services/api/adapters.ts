@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // Map backend payloads to frontend shapes while keeping display labels in French.
 
 import { getStoredCurrency } from "../../utils/currency";
@@ -103,7 +104,7 @@ const financialStatusMap: Record<string, string> = {
  * Normalize financial status to canonical value
  */
 // Accepts status and paid_at (optional)
-const normalizeFinancialStatus = (status: string | null | undefined, paidAt?: string | null | undefined): string => {
+const normalizeFinancialStatus = (status: string | null | undefined): string => {
   if (!status) return "draft";
   const lowered = String(status).toLowerCase();
   // Only show 'paid' if status is 'paid'. If status is 'confirmed', always show 'confirmed' (even if paidAt is set)
@@ -168,7 +169,7 @@ const parseParticipants = (value: any): any[] => {
   try {
     const parsed = typeof value === "string" ? JSON.parse(value) : value;
     return Array.isArray(parsed) ? parsed : [];
-  } catch (_err) {
+  } catch {
     return [];
   }
 };
@@ -373,7 +374,7 @@ export function adaptFinancialEntry(
   
   // Normalize status to canonical value (pass paid_at to logic)
   const rawStatus = api.status;
-  const mappedStatus = normalizeFinancialStatus(rawStatus, api.paid_at);
+  const mappedStatus = normalizeFinancialStatus(rawStatus);
 
   // Determine if entry is paid (has paidAt set)
   const isPaid = mappedStatus === "paid";

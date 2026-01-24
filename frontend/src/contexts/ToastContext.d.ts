@@ -1,4 +1,4 @@
 import type { ReactNode } from "react";
 
 export function ToastProvider(props: { children: ReactNode }): JSX.Element;
-export function useToast(): any;
+export function useToast(): unknown;

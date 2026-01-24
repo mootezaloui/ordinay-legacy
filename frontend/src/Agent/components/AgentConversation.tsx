@@ -1,4 +1,3 @@
-import { useRef, useEffect, useState } from "react";
 import { AgentMessage as AgentMessageType } from "../types/agentMessage";
 import { AgentMessage } from "./AgentMessage";
 
@@ -13,40 +12,10 @@ export function AgentConversation({
   conversationEndRef,
   getRelativeTime,
 }: AgentConversationProps) {
-  // Track which message IDs we've already seen to animate only new ones
-  const seenIdsRef = useRef<Set<string>>(new Set());
-  const [animatingIds, setAnimatingIds] = useState<Set<string>>(new Set());
-
-  useEffect(() => {
-    const newIds = new Set<string>();
-    messages.forEach((msg) => {
-      if (!seenIdsRef.current.has(msg.id)) {
-        newIds.add(msg.id);
-        seenIdsRef.current.add(msg.id);
-      }
-    });
-
-    if (newIds.size > 0) {
-      setAnimatingIds((prev) => new Set([...prev, ...newIds]));
-      // Remove animation class after animation completes
-      const timer = setTimeout(() => {
-        setAnimatingIds((prev) => {
-          const next = new Set(prev);
-          newIds.forEach((id) => next.delete(id));
-          return next;
-        });
-      }, 400);
-      return () => clearTimeout(timer);
-    }
-  }, [messages]);
-
   return (
     <div className="space-y-6">
       {messages.map((message) => (
-        <div
-          key={message.id}
-          className={animatingIds.has(message.id) ? "agent-message-enter" : ""}
-        >
+        <div key={message.id} className="agent-message-enter">
           <AgentMessage
             message={message}
             getRelativeTime={getRelativeTime}

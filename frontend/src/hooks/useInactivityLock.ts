@@ -11,7 +11,7 @@ const ACTIVITY_EVENTS = ['mousedown', 'keydown', 'scroll', 'touchstart', 'mousem
 export const useInactivityLock = () => {
   const { isEnabled, config, lock, isLocked } = useLock();
   const timeoutRef = useRef<number | null>(null);
-  const lastActivityRef = useRef<number>(Date.now());
+  const lastActivityRef = useRef<number>(0);
 
   useEffect(() => {
     // Only monitor if lock is enabled, has timeout configured, and is not currently locked
@@ -42,6 +42,7 @@ export const useInactivityLock = () => {
     };
 
     // Set initial timer
+    lastActivityRef.current = Date.now();
     resetTimer();
 
     // Add event listeners

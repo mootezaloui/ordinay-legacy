@@ -666,10 +666,6 @@ export default function Clients() {
         context={{
           entities: { clients, dossiers, lawsuits, tasks, sessions, officers, missions, financialEntries }
         }}
-        onUpdate={async () => {
-          // Refresh data after inline action
-          await loadData();
-        }}
         requiresForceDelete={validationResult?.requiresForceDelete || false}
         affectedEntities={validationResult?.affectedEntities || []}
         forceDeleteMessage={validationResult?.forceDeleteMessage || ""}
@@ -690,4 +686,3 @@ export default function Clients() {
     </PageLayout>
   );
 }
-

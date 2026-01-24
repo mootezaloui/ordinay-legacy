@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import {
   useState,
   useEffect,
@@ -76,16 +77,29 @@ function serializeSessions(sessions: AgentSession[]): string {
   );
 }
 
+type SerializedAgentMessage = Omit<AgentMessage, "timestamp"> & {
+  timestamp: string;
+};
+type SerializedAgentSession = Omit<
+  AgentSession,
+  "timestamp" | "createdAt" | "updatedAt" | "messages"
+> & {
+  timestamp: string;
+  createdAt: string;
+  updatedAt: string;
+  messages: SerializedAgentMessage[];
+};
+
 function deserializeSessions(data: string): AgentSession[] {
   try {
-    const parsed = JSON.parse(data);
-    return parsed.map((s: any) => ({
+    const parsed = JSON.parse(data) as SerializedAgentSession[];
+    return parsed.map((s) => ({
       ...s,
       timestamp: new Date(s.timestamp),
       createdAt: new Date(s.createdAt),
       updatedAt: new Date(s.updatedAt),
       folderId: s.folderId ?? null,
-      messages: (s.messages || []).map((m: any) => ({
+      messages: (s.messages || []).map((m) => ({
         ...m,
         timestamp: new Date(m.timestamp),
       })),
@@ -105,10 +119,15 @@ function serializeFolders(folders: AgentFolder[]): string {
   );
 }
 
+type SerializedAgentFolder = Omit<AgentFolder, "createdAt" | "updatedAt"> & {
+  createdAt: string;
+  updatedAt: string;
+};
+
 function deserializeFolders(data: string): AgentFolder[] {
   try {
-    const parsed = JSON.parse(data);
-    return parsed.map((f: any) => ({
+    const parsed = JSON.parse(data) as SerializedAgentFolder[];
+    return parsed.map((f) => ({
       ...f,
       createdAt: new Date(f.createdAt),
       updatedAt: new Date(f.updatedAt),
@@ -228,7 +247,7 @@ export function AgentSessionsProvider({ children }: { children: ReactNode }) {
     if (!activeSessionId && sessions.length > 0) {
       setActiveSessionId(sessions[0].id);
     }
-  }, []);
+  }, [activeSessionId, sessions]);
 
   // Persist on change
   useEffect(() => {

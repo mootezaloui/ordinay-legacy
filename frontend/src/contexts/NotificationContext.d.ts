@@ -1,4 +1,4 @@
 import type { ReactNode } from "react";
 
 export function NotificationProvider(props: { children: ReactNode }): JSX.Element;
-export function useNotifications(): any;
+export function useNotifications(): unknown;

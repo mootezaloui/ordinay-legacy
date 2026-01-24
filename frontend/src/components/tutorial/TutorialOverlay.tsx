@@ -39,7 +39,6 @@ export default function TutorialOverlayComponent() {
     totalSteps,
     nextStep,
     previousStep,
-    skipCurrentStep,
     exitTutorial,
     canGoBack,
     canGoForward,
@@ -65,7 +64,7 @@ export default function TutorialOverlayComponent() {
   const findTargetElement = useCallback((): HTMLElement | null => {
     if (!currentStep?.target) return null;
     return document.querySelector(`[data-tutorial="${currentStep.target}"]`);
-  }, [currentStep?.target]);
+  }, [currentStep]);
 
   // Update target rectangle
   const updateTargetRect = useCallback(() => {
@@ -448,11 +447,7 @@ export default function TutorialOverlayComponent() {
 
   // Track target element with ResizeObserver and scroll
   useEffect(() => {
-    if (!isActive || !currentStep?.target) {
-      setTargetRect(null);
-      setTooltipPosition(null);
-      return;
-    }
+    if (!isActive || !currentStep?.target) return;
 
     // Scroll target element into view when step changes
     const scrollToTarget = () => {
@@ -518,6 +513,11 @@ export default function TutorialOverlayComponent() {
     };
   }, [isActive, currentStep?.target, findTargetElement, updateTargetRect]);
 
+  const effectiveTargetRect =
+    isActive && currentStep?.target ? targetRect : null;
+  const effectiveTooltipPosition =
+    isActive && currentStep?.target ? tooltipPosition : null;
+
   // Handle clicks on overlay (block or allow based on target)
   const handleOverlayClick = useCallback(
     (e: React.MouseEvent) => {
@@ -527,7 +527,7 @@ export default function TutorialOverlayComponent() {
         return;
       }
 
-      if (!targetRect || !currentStep?.allowInteraction) {
+      if (!effectiveTargetRect || !currentStep?.allowInteraction) {
         // Block all clicks when no interaction allowed
         e.preventDefault();
         e.stopPropagation();
@@ -539,10 +539,10 @@ export default function TutorialOverlayComponent() {
       const clickY = e.clientY;
 
       const isInSpotlight =
-        clickX >= targetRect.left &&
-        clickX <= targetRect.right &&
-        clickY >= targetRect.top &&
-        clickY <= targetRect.bottom;
+        clickX >= effectiveTargetRect.left &&
+        clickX <= effectiveTargetRect.right &&
+        clickY >= effectiveTargetRect.top &&
+        clickY <= effectiveTargetRect.bottom;
 
       if (!isInSpotlight) {
         e.preventDefault();
@@ -550,7 +550,7 @@ export default function TutorialOverlayComponent() {
       }
       // If in spotlight, let the click through
     },
-    [targetRect, currentStep?.allowInteraction]
+    [effectiveTargetRect, currentStep?.allowInteraction]
   );
 
   // Handle ESC key
@@ -599,7 +599,8 @@ export default function TutorialOverlayComponent() {
     isTutorialComplete;
 
   // Determine if spotlight should allow clicks through
-  const allowSpotlightClicks = currentStep?.allowInteraction && targetRect;
+  const allowSpotlightClicks =
+    currentStep?.allowInteraction && effectiveTargetRect;
 
   return createPortal(
     <div
@@ -624,12 +625,12 @@ export default function TutorialOverlayComponent() {
         <defs>
           <mask id="spotlight-mask">
             <rect x="0" y="0" width="100%" height="100%" fill="white" />
-            {targetRect && (
+            {effectiveTargetRect && (
               <rect
-                x={targetRect.left}
-                y={targetRect.top}
-                width={targetRect.width}
-                height={targetRect.height}
+                x={effectiveTargetRect.left}
+                y={effectiveTargetRect.top}
+                width={effectiveTargetRect.width}
+                height={effectiveTargetRect.height}
                 rx="12"
                 fill="black"
               />
@@ -648,18 +649,26 @@ export default function TutorialOverlayComponent() {
       </svg>
 
       {/* Click blocker for areas outside spotlight when interaction IS allowed */}
-      {allowSpotlightClicks && (
+      {allowSpotlightClicks && effectiveTargetRect && (
         <>
           {/* Top blocker */}
           <div
             className="absolute left-0 right-0"
-            style={{ top: 0, height: targetRect.top, pointerEvents: "auto" }}
+            style={{
+              top: 0,
+              height: effectiveTargetRect.top,
+              pointerEvents: "auto",
+            }}
             onClick={handleOverlayClick}
           />
           {/* Bottom blocker */}
           <div
             className="absolute left-0 right-0"
-            style={{ top: targetRect.bottom, bottom: 0, pointerEvents: "auto" }}
+            style={{
+              top: effectiveTargetRect.bottom,
+              bottom: 0,
+              pointerEvents: "auto",
+            }}
             onClick={handleOverlayClick}
           />
           {/* Left blocker */}
@@ -667,9 +676,9 @@ export default function TutorialOverlayComponent() {
             className="absolute"
             style={{
               left: 0,
-              width: targetRect.left,
-              top: targetRect.top,
-              height: targetRect.height,
+              width: effectiveTargetRect.left,
+              top: effectiveTargetRect.top,
+              height: effectiveTargetRect.height,
               pointerEvents: "auto",
             }}
             onClick={handleOverlayClick}
@@ -678,10 +687,10 @@ export default function TutorialOverlayComponent() {
           <div
             className="absolute"
             style={{
-              left: targetRect.right,
+              left: effectiveTargetRect.right,
               right: 0,
-              top: targetRect.top,
-              height: targetRect.height,
+              top: effectiveTargetRect.top,
+              height: effectiveTargetRect.height,
               pointerEvents: "auto",
             }}
             onClick={handleOverlayClick}
@@ -690,21 +699,21 @@ export default function TutorialOverlayComponent() {
       )}
 
       {/* Spotlight border/glow - refined subtle appearance */}
-      {targetRect && (
+      {effectiveTargetRect && (
         <div
           className="absolute pointer-events-none rounded-xl border border-blue-400/60 shadow-[0_0_0_3px_rgba(59,130,246,0.15),0_0_20px_rgba(59,130,246,0.2)]"
           style={{
-            top: targetRect.top,
-            left: targetRect.left,
-            width: targetRect.width,
-            height: targetRect.height,
+            top: effectiveTargetRect.top,
+            left: effectiveTargetRect.left,
+            width: effectiveTargetRect.width,
+            height: effectiveTargetRect.height,
             transition: "all 0.2s ease-out",
           }}
         />
       )}
 
       {/* Tooltip */}
-      {(tooltipPosition || isCompletionStep) && (
+      {(effectiveTooltipPosition || isCompletionStep) && (
         <div
           data-tutorial-tooltip
           className="absolute bg-white dark:bg-slate-800 rounded-2xl shadow-xl shadow-slate-900/10 dark:shadow-slate-900/50 border border-slate-200/80 dark:border-slate-700/80 w-[340px] max-w-[calc(100vw-2rem)] z-[9999] pointer-events-auto"
@@ -717,22 +726,22 @@ export default function TutorialOverlayComponent() {
                   animation: "fadeInScale 0.25s ease-out",
                 }
               : {
-                  top: tooltipPosition?.top,
-                  left: tooltipPosition?.left,
+                  top: effectiveTooltipPosition?.top,
+                  left: effectiveTooltipPosition?.left,
                   animation: "fadeInScale 0.2s ease-out",
                 }
           }
           onClick={(e) => e.stopPropagation()}
         >
           {/* Arrow - refined */}
-          {tooltipPosition && !isCompletionStep && (
+          {effectiveTooltipPosition && !isCompletionStep && (
             <div
               className={`absolute w-2.5 h-2.5 bg-white dark:bg-slate-800 border-slate-200/80 dark:border-slate-700/80 transform rotate-45 ${
-                tooltipPosition.arrowPosition === "top"
+                effectiveTooltipPosition.arrowPosition === "top"
                   ? "-top-[5px] left-1/2 -translate-x-1/2 border-l border-t"
-                  : tooltipPosition.arrowPosition === "bottom"
+                  : effectiveTooltipPosition.arrowPosition === "bottom"
                   ? "-bottom-[5px] left-1/2 -translate-x-1/2 border-r border-b"
-                  : tooltipPosition.arrowPosition === "left"
+                  : effectiveTooltipPosition.arrowPosition === "left"
                   ? "-left-[5px] top-1/2 -translate-y-1/2 border-l border-b"
                   : "-right-[5px] top-1/2 -translate-y-1/2 border-r border-t"
               }`}

@@ -44,7 +44,6 @@ export default function OnboardingTutorial() {
     startTutorial,
     skipTutorial,
     nextStep,
-    previousStep,
     exitTutorial,
     completeTutorial,
   } = useOnboarding();
@@ -141,15 +140,7 @@ export default function OnboardingTutorial() {
   };
 
   const phaseInfo = getPhaseInfo();
-  const isFirstStep = currentPhase === TUTORIAL_PHASES.DASHBOARD;
   const isLastStep = currentPhase === TUTORIAL_PHASES.COMPLETION;
-
-  // Check if we're at the first workflow step (to show "Back" vs "Skip")
-  const canGoBack = !(
-    currentPhase === TUTORIAL_PHASES.DASHBOARD ||
-    (currentPhase === TUTORIAL_PHASES.WORKFLOW &&
-      currentWorkflowStep === WORKFLOW_STEPS.CLIENTS)
-  );
 
   return (
     <TutorialOverlay onClose={exitTutorial}>
@@ -162,7 +153,6 @@ export default function OnboardingTutorial() {
         showProgress={!isLastStep}
         showNavigation={true}
         onNext={handleNext}
-        isFirstStep={isFirstStep}
         isLastStep={isLastStep}
         nextLabel={isLastStep ? t("phases.completion.button") : undefined}
       >

@@ -20,7 +20,6 @@ interface TutorialCardProps {
   showProgress?: boolean;
   showNavigation?: boolean;
   onNext?: () => void;
-  isFirstStep?: boolean;
   isLastStep?: boolean;
   nextLabel?: string;
 }
@@ -35,7 +34,6 @@ export default function TutorialCard({
   showProgress = true,
   showNavigation = true,
   onNext,
-  isFirstStep = false,
   isLastStep = false,
   nextLabel,
 }: TutorialCardProps) {

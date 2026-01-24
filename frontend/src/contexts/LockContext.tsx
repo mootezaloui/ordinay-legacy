@@ -3,7 +3,8 @@
  * Manages workspace lock state and operations
  */
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+/* eslint-disable react-refresh/only-export-components */
+import { createContext, useContext, useState, ReactNode } from 'react';
 import {
   getLockConfig,
   isLocked as checkIsLocked,
@@ -32,21 +33,14 @@ interface LockContextValue {
 const LockContext = createContext<LockContextValue | undefined>(undefined);
 
 export const LockProvider = ({ children }: { children: ReactNode }) => {
-  const [isLocked, setIsLocked] = useState<boolean>(false);
-  const [config, setConfig] = useState<LockConfig | null>(null);
-
-  // Initialize lock state on mount
-  useEffect(() => {
+  const [config, setConfig] = useState<LockConfig | null>(() => getLockConfig());
+  const [isLocked, setIsLocked] = useState<boolean>(() => {
     const lockConfig = getLockConfig();
-    setConfig(lockConfig);
-
-    // Check if we should lock on startup
     if (lockConfig && lockConfig.enabled) {
-      if (shouldLockOnStartup() || checkIsLocked()) {
-        setIsLocked(true);
-      }
+      return shouldLockOnStartup() || checkIsLocked();
     }
-  }, []);
+    return false;
+  });
 
   const unlock = (password: string): boolean => {
     const success = unlockWorkspace(password);

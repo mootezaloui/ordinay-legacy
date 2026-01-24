@@ -37,7 +37,9 @@ export function I18nProvider({ children }: I18nProviderProps) {
 
   useEffect(() => {
     if (!ready) return;
-    const splash = (window as any).__organiaSplash;
+    const splash = (window as Window & {
+      __organiaSplash?: { markReady?: (name: string) => void };
+    }).__organiaSplash;
     if (splash && typeof splash.markReady === "function") {
       splash.markReady("i18n");
     }

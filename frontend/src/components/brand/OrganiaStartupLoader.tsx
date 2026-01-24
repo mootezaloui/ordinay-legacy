@@ -5,6 +5,7 @@
  * Static rings with orbiting dots at different speeds.
  */
 
+/* eslint-disable react-refresh/only-export-components */
 import { useEffect, useMemo, useState, memo } from 'react';
 import { i18nInstance } from '../../i18n';
 
@@ -20,17 +21,16 @@ const OrganiaStartupLoader = memo(function OrganiaStartupLoader({
   message,
 }: OrganiaStartupLoaderProps) {
   const [isVisible, setIsVisible] = useState(true);
-  const [isFadingOut, setIsFadingOut] = useState(false);
   const resolvedMessage = useMemo(() => {
     if (typeof message === 'string') return message;
     return i18nInstance.t('common:startup.splashMessage', {
       defaultValue: 'Finding natural balance...',
     });
   }, [message]);
+  const isFadingOut = !isLoading && isVisible;
 
   useEffect(() => {
     if (!isLoading && isVisible) {
-      setIsFadingOut(true);
       const timer = setTimeout(() => {
         setIsVisible(false);
         onFadeOutComplete?.();
@@ -82,9 +82,9 @@ const OrganiaStartupLoader = memo(function OrganiaStartupLoader({
 export default OrganiaStartupLoader;
 
 export function useStartupLoader(initialDelay = 0) {
-  const [isLoading, setIsLoading] = useState(true);
   const [hasMinimumTimeElapsed, setHasMinimumTimeElapsed] = useState(false);
   const [isAppReady, setIsAppReady] = useState(false);
+  const isLoading = !(hasMinimumTimeElapsed && isAppReady);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -92,12 +92,6 @@ export function useStartupLoader(initialDelay = 0) {
     }, initialDelay + 800);
     return () => clearTimeout(timer);
   }, [initialDelay]);
-
-  useEffect(() => {
-    if (hasMinimumTimeElapsed && isAppReady) {
-      setIsLoading(false);
-    }
-  }, [hasMinimumTimeElapsed, isAppReady]);
 
   return { isLoading, setReady: () => setIsAppReady(true) };
 }

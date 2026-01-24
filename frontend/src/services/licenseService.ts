@@ -412,6 +412,12 @@ export type FreeLimitResult = {
   message?: string;
 };
 
+type FreeLimitEntity = {
+  status?: string;
+  dossierId?: string | number;
+  dossier_id?: string | number;
+};
+
 const isFreePlanState = (state: LicenseState) =>
   state === "FREE" || state === "EXPIRED" || state === "UNACTIVATED";
 
@@ -428,12 +434,12 @@ export function checkFreePlanLimit({
   entityData,
 }: {
   licenseState: LicenseState;
-  clients: Array<any>;
-  dossiers: Array<any>;
-  lawsuits: Array<any>;
-  tasks: Array<any>;
+  clients: Array<FreeLimitEntity>;
+  dossiers: Array<FreeLimitEntity>;
+  lawsuits: Array<FreeLimitEntity>;
+  tasks: Array<FreeLimitEntity>;
   entityType: "client" | "dossier" | "lawsuit" | "task";
-  entityData?: any;
+  entityData?: FreeLimitEntity;
 }): FreeLimitResult {
   if (!isFreePlanState(licenseState)) {
     return { allowed: true };

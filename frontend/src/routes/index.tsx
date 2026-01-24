@@ -31,7 +31,7 @@ import { t } from "../i18n";
  */
 export interface RouteConfig {
   path: string;
-  component: ComponentType<any> | (() => ReactNode);
+  component: ComponentType<Record<string, unknown>> | (() => ReactNode);
   name: string;
   icon: string;
   label?: string;
