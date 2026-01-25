@@ -1,8 +1,17 @@
 import { useEffect } from "react";
 
 let lockCount = 0;
-let originalOverflow = "";
-let originalPaddingRight = "";
+let originalBodyOverflow = "";
+let originalBodyPaddingRight = "";
+let originalBodyPosition = "";
+let originalBodyTop = "";
+let originalBodyLeft = "";
+let originalBodyRight = "";
+let originalBodyWidth = "";
+let originalHtmlOverflow = "";
+let originalHtmlPaddingRight = "";
+let lockedScrollY = 0;
+let lockedScrollX = 0;
 
 const getScrollbarWidth = () => {
   if (typeof window === "undefined" || typeof document === "undefined") return 0;
@@ -13,15 +22,34 @@ const lockBodyScroll = () => {
   if (typeof document === "undefined") return;
 
   if (lockCount === 0) {
-    originalOverflow = document.body.style.overflow;
-    originalPaddingRight = document.body.style.paddingRight;
+    const bodyStyle = document.body.style;
+    const htmlStyle = document.documentElement.style;
+    originalBodyOverflow = bodyStyle.overflow;
+    originalBodyPaddingRight = bodyStyle.paddingRight;
+    originalBodyPosition = bodyStyle.position;
+    originalBodyTop = bodyStyle.top;
+    originalBodyLeft = bodyStyle.left;
+    originalBodyRight = bodyStyle.right;
+    originalBodyWidth = bodyStyle.width;
+    originalHtmlOverflow = htmlStyle.overflow;
+    originalHtmlPaddingRight = htmlStyle.paddingRight;
 
     const scrollbarWidth = getScrollbarWidth();
-    if (scrollbarWidth > 0) {
-      document.body.style.paddingRight = `${scrollbarWidth}px`;
-    }
+    lockedScrollY = window.scrollY || window.pageYOffset || 0;
+    lockedScrollX = window.scrollX || window.pageXOffset || 0;
 
-    document.body.style.overflow = "hidden";
+    htmlStyle.overflow = "hidden";
+    bodyStyle.overflow = "hidden";
+    bodyStyle.position = "fixed";
+    bodyStyle.top = `-${lockedScrollY}px`;
+    bodyStyle.left = `-${lockedScrollX}px`;
+    bodyStyle.right = "0";
+    bodyStyle.width = "100%";
+
+    if (scrollbarWidth > 0) {
+      bodyStyle.paddingRight = `${scrollbarWidth}px`;
+      htmlStyle.paddingRight = `${scrollbarWidth}px`;
+    }
   }
 
   lockCount += 1;
@@ -33,8 +61,21 @@ const unlockBodyScroll = () => {
   lockCount = Math.max(0, lockCount - 1);
 
   if (lockCount === 0) {
-    document.body.style.overflow = originalOverflow;
-    document.body.style.paddingRight = originalPaddingRight;
+    const bodyStyle = document.body.style;
+    const htmlStyle = document.documentElement.style;
+    bodyStyle.overflow = originalBodyOverflow;
+    bodyStyle.paddingRight = originalBodyPaddingRight;
+    bodyStyle.position = originalBodyPosition;
+    bodyStyle.top = originalBodyTop;
+    bodyStyle.left = originalBodyLeft;
+    bodyStyle.right = originalBodyRight;
+    bodyStyle.width = originalBodyWidth;
+    htmlStyle.overflow = originalHtmlOverflow;
+    htmlStyle.paddingRight = originalHtmlPaddingRight;
+
+    if (typeof window !== "undefined") {
+      window.scrollTo(lockedScrollX, lockedScrollY);
+    }
   }
 };
 
