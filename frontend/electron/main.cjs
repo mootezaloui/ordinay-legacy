@@ -14,6 +14,17 @@ const https = require("https");
 // ============================================================
 
 const isDev = !app.isPackaged;
+const APP_USER_MODEL_ID = "com.organia.desktop";
+
+// Ensure Chromium uses non-overlay scrollbars so CSS styling applies.
+app.commandLine.appendSwitch(
+  "disable-features",
+  "OverlayScrollbar,OverlayScrollbarWinStyle,OverlayScrollbarMacStyle,OverlayScrollbarFluentScrollbar"
+);
+
+if (process.platform === "win32") {
+  app.setAppUserModelId(APP_USER_MODEL_ID);
+}
 
 // Persistent paths using Electron's userData directory
 const USER_DATA_PATH = app.getPath("userData");
@@ -604,7 +615,7 @@ function createWindow() {
  * 3. main.cjs → BrowserWindow.icon: Runtime icon for taskbar and window thumbnail
  *
  * All three must be set to ensure Organia branding appears everywhere.
- * The icon.ico file at build/icon.ico contains multiple resolutions (16-256px).
+ * The Light_mode_icon.ico file at build/Light_mode_icon.ico contains multiple resolutions (16-256px).
  */
 function resolveWindowIcon() {
   if (process.platform !== "win32") {
@@ -615,7 +626,7 @@ function resolveWindowIcon() {
 
   if (isDev) {
     // Development: load from build directory
-    const iconPath = path.join(__dirname, "..", "build", "icon.ico");
+    const iconPath = path.join(__dirname, "..", "build", "Light_mode_icon.ico");
     return fs.existsSync(iconPath) ? iconPath : null;
   }
 

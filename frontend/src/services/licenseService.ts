@@ -1,4 +1,4 @@
-export type LicenseType = "monthly" | "yearly" | "perpetual";
+export type LicenseType = "free" | "monthly" | "yearly" | "perpetual";
 export type LicenseStatus = "active" | "expired";
 export type PlanChoice = "free" | "trial" | "monthly" | "yearly" | "perpetual";
 
@@ -221,6 +221,7 @@ export function getLicenseStateFromData(
   licenseData: LicenseData | null
 ): LicenseState {
   if (!licenseData) return "FREE";
+  if (licenseData.license_type === "free") return "FREE";
   if (licenseData.status !== "active") return "EXPIRED";
   if (!["monthly", "yearly", "perpetual"].includes(licenseData.license_type)) {
     return "ERROR";
@@ -421,7 +422,7 @@ type FreeLimitEntity = {
 const isFreePlanState = (state: LicenseState) =>
   state === "FREE" || state === "EXPIRED" || state === "UNACTIVATED";
 
-const isTaskActive = (status: string) =>
+const isTaskActive = (status?: string | null) =>
   !["Done", "Cancelled"].includes(status || "");
 
 export function checkFreePlanLimit({

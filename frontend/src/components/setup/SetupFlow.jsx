@@ -159,7 +159,7 @@ function SetupFlow() {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center p-8 overflow-hidden">
+        <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center p-8 pt-12 titlebar-offset-padding overflow-hidden">
             {/* CSS Animations */}
             <style>{`
                 @keyframes fadeInUp {
@@ -256,26 +256,28 @@ function SetupFlow() {
                     </div>
 
                     {/* Right Panel - Form Card */}
-                    <div className={`rounded-2xl bg-slate-900/60 border border-slate-800 shadow-2xl shadow-black/20 ${mounted ? "animate-scale-in" : "opacity-0"}`} style={{ animationDelay: "0.15s" }}>
+                    <div className={`rounded-2xl bg-slate-900/35 border border-slate-800/60 shadow-lg shadow-black/10 ${mounted ? "animate-scale-in" : "opacity-0"}`} style={{ animationDelay: "0.15s" }}>
                         {/* Card Header */}
                         <div className="px-10 pt-10 pb-8 border-b border-slate-800/60">
-                            <div className="flex items-start justify-between">
-                                <div key={step} className={slideDirection === "right" ? "animate-slide-in-right" : "animate-slide-in-left"}>
-                                    <p className="text-xs font-medium text-blue-400 uppercase tracking-wider mb-2">
+                            <div key={step} className={`space-y-3 ${slideDirection === "right" ? "animate-slide-in-right" : "animate-slide-in-left"}`}>
+                                <div className="flex flex-wrap items-baseline gap-3">
+                                    <p className="text-xs font-medium text-blue-400 uppercase tracking-wider">
                                         {t("progress.stepOf", { step, total: totalSteps })}
                                     </p>
-                                    <h2 className="text-xl font-semibold text-white mb-1">
+                                    <h2 className="text-xl font-semibold text-white">
                                         {stepTitles[step].title}
                                     </h2>
+                                </div>
+                                <div className="flex items-start justify-between gap-4">
                                     <p className="text-slate-400 text-sm">
                                         {stepTitles[step].subtitle}
                                     </p>
+                                    {step === 2 && (
+                                        <span className="text-xs text-slate-500 bg-slate-800/80 px-3 py-1.5 rounded-full animate-fade-in">
+                                            {t("badges.optional")}
+                                        </span>
+                                    )}
                                 </div>
-                                {step === 2 && (
-                                    <span className="text-xs text-slate-500 bg-slate-800/80 px-3 py-1.5 rounded-full animate-fade-in">
-                                        {t("badges.optional")}
-                                    </span>
-                                )}
                             </div>
                         </div>
 

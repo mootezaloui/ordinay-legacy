@@ -69,6 +69,7 @@ export interface RiskAnalysisOutput {
   summary: string;
   risks: RiskItem[];
   overallRiskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  overallAssessment?: string;
 }
 
 // Draft output
@@ -105,6 +106,13 @@ export interface ChatOutput {
   source: 'llm' | 'fallback';
 }
 
+export type AgentOutput =
+  | ChatOutput
+  | ExplanationOutput
+  | RiskAnalysisOutput
+  | DraftOutput
+  | { type: 'action_plan'; actions: ActionProposal[] };
+
 // Agent response from backend
 export interface AgentResponse {
   status: 'ok' | 'error';
@@ -112,7 +120,7 @@ export interface AgentResponse {
     intent: string;
     agentVersion: string;
     reasoner: string;
-    output: ChatOutput | ExplanationOutput | RiskAnalysisOutput | DraftOutput | { type: 'action_plan'; actions: ActionProposal[] };
+    output: AgentOutput;
     ledgerEntryId: string;
   };
   error?: string;
@@ -320,7 +328,7 @@ export type StreamEventType = 'start' | 'chunk' | 'result' | 'done' | 'error' | 
 export interface StreamCallbacks {
   onStart?: (data: { intent: string; agentVersion: string }) => void;
   onChunk?: (content: string) => void;
-  onResult?: (data: { output: unknown; intent: string }) => void;
+  onResult?: (data: { output: AgentOutput; intent: string }) => void;
   onDone?: (data: { timestamp: string; fullContent?: string }) => void;
   onError?: (error: string) => void;
   onCancelled?: () => void;

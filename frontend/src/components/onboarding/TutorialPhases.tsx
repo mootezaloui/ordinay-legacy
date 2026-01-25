@@ -12,6 +12,7 @@ import {
   useOnboarding,
 } from "../../contexts/OnboardingContext";
 import { useTutorial } from "../../contexts/TutorialContext";
+import { useTheme } from "../../contexts/ThemeProvider";
 import WorkflowDiagram from "./WorkflowDiagram";
 
 // ===== PHASE: Dashboard Understanding =====
@@ -61,6 +62,7 @@ interface WorkflowPhaseProps {
 
 export function WorkflowPhase({ currentStep }: WorkflowPhaseProps) {
   const { t } = useTranslation("onboarding");
+  const { isDark } = useTheme();
 
   const stepContent: Record<
     WorkflowStep,
@@ -110,8 +112,8 @@ export function WorkflowPhase({ currentStep }: WorkflowPhaseProps) {
       <div
         className={`p-4 rounded-xl bg-${content.color}-50 dark:bg-${content.color}-900/20 border border-${content.color}-100 dark:border-${content.color}-800/30`}
         style={{
-          backgroundColor: getColorBg(content.color),
-          borderColor: getColorBorder(content.color),
+          backgroundColor: getColorBg(content.color, isDark),
+          borderColor: getColorBorder(content.color, isDark),
         }}
       >
         <div className="flex items-start gap-3">
@@ -434,24 +436,38 @@ function HighlightItem({
 }
 
 // Helper functions for dynamic colors (CSS-in-JS fallback)
-function getColorBg(color: string): string {
-  const colors: Record<string, string> = {
+function getColorBg(color: string, isDark: boolean): string {
+  const light: Record<string, string> = {
     blue: "rgba(239, 246, 255, 1)",
     purple: "rgba(245, 243, 255, 1)",
     green: "rgba(240, 253, 244, 1)",
     orange: "rgba(255, 247, 237, 1)",
   };
-  return colors[color] || colors.blue;
+  const dark: Record<string, string> = {
+    blue: "rgba(30, 58, 138, 0.35)",
+    purple: "rgba(76, 29, 149, 0.35)",
+    green: "rgba(20, 83, 45, 0.35)",
+    orange: "rgba(124, 45, 18, 0.35)",
+  };
+  const palette = isDark ? dark : light;
+  return palette[color] || palette.blue;
 }
 
-function getColorBorder(color: string): string {
-  const colors: Record<string, string> = {
+function getColorBorder(color: string, isDark: boolean): string {
+  const light: Record<string, string> = {
     blue: "rgba(191, 219, 254, 0.5)",
     purple: "rgba(221, 214, 254, 0.5)",
     green: "rgba(187, 247, 208, 0.5)",
     orange: "rgba(254, 215, 170, 0.5)",
   };
-  return colors[color] || colors.blue;
+  const dark: Record<string, string> = {
+    blue: "rgba(59, 130, 246, 0.35)",
+    purple: "rgba(168, 85, 247, 0.35)",
+    green: "rgba(34, 197, 94, 0.35)",
+    orange: "rgba(249, 115, 22, 0.35)",
+  };
+  const palette = isDark ? dark : light;
+  return palette[color] || palette.blue;
 }
 
 function getColorIcon(color: string): string {

@@ -71,7 +71,7 @@ export default function Sidebar() {
 
   return (
     <aside
-      className={`fixed left-0 flex flex-col transition-all duration-300 border-r z-40 titlebar-offset-top titlebar-offset-height ${isCollapsed ? "w-[72px]" : "w-64"
+      className={`sidebar-shell fixed left-0 flex flex-col transition-all duration-300 border-r z-40 titlebar-offset-top titlebar-offset-height ${isCollapsed ? "w-[72px]" : "w-64"
         } bg-background text-foreground border-border`}
     >
       {/* Toggle */}
@@ -84,10 +84,10 @@ export default function Sidebar() {
       </button>
 
       {/* Navigation - Grouped with enhanced hierarchy */}
-      <nav className="flex-1 pt-6 pb-3 overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700 scrollbar-track-transparent">
-        <div className="space-y-6">
+      <nav className="sidebar-nav flex-1 pt-6 pb-3 overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700 scrollbar-track-transparent">
+        <div className="sidebar-groups space-y-6">
           {navigationGroups.map((group) => (
-            <div key={group.id} className="px-3">
+            <div key={group.id} className="sidebar-group px-3">
               {/* Section label - only show when expanded */}
               {group.label && !isCollapsed && (
                 <div className="px-3 mb-2">
@@ -105,7 +105,7 @@ export default function Sidebar() {
               )}
 
               {/* Items */}
-              <ul className="space-y-0.5">
+              <ul className="sidebar-items space-y-0.5">
                 {group.items.map((item) => {
                   const isActive = location.pathname.startsWith(item.route);
                   return (
@@ -122,7 +122,7 @@ export default function Sidebar() {
                                       item.route === "/accounting" ? "sidebar-accounting-link" :
                                         undefined
                         }
-                        className={`group relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 ${isCollapsed ? "justify-center" : "justify-start"
+                        className={`sidebar-item group relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 ${isCollapsed ? "justify-center" : "justify-start"
                           } ${isActive
                             ? "bg-primary text-primary-foreground shadow-lg shadow-primary/30"
                             : "hover:bg-muted text-foreground hover:shadow-sm"
@@ -174,7 +174,7 @@ export default function Sidebar() {
       </nav>
 
       {/* Footer - System actions with clear separation */}
-      <div className="border-t border-border bg-gradient-to-b from-transparent to-secondary/60">
+      <div className="sidebar-footer border-t border-border bg-gradient-to-b from-transparent to-secondary/60">
         <div className="p-3 space-y-1">
           {/* Theme toggle */}
           <button

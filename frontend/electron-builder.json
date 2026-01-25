@@ -33,10 +33,9 @@
         "arch": ["x64"]
       }
     ],
-    "icon": "build/icon.ico",
+    "icon": "build/Light_mode_icon.ico",
     "artifactName": "${productName}-Setup-${version}.${ext}",
     "sign": false,
-    "signAndEditExecutable": false,
     "verifyUpdateCodeSignature": false,
     "extraResources": [
       {
@@ -44,7 +43,7 @@
         "to": "backend/node.exe"
       },
       {
-        "from": "build/icon.ico",
+        "from": "build/Light_mode_icon.ico",
         "to": "icon.ico"
       }
     ]
@@ -56,9 +55,9 @@
     "deleteAppDataOnUninstall": false,
     "createDesktopShortcut": true,
     "createStartMenuShortcut": true,
-    "installerIcon": "build/icon.ico",
-    "uninstallerIcon": "build/icon.ico",
-    "installerHeaderIcon": "build/icon.ico"
+    "installerIcon": "build/Light_mode_icon.ico",
+    "uninstallerIcon": "build/Light_mode_icon.ico",
+    "installerHeaderIcon": "build/Light_mode_icon.ico"
   },
   "mac": {
     "target": [

@@ -38,20 +38,6 @@ export interface RouteConfig {
 }
 
 let ChatBotRouteComponent: RouteConfig["component"] = ComingSoonAI;
-if (FEATURE_AI_AGENT) {
-  const ChatBot = lazy(() => import("../Screens/ChatBot"));
-  ChatBotRouteComponent = () => (
-    <Suspense
-      fallback={
-        <div className="min-h-[50vh] flex items-center justify-center text-slate-500">
-          Loading Organia Intelligence...
-        </div>
-      }
-    >
-      <ChatBot />
-    </Suspense>
-  );
-}
 
 /**
  * Route configuration array
@@ -260,6 +246,3 @@ export const getRoutePaths = (): string[] => {
  * Default redirect route
  */
 export const DEFAULT_ROUTE = "/dashboard";
-
-
-
