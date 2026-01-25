@@ -8,6 +8,24 @@ const SUPPORTED_EXTENSIONS = new Set(["csv", "json", "jsonl", "ndjson"]);
 const CHUNK_SIZE = 1000;
 const AUTO_IMPORT_ENTITIES = new Set(["client"]);
 const CSV_DELIMITERS = [",", ";", "\t", "|"];
+const IGNORE_MAPPING = "__ignore__";
+const CLIENT_CANONICAL_FIELDS = [
+  "name",
+  "first_name",
+  "last_name",
+  "email",
+  "phone",
+  "alternate_phone",
+  "address",
+  "cin",
+  "date_of_birth",
+  "profession",
+  "company",
+  "tax_id",
+  "notes",
+  "join_date",
+  "status",
+];
 
 const getExtension = (fileName) => {
   const parts = fileName.toLowerCase().split(".");
@@ -183,6 +201,98 @@ const parseJsonLines = (text) =>
     .filter(Boolean)
     .map((line) => JSON.parse(line));
 
+const normalizeHeader = (value) =>
+  String(value || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{M}+/gu, "")
+    .replace(/[^\p{L}\p{N}]+/gu, "");
+
+const extractHeaders = (records) => {
+  if (!records || records.length === 0) return [];
+  const first = records[0];
+  if (first && Array.isArray(first.columns)) {
+    return first.columns.filter((header) => String(header || "").trim() !== "");
+  }
+  const headerSet = new Set();
+  const limit = Math.min(records.length, 50);
+  for (let i = 0; i < limit; i += 1) {
+    const record = records[i];
+    if (record && typeof record === "object" && !Array.isArray(record)) {
+      Object.keys(record).forEach((key) => headerSet.add(key));
+    }
+  }
+  return Array.from(headerSet);
+};
+
+const buildAliasLookup = (aliases = {}) => {
+  const lookup = new Map();
+  Object.entries(aliases).forEach(([field, items]) => {
+    const list = Array.isArray(items) ? items : [];
+    [field, ...list].forEach((alias) => {
+      const normalized = normalizeHeader(alias);
+      if (!normalized || lookup.has(normalized)) return;
+      lookup.set(normalized, field);
+    });
+  });
+  return lookup;
+};
+
+const buildDefaultMapping = (headers, aliasConfig) => {
+  const aliasLookup = buildAliasLookup(aliasConfig?.aliases || {});
+  const canonicalFields = aliasConfig?.fields || CLIENT_CANONICAL_FIELDS;
+  const canonicalLookup = new Map(
+    canonicalFields.map((field) => [normalizeHeader(field), field])
+  );
+  const mapping = {};
+  headers.forEach((header) => {
+    const normalized = normalizeHeader(header);
+    if (!normalized) {
+      mapping[header] = IGNORE_MAPPING;
+      return;
+    }
+    mapping[header] =
+      aliasLookup.get(normalized) || canonicalLookup.get(normalized) || IGNORE_MAPPING;
+  });
+  return mapping;
+};
+
+const buildRawObject = (record) => {
+  if (!record) return {};
+  if (Array.isArray(record.columns) && Array.isArray(record.values)) {
+    const output = {};
+    const length = Math.min(record.columns.length, record.values.length);
+    for (let i = 0; i < length; i += 1) {
+      const key = record.columns[i];
+      if (!key) continue;
+      output[key] = record.values[i];
+    }
+    return output;
+  }
+  if (typeof record === "object") return record;
+  return { value: record };
+};
+
+const isMissingValue = (value) =>
+  value === null || value === undefined || (typeof value === "string" && value.trim() === "");
+
+const applyMappingToRecords = (records, mapping) =>
+  records.map((record) => {
+    const raw = buildRawObject(record);
+    const mapped = {};
+    Object.entries(mapping).forEach(([header, target]) => {
+      if (target === IGNORE_MAPPING) return;
+      if (!Object.prototype.hasOwnProperty.call(raw, header)) return;
+      const value = raw[header];
+      if (isMissingValue(value)) return;
+      if (isMissingValue(mapped[target])) {
+        mapped[target] = value;
+      }
+    });
+    return mapped;
+  });
+
 export default function LegacyImportModal({
   isOpen,
   onClose,
@@ -202,6 +312,13 @@ export default function LegacyImportModal({
   const [isParsing, setIsParsing] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(null);
+  const [headers, setHeaders] = useState([]);
+  const [headerMappings, setHeaderMappings] = useState({});
+  const [mappingConfirmed, setMappingConfirmed] = useState(false);
+  const [mappingTouched, setMappingTouched] = useState(false);
+  const [aliasConfig, setAliasConfig] = useState(null);
+  const [isLoadingAliases, setIsLoadingAliases] = useState(false);
+  const [aliasError, setAliasError] = useState("");
 
   const resetState = () => {
     recordsRef.current = [];
@@ -212,6 +329,13 @@ export default function LegacyImportModal({
     setIsParsing(false);
     setIsUploading(false);
     setUploadProgress(null);
+    setHeaders([]);
+    setHeaderMappings({});
+    setMappingConfirmed(false);
+    setMappingTouched(false);
+    setAliasConfig(null);
+    setIsLoadingAliases(false);
+    setAliasError("");
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -223,7 +347,43 @@ export default function LegacyImportModal({
     }
   }, [isOpen]);
 
+  useEffect(() => {
+    if (!isOpen || entityType !== "client") return;
+    let isActive = true;
+    setIsLoadingAliases(true);
+    setAliasError("");
+    apiClient
+      .get("/imports/aliases")
+      .then((data) => {
+        if (!isActive) return;
+        if (data?.aliases && data?.fields) {
+          setAliasConfig(data);
+        } else {
+          setAliasConfig({
+            fields: CLIENT_CANONICAL_FIELDS,
+            aliases: {},
+          });
+        }
+      })
+      .catch((error) => {
+        if (!isActive) return;
+        console.error("[LegacyImportModal] Failed to load import aliases", error);
+        setAliasError(t("import.mapping.aliasLoadError"));
+        setAliasConfig({
+          fields: CLIENT_CANONICAL_FIELDS,
+          aliases: {},
+        });
+      })
+      .finally(() => {
+        if (isActive) setIsLoadingAliases(false);
+      });
+    return () => {
+      isActive = false;
+    };
+  }, [entityType, isOpen, t]);
+
   const resolvedEntityLabel = entityLabel || entityType || "";
+  const requiresMapping = entityType === "client";
 
   const handleClose = (force = false) => {
     if (isUploading && !force) return;
@@ -276,24 +436,68 @@ export default function LegacyImportModal({
 
       recordsRef.current = records;
       setRecordCount(records.length);
+      const extractedHeaders = extractHeaders(records);
+      setHeaders(extractedHeaders);
+      setHeaderMappings(buildDefaultMapping(extractedHeaders, aliasConfig));
+      setMappingConfirmed(false);
+      setMappingTouched(false);
     } catch (error) {
       console.error("[LegacyImportModal] Parse error:", error);
       setParseError(t("import.errors.parse"));
       recordsRef.current = [];
       setRecordCount(0);
+      setHeaders([]);
+      setHeaderMappings({});
+      setMappingConfirmed(false);
+      setMappingTouched(false);
     } finally {
       setIsParsing(false);
     }
   };
+
+  useEffect(() => {
+    if (!requiresMapping || mappingTouched || headers.length === 0) return;
+    setHeaderMappings(buildDefaultMapping(headers, aliasConfig));
+    setMappingConfirmed(false);
+  }, [aliasConfig, headers, mappingTouched, requiresMapping]);
+
+  const handleMappingChange = (header, value) => {
+    setHeaderMappings((prev) => ({ ...prev, [header]: value }));
+    setMappingTouched(true);
+    setMappingConfirmed(false);
+    if (parseError) setParseError("");
+  };
+
+  const handleConfirmMapping = () => {
+    setMappingConfirmed(true);
+    if (parseError) setParseError("");
+  };
+
+  const handleResetMapping = () => {
+    setHeaderMappings(buildDefaultMapping(headers, aliasConfig));
+    setMappingTouched(false);
+    setMappingConfirmed(false);
+  };
+
+  const mappedFields = Object.values(headerMappings).filter((value) => value !== IGNORE_MAPPING);
+  const ignoredCount = headers.length - mappedFields.length;
+  const hasNameMapping = mappedFields.includes("name");
 
   const handleImport = async () => {
     if (!entityType || recordsRef.current.length === 0) {
       setParseError(t("import.errors.empty"));
       return;
     }
+    if (requiresMapping && !mappingConfirmed) {
+      setParseError(t("import.mapping.confirmRequired"));
+      return;
+    }
 
     setIsUploading(true);
-    const total = recordsRef.current.length;
+    const recordsToUpload = requiresMapping
+      ? applyMappingToRecords(recordsRef.current, headerMappings)
+      : recordsRef.current;
+    const total = recordsToUpload.length;
     setUploadProgress({ current: 0, total });
 
     try {
@@ -302,7 +506,7 @@ export default function LegacyImportModal({
       let queuedCount = 0;
       let duplicateCount = 0;
       for (let i = 0; i < total; i += CHUNK_SIZE) {
-        const chunk = recordsRef.current.slice(i, i + CHUNK_SIZE);
+        const chunk = recordsToUpload.slice(i, i + CHUNK_SIZE);
         const response = await apiClient.post(useAutoImport ? "/imports/auto" : "/imports/raw", {
           entity_type: entityType,
           records: chunk,
@@ -435,6 +639,99 @@ export default function LegacyImportModal({
           </div>
         )}
 
+        {recordCount > 0 && !parseError && requiresMapping && (
+          <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
+                  {t("import.mapping.title")}
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {t("import.mapping.subtitle")}
+                </p>
+              </div>
+              {isLoadingAliases && (
+                <span className="text-xs text-slate-500 dark:text-slate-400">
+                  {t("import.mapping.loadingAliases")}
+                </span>
+              )}
+            </div>
+
+            {aliasError && (
+              <div className="mt-2 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                {aliasError}
+              </div>
+            )}
+
+            <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
+              <span>{t("import.mapping.summary", { mapped: mappedFields.length, ignored: ignoredCount })}</span>
+              {!hasNameMapping && (
+                <span className="text-amber-600 dark:text-amber-400">
+                  {t("import.mapping.missingRequired")}
+                </span>
+              )}
+            </div>
+
+            <div className="mt-4 overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700">
+              <table className="min-w-full text-xs">
+                <thead className="bg-slate-50 text-left text-[11px] uppercase tracking-wide text-slate-500 dark:bg-slate-800/70 dark:text-slate-400">
+                  <tr>
+                    <th className="px-3 py-2">{t("import.mapping.headerLabel")}</th>
+                    <th className="px-3 py-2">{t("import.mapping.fieldLabel")}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+                  {headers.map((header) => (
+                    <tr key={header} className="text-slate-700 dark:text-slate-200">
+                      <td className="px-3 py-2">
+                        <span className="truncate">{header || "-"}</span>
+                      </td>
+                      <td className="px-3 py-2">
+                        <select
+                          value={headerMappings[header] || IGNORE_MAPPING}
+                          onChange={(event) => handleMappingChange(header, event.target.value)}
+                          className="w-full rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                        >
+                          <option value={IGNORE_MAPPING}>{t("import.mapping.ignore")}</option>
+                          {(aliasConfig?.fields || CLIENT_CANONICAL_FIELDS).map((field) => (
+                            <option key={field} value={field}>
+                              {t(`templateFields.client.fields.${field}`, { defaultValue: field })}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={handleResetMapping}
+                className="text-xs font-medium text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+              >
+                {t("import.mapping.reset")}
+              </button>
+              <div className="flex items-center gap-2">
+                {mappingConfirmed && (
+                  <span className="text-xs text-emerald-600 dark:text-emerald-400">
+                    {t("import.mapping.confirmed")}
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={handleConfirmMapping}
+                  className="rounded-md border border-blue-600 px-3 py-1 text-xs font-medium text-blue-600 transition-colors hover:bg-blue-50 dark:border-blue-400 dark:text-blue-300 dark:hover:bg-blue-950"
+                >
+                  {t("import.mapping.confirm")}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {isUploading && uploadProgress && (
           <div className="text-sm text-slate-600 dark:text-slate-400">
             {t("import.uploading", {
@@ -457,7 +754,7 @@ export default function LegacyImportModal({
         <button
           type="button"
           onClick={handleImport}
-          disabled={isParsing || isUploading || recordCount === 0}
+          disabled={isParsing || isUploading || recordCount === 0 || (requiresMapping && !mappingConfirmed)}
           className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {t("import.actions.import")}

@@ -896,6 +896,21 @@
     "recordsFound": "{{count}} record(s) ready to import",
     "parsing": "Parsing file...",
     "uploading": "Uploading {{current}} / {{total}}",
+    "mapping": {
+      "title": "Review column mapping",
+      "subtitle": "Confirm how each column maps to Organia's client fields. Unknown columns stay ignored.",
+      "headerLabel": "File column",
+      "fieldLabel": "Mapped field",
+      "ignore": "Ignore column",
+      "confirm": "Confirm mapping",
+      "confirmed": "Mapping confirmed.",
+      "confirmRequired": "Confirm the mapping before importing.",
+      "missingRequired": "Name field is not mapped.",
+      "summary": "{{mapped}} mapped, {{ignored}} ignored",
+      "loadingAliases": "Loading aliases...",
+      "aliasLoadError": "Alias list unavailable; please review the mapping manually.",
+      "reset": "Reset mapping"
+    },
     "actions": {
       "chooseFile": "Choose file",
       "import": "Import"

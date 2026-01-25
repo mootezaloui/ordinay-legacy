@@ -30,6 +30,15 @@ async function list(req, res, next) {
   }
 }
 
+async function aliases(req, res, next) {
+  try {
+    const schema = service.getClientImportSchema();
+    res.json(schema);
+  } catch (error) {
+    next(error);
+  }
+}
+
 async function get(req, res, next) {
   try {
     const id = parseId(req.params.id);
@@ -130,6 +139,7 @@ async function validate(req, res, next) {
 }
 
 module.exports = {
+  aliases,
   list,
   get,
   createRaw,

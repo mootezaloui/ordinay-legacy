@@ -897,6 +897,21 @@
     "recordsFound": "{{count}} enregistrement(s) prets a importer",
     "parsing": "Analyse du fichier...",
     "uploading": "Import {{current}} / {{total}}",
+    "mapping": {
+      "title": "Verifier le mapping des colonnes",
+      "subtitle": "Confirmez la correspondance des colonnes avec les champs client d'Organia. Les colonnes inconnues sont ignorees.",
+      "headerLabel": "Colonne du fichier",
+      "fieldLabel": "Champ associe",
+      "ignore": "Ignorer la colonne",
+      "confirm": "Confirmer le mapping",
+      "confirmed": "Mapping confirme.",
+      "confirmRequired": "Confirmez le mapping avant d'importer.",
+      "missingRequired": "Le champ Nom n'est pas mappe.",
+      "summary": "{{mapped}} mappes, {{ignored}} ignores",
+      "loadingAliases": "Chargement des alias...",
+      "aliasLoadError": "Liste d'alias indisponible; verifiez le mapping manuellement.",
+      "reset": "Reinitialiser le mapping"
+    },
     "actions": {
       "chooseFile": "Choisir un fichier",
       "import": "Importer"
