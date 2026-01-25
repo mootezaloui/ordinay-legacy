@@ -159,24 +159,24 @@
     },
     "phase5-complete": {
       "title": "Session Pro! ✅",
-      "description": "You can manage court sessions. Next: officers and missions."
+      "description": "You can manage court sessions. Next: bailiffs and missions."
     },
     "sidebar-officers": {
-      "title": "Meet Your Officers 👔",
-      "description": "Officers (huissiers) execute missions for you: serving documents, collecting debts, etc.",
-      "action": "Open Officers"
+      "title": "Meet Your Bailiffs 👔",
+      "description": "Bailiffs execute missions for you: serving documents, collecting debts, etc.",
+      "action": "Open Bailiffs"
     },
     "officers-list-overview": {
-      "title": "Your Officer Network 🤝",
-      "description": "Manage your list of bailiffs and officers. You'll need at least one to create missions."
+      "title": "Your Bailiffs Network 🤝",
+      "description": "Manage your list of bailiffs. You'll need at least one to create missions."
     },
     "missions-workflow-explained": {
       "title": "How Missions Work ⚡",
-      "description": "Missions are billable tasks done by officers. Create them, track progress, and fees flow to your finances."
+      "description": "Missions are billable tasks done by Bailiffs. Create them, track progress, and fees flow to your finances."
     },
     "phase6-complete": {
       "title": "Mission Expert! ✅",
-      "description": "You understand officers and missions. Next: your financial overview."
+      "description": "You understand bailiffs and missions. Next: your financial overview."
     },
     "sidebar-accounting": {
       "title": "Your Finances 💰",
@@ -210,15 +210,27 @@
       "description": "Link all important files to your dossier: contracts, evidence, legal documents.",
       "action": "Open the Documents tab"
     },
+    "documents-overview": {
+      "title": "Document Workspace 📎",
+      "description": "Keep all files in one place. Upload, open, download, link, and manage them with ease."
+    },
     "dossier-notes-tab": {
       "title": "Keep Notes 📝",
       "description": "Add internal notes for context, decisions, and reminders. Private and organized.",
       "action": "Open the Notes tab"
     },
+    "notes-overview": {
+      "title": "Notes Workspace 📝",
+      "description": "Capture context, decisions, and reminders. Notes stay private and organized by dossier."
+    },
     "dossier-history-tab": {
       "title": "Audit Trail 🔍",
       "description": "Every action is recorded: creations, edits, key events. Clear, trustworthy history.",
       "action": "Open the History tab"
+    },
+    "history-overview": {
+      "title": "Audit Trail 🔍",
+      "description": "Review the full timeline: creations, updates, payments, hearings — everything is tracked."
     },
     "return-to-dashboard": {
       "title": "Back to Dashboard 🏠",

@@ -55,12 +55,24 @@ export default function TutorialOverlay({
       <div
         className="absolute inset-0 bg-slate-900/60 dark:bg-black/70 backdrop-blur-sm animate-in fade-in duration-300"
         onClick={onClose}
+        style={{ pointerEvents: onClose ? "auto" : "none" }}
       />
 
       {/* Content container */}
       <div className="relative z-10 w-full max-w-2xl mx-4 animate-in zoom-in-95 fade-in duration-300">
         {children}
       </div>
+
+      {onClose && (
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label={t("tooltips.close", { defaultValue: "Close" })}
+          className="absolute top-6 right-6 z-20 h-9 w-9 rounded-full bg-white/10 text-white/80 hover:text-white hover:bg-white/20 transition"
+        >
+          <i className="fas fa-times text-sm" />
+        </button>
+      )}
 
       {/* ESC hint */}
       {showEscHint && onClose && (

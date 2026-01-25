@@ -159,7 +159,7 @@ function SetupFlow() {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center p-8 pt-12 titlebar-offset-padding overflow-hidden">
+        <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center p-6 md:p-8 pt-12 pb-12 titlebar-offset-padding overflow-hidden">
             {/* CSS Animations */}
             <style>{`
                 @keyframes fadeInUp {
@@ -199,10 +199,10 @@ function SetupFlow() {
                 .stagger-5 { animation-delay: 0.25s; }
             `}</style>
 
-            <div className={`w-full max-w-5xl transition-opacity duration-500 ${mounted ? "opacity-100" : "opacity-0"}`}>
-                <div className="grid lg:grid-cols-[280px,1fr] gap-16 items-start">
+            <div className={`w-full max-w-6xl transition-opacity duration-500 ${mounted ? "opacity-100" : "opacity-0"}`}>
+                <div className="grid grid-cols-1 lg:grid-cols-[320px,1fr] gap-6 lg:gap-10 items-center">
                     {/* Left Panel - Branding & Progress */}
-                    <div className={`lg:sticky lg:top-8 space-y-10 text-slate-100 ${mounted ? "animate-fade-in-up" : "opacity-0"}`}>
+                    <div className={`lg:sticky lg:top-8 space-y-8 text-slate-100 lg:pr-6 lg:border-r lg:border-slate-800/60 ${mounted ? "animate-fade-in-up" : "opacity-0"}`}>
                         <div>
                             <div className="inline-flex items-center justify-center w-14 h-14 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl mb-6 shadow-lg shadow-blue-500/20 transition-transform duration-300 hover:scale-105">
                                 <i className="fas fa-scale-balanced text-white text-xl"></i>
@@ -256,9 +256,9 @@ function SetupFlow() {
                     </div>
 
                     {/* Right Panel - Form Card */}
-                    <div className={`rounded-2xl bg-slate-900/35 border border-slate-800/60 shadow-lg shadow-black/10 ${mounted ? "animate-scale-in" : "opacity-0"}`} style={{ animationDelay: "0.15s" }}>
+                    <div className={`flex flex-col w-full max-w-9xl lg:ml-6 mt-2 lg:mt-3 ${mounted ? "animate-scale-in" : "opacity-0"}`} style={{ animationDelay: "0.15s" }}>
                         {/* Card Header */}
-                        <div className="px-10 pt-10 pb-8 border-b border-slate-800/60">
+                        <div className="px-6 md:px-10 pt-4 md:pt-6 pb-3 md:pb-4 border-b border-slate-800/40">
                             <div key={step} className={`space-y-3 ${slideDirection === "right" ? "animate-slide-in-right" : "animate-slide-in-left"}`}>
                                 <div className="flex flex-wrap items-baseline gap-3">
                                     <p className="text-xs font-medium text-blue-400 uppercase tracking-wider">
@@ -282,7 +282,7 @@ function SetupFlow() {
                         </div>
 
                         {/* Card Body */}
-                        <div className="px-10 py-8 overflow-hidden">
+                        <div className="px-6 md:px-10 py-3 md:py-5">
                             {errors.general && (
                                 <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg text-red-300 text-sm mb-8">
                                     {errors.general}
@@ -294,7 +294,7 @@ function SetupFlow() {
                                     {/* Required Fields Group */}
                                     <div className="space-y-5 opacity-0 animate-fade-in stagger-1">
                                         <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">{t("sections.requiredInfo")}</p>
-                                        <div className="grid grid-cols-2 gap-5">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                                             <div className="group">
                                                 <label className="block text-sm font-medium text-slate-300 mb-2 transition-colors group-focus-within:text-blue-400">
                                                     {t("fields.firstName.label")}
@@ -349,7 +349,7 @@ function SetupFlow() {
                                                 placeholder={t("fields.role.placeholder")}
                                             />
                                         </div>
-                                        <div className="grid grid-cols-2 gap-5">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                                             <div className="group">
                                                 <label className="block text-sm font-medium text-slate-300 mb-2 transition-colors group-focus-within:text-blue-400">
                                                     {t("fields.specialization.label")}
@@ -380,7 +380,7 @@ function SetupFlow() {
                                     {/* Contact Details Group */}
                                     <div className="space-y-5 opacity-0 animate-fade-in stagger-3">
                                         <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">{t("sections.contactInformation")}</p>
-                                        <div className="grid grid-cols-2 gap-5">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                                             <div className="group">
                                                 <label className="block text-sm font-medium text-slate-300 mb-2 transition-colors group-focus-within:text-blue-400">
                                                     {t("fields.email.label")}
@@ -443,7 +443,7 @@ function SetupFlow() {
                                         />
                                     </div>
 
-                                    <div className="grid grid-cols-2 gap-5 opacity-0 animate-fade-in stagger-3">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5 opacity-0 animate-fade-in stagger-3">
                                         <div className="group">
                                             <label className="block text-sm font-medium text-slate-300 mb-2 transition-colors group-focus-within:text-blue-400">
                                                 {t("fields.firmPhone.label")}
@@ -525,7 +525,7 @@ function SetupFlow() {
                                             </div>
 
                                             {/* Password Fields */}
-                                            <div className="grid grid-cols-2 gap-5 opacity-0 animate-fade-in stagger-2">
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 opacity-0 animate-fade-in stagger-2">
                                                 <div className="group">
                                                     <label className="block text-sm font-medium text-slate-300 mb-2 transition-colors group-focus-within:text-blue-400">
                                                         {t("fields.password.label")}
@@ -622,7 +622,7 @@ function SetupFlow() {
                         </div>
 
                         {/* Card Footer */}
-                        <div className="px-10 py-6 border-t border-slate-800/60 flex items-center justify-between">
+                        <div className="px-6 md:px-10 py-2 md:py-3 border-t border-slate-800/40 flex items-center justify-between">
                             <div>
                                 {step > 1 && (
                                     <button
@@ -636,14 +636,7 @@ function SetupFlow() {
                             </div>
 
                             <div className="flex items-center gap-3">
-                                {step === 2 && (
-                                    <button
-                                        onClick={handleSkipStep}
-                                        className="px-5 py-2.5 text-slate-400 hover:text-white text-sm font-medium transition-all duration-200 active:scale-95"
-                                    >
-                                        {t("actions.skip")}
-                                    </button>
-                                )}
+
 
                                 <button
                                     onClick={handleNext}

@@ -1,7 +1,7 @@
 // Electron Main Process for Organia
 // Desktop Foundation Layer
 
-const { app, BrowserWindow, ipcMain, shell } = require("electron");
+const { app, BrowserWindow, ipcMain, shell, Menu } = require("electron");
 const path = require("path");
 const { spawn } = require("child_process");
 const net = require("net");
@@ -24,6 +24,29 @@ app.commandLine.appendSwitch(
 
 if (process.platform === "win32") {
   app.setAppUserModelId(APP_USER_MODEL_ID);
+}
+
+if (!isDev) {
+  // Harden production against DevTools access even if a window slips through.
+  app.on("web-contents-created", (_event, contents) => {
+    contents.on("before-input-event", (event, input) => {
+      const isCtrlOrCmd = input.control || input.meta;
+      const isShift = input.shift;
+      if (
+        (isCtrlOrCmd && isShift && input.key?.toLowerCase() === "i") ||
+        input.key === "F12"
+      ) {
+        event.preventDefault();
+      }
+    });
+    contents.on("context-menu", (event) => {
+      event.preventDefault();
+    });
+    contents.openDevTools = () => undefined;
+    contents.on("devtools-opened", () => {
+      contents.closeDevTools();
+    });
+  });
 }
 
 // Persistent paths using Electron's userData directory
@@ -571,9 +594,15 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
+      // Disable DevTools in production to protect internal logic and license state.
+      devTools: isDev,
     },
     show: false, // Don't show until ready
   });
+
+  if (!isDev) {
+    Menu.setApplicationMenu(null);
+  }
 
   // Show window when ready to prevent visual flash
   mainWindow.once("ready-to-show", () => {
