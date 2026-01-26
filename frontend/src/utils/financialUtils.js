@@ -140,9 +140,30 @@ export const filterFinancialEntries = (filters = {}, allEntries = []) => {
  * @param {Array} entries - Financial entries
  * @returns {Number} Total amount
  */
+const normalizeAmount = (entry) => Number(entry.amount || 0);
+
 const computeTotal = (entries) => {
-  return entries.reduce((sum, entry) => sum + Number(entry.amount || 0), 0);
+  return entries.reduce((sum, entry) => sum + normalizeAmount(entry), 0);
 };
+
+// Accounting rule: sign is determined ONLY by entry.type (scope never flips sign).
+const getSignedAmount = (entry) => {
+  const amount = normalizeAmount(entry);
+  if (entry.type === "expense") return -amount;
+  if (entry.type === "revenue") return amount;
+  return 0;
+};
+
+const sumByType = (entries) =>
+  entries.reduce(
+    (totals, entry) => {
+      const amount = normalizeAmount(entry);
+      if (entry.type === "revenue") totals.revenue += amount;
+      if (entry.type === "expense") totals.expense += amount;
+      return totals;
+    },
+    { revenue: 0, expense: 0 }
+  );
 
 /**
  * Compute financial summary for a given filter
@@ -589,8 +610,9 @@ export const getAccountingStatistics = (allEntries = []) => {
   const clientRevenues = allClientEntries.filter((e) => e.type === "revenue");
   const clientExpenses = allClientEntries.filter((e) => e.type === "expense");
 
-  const totalClientRevenue = computeTotal(clientRevenues);
-  const totalClientExpense = computeTotal(clientExpenses);
+  const clientTotals = sumByType(allClientEntries);
+  const totalClientRevenue = clientTotals.revenue;
+  const totalClientExpense = clientTotals.expense;
   const totalClientPaid = computeTotal(
     clientRevenues.filter((e) => e.isPaid || e.paidAt)
   );
@@ -603,13 +625,16 @@ export const getAccountingStatistics = (allEntries = []) => {
     )
   );
 
-  // Internal expenses
-  const totalInternalExpense = computeTotal(allInternalEntries);
+  // Internal (office) entries
+  const internalExpenses = allInternalEntries.filter((e) => e.type === "expense");
+  const internalTotals = sumByType(allInternalEntries);
+  const totalInternalRevenue = internalTotals.revenue;
+  const totalInternalExpense = internalTotals.expense;
   const totalInternalPaid = computeTotal(
-    allInternalEntries.filter((e) => e.isPaid || e.paidAt)
+    internalExpenses.filter((e) => e.isPaid || e.paidAt)
   );
   const totalInternalPending = computeTotal(
-    allInternalEntries.filter(
+    internalExpenses.filter(
       (e) =>
         !e.isPaid &&
         !e.paidAt &&
@@ -618,10 +643,12 @@ export const getAccountingStatistics = (allEntries = []) => {
   );
 
   // Global
-  const totalRevenue = totalClientRevenue;
+  const totalRevenue = totalClientRevenue + totalInternalRevenue;
   const totalExpense = totalClientExpense + totalInternalExpense;
-  const netProfit =
-    totalClientRevenue - totalClientExpense - totalInternalExpense;
+  const netProfit = [...allClientEntries, ...allInternalEntries].reduce(
+    (sum, entry) => sum + getSignedAmount(entry),
+    0
+  );
 
   return {
     // Client
@@ -632,6 +659,7 @@ export const getAccountingStatistics = (allEntries = []) => {
     clientNetBalance: totalClientRevenue - totalClientExpense,
 
     // Internal
+    totalInternalRevenue,
     totalInternalExpense,
     totalInternalPaid,
     totalInternalPending,
