@@ -16,6 +16,7 @@ import {
   setAppLicenseState,
   type LicenseData,
   type LicenseState,
+  type SignedLicense,
   verifyLicenseWithServer,
 } from "../services/licenseService";
 
@@ -26,7 +27,7 @@ interface LicenseContextValue {
   /** True once the initial license state has been resolved from disk. */
   licenseLoaded: boolean;
   refreshLicense: () => Promise<LicenseState>;
-  activateLicense: (licenseData: LicenseData) => Promise<void>;
+  activateLicense: (license: SignedLicense) => Promise<void>;
   setActivationState: (state: LicenseState, error?: string | null) => void;
 }
 
@@ -92,8 +93,8 @@ export function LicenseProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const activateLicense = async (licenseData: LicenseData) => {
-    await writeLicense(licenseData);
+  const activateLicense = async (license: SignedLicense) => {
+    await writeLicense(license);
     const [nextState, dataResult] = await Promise.all([
       loadLicenseFromDisk(),
       readLicenseDataFromDisk(),

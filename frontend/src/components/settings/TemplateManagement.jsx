@@ -396,7 +396,6 @@ const FIELD_DEFINITIONS = {
       { key: 'fax', label: 'Fax', placeholder: '{{lawyer.fax}}', example: '+216 71 123 457', entities: ['dossier', 'proces', 'session'] },
       { key: 'mobile', label: 'Mobile', placeholder: '{{lawyer.mobile}}', example: '+216 98 765 432', entities: ['dossier', 'proces', 'session'] },
       { key: 'email', label: 'Email', placeholder: '{{lawyer.email}}', example: 'contact@cabinet-mansour.tn', entities: ['dossier', 'proces', 'session'] },
-      { key: 'bar_id', label: 'N° Barreau', placeholder: '{{lawyer.bar_id}}', example: 'BAR-TUN-2015-1234', entities: ['dossier', 'proces', 'session'] },
       { key: 'vpa', label: 'VPA', placeholder: '{{lawyer.vpa}}', example: 'VPA-2020-5678', entities: ['dossier', 'proces', 'session'] },
     ],
   },

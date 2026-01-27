@@ -1,7 +1,7 @@
 // Electron Main Process for Organia
 // Desktop Foundation Layer
 
-const { app, BrowserWindow, ipcMain, shell, Menu } = require("electron");
+const { app, BrowserWindow, ipcMain, shell, Menu, nativeImage } = require("electron");
 const path = require("path");
 const { spawn } = require("child_process");
 const net = require("net");
@@ -608,6 +608,9 @@ function createWindow() {
 
   // Show window when ready to prevent visual flash
   mainWindow.once("ready-to-show", () => {
+    if (windowIcon) {
+      mainWindow.setIcon(windowIcon);
+    }
     mainWindow.show();
     setUpdateState({ version: app.getVersion() });
   });
@@ -658,14 +661,16 @@ function resolveWindowIcon() {
   if (isDev) {
     // Development: load from build directory
     const iconPath = path.join(__dirname, "..", "build", "Light_mode_icon.ico");
-    return fs.existsSync(iconPath) ? iconPath : null;
+    if (!fs.existsSync(iconPath)) return null;
+    const iconImage = nativeImage.createFromPath(iconPath);
+    return iconImage.isEmpty() ? null : iconImage;
   }
 
   // Production: icon is copied to resources via extraResources in electron-builder.json
   const resourcesIconPath = path.join(process.resourcesPath, "icon.ico");
-  if (fs.existsSync(resourcesIconPath)) {
-    return resourcesIconPath;
-  }
+  if (!fs.existsSync(resourcesIconPath)) return null;
+  const iconImage = nativeImage.createFromPath(resourcesIconPath);
+  return iconImage.isEmpty() ? null : iconImage;
 
   return null;
 }
@@ -759,7 +764,7 @@ function setupIPC() {
     return { exists: true, contents };
   });
 
-  // Handler to write local license file (overwrite any existing file)
+  // Handler to write local signed license file (overwrite any existing file)
   ipcMain.handle("write-license-file", (_event, licenseData) => {
     const payload = JSON.stringify(licenseData, null, 2);
     fs.writeFileSync(LICENSE_PATH, payload, "utf-8");

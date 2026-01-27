@@ -39,7 +39,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   /**
    * Write local license file (overwrites existing)
-   * @param {object} licenseData
+   * @param {object} licenseData - Signed license payload
    * @returns {Promise<{ok: boolean}>}
    */
   writeLicenseFile: (licenseData) => ipcRenderer.invoke('write-license-file', licenseData),

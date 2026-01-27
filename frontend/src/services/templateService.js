@@ -194,7 +194,6 @@ class TemplateService {
       "lawyer.fax": MISSING_VALUE,
       "lawyer.mobile": MISSING_VALUE,
       "lawyer.email": MISSING_VALUE,
-      "lawyer.bar_id": MISSING_VALUE,
       "lawyer.vpa": MISSING_VALUE,
       "lawyer.signature": MISSING_VALUE,
       "session.id": MISSING_VALUE,
@@ -262,13 +261,6 @@ class TemplateService {
     const operator = this.resolveOperator(contextData);
     if (operator?.name) {
       data["lawyer.name"] = operator.name;
-    }
-    if (operator?.bar_id || operator?.barId || operator?.bar_number || operator?.barNumber) {
-      data["lawyer.bar_id"] =
-        operator.bar_id ||
-        operator.barId ||
-        operator.bar_number ||
-        operator.barNumber;
     }
     const firmName =
       firmInfo?.name ||

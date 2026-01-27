@@ -62,7 +62,9 @@ export interface ElectronAPI {
   /**
    * Write local license file (overwrites existing)
    */
-  writeLicenseFile: (licenseData: unknown) => Promise<{ ok: boolean }>;
+  writeLicenseFile: (
+    licenseData: import("../services/licenseService").SignedLicense
+  ) => Promise<{ ok: boolean }>;
 
   /**
    * Read device id

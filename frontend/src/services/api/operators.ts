@@ -15,7 +15,6 @@ export interface Operator {
   fax?: string;
   mobile?: string;
   specialization?: string;
-  bar_id?: string;
   bar_number?: string;
   vpa?: string;
   office?: string;
@@ -33,7 +32,6 @@ export interface OperatorUpdatePayload {
   fax?: string;
   mobile?: string;
   specialization?: string;
-  bar_id?: string;
   bar_number?: string;
   vpa?: string;
   office?: string;

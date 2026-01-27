@@ -23,20 +23,34 @@ import {
   submitReferralOnActivation,
   type LicenseData,
   type LicenseState,
-  type LicenseType,
+  type SignedLicense,
 } from "./services/licenseService";
 
 const FREE_PLAN_STORAGE_KEY = "organia_free_plan_continue";
-const normalizeLicenseType = (value: string | null): LicenseType => {
-  const normalized = (value || "yearly").toLowerCase();
-  if (
-    normalized === "monthly" ||
-    normalized === "yearly" ||
-    normalized === "perpetual"
-  ) {
-    return normalized;
+const decodeBase64UrlToString = (value: string): string | null => {
+  if (!value) return null;
+  try {
+    const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+    const binary = atob(padded);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return new TextDecoder().decode(bytes);
+  } catch {
+    return null;
   }
-  return "yearly";
+};
+
+const parseSignedLicenseFromUrl = (encoded: string): SignedLicense | null => {
+  const decoded = decodeBase64UrlToString(encoded);
+  if (!decoded) return null;
+  try {
+    return JSON.parse(decoded) as SignedLicense;
+  } catch {
+    return null;
+  }
 };
 
 function App() {
@@ -65,7 +79,6 @@ function App() {
     t,
     activateLicense,
     setActivationState,
-    licenseData,
   });
   const activationInFlightRef = useRef<string | null>(null);
   // Monitor user activity for inactivity lock
@@ -76,9 +89,8 @@ function App() {
       t,
       activateLicense,
       setActivationState,
-      licenseData,
     };
-  }, [activateLicense, licenseData, setActivationState, t]);
+  }, [activateLicense, setActivationState, t]);
 
   useEffect(() => {
     let mounted = true;
@@ -103,7 +115,6 @@ function App() {
           t: tActivation,
           activateLicense: activateLicenseCurrent,
           setActivationState: setActivationStateCurrent,
-          licenseData: licenseDataCurrent,
         } = activationContextRef.current;
         const pendingReferral = extractPendingReferralFromUrl(rawUrl);
         if (pendingReferral) {
@@ -123,66 +134,22 @@ function App() {
           : new URLSearchParams();
         const getParam = (key: string) =>
           params.get(key) ?? hashParams.get(key);
-        const statusParam = getParam("status");
-        const planParam =
-          getParam("plan") ||
-          getParam("license_plan") ||
-          "";
-        const licenseTypeParam = getParam("license_type");
-        const planIndicators = `${planParam} ${licenseTypeParam ?? ""} ${statusParam ?? ""} ${rawUrl}`.toLowerCase();
-        const validUntilParam =
-          getParam("expires_at") || getParam("valid_until");
-        let license_type: LicenseType = normalizeLicenseType(licenseTypeParam);
-        let expires_at: string | null = validUntilParam || "2026-12-31";
+        const licenseParam = getParam("license");
         const activationDeviceId =
           getParam("device_id") || (await getOrCreateDeviceId());
-        // If the plan is free, set state and error to FREE (single block)
-        const isFreeActivation = planIndicators.includes("free");
-        if (isFreeActivation) {
-          setActivationStateCurrent("FREE", null);
-          setActivationError(null);
-          setActivationView("success");
-          const freeLicenseData = {
-            status: "active",
-            license_type: "free",
-            expires_at: null,
-            device_id: activationDeviceId || "unknown",
-            last_checked_at: new Date().toISOString(),
-          };
-          if (typeof window !== "undefined") {
-            window.localStorage.setItem(FREE_PLAN_STORAGE_KEY, "1");
-          }
-          if (licenseDataCurrent && typeof licenseDataCurrent === "object") {
-            Object.assign(licenseDataCurrent, freeLicenseData);
-          }
-          return;
-        }
-        if (
-          license_type === "perpetual" ||
-          planIndicators.includes("lifetime") ||
-          planIndicators.includes("perpetual")
-        ) {
-          license_type = "perpetual";
-          expires_at = null;
-        }
-        const status = (statusParam || "active").toLowerCase();
-        const activeStatuses = new Set([
-          "active",
-          "success",
-          "ok",
-          "paid",
-          "complete",
-          "completed",
-        ]);
-        if (!activationDeviceId || !activeStatuses.has(status)) {
+        if (!licenseParam) {
           console.warn("[License] Activation failed:", {
             url: rawUrl,
-            status,
             device_id: activationDeviceId,
-            planParam,
-            licenseTypeParam,
-            validUntilParam,
           });
+          setActivationStateCurrent("ERROR", "Activation failed");
+          setActivationError(tActivation("errors.activationFailed"));
+          setActivationView("error");
+          return;
+        }
+        const signedLicense = parseSignedLicenseFromUrl(licenseParam);
+        if (!signedLicense) {
+          console.warn("[License] Activation failed: invalid license payload");
           setActivationStateCurrent("ERROR", "Activation failed");
           setActivationError(tActivation("errors.activationFailed"));
           setActivationView("error");
@@ -191,13 +158,7 @@ function App() {
         if (typeof window !== "undefined") {
           window.localStorage.removeItem(FREE_PLAN_STORAGE_KEY);
         }
-        await activateLicenseCurrent({
-          device_id: activationDeviceId,
-          status: "active",
-          license_type,
-          expires_at,
-          last_checked_at: new Date().toISOString(),
-        });
+        await activateLicenseCurrent(signedLicense);
         const referralCode = getPendingReferralCode();
         const referralResult = await submitReferralOnActivation(
           activationDeviceId,
@@ -399,7 +360,10 @@ function ActivationScreen({
   };
 
   const statusLabel = t("details.status", {
-    status: licenseData?.status || t("details.statusDefaults.active"),
+    status:
+      licenseState === "ACTIVE"
+        ? t("details.statusDefaults.active")
+        : t("details.statusDefaults.inactive", { defaultValue: "inactive" }),
   });
   const planValue =
     licenseData?.license_type ||
@@ -410,7 +374,7 @@ function ActivationScreen({
   const validUntilValue =
     licenseData?.license_type === "perpetual"
       ? t("details.validUntilValues.lifetime")
-      : licenseData?.license_type === "free" || licenseState === "FREE"
+      : licenseState === "FREE"
         ? t("details.validUntilValues.unlimited")
         : licenseData?.expires_at || t("details.validUntilValues.fallbackDate");
   const validUntilLabel = t("details.validUntil", { date: validUntilValue });

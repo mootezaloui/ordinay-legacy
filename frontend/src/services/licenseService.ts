@@ -1,13 +1,19 @@
-export type LicenseType = "free" | "monthly" | "yearly" | "perpetual";
-export type LicenseStatus = "active" | "expired";
+import nacl from "tweetnacl";
+
+export type LicenseType = "monthly" | "yearly" | "perpetual";
 export type PlanChoice = "free" | "trial" | "monthly" | "yearly" | "perpetual";
 
 export interface LicenseData {
+  license_id: string;
   device_id: string;
   license_type: LicenseType;
   expires_at: string | null;
-  status: LicenseStatus;
-  last_checked_at?: string | null;
+  issued_at: string;
+}
+
+export interface SignedLicense {
+  payload: LicenseData;
+  signature: string;
 }
 
 export type LicenseState =
@@ -24,6 +30,23 @@ export let appLicenseState: LicenseState = "LOADING";
 
 const DEVICE_ID_STORAGE_KEY = "organia_device_id";
 const PENDING_REFERRAL_STORAGE_KEY = "organia_pending_referral_code";
+
+const LICENSE_PUBLIC_KEY_BASE64 =
+  (typeof import.meta !== "undefined" &&
+    import.meta.env &&
+    import.meta.env.VITE_LICENSE_PUBLIC_KEY) ||
+  "REPLACE_WITH_ED25519_PUBLIC_KEY_BASE64";
+
+const LICENSE_FILE_KEYS = ["payload", "signature"] as const;
+const LICENSE_PAYLOAD_KEYS = [
+  "license_id",
+  "device_id",
+  "license_type",
+  "expires_at",
+  "issued_at",
+] as const;
+
+const LICENSE_ID_PATTERN = /^LIC-ORG-\d{4}-[A-Z0-9]{4}$/;
 
 const getActivationBaseUrl = (): string =>
   (typeof import.meta !== "undefined" &&
@@ -206,10 +229,133 @@ export function extractPendingReferralFromUrl(rawUrl: string): string | null {
   return refParam.trim();
 }
 
-const isValidDateString = (value: string): boolean => {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-  const parsed = new Date(`${value}T00:00:00`);
-  return !Number.isNaN(parsed.getTime());
+const isPlainObject = (value: unknown): value is Record<string, unknown> =>
+  Boolean(value) && typeof value === "object" && !Array.isArray(value);
+
+const hasExactKeys = (value: Record<string, unknown>, keys: readonly string[]) => {
+  const valueKeys = Object.keys(value);
+  if (valueKeys.length !== keys.length) return false;
+  const keySet = new Set(valueKeys);
+  return keys.every((key) => keySet.has(key));
+};
+
+const base64ToBytes = (value: string): Uint8Array | null => {
+  const normalized = value.trim();
+  if (!normalized) return null;
+  try {
+    if (typeof atob === "function") {
+      const binary = atob(normalized);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i += 1) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      return bytes;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+};
+
+const canonicalizeJson = (value: unknown): string => {
+  if (value === null || typeof value !== "object") {
+    return JSON.stringify(value);
+  }
+  if (Array.isArray(value)) {
+    return `[${value.map((entry) => canonicalizeJson(entry)).join(",")}]`;
+  }
+  const record = value as Record<string, unknown>;
+  const keys = Object.keys(record).sort();
+  return `{${keys
+    .map((key) => `${JSON.stringify(key)}:${canonicalizeJson(record[key])}`)
+    .join(",")}}`;
+};
+
+const parseIsoTimestamp = (value: string): Date | null => {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+  return parsed;
+};
+
+const parseExpiryInstant = (value: string): Date | null => {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const parsed = new Date(`${value}T23:59:59.999`);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+  return parseIsoTimestamp(value);
+};
+
+const validateLicensePayload = (payload: unknown): { ok: boolean; payload?: LicenseData; error?: string } => {
+  if (!isPlainObject(payload)) {
+    return { ok: false, error: "Invalid license payload" };
+  }
+  if (!hasExactKeys(payload, LICENSE_PAYLOAD_KEYS)) {
+    return { ok: false, error: "Invalid license payload" };
+  }
+  const licenseId = payload.license_id;
+  if (typeof licenseId !== "string" || !LICENSE_ID_PATTERN.test(licenseId)) {
+    return { ok: false, error: "Invalid license id" };
+  }
+  const deviceId = payload.device_id;
+  if (typeof deviceId !== "string" || !deviceId.trim()) {
+    return { ok: false, error: "Invalid license device" };
+  }
+  const licenseType = payload.license_type;
+  if (licenseType !== "monthly" && licenseType !== "yearly" && licenseType !== "perpetual") {
+    return { ok: false, error: "Invalid license type" };
+  }
+  const expiresAt = payload.expires_at;
+  if (expiresAt !== null && typeof expiresAt !== "string") {
+    return { ok: false, error: "Invalid license expiration" };
+  }
+  if (licenseType === "perpetual" && expiresAt !== null) {
+    return { ok: false, error: "Perpetual licenses must not expire" };
+  }
+  if (licenseType !== "perpetual" && (!expiresAt || typeof expiresAt !== "string")) {
+    return { ok: false, error: "Expiring licenses must include expires_at" };
+  }
+  if (expiresAt && !parseExpiryInstant(expiresAt)) {
+    return { ok: false, error: "Invalid expires_at" };
+  }
+  const issuedAt = payload.issued_at;
+  if (typeof issuedAt !== "string" || !parseIsoTimestamp(issuedAt)) {
+    return { ok: false, error: "Invalid issued_at" };
+  }
+  return { ok: true, payload: payload as LicenseData };
+};
+
+const verifySignedLicense = (signed: unknown): { ok: boolean; payload?: LicenseData; error?: string } => {
+  if (!isPlainObject(signed)) {
+    return { ok: false, error: "Invalid license file" };
+  }
+  if (!hasExactKeys(signed, LICENSE_FILE_KEYS)) {
+    return { ok: false, error: "Invalid license file" };
+  }
+  const signature = signed.signature;
+  if (typeof signature !== "string" || !signature.trim()) {
+    return { ok: false, error: "Missing license signature" };
+  }
+  const payloadResult = validateLicensePayload(signed.payload);
+  if (!payloadResult.ok || !payloadResult.payload) {
+    return payloadResult;
+  }
+  const publicKeyBytes = base64ToBytes(LICENSE_PUBLIC_KEY_BASE64);
+  if (!publicKeyBytes || publicKeyBytes.length !== 32) {
+    return { ok: false, error: "License public key not configured" };
+  }
+  const signatureBytes = base64ToBytes(signature);
+  if (!signatureBytes || signatureBytes.length !== 64) {
+    return { ok: false, error: "Invalid license signature" };
+  }
+  const canonicalPayload = canonicalizeJson(payloadResult.payload);
+  const message = new TextEncoder().encode(canonicalPayload);
+  const verified = nacl.sign.detached.verify(message, signatureBytes, publicKeyBytes);
+  if (!verified) {
+    return { ok: false, error: "Invalid license signature" };
+  }
+  return { ok: true, payload: payloadResult.payload };
 };
 
 export interface LicenseReadResult {
@@ -221,24 +367,40 @@ export function getLicenseStateFromData(
   licenseData: LicenseData | null
 ): LicenseState {
   if (!licenseData) return "FREE";
-  if (licenseData.license_type === "free") return "FREE";
-  if (licenseData.status !== "active") return "EXPIRED";
-  if (!["monthly", "yearly", "perpetual"].includes(licenseData.license_type)) {
-    return "ERROR";
-  }
+  if (!licenseData.license_id || !licenseData.device_id) return "ERROR";
+  if (!licenseData.issued_at) return "ERROR";
+  if (!licenseData.license_type) return "ERROR";
 
   if (licenseData.license_type === "perpetual") {
     return licenseData.expires_at === null ? "ACTIVE" : "ERROR";
   }
 
-  if (licenseData.expires_at === null || !isValidDateString(licenseData.expires_at)) {
+  if (!licenseData.expires_at) {
     return "ERROR";
   }
 
-  const expiresAt = new Date(`${licenseData.expires_at}T23:59:59`);
+  const expiresAt = parseExpiryInstant(licenseData.expires_at);
+  if (!expiresAt) return "ERROR";
   const now = new Date();
   return now <= expiresAt ? "ACTIVE" : "EXPIRED";
 }
+
+const readSignedLicenseFile = async (): Promise<{ signed: SignedLicense | null; error?: string }> => {
+  if (typeof window === "undefined" || !window.electronAPI?.readLicenseFile) {
+    return { signed: null };
+  }
+  try {
+    const response = await window.electronAPI.readLicenseFile();
+    if (!response.exists || !response.contents) {
+      return { signed: null };
+    }
+    const parsed = JSON.parse(response.contents) as SignedLicense;
+    return { signed: parsed };
+  } catch (error) {
+    console.error("[License] Failed to parse license file:", error);
+    return { signed: null, error: "Invalid license file" };
+  }
+};
 
 export async function loadLicenseFromDisk(): Promise<LicenseState> {
   if (typeof window === "undefined" || !window.electronAPI?.readLicenseFile) {
@@ -247,25 +409,29 @@ export async function loadLicenseFromDisk(): Promise<LicenseState> {
   }
 
   try {
-    const storedDeviceId = await readStoredDeviceId();
-    const response = await window.electronAPI.readLicenseFile();
-    if (!response.exists || !response.contents) {
+    const { signed, error } = await readSignedLicenseFile();
+    if (!signed) {
+      if (error) {
+        setAppLicenseState("ERROR");
+        return "ERROR";
+      }
       setAppLicenseState("FREE");
       return "FREE";
     }
 
-    const parsed = JSON.parse(response.contents) as LicenseData;
-    if (!parsed.device_id) {
+    const verification = verifySignedLicense(signed);
+    if (!verification.ok || !verification.payload) {
       setAppLicenseState("ERROR");
       return "ERROR";
     }
-    if (!storedDeviceId) {
-      await persistDeviceId(parsed.device_id);
-    } else if (parsed.device_id !== storedDeviceId) {
+
+    const deviceId = await getOrCreateDeviceId();
+    if (verification.payload.device_id !== deviceId) {
       setAppLicenseState("ERROR");
       return "ERROR";
     }
-    const nextState = getLicenseStateFromData(parsed);
+
+    const nextState = getLicenseStateFromData(verification.payload);
     setAppLicenseState(nextState);
     return nextState;
   } catch (error) {
@@ -280,50 +446,46 @@ export async function readLicenseDataFromDisk(): Promise<LicenseReadResult> {
     return { data: null };
   }
 
-  try {
-    const storedDeviceId = await readStoredDeviceId();
-    const response = await window.electronAPI.readLicenseFile();
-    if (!response.exists || !response.contents) {
-      return { data: null };
-    }
-
-    const parsed = JSON.parse(response.contents) as LicenseData;
-    if (!parsed.device_id) {
-      return { data: parsed, error: "Invalid license file" };
-    }
-    if (!storedDeviceId) {
-      await persistDeviceId(parsed.device_id);
-    } else if (parsed.device_id !== storedDeviceId) {
-      return { data: parsed, error: "License bound to another device" };
-    }
-    return { data: parsed };
-  } catch (error) {
-    console.error("[License] Failed to parse license file:", error);
-    return { data: null, error: "Invalid license file" };
+  const { signed, error } = await readSignedLicenseFile();
+  if (!signed) {
+    return { data: null, error };
   }
+
+  const verification = verifySignedLicense(signed);
+  if (!verification.ok || !verification.payload) {
+    return { data: null, error: verification.error || "Invalid license file" };
+  }
+
+  const deviceId = await getOrCreateDeviceId();
+  if (verification.payload.device_id !== deviceId) {
+    return { data: null, error: "License bound to another device" };
+  }
+
+  return { data: verification.payload };
 }
 
-export async function activateLicense(licenseData: LicenseData): Promise<void> {
+export async function activateLicense(signedLicense: SignedLicense): Promise<void> {
   if (typeof window === "undefined" || !window.electronAPI?.writeLicenseFile) {
     return;
   }
 
-  await window.electronAPI.writeLicenseFile(licenseData);
+  const verification = verifySignedLicense(signedLicense);
+  if (!verification.ok || !verification.payload) {
+    throw new Error(verification.error || "Invalid license file");
+  }
+
+  const deviceId = await getOrCreateDeviceId();
+  if (verification.payload.device_id !== deviceId) {
+    throw new Error("License bound to another device");
+  }
+
+  await window.electronAPI.writeLicenseFile(signedLicense);
 }
 
-const mockActivationResponse = (deviceId: string): LicenseData => ({
-  device_id: deviceId,
-  status: "active",
-  license_type: "yearly",
-  expires_at: "2026-12-31",
-  last_checked_at: new Date().toISOString(),
-});
-
 export async function requestActivationFromServer(
-  deviceId: string
-): Promise<LicenseData> {
-  // TODO: Replace mock response with real activation server call.
-  return mockActivationResponse(deviceId);
+  _deviceId: string
+): Promise<SignedLicense> {
+  throw new Error("Activation must be completed on the Organia website.");
 }
 
 export type ReferralLinkResult = {
@@ -502,5 +664,3 @@ export function checkFreePlanLimit({
 
   return { allowed: true };
 }
-
-
