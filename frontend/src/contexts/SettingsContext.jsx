@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { getNotificationPreferences } from "../utils/scheduledNotifications";
 import { formatDateTimeValue, formatDateValue, getDefaultDateFormat } from "../utils/dateFormat";
-import { DEFAULT_LANGUAGE, SUPPORTED_LANGUAGE_CODES, getLanguageLocale } from "../i18n/config";
+import { DEFAULT_LANGUAGE, getInitialLanguage, getLanguageLocale, getSystemLanguage } from "../i18n/config";
 import { i18nInstance } from "../i18n";
 import { DEFAULT_CURRENCY, formatCurrency as formatCurrencyValue, getCurrencyDisplayLabel, getCurrencyFromSettings, normalizeCurrencyCode } from "../utils/currency";
 
@@ -36,9 +36,11 @@ export function SettingsProvider({ children }) {
         const parsed = JSON.parse(raw);
         if (parsed?.settings) {
           const parsedSettings = { ...DEFAULT_SETTINGS, ...parsed.settings };
-          if (!SUPPORTED_LANGUAGE_CODES.includes(parsedSettings.language)) {
-            parsedSettings.language = DEFAULT_LANGUAGE;
-          }
+          const storedLanguage =
+            typeof parsed.settings?.language === "string" ? parsed.settings.language : null;
+          parsedSettings.language = storedLanguage
+            ? getInitialLanguage(storedLanguage)
+            : getSystemLanguage();
           parsedSettings.currency = normalizeCurrencyCode(parsedSettings.currency);
           return parsedSettings;
         }
@@ -46,7 +48,10 @@ export function SettingsProvider({ children }) {
     } catch (error) {
       console.warn("[Settings] Failed to load settings from storage", error);
     }
-    return DEFAULT_SETTINGS;
+    return {
+      ...DEFAULT_SETTINGS,
+      language: getSystemLanguage(),
+    };
   });
 
   // Initialize notification preferences synchronously
@@ -88,9 +93,7 @@ export function SettingsProvider({ children }) {
   const updateSettings = useCallback((patch) => {
     setSettings(prev => {
       const next = { ...prev, ...(typeof patch === "function" ? patch(prev) : patch) };
-      if (!SUPPORTED_LANGUAGE_CODES.includes(next.language)) {
-        next.language = DEFAULT_LANGUAGE;
-      }
+      next.language = getInitialLanguage(next.language);
       next.currency = normalizeCurrencyCode(next.currency);
       return next;
     });

@@ -20,10 +20,21 @@ export const SUPPORTED_LANGUAGE_CODES: LanguageCode[] = LANGUAGE_REGISTRY.map(
   (language) => language.code
 );
 
+const normalizeLanguageCode = (code: string | undefined | null): LanguageCode | null => {
+  if (!code) return null;
+  const primary = code.toLowerCase().split(/[-_]/)[0];
+  return SUPPORTED_LANGUAGE_CODES.includes(primary as LanguageCode)
+    ? (primary as LanguageCode)
+    : null;
+};
+
 export const getLanguageDefinition = (
   code: string | undefined
 ): LanguageDefinition => {
-  const normalized = LANGUAGE_REGISTRY.find((language) => language.code === code);
+  const normalizedCode = normalizeLanguageCode(code);
+  const normalized = LANGUAGE_REGISTRY.find(
+    (language) => language.code === normalizedCode
+  );
   return (
     normalized ??
     LANGUAGE_REGISTRY.find((language) => language.code === DEFAULT_LANGUAGE)! // DEFAULT_LANGUAGE is in registry
@@ -37,7 +48,30 @@ export const getLanguageLocale = (code: string | undefined): string =>
   getLanguageDefinition(code).locale;
 
 export const getInitialLanguage = (requested?: string): LanguageCode => {
-  return SUPPORTED_LANGUAGE_CODES.includes(requested as LanguageCode)
-    ? (requested as LanguageCode)
-    : DEFAULT_LANGUAGE;
+  return normalizeLanguageCode(requested) ?? DEFAULT_LANGUAGE;
+};
+
+export const getSystemLanguage = (): LanguageCode => {
+  const candidates: string[] = [];
+  if (typeof navigator !== "undefined") {
+    if (Array.isArray(navigator.languages)) {
+      candidates.push(...navigator.languages);
+    }
+    if (navigator.language) {
+      candidates.push(navigator.language);
+    }
+  }
+  try {
+    const resolved = Intl.DateTimeFormat().resolvedOptions().locale;
+    if (resolved) {
+      candidates.push(resolved);
+    }
+  } catch {
+    // Ignore environments without Intl locale resolution
+  }
+  for (const candidate of candidates) {
+    const normalized = normalizeLanguageCode(candidate);
+    if (normalized) return normalized;
+  }
+  return DEFAULT_LANGUAGE;
 };
