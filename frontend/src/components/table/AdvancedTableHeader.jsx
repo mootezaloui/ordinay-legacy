@@ -52,14 +52,13 @@ export default function AdvancedTableHeader({
   const getColumnStyle = (column) => {
     const style = {};
     if (column.width) style.width = `${column.width}px`;
-    // Ensure minimum width for table-fixed layout stability
-    style.minWidth = column.minWidth ? `${column.minWidth}px` : '100px';
+    if (column.minWidth) style.minWidth = `${column.minWidth}px`;
     if (column.maxWidth) style.maxWidth = `${column.maxWidth}px`;
     return style;
   };
 
   return (
-    <thead className="bg-slate-100/70 dark:bg-slate-800 border-b border-slate-300 dark:border-slate-700">
+    <thead className="hidden sm:table-header-group bg-slate-100/70 dark:bg-slate-800 border-b border-slate-300 dark:border-slate-700">
       <tr>
         {columns.map((column, index) => {
           const isSorted = sortBy === column.id;
@@ -80,7 +79,7 @@ export default function AdvancedTableHeader({
               onDragEnd={handleDragEnd}
               style={getColumnStyle(column)}
             className={`
-                h-12 px-6 py-3 text-left text-[11px] font-semibold uppercase tracking-wider
+                h-10 lg:h-12 px-4 lg:px-6 py-2.5 lg:py-3 text-left text-[10px] lg:text-[11px] font-semibold uppercase tracking-wider
                 transition-colors duration-150
                 ${isEmpty
                   ? "text-slate-400 dark:text-slate-500"
@@ -94,7 +93,7 @@ export default function AdvancedTableHeader({
             >
               {/* When empty: just show label. When populated: show full controls */}
               {isEmpty ? (
-                <span className="block truncate">{column.label}</span>
+                <span className="block break-words whitespace-normal lg:truncate">{column.label}</span>
               ) : (
                 <div className="flex items-center gap-2 h-full">
                   {/* Drag handle */}
@@ -110,7 +109,7 @@ export default function AdvancedTableHeader({
                   )}
 
                   {/* Column label */}
-                  <span className="flex-1 truncate">{column.label}</span>
+                  <span className="flex-1 break-words whitespace-normal lg:truncate">{column.label}</span>
 
                   {/* Sort indicator */}
                   {isSortable && (

@@ -549,6 +549,10 @@ export default function Officers() {
           totalItems={table.originalTotalItems}
           filteredItems={table.totalItems}
           isFiltering={table.isFiltering}
+          sortBy={table.sortBy}
+          sortDirection={table.sortDirection}
+          onSort={table.handleSort}
+          onResetSort={table.resetToIntelligentOrder}
         />
 
         <Table>
@@ -572,6 +576,11 @@ export default function Officers() {
                 {table.columns.map((column) => (
                   <TableCell
                     key={column.id}
+                    columnId={column.id}
+                    mobileLabel={column.label}
+                    mobileRole={column.mobileRole}
+                    mobilePriority={column.mobilePriority}
+                    mobileHidden={column.mobileHidden}
                     truncate={!['status', 'priority'].includes(column.id)}
                     adaptive={['status', 'priority'].includes(column.id)}
                   >

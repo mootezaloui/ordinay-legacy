@@ -1,14 +1,19 @@
 import { Link, useLocation } from "react-router-dom";
 import { useTheme } from "../../contexts/theme";
 import { useSidebar } from "../../contexts/SidebarContext";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 export default function Sidebar() {
-  const { isCollapsed, toggleSidebar } = useSidebar();
+  const { isCollapsed, toggleSidebar, isMobileOpen, closeMobile } = useSidebar();
   const { isDark, toggleTheme } = useTheme();
   const location = useLocation();
+  const prevPathRef = useRef(location.pathname);
   const [activeFlash, setActiveFlash] = useState(false);
+  const [isMobileViewport, setIsMobileViewport] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.matchMedia("(max-width: 767px)").matches;
+  });
   const { t } = useTranslation("layout");
   const handleExit = () => {
     if (typeof window !== "undefined" && typeof window.close === "function") {
@@ -26,6 +31,24 @@ export default function Sidebar() {
     return () => clearTimeout(timer);
   }, [location.pathname]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const media = window.matchMedia("(max-width: 767px)");
+    const handleChange = () => setIsMobileViewport(media.matches);
+    handleChange();
+    media.addEventListener("change", handleChange);
+    return () => media.removeEventListener("change", handleChange);
+  }, []);
+
+  useEffect(() => {
+    if (prevPathRef.current !== location.pathname && isMobileOpen) {
+      closeMobile();
+    }
+    prevPathRef.current = location.pathname;
+  }, [location.pathname, isMobileOpen, closeMobile]);
+
+  const isCompact = isCollapsed && !isMobileViewport;
+
   // Grouped navigation structure
   const navigationGroups = [
     {
@@ -36,7 +59,7 @@ export default function Sidebar() {
     },
     {
       id: "core",
-      label: !isCollapsed ? t("sidebar.groups.core", { defaultValue: "Core" }) : null,
+      label: !isCompact ? t("sidebar.groups.core", { defaultValue: "Core" }) : null,
       items: [
         { icon: "fas fa-users", label: t("sidebar.clients"), route: "/clients" },
         { icon: "fas fa-folder-open", label: t("sidebar.dossiers"), route: "/dossiers" },
@@ -45,7 +68,7 @@ export default function Sidebar() {
     },
     {
       id: "workflow",
-      label: !isCollapsed ? t("sidebar.groups.workflow", { defaultValue: "Workflow" }) : null,
+      label: !isCompact ? t("sidebar.groups.workflow", { defaultValue: "Workflow" }) : null,
       items: [
         { icon: "fas fa-tasks", label: t("sidebar.tasks"), route: "/tasks" },
         { icon: "fas fa-calendar", label: t("sidebar.sessions"), route: "/sessions" },
@@ -54,7 +77,7 @@ export default function Sidebar() {
     },
     {
       id: "operations",
-      label: !isCollapsed ? t("sidebar.groups.operations", { defaultValue: "Operations" }) : null,
+      label: !isCompact ? t("sidebar.groups.operations", { defaultValue: "Operations" }) : null,
       items: [
         { icon: "fas fa-user-tie", label: t("sidebar.officers"), route: "/officers" },
         { icon: "fas fa-calculator", label: t("sidebar.accounting"), route: "/accounting" },
@@ -62,7 +85,7 @@ export default function Sidebar() {
     },
     {
       id: "tools",
-      label: !isCollapsed ? t("sidebar.groups.tools", { defaultValue: "Tools" }) : null,
+      label: !isCompact ? t("sidebar.groups.tools", { defaultValue: "Tools" }) : null,
       items: [
         { icon: "fas fa-robot", label: t("sidebar.chatbot"), route: "/chatbot" },
       ]
@@ -71,13 +94,14 @@ export default function Sidebar() {
 
   return (
     <aside
-      className={`sidebar-shell fixed left-0 flex flex-col transition-all duration-300 border-r z-40 titlebar-offset-top titlebar-offset-height ${isCollapsed ? "w-[72px]" : "w-64"
-        } bg-background text-foreground border-border`}
+      id="mobile-sidebar"
+      className={`sidebar-shell fixed left-0 flex flex-col transition-all duration-300 border-r z-40 titlebar-offset-top titlebar-offset-height bg-background text-foreground border-border ${isMobileOpen ? "translate-x-0" : "-translate-x-full"
+        } md:translate-x-0 ${isCollapsed ? "md:w-[72px]" : "md:w-64"} w-[84vw] max-w-[320px]`}
     >
       {/* Toggle */}
       <button
         onClick={toggleSidebar}
-        className="absolute -right-3 top-6 rounded-full p-1.5 border shadow-sm focus:outline-none focus:ring-2 focus:ring-primary bg-card border-border hover:bg-muted z-50 transition-all"
+        className="absolute -right-3 top-6 rounded-full p-1.5 border shadow-sm focus:outline-none focus:ring-2 focus:ring-primary bg-card border-border hover:bg-muted z-50 transition-all hidden md:flex"
         aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
       >
         <i className={`${isCollapsed ? "fas fa-chevron-right text-xs" : "fas fa-chevron-left text-xs"} text-muted-foreground`}></i>
@@ -89,7 +113,7 @@ export default function Sidebar() {
           {navigationGroups.map((group) => (
             <div key={group.id} className="sidebar-group px-3">
               {/* Section label - only show when expanded */}
-              {group.label && !isCollapsed && (
+              {group.label && !isCompact && (
                 <div className="px-3 mb-2">
                   <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
                     {group.label}
@@ -98,7 +122,7 @@ export default function Sidebar() {
               )}
 
               {/* Collapsed section indicator */}
-              {group.label && isCollapsed && group.id !== "primary" && (
+              {group.label && isCompact && group.id !== "primary" && (
                 <div className="flex justify-center mb-2">
                   <div className="w-6 h-px bg-border"></div>
                 </div>
@@ -112,6 +136,11 @@ export default function Sidebar() {
                     <li key={item.route}>
                       <Link
                         to={item.route}
+                        onClick={() => {
+                          if (isMobileOpen) {
+                            closeMobile();
+                          }
+                        }}
                         data-tutorial={
                           item.route === "/dashboard" ? "sidebar-dashboard-link" :
                             item.route === "/clients" ? "sidebar-clients-link" :
@@ -122,7 +151,7 @@ export default function Sidebar() {
                                       item.route === "/accounting" ? "sidebar-accounting-link" :
                                         undefined
                         }
-                        className={`sidebar-item group relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 ${isCollapsed ? "justify-center" : "justify-start"
+                        className={`sidebar-item group relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 ${isCompact ? "justify-center" : "justify-start"
                           } ${isActive
                             ? "bg-primary text-primary-foreground shadow-lg shadow-primary/30"
                             : "hover:bg-muted text-foreground hover:shadow-sm"
@@ -140,7 +169,7 @@ export default function Sidebar() {
                         </span>
 
                         {/* Label */}
-                        {!isCollapsed && (
+                        {!isCompact && (
                           <span
                             className={`text-[13px] font-medium transition-all duration-200 ${isActive
                                 ? "text-primary-foreground"
@@ -157,7 +186,7 @@ export default function Sidebar() {
                         )}
 
                         {/* Tooltip for collapsed state */}
-                        {isCollapsed && (
+                        {isCompact && (
                           <span className="absolute left-full ml-4 px-3 py-1.5 bg-foreground text-background text-xs font-medium rounded-lg opacity-0 invisible pointer-events-none group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-50 shadow-xl">
                             {item.label}
                             <span className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-foreground"></span>
@@ -179,18 +208,18 @@ export default function Sidebar() {
           {/* Theme toggle */}
           <button
             onClick={toggleTheme}
-            className={`w-full group flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 hover:bg-muted text-foreground hover:shadow-sm ${isCollapsed ? "justify-center" : "justify-start"
+            className={`w-full group flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 hover:bg-muted text-foreground hover:shadow-sm ${isCompact ? "justify-center" : "justify-start"
               }`}
           >
             <span className="relative flex items-center justify-center w-5">
               <i className={`${isDark ? "fas fa-sun" : "fas fa-moon"} text-base text-muted-foreground group-hover:text-amber-500 transition-all duration-200`}></i>
             </span>
-            {!isCollapsed && (
+            {!isCompact && (
               <span className="text-[13px] font-medium">{isDark ? t("sidebar.theme.light") : t("sidebar.theme.dark")}</span>
             )}
 
             {/* Tooltip for collapsed */}
-            {isCollapsed && (
+            {isCompact && (
               <span className="absolute left-full ml-4 px-3 py-1.5 bg-foreground text-background text-xs font-medium rounded-lg opacity-0 invisible pointer-events-none group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-50 shadow-xl">
                 {isDark ? t("sidebar.theme.light") : t("sidebar.theme.dark")}
                 <span className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-foreground"></span>
@@ -201,18 +230,18 @@ export default function Sidebar() {
           {/* Exit button */}
           <button
             onClick={handleExit}
-            className={`w-full group flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 hover:bg-red-50 dark:hover:bg-red-950/50 text-foreground hover:text-red-600 dark:hover:text-red-400 ${isCollapsed ? "justify-center" : "justify-start"
+            className={`w-full group flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 hover:bg-red-50 dark:hover:bg-red-950/50 text-foreground hover:text-red-600 dark:hover:text-red-400 ${isCompact ? "justify-center" : "justify-start"
               }`}
           >
             <span className="relative flex items-center justify-center w-5">
               <i className="fas fa-sign-out-alt text-base text-red-500 dark:text-red-400 transition-all duration-200"></i>
             </span>
-            {!isCollapsed && (
+            {!isCompact && (
               <span className="text-[13px] font-medium text-red-600 dark:text-red-400">{t("sidebar.exitApp")}</span>
             )}
 
             {/* Tooltip for collapsed */}
-            {isCollapsed && (
+            {isCompact && (
               <span className="absolute left-full ml-4 px-3 py-1.5 bg-foreground text-background text-xs font-medium rounded-lg opacity-0 invisible pointer-events-none group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-50 shadow-xl">
                 {t("sidebar.exitApp")}
                 <span className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-foreground"></span>
@@ -222,9 +251,9 @@ export default function Sidebar() {
         </div>
 
         {/* Version footer */}
-        <div className={`px-4 py-3 ${isCollapsed ? "text-center" : ""}`}>
+        <div className={`px-4 py-3 ${isCompact ? "text-center" : ""}`}>
           <p className="text-[10px] text-muted-foreground font-medium">
-            {isCollapsed ? "©" : "© 2025"}
+            {isCompact ? "©" : "© 2025"}
           </p>
         </div>
       </div>

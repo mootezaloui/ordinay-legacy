@@ -76,6 +76,7 @@ export default function Lawsuits() {
       label: t("table.columns.lawsuitNumber"),
       sortable: true,
       locked: true,
+      mobilePriority: 1,
       render: (lawsuitItem) => (
         <span className="font-mono text-xs font-semibold text-purple-600 dark:text-purple-400">
           {lawsuitItem.lawsuitNumber}
@@ -86,6 +87,7 @@ export default function Lawsuits() {
       id: "title",
       label: t("table.columns.title"),
       sortable: true,
+      mobileRole: "primary",
       render: (lawsuitItem) => <span className="font-medium">{lawsuitItem.title}</span>,
     },
     {
@@ -547,6 +549,10 @@ export default function Lawsuits() {
             totalItems={table.originalTotalItems}
             filteredItems={table.totalItems}
             isFiltering={table.isFiltering}
+            sortBy={table.sortBy}
+            sortDirection={table.sortDirection}
+            onSort={table.handleSort}
+            onResetSort={table.resetToIntelligentOrder}
           />
 
         <Table>
@@ -570,6 +576,11 @@ export default function Lawsuits() {
                 {table.columns.map((column) => (
                   <TableCell
                     key={column.id}
+                    columnId={column.id}
+                    mobileLabel={column.label}
+                    mobileRole={column.mobileRole}
+                    mobilePriority={column.mobilePriority}
+                    mobileHidden={column.mobileHidden}
                     truncate={!['status', 'priority'].includes(column.id)}
                     adaptive={['status', 'priority'].includes(column.id)}
                   >

@@ -4,9 +4,15 @@
  * Provides consistent styling for action buttons
  */
 
-export default function TableActions({ children, className = "" }) {
+export default function TableActions({
+  children,
+  className = "",
+  mobileHidden = true
+}) {
+  const baseClass = mobileHidden ? "hidden md:flex" : "flex";
+
   return (
-    <div className={`flex items-center gap-2 ${className}`}>
+    <div className={`${baseClass} items-center gap-2 ${className}`}>
       {children}
     </div>
   );

@@ -85,6 +85,27 @@ export default function Settings() {
 
       <div className="flex flex-col lg:flex-row gap-6">
         <nav className="lg:w-64 flex-shrink-0">
+          {/* Mobile selector */}
+          <div className="lg:hidden mb-4">
+            <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-2">
+              {t("page.selectSection", { defaultValue: "Select section" })}
+            </label>
+            <select
+              value={activeDomainId}
+              onChange={(e) => setActiveDomainId(e.target.value)}
+              className="w-full px-4 py-2.5 border border-slate-300 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+            >
+              {SETTINGS_DOMAINS.map((domain) => (
+                <option key={domain.id} value={domain.id}>
+                  {domain.label}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
+              {activeDomain.description}
+            </p>
+          </div>
+
           <div className="flex lg:flex-col gap-2 overflow-x-auto lg:overflow-visible pb-2 lg:pb-0">
             {primaryDomains.map((domain) => {
               const isActive = domain.id === activeDomainId;
@@ -92,7 +113,7 @@ export default function Settings() {
                 <button
                   key={domain.id}
                   onClick={() => setActiveDomainId(domain.id)}
-                  className={`min-w-[160px] lg:min-w-0 px-4 py-3 rounded-lg border text-left transition-colors ${
+                  className={`hidden lg:block min-w-[160px] lg:min-w-0 px-4 py-3 rounded-lg border text-left transition-colors ${
                     isActive
                       ? 'bg-blue-600 border-blue-600 text-white'
                       : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:border-blue-400'
@@ -124,7 +145,7 @@ export default function Settings() {
                     <button
                       key={domain.id}
                       onClick={() => setActiveDomainId(domain.id)}
-                      className={`min-w-[160px] lg:min-w-0 px-4 py-3 rounded-lg border text-left transition-colors ${
+                      className={`hidden lg:block min-w-[160px] lg:min-w-0 px-4 py-3 rounded-lg border text-left transition-colors ${
                         isActive
                           ? 'bg-blue-600 border-blue-600 text-white'
                           : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:border-blue-400'

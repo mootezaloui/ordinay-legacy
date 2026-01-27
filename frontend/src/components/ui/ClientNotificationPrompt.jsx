@@ -66,12 +66,12 @@ export default function ClientNotificationPrompt({
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+        className="fixed inset-0 bg-black/50 z-50 flex items-stretch md:items-center justify-center p-0 md:p-4 pt-[var(--titlebar-height)] md:pt-[calc(var(--titlebar-height)+16px)]"
         onClick={handleDecline}
       >
         {/* Modal */}
         <div
-          className="bg-white dark:bg-slate-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden"
+          className="bg-white dark:bg-slate-800 rounded-none md:rounded-lg shadow-xl w-full h-full md:h-auto md:max-w-2xl md:max-h-[90vh] overflow-hidden flex flex-col"
           onClick={(e) => e.stopPropagation()}
           data-tutorial="client-notification-modal"
         >
@@ -100,7 +100,7 @@ export default function ClientNotificationPrompt({
           </div>
 
           {/* Body */}
-          <div className="p-6 space-y-4 overflow-y-auto overscroll-contain max-h-[60vh]">
+          <div className="p-6 space-y-4 overflow-y-auto overscroll-contain flex-1 min-h-0 md:max-h-[60vh]">
             {/* Client Info */}
             {emailPreview && (
               <div className="bg-slate-50 dark:bg-slate-900/50 rounded-lg p-4 space-y-2">
@@ -169,18 +169,18 @@ export default function ClientNotificationPrompt({
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-end gap-3 p-6 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
+          <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-3 p-6 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
             <button
               onClick={handleDecline}
               disabled={isSending}
-              className="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {t('clientEmail.modal.actions.decline')}
             </button>
             <button
               onClick={handleConfirm}
               disabled={isSending}
-              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full sm:w-auto flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed justify-center"
             >
               {isSending ? (
                 <>

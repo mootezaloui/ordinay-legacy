@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { canPerformAction } from "../../services/domainRules";
 import BlockerModal from "../ui/BlockerModal";
 import { createPortal } from "react-dom";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetClose } from "../ui/sheet";
 
 // Global state to track which dropdown is currently open
 let currentOpenPriorityDropdown = null;
@@ -34,12 +35,22 @@ export default function InlinePrioritySelector({
   const { t } = useTranslation(resolvedNamespace);
 
   const [isOpen, setIsOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const [blockerModalOpen, setBlockerModalOpen] = useState(false);
   const [validationResult, setValidationResult] = useState(null);
   const [pendingPriority, setPendingPriority] = useState(null);
   const buttonRef = useRef(null);
   const dropdownIdRef = useRef(Symbol('priority-dropdown'));
   const [menuPosition, setMenuPosition] = useState(null); // null until computed to avoid flash at (0,0)
+
+  useEffect(() => {
+    const updateIsMobile = () => {
+      setIsMobile(window.matchMedia("(max-width: 767px)").matches);
+    };
+    updateIsMobile();
+    window.addEventListener("resize", updateIsMobile);
+    return () => window.removeEventListener("resize", updateIsMobile);
+  }, []);
 
   const translatePriorityValue = useCallback((priorityValue) => {
     if (!priorityValue) return "";
@@ -189,6 +200,11 @@ export default function InlinePrioritySelector({
       }));
     }
 
+    if (isMobile) {
+      setIsOpen((prev) => !prev);
+      return;
+    }
+
     if (!isOpen) {
       const pos = computeMenuPosition();
       setMenuPosition(pos);
@@ -244,6 +260,26 @@ export default function InlinePrioritySelector({
     "Low": "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
   };
 
+  const menuList = (
+    <div className="py-1">
+      {computedPriorityOptions.map((priority) => (
+        <button
+          key={priority.value}
+          onClick={(e) => handlePriorityClick(e, priority.value)}
+          className={`w-full text-left px-4 py-2 text-sm flex items-center gap-3 transition-colors hover:bg-slate-300 dark:hover:bg-slate-700 ${
+            priority.value === value ? "bg-blue-50 dark:bg-blue-900/20" : ""
+          }`}
+        >
+          {priority.icon && <i className={`${priority.icon} ${priority.color} w-4`}></i>}
+          <span className="text-slate-900 dark:text-white">{priority.label}</span>
+          {priority.value === value && (
+            <i className="fas fa-check text-blue-600 dark:text-blue-400 ml-auto text-xs"></i>
+          )}
+        </button>
+      ))}
+    </div>
+  );
+
   return (
     <>
       <button
@@ -261,32 +297,35 @@ export default function InlinePrioritySelector({
         )}
       </button>
 
-      {isOpen && menuPosition && createPortal(
-        <div
-          className="fixed w-48 bg-white dark:bg-slate-800 rounded-lg shadow-2xl border border-slate-200 dark:border-slate-700 py-1"
-          style={{
-            top: `${menuPosition.top}px`,
-            left: `${menuPosition.left}px`,
-            zIndex: 9999,
-          }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {computedPriorityOptions.map((priority) => (
-            <button
-              key={priority.value}
-              onClick={(e) => handlePriorityClick(e, priority.value)}
-              className={`w-full text-left px-4 py-2 text-sm flex items-center gap-3 transition-colors hover:bg-slate-300 dark:hover:bg-slate-700 ${priority.value === value ? "bg-blue-50 dark:bg-blue-900/20" : ""
-                }`}
-            >
-              {priority.icon && <i className={`${priority.icon} ${priority.color} w-4`}></i>}
-              <span className="text-slate-900 dark:text-white">{priority.label}</span>
-              {priority.value === value && (
-                <i className="fas fa-check text-blue-600 dark:text-blue-400 ml-auto text-xs"></i>
-              )}
-            </button>
-          ))}
-        </div>,
-        document.body
+      {isMobile ? (
+        <Sheet open={isOpen} onOpenChange={setIsOpen}>
+          <SheetContent side="bottom" className="w-full sm:max-w-full">
+            <SheetHeader className="flex flex-row items-center justify-between">
+              <SheetTitle>{t("detail.quickActions.priority.label", { defaultValue: "Priority" })}</SheetTitle>
+              <SheetClose className="h-9 w-9 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                <i className="fas fa-times"></i>
+              </SheetClose>
+            </SheetHeader>
+            <div className="mt-4 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+              {menuList}
+            </div>
+          </SheetContent>
+        </Sheet>
+      ) : (
+        isOpen && menuPosition && createPortal(
+          <div
+            className="fixed w-48 bg-white dark:bg-slate-800 rounded-lg shadow-2xl border border-slate-200 dark:border-slate-700 py-1"
+            style={{
+              top: `${menuPosition.top}px`,
+              left: `${menuPosition.left}px`,
+              zIndex: 9999,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {menuList}
+          </div>,
+          document.body
+        )
       )}
 
       <BlockerModal

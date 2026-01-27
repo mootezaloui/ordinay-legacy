@@ -11,6 +11,12 @@ import { logEntityCreation, logHistoryEvent, EVENT_TYPES } from "../../../servic
 import { useSettings } from "../../../contexts/SettingsContext";
 import { useTranslation } from "react-i18next";
 import { translateStatus, translateAssignee } from "../../../utils/entityTranslations";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "../../ui/dropdown-menu";
 
 /**
  * AggregatedRelatedTab - Generic tab for displaying aggregated related entities
@@ -845,9 +851,9 @@ function ItemRow({ item, parentContext, entityConfig, aggregationType, allowDele
           from: currentLocation.pathname,
           tab: new URLSearchParams(currentLocation.search).get('tab') || 'overview'
         }}
-        className="p-6 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
+        className="p-4 md:p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors rounded-2xl md:rounded-none"
       >
-        <div className="flex items-center gap-4 flex-1">
+        <div className="flex items-start md:items-center gap-4 flex-1">
           {/* Icon */}
           <div className={`w-12 h-12 rounded-lg ${entityConfig.bgColor} flex items-center justify-center flex-shrink-0`}>
             <i className={`${entityConfig.icon} ${entityConfig.iconColor}`}></i>
@@ -899,7 +905,36 @@ function ItemRow({ item, parentContext, entityConfig, aggregationType, allowDele
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Delete Button */}
+            {/* Mobile more menu */}
+            {allowDelete && onDelete && (
+              <div className="md:hidden">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={(e) => e.preventDefault()}
+                      className="h-9 w-9 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 flex items-center justify-center"
+                      aria-label={t("actions.more", { defaultValue: "More actions" })}
+                    >
+                      <i className="fas fa-ellipsis-h text-sm"></i>
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-40">
+                    <DropdownMenuItem
+                      className="text-red-600 focus:text-red-600"
+                      onSelect={(event) => {
+                        event.preventDefault();
+                        onDelete(item.id);
+                      }}
+                    >
+                      {t("actions.delete")}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            )}
+
+            {/* Desktop delete button */}
             {allowDelete && onDelete && (
               <button
                 onClick={(e) => {
@@ -907,7 +942,7 @@ function ItemRow({ item, parentContext, entityConfig, aggregationType, allowDele
                   e.stopPropagation();
                   onDelete(item.id);
                 }}
-                className="p-2 hover:bg-red-100 dark:hover:bg-red-900/20 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                className="hidden md:inline-flex p-2 hover:bg-red-100 dark:hover:bg-red-900/20 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
                 title="Delete"
               >
                 <i className="fas fa-trash text-red-600 dark:text-red-400 text-sm"></i>

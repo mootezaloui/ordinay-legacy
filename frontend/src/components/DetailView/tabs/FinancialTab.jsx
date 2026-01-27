@@ -42,6 +42,12 @@ import { canPerformAction } from "../../../services/domainRules";
 import { resolveDetailRoute } from "../../../utils/routeResolver";
 import GlassModal from "../../ui/GlassModal";
 import { useTranslation } from "react-i18next";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "../../ui/dropdown-menu";
 
 /**
  * FinancialTab Component
@@ -294,6 +300,44 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
     await mutate();
   };
 
+  const statusOptions = [
+    {
+      value: "draft",
+      label: t("detail.financial.status.draft", { ns: "common" }),
+      icon: "fas fa-file",
+      color: "slate",
+    },
+    {
+      value: "confirmed",
+      label: t("detail.financial.status.confirmed", { ns: "common" }),
+      icon: "fas fa-check-circle",
+      color: "blue",
+    },
+    {
+      value: "paid",
+      label: t("detail.financial.status.paid", { ns: "common" }),
+      icon: "fas fa-check-double",
+      color: "green",
+    },
+    {
+      value: "Cancelled",
+      label: t("detail.financial.status.cancelled", { ns: "common" }),
+      icon: "fas fa-times-circle",
+      color: "red",
+    },
+  ];
+
+  const renderStatusSelector = (entry) => (
+    <InlineStatusSelector
+      value={entry.status}
+      onChange={(newStatus) => handleStatusChange(entry.id, newStatus)}
+      entityType="financialEntry"
+      entityId={entry.id}
+      entityData={entry}
+      statusOptions={statusOptions}
+    />
+  );
+
   // Define table columns (memoized to ensure handler closures are stable)
   const columns = useMemo(() => [
     {
@@ -301,6 +345,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
       label: t("detail.financial.columns.date", { ns: "common" }),
       sortable: true,
       locked: true,
+      mobileRole: "meta",
       render: (entry) => (
         <span className="text-sm font-medium text-slate-900 dark:text-white">
           {formatDateValue(entry.date)}
@@ -311,6 +356,8 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
       id: "description",
       label: t("detail.financial.columns.entry", { ns: "common" }),
       sortable: true,
+      mobileRole: "primary",
+      mobilePriority: 1,
       render: (entry) => (
         <div className="flex flex-col max-w-md">
           <span className="font-medium text-slate-900 dark:text-white truncate" title={entry.title || entry.description || "Untitled"}>
@@ -337,6 +384,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
       id: "type",
       label: t("detail.financial.columns.type", { ns: "common" }),
       sortable: true,
+      mobilePriority: 2,
       render: (entry) => (
         <span
           className={`px-2 py-1 rounded-full text-xs font-medium ${entry.type === "revenue"
@@ -352,6 +400,7 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
       id: "amount",
       label: t("detail.financial.columns.amount", { ns: "common" }),
       sortable: true,
+      mobilePriority: 3,
       render: (entry) => (
         <span
           className={`font-semibold ${entry.type === "revenue"
@@ -367,47 +416,15 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
       id: "status",
       label: t("detail.financial.columns.status", { ns: "common" }),
       sortable: true,
-      render: (entry) => (
-        <InlineStatusSelector
-          value={entry.status}
-          onChange={(newStatus) => handleStatusChange(entry.id, newStatus)}
-          entityType="financialEntry"
-          entityId={entry.id}
-          entityData={entry}
-          statusOptions={[
-            {
-              value: "draft",
-              label: t("detail.financial.status.draft", { ns: "common" }),
-              icon: "fas fa-file",
-              color: "slate",
-            },
-            {
-              value: "confirmed",
-              label: t("detail.financial.status.confirmed", { ns: "common" }),
-              icon: "fas fa-check-circle",
-              color: "blue",
-            },
-            {
-              value: "paid",
-              label: t("detail.financial.status.paid", { ns: "common" }),
-              icon: "fas fa-check-double",
-              color: "green",
-            },
-            {
-              value: "Cancelled",
-              label: t("detail.financial.status.cancelled", { ns: "common" }),
-              icon: "fas fa-times-circle",
-              color: "red",
-            },
-          ]}
-        />
-      ),
+      mobileRole: "status",
+      render: (entry) => renderStatusSelector(entry),
     },
     {
       id: "actions",
       label: t("detail.financial.columns.actions", { ns: "common" }),
       sortable: false,
       locked: true,
+      mobileHidden: true,
       render: (entry) => (
         <TableActions>
           <IconButton
@@ -1448,13 +1465,13 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
 
       {/* Entries Table */}
       <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
-        <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+        <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
             {t("detail.financial.table.title", { ns: "common", count: entries.length })}
           </h3>
           <button
             onClick={handleAddEntry}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors text-sm inline-flex items-center gap-2"
+            className="w-full sm:w-auto px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors text-sm inline-flex items-center gap-2"
           >
             <i className="fas fa-plus"></i>
             {t("page.actions.new")}
@@ -1471,54 +1488,164 @@ export default function FinancialTab({ entityType, entityId, entityData, onUpdat
           totalItems={table.originalTotalItems}
           filteredItems={table.totalItems}
           isFiltering={table.isFiltering}
+          sortBy={table.sortBy}
+          sortDirection={table.sortDirection}
+          onSort={table.handleSort}
+          onResetSort={table.resetToIntelligentOrder}
         />
 
-        <Table>
-          <AdvancedTableHeader
-            columns={table.columns}
-            sortBy={table.sortBy}
-            sortDirection={table.sortDirection}
-            onSort={table.handleSort}
-            onReorder={table.reorderColumns}
-            enableReorder={true}
-            isEmpty={table.data.length === 0}
-          />
-          <TableBody
-            isEmpty={table.data.length === 0}
-            emptyMessage={
-              table.isFiltering
+        {/* Mobile cards */}
+        <div className="md:hidden p-4 space-y-3">
+          {table.data.length === 0 && (
+            <p className="text-sm text-slate-500 dark:text-slate-400 py-6 text-center">
+              {table.isFiltering
                 ? t("detail.financial.table.empty.search", { ns: "common" })
-                : t("table.empty")
-            }
-          >
-            {table.data.map((entry) => (
-              <TableRow
-                key={entry.id}
-                onClick={() => handleView(entry)}
-                className="cursor-pointer"
-              >
-                {table.columns.map((column) => (
-                  <TableCell
-                    key={column.id}
-                    truncate={!['status', 'priority'].includes(column.id)}
-                    adaptive={['status', 'priority'].includes(column.id)}
-                  >
-                    {column.render ? column.render(entry) : entry[column.id]}
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+                : t("table.empty")}
+            </p>
+          )}
+          {table.data.map((entry) => (
+            <div
+              key={entry.id}
+              onClick={() => handleView(entry)}
+              className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 shadow-sm"
+              role="button"
+              tabIndex={0}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-semibold text-slate-900 dark:text-white">
+                    {entry.title || entry.description || t("detail.financial.columns.entry", { ns: "common" })}
+                  </div>
+                  {entry.description && entry.title && (
+                    <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                      {entry.description}
+                    </div>
+                  )}
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                    <span className="font-semibold uppercase tracking-wide">
+                      {t("detail.financial.columns.date", { ns: "common" })}
+                    </span>
+                    <span className="text-slate-700 dark:text-slate-200">
+                      {formatDateValue(entry.date)}
+                    </span>
+                  </div>
+                </div>
+                <div className="shrink-0">
+                  {renderStatusSelector(entry)}
+                </div>
+              </div>
 
-        <Pagination
-          currentPage={table.currentPage}
-          totalPages={table.totalPages}
-          totalItems={table.totalItems}
-          itemsPerPage={table.itemsPerPage}
-          onPageChange={table.handlePageChange}
-          onItemsPerPageChange={table.handleItemsPerPageChange}
-        />
+              <div className="mt-3 flex items-center justify-between">
+                <span
+                  className={`text-sm font-semibold ${entry.type === "revenue"
+                    ? "text-emerald-600 dark:text-emerald-400"
+                    : "text-rose-600 dark:text-rose-400"
+                    }`}
+                >
+                  {entry.amountWithSign || formatCurrency(entry.amount)}
+                </span>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={(event) => event.stopPropagation()}
+                      className="h-9 w-9 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 flex items-center justify-center"
+                      aria-label={t("actions.more", { ns: "common", defaultValue: "More actions" })}
+                    >
+                      <i className="fas fa-ellipsis-h text-sm"></i>
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-44">
+                    <DropdownMenuItem
+                      onSelect={(event) => {
+                        event.preventDefault();
+                        handleView(entry);
+                      }}
+                    >
+                      {t("actions.view", { ns: "common" })}
+                    </DropdownMenuItem>
+                    {entityType !== "officer" && (
+                      <>
+                        <DropdownMenuItem
+                          onSelect={(event) => {
+                            event.preventDefault();
+                            handleEdit(entry);
+                          }}
+                        >
+                          {t("actions.edit", { ns: "common" })}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="text-red-600 focus:text-red-600"
+                          onSelect={(event) => {
+                            event.preventDefault();
+                            handleDelete(entry.id);
+                          }}
+                        >
+                          {t("actions.delete", { ns: "common" })}
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Desktop table */}
+        <div className="hidden md:block">
+          <Table>
+            <AdvancedTableHeader
+              columns={table.columns}
+              sortBy={table.sortBy}
+              sortDirection={table.sortDirection}
+              onSort={table.handleSort}
+              onReorder={table.reorderColumns}
+              enableReorder={true}
+              isEmpty={table.data.length === 0}
+            />
+            <TableBody
+              isEmpty={table.data.length === 0}
+              emptyMessage={
+                table.isFiltering
+                  ? t("detail.financial.table.empty.search", { ns: "common" })
+                  : t("table.empty")
+              }
+            >
+              {table.data.map((entry) => (
+                <TableRow
+                  key={entry.id}
+                  onClick={() => handleView(entry)}
+                  className="cursor-pointer"
+                >
+                  {table.columns.map((column) => (
+                    <TableCell
+                      key={column.id}
+                      columnId={column.id}
+                      mobileLabel={column.label}
+                      mobileRole={column.mobileRole}
+                      mobilePriority={column.mobilePriority}
+                      mobileHidden={column.mobileHidden}
+                      truncate={!['status', 'priority'].includes(column.id)}
+                      adaptive={['status', 'priority'].includes(column.id)}
+                    >
+                      {column.render ? column.render(entry) : entry[column.id]}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+
+          <Pagination
+            currentPage={table.currentPage}
+            totalPages={table.totalPages}
+            totalItems={table.totalItems}
+            itemsPerPage={table.itemsPerPage}
+            onPageChange={table.handlePageChange}
+            onItemsPerPageChange={table.handleItemsPerPageChange}
+          />
+        </div>
       </div>
 
       {/* Add/Edit Form Modal */}

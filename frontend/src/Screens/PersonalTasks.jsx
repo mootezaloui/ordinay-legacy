@@ -930,6 +930,10 @@ export default function PersonalTasks() {
             totalItems={table.originalTotalItems}
             filteredItems={table.totalItems}
             isFiltering={table.isFiltering}
+            sortBy={table.sortBy}
+            sortDirection={table.sortDirection}
+            onSort={table.handleSort}
+            onResetSort={table.resetToIntelligentOrder}
           />
 
           <Table>
@@ -950,14 +954,19 @@ export default function PersonalTasks() {
                   emphasis={table.getItemEmphasis(task)}
                   className="cursor-pointer"
                 >
-                  {table.columns.map((column) => (
-                    <TableCell
-                      key={column.id}
-                      truncate={!['status', 'priority'].includes(column.id)}
-                      adaptive={['status', 'priority'].includes(column.id)}
-                    >
-                      {column.render ? column.render(task) : task[column.id]}
-                    </TableCell>
+                    {table.columns.map((column) => (
+                      <TableCell
+                        key={column.id}
+                        columnId={column.id}
+                        mobileLabel={column.label}
+                        mobileRole={column.mobileRole}
+                        mobilePriority={column.mobilePriority}
+                        mobileHidden={column.mobileHidden}
+                        truncate={!['status', 'priority'].includes(column.id)}
+                        adaptive={['status', 'priority'].includes(column.id)}
+                      >
+                        {column.render ? column.render(task) : task[column.id]}
+                      </TableCell>
                   ))}
                 </TableRow>
               ))}

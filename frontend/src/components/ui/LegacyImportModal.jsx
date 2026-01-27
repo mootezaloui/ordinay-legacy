@@ -555,27 +555,28 @@ export default function LegacyImportModal({
 
   return (
     <GlassModal isOpen={isOpen} onClose={handleClose} maxWidth="4xl">
-      <div className="flex items-start justify-between gap-4 border-b border-slate-200 dark:border-slate-800 px-6 py-4">
-        <div>
-          <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
-            {t("import.title", { entity: resolvedEntityLabel })}
-          </h2>
-          <p className="text-sm text-slate-600 dark:text-slate-400">
-            {t("import.subtitle")}
-          </p>
+      <div className="flex flex-col h-full">
+        <div className="flex items-start justify-between gap-4 border-b border-slate-200 dark:border-slate-800 px-6 py-4">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
+              {t("import.title", { entity: resolvedEntityLabel })}
+            </h2>
+            <p className="text-sm text-slate-600 dark:text-slate-400">
+              {t("import.subtitle")}
+            </p>
+          </div>
+          <button
+            onClick={handleClose}
+            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+            aria-label={t("actions.close")}
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
-        <button
-          onClick={handleClose}
-          className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
-          aria-label={t("actions.close")}
-        >
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-      </div>
 
-      <div className="space-y-5 overflow-y-auto px-6 py-5">
+        <div className="space-y-5 overflow-y-auto overflow-x-hidden px-6 py-5 flex-1 min-h-0">
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           {t("import.notice")}
         </div>
@@ -673,37 +674,67 @@ export default function LegacyImportModal({
             </div>
 
             <div className="mt-4 overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700">
-              <table className="min-w-full text-xs">
-                <thead className="bg-slate-50 text-left text-[11px] uppercase tracking-wide text-slate-500 dark:bg-slate-800/70 dark:text-slate-400">
-                  <tr>
-                    <th className="px-3 py-2">{t("import.mapping.headerLabel")}</th>
-                    <th className="px-3 py-2">{t("import.mapping.fieldLabel")}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-                  {headers.map((header) => (
-                    <tr key={header} className="text-slate-700 dark:text-slate-200">
-                      <td className="px-3 py-2">
-                        <span className="truncate">{header || "-"}</span>
-                      </td>
-                      <td className="px-3 py-2">
-                        <select
-                          value={headerMappings[header] || IGNORE_MAPPING}
-                          onChange={(event) => handleMappingChange(header, event.target.value)}
-                          className="w-full rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
-                        >
-                          <option value={IGNORE_MAPPING}>{t("import.mapping.ignore")}</option>
-                          {(aliasConfig?.fields || CLIENT_CANONICAL_FIELDS).map((field) => (
-                            <option key={field} value={field}>
-                              {t(`templateFields.client.fields.${field}`, { defaultValue: field })}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
+              <div className="hidden md:block">
+                <table className="min-w-full text-xs">
+                  <thead className="bg-slate-50 text-left text-[11px] uppercase tracking-wide text-slate-500 dark:bg-slate-800/70 dark:text-slate-400">
+                    <tr>
+                      <th className="px-3 py-2">{t("import.mapping.headerLabel")}</th>
+                      <th className="px-3 py-2">{t("import.mapping.fieldLabel")}</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+                    {headers.map((header) => (
+                      <tr key={header} className="text-slate-700 dark:text-slate-200">
+                        <td className="px-3 py-2">
+                          <span className="truncate">{header || "-"}</span>
+                        </td>
+                        <td className="px-3 py-2">
+                          <select
+                            value={headerMappings[header] || IGNORE_MAPPING}
+                            onChange={(event) => handleMappingChange(header, event.target.value)}
+                            className="w-full rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                          >
+                            <option value={IGNORE_MAPPING}>{t("import.mapping.ignore")}</option>
+                            {(aliasConfig?.fields || CLIENT_CANONICAL_FIELDS).map((field) => (
+                              <option key={field} value={field}>
+                                {t(`templateFields.client.fields.${field}`, { defaultValue: field })}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="md:hidden divide-y divide-slate-200 dark:divide-slate-800">
+                {headers.map((header) => (
+                  <div key={header} className="p-3 space-y-2 text-sm">
+                    <div className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                      {t("import.mapping.headerLabel")}
+                    </div>
+                    <div className="font-medium text-slate-700 dark:text-slate-200 break-words">
+                      {header || "-"}
+                    </div>
+                    <div className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400 pt-2">
+                      {t("import.mapping.fieldLabel")}
+                    </div>
+                    <select
+                      value={headerMappings[header] || IGNORE_MAPPING}
+                      onChange={(event) => handleMappingChange(header, event.target.value)}
+                      className="w-full rounded-md border border-slate-300 bg-white px-2 py-2 text-sm text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                    >
+                      <option value={IGNORE_MAPPING}>{t("import.mapping.ignore")}</option>
+                      {(aliasConfig?.fields || CLIENT_CANONICAL_FIELDS).map((field) => (
+                        <option key={field} value={field}>
+                          {t(`templateFields.client.fields.${field}`, { defaultValue: field })}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ))}
+              </div>
             </div>
 
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
@@ -740,25 +771,26 @@ export default function LegacyImportModal({
             })}
           </div>
         )}
-      </div>
+        </div>
 
-      <div className="flex items-center justify-end gap-3 border-t border-slate-200 dark:border-slate-800 px-6 py-4">
-        <button
-          type="button"
-          onClick={handleClose}
-          disabled={isParsing || isUploading}
-          className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
-        >
-          {t("actions.cancel")}
-        </button>
-        <button
-          type="button"
-          onClick={handleImport}
-          disabled={isParsing || isUploading || recordCount === 0 || (requiresMapping && !mappingConfirmed)}
-          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {t("import.actions.import")}
-        </button>
+        <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-3 border-t border-slate-200 dark:border-slate-800 px-6 py-4">
+          <button
+            type="button"
+            onClick={handleClose}
+            disabled={isParsing || isUploading}
+            className="w-full sm:w-auto rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+          >
+            {t("actions.cancel")}
+          </button>
+          <button
+            type="button"
+            onClick={handleImport}
+            disabled={isParsing || isUploading || recordCount === 0 || (requiresMapping && !mappingConfirmed)}
+            className="w-full sm:w-auto rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {t("import.actions.import")}
+          </button>
+        </div>
       </div>
     </GlassModal>
   );

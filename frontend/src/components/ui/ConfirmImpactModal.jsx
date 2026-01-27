@@ -91,11 +91,11 @@ export default function ConfirmImpactModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-stretch md:items-center justify-center bg-black/50 backdrop-blur-sm p-0 md:p-4 pt-[var(--titlebar-height)] md:pt-[calc(var(--titlebar-height)+16px)]"
       onClick={onClose}
     >
       <div
-        className="relative bg-white dark:bg-slate-800 rounded-lg shadow-2xl max-w-2xl w-full mx-4 max-h-[85vh] overflow-hidden"
+        className="relative bg-white dark:bg-slate-800 rounded-none md:rounded-lg shadow-2xl w-full h-full md:h-auto md:max-w-2xl md:max-h-[85vh] overflow-hidden flex flex-col mx-0 md:mx-4"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -125,7 +125,7 @@ export default function ConfirmImpactModal({
         </div>
 
         {/* Content */}
-        <div className="px-6 py-5 overflow-y-auto overscroll-contain max-h-[calc(85vh-200px)]">
+        <div className="px-6 py-5 overflow-y-auto overscroll-contain flex-1 min-h-0 md:max-h-[calc(85vh-200px)]">
           <div className="space-y-4">
             {normalizedImpactSummary.map((line, index) => {
               // Empty lines are spacers
@@ -186,17 +186,17 @@ export default function ConfirmImpactModal({
 
         {/* Footer */}
         <div className="bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-700 px-6 py-4">
-          <div className="flex justify-end gap-3">
+          <div className="flex flex-col-reverse sm:flex-row justify-end gap-3">
             <button
               onClick={onClose}
-              className="px-4 py-2 border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg transition-colors font-medium"
+              className="w-full sm:w-auto px-4 py-2 border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg transition-colors font-medium"
             >
               <i className="fas fa-times mr-2"></i>
               {t("dialog.impact.warning.cancel", { ns: "common" })}
             </button>
             <button
               onClick={onConfirm}
-              className="px-4 py-2 bg-amber-600 hover:bg-amber-700 dark:bg-amber-700 dark:hover:bg-amber-600 text-white rounded-lg transition-colors font-medium"
+              className="w-full sm:w-auto px-4 py-2 bg-amber-600 hover:bg-amber-700 dark:bg-amber-700 dark:hover:bg-amber-600 text-white rounded-lg transition-colors font-medium"
             >
               <i className="fas fa-check mr-2"></i>
               {t("dialog.impact.warning.confirm", { ns: "common" })}

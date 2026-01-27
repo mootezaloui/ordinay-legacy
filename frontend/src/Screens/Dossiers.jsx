@@ -92,6 +92,7 @@ export default function Dossiers() {
       label: t("table.columns.number"),
       sortable: true,
       locked: true,
+      mobilePriority: 1,
       render: (dossier) => (
         <span className="font-mono font-semibold text-blue-600 dark:text-blue-400">
           {dossier.lawsuitNumber}
@@ -102,6 +103,7 @@ export default function Dossiers() {
       id: "title",
       label: t("table.columns.title"),
       sortable: true,
+      mobileRole: "primary",
       render: (dossier) => <span className="font-medium">{dossier.title}</span>,
     },
     {
@@ -542,6 +544,10 @@ export default function Dossiers() {
             totalItems={table.originalTotalItems}
             filteredItems={table.totalItems}
             isFiltering={table.isFiltering}
+            sortBy={table.sortBy}
+            sortDirection={table.sortDirection}
+            onSort={table.handleSort}
+            onResetSort={table.resetToIntelligentOrder}
           />
 
         <Table>
@@ -574,6 +580,11 @@ export default function Dossiers() {
                 {table.columns.map((column) => (
                   <TableCell
                     key={column.id}
+                    columnId={column.id}
+                    mobileLabel={column.label}
+                    mobileRole={column.mobileRole}
+                    mobilePriority={column.mobilePriority}
+                    mobileHidden={column.mobileHidden}
                     truncate={!['status', 'priority'].includes(column.id)}
                     adaptive={['status', 'priority'].includes(column.id)}
                   >
@@ -644,5 +655,3 @@ export default function Dossiers() {
     </PageLayout>
   );
 }
-
-

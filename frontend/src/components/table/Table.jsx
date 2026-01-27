@@ -19,7 +19,7 @@ export default function Table({ children, className = "" }) {
     <div className="w-full bg-white dark:bg-slate-900">
       {/* Scroll container - only the table scrolls, not the entire content section */}
       <div className="overflow-x-auto">
-        <table className={`w-full border-collapse ${className}`}>
+        <table className={`w-full border-collapse table-fixed lg:table-auto ${className}`}>
           {children}
         </table>
       </div>

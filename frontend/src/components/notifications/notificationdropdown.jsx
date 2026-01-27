@@ -1,10 +1,17 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useNotifications } from "../../contexts/NotificationContext";
 import { useConfirm } from "../../contexts/ConfirmContext";
 import { useSettings } from "../../contexts/SettingsContext";
 import { useTranslation } from "react-i18next";
 import { useNotificationListTranslation } from "../../hooks/useNotificationTranslation";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetClose,
+} from "../ui/sheet";
 import {
   formatTimestamp,
   getPriorityColor,
@@ -29,6 +36,7 @@ export default function NotificationDropdown({ isOpen, onToggle, onClose }) {
   } = useNotifications();
 
   const dropdownRef = useRef(null);
+  const [isMobile, setIsMobile] = useState(false);
 
   // Translate notifications on-demand based on active language
   const translatedNotifications = useNotificationListTranslation(notifications);
@@ -39,6 +47,14 @@ export default function NotificationDropdown({ isOpen, onToggle, onClose }) {
 
   // Show only recent 5 notifications in dropdown
   const recentNotifications = visibleNotifications.slice(0, 5);
+  const highPriorityNotifications = visibleNotifications.filter((notification) => {
+    const value = String(notification.priority || "").toLowerCase();
+    return ["urgent", "high", "critical"].includes(value);
+  });
+  const lowPriorityNotifications = visibleNotifications.filter((notification) => {
+    const value = String(notification.priority || "").toLowerCase();
+    return !["urgent", "high", "critical"].includes(value);
+  });
 
   const toggleDropdown = (e) => {
     e.stopPropagation();
@@ -85,6 +101,127 @@ export default function NotificationDropdown({ isOpen, onToggle, onClose }) {
     return () => document.removeEventListener("click", handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const media = window.matchMedia("(max-width: 767px)");
+    const handleChange = () => setIsMobile(media.matches);
+    handleChange();
+    media.addEventListener("change", handleChange);
+    return () => media.removeEventListener("change", handleChange);
+  }, []);
+
+  const mobileContent = (
+    <div className="flex h-full flex-col">
+      <div className="flex items-start justify-between gap-3 pb-4 border-b border-slate-200 dark:border-slate-800">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center shadow-lg shadow-blue-500/25">
+            <i className="fas fa-bell text-white text-sm"></i>
+          </div>
+          <div>
+            <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">{t("dropdown.title")}</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              {t("dropdown.unreadCount", { count: unreadCount })}
+            </p>
+          </div>
+        </div>
+        <SheetClose className="h-9 w-9 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+          <i className="fas fa-times"></i>
+          <span className="sr-only">{t("dropdown.actions.close", { defaultValue: "Close" })}</span>
+        </SheetClose>
+      </div>
+
+      <div className="flex-1 overflow-y-auto py-4 space-y-5">
+        {highPriorityNotifications.length > 0 && (
+          <div className="space-y-3">
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              {t("dropdown.priority.urgent", { defaultValue: "Urgent" })}
+            </h4>
+            {highPriorityNotifications.map((notification) => (
+              <div
+                key={notification.id}
+                onClick={() => handleNotificationClick(notification)}
+                className={`group rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/60 p-4 shadow-sm ${notification.link ? "cursor-pointer" : ""}`}
+              >
+                <div className="flex items-start gap-3">
+                  <div className={`flex-shrink-0 w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center ${getPriorityColor(notification.priority)}`}>
+                    <i className={`${notification.icon || "fas fa-bell"} text-lg`}></i>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                      {notification.title}
+                    </p>
+                    <p
+                      className="text-sm text-slate-600 dark:text-slate-300 mt-1"
+                      dangerouslySetInnerHTML={{ __html: renderHighlightedMessage(notification.message) }}
+                    ></p>
+                    <span className="text-xs text-slate-500 dark:text-slate-400 mt-2 block">
+                      {formatTimestamp(notification.timestamp, { t, formatDate, formatDateTime })}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="space-y-3">
+          <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            {t("dropdown.priority.other", { defaultValue: "Other notifications" })}
+          </h4>
+          {lowPriorityNotifications.length > 0 ? (
+            lowPriorityNotifications.map((notification) => (
+              <div
+                key={notification.id}
+                onClick={() => handleNotificationClick(notification)}
+                className={`group rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/60 p-4 shadow-sm ${notification.link ? "cursor-pointer" : ""}`}
+              >
+                <div className="flex items-start gap-3">
+                  <div className={`flex-shrink-0 w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center ${getPriorityColor(notification.priority)}`}>
+                    <i className={`${notification.icon || "fas fa-bell"} text-lg`}></i>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                      {notification.title}
+                    </p>
+                    <p
+                      className="text-sm text-slate-600 dark:text-slate-300 mt-1"
+                      dangerouslySetInnerHTML={{ __html: renderHighlightedMessage(notification.message) }}
+                    ></p>
+                    <span className="text-xs text-slate-500 dark:text-slate-400 mt-2 block">
+                      {formatTimestamp(notification.timestamp, { t, formatDate, formatDateTime })}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="py-6 text-center text-sm text-slate-500 dark:text-slate-400">
+              {t("dropdown.empty.subtitle")}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 divide-x divide-slate-200/70 dark:divide-slate-700/60 border-t border-slate-200/70 dark:border-slate-700/60 bg-slate-50/80 dark:bg-slate-800/50">
+        <button
+          onClick={viewAllNotifications}
+          className="px-6 py-3.5 text-sm font-semibold text-blue-600 dark:text-blue-400 hover:bg-white/80 dark:hover:bg-slate-800/70 transition-colors duration-200 flex items-center justify-center gap-2"
+        >
+          <i className="fas fa-list"></i>
+          {t("dropdown.actions.viewAll")}
+        </button>
+        <button
+          onClick={clearNotifications}
+          disabled={visibleNotifications.length === 0}
+          className="px-6 py-3.5 text-sm font-semibold text-red-600 dark:text-red-400 hover:bg-white/80 dark:hover:bg-slate-800/70 transition-colors duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <i className="fas fa-trash"></i>
+          {t("dropdown.actions.clear")}
+        </button>
+      </div>
+    </div>
+  );
+
   return (
     <div className="relative" ref={dropdownRef}>
       <button
@@ -118,7 +255,7 @@ export default function NotificationDropdown({ isOpen, onToggle, onClose }) {
         )}
       </button>
 
-      {isOpen && (
+      {isOpen && !isMobile && (
         <div className="absolute right-0 mt-3 w-[26rem] bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-200/80 dark:border-slate-700/70 overflow-hidden z-50 animate-in zoom-in-95 slide-in-from-top-1 duration-200">
           <div className="px-5 py-4 bg-slate-50/90 dark:bg-slate-800/70 border-b border-slate-200/70 dark:border-slate-700/60">
             <div className="flex items-center justify-between gap-3">
@@ -230,6 +367,17 @@ export default function NotificationDropdown({ isOpen, onToggle, onClose }) {
             </button>
           </div>
         </div>
+      )}
+
+      {isMobile && (
+        <Sheet open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
+          <SheetContent side="right" className="w-full sm:max-w-full">
+            <SheetHeader>
+              <SheetTitle className="sr-only">{t("dropdown.title")}</SheetTitle>
+            </SheetHeader>
+            {mobileContent}
+          </SheetContent>
+        </Sheet>
       )}
     </div>
   );

@@ -98,12 +98,12 @@ export default function FormModal({
   const getModalSize = () => {
     if (size !== "auto") {
       const sizeClasses = {
-        sm: "max-w-md",
-        md: "max-w-2xl",
-        lg: "max-w-4xl",
-        xl: "max-w-6xl",
+        sm: "md:max-w-md",
+        md: "md:max-w-2xl",
+        lg: "md:max-w-4xl",
+        xl: "md:max-w-6xl",
       };
-      return sizeClasses[size] || "max-w-2xl";
+      return sizeClasses[size] || "md:max-w-2xl";
     }
 
     // Auto-size based on field count and types
@@ -111,10 +111,10 @@ export default function FormModal({
     const hasTextarea = fields.some(f => f.type === "textarea");
     const hasFullWidth = fields.some(f => f.fullWidth);
 
-    if (fieldCount <= 4 && !hasTextarea) return "max-w-md";
-    if (fieldCount <= 8) return "max-w-2xl";
-    if (fieldCount <= 12) return "max-w-4xl";
-    return "max-w-5xl";
+    if (fieldCount <= 4 && !hasTextarea) return "md:max-w-md";
+    if (fieldCount <= 8) return "md:max-w-2xl";
+    if (fieldCount <= 12) return "md:max-w-4xl";
+    return "md:max-w-5xl";
   };
 
   // ✅ Determine optimal column layout
@@ -461,11 +461,10 @@ export default function FormModal({
       />
 
       {/* Modal - Optimized positioning */}
-      <div className="relative flex h-full items-center justify-center p-4 sm:p-6 overflow-hidden">
+      <div className="relative flex h-full items-stretch md:items-center justify-center p-0 md:p-6 overflow-hidden">
         <div
-          className={`relative w-full ${modalSizeClass} bg-white dark:bg-slate-900 rounded-2xl transform transition-all flex flex-col animate-in zoom-in-95 slide-in-from-bottom-4 duration-300 overflow-hidden`}
+          className={`relative w-full h-full md:h-auto ${modalSizeClass} bg-white dark:bg-slate-900 rounded-none md:rounded-2xl transform transition-all flex flex-col animate-in zoom-in-95 slide-in-from-bottom-4 duration-300 overflow-hidden md:max-h-[calc(100vh-var(--titlebar-height)-48px)]`}
           style={{
-            maxHeight: 'calc(100vh - var(--titlebar-height, 0px) - 48px)',
             boxShadow: '0 0 0 1px rgba(148, 163, 184, 0.1), 0 24px 48px -12px rgba(0, 0, 0, 0.25), 0 12px 24px -8px rgba(0, 0, 0, 0.15)',
           }}
         >
@@ -544,19 +543,19 @@ export default function FormModal({
 
             {/* Actions - Fixed at bottom */}
             <div className={`${compact ? 'px-5 py-4' : 'px-6 py-5'} border-t border-slate-200 dark:border-slate-800 flex-shrink-0 bg-slate-50/50 dark:bg-slate-800/50`}>
-              <div className="flex items-center justify-end gap-3">
+              <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-3">
                 <button
                   type="button"
                   onClick={onClose}
                   disabled={isLoading}
-                  className={`${compact ? 'px-4 py-2 text-sm' : 'px-5 py-2.5'} border-2 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600 text-slate-700 dark:text-slate-300 rounded-xl font-semibold transition-all disabled:opacity-50`}
+                  className={`${compact ? 'px-4 py-2 text-sm' : 'px-5 py-2.5'} w-full sm:w-auto border-2 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600 text-slate-700 dark:text-slate-300 rounded-xl font-semibold transition-all disabled:opacity-50`}
                 >
                   {cancelLabel}
                 </button>
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className={`${compact ? 'px-4 py-2 text-sm' : 'px-5 py-2.5'} bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white rounded-xl font-semibold transition-all disabled:opacity-50 flex items-center gap-2 justify-center min-w-[140px] shadow-lg shadow-blue-500/25`}
+                  className={`${compact ? 'px-4 py-2 text-sm' : 'px-5 py-2.5'} w-full sm:w-auto bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white rounded-xl font-semibold transition-all disabled:opacity-50 flex items-center gap-2 justify-center sm:min-w-[140px] shadow-lg shadow-blue-500/25`}
                 >
                   {isLoading ? (
                     <LoadingScreen variant="minimal" message="" />

@@ -296,6 +296,7 @@ export default function Accounting() {
         label: t("table.columns.date"),
         sortable: true,
         locked: true,
+        mobileRole: "meta",
         render: (entry) => (
           <span className="text-sm font-medium text-slate-900 dark:text-white">
             {formatDate(entry.date)}
@@ -306,6 +307,8 @@ export default function Accounting() {
         id: "description",
         label: t("table.columns.entry"),
         sortable: true,
+        mobileRole: "primary",
+        mobilePriority: 1,
         render: (entry) => {
           const categoryLabel =
             categoryLabelMap[entry.category] || entry.categoryLabel;
@@ -356,6 +359,7 @@ export default function Accounting() {
         id: "entityReference",
         label: t("table.columns.clientDossier"),
         sortable: true,
+        mobilePriority: 2,
         render: (entry) => (
           <div className="flex flex-col text-sm">
             {entry.clientName && (
@@ -385,6 +389,7 @@ export default function Accounting() {
         id: "type",
         label: t("table.columns.type"),
         sortable: true,
+        mobilePriority: 3,
         render: (entry) => (
           <span
             className={`px-2 py-1 rounded-full text-xs font-medium ${entry.type === "revenue"
@@ -402,6 +407,7 @@ export default function Accounting() {
         id: "amount",
         label: t("table.columns.amount"),
         sortable: true,
+        mobilePriority: 4,
         render: (entry) => (
           <span
             className={`font-semibold ${entry.type === "revenue"
@@ -417,6 +423,7 @@ export default function Accounting() {
         id: "status",
         label: t("table.columns.status"),
         sortable: true,
+        mobileRole: "status",
         render: (entry) => (
           <InlineStatusSelector
             value={entry.status}
@@ -458,6 +465,7 @@ export default function Accounting() {
         label: t("table.columns.actions"),
         sortable: false,
         locked: true,
+        mobileHidden: true,
         render: (entry) => (
           <TableActions>
             <IconButton
@@ -1074,6 +1082,10 @@ export default function Accounting() {
           totalItems={table.originalTotalItems}
           filteredItems={table.totalItems}
           isFiltering={table.isFiltering}
+          sortBy={table.sortBy}
+          sortDirection={table.sortDirection}
+          onSort={table.handleSort}
+          onResetSort={table.resetToIntelligentOrder}
         />
 
         <Table>
@@ -1100,6 +1112,11 @@ export default function Accounting() {
                 {table.columns.map((column) => (
                   <TableCell
                     key={column.id}
+                    columnId={column.id}
+                    mobileLabel={column.label}
+                    mobileRole={column.mobileRole}
+                    mobilePriority={column.mobilePriority}
+                    mobileHidden={column.mobileHidden}
                     truncate={!['status', 'priority'].includes(column.id)}
                     adaptive={['status', 'priority'].includes(column.id)}
                   >
@@ -1155,6 +1172,3 @@ export default function Accounting() {
     </PageLayout>
   );
 }
-
-
-

@@ -47,7 +47,7 @@ export default function TutorialOverlay({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[9998] flex items-center justify-center"
+      className="fixed inset-0 z-[9998] flex items-stretch md:items-center justify-center"
       role="dialog"
       aria-modal="true"
     >
@@ -59,7 +59,7 @@ export default function TutorialOverlay({
       />
 
       {/* Content container */}
-      <div className="relative z-10 w-full max-w-2xl mx-4 animate-in zoom-in-95 fade-in duration-300">
+      <div className="relative z-10 w-full h-full md:h-auto md:max-w-2xl mx-0 md:mx-4 animate-in zoom-in-95 fade-in duration-300">
         {children}
       </div>
 

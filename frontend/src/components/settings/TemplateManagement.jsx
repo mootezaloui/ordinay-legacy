@@ -778,8 +778,8 @@ function TemplateModal({ template, onClose, onSave }) {
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 px-4 pb-4 pt-0">
-      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-stretch md:items-center justify-center bg-black bg-opacity-50 p-0 md:p-4 pt-[var(--titlebar-height)] md:pt-[calc(var(--titlebar-height)+16px)]">
+      <div className="bg-white dark:bg-slate-800 rounded-none md:rounded-xl shadow-2xl w-full h-full md:h-auto md:max-w-5xl md:max-h-[90vh] flex flex-col">
         {/* Header - Fixed */}
         <div className="flex-shrink-0 px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
           <div>
@@ -801,10 +801,10 @@ function TemplateModal({ template, onClose, onSave }) {
         </div>
 
         {/* Two-Panel Content */}
-        <div className="flex-1 flex min-h-0">
+        <div className="flex-1 flex flex-col md:flex-row min-h-0 overflow-y-auto md:overflow-visible">
           {/* Left Panel - Configuration (Fixed) */}
-          <div className="w-80 flex-shrink-0 border-r border-slate-200 dark:border-slate-700 flex flex-col">
-            <div className="p-5 space-y-4 overflow-y-auto flex-1">
+          <div className="w-full md:w-80 flex-shrink-0 border-b md:border-b-0 md:border-r border-slate-200 dark:border-slate-700 flex flex-col overflow-visible md:overflow-y-auto">
+            <div className="p-5 space-y-4 md:overflow-y-auto flex-1">
               {/* Section Title */}
               <h4 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                 {t("templateManagement.modal.sections.configuration")}
@@ -925,7 +925,7 @@ function TemplateModal({ template, onClose, onSave }) {
             </div>
 
             {/* Scrollable Placeholder List */}
-            <div className="flex-1 overflow-y-auto p-5">
+            <div className="flex-1 md:overflow-y-auto p-5">
               {/* Tip */}
               <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
                 <p className="text-sm text-blue-800 dark:text-blue-300">
@@ -942,16 +942,16 @@ function TemplateModal({ template, onClose, onSave }) {
         </div>
 
         {/* Footer - Fixed */}
-        <div className="flex-shrink-0 px-6 py-4 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-200 dark:border-slate-700 flex items-center justify-end gap-3">
+        <div className="flex-shrink-0 px-6 py-4 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-200 dark:border-slate-700 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-3">
           <button
             onClick={onClose}
-            className="px-4 py-2 border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg font-medium transition-colors text-sm"
+            className="w-full sm:w-auto px-4 py-2 border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg font-medium transition-colors text-sm"
           >
             {t("actions.cancel")}
           </button>
           <button
             onClick={handleSubmit}
-            className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors text-sm flex items-center gap-2"
+            className="w-full sm:w-auto px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors text-sm flex items-center gap-2 justify-center"
           >
             <i className={`fas ${isEdit ? 'fa-save' : 'fa-plus'}`}></i>
             {isEdit

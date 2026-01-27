@@ -67,9 +67,8 @@ export default function ConfirmDialog({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-hidden animate-in fade-in duration-300"
+      className="fixed inset-0 z-50 flex items-stretch md:items-center justify-center p-0 md:p-4 pt-[var(--titlebar-height)] md:pt-[calc(var(--titlebar-height)+16px)] overflow-hidden animate-in fade-in duration-300"
       style={{
-        paddingTop: `calc(var(--titlebar-height, 0px) + 16px)`,
         backdropFilter: 'blur(12px)',
         WebkitBackdropFilter: 'blur(12px)',
       }}
@@ -83,7 +82,7 @@ export default function ConfirmDialog({
 
       {/* Modal */}
       <div
-        className="relative bg-white dark:bg-slate-900 rounded-2xl max-w-md w-full animate-in zoom-in-95 slide-in-from-bottom-4 duration-300 overflow-hidden"
+        className="relative bg-white dark:bg-slate-900 rounded-none md:rounded-2xl md:max-w-md w-full h-full md:h-auto animate-in zoom-in-95 slide-in-from-bottom-4 duration-300 overflow-hidden flex flex-col"
         style={{
           boxShadow: '0 0 0 1px rgba(148, 163, 184, 0.1), 0 24px 48px -12px rgba(0, 0, 0, 0.25), 0 12px 24px -8px rgba(0, 0, 0, 0.15)',
         }}
@@ -101,7 +100,8 @@ export default function ConfirmDialog({
         </button>
 
         {/* Content */}
-        <div className="p-6 pt-8">
+        <div className="flex flex-col flex-1 min-h-0">
+          <div className="p-6 pt-8 overflow-y-auto flex-1 min-h-0">
           {/* Icon with ring effect */}
           <div className={`flex items-center justify-center w-14 h-14 rounded-xl ${style.iconBg} ring-4 ${style.iconRing} mb-5`}>
             <Icon className={style.iconColor} size={26} strokeWidth={2} />
@@ -119,21 +119,24 @@ export default function ConfirmDialog({
           <p className="text-slate-600 dark:text-slate-400 mb-8 whitespace-pre-line leading-relaxed">
             {message}
           </p>
+          </div>
 
           {/* Actions */}
-          <div className="flex gap-3 justify-end">
-            <button
-              onClick={handleCancel}
-              className="px-5 py-2.5 rounded-xl border-2 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600 transition-all font-semibold"
-            >
-              {cancelText}
-            </button>
-            <button
-              onClick={handleConfirm}
-              className={`px-5 py-2.5 rounded-xl transition-all font-semibold ${style.confirmButton}`}
-            >
-              {confirmText}
-            </button>
+          <div className="px-6 pb-6 pt-2 border-t border-slate-200 dark:border-slate-800">
+            <div className="flex flex-col-reverse sm:flex-row gap-3 justify-end">
+              <button
+                onClick={handleCancel}
+                className="w-full sm:w-auto px-5 py-2.5 rounded-xl border-2 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600 transition-all font-semibold"
+              >
+                {cancelText}
+              </button>
+              <button
+                onClick={handleConfirm}
+                className={`w-full sm:w-auto px-5 py-2.5 rounded-xl transition-all font-semibold ${style.confirmButton}`}
+              >
+                {confirmText}
+              </button>
+            </div>
           </div>
         </div>
       </div>

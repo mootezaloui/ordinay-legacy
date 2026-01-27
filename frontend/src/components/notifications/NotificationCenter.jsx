@@ -82,6 +82,20 @@ export default function NotificationCenter() {
     ...VALID_NOTIFICATION_TYPES
   ])).sort();
 
+  const getPriorityGroup = (priority) => {
+    const value = String(priority || "").toLowerCase();
+    if (["urgent", "high", "critical"].includes(value)) return "high";
+    if (["medium", "normal"].includes(value)) return "medium";
+    return "low";
+  };
+
+  const groupedNotifications = filteredNotifications.reduce((acc, notification) => {
+    const group = getPriorityGroup(notification.priority);
+    if (!acc[group]) acc[group] = [];
+    acc[group].push(notification);
+    return acc;
+  }, {});
+
   return (
     <PageLayout>
       <PageHeader
@@ -89,11 +103,11 @@ export default function NotificationCenter() {
         subtitle={t("center.subtitle", { total: visibleNotifications.length, unread: unreadCount })}
         icon="fas fa-bell"
         actions={
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
             {unreadCount > 0 && (
               <button
                 onClick={markAllAsRead}
-                className="px-4 py-2 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-lg font-medium transition-colors"
+                className="w-full sm:w-auto px-4 py-2 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-lg font-medium transition-colors"
               >
                 {t("center.actions.markAll")}
               </button>
@@ -111,7 +125,7 @@ export default function NotificationCenter() {
                     clearAll();
                   }
                 }}
-                className="px-4 py-2 border border-red-300 dark:border-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg font-medium transition-colors"
+                className="w-full sm:w-auto px-4 py-2 border border-red-300 dark:border-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg font-medium transition-colors"
               >
                 {t("center.actions.clearAll.label")}
               </button>
@@ -122,33 +136,35 @@ export default function NotificationCenter() {
 
       <ContentSection>
         <div className="p-6 space-y-4">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-2">
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{t("center.filters.status.label")}</span>
-              {["all", "unread", "read"].map((value) => (
-                <button
-                  key={value}
-                  onClick={() => setFilter(value)}
-                  className={`px-3 py-1.5 rounded-full text-sm border ${filter === value
-                    ? "bg-blue-600 text-white border-blue-600"
-                    : "border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300"
-                    }`}
-                >
-                  {value === "all"
-                    ? t("center.filters.status.options.all")
-                    : value === "unread"
-                      ? t("center.filters.status.options.unread")
-                      : t("center.filters.status.options.read")}
-                </button>
-              ))}
+              <div className="flex flex-wrap items-center gap-2">
+                {["all", "unread", "read"].map((value) => (
+                  <button
+                    key={value}
+                    onClick={() => setFilter(value)}
+                    className={`px-3 py-1.5 rounded-full text-sm border ${filter === value
+                      ? "bg-blue-600 text-white border-blue-600"
+                      : "border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300"
+                      }`}
+                  >
+                    {value === "all"
+                      ? t("center.filters.status.options.all")
+                      : value === "unread"
+                        ? t("center.filters.status.options.unread")
+                        : t("center.filters.status.options.read")}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{t("center.filters.type.label")}</span>
               <select
                 value={typeFilter}
                 onChange={(e) => setTypeFilter(e.target.value)}
-                className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm"
+                className="w-full sm:w-auto px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm"
               >
                 <option value="all">{t("center.filters.type.options.all")}</option>
                 {allAvailableTypes.map((type) => (
@@ -160,7 +176,187 @@ export default function NotificationCenter() {
             </div>
           </div>
 
-          <div className="divide-y divide-slate-200 dark:divide-slate-700">
+          {/* Mobile cards with grouped collapsible sections */}
+          <div className="md:hidden space-y-4">
+            {filteredNotifications.length === 0 && (
+              <p className="text-sm text-slate-500 dark:text-slate-400 py-6 text-center">
+                {t("center.empty")}
+              </p>
+            )}
+            {["high", "medium", "low"].map((group) => {
+              const items = groupedNotifications[group] || [];
+              if (items.length === 0) return null;
+              const label =
+                group === "high"
+                  ? t("center.groups.high", { defaultValue: "High priority" })
+                  : group === "medium"
+                    ? t("center.groups.medium", { defaultValue: "Medium priority" })
+                    : t("center.groups.low", { defaultValue: "Low priority" });
+              const defaultOpen = group !== "low";
+              return (
+                <details key={group} className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/60 p-4" open={defaultOpen}>
+                  <summary className="cursor-pointer list-none flex items-center justify-between gap-2">
+                    <span className="text-sm font-semibold text-slate-900 dark:text-white">{label}</span>
+                    <span className="text-xs text-slate-500 dark:text-slate-400">{items.length}</span>
+                  </summary>
+                  <div className="mt-4 space-y-3">
+                    {items.map((notification) => {
+                      const badge = getPriorityBadge(notification.priority, t);
+                      const isClickable = Boolean(notification.link);
+                      const showMarkInactive = isClientInactiveNotification(notification);
+                      const showMarkDossierOnHold = isDossierInactiveNotification(notification);
+                      const showTaskQuickActions = isTaskDeadlineNotification(notification);
+                      const showHearingQuickActions = isHearingNotification(notification);
+                      const showMissionQuickActions = isMissionNotification(notification);
+                      const showFinancialQuickActions = isFinancialNotification(notification);
+                      const showPaymentReminder = isReceivableFinancialNotification(notification);
+                      const showParticipantReminder = isParticipantReminderNotification(notification);
+                      return (
+                        <div
+                          key={notification.id}
+                          onClick={isClickable ? () => handleNotificationClick(notification) : undefined}
+                          className={`rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 shadow-sm ${isClickable ? "cursor-pointer" : ""}`}
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className={`w-10 h-10 rounded-xl ${getIconBackground(notification.priority)} flex items-center justify-center flex-shrink-0`}>
+                              <i className={`${notification.icon || "fas fa-bell"} ${badge.text} text-lg`}></i>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-start justify-between gap-3">
+                                <p className="text-sm font-semibold text-slate-900 dark:text-white leading-snug">
+                                  {notification.title}
+                                </p>
+                                {!notification.read && (
+                                  <span className="w-2 h-2 rounded-full bg-blue-500 mt-1"></span>
+                                )}
+                              </div>
+                              <p
+                                className="text-sm text-slate-600 dark:text-slate-300 mt-2"
+                                dangerouslySetInnerHTML={{ __html: renderHighlightedMessage(notification.message) }}
+                              ></p>
+                              <div className="mt-3 flex flex-wrap items-center gap-2">
+                                <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${badge.bg} ${badge.text}`}>
+                                  {badge.label}
+                                </span>
+                                <span className="text-xs text-slate-500 dark:text-slate-400">
+                                  {formatTimestampExtended(notification.timestamp, { t, formatDate, formatDateTime })}
+                                </span>
+                              </div>
+                              <div className="mt-3 flex flex-wrap items-center gap-2">
+                                {showMarkInactive && (
+                                  <button
+                                    onClick={(event) => handleMarkClientInactive(notification, event)}
+                                    className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300"
+                                  >
+                                    {t("center.actions.markInactive.label")}
+                                  </button>
+                                )}
+                                {showMarkDossierOnHold && (
+                                  <button
+                                    onClick={(event) => handleMarkDossierOnHold(notification, event)}
+                                    className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300"
+                                  >
+                                    {t("center.actions.markDossierOnHold.label")}
+                                  </button>
+                                )}
+                                {showTaskQuickActions && (
+                                  <>
+                                    <button
+                                      onClick={(event) => handleMarkTaskDone(notification, event)}
+                                      className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300"
+                                    >
+                                      {t("center.actions.markTaskDone.label")}
+                                    </button>
+                                    <button
+                                      onClick={(event) => handleMarkTaskCancelled(notification, event)}
+                                      className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-300"
+                                    >
+                                      {t("center.actions.markTaskCancelled.label")}
+                                    </button>
+                                  </>
+                                )}
+                                {showHearingQuickActions && (
+                                  <>
+                                    <button
+                                      onClick={(event) => handleMarkSessionCompleted(notification, event)}
+                                      className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300"
+                                    >
+                                      {t("center.actions.markSessionCompleted.label")}
+                                    </button>
+                                    <button
+                                      onClick={(event) => handleMarkSessionCancelled(notification, event)}
+                                      className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-300"
+                                    >
+                                      {t("center.actions.markSessionCancelled.label")}
+                                    </button>
+                                  </>
+                                )}
+                                {showMissionQuickActions && (
+                                  <>
+                                    <button
+                                      onClick={(event) => handleMarkMissionCompleted(notification, event)}
+                                      className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300"
+                                    >
+                                      {t("center.actions.markMissionCompleted.label")}
+                                    </button>
+                                    <button
+                                      onClick={(event) => handleMarkMissionCancelled(notification, event)}
+                                      className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-300"
+                                    >
+                                      {t("center.actions.markMissionCancelled.label")}
+                                    </button>
+                                  </>
+                                )}
+                                {showFinancialQuickActions && (
+                                  <>
+                                    <button
+                                      onClick={(event) => handleMarkFinancialPaid(notification, event)}
+                                      className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300"
+                                    >
+                                      {t("center.actions.markFinancialPaid.label")}
+                                    </button>
+                                    {showPaymentReminder && (
+                                      <button
+                                        onClick={(event) => handleSendPaymentReminder(notification, event)}
+                                        className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300"
+                                      >
+                                        {t("center.actions.sendPaymentReminder.label")}
+                                      </button>
+                                    )}
+                                  </>
+                                )}
+                                {showParticipantReminder && (
+                                  <button
+                                    onClick={(event) => handleSendParticipantReminder(notification, event)}
+                                    className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300"
+                                  >
+                                    {t("center.actions.sendHearingReminder.label")}
+                                  </button>
+                                )}
+                                <button
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    deleteNotification(notification.id);
+                                  }}
+                                  className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
+                                  title={t("center.actions.delete")}
+                                >
+                                  {t("center.actions.delete")}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </details>
+              );
+            })}
+          </div>
+
+          {/* Desktop list */}
+          <div className="hidden md:block divide-y divide-slate-200 dark:divide-slate-700">
             {filteredNotifications.length === 0 && (
               <p className="text-sm text-slate-500 dark:text-slate-400 py-6 text-center">
                 {t("center.empty")}

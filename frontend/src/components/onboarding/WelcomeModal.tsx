@@ -19,9 +19,9 @@ export default function WelcomeModal({ onStart, onSkip }: WelcomeModalProps) {
 
   return (
     <TutorialOverlay onClose={onSkip} showEscHint={false}>
-      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl overflow-hidden border border-slate-200/50 dark:border-slate-700/50">
+      <div className="bg-white dark:bg-slate-800 rounded-none md:rounded-2xl shadow-2xl overflow-hidden border border-slate-200/50 dark:border-slate-700/50 h-full md:h-auto flex flex-col">
         {/* Hero section */}
-        <div className="px-8 pt-10 pb-6 text-center">
+        <div className="px-8 pt-10 pb-6 text-center flex-1">
           {/* Logo / Icon */}
           <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg">
             <i className="fas fa-balance-scale text-3xl text-white" />

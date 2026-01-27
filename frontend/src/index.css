@@ -954,6 +954,20 @@
   top: calc(var(--titlebar-height) + 48px);
 }
 
+@media (max-width: 767px) {
+  :root {
+    --titlebar-height: env(safe-area-inset-top, 0px);
+  }
+
+  .titlebar-offset-padding {
+    padding-top: 0;
+  }
+
+  .titlebar-offset-height {
+    height: 100vh;
+  }
+}
+
 /* =============================================
    Date/Time Picker Dark Mode Fix
    Makes native calendar/clock icons visible in dark mode

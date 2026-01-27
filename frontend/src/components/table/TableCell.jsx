@@ -15,6 +15,11 @@ export default function TableCell({
   align = "left",
   truncate = true,
   adaptive = false,
+  columnId,
+  mobileLabel,
+  mobileRole,
+  mobileHidden = false,
+  mobilePriority,
   className = "",
 }) {
   const alignClass = {
@@ -28,7 +33,9 @@ export default function TableCell({
   const sizeClass = adaptive ? "" : "min-w-0";
 
   const content = truncate ? (
-    <div className={`block ${sizeClass} overflow-hidden text-ellipsis whitespace-nowrap`}>
+    <div
+      className={`block ${sizeClass} break-words whitespace-normal lg:overflow-hidden lg:text-ellipsis lg:whitespace-nowrap`}
+    >
       {children}
     </div>
   ) : (
@@ -39,7 +46,12 @@ export default function TableCell({
 
   return (
     <td
-      className={`px-6 py-4 text-sm text-slate-700 dark:text-slate-100 h-14 ${alignClass} ${className}`}
+      data-column-id={columnId}
+      data-mobile-label={mobileLabel}
+      data-mobile-role={mobileRole}
+      data-mobile-hidden={mobileHidden ? "true" : "false"}
+      data-mobile-priority={mobilePriority}
+      className={`px-4 lg:px-6 py-3.5 lg:py-4 text-[13px] lg:text-sm text-slate-700 dark:text-slate-100 h-12 lg:h-14 ${alignClass} ${className}`}
     >
       {content}
     </td>

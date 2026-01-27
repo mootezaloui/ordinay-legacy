@@ -29,7 +29,7 @@ export default function SettingsGeneral() {
     <div className="space-y-6">
       <ContentSection title={t("sections.general")}>
         <div className="p-6 space-y-6">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
               <label className="text-sm font-medium text-slate-900 dark:text-white">
                 {t("general.language.label")}
@@ -41,7 +41,7 @@ export default function SettingsGeneral() {
             <select
               value={settings.language}
               onChange={(e) => handleChange("language", e.target.value)}
-              className="px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full md:w-auto px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               {LANGUAGE_REGISTRY.map((language) => (
                 <option key={language.code} value={language.code}>
@@ -51,7 +51,7 @@ export default function SettingsGeneral() {
             </select>
           </div>
 
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
               <label className="text-sm font-medium text-slate-900 dark:text-white">
                 {t("general.dateFormat.label")}
@@ -63,7 +63,7 @@ export default function SettingsGeneral() {
             <select
               value={settings.dateFormat}
               onChange={(e) => handleChange("dateFormat", e.target.value)}
-              className="px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full md:w-auto px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="DD/MM/YYYY">DD/MM/YYYY</option>
               <option value="MM/DD/YYYY">MM/DD/YYYY</option>
@@ -74,7 +74,7 @@ export default function SettingsGeneral() {
             </select>
           </div>
 
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
               <label className="text-sm font-medium text-slate-900 dark:text-white">
                 {t("general.currency.label")}
@@ -86,7 +86,7 @@ export default function SettingsGeneral() {
             <select
               value={settings.currency}
               onChange={(e) => handleChange("currency", e.target.value)}
-              className="px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full md:w-auto px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               {SUPPORTED_CURRENCIES.map((code) => (
                 <option key={code} value={code}>
@@ -100,7 +100,7 @@ export default function SettingsGeneral() {
 
       <ContentSection title={t("sections.appearance")}>
         <div className="p-6 space-y-6">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
               <label className="text-sm font-medium text-slate-900 dark:text-white">
                 {t("appearance.theme.label")}
@@ -112,7 +112,7 @@ export default function SettingsGeneral() {
             <select
               value={settings.theme}
               onChange={(e) => handleChange("theme", e.target.value)}
-              className="px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full md:w-auto px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="light">{t("appearance.theme.options.light")}</option>
               <option value="dark">{t("appearance.theme.options.dark")}</option>

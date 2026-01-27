@@ -26,7 +26,7 @@ export default function TableBody({ children, isEmpty = false, emptyMessage = nu
   }
 
   return (
-    <tbody className="bg-transparent divide-y divide-slate-200 dark:divide-slate-700">
+    <tbody className="bg-transparent md:divide-y divide-slate-200 dark:divide-slate-700">
       {children}
     </tbody>
   );

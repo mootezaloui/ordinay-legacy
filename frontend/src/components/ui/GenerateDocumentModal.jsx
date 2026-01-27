@@ -294,12 +294,10 @@ export default function GenerateDocumentModal({
     if (generatedDoc) {
         return (
             <div
-                className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-black bg-opacity-50 px-4 py-6"
-                style={{ paddingTop: "calc(var(--titlebar-height, 0px) + 24px)" }}
+                className="fixed inset-0 z-50 flex items-stretch md:items-center justify-center overflow-hidden bg-black bg-opacity-50 p-0 md:px-4 md:py-6 pt-[var(--titlebar-height)] md:pt-[calc(var(--titlebar-height)+24px)]"
             >
                 <div
-                    className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-md flex flex-col"
-                    style={{ maxHeight: "calc(100vh - var(--titlebar-height, 0px) - 48px)" }}
+                    className="bg-white dark:bg-slate-800 rounded-none md:rounded-xl shadow-2xl w-full h-full md:h-auto md:max-w-md flex flex-col md:max-h-[calc(100vh-var(--titlebar-height)-48px)]"
                 >
                     <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
                         <h3 className="text-lg font-semibold text-slate-900 dark:text-white truncate">
@@ -364,13 +362,15 @@ export default function GenerateDocumentModal({
                         </div>
                     </div>
 
-                    <div className="px-6 py-4 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-200 dark:border-slate-700 flex justify-end">
+                    <div className="px-6 py-4 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-200 dark:border-slate-700">
+                        <div className="flex flex-col-reverse sm:flex-row justify-end gap-3">
                         <button
                             onClick={handleCancel}
-                            className="px-4 py-2 border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg font-medium transition-colors"
+                            className="w-full sm:w-auto px-4 py-2 border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg font-medium transition-colors"
                         >
                             {t("actions.close")}
                         </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -379,12 +379,10 @@ export default function GenerateDocumentModal({
 
     return (
         <div
-            className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-black bg-opacity-50 px-4 py-6"
-            style={{ paddingTop: "calc(var(--titlebar-height, 0px) + 24px)" }}
+            className="fixed inset-0 z-50 flex items-stretch md:items-center justify-center overflow-hidden bg-black bg-opacity-50 p-0 md:px-4 md:py-6 pt-[var(--titlebar-height)] md:pt-[calc(var(--titlebar-height)+24px)]"
         >
             <div
-                className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-lg flex flex-col"
-                style={{ maxHeight: "calc(100vh - var(--titlebar-height, 0px) - 48px)" }}
+                className="bg-white dark:bg-slate-800 rounded-none md:rounded-xl shadow-2xl w-full h-full md:h-auto md:max-w-lg flex flex-col md:max-h-[calc(100vh-var(--titlebar-height)-48px)]"
             >
                 <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700">
                     <div className="flex items-center justify-between">
@@ -479,7 +477,7 @@ export default function GenerateDocumentModal({
                             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                                 {t("documentGeneration.labels.language")}
                             </label>
-                            <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <label
                                     className={`flex items-center justify-center gap-2 p-3 border-2 rounded-lg cursor-pointer transition-colors ${
                                         selectedLanguage === "fr"
@@ -569,11 +567,12 @@ export default function GenerateDocumentModal({
                     </div>
                 </div>
 
-                <div className="px-6 py-4 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-200 dark:border-slate-700 flex gap-3">
+                <div className="px-6 py-4 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-200 dark:border-slate-700">
+                    <div className="flex flex-col-reverse sm:flex-row gap-3">
                     <button
                         onClick={handleGenerate}
                         disabled={isGenerating || !selectedTemplateId}
-                        className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg font-medium transition-colors"
+                        className="w-full sm:flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg font-medium transition-colors"
                     >
                         {isGenerating ? (
                             <>
@@ -589,10 +588,11 @@ export default function GenerateDocumentModal({
                     </button>
                     <button
                         onClick={handleCancel}
-                        className="px-4 py-2 border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg font-medium transition-colors"
+                        className="w-full sm:w-auto px-4 py-2 border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg font-medium transition-colors"
                     >
                         {t("actions.cancel")}
                     </button>
+                    </div>
                 </div>
             </div>
         </div>

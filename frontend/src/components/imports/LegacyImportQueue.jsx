@@ -227,7 +227,7 @@ function ImportReviewDrawer({ item, onClose, onUpdated, isArchived }) {
         onClick={onClose}
         aria-hidden="true"
       />
-      <div className="absolute right-0 top-0 h-full w-full max-w-3xl bg-white shadow-2xl dark:bg-slate-900">
+      <div className="absolute inset-0 md:inset-auto md:right-0 md:top-0 md:h-full md:w-full md:max-w-3xl bg-white shadow-2xl dark:bg-slate-900 pt-[var(--titlebar-height)] md:pt-0">
         <div className="flex h-full flex-col">
           <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-6 py-4 dark:border-slate-800">
             <div>
@@ -848,10 +848,17 @@ export default function LegacyImportQueue({
 
                         return (
                           <TableRow key={item.id} hoverable={false}>
-                            <TableCell className="text-slate-600 dark:text-slate-300">
+                            <TableCell
+                              columnId="id"
+                              mobileLabel={t("importQueue.columns.id")}
+                              className="text-slate-600 dark:text-slate-300"
+                            >
                               #{item.id}
                             </TableCell>
-                            <TableCell>
+                            <TableCell
+                              columnId="status"
+                              mobileLabel={t("importQueue.columns.status")}
+                            >
                               <div className="flex flex-col gap-1">
                                 <span
                                   className={`inline-flex w-fit items-center rounded-full px-2 py-0.5 text-xs font-medium ${
@@ -878,13 +885,27 @@ export default function LegacyImportQueue({
                                 )}
                               </div>
                             </TableCell>
-                            <TableCell className="text-xs text-slate-500 dark:text-slate-400">
+                            <TableCell
+                              columnId="issues"
+                              mobileLabel={t("importQueue.columns.issues")}
+                              className="text-xs text-slate-500 dark:text-slate-400"
+                            >
                               {issueLabel}
                             </TableCell>
-                            <TableCell className="text-xs text-slate-500 dark:text-slate-400">
+                            <TableCell
+                              columnId="importedAt"
+                              mobileLabel={t("importQueue.columns.importedAt")}
+                              className="text-xs text-slate-500 dark:text-slate-400"
+                            >
                               {item.imported_at || "-"}
                             </TableCell>
-                            <TableCell truncate={false} adaptive>
+                            <TableCell
+                              columnId="actions"
+                              mobileLabel={t("importQueue.columns.actions")}
+                              mobileHidden
+                              truncate={false}
+                              adaptive
+                            >
                               <div className="flex flex-wrap gap-2">
                                 <button
                                   type="button"

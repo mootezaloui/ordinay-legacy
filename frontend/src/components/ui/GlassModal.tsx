@@ -54,25 +54,24 @@ export default function GlassModal({
 
   // Map maxWidth prop to Tailwind class
   const maxWidthClasses: Record<string, string> = {
-    sm: 'max-w-sm',
-    md: 'max-w-md',
-    lg: 'max-w-lg',
-    xl: 'max-w-xl',
-    '2xl': 'max-w-2xl',
-    '3xl': 'max-w-3xl',
-    '4xl': 'max-w-4xl',
-    '5xl': 'max-w-5xl',
-    '6xl': 'max-w-6xl',
-    '7xl': 'max-w-7xl',
+    sm: 'md:max-w-sm',
+    md: 'md:max-w-md',
+    lg: 'md:max-w-lg',
+    xl: 'md:max-w-xl',
+    '2xl': 'md:max-w-2xl',
+    '3xl': 'md:max-w-3xl',
+    '4xl': 'md:max-w-4xl',
+    '5xl': 'md:max-w-5xl',
+    '6xl': 'md:max-w-6xl',
+    '7xl': 'md:max-w-7xl',
   };
 
   const maxWidthClass = maxWidthClasses[maxWidth];
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 overflow-hidden animate-in fade-in duration-300"
+      className="fixed inset-0 z-[9999] flex items-stretch md:items-center justify-center p-0 md:p-6 pt-[var(--titlebar-height)] md:pt-[calc(var(--titlebar-height)+16px)] overflow-hidden animate-in fade-in duration-300"
       style={{
-        paddingTop: `calc(var(--titlebar-height, 0px) + 16px)`,
         backdropFilter: 'blur(12px)',
         WebkitBackdropFilter: 'blur(12px)',
       }}
@@ -85,17 +84,13 @@ export default function GlassModal({
 
       {/* Floating Glass Modal */}
       <div
-        className={`relative ${maxWidthClass} w-full flex flex-col animate-in zoom-in-95 slide-in-from-bottom-4 duration-300`}
-        style={{
-          maxHeight: 'calc(100vh - var(--titlebar-height, 0px) - 48px)',
-        }}
+        className={`relative ${maxWidthClass} w-full h-full md:h-auto flex flex-col animate-in zoom-in-95 slide-in-from-bottom-4 duration-300`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Glass card with refined styling */}
         <div
-          className="relative bg-white dark:bg-slate-900 rounded-2xl overflow-hidden flex flex-col"
+          className="relative bg-white dark:bg-slate-900 rounded-none md:rounded-2xl overflow-hidden flex flex-col h-full md:h-auto md:max-h-[calc(100vh-var(--titlebar-height)-48px)]"
           style={{
-            maxHeight: 'calc(100vh - var(--titlebar-height, 0px) - 48px)',
             boxShadow: '0 0 0 1px rgba(148, 163, 184, 0.1), 0 24px 48px -12px rgba(0, 0, 0, 0.25), 0 12px 24px -8px rgba(0, 0, 0, 0.15)',
           }}
         >

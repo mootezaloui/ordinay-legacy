@@ -310,9 +310,8 @@ export default function BlockerModal({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center p-4 overflow-hidden animate-in fade-in duration-300"
+      className="fixed inset-0 z-[9999] flex items-stretch md:items-center justify-center p-0 md:p-4 pt-[var(--titlebar-height)] md:pt-[calc(var(--titlebar-height)+16px)] overflow-hidden animate-in fade-in duration-300"
       style={{
-        paddingTop: `calc(var(--titlebar-height, 0px) + 16px)`,
         backdropFilter: 'blur(12px)',
         WebkitBackdropFilter: 'blur(12px)',
       }}
@@ -322,9 +321,8 @@ export default function BlockerModal({
       <div className="absolute inset-0 bg-gradient-to-br from-slate-900/50 via-slate-800/40 to-slate-900/50 dark:from-black/60 dark:via-slate-900/50 dark:to-black/60" />
 
       <div
-        className="relative bg-white dark:bg-slate-900 rounded-2xl max-w-3xl w-full overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-4 duration-300 flex flex-col"
+        className="relative bg-white dark:bg-slate-900 rounded-none md:rounded-2xl md:max-w-3xl w-full h-full md:h-auto overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-4 duration-300 flex flex-col md:max-h-[calc(100vh-var(--titlebar-height)-48px)]"
         style={{
-          maxHeight: 'calc(100vh - var(--titlebar-height, 0px) - 48px)',
           boxShadow: '0 0 0 1px rgba(148, 163, 184, 0.1), 0 24px 48px -12px rgba(0, 0, 0, 0.25), 0 12px 24px -8px rgba(0, 0, 0, 0.15)',
         }}
         onClick={(e) => e.stopPropagation()}
@@ -511,11 +509,11 @@ export default function BlockerModal({
 
         {/* Footer */}
         <div className="bg-slate-50/80 dark:bg-slate-800/50 border-t border-slate-200 dark:border-slate-800 px-6 py-5 flex-shrink-0">
-          <div className="flex justify-end gap-3">
+          <div className="flex flex-col-reverse sm:flex-row justify-end gap-3">
             {allResolved && onRetry && (
               <button
                 onClick={handleRetry}
-                className="px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600 text-white rounded-xl transition-all font-semibold shadow-lg shadow-emerald-500/25"
+                className="w-full sm:w-auto px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600 text-white rounded-xl transition-all font-semibold shadow-lg shadow-emerald-500/25"
               >
                 <i className="fas fa-redo mr-2"></i>
                 {t("detail.blocker.actions.retryAction")}
@@ -523,7 +521,7 @@ export default function BlockerModal({
             )}
             <button
               onClick={onClose}
-              className={`px-5 py-2.5 rounded-xl transition-all font-semibold ${allResolved
+              className={`w-full sm:w-auto px-5 py-2.5 rounded-xl transition-all font-semibold ${allResolved
                 ? 'border-2 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
                 : 'bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800 dark:from-slate-700 dark:to-slate-800 dark:hover:from-slate-600 dark:hover:to-slate-700 text-white shadow-lg shadow-slate-500/25'
                 }`}

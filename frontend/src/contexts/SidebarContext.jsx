@@ -4,15 +4,33 @@ const SidebarContext = createContext(undefined);
 
 export function SidebarProvider({ children }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
 
   const toggleSidebar = () => {
     setIsCollapsed(prev => !prev);
+  };
+
+  const toggleMobile = () => {
+    setIsMobileOpen(prev => !prev);
+  };
+
+  const openMobile = () => {
+    setIsMobileOpen(true);
+  };
+
+  const closeMobile = () => {
+    setIsMobileOpen(false);
   };
 
   const value = {
     isCollapsed,
     toggleSidebar,
     setIsCollapsed,
+    isMobileOpen,
+    setIsMobileOpen,
+    toggleMobile,
+    openMobile,
+    closeMobile,
   };
 
   return (

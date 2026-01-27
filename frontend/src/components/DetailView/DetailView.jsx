@@ -27,6 +27,12 @@ import { useSettings } from "../../contexts/SettingsContext";
 import { useTranslation } from "react-i18next";
 import { translateCategory } from "../../utils/entityTranslations";
 import { useOperator } from '../../contexts/OperatorContext';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "../ui/dropdown-menu";
 
 /**
  * Generic DetailView component with modern inline editing UX
@@ -1024,36 +1030,86 @@ export default function DetailView({ entityType }) {
         subtitle={config.getSubtitle(data)}
         icon={config.icon}
         actions={
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => navigate(-1)}
-              className="px-4 py-2 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-lg font-medium transition-colors duration-200"
-            >
-              <i className="fas fa-arrow-left mr-2"></i>
-              {t("actions.back", { ns: "common" })}
-            </button>
-
-            {/* Generate Document Button - Only for dossier and lawsuit (proces) */}
-            {(entityType === 'dossier' || entityType === 'lawsuit' || entityType === 'session') && (
+          <>
+            {/* Mobile actions */}
+            <div className="flex flex-col gap-2 w-full sm:w-auto md:hidden">
               <button
-                onClick={() => setGenerateDocModalOpen(true)}
-                className="px-4 py-2 border border-blue-600 dark:border-blue-500 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-lg font-medium transition-colors duration-200"
+                onClick={() => navigate(-1)}
+                className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-lg font-medium transition-colors duration-200"
               >
-                <i className="fas fa-file-alt mr-2"></i>
-                {t("documentGeneration.actions.generate", { ns: "common" })}
+                <i className="fas fa-arrow-left mr-2"></i>
+                {t("actions.back", { ns: "common" })}
               </button>
-            )}
 
-            {config.allowDelete && (
+              {(entityType === 'dossier' || entityType === 'lawsuit' || entityType === 'session') && (
+                <button
+                  onClick={() => setGenerateDocModalOpen(true)}
+                  className="w-full px-4 py-2 border border-blue-600 dark:border-blue-500 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-lg font-medium transition-colors duration-200"
+                >
+                  <i className="fas fa-file-alt mr-2"></i>
+                  {t("documentGeneration.actions.generate", { ns: "common" })}
+                </button>
+              )}
+
+              {config.allowDelete && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg font-medium text-slate-700 dark:text-slate-200"
+                    >
+                      <i className="fas fa-ellipsis-h mr-2"></i>
+                      {t("actions.more", { ns: "common", defaultValue: "More actions" })}
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuItem
+                      className="text-red-600 focus:text-red-600"
+                      onSelect={(event) => {
+                        event.preventDefault();
+                        handleDelete();
+                      }}
+                    >
+                      <i className="fas fa-trash mr-2"></i>
+                      {t("actions.delete", { ns: "common" })}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            </div>
+
+            {/* Desktop actions */}
+            <div className="hidden md:flex items-center gap-3">
               <button
-                onClick={handleDelete}
-                className="px-4 py-2 border border-red-300 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg font-medium transition-colors duration-200"
+                onClick={() => navigate(-1)}
+                className="px-4 py-2 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-lg font-medium transition-colors duration-200"
               >
-                <i className="fas fa-trash mr-2"></i>
-                {t("actions.delete", { ns: "common" })}
+                <i className="fas fa-arrow-left mr-2"></i>
+                {t("actions.back", { ns: "common" })}
               </button>
-            )}
-          </div>
+
+              {/* Generate Document Button - Only for dossier and lawsuit (proces) */}
+              {(entityType === 'dossier' || entityType === 'lawsuit' || entityType === 'session') && (
+                <button
+                  onClick={() => setGenerateDocModalOpen(true)}
+                  className="px-4 py-2 border border-blue-600 dark:border-blue-500 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-lg font-medium transition-colors duration-200"
+                >
+                  <i className="fas fa-file-alt mr-2"></i>
+                  {t("documentGeneration.actions.generate", { ns: "common" })}
+                </button>
+              )}
+
+              {config.allowDelete && (
+                <button
+                  onClick={handleDelete}
+                  className="px-4 py-2 border border-red-300 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg font-medium transition-colors duration-200"
+                >
+                  <i className="fas fa-trash mr-2"></i>
+                  {t("actions.delete", { ns: "common" })}
+                </button>
+              )}
+            </div>
+          </>
         }
       />
 
@@ -1096,8 +1152,30 @@ export default function DetailView({ entityType }) {
           </div>
         )}
 
+        {/* Mobile tab selector */}
+        <div className="md:hidden">
+          <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-2">
+            {t("detail.tabs.label", { ns: "common", defaultValue: "Section" })}
+          </label>
+          <select
+            value={activeTab}
+            onChange={(e) => {
+              const nextTab = e.target.value;
+              setActiveTab(nextTab);
+              setSearchParams({ tab: nextTab });
+            }}
+            className="w-full px-4 py-2.5 border border-slate-300 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+          >
+            {config.tabs.map((tab) => (
+              <option key={tab.id} value={tab.id}>
+                {tab.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
         {/* Tabs */}
-        <div className="border-b border-slate-200 dark:border-slate-700 overflow-x-auto">
+        <div className="hidden md:block border-b border-slate-200 dark:border-slate-700 overflow-x-auto">
           <div className="flex gap-2 min-w-max">
             {config.tabs.map((tab) => {
               // Determine tutorial attribute based on entity type and tab id
