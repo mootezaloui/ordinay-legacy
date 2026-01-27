@@ -140,26 +140,33 @@
     "current": {
       "title": "Current (Desktop MVP)",
       "localOperator": "This desktop app uses a local operator identity on this device.",
-      "noOnlineAuth": "No online account authentication is enabled yet.",
+      "noOnlineAuth": "Your data is stored locally and remains accessible even without an internet connection.",
       "osControlled": "Access is controlled by your operating system user.",
       "localData": "Protect your data with OS-level access and local backups/exports."
     },
-    "comingSoon": {
-      "title": "Coming later (SaaS account)",
-      "caption": "These account features will arrive with the cloud version.",
-      "badge": "Coming soon",
-      "items": {
-        "twoFactor": {
-          "label": "Two-factor authentication (2FA)",
-          "description": "Secure accounts with verification codes."
-        },
-        "sessionTimeout": {
-          "label": "Session timeout / inactivity logout",
-          "description": "Automatic sign-out after idle periods."
-        },
-        "changePassword": {
-          "label": "Change password",
-          "description": "Manage account credentials from the cloud account."
+    "onlineAccess": {
+      "title": "Online Access (Optional)",
+      "optionalBadge": "Optional",
+      "description": "Organia works fully offline by default. If you enable online access, you will be able to securely access your data from the web at organia.com and synchronize this device with your cloud account.",
+      "notice": {
+        "title": "By enabling online access:",
+        "items": {
+          "syncsData": "Your data will be copied and synchronized to Organia's cloud services.",
+          "requiresAccount": "This feature requires creating an online account.",
+          "offlineStillWorks": "You remain free to continue using Organia without online access."
+        }
+      },
+      "optionalNote": "Online access is optional. If you prefer to keep all your data strictly local, you can continue using Organia without enabling this feature.",
+      "actions": {
+        "enable": "Enable online access"
+      },
+      "modal": {
+        "title": "Online access setup",
+        "description": "Online access will be available in a future release. We'll guide you through account setup when it's ready.",
+        "badge": "Setup required (coming soon)",
+        "actions": {
+          "close": "Close",
+          "setupRequired": "Setup required"
         }
       }
     }

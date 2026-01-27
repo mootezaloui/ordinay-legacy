@@ -41,6 +41,7 @@ export default function SettingsSecurityAccess() {
   const [referralMessage, setReferralMessage] = useState("");
   const [referralCopied, setReferralCopied] = useState(false);
   const [showPlanModal, setShowPlanModal] = useState(false);
+  const [showOnlineAccessModal, setShowOnlineAccessModal] = useState(false);
   const [planActionError, setPlanActionError] = useState("");
   const [planActionMessage, setPlanActionMessage] = useState("");
   const [planActionBusy, setPlanActionBusy] = useState(false);
@@ -242,6 +243,14 @@ export default function SettingsSecurityAccess() {
 
   const closePlanModal = () => {
     setShowPlanModal(false);
+  };
+
+  const openOnlineAccessModal = () => {
+    setShowOnlineAccessModal(true);
+  };
+
+  const closeOnlineAccessModal = () => {
+    setShowOnlineAccessModal(false);
   };
 
   useEffect(() => {
@@ -1170,6 +1179,48 @@ export default function SettingsSecurityAccess() {
         </div>
       )}
 
+      {showOnlineAccessModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div
+            className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+            onClick={closeOnlineAccessModal}
+          />
+          <div className="relative w-full max-w-md rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-2xl">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300">
+                <i className="fas fa-cloud"></i>
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
+                  {t("security.onlineAccess.modal.title")}
+                </h3>
+                <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">
+                  {t("security.onlineAccess.modal.description")}
+                </p>
+              </div>
+            </div>
+            <div className="mt-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 px-3 py-2 text-xs text-slate-600 dark:text-slate-300 flex items-center gap-2">
+              <i className="fas fa-hourglass-half text-amber-500"></i>
+              <span>{t("security.onlineAccess.modal.badge")}</span>
+            </div>
+            <div className="mt-5 flex flex-wrap gap-2 justify-end">
+              <button
+                onClick={closeOnlineAccessModal}
+                className="px-4 py-2 text-sm font-medium rounded-lg bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 transition"
+              >
+                {t("security.onlineAccess.modal.actions.close")}
+              </button>
+              <button
+                disabled
+                className="px-4 py-2 text-sm font-semibold rounded-lg bg-slate-400 text-white cursor-not-allowed"
+              >
+                {t("security.onlineAccess.modal.actions.setupRequired")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showDisableConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
           <div
@@ -1234,38 +1285,43 @@ export default function SettingsSecurityAccess() {
             </ul>
           </div>
 
-          <div className="pt-4 border-t border-slate-200 dark:border-slate-700 space-y-3">
-            <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
-              {t("security.comingSoon.title")}
-            </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              {t("security.comingSoon.caption")}
-            </p>
-            <div className="space-y-3">
-              {[
-                "twoFactor",
-                "sessionTimeout",
-                "changePassword",
-              ].map((item) => (
-                <div
-                  key={item}
-                  className="flex items-center justify-between rounded-lg border border-slate-200 dark:border-slate-700 px-4 py-3 bg-slate-50 dark:bg-slate-800/40 opacity-60 cursor-not-allowed"
-                >
-                  <div>
-                    <p className="text-sm font-medium text-slate-800 dark:text-slate-100">
-                      {t(`security.comingSoon.items.${item}.label`)}
-                    </p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                      {t(`security.comingSoon.items.${item}.description`)}
-                    </p>
-                  </div>
-                  <span className="px-2 py-1 text-xs rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
-                    {t("security.comingSoon.badge")}
-                  </span>
-                </div>
-              ))}
+          <div className="pt-4 border-t border-slate-200 dark:border-slate-700 space-y-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
+                {t("security.onlineAccess.title")}
+              </h3>
+              <span className="px-2.5 py-1 text-[11px] font-semibold rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                {t("security.onlineAccess.optionalBadge")}
+              </span>
             </div>
+            <p className="text-sm text-slate-700 dark:text-slate-300">
+              {t("security.onlineAccess.description")}
+            </p>
+            <div className="rounded-lg border border-amber-200 dark:border-amber-800/60 bg-amber-50/80 dark:bg-amber-900/20 px-4 py-3 space-y-2">
+              <p className="text-xs font-semibold text-amber-900 dark:text-amber-200">
+                {t("security.onlineAccess.notice.title")}
+              </p>
+              <ul className="space-y-2 text-xs text-amber-900 dark:text-amber-200">
+                {["syncsData", "requiresAccount", "offlineStillWorks"].map((item) => (
+                  <li key={item} className="flex items-start gap-2">
+                    <i className="fas fa-info-circle mt-0.5"></i>
+                    <span>{t(`security.onlineAccess.notice.items.${item}`)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              {t("security.onlineAccess.optionalNote")}
+            </p>
+            <button
+              onClick={openOnlineAccessModal}
+              className="w-full sm:w-auto px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
+            >
+              <i className="fas fa-cloud"></i>
+              {t("security.onlineAccess.actions.enable")}
+            </button>
           </div>
+
         </div>
       </ContentSection>
     </div>
