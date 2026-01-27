@@ -1,3 +1,7 @@
+dist-electron/
+dist/
+frontend/dist/
+backend/dist/
 # Logs
 logs
 *.log

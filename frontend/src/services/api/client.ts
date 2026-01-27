@@ -14,11 +14,13 @@ const isLicenseLocked = () =>
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const apiBase = getApiBase();
   const url = `${apiBase}${path}`;
+  console.log(`[API] ${init?.method || 'GET'} ${url}`);
   const res = await fetch(url, {
     headers: { "Content-Type": "application/json" },
     ...init,
   });
   if (!res.ok) {
+    console.error(`[API] FAILED: ${res.status} ${res.statusText} for ${url}`);
     let detail = "";
     try {
       const text = await res.text();

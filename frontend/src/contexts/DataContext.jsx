@@ -469,36 +469,54 @@ export function DataProvider({ children }) {
       setLoading(true);
       setLoadError(null);
       try {
+        console.log("[DataContext] Starting data load...");
+
+        console.log("[DataContext] Fetching /clients...");
         const apiClients = await apiClient.get("/clients");
+        console.log("[DataContext] /clients OK, count:", apiClients?.length);
         const clientsAdapted = apiClients.map(adaptClient);
         const clientsById = Object.fromEntries(clientsAdapted.map((c) => [c.id, c]));
 
+        console.log("[DataContext] Fetching /dossiers...");
         const apiDossiers = await apiClient.get("/dossiers");
+        console.log("[DataContext] /dossiers OK, count:", apiDossiers?.length);
         const dossiersAdapted = apiDossiers.map((d) => adaptDossier(d, clientsById));
         const dossiersById = Object.fromEntries(dossiersAdapted.map((d) => [d.id, d]));
 
+        console.log("[DataContext] Fetching /lawsuits...");
         const apiLawsuits = await apiClient.get("/lawsuits");
+        console.log("[DataContext] /lawsuits OK, count:", apiLawsuits?.length);
         const lawsuitsAdapted = apiLawsuits.map((c) => adaptLawsuit(c, dossiersById));
         const lawsuitsById = Object.fromEntries(lawsuitsAdapted.map((c) => [c.id, c]));
 
+        console.log("[DataContext] Fetching /tasks...");
         const apiTasks = await apiClient.get("/tasks");
+        console.log("[DataContext] /tasks OK, count:", apiTasks?.length);
         const tasksAdapted = apiTasks.map((t) => adaptTask(t, dossiersById, lawsuitsById));
 
+        console.log("[DataContext] Fetching /sessions...");
         const apiSessions = await apiClient.get("/sessions");
+        console.log("[DataContext] /sessions OK, count:", apiSessions?.length);
         const sessionsAdapted = apiSessions.map((s) => adaptSession(s, dossiersById, lawsuitsById));
 
+        console.log("[DataContext] Fetching /officers...");
         const apiOfficers = await apiClient.get("/officers");
+        console.log("[DataContext] /officers OK, count:", apiOfficers?.length);
         const officersAdapted = apiOfficers.map(adaptOfficer);
         const officersById = Object.fromEntries(officersAdapted.map((o) => [o.id, o]));
 
+        console.log("[DataContext] Fetching /missions...");
         const apiMissions = await apiClient.get("/missions");
+        console.log("[DataContext] /missions OK, count:", apiMissions?.length);
         const missionsAdapted = apiMissions.map((m) => adaptMission(m, dossiersById, lawsuitsById));
         const missionsWithOfficer = missionsAdapted.map((mission) => ({
           ...mission,
           officerName: mission.officerId ? officersById[mission.officerId]?.name || "" : "",
         }));
 
+        console.log("[DataContext] Fetching /personal-tasks...");
         const apiPersonalTasks = await apiClient.get("/personal-tasks");
+        console.log("[DataContext] /personal-tasks OK, count:", apiPersonalTasks?.length);
         const personalTasksAdapted = apiPersonalTasks.map(adaptPersonalTask);
 
         const missionsByOfficer = {};
@@ -525,12 +543,16 @@ export function DataProvider({ children }) {
           missions: missionsByOfficer[officer.id] || [],
         }));
 
+        console.log("[DataContext] Fetching /financial...");
         const apiFinancial = await apiClient.get("/financial");
+        console.log("[DataContext] /financial OK, count:", apiFinancial?.length);
         const financialAdapted = apiFinancial.map((f) =>
           adaptFinancialEntry(f, clientsById, dossiersById, lawsuitsById)
         );
 
+        console.log("[DataContext] Fetching /history?entity_type=client...");
         const apiHistoryClients = await apiClient.get("/history?entity_type=client");
+        console.log("[DataContext] /history OK, count:", apiHistoryClients?.length);
         const historyClientsAdapted = apiHistoryClients.map(adaptHistory);
         const historyByClient = historyClientsAdapted.reduce((acc, evt) => {
           if (!acc[evt.entityId]) acc[evt.entityId] = [];
@@ -570,6 +592,8 @@ export function DataProvider({ children }) {
 
         if (cancelled) return;
 
+        console.log("[DataContext] All API calls successful, updating state...");
+        console.log("[DataContext] Setting clients:", clientsWithTimeline?.length);
         setClients(clientsWithTimeline);
         setDossiers(dossiersWithMissions);
         setLawsuits(lawsuitsWithMissions);
@@ -587,12 +611,16 @@ export function DataProvider({ children }) {
         saveToStorage("personalTasks", personalTasksAdapted);
         saveToStorage("missions", missionsWithOfficer);
         saveToStorage("officers", officersWithMissions);
+        console.log("[DataContext] State update complete!");
         saveToStorage("financial", financialAdapted);
         setIntegrityIssues(issues);
         setReconciled(true);
       } catch (error) {
         if (cancelled) return;
-        console.error("[DataContext] API load failed", error);
+        console.error("[DataContext] API load failed!");
+        console.error("[DataContext] Error name:", error?.name);
+        console.error("[DataContext] Error message:", error?.message);
+        console.error("[DataContext] Full error:", error);
         setLoadError(error.message || "Loading Error");
         showToastRef.current(tRef.current("data.toast.error.loadRemote"), "error");
       } finally {

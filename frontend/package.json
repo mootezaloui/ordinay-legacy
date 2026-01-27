@@ -14,14 +14,15 @@
   "scripts": {
     "dev": "vite",
     "build:renderer": "tsc -b && vite build",
-    "build": "npm run build:renderer && npm run prepare:node && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win",
+    "build": "npm run build:renderer && npm run prepare:node && npm run rebuild:backend && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win",
     "lint": "eslint .",
     "preview": "vite preview",
     "electron:dev": "concurrently -k -s first -n VITE,ELECTRON -c \"cyan.bold,magenta.bold\" \"cross-env BROWSER=none npm run dev -- --host --port 5173\" \"wait-on http-get://localhost:5173 && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electron .\"",
-    "electron:build": "npm run build:renderer && npm run prepare:node && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder",
-    "electron:build:win": "npm run build:renderer && npm run prepare:node && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win",
-    "electron:build:dir": "npm run build:renderer && npm run prepare:node && electron-builder --dir",
+    "electron:build": "npm run build:renderer && npm run prepare:node && npm run rebuild:backend && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder",
+    "electron:build:win": "npm run build:renderer && npm run prepare:node && npm run rebuild:backend && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win",
+    "electron:build:dir": "npm run build:renderer && npm run prepare:node && npm run rebuild:backend && electron-builder --dir",
     "prepare:node": "node scripts/copy-node.cjs",
+    "rebuild:backend": "node scripts/rebuild-backend-native.cjs",
     "generate:icons": "node build/generate-icons.cjs"
   },
   "dependencies": {

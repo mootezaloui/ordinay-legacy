@@ -14,6 +14,8 @@ const https = require("https");
 // ============================================================
 
 const isDev = !app.isPackaged;
+// Allow DevTools in packaged builds by default; set ORGANIA_DEVTOOLS=0 to disable.
+const ALLOW_DEVTOOLS = process.env.ORGANIA_DEVTOOLS !== "0";
 const APP_USER_MODEL_ID = "com.organia.desktop";
 
 // Ensure Chromium uses non-overlay scrollbars so CSS styling applies.
@@ -26,7 +28,7 @@ if (process.platform === "win32") {
   app.setAppUserModelId(APP_USER_MODEL_ID);
 }
 
-if (!isDev) {
+if (!isDev && !ALLOW_DEVTOOLS) {
   // Harden production against DevTools access even if a window slips through.
   app.on("web-contents-created", (_event, contents) => {
     contents.on("before-input-event", (event, input) => {
@@ -595,7 +597,7 @@ function createWindow() {
       nodeIntegration: false,
       sandbox: false,
       // Disable DevTools in production to protect internal logic and license state.
-      devTools: isDev,
+      devTools: isDev || ALLOW_DEVTOOLS,
     },
     show: false, // Don't show until ready
   });

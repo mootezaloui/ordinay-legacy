@@ -5,6 +5,7 @@ import { useToast } from "../../contexts/ToastContext";
 import { useConfirm } from "../../contexts/ConfirmContext";
 import templateManager from "../../services/templateManager";
 import documentService from "../../services/documentService";
+import useBodyScrollLock from "../../hooks/useBodyScrollLock";
 
 /**
  * Generate Document Modal
@@ -32,6 +33,7 @@ export default function GenerateDocumentModal({
     const [savedDocument, setSavedDocument] = useState(null);
     const [isSaving, setIsSaving] = useState(false);
     const [isDownloading, setIsDownloading] = useState(false);
+    useBodyScrollLock(isOpen);
 
     useEffect(() => {
         if (!isOpen || !entityType) return;
@@ -291,8 +293,14 @@ export default function GenerateDocumentModal({
 
     if (generatedDoc) {
         return (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-                <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-md mx-4">
+            <div
+                className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-black bg-opacity-50 px-4 py-6"
+                style={{ paddingTop: "calc(var(--titlebar-height, 0px) + 24px)" }}
+            >
+                <div
+                    className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-md flex flex-col"
+                    style={{ maxHeight: "calc(100vh - var(--titlebar-height, 0px) - 48px)" }}
+                >
                     <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
                         <h3 className="text-lg font-semibold text-slate-900 dark:text-white truncate">
                             <i className="fas fa-check-circle text-green-600 dark:text-green-400 mr-2"></i>
@@ -306,7 +314,7 @@ export default function GenerateDocumentModal({
                         </button>
                     </div>
 
-                    <div className="px-6 py-4 space-y-4">
+                    <div className="px-6 py-4 space-y-4 overflow-y-auto overscroll-contain flex-1 min-h-0">
                         <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 p-4">
                             <p className="text-sm font-semibold text-slate-900 dark:text-white break-words">
                                 {generatedDoc.fileName}
@@ -370,8 +378,14 @@ export default function GenerateDocumentModal({
     }
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-lg mx-4">
+        <div
+            className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-black bg-opacity-50 px-4 py-6"
+            style={{ paddingTop: "calc(var(--titlebar-height, 0px) + 24px)" }}
+        >
+            <div
+                className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-lg flex flex-col"
+                style={{ maxHeight: "calc(100vh - var(--titlebar-height, 0px) - 48px)" }}
+            >
                 <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700">
                     <div className="flex items-center justify-between">
                         <h3 className="text-lg font-semibold text-slate-900 dark:text-white truncate">
@@ -387,7 +401,7 @@ export default function GenerateDocumentModal({
                     </div>
                 </div>
 
-                <div className="px-6 py-4 space-y-6">
+                <div className="px-6 py-4 space-y-6 overflow-y-auto overscroll-contain flex-1 min-h-0">
                     <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-blue-50 dark:bg-blue-900/20 p-4">
                         <p className="text-sm text-blue-800 dark:text-blue-300">
                             {t("documentGeneration.subtitle")}
