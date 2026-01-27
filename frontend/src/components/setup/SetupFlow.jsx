@@ -159,7 +159,7 @@ function SetupFlow() {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center p-6 md:p-8 pt-12 pb-12 titlebar-offset-padding overflow-hidden">
+        <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-start md:items-center justify-center px-4 sm:px-6 md:px-8 pt-6 sm:pt-10 pb-8 titlebar-offset-padding overflow-y-auto">
             {/* CSS Animations */}
             <style>{`
                 @keyframes fadeInUp {
@@ -200,9 +200,9 @@ function SetupFlow() {
             `}</style>
 
             <div className={`w-full max-w-6xl transition-opacity duration-500 ${mounted ? "opacity-100" : "opacity-0"}`}>
-                <div className="grid grid-cols-1 lg:grid-cols-[320px,1fr] gap-6 lg:gap-10 items-center">
+                <div className="grid grid-cols-1 lg:grid-cols-[320px,1fr] gap-6 lg:gap-10 items-start lg:items-center">
                     {/* Left Panel - Branding & Progress */}
-                    <div className={`lg:sticky lg:top-8 space-y-8 text-slate-100 lg:pr-6 lg:border-r lg:border-slate-800/60 ${mounted ? "animate-fade-in-up" : "opacity-0"}`}>
+                    <div className={`lg:sticky lg:top-8 space-y-6 lg:space-y-8 text-slate-100 lg:pr-6 lg:border-r lg:border-slate-800/60 pb-6 lg:pb-0 border-b border-slate-800/60 lg:border-b-0 ${mounted ? "animate-fade-in-up" : "opacity-0"}`}>
                         <div>
                             <div className="inline-flex items-center justify-center w-14 h-14 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl mb-6 shadow-lg shadow-blue-500/20 transition-transform duration-300 hover:scale-105">
                                 <i className="fas fa-scale-balanced text-white text-xl"></i>
@@ -214,13 +214,13 @@ function SetupFlow() {
                         </div>
 
                         {/* Progress Steps - Vertical */}
-                        <div className="space-y-1">
+                        <div className="flex gap-4 lg:block lg:space-y-1 overflow-x-auto lg:overflow-visible pb-2 lg:pb-0">
                             {[
                                 { num: 1, label: t("progress.labels.profile") },
                                 { num: 2, label: t("progress.labels.firm") },
                                 { num: 3, label: t("progress.labels.security") },
                             ].map((s, idx) => (
-                                <div key={s.num} className="flex items-start gap-4">
+                                <div key={s.num} className="flex flex-col items-center lg:flex-row lg:items-start gap-2 lg:gap-4 min-w-[96px]">
                                     <div className="flex flex-col items-center">
                                         <div
                                             className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-medium transition-all duration-300 ${s.num === step
@@ -236,12 +236,12 @@ function SetupFlow() {
                                         </div>
                                         {idx < 2 && (
                                             <div
-                                                className={`w-0.5 h-8 mt-1 rounded-full transition-all duration-500 ${s.num < step ? "bg-emerald-500/60" : "bg-slate-800"
+                                                className={`hidden lg:block w-0.5 h-8 mt-1 rounded-full transition-all duration-500 ${s.num < step ? "bg-emerald-500/60" : "bg-slate-800"
                                                     }`}
                                             />
                                         )}
                                     </div>
-                                    <div className="pt-1.5">
+                                    <div className="pt-1.5 text-center lg:text-left">
                                         <p className={`text-sm font-medium transition-colors duration-300 ${s.num === step ? "text-white" : s.num < step ? "text-slate-300" : "text-slate-500"}`}>
                                             {s.label}
                                         </p>
@@ -256,9 +256,9 @@ function SetupFlow() {
                     </div>
 
                     {/* Right Panel - Form Card */}
-                    <div className={`flex flex-col w-full max-w-9xl lg:ml-6 mt-2 lg:mt-3 ${mounted ? "animate-scale-in" : "opacity-0"}`} style={{ animationDelay: "0.15s" }}>
+                    <div className={`flex flex-col w-full max-w-9xl lg:ml-6 mt-2 lg:mt-3 bg-slate-900/70 border border-slate-800/60 rounded-2xl overflow-hidden ${mounted ? "animate-scale-in" : "opacity-0"}`} style={{ animationDelay: "0.15s" }}>
                         {/* Card Header */}
-                        <div className="px-6 md:px-10 pt-4 md:pt-6 pb-3 md:pb-4 border-b border-slate-800/40">
+                        <div className="px-4 sm:px-6 md:px-10 pt-4 md:pt-6 pb-3 md:pb-4 border-b border-slate-800/40">
                             <div key={step} className={`space-y-3 ${slideDirection === "right" ? "animate-slide-in-right" : "animate-slide-in-left"}`}>
                                 <div className="flex flex-wrap items-baseline gap-3">
                                     <p className="text-xs font-medium text-blue-400 uppercase tracking-wider">
@@ -282,7 +282,7 @@ function SetupFlow() {
                         </div>
 
                         {/* Card Body */}
-                        <div className="px-6 md:px-10 py-3 md:py-5">
+                        <div className="px-4 sm:px-6 md:px-10 py-3 md:py-5">
                             {errors.general && (
                                 <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg text-red-300 text-sm mb-8">
                                     {errors.general}
@@ -622,12 +622,12 @@ function SetupFlow() {
                         </div>
 
                         {/* Card Footer */}
-                        <div className="px-6 md:px-10 py-2 md:py-3 border-t border-slate-800/40 flex items-center justify-between">
-                            <div>
+                        <div className="px-4 sm:px-6 md:px-10 py-2 md:py-3 border-t border-slate-800/40 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3">
+                            <div className="w-full sm:w-auto">
                                 {step > 1 && (
                                     <button
                                         onClick={handleBack}
-                                        className="px-4 py-2 text-slate-400 hover:text-white text-sm font-medium transition-all duration-200 flex items-center gap-2 hover:-translate-x-0.5 active:scale-95"
+                                        className="w-full sm:w-auto px-4 py-2 text-slate-400 hover:text-white text-sm font-medium transition-all duration-200 flex items-center justify-center sm:justify-start gap-2 hover:-translate-x-0.5 active:scale-95"
                                     >
                                         <i className="fas fa-arrow-left text-xs transition-transform group-hover:-translate-x-1"></i>
                                         {t("actions.back")}
@@ -635,12 +635,12 @@ function SetupFlow() {
                                 )}
                             </div>
 
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-3 w-full sm:w-auto">
 
 
                                 <button
                                     onClick={handleNext}
-                                    className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 shadow-lg shadow-blue-600/20 hover:shadow-blue-600/30 hover:translate-x-0.5 active:scale-95"
+                                    className="w-full sm:w-auto px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20 hover:shadow-blue-600/30 hover:translate-x-0.5 active:scale-95"
                                 >
                                     {step === 3 ? (
                                         <>
