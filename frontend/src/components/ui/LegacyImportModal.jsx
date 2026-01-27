@@ -555,7 +555,7 @@ export default function LegacyImportModal({
 
   return (
     <GlassModal isOpen={isOpen} onClose={handleClose} maxWidth="4xl">
-      <div className="flex flex-col h-full">
+      <div className="flex flex-col h-full min-h-0 md:max-h-[calc(100vh-var(--titlebar-height)-48px)]">
         <div className="flex items-start justify-between gap-4 border-b border-slate-200 dark:border-slate-800 px-6 py-4">
           <div>
             <h2 className="text-lg font-semibold text-slate-900 dark:text-white">

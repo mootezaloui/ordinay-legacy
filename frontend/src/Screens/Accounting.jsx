@@ -16,6 +16,7 @@ import TableCell from "../components/table/TableCell";
 import TableActions, { IconButton } from "../components/table/TableActions";
 import TableToolbar from "../components/table/TableToolbar";
 import Pagination from "../components/table/Pagination";
+import EntityGrid from "../components/table/EntityGrid";
 import FormModal from "../components/FormModal/FormModal";
 import StatCard from "../components/dashboard/StatCard";
 import {
@@ -38,6 +39,7 @@ import {
   logStatusChange,
   EVENT_TYPES,
 } from "../services/historyService";
+import { useListViewMode } from "../hooks/useListViewMode";
 import { useSettings } from "../contexts/SettingsContext";
 
 export default function Accounting() {
@@ -108,6 +110,7 @@ export default function Accounting() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [blockerModalOpen, setBlockerModalOpen] = useState(false);
   const [validationResult, setValidationResult] = useState(null);
+  const [viewMode, setViewMode] = useListViewMode("accounting");
 
   const truncate = (text, max = 120) => {
     if (!text) return "";
@@ -1086,47 +1089,59 @@ export default function Accounting() {
           sortDirection={table.sortDirection}
           onSort={table.handleSort}
           onResetSort={table.resetToIntelligentOrder}
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
         />
 
-        <Table>
-          <AdvancedTableHeader
+        {viewMode === "grid" ? (
+          <EntityGrid
+            data={table.data}
             columns={table.columns}
-            sortBy={table.sortBy}
-            sortDirection={table.sortDirection}
-            onSort={table.handleSort}
-            onReorder={table.reorderColumns}
-            enableReorder={true}
-            isEmpty={table.data.length === 0}
-          />
-          <TableBody
-            isEmpty={table.data.length === 0}
+            onRowClick={(entry) => handleView(entry)}
+            getItemEmphasis={table.getItemEmphasis}
             emptyMessage={tableEmptyMessage}
-          >
-            {table.data.map((entry) => (
-              <TableRow
-                key={entry.id}
-                onClick={() => handleView(entry)}
-                emphasis={table.getItemEmphasis(entry)}
-                className="cursor-pointer"
-              >
-                {table.columns.map((column) => (
-                  <TableCell
-                    key={column.id}
-                    columnId={column.id}
-                    mobileLabel={column.label}
-                    mobileRole={column.mobileRole}
-                    mobilePriority={column.mobilePriority}
-                    mobileHidden={column.mobileHidden}
-                    truncate={!['status', 'priority'].includes(column.id)}
-                    adaptive={['status', 'priority'].includes(column.id)}
-                  >
-                    {column.render ? column.render(entry) : entry[column.id]}
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+          />
+        ) : (
+          <Table>
+            <AdvancedTableHeader
+              columns={table.columns}
+              sortBy={table.sortBy}
+              sortDirection={table.sortDirection}
+              onSort={table.handleSort}
+              onReorder={table.reorderColumns}
+              enableReorder={true}
+              isEmpty={table.data.length === 0}
+            />
+            <TableBody
+              isEmpty={table.data.length === 0}
+              emptyMessage={tableEmptyMessage}
+            >
+              {table.data.map((entry) => (
+                <TableRow
+                  key={entry.id}
+                  onClick={() => handleView(entry)}
+                  emphasis={table.getItemEmphasis(entry)}
+                  className="cursor-pointer"
+                >
+                  {table.columns.map((column) => (
+                    <TableCell
+                      key={column.id}
+                      columnId={column.id}
+                      mobileLabel={column.label}
+                      mobileRole={column.mobileRole}
+                      mobilePriority={column.mobilePriority}
+                      mobileHidden={column.mobileHidden}
+                      truncate={!['status', 'priority'].includes(column.id)}
+                      adaptive={['status', 'priority'].includes(column.id)}
+                    >
+                      {column.render ? column.render(entry) : entry[column.id]}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
 
         <Pagination
           currentPage={table.currentPage}

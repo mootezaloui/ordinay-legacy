@@ -17,6 +17,7 @@ import TableCell from "../components/table/TableCell";
 import TableActions, { IconButton } from "../components/table/TableActions";
 import TableToolbar from "../components/table/TableToolbar";
 import Pagination from "../components/table/Pagination";
+import EntityGrid from "../components/table/EntityGrid";
 import FormModal from "../components/FormModal/FormModal";
 import StatCard from "../components/dashboard/StatCard";
 import { sessionFormFields } from "../components/FormModal/formConfigs";
@@ -27,6 +28,7 @@ import { canPerformAction } from "../services/domainRules";
 import { resolveDetailRoute } from "../utils/routeResolver";
 import { logEntityCreation, logHistoryEvent, EVENT_TYPES } from "../services/historyService";
 import { useSettings } from "../contexts/SettingsContext";
+import { useListViewMode } from "../hooks/useListViewMode";
 
 export default function Sessions() {
   const { t } = useTranslation("sessions");
@@ -56,6 +58,7 @@ export default function Sessions() {
   const [validationResult, setValidationResult] = useState(null);
   const [confirmImpactModalOpen, setConfirmImpactModalOpen] = useState(false);
   const [pendingFormData, setPendingFormData] = useState(null);
+  const [viewMode, setViewMode] = useListViewMode("sessions");
 
   const typeIcons = {
     Consultation: "fas fa-comments",
@@ -485,6 +488,12 @@ export default function Sessions() {
     return field;
   });
 
+  const tableEmptyMessage = table.isFiltering
+    ? t("table.emptyFiltered")
+    : dossiers.length === 0
+      ? t("table.emptyNoDossiers")
+      : t("table.empty");
+
   return (
     <PageLayout>
       <PageHeader
@@ -535,53 +544,59 @@ export default function Sessions() {
           sortDirection={table.sortDirection}
           onSort={table.handleSort}
           onResetSort={table.resetToIntelligentOrder}
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
         />
 
-        <Table>
-          <AdvancedTableHeader
+        {viewMode === "grid" ? (
+          <EntityGrid
+            data={table.data}
             columns={table.columns}
-            sortBy={table.sortBy}
-            sortDirection={table.sortDirection}
-            onSort={table.handleSort}
-            onReorder={table.reorderColumns}
-            enableReorder={true}
-            isEmpty={table.data.length === 0}
+            onRowClick={(session) => handleView(session.id)}
+            getItemEmphasis={table.getItemEmphasis}
+            emptyMessage={tableEmptyMessage}
           />
-          <TableBody
-            isEmpty={table.data.length === 0}
-            emptyMessage={
-              table.isFiltering
-                ? t("table.emptyFiltered")
-                : dossiers.length === 0
-                  ? t("table.emptyNoDossiers")
-                  : t("table.empty")
-            }
-          >
-            {table.data.map((session) => (
-              <TableRow
-                key={session.id}
-                onClick={() => handleView(session.id)}
-                emphasis={table.getItemEmphasis(session)}
-                className="cursor-pointer"
-              >
-                {table.columns.map((column) => (
-                  <TableCell
-                    key={column.id}
-                    columnId={column.id}
-                    mobileLabel={column.label}
-                    mobileRole={column.mobileRole}
-                    mobilePriority={column.mobilePriority}
-                    mobileHidden={column.mobileHidden}
-                    truncate={!['status', 'priority'].includes(column.id)}
-                    adaptive={['status', 'priority'].includes(column.id)}
-                  >
-                    {column.render ? column.render(session) : session[column.id]}
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        ) : (
+          <Table>
+            <AdvancedTableHeader
+              columns={table.columns}
+              sortBy={table.sortBy}
+              sortDirection={table.sortDirection}
+              onSort={table.handleSort}
+              onReorder={table.reorderColumns}
+              enableReorder={true}
+              isEmpty={table.data.length === 0}
+            />
+            <TableBody
+              isEmpty={table.data.length === 0}
+              emptyMessage={tableEmptyMessage}
+            >
+              {table.data.map((session) => (
+                <TableRow
+                  key={session.id}
+                  onClick={() => handleView(session.id)}
+                  emphasis={table.getItemEmphasis(session)}
+                  className="cursor-pointer"
+                >
+                  {table.columns.map((column) => (
+                    <TableCell
+                      key={column.id}
+                      columnId={column.id}
+                      mobileLabel={column.label}
+                      mobileRole={column.mobileRole}
+                      mobilePriority={column.mobilePriority}
+                      mobileHidden={column.mobileHidden}
+                      truncate={!['status', 'priority'].includes(column.id)}
+                      adaptive={['status', 'priority'].includes(column.id)}
+                    >
+                      {column.render ? column.render(session) : session[column.id]}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
 
         <Pagination
           currentPage={table.currentPage}
@@ -642,5 +657,3 @@ export default function Sessions() {
     </PageLayout>
   );
 }
-
-

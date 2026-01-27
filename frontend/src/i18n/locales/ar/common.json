@@ -920,6 +920,9 @@
     "searching": "جاري البحث...",
     "searchResults": "{{filtered}} نتيجة(نتائج) من أصل {{total}}",
     "toolbar": {
+      "view": "العرض",
+      "viewTable": "جدول",
+      "viewGrid": "شبكة",
       "columns": "الأعمدة",
       "manageColumns": "إدارة الأعمدة",
       "export": "تصدير",

@@ -851,6 +851,9 @@
     "searching": "Searching...",
     "searchResults": "{{filtered}} result(s) out of {{total}}",
     "toolbar": {
+      "view": "View",
+      "viewTable": "Table",
+      "viewGrid": "Grid",
       "columns": "Columns",
       "manageColumns": "Manage Columns",
       "export": "Export",

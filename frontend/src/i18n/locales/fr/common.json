@@ -852,6 +852,9 @@
     "searching": "Recherche en cours...",
     "searchResults": "{{filtered}} résultat(s) sur {{total}}",
     "toolbar": {
+      "view": "Affichage",
+      "viewTable": "Tableau",
+      "viewGrid": "Grille",
       "columns": "Colonnes",
       "manageColumns": "Gérer les Colonnes",
       "export": "Exporter",

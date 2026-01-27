@@ -15,6 +15,7 @@ import TableCell from "../components/table/TableCell";
 import TableActions, { IconButton } from "../components/table/TableActions";
 import TableToolbar from "../components/table/TableToolbar";
 import Pagination from "../components/table/Pagination";
+import EntityGrid from "../components/table/EntityGrid";
 import FormModal from "../components/FormModal/FormModal";
 import StatCard from "../components/dashboard/StatCard";
 import InlineStatusSelector from "../components/InlineSelectors/InlineStatusSelector";
@@ -23,6 +24,7 @@ import { canPerformAction } from "../services/domainRules";
 import { resolveDetailRoute } from "../utils/routeResolver";
 import { logEntityCreation } from "../services/historyService";
 import { useTranslation } from "react-i18next";
+import { useListViewMode } from "../hooks/useListViewMode";
 
 export default function Officers() {
   const navigate = useNavigate();
@@ -57,6 +59,7 @@ export default function Officers() {
   const [isLoading, setIsLoading] = useState(false);
   const [blockerModalOpen, setBlockerModalOpen] = useState(false);
   const [validationResult, setValidationResult] = useState(null);
+  const [viewMode, setViewMode] = useListViewMode("officers");
   const { t } = useTranslation("officers");
 
   const statusLabelMap = useMemo(
@@ -195,16 +198,16 @@ export default function Officers() {
     enableIntelligentOrdering: true,
   });
 
+  const tableEmptyMessage = table.isFiltering
+    ? t("table.emptyFiltered")
+    : t("table.empty");
+
   const headerSubtitle = table.isFiltering
     ? t("page.subtitleFiltered", {
       total: table.originalTotalItems,
       displayed: table.totalItems,
     })
     : t("page.subtitle", { total: table.originalTotalItems });
-
-  const tableEmptyMessage = table.isFiltering
-    ? t("table.emptyFiltered")
-    : t("table.empty");
 
   const handleView = (id) => {
     navigate(`/officers/${id}`);
@@ -553,44 +556,56 @@ export default function Officers() {
           sortDirection={table.sortDirection}
           onSort={table.handleSort}
           onResetSort={table.resetToIntelligentOrder}
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
         />
 
-        <Table>
-          <AdvancedTableHeader
+        {viewMode === "grid" ? (
+          <EntityGrid
+            data={table.data}
             columns={table.columns}
-            sortBy={table.sortBy}
-            sortDirection={table.sortDirection}
-            onSort={table.handleSort}
-            onReorder={table.reorderColumns}
-            enableReorder={true}
-            isEmpty={table.data.length === 0}
+            onRowClick={(officer) => handleView(officer.id)}
+            getItemEmphasis={table.getItemEmphasis}
+            emptyMessage={tableEmptyMessage}
           />
-          <TableBody isEmpty={table.data.length === 0} emptyMessage={tableEmptyMessage}>
-            {table.data.map((officer) => (
-              <TableRow
-                key={officer.id}
-                onClick={() => handleView(officer.id)}
-                emphasis={table.getItemEmphasis(officer)}
-                className="cursor-pointer"
-              >
-                {table.columns.map((column) => (
-                  <TableCell
-                    key={column.id}
-                    columnId={column.id}
-                    mobileLabel={column.label}
-                    mobileRole={column.mobileRole}
-                    mobilePriority={column.mobilePriority}
-                    mobileHidden={column.mobileHidden}
-                    truncate={!['status', 'priority'].includes(column.id)}
-                    adaptive={['status', 'priority'].includes(column.id)}
-                  >
-                    {column.render ? column.render(officer) : officer[column.id]}
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        ) : (
+          <Table>
+            <AdvancedTableHeader
+              columns={table.columns}
+              sortBy={table.sortBy}
+              sortDirection={table.sortDirection}
+              onSort={table.handleSort}
+              onReorder={table.reorderColumns}
+              enableReorder={true}
+              isEmpty={table.data.length === 0}
+            />
+            <TableBody isEmpty={table.data.length === 0} emptyMessage={tableEmptyMessage}>
+              {table.data.map((officer) => (
+                <TableRow
+                  key={officer.id}
+                  onClick={() => handleView(officer.id)}
+                  emphasis={table.getItemEmphasis(officer)}
+                  className="cursor-pointer"
+                >
+                  {table.columns.map((column) => (
+                    <TableCell
+                      key={column.id}
+                      columnId={column.id}
+                      mobileLabel={column.label}
+                      mobileRole={column.mobileRole}
+                      mobilePriority={column.mobilePriority}
+                      mobileHidden={column.mobileHidden}
+                      truncate={!['status', 'priority'].includes(column.id)}
+                      adaptive={['status', 'priority'].includes(column.id)}
+                    >
+                      {column.render ? column.render(officer) : officer[column.id]}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
 
         <Pagination
           currentPage={table.currentPage}

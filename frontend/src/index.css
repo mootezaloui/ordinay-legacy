@@ -84,9 +84,8 @@
   html, body {
     min-height: 100vh;
     @apply bg-slate-50 dark:bg-slate-900;
-    /* overflow-x: hidden only on html/body to prevent page-level horizontal scroll
-       while allowing portaled elements (dropdowns, modals) to render freely */
-    overflow-x: hidden;
+    /* Prevent layout shift when dropdowns open */
+    overflow-x: clip;
   }
 
   #root {
@@ -448,11 +447,12 @@
 /* Prominent: Urgent items that need immediate attention */
 .table-row-prominent {
   @apply relative;
-  @apply border-l-4 border-amber-500 dark:border-amber-400;
+  @apply border-l-[6px] border-amber-500 dark:border-amber-400;
+  @apply bg-amber-50/40 dark:bg-amber-900/10;
 }
 
 .table-row-prominent td {
-  @apply font-medium;
+  @apply font-semibold;
 }
 
 /* Normal: Active items in standard state */

@@ -37,6 +37,8 @@ export default function TableToolbar({
   sortDirection = "asc",
   onSort = null,
   onResetSort = null,
+  viewMode = "table",
+  onViewModeChange = null,
 }) {
   const { t } = useTranslation("common");
   const [showColumnMenu, setShowColumnMenu] = useState(false);
@@ -46,6 +48,7 @@ export default function TableToolbar({
   const menuRef = useRef(null);
   const resolvedImportLabel = importLabel || t("table.toolbar.import");
   const sortableColumns = columns.filter((column) => column.sortable !== false);
+  const showViewToggle = typeof onViewModeChange === "function";
 
   // Compute menu position relative to viewport
   const computeMenuPosition = () => {
@@ -181,6 +184,42 @@ export default function TableToolbar({
     </div>
   );
 
+  const viewToggle = showViewToggle ? (
+    <div className="flex items-center gap-2">
+      <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 hidden xl:inline">
+        {t("table.toolbar.view", { defaultValue: "View" })}
+      </span>
+      <div className="inline-flex items-center gap-1 rounded-2xl border border-slate-300 dark:border-slate-700/60 bg-white dark:bg-slate-900/70 p-1 shadow-sm">
+        <button
+          type="button"
+          onClick={() => onViewModeChange("table")}
+          className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1 ${viewMode === "table"
+            ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+            : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/70"
+            }`}
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+          {t("table.toolbar.viewTable", { defaultValue: "Table" })}
+        </button>
+        <button
+          type="button"
+          onClick={() => onViewModeChange("grid")}
+          className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1 ${viewMode === "grid"
+            ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+            : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/70"
+            }`}
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4h7v7H4V4zm9 0h7v7h-7V4zM4 13h7v7H4v-7zm9 0h7v7h-7v-7z" />
+          </svg>
+          {t("table.toolbar.viewGrid", { defaultValue: "Grid" })}
+        </button>
+      </div>
+    </div>
+  ) : null;
+
   return (
     <div className="px-4 lg:px-6 py-4 border-b border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80">
       {/* Mobile controls */}
@@ -211,6 +250,42 @@ export default function TableToolbar({
               </label>
               {searchInput}
             </div>
+
+            {showViewToggle && (
+              <div className="space-y-3">
+                <label className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                  {t("table.toolbar.view", { defaultValue: "View" })}
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => onViewModeChange("table")}
+                    className={`px-3 py-2 rounded-xl border text-sm font-semibold flex items-center justify-center gap-2 ${viewMode === "table"
+                      ? "border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300"
+                      : "border-slate-300 dark:border-slate-700/60 text-slate-600 dark:text-slate-300"
+                      }`}
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                    {t("table.toolbar.viewTable", { defaultValue: "Table" })}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onViewModeChange("grid")}
+                    className={`px-3 py-2 rounded-xl border text-sm font-semibold flex items-center justify-center gap-2 ${viewMode === "grid"
+                      ? "border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300"
+                      : "border-slate-300 dark:border-slate-700/60 text-slate-600 dark:text-slate-300"
+                      }`}
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4h7v7H4V4zm9 0h7v7h-7V4zM4 13h7v7H4v-7zm9 0h7v7h-7v-7z" />
+                    </svg>
+                    {t("table.toolbar.viewGrid", { defaultValue: "Grid" })}
+                  </button>
+                </div>
+              </div>
+            )}
 
             {sortableColumns.length > 0 && onSort && (
               <div className="space-y-3">
@@ -369,6 +444,8 @@ export default function TableToolbar({
               {resolvedImportLabel}
             </button>
           )}
+
+          {viewToggle}
 
           {/* Column visibility */}
           <div className="relative">

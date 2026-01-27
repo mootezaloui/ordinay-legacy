@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAdvancedTable } from "../hooks/useAdvancedTable";
 import { useToast } from "../contexts/ToastContext";
@@ -15,6 +15,7 @@ import TableCell from "../components/table/TableCell";
 import TableActions, { IconButton } from "../components/table/TableActions";
 import TableToolbar from "../components/table/TableToolbar";
 import Pagination from "../components/table/Pagination";
+import EntityGrid from "../components/table/EntityGrid";
 import FormModal from "../components/FormModal/FormModal";
 import StatCard from "../components/dashboard/StatCard";
 import InlineStatusSelector from "../components/InlineSelectors/InlineStatusSelector";
@@ -29,6 +30,7 @@ import { resolveDetailRoute } from "../utils/routeResolver";
 import { logEntityCreation, logStatusChange } from "../services/historyService";
 import { useSettings } from "../contexts/SettingsContext";
 import { useTranslation } from "react-i18next";
+import { useListViewMode } from "../hooks/useListViewMode";
 
 export default function Clients() {
   const navigate = useNavigate();
@@ -64,6 +66,7 @@ export default function Clients() {
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [pendingFormData, setPendingFormData] = useState(null);
   const [pendingDeleteId, setPendingDeleteId] = useState(null);
+  const [viewMode, setViewMode] = useListViewMode("clients");
 
   // Calculate stats
   const stats = {
@@ -477,6 +480,10 @@ export default function Clients() {
     window.URL.revokeObjectURL(url);
   };
 
+  const tableEmptyMessage = table.isFiltering
+    ? t("table.emptyFiltered")
+    : t("table.empty");
+
   const headerSubtitle = table.isFiltering
     ? t("page.subtitleFiltered", {
       total: table.originalTotalItems,
@@ -565,51 +572,60 @@ export default function Clients() {
           sortDirection={table.sortDirection}
           onSort={table.handleSort}
           onResetSort={table.resetToIntelligentOrder}
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
         />
 
-        <Table>
-          <AdvancedTableHeader
+        {viewMode === "grid" ? (
+          <EntityGrid
+            data={table.data}
             columns={table.columns}
-            sortBy={table.sortBy}
-            sortDirection={table.sortDirection}
-            onSort={table.handleSort}
-            onReorder={table.reorderColumns}
-            enableReorder={true}
-            isEmpty={table.data.length === 0}
+            onRowClick={(client) => handleView(client.id)}
+            getItemEmphasis={table.getItemEmphasis}
+            emptyMessage={tableEmptyMessage}
           />
-          <TableBody
-            isEmpty={table.data.length === 0}
-            emptyMessage={
-              table.isFiltering
-                ? t("table.emptyFiltered")
-                : t("table.empty")
-            }
-          >
-            {table.data.map((client) => (
-              <TableRow
-                key={client.id}
-                onClick={() => handleView(client.id)}
-                emphasis={table.getItemEmphasis(client)}
-                className="cursor-pointer"
-              >
-                {table.columns.map((column) => (
-                  <TableCell
-                    key={column.id}
-                    columnId={column.id}
-                    mobileLabel={column.label}
-                    mobileRole={column.mobileRole}
-                    mobilePriority={column.mobilePriority}
-                    mobileHidden={column.mobileHidden}
-                    truncate={!['status', 'priority'].includes(column.id)}
-                    adaptive={['status', 'priority'].includes(column.id)}
-                  >
-                    {column.render ? column.render(client) : client[column.id]}
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        ) : (
+          <Table>
+            {table.data.length > 0 && (
+              <AdvancedTableHeader
+                columns={table.columns}
+                sortBy={table.sortBy}
+                sortDirection={table.sortDirection}
+                onSort={table.handleSort}
+                onReorder={table.reorderColumns}
+                enableReorder={true}
+              />
+            )}
+            <TableBody
+              isEmpty={table.data.length === 0}
+              emptyMessage={tableEmptyMessage}
+            >
+              {table.data.map((client) => (
+                <TableRow
+                  key={client.id}
+                  onClick={() => handleView(client.id)}
+                  emphasis={table.getItemEmphasis(client)}
+                  className="cursor-pointer"
+                >
+                  {table.columns.map((column) => (
+                    <TableCell
+                      key={column.id}
+                      columnId={column.id}
+                      mobileLabel={column.label}
+                      mobileRole={column.mobileRole}
+                      mobilePriority={column.mobilePriority}
+                      mobileHidden={column.mobileHidden}
+                      truncate={!['status', 'priority'].includes(column.id)}
+                      adaptive={['status', 'priority'].includes(column.id)}
+                    >
+                      {column.render ? column.render(client) : client[column.id]}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
 
       <Pagination
         currentPage={table.currentPage}

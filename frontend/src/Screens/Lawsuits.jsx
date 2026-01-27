@@ -15,6 +15,7 @@ import TableCell from "../components/table/TableCell";
 import TableActions, { IconButton } from "../components/table/TableActions";
 import TableToolbar from "../components/table/TableToolbar";
 import Pagination from "../components/table/Pagination";
+import EntityGrid from "../components/table/EntityGrid";
 import StatCard from "../components/dashboard/StatCard";
 import FormModal from "../components/FormModal/FormModal";
 import { lawsuitFormFields } from "../components/FormModal/formConfigs";
@@ -27,6 +28,7 @@ import { resolveDetailRoute } from "../utils/routeResolver";
 import { logEntityCreation } from "../services/historyService";
 import { calculateNextHearing, formatDate, getDeadlineUrgency } from "../utils/deadlineUtils";
 import { useTranslation } from "react-i18next";
+import { useListViewMode } from "../hooks/useListViewMode";
 
 export default function Lawsuits() {
   const navigate = useNavigate();
@@ -55,6 +57,7 @@ export default function Lawsuits() {
   const [confirmImpactModalOpen, setConfirmImpactModalOpen] = useState(false);
   const [pendingFormData, setPendingFormData] = useState(null);
   const [pendingDeleteId, setPendingDeleteId] = useState(null);
+  const [viewMode, setViewMode] = useListViewMode("lawsuits");
 
   const statusLabelMap = useMemo(
     () => ({
@@ -553,44 +556,56 @@ export default function Lawsuits() {
             sortDirection={table.sortDirection}
             onSort={table.handleSort}
             onResetSort={table.resetToIntelligentOrder}
+            viewMode={viewMode}
+            onViewModeChange={setViewMode}
           />
 
-        <Table>
-          <AdvancedTableHeader
+        {viewMode === "grid" ? (
+          <EntityGrid
+            data={table.data}
             columns={table.columns}
-            sortBy={table.sortBy}
-            sortDirection={table.sortDirection}
-            onSort={table.handleSort}
-            onReorder={table.reorderColumns}
-            enableReorder={true}
-            isEmpty={table.data.length === 0}
+            onRowClick={(lawsuitItem) => handleView(lawsuitItem.id)}
+            getItemEmphasis={table.getItemEmphasis}
+            emptyMessage={tableEmptyMessage}
           />
-          <TableBody isEmpty={table.data.length === 0} emptyMessage={tableEmptyMessage}>
-            {table.data.map((lawsuitItem) => (
-              <TableRow
-                key={lawsuitItem.id}
-                onClick={() => handleView(lawsuitItem.id)}
-                emphasis={table.getItemEmphasis(lawsuitItem)}
-                className="cursor-pointer"
-              >
-                {table.columns.map((column) => (
-                  <TableCell
-                    key={column.id}
-                    columnId={column.id}
-                    mobileLabel={column.label}
-                    mobileRole={column.mobileRole}
-                    mobilePriority={column.mobilePriority}
-                    mobileHidden={column.mobileHidden}
-                    truncate={!['status', 'priority'].includes(column.id)}
-                    adaptive={['status', 'priority'].includes(column.id)}
-                  >
-                    {column.render ? column.render(lawsuitItem) : lawsuitItem[column.id]}
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        ) : (
+          <Table>
+            <AdvancedTableHeader
+              columns={table.columns}
+              sortBy={table.sortBy}
+              sortDirection={table.sortDirection}
+              onSort={table.handleSort}
+              onReorder={table.reorderColumns}
+              enableReorder={true}
+              isEmpty={table.data.length === 0}
+            />
+            <TableBody isEmpty={table.data.length === 0} emptyMessage={tableEmptyMessage}>
+              {table.data.map((lawsuitItem) => (
+                <TableRow
+                  key={lawsuitItem.id}
+                  onClick={() => handleView(lawsuitItem.id)}
+                  emphasis={table.getItemEmphasis(lawsuitItem)}
+                  className="cursor-pointer"
+                >
+                  {table.columns.map((column) => (
+                    <TableCell
+                      key={column.id}
+                      columnId={column.id}
+                      mobileLabel={column.label}
+                      mobileRole={column.mobileRole}
+                      mobilePriority={column.mobilePriority}
+                      mobileHidden={column.mobileHidden}
+                      truncate={!['status', 'priority'].includes(column.id)}
+                      adaptive={['status', 'priority'].includes(column.id)}
+                    >
+                      {column.render ? column.render(lawsuitItem) : lawsuitItem[column.id]}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
 
       <Pagination
         currentPage={table.currentPage}

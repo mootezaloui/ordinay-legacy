@@ -1,45 +1,32 @@
-/**
- * TableRow.jsx
- * Individual table row component
- * Supports hover effects, click handlers, and visual emphasis for intelligent ordering
- *
- * Styling architecture:
- * - Hover only changes background color (no layout shifts)
- * - transition-colors ensures smooth visual changes without geometry changes
- *
- * Emphasis levels (for domain-aware visual hierarchy):
- * - 'prominent': Urgent/important items (full opacity, accent border)
- * - 'normal': Standard active items (default styling)
- * - 'subdued': Completed/inactive items (reduced opacity)
- * - 'archived': Cancelled/very old items (very reduced opacity, italic)
- */
-
-import { buildCardCellsFromChildren, collectIconActions } from "./cardUtils";
+import { collectIconActions } from "./cardUtils";
 import CardActionMenu from "./CardActionMenu";
 
-export default function TableRow({
-  children,
+const getEmphasisClass = (emphasis) => {
+  switch (emphasis) {
+    case "prominent":
+      return "border-l-4 border-amber-500 dark:border-amber-400";
+    case "subdued":
+      return "opacity-70";
+    case "archived":
+      return "opacity-50 italic";
+    default:
+      return "";
+  }
+};
+
+export default function EntityCard({
+  cells = [],
   onClick,
-  hoverable = true,
   emphasis = "normal",
   className = "",
 }) {
-  // Hover only affects background color - no padding/margin/border changes
-  const hoverClass = hoverable
-    ? "hover:bg-slate-100/70 dark:hover:bg-slate-800/60"
-    : "";
-
   const cursorClass = onClick ? "cursor-pointer" : "";
+  const emphasisClass = getEmphasisClass(emphasis);
 
-  // Map emphasis to CSS class (defined in index.css)
-  const emphasisClass = emphasis ? `table-row-${emphasis}` : "";
-
-  const mobileCells = buildCardCellsFromChildren(children);
-
-  const actionCell = mobileCells.find((cell) => cell.role === "actions");
+  const actionCell = cells.find((cell) => cell.role === "actions");
   const actionItems = actionCell ? collectIconActions(actionCell.content) : [];
 
-  const visibleCells = mobileCells.filter((cell) => !cell.hidden);
+  const visibleCells = cells.filter((cell) => !cell.hidden);
   const primaryCell =
     visibleCells.find((cell) => cell.role === "primary") || visibleCells[0];
   const statusCell = visibleCells.find((cell) => cell.role === "status");
@@ -50,10 +37,17 @@ export default function TableRow({
     .sort((a, b) => a.priority - b.priority)
     .slice(0, 4);
 
-  const mobileCard = (
+  return (
     <div
       onClick={onClick}
-      className={`w-full rounded-2xl border border-slate-300/80 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-900 shadow-sm transition-all duration-200 hover:shadow-lg overflow-hidden relative ${cursorClass} ${className}`}
+      onKeyDown={(event) => {
+        if (!onClick) return;
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onClick();
+        }
+      }}
+      className={`w-full rounded-2xl border border-slate-300/80 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-900 shadow-sm transition-all duration-200 hover:shadow-lg overflow-hidden relative ${cursorClass} ${emphasisClass} ${className}`}
       role={onClick ? "button" : undefined}
       tabIndex={onClick ? 0 : undefined}
     >
@@ -64,7 +58,7 @@ export default function TableRow({
       )}
 
       {/* Primary section with better hierarchy */}
-      <div className="p-5 pb-4 bg-white dark:bg-transparent">
+      <div className="p-5 sm:p-6 pb-4 bg-white dark:bg-transparent">
         <div className="flex items-start justify-between gap-3 mb-3">
           <div className="flex-1 overflow-hidden">
             {/* Larger, more prominent title */}
@@ -94,7 +88,7 @@ export default function TableRow({
 
       {/* Details section - separated with background tint */}
       {detailCells.length > 0 && (
-        <div className="bg-white/90 dark:bg-slate-800/30 px-5 py-4 space-y-3 border-t border-slate-300/70 dark:border-slate-700/60">
+        <div className="bg-white/90 dark:bg-slate-800/30 px-5 sm:px-6 py-4 space-y-3 border-t border-slate-300/70 dark:border-slate-700/60">
           {detailCells.map((cell) => (
             <div
               key={cell.key}
@@ -113,21 +107,5 @@ export default function TableRow({
         </div>
       )}
     </div>
-  );
-
-  return (
-    <>
-      <tr
-        onClick={onClick}
-        className={`hidden md:table-row bg-transparent transition-colors duration-150 ${hoverClass} ${cursorClass} ${emphasisClass} ${className}`}
-      >
-        {children}
-      </tr>
-      <tr className="md:hidden">
-        <td colSpan={999} className="px-4 py-2">
-          {mobileCard}
-        </td>
-      </tr>
-    </>
   );
 }

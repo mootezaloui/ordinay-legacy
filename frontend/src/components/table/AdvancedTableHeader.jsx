@@ -79,13 +79,13 @@ export default function AdvancedTableHeader({
               onDragEnd={handleDragEnd}
               style={getColumnStyle(column)}
             className={`
-                h-10 lg:h-12 px-4 lg:px-6 py-2.5 lg:py-3 text-left text-[10px] lg:text-[11px] font-semibold uppercase tracking-wider
+                h-10 px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider
                 transition-colors duration-150
                 ${isEmpty
                   ? "text-slate-400 dark:text-slate-500"
                   : "text-slate-600 dark:text-slate-300"
                 }
-                ${isSortable && isInteractive ? "cursor-pointer select-none" : ""}
+                ${isSortable && isInteractive ? "cursor-pointer select-none hover:bg-slate-200/60 dark:hover:bg-slate-700/50" : ""}
                 ${isDragging ? "opacity-50" : ""}
                 ${canDrag && isInteractive ? "hover:bg-slate-200/60 dark:hover:bg-slate-700/50" : ""}
               `}
@@ -93,7 +93,7 @@ export default function AdvancedTableHeader({
             >
               {/* When empty: just show label. When populated: show full controls */}
               {isEmpty ? (
-                <span className="block break-words whitespace-normal lg:truncate">{column.label}</span>
+                <span className="block break-words whitespace-normal">{column.label}</span>
               ) : (
                 <div className="flex items-center gap-2 h-full">
                   {/* Drag handle */}
@@ -108,8 +108,8 @@ export default function AdvancedTableHeader({
                     </svg>
                   )}
 
-                  {/* Column label */}
-                  <span className="flex-1 break-words whitespace-normal lg:truncate">{column.label}</span>
+                  {/* Column label - no truncation to preserve readability */}
+                  <span className="flex-1 break-words whitespace-normal">{column.label}</span>
 
                   {/* Sort indicator */}
                   {isSortable && (
