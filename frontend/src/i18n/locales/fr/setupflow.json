@@ -51,10 +51,6 @@
       "label": "Spécialité",
       "placeholder": "ex. Droit des sociétés"
     },
-    "barNumber": {
-      "label": "Numéro de barreau",
-      "placeholder": "ABC123456"
-    },
     "email": {
       "label": "E-mail",
       "placeholder": "john.doe@example.com"

@@ -37,7 +37,6 @@ function SetupFlow() {
         email: "",
         phone: "",
         specialization: "",
-        barNumber: "",
         firmName: "",
         firmAddress: "",
         firmPhone: "",
@@ -120,7 +119,6 @@ function SetupFlow() {
             phone: formData.phone,
             role: formData.role || "Principal Lawyer",
             specialization: formData.specialization,
-            bar_number: formData.barNumber,
             office: formData.firmAddress,
             bio: "",
         };
@@ -360,18 +358,6 @@ function SetupFlow() {
                                                     onChange={(e) => handleChange("specialization", e.target.value)}
                                                     className="w-full px-4 py-2.5 border border-slate-700 bg-slate-800/50 hover:border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500/40 transition-all duration-200"
                                                     placeholder={t("fields.specialization.placeholder")}
-                                                />
-                                            </div>
-                                            <div className="group">
-                                                <label className="block text-sm font-medium text-slate-300 mb-2 transition-colors group-focus-within:text-blue-400">
-                                                    {t("fields.barNumber.label")}
-                                                </label>
-                                                <input
-                                                    type="text"
-                                                    value={formData.barNumber}
-                                                    onChange={(e) => handleChange("barNumber", e.target.value)}
-                                                    className="w-full px-4 py-2.5 border border-slate-700 bg-slate-800/50 hover:border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500/40 transition-all duration-200"
-                                                    placeholder={t("fields.barNumber.placeholder")}
                                                 />
                                             </div>
                                         </div>

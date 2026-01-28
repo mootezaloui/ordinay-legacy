@@ -659,11 +659,36 @@ function resolveWindowIcon() {
   }
 
   if (isDev) {
-    // Development: load from build directory
-    const iconPath = path.join(__dirname, "..", "build", "Light_mode_icon.ico");
-    if (!fs.existsSync(iconPath)) return null;
-    const iconImage = nativeImage.createFromPath(iconPath);
-    return iconImage.isEmpty() ? null : iconImage;
+    // Development: try ICO first, fall back to PNG if needed
+    const icoPath = path.resolve(__dirname, "..", "build", "Light_mode_icon.ico");
+    const pngPath = path.resolve(__dirname, "..", "build", "icons", "256x256.png");
+
+    console.log(`[Electron] Attempting to load dev icon...`);
+
+    // Try ICO first
+    if (fs.existsSync(icoPath)) {
+      console.log(`[Electron] Found ICO at: ${icoPath}`);
+      const iconImage = nativeImage.createFromPath(icoPath);
+      if (!iconImage.isEmpty()) {
+        console.log(`[Electron] ICO loaded successfully`);
+        return iconImage;
+      }
+      console.warn(`[Electron] ICO loaded but is empty, trying PNG fallback`);
+    }
+
+    // Fall back to PNG (more reliable in some Electron versions)
+    if (fs.existsSync(pngPath)) {
+      console.log(`[Electron] Found PNG at: ${pngPath}`);
+      const iconImage = nativeImage.createFromPath(pngPath);
+      if (!iconImage.isEmpty()) {
+        console.log(`[Electron] PNG loaded successfully`);
+        return iconImage;
+      }
+      console.warn(`[Electron] PNG loaded but is empty`);
+    }
+
+    console.warn(`[Electron] No valid icon found for development mode`);
+    return null;
   }
 
   // Production: icon is copied to resources via extraResources in electron-builder.json
@@ -671,8 +696,6 @@ function resolveWindowIcon() {
   if (!fs.existsSync(resourcesIconPath)) return null;
   const iconImage = nativeImage.createFromPath(resourcesIconPath);
   return iconImage.isEmpty() ? null : iconImage;
-
-  return null;
 }
 
 /**

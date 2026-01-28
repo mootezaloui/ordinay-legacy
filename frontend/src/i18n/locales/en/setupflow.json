@@ -51,10 +51,7 @@
       "label": "Specialization",
       "placeholder": "e.g., Corporate Law"
     },
-    "barNumber": {
-      "label": "Bar Number",
-      "placeholder": "ABC123456"
-    },
+  
     "email": {
       "label": "Email",
       "placeholder": "john.doe@example.com"

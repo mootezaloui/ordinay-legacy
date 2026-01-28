@@ -143,7 +143,7 @@ function App() {
             device_id: activationDeviceId,
           });
           setActivationStateCurrent("ERROR", "Activation failed");
-          setActivationError(tActivation("errors.activationFailed"));
+          setActivationError("Missing license data in activation link.");
           setActivationView("error");
           return;
         }
@@ -151,7 +151,7 @@ function App() {
         if (!signedLicense) {
           console.warn("[License] Activation failed: invalid license payload");
           setActivationStateCurrent("ERROR", "Activation failed");
-          setActivationError(tActivation("errors.activationFailed"));
+          setActivationError("Activation license could not be parsed.");
           setActivationView("error");
           return;
         }
@@ -174,7 +174,11 @@ function App() {
         const { t: tActivation, setActivationState: setActivationStateCurrent } =
           activationContextRef.current;
         setActivationStateCurrent("ERROR", "Activation failed");
-        setActivationError(tActivation("errors.activationFailed"));
+        const message =
+          error instanceof Error && error.message
+            ? error.message
+            : tActivation("errors.activationFailed");
+        setActivationError(message);
         setActivationView("error");
       } finally {
         if (activationInFlightRef.current === rawUrl) {

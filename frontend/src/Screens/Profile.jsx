@@ -22,7 +22,6 @@ export default function Profile() {
     mobile: "",
     title: "",
     specialization: "",
-    barNumber: "",
     office: "",
     officeName: "",
     officeAddress: "",
@@ -54,7 +53,6 @@ export default function Profile() {
         mobile: operator.mobile || "",
         title: operator.title || (operator.role === "OWNER" ? "Principal Lawyer" : operator.role),
         specialization: operator.specialization || "",
-        barNumber: operator.bar_number || "",
         office: operator.office || "",
         officeName: operator.office_name || "",
         officeAddress: operator.office_address || "",
@@ -104,7 +102,6 @@ export default function Profile() {
         fax: profile.fax,
         mobile: profile.mobile,
         specialization: profile.specialization,
-        bar_number: profile.barNumber,
         vpa: profile.vpa,
         office: profile.office,
         bio: profile.bio,
@@ -180,23 +177,19 @@ export default function Profile() {
                     <i className="fas fa-envelope"></i>
                     <span>{profile.email}</span>
                   </div>
-                <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
-                  <i className="fas fa-phone"></i>
-                  <span>{profile.phone}</span>
+                  <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+                    <i className="fas fa-phone"></i>
+                    <span>{profile.phone}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+                    <i className="fas fa-mobile-alt"></i>
+                    <span>{profile.mobile}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+                    <i className="fas fa-fax"></i>
+                    <span>{profile.fax}</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
-                  <i className="fas fa-mobile-alt"></i>
-                  <span>{profile.mobile}</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
-                  <i className="fas fa-fax"></i>
-                  <span>{profile.fax}</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
-                  <i className="fas fa-id-card"></i>
-                  <span>{profile.barNumber}</span>
-                </div>
-              </div>
               </div>
             </div>
           </div>
@@ -391,23 +384,6 @@ export default function Profile() {
                   />
                 ) : (
                   <p className="text-slate-700 dark:text-slate-300">{profile.specialization}</p>
-                )}
-              </div>
-
-              {/* Bar Number */}
-              <div>
-                <label className="block text-sm font-medium text-slate-900 dark:text-white mb-2">
-                  {t("fields.barNumber")}
-                </label>
-                {isEditing ? (
-                  <input
-                    type="text"
-                    value={profile.barNumber}
-                    onChange={(e) => handleChange("barNumber", e.target.value)}
-                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                ) : (
-                  <p className="text-slate-700 dark:text-slate-300">{profile.barNumber}</p>
                 )}
               </div>
 

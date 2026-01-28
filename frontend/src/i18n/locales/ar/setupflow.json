@@ -51,10 +51,6 @@
       "label": "التخصص",
       "placeholder": "مثل: قانون الشركات"
     },
-    "barNumber": {
-      "label": "رقم القيد",
-      "placeholder": "ABC123456"
-    },
     "email": {
       "label": "البريد الإلكتروني",
       "placeholder": "john.doe@example.com"
