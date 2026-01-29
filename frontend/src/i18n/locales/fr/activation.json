@@ -15,7 +15,15 @@
     },
     "success": {
       "title": "Activation terminée",
-      "description": "Votre appareil est maintenant activé. Les détails de la licence sont prêts."
+      "description": "Votre appareil est maintenant activé. Les détails de la licence sont prêts.",
+      "rewardsTitle": "Récompense de parrainage ajoutée",
+      "rewards": {
+        "percentage": "{{value}}% de réduction",
+        "fixed": "{{value}} de réduction",
+        "extraDays": "{{value}} jours supplémentaires",
+        "expires": "Expire le {{date}}",
+        "noExpiry": "Sans expiration"
+      }
     },
     "error": {
       "title": "Échec de l'activation"
@@ -26,7 +34,14 @@
       "status": "Préparation du plan gratuit..."
     },
     "choice": {
-      "description": "Cet appareil doit être vérifié auprès du serveur d'activation d'Organia avant que l'accès en écriture soit déverrouillé."
+      "title": "Activer Organia (facultatif)",
+      "subtitle": "Continuez sur le plan gratuit ou activez quand vous êtes prêt.",
+      "description": "L'activation supprime les limites du plan gratuit pour que vous puissiez évoluer sans interruption.",
+      "bullets": {
+        "limits": "Supprime les limites du plan gratuit pour les clients, dossiers et tâches actives.",
+        "manage": "Activez à tout moment depuis Paramètres > Licence."
+      },
+      "footer": "Organia reste utilisable sans activation. Les limites du plan gratuit s'appliquent."
     }
   },
   "actions": {
@@ -34,8 +49,8 @@
     "back": "Retour",
     "continue": "Continuer vers Organia",
     "tryAgain": "Réessayer",
-    "continueFree": "Continuer avec le plan gratuit",
-    "activate": "Activer"
+    "continueFree": "Continuer sur le plan gratuit",
+    "activate": "Activer maintenant"
   },
   "details": {
     "status": "Statut : {{status}}",

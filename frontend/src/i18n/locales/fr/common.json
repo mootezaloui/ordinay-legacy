@@ -891,7 +891,7 @@
   "import": {
     "title": "Importer des {{entity}} historiques",
     "subtitle": "Mapping automatique. Les lignes valides sont importees comme non validees; les autres restent en quarantaine.",
-    "notice": "Les enregistrements valides sont stockes comme importes (non actifs). Completez les champs manquants avant activation.",
+    "notice": "Veuillez aider Organia a comprendre vos donnees : selectionnez les colonnes de votre fichier que vous souhaitez importer. Note importante : le champ Notes peut etre mappe a plusieurs colonnes. Vous retrouverez ces informations dans l'onglet Notes pour ne rien perdre.",
     "sourceLabel": "Source de l'import (optionnel)",
     "sourcePlaceholder": "ex: export Excel, ancien logiciel",
     "fileLabel": "Fichier",

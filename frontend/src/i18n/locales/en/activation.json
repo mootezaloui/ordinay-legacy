@@ -15,7 +15,15 @@
     },
     "success": {
       "title": "Activation complete",
-      "description": "Your device is now activated. License details are ready."
+      "description": "Your device is now activated. License details are ready.",
+      "rewardsTitle": "Referral reward added",
+      "rewards": {
+        "percentage": "{{value}}% off",
+        "fixed": "{{value}} off",
+        "extraDays": "{{value}} extra days",
+        "expires": "Expires {{date}}",
+        "noExpiry": "No expiry"
+      }
     },
     "error": {
       "title": "Activation failed"
@@ -26,7 +34,14 @@
       "status": "Preparing free plan..."
     },
     "choice": {
-      "description": "This device must be verified with the Organia activation server before write access is unlocked."
+      "title": "Activate Organia (optional)",
+      "subtitle": "Keep working on the free plan or activate when ready.",
+      "description": "Activation removes free plan limits so you can scale without interruptions.",
+      "bullets": {
+        "limits": "Remove free plan limits for clients, dossiers, and active tasks.",
+        "manage": "Activate anytime from Settings > License."
+      },
+      "footer": "Organia stays usable without activation. Free plan limits will apply."
     }
   },
   "actions": {
@@ -34,8 +49,8 @@
     "back": "Back",
     "continue": "Continue to Organia",
     "tryAgain": "Try again",
-    "continueFree": "Continue with free plan",
-    "activate": "Activate"
+    "continueFree": "Continue on free plan",
+    "activate": "Activate now"
   },
   "details": {
     "status": "Status: {{status}}",

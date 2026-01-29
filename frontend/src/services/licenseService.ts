@@ -153,6 +153,67 @@ export function getActivationUrl(
   return `${base}${separator}device_id=${encodeURIComponent(deviceId)}${referralSuffix}`;
 }
 
+export type ActivationStartResult = {
+  ok: boolean;
+  status: "pending" | "paid" | "blocked" | "expired";
+  payment_url?: string | null;
+  license?: SignedLicense;
+  error?: string;
+};
+
+export type ActivationStatusResult = ActivationStartResult;
+
+export async function startActivationIntent(
+  deviceId: string,
+  pendingReferralCode?: string | null,
+): Promise<ActivationStartResult> {
+  const origin = getLicenseServerOrigin();
+  try {
+    const response = await fetch(`${origin}/api/activation/start`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        device_id: deviceId,
+        pending_referral_code: pendingReferralCode ?? null,
+      }),
+    });
+    const payload = (await response.json().catch(() => ({}))) as ActivationStartResult;
+    if (!response.ok || !payload.ok) {
+      return {
+        ok: false,
+        status: payload.status ?? "expired",
+        error: payload.error || "Activation failed",
+      };
+    }
+    return payload;
+  } catch (error) {
+    return { ok: false, status: "expired", error: "Activation failed" };
+  }
+}
+
+export async function fetchActivationStatus(
+  deviceId: string,
+): Promise<ActivationStatusResult> {
+  const origin = getLicenseServerOrigin();
+  try {
+    const response = await fetch(
+      `${origin}/api/activation/status?device_id=${encodeURIComponent(deviceId)}`,
+      { method: "GET" },
+    );
+    const payload = (await response.json().catch(() => ({}))) as ActivationStatusResult;
+    if (!response.ok || !payload.ok) {
+      return {
+        ok: false,
+        status: payload.status ?? "expired",
+        error: payload.error || "Activation failed",
+      };
+    }
+    return payload;
+  } catch {
+    return { ok: false, status: "expired", error: "Activation failed" };
+  }
+}
+
 export function getPlanManagementUrl({
   deviceId,
   currentPlan,

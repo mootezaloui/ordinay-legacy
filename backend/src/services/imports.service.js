@@ -1,4 +1,5 @@
 const db = require("../db/connection");
+const notesService = require("./notes.service");
 const { assert } = require("./_utils");
 
 const table = "legacy_imports";
@@ -455,6 +456,31 @@ function normalizePayload(value) {
     }
   }
   return { value };
+}
+
+function normalizeImportedNotes(notes) {
+  if (notes === null || notes === undefined) return null;
+  if (Array.isArray(notes)) {
+    const normalized = notes
+      .map((note) => {
+        if (typeof note === "string") return { content: note };
+        if (note && typeof note === "object") return note;
+        return null;
+      })
+      .filter((note) => note && typeof note.content === "string" && note.content.trim());
+    return normalized.length > 0 ? normalized : null;
+  }
+  if (typeof notes === "string") {
+    const trimmed = notes.trim();
+    if (!trimmed) return null;
+    return [{ content: trimmed }];
+  }
+  if (notes && typeof notes === "object" && typeof notes.content === "string") {
+    const trimmed = notes.content.trim();
+    if (!trimmed) return null;
+    return [{ ...notes, content: trimmed }];
+  }
+  return null;
 }
 
 function stringifyPayload(value) {
@@ -1422,6 +1448,15 @@ function insertValidatedEntity(entityType, payload, importRecord, options = {}) 
   );
 
   const result = stmt.run(insertData);
+
+  if (entityType === "client" && payload.notes !== undefined) {
+    const notesArray = normalizeImportedNotes(payload.notes);
+    if (notesArray) {
+      // Persist imported notes into the notes table so the Notes tab can display them.
+      notesService.saveNotesForEntity("client", result.lastInsertRowid, notesArray);
+    }
+  }
+
   return db
     .prepare(`SELECT * FROM ${tableName} WHERE id = @id AND deleted_at IS NULL`)
     .get({ id: result.lastInsertRowid });

@@ -6,19 +6,26 @@ import SetupFlow from "./components/setup/SetupFlow";
 import { useInactivityLock } from "./hooks/useInactivityLock";
 import LockScreen from "./components/lock/LockScreen";
 import AppRouter from "./routes/AppRouter";
-import { OnboardingTutorial } from "./components/onboarding";
+import {
+  OnboardingTutorial,
+  TutorialCard,
+  TutorialOverlay as OnboardingOverlay,
+} from "./components/onboarding";
 import TutorialOverlay from "./components/tutorial/TutorialOverlay";
 import LicenseBanner from "./components/LicenseBanner";
 import TitleBar from "./components/ui/TitleBar";
 import { useLicense } from "./contexts/LicenseContext";
 import { useNotifications } from "./contexts/NotificationContext";
 import { useUpdateStatus } from "./hooks/useUpdateStatus";
+import { useOnboarding } from "./contexts/OnboardingContext";
 import {
   clearPendingReferralCode,
   extractPendingReferralFromUrl,
   getActivationUrl,
   getOrCreateDeviceId,
   getPendingReferralCode,
+  fetchActivationStatus,
+  startActivationIntent,
   storePendingReferralCode,
   submitReferralOnActivation,
   type LicenseData,
@@ -53,11 +60,38 @@ const parseSignedLicenseFromUrl = (encoded: string): SignedLicense | null => {
   }
 };
 
+type ReferralRewardSummary = {
+  id: string;
+  reward_type: "percentage" | "fixed_amount" | "extra_days";
+  reward_value: number;
+  expires_at: string | null;
+  status?: "unused" | "used" | "expired";
+};
+
+const parseRewardsFromUrl = (encoded: string | null): ReferralRewardSummary[] => {
+  if (!encoded) return [];
+  const decoded = decodeBase64UrlToString(encoded);
+  if (!decoded) return [];
+  try {
+    const parsed = JSON.parse(decoded);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(Boolean) as ReferralRewardSummary[];
+  } catch {
+    return [];
+  }
+};
+
 function App() {
   const { t } = useTranslation("activation");
   const { t: tSettings } = useTranslation("settings");
   const { isLocked } = useLock();
   const { isInitialized } = useSetup();
+  const {
+    hasCompletedOnboarding,
+    hasSkippedOnboarding,
+    isActive: isOnboardingActive,
+    showWelcomeModal,
+  } = useOnboarding();
   const { licenseState, licenseData, activateLicense, setActivationState } =
     useLicense();
   const { addAlert } = useNotifications();
@@ -71,6 +105,7 @@ function App() {
   const [activationView, setActivationView] = useState<
     "choice" | "waiting" | "success" | "error" | "free_setup"
   >("choice");
+  const [activationRewards, setActivationRewards] = useState<ReferralRewardSummary[]>([]);
   const [allowReadOnly, setAllowReadOnly] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
     return window.localStorage.getItem(FREE_PLAN_STORAGE_KEY) === "1";
@@ -81,6 +116,7 @@ function App() {
     setActivationState,
   });
   const activationInFlightRef = useRef<string | null>(null);
+  const activationPollRef = useRef<number | null>(null);
   // Monitor user activity for inactivity lock
   useInactivityLock();
 
@@ -135,6 +171,7 @@ function App() {
         const getParam = (key: string) =>
           params.get(key) ?? hashParams.get(key);
         const licenseParam = getParam("license");
+        const rewardsParam = getParam("rewards");
         const activationDeviceId =
           getParam("device_id") || (await getOrCreateDeviceId());
         if (!licenseParam) {
@@ -159,6 +196,7 @@ function App() {
           window.localStorage.removeItem(FREE_PLAN_STORAGE_KEY);
         }
         await activateLicenseCurrent(signedLicense);
+        setActivationRewards(parseRewardsFromUrl(rewardsParam));
         const referralCode = getPendingReferralCode();
         const referralResult = await submitReferralOnActivation(
           activationDeviceId,
@@ -192,6 +230,63 @@ function App() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (activationView !== "waiting" || !deviceId) {
+      if (activationPollRef.current) {
+        window.clearInterval(activationPollRef.current);
+        activationPollRef.current = null;
+      }
+      return;
+    }
+
+    const poll = async () => {
+      const status = await fetchActivationStatus(deviceId);
+      if (!status.ok) {
+        return;
+      }
+      if (status.status === "pending") {
+        return;
+      }
+      if (status.status === "blocked") {
+        setActivationState("ERROR", "Activation blocked");
+        setActivationError("This subscription is already active on another device.");
+        setActivationView("error");
+        return;
+      }
+      if (status.status === "expired") {
+        setActivationState("ERROR", "Activation expired");
+        setActivationError("Activation expired. Please try again.");
+        setActivationView("error");
+        return;
+      }
+      if (status.status === "paid" && status.license) {
+        try {
+          await activateLicense(status.license);
+          setActivationRewards([]);
+          setActivationError(null);
+          setActivationView("success");
+          if (typeof window !== "undefined") {
+            window.localStorage.removeItem(FREE_PLAN_STORAGE_KEY);
+          }
+        } catch (error) {
+          setActivationState("ERROR", "Activation failed");
+          setActivationError("Activation failed");
+          setActivationView("error");
+        }
+      }
+    };
+
+    poll();
+    activationPollRef.current = window.setInterval(poll, 4000);
+
+    return () => {
+      if (activationPollRef.current) {
+        window.clearInterval(activationPollRef.current);
+        activationPollRef.current = null;
+      }
+    };
+  }, [activationView, deviceId, activateLicense, setActivationState]);
 
   useEffect(() => {
     if (!updateStatus) return;
@@ -254,9 +349,13 @@ function App() {
   const needsActivation = ["FREE", "UNACTIVATED", "EXPIRED", "ERROR"].includes(
     licenseState,
   );
-  const showActivation =
-    (!allowReadOnly && needsActivation) || activationView !== "choice";
-  if (showActivation) {
+  const hasFinishedOnboarding = hasCompletedOnboarding || hasSkippedOnboarding;
+  const isOnboardingVisible = showWelcomeModal || isOnboardingActive;
+  const shouldShowActivation =
+    !isOnboardingVisible &&
+    hasFinishedOnboarding &&
+    ((!allowReadOnly && needsActivation) || activationView !== "choice");
+  if (shouldShowActivation) {
     return (
       <>
         <TitleBar />
@@ -265,13 +364,31 @@ function App() {
           licenseData={licenseData}
           activationView={activationView}
           activationError={activationError}
+          activationRewards={activationRewards}
           onActivate={async () => {
             setActivationError(null);
             setActivationState("ACTIVATING", null);
             setActivationView("waiting");
             const id = deviceId || (await getOrCreateDeviceId());
             const pendingReferral = getPendingReferralCode();
-            const url = getActivationUrl(id, pendingReferral);
+            const startResult = await startActivationIntent(id, pendingReferral);
+            if (startResult.ok && startResult.status === "paid" && startResult.license) {
+              await activateLicense(startResult.license);
+              setActivationRewards([]);
+              setActivationError(null);
+              setActivationView("success");
+              if (typeof window !== "undefined") {
+                window.localStorage.removeItem(FREE_PLAN_STORAGE_KEY);
+              }
+              return;
+            }
+            if (!startResult.ok || startResult.status === "blocked") {
+              setActivationState("ERROR", "Activation blocked");
+              setActivationError(startResult.error || "This subscription is already active on another device.");
+              setActivationView("error");
+              return;
+            }
+            const url = startResult.payment_url || getActivationUrl(id, pendingReferral);
             if (window.electronAPI?.openExternal) {
               await window.electronAPI.openExternal(url);
             } else {
@@ -282,6 +399,7 @@ function App() {
             setActivationError(null);
             setActivationState("FREE", null); // Clear error and set state to FREE
             setActivationView("free_setup");
+            setActivationRewards([]);
             if (typeof window !== "undefined") {
               window.localStorage.setItem(FREE_PLAN_STORAGE_KEY, "1");
             }
@@ -298,11 +416,13 @@ function App() {
             setActivationError(null);
             setActivationView("choice");
             setActivationState("FREE", null);
+            setActivationRewards([]);
           }}
           onCancelActivation={() => {
             setActivationError(null);
             setActivationView("choice");
             setActivationState("FREE", null);
+            setActivationRewards([]);
           }}
         />
       </>
@@ -328,6 +448,7 @@ function ActivationScreen({
   licenseData,
   activationView,
   activationError,
+  activationRewards,
   onActivate,
   onContinueReadOnly,
   onContinueAfterSuccess,
@@ -338,6 +459,7 @@ function ActivationScreen({
   licenseData: LicenseData | null;
   activationView: "choice" | "waiting" | "success" | "error" | "free_setup";
   activationError: string | null;
+  activationRewards: ReferralRewardSummary[];
   onActivate: () => void | Promise<void>;
   onContinueReadOnly: () => void;
   onContinueAfterSuccess: () => void;
@@ -360,8 +482,19 @@ function ActivationScreen({
     if (activationView === "success") return t("views.success.title");
     if (activationView === "error") return t("views.error.title");
     if (activationView === "free_setup") return t("views.freeSetup.title");
+    if (activationView === "choice") return t("views.choice.title");
     return activationLabels[licenseState] || t("states.unactivated");
   };
+  const viewSubtitle =
+    activationView === "choice" ? t("views.choice.subtitle") : undefined;
+  const headerIcon =
+    activationView === "success"
+      ? "fas fa-badge-check"
+      : activationView === "error"
+        ? "fas fa-triangle-exclamation"
+        : activationView === "waiting" || activationView === "free_setup"
+          ? "fas fa-spinner fa-spin"
+          : "fas fa-key";
 
   const statusLabel = t("details.status", {
     status:
@@ -384,102 +517,156 @@ function ActivationScreen({
   const validUntilLabel = t("details.validUntil", { date: validUntilValue });
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center px-6 py-12">
-      <div className="w-full max-w-lg rounded-2xl border border-slate-800 bg-slate-900/70 p-8 shadow-2xl">
-        <h1 className="text-2xl font-semibold mb-3">{viewTitle()}</h1>
+    <OnboardingOverlay showEscHint={false}>
+      <TutorialCard
+        title={viewTitle()}
+        subtitle={viewSubtitle}
+        icon={headerIcon}
+        showProgress={false}
+        showNavigation={false}
+      >
         {activationView === "waiting" ? (
-          <>
-            <p className="text-sm text-slate-300 mb-6">
+          <div className="space-y-5">
+            <p className="text-sm text-slate-600 dark:text-slate-300">
               {t("views.waiting.description")}
             </p>
-            <div className="flex items-center gap-3 text-sm text-slate-300">
-              <i className="fas fa-spinner fa-spin"></i>
+            <div className="flex items-center gap-3 text-sm text-slate-500 dark:text-slate-300">
+              <i className="fas fa-spinner fa-spin text-blue-500" />
               {t("views.waiting.status")}
             </div>
-            <div className="mt-6 space-y-3">
+            <div className="pt-4 border-t border-slate-200/70 dark:border-slate-700/60 space-y-3">
               <button
                 onClick={onActivate}
-                className="w-full rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold py-2.5 transition"
+                className="w-full rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2.5 transition"
               >
                 {t("actions.openActivation")}
               </button>
               <button
                 onClick={onCancelActivation}
-                className="w-full rounded-lg border border-slate-700 text-slate-200 py-2.5 hover:bg-slate-800 transition"
+                className="w-full rounded-lg border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-medium py-2.5 hover:bg-slate-100 dark:hover:bg-slate-700/40 transition"
               >
                 {t("actions.back")}
               </button>
             </div>
-          </>
+          </div>
         ) : activationView === "success" ? (
-          <>
-            <p className="text-sm text-slate-300 mb-6">
+          <div className="space-y-5">
+            <p className="text-sm text-slate-600 dark:text-slate-300">
               {t("views.success.description")}
             </p>
-            <div className="rounded-xl border border-slate-800 bg-slate-900/40 px-4 py-3 text-sm text-slate-200 space-y-1">
+            <div className="rounded-xl border border-slate-200/70 dark:border-slate-700/60 bg-slate-50/70 dark:bg-slate-900/40 px-4 py-3 text-sm text-slate-600 dark:text-slate-200 space-y-1">
               <div>{statusLabel}</div>
               <div>{planLabel}</div>
               <div>{validUntilLabel}</div>
             </div>
+            {activationRewards.length > 0 && (
+              <div className="rounded-xl border border-emerald-200/70 dark:border-emerald-500/30 bg-emerald-50/80 dark:bg-emerald-500/10 px-4 py-3 text-xs text-emerald-700 dark:text-emerald-100">
+                <div className="font-semibold mb-1">
+                  {t("views.success.rewardsTitle")}
+                </div>
+                {activationRewards.map((reward) => (
+                  <div
+                    key={reward.id}
+                    className="flex items-center justify-between gap-4"
+                  >
+                    <span>
+                      {reward.reward_type === "percentage"
+                        ? t("views.success.rewards.percentage", {
+                            value: reward.reward_value,
+                          })
+                        : reward.reward_type === "fixed_amount"
+                          ? t("views.success.rewards.fixed", {
+                              value: reward.reward_value,
+                            })
+                          : t("views.success.rewards.extraDays", {
+                              value: reward.reward_value,
+                            })}
+                    </span>
+                    <span>
+                      {reward.expires_at
+                        ? t("views.success.rewards.expires", {
+                            date: reward.expires_at,
+                          })
+                        : t("views.success.rewards.noExpiry")}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
             <button
               onClick={onContinueAfterSuccess}
-              className="mt-6 w-full rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold py-2.5 transition"
+              className="w-full rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2.5 transition"
             >
               {t("actions.continue")}
             </button>
-          </>
+          </div>
         ) : activationView === "error" ? (
-          <>
-            <p className="text-sm text-slate-300 mb-6">
+          <div className="space-y-5">
+            <div className="rounded-lg border border-rose-200/70 dark:border-rose-500/30 bg-rose-50/80 dark:bg-rose-500/10 px-4 py-3 text-sm text-rose-700 dark:text-rose-200">
               {activationError || t("errors.activationFailed")}
-            </p>
-            <div className="space-y-3">
+            </div>
+            <div className="pt-4 border-t border-slate-200/70 dark:border-slate-700/60 space-y-3">
               <button
                 onClick={onRetryActivate}
-                className="w-full rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold py-2.5 transition"
+                className="w-full rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2.5 transition"
               >
                 {t("actions.tryAgain")}
               </button>
               <button
                 onClick={onContinueReadOnly}
-                className="w-full rounded-lg border border-slate-700 text-slate-200 py-2.5 hover:bg-slate-800 transition"
+                className="w-full rounded-lg border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-medium py-2.5 hover:bg-slate-100 dark:hover:bg-slate-700/40 transition"
               >
                 {t("actions.continueFree")}
               </button>
             </div>
-          </>
+          </div>
         ) : activationView === "free_setup" ? (
-          <>
-            <p className="text-sm text-slate-300 mb-6">
+          <div className="space-y-4">
+            <p className="text-sm text-slate-600 dark:text-slate-300">
               {t("views.freeSetup.description")}
             </p>
-            <div className="flex items-center gap-3 text-sm text-slate-300">
-              <i className="fas fa-spinner fa-spin"></i>
+            <div className="flex items-center gap-3 text-sm text-slate-500 dark:text-slate-300">
+              <i className="fas fa-spinner fa-spin text-blue-500" />
               {t("views.freeSetup.status")}
             </div>
-          </>
+          </div>
         ) : (
-          <>
-            <p className="text-sm text-slate-300 mb-6">
+          <div className="space-y-5">
+            <p className="text-sm text-slate-600 dark:text-slate-300">
               {t("views.choice.description")}
             </p>
-            <div className="space-y-3">
+            <div className="rounded-xl border border-slate-200/70 dark:border-slate-700/60 bg-slate-50/70 dark:bg-slate-900/40 px-4 py-3">
+              <ul className="space-y-2 text-sm text-slate-600 dark:text-slate-300">
+                <li className="flex items-start gap-2">
+                  <i className="fas fa-check text-emerald-500 mt-0.5" />
+                  <span>{t("views.choice.bullets.limits")}</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <i className="fas fa-check text-emerald-500 mt-0.5" />
+                  <span>{t("views.choice.bullets.manage")}</span>
+                </li>
+              </ul>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              {t("views.choice.footer")}
+            </p>
+            <div className="pt-4 border-t border-slate-200/70 dark:border-slate-700/60 space-y-3">
               <button
                 onClick={onActivate}
-                className="w-full rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold py-2.5 transition"
+                className="w-full rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2.5 transition"
               >
                 {t("actions.activate")}
               </button>
               <button
                 onClick={onContinueReadOnly}
-                className="w-full rounded-lg border border-slate-700 text-slate-200 py-2.5 hover:bg-slate-800 transition"
+                className="w-full rounded-lg border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-medium py-2.5 hover:bg-slate-100 dark:hover:bg-slate-700/40 transition"
               >
                 {t("actions.continueFree")}
               </button>
             </div>
-          </>
+          </div>
         )}
-      </div>
-    </div>
+      </TutorialCard>
+    </OnboardingOverlay>
   );
 }

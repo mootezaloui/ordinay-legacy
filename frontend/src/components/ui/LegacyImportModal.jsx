@@ -245,6 +245,7 @@ const buildDefaultMapping = (headers, aliasConfig) => {
   const canonicalLookup = new Map(
     canonicalFields.map((field) => [normalizeHeader(field), field])
   );
+  const usedFields = new Set();
   const mapping = {};
   headers.forEach((header) => {
     const normalized = normalizeHeader(header);
@@ -252,8 +253,16 @@ const buildDefaultMapping = (headers, aliasConfig) => {
       mapping[header] = IGNORE_MAPPING;
       return;
     }
-    mapping[header] =
+    const resolved =
       aliasLookup.get(normalized) || canonicalLookup.get(normalized) || IGNORE_MAPPING;
+    if (resolved !== IGNORE_MAPPING && resolved !== "notes") {
+      if (usedFields.has(resolved)) {
+        mapping[header] = IGNORE_MAPPING;
+        return;
+      }
+      usedFields.add(resolved);
+    }
+    mapping[header] = resolved;
   });
   return mapping;
 };
@@ -277,6 +286,17 @@ const buildRawObject = (record) => {
 const isMissingValue = (value) =>
   value === null || value === undefined || (typeof value === "string" && value.trim() === "");
 
+const coerceValueToText = (value) => {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "string") return value.trim();
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  try {
+    return JSON.stringify(value);
+  } catch (err) {
+    return String(value);
+  }
+};
+
 const applyMappingToRecords = (records, mapping) =>
   records.map((record) => {
     const raw = buildRawObject(record);
@@ -286,6 +306,17 @@ const applyMappingToRecords = (records, mapping) =>
       if (!Object.prototype.hasOwnProperty.call(raw, header)) return;
       const value = raw[header];
       if (isMissingValue(value)) return;
+      if (target === "notes") {
+        const text = coerceValueToText(value);
+        if (!text) return;
+        if (!Array.isArray(mapped.notes)) {
+          mapped.notes = [];
+        }
+        mapped.notes.push({
+          content: `${header}: ${text}`,
+        });
+        return;
+      }
       if (isMissingValue(mapped[target])) {
         mapped[target] = value;
       }
@@ -462,7 +493,17 @@ export default function LegacyImportModal({
   }, [aliasConfig, headers, mappingTouched, requiresMapping]);
 
   const handleMappingChange = (header, value) => {
-    setHeaderMappings((prev) => ({ ...prev, [header]: value }));
+    setHeaderMappings((prev) => {
+      const next = { ...prev, [header]: value };
+      if (value && value !== IGNORE_MAPPING && value !== "notes") {
+        Object.keys(next).forEach((otherHeader) => {
+          if (otherHeader !== header && next[otherHeader] === value) {
+            next[otherHeader] = IGNORE_MAPPING;
+          }
+        });
+      }
+      return next;
+    });
     setMappingTouched(true);
     setMappingConfirmed(false);
     if (parseError) setParseError("");

@@ -890,7 +890,7 @@
   "import": {
     "title": "Import legacy {{entity}}",
     "subtitle": "Best-effort mapping. Valid rows are imported as unvalidated; invalid rows stay quarantined.",
-    "notice": "Valid records are stored as imported (not active). Complete missing data before activation.",
+    "notice": "Please help Organia understand your data: select the columns from your file that you want to import. Important note: the Notes field can be mapped to multiple columns. You can find this data in the Notes tab so nothing is lost.",
     "sourceLabel": "Import source (optional)",
     "sourcePlaceholder": "e.g. Excel export, old system",
     "fileLabel": "File",
