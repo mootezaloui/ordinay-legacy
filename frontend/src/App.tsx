@@ -34,6 +34,7 @@ import {
 } from "./services/licenseService";
 
 const FREE_PLAN_STORAGE_KEY = "organia_free_plan_continue";
+const ACTIVATION_PENDING_STORAGE_KEY = "organia_activation_pending";
 const decodeBase64UrlToString = (value: string): string | null => {
   if (!value) return null;
   try {
@@ -92,8 +93,13 @@ function App() {
     isActive: isOnboardingActive,
     showWelcomeModal,
   } = useOnboarding();
-  const { licenseState, licenseData, activateLicense, setActivationState } =
-    useLicense();
+  const {
+    licenseState,
+    licenseData,
+    licenseLoaded,
+    activateLicense,
+    setActivationState,
+  } = useLicense();
   const { addAlert } = useNotifications();
   const updateStatus = useUpdateStatus();
   const updateAlertRef = useRef({
@@ -137,6 +143,61 @@ function App() {
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (!deviceId || !licenseLoaded) return;
+    let cancelled = false;
+    const checkStatus = async () => {
+      const status = await fetchActivationStatus(deviceId);
+      if (cancelled || !status.ok) return;
+      if (status.status === "paid" && status.license) {
+        try {
+          if (licenseState !== "ACTIVE") {
+            await activateLicense(status.license);
+            if (typeof window !== "undefined") {
+              window.localStorage.removeItem(FREE_PLAN_STORAGE_KEY);
+              window.localStorage.removeItem(ACTIVATION_PENDING_STORAGE_KEY);
+            }
+            setActivationRewards([]);
+            setActivationError(null);
+            setActivationView("success");
+          }
+        } catch {
+          setActivationState("ERROR", "Activation failed");
+          setActivationError("Activation failed");
+          setActivationView("error");
+        }
+        return;
+      }
+      if (status.status === "blocked") {
+        setActivationState("ERROR", "Activation blocked");
+        setActivationError(
+          "This subscription is already active on another device."
+        );
+        setActivationView("error");
+        return;
+      }
+      if (status.status === "expired") {
+        setActivationState("EXPIRED", "Activation expired");
+        setActivationError("Activation expired. Please contact support.");
+        setActivationView("error");
+        return;
+      }
+      if (status.status === "pending") {
+        const shouldResume =
+          typeof window !== "undefined" &&
+          window.localStorage.getItem(ACTIVATION_PENDING_STORAGE_KEY) === "1";
+        if (shouldResume) {
+          setActivationState("ACTIVATING", null);
+          setActivationView("waiting");
+        }
+      }
+    };
+    checkStatus();
+    return () => {
+      cancelled = true;
+    };
+  }, [deviceId, licenseLoaded, licenseState, activateLicense, setActivationState]);
 
   useEffect(() => {
     if (!window.electronAPI?.onActivationUrl) return;
@@ -205,6 +266,9 @@ function App() {
         if (referralResult.ok) {
           clearPendingReferralCode();
         }
+        if (typeof window !== "undefined") {
+          window.localStorage.removeItem(ACTIVATION_PENDING_STORAGE_KEY);
+        }
         setActivationError(null);
         setActivationView("success");
       } catch (error) {
@@ -265,11 +329,12 @@ function App() {
           await activateLicense(status.license);
           setActivationRewards([]);
           setActivationError(null);
-          setActivationView("success");
-          if (typeof window !== "undefined") {
-            window.localStorage.removeItem(FREE_PLAN_STORAGE_KEY);
-          }
-        } catch (error) {
+            setActivationView("success");
+            if (typeof window !== "undefined") {
+              window.localStorage.removeItem(FREE_PLAN_STORAGE_KEY);
+              window.localStorage.removeItem(ACTIVATION_PENDING_STORAGE_KEY);
+            }
+          } catch (error) {
           setActivationState("ERROR", "Activation failed");
           setActivationError("Activation failed");
           setActivationView("error");
@@ -371,6 +436,9 @@ function App() {
             setActivationView("waiting");
             const id = deviceId || (await getOrCreateDeviceId());
             const pendingReferral = getPendingReferralCode();
+            if (typeof window !== "undefined") {
+              window.localStorage.setItem(ACTIVATION_PENDING_STORAGE_KEY, "1");
+            }
             const startResult = await startActivationIntent(id, pendingReferral);
             if (startResult.ok && startResult.status === "paid" && startResult.license) {
               await activateLicense(startResult.license);
@@ -379,6 +447,7 @@ function App() {
               setActivationView("success");
               if (typeof window !== "undefined") {
                 window.localStorage.removeItem(FREE_PLAN_STORAGE_KEY);
+                window.localStorage.removeItem(ACTIVATION_PENDING_STORAGE_KEY);
               }
               return;
             }
@@ -386,6 +455,9 @@ function App() {
               setActivationState("ERROR", "Activation blocked");
               setActivationError(startResult.error || "This subscription is already active on another device.");
               setActivationView("error");
+              if (typeof window !== "undefined") {
+                window.localStorage.removeItem(ACTIVATION_PENDING_STORAGE_KEY);
+              }
               return;
             }
             const url = startResult.payment_url || getActivationUrl(id, pendingReferral);
@@ -402,6 +474,7 @@ function App() {
             setActivationRewards([]);
             if (typeof window !== "undefined") {
               window.localStorage.setItem(FREE_PLAN_STORAGE_KEY, "1");
+              window.localStorage.removeItem(ACTIVATION_PENDING_STORAGE_KEY);
             }
             window.setTimeout(() => {
               setAllowReadOnly(true);
@@ -423,6 +496,9 @@ function App() {
             setActivationView("choice");
             setActivationState("FREE", null);
             setActivationRewards([]);
+            if (typeof window !== "undefined") {
+              window.localStorage.removeItem(ACTIVATION_PENDING_STORAGE_KEY);
+            }
           }}
         />
       </>
@@ -489,7 +565,7 @@ function ActivationScreen({
     activationView === "choice" ? t("views.choice.subtitle") : undefined;
   const headerIcon =
     activationView === "success"
-      ? "fas fa-badge-check"
+      ? "fas fa-circle-check"
       : activationView === "error"
         ? "fas fa-triangle-exclamation"
         : activationView === "waiting" || activationView === "free_setup"

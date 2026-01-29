@@ -384,7 +384,14 @@ const validateLicensePayload = (payload: unknown): { ok: boolean; payload?: Lice
   if (typeof issuedAt !== "string" || !parseIsoTimestamp(issuedAt)) {
     return { ok: false, error: "Invalid issued_at" };
   }
-  return { ok: true, payload: payload as LicenseData };
+  const normalizedPayload: LicenseData = {
+    license_id: licenseId,
+    device_id: deviceId,
+    license_type: licenseType,
+    expires_at: expiresAt ?? null,
+    issued_at: issuedAt,
+  };
+  return { ok: true, payload: normalizedPayload };
 };
 
 const verifySignedLicense = (signed: unknown): { ok: boolean; payload?: LicenseData; error?: string } => {
@@ -617,8 +624,28 @@ export async function verifyLicenseWithServer(
   _deviceId: string,
   cachedData: LicenseData | null
 ): Promise<LicenseReadResult> {
-  // TODO: Replace with real server revalidation and offline handling.
-  return { data: cachedData };
+  try {
+    const deviceId = _deviceId;
+    if (!deviceId) {
+      return { data: cachedData };
+    }
+    const status = await fetchActivationStatus(deviceId);
+    if (!status.ok) {
+      return { data: cachedData, error: status.error || undefined };
+    }
+    if (status.status === "paid" && status.license) {
+      return { data: status.license.payload };
+    }
+    if (status.status === "blocked") {
+      return { data: null, error: "Activation blocked" };
+    }
+    if (status.status === "expired") {
+      return { data: null, error: "Activation expired" };
+    }
+    return { data: cachedData };
+  } catch {
+    return { data: cachedData };
+  }
 }
 
 export const FREE_PLAN_LIMITS = {

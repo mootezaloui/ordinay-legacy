@@ -70,8 +70,41 @@ async function loadSvg() {
   return fs.readFileSync(SVG_SOURCE);
 }
 
+/**
+ * Pre-trimmed SVG buffer cache.
+ * We render the SVG once at high resolution, trim transparent padding,
+ * then use this trimmed image as the source for all sizes.
+ */
+let trimmedSourceCache = null;
+
+async function getTrimmedSource(svgBuffer) {
+  if (trimmedSourceCache) return trimmedSourceCache;
+
+  // Render SVG at a high resolution first
+  const highRes = await sharp(svgBuffer)
+    .resize(1024, 1024, {
+      fit: 'contain',
+      background: { r: 0, g: 0, b: 0, alpha: 0 }
+    })
+    .png()
+    .toBuffer();
+
+  // Trim transparent pixels around the logo
+  trimmedSourceCache = await sharp(highRes)
+    .trim()
+    .png()
+    .toBuffer();
+
+  const meta = await sharp(trimmedSourceCache).metadata();
+  console.log(`  Trimmed source: ${meta.width}x${meta.height} (padding removed)`);
+
+  return trimmedSourceCache;
+}
+
 async function generatePng(svgBuffer, size) {
-  return sharp(svgBuffer)
+  const trimmed = await getTrimmedSource(svgBuffer);
+
+  return sharp(trimmed)
     .resize(size, size, {
       fit: 'contain',
       background: { r: 0, g: 0, b: 0, alpha: 0 }
