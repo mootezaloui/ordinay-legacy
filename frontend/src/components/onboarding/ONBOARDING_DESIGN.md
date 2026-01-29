@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Organia onboarding system provides a guided, interactive tutorial that introduces new users to the application's core workflow and mental model. It is designed to be:
+The Ordinay onboarding system provides a guided, interactive tutorial that introduces new users to the application's core workflow and mental model. It is designed to be:
 
 - **Non-intrusive**: Can be skipped, paused, or replayed
 - **Human-centered**: Uses conversational language, not documentation tone
@@ -47,7 +47,7 @@ The `OnboardingContext` manages:
 | `isActive` | Tutorial is currently running |
 | `showWelcomeModal` | Show the first-launch modal |
 
-State is persisted to `localStorage` under the key `organia_onboarding`.
+State is persisted to `localStorage` under the key `ordinay_onboarding`.
 
 ---
 
@@ -61,7 +61,7 @@ State is persisted to `localStorage` under the key `organia_onboarding`.
 ### Phase 2: Dashboard Understanding
 - Explains the control center concept
 - Highlights stats, upcoming events, quick actions
-- Key message: "Organia surfaces what matters"
+- Key message: "Ordinay surfaces what matters"
 
 ### Phase 3: Core Workflow (4 sub-steps)
 1. **Clients** — The foundation of everything
@@ -174,7 +174,7 @@ showTip({
 ## Design Principles
 
 1. **Teach the mental model, not the UI**
-   - Focus on "how Organia thinks" not "click here"
+   - Focus on "how Ordinay thinks" not "click here"
    
 2. **Reduce anxiety**
    - Every screen reassures: safe, reversible, controlled

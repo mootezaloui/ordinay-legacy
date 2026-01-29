@@ -1,5 +1,5 @@
 /**
- * OrganiaStartupLoader.tsx
+ * OrdinayStartupLoader.tsx
  *
  * Full-page branded loading screen using Orbital Motion concept.
  * Static rings with orbiting dots at different speeds.
@@ -9,17 +9,17 @@
 import { useEffect, useMemo, useState, memo } from 'react';
 import { i18nInstance } from '../../i18n';
 
-export interface OrganiaStartupLoaderProps {
+export interface OrdinayStartupLoaderProps {
   isLoading?: boolean;
   onFadeOutComplete?: () => void;
   message?: string;
 }
 
-const OrganiaStartupLoader = memo(function OrganiaStartupLoader({
+const OrdinayStartupLoader = memo(function OrdinayStartupLoader({
   isLoading = true,
   onFadeOutComplete,
   message,
-}: OrganiaStartupLoaderProps) {
+}: OrdinayStartupLoaderProps) {
   const [isVisible, setIsVisible] = useState(true);
   const resolvedMessage = useMemo(() => {
     if (typeof message === 'string') return message;
@@ -42,44 +42,44 @@ const OrganiaStartupLoader = memo(function OrganiaStartupLoader({
   if (!isVisible) return null;
 
   return (
-    <div className={`organia-orbital-loader ${isFadingOut ? 'organia-orbital-loader--fading' : ''}`}>
+    <div className={`ordinay-orbital-loader ${isFadingOut ? 'ordinay-orbital-loader--fading' : ''}`}>
       {/* Background */}
-      <div className="organia-orbital-loader__bg" />
+      <div className="ordinay-orbital-loader__bg" />
 
       {/* Content */}
-      <div className="organia-orbital-loader__content">
+      <div className="ordinay-orbital-loader__content">
         {/* Orbital animation container */}
-        <div className="organia-orbital-loader__orbit-container">
+        <div className="ordinay-orbital-loader__orbit-container">
           {/* Static rings */}
-          <div className="organia-orbital-loader__ring organia-orbital-loader__ring--outer" />
-          <div className="organia-orbital-loader__ring organia-orbital-loader__ring--middle" />
-          <div className="organia-orbital-loader__ring organia-orbital-loader__ring--inner" />
+          <div className="ordinay-orbital-loader__ring ordinay-orbital-loader__ring--outer" />
+          <div className="ordinay-orbital-loader__ring ordinay-orbital-loader__ring--middle" />
+          <div className="ordinay-orbital-loader__ring ordinay-orbital-loader__ring--inner" />
 
           {/* Core */}
-          <div className="organia-orbital-loader__core" />
+          <div className="ordinay-orbital-loader__core" />
 
           {/* Orbiting points */}
-          <div className="organia-orbital-loader__orbit organia-orbital-loader__orbit--1">
-            <div className="organia-orbital-loader__point organia-orbital-loader__point--gold" />
+          <div className="ordinay-orbital-loader__orbit ordinay-orbital-loader__orbit--1">
+            <div className="ordinay-orbital-loader__point ordinay-orbital-loader__point--gold" />
           </div>
-          <div className="organia-orbital-loader__orbit organia-orbital-loader__orbit--2">
-            <div className="organia-orbital-loader__point organia-orbital-loader__point--primary" />
+          <div className="ordinay-orbital-loader__orbit ordinay-orbital-loader__orbit--2">
+            <div className="ordinay-orbital-loader__point ordinay-orbital-loader__point--primary" />
           </div>
-          <div className="organia-orbital-loader__orbit organia-orbital-loader__orbit--3">
-            <div className="organia-orbital-loader__point organia-orbital-loader__point--muted" />
+          <div className="ordinay-orbital-loader__orbit ordinay-orbital-loader__orbit--3">
+            <div className="ordinay-orbital-loader__point ordinay-orbital-loader__point--muted" />
           </div>
         </div>
 
         {/* Message */}
         {resolvedMessage && (
-          <p className="organia-orbital-loader__message">{resolvedMessage}</p>
+          <p className="ordinay-orbital-loader__message">{resolvedMessage}</p>
         )}
       </div>
     </div>
   );
 });
 
-export default OrganiaStartupLoader;
+export default OrdinayStartupLoader;
 
 export function useStartupLoader(initialDelay = 0) {
   const [hasMinimumTimeElapsed, setHasMinimumTimeElapsed] = useState(false);

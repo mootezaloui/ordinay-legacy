@@ -1,5 +1,5 @@
 /**
- * OrganiaDataLoader.tsx
+ * OrdinayDataLoader.tsx
  *
  * In-app loading component for data fetching, workspace switching, etc.
  *
@@ -17,9 +17,9 @@
  */
 
 import { memo } from 'react';
-import { OrganiaLogoMinimal } from './OrganiaLogo';
+import { OrdinayLogoMinimal } from './OrdinayLogo';
 
-export interface OrganiaDataLoaderProps {
+export interface OrdinayDataLoaderProps {
   /** Loader variant */
   variant?: 'page' | 'inline' | 'card' | 'button' | 'dots';
   /** Optional loading message */
@@ -30,12 +30,12 @@ export interface OrganiaDataLoaderProps {
   className?: string;
 }
 
-const OrganiaDataLoader = memo(function OrganiaDataLoader({
+const OrdinayDataLoader = memo(function OrdinayDataLoader({
   variant = 'inline',
   message,
   size = 'md',
   className = '',
-}: OrganiaDataLoaderProps) {
+}: OrdinayDataLoaderProps) {
 
   // Size mappings for different variants
   const sizeMap = {
@@ -49,15 +49,15 @@ const OrganiaDataLoader = memo(function OrganiaDataLoader({
   // Page variant: Centered in content area
   if (variant === 'page') {
     return (
-      <div className={`organia-data-loader organia-data-loader--page ${className}`}>
-        <div className="organia-data-loader__content">
+      <div className={`ordinay-data-loader ordinay-data-loader--page ${className}`}>
+        <div className="ordinay-data-loader__content">
           {/* Animated ring spinner with logo core */}
-          <div className="organia-data-loader__spinner">
-            <OrganiaLogoMinimal size={sizes.logo * 2} variant="auto" />
+          <div className="ordinay-data-loader__spinner">
+            <OrdinayLogoMinimal size={sizes.logo * 2} variant="auto" />
           </div>
 
           {message && (
-            <p className="organia-data-loader__message">{message}</p>
+            <p className="ordinay-data-loader__message">{message}</p>
           )}
         </div>
       </div>
@@ -67,12 +67,12 @@ const OrganiaDataLoader = memo(function OrganiaDataLoader({
   // Card variant: For content areas within cards
   if (variant === 'card') {
     return (
-      <div className={`organia-data-loader organia-data-loader--card ${className}`}>
-        <div className="organia-data-loader__spinner organia-data-loader__spinner--small">
-          <OrganiaLogoMinimal size={sizes.logo} variant="auto" />
+      <div className={`ordinay-data-loader ordinay-data-loader--card ${className}`}>
+        <div className="ordinay-data-loader__spinner ordinay-data-loader__spinner--small">
+          <OrdinayLogoMinimal size={sizes.logo} variant="auto" />
         </div>
         {message && (
-          <span className="organia-data-loader__message organia-data-loader__message--small">
+          <span className="ordinay-data-loader__message ordinay-data-loader__message--small">
             {message}
           </span>
         )}
@@ -83,8 +83,8 @@ const OrganiaDataLoader = memo(function OrganiaDataLoader({
   // Button variant: Tiny spinner for button states
   if (variant === 'button') {
     return (
-      <div className={`organia-data-loader organia-data-loader--button ${className}`}>
-        <div className={`organia-data-loader__ring ${sizes.ring}`} />
+      <div className={`ordinay-data-loader ordinay-data-loader--button ${className}`}>
+        <div className={`ordinay-data-loader__ring ${sizes.ring}`} />
       </div>
     );
   }
@@ -92,14 +92,14 @@ const OrganiaDataLoader = memo(function OrganiaDataLoader({
   // Dots variant: Animated dots sequence
   if (variant === 'dots') {
     return (
-      <div className={`organia-data-loader organia-data-loader--dots ${className}`}>
-        <div className="organia-data-loader__dots">
-          <span className={`organia-data-loader__dot ${sizes.dots}`} style={{ animationDelay: '0ms' }} />
-          <span className={`organia-data-loader__dot ${sizes.dots}`} style={{ animationDelay: '150ms' }} />
-          <span className={`organia-data-loader__dot ${sizes.dots}`} style={{ animationDelay: '300ms' }} />
+      <div className={`ordinay-data-loader ordinay-data-loader--dots ${className}`}>
+        <div className="ordinay-data-loader__dots">
+          <span className={`ordinay-data-loader__dot ${sizes.dots}`} style={{ animationDelay: '0ms' }} />
+          <span className={`ordinay-data-loader__dot ${sizes.dots}`} style={{ animationDelay: '150ms' }} />
+          <span className={`ordinay-data-loader__dot ${sizes.dots}`} style={{ animationDelay: '300ms' }} />
         </div>
         {message && (
-          <span className="organia-data-loader__message organia-data-loader__message--inline">
+          <span className="ordinay-data-loader__message ordinay-data-loader__message--inline">
             {message}
           </span>
         )}
@@ -109,12 +109,12 @@ const OrganiaDataLoader = memo(function OrganiaDataLoader({
 
   // Inline variant (default): Small spinner with optional text
   return (
-    <div className={`organia-data-loader organia-data-loader--inline ${className}`}>
-      <div className="organia-data-loader__spinner organia-data-loader__spinner--inline">
-        <div className={`organia-data-loader__ring ${sizes.ring}`} />
+    <div className={`ordinay-data-loader ordinay-data-loader--inline ${className}`}>
+      <div className="ordinay-data-loader__spinner ordinay-data-loader__spinner--inline">
+        <div className={`ordinay-data-loader__ring ${sizes.ring}`} />
       </div>
       {message && (
-        <span className="organia-data-loader__message organia-data-loader__message--inline">
+        <span className="ordinay-data-loader__message ordinay-data-loader__message--inline">
           {message}
         </span>
       )}
@@ -122,7 +122,7 @@ const OrganiaDataLoader = memo(function OrganiaDataLoader({
   );
 });
 
-export default OrganiaDataLoader;
+export default OrdinayDataLoader;
 
 /**
  * Convenience wrapper for page-level loading
@@ -135,7 +135,7 @@ export const PageLoader = memo(function PageLoader({
   className?: string;
 }) {
   return (
-    <OrganiaDataLoader variant="page" message={message} size="lg" className={className} />
+    <OrdinayDataLoader variant="page" message={message} size="lg" className={className} />
   );
 });
 
@@ -152,7 +152,7 @@ export const InlineLoader = memo(function InlineLoader({
   className?: string;
 }) {
   return (
-    <OrganiaDataLoader variant="inline" message={message} size={size} className={className} />
+    <OrdinayDataLoader variant="inline" message={message} size={size} className={className} />
   );
 });
 
@@ -167,6 +167,6 @@ export const ButtonLoader = memo(function ButtonLoader({
   className?: string;
 }) {
   return (
-    <OrganiaDataLoader variant="button" size={size} className={className} />
+    <OrdinayDataLoader variant="button" size={size} className={className} />
   );
 });

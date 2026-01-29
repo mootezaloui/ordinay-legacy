@@ -387,7 +387,7 @@
         "activationFailed": "Échec de l'activation. Veuillez réessayer."
       },
       "perpetual": {
-        "highestPlan": "Vous possédez la licence Organia la plus élevée.",
+        "highestPlan": "Vous possédez la licence Ordinay la plus élevée.",
         "noChanges": "Les changements de plan ne sont pas disponibles pour les licences perpétuelles. Les modules complémentaires et agents seront disponibles séparément à l'avenir."
       },
       "planChange": {
@@ -418,7 +418,7 @@
         },
         "notes": {
           "title": "Processus externe",
-          "external": "Les changements de plan se font dans votre navigateur. Nous ouvrons le site Organia pour terminer la mise à jour.",
+          "external": "Les changements de plan se font dans votre navigateur. Nous ouvrons le site Ordinay pour terminer la mise à jour.",
           "after": "Après le changement, revenez ici et rafraîchissez la licence."
         },
         "plans": {

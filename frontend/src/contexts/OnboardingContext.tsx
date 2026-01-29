@@ -1,7 +1,7 @@
 /**
  * OnboardingContext.tsx
  *
- * Manages the onboarding tutorial state for Organia.
+ * Manages the onboarding tutorial state for Ordinay.
  * Handles first-launch detection, tutorial progress, and completion tracking.
  *
  * Features:
@@ -23,7 +23,7 @@ import {
 } from "react";
 
 // Storage key for onboarding state
-const ONBOARDING_STORAGE_KEY = "organia_onboarding";
+const ONBOARDING_STORAGE_KEY = "ordinay_onboarding";
 
 // Tutorial phases and their steps
 export const TUTORIAL_PHASES = {

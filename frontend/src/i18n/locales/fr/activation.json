@@ -1,7 +1,7 @@
 {
   "states": {
     "free": "Les limites du plan gratuit s'appliquent",
-    "unactivated": "Activer Organia sur cet appareil",
+    "unactivated": "Activer Ordinay sur cet appareil",
     "activating": "Activation en cours",
     "active": "Activation terminée",
     "expired": "Licence expirée - Réactivez cet appareil",
@@ -9,7 +9,7 @@
   },
   "views": {
     "waiting": {
-      "title": "Activation d'Organia",
+      "title": "Activation d'Ordinay",
       "description": "Terminez le paiement dans votre navigateur. L'application s'activera automatiquement une fois le paiement terminé.",
       "status": "En attente d'activation..."
     },
@@ -34,20 +34,20 @@
       "status": "Préparation du plan gratuit..."
     },
     "choice": {
-      "title": "Activer Organia (facultatif)",
+      "title": "Activer Ordinay (facultatif)",
       "subtitle": "Continuez sur le plan gratuit ou activez quand vous êtes prêt.",
       "description": "L'activation supprime les limites du plan gratuit pour que vous puissiez évoluer sans interruption.",
       "bullets": {
         "limits": "Supprime les limites du plan gratuit pour les clients, dossiers et tâches actives.",
         "manage": "Activez à tout moment depuis Paramètres > Licence."
       },
-      "footer": "Organia reste utilisable sans activation. Les limites du plan gratuit s'appliquent."
+      "footer": "Ordinay reste utilisable sans activation. Les limites du plan gratuit s'appliquent."
     }
   },
   "actions": {
     "openActivation": "Rouvrir la page d'activation",
     "back": "Retour",
-    "continue": "Continuer vers Organia",
+    "continue": "Continuer vers Ordinay",
     "tryAgain": "Réessayer",
     "continueFree": "Continuer sur le plan gratuit",
     "activate": "Activer maintenant"

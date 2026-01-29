@@ -1,7 +1,7 @@
 /**
  * TutorialContext.tsx
  *
- * Lightweight tutorial engine for Organia's interactive guided tutorial.
+ * Lightweight tutorial engine for Ordinay's interactive guided tutorial.
  * Separate from onboarding - this handles the step-by-step overlay system.
  *
  * Features:
@@ -23,7 +23,7 @@ import {
 } from "react";
 
 // Storage key for tutorial state
-const TUTORIAL_STORAGE_KEY = "organia_tutorial";
+const TUTORIAL_STORAGE_KEY = "ordinay_tutorial";
 
 // Tutorial step definitions
 export interface TutorialStep {

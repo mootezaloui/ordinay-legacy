@@ -1,5 +1,5 @@
 {
-  "title": "Espace de travail Organia verrouillé",
+  "title": "Espace de travail Ordinay verrouillé",
   "subtitle": "Saisissez votre mot de passe pour accéder à votre espace de travail",
   "fields": {
     "password": {
@@ -23,7 +23,7 @@
     "passwordRequired": "Veuillez saisir votre mot de passe",
     "passwordIncorrect": "Mot de passe incorrect"
   },
-  "footer": "Organia - Gestion de cabinet juridique",
+  "footer": "Ordinay - Gestion de cabinet juridique",
   "reset": {
     "title": "Réinitialiser les données de l'application ?",
     "description": "Cela efface toutes les données de l'espace de travail sur cet appareil, y compris les clients, les dossiers et les documents. Votre activation reste, mais vous devrez configurer l'espace de travail à nouveau.",

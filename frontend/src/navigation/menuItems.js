@@ -56,7 +56,7 @@ export const menuItems = [
   },
   {
     icon: "fas fa-robot",
-    label: "Organia Intelligence",
+    label: "Ordinay Intelligence",
     route: "/chatbot",
   },
 ];

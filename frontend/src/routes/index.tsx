@@ -177,7 +177,7 @@ export const routes: RouteConfig[] = [
     component: ChatBotRouteComponent,
     name: "ChatBot",
     icon: "fas fa-robot",
-    label: "Organia Intelligence (Coming Soon)",
+    label: "Ordinay Intelligence (Coming Soon)",
   },
   {
     path: "/profile",

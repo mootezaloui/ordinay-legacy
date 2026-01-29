@@ -17,7 +17,7 @@ export function SetupProvider({ children }) {
 
     useEffect(() => {
         if (isInitialized !== null) {
-            const splash = window.__organiaSplash;
+            const splash = window.__ordinaySplash;
             if (splash && typeof splash.markReady === 'function') {
                 splash.markReady('setup');
             }

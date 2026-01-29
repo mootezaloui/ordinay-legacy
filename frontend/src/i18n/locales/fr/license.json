@@ -2,7 +2,7 @@
   "banner": {
     "messages": {
       "FREE": "Les limites du plan gratuit s'appliquent - Activez pour lever les limites",
-      "UNACTIVATED": "Activez Organia pour débloquer l'accès en écriture",
+      "UNACTIVATED": "Activez Ordinay pour débloquer l'accès en écriture",
       "ACTIVATING": "Activation en cours",
       "ACTIVE": "",
       "EXPIRED": "Licence expirée - Activez pour continuer",
@@ -18,7 +18,7 @@
   },
   "freeLimit": {
     "title": "Limite du plan gratuit atteinte",
-    "message": "Vous avez atteint la limite du plan gratuit pour {{label}} ({{limit}}). Organia reste gratuit pour une petite utilisation. Activez pour supprimer les limites et continuer à ajouter des données.",
+    "message": "Vous avez atteint la limite du plan gratuit pour {{label}} ({{limit}}). Ordinay reste gratuit pour une petite utilisation. Activez pour supprimer les limites et continuer à ajouter des données.",
     "confirm": "Activer / Mettre à niveau",
     "cancel": "Fermer"
   }

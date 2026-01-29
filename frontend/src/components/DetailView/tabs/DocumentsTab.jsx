@@ -5,7 +5,7 @@ import { useSettings } from "../../../contexts/SettingsContext";
 import ContentSection from "../../layout/ContentSection";
 import documentService from "../../../services/documentService.js";
 import { useTranslation } from "react-i18next";
-import { InlineLoader } from "../../brand/OrganiaDataLoader";
+import { InlineLoader } from "../../brand/OrdinayDataLoader";
 
 /**
  * Documents Tab - Centralized document management

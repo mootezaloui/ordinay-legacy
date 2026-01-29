@@ -1,8 +1,8 @@
 /**
  * LoadingScreen.jsx
  *
- * Unified loading component using Organia brand identity.
- * Wraps OrganiaDataLoader for backward compatibility.
+ * Unified loading component using Ordinay brand identity.
+ * Wraps OrdinayDataLoader for backward compatibility.
  *
  * Variants:
  * - page: Full content area loader (default)
@@ -13,11 +13,11 @@
  * - button: Tiny spinner for button states
  */
 
-import OrganiaDataLoader, {
+import OrdinayDataLoader, {
   PageLoader,
   InlineLoader,
   ButtonLoader,
-} from '../brand/OrganiaDataLoader';
+} from '../brand/OrdinayDataLoader';
 
 const LoadingScreen = ({
   variant = 'page',
@@ -46,7 +46,7 @@ const LoadingScreen = ({
 
     case 'card':
       return (
-        <OrganiaDataLoader
+        <OrdinayDataLoader
           variant="card"
           message={message}
           size={size}
@@ -56,7 +56,7 @@ const LoadingScreen = ({
 
     case 'dots':
       return (
-        <OrganiaDataLoader
+        <OrdinayDataLoader
           variant="dots"
           message={message}
           size={size}
@@ -84,7 +84,7 @@ const LoadingScreen = ({
     case 'wave':
       // Wave variant mapped to dots for brand consistency
       return (
-        <OrganiaDataLoader
+        <OrdinayDataLoader
           variant="dots"
           message={message}
           size={size}
@@ -106,7 +106,7 @@ export default LoadingScreen;
 
 // Re-export branded components for direct use
 export {
-  OrganiaDataLoader,
+  OrdinayDataLoader,
   PageLoader,
   InlineLoader,
   ButtonLoader,

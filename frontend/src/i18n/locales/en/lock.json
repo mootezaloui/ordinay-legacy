@@ -1,5 +1,5 @@
 {
-  "title": "Organia Workspace Locked",
+  "title": "Ordinay Workspace Locked",
   "subtitle": "Enter your password to access your workspace",
   "fields": {
     "password": {
@@ -23,7 +23,7 @@
     "passwordRequired": "Please enter your password",
     "passwordIncorrect": "Incorrect password"
   },
-  "footer": "Organia - Legal Practice Management",
+  "footer": "Ordinay - Legal Practice Management",
   "reset": {
     "title": "Reset app data?",
     "description": "This clears all workspace data on this device, including clients, lawsuits, and documents. Your activation stays, but you will need to set up the workspace again.",

@@ -6,8 +6,8 @@
 
 import CryptoJS from 'crypto-js';
 
-const LOCK_STORAGE_KEY = 'organia_workspace_lock';
-const LOCK_STATE_KEY = 'organia_lock_state';
+const LOCK_STORAGE_KEY = 'ordinay_workspace_lock';
+const LOCK_STATE_KEY = 'ordinay_lock_state';
 
 export interface LockConfig {
   enabled: boolean;

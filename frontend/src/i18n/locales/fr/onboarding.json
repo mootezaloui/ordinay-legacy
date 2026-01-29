@@ -1,8 +1,8 @@
 {
   "welcome": {
-    "title": "Bienvenue sur Organia",
+    "title": "Bienvenue sur Ordinay",
     "subtitle": "Votre cabinet, organisé.",
-    "description": "Organia vous aide à gérer vos clients, dossiers, tâches et finances — le tout en un seul endroit. Faisons un tour rapide pour vous familiariser.",
+    "description": "Ordinay vous aide à gérer vos clients, dossiers, tâches et finances — le tout en un seul endroit. Faisons un tour rapide pour vous familiariser.",
     "startButton": "Commencer la visite",
     "skipButton": "Passer pour l'instant",
     "skipNote": "Vous pourrez toujours revoir ce guide depuis les Paramètres."
@@ -23,12 +23,12 @@
         "upcoming": "Les événements et échéances à venir apparaissent ici. Inutile de vérifier plusieurs endroits.",
         "quick": "Besoin de créer quelque chose rapidement ? Les actions rapides sont toujours à portée de main."
       },
-      "tip": "Vous n'avez pas besoin de tout ouvrir. Organia fait remonter ce qui compte."
+      "tip": "Vous n'avez pas besoin de tout ouvrir. Ordinay fait remonter ce qui compte."
     },
     "workflow": {
-      "title": "Comment Fonctionne Organia",
+      "title": "Comment Fonctionne Ordinay",
       "subtitle": "Comprendre le flux de travail",
-      "intro": "Organia est construit autour d'une hiérarchie simple. Une fois comprise, tout devient clair.",
+      "intro": "Ordinay est construit autour d'une hiérarchie simple. Une fois comprise, tout devient clair.",
       "clients": {
         "title": "Commencez par les Clients",
         "description": "Chaque travail commence par un client. Ajoutez vos clients d'abord — ils sont la base de tout.",
@@ -53,7 +53,7 @@
     },
     "financial": {
       "title": "Gardez le Contrôle de Vos Finances",
-      "description": "Organia suit vos honoraires et dépenses. Voici ce que vous devez savoir.",
+      "description": "Ordinay suit vos honoraires et dépenses. Voici ce que vous devez savoir.",
       "points": {
         "fees": "Les honoraires sont ce que vous gagnez des clients. Attachez-les aux dossiers pour suivre les paiements.",
         "expenses": "Les dépenses sont les coûts que vous engagez : frais de justice, déplacements, consultations d'experts.",
@@ -95,7 +95,7 @@
         "tip4": "Consultez votre tableau de bord quotidiennement"
       },
       "replay": "Besoin d'un rappel ? Vous pouvez relancer ce guide à tout moment depuis les Paramètres.",
-      "button": "Commencer à utiliser Organia",
+      "button": "Commencer à utiliser Ordinay",
       "guidedTutorial": {
         "title": "Voulez-vous une visite pratique ?",
         "description": "Suivez un tutoriel interactif où nous mettrons en évidence l'interface et vous guiderons pour créer votre premier client.",

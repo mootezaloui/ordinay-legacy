@@ -197,7 +197,7 @@ export const notificationFrequencySettings = {
  * Get user notification preferences
  * In production, this would be fetched from user settings
  */
-const NOTIFICATION_PREF_KEY = "organia_notification_prefs";
+const NOTIFICATION_PREF_KEY = "ordinay_notification_prefs";
 
 const mergePreferences = (base, override) => {
   if (!override) return base;

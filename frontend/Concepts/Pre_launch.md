@@ -1,7 +1,7 @@
 # 🚀 PRE_LAUNCH_ROADMAP.md  
-**Organia — Pre-Launch Work Tracker**
+**Ordinay — Pre-Launch Work Tracker**
 
-This document tracks the **remaining critical work** required before launching Organia publicly.  
+This document tracks the **remaining critical work** required before launching Ordinay publicly.  
 The focus is on **usability, trust, data safety, and product readiness** — not feature bloat.
 
 ---
@@ -72,7 +72,7 @@ Entities to support:
 ## 3️⃣ Interactive Tutorial / Onboarding (ESSENTIAL)
 
 ### Problem
-Organia is powerful but **dense**. Without guidance:
+Ordinay is powerful but **dense**. Without guidance:
 - Users feel lost
 - Value is not immediately clear
 
@@ -98,7 +98,7 @@ Teach **how to work**, not explain every button.
 ## 4️⃣ Payment & Subscription Traceability (CRITICAL FOR BUSINESS)
 
 ### Context
-Even as a desktop app, Organia will support:
+Even as a desktop app, Ordinay will support:
 - Monthly plans
 - Yearly plans
 - One-time lifetime purchase

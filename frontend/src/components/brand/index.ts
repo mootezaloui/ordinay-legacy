@@ -1,22 +1,22 @@
 /**
  * Brand Components
  *
- * Canonical Organia brand assets and loading experiences.
+ * Canonical Ordinay brand assets and loading experiences.
  */
 
 // Logo components
-export { default as OrganiaLogo, OrganiaLogoMinimal } from './OrganiaLogo';
-export type { OrganiaLogoProps } from './OrganiaLogo';
+export { default as OrdinayLogo, OrdinayLogoMinimal } from './OrdinayLogo';
+export type { OrdinayLogoProps } from './OrdinayLogo';
 
 // Startup loader (cold start)
-export { default as OrganiaStartupLoader, useStartupLoader } from './OrganiaStartupLoader';
-export type { OrganiaStartupLoaderProps } from './OrganiaStartupLoader';
+export { default as OrdinayStartupLoader, useStartupLoader } from './OrdinayStartupLoader';
+export type { OrdinayStartupLoaderProps } from './OrdinayStartupLoader';
 
 // Data loader (in-app loading)
 export {
-  default as OrganiaDataLoader,
+  default as OrdinayDataLoader,
   PageLoader,
   InlineLoader,
   ButtonLoader,
-} from './OrganiaDataLoader';
-export type { OrganiaDataLoaderProps } from './OrganiaDataLoader';
+} from './OrdinayDataLoader';
+export type { OrdinayDataLoaderProps } from './OrdinayDataLoader';

@@ -1,4 +1,4 @@
-const SETTINGS_STORAGE_KEY = "organia_settings";
+const SETTINGS_STORAGE_KEY = "ordinay_settings";
 const DEFAULT_DATE_FORMAT = "DD/MM/YYYY";
 
 const pad = (value) => String(value).padStart(2, "0");

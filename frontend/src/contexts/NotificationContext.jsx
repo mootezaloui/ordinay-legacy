@@ -308,12 +308,12 @@ export function NotificationProvider({ children }) {
         setNotificationsSorted(transformedNotifications);
 
         // Also cache in localStorage for offline access
-        localStorage.setItem("organia_notifications", JSON.stringify(transformedNotifications));
+        localStorage.setItem("ordinay_notifications", JSON.stringify(transformedNotifications));
       } catch (error) {
         console.error("Failed to load notifications from API:", error);
 
         // Fallback to localStorage if API fails
-        const saved = localStorage.getItem("organia_notifications");
+        const saved = localStorage.getItem("ordinay_notifications");
         if (saved) {
           try {
             const parsed = JSON.parse(saved);
@@ -348,7 +348,7 @@ export function NotificationProvider({ children }) {
   // Save to localStorage whenever notifications change
   useEffect(() => {
     if (notifications.length > 0) {
-      localStorage.setItem("organia_notifications", JSON.stringify(notifications));
+      localStorage.setItem("ordinay_notifications", JSON.stringify(notifications));
     }
   }, [notifications, setNotificationsSorted]);
 
@@ -446,7 +446,7 @@ export function NotificationProvider({ children }) {
       console.error("Failed to clear notifications on backend:", error);
     } finally {
       setNotificationsSorted([]);
-      localStorage.removeItem("organia_notifications");
+      localStorage.removeItem("ordinay_notifications");
     }
   }, [setNotificationsSorted]);
 

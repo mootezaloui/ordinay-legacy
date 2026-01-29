@@ -15,7 +15,7 @@ import { useTranslation } from "react-i18next";
  * - NO password recovery
  * - Just shows success message
  *
- * Organia is a LOCAL DESKTOP APP with NO password management.
+ * Ordinay is a LOCAL DESKTOP APP with NO password management.
  * Real authentication is FORBIDDEN per AUTH_FREEZE.md
  *
  * See: /AUTH_FREEZE.md for details

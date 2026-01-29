@@ -1,4 +1,4 @@
-# Organia Backend Foundation (MVP)
+# Ordinay Backend Foundation (MVP)
 
 Database-first backend with an Express HTTP layer. SQLite schema is enforced; the connection helper initializes the DB; endpoints perform basic CRUD with soft deletes and server-side validation aligned to schema constraints.
 
@@ -6,7 +6,7 @@ Database-first backend with an Express HTTP layer. SQLite schema is enforced; th
 - `backend/src/config/app.config.js` – app-level settings (port, env, API prefix).
 - `backend/src/config/db.config.js` – database file location.
 - `backend/src/db/schema.sql` – full SQLite schema (structural constraints only).
-- `backend/src/db/connection.js` – opens `organia.db`, ensures the schema is applied, and exports a `better-sqlite3` instance.
+- `backend/src/db/connection.js` – opens `ordinay.db`, ensures the schema is applied, and exports a `better-sqlite3` instance.
 - `backend/src/routes` – Express route modules (mounted under `/api/*`).
 - `backend/src/controllers` – request/response handlers returning data or 404; they surface validation errors cleanly.
 - `backend/src/services` – CRUD + validation against schema rules (soft deletes, XOR checks on polymorphic relations).
@@ -16,7 +16,7 @@ Database-first backend with an Express HTTP layer. SQLite schema is enforced; th
 
 ## Why SQLite for the desktop-first MVP
 - File-based, zero-ops: fits the single-user desktop app with no external services required.
-- Fast and reliable on local disks; safe to bundle/distribute as one file (`organia.db`).
+- Fast and reliable on local disks; safe to bundle/distribute as one file (`ordinay.db`).
 - Supports foreign keys and CHECK/UNIQUE constraints to enforce integrity early.
 - Smooth path to later sync: the file can be replicated or migrated to a server-side RDBMS when a web backend arrives.
 

@@ -1,7 +1,7 @@
 /**
  * WelcomeModal.tsx
  *
- * The first-launch welcome screen for Organia.
+ * The first-launch welcome screen for Ordinay.
  * Calm, professional, and inviting.
  * Offers Start/Skip options with no pressure.
  */

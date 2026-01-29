@@ -109,7 +109,7 @@ export default function SettingsReferrals() {
             <p className="text-sm text-slate-500 dark:text-slate-400">
               {t("inactiveMessage", {
                 defaultValue:
-                  "Activate your Organia license to access your referral link and earn rewards.",
+                  "Activate your Ordinay license to access your referral link and earn rewards.",
               })}
             </p>
           </div>
@@ -126,7 +126,7 @@ export default function SettingsReferrals() {
           <p className="text-sm text-slate-600 dark:text-slate-300">
             {t("linkDescription", {
               defaultValue:
-                "Share your referral link with others. When they activate Organia, you earn rewards.",
+                "Share your referral link with others. When they activate Ordinay, you earn rewards.",
             })}
           </p>
 

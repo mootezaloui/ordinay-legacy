@@ -1,4 +1,4 @@
-// Electron Preload Script for Organia
+// Electron Preload Script for Ordinay
 // Exposes safe APIs to the renderer process
 
 const { contextBridge, ipcRenderer } = require('electron');

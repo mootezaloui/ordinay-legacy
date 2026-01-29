@@ -890,7 +890,7 @@
   "import": {
     "title": "Import legacy {{entity}}",
     "subtitle": "Best-effort mapping. Valid rows are imported as unvalidated; invalid rows stay quarantined.",
-    "notice": "Please help Organia understand your data: select the columns from your file that you want to import. Important note: the Notes field can be mapped to multiple columns. You can find this data in the Notes tab so nothing is lost.",
+    "notice": "Please help Ordinay understand your data: select the columns from your file that you want to import. Important note: the Notes field can be mapped to multiple columns. You can find this data in the Notes tab so nothing is lost.",
     "sourceLabel": "Import source (optional)",
     "sourcePlaceholder": "e.g. Excel export, old system",
     "fileLabel": "File",
@@ -901,7 +901,7 @@
     "uploading": "Uploading {{current}} / {{total}}",
     "mapping": {
       "title": "Review column mapping",
-      "subtitle": "Confirm how each column maps to Organia's client fields. Unknown columns stay ignored.",
+      "subtitle": "Confirm how each column maps to Ordinay's client fields. Unknown columns stay ignored.",
       "headerLabel": "File column",
       "fieldLabel": "Mapped field",
       "ignore": "Ignore column",
@@ -1187,7 +1187,7 @@
   },
   "documentGeneration": {
     "title": "Generate a document",
-    "subtitle": "Choose a template, then click “Generate”. Organia will auto-fill the dossier information.",
+    "subtitle": "Choose a template, then click “Generate”. Ordinay will auto-fill the dossier information.",
     "sections": {
       "configuration": "Configuration"
     },
@@ -1250,7 +1250,7 @@
   "templateManagement": {
     "header": {
       "title": "Template management",
-      "subtitle": "Create and manage your Word templates. Organia automatically fills fields from your dossiers."
+      "subtitle": "Create and manage your Word templates. Ordinay automatically fills fields from your dossiers."
     },
     "actions": {
       "newTemplate": "New template",
@@ -1291,7 +1291,7 @@
       "toggle": "View detailed steps",
       "steps": {
         "prepare": "Prepare the document in Word (title, paragraphs, header, etc.).",
-        "insert": "Insert Organia fields where values change (client, dossier, dates…).",
+        "insert": "Insert Ordinay fields where values change (client, dossier, dates…).",
         "save": "Save the file as .docx.",
         "import": "Import it here via “New template”.",
         "generate": "Generate a document from a dossier or lawsuit."
@@ -1322,7 +1322,7 @@
         "create": "New document template",
         "edit": "Edit template"
       },
-      "subtitle": "Create a Word template and let Organia fill in the information automatically.",
+      "subtitle": "Create a Word template and let Ordinay fill in the information automatically.",
       "sections": {
         "configuration": "Configuration",
         "file": "Template file"

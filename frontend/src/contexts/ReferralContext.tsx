@@ -19,7 +19,7 @@ import {
   type ReferralDashboard,
 } from "../services/licenseService";
 
-const SEEN_REWARDS_STORAGE_KEY = "organia_seen_referral_rewards";
+const SEEN_REWARDS_STORAGE_KEY = "ordinay_seen_referral_rewards";
 const POLL_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
 
 interface ReferralContextValue {

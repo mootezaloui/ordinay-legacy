@@ -1,0 +1,379 @@
+<!doctype html>
+<html lang="en" class="h-full">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ordinay Brand Identity</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/_sdk/element_sdk.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&amp;family=Instrument+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --ordinay-bg: #F6F7F4;
+      --ordinay-surface: #FFFFFF;
+      --ordinay-surface-secondary: #EFF1ED;
+      --ordinay-border: #E1E4DE;
+      --ordinay-border-strong: #D6D8D2;
+      --ordinay-text-primary: #1E2422;
+      --ordinay-text-secondary: #5F6B67;
+      --ordinay-text-muted: #8C9691;
+      --ordinay-text-disabled: #B8C0BC;
+      --ordinay-action-primary: #1F3D36;
+      --ordinay-action-hover: #274B43;
+      --ordinay-focus: #B89B5E;
+        --ordinay-small-logo-orientation: #e0a21a ;
+      --ordinay-success: #3F7F68;
+      --ordinay-warning: #C49A4A;
+      --ordinay-error: #9E3A3A;
+      --ordinay-text-inverse: #F6F7F4;
+      --ordinay-text-inverse-muted: rgba(246, 247, 244, 0.7);
+    }
+
+    .theme-dark {
+      --ordinay-bg: #141817;
+      --ordinay-surface: #1B2120;
+      --ordinay-surface-secondary: #222927;
+      --ordinay-border: #2C3432;
+      --ordinay-border-strong: #36403D;
+      --ordinay-text-primary: #E6ECE9;
+      --ordinay-text-secondary: #B7C0BC;
+      --ordinay-text-muted: #8C9691;
+      --ordinay-text-disabled: #5F6B67;
+      --ordinay-action-primary: #3F7F68;
+      --ordinay-action-hover: #4F8F78;
+      --ordinay-focus: #C2A76B;
+      --ordinay-small-logo-orientation: #e0a21a ;
+      --ordinay-success: #5EA68C;
+      --ordinay-warning: #D6B36A;
+      --ordinay-error: #C25A5A;
+      --ordinay-text-inverse: #E6ECE9;
+      --ordinay-text-inverse-muted: rgba(230, 236, 233, 0.7);
+    }
+
+    body {
+      box-sizing: border-box;
+    }
+    
+    * {
+      font-family: 'DM Sans', sans-serif;
+    }
+    
+    .brand-font {
+      font-family: 'Instrument Sans', sans-serif;
+    }
+    
+    .logo-symbol {
+      animation: fadeIn 1.2s ease-out;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.95); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    
+    .stagger-1 { animation-delay: 0.1s; }
+    .stagger-2 { animation-delay: 0.2s; }
+    .stagger-3 { animation-delay: 0.3s; }
+    .stagger-4 { animation-delay: 0.4s; }
+    
+    .fade-up {
+      animation: fadeUp 0.8s ease-out forwards;
+      opacity: 0;
+    }
+    
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+  <style>@view-transition { navigation: auto; }</style>
+  <script src="/_sdk/data_sdk.js" type="text/javascript"></script>
+ </head>
+ <body class="h-full">
+  <div id="app-container" class="h-full w-full overflow-auto" style="background-color: var(--ordinay-bg);"><!-- Hero Section with Main Logo -->
+   <section class="min-h-screen flex flex-col items-center justify-center px-6 py-16">
+    <div class="text-center max-w-4xl"><!-- Main Logo Symbol -->
+     <div class="logo-symbol mb-8">
+      <svg width="160" height="160" viewbox="0 0 160 160" fill="none" xmlns="http://www.w3.org/2000/svg" class="mx-auto"><!-- Growth rings - organic system structure --> <circle cx="80" cy="80" r="60" fill="none" stroke="var(--ordinay-action-primary)" stroke-width="7" opacity="0.25" /> <circle cx="80" cy="80" r="46" fill="none" stroke="var(--ordinay-action-primary)" stroke-width="7" opacity="0.5" /> <circle cx="80" cy="80" r="32" fill="none" stroke="var(--ordinay-action-primary)" stroke-width="7" opacity="0.75" /> <!-- Cardinal organization points --> <circle cx="80" cy="20" r="5" fill="var(--ordinay-action-primary)" /> <circle cx="140" cy="80" r="5" fill="var(--ordinay-action-primary)" /> <circle cx="80" cy="140" r="5" fill="var(--ordinay-action-primary)" /> <circle cx="20" cy="80" r="5" fill="var(--ordinay-action-primary)" /> <!-- Central core --> <circle cx="80" cy="80" r="10" fill="var(--ordinay-action-primary)" /> <!-- Subtle intelligence accent --> <path d="M100 60 Q105 55, 110 60 Q105 65, 100 60 Z" fill="var(--ordinay-small-logo-orientation)" opacity="1.9" />
+      </svg>
+     </div><!-- Wordmark -->
+     <h1 class="brand-font text-6xl md:text-7xl font-semibold tracking-tight mb-4" style="color: var(--ordinay-text-primary);">Ordinay</h1><!-- Tagline -->
+     <p id="tagline-display" class="text-xl md:text-2xl font-normal tracking-wide fade-up stagger-2" style="color: var(--ordinay-text-secondary); animation-delay: 0.4s;">Where every office finds its order</p><!-- Subtle Divider -->
+     <div class="w-16 h-0.5 mx-auto mt-10 fade-up stagger-3" style="background-color: var(--ordinay-focus); animation-delay: 0.6s;"></div>
+    </div>
+   </section><!-- Brand Philosophy Section -->
+   <section class="px-6 py-20" style="background-color: var(--ordinay-bg);">
+    <div class="max-w-5xl mx-auto">
+     <h2 class="brand-font text-3xl md:text-4xl font-semibold text-center mb-16" style="color: var(--ordinay-text-primary);">Brand Philosophy</h2>
+     <div class="grid md:grid-cols-3 gap-8"><!-- Philosophy Card 1 -->
+      <div class="p-8 rounded-lg" style="background-color: var(--ordinay-surface);">
+       <div class="w-12 h-12 rounded-lg flex items-center justify-center mb-6" style="background-color: var(--ordinay-action-primary);">
+        <svg width="24" height="24" viewbox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="3" width="7" height="7" rx="1" fill="var(--ordinay-text-inverse)" /> <rect x="14" y="3" width="7" height="7" rx="1" fill="var(--ordinay-text-inverse)" /> <rect x="3" y="14" width="7" height="7" rx="1" fill="var(--ordinay-text-inverse)" /> <rect x="14" y="14" width="7" height="7" rx="1" fill="var(--ordinay-text-inverse)" />
+        </svg>
+       </div>
+       <h3 class="brand-font text-xl font-semibold mb-3" style="color: var(--ordinay-text-primary);">Structure</h3>
+       <p class="text-base leading-relaxed" style="color: var(--ordinay-text-secondary);">Every element has its place. We bring architectural precision to workspace organization.</p>
+      </div><!-- Philosophy Card 2 -->
+      <div class="p-8 rounded-lg" style="background-color: var(--ordinay-surface);">
+       <div class="w-12 h-12 rounded-lg flex items-center justify-center mb-6" style="background-color: var(--ordinay-action-primary);">
+        <svg width="24" height="24" viewbox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="3" fill="var(--ordinay-text-inverse)" /> <circle cx="12" cy="12" r="8" stroke="var(--ordinay-text-inverse)" stroke-width="2" fill="none" />
+        </svg>
+       </div>
+       <h3 class="brand-font text-xl font-semibold mb-3" style="color: var(--ordinay-text-primary);">Harmony</h3>
+       <p class="text-base leading-relaxed" style="color: var(--ordinay-text-secondary);">Like a living organism, all parts work together seamlessly toward a unified purpose.</p>
+      </div><!-- Philosophy Card 3 -->
+      <div class="p-8 rounded-lg" style="background-color: var(--ordinay-surface);">
+       <div class="w-12 h-12 rounded-lg flex items-center justify-center mb-6" style="background-color: var(--ordinay-action-primary);">
+        <svg width="24" height="24" viewbox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 4V20M4 12H20" stroke="var(--ordinay-text-inverse)" stroke-width="2" stroke-linecap="round" />
+        </svg>
+       </div>
+       <h3 class="brand-font text-xl font-semibold mb-3" style="color: var(--ordinay-text-primary);">Clarity</h3>
+       <p class="text-base leading-relaxed" style="color: var(--ordinay-text-secondary);">Quiet authority through simplicity. No noise, only essential information beautifully presented.</p>
+      </div>
+     </div>
+    </div>
+   </section><!-- Color Palette Section -->
+   <section class="px-6 py-20" style="background-color: var(--ordinay-bg);">
+    <div class="max-w-5xl mx-auto">
+     <h2 class="brand-font text-3xl md:text-4xl font-semibold text-center mb-16" style="color: var(--ordinay-text-primary);">Color Palette</h2>
+     <div class="grid grid-cols-2 md:grid-cols-4 gap-6"><!-- Background Color -->
+      <div class="text-center">
+       <div class="w-full aspect-square rounded-xl mb-4 shadow-sm border" style="background-color: var(--ordinay-bg); border-color: var(--ordinay-border);"></div>
+       <p class="brand-font font-semibold text-sm mb-1" style="color: var(--ordinay-text-primary);">App Background</p>
+       <p class="text-xs font-mono" style="color: var(--ordinay-text-secondary);">#F6F7F4</p>
+       <p class="text-xs mt-1" style="color: var(--ordinay-text-muted);">Background</p>
+      </div><!-- Primary Surface -->
+      <div class="text-center">
+       <div class="w-full aspect-square rounded-xl mb-4 shadow-sm border" style="background-color: var(--ordinay-surface); border-color: var(--ordinay-border);"></div>
+       <p class="brand-font font-semibold text-sm mb-1" style="color: var(--ordinay-text-primary);">Primary Surface</p>
+       <p class="text-xs font-mono" style="color: var(--ordinay-text-secondary);">#FFFFFF</p>
+       <p class="text-xs mt-1" style="color: var(--ordinay-text-muted);">Cards</p>
+      </div><!-- Primary Action -->
+      <div class="text-center">
+       <div class="w-full aspect-square rounded-xl mb-4 shadow-sm" style="background-color: var(--ordinay-action-primary);"></div>
+       <p class="brand-font font-semibold text-sm mb-1" style="color: var(--ordinay-text-primary);">Primary Action</p>
+       <p class="text-xs font-mono" style="color: var(--ordinay-text-secondary);">#1F3D36</p>
+       <p class="text-xs mt-1" style="color: var(--ordinay-text-muted);">Buttons</p>
+      </div><!-- Focus Color -->
+      <div class="text-center">
+       <div class="w-full aspect-square rounded-xl mb-4 shadow-sm" style="background-color: var(--ordinay-focus);"></div>
+       <p class="brand-font font-semibold text-sm mb-1" style="color: var(--ordinay-text-primary);">Focus</p>
+       <p class="text-xs font-mono" style="color: var(--ordinay-text-secondary);">#B89B5E</p>
+       <p class="text-xs mt-1" style="color: var(--ordinay-text-muted);">Selected</p>
+      </div>
+     </div>
+    </div>
+   </section><!-- Logo Variations Section -->
+   <section class="px-6 py-20" style="background-color: var(--ordinay-surface);">
+    <div class="max-w-5xl mx-auto">
+     <h2 class="brand-font text-3xl md:text-4xl font-semibold text-center mb-16" style="color: var(--ordinay-text-primary);">Logo Variations</h2>
+     <div class="grid md:grid-cols-3 gap-8"><!-- Full Color on Light -->
+      <div class="p-10 rounded-xl flex flex-col items-center justify-center" style="background-color: var(--ordinay-surface-secondary);">
+       <svg width="80" height="80" viewbox="0 0 160 160" fill="none" xmlns="http://www.w3.org/2000/svg" class="mb-4"><circle cx="80" cy="80" r="60" fill="none" stroke="var(--ordinay-action-primary)" stroke-width="7" opacity="0.25" /> <circle cx="80" cy="80" r="46" fill="none" stroke="var(--ordinay-action-primary)" stroke-width="7" opacity="0.5" /> <circle cx="80" cy="80" r="32" fill="none" stroke="var(--ordinay-action-primary)" stroke-width="7" opacity="0.75" /> <circle cx="80" cy="20" r="5" fill="var(--ordinay-action-primary)" /> <circle cx="140" cy="80" r="5" fill="var(--ordinay-action-primary)" /> <circle cx="80" cy="140" r="5" fill="var(--ordinay-action-primary)" /> <circle cx="20" cy="80" r="5" fill="var(--ordinay-action-primary)" /> <circle cx="80" cy="80" r="10" fill="var(--ordinay-action-primary)" /> <path d="M100 60 Q105 55, 110 60 Q105 65, 100 60 Z" fill="var(--ordinay-focus)" opacity="0.6" />
+       </svg><span class="brand-font text-2xl font-semibold" style="color: var(--ordinay-text-primary);">Ordinay</span>
+       <p class="text-xs mt-4" style="color: var(--ordinay-text-muted);">Full Color - Light</p>
+      </div><!-- Monochrome Dark -->
+      <div class="p-10 rounded-xl flex flex-col items-center justify-center" style="background-color: var(--ordinay-action-primary);">
+       <svg width="80" height="80" viewbox="0 0 160 160" fill="none" xmlns="http://www.w3.org/2000/svg" class="mb-4"><circle cx="80" cy="80" r="60" fill="none" stroke="var(--ordinay-text-inverse)" stroke-width="7" opacity="0.25" /> <circle cx="80" cy="80" r="46" fill="none" stroke="var(--ordinay-text-inverse)" stroke-width="7" opacity="0.5" /> <circle cx="80" cy="80" r="32" fill="none" stroke="var(--ordinay-text-inverse)" stroke-width="7" opacity="0.75" /> <circle cx="80" cy="20" r="5" fill="var(--ordinay-text-inverse)" /> <circle cx="140" cy="80" r="5" fill="var(--ordinay-text-inverse)" /> <circle cx="80" cy="140" r="5" fill="var(--ordinay-text-inverse)" /> <circle cx="20" cy="80" r="5" fill="var(--ordinay-text-inverse)" /> <circle cx="80" cy="80" r="10" fill="var(--ordinay-text-inverse)" /> <path d="M100 60 Q105 55, 110 60 Q105 65, 100 60 Z" fill="var(--ordinay-text-inverse)" opacity="0.4" />
+       </svg><span class="brand-font text-2xl font-semibold" style="color: var(--ordinay-text-inverse);">Ordinay</span>
+       <p class="text-xs mt-4" style="color: var(--ordinay-text-inverse-muted);">Reversed - Dark</p>
+      </div><!-- Pure Monochrome -->
+      <div class="p-10 rounded-xl flex flex-col items-center justify-center border" style="background-color: var(--ordinay-surface); border-color: var(--ordinay-border);">
+       <svg width="80" height="80" viewbox="0 0 160 160" fill="none" xmlns="http://www.w3.org/2000/svg" class="mb-4"><circle cx="80" cy="80" r="60" fill="none" stroke="var(--ordinay-text-primary)" stroke-width="7" opacity="0.25" /> <circle cx="80" cy="80" r="46" fill="none" stroke="var(--ordinay-text-primary)" stroke-width="7" opacity="0.5" /> <circle cx="80" cy="80" r="32" fill="none" stroke="var(--ordinay-text-primary)" stroke-width="7" opacity="0.75" /> <circle cx="80" cy="20" r="5" fill="var(--ordinay-text-primary)" /> <circle cx="140" cy="80" r="5" fill="var(--ordinay-text-primary)" /> <circle cx="80" cy="140" r="5" fill="var(--ordinay-text-primary)" /> <circle cx="20" cy="80" r="5" fill="var(--ordinay-text-primary)" /> <circle cx="80" cy="80" r="10" fill="var(--ordinay-text-primary)" /> <path d="M100 60 Q105 55, 110 60 Q105 65, 100 60 Z" fill="var(--ordinay-text-primary)" opacity="0.3" />
+       </svg><span class="brand-font text-2xl font-semibold" style="color: var(--ordinay-text-primary);">Ordinay</span>
+       <p class="text-xs mt-4" style="color: var(--ordinay-text-muted);">Monochrome — Print</p>
+      </div>
+     </div>
+    </div>
+   </section><!-- Typography Section -->
+   <section class="px-6 py-20" style="background-color: var(--ordinay-bg);">
+    <div class="max-w-5xl mx-auto">
+     <h2 class="brand-font text-3xl md:text-4xl font-semibold text-center mb-16" style="color: var(--ordinay-text-primary);">Typography</h2>
+     <div class="grid md:grid-cols-2 gap-12"><!-- Primary Font -->
+      <div class="p-8 rounded-xl" style="background-color: var(--ordinay-surface);">
+       <p class="text-xs uppercase tracking-widest mb-4" style="color: var(--ordinay-focus);">Primary Typeface</p>
+       <h3 class="brand-font text-5xl font-semibold mb-2" style="color: var(--ordinay-text-primary);">Instrument Sans</h3>
+       <p class="text-base mb-6" style="color: var(--ordinay-text-secondary);">Used for headlines, logo wordmark, and emphasis</p>
+       <div class="space-y-2 brand-font" style="color: var(--ordinay-text-primary);">
+        <p class="text-2xl font-normal">Regular 400</p>
+        <p class="text-2xl font-medium">Medium 500</p>
+        <p class="text-2xl font-semibold">Semibold 600</p>
+        <p class="text-2xl font-bold">Bold 700</p>
+       </div>
+      </div><!-- Secondary Font -->
+      <div class="p-8 rounded-xl" style="background-color: var(--ordinay-surface);">
+       <p class="text-xs uppercase tracking-widest mb-4" style="color: var(--ordinay-focus);">Secondary Typeface</p>
+       <h3 class="text-5xl font-semibold mb-2" style="color: var(--ordinay-text-primary); font-family: 'DM Sans', sans-serif;">DM Sans</h3>
+       <p class="text-base mb-6" style="color: var(--ordinay-text-secondary);">Used for body text, UI elements, and captions</p>
+       <div class="space-y-2" style="color: var(--ordinay-text-primary); font-family: 'DM Sans', sans-serif;">
+        <p class="text-2xl font-normal">Regular 400</p>
+        <p class="text-2xl font-medium">Medium 500</p>
+        <p class="text-2xl font-semibold">Semibold 600</p>
+       </div>
+      </div>
+     </div>
+    </div>
+   </section><!-- Application Examples Section -->
+   <section class="px-6 py-20" style="background-color: var(--ordinay-action-primary);">
+    <div class="max-w-5xl mx-auto">
+     <h2 class="brand-font text-3xl md:text-4xl font-semibold text-center mb-4" style="color: var(--ordinay-text-inverse);">Brand in Context</h2>
+     <p class="text-center mb-16" style="color: var(--ordinay-text-inverse-muted);">How Ordinay appears across professional environments</p>
+     <div class="grid md:grid-cols-2 gap-8"><!-- Business Card Mock -->
+      <div class="p-8 rounded-xl" style="background-color: var(--ordinay-surface-secondary);">
+       <p class="text-xs uppercase tracking-widest mb-6" style="color: var(--ordinay-focus);">Business Card</p>
+       <div class="p-6 rounded-lg shadow-lg" style="background-color: var(--ordinay-surface); aspect-ratio: 1.75/1;">
+        <div class="flex items-start justify-between h-full">
+         <div class="flex flex-col justify-between h-full">
+          <svg width="32" height="32" viewbox="0 0 160 160" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="80" cy="80" r="60" fill="none" stroke="var(--ordinay-action-primary)" stroke-width="7" opacity="0.25" /> <circle cx="80" cy="80" r="46" fill="none" stroke="var(--ordinay-action-primary)" stroke-width="7" opacity="0.5" /> <circle cx="80" cy="80" r="32" fill="none" stroke="var(--ordinay-action-primary)" stroke-width="7" opacity="0.75" /> <circle cx="80" cy="80" r="10" fill="var(--ordinay-action-primary)" />
+          </svg>
+          <div>
+           <p class="brand-font font-semibold text-sm" style="color: var(--ordinay-text-primary);">Sarah Mitchell</p>
+           <p class="text-xs" style="color: var(--ordinay-text-secondary);">Operations Director</p>
+          </div>
+         </div>
+         <div class="text-right">
+          <p class="brand-font font-semibold text-lg" style="color: var(--ordinay-text-primary);">Ordinay</p>
+         </div>
+        </div>
+       </div>
+      </div><!-- Document Header Mock -->
+      <div class="p-8 rounded-xl" style="background-color: var(--ordinay-surface-secondary);">
+       <p class="text-xs uppercase tracking-widest mb-6" style="color: var(--ordinay-focus);">Document Header</p>
+       <div class="p-6 rounded-lg shadow-lg" style="background-color: var(--ordinay-surface);">
+        <div class="flex items-center justify-between pb-4 border-b" style="border-color: var(--ordinay-border);">
+         <div class="flex items-center gap-3">
+          <svg width="28" height="28" viewbox="0 0 160 160" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="80" cy="80" r="60" fill="none" stroke="var(--ordinay-action-primary)" stroke-width="7" opacity="0.25" /> <circle cx="80" cy="80" r="46" fill="none" stroke="var(--ordinay-action-primary)" stroke-width="7" opacity="0.5" /> <circle cx="80" cy="80" r="32" fill="none" stroke="var(--ordinay-action-primary)" stroke-width="7" opacity="0.75" /> <circle cx="80" cy="80" r="10" fill="var(--ordinay-action-primary)" />
+          </svg><span class="brand-font font-semibold text-lg" style="color: var(--ordinay-text-primary);">Ordinay</span>
+         </div>
+         <p class="text-xs" style="color: var(--ordinay-text-secondary);">Invoice #2024-0847</p>
+        </div>
+        <div class="pt-4 space-y-2">
+         <div class="h-2 rounded w-3/4" style="background-color: var(--ordinay-border);"></div>
+         <div class="h-2 rounded w-1/2" style="background-color: var(--ordinay-border);"></div>
+         <div class="h-2 rounded w-2/3" style="background-color: var(--ordinay-border);"></div>
+        </div>
+       </div>
+      </div>
+     </div>
+    </div>
+   </section><!-- Footer -->
+   <footer class="px-6 py-12" style="background-color: var(--ordinay-bg);">
+    <div class="max-w-5xl mx-auto text-center">
+     <div class="flex items-center justify-center gap-3 mb-4">
+      <svg width="32" height="32" viewbox="0 0 160 160" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="80" cy="80" r="60" fill="none" stroke="var(--ordinay-action-primary)" stroke-width="7" opacity="0.25" /> <circle cx="80" cy="80" r="46" fill="none" stroke="var(--ordinay-action-primary)" stroke-width="7" opacity="0.5" /> <circle cx="80" cy="80" r="32" fill="none" stroke="var(--ordinay-action-primary)" stroke-width="7" opacity="0.75" /> <circle cx="80" cy="80" r="10" fill="var(--ordinay-action-primary)" /> <path d="M100 60 Q105 55, 110 60 Q105 65, 100 60 Z" fill="var(--ordinay-focus)" opacity="0.6" />
+      </svg><span class="brand-font text-2xl font-semibold" style="color: var(--ordinay-text-primary);">Ordinay</span>
+     </div>
+     <p class="text-sm" style="color: var(--ordinay-text-secondary);">Brand Identity Guidelines — 2024</p>
+     <div class="w-8 h-0.5 mx-auto mt-6" style="background-color: var(--ordinay-focus);"></div>
+    </div>
+   </footer>
+  </div>
+  <script>
+    const defaultConfig = {
+      tagline: "Where every office finds its order",
+      primary_color: "#1F3D36",
+      secondary_color: "#F6F7F4",
+      text_color: "#1E2422",
+      accent_color: "#B89B5E",
+      font_family: "Instrument Sans",
+      font_size: 16
+    };
+
+    function applyPalette(config) {
+      const root = document.documentElement;
+      root.style.setProperty('--ordinay-action-primary', config.primary_color || defaultConfig.primary_color);
+      root.style.setProperty('--ordinay-bg', config.secondary_color || defaultConfig.secondary_color);
+      root.style.setProperty('--ordinay-text-primary', config.text_color || defaultConfig.text_color);
+      root.style.setProperty('--ordinay-focus', config.accent_color || defaultConfig.accent_color);
+    }
+    
+    async function onConfigChange(config) {
+      applyPalette(config);
+
+      const taglineEl = document.getElementById('tagline-display');
+      if (taglineEl) {
+        taglineEl.textContent = config.tagline || defaultConfig.tagline;
+      }
+      
+      // Apply font family to brand elements
+      const customFont = config.font_family || defaultConfig.font_family;
+      const brandElements = document.querySelectorAll('.brand-font');
+      brandElements.forEach(el => {
+        el.style.fontFamily = `${customFont}, sans-serif`;
+      });
+      
+      // Apply font size scaling
+      const baseSize = config.font_size || defaultConfig.font_size;
+      document.body.style.fontSize = `${baseSize}px`;
+    }
+    
+    function mapToCapabilities(config) {
+      return {
+        recolorables: [
+          {
+            get: () => config.secondary_color || defaultConfig.secondary_color,
+            set: (value) => {
+              config.secondary_color = value;
+              window.elementSdk.setConfig({ secondary_color: value });
+            }
+          },
+          {
+            get: () => config.primary_color || defaultConfig.primary_color,
+            set: (value) => {
+              config.primary_color = value;
+              window.elementSdk.setConfig({ primary_color: value });
+            }
+          },
+          {
+            get: () => config.text_color || defaultConfig.text_color,
+            set: (value) => {
+              config.text_color = value;
+              window.elementSdk.setConfig({ text_color: value });
+            }
+          },
+          {
+            get: () => config.accent_color || defaultConfig.accent_color,
+            set: (value) => {
+              config.accent_color = value;
+              window.elementSdk.setConfig({ accent_color: value });
+            }
+          }
+        ],
+        borderables: [],
+        fontEditable: {
+          get: () => config.font_family || defaultConfig.font_family,
+          set: (value) => {
+            config.font_family = value;
+            window.elementSdk.setConfig({ font_family: value });
+          }
+        },
+        fontSizeable: {
+          get: () => config.font_size || defaultConfig.font_size,
+          set: (value) => {
+            config.font_size = value;
+            window.elementSdk.setConfig({ font_size: value });
+          }
+        }
+      };
+    }
+    
+    function mapToEditPanelValues(config) {
+      return new Map([
+        ["tagline", config.tagline || defaultConfig.tagline]
+      ]);
+    }
+    
+    if (window.elementSdk) {
+      window.elementSdk.init({
+        defaultConfig,
+        onConfigChange,
+        mapToCapabilities,
+        mapToEditPanelValues
+      });
+    }
+  </script>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9c126dbc16133d73',t:'MTc2ODk1MjU1MC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
+

@@ -15,7 +15,7 @@ import { useTranslation } from "react-i18next";
  * - NO session creation
  * - Just navigates to dashboard
  *
- * Organia is a LOCAL DESKTOP APP with implicit operator trust.
+ * Ordinay is a LOCAL DESKTOP APP with implicit operator trust.
  * Real authentication is FORBIDDEN per AUTH_FREEZE.md
  *
  * See: /AUTH_FREEZE.md for details

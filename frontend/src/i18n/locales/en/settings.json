@@ -147,16 +147,16 @@
     "onlineAccess": {
       "title": "Online Access (Optional)",
       "optionalBadge": "Optional",
-      "description": "Organia works fully offline by default. If you enable online access, you will be able to securely access your data from the web at organia.com and synchronize this device with your cloud account.",
+      "description": "Ordinay works fully offline by default. If you enable online access, you will be able to securely access your data from the web at ordinay.com and synchronize this device with your cloud account.",
       "notice": {
         "title": "By enabling online access:",
         "items": {
-          "syncsData": "Your data will be copied and synchronized to Organia's cloud services.",
+          "syncsData": "Your data will be copied and synchronized to Ordinay's cloud services.",
           "requiresAccount": "This feature requires creating an online account.",
-          "offlineStillWorks": "You remain free to continue using Organia without online access."
+          "offlineStillWorks": "You remain free to continue using Ordinay without online access."
         }
       },
-      "optionalNote": "Online access is optional. If you prefer to keep all your data strictly local, you can continue using Organia without enabling this feature.",
+      "optionalNote": "Online access is optional. If you prefer to keep all your data strictly local, you can continue using Ordinay without enabling this feature.",
       "actions": {
         "enable": "Enable online access"
       },
@@ -394,7 +394,7 @@
         "activationFailed": "Activation failed. Please try again."
       },
       "perpetual": {
-        "highestPlan": "You own the highest Organia license.",
+        "highestPlan": "You own the highest Ordinay license.",
         "noChanges": "Plan changes are not available for perpetual licenses. Add-ons and agents will be available separately in the future."
       },
       "planChange": {
@@ -425,7 +425,7 @@
         },
         "notes": {
           "title": "External checkout",
-          "external": "Plan changes happen in your browser. We'll open the Organia website to complete the update.",
+          "external": "Plan changes happen in your browser. We'll open the Ordinay website to complete the update.",
           "after": "After completing the change, return here and refresh your license."
         },
         "plans": {

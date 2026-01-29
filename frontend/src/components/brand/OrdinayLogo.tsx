@@ -1,7 +1,7 @@
 /**
- * OrganiaLogo.tsx
+ * OrdinayLogo.tsx
  *
- * Canonical Organia logo component.
+ * Canonical Ordinay logo component.
  * Clean, reusable SVG that works on both light and dark backgrounds.
  *
  * Visual structure:
@@ -13,7 +13,7 @@
 
 import { CSSProperties, memo } from 'react';
 
-export interface OrganiaLogoProps {
+export interface OrdinayLogoProps {
   /** Width in pixels (default: 80) */
   size?: number;
   /** Color mode: 'auto' uses CSS variables, 'light' uses dark mark, 'dark' uses light mark */
@@ -28,14 +28,14 @@ export interface OrganiaLogoProps {
   animate?: 'none' | 'pulse' | 'breathe';
 }
 
-const OrganiaLogo = memo(function OrganiaLogo({
+const OrdinayLogo = memo(function OrdinayLogo({
   size = 80,
   variant = 'auto',
   showAccent = true,
   className = '',
   style,
   animate = 'none',
-}: OrganiaLogoProps) {
+}: OrdinayLogoProps) {
   // Determine colors based on variant
   const getColors = () => {
     switch (variant) {
@@ -61,7 +61,7 @@ const OrganiaLogo = memo(function OrganiaLogo({
   const colors = getColors();
 
   // Animation class mapping
-  const animationClass = animate !== 'none' ? `organia-logo-${animate}` : '';
+  const animationClass = animate !== 'none' ? `ordinay-logo-${animate}` : '';
 
   return (
     <svg
@@ -70,9 +70,9 @@ const OrganiaLogo = memo(function OrganiaLogo({
       viewBox="0 0 160 160"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      className={`organia-logo ${animationClass} ${className}`.trim()}
+      className={`ordinay-logo ${animationClass} ${className}`.trim()}
       style={style}
-      aria-label="Organia"
+      aria-label="Ordinay"
       role="img"
     >
       {/* Growth rings - organic system structure */}
@@ -84,7 +84,7 @@ const OrganiaLogo = memo(function OrganiaLogo({
         stroke={colors.primary}
         strokeWidth="7"
         opacity="0.25"
-        className="organia-ring organia-ring-outer"
+        className="ordinay-ring ordinay-ring-outer"
       />
       <circle
         cx="80"
@@ -94,7 +94,7 @@ const OrganiaLogo = memo(function OrganiaLogo({
         stroke={colors.primary}
         strokeWidth="7"
         opacity="0.5"
-        className="organia-ring organia-ring-middle"
+        className="ordinay-ring ordinay-ring-middle"
       />
       <circle
         cx="80"
@@ -104,17 +104,17 @@ const OrganiaLogo = memo(function OrganiaLogo({
         stroke={colors.primary}
         strokeWidth="7"
         opacity="0.75"
-        className="organia-ring organia-ring-inner"
+        className="ordinay-ring ordinay-ring-inner"
       />
 
       {/* Cardinal organization points */}
-      <circle cx="80" cy="20" r="5" fill={colors.primary} className="organia-point" />
-      <circle cx="140" cy="80" r="5" fill={colors.primary} className="organia-point" />
-      <circle cx="80" cy="140" r="5" fill={colors.primary} className="organia-point" />
-      <circle cx="20" cy="80" r="5" fill={colors.primary} className="organia-point" />
+      <circle cx="80" cy="20" r="5" fill={colors.primary} className="ordinay-point" />
+      <circle cx="140" cy="80" r="5" fill={colors.primary} className="ordinay-point" />
+      <circle cx="80" cy="140" r="5" fill={colors.primary} className="ordinay-point" />
+      <circle cx="20" cy="80" r="5" fill={colors.primary} className="ordinay-point" />
 
       {/* Central core */}
-      <circle cx="80" cy="80" r="10" fill={colors.primary} className="organia-core" />
+      <circle cx="80" cy="80" r="10" fill={colors.primary} className="ordinay-core" />
 
       {/* Gold intelligence accent */}
       {showAccent && (
@@ -122,24 +122,24 @@ const OrganiaLogo = memo(function OrganiaLogo({
           d="M100 60 Q105 55, 110 60 Q105 65, 100 60 Z"
           fill={colors.accent}
           opacity="0.6"
-          className="organia-accent"
+          className="ordinay-accent"
         />
       )}
     </svg>
   );
 });
 
-export default OrganiaLogo;
+export default OrdinayLogo;
 
 /**
  * Minimal logo variant for very small spaces (favicon, notification badges)
  */
-export const OrganiaLogoMinimal = memo(function OrganiaLogoMinimal({
+export const OrdinayLogoMinimal = memo(function OrdinayLogoMinimal({
   size = 24,
   variant = 'auto',
   className = '',
   style,
-}: Omit<OrganiaLogoProps, 'showAccent' | 'animate'>) {
+}: Omit<OrdinayLogoProps, 'showAccent' | 'animate'>) {
   const getColors = () => {
     switch (variant) {
       case 'light':
@@ -160,9 +160,9 @@ export const OrganiaLogoMinimal = memo(function OrganiaLogoMinimal({
       viewBox="0 0 160 160"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      className={`organia-logo-minimal ${className}`.trim()}
+      className={`ordinay-logo-minimal ${className}`.trim()}
       style={style}
-      aria-label="Organia"
+      aria-label="Ordinay"
       role="img"
     >
       {/* Simplified: just rings and core */}

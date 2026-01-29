@@ -1,7 +1,7 @@
 {
   "states": {
     "free": "Free plan limits apply",
-    "unactivated": "Activate Organia on this device",
+    "unactivated": "Activate Ordinay on this device",
     "activating": "Activation in progress",
     "active": "Activation complete",
     "expired": "License expired - Reactivate this device",
@@ -9,7 +9,7 @@
   },
   "views": {
     "waiting": {
-      "title": "Activating Organia",
+      "title": "Activating Ordinay",
       "description": "Complete payment in your browser. This app will activate automatically when payment finishes.",
       "status": "Waiting for activation..."
     },
@@ -34,20 +34,20 @@
       "status": "Preparing free plan..."
     },
     "choice": {
-      "title": "Activate Organia (optional)",
+      "title": "Activate Ordinay (optional)",
       "subtitle": "Keep working on the free plan or activate when ready.",
       "description": "Activation removes free plan limits so you can scale without interruptions.",
       "bullets": {
         "limits": "Remove free plan limits for clients, dossiers, and active tasks.",
         "manage": "Activate anytime from Settings > License."
       },
-      "footer": "Organia stays usable without activation. Free plan limits will apply."
+      "footer": "Ordinay stays usable without activation. Free plan limits will apply."
     }
   },
   "actions": {
     "openActivation": "Open activation page again",
     "back": "Back",
-    "continue": "Continue to Organia",
+    "continue": "Continue to Ordinay",
     "tryAgain": "Try again",
     "continueFree": "Continue on free plan",
     "activate": "Activate now"

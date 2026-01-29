@@ -28,9 +28,9 @@ import App from "./App";
 async function bootstrap() {
   try {
     await initializeApiConfig();
-    console.log("[Organia] API configuration initialized");
+    console.log("[Ordinay] API configuration initialized");
   } catch (error) {
-    console.error("[Organia] Failed to initialize API config:", error);
+    console.error("[Ordinay] Failed to initialize API config:", error);
     // Continue anyway - will use fallback URL
   }
 

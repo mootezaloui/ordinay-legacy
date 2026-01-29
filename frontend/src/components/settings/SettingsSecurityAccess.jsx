@@ -174,7 +174,7 @@ export default function SettingsSecurityAccess() {
       const pendingReferral = getPendingReferralCode();
       const url = getActivationUrl(deviceId, pendingReferral);
       if (typeof window !== "undefined") {
-        window.localStorage.removeItem("organia_readonly_mode");
+        window.localStorage.removeItem("ordinay_readonly_mode");
       }
       if (window.electronAPI?.openExternal) {
         await window.electronAPI.openExternal(url);
@@ -859,7 +859,7 @@ export default function SettingsSecurityAccess() {
                   )}
                   {isPerpetual && canShowPlanActions && (
                     <p className="text-xs text-slate-500 dark:text-slate-400 text-right mt-1">
-                      {t("securityAccess.license.perpetual.highestPlan", { defaultValue: "You own the highest Organia license." })}
+                      {t("securityAccess.license.perpetual.highestPlan", { defaultValue: "You own the highest Ordinay license." })}
                     </p>
                   )}
                 </div>
@@ -1071,7 +1071,7 @@ export default function SettingsSecurityAccess() {
                 <div className="mt-4 p-4 rounded-xl border border-emerald-200 dark:border-emerald-800/60 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-200 text-sm flex items-start gap-3">
                   <i className="fas fa-crown mt-0.5"></i>
                   <div>
-                    <p className="font-semibold">{t("securityAccess.license.perpetual.highestPlan", { defaultValue: "You already own the highest Organia license." })}</p>
+                    <p className="font-semibold">{t("securityAccess.license.perpetual.highestPlan", { defaultValue: "You already own the highest Ordinay license." })}</p>
                     <p className="mt-1 text-xs opacity-80">{t("securityAccess.license.perpetual.noChanges", { defaultValue: "Perpetual licenses do not require plan changes. Future add-ons and agents can be managed separately." })}</p>
                   </div>
                 </div>

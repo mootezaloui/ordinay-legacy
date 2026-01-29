@@ -1,6 +1,6 @@
 # Interactive Tutorial System
 
-This document describes the interactive guided tutorial feature in Organia.
+This document describes the interactive guided tutorial feature in Ordinay.
 
 ## Overview
 
@@ -25,7 +25,7 @@ The tutorial system provides an overlay-based, step-by-step guided experience th
 
 1. **Steps**: Defined in `TUTORIAL_STEPS` array in `TutorialContext.tsx`
 2. **Targeting**: Elements are targeted via `data-tutorial="element-id"` attributes
-3. **Persistence**: State is saved to `localStorage` under key `organia_tutorial`
+3. **Persistence**: State is saved to `localStorage` under key `ordinay_tutorial`
 
 ## How to Add New Steps
 
@@ -193,7 +193,7 @@ Phase 2+ steps (not yet implemented):
 
 ## localStorage Structure
 
-Key: `organia_tutorial`
+Key: `ordinay_tutorial`
 
 ```json
 {

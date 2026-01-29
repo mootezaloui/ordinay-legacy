@@ -9,7 +9,7 @@ import TableRow from "../table/TableRow";
 import TableCell from "../table/TableCell";
 
 const DEFAULT_PAGE_SIZE = 25;
-const ARCHIVE_STORAGE_KEY = "organia_import_archives";
+const ARCHIVE_STORAGE_KEY = "ordinay_import_archives";
 
 const parseJsonValue = (value) => {
   if (value === null || value === undefined) return null;

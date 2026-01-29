@@ -33,8 +33,8 @@ import {
   type SignedLicense,
 } from "./services/licenseService";
 
-const FREE_PLAN_STORAGE_KEY = "organia_free_plan_continue";
-const ACTIVATION_PENDING_STORAGE_KEY = "organia_activation_pending";
+const FREE_PLAN_STORAGE_KEY = "ordinay_free_plan_continue";
+const ACTIVATION_PENDING_STORAGE_KEY = "ordinay_activation_pending";
 const decodeBase64UrlToString = (value: string): string | null => {
   if (!value) return null;
   try {

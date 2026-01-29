@@ -1,4 +1,4 @@
-// Electron Main Process for Organia
+// Electron Main Process for Ordinay
 // Desktop Foundation Layer
 
 const { app, BrowserWindow, ipcMain, shell, Menu, nativeImage } = require("electron");
@@ -14,9 +14,9 @@ const https = require("https");
 // ============================================================
 
 const isDev = !app.isPackaged;
-// Allow DevTools in packaged builds by default; set ORGANIA_DEVTOOLS=0 to disable.
-const ALLOW_DEVTOOLS = process.env.ORGANIA_DEVTOOLS !== "0";
-const APP_USER_MODEL_ID = "com.organia.desktop";
+// Allow DevTools in packaged builds by default; set ORDINAY_DEVTOOLS=0 to disable.
+const ALLOW_DEVTOOLS = process.env.ORDINAY_DEVTOOLS !== "0";
+const APP_USER_MODEL_ID = "com.ordinay.desktop";
 
 // Ensure Chromium uses non-overlay scrollbars so CSS styling applies.
 app.commandLine.appendSwitch(
@@ -53,16 +53,16 @@ if (!isDev && !ALLOW_DEVTOOLS) {
 
 // Persistent paths using Electron's userData directory
 const USER_DATA_PATH = app.getPath("userData");
-const DB_PATH = path.join(USER_DATA_PATH, "organia.db");
+const DB_PATH = path.join(USER_DATA_PATH, "ordinay.db");
 const DOCUMENTS_PATH = path.join(USER_DATA_PATH, "documents");
-const LICENSE_PATH = path.join(USER_DATA_PATH, "organia_license.json");
-const DEVICE_ID_PATH = path.join(USER_DATA_PATH, "organia_device_id.txt");
-const ACTIVATION_PROTOCOL = "organia";
+const LICENSE_PATH = path.join(USER_DATA_PATH, "ordinay_license.json");
+const DEVICE_ID_PATH = path.join(USER_DATA_PATH, "ordinay_device_id.txt");
+const ACTIVATION_PROTOCOL = "ordinay";
 // Queue for protocol URLs received before the renderer is ready (e.g. fresh launch via deep link on Windows)
 let deferredProtocolUrl = null;
 const UPDATE_CACHE_PATH = path.join(USER_DATA_PATH, "updates");
 const RAW_UPDATE_URL = (
-  process.env.ORGANIA_UPDATE_URL || "http://localhost:5174/updates/latest.json"
+  process.env.ORDINAY_UPDATE_URL || "http://localhost:5174/updates/latest.json"
 ).trim();
 const isLocalHttpUrl = (value) =>
   value.startsWith("http://localhost") || value.startsWith("http://127.0.0.1");
@@ -70,7 +70,7 @@ const UPDATE_FEED_URL =
   RAW_UPDATE_URL.startsWith("https://") || isLocalHttpUrl(RAW_UPDATE_URL)
     ? RAW_UPDATE_URL
     : "";
-const ALLOW_DEV_UPDATES = process.env.ORGANIA_DEV_UPDATES === "1";
+const ALLOW_DEV_UPDATES = process.env.ORDINAY_DEV_UPDATES === "1";
 
 // Backend configuration
 let backendProcess = null;
@@ -589,7 +589,7 @@ function createWindow() {
     height: 900,
     minWidth: 1024,
     minHeight: 768,
-    title: "Organia",
+    title: "Ordinay",
     frame: false,
     titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "hidden",
     icon: windowIcon ?? undefined,
@@ -658,7 +658,7 @@ function createWindow() {
  * 2. electron-builder.json → nsis.installerIcon: Icon for the installer .exe
  * 3. main.cjs → BrowserWindow.icon: Runtime icon for taskbar and window thumbnail
  *
- * All three must be set to ensure Organia branding appears everywhere.
+ * All three must be set to ensure Ordinay branding appears everywhere.
  * The Light_mode_icon.ico file at build/Light_mode_icon.ico contains multiple resolutions (16-256px).
  */
 function resolveWindowIcon() {
@@ -715,8 +715,8 @@ function registerContentSecurityPolicyHandler() {
   const { session } = require("electron");
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     const connectSrcExtras = [
-      "https://organia.app",
-      "https://*.organia.app",
+      "https://ordinay.app",
+      "https://*.ordinay.app",
       "http://localhost:5174",
       "http://localhost:3000",
       "http://127.0.0.1:3000",
@@ -930,7 +930,7 @@ app.whenReady().then(async () => {
       app.setAsDefaultProtocolClient(ACTIVATION_PROTOCOL);
     }
 
-    // On Windows/Linux, when the app is launched fresh via a protocol URL (e.g. organia://install?ref=...),
+    // On Windows/Linux, when the app is launched fresh via a protocol URL (e.g. ordinay://install?ref=...),
     // the URL is passed as a command-line argument. Queue it for delivery once the renderer is ready.
     const protocolArg = process.argv.find((arg) =>
       arg.startsWith(`${ACTIVATION_PROTOCOL}://`)

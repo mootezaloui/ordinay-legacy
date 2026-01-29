@@ -6,7 +6,7 @@ import { useData } from "../../contexts/DataContext";
 import { useTutorialSafe } from "../../contexts/TutorialContext";
 import PageLayout from "../layout/PageLayout";
 import PageHeader from "../layout/PageHeader";
-import { PageLoader } from "../brand/OrganiaDataLoader";
+import { PageLoader } from "../brand/OrdinayDataLoader";
 import { getEntityConfig } from "./config/entityConfigs";
 import OverviewTab from "./tabs/OverviewTab";
 import DocumentsTab from "./tabs/DocumentsTab";
@@ -1162,7 +1162,7 @@ export default function DetailView({ entityType }) {
             onChange={(e) => {
               const nextTab = e.target.value;
               setActiveTab(nextTab);
-              setSearchParams({ tab: nextTab });
+              setSearchParams({ tab: nextTab }, { replace: true });
             }}
             className="w-full px-4 py-2.5 border border-slate-300 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
           >
@@ -1195,7 +1195,7 @@ export default function DetailView({ entityType }) {
                   key={tab.id}
                   onClick={() => {
                     setActiveTab(tab.id);
-                    setSearchParams({ tab: tab.id });
+                    setSearchParams({ tab: tab.id }, { replace: true });
                   }}
                   className={`px-4 py-3 font-medium transition-colors duration-200 border-b-2 flex items-center gap-2 whitespace-nowrap ${activeTab === tab.id
                     ? "border-blue-600 text-blue-600 dark:text-blue-400"

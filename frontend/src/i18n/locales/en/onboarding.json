@@ -1,8 +1,8 @@
 {
   "welcome": {
-    "title": "Welcome to Organia",
+    "title": "Welcome to Ordinay",
     "subtitle": "Your legal practice, organized.",
-    "description": "Organia helps you manage your clients, lawsuits, tasks, and finances — all in one place. Let's take a quick tour to get you started.",
+    "description": "Ordinay helps you manage your clients, lawsuits, tasks, and finances — all in one place. Let's take a quick tour to get you started.",
     "startButton": "Start guided tour",
     "skipButton": "Skip for now",
     "skipNote": "You can always replay this from Settings."
@@ -23,12 +23,12 @@
         "upcoming": "Upcoming events and deadlines appear here. No need to check multiple places.",
         "quick": "Need to create something fast? Quick actions are always within reach."
       },
-      "tip": "You don't need to open everything. Organia surfaces what matters."
+      "tip": "You don't need to open everything. Ordinay surfaces what matters."
     },
     "workflow": {
-      "title": "How Organia Works",
+      "title": "How Ordinay Works",
       "subtitle": "Understanding the flow",
-      "intro": "Organia is built around a simple hierarchy. Once you understand it, everything clicks.",
+      "intro": "Ordinay is built around a simple hierarchy. Once you understand it, everything clicks.",
       "clients": {
         "title": "Start with Clients",
         "description": "Every piece of work begins with a client. Add your clients first — they're the foundation.",
@@ -53,7 +53,7 @@
     },
     "financial": {
       "title": "Stay in Control of Your Finances",
-      "description": "Organia tracks your legal fees and expenses. Here's what you need to know.",
+      "description": "Ordinay tracks your legal fees and expenses. Here's what you need to know.",
       "points": {
         "fees": "Fees are what you earn from clients. Attach them to dossiers to track payments.",
         "expenses": "Expenses are costs you incur: court fees, travel, expert consultations.",
@@ -95,7 +95,7 @@
         "tip4": "Check your dashboard daily"
       },
       "replay": "Need a refresher? You can replay this tour anytime from Settings.",
-      "button": "Start using Organia",
+      "button": "Start using Ordinay",
       "guidedTutorial": {
         "title": "Want a hands-on walkthrough?",
         "description": "Take an interactive guided tour where we'll highlight the interface and walk you through creating your first client.",

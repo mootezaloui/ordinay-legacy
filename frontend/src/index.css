@@ -1012,7 +1012,7 @@ input[type="week"]::-webkit-calendar-picker-indicator {
 }
 
 /* =============================================
-   Organia Brand Loading Components
+   Ordinay Brand Loading Components
    Canonical animations and styles for branded loaders
    ============================================= */
 
@@ -1044,7 +1044,7 @@ input[type="week"]::-webkit-calendar-picker-indicator {
 -------------------------- */
 
 /* Breathing animation - slow, calming pulse for startup */
-@keyframes organia-breathe {
+@keyframes ordinay-breathe {
   0%, 100% {
     transform: scale(1);
     opacity: 1;
@@ -1055,12 +1055,12 @@ input[type="week"]::-webkit-calendar-picker-indicator {
   }
 }
 
-.organia-logo-breathe {
-  animation: organia-breathe 3s ease-in-out infinite;
+.ordinay-logo-breathe {
+  animation: ordinay-breathe 3s ease-in-out infinite;
 }
 
 /* Pulse animation - subtle pulse for idle states */
-@keyframes organia-pulse {
+@keyframes ordinay-pulse {
   0%, 100% {
     opacity: 1;
   }
@@ -1069,12 +1069,12 @@ input[type="week"]::-webkit-calendar-picker-indicator {
   }
 }
 
-.organia-logo-pulse {
-  animation: organia-pulse 2s ease-in-out infinite;
+.ordinay-logo-pulse {
+  animation: ordinay-pulse 2s ease-in-out infinite;
 }
 
 /* Ring rotation for loading states */
-@keyframes organia-ring-rotate {
+@keyframes ordinay-ring-rotate {
   0% {
     transform: rotate(0deg);
   }
@@ -1148,17 +1148,17 @@ input[type="week"]::-webkit-calendar-picker-indicator {
    Static rings with orbiting dots
 -------------------------- */
 
-@keyframes organia-orbit {
+@keyframes ordinay-orbit {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
 
-@keyframes organia-orbit-reverse {
+@keyframes ordinay-orbit-reverse {
   from { transform: rotate(360deg); }
   to { transform: rotate(0deg); }
 }
 
-@keyframes organia-fade-in {
+@keyframes ordinay-fade-in {
   from {
     opacity: 0;
     transform: translateY(10px);
@@ -1169,7 +1169,7 @@ input[type="week"]::-webkit-calendar-picker-indicator {
   }
 }
 
-.organia-orbital-loader {
+.ordinay-orbital-loader {
   position: fixed;
   inset: 0;
   z-index: 99999;
@@ -1179,38 +1179,38 @@ input[type="week"]::-webkit-calendar-picker-indicator {
   transition: opacity 0.4s ease-out;
 }
 
-.organia-orbital-loader--fading {
+.ordinay-orbital-loader--fading {
   opacity: 0;
   pointer-events: none;
 }
 
-.organia-orbital-loader__bg {
+.ordinay-orbital-loader__bg {
   position: absolute;
   inset: 0;
   background: linear-gradient(135deg, #f1f5f9 0%, #ffffff 50%, #f1f5f9 100%);
 }
 
-.dark .organia-orbital-loader__bg {
+.dark .ordinay-orbital-loader__bg {
   background: linear-gradient(135deg, #1e293b 0%, #020617 50%, #1e293b 100%);
 }
 
-.organia-orbital-loader__content {
+.ordinay-orbital-loader__content {
   position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 2rem;
-  animation: organia-fade-in 0.6s ease-out;
+  animation: ordinay-fade-in 0.6s ease-out;
 }
 
-.organia-orbital-loader__orbit-container {
+.ordinay-orbital-loader__orbit-container {
   position: relative;
   width: 192px;
   height: 192px;
 }
 
 /* Static rings */
-.organia-orbital-loader__ring {
+.ordinay-orbital-loader__ring {
   position: absolute;
   border-radius: 50%;
   border-style: solid;
@@ -1220,25 +1220,25 @@ input[type="week"]::-webkit-calendar-picker-indicator {
   transform: translate(-50%, -50%);
 }
 
-.dark .organia-orbital-loader__ring {
+.dark .ordinay-orbital-loader__ring {
   border-color: #3b82f6;
 }
 
-.organia-orbital-loader__ring--outer {
+.ordinay-orbital-loader__ring--outer {
   width: 160px;
   height: 160px;
   border-width: 2px;
   opacity: 0.2;
 }
 
-.organia-orbital-loader__ring--middle {
+.ordinay-orbital-loader__ring--middle {
   width: 112px;
   height: 112px;
   border-width: 2px;
   opacity: 0.3;
 }
 
-.organia-orbital-loader__ring--inner {
+.ordinay-orbital-loader__ring--inner {
   width: 64px;
   height: 64px;
   border-width: 2px;
@@ -1246,7 +1246,7 @@ input[type="week"]::-webkit-calendar-picker-indicator {
 }
 
 /* Core */
-.organia-orbital-loader__core {
+.ordinay-orbital-loader__core {
   position: absolute;
   top: 50%;
   left: 50%;
@@ -1257,12 +1257,12 @@ input[type="week"]::-webkit-calendar-picker-indicator {
   background-color: #3b82f6;
 }
 
-.dark .organia-orbital-loader__core {
+.dark .ordinay-orbital-loader__core {
   background-color: #3b82f6;
 }
 
 /* Orbiting containers */
-.organia-orbital-loader__orbit {
+.ordinay-orbital-loader__orbit {
   position: absolute;
   top: 50%;
   left: 50%;
@@ -1270,45 +1270,45 @@ input[type="week"]::-webkit-calendar-picker-indicator {
   height: 0;
 }
 
-.organia-orbital-loader__orbit--1 {
-  animation: organia-orbit 3s linear infinite;
+.ordinay-orbital-loader__orbit--1 {
+  animation: ordinay-orbit 3s linear infinite;
 }
 
-.organia-orbital-loader__orbit--2 {
-  animation: organia-orbit-reverse 4s linear infinite;
+.ordinay-orbital-loader__orbit--2 {
+  animation: ordinay-orbit-reverse 4s linear infinite;
 }
 
-.organia-orbital-loader__orbit--3 {
-  animation: organia-orbit 2s linear infinite;
+.ordinay-orbital-loader__orbit--3 {
+  animation: ordinay-orbit 2s linear infinite;
 }
 
 /* Orbiting points */
-.organia-orbital-loader__point {
+.ordinay-orbital-loader__point {
   position: absolute;
   border-radius: 50%;
   top: 50%;
   transform: translateY(-50%);
 }
 
-.organia-orbital-loader__point--gold {
+.ordinay-orbital-loader__point--gold {
   width: 12px;
   height: 12px;
   background-color: #3b82f6;
   left: 80px;
 }
 
-.organia-orbital-loader__point--primary {
+.ordinay-orbital-loader__point--primary {
   width: 8px;
   height: 8px;
   background-color: #64748b;
   left: 56px;
 }
 
-.dark .organia-orbital-loader__point--primary {
+.dark .ordinay-orbital-loader__point--primary {
   background-color: #94a3b8;
 }
 
-.organia-orbital-loader__point--muted {
+.ordinay-orbital-loader__point--muted {
   width: 8px;
   height: 8px;
   background-color: #94a3b8;
@@ -1316,19 +1316,19 @@ input[type="week"]::-webkit-calendar-picker-indicator {
   left: 32px;
 }
 
-.dark .organia-orbital-loader__point--muted {
+.dark .ordinay-orbital-loader__point--muted {
   background-color: #64748b;
 }
 
 /* Message */
-.organia-orbital-loader__message {
+.ordinay-orbital-loader__message {
   font-family: system-ui, -apple-system, sans-serif;
   font-size: 0.9375rem;
   font-weight: 400;
   color: #64748b;
 }
 
-.dark .organia-orbital-loader__message {
+.dark .ordinay-orbital-loader__message {
   color: #94a3b8;
 }
 
@@ -1336,100 +1336,100 @@ input[type="week"]::-webkit-calendar-picker-indicator {
    Data Loader
 -------------------------- */
 
-.organia-data-loader {
+.ordinay-data-loader {
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 /* Page variant */
-.organia-data-loader--page {
+.ordinay-data-loader--page {
   min-height: 300px;
   padding: 3rem;
 }
 
-.organia-data-loader--page .organia-data-loader__content {
+.ordinay-data-loader--page .ordinay-data-loader__content {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 1rem;
 }
 
-.organia-data-loader--page .organia-data-loader__spinner {
-  animation: organia-ring-rotate 2s linear infinite;
+.ordinay-data-loader--page .ordinay-data-loader__spinner {
+  animation: ordinay-ring-rotate 2s linear infinite;
 }
 
-.organia-data-loader--page .organia-data-loader__message {
+.ordinay-data-loader--page .ordinay-data-loader__message {
   font-size: 0.875rem;
   color: var(--color-muted-foreground, #64748b);
   font-weight: 400;
 }
 
 /* Card variant */
-.organia-data-loader--card {
+.ordinay-data-loader--card {
   padding: 2rem;
   flex-direction: column;
   gap: 0.75rem;
 }
 
-.organia-data-loader--card .organia-data-loader__spinner--small {
-  animation: organia-ring-rotate 1.5s linear infinite;
+.ordinay-data-loader--card .ordinay-data-loader__spinner--small {
+  animation: ordinay-ring-rotate 1.5s linear infinite;
 }
 
-.organia-data-loader--card .organia-data-loader__message--small {
+.ordinay-data-loader--card .ordinay-data-loader__message--small {
   font-size: 0.75rem;
   color: var(--color-muted-foreground, #64748b);
 }
 
 /* Inline variant */
-.organia-data-loader--inline {
+.ordinay-data-loader--inline {
   gap: 0.5rem;
 }
 
-.organia-data-loader--inline .organia-data-loader__spinner--inline {
+.ordinay-data-loader--inline .ordinay-data-loader__spinner--inline {
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.organia-data-loader--inline .organia-data-loader__message--inline {
+.ordinay-data-loader--inline .ordinay-data-loader__message--inline {
   font-size: 0.875rem;
   color: var(--color-muted-foreground, #64748b);
 }
 
 /* Button variant */
-.organia-data-loader--button {
+.ordinay-data-loader--button {
   display: inline-flex;
 }
 
 /* Ring spinner (for button/inline) */
-.organia-data-loader__ring {
+.ordinay-data-loader__ring {
   border-radius: 50%;
   border: 2px solid var(--loader-primary, #3b82f6);
   border-top-color: transparent;
-  animation: organia-ring-rotate 0.8s linear infinite;
+  animation: ordinay-ring-rotate 0.8s linear infinite;
 }
 
 /* Dots variant */
-.organia-data-loader--dots {
+.ordinay-data-loader--dots {
   flex-direction: column;
   gap: 0.5rem;
 }
 
-.organia-data-loader__dots {
+.ordinay-data-loader__dots {
   display: flex;
   align-items: center;
   gap: 0.375rem;
 }
 
-.organia-data-loader__dot {
+.ordinay-data-loader__dot {
   display: block;
   border-radius: 50%;
   background-color: var(--loader-primary, #3b82f6);
-  animation: organia-dot-bounce 1s ease-in-out infinite;
+  animation: ordinay-dot-bounce 1s ease-in-out infinite;
 }
 
-@keyframes organia-dot-bounce {
+@keyframes ordinay-dot-bounce {
   0%, 80%, 100% {
     opacity: 0.3;
     transform: scale(0.8);
@@ -1444,18 +1444,18 @@ input[type="week"]::-webkit-calendar-picker-indicator {
    Logo Class Variants (for external styling)
 -------------------------- */
 
-.organia-logo {
+.ordinay-logo {
   transition: transform 0.3s ease, opacity 0.3s ease;
 }
 
-.organia-ring {
+.ordinay-ring {
   transition: opacity 0.3s ease;
 }
 
-.organia-core {
+.ordinay-core {
   transition: transform 0.3s ease;
 }
 
-.organia-accent {
+.ordinay-accent {
   transition: opacity 0.3s ease;
 }

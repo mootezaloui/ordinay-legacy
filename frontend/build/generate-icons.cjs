@@ -1,5 +1,5 @@
 /**
- * Comprehensive Icon Generation Script for Organia
+ * Comprehensive Icon Generation Script for Ordinay
  * =================================================
  * Generates platform-specific icon assets from the master SVG logo.
  *
@@ -229,7 +229,7 @@ async function generateLinuxIcons(svgBuffer) {
 
 async function main() {
   console.log('='.repeat(60));
-  console.log('Organia Icon Generation Script');
+  console.log('Ordinay Icon Generation Script');
   console.log('='.repeat(60));
   console.log(`Source: ${SVG_SOURCE}`);
 

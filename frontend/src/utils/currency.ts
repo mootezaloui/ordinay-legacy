@@ -6,7 +6,7 @@ export const SUPPORTED_CURRENCIES = ["TND", "EUR", "USD"] as const;
 
 export type CurrencyCode = (typeof SUPPORTED_CURRENCIES)[number];
 
-const SETTINGS_STORAGE_KEY = "organia_settings";
+const SETTINGS_STORAGE_KEY = "ordinay_settings";
 
 export const normalizeCurrencyCode = (value?: string | null): CurrencyCode => {
   if (!value) return DEFAULT_CURRENCY;

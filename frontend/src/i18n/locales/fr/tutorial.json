@@ -22,7 +22,7 @@
     },
     "sidebar-clients": {
       "title": "Commencez par les Clients 👥",
-      "description": "Dans Organia, tout commence par un client. C'est ici que vous les gérez.",
+      "description": "Dans Ordinay, tout commence par un client. C'est ici que vous les gérez.",
       "action": "Ouvrir la section Clients"
     },
     "create-client": {
@@ -50,7 +50,7 @@
     },
     "client-notification-intro": {
       "title": "Notifications Intelligentes 🔔",
-      "description": "Organia détecte les moments importants — nouveaux dossiers, changements de statut, audiences à venir. Restez informé sans effort.",
+      "description": "Ordinay détecte les moments importants — nouveaux dossiers, changements de statut, audiences à venir. Restez informé sans effort.",
       "action": "Choisir d'envoyer ou passer"
     },
     "dossier-detail-overview": {
@@ -87,7 +87,7 @@
     },
     "lawsuit-notification-intro": {
       "title": "Tenez les Clients Informés 📢",
-      "description": "Nouveau procès ? Organia peut notifier votre client automatiquement. Gardez-les dans la boucle.",
+      "description": "Nouveau procès ? Ordinay peut notifier votre client automatiquement. Gardez-les dans la boucle.",
       "action": "Choisir d'envoyer ou passer"
     },
     "lawsuit-detail-overview": {
@@ -193,7 +193,7 @@
     },
     "phase7-complete": {
       "title": "Clarté Financière ! ✅",
-      "description": "Vous comprenez comment Organia suit votre argent. Dernier acte : documents et historique."
+      "description": "Vous comprenez comment Ordinay suit votre argent. Dernier acte : documents et historique."
     },
     "sidebar-dossiers-for-documents": {
       "title": "Gestion Documentaire 📄",
@@ -242,7 +242,7 @@
     },
     "tutorial-complete": {
       "title": "Félicitations ! 🎉",
-      "description": "Vous avez terminé le tutoriel Organia. Vous pouvez gérer clients, dossiers, procès, tâches, sessions, missions, finances et documents. Dirigez votre cabinet avec assurance."
+      "description": "Vous avez terminé le tutoriel Ordinay. Vous pouvez gérer clients, dossiers, procès, tâches, sessions, missions, finances et documents. Dirigez votre cabinet avec assurance."
     }
   },
   "completion": {
@@ -252,7 +252,7 @@
   },
   "prompt": {
     "title": "Prêt à Apprendre ?",
-    "description": "Souhaitez-vous une visite guidée rapide d'Organia ? Nous vous montrerons comment naviguer dans l'application et créer votre premier client.",
+    "description": "Souhaitez-vous une visite guidée rapide d'Ordinay ? Nous vous montrerons comment naviguer dans l'application et créer votre premier client.",
     "startTutorial": "Commencer le tutoriel guidé",
     "exploreAlone": "Je préfère explorer seul",
     "laterNote": "Vous pouvez toujours commencer le tutoriel plus tard depuis les Paramètres."

@@ -1,5 +1,5 @@
 const APP_DB_NAMES = ["LawyerAppDocuments"];
-const PRESERVE_LOCAL_STORAGE_KEYS = ["organia_device_id"];
+const PRESERVE_LOCAL_STORAGE_KEYS = ["ordinay_device_id"];
 
 const deleteDatabase = (name: string): Promise<void> =>
   new Promise((resolve, reject) => {

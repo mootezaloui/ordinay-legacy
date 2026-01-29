@@ -5,7 +5,7 @@ import { DEFAULT_LANGUAGE, getInitialLanguage, getLanguageLocale, getSystemLangu
 import { i18nInstance } from "../i18n";
 import { DEFAULT_CURRENCY, formatCurrency as formatCurrencyValue, getCurrencyDisplayLabel, getCurrencyFromSettings, normalizeCurrencyCode } from "../utils/currency";
 
-const STORAGE_KEY = "organia_settings";
+const STORAGE_KEY = "ordinay_settings";
 
 export const DEFAULT_SETTINGS = {
   language: DEFAULT_LANGUAGE,

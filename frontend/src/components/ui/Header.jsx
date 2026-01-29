@@ -36,7 +36,7 @@ export default function HeaderBar() {
     if (dynamicMatch?.label) return dynamicMatch.label;
     if (dynamicMatch?.name) return dynamicMatch.name;
 
-    return t("header.title", { defaultValue: "Organia" });
+    return t("header.title", { defaultValue: "Ordinay" });
   };
 
   const pageTitle = resolvePageTitle();

@@ -4,8 +4,8 @@
     "statistics": "Statistiques de parrainage",
     "rewards": "Recompenses"
   },
-  "inactiveMessage": "Activez votre licence Organia pour acceder a votre lien de parrainage et gagner des recompenses.",
-  "linkDescription": "Partagez votre lien de parrainage. Quand ils activent Organia, vous gagnez des recompenses.",
+  "inactiveMessage": "Activez votre licence Ordinay pour acceder a votre lien de parrainage et gagner des recompenses.",
+  "linkDescription": "Partagez votre lien de parrainage. Quand ils activent Ordinay, vous gagnez des recompenses.",
   "linkUnavailable": "Le lien de parrainage est actuellement indisponible.",
   "loading": "Chargement...",
   "actions": {

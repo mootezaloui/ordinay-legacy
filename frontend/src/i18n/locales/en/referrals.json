@@ -4,8 +4,8 @@
     "statistics": "Referral Statistics",
     "rewards": "Rewards"
   },
-  "inactiveMessage": "Activate your Organia license to access your referral link and earn rewards.",
-  "linkDescription": "Share your referral link with others. When they activate Organia, you earn rewards.",
+  "inactiveMessage": "Activate your Ordinay license to access your referral link and earn rewards.",
+  "linkDescription": "Share your referral link with others. When they activate Ordinay, you earn rewards.",
   "linkUnavailable": "Referral link is currently unavailable.",
   "loading": "Loading...",
   "actions": {

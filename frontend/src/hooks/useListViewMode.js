@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 
-const STORAGE_PREFIX = "organia_list_view:";
+const STORAGE_PREFIX = "ordinay_list_view:";
 
 const normalizeViewMode = (value, fallback) => {
   if (value === "table" || value === "grid") return value;

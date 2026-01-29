@@ -1,7 +1,7 @@
 /**
  * WorkflowDiagram.tsx
  *
- * A visual representation of Organia's core workflow:
+ * A visual representation of Ordinay's core workflow:
  * Clients → Dossiers → Tasks/Missions
  *
  * Designed to be understood at a glance.

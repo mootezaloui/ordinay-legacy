@@ -1,7 +1,7 @@
-# Organia — Case & Workflow Management SaaS
+# Ordinay — Case & Workflow Management SaaS
 
-Organia is a modern, Tunisian-born SaaS platform designed to help professionals manage cases, clients, tasks, documents, financial tracking, and daily operations — all in one clean and intuitive dashboard.  
-Built with a scalable architecture, Organia can adapt beyond legal workflows to any business needing structured management.
+Ordinay is a modern, Tunisian-born SaaS platform designed to help professionals manage cases, clients, tasks, documents, financial tracking, and daily operations — all in one clean and intuitive dashboard.  
+Built with a scalable architecture, Ordinay can adapt beyond legal workflows to any business needing structured management.
 
 ---
 
@@ -122,7 +122,7 @@ npm run build
 
 ## 🎯 Vision
 
-Organia aims to become the go-to management workspace for professionals in Tunisia and across the region.  
+Ordinay aims to become the go-to management workspace for professionals in Tunisia and across the region.  
 A unified dashboard that handles:
 - Client records  
 - Document & dossier management  
@@ -137,7 +137,7 @@ Fast, organized, and beautifully designed.
 ## 🤝 Contributing
 
 Contributions are welcome!  
-Organia’s modular architecture makes it easy to add:
+Ordinay’s modular architecture makes it easy to add:
 - New screens  
 - New components  
 - Additional business modules  

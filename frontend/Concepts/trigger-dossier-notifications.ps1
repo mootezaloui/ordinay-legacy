@@ -1,6 +1,6 @@
 param(
     [string]$BaseUrl = "http://localhost:3000/api",
-    [string]$DbPath = "backend/organia.db",
+    [string]$DbPath = "backend/ordinay.db",
     [int]$DaysInactive = 20,
     [int]$DaysReview = 7,
     [ValidateSet("High", "Medium", "Low")]
@@ -89,7 +89,7 @@ try {
 const Database = require("better-sqlite3");
 
 const updates = JSON.parse(process.env.DOSSIER_UPDATES || "[]");
-const dbPath = process.env.DB_PATH || "organia.db";
+const dbPath = process.env.DB_PATH || "ordinay.db";
 
 if (!updates.length) {
   console.log("No dossier updates provided.");

@@ -2,7 +2,7 @@ param(
     [int]$Count = 5,
     [int]$DaysInactive = 90,
     [string]$BaseUrl = "http://localhost:3000/api",
-    [string]$DbPath = "backend/organia.db"
+    [string]$DbPath = "backend/ordinay.db"
 )
 
 $ErrorActionPreference = "Stop"
@@ -57,7 +57,7 @@ try {
 const Database = require("better-sqlite3");
 
 const ids = JSON.parse(process.env.CLIENT_IDS || "[]");
-const dbPath = process.env.DB_PATH || "organia.db";
+const dbPath = process.env.DB_PATH || "ordinay.db";
 const target = process.env.TARGET_DATE;
 
 if (!ids.length) {

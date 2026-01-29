@@ -891,7 +891,7 @@
   "import": {
     "title": "Importer des {{entity}} historiques",
     "subtitle": "Mapping automatique. Les lignes valides sont importees comme non validees; les autres restent en quarantaine.",
-    "notice": "Veuillez aider Organia a comprendre vos donnees : selectionnez les colonnes de votre fichier que vous souhaitez importer. Note importante : le champ Notes peut etre mappe a plusieurs colonnes. Vous retrouverez ces informations dans l'onglet Notes pour ne rien perdre.",
+    "notice": "Veuillez aider Ordinay a comprendre vos donnees : selectionnez les colonnes de votre fichier que vous souhaitez importer. Note importante : le champ Notes peut etre mappe a plusieurs colonnes. Vous retrouverez ces informations dans l'onglet Notes pour ne rien perdre.",
     "sourceLabel": "Source de l'import (optionnel)",
     "sourcePlaceholder": "ex: export Excel, ancien logiciel",
     "fileLabel": "Fichier",
@@ -902,7 +902,7 @@
     "uploading": "Import {{current}} / {{total}}",
     "mapping": {
       "title": "Verifier le mapping des colonnes",
-      "subtitle": "Confirmez la correspondance des colonnes avec les champs client d'Organia. Les colonnes inconnues sont ignorees.",
+      "subtitle": "Confirmez la correspondance des colonnes avec les champs client d'Ordinay. Les colonnes inconnues sont ignorees.",
       "headerLabel": "Colonne du fichier",
       "fieldLabel": "Champ associe",
       "ignore": "Ignorer la colonne",
@@ -1190,7 +1190,7 @@
   },
   "documentGeneration": {
     "title": "Générer un document",
-    "subtitle": "Choisissez un modèle, puis cliquez sur “Générer”. Organia remplit automatiquement les informations du dossier.",
+    "subtitle": "Choisissez un modèle, puis cliquez sur “Générer”. Ordinay remplit automatiquement les informations du dossier.",
     "sections": {
       "configuration": "Configuration"
     },
@@ -1253,7 +1253,7 @@
   "templateManagement": {
     "header": {
       "title": "Gestion des modèles",
-      "subtitle": "Créez et gérez vos modèles Word. Organia remplace automatiquement les champs à partir de vos dossiers."
+      "subtitle": "Créez et gérez vos modèles Word. Ordinay remplace automatiquement les champs à partir de vos dossiers."
     },
     "actions": {
       "newTemplate": "Nouveau modèle",
@@ -1294,7 +1294,7 @@
       "toggle": "Voir les étapes détaillées",
       "steps": {
         "prepare": "Préparez le document dans Word (titre, paragraphes, en-tête, etc.).",
-        "insert": "Insérez les champs Organia aux endroits qui changent (client, dossier, dates…).",
+        "insert": "Insérez les champs Ordinay aux endroits qui changent (client, dossier, dates…).",
         "save": "Enregistrez le fichier en .docx.",
         "import": "Importez-le ici via “Nouveau modèle”.",
         "generate": "Générez un document depuis un dossier ou un procès."
@@ -1325,7 +1325,7 @@
         "create": "Nouveau modèle de document",
         "edit": "Modifier le modèle"
       },
-      "subtitle": "Créez un modèle Word et laissez Organia remplir les informations automatiquement.",
+      "subtitle": "Créez un modèle Word et laissez Ordinay remplir les informations automatiquement.",
       "sections": {
         "configuration": "Configuration",
         "file": "Fichier template"

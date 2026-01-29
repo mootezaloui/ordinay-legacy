@@ -22,7 +22,7 @@
     },
     "sidebar-clients": {
       "title": "Start with Clients 👥",
-      "description": "In Organia, every legal matter starts with a client. Here's where you manage them all.",
+      "description": "In Ordinay, every legal matter starts with a client. Here's where you manage them all.",
       "action": "Open the Clients section"
     },
     "create-client": {
@@ -50,7 +50,7 @@
     },
     "client-notification-intro": {
       "title": "Smart Notifications 🔔",
-      "description": "Organia knows when something important happens — new dossiers, status changes, upcoming hearings. Stay informed without extra work.",
+      "description": "Ordinay knows when something important happens — new dossiers, status changes, upcoming hearings. Stay informed without extra work.",
       "action": "Choose to send or skip"
     },
     "dossier-detail-overview": {
@@ -87,7 +87,7 @@
     },
     "lawsuit-notification-intro": {
       "title": "Keep Clients Informed 📢",
-      "description": "A new lawsuit? Organia can notify your client automatically. Keep them in the loop.",
+      "description": "A new lawsuit? Ordinay can notify your client automatically. Keep them in the loop.",
       "action": "Choose to send or skip"
     },
     "lawsuit-detail-overview": {
@@ -193,7 +193,7 @@
     },
     "phase7-complete": {
       "title": "Financial Clarity! ✅",
-      "description": "You understand how Organia tracks your money. One final step: documents and history."
+      "description": "You understand how Ordinay tracks your money. One final step: documents and history."
     },
     "sidebar-dossiers-for-documents": {
       "title": "Document Management 📄",
@@ -243,7 +243,7 @@
     },
     "tutorial-complete": {
       "title": "Congratulations! 🎉",
-      "description": "You've completed the Organia tutorial. You're ready to manage clients, dossiers, lawsuits, tasks, sessions, missions, finances, and documents. Go lead your practice with confidence."
+      "description": "You've completed the Ordinay tutorial. You're ready to manage clients, dossiers, lawsuits, tasks, sessions, missions, finances, and documents. Go lead your practice with confidence."
     }
   },
   "completion": {
@@ -253,7 +253,7 @@
   },
   "prompt": {
     "title": "Ready to Learn?",
-    "description": "Would you like a quick guided tour of Organia? We'll show you how to navigate the app and create your first client.",
+    "description": "Would you like a quick guided tour of Ordinay? We'll show you how to navigate the app and create your first client.",
     "startTutorial": "Start guided tutorial",
     "exploreAlone": "I'll explore on my own",
     "laterNote": "You can always start the tutorial later from Settings."

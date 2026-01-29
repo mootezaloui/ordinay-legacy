@@ -4,7 +4,7 @@
  * Phase 2: Allow users to create and manage their own document templates
  *
  * Rules:
- * - System templates: Read-only, provided by Organia
+ * - System templates: Read-only, provided by Ordinay
  * - User templates: Editable, deletable, created by user
  * - No AI, no rich editing, no automation
  * - Templates are pure document generators
@@ -12,7 +12,7 @@
 
 import { LocalStorageProvider } from "./storage/LocalStorageProvider.js";
 
-const STORAGE_KEY = "organia_user_templates";
+const STORAGE_KEY = "ordinay_user_templates";
 const TEMPLATE_DIRECTORY = "templates";
 const TEMPLATE_EXTENSIONS = ["docx"];
 

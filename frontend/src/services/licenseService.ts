@@ -28,8 +28,8 @@ export type LicenseState =
 // Default to LOADING, not FREE. Unknown ≠ locked. No UI renders until resolved.
 export let appLicenseState: LicenseState = "LOADING";
 
-const DEVICE_ID_STORAGE_KEY = "organia_device_id";
-const PENDING_REFERRAL_STORAGE_KEY = "organia_pending_referral_code";
+const DEVICE_ID_STORAGE_KEY = "ordinay_device_id";
+const PENDING_REFERRAL_STORAGE_KEY = "ordinay_pending_referral_code";
 
 const LICENSE_PUBLIC_KEY_BASE64 =
   (typeof import.meta !== "undefined" &&
@@ -52,14 +52,14 @@ const getActivationBaseUrl = (): string =>
   (typeof import.meta !== "undefined" &&
     import.meta.env &&
     import.meta.env.VITE_ACTIVATION_BASE_URL) ||
-  "https://organia.app/activate";
+  "https://ordinay.app/activate";
 
 const getLicenseServerOrigin = (): string => {
   const base = getActivationBaseUrl();
   try {
     return new URL(base).origin;
   } catch {
-    return "https://organia.app";
+    return "https://ordinay.app";
   }
 };
 
@@ -235,7 +235,7 @@ export function getPlanManagementUrl({
     if (targetPlan) url.searchParams.set("target_plan", targetPlan);
     if (licenseState) url.searchParams.set("license_state", licenseState.toLowerCase());
     if (action) url.searchParams.set("action", action);
-    url.searchParams.set("source", "organia_app");
+    url.searchParams.set("source", "ordinay_app");
     return url.toString();
   } catch {
     const params = new URLSearchParams();
@@ -244,7 +244,7 @@ export function getPlanManagementUrl({
     if (targetPlan) params.set("target_plan", targetPlan);
     if (licenseState) params.set("license_state", licenseState.toLowerCase());
     if (action) params.set("action", action);
-    params.set("source", "organia_app");
+    params.set("source", "ordinay_app");
     const suffix = params.toString();
     const separator = base.includes("?") ? "&" : "?";
     return suffix ? `${base}${separator}${suffix}` : base;
@@ -553,7 +553,7 @@ export async function activateLicense(signedLicense: SignedLicense): Promise<voi
 export async function requestActivationFromServer(
   _deviceId: string
 ): Promise<SignedLicense> {
-  throw new Error("Activation must be completed on the Organia website.");
+  throw new Error("Activation must be completed on the Ordinay website.");
 }
 
 export type ReferralLinkResult = {
