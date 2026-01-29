@@ -620,6 +620,95 @@ export async function submitReferralOnActivation(
   }
 }
 
+// ── Referral & Rewards Types ──────────────────────────────────────────
+
+export type ReferralRewardType =
+  | "percentage"
+  | "fixed_amount"
+  | "extra_days"
+  | "extra_device"
+  | "extended_support"
+  | "feature_unlock";
+
+export type ReferralRewardStatus = "unused" | "applied" | "expired";
+
+export interface ReferralReward {
+  id: string;
+  reward_type: ReferralRewardType;
+  reward_value: number;
+  status: ReferralRewardStatus;
+  expires_at: string | null;
+  created_at: string;
+  applies_to: string | null;
+  referrer_plan: string | null;
+}
+
+export interface ReferralDashboard {
+  referral_link: string | null;
+  referral_code: string | null;
+  total_referrals: number;
+  rewards: ReferralReward[];
+}
+
+export type ReferralDashboardResult = {
+  ok: boolean;
+  data?: ReferralDashboard;
+  error?: string;
+};
+
+export async function fetchReferralDashboard(
+  deviceId: string,
+): Promise<ReferralDashboardResult> {
+  const origin = getLicenseServerOrigin();
+  const endpoint = `${origin}/api/referrals/dashboard?device_id=${encodeURIComponent(deviceId)}`;
+  try {
+    const response = await fetch(endpoint, { method: "GET" });
+    if (!response.ok) {
+      return { ok: false, error: "Referral data unavailable" };
+    }
+    const payload = await response.json();
+    return {
+      ok: true,
+      data: {
+        referral_link: payload.referral_link ?? null,
+        referral_code: payload.referral_code ?? null,
+        total_referrals: payload.total_referrals ?? 0,
+        rewards: Array.isArray(payload.rewards) ? payload.rewards : [],
+      },
+    };
+  } catch (error) {
+    console.warn("[Referral] Failed to fetch dashboard:", error);
+    return { ok: false, error: "Referral data unavailable" };
+  }
+}
+
+export type PendingRewardsResult = {
+  ok: boolean;
+  rewards: ReferralReward[];
+  error?: string;
+};
+
+export async function fetchPendingReferralRewards(
+  deviceId: string,
+): Promise<PendingRewardsResult> {
+  const origin = getLicenseServerOrigin();
+  const endpoint = `${origin}/api/referrals/pending-rewards?device_id=${encodeURIComponent(deviceId)}`;
+  try {
+    const response = await fetch(endpoint, { method: "GET" });
+    if (!response.ok) {
+      return { ok: false, rewards: [], error: "Pending rewards unavailable" };
+    }
+    const payload = await response.json();
+    return {
+      ok: true,
+      rewards: Array.isArray(payload.rewards) ? payload.rewards : [],
+    };
+  } catch (error) {
+    console.warn("[Referral] Failed to fetch pending rewards:", error);
+    return { ok: false, rewards: [], error: "Pending rewards unavailable" };
+  }
+}
+
 export async function verifyLicenseWithServer(
   _deviceId: string,
   cachedData: LicenseData | null

@@ -1,0 +1,62 @@
+{
+  "sections": {
+    "referralLink": "رابط الإحالة الخاص بك",
+    "statistics": "إحصائيات الإحالة",
+    "rewards": "المكافآت"
+  },
+  "inactiveMessage": "قم بتفعيل ترخيص Organia للوصول إلى رابط الإحالة وكسب المكافآت.",
+  "linkDescription": "شارك رابط الإحالة الخاص بك مع الآخرين. عندما يقومون بتفعيل Organia، تكسب مكافآت.",
+  "linkUnavailable": "رابط الإحالة غير متاح حاليًا.",
+  "loading": "جاري التحميل...",
+  "actions": {
+    "copy": "نسخ",
+    "copied": "تم النسخ!",
+    "refresh": "تحديث"
+  },
+  "stats": {
+    "totalReferrals": "الإحالات الناجحة",
+    "currentPlan": "خطتك",
+    "plans": {
+      "monthly": "شهري",
+      "yearly": "سنوي",
+      "perpetual": "دائم"
+    }
+  },
+  "rewards": {
+    "empty": "لا توجد مكافآت بعد. شارك رابط الإحالة للبدء في الكسب!",
+    "columns": {
+      "type": "المكافأة",
+      "status": "الحالة",
+      "appliesTo": "ينطبق على",
+      "expires": "تاريخ الانتهاء",
+      "earned": "تاريخ الحصول"
+    },
+    "statuses": {
+      "unused": "غير مستخدم",
+      "applied": "مطبق",
+      "expired": "منتهي الصلاحية"
+    },
+    "types": {
+      "percentage": "خصم {{value}}%",
+      "fixedAmount": "رصيد {{value}}",
+      "extraDays": "{{value}} أيام إضافية",
+      "extraDevice": "{{value}} فتحة جهاز إضافية",
+      "extendedSupport": "{{value}} أشهر دعم ممتد",
+      "featureUnlock": "فتح ميزة"
+    },
+    "appliesTo": {
+      "next_payment": "الدفعة التالية",
+      "renewal": "التجديد",
+      "device_limit": "حد الأجهزة",
+      "support_period": "فترة الدعم",
+      "feature_access": "الوصول إلى الميزات"
+    },
+    "noExpiry": "بدون انتهاء"
+  },
+  "notifications": {
+    "newReferral": {
+      "title": "إحالة ناجحة!",
+      "message": "لقد قمت بإحالة عميل جديد بنجاح!"
+    }
+  }
+}

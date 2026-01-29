@@ -1,0 +1,62 @@
+{
+  "sections": {
+    "referralLink": "Votre lien de parrainage",
+    "statistics": "Statistiques de parrainage",
+    "rewards": "Recompenses"
+  },
+  "inactiveMessage": "Activez votre licence Organia pour acceder a votre lien de parrainage et gagner des recompenses.",
+  "linkDescription": "Partagez votre lien de parrainage. Quand ils activent Organia, vous gagnez des recompenses.",
+  "linkUnavailable": "Le lien de parrainage est actuellement indisponible.",
+  "loading": "Chargement...",
+  "actions": {
+    "copy": "Copier",
+    "copied": "Copie !",
+    "refresh": "Actualiser"
+  },
+  "stats": {
+    "totalReferrals": "Parrainages reussis",
+    "currentPlan": "Votre plan",
+    "plans": {
+      "monthly": "Mensuel",
+      "yearly": "Annuel",
+      "perpetual": "Perpetuel"
+    }
+  },
+  "rewards": {
+    "empty": "Aucune recompense pour le moment. Partagez votre lien de parrainage pour commencer !",
+    "columns": {
+      "type": "Recompense",
+      "status": "Statut",
+      "appliesTo": "S'applique a",
+      "expires": "Expiration",
+      "earned": "Obtenu"
+    },
+    "statuses": {
+      "unused": "Non utilise",
+      "applied": "Applique",
+      "expired": "Expire"
+    },
+    "types": {
+      "percentage": "{{value}}% de reduction",
+      "fixedAmount": "{{value}} de credit",
+      "extraDays": "{{value}} jours supplementaires",
+      "extraDevice": "{{value}} emplacement(s) appareil supplementaire(s)",
+      "extendedSupport": "{{value}} mois de support etendu",
+      "featureUnlock": "Deblocage de fonctionnalite"
+    },
+    "appliesTo": {
+      "next_payment": "Prochain paiement",
+      "renewal": "Renouvellement",
+      "device_limit": "Limite d'appareils",
+      "support_period": "Periode de support",
+      "feature_access": "Acces aux fonctionnalites"
+    },
+    "noExpiry": "Sans expiration"
+  },
+  "notifications": {
+    "newReferral": {
+      "title": "Parrainage reussi !",
+      "message": "Vous avez parraine un nouveau client avec succes !"
+    }
+  }
+}

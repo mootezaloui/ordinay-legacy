@@ -224,6 +224,10 @@
       "label": "Mises à jour",
       "description": "Version et mises à jour de l'application."
     },
+    "referrals": {
+      "label": "Parrainages & Recompenses",
+      "description": "Votre lien de parrainage, statistiques et recompenses."
+    },
     "advanced": {
       "label": "Avancé",
       "description": "Contrôles peu utilisés et outils de formation.",
@@ -382,9 +386,14 @@
       "errors": {
         "activationFailed": "Échec de l'activation. Veuillez réessayer."
       },
+      "perpetual": {
+        "highestPlan": "Vous possédez la licence Organia la plus élevée.",
+        "noChanges": "Les changements de plan ne sont pas disponibles pour les licences perpétuelles. Les modules complémentaires et agents seront disponibles séparément à l'avenir."
+      },
       "planChange": {
         "action": "Changer de plan",
         "manageAction": "Gérer le plan",
+        "upgradeAction": "Changer de plan",
         "title": "Changer de plan",
         "subtitle": "Consultez votre plan actuel et choisissez-en un autre.",
         "currentPlan": "Plan actuel",
@@ -397,7 +406,9 @@
           "manage": "Gérer le plan",
           "current": "Plan actuel",
           "refresh": "Rafraîchir la licence",
-          "close": "Fermer"
+          "close": "Fermer",
+          "unavailable": "Indisponible",
+          "changeTo": "Changer"
         },
         "messages": {
           "opened": "La page du plan s'est ouverte dans votre navigateur.",

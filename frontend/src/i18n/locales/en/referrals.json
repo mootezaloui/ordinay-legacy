@@ -1,0 +1,62 @@
+{
+  "sections": {
+    "referralLink": "Your Referral Link",
+    "statistics": "Referral Statistics",
+    "rewards": "Rewards"
+  },
+  "inactiveMessage": "Activate your Organia license to access your referral link and earn rewards.",
+  "linkDescription": "Share your referral link with others. When they activate Organia, you earn rewards.",
+  "linkUnavailable": "Referral link is currently unavailable.",
+  "loading": "Loading...",
+  "actions": {
+    "copy": "Copy",
+    "copied": "Copied!",
+    "refresh": "Refresh"
+  },
+  "stats": {
+    "totalReferrals": "Successful referrals",
+    "currentPlan": "Your plan",
+    "plans": {
+      "monthly": "Monthly",
+      "yearly": "Yearly",
+      "perpetual": "Perpetual"
+    }
+  },
+  "rewards": {
+    "empty": "No rewards yet. Share your referral link to start earning!",
+    "columns": {
+      "type": "Reward",
+      "status": "Status",
+      "appliesTo": "Applies to",
+      "expires": "Expiration",
+      "earned": "Earned"
+    },
+    "statuses": {
+      "unused": "Unused",
+      "applied": "Applied",
+      "expired": "Expired"
+    },
+    "types": {
+      "percentage": "{{value}}% discount",
+      "fixedAmount": "{{value}} credit",
+      "extraDays": "{{value}} extra days",
+      "extraDevice": "{{value}} extra device slot(s)",
+      "extendedSupport": "{{value}} months extended support",
+      "featureUnlock": "Feature unlock"
+    },
+    "appliesTo": {
+      "next_payment": "Next payment",
+      "renewal": "Renewal",
+      "device_limit": "Device limit",
+      "support_period": "Support period",
+      "feature_access": "Feature access"
+    },
+    "noExpiry": "No expiry"
+  },
+  "notifications": {
+    "newReferral": {
+      "title": "Referral successful!",
+      "message": "You successfully referred a new client!"
+    }
+  }
+}

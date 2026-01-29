@@ -231,6 +231,10 @@
       "label": "Updates",
       "description": "Version status and app updates."
     },
+    "referrals": {
+      "label": "Referrals & Rewards",
+      "description": "Your referral link, stats, and earned rewards."
+    },
     "advanced": {
       "label": "Advanced",
       "description": "Rarely used controls and training tools.",
@@ -389,9 +393,14 @@
       "errors": {
         "activationFailed": "Activation failed. Please try again."
       },
+      "perpetual": {
+        "highestPlan": "You own the highest Organia license.",
+        "noChanges": "Plan changes are not available for perpetual licenses. Add-ons and agents will be available separately in the future."
+      },
       "planChange": {
         "action": "Change Plan",
         "manageAction": "Manage Plan",
+        "upgradeAction": "Change Plan",
         "title": "Change plan",
         "subtitle": "Review your current plan and choose a new one.",
         "currentPlan": "Current plan",
@@ -404,7 +413,9 @@
           "manage": "Manage plan",
           "current": "Current plan",
           "refresh": "Refresh license",
-          "close": "Close"
+          "close": "Close",
+          "unavailable": "Unavailable",
+          "changeTo": "Switch"
         },
         "messages": {
           "opened": "Plan page opened in your browser.",

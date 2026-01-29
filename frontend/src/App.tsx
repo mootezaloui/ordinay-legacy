@@ -120,6 +120,8 @@ function App() {
     t,
     activateLicense,
     setActivationState,
+    licenseState,
+    addAlert,
   });
   const activationInFlightRef = useRef<string | null>(null);
   const activationPollRef = useRef<number | null>(null);
@@ -131,8 +133,10 @@ function App() {
       t,
       activateLicense,
       setActivationState,
+      licenseState,
+      addAlert,
     };
-  }, [activateLicense, setActivationState, t]);
+  }, [activateLicense, setActivationState, t, licenseState, addAlert]);
 
   useEffect(() => {
     let mounted = true;
@@ -212,13 +216,14 @@ function App() {
           t: tActivation,
           activateLicense: activateLicenseCurrent,
           setActivationState: setActivationStateCurrent,
+          licenseState: currentLicenseState,
+          addAlert: addAlertCurrent,
         } = activationContextRef.current;
         const pendingReferral = extractPendingReferralFromUrl(rawUrl);
         if (pendingReferral) {
           storePendingReferralCode(pendingReferral);
           return;
         }
-        setActivationStateCurrent("ACTIVATING", null);
         let parsed: URL | null = null;
         try {
           parsed = new URL(rawUrl);
@@ -235,53 +240,84 @@ function App() {
         const rewardsParam = getParam("rewards");
         const activationDeviceId =
           getParam("device_id") || (await getOrCreateDeviceId());
+
+        // Determine if this is a plan change (user already ACTIVE) vs first activation
+        const isPlanChange = currentLicenseState === "ACTIVE";
+
         if (!licenseParam) {
           console.warn("[License] Activation failed:", {
             url: rawUrl,
             device_id: activationDeviceId,
           });
-          setActivationStateCurrent("ERROR", "Activation failed");
-          setActivationError("Missing license data in activation link.");
-          setActivationView("error");
+          if (!isPlanChange) {
+            setActivationStateCurrent("ERROR", "Activation failed");
+            setActivationError("Missing license data in activation link.");
+            setActivationView("error");
+          }
           return;
         }
         const signedLicense = parseSignedLicenseFromUrl(licenseParam);
         if (!signedLicense) {
           console.warn("[License] Activation failed: invalid license payload");
-          setActivationStateCurrent("ERROR", "Activation failed");
-          setActivationError("Activation license could not be parsed.");
-          setActivationView("error");
+          if (!isPlanChange) {
+            setActivationStateCurrent("ERROR", "Activation failed");
+            setActivationError("Activation license could not be parsed.");
+            setActivationView("error");
+          }
           return;
         }
-        if (typeof window !== "undefined") {
-          window.localStorage.removeItem(FREE_PLAN_STORAGE_KEY);
+
+        if (isPlanChange) {
+          // Plan change: silently update license, show toast, do NOT show activation screen
+          await activateLicenseCurrent(signedLicense);
+          addAlertCurrent({
+            type: "success",
+            title: tActivation("planChange.toast.title", { defaultValue: "Plan updated" }),
+            message: tActivation("planChange.toast.message", { defaultValue: "Your plan has been changed successfully." }),
+            duration: 6000,
+          });
+          // Do NOT change activationView — user stays in the normal app flow
+        } else {
+          // First activation: full activation flow
+          setActivationStateCurrent("ACTIVATING", null);
+          if (typeof window !== "undefined") {
+            window.localStorage.removeItem(FREE_PLAN_STORAGE_KEY);
+          }
+          await activateLicenseCurrent(signedLicense);
+          setActivationRewards(parseRewardsFromUrl(rewardsParam));
+          const referralCode = getPendingReferralCode();
+          const referralResult = await submitReferralOnActivation(
+            activationDeviceId,
+            referralCode
+          );
+          if (referralResult.ok) {
+            clearPendingReferralCode();
+          }
+          if (typeof window !== "undefined") {
+            window.localStorage.removeItem(ACTIVATION_PENDING_STORAGE_KEY);
+          }
+          setActivationError(null);
+          setActivationView("success");
         }
-        await activateLicenseCurrent(signedLicense);
-        setActivationRewards(parseRewardsFromUrl(rewardsParam));
-        const referralCode = getPendingReferralCode();
-        const referralResult = await submitReferralOnActivation(
-          activationDeviceId,
-          referralCode
-        );
-        if (referralResult.ok) {
-          clearPendingReferralCode();
-        }
-        if (typeof window !== "undefined") {
-          window.localStorage.removeItem(ACTIVATION_PENDING_STORAGE_KEY);
-        }
-        setActivationError(null);
-        setActivationView("success");
       } catch (error) {
         console.error("[License] Activation URL failed:", error);
-        const { t: tActivation, setActivationState: setActivationStateCurrent } =
-          activationContextRef.current;
-        setActivationStateCurrent("ERROR", "Activation failed");
-        const message =
-          error instanceof Error && error.message
-            ? error.message
-            : tActivation("errors.activationFailed");
-        setActivationError(message);
-        setActivationView("error");
+        const {
+          t: tActivation,
+          setActivationState: setActivationStateCurrent,
+          licenseState: currentLicenseState,
+        } = activationContextRef.current;
+        // Only show error screen for first activation, not plan changes
+        if (currentLicenseState !== "ACTIVE") {
+          setActivationStateCurrent("ERROR", "Activation failed");
+          const message =
+            error instanceof Error && error.message
+              ? error.message
+              : tActivation("errors.activationFailed");
+          setActivationError(message);
+          setActivationView("error");
+        } else {
+          console.warn("[License] Plan change failed silently:", error);
+        }
       } finally {
         if (activationInFlightRef.current === rawUrl) {
           activationInFlightRef.current = null;

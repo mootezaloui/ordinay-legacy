@@ -58,6 +58,8 @@ const DOCUMENTS_PATH = path.join(USER_DATA_PATH, "documents");
 const LICENSE_PATH = path.join(USER_DATA_PATH, "organia_license.json");
 const DEVICE_ID_PATH = path.join(USER_DATA_PATH, "organia_device_id.txt");
 const ACTIVATION_PROTOCOL = "organia";
+// Queue for protocol URLs received before the renderer is ready (e.g. fresh launch via deep link on Windows)
+let deferredProtocolUrl = null;
 const UPDATE_CACHE_PATH = path.join(USER_DATA_PATH, "updates");
 const RAW_UPDATE_URL = (
   process.env.ORGANIA_UPDATE_URL || "http://localhost:5174/updates/latest.json"
@@ -632,6 +634,14 @@ function createWindow() {
     mainWindow.loadFile(indexPath);
   }
 
+  // Deliver any protocol URL that was queued before the renderer was ready
+  mainWindow.webContents.once("did-finish-load", () => {
+    if (deferredProtocolUrl) {
+      handleActivationUrl(deferredProtocolUrl);
+      deferredProtocolUrl = null;
+    }
+  });
+
   // Handle window closed
   mainWindow.on("closed", () => {
     mainWindow = null;
@@ -710,6 +720,8 @@ function registerContentSecurityPolicyHandler() {
       "http://localhost:5174",
       "http://localhost:3000",
       "http://127.0.0.1:3000",
+      "http://192.168.1.175:5174",
+      "http://169.254.9.207:5174",
     ];
     const cspDirectives = isDev
       ? [
@@ -718,7 +730,7 @@ function registerContentSecurityPolicyHandler() {
           "style-src 'self' 'unsafe-inline'", // unsafe-inline needed for styled-components/CSS-in-JS
           "img-src 'self' data: blob:",
           "font-src 'self' data:",
-          "connect-src 'self' http://localhost:* ws://localhost:*", // Allow backend + Vite HMR
+          "connect-src 'self' http://localhost:* ws://localhost:* http://192.168.1.175:* ws://192.168.1.175:* http://169.254.9.207:* ws://169.254.9.207:*", // Allow backend + Vite HMR + LAN dev
           "object-src 'none'",
           "base-uri 'self'",
           "form-action 'self'",
@@ -866,7 +878,12 @@ function setupIPC() {
 }
 
 function handleActivationUrl(url) {
-  if (!mainWindow || !url) return;
+  if (!url) return;
+  if (!mainWindow) {
+    // Window not ready yet — queue for delivery once the renderer loads
+    deferredProtocolUrl = url;
+    return;
+  }
   mainWindow.webContents.send("activation-url", url);
 }
 
@@ -911,6 +928,15 @@ app.whenReady().then(async () => {
       ]);
     } else {
       app.setAsDefaultProtocolClient(ACTIVATION_PROTOCOL);
+    }
+
+    // On Windows/Linux, when the app is launched fresh via a protocol URL (e.g. organia://install?ref=...),
+    // the URL is passed as a command-line argument. Queue it for delivery once the renderer is ready.
+    const protocolArg = process.argv.find((arg) =>
+      arg.startsWith(`${ACTIVATION_PROTOCOL}://`)
+    );
+    if (protocolArg) {
+      deferredProtocolUrl = protocolArg;
     }
   } catch (error) {
     console.error("[Electron] Failed to initialize:", error);

@@ -337,6 +337,7 @@ export default function SettingsSecurityAccess() {
     ? t("securityAccess.license.plan.paid")
     : t("securityAccess.license.plan.free");
   const currentPlanKey = getCurrentPlanKey();
+  const isPerpetual = currentPlanKey === "perpetual";
   const includeTrialPlan = currentPlanKey === "trial";
   const planOptions = [
     { key: "free", icon: "fa-layer-group" },
@@ -844,17 +845,22 @@ export default function SettingsSecurityAccess() {
                   {canShowPlanActions && (
                     <button
                       onClick={openPlanModal}
-                      disabled={planActionsLocked}
-                      className={`px-4 py-2 text-sm font-semibold rounded-xl transition flex items-center gap-2 ${planActionsLocked
+                      disabled={planActionsLocked || isPerpetual}
+                      className={`px-4 py-2 text-sm font-semibold rounded-xl transition flex items-center gap-2 ${(planActionsLocked || isPerpetual)
                         ? "bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 cursor-not-allowed"
                         : "bg-white/80 dark:bg-slate-900/50 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600"
                       }`}
                     >
-                      <i className="fas fa-exchange-alt"></i>
+                      <i className={`fas ${isPaidPlan ? "fa-exchange-alt" : "fa-bolt"}`}></i>
                       {isPaidPlan
-                        ? t("securityAccess.license.planChange.manageAction")
+                        ? t("securityAccess.license.planChange.upgradeAction", { defaultValue: "Change plan" })
                         : t("securityAccess.license.planChange.action")}
                     </button>
+                  )}
+                  {isPerpetual && canShowPlanActions && (
+                    <p className="text-xs text-slate-500 dark:text-slate-400 text-right mt-1">
+                      {t("securityAccess.license.perpetual.highestPlan", { defaultValue: "You own the highest Organia license." })}
+                    </p>
                   )}
                 </div>
               </div>
@@ -1061,20 +1067,38 @@ export default function SettingsSecurityAccess() {
                 </div>
               )}
 
+              {isPerpetual && (
+                <div className="mt-4 p-4 rounded-xl border border-emerald-200 dark:border-emerald-800/60 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-200 text-sm flex items-start gap-3">
+                  <i className="fas fa-crown mt-0.5"></i>
+                  <div>
+                    <p className="font-semibold">{t("securityAccess.license.perpetual.highestPlan", { defaultValue: "You already own the highest Organia license." })}</p>
+                    <p className="mt-1 text-xs opacity-80">{t("securityAccess.license.perpetual.noChanges", { defaultValue: "Perpetual licenses do not require plan changes. Future add-ons and agents can be managed separately." })}</p>
+                  </div>
+                </div>
+              )}
+
               <div className="mt-6">
                 <p className="text-sm font-semibold text-slate-900 dark:text-white">
-                  {t("securityAccess.license.planChange.availablePlans")}
+                  {isPaidPlan
+                    ? t("securityAccess.license.planChange.availablePlans")
+                    : t("securityAccess.license.planChange.availablePlans")}
                 </p>
                 <div className="mt-3 grid gap-3 md:grid-cols-2">
                   {planOptions.map((plan) => {
                     const isCurrent = currentPlanKey === plan.key;
                     const isManageable = isCurrent && isPaidPlan;
-                    const isDisabled = planActionsLocked || planActionBusy || planRefreshBusy || (isCurrent && !isPaidPlan);
-                    const actionLabel = isCurrent
-                      ? isPaidPlan
-                        ? t("securityAccess.license.planChange.actions.manage")
-                        : t("securityAccess.license.planChange.actions.current")
-                      : t("securityAccess.license.planChange.actions.select");
+                    // Perpetual users: block all base plan selections (no downgrades, no re-purchase)
+                    const isPerpetualBlocked = isPerpetual && !isCurrent;
+                    const isDisabled = planActionsLocked || planActionBusy || planRefreshBusy || (isCurrent && !isPaidPlan) || isPerpetualBlocked;
+                    const actionLabel = isPerpetualBlocked
+                      ? t("securityAccess.license.planChange.actions.unavailable", { defaultValue: "Unavailable" })
+                      : isCurrent
+                        ? isPaidPlan
+                          ? t("securityAccess.license.planChange.actions.manage")
+                          : t("securityAccess.license.planChange.actions.current")
+                        : isPaidPlan
+                          ? t("securityAccess.license.planChange.actions.changeTo", { defaultValue: "Switch" })
+                          : t("securityAccess.license.planChange.actions.select");
 
                     return (
                       <div

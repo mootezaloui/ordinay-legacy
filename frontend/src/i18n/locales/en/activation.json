@@ -71,6 +71,12 @@
       "fallbackDate": "2027-01-20"
     }
   },
+  "planChange": {
+    "toast": {
+      "title": "Plan updated",
+      "message": "Your plan has been changed successfully."
+    }
+  },
   "errors": {
     "activationFailed": "Activation failed. Please try again."
   }

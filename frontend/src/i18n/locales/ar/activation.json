@@ -71,6 +71,12 @@
       "fallbackDate": "2027-01-20"
     }
   },
+  "planChange": {
+    "toast": {
+      "title": "تم تحديث الخطة",
+      "message": "تم تغيير خطتك بنجاح."
+    }
+  },
   "errors": {
     "activationFailed": "فشل التفعيل. يرجى المحاولة مرة أخرى."
   }

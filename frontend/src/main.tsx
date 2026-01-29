@@ -13,6 +13,7 @@ import { OperatorProvider } from "./contexts/OperatorContext";
 import { OnboardingProvider } from "./contexts/OnboardingContext";
 import { TutorialProvider } from "./contexts/TutorialContext";
 import { LicenseProvider } from "./contexts/LicenseContext";
+import { ReferralProvider } from "./contexts/ReferralContext";
 import "@fortawesome/fontawesome-free/css/all.min.css";
 import { NotificationDataBridge, NotificationProvider } from "./contexts/NotificationContext";
 import AlertBanner from "./components/notifications/AlertBanner";
@@ -47,17 +48,19 @@ async function bootstrap() {
                         <NotificationProvider>
                           <ToastProvider>
                             <LicenseProvider>
-                              <ConfirmProvider>
-                                <DataProvider>
-                                  <NotificationDataBridge />
-                                  <AlertBanner />
-                                  <SidebarProvider>
-                                    <HashRouter>
-                                      <App />
-                                    </HashRouter>
-                                  </SidebarProvider>
-                                </DataProvider>
-                              </ConfirmProvider>
+                              <ReferralProvider>
+                                <ConfirmProvider>
+                                  <DataProvider>
+                                    <NotificationDataBridge />
+                                    <AlertBanner />
+                                    <SidebarProvider>
+                                      <HashRouter>
+                                        <App />
+                                      </HashRouter>
+                                    </SidebarProvider>
+                                  </DataProvider>
+                                </ConfirmProvider>
+                              </ReferralProvider>
                             </LicenseProvider>
                           </ToastProvider>
                         </NotificationProvider>

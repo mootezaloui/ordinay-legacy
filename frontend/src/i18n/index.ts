@@ -81,6 +81,7 @@ export const initI18n = async (language?: string) => {
           "lock",
           "activation",
           "license",
+          "referrals",
         ],
         defaultNS: "common",
         interpolation: {

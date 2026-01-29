@@ -9,6 +9,7 @@ import SettingsDocuments from '../components/settings/SettingsDocuments';
 import SettingsSecurityAccess from '../components/settings/SettingsSecurityAccess';
 import SettingsAdvanced from '../components/settings/SettingsAdvanced';
 import SettingsUpdates from '../components/settings/SettingsUpdates';
+import SettingsReferrals from '../components/settings/SettingsReferrals';
 import { useLocation } from 'react-router-dom';
 
 export default function Settings() {
@@ -50,6 +51,12 @@ export default function Settings() {
       label: t('domains.updates.label'),
       description: t('domains.updates.description'),
       component: SettingsUpdates,
+    },
+    {
+      id: 'referrals',
+      label: t('domains.referrals.label'),
+      description: t('domains.referrals.description'),
+      component: SettingsReferrals,
     },
     {
       id: 'advanced',
