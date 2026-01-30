@@ -1,8 +1,8 @@
 {
   "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
   "appId": "com.ordinay.desktop",
-  "productName": "Ordinay",
-  "copyright": "Copyright © 2026 Ordinay",
+  "productName": "ORDINAY",
+  "copyright": "Copyright © 2026 Ordinay Team",
   "directories": {
     "buildResources": "build",
     "output": "dist-electron"
@@ -27,6 +27,7 @@
     }
   ],
   "win": {
+    "executableName": "ORDINAY",
     "target": [
       {
         "target": "nsis",

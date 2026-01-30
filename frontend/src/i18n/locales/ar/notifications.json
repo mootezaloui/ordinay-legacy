@@ -239,6 +239,12 @@
     "deadlineApproaching_one": "الموعد النهائي للملف {{dossierNumber}} بعد {{count}} يوم.",
     "deadlineApproaching_other": "الموعد النهائي للملف {{dossierNumber}} بعد {{count}} يوم."
   },
+  "referrals": {
+    "rewardEarned": {
+      "title": "تم الحصول على مكافأة إحالة",
+      "message": "لقد قمت بإحالة عميل جديد بنجاح."
+    }
+  },
   "severity": {
     "success": "نجاح",
     "info": "معلومات",

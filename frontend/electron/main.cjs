@@ -12,6 +12,8 @@ const https = require("https");
 // ============================================================
 // CONFIGURATION
 // ============================================================
+// Windows firewall/protocol prompts pull app branding from the packaged
+// package.json metadata (productName/description/author) via electron-builder.
 
 const isDev = !app.isPackaged;
 // Allow DevTools in packaged builds by default; set ORDINAY_DEVTOOLS=0 to disable.

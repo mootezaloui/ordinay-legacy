@@ -236,6 +236,12 @@
     "deadlineApproaching_one": "Deadline for dossier {{dossierNumber}} is in {{count}} day.",
     "deadlineApproaching_other": "Deadline for dossier {{dossierNumber}} is in {{count}} days."
   },
+  "referrals": {
+    "rewardEarned": {
+      "title": "Referral reward earned",
+      "message": "You successfully referred a new client."
+    }
+  },
   "severity": {
     "success": "Success",
     "info": "Info",

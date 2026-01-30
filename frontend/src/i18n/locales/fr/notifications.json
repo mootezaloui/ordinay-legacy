@@ -236,6 +236,12 @@
     "deadlineApproaching_one": "L'échéance pour le dossier {{dossierNumber}} est dans {{count}} jour.",
     "deadlineApproaching_other": "L'échéance pour le dossier {{dossierNumber}} est dans {{count}} jours."
   },
+  "referrals": {
+    "rewardEarned": {
+      "title": "Récompense de parrainage obtenue",
+      "message": "Vous avez parrainé un nouveau client avec succès."
+    }
+  },
   "severity": {
     "success": "Succès",
     "info": "Info",

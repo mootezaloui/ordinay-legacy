@@ -95,7 +95,7 @@ export default function TitleBar() {
       <div className="titlebar-center">
         <span className="titlebar-brand">
           <span className="titlebar-brand-o">O</span>
-          <span className="titlebar-brand-text">rgania</span>
+          <span className="titlebar-brand-text">rdinay</span>
         </span>
       </div>
 
