@@ -17,8 +17,10 @@ import TableCell from "../components/table/TableCell";
 import TableActions, { IconButton } from "../components/table/TableActions";
 import TableToolbar from "../components/table/TableToolbar";
 import Pagination from "../components/table/Pagination";
+import GridPagination from "../components/table/GridPagination";
 import EntityGrid from "../components/table/EntityGrid";
 import FormModal from "../components/FormModal/FormModal";
+import { useGridPagination } from "../hooks/useGridPagination";
 import StatCard from "../components/dashboard/StatCard";
 import { sessionFormFields } from "../components/FormModal/formConfigs";
 import InlineStatusSelector from "../components/InlineSelectors/InlineStatusSelector";
@@ -234,6 +236,19 @@ export default function Sessions() {
     enableIntelligentOrdering: true,
   });
 
+  // Grid pagination - only used when viewMode === "grid"
+  // Uses layout-aware page sizing: itemsPerPage = columns × rows
+  const gridPagination = useGridPagination(table.allData, {
+    cardWidth: 320,
+    cardHeight: 200,
+    gap: 20,
+    containerPadding: 48,
+  });
+
+  // Choose pagination based on view mode
+  const activePagination = viewMode === "grid" ? gridPagination : table;
+  const displayData = viewMode === "grid" ? gridPagination.data : table.data;
+
   const handleView = (id) => {
     navigate(`/sessions/${id}`);
   };
@@ -357,51 +372,51 @@ export default function Sessions() {
       if (editingSession) {
         updateSession(editingSession.id, formData);
         showToast(t("toasts.updateSuccess"), "success");
-        } else {
-          const creation = await addSession(formData);
-          if (creation?.ok === false) {
-            return;
-          }
-          const createdSession = creation?.created || creation;
-          showToast(t("toasts.createSuccess"), "success");
+      } else {
+        const creation = await addSession(formData);
+        if (creation?.ok === false) {
+          return;
+        }
+        const createdSession = creation?.created || creation;
+        showToast(t("toasts.createSuccess"), "success");
 
-          logEntityCreation("session", createdSession.id, formData.type || "Session");
+        logEntityCreation("session", createdSession.id, formData.type || "Session");
 
-          const sessionTitle = createdSession.title || formData.title || getTypeLabel(formData.type || createdSession.type) || "Session";
-          const hearingLabel = tCommon("detail.history.labels.hearingCreated");
-          const historyLabel = `${hearingLabel}: ${sessionTitle}`;
+        const sessionTitle = createdSession.title || formData.title || getTypeLabel(formData.type || createdSession.type) || "Session";
+        const hearingLabel = tCommon("detail.history.labels.hearingCreated");
+        const historyLabel = `${hearingLabel}: ${sessionTitle}`;
 
-          if (createdSession.lawsuitId) {
-            logHistoryEvent({
-              entityType: "lawsuit",
-              entityId: createdSession.lawsuitId,
-              eventType: EVENT_TYPES.RELATION,
-              label: historyLabel,
-              details: historyLabel,
-              metadata: { childType: "session", childId: createdSession.id },
-            });
-            const caseItem = lawsuits.find((c) => String(c.id) === String(createdSession.lawsuitId));
-            if (caseItem?.dossierId) {
-              const dossierLabel = caseItem.lawsuitNumber ? `${historyLabel} (${caseItem.lawsuitNumber})` : historyLabel;
-              logHistoryEvent({
-                entityType: "dossier",
-                entityId: caseItem.dossierId,
-                eventType: EVENT_TYPES.RELATION,
-                label: dossierLabel,
-                details: dossierLabel,
-                metadata: { childType: "lawsuit", childId: caseItem.id, relatedType: "session", relatedId: createdSession.id },
-              });
-            }
-          } else if (createdSession.dossierId) {
+        if (createdSession.lawsuitId) {
+          logHistoryEvent({
+            entityType: "lawsuit",
+            entityId: createdSession.lawsuitId,
+            eventType: EVENT_TYPES.RELATION,
+            label: historyLabel,
+            details: historyLabel,
+            metadata: { childType: "session", childId: createdSession.id },
+          });
+          const caseItem = lawsuits.find((c) => String(c.id) === String(createdSession.lawsuitId));
+          if (caseItem?.dossierId) {
+            const dossierLabel = caseItem.lawsuitNumber ? `${historyLabel} (${caseItem.lawsuitNumber})` : historyLabel;
             logHistoryEvent({
               entityType: "dossier",
-              entityId: createdSession.dossierId,
+              entityId: caseItem.dossierId,
               eventType: EVENT_TYPES.RELATION,
-              label: historyLabel,
-              details: historyLabel,
-              metadata: { childType: "session", childId: createdSession.id },
+              label: dossierLabel,
+              details: dossierLabel,
+              metadata: { childType: "lawsuit", childId: caseItem.id, relatedType: "session", relatedId: createdSession.id },
             });
           }
+        } else if (createdSession.dossierId) {
+          logHistoryEvent({
+            entityType: "dossier",
+            entityId: createdSession.dossierId,
+            eventType: EVENT_TYPES.RELATION,
+            label: historyLabel,
+            details: historyLabel,
+            metadata: { childType: "session", childId: createdSession.id },
+          });
+        }
 
         // Notify tutorial that a session was created
         if (tutorial?.setCreatedSession) {
@@ -550,11 +565,12 @@ export default function Sessions() {
 
         {viewMode === "grid" ? (
           <EntityGrid
-            data={table.data}
+            data={displayData}
             columns={table.columns}
             onRowClick={(session) => handleView(session.id)}
             getItemEmphasis={table.getItemEmphasis}
             emptyMessage={tableEmptyMessage}
+            containerRef={gridPagination.containerRef}
           />
         ) : (
           <Table>
@@ -565,13 +581,13 @@ export default function Sessions() {
               onSort={table.handleSort}
               onReorder={table.reorderColumns}
               enableReorder={true}
-              isEmpty={table.data.length === 0}
+              isEmpty={displayData.length === 0}
             />
             <TableBody
-              isEmpty={table.data.length === 0}
+              isEmpty={displayData.length === 0}
               emptyMessage={tableEmptyMessage}
             >
-              {table.data.map((session) => (
+              {displayData.map((session) => (
                 <TableRow
                   key={session.id}
                   onClick={() => handleView(session.id)}
@@ -598,14 +614,24 @@ export default function Sessions() {
           </Table>
         )}
 
-        <Pagination
-          currentPage={table.currentPage}
-          totalPages={table.totalPages}
-          totalItems={table.totalItems}
-          itemsPerPage={table.itemsPerPage}
-          onPageChange={table.handlePageChange}
-          onItemsPerPageChange={table.handleItemsPerPageChange}
-        />
+        {viewMode === "grid" ? (
+          <GridPagination
+            currentPage={activePagination.currentPage}
+            totalPages={activePagination.totalPages}
+            totalItems={activePagination.totalItems}
+            itemsPerPage={activePagination.itemsPerPage}
+            onPageChange={activePagination.handlePageChange}
+          />
+        ) : (
+          <Pagination
+            currentPage={activePagination.currentPage}
+            totalPages={activePagination.totalPages}
+            totalItems={activePagination.totalItems}
+            itemsPerPage={activePagination.itemsPerPage}
+            onPageChange={activePagination.handlePageChange}
+            onItemsPerPageChange={table.handleItemsPerPageChange}
+          />
+        )}
       </ContentSection>
 
       <FormModal

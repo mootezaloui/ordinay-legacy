@@ -15,9 +15,11 @@ import TableCell from "../components/table/TableCell";
 import TableActions, { IconButton } from "../components/table/TableActions";
 import TableToolbar from "../components/table/TableToolbar";
 import Pagination from "../components/table/Pagination";
+import GridPagination from "../components/table/GridPagination";
 import EntityGrid from "../components/table/EntityGrid";
 import StatCard from "../components/dashboard/StatCard";
 import FormModal from "../components/FormModal/FormModal";
+import { useGridPagination } from "../hooks/useGridPagination";
 import { lawsuitFormFields } from "../components/FormModal/formConfigs";
 import InlineStatusSelector from "../components/InlineSelectors/InlineStatusSelector";
 import LoadingScreen from "../components/loading/LoadingScreen";
@@ -220,6 +222,19 @@ export default function Lawsuits() {
     enableIntelligentOrdering: true,
   });
 
+  // Grid pagination - only used when viewMode === "grid"
+  // Uses layout-aware page sizing: itemsPerPage = columns × rows
+  const gridPagination = useGridPagination(table.allData, {
+    cardWidth: 320,
+    cardHeight: 200,
+    gap: 20,
+    containerPadding: 48,
+  });
+
+  // Choose pagination based on view mode
+  const activePagination = viewMode === "grid" ? gridPagination : table;
+  const displayData = viewMode === "grid" ? gridPagination.data : table.data;
+
   const headerSubtitle =
     table.isFiltering
       ? t("page.subtitleFiltered", {
@@ -397,15 +412,15 @@ export default function Lawsuits() {
       if (editingLawsuit) {
         await updateLawsuit(editingLawsuit.id, formData);
         showToast(t("toasts.updateSuccess"), "success");
-        } else {
-          const creation = await addLawsuit(formData);
-          if (creation?.ok === false) {
-            return;
-          }
-          const createdEntity = creation?.created || creation;
-          const createdId = createdEntity?.id;
-          const createdRef = createdEntity?.lawsuitNumber || createdEntity?.reference || formData.lawsuitNumber;
-          if (!createdId) throw new Error(t("toasts.missingId"));
+      } else {
+        const creation = await addLawsuit(formData);
+        if (creation?.ok === false) {
+          return;
+        }
+        const createdEntity = creation?.created || creation;
+        const createdId = createdEntity?.id;
+        const createdRef = createdEntity?.lawsuitNumber || createdEntity?.reference || formData.lawsuitNumber;
+        if (!createdId) throw new Error(t("toasts.missingId"));
         showToast(t("toasts.createSuccess"), "success");
 
         logEntityCreation("lawsuit", createdId, createdRef);
@@ -541,32 +556,33 @@ export default function Lawsuits() {
       </div>
 
       <ContentSection>
-          <TableToolbar
-            searchQuery={table.searchQuery}
-            onSearchChange={table.setSearchQuery}
-            columns={table.allColumns}
-            visibleColumns={table.visibleColumns}
-            onToggleColumn={table.toggleColumnVisibility}
-            onResetColumns={table.resetColumns}
-            onExport={handleExport}
-            totalItems={table.originalTotalItems}
-            filteredItems={table.totalItems}
-            isFiltering={table.isFiltering}
-            sortBy={table.sortBy}
-            sortDirection={table.sortDirection}
-            onSort={table.handleSort}
-            onResetSort={table.resetToIntelligentOrder}
-            viewMode={viewMode}
-            onViewModeChange={setViewMode}
-          />
+        <TableToolbar
+          searchQuery={table.searchQuery}
+          onSearchChange={table.setSearchQuery}
+          columns={table.allColumns}
+          visibleColumns={table.visibleColumns}
+          onToggleColumn={table.toggleColumnVisibility}
+          onResetColumns={table.resetColumns}
+          onExport={handleExport}
+          totalItems={table.originalTotalItems}
+          filteredItems={table.totalItems}
+          isFiltering={table.isFiltering}
+          sortBy={table.sortBy}
+          sortDirection={table.sortDirection}
+          onSort={table.handleSort}
+          onResetSort={table.resetToIntelligentOrder}
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
+        />
 
         {viewMode === "grid" ? (
           <EntityGrid
-            data={table.data}
+            data={displayData}
             columns={table.columns}
             onRowClick={(lawsuitItem) => handleView(lawsuitItem.id)}
             getItemEmphasis={table.getItemEmphasis}
             emptyMessage={tableEmptyMessage}
+            containerRef={gridPagination.containerRef}
           />
         ) : (
           <Table>
@@ -577,10 +593,10 @@ export default function Lawsuits() {
               onSort={table.handleSort}
               onReorder={table.reorderColumns}
               enableReorder={true}
-              isEmpty={table.data.length === 0}
+              isEmpty={displayData.length === 0}
             />
-            <TableBody isEmpty={table.data.length === 0} emptyMessage={tableEmptyMessage}>
-              {table.data.map((lawsuitItem) => (
+            <TableBody isEmpty={displayData.length === 0} emptyMessage={tableEmptyMessage}>
+              {displayData.map((lawsuitItem) => (
                 <TableRow
                   key={lawsuitItem.id}
                   onClick={() => handleView(lawsuitItem.id)}
@@ -607,15 +623,25 @@ export default function Lawsuits() {
           </Table>
         )}
 
-      <Pagination
-        currentPage={table.currentPage}
-        totalPages={table.totalPages}
-        totalItems={table.totalItems}
-        itemsPerPage={table.itemsPerPage}
-        onPageChange={table.handlePageChange}
-        onItemsPerPageChange={table.handleItemsPerPageChange}
-      />
-    </ContentSection>
+        {viewMode === "grid" ? (
+          <GridPagination
+            currentPage={activePagination.currentPage}
+            totalPages={activePagination.totalPages}
+            totalItems={activePagination.totalItems}
+            itemsPerPage={activePagination.itemsPerPage}
+            onPageChange={activePagination.handlePageChange}
+          />
+        ) : (
+          <Pagination
+            currentPage={activePagination.currentPage}
+            totalPages={activePagination.totalPages}
+            totalItems={activePagination.totalItems}
+            itemsPerPage={activePagination.itemsPerPage}
+            onPageChange={activePagination.handlePageChange}
+            onItemsPerPageChange={table.handleItemsPerPageChange}
+          />
+        )}
+      </ContentSection>
 
       <FormModal
         isOpen={isModalOpen}

@@ -15,8 +15,10 @@ import TableCell from "../components/table/TableCell";
 import TableActions, { IconButton } from "../components/table/TableActions";
 import TableToolbar from "../components/table/TableToolbar";
 import Pagination from "../components/table/Pagination";
+import GridPagination from "../components/table/GridPagination";
 import EntityGrid from "../components/table/EntityGrid";
 import FormModal from "../components/FormModal/FormModal";
+import { useGridPagination } from "../hooks/useGridPagination";
 import StatCard from "../components/dashboard/StatCard";
 import InlineStatusSelector from "../components/InlineSelectors/InlineStatusSelector";
 import LoadingScreen from "../components/loading/LoadingScreen";
@@ -184,6 +186,19 @@ export default function Clients() {
     entityType: "client",
     enableIntelligentOrdering: true,
   });
+
+  // Grid pagination - only used when viewMode === "grid"
+  // Uses layout-aware page sizing: itemsPerPage = columns × rows
+  const gridPagination = useGridPagination(table.allData, {
+    cardWidth: 320,
+    cardHeight: 200,
+    gap: 20,
+    containerPadding: 48,
+  });
+
+  // Choose pagination based on view mode
+  const activePagination = viewMode === "grid" ? gridPagination : table;
+  const displayData = viewMode === "grid" ? gridPagination.data : table.data;
 
   if (loading) {
     return (
@@ -390,20 +405,20 @@ export default function Clients() {
       if (editingClient) {
         await updateClient(editingClient.id, formData);
         showToast(t("toasts.updateSuccess"), "success");
-        } else {
-          const newClient = {
-            ...formData,
-            joinDate: formData.joinDate || new Date().toISOString().split('T')[0],
-          };
-          const creation = await addClient(newClient);
-          if (creation?.ok === false) {
-            return;
-          }
-          const createdEntity = creation?.created || creation;
-          const createdId = createdEntity?.id;
-          const createdName = createdEntity?.name || formData.name;
-          if (!createdId) {
-            showToast(t("toasts.createMissingId"), "warning");
+      } else {
+        const newClient = {
+          ...formData,
+          joinDate: formData.joinDate || new Date().toISOString().split('T')[0],
+        };
+        const creation = await addClient(newClient);
+        if (creation?.ok === false) {
+          return;
+        }
+        const createdEntity = creation?.created || creation;
+        const createdId = createdEntity?.id;
+        const createdName = createdEntity?.name || formData.name;
+        if (!createdId) {
+          showToast(t("toasts.createMissingId"), "warning");
           return;
         }
         showToast(t("toasts.createSuccess"), "success");
@@ -578,15 +593,16 @@ export default function Clients() {
 
         {viewMode === "grid" ? (
           <EntityGrid
-            data={table.data}
+            data={displayData}
             columns={table.columns}
             onRowClick={(client) => handleView(client.id)}
             getItemEmphasis={table.getItemEmphasis}
             emptyMessage={tableEmptyMessage}
+            containerRef={gridPagination.containerRef}
           />
         ) : (
           <Table>
-            {table.data.length > 0 && (
+            {displayData.length > 0 && (
               <AdvancedTableHeader
                 columns={table.columns}
                 sortBy={table.sortBy}
@@ -597,10 +613,10 @@ export default function Clients() {
               />
             )}
             <TableBody
-              isEmpty={table.data.length === 0}
+              isEmpty={displayData.length === 0}
               emptyMessage={tableEmptyMessage}
             >
-              {table.data.map((client) => (
+              {displayData.map((client) => (
                 <TableRow
                   key={client.id}
                   onClick={() => handleView(client.id)}
@@ -627,15 +643,25 @@ export default function Clients() {
           </Table>
         )}
 
-      <Pagination
-        currentPage={table.currentPage}
-        totalPages={table.totalPages}
-        totalItems={table.totalItems}
-        itemsPerPage={table.itemsPerPage}
-        onPageChange={table.handlePageChange}
-        onItemsPerPageChange={table.handleItemsPerPageChange}
-      />
-    </ContentSection>
+        {viewMode === "grid" ? (
+          <GridPagination
+            currentPage={activePagination.currentPage}
+            totalPages={activePagination.totalPages}
+            totalItems={activePagination.totalItems}
+            itemsPerPage={activePagination.itemsPerPage}
+            onPageChange={activePagination.handlePageChange}
+          />
+        ) : (
+          <Pagination
+            currentPage={activePagination.currentPage}
+            totalPages={activePagination.totalPages}
+            totalItems={activePagination.totalItems}
+            itemsPerPage={activePagination.itemsPerPage}
+            onPageChange={activePagination.handlePageChange}
+            onItemsPerPageChange={table.handleItemsPerPageChange}
+          />
+        )}
+      </ContentSection>
 
       <LegacyImportModal
         isOpen={importModalOpen}

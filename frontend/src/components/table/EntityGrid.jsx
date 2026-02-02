@@ -14,6 +14,7 @@ export default function EntityGrid({
   getItemEmphasis,
   emptyMessage = null,
   className = "",
+  containerRef = null, // Ref for measuring container dimensions
 }) {
   if (!data.length) {
     return (
@@ -24,7 +25,7 @@ export default function EntityGrid({
   }
 
   return (
-    <div className={`px-4 lg:px-6 py-6 ${className}`}>
+    <div ref={containerRef} className={`px-4 lg:px-6 py-6 ${className}`}>
       <div className="grid gap-4 lg:gap-5 xl:gap-6" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))' }}>
         {data.map((item, index) => {
           const cells = buildCardCellsFromColumns(columns, item);
@@ -37,8 +38,8 @@ export default function EntityGrid({
               onClick={
                 onRowClick
                   ? () => {
-                      onRowClick(item);
-                    }
+                    onRowClick(item);
+                  }
                   : undefined
               }
             />

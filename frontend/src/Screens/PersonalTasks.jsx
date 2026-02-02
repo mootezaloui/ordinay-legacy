@@ -16,8 +16,10 @@ import TableCell from "../components/table/TableCell";
 import TableActions, { IconButton } from "../components/table/TableActions";
 import TableToolbar from "../components/table/TableToolbar";
 import Pagination from "../components/table/Pagination";
+import GridPagination from "../components/table/GridPagination";
 import EntityGrid from "../components/table/EntityGrid";
 import FormModal from "../components/FormModal/FormModal";
+import { useGridPagination } from "../hooks/useGridPagination";
 import { resolveDetailRoute } from "../utils/routeResolver";
 import { getStatusColor } from "../components/DetailView/config/statusColors";
 import { logEntityCreation } from "../services/historyService";
@@ -659,6 +661,19 @@ export default function PersonalTasks() {
     enableIntelligentOrdering: true,
   });
 
+  // Grid pagination - only used when viewMode === "grid"
+  // Uses layout-aware page sizing: itemsPerPage = columns × rows
+  const gridPagination = useGridPagination(table.allData, {
+    cardWidth: 320,
+    cardHeight: 200,
+    gap: 20,
+    containerPadding: 48,
+  });
+
+  // Choose pagination based on view mode
+  const activePagination = viewMode === "grid" ? gridPagination : table;
+  const displayData = viewMode === "grid" ? gridPagination.data : table.data;
+
   const headerSubtitle = table.isFiltering
     ? t("page.subtitleFiltered", {
       total: table.originalTotalItems,
@@ -943,11 +958,12 @@ export default function PersonalTasks() {
 
           {viewMode === "grid" ? (
             <EntityGrid
-              data={table.data}
+              data={displayData}
               columns={table.columns}
               onRowClick={(task) => handleView(task.id)}
               getItemEmphasis={table.getItemEmphasis}
               emptyMessage={tableEmptyMessage}
+              containerRef={gridPagination.containerRef}
             />
           ) : (
             <Table>
@@ -958,29 +974,29 @@ export default function PersonalTasks() {
                 onSort={table.handleSort}
                 onReorder={table.reorderColumns}
                 enableReorder={true}
-                isEmpty={table.data.length === 0}
+                isEmpty={displayData.length === 0}
               />
-              <TableBody isEmpty={table.data.length === 0} emptyMessage={tableEmptyMessage}>
-                {table.data.map((task) => (
+              <TableBody isEmpty={displayData.length === 0} emptyMessage={tableEmptyMessage}>
+                {displayData.map((task) => (
                   <TableRow
                     key={task.id}
                     onClick={() => handleView(task.id)}
                     emphasis={table.getItemEmphasis(task)}
                     className="cursor-pointer"
                   >
-                      {table.columns.map((column) => (
-                        <TableCell
-                          key={column.id}
-                          columnId={column.id}
-                          mobileLabel={column.label}
-                          mobileRole={column.mobileRole}
-                          mobilePriority={column.mobilePriority}
-                          mobileHidden={column.mobileHidden}
-                          truncate={!['status', 'priority'].includes(column.id)}
-                          adaptive={['status', 'priority'].includes(column.id)}
-                        >
-                          {column.render ? column.render(task) : task[column.id]}
-                        </TableCell>
+                    {table.columns.map((column) => (
+                      <TableCell
+                        key={column.id}
+                        columnId={column.id}
+                        mobileLabel={column.label}
+                        mobileRole={column.mobileRole}
+                        mobilePriority={column.mobilePriority}
+                        mobileHidden={column.mobileHidden}
+                        truncate={!['status', 'priority'].includes(column.id)}
+                        adaptive={['status', 'priority'].includes(column.id)}
+                      >
+                        {column.render ? column.render(task) : task[column.id]}
+                      </TableCell>
                     ))}
                   </TableRow>
                 ))}
@@ -988,14 +1004,24 @@ export default function PersonalTasks() {
             </Table>
           )}
 
-          <Pagination
-            currentPage={table.currentPage}
-            totalPages={table.totalPages}
-            totalItems={table.totalItems}
-            itemsPerPage={table.itemsPerPage}
-            onPageChange={table.handlePageChange}
-            onItemsPerPageChange={table.handleItemsPerPageChange}
-          />
+          {viewMode === "grid" ? (
+            <GridPagination
+              currentPage={activePagination.currentPage}
+              totalPages={activePagination.totalPages}
+              totalItems={activePagination.totalItems}
+              itemsPerPage={activePagination.itemsPerPage}
+              onPageChange={activePagination.handlePageChange}
+            />
+          ) : (
+            <Pagination
+              currentPage={activePagination.currentPage}
+              totalPages={activePagination.totalPages}
+              totalItems={activePagination.totalItems}
+              itemsPerPage={activePagination.itemsPerPage}
+              onPageChange={activePagination.handlePageChange}
+              onItemsPerPageChange={table.handleItemsPerPageChange}
+            />
+          )}
         </ContentSection>
 
         <FormModal
