@@ -1,0 +1,123 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AgentDraftOutput",
+  "description": "Structured draft output. NO free-form text outside sections. All content in header/body/footer.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "type",
+    "language",
+    "tone",
+    "sections",
+    "metadata"
+  ],
+  "properties": {
+    "type": {
+      "type": "string",
+      "enum": [
+        "INVITATION",
+        "CLIENT_EMAIL",
+        "HEARING_SUMMARY",
+        "INTERNAL_NOTE"
+      ],
+      "description": "Draft type from DRAFT_TYPE enum. NO free-text."
+    },
+    "language": {
+      "type": "string",
+      "pattern": "^[a-z]{2}$",
+      "description": "ISO 639-1 two-letter language code (e.g., 'en', 'fr')"
+    },
+    "tone": {
+      "type": "string",
+      "enum": ["FORMAL", "NEUTRAL"],
+      "description": "Draft tone. Affects formality and style."
+    },
+    "sections": {
+      "type": "object",
+      "description": "Structured draft sections. ALL content must be in these sections.",
+      "required": ["header", "body", "footer"],
+      "additionalProperties": false,
+      "properties": {
+        "header": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Header section: recipient, subject, date, greeting, etc."
+        },
+        "body": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Main content body"
+        },
+        "footer": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Footer section: closing, signature, etc."
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Draft metadata",
+      "required": ["source", "status", "requiresValidation", "createdAt"],
+      "additionalProperties": false,
+      "properties": {
+        "source": {
+          "type": "string",
+          "enum": ["rule-based", "llm"],
+          "description": "Source of draft generation"
+        },
+        "status": {
+          "type": "string",
+          "const": "draft",
+          "description": "Always 'draft' - human must review and approve"
+        },
+        "requiresValidation": {
+          "type": "boolean",
+          "const": true,
+          "description": "Always true - human validation required"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When draft was created"
+        }
+      }
+    },
+    "recipient": {
+      "type": ["object", "null"],
+      "description": "Optional recipient information",
+      "properties": {
+        "clientId": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "name": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string",
+          "format": "email"
+        }
+      }
+    },
+    "context": {
+      "type": ["object", "null"],
+      "description": "Optional context (dossier, lawsuit, session references)",
+      "properties": {
+        "dossierId": {
+          "type": ["integer", "null"]
+        },
+        "lawsuitId": {
+          "type": ["integer", "null"]
+        },
+        "sessionId": {
+          "type": ["integer", "null"]
+        },
+        "reference": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}
+

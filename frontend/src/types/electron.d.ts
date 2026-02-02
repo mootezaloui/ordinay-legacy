@@ -9,6 +9,8 @@ export interface BackendConfig {
   port: number;
   baseUrl: string;
   apiUrl: string;
+  /** HTTP URL for features that require direct HTTP (like SSE streaming) */
+  httpApiUrl?: string;
   /** When true the renderer should use apiRequest() IPC instead of HTTP fetch */
   useIPC?: boolean;
 }

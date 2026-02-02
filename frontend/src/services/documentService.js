@@ -19,7 +19,7 @@ import {
   getMimeType,
 } from "../models/Document.js";
 import { LocalStorageProvider } from "./storage/LocalStorageProvider.js";
-import { getApiBase } from "../lib/apiConfig";
+import { apiClient } from "./api/client";
 import { getAppLicenseState } from "./licenseService";
 
 const isLicenseLocked = () =>
@@ -33,14 +33,6 @@ class DocumentService {
   constructor() {
     // Default to local storage provider (file blobs only)
     this.storageProvider = new LocalStorageProvider();
-  }
-
-  /**
-   * Gets the API base URL dynamically
-   * @private
-   */
-  getApiBase() {
-    return getApiBase();
   }
 
   /**
@@ -102,17 +94,7 @@ class DocumentService {
     }
 
     console.debug("[DocumentService] Upload document payload:", payload);
-    const response = await fetch(`${this.getApiBase()}/documents`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Backend API error: ${response.status}`);
-    }
-
-    return response.json();
+    return apiClient.post("/documents", payload);
   }
 
   /**
@@ -256,15 +238,7 @@ class DocumentService {
       } else {
         entityField = `${entityType}_id`;
       }
-      const response = await fetch(
-        `${this.getApiBase()}/documents?${entityField}=${entityId}`,
-      );
-
-      if (!response.ok) {
-        throw new Error(`Backend API error: ${response.status}`);
-      }
-
-      const backendDocs = await response.json();
+      const backendDocs = await apiClient.get(`/documents?${entityField}=${entityId}`);
 
       // Transform backend documents to frontend format
       return backendDocs.map((doc) => this.transformBackendDocument(doc));
@@ -306,19 +280,7 @@ class DocumentService {
    */
   async getDocumentById(documentId) {
     try {
-      const response = await fetch(
-        `${this.getApiBase()}/documents/${documentId}`,
-      );
-
-      if (response.status === 404) {
-        return null;
-      }
-
-      if (!response.ok) {
-        throw new Error(`Backend API error: ${response.status}`);
-      }
-
-      const backendDoc = await response.json();
+      const backendDoc = await apiClient.get(`/documents/${documentId}`);
       return this.transformBackendDocument(backendDoc);
     } catch (error) {
       console.error("DocumentService: Failed to fetch document by ID", error);
@@ -392,17 +354,7 @@ class DocumentService {
       if (!document) return false;
 
       // 1. Soft-delete metadata in backend (always happens)
-      const response = await fetch(
-        `${this.getApiBase()}/documents/${documentId}`,
-        {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-        },
-      );
-
-      if (!response.ok) {
-        throw new Error(`Backend API error: ${response.status}`);
-      }
+      await apiClient.delete(`/documents/${documentId}`);
 
       // 2. Optionally delete file blob from IndexedDB
       if (deleteFile && document.storagePath) {
@@ -562,22 +514,11 @@ class DocumentService {
       if (!storageResult.success) return false;
 
       // Update document metadata in backend
-      const response = await fetch(
-        `${this.getApiBase()}/documents/${documentId}`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            file_path: storageResult.path,
-            mime_type: newFile.type || getMimeType(extension),
-            size_bytes: newFile.size,
-          }),
-        },
-      );
-
-      if (!response.ok) {
-        throw new Error(`Backend API error: ${response.status}`);
-      }
+      await apiClient.put(`/documents/${documentId}`, {
+        file_path: storageResult.path,
+        mime_type: newFile.type || getMimeType(extension),
+        size_bytes: newFile.size,
+      });
 
       return true;
     } catch (error) {

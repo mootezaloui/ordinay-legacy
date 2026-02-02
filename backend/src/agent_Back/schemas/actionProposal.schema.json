@@ -1,0 +1,123 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ActionProposal",
+  "description": "Action proposal contract. Proposals are data, NOT commands. No execution without explicit confirmation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "proposalId",
+    "actionType",
+    "toolCategory",
+    "params",
+    "reversible",
+    "requiresConfirmation",
+    "humanReadableSummary",
+    "affectedEntities",
+    "status",
+    "proposedAt"
+  ],
+  "properties": {
+    "proposalId": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Unique proposal identifier"
+    },
+    "actionType": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Action type (must match tool name)"
+    },
+    "toolCategory": {
+      "type": "string",
+      "enum": ["read", "analysis", "draft", "execute"],
+      "description": "Tool category"
+    },
+    "params": {
+      "type": "object",
+      "description": "Action parameters (validated against tool input schema)"
+    },
+    "reversible": {
+      "type": "boolean",
+      "description": "Whether action can be reversed/undone"
+    },
+    "requiresConfirmation": {
+      "type": "boolean",
+      "description": "Whether action requires explicit user confirmation. MUST be true for execute tools."
+    },
+    "humanReadableSummary": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Human-readable description of what this action will do"
+    },
+    "affectedEntities": {
+      "type": "array",
+      "description": "Entities that will be affected by this action",
+      "items": {
+        "type": "object",
+        "required": ["type", "id"],
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "Entity type (dossier, lawsuit, task, etc.)"
+          },
+          "id": {
+            "type": ["integer", "string"],
+            "description": "Entity ID"
+          },
+          "name": {
+            "type": "string",
+            "description": "Optional entity name for context"
+          }
+        }
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "PROPOSED",
+        "PERMITTED",
+        "BLOCKED",
+        "CONFIRMED",
+        "REJECTED",
+        "EXECUTED",
+        "FAILED"
+      ],
+      "description": "Proposal status"
+    },
+    "blockedReason": {
+      "type": ["string", "null"],
+      "description": "If BLOCKED, the reason why (VERSION_NOT_ALLOWED, CATEGORY_NOT_ALLOWED, etc.)"
+    },
+    "suggestedAlternative": {
+      "type": ["object", "null"],
+      "description": "If BLOCKED, suggested alternative action",
+      "properties": {
+        "actionType": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        }
+      }
+    },
+    "proposedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When proposal was created"
+    },
+    "confirmedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When proposal was confirmed (if status is CONFIRMED or EXECUTED)"
+    },
+    "executedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When action was executed (if status is EXECUTED)"
+    },
+    "executionResult": {
+      "type": "object",
+      "description": "Result of execution (if status is EXECUTED or FAILED)"
+    }
+  }
+}

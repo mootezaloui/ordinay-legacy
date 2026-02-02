@@ -23,6 +23,14 @@ import { initializeApiConfig } from "./lib/apiConfig";
 import "./index.css";
 import App from "./App";
 
+// Synchronously apply the titlebar class BEFORE React renders.
+// TitleBar.jsx also does this via useEffect, but that fires AFTER the first
+// paint, causing --titlebar-height to jump from 0→40px mid-transition and
+// creating a visible layout gap. Doing it here avoids the flash entirely.
+if (window.electronAPI) {
+  document.documentElement.classList.add("has-titlebar");
+}
+
 // Initialize API configuration before rendering
 // This is critical for Electron where the backend port is dynamic
 async function bootstrap() {

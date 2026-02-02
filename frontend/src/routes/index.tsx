@@ -25,6 +25,7 @@ import NotificationCenter from "../components/notifications/NotificationCenter";
 import DetailView from "../components/DetailView/DetailView";
 import { FEATURE_AI_AGENT } from "../config/features";
 import { t } from "../i18n";
+import AgentScreen from "../Agent_front/AgentScreen";
 
 /**
  * Route configuration type
@@ -37,7 +38,9 @@ export interface RouteConfig {
   label?: string;
 }
 
-let ChatBotRouteComponent: RouteConfig["component"] = ComingSoonAI;
+let ChatBotRouteComponent: RouteConfig["component"] = FEATURE_AI_AGENT
+  ? AgentScreen
+  : ComingSoonAI;
 
 /**
  * Route configuration array
@@ -177,7 +180,9 @@ export const routes: RouteConfig[] = [
     component: ChatBotRouteComponent,
     name: "ChatBot",
     icon: "fas fa-robot",
-    label: "Ordinay Intelligence (Coming Soon)",
+    label: FEATURE_AI_AGENT
+      ? "Ordinay Intelligence"
+      : "Ordinay Intelligence (Coming Soon)",
   },
   {
     path: "/profile",

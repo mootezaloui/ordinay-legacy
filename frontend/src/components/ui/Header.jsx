@@ -44,7 +44,7 @@ export default function HeaderBar() {
   return (
     <header className={`bg-white/70 dark:bg-slate-900/70 backdrop-blur-sm text-slate-800 dark:text-slate-100 transition-all duration-300 z-30 titlebar-offset-top sticky inset-x-0 md:fixed ${isCollapsed ? "md:left-20" : "md:left-64"}`}>
       <div className="w-full px-4 sm:px-6 lg:px-8">
-        <div className="relative flex items-center h-14 gap-4">
+        <div className="relative flex items-center h-14 gap-3">
           {/* Left section */}
           <div className="flex items-center gap-3 flex-1">
             <button

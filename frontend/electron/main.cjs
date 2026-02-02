@@ -1,7 +1,14 @@
 // Electron Main Process for Ordinay
 // Desktop Foundation Layer
 
-const { app, BrowserWindow, ipcMain, shell, Menu, nativeImage } = require("electron");
+const {
+  app,
+  BrowserWindow,
+  ipcMain,
+  shell,
+  Menu,
+  nativeImage,
+} = require("electron");
 const path = require("path");
 const { spawn } = require("child_process");
 const net = require("net");
@@ -24,7 +31,7 @@ const APP_USER_MODEL_ID = "com.ordinay.desktop";
 // Ensure Chromium uses non-overlay scrollbars so CSS styling applies.
 app.commandLine.appendSwitch(
   "disable-features",
-  "OverlayScrollbar,OverlayScrollbarWinStyle,OverlayScrollbarMacStyle,OverlayScrollbarFluentScrollbar"
+  "OverlayScrollbar,OverlayScrollbarWinStyle,OverlayScrollbarMacStyle,OverlayScrollbarFluentScrollbar",
 );
 
 if (process.platform === "win32") {
@@ -244,7 +251,7 @@ function getNodePath() {
 
     if (!fs.existsSync(bundledNodePath)) {
       throw new Error(
-        `[Electron] Bundled Node.js not found at: ${bundledNodePath}`
+        `[Electron] Bundled Node.js not found at: ${bundledNodePath}`,
       );
     }
 
@@ -271,10 +278,16 @@ async function startBackend() {
     fs.unlinkSync(backendPipePath);
   }
 
+  // Set a fixed port for HTTP streaming (localhost only, won't trigger firewall)
+  backendPort = 3000;
+
   const backendPath = getBackendPath();
   const serverScript = path.join(backendPath, "src", "server.js");
 
   console.log(`[Electron] Starting backend on pipe ${backendPipePath}`);
+  console.log(
+    `[Electron] Backend will also listen on HTTP port ${backendPort} for streaming`,
+  );
   console.log(`[Electron] Backend path: ${backendPath}`);
   console.log(`[Electron] Server script: ${serverScript}`);
 
@@ -287,6 +300,7 @@ async function startBackend() {
   const env = {
     ...process.env,
     ORDINAY_PIPE: backendPipePath,
+    PORT: backendPort.toString(),
     DB_FILE: DB_PATH,
     NODE_ENV: isDev ? "development" : "production",
   };
@@ -329,7 +343,9 @@ async function startBackend() {
   // Wait for backend to be ready
   await waitForBackend();
 
-  console.log(`[Electron] Backend started successfully on pipe ${backendPipePath}`);
+  console.log(
+    `[Electron] Backend started successfully on pipe ${backendPipePath}`,
+  );
   // No port is returned — communication goes through the named pipe
 }
 
@@ -402,7 +418,9 @@ function stopBackend() {
   if (backendPipePath && process.platform !== "win32") {
     try {
       if (fs.existsSync(backendPipePath)) fs.unlinkSync(backendPipePath);
-    } catch { /* best effort */ }
+    } catch {
+      /* best effort */
+    }
   }
 }
 
@@ -770,8 +788,19 @@ function resolveWindowIcon() {
 
   if (isDev) {
     // Development: try ICO first, fall back to PNG if needed
-    const icoPath = path.resolve(__dirname, "..", "build", "Light_mode_icon.ico");
-    const pngPath = path.resolve(__dirname, "..", "build", "icons", "256x256.png");
+    const icoPath = path.resolve(
+      __dirname,
+      "..",
+      "build",
+      "Light_mode_icon.ico",
+    );
+    const pngPath = path.resolve(
+      __dirname,
+      "..",
+      "build",
+      "icons",
+      "256x256.png",
+    );
 
     console.log(`[Electron] Attempting to load dev icon...`);
 
@@ -868,8 +897,11 @@ function setupIPC() {
   ipcMain.handle("get-backend-config", () => {
     return {
       port: backendPort ?? 0,
-      baseUrl: backendPipePath ? `pipe://${backendPipePath}` : `http://localhost:${backendPort}`,
+      baseUrl: backendPipePath
+        ? `pipe://${backendPipePath}`
+        : `http://localhost:${backendPort}`,
       apiUrl: backendPipePath ? "ipc" : `http://localhost:${backendPort}/api`,
+      httpApiUrl: `http://localhost:${backendPort}/api`, // Always provide HTTP URL for streaming
       useIPC: true, // signals to renderer that IPC transport is available
     };
   });
@@ -885,8 +917,14 @@ function setupIPC() {
       const result = await proxyApiRequest(method, url, body);
       return result;
     } catch (error) {
-      console.error(`[IPC api-request] ${method} ${url} failed:`, error?.message || error);
-      return { status: 500, data: { message: error?.message || "Internal proxy error" } };
+      console.error(
+        `[IPC api-request] ${method} ${url} failed:`,
+        error?.message || error,
+      );
+      return {
+        status: 500,
+        data: { message: error?.message || "Internal proxy error" },
+      };
     }
   });
 
@@ -1038,9 +1076,15 @@ app.whenReady().then(async () => {
 
     // Guardrail: confirm no TCP port is being used
     if (backendPipePath && !backendPort) {
-      console.log("[Electron] Backend transport: named pipe (no TCP port opened)");
+      console.log(
+        "[Electron] Backend transport: named pipe (no TCP port opened)",
+      );
     } else if (backendPort) {
-      console.warn("[Electron] Backend transport: TCP port", backendPort, "(firewall prompt may appear)");
+      console.warn(
+        "[Electron] Backend transport: TCP port",
+        backendPort,
+        "(firewall prompt may appear)",
+      );
     }
 
     // Register custom protocol for activation deep link
@@ -1055,7 +1099,7 @@ app.whenReady().then(async () => {
     // On Windows/Linux, when the app is launched fresh via a protocol URL (e.g. ordinay://install?ref=...),
     // the URL is passed as a command-line argument. Queue it for delivery once the renderer is ready.
     const protocolArg = process.argv.find((arg) =>
-      arg.startsWith(`${ACTIVATION_PROTOCOL}://`)
+      arg.startsWith(`${ACTIVATION_PROTOCOL}://`),
     );
     if (protocolArg) {
       deferredProtocolUrl = protocolArg;

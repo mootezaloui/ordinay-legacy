@@ -6,7 +6,7 @@
  */
 
 import { apiClient } from './client';
-import { getApiBase } from '../../lib/apiConfig';
+import { getApiBase, getBackendConfig, isElectron } from '../../lib/apiConfig';
 
 // Context scopes supported by the agent
 export type ContextScope = 'GLOBAL' | 'CLIENT' | 'DOSSIER' | 'lawsuit' | 'SESSION' | 'TASK';
@@ -369,7 +369,23 @@ export function streamAgentMessage(
   // Start streaming in background
   (async () => {
     try {
-      const apiBase = getApiBase();
+      // SSE streaming requires a direct HTTP connection; it cannot be proxied
+      // through Electron IPC. In Electron mode, we use the HTTP URL directly.
+      let apiBase = getApiBase();
+      
+      if (isElectron()) {
+        const backendConfig = getBackendConfig();
+        if (backendConfig?.httpApiUrl) {
+          // Use the HTTP URL for streaming
+          apiBase = backendConfig.httpApiUrl;
+        } else if (backendConfig?.apiUrl && !backendConfig.apiUrl.startsWith('ipc')) {
+          apiBase = backendConfig.apiUrl;
+        } else {
+          callbacks.onError?.('Agent streaming requires HTTP connection. Backend not accessible via HTTP.');
+          return;
+        }
+      }
+      
       console.log('[SSE Client] Starting fetch to:', `${apiBase}/agent/stream`);
       const response = await fetch(`${apiBase}/agent/stream`, {
         method: 'POST',
