@@ -30,11 +30,29 @@ const { TOOL_CATEGORIES } = require('./tool.registry');
 const TOOL_DOMAIN_MAP = Object.freeze({
   // READ tools
   getClient: 'clients',
+  listClients: 'clients',
+  searchClientsByName: 'clients',
   getDossier: 'dossiers',
+  getDossierByReference: 'dossiers',
+  listDossiers: 'dossiers',
+  listDossiersForClient: 'dossiers',
   getLawsuit: 'lawsuits',
+  listLawsuits: 'lawsuits',
   getSession: 'sessions',
+  listSessions: 'sessions',
   listTasks: 'tasks',
+  getTask: 'tasks',
   getTimeline: 'dossiers', // Timeline is dossier-scoped
+  listPersonalTasks: 'personalTasks',
+  getPersonalTask: 'personalTasks',
+  listMissions: 'missions',
+  getMission: 'missions',
+  listFinancialEntries: 'financialEntries',
+  getFinancialEntry: 'financialEntries',
+  listNotifications: 'notifications',
+  getNotification: 'notifications',
+  listHistoryEvents: 'history',
+  getHistoryEvent: 'history',
 
   // ANALYSIS tools
   detectOverdueTasks: 'tasks',
@@ -67,6 +85,9 @@ const DATA_DOMAINS = Object.freeze({
   DOCUMENTS: 'documents',
   PERSONAL_TASKS: 'personalTasks',
   MISSIONS: 'missions',
+  FINANCIAL_ENTRIES: 'financialEntries',
+  NOTIFICATIONS: 'notifications',
+  HISTORY: 'history',
 });
 
 class ToolFirewall {

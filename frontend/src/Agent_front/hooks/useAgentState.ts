@@ -12,6 +12,9 @@ const DEFAULT_DATA_ACCESS: DataAccessPermissions = {
   personalTasks: true,
   missions: true,
   sessions: true,
+  financialEntries: true,
+  notifications: true,
+  history: true,
   documents: true,
 };
 
@@ -19,14 +22,34 @@ const DEFAULT_DATA_ACCESS: DataAccessPermissions = {
 const DATA_ACCESS_STORAGE_KEY = 'organia_agent_data_access';
 const HISTORY_SIDEBAR_BREAKPOINT = 1024; // lg
 const CONTEXT_SIDEBAR_BREAKPOINT = 1536; // 2xl
+const HISTORY_SIDEBAR_STORAGE_KEY = "organia_agent_history_sidebar";
+const CONTEXT_SIDEBAR_STORAGE_KEY = "organia_agent_context_sidebar";
 
 function getInitialSidebarVisibility() {
   if (typeof window === "undefined") {
     return { showHistory: true, showContext: true };
   }
-  const showHistory = window.matchMedia(`(min-width: ${HISTORY_SIDEBAR_BREAKPOINT}px)`).matches;
-  const showContext = window.matchMedia(`(min-width: ${CONTEXT_SIDEBAR_BREAKPOINT}px)`).matches;
-  return { showHistory, showContext };
+
+  const defaultHistory = window.matchMedia(
+    `(min-width: ${HISTORY_SIDEBAR_BREAKPOINT}px)`
+  ).matches;
+  const defaultContext = window.matchMedia(
+    `(min-width: ${CONTEXT_SIDEBAR_BREAKPOINT}px)`
+  ).matches;
+
+  try {
+    const storedHistory = localStorage.getItem(HISTORY_SIDEBAR_STORAGE_KEY);
+    const storedContext = localStorage.getItem(CONTEXT_SIDEBAR_STORAGE_KEY);
+
+    return {
+      showHistory:
+        storedHistory === null ? defaultHistory : storedHistory === "true",
+      showContext:
+        storedContext === null ? defaultContext : storedContext === "true",
+    };
+  } catch {
+    return { showHistory: defaultHistory, showContext: defaultContext };
+  }
 }
 
 /**
@@ -159,6 +182,22 @@ export function useAgentState() {
   useEffect(() => {
     saveDataAccessToStorage(dataAccess);
   }, [dataAccess]);
+
+  // Persist sidebar visibility
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        HISTORY_SIDEBAR_STORAGE_KEY,
+        String(showHistorySidebar)
+      );
+      localStorage.setItem(
+        CONTEXT_SIDEBAR_STORAGE_KEY,
+        String(showContextSidebar)
+      );
+    } catch {
+      // Ignore storage errors
+    }
+  }, [showHistorySidebar, showContextSidebar]);
 
   // Cancel current stream (can be called from UI)
   const cancelStream = useCallback(() => {
@@ -346,6 +385,18 @@ export function useAgentState() {
       {
         onStart: (data) => {
           intent = data.intent;
+          // Push intent to message immediately so the UI can transition
+          // from "classifying" to "working" phase
+          if (streamSessionRef.current !== sessionId) return;
+          const acknowledgedMessage: AgentMessage = {
+            id: agentMessageId,
+            role: "agent",
+            content: "",
+            timestamp: new Date(),
+            status: "sending",
+            intent,
+          };
+          updateSessionMessages(sessionId, [...baseMessages, acknowledgedMessage]);
         },
         onChunk: (content) => {
           // Ignore if session changed
@@ -474,6 +525,18 @@ export function useAgentState() {
       {
         onStart: (data) => {
           intent = data.intent;
+          // Push intent to message immediately for UI phase transition
+          if (streamSessionRef.current !== activeSessionId) return;
+          const acknowledgedMessage: AgentMessage = {
+            id: agentMessageId,
+            role: "agent",
+            content: "",
+            timestamp: new Date(),
+            status: "sending",
+            intent,
+            retryOf: opts?.retryOf,
+          };
+          updateSessionMessages(activeSessionId, [...baseMessages, acknowledgedMessage]);
         },
         onChunk: (content) => {
           if (streamSessionRef.current !== activeSessionId) return;

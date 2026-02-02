@@ -59,6 +59,14 @@ function list(filters = {}) {
     .all(params);
 }
 
+function get(id) {
+  const event = db
+    .prepare(`SELECT * FROM ${table} WHERE id = @id AND deleted_at IS NULL`)
+    .get({ id });
+  if (!event) return null;
+  return parseChangedFields(event);
+}
+
 function create(payload) {
   const data = filterPayload(payload, allowedFields);
   const normalizedType = normalizeEntityType(data.entity_type);
@@ -148,6 +156,7 @@ list = function (filters = {}) {
 
 module.exports = {
   list,
+  get,
   create,
   deleteByEntity,
   remove,

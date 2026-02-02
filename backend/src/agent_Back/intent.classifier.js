@@ -1,37 +1,27 @@
-'use strict';
+"use strict";
 
-const { INTENTS, INTENT_LIST } = require('./intents');
-const { classifyIntentWithLLM } = require('./llm.client');
+const { INTENTS, INTENT_LIST, READ_INTENTS } = require("./intents");
+const { classifyIntentWithLLM } = require("./llm.client");
 
 /**
  * Data requirement types that can be detected from user messages
  */
 const DATA_REQUIREMENTS = Object.freeze({
-  CLIENT: 'client',
-  DOSSIER: 'dossier',
-  LAWSUIT: 'lawsuit',
-  TASK: 'task',
-  SESSION: 'session',
-  OVERDUE_TASKS: 'overdue_tasks',
-  UPCOMING_SESSIONS: 'upcoming_sessions',
-  TIMELINE: 'timeline',
+  CLIENT: "client",
+  DOSSIER: "dossier",
+  LAWSUIT: "lawsuit",
+  TASK: "task",
+  PERSONAL_TASK: "personal_task",
+  MISSION: "mission",
+  FINANCIAL_ENTRY: "financial_entry",
+  NOTIFICATION: "notification",
+  HISTORY_EVENT: "history_event",
+  SESSION: "session",
+  OVERDUE_TASKS: "overdue_tasks",
+  UPCOMING_SESSIONS: "upcoming_sessions",
+  TIMELINE: "timeline",
 });
 
-/**
- * READ intent types for deterministic data access
- * These intents bypass LLM classification and execute directly
- */
-const READ_INTENTS = Object.freeze({
-  LIST_CLIENTS: 'LIST_CLIENTS',
-  GET_CLIENT: 'GET_CLIENT',
-  LIST_DOSSIERS: 'LIST_DOSSIERS',
-  GET_DOSSIER: 'GET_DOSSIER',
-  LIST_TASKS: 'LIST_TASKS',
-  LIST_OVERDUE_TASKS: 'LIST_OVERDUE_TASKS',
-  LIST_SESSIONS: 'LIST_SESSIONS',
-  GET_UPCOMING_SESSIONS: 'GET_UPCOMING_SESSIONS',
-  LIST_PENDING_WORK: 'LIST_PENDING_WORK',
-});
 
 /**
  * Slash Command Registry
@@ -40,92 +30,216 @@ const READ_INTENTS = Object.freeze({
 const SLASH_COMMANDS = Object.freeze({
   // Client commands
   clients: {
-    command: '/clients',
-    description: 'List all clients',
-    usage: '/clients',
-    tools: ['listClients'],
+    command: "/clients",
+    description: "List all clients",
+    usage: "/clients",
+    tools: ["listClients"],
     params: {},
-    category: 'clients',
+    category: "clients",
   },
   client: {
-    command: '/client',
-    description: 'Get client by name or ID',
-    usage: '/client <name|id>',
-    tools: ['searchClientsByName', 'getClient'],
-    params: { requiresArg: true, argType: 'nameOrId' },
-    category: 'clients',
+    command: "/client",
+    description: "Get client by name or ID",
+    usage: "/client <name|id>",
+    tools: ["searchClientsByName", "getClient"],
+    params: { requiresArg: true, argType: "nameOrId" },
+    category: "clients",
   },
 
   // Dossier commands
   dossiers: {
-    command: '/dossiers',
-    description: 'List all dossiers',
-    usage: '/dossiers',
-    tools: ['listDossiers'],
+    command: "/dossiers",
+    description: "List all dossiers",
+    usage: "/dossiers",
+    tools: ["listDossiers"],
     params: {},
-    category: 'dossiers',
+    category: "dossiers",
   },
   dossier: {
-    command: '/dossier',
-    description: 'Get dossier by reference or ID',
-    usage: '/dossier <reference|id>',
-    tools: ['getDossierByReference', 'getDossier'],
-    params: { requiresArg: true, argType: 'referenceOrId' },
-    category: 'dossiers',
+    command: "/dossier",
+    description: "Get dossier by reference or ID",
+    usage: "/dossier <reference|id>",
+    tools: ["getDossierByReference", "getDossier"],
+    params: { requiresArg: true, argType: "referenceOrId" },
+    category: "dossiers",
   },
 
   // Task commands
   tasks: {
-    command: '/tasks',
-    description: 'List tasks (optionally filtered)',
-    usage: '/tasks [overdue|pending|today]',
-    tools: ['listTasks'],
-    params: { optionalArg: true, argType: 'filter' },
-    category: 'tasks',
+    command: "/tasks",
+    description: "List tasks (optionally filtered)",
+    usage: "/tasks [overdue|pending|today]",
+    tools: ["listTasks"],
+    params: { optionalArg: true, argType: "filter" },
+    category: "tasks",
   },
-  'tasks-overdue': {
-    command: '/tasks overdue',
-    description: 'List overdue tasks',
-    usage: '/tasks overdue',
-    tools: ['detectOverdueTasks'],
+  "tasks-overdue": {
+    command: "/tasks overdue",
+    description: "List overdue tasks",
+    usage: "/tasks overdue",
+    tools: ["detectOverdueTasks"],
     params: {},
-    category: 'tasks',
+    category: "tasks",
   },
 
   // Session commands
   sessions: {
-    command: '/sessions',
-    description: 'List sessions (optionally filtered by time)',
-    usage: '/sessions [today|this-week|upcoming]',
-    tools: ['listSessions'],
-    params: { optionalArg: true, argType: 'timeFilter' },
-    category: 'sessions',
+    command: "/sessions",
+    description: "List sessions (optionally filtered by time)",
+    usage: "/sessions [today|this-week|upcoming]",
+    tools: ["listSessions"],
+    params: { optionalArg: true, argType: "timeFilter" },
+    category: "sessions",
   },
-  'sessions-today': {
-    command: '/sessions today',
-    description: 'List sessions scheduled for today',
-    usage: '/sessions today',
-    tools: ['listSessionsToday'],
-    params: { filter: 'today' },
-    category: 'sessions',
+  "sessions-today": {
+    command: "/sessions today",
+    description: "List sessions scheduled for today",
+    usage: "/sessions today",
+    tools: ["listSessionsToday"],
+    params: { filter: "today" },
+    category: "sessions",
   },
-  'sessions-week': {
-    command: '/sessions this-week',
-    description: 'List sessions scheduled for this week',
-    usage: '/sessions this-week',
-    tools: ['listSessionsThisWeek'],
-    params: { filter: 'this-week' },
-    category: 'sessions',
+  "sessions-week": {
+    command: "/sessions this-week",
+    description: "List sessions scheduled for this week",
+    usage: "/sessions this-week",
+    tools: ["listSessionsThisWeek"],
+    params: { filter: "this-week" },
+    category: "sessions",
+  },
+
+  // Lawsuit commands
+  lawsuits: {
+    command: "/lawsuits",
+    description: "List all lawsuits",
+    usage: "/lawsuits",
+    tools: ["listLawsuits"],
+    params: {},
+    category: "lawsuits",
+  },
+  lawsuit: {
+    command: "/lawsuit",
+    description: "Get lawsuit by reference or ID",
+    usage: "/lawsuit <reference|id>",
+    tools: ["listLawsuits", "getLawsuit"],
+    params: { requiresArg: true, argType: "referenceOrId" },
+    category: "lawsuits",
+  },
+
+  // Mission commands
+  missions: {
+    command: "/missions",
+    description: "List all missions",
+    usage: "/missions",
+    tools: ["listMissions"],
+    params: {},
+    category: "missions",
+  },
+  mission: {
+    command: "/mission",
+    description: "Get mission by reference or ID",
+    usage: "/mission <reference|id>",
+    tools: ["listMissions", "getMission"],
+    params: { requiresArg: true, argType: "referenceOrId" },
+    category: "missions",
+  },
+
+  // Personal task commands
+  "personal-tasks": {
+    command: "/personal-tasks",
+    description: "List personal tasks",
+    usage: "/personal-tasks",
+    tools: ["listPersonalTasks"],
+    params: {},
+    category: "personal_tasks",
+  },
+  "personal-task": {
+    command: "/personal-task",
+    description: "Get personal task by title or ID",
+    usage: "/personal-task <title|id>",
+    tools: ["listPersonalTasks", "getPersonalTask"],
+    params: { requiresArg: true, argType: "titleOrId" },
+    category: "personal_tasks",
+  },
+
+  // Accounting commands
+  accounting: {
+    command: "/accounting",
+    description: "List financial entries",
+    usage: "/accounting [unpaid|paid|overdue]",
+    tools: ["listFinancialEntries"],
+    params: { optionalArg: true, argType: "filter" },
+    category: "accounting",
+  },
+  "accounting-unpaid": {
+    command: "/accounting unpaid",
+    description: "List unpaid financial entries",
+    usage: "/accounting unpaid",
+    tools: ["listFinancialEntries"],
+    params: { filter: "unpaid" },
+    category: "accounting",
+  },
+  "accounting-paid": {
+    command: "/accounting paid",
+    description: "List paid financial entries",
+    usage: "/accounting paid",
+    tools: ["listFinancialEntries"],
+    params: { filter: "paid" },
+    category: "accounting",
+  },
+  "accounting-overdue": {
+    command: "/accounting overdue",
+    description: "List overdue financial entries",
+    usage: "/accounting overdue",
+    tools: ["listFinancialEntries"],
+    params: { filter: "overdue" },
+    category: "accounting",
+  },
+
+  // Notification commands
+  notifications: {
+    command: "/notifications",
+    description: "List notifications",
+    usage: "/notifications [unread|read]",
+    tools: ["listNotifications"],
+    params: { optionalArg: true, argType: "filter" },
+    category: "notifications",
+  },
+  "notifications-unread": {
+    command: "/notifications unread",
+    description: "List unread notifications",
+    usage: "/notifications unread",
+    tools: ["listNotifications"],
+    params: { filter: "unread" },
+    category: "notifications",
+  },
+  "notifications-read": {
+    command: "/notifications read",
+    description: "List read notifications",
+    usage: "/notifications read",
+    tools: ["listNotifications"],
+    params: { filter: "read" },
+    category: "notifications",
+  },
+
+  // History commands
+  history: {
+    command: "/history",
+    description: "List recent history/audit events",
+    usage: "/history [entity]",
+    tools: ["listHistoryEvents"],
+    params: { optionalArg: true, argType: "entityType" },
+    category: "history",
   },
 
   // Help command
   help: {
-    command: '/help',
-    description: 'Show available commands',
-    usage: '/help',
+    command: "/help",
+    description: "Show available commands",
+    usage: "/help",
     tools: [],
     params: {},
-    category: 'help',
+    category: "help",
   },
 });
 
@@ -135,7 +249,7 @@ const SLASH_COMMANDS = Object.freeze({
  * @returns {boolean} True if message starts with /
  */
 function isSlashCommand(message) {
-  return typeof message === 'string' && message.trim().startsWith('/');
+  return typeof message === "string" && message.trim().startsWith("/");
 }
 
 /**
@@ -147,7 +261,7 @@ function isSlashCommand(message) {
  */
 function parseSlashCommand(message) {
   if (!isSlashCommand(message)) {
-    return { valid: false, error: 'Not a slash command' };
+    return { valid: false, error: "Not a slash command" };
   }
 
   const trimmed = message.trim();
@@ -156,7 +270,8 @@ function parseSlashCommand(message) {
   const args = parts.slice(1);
 
   // Build potential compound command (e.g., "/tasks overdue")
-  const compoundKey = args.length > 0 ? `${commandPart.slice(1)}-${args[0].toLowerCase()}` : null;
+  const compoundKey =
+    args.length > 0 ? `${commandPart.slice(1)}-${args[0].toLowerCase()}` : null;
 
   // Check for compound command first
   if (compoundKey && SLASH_COMMANDS[compoundKey]) {
@@ -196,15 +311,15 @@ function parseSlashCommand(message) {
 
   // Unknown command - provide suggestions
   const availableCommands = Object.values(SLASH_COMMANDS)
-    .filter(c => c.category !== 'help')
-    .map(c => c.command);
+    .filter((c) => c.category !== "help")
+    .map((c) => c.command);
 
   return {
     valid: false,
     command: commandPart,
     error: `Unknown command: ${commandPart}`,
     availableCommands,
-    suggestion: 'Type /help to see available commands',
+    suggestion: "Type /help to see available commands",
   };
 }
 
@@ -213,7 +328,7 @@ function parseSlashCommand(message) {
  * @returns {Array} List of command objects with command, description, usage
  */
 function getAvailableCommands() {
-  return Object.values(SLASH_COMMANDS).map(cmd => ({
+  return Object.values(SLASH_COMMANDS).map((cmd) => ({
     command: cmd.command,
     description: cmd.description,
     usage: cmd.usage,
@@ -272,19 +387,24 @@ function detectDataRequirements(message, context = {}) {
   const entityTypePatterns = {
     client: /\b(client|clients)\b/i,
     dossier: /\b(dossier|dossiers|case\s*file|matter)\b/i,
-    lawsuit: /\b(lawsuit|lawsuits|case|cases)\b/i,
+    lawsuit: /\b(lawsuit|lawsuits|case|cases|trial|proces)\b/i,
+    personal_task: /\b(personal\s+task|personal\s+tasks)\b/i,
     task: /\b(task|tasks|todo|to-do)\b/i,
     session: /\b(session|sessions|meeting|appointment)\b/i,
+    mission: /\b(mission|missions|huissier)\b/i,
+    financial_entry: /\b(accounting|financial|invoice|payment|expense|billing|entry|entries)\b/i,
+    notification: /\b(notification|notifications|alert|alerts)\b/i,
+    history_event: /\b(history|audit\s*trail|activity\s*log|audit)\b/i,
   };
 
   // Check for status inquiries
-  const hasStatusInquiry = statusPatterns.some(p => p.test(normalized));
+  const hasStatusInquiry = statusPatterns.some((p) => p.test(normalized));
 
   // Check for list requests
-  const hasListRequest = listPatterns.some(p => p.test(normalized));
+  const hasListRequest = listPatterns.some((p) => p.test(normalized));
 
   // Check for temporal context
-  const hasTemporal = temporalPatterns.some(p => p.test(normalized));
+  const hasTemporal = temporalPatterns.some((p) => p.test(normalized));
 
   // Detect entity type mentions
   Object.entries(entityTypePatterns).forEach(([type, pattern]) => {
@@ -294,12 +414,18 @@ function detectDataRequirements(message, context = {}) {
   });
 
   // Detect overdue task queries
-  if (/overdue/i.test(normalized) || (hasTemporal && /task/i.test(normalized))) {
+  if (
+    /overdue/i.test(normalized) ||
+    (hasTemporal && /task/i.test(normalized))
+  ) {
     needs.push(DATA_REQUIREMENTS.OVERDUE_TASKS);
   }
 
   // Detect upcoming session queries
-  if (/upcoming/i.test(normalized) && /session|meeting|appointment/i.test(normalized)) {
+  if (
+    /upcoming/i.test(normalized) &&
+    /session|meeting|appointment/i.test(normalized)
+  ) {
     needs.push(DATA_REQUIREMENTS.UPCOMING_SESSIONS);
   }
 
@@ -310,20 +436,24 @@ function detectDataRequirements(message, context = {}) {
 
   // Extract potential entity name hints (quoted names or capitalized words after possessive)
   // Pattern: "Emma's dossier" → hint: { type: 'client', name: 'Emma' }
-  const possessiveMatch = normalized.match(/(\w+)(?:'s|s')\s+(dossier|lawsuit|case|task|matter|file)/i);
+  const possessiveMatch = normalized.match(
+    /(\w+)(?:'s|s')\s+(dossier|lawsuit|case|task|matter|file)/i,
+  );
   if (possessiveMatch) {
     entityHints.push({
-      type: 'client',
+      type: "client",
       nameHint: possessiveMatch[1],
       targetEntity: possessiveMatch[2].toLowerCase(),
     });
   }
 
   // Pattern: "dossier for Emma" or "client Emma"
-  const forClientMatch = normalized.match(/(dossier|lawsuit|case|matter)\s+for\s+(\w+)/i);
+  const forClientMatch = normalized.match(
+    /(dossier|lawsuit|case|matter)\s+for\s+(\w+)/i,
+  );
   if (forClientMatch) {
     entityHints.push({
-      type: 'client',
+      type: "client",
       nameHint: forClientMatch[2],
       targetEntity: forClientMatch[1].toLowerCase(),
     });
@@ -333,9 +463,9 @@ function detectDataRequirements(message, context = {}) {
   const clientNameMatch = message.match(/client\s+(?:named\s+)?([A-Z][a-z]+)/);
   if (clientNameMatch) {
     entityHints.push({
-      type: 'client',
+      type: "client",
       nameHint: clientNameMatch[1],
-      targetEntity: 'client',
+      targetEntity: "client",
     });
   }
 
@@ -343,16 +473,18 @@ function detectDataRequirements(message, context = {}) {
   const dossierRefMatch = message.match(/DOS-\d{4}-\d+/i);
   if (dossierRefMatch) {
     entityHints.push({
-      type: 'dossier',
+      type: "dossier",
       reference: dossierRefMatch[0].toUpperCase(),
-      targetEntity: 'dossier',
+      targetEntity: "dossier",
     });
   }
 
   // Determine if local data is actually required
-  const requiresData = needs.length > 0 ||
+  const requiresData =
+    needs.length > 0 ||
     entityHints.length > 0 ||
-    (hasStatusInquiry && (context.scope !== 'GLOBAL' || entityHints.length > 0)) ||
+    (hasStatusInquiry &&
+      (context.scope !== "GLOBAL" || entityHints.length > 0)) ||
     hasListRequest;
 
   return {
@@ -362,7 +494,7 @@ function detectDataRequirements(message, context = {}) {
     hasStatusInquiry,
     hasListRequest,
     hasTemporal,
-    contextScope: context.scope || 'GLOBAL',
+    contextScope: context.scope || "GLOBAL",
   };
 }
 
@@ -373,31 +505,167 @@ function detectDataRequirements(message, context = {}) {
  */
 function extractEntityHints(message) {
   const hints = [];
-  
+
   // Pattern: "about X" or "regarding X" (e.g., "tell me about Youssef Daly")
-  const aboutMatch = message.match(/(?:about|regarding|concerning)\s+([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)*)/);
-  if (aboutMatch) hints.push({ type: 'name', value: aboutMatch[1].trim() });
-  
+  const aboutMatch = message.match(
+    /(?:about|regarding|concerning)\s+([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)*)/,
+  );
+  if (aboutMatch) hints.push({ type: "name", value: aboutMatch[1].trim() });
+
+  // Pattern: explicit numeric ID "id 123" or "#123"
+  const idMatch = message.match(/(?:\b(id|#)\s*)(\d{1,9})/i);
+  if (idMatch) {
+    hints.push({ type: "id", value: parseInt(idMatch[2], 10) });
+  }
+
+  // Pattern: typed ID "client 123", "dossier 45"
+  const typedIdMatch = message.match(
+    /\b(client|dossier|lawsuit|case|session|task|personal\s+task|mission|notification|history|financial\s+entry|accounting\s+entry)\s+#?(\d{1,9})\b/i,
+  );
+  if (typedIdMatch) {
+    const rawType = typedIdMatch[1].toLowerCase();
+    const typeMap = {
+      case: "lawsuit",
+      "personal task": "personal_task",
+      "financial entry": "financial_entry",
+      "accounting entry": "financial_entry",
+      history: "history_event",
+    };
+    const entityType = typeMap[rawType] || rawType;
+    hints.push({
+      type: "id",
+      value: parseInt(typedIdMatch[2], 10),
+      entityType,
+    });
+  }
+
   // Possessive pattern: "Emma's dossier"
-  const possMatch = message.match(/(\w+)(?:'s|s')\s+(dossier|client|task|lawsuit|case)/i);
-  if (possMatch) hints.push({ type: 'name', value: possMatch[1] });
-  
+  const possMatch = message.match(
+    /(\w+)(?:'s|s')\s+(dossier|client|task|lawsuit|case)/i,
+  );
+  if (possMatch)
+    hints.push({ type: "name", value: possMatch[1], entityType: "client" });
+
   // "for X" pattern: "dossier for Emma"
-  const forMatch = message.match(/(?:dossier|lawsuit|case|task)\s+for\s+(\w+)/i);
-  if (forMatch) hints.push({ type: 'name', value: forMatch[1] });
-  
+  const forMatch = message.match(
+    /(?:dossier|lawsuit|case|task|session|mission|accounting|financial|invoice|payment|expense|billing|entry|entries)\s+for\s+([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)*)/i,
+  );
+  if (forMatch)
+    hints.push({ type: "name", value: forMatch[1], entityType: "client" });
+
   // Dossier reference: DOS-2024-123456
-  const refMatch = message.match(/DOS-\d{4}-\d+/i);
-  if (refMatch) hints.push({ type: 'reference', value: refMatch[0].toUpperCase() });
-  
+  const dossierRefMatch = message.match(/DOS-\d{4}-\d+/i);
+  if (dossierRefMatch) {
+    hints.push({
+      type: "reference",
+      value: dossierRefMatch[0].toUpperCase(),
+      entityType: "dossier",
+    });
+  }
+
+  // Mission reference: MIS-2024-123456
+  const missionRefMatch = message.match(/MIS-\d{4}-\d+/i);
+  if (missionRefMatch) {
+    hints.push({
+      type: "reference",
+      value: missionRefMatch[0].toUpperCase(),
+      entityType: "mission",
+    });
+  }
+
+  // Lawsuit reference: PRO-2024-001
+  const lawsuitRefMatch = message.match(/PRO-\d{4}-\d+/i);
+  if (lawsuitRefMatch) {
+    hints.push({
+      type: "reference",
+      value: lawsuitRefMatch[0].toUpperCase(),
+      entityType: "lawsuit",
+    });
+  }
+
+  // Generic reference: "reference ABC-123"
+  const genericRefMatch = message.match(/reference\s+([A-Z0-9\-]+)/i);
+  if (genericRefMatch) {
+    hints.push({ type: "reference", value: genericRefMatch[1].toUpperCase() });
+  }
+
   // Capitalized name after "client"
-  const clientMatch = message.match(/client\s+(?:named\s+)?([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)/);
-  if (clientMatch) hints.push({ type: 'name', value: clientMatch[1] });
-  
+  const clientMatch = message.match(
+    /client\s+(?:named\s+)?([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)/,
+  );
+  if (clientMatch)
+    hints.push({
+      type: "name",
+      value: clientMatch[1],
+      entityType: "client",
+    });
+
+  // Capitalized name after "dossier" or "case"
+  const dossierNameMatch = message.match(
+    /(dossier|case\s*file|matter)\s+(?:named\s+)?([A-Z][a-zA-Z0-9]+(?:\s+[A-Z][a-zA-Z0-9]+)*)/i,
+  );
+  if (dossierNameMatch)
+    hints.push({
+      type: "name",
+      value: dossierNameMatch[2],
+      entityType: "dossier",
+    });
+
+  // Capitalized name after "lawsuit"
+  const lawsuitNameMatch = message.match(
+    /(lawsuit|case|trial)\s+(?:named\s+)?([A-Z][a-zA-Z0-9]+(?:\s+[A-Z][a-zA-Z0-9]+)*)/i,
+  );
+  if (lawsuitNameMatch)
+    hints.push({
+      type: "name",
+      value: lawsuitNameMatch[2],
+      entityType: "lawsuit",
+    });
+
+  // Capitalized name after "task"
+  const taskNameMatch = message.match(
+    /(task|personal\s+task)\s+(?:named\s+)?([A-Z][a-zA-Z0-9]+(?:\s+[A-Z][a-zA-Z0-9]+)*)/i,
+  );
+  if (taskNameMatch) {
+    const type =
+      String(taskNameMatch[1]).toLowerCase().includes("personal")
+        ? "personal_task"
+        : "task";
+    hints.push({
+      type: "name",
+      value: taskNameMatch[2],
+      entityType: type,
+    });
+  }
+
+  // Capitalized name after "session"/"hearing"
+  const sessionNameMatch = message.match(
+    /(session|hearing|meeting)\s+(?:named\s+)?([A-Z][a-zA-Z0-9]+(?:\s+[A-Z][a-zA-Z0-9]+)*)/i,
+  );
+  if (sessionNameMatch)
+    hints.push({
+      type: "name",
+      value: sessionNameMatch[2],
+      entityType: "session",
+    });
+
+  // Capitalized name after "mission"
+  const missionNameMatch = message.match(
+    /(mission)\s+(?:named\s+)?([A-Z][a-zA-Z0-9]+(?:\s+[A-Z][a-zA-Z0-9]+)*)/i,
+  );
+  if (missionNameMatch)
+    hints.push({
+      type: "name",
+      value: missionNameMatch[2],
+      entityType: "mission",
+    });
+
   // Pattern: "X's status/info/details" (where X is capitalized name)
-  const statusMatch = message.match(/([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)*)'s\s+(?:status|info|information|details|data)/);
-  if (statusMatch) hints.push({ type: 'name', value: statusMatch[1].trim() });
-  
+  const statusMatch = message.match(
+    /([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)*)'s\s+(?:status|info|information|details|data)/,
+  );
+  if (statusMatch) hints.push({ type: "name", value: statusMatch[1].trim() });
+
   return hints;
 }
 
@@ -433,12 +701,34 @@ function detectReadIntent(message, context = {}) {
     /\b(give|get)\s+(me\s+)?(my\s+)?(all\s+)?(the\s+)?/i,
   ];
 
-  const entityPatterns = {
-    client: /\b(client|clients)\b/i,
-    dossier: /\b(dossier|dossiers|case\s*file|matter|matters)\b/i,
-    task: /\b(task|tasks|todo|to-do|todos)\b/i,
-    session: /\b(session|sessions|meeting|meetings|hearing|hearings|appointment|appointments)\b/i,
-  };
+  const explainPatterns = [
+    /\b(explain|status|state|situation|blocking|blocked|why|procedural|next\s+steps?)\b/i,
+    /\bwhat('s| is)\s+(going\s+on|the\s+status|the\s+state)\b/i,
+  ];
+
+  const summarizePatterns = [
+    /\b(summarize|summary|overview|recap|brief|timeline|workload|backlog|balance|balances)\b/i,
+  ];
+
+  const entityPatterns = [
+    { type: "personal_task", pattern: /\b(personal\s+task|personal\s+tasks)\b/i },
+    { type: "client", pattern: /\b(client|clients)\b/i },
+    { type: "dossier", pattern: /\b(dossier|dossiers|case\s*file|matter|matters)\b/i },
+    { type: "lawsuit", pattern: /\b(lawsuit|lawsuits|case|cases|trial|proces)\b/i },
+    { type: "task", pattern: /\b(task|tasks|todo|to-do|todos)\b/i },
+    {
+      type: "session",
+      pattern:
+        /\b(session|sessions|meeting|meetings|hearing|hearings|appointment|appointments)\b/i,
+    },
+    { type: "mission", pattern: /\b(mission|missions|huissier)\b/i },
+    {
+      type: "financial_entry",
+      pattern: /\b(accounting|financial|invoice|payment|expense|billing|entry|entries)\b/i,
+    },
+    { type: "notification", pattern: /\b(notification|notifications|alert|alerts)\b/i },
+    { type: "history_event", pattern: /\b(history|audit\s*trail|activity\s*log|audit)\b/i },
+  ];
 
   const temporalPatterns = {
     overdue: /\b(overdue|late|past\s+due|missed)\b/i,
@@ -446,18 +736,31 @@ function detectReadIntent(message, context = {}) {
     today: /\b(today|today's)\b/i,
     thisWeek: /\b(this\s+week|week's)\b/i,
     pending: /\b(pending|open|active|in\s*progress)\b/i,
+    unpaid: /\b(unpaid|outstanding|not\s+paid)\b/i,
+    paid: /\b(paid|settled)\b/i,
+    unread: /\b(unread|new|unseen)\b/i,
   };
 
   // Check for list/query patterns
-  const hasListPattern = listPatterns.some(p => p.test(normalized));
+  const hasListPattern = listPatterns.some((p) => p.test(normalized));
+  const hasExplainPattern = explainPatterns.some((p) => p.test(normalized));
+  const hasSummarizePattern = summarizePatterns.some((p) => p.test(normalized));
+  const hasPartiesQuery = /\bparties\b/i.test(normalized);
 
   // Detect entity type
   let entityType = null;
-  for (const [type, pattern] of Object.entries(entityPatterns)) {
-    if (pattern.test(normalized)) {
-      entityType = type;
+  for (const entry of entityPatterns) {
+    if (entry.pattern.test(normalized)) {
+      entityType = entry.type;
       break;
     }
+  }
+
+  if (!entityType && /\b(workload|backlog)\b/i.test(normalized)) {
+    entityType = "task";
+  }
+  if (!entityType && /\b(balance|balances)\b/i.test(normalized)) {
+    entityType = "financial_entry";
   }
 
   // Detect temporal modifiers
@@ -471,18 +774,218 @@ function detectReadIntent(message, context = {}) {
   const wordCount = normalized.split(/\s+/).length;
   const isShortEntityRequest = entityType && wordCount <= 5;
 
+  const extractedHints = extractEntityHints(message);
+
+  // SUMMARIZE intents
+  if (hasSummarizePattern) {
+    if (entityType === "client")
+      return {
+        intent: READ_INTENTS.SUMMARIZE_CLIENT,
+        requiresLocalData: true,
+        allowedTools: ["getClient", "searchClientsByName", "listDossiersForClient"],
+        entityHints: extractedHints,
+      };
+    if (entityType === "dossier")
+      return {
+        intent: READ_INTENTS.SUMMARIZE_DOSSIER,
+        requiresLocalData: true,
+        allowedTools: ["getDossier", "getDossierByReference", "listTasks", "listSessions", "listMissions"],
+        entityHints: extractedHints,
+      };
+    if (entityType === "lawsuit")
+      return {
+        intent: READ_INTENTS.SUMMARIZE_LAWSUIT,
+        requiresLocalData: true,
+        allowedTools: ["getLawsuit", "listTasks", "listSessions"],
+        entityHints: extractedHints,
+      };
+    if (entityType === "session")
+      return {
+        intent: READ_INTENTS.SUMMARIZE_SESSION,
+        requiresLocalData: true,
+        allowedTools: ["getSession"],
+        entityHints: extractedHints,
+      };
+    if (entityType === "task")
+      return {
+        intent: READ_INTENTS.SUMMARIZE_TASK,
+        requiresLocalData: true,
+        allowedTools: ["getTask", "listTasks"],
+        entityHints: extractedHints,
+      };
+    if (entityType === "personal_task")
+      return {
+        intent: READ_INTENTS.SUMMARIZE_PERSONAL_TASK,
+        requiresLocalData: true,
+        allowedTools: ["getPersonalTask", "listPersonalTasks"],
+        entityHints: extractedHints,
+      };
+    if (entityType === "mission")
+      return {
+        intent: READ_INTENTS.SUMMARIZE_MISSION,
+        requiresLocalData: true,
+        allowedTools: ["getMission", "listMissions"],
+        entityHints: extractedHints,
+      };
+    if (entityType === "financial_entry")
+      return {
+        intent: READ_INTENTS.SUMMARIZE_FINANCIAL_ENTRY,
+        requiresLocalData: true,
+        allowedTools: ["getFinancialEntry", "listFinancialEntries"],
+        entityHints: extractedHints,
+      };
+    if (entityType === "notification")
+      return {
+        intent: READ_INTENTS.SUMMARIZE_NOTIFICATION,
+        requiresLocalData: true,
+        allowedTools: ["getNotification", "listNotifications"],
+        entityHints: extractedHints,
+      };
+    if (entityType === "history_event")
+      return {
+        intent: READ_INTENTS.SUMMARIZE_HISTORY,
+        requiresLocalData: true,
+        allowedTools: ["listHistoryEvents"],
+        entityHints: extractedHints,
+      };
+  }
+
+  if (hasPartiesQuery && entityType === "lawsuit") {
+    return {
+      intent: READ_INTENTS.READ_LAWSUIT,
+      requiresLocalData: true,
+      allowedTools: ["getLawsuit", "listLawsuits"],
+      entityHints: extractedHints,
+    };
+  }
+
+  // EXPLAIN STATE intents
+  if (hasExplainPattern) {
+    if (entityType === "client")
+      return {
+        intent: READ_INTENTS.EXPLAIN_CLIENT_STATE,
+        requiresLocalData: true,
+        allowedTools: ["getClient", "searchClientsByName", "listDossiersForClient"],
+        entityHints: extractedHints,
+      };
+    if (entityType === "dossier")
+      return {
+        intent: READ_INTENTS.EXPLAIN_DOSSIER_STATE,
+        requiresLocalData: true,
+        allowedTools: ["getDossier", "getDossierByReference", "listTasks", "listSessions", "listMissions"],
+        entityHints: extractedHints,
+      };
+    if (entityType === "lawsuit")
+      return {
+        intent: READ_INTENTS.EXPLAIN_LAWSUIT_STATE,
+        requiresLocalData: true,
+        allowedTools: ["getLawsuit", "listTasks", "listSessions"],
+        entityHints: extractedHints,
+      };
+    if (entityType === "session")
+      return {
+        intent: READ_INTENTS.EXPLAIN_SESSION_STATE,
+        requiresLocalData: true,
+        allowedTools: ["getSession"],
+        entityHints: extractedHints,
+      };
+    if (entityType === "task")
+      return {
+        intent: READ_INTENTS.EXPLAIN_TASK_STATE,
+        requiresLocalData: true,
+        allowedTools: ["getTask", "listTasks"],
+        entityHints: extractedHints,
+      };
+    if (entityType === "personal_task")
+      return {
+        intent: READ_INTENTS.EXPLAIN_PERSONAL_TASK_STATE,
+        requiresLocalData: true,
+        allowedTools: ["getPersonalTask", "listPersonalTasks"],
+        entityHints: extractedHints,
+      };
+    if (entityType === "mission")
+      return {
+        intent: READ_INTENTS.EXPLAIN_MISSION_STATE,
+        requiresLocalData: true,
+        allowedTools: ["getMission", "listMissions"],
+        entityHints: extractedHints,
+      };
+    if (entityType === "financial_entry")
+      return {
+        intent: READ_INTENTS.EXPLAIN_FINANCIAL_ENTRY_STATE,
+        requiresLocalData: true,
+        allowedTools: ["getFinancialEntry", "listFinancialEntries"],
+        entityHints: extractedHints,
+      };
+    if (entityType === "notification")
+      return {
+        intent: READ_INTENTS.EXPLAIN_NOTIFICATION_STATE,
+        requiresLocalData: true,
+        allowedTools: ["getNotification", "listNotifications"],
+        entityHints: extractedHints,
+      };
+    if (entityType === "history_event")
+      return {
+        intent: READ_INTENTS.EXPLAIN_HISTORY_STATE,
+        requiresLocalData: true,
+        allowedTools: ["listHistoryEvents"],
+        entityHints: extractedHints,
+      };
+  }
+
   // Determine READ intent
   if (!entityType) {
     // No explicit entity type mentioned, but check if we have name hints
     // This handles queries like "tell me about Youssef Daly" (no "client" word)
-    const nameHints = extractEntityHints(message);
+    const nameHints = extractedHints;
+    const typedReference = nameHints.find((hint) => hint.entityType);
+    if (typedReference) {
+      const typed = typedReference.entityType;
+      if (typed === "dossier")
+        return {
+          intent: READ_INTENTS.READ_DOSSIER,
+          requiresLocalData: true,
+          allowedTools: ["getDossier", "getDossierByReference"],
+          entityHints: nameHints,
+        };
+      if (typed === "lawsuit")
+        return {
+          intent: READ_INTENTS.READ_LAWSUIT,
+          requiresLocalData: true,
+          allowedTools: ["getLawsuit", "listLawsuits"],
+          entityHints: nameHints,
+        };
+      if (typed === "mission")
+        return {
+          intent: READ_INTENTS.READ_MISSION,
+          requiresLocalData: true,
+          allowedTools: ["getMission", "listMissions"],
+          entityHints: nameHints,
+        };
+    }
     if (nameHints.length > 0) {
+      if (hasSummarizePattern) {
+        return {
+          intent: READ_INTENTS.SUMMARIZE_CLIENT,
+          requiresLocalData: true,
+          allowedTools: ["getClient", "searchClientsByName", "listDossiersForClient"],
+          entityHints: nameHints,
+        };
+      }
+      if (hasExplainPattern) {
+        return {
+          intent: READ_INTENTS.EXPLAIN_CLIENT_STATE,
+          requiresLocalData: true,
+          allowedTools: ["getClient", "searchClientsByName", "listDossiersForClient"],
+          entityHints: nameHints,
+        };
+      }
       // Default to client search when name is mentioned without entity type
-      return { 
-        intent: READ_INTENTS.GET_CLIENT, 
-        requiresLocalData: true, 
-        allowedTools: ['getClient', 'searchClientsByName'], 
-        entityHints: nameHints 
+      return {
+        intent: READ_INTENTS.READ_CLIENT,
+        requiresLocalData: true,
+        allowedTools: ["getClient", "searchClientsByName"],
+        entityHints: nameHints,
       };
     }
     return null;
@@ -491,39 +994,206 @@ function detectReadIntent(message, context = {}) {
   // LIST intents
   // CRITICAL: isShortEntityRequest ensures "clients list please" triggers READ gate
   if (hasListPattern || temporal.pending || isShortEntityRequest) {
-    if (entityType === 'client') return { intent: READ_INTENTS.LIST_CLIENTS, requiresLocalData: true, allowedTools: ['listClients'] };
-    if (entityType === 'dossier') return { intent: READ_INTENTS.LIST_DOSSIERS, requiresLocalData: true, allowedTools: ['listDossiers'] };
-    if (entityType === 'task') {
-      if (temporal.overdue) return { intent: READ_INTENTS.LIST_OVERDUE_TASKS, requiresLocalData: true, allowedTools: ['detectOverdueTasks'] };
-      return { intent: READ_INTENTS.LIST_TASKS, requiresLocalData: true, allowedTools: ['listTasks'] };
+    if (entityType === "client")
+      return {
+        intent: READ_INTENTS.LIST_CLIENTS,
+        requiresLocalData: true,
+        allowedTools: ["listClients"],
+        entityHints: extractedHints,
+      };
+    if (entityType === "dossier")
+      return {
+        intent: READ_INTENTS.LIST_DOSSIERS,
+        requiresLocalData: true,
+        allowedTools: ["listDossiers"],
+        entityHints: extractedHints,
+      };
+    if (entityType === "lawsuit")
+      return {
+        intent: READ_INTENTS.LIST_LAWSUITS,
+        requiresLocalData: true,
+        allowedTools: ["listLawsuits"],
+        entityHints: extractedHints,
+      };
+    if (entityType === "task") {
+      if (temporal.overdue)
+        return {
+          intent: READ_INTENTS.LIST_OVERDUE_TASKS,
+          requiresLocalData: true,
+          allowedTools: ["listTasks"],
+          filters: { overdue: true },
+          entityHints: extractedHints,
+        };
+      return {
+        intent: READ_INTENTS.LIST_TASKS,
+        requiresLocalData: true,
+        allowedTools: ["listTasks"],
+        entityHints: extractedHints,
+      };
     }
-    if (entityType === 'session') {
+    if (entityType === "personal_task")
+      return {
+        intent: READ_INTENTS.LIST_PERSONAL_TASKS,
+        requiresLocalData: true,
+        allowedTools: ["listPersonalTasks"],
+        entityHints: extractedHints,
+      };
+    if (entityType === "session") {
       if (temporal.upcoming || temporal.today || temporal.thisWeek) {
-        return { intent: READ_INTENTS.GET_UPCOMING_SESSIONS, requiresLocalData: true, allowedTools: ['listSessions'], filters: temporal };
+        return {
+          intent: READ_INTENTS.LIST_UPCOMING_SESSIONS,
+          requiresLocalData: true,
+          allowedTools: ["listSessions"],
+          filters: {
+            timeframe: temporal.today
+              ? "today"
+              : temporal.thisWeek
+                ? "this-week"
+                : temporal.upcoming
+                  ? "upcoming"
+                  : null,
+          },
+          entityHints: extractedHints,
+        };
       }
-      return { intent: READ_INTENTS.LIST_SESSIONS, requiresLocalData: true, allowedTools: ['listSessions'] };
+      return {
+        intent: READ_INTENTS.LIST_SESSIONS,
+        requiresLocalData: true,
+        allowedTools: ["listSessions"],
+        entityHints: extractedHints,
+      };
     }
+    if (entityType === "mission")
+      return {
+        intent: READ_INTENTS.LIST_MISSIONS,
+        requiresLocalData: true,
+        allowedTools: ["listMissions"],
+        entityHints: extractedHints,
+      };
+    if (entityType === "financial_entry")
+      return {
+        intent: READ_INTENTS.LIST_FINANCIAL_ENTRIES,
+        requiresLocalData: true,
+        allowedTools: ["listFinancialEntries"],
+        filters: {
+          paymentStatus: temporal.unpaid
+            ? "unpaid"
+            : temporal.paid
+              ? "paid"
+              : temporal.overdue
+                ? "overdue"
+                : null,
+        },
+        entityHints: extractedHints,
+      };
+    if (entityType === "notification")
+      return {
+        intent: READ_INTENTS.LIST_NOTIFICATIONS,
+        requiresLocalData: true,
+        allowedTools: ["listNotifications"],
+        filters: {
+          status: temporal.unread ? "unread" : null,
+        },
+        entityHints: extractedHints,
+      };
+    if (entityType === "history_event")
+      return {
+        intent: READ_INTENTS.LIST_HISTORY_EVENTS,
+        requiresLocalData: true,
+        allowedTools: ["listHistoryEvents"],
+        entityHints: extractedHints,
+      };
   }
 
   // GET single entity intents (when specific entity is mentioned)
-  const nameHints = extractEntityHints(message);
+  const nameHints = extractedHints;
   if (nameHints.length > 0) {
-    if (entityType === 'client') return { intent: READ_INTENTS.GET_CLIENT, requiresLocalData: true, allowedTools: ['getClient', 'searchClientsByName'], entityHints: nameHints };
-    if (entityType === 'dossier') return { intent: READ_INTENTS.GET_DOSSIER, requiresLocalData: true, allowedTools: ['getDossier', 'getDossierByReference'], entityHints: nameHints };
+    if (entityType === "client")
+      return {
+        intent: READ_INTENTS.READ_CLIENT,
+        requiresLocalData: true,
+        allowedTools: ["getClient", "searchClientsByName"],
+        entityHints: nameHints,
+      };
+    if (entityType === "dossier")
+      return {
+        intent: READ_INTENTS.READ_DOSSIER,
+        requiresLocalData: true,
+        allowedTools: ["getDossier", "getDossierByReference"],
+        entityHints: nameHints,
+      };
+    if (entityType === "lawsuit")
+      return {
+        intent: READ_INTENTS.READ_LAWSUIT,
+        requiresLocalData: true,
+        allowedTools: ["getLawsuit", "listLawsuits"],
+        entityHints: nameHints,
+      };
+    if (entityType === "task")
+      return {
+        intent: READ_INTENTS.READ_TASK,
+        requiresLocalData: true,
+        allowedTools: ["getTask", "listTasks"],
+        entityHints: nameHints,
+      };
+    if (entityType === "personal_task")
+      return {
+        intent: READ_INTENTS.READ_PERSONAL_TASK,
+        requiresLocalData: true,
+        allowedTools: ["getPersonalTask", "listPersonalTasks"],
+        entityHints: nameHints,
+      };
+    if (entityType === "session")
+      return {
+        intent: READ_INTENTS.READ_SESSION,
+        requiresLocalData: true,
+        allowedTools: ["getSession", "listSessions"],
+        entityHints: nameHints,
+      };
+    if (entityType === "mission")
+      return {
+        intent: READ_INTENTS.READ_MISSION,
+        requiresLocalData: true,
+        allowedTools: ["getMission", "listMissions"],
+        entityHints: nameHints,
+      };
+    if (entityType === "financial_entry")
+      return {
+        intent: READ_INTENTS.READ_FINANCIAL_ENTRY,
+        requiresLocalData: true,
+        allowedTools: ["getFinancialEntry", "listFinancialEntries"],
+        entityHints: nameHints,
+      };
+    if (entityType === "notification")
+      return {
+        intent: READ_INTENTS.READ_NOTIFICATION,
+        requiresLocalData: true,
+        allowedTools: ["getNotification", "listNotifications"],
+        entityHints: nameHints,
+      };
+    if (entityType === "history_event")
+      return {
+        intent: READ_INTENTS.READ_HISTORY_EVENT,
+        requiresLocalData: true,
+        allowedTools: ["getHistoryEvent", "listHistoryEvents"],
+        entityHints: nameHints,
+      };
   }
 
   return null;
 }
 
 async function classifyIntent(message, context = {}) {
-  if (typeof message !== 'string' || !message.trim()) {
-    throw classificationError('Message is required for intent classification.');
+  if (typeof message !== "string" || !message.trim()) {
+    throw classificationError("Message is required for intent classification.");
   }
 
   // Explicit user-provided intent takes precedence when valid.
   if (context.intent) {
     if (!INTENT_LIST.includes(context.intent)) {
-      throw classificationError(`Unsupported intent provided in context: ${context.intent}`);
+      throw classificationError(
+        `Unsupported intent provided in context: ${context.intent}`,
+      );
     }
     return context.intent;
   }
@@ -540,61 +1210,61 @@ async function classifyIntent(message, context = {}) {
 
   // Rule: Operational risk requests must contain explicit risk language or operation flag.
   if (
-    normalized.includes('risk') ||
-    normalized.includes('mitigation') ||
-    normalized.includes('control') ||
-    context.operation === 'analyze_risks'
+    normalized.includes("risk") ||
+    normalized.includes("mitigation") ||
+    normalized.includes("control") ||
+    context.operation === "analyze_risks"
   ) {
     matches.push(INTENTS.ANALYZE_OPERATIONAL_RISKS);
   }
 
   // Rule: Action planning must reference proposed actions or next steps explicitly.
   if (
-    normalized.includes('propose actions') ||
-    normalized.includes('proposed actions') ||
-    normalized.includes('action plan') ||
-    normalized.includes('next steps') ||
-    context.operation === 'propose_actions'
+    normalized.includes("propose actions") ||
+    normalized.includes("proposed actions") ||
+    normalized.includes("action plan") ||
+    normalized.includes("next steps") ||
+    context.operation === "propose_actions"
   ) {
     matches.push(INTENTS.PROPOSE_ACTIONS);
   }
 
   // Rule: Invitations are identified by invitation keywords or explicit draft type.
   if (
-    normalized.includes('invite') ||
-    normalized.includes('invitation') ||
-    normalized.includes('rsvp') ||
-    context.draftType === 'invitation'
+    normalized.includes("invite") ||
+    normalized.includes("invitation") ||
+    normalized.includes("rsvp") ||
+    context.draftType === "invitation"
   ) {
     matches.push(INTENTS.DRAFT_INVITATION);
   }
 
   // Rule: Client emails require both client targeting and email drafting signals.
   if (
-    (normalized.includes('client') && normalized.includes('email')) ||
-    (context.recipientType === 'client' && normalized.includes('email')) ||
-    context.draftType === 'client_email'
+    (normalized.includes("client") && normalized.includes("email")) ||
+    (context.recipientType === "client" && normalized.includes("email")) ||
+    context.draftType === "client_email"
   ) {
     matches.push(INTENTS.DRAFT_CLIENT_EMAIL);
   }
 
   // Rule: Session summaries are detected via summary language or explicit operation.
   if (
-    normalized.includes('summary') ||
-    normalized.includes('summarize') ||
-    normalized.includes('recap') ||
-    normalized.includes('minutes') ||
-    context.operation === 'summarize_session'
+    normalized.includes("summary") ||
+    normalized.includes("summarize") ||
+    normalized.includes("recap") ||
+    normalized.includes("minutes") ||
+    context.operation === "summarize_session"
   ) {
     matches.push(INTENTS.SUMMARIZE_SESSION);
   }
 
   // Rule: Entity state explanations require explicit explain/status language or context operation.
   if (
-    normalized.includes('explain') ||
-    normalized.includes('status') ||
-    normalized.includes('state') ||
-    context.operation === 'explain_state'
+    normalized.includes("explain") ||
+    normalized.includes("status") ||
+    normalized.includes("state") ||
+    context.operation === "explain_state"
   ) {
     matches.push(INTENTS.EXPLAIN_ENTITY_STATE);
   }
@@ -606,7 +1276,9 @@ async function classifyIntent(message, context = {}) {
   }
 
   if (uniqueMatches.length > 1) {
-    throw classificationError(`Ambiguous intent; matched multiple intents: ${uniqueMatches.join(', ')}`);
+    throw classificationError(
+      `Ambiguous intent; matched multiple intents: ${uniqueMatches.join(", ")}`,
+    );
   }
 
   return uniqueMatches[0];
@@ -623,14 +1295,14 @@ function classificationError(message) {
  * These indicate the type of follow-up the user is making
  */
 const FOLLOW_UP_TYPES = Object.freeze({
-  FILTER_MODIFICATION: 'filter_modification',   // "what about inactive ones?"
-  NEXT_ACTION: 'next_action',                   // "and now?", "what's next?"
-  REPEAT_ACTION: 'repeat_action',               // "give it again", "repeat that"
-  CLARIFICATION_REQUEST: 'clarification',       // "why?", "explain"
-  PAGINATION: 'pagination',                     // "show more", "next page"
-  SUBSET_REQUEST: 'subset',                     // "just the overdue ones"
-  CONFIRMATION: 'confirmation',                 // "yes", "ok", "do it"
-  NEGATION: 'negation',                         // "no", "cancel", "nevermind"
+  FILTER_MODIFICATION: "filter_modification", // "what about inactive ones?"
+  NEXT_ACTION: "next_action", // "and now?", "what's next?"
+  REPEAT_ACTION: "repeat_action", // "give it again", "repeat that"
+  CLARIFICATION_REQUEST: "clarification", // "why?", "explain"
+  PAGINATION: "pagination", // "show more", "next page"
+  SUBSET_REQUEST: "subset", // "just the overdue ones"
+  CONFIRMATION: "confirmation", // "yes", "ok", "do it"
+  NEGATION: "negation", // "no", "cancel", "nevermind"
 });
 
 /**
@@ -638,24 +1310,24 @@ const FOLLOW_UP_TYPES = Object.freeze({
  */
 const FILTER_MODIFIERS = Object.freeze({
   // Status filters
-  inactive: { field: 'status', value: 'inactive', label: 'inactive' },
-  active: { field: 'status', value: 'active', label: 'active' },
-  pending: { field: 'status', value: 'pending', label: 'pending' },
-  completed: { field: 'status', value: 'completed', label: 'completed' },
-  done: { field: 'status', value: 'done', label: 'done' },
-  open: { field: 'status', value: 'open', label: 'open' },
-  closed: { field: 'status', value: 'closed', label: 'closed' },
+  inactive: { field: "status", value: "inactive", label: "inactive" },
+  active: { field: "status", value: "active", label: "active" },
+  pending: { field: "status", value: "pending", label: "pending" },
+  completed: { field: "status", value: "completed", label: "completed" },
+  done: { field: "status", value: "done", label: "done" },
+  open: { field: "status", value: "open", label: "open" },
+  closed: { field: "status", value: "closed", label: "closed" },
 
   // Temporal filters
-  overdue: { field: 'temporal', value: 'overdue', label: 'overdue' },
-  upcoming: { field: 'temporal', value: 'upcoming', label: 'upcoming' },
-  today: { field: 'temporal', value: 'today', label: 'today' },
-  'this week': { field: 'temporal', value: 'this_week', label: 'this week' },
+  overdue: { field: "temporal", value: "overdue", label: "overdue" },
+  upcoming: { field: "temporal", value: "upcoming", label: "upcoming" },
+  today: { field: "temporal", value: "today", label: "today" },
+  "this week": { field: "temporal", value: "this_week", label: "this week" },
 
   // Priority filters
-  urgent: { field: 'priority', value: 'urgent', label: 'urgent' },
-  high: { field: 'priority', value: 'high', label: 'high priority' },
-  low: { field: 'priority', value: 'low', label: 'low priority' },
+  urgent: { field: "priority", value: "urgent", label: "urgent" },
+  high: { field: "priority", value: "high", label: "high priority" },
+  low: { field: "priority", value: "low", label: "low priority" },
 });
 
 /**
@@ -672,41 +1344,42 @@ const FILTER_MODIFIERS = Object.freeze({
  * @returns {Object|null} Follow-up detection result or null if not a follow-up
  */
 function detectFollowUp(message, context = {}) {
-  if (!message || typeof message !== 'string') return null;
+  if (!message || typeof message !== "string") return null;
 
   const normalized = message.trim().toLowerCase();
   const wordCount = normalized.split(/\s+/).length;
 
   // Pattern 1: Very short vague messages (likely follow-ups)
   const vaguePatterns = [
-    /^(and\s+)?now\??$/i,                       // "now?", "and now?"
-    /^(now\s+)?what\??$/i,                      // "now what?", "what?"
-    /^what('s|s)?\s*(next|now)\??$/i,           // "what's next?", "what now?"
+    /^(and\s+)?now\??$/i, // "now?", "and now?"
+    /^(now\s+)?what\??$/i, // "now what?", "what?"
+    /^what('s|s)?\s*(next|now)\??$/i, // "what's next?", "what now?"
     /^(so\s+)?what\s+(do|should)\s+i\s+do\??$/i, // "what do I do?", "what should I do?"
     /^(ok|okay)\s*(,?\s*(and|so|now))?\s*\??$/i, // "ok, and?", "okay now?"
-    /^then\??$/i,                               // "then?"
-    /^next\??$/i,                               // "next?"
-    /^why\??$/i,                                // "why?"
-    /^how\s*(come|so)\??$/i,                    // "how come?", "how so?"
-    /^explain\??$/i,                            // "explain?"
-    /^more\??$/i,                               // "more?"
-    /^show\s+more\??$/i,                        // "show more?"
-    /^continue\??$/i,                           // "continue?"
-    /^what\s+else\??$/i,                        // "what else?"
-    /^anything\s+else\??$/i,                    // "anything else?"
+    /^then\??$/i, // "then?"
+    /^next\??$/i, // "next?"
+    /^why\??$/i, // "why?"
+    /^how\s*(come|so)\??$/i, // "how come?", "how so?"
+    /^explain\??$/i, // "explain?"
+    /^more\??$/i, // "more?"
+    /^show\s+more\??$/i, // "show more?"
+    /^continue\??$/i, // "continue?"
+    /^what\s+else\??$/i, // "what else?"
+    /^anything\s+else\??$/i, // "anything else?"
   ];
 
   // Pattern 2: "What about X?" patterns (filter modification)
   // NOTE: These patterns must NOT match when explicit entity types are present
   const whatAboutPatterns = [
-    /^what\s+about\s+(the\s+)?(.+?)\s*(ones?)?\??$/i,     // "what about the inactive ones?"
-    /^(and|but)\s+(the\s+)?(.+?)\s*(ones?)?\??$/i,       // "and the overdue ones?"
-    /^(just|only)\s+(the\s+)?(.+?)\s*(ones?)?\??$/i,     // "just the urgent ones"
-    /^(how\s+about|what\s+of)\s+(the\s+)?(.+?)\??$/i,    // "how about inactive?"
+    /^what\s+about\s+(the\s+)?(.+?)\s*(ones?)?\??$/i, // "what about the inactive ones?"
+    /^(and|but)\s+(the\s+)?(.+?)\s*(ones?)?\??$/i, // "and the overdue ones?"
+    /^(just|only)\s+(the\s+)?(.+?)\s*(ones?)?\??$/i, // "just the urgent ones"
+    /^(how\s+about|what\s+of)\s+(the\s+)?(.+?)\??$/i, // "how about inactive?"
   ];
 
   // Entity keywords that indicate a NEW query, not a follow-up
-  const entityKeywords = /\b(client|clients|dossier|dossiers|task|tasks|session|sessions|meeting|meetings|hearing|hearings|appointment|appointments|lawsuit|lawsuits|case|cases|matter|matters)\b/i;
+  const entityKeywords =
+    /\b(client|clients|dossier|dossiers|task|tasks|personal\s+task|personal\s+tasks|session|sessions|meeting|meetings|hearing|hearings|appointment|appointments|lawsuit|lawsuits|case|cases|matter|matters|mission|missions|accounting|financial|invoice|payment|expense|billing|notification|notifications|alert|alerts|history|audit)\b/i;
 
   // Pattern 3: Pronoun references (refer to prior context)
   const pronounPatterns = [
@@ -729,7 +1402,7 @@ function detectFollowUp(message, context = {}) {
         isFollowUp: true,
         type: FOLLOW_UP_TYPES.NEXT_ACTION,
         confidence: 0.9,
-        reason: 'vague_query',
+        reason: "vague_query",
         originalMessage: message,
       };
     }
@@ -738,12 +1411,12 @@ function detectFollowUp(message, context = {}) {
   // Pattern 1.5: Repeat action patterns (explicit repeat requests)
   // CRITICAL: These must be checked early to prevent fallthrough
   const repeatPatterns = [
-    /^(give|show|do|run)\s+it\s+again[\.\?\!]?$/i,    // "give it again", "show it again"
-    /^again[\s,]*(?:please)?[\.\?\!]?$/i,             // "again", "again please"
-    /^repeat[\s\w]*[\.\?\!]?$/i,                      // "repeat", "repeat that", "repeat please"
-    /^one\s+more\s+time[\.\?\!]?$/i,                  // "one more time"
-    /^(same|the\s+same)[\.\?\!]?$/i,                  // "same", "the same"
-    /^do\s+(that|the\s+same)[\s\w]*[\.\?\!]?$/i,     // "do that", "do the same", "do that again"
+    /^(give|show|do|run)\s+it\s+again[\.\?\!]?$/i, // "give it again", "show it again"
+    /^again[\s,]*(?:please)?[\.\?\!]?$/i, // "again", "again please"
+    /^repeat[\s\w]*[\.\?\!]?$/i, // "repeat", "repeat that", "repeat please"
+    /^one\s+more\s+time[\.\?\!]?$/i, // "one more time"
+    /^(same|the\s+same)[\.\?\!]?$/i, // "same", "the same"
+    /^do\s+(that|the\s+same)[\s\w]*[\.\?\!]?$/i, // "do that", "do the same", "do that again"
     /^(show|give|list)\s+(them|it|that)\s+again[\.\?\!]?$/i, // "show them again", "list it again"
   ];
 
@@ -753,7 +1426,7 @@ function detectFollowUp(message, context = {}) {
         isFollowUp: true,
         type: FOLLOW_UP_TYPES.REPEAT_ACTION,
         confidence: 0.95,
-        reason: 'repeat_request',
+        reason: "repeat_request",
         originalMessage: message,
       };
     }
@@ -766,14 +1439,14 @@ function detectFollowUp(message, context = {}) {
       const match = normalized.match(pattern);
       if (match) {
         // Extract the filter word (last captured group before "ones")
-        const filterWord = (match[3] || match[2] || '').trim().toLowerCase();
+        const filterWord = (match[3] || match[2] || "").trim().toLowerCase();
         const modifier = detectFilterModifier(filterWord);
 
         return {
           isFollowUp: true,
           type: FOLLOW_UP_TYPES.FILTER_MODIFICATION,
           confidence: 0.85,
-          reason: 'what_about_pattern',
+          reason: "what_about_pattern",
           filterWord,
           modifier,
           originalMessage: message,
@@ -789,7 +1462,7 @@ function detectFollowUp(message, context = {}) {
         isFollowUp: true,
         type: FOLLOW_UP_TYPES.CONFIRMATION,
         confidence: 0.95,
-        reason: 'confirmation',
+        reason: "confirmation",
         originalMessage: message,
       };
     }
@@ -802,7 +1475,7 @@ function detectFollowUp(message, context = {}) {
         isFollowUp: true,
         type: FOLLOW_UP_TYPES.NEGATION,
         confidence: 0.95,
-        reason: 'negation',
+        reason: "negation",
         originalMessage: message,
       };
     }
@@ -816,7 +1489,7 @@ function detectFollowUp(message, context = {}) {
           isFollowUp: true,
           type: FOLLOW_UP_TYPES.SUBSET_REQUEST,
           confidence: 0.7,
-          reason: 'pronoun_reference',
+          reason: "pronoun_reference",
           originalMessage: message,
         };
       }
@@ -828,7 +1501,7 @@ function detectFollowUp(message, context = {}) {
     const entityPatterns = [
       /\b(client|clients|dossier|dossiers|task|tasks|session|sessions)\b/i,
     ];
-    const hasEntityMention = entityPatterns.some(p => p.test(normalized));
+    const hasEntityMention = entityPatterns.some((p) => p.test(normalized));
 
     if (!hasEntityMention) {
       const modifier = detectFilterModifier(normalized);
@@ -837,7 +1510,7 @@ function detectFollowUp(message, context = {}) {
           isFollowUp: true,
           type: FOLLOW_UP_TYPES.FILTER_MODIFICATION,
           confidence: 0.75,
-          reason: 'standalone_filter',
+          reason: "standalone_filter",
           filterWord: normalized,
           modifier,
           originalMessage: message,
@@ -856,7 +1529,7 @@ function detectFollowUp(message, context = {}) {
  * @returns {Object|null} Filter modifier object or null
  */
 function detectFilterModifier(text) {
-  if (!text || typeof text !== 'string') return null;
+  if (!text || typeof text !== "string") return null;
 
   const normalized = text.trim().toLowerCase();
 
@@ -883,7 +1556,7 @@ function detectFilterModifier(text) {
     return { ...FILTER_MODIFIERS.today };
   }
   if (/this\s+week|weekly/i.test(normalized)) {
-    return { ...FILTER_MODIFIERS['this week'] };
+    return { ...FILTER_MODIFIERS["this week"] };
   }
 
   return null;
@@ -897,22 +1570,24 @@ function detectFilterModifier(text) {
  * @returns {boolean} True if message has explicit entity mentions
  */
 function hasExplicitEntityMention(message) {
-  if (!message || typeof message !== 'string') return false;
+  if (!message || typeof message !== "string") return false;
 
   const normalized = message.toLowerCase();
 
   // Check for entity type keywords with list/show verbs (new query)
   const newQueryPatterns = [
-    /\b(list|show|get|display)\s+(my\s+)?(all\s+)?(client|dossier|task|session)/i,
-    /\bmy\s+(client|dossier|task|session)s?\b/i,
-    /\b(client|dossier|task|session)s?\s+(list|overview)/i,
+    /\b(list|show|get|display)\s+(my\s+)?(all\s+)?(client|dossier|task|session|lawsuit|mission|accounting|notification|history)/i,
+    /\bmy\s+(client|dossier|task|session|lawsuit|mission|notification)s?\b/i,
+    /\b(client|dossier|task|session|lawsuit|mission|notification)s?\s+(list|overview)/i,
   ];
 
   // Check for specific entity references
   const specificEntityPatterns = [
-    /\bclient\s+(?:named\s+)?[A-Z][a-z]+/i,  // "client Emma"
-    /DOS-\d{4}-\d+/i,                         // Dossier reference
-    /\bdossier\s+(?:for\s+)?[A-Z][a-z]+/i,   // "dossier for Emma"
+    /\bclient\s+(?:named\s+)?[A-Z][a-z]+/i, // "client Emma"
+    /DOS-\d{4}-\d+/i, // Dossier reference
+    /PRO-\d{4}-\d+/i, // Lawsuit reference
+    /MIS-\d{4}-\d+/i, // Mission reference
+    /\bdossier\s+(?:for\s+)?[A-Z][a-z]+/i, // "dossier for Emma"
   ];
 
   for (const pattern of [...newQueryPatterns, ...specificEntityPatterns]) {
@@ -932,15 +1607,22 @@ function hasExplicitEntityMention(message) {
  * @returns {string|null} Entity type or null
  */
 function detectEntityType(message) {
-  if (!message || typeof message !== 'string') return null;
+  if (!message || typeof message !== "string") return null;
 
   const normalized = message.toLowerCase();
 
   const entityPatterns = {
     client: /\b(client|clients)\b/i,
     dossier: /\b(dossier|dossiers|case\s*file|matter|matters)\b/i,
+    lawsuit: /\b(lawsuit|lawsuits|case|cases|trial|proces)\b/i,
+    personal_task: /\b(personal\s+task|personal\s+tasks)\b/i,
     task: /\b(task|tasks|todo|to-do|todos)\b/i,
-    session: /\b(session|sessions|meeting|meetings|hearing|hearings|appointment|appointments)\b/i,
+    session:
+      /\b(session|sessions|meeting|meetings|hearing|hearings|appointment|appointments)\b/i,
+    mission: /\b(mission|missions|huissier)\b/i,
+    financial_entry: /\b(accounting|financial|invoice|payment|expense|billing|entry|entries)\b/i,
+    notification: /\b(notification|notifications|alert|alerts)\b/i,
+    history_event: /\b(history|audit\s*trail|activity\s*log|audit)\b/i,
   };
 
   for (const [type, pattern] of Object.entries(entityPatterns)) {

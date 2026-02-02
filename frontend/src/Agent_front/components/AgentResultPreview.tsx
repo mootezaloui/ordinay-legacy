@@ -7,6 +7,9 @@ import {
   CheckSquare,
   Calendar,
   FileText,
+  Wallet,
+  Bell,
+  History,
   TrendingUp,
   Lightbulb,
   Search,
@@ -22,6 +25,9 @@ const DATA_SOURCE_CONFIG = [
   { id: "personalTasks", label: "Personal Tasks", icon: CheckSquare },
   { id: "missions", label: "Missions", icon: Zap },
   { id: "sessions", label: "Sessions", icon: Calendar },
+  { id: "financialEntries", label: "Accounting", icon: Wallet },
+  { id: "notifications", label: "Notifications", icon: Bell },
+  { id: "history", label: "History", icon: History },
   { id: "documents", label: "Documents", icon: FileText },
 ];
 
@@ -75,8 +81,16 @@ export function AgentResultPreview({
   dataAccess,
   setDataAccess,
 }: AgentResultPreviewProps) {
-  const { dossiers, clients, lawsuits, tasks, personalTasks, missions, sessions } =
-    useData();
+  const {
+    dossiers,
+    clients,
+    lawsuits,
+    tasks,
+    personalTasks,
+    missions,
+    sessions,
+    financialEntries,
+  } = useData();
 
   const handleToggleSource = (id: keyof DataAccessPermissions) => {
     setDataAccess((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -149,6 +163,8 @@ export function AgentResultPreview({
               value = missions.length;
             else if (source.id === "sessions" && sessions)
               value = sessions.length;
+            else if (source.id === "financialEntries" && financialEntries)
+              value = financialEntries.length;
             const enabled = dataAccess[source.id as keyof DataAccessPermissions];
             return (
               <button

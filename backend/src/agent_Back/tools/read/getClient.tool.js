@@ -7,7 +7,7 @@
  * Read-only, no side effects, safe for all agent versions.
  */
 
-const db = require('../../../db/connection');
+const clientsService = require('../../../services/clients.service');
 const { TOOL_CATEGORIES } = require('../tool.registry');
 
 const inputSchema = {
@@ -36,19 +36,7 @@ const outputSchema = {
 };
 
 async function handler({ clientId }) {
-  const client = db
-    .prepare(
-      `
-      SELECT
-        id, name, email, phone, alternate_phone, address,
-        status, cin, date_of_birth, profession, company,
-        tax_id, notes, join_date, created_at, updated_at
-      FROM clients
-      WHERE id = ? AND deleted_at IS NULL
-      `
-    )
-    .get(clientId);
-
+  const client = clientsService.get(clientId);
   return { client: client || null };
 }
 

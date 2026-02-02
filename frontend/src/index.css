@@ -645,6 +645,90 @@
   animation: agent-message-enter 0.35s ease-out forwards;
 }
 
+/* ── Workspace & workflow animations ── */
+
+/* Generic artifact entry (for completed artifacts on scroll-back) */
+@keyframes artifact-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.artifact-enter {
+  animation: artifact-enter 0.25s ease-out forwards;
+}
+
+/* Current interaction pair entry */
+@keyframes workspace-current-enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.workspace-current-enter {
+  animation: workspace-current-enter 0.2s ease-out forwards;
+}
+
+/* Workflow phase transitions */
+@keyframes workflow-phase-enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.workflow-phase-enter {
+  animation: workflow-phase-enter 0.2s ease-out forwards;
+}
+
+/* Individual work step appearing */
+@keyframes workflow-step-enter {
+  from {
+    opacity: 0;
+    transform: translateX(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.workflow-step-enter {
+  animation: workflow-step-enter 0.2s ease-out forwards;
+}
+
+/* Artifact reveal — the result "opens" from the working state.
+   Uses a subtle scale + translate for a professional feel. */
+@keyframes artifact-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scaleY(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scaleY(1);
+  }
+}
+
+.artifact-reveal {
+  transform-origin: top center;
+  animation: artifact-reveal 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
 /* Scroll container smooth behavior */
 .scroll-smooth {
   scroll-behavior: smooth;

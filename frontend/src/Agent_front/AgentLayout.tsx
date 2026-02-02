@@ -103,7 +103,7 @@ export function AgentLayout() {
         </div>
       )}
 
-      {/* ── Center column: chat workspace ── */}
+      {/* ── Center column: agent workspace ── */}
       <div className="flex-1 flex flex-col min-w-0 h-full">
         <AgentTopBar
           showHistorySidebar={showHistorySidebar}

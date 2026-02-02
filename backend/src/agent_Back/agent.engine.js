@@ -963,9 +963,14 @@ class AgentEngine {
       };
     }
 
-    // Execute command by fetching data
+    // Execute command using READ intent pipeline
     try {
-      const result = await this._executeCommandTools(parsed, context, policy);
+      const result = await this._executeCommandTools(
+        parsed,
+        context,
+        policy,
+        message,
+      );
 
       this.ledger.record({
         type: "slash_command_executed",
@@ -975,10 +980,7 @@ class AgentEngine {
       });
 
       return {
-        intent: "COMMAND",
-        agentVersion: policy.version,
-        reasoner: "command",
-        output: result,
+        ...result,
         isCommand: true,
       };
     } catch (err) {
@@ -1028,21 +1030,107 @@ class AgentEngine {
    * @param {Object} policy - Current agent policy
    * @returns {Promise<Object>} Data response
    * @private
-   */
+  */
   async _executeReadIntent(readIntent, message, context, policy) {
-    const db = require("../db/connection");
-    const { intent, allowedTools, entityHints, filters } = readIntent;
+    const { intent, entityHints = [], filters = {} } = readIntent;
+    const now = new Date();
+    const scope = String(context?.scope || "").toLowerCase();
+
+    const formatDate = (value) =>
+      value ? new Date(value).toISOString().slice(0, 10) : "N/A";
+    const formatDateTime = (value) =>
+      value
+        ? new Date(value).toISOString().replace("T", " ").slice(0, 16)
+        : "N/A";
+
+    const parsePayload = (value) => {
+      if (value === null || value === undefined) return {};
+      if (typeof value === "object") return value;
+      if (typeof value === "string") {
+        try {
+          const parsed = JSON.parse(value);
+          if (parsed && typeof parsed === "object") return parsed;
+        } catch (err) {
+          return { value };
+        }
+      }
+      return { value };
+    };
+
+    const getHintValue = (type, entityType = null) => {
+      const hint = entityHints.find(
+        (item) =>
+          item.type === type &&
+          (!entityType || !item.entityType || item.entityType === entityType),
+      );
+      return hint ? hint.value : null;
+    };
+
+    const isFinancialOverdue = (entry) =>
+      entry?.due_date &&
+      !entry?.paid_at &&
+      new Date(entry.due_date) < now;
+
+    const isMissionOverdue = (mission) =>
+      mission?.due_date &&
+      !["done", "completed", "closed", "cancelled"].includes(
+        String(mission.status || "").toLowerCase(),
+      ) &&
+      new Date(mission.due_date) < now;
+
+    const isSessionOverdue = (session) =>
+      session?.scheduled_at &&
+      !["done", "completed", "closed", "cancelled"].includes(
+        String(session.status || "").toLowerCase(),
+      ) &&
+      new Date(session.scheduled_at) < now;
+
+    let title = "Read data";
 
     // DOMAIN ACCESS CHECK - Map READ intents to required domains
     const INTENT_DOMAIN_MAP = {
-      LIST_CLIENTS: DATA_DOMAINS.CLIENTS,
-      GET_CLIENT: DATA_DOMAINS.CLIENTS,
-      LIST_DOSSIERS: DATA_DOMAINS.DOSSIERS,
-      GET_DOSSIER: DATA_DOMAINS.DOSSIERS,
-      LIST_TASKS: DATA_DOMAINS.TASKS,
-      LIST_OVERDUE_TASKS: DATA_DOMAINS.TASKS,
-      LIST_SESSIONS: DATA_DOMAINS.SESSIONS,
-      GET_UPCOMING_SESSIONS: DATA_DOMAINS.SESSIONS,
+      [READ_INTENTS.LIST_CLIENTS]: DATA_DOMAINS.CLIENTS,
+      [READ_INTENTS.READ_CLIENT]: DATA_DOMAINS.CLIENTS,
+      [READ_INTENTS.EXPLAIN_CLIENT_STATE]: DATA_DOMAINS.CLIENTS,
+      [READ_INTENTS.SUMMARIZE_CLIENT]: DATA_DOMAINS.CLIENTS,
+      [READ_INTENTS.LIST_DOSSIERS]: DATA_DOMAINS.DOSSIERS,
+      [READ_INTENTS.READ_DOSSIER]: DATA_DOMAINS.DOSSIERS,
+      [READ_INTENTS.EXPLAIN_DOSSIER_STATE]: DATA_DOMAINS.DOSSIERS,
+      [READ_INTENTS.SUMMARIZE_DOSSIER]: DATA_DOMAINS.DOSSIERS,
+      [READ_INTENTS.LIST_LAWSUITS]: DATA_DOMAINS.LAWSUITS,
+      [READ_INTENTS.READ_LAWSUIT]: DATA_DOMAINS.LAWSUITS,
+      [READ_INTENTS.EXPLAIN_LAWSUIT_STATE]: DATA_DOMAINS.LAWSUITS,
+      [READ_INTENTS.SUMMARIZE_LAWSUIT]: DATA_DOMAINS.LAWSUITS,
+      [READ_INTENTS.LIST_TASKS]: DATA_DOMAINS.TASKS,
+      [READ_INTENTS.LIST_OVERDUE_TASKS]: DATA_DOMAINS.TASKS,
+      [READ_INTENTS.READ_TASK]: DATA_DOMAINS.TASKS,
+      [READ_INTENTS.EXPLAIN_TASK_STATE]: DATA_DOMAINS.TASKS,
+      [READ_INTENTS.SUMMARIZE_TASK]: DATA_DOMAINS.TASKS,
+      [READ_INTENTS.LIST_PERSONAL_TASKS]: DATA_DOMAINS.PERSONAL_TASKS,
+      [READ_INTENTS.READ_PERSONAL_TASK]: DATA_DOMAINS.PERSONAL_TASKS,
+      [READ_INTENTS.EXPLAIN_PERSONAL_TASK_STATE]: DATA_DOMAINS.PERSONAL_TASKS,
+      [READ_INTENTS.SUMMARIZE_PERSONAL_TASK]: DATA_DOMAINS.PERSONAL_TASKS,
+      [READ_INTENTS.LIST_SESSIONS]: DATA_DOMAINS.SESSIONS,
+      [READ_INTENTS.LIST_UPCOMING_SESSIONS]: DATA_DOMAINS.SESSIONS,
+      [READ_INTENTS.READ_SESSION]: DATA_DOMAINS.SESSIONS,
+      [READ_INTENTS.EXPLAIN_SESSION_STATE]: DATA_DOMAINS.SESSIONS,
+      [READ_INTENTS.SUMMARIZE_SESSION]: DATA_DOMAINS.SESSIONS,
+      [READ_INTENTS.LIST_MISSIONS]: DATA_DOMAINS.MISSIONS,
+      [READ_INTENTS.READ_MISSION]: DATA_DOMAINS.MISSIONS,
+      [READ_INTENTS.EXPLAIN_MISSION_STATE]: DATA_DOMAINS.MISSIONS,
+      [READ_INTENTS.SUMMARIZE_MISSION]: DATA_DOMAINS.MISSIONS,
+      [READ_INTENTS.LIST_FINANCIAL_ENTRIES]: DATA_DOMAINS.FINANCIAL_ENTRIES,
+      [READ_INTENTS.READ_FINANCIAL_ENTRY]: DATA_DOMAINS.FINANCIAL_ENTRIES,
+      [READ_INTENTS.EXPLAIN_FINANCIAL_ENTRY_STATE]: DATA_DOMAINS.FINANCIAL_ENTRIES,
+      [READ_INTENTS.SUMMARIZE_FINANCIAL_ENTRY]: DATA_DOMAINS.FINANCIAL_ENTRIES,
+      [READ_INTENTS.LIST_NOTIFICATIONS]: DATA_DOMAINS.NOTIFICATIONS,
+      [READ_INTENTS.READ_NOTIFICATION]: DATA_DOMAINS.NOTIFICATIONS,
+      [READ_INTENTS.EXPLAIN_NOTIFICATION_STATE]: DATA_DOMAINS.NOTIFICATIONS,
+      [READ_INTENTS.SUMMARIZE_NOTIFICATION]: DATA_DOMAINS.NOTIFICATIONS,
+      [READ_INTENTS.LIST_HISTORY_EVENTS]: DATA_DOMAINS.HISTORY,
+      [READ_INTENTS.READ_HISTORY_EVENT]: DATA_DOMAINS.HISTORY,
+      [READ_INTENTS.EXPLAIN_HISTORY_STATE]: DATA_DOMAINS.HISTORY,
+      [READ_INTENTS.SUMMARIZE_HISTORY]: DATA_DOMAINS.HISTORY,
     };
 
     const requiredDomain = INTENT_DOMAIN_MAP[intent];
@@ -1064,6 +1152,7 @@ class AgentEngine {
             type: "explanation",
             entityId: "domain_access_denied",
             entityType: "security",
+            title: "Read data — Access denied",
             summary: domainCheck.message,
             details: [
               `This query requires access to ${requiredDomain} data.`,
@@ -1098,262 +1187,3242 @@ class AgentEngine {
 
     try {
       switch (intent) {
-        case "LIST_CLIENTS": {
-          const clients = db
-            .prepare(
-              `SELECT id, name, email, phone, status FROM clients WHERE deleted_at IS NULL ORDER BY name LIMIT 50`,
-            )
-            .all();
+        case READ_INTENTS.LIST_CLIENTS: {
+          const { clients } = await this._callReadTool(
+            "listClients",
+            { limit: 50 },
+            policy,
+          );
           data = clients;
+          title = "Read data — Clients";
           summary =
             clients.length > 0
               ? `Found ${clients.length} client(s)`
-              : "No clients found in the system";
+              : "No clients found";
           clients.forEach((c) => {
             details.push(
-              `• ${c.name} (ID: ${c.id}) - ${c.status || "active"}${c.email ? ` - ${c.email}` : ""}`,
+              `${c.name} (ID: ${c.id}) — ${c.status || "active"}${c.email ? ` • ${c.email}` : ""}`,
             );
           });
           sources.push({
-            sourceType: "database",
-            reference: "clients",
-            note: "Client list query",
+            sourceType: "system",
+            reference: "tool:listClients",
+            note: "Client list",
           });
           break;
         }
 
-        case "LIST_DOSSIERS": {
-          const dossiers = db
-            .prepare(
-              `SELECT d.id, d.reference, d.title, d.status, d.priority, c.name as client_name
-             FROM dossiers d
-             LEFT JOIN clients c ON c.id = d.client_id
-             WHERE d.deleted_at IS NULL
-             ORDER BY d.updated_at DESC
-             LIMIT 50`,
-            )
-            .all();
+        case READ_INTENTS.LIST_DOSSIERS: {
+          let clientId = scope === "client" ? context?.clientId : null;
+          if (!clientId) {
+            const hintClientId = getHintValue("id", "client");
+            if (hintClientId) clientId = hintClientId;
+          }
+          if (!clientId) {
+            const hintClientName = getHintValue("name", "client");
+            if (hintClientName) {
+              const resolution = await this._resolveEntity(
+                { type: "client", nameHint: hintClientName },
+                policy,
+              );
+              if (resolution.resolved) {
+                clientId = resolution.entity.id;
+              } else if (resolution.reason === "ambiguous") {
+                title = "Read data — Dossiers";
+                summary = resolution.message;
+                resolution.candidates?.forEach((c) =>
+                  details.push(`${c.name} (ID: ${c.id})`),
+                );
+                details.push("Please specify which client you mean.");
+                break;
+              } else if (resolution.reason === "not_found") {
+                title = "Read data — Dossiers";
+                summary = resolution.message;
+                details.push("Try listing clients to see available records.");
+                break;
+              }
+            }
+          }
+          const { dossiers } = await this._callReadTool(
+            "listDossiers",
+            {
+              limit: 50,
+              clientId,
+            },
+            policy,
+          );
           data = dossiers;
+          title = "Read data — Dossiers";
           summary =
             dossiers.length > 0
               ? `Found ${dossiers.length} dossier(s)`
-              : "No dossiers found in the system";
+              : "No dossiers found";
           dossiers.forEach((d) => {
             details.push(
-              `• ${d.reference}: ${d.title} (${d.status}) - ${d.client_name || "No client"}`,
+              `${d.reference || "Dossier"} — ${d.title || "Untitled"} (${d.status || "open"}, ${d.priority || "medium"})`,
             );
           });
           sources.push({
-            sourceType: "database",
-            reference: "dossiers",
-            note: "Dossier list query",
+            sourceType: "system",
+            reference: "tool:listDossiers",
+            note: "Dossier list",
           });
           break;
         }
 
-        case "LIST_TASKS": {
-          const tasks = db
-            .prepare(
-              `SELECT t.id, t.title, t.status, t.priority, t.due_date, d.reference as dossier_ref
-             FROM tasks t
-             LEFT JOIN dossiers d ON d.id = t.dossier_id
-             WHERE t.deleted_at IS NULL AND t.status NOT IN ('done', 'cancelled')
-             ORDER BY t.priority DESC, t.due_date ASC
-             LIMIT 30`,
-            )
-            .all();
-          data = tasks;
-          summary =
-            tasks.length > 0
-              ? `Found ${tasks.length} active task(s)`
-              : "No active tasks found";
-          tasks.forEach((t) => {
-            const due = t.due_date ? ` (due: ${t.due_date})` : "";
-            details.push(
-              `• [${t.priority}] ${t.title}${due} - ${t.dossier_ref || "No dossier"}`,
-            );
-          });
-          sources.push({
-            sourceType: "database",
-            reference: "tasks",
-            note: "Task list query",
-          });
-          break;
-        }
-
-        case "LIST_OVERDUE_TASKS": {
-          const now = new Date().toISOString();
-          const tasks = db
-            .prepare(
-              `SELECT t.id, t.title, t.status, t.priority, t.due_date, d.reference as dossier_ref,
-                    julianday(?) - julianday(t.due_date) as days_overdue
-             FROM tasks t
-             LEFT JOIN dossiers d ON d.id = t.dossier_id
-             WHERE t.deleted_at IS NULL
-               AND t.status NOT IN ('done', 'cancelled')
-               AND t.due_date IS NOT NULL
-               AND t.due_date < ?
-             ORDER BY t.due_date ASC`,
-            )
-            .all(now, now);
-          data = tasks;
-          summary =
-            tasks.length > 0
-              ? `⚠ ${tasks.length} overdue task(s)`
-              : "✓ No overdue tasks";
-          tasks.forEach((t) => {
-            details.push(
-              `• [${t.priority}] ${t.title} - ${Math.round(t.days_overdue)} days overdue (${t.dossier_ref || "No dossier"})`,
-            );
-          });
-          sources.push({
-            sourceType: "analysis",
-            reference: "overdue_tasks",
-            note: "Overdue task detection",
-          });
-          break;
-        }
-
-        case "LIST_SESSIONS":
-        case "GET_UPCOMING_SESSIONS": {
-          let query = `SELECT s.id, s.session_type, s.status, s.scheduled_at, s.location
-                       FROM sessions s WHERE s.deleted_at IS NULL`;
-          const params = [];
-
-          if (filters?.today) {
-            const today = new Date().toISOString().split("T")[0];
-            query += ` AND date(s.scheduled_at) = date(?)`;
-            params.push(today);
-          } else if (filters?.thisWeek) {
-            const today = new Date();
-            const weekEnd = new Date(today);
-            weekEnd.setDate(today.getDate() + 7);
-            query += ` AND date(s.scheduled_at) >= date(?) AND date(s.scheduled_at) <= date(?)`;
-            params.push(today.toISOString(), weekEnd.toISOString());
-          } else if (filters?.upcoming) {
-            query += ` AND s.scheduled_at >= datetime('now')`;
+        case READ_INTENTS.LIST_LAWSUITS: {
+          let dossierId = scope === "dossier" ? context?.dossierId : null;
+          if (!dossierId) {
+            const hintDossierId = getHintValue("id", "dossier");
+            if (hintDossierId) dossierId = hintDossierId;
           }
-
-          query += ` ORDER BY s.scheduled_at ${filters?.upcoming ? "ASC" : "DESC"} LIMIT 30`;
-
-          const sessions = db.prepare(query).all(...params);
-          data = sessions;
-
-          const filterLabel = filters?.today
-            ? "today"
-            : filters?.thisWeek
-              ? "this week"
-              : filters?.upcoming
-                ? "upcoming"
-                : "";
-          summary =
-            sessions.length > 0
-              ? `${sessions.length} session(s)${filterLabel ? ` ${filterLabel}` : ""}`
-              : `No sessions${filterLabel ? ` ${filterLabel}` : ""} found`;
-          sessions.forEach((s) => {
-            const when = s.scheduled_at
-              ? new Date(s.scheduled_at).toLocaleString()
-              : "unscheduled";
-            details.push(
-              `• ${s.session_type} (${s.status}) - ${when}${s.location ? ` at ${s.location}` : ""}`,
-            );
-          });
-          sources.push({
-            sourceType: "database",
-            reference: "sessions",
-            note: "Session list query",
-          });
-          break;
-        }
-
-        case "GET_CLIENT": {
-          if (entityHints && entityHints.length > 0) {
-            const hint = entityHints[0];
-            const clients = db
-              .prepare(
-                `SELECT * FROM clients WHERE name LIKE ? COLLATE NOCASE AND deleted_at IS NULL LIMIT 10`,
-              )
-              .all(`%${hint.value}%`);
-
-            if (clients.length === 0) {
-              summary = `No client found matching "${hint.value}"`;
-              details.push("Try listing all clients with: show me my clients");
-            } else if (clients.length === 1) {
-              const c = clients[0];
-              summary = `Client: ${c.name}`;
-              details.push(`ID: ${c.id}`);
-              details.push(`Status: ${c.status || "active"}`);
-              if (c.email) details.push(`Email: ${c.email}`);
-              if (c.phone) details.push(`Phone: ${c.phone}`);
-              if (c.company) details.push(`Company: ${c.company}`);
-              sources.push({
-                sourceType: "database",
-                reference: `client:${c.id}`,
-                note: "Client lookup",
-              });
-            } else {
-              summary = `Multiple clients match "${hint.value}"`;
-              clients.forEach((c) => {
-                details.push(
-                  `• ${c.name} (ID: ${c.id}) - ${c.status || "active"}`,
+          if (!dossierId) {
+            const hintRef = getHintValue("reference", "dossier");
+            const hintName = getHintValue("name", "dossier");
+            if (hintRef || hintName) {
+              const resolution = await this._resolveEntity(
+                {
+                  type: "dossier",
+                  reference: hintRef || undefined,
+                  nameHint: hintName || undefined,
+                },
+                policy,
+              );
+              if (resolution.resolved) {
+                dossierId = resolution.entity.id;
+              } else if (resolution.reason === "ambiguous") {
+                title = "Read data — Lawsuits";
+                summary = resolution.message;
+                resolution.candidates?.forEach((c) =>
+                  details.push(`${c.name} (ID: ${c.id})`),
                 );
-              });
-              details.push("", "Please specify which client you mean.");
+                details.push("Please specify which dossier you mean.");
+                break;
+              } else if (resolution.reason === "not_found") {
+                title = "Read data — Lawsuits";
+                summary = resolution.message;
+                details.push("Try listing dossiers to see available records.");
+                break;
+              }
             }
           }
+          if (
+            !dossierId &&
+            (getHintValue("id", "client") || getHintValue("name", "client"))
+          ) {
+            title = "Read data — Lawsuits";
+            summary = "Cases are linked to dossiers.";
+            details.push("Specify a dossier to list related cases.");
+            break;
+          }
+          const { lawsuits } = await this._callReadTool(
+            "listLawsuits",
+            {
+              limit: 50,
+              dossierId,
+            },
+            policy,
+          );
+          data = lawsuits;
+          title = "Read data — Lawsuits";
+          summary =
+            lawsuits.length > 0
+              ? `Found ${lawsuits.length} lawsuit(s)`
+              : "No lawsuits found";
+          lawsuits.forEach((l) => {
+            const ref = l.reference || l.lawsuit_number || "Lawsuit";
+            details.push(
+              `${ref} — ${l.title || "Untitled"} (${l.status || "in_progress"})`,
+            );
+          });
+          sources.push({
+            sourceType: "system",
+            reference: "tool:listLawsuits",
+            note: "Lawsuit list",
+          });
           break;
         }
 
-        case "GET_DOSSIER": {
-          if (entityHints && entityHints.length > 0) {
-            const hint = entityHints[0];
-            let dossier;
+        case READ_INTENTS.LIST_TASKS: {
+          let dossierId = scope === "dossier" ? context?.dossierId : null;
+          let lawsuitId = scope === "lawsuit" ? context?.lawsuitId : null;
 
-            if (hint.type === "reference") {
-              dossier = db
-                .prepare(
-                  `SELECT d.*, c.name as client_name FROM dossiers d
-                 LEFT JOIN clients c ON c.id = d.client_id
-                 WHERE d.reference = ? COLLATE NOCASE AND d.deleted_at IS NULL`,
-                )
-                .get(hint.value);
-            } else {
-              const dossiers = db
-                .prepare(
-                  `SELECT d.*, c.name as client_name FROM dossiers d
-                 LEFT JOIN clients c ON c.id = d.client_id
-                 WHERE d.title LIKE ? COLLATE NOCASE AND d.deleted_at IS NULL LIMIT 10`,
-                )
-                .all(`%${hint.value}%`);
-              if (dossiers.length === 1) dossier = dossiers[0];
-              else if (dossiers.length > 1) {
-                summary = `Multiple dossiers match "${hint.value}"`;
-                dossiers.forEach((d) =>
-                  details.push(`• ${d.reference}: ${d.title}`),
+          if (!dossierId && !lawsuitId) {
+            const hintDossierId = getHintValue("id", "dossier");
+            const hintDossierRef = getHintValue("reference", "dossier");
+            const hintDossierName = getHintValue("name", "dossier");
+            if (hintDossierId) {
+              dossierId = hintDossierId;
+            } else if (hintDossierRef || hintDossierName) {
+              const resolution = await this._resolveEntity(
+                {
+                  type: "dossier",
+                  reference: hintDossierRef || undefined,
+                  nameHint: hintDossierName || undefined,
+                },
+                policy,
+              );
+              if (resolution.resolved) {
+                dossierId = resolution.entity.id;
+              } else if (resolution.reason === "ambiguous") {
+                title = "Read data — Tasks";
+                summary = resolution.message;
+                resolution.candidates?.forEach((c) =>
+                  details.push(`${c.name} (ID: ${c.id})`),
                 );
-                details.push("", "Please specify which dossier you mean.");
+                details.push("Please specify which dossier you mean.");
+                break;
+              } else if (resolution.reason === "not_found") {
+                title = "Read data — Tasks";
+                summary = resolution.message;
+                details.push("Try listing dossiers to see available records.");
+                break;
+              }
+            }
+          }
+
+          if (!dossierId && !lawsuitId) {
+            const hintLawsuitId = getHintValue("id", "lawsuit");
+            const hintLawsuitRef = getHintValue("reference", "lawsuit");
+            const hintLawsuitName = getHintValue("name", "lawsuit");
+            if (hintLawsuitId) {
+              lawsuitId = hintLawsuitId;
+            } else if (hintLawsuitRef || hintLawsuitName) {
+              const resolution = await this._resolveEntity(
+                {
+                  type: "lawsuit",
+                  reference: hintLawsuitRef || undefined,
+                  nameHint: hintLawsuitName || undefined,
+                },
+                policy,
+              );
+              if (resolution.resolved) {
+                lawsuitId = resolution.entity.id;
+              } else if (resolution.reason === "ambiguous") {
+                title = "Read data — Tasks";
+                summary = resolution.message;
+                resolution.candidates?.forEach((c) =>
+                  details.push(`${c.name} (ID: ${c.id})`),
+                );
+                details.push("Please specify which case you mean.");
+                break;
+              } else if (resolution.reason === "not_found") {
+                title = "Read data — Tasks";
+                summary = resolution.message;
+                details.push("Try listing cases to see available records.");
+                break;
+              }
+            }
+          }
+
+          if (
+            !dossierId &&
+            !lawsuitId &&
+            (getHintValue("id", "client") || getHintValue("name", "client"))
+          ) {
+            title = "Read data — Tasks";
+            summary = "Tasks are linked to dossiers or cases.";
+            details.push("Specify a dossier or case to list related tasks.");
+            break;
+          }
+
+          const { tasks } = await this._callReadTool(
+            "listTasks",
+            {
+              limit: 50,
+              dossierId,
+              lawsuitId,
+            },
+            policy,
+          );
+          data = tasks;
+          title = "Read data — Tasks";
+          summary =
+            tasks.length > 0 ? `Found ${tasks.length} task(s)` : "No tasks found";
+          tasks.forEach((t) => {
+            const due = t.due_date ? ` due ${formatDate(t.due_date)}` : "";
+            details.push(
+              `${t.title} (ID: ${t.id}) — ${t.status || "todo"}${due}`,
+            );
+          });
+          sources.push({
+            sourceType: "system",
+            reference: "tool:listTasks",
+            note: "Task list",
+          });
+          break;
+        }
+
+        case READ_INTENTS.LIST_OVERDUE_TASKS: {
+          let dossierId = scope === "dossier" ? context?.dossierId : null;
+          let lawsuitId = scope === "lawsuit" ? context?.lawsuitId : null;
+
+          if (!dossierId && !lawsuitId) {
+            const hintDossierId = getHintValue("id", "dossier");
+            const hintDossierRef = getHintValue("reference", "dossier");
+            const hintDossierName = getHintValue("name", "dossier");
+            if (hintDossierId) {
+              dossierId = hintDossierId;
+            } else if (hintDossierRef || hintDossierName) {
+              const resolution = await this._resolveEntity(
+                {
+                  type: "dossier",
+                  reference: hintDossierRef || undefined,
+                  nameHint: hintDossierName || undefined,
+                },
+                policy,
+              );
+              if (resolution.resolved) {
+                dossierId = resolution.entity.id;
+              } else if (resolution.reason === "ambiguous") {
+                title = "Read data — Overdue tasks";
+                summary = resolution.message;
+                resolution.candidates?.forEach((c) =>
+                  details.push(`${c.name} (ID: ${c.id})`),
+                );
+                details.push("Please specify which dossier you mean.");
+                break;
+              } else if (resolution.reason === "not_found") {
+                title = "Read data — Overdue tasks";
+                summary = resolution.message;
+                details.push("Try listing dossiers to see available records.");
+                break;
+              }
+            }
+          }
+
+          if (!dossierId && !lawsuitId) {
+            const hintLawsuitId = getHintValue("id", "lawsuit");
+            const hintLawsuitRef = getHintValue("reference", "lawsuit");
+            const hintLawsuitName = getHintValue("name", "lawsuit");
+            if (hintLawsuitId) {
+              lawsuitId = hintLawsuitId;
+            } else if (hintLawsuitRef || hintLawsuitName) {
+              const resolution = await this._resolveEntity(
+                {
+                  type: "lawsuit",
+                  reference: hintLawsuitRef || undefined,
+                  nameHint: hintLawsuitName || undefined,
+                },
+                policy,
+              );
+              if (resolution.resolved) {
+                lawsuitId = resolution.entity.id;
+              } else if (resolution.reason === "ambiguous") {
+                title = "Read data — Overdue tasks";
+                summary = resolution.message;
+                resolution.candidates?.forEach((c) =>
+                  details.push(`${c.name} (ID: ${c.id})`),
+                );
+                details.push("Please specify which case you mean.");
+                break;
+              } else if (resolution.reason === "not_found") {
+                title = "Read data — Overdue tasks";
+                summary = resolution.message;
+                details.push("Try listing cases to see available records.");
+                break;
+              }
+            }
+          }
+
+          if (
+            !dossierId &&
+            !lawsuitId &&
+            (getHintValue("id", "client") || getHintValue("name", "client"))
+          ) {
+            title = "Read data — Overdue tasks";
+            summary = "Tasks are linked to dossiers or cases.";
+            details.push("Specify a dossier or case to list related tasks.");
+            break;
+          }
+
+          const { tasks } = await this._callReadTool(
+            "listTasks",
+            {
+              limit: 100,
+              dossierId,
+              lawsuitId,
+            },
+            policy,
+          );
+          const overdue = tasks.filter(
+            (task) =>
+              task.due_date &&
+              !["done", "cancelled"].includes(task.status) &&
+              new Date(task.due_date) < now,
+          );
+          data = overdue;
+          title = "Read data — Overdue tasks";
+          summary =
+            overdue.length > 0
+              ? `⚠ ${overdue.length} overdue task(s)`
+              : "No overdue tasks";
+          overdue.forEach((t) => {
+            details.push(
+              `${t.title} (ID: ${t.id}) — ${t.status || "todo"} due ${formatDate(t.due_date)}`,
+            );
+          });
+          sources.push({
+            sourceType: "system",
+            reference: "tool:listTasks",
+            note: "Overdue tasks from list",
+          });
+          break;
+        }
+
+        case READ_INTENTS.LIST_PERSONAL_TASKS: {
+          const { personalTasks } = await this._callReadTool(
+            "listPersonalTasks",
+            { limit: 50 },
+            policy,
+          );
+          data = personalTasks;
+          title = "Read data — Personal tasks";
+          summary =
+            personalTasks.length > 0
+              ? `Found ${personalTasks.length} personal task(s)`
+              : "No personal tasks found";
+          personalTasks.forEach((t) => {
+            const due = t.due_date ? ` due ${formatDate(t.due_date)}` : "";
+            details.push(
+              `${t.title || "Personal task"} (ID: ${t.id}) — ${t.status || "todo"}${due}`,
+            );
+          });
+          sources.push({
+            sourceType: "system",
+            reference: "tool:listPersonalTasks",
+            note: "Personal task list",
+          });
+          break;
+        }
+
+        case READ_INTENTS.LIST_SESSIONS:
+        case READ_INTENTS.LIST_UPCOMING_SESSIONS: {
+          const timeframe = filters?.timeframe || null;
+          let dossierId = scope === "dossier" ? context?.dossierId : null;
+          let lawsuitId = scope === "lawsuit" ? context?.lawsuitId : null;
+
+          if (!dossierId && !lawsuitId) {
+            const hintDossierId = getHintValue("id", "dossier");
+            const hintDossierRef = getHintValue("reference", "dossier");
+            const hintDossierName = getHintValue("name", "dossier");
+            if (hintDossierId) {
+              dossierId = hintDossierId;
+            } else if (hintDossierRef || hintDossierName) {
+              const resolution = await this._resolveEntity(
+                {
+                  type: "dossier",
+                  reference: hintDossierRef || undefined,
+                  nameHint: hintDossierName || undefined,
+                },
+                policy,
+              );
+              if (resolution.resolved) {
+                dossierId = resolution.entity.id;
+              } else if (resolution.reason === "ambiguous") {
+                title = "Read data — Sessions";
+                summary = resolution.message;
+                resolution.candidates?.forEach((c) =>
+                  details.push(`${c.name} (ID: ${c.id})`),
+                );
+                details.push("Please specify which dossier you mean.");
+                break;
+              } else if (resolution.reason === "not_found") {
+                title = "Read data — Sessions";
+                summary = resolution.message;
+                details.push("Try listing dossiers to see available records.");
+                break;
+              }
+            }
+          }
+
+          if (!dossierId && !lawsuitId) {
+            const hintLawsuitId = getHintValue("id", "lawsuit");
+            const hintLawsuitRef = getHintValue("reference", "lawsuit");
+            const hintLawsuitName = getHintValue("name", "lawsuit");
+            if (hintLawsuitId) {
+              lawsuitId = hintLawsuitId;
+            } else if (hintLawsuitRef || hintLawsuitName) {
+              const resolution = await this._resolveEntity(
+                {
+                  type: "lawsuit",
+                  reference: hintLawsuitRef || undefined,
+                  nameHint: hintLawsuitName || undefined,
+                },
+                policy,
+              );
+              if (resolution.resolved) {
+                lawsuitId = resolution.entity.id;
+              } else if (resolution.reason === "ambiguous") {
+                title = "Read data — Sessions";
+                summary = resolution.message;
+                resolution.candidates?.forEach((c) =>
+                  details.push(`${c.name} (ID: ${c.id})`),
+                );
+                details.push("Please specify which case you mean.");
+                break;
+              } else if (resolution.reason === "not_found") {
+                title = "Read data — Sessions";
+                summary = resolution.message;
+                details.push("Try listing cases to see available records.");
+                break;
+              }
+            }
+          }
+
+          if (
+            !dossierId &&
+            !lawsuitId &&
+            (getHintValue("id", "client") || getHintValue("name", "client"))
+          ) {
+            title = "Read data — Sessions";
+            summary = "Sessions are linked to dossiers or cases.";
+            details.push("Specify a dossier or case to list related sessions.");
+            break;
+          }
+
+          const { sessions } = await this._callReadTool(
+            "listSessions",
+            {
+              limit: 50,
+              dossierId,
+              lawsuitId,
+              timeframe,
+            },
+            policy,
+          );
+          data = sessions;
+          title = "Read data — Sessions";
+          summary =
+            sessions.length > 0
+              ? `${sessions.length} session(s)${
+                  timeframe ? ` ${timeframe}` : ""
+                }`
+              : `No sessions${timeframe ? ` ${timeframe}` : ""} found`;
+          sessions.forEach((s) => {
+            const when = s.scheduled_at
+              ? formatDateTime(s.scheduled_at)
+              : "unscheduled";
+            details.push(
+              `${s.session_type || "session"} — ${s.title || "Untitled"} (${s.status || "scheduled"}) • ${when}`,
+            );
+          });
+          sources.push({
+            sourceType: "system",
+            reference: "tool:listSessions",
+            note: "Session list",
+          });
+          break;
+        }
+
+        case READ_INTENTS.LIST_MISSIONS: {
+          let dossierId = scope === "dossier" ? context?.dossierId : null;
+          let lawsuitId = scope === "lawsuit" ? context?.lawsuitId : null;
+
+          if (!dossierId && !lawsuitId) {
+            const hintDossierId = getHintValue("id", "dossier");
+            const hintDossierRef = getHintValue("reference", "dossier");
+            const hintDossierName = getHintValue("name", "dossier");
+            if (hintDossierId) {
+              dossierId = hintDossierId;
+            } else if (hintDossierRef || hintDossierName) {
+              const resolution = await this._resolveEntity(
+                {
+                  type: "dossier",
+                  reference: hintDossierRef || undefined,
+                  nameHint: hintDossierName || undefined,
+                },
+                policy,
+              );
+              if (resolution.resolved) {
+                dossierId = resolution.entity.id;
+              } else if (resolution.reason === "ambiguous") {
+                title = "Read data — Missions";
+                summary = resolution.message;
+                resolution.candidates?.forEach((c) =>
+                  details.push(`${c.name} (ID: ${c.id})`),
+                );
+                details.push("Please specify which dossier you mean.");
+                break;
+              } else if (resolution.reason === "not_found") {
+                title = "Read data — Missions";
+                summary = resolution.message;
+                details.push("Try listing dossiers to see available records.");
+                break;
+              }
+            }
+          }
+
+          if (!dossierId && !lawsuitId) {
+            const hintLawsuitId = getHintValue("id", "lawsuit");
+            const hintLawsuitRef = getHintValue("reference", "lawsuit");
+            const hintLawsuitName = getHintValue("name", "lawsuit");
+            if (hintLawsuitId) {
+              lawsuitId = hintLawsuitId;
+            } else if (hintLawsuitRef || hintLawsuitName) {
+              const resolution = await this._resolveEntity(
+                {
+                  type: "lawsuit",
+                  reference: hintLawsuitRef || undefined,
+                  nameHint: hintLawsuitName || undefined,
+                },
+                policy,
+              );
+              if (resolution.resolved) {
+                lawsuitId = resolution.entity.id;
+              } else if (resolution.reason === "ambiguous") {
+                title = "Read data — Missions";
+                summary = resolution.message;
+                resolution.candidates?.forEach((c) =>
+                  details.push(`${c.name} (ID: ${c.id})`),
+                );
+                details.push("Please specify which case you mean.");
+                break;
+              } else if (resolution.reason === "not_found") {
+                title = "Read data — Missions";
+                summary = resolution.message;
+                details.push("Try listing cases to see available records.");
+                break;
+              }
+            }
+          }
+
+          if (
+            !dossierId &&
+            !lawsuitId &&
+            (getHintValue("id", "client") || getHintValue("name", "client"))
+          ) {
+            title = "Read data — Missions";
+            summary = "Missions are linked to dossiers or cases.";
+            details.push("Specify a dossier or case to list related missions.");
+            break;
+          }
+
+          const { missions } = await this._callReadTool(
+            "listMissions",
+            {
+              limit: 50,
+              dossierId,
+              lawsuitId,
+            },
+            policy,
+          );
+          data = missions;
+          title = "Read data — Missions";
+          summary =
+            missions.length > 0
+              ? `Found ${missions.length} mission(s)`
+              : "No missions found";
+          missions.forEach((m) => {
+            const due = m.due_date ? ` due ${formatDate(m.due_date)}` : "";
+            details.push(
+              `${m.reference || "Mission"} — ${m.title || "Untitled"} (${m.status || "planned"})${due}`,
+            );
+          });
+          sources.push({
+            sourceType: "system",
+            reference: "tool:listMissions",
+            note: "Mission list",
+          });
+          break;
+        }
+
+        case READ_INTENTS.LIST_FINANCIAL_ENTRIES: {
+          let clientId = scope === "client" ? context?.clientId : null;
+          let dossierId = scope === "dossier" ? context?.dossierId : null;
+          let lawsuitId = scope === "lawsuit" ? context?.lawsuitId : null;
+          let missionId = scope === "mission" ? context?.missionId : null;
+          let taskId = scope === "task" ? context?.taskId : null;
+          let personalTaskId =
+            scope === "personal_task" ? context?.personalTaskId : null;
+
+          if (
+            !clientId &&
+            !dossierId &&
+            !lawsuitId &&
+            !missionId &&
+            !taskId &&
+            !personalTaskId
+          ) {
+            const hintClientId = getHintValue("id", "client");
+            const hintClientName = getHintValue("name", "client");
+            if (hintClientId) {
+              clientId = hintClientId;
+            } else if (hintClientName) {
+              const resolution = await this._resolveEntity(
+                { type: "client", nameHint: hintClientName },
+                policy,
+              );
+              if (resolution.resolved) {
+                clientId = resolution.entity.id;
+              } else if (resolution.reason === "ambiguous") {
+                title = "Read data — Financial entries";
+                summary = resolution.message;
+                resolution.candidates?.forEach((c) =>
+                  details.push(`${c.name} (ID: ${c.id})`),
+                );
+                details.push("Please specify which client you mean.");
+                break;
+              } else if (resolution.reason === "not_found") {
+                title = "Read data — Financial entries";
+                summary = resolution.message;
+                details.push("Try listing clients to see available records.");
+                break;
+              }
+            }
+          }
+
+          if (
+            !dossierId &&
+            (getHintValue("reference", "dossier") || getHintValue("name", "dossier"))
+          ) {
+            const resolution = await this._resolveEntity(
+              {
+                type: "dossier",
+                reference: getHintValue("reference", "dossier") || undefined,
+                nameHint: getHintValue("name", "dossier") || undefined,
+              },
+              policy,
+            );
+            if (resolution.resolved) {
+              dossierId = resolution.entity.id;
+            } else if (resolution.reason === "ambiguous") {
+              title = "Read data — Financial entries";
+              summary = resolution.message;
+              resolution.candidates?.forEach((c) =>
+                details.push(`${c.name} (ID: ${c.id})`),
+              );
+              details.push("Please specify which dossier you mean.");
+              break;
+            } else if (resolution.reason === "not_found") {
+              title = "Read data — Financial entries";
+              summary = resolution.message;
+              details.push("Try listing dossiers to see available records.");
+              break;
+            }
+          }
+
+          if (
+            !lawsuitId &&
+            (getHintValue("reference", "lawsuit") || getHintValue("name", "lawsuit"))
+          ) {
+            const resolution = await this._resolveEntity(
+              {
+                type: "lawsuit",
+                reference: getHintValue("reference", "lawsuit") || undefined,
+                nameHint: getHintValue("name", "lawsuit") || undefined,
+              },
+              policy,
+            );
+            if (resolution.resolved) {
+              lawsuitId = resolution.entity.id;
+            } else if (resolution.reason === "ambiguous") {
+              title = "Read data — Financial entries";
+              summary = resolution.message;
+              resolution.candidates?.forEach((c) =>
+                details.push(`${c.name} (ID: ${c.id})`),
+              );
+              details.push("Please specify which case you mean.");
+              break;
+            } else if (resolution.reason === "not_found") {
+              title = "Read data — Financial entries";
+              summary = resolution.message;
+              details.push("Try listing cases to see available records.");
+              break;
+            }
+          }
+
+          if (
+            !missionId &&
+            (getHintValue("reference", "mission") || getHintValue("name", "mission"))
+          ) {
+            const resolution = await this._resolveEntity(
+              {
+                type: "mission",
+                reference: getHintValue("reference", "mission") || undefined,
+                nameHint: getHintValue("name", "mission") || undefined,
+              },
+              policy,
+            );
+            if (resolution.resolved) {
+              missionId = resolution.entity.id;
+            } else if (resolution.reason === "ambiguous") {
+              title = "Read data — Financial entries";
+              summary = resolution.message;
+              resolution.candidates?.forEach((c) =>
+                details.push(`${c.name} (ID: ${c.id})`),
+              );
+              details.push("Please specify which mission you mean.");
+              break;
+            } else if (resolution.reason === "not_found") {
+              title = "Read data — Financial entries";
+              summary = resolution.message;
+              details.push("Try listing missions to see available records.");
+              break;
+            }
+          }
+
+          if (!taskId && getHintValue("id", "task")) {
+            taskId = getHintValue("id", "task");
+          }
+
+          if (!personalTaskId && getHintValue("id", "personal_task")) {
+            personalTaskId = getHintValue("id", "personal_task");
+          }
+
+          const scopeCount = [
+            clientId,
+            dossierId,
+            lawsuitId,
+            missionId,
+            taskId,
+            personalTaskId,
+          ].filter(Boolean).length;
+          if (scopeCount > 1) {
+            title = "Read data — Financial entries";
+            summary = "Multiple scopes detected for financial entries.";
+            details.push("Please specify a single client, dossier, case, mission, or task.");
+            break;
+          }
+
+          const { financialEntries } = await this._callReadTool(
+            "listFinancialEntries",
+            {
+              limit: 50,
+              paymentStatus: filters?.paymentStatus || null,
+              clientId,
+              dossierId,
+              lawsuitId,
+              missionId,
+              taskId,
+              personalTaskId,
+            },
+            policy,
+          );
+          data = financialEntries;
+          title = "Read data — Financial entries";
+          summary =
+            financialEntries.length > 0
+              ? `Found ${financialEntries.length} entry(ies)`
+              : "No financial entries found";
+          financialEntries.forEach((entry) => {
+            const amount = entry.amount
+              ? `${entry.amount} ${entry.currency || ""}`.trim()
+              : "N/A";
+            const due = entry.due_date ? ` due ${formatDate(entry.due_date)}` : "";
+            const ref =
+              entry.reference || entry.title || entry.entry_type || "Entry";
+            details.push(
+              `${ref} — ${amount} (${entry.status || "draft"})${due}`,
+            );
+          });
+          sources.push({
+            sourceType: "system",
+            reference: "tool:listFinancialEntries",
+            note: "Financial entry list",
+          });
+          break;
+        }
+
+        case READ_INTENTS.LIST_NOTIFICATIONS: {
+          let entityType = null;
+          let entityId = null;
+          const scopeMap = {
+            client: context?.clientId,
+            dossier: context?.dossierId,
+            lawsuit: context?.lawsuitId,
+            session: context?.sessionId,
+            task: context?.taskId,
+            mission: context?.missionId,
+            personal_task: context?.personalTaskId,
+            financial_entry: context?.financialEntryId,
+          };
+          if (scope && scopeMap[scope]) {
+            entityType = scope;
+            entityId = scopeMap[scope];
+          }
+
+          if (!entityType) {
+            const hintTypes = [
+              "client",
+              "dossier",
+              "lawsuit",
+              "session",
+              "task",
+              "mission",
+              "personal_task",
+              "financial_entry",
+            ];
+            for (const hintType of hintTypes) {
+              const hintId = getHintValue("id", hintType);
+              const hintRef = getHintValue("reference", hintType);
+              const hintName = getHintValue("name", hintType);
+              if (hintId) {
+                entityType = hintType;
+                entityId = hintId;
+                break;
+              }
+              if (hintRef || hintName) {
+                const resolution = await this._resolveEntity(
+                  {
+                    type: hintType,
+                    reference: hintRef || undefined,
+                    nameHint: hintName || undefined,
+                  },
+                  policy,
+                );
+                if (resolution.resolved) {
+                  entityType = hintType;
+                  entityId = resolution.entity.id;
+                  break;
+                } else if (resolution.reason === "ambiguous") {
+                  title = "Read data — Notifications";
+                  summary = resolution.message;
+                  resolution.candidates?.forEach((c) =>
+                    details.push(`${c.name} (ID: ${c.id})`),
+                  );
+                  details.push("Please specify which record you mean.");
+                  break;
+                } else if (resolution.reason === "not_found") {
+                  title = "Read data — Notifications";
+                  summary = resolution.message;
+                  details.push("Try listing records to see available items.");
+                  break;
+                }
+              }
+            }
+            if (summary) break;
+          }
+
+          const { notifications } = await this._callReadTool(
+            "listNotifications",
+            {
+              limit: 50,
+              status: filters?.status || null,
+              entityType,
+              entityId,
+            },
+            policy,
+          );
+          data = notifications;
+          title = "Read data — Notifications";
+          summary =
+            notifications.length > 0
+              ? `Found ${notifications.length} notification(s)`
+              : "No notifications found";
+          notifications.forEach((n) => {
+            const type = n.template_key || n.type || "Notification";
+            details.push(`${type} (ID: ${n.id}) — ${n.status || "unread"}`);
+          });
+          sources.push({
+            sourceType: "system",
+            reference: "tool:listNotifications",
+            note: "Notification list",
+          });
+          break;
+        }
+
+        case READ_INTENTS.LIST_HISTORY_EVENTS: {
+          let entityType = filters?.entityType || null;
+          let entityId = filters?.entityId || null;
+
+          if (!entityType) {
+            const scopeMap = {
+              client: context?.clientId,
+              dossier: context?.dossierId,
+              lawsuit: context?.lawsuitId,
+              session: context?.sessionId,
+              task: context?.taskId,
+              mission: context?.missionId,
+              personal_task: context?.personalTaskId,
+              financial_entry: context?.financialEntryId,
+            };
+            if (scope && scopeMap[scope]) {
+              entityType = scope;
+              entityId = scopeMap[scope];
+            }
+          }
+
+          if (!entityType) {
+            const hintTypes = [
+              "client",
+              "dossier",
+              "lawsuit",
+              "session",
+              "task",
+              "mission",
+              "personal_task",
+              "financial_entry",
+            ];
+            for (const hintType of hintTypes) {
+              const hintId = getHintValue("id", hintType);
+              const hintRef = getHintValue("reference", hintType);
+              const hintName = getHintValue("name", hintType);
+              if (hintId) {
+                entityType = hintType;
+                entityId = hintId;
+                break;
+              }
+              if (hintRef || hintName) {
+                const resolution = await this._resolveEntity(
+                  {
+                    type: hintType,
+                    reference: hintRef || undefined,
+                    nameHint: hintName || undefined,
+                  },
+                  policy,
+                );
+                if (resolution.resolved) {
+                  entityType = hintType;
+                  entityId = resolution.entity.id;
+                  break;
+                } else if (resolution.reason === "ambiguous") {
+                  title = "Read data — History";
+                  summary = resolution.message;
+                  resolution.candidates?.forEach((c) =>
+                    details.push(`${c.name} (ID: ${c.id})`),
+                  );
+                  details.push("Please specify which record you mean.");
+                  break;
+                } else if (resolution.reason === "not_found") {
+                  title = "Read data — History";
+                  summary = resolution.message;
+                  details.push("Try listing records to see available items.");
+                  break;
+                }
+              }
+            }
+            if (summary) break;
+          }
+
+          const { historyEvents } = await this._callReadTool(
+            "listHistoryEvents",
+            {
+              limit: 50,
+              entityType,
+              entityId,
+            },
+            policy,
+          );
+          data = historyEvents;
+          title = "Read data — History";
+          summary =
+            historyEvents.length > 0
+              ? `Found ${historyEvents.length} history event(s)`
+              : "No history events found";
+          historyEvents.forEach((e) => {
+            const when = e.created_at ? formatDateTime(e.created_at) : "unknown";
+            details.push(
+              `${when} — ${e.action || "event"}: ${e.description || "No description"}`,
+            );
+          });
+          sources.push({
+            sourceType: "system",
+            reference: "tool:listHistoryEvents",
+            note: "History list",
+          });
+          break;
+        }
+
+        case READ_INTENTS.READ_CLIENT: {
+          const hintId = entityHints.find((hint) => hint.type === "id")?.value;
+          const hintName = entityHints.find((hint) => hint.type === "name")?.value;
+          title = "Read data — Client";
+
+          if (hintId) {
+            const result = await this._callReadTool(
+              "getClient",
+              { clientId: hintId },
+              policy,
+            );
+            const client = result?.client;
+            if (!client) {
+              summary = `No client found for ID ${hintId}`;
+              details.push("Try listing clients to see available records.");
+              break;
+            }
+            summary = `Client: ${client.name}`;
+            details.push(`ID: ${client.id}`);
+            details.push(`Status: ${client.status || "active"}`);
+            details.push(`Email: ${client.email || "N/A"}`);
+            details.push(`Phone: ${client.phone || "N/A"}`);
+            details.push(`Company: ${client.company || "N/A"}`);
+            sources.push({
+              sourceType: "system",
+              reference: "tool:getClient",
+              note: "Client lookup",
+            });
+            data = client;
+            break;
+          }
+
+          if (hintName) {
+            const result = await this._callReadTool(
+              "searchClientsByName",
+              { nameHint: hintName, limit: 10 },
+              policy,
+            );
+            const clients = result?.clients || [];
+            if (clients.length === 0) {
+              summary = `No client found matching "${hintName}"`;
+              details.push("Try listing all clients with: show me my clients");
+            } else if (clients.length === 1) {
+              const client = clients[0];
+              summary = `Client: ${client.name}`;
+              details.push(`ID: ${client.id}`);
+              details.push(`Status: ${client.status || "active"}`);
+              details.push(`Email: ${client.email || "N/A"}`);
+              details.push(`Phone: ${client.phone || "N/A"}`);
+              details.push(`Company: ${client.company || "N/A"}`);
+              sources.push({
+                sourceType: "system",
+                reference: "tool:searchClientsByName",
+                note: "Client lookup",
+              });
+              data = client;
+            } else {
+              summary = `Multiple clients match "${hintName}"`;
+              clients.forEach((c) => {
+                details.push(
+                  `${c.name} (ID: ${c.id}) — ${c.status || "active"}`,
+                );
+              });
+              details.push("Please specify which client you mean.");
+            }
+            break;
+          }
+
+          summary = "Which client?";
+          details.push("Provide a client ID or name.");
+          break;
+        }
+
+        case READ_INTENTS.EXPLAIN_CLIENT_STATE:
+        case READ_INTENTS.SUMMARIZE_CLIENT: {
+          const scope = String(context?.scope || "").toLowerCase();
+          const scopedId = scope === "client" ? context?.clientId : null;
+          const hintId = entityHints.find((hint) => hint.type === "id")?.value;
+          const hintName = entityHints.find((hint) => hint.type === "name")?.value;
+          const targetId = hintId || scopedId;
+
+          if (targetId) {
+            const result = await this._callReadTool(
+              "getClient",
+              { clientId: targetId },
+              policy,
+            );
+            const client = result?.client;
+            if (!client) {
+              title = "Read data — Client";
+              summary = `No client found for ID ${targetId}`;
+              details.push("Try listing clients to see available records.");
+              break;
+            }
+
+            const dossiersResult = await this._callReadTool(
+              "listDossiersForClient",
+              { clientId: client.id, limit: 50 },
+              policy,
+            );
+            const dossiers = dossiersResult?.dossiers || [];
+            const financialResult = await this._callReadTool(
+              "listFinancialEntries",
+              { clientId: client.id, limit: 200 },
+              policy,
+            );
+            const financialEntries = financialResult?.financialEntries || [];
+            const overdueReceivables = financialEntries.filter(
+              (entry) =>
+                String(entry.direction || "").toLowerCase() === "receivable" &&
+                !entry.paid_at &&
+                entry.due_date &&
+                new Date(entry.due_date) < now,
+            );
+            const historyResult = await this._callReadTool(
+              "listHistoryEvents",
+              { entityType: "client", entityId: client.id, limit: 5 },
+              policy,
+            );
+            const historyEvents = historyResult?.historyEvents || [];
+
+            if (intent === READ_INTENTS.EXPLAIN_CLIENT_STATE) {
+              title = "Read data — Client state";
+              summary = `Client: ${client.name}`;
+              details.push(`Status: ${client.status || "active"}`);
+              details.push(
+                `Relationships: ${dossiers.length} dossier(s), ${financialEntries.length} financial entry(ies)`,
+              );
+              details.push(
+                overdueReceivables.length > 0
+                  ? `Blocking: ${overdueReceivables.length} overdue receivable(s)`
+                  : "Blocking: none detected",
+              );
+              sources.push({
+                sourceType: "system",
+                reference: "tool:getClient",
+                note: "Client state",
+              });
+              data = client;
+              break;
+            }
+
+            title = "Read data — Client summary";
+            summary = `Client: ${client.name}`;
+            const recentActivity = historyEvents.map((event) => {
+              const when = event.created_at
+                ? formatDateTime(event.created_at)
+                : "unknown";
+              return `${when} — ${event.action || "event"}`;
+            });
+            details.push(
+              `Summary: status ${client.status || "active"}, ${dossiers.length} dossier(s)`,
+            );
+            details.push(
+              `Recent activity: ${recentActivity.length > 0 ? recentActivity.join(" | ") : "none"}`,
+            );
+            details.push(
+              overdueReceivables.length > 0
+                ? `Key risks: ${overdueReceivables.length} overdue receivable(s)`
+                : "Key risks: none detected",
+            );
+            sources.push({
+              sourceType: "system",
+              reference: "tool:getClient",
+              note: "Client summary",
+            });
+            data = client;
+            break;
+          }
+
+          if (hintName) {
+            const result = await this._callReadTool(
+              "searchClientsByName",
+              { nameHint: hintName, limit: 5 },
+              policy,
+            );
+            const clients = result?.clients || [];
+            if (clients.length === 1) {
+              const client = clients[0];
+              title =
+                intent === READ_INTENTS.EXPLAIN_CLIENT_STATE
+                  ? "Read data — Client state"
+                  : "Read data — Client summary";
+              summary = `Client: ${client.name}`;
+              details.push(`Status: ${client.status || "active"}`);
+              details.push("Provide a client ID for relationships and blockers.");
+              sources.push({
+                sourceType: "system",
+                reference: "tool:searchClientsByName",
+                note: "Client lookup",
+              });
+              data = client;
+              break;
+            }
+            summary = `Multiple clients match "${hintName}"`;
+            clients.forEach((c) =>
+              details.push(`${c.name} (ID: ${c.id}) — ${c.status || "active"}`),
+            );
+            details.push("Please specify which client you mean.");
+            break;
+          }
+
+          summary = "Which client?";
+          details.push("Provide a client ID or name.");
+          break;
+        }
+
+        case READ_INTENTS.READ_DOSSIER: {
+          const hintId = entityHints.find((hint) => hint.type === "id")?.value;
+          const hintRef = entityHints.find((hint) => hint.type === "reference")?.value;
+          const hintName = entityHints.find((hint) => hint.type === "name")?.value;
+          title = "Read data — Dossier";
+
+          if (hintId) {
+            const result = await this._callReadTool(
+              "getDossier",
+              { dossierId: hintId },
+              policy,
+            );
+            const dossier = result?.dossier;
+            if (!dossier) {
+              summary = `No dossier found for ID ${hintId}`;
+              details.push("Try listing dossiers to see available records.");
+              break;
+            }
+            summary = `Dossier: ${dossier.reference || dossier.title || hintId}`;
+            details.push(`Title: ${dossier.title || "Untitled"}`);
+            details.push(`Status: ${dossier.status || "open"}`);
+            details.push(`Priority: ${dossier.priority || "medium"}`);
+            details.push(`Client ID: ${dossier.client_id || "N/A"}`);
+            if (dossier.phase) details.push(`Phase: ${dossier.phase}`);
+            sources.push({
+              sourceType: "system",
+              reference: "tool:getDossier",
+              note: "Dossier lookup",
+            });
+            data = dossier;
+            break;
+          }
+
+          if (hintRef) {
+            const result = await this._callReadTool(
+              "getDossierByReference",
+              { reference: hintRef },
+              policy,
+            );
+            const dossier = result?.dossier;
+            if (!dossier) {
+              summary = `No dossier found for reference "${hintRef}"`;
+              details.push("Try listing all dossiers with: show me my dossiers");
+              break;
+            }
+            summary = `Dossier: ${dossier.reference || hintRef}`;
+            details.push(`Title: ${dossier.title || "Untitled"}`);
+            details.push(`Status: ${dossier.status || "open"}`);
+            details.push(`Priority: ${dossier.priority || "medium"}`);
+            details.push(`Client ID: ${dossier.client_id || "N/A"}`);
+            if (dossier.phase) details.push(`Phase: ${dossier.phase}`);
+            sources.push({
+              sourceType: "system",
+              reference: "tool:getDossierByReference",
+              note: "Dossier lookup",
+            });
+            data = dossier;
+            break;
+          }
+
+          if (hintName) {
+            const result = await this._callReadTool(
+              "listDossiers",
+              { query: hintName, limit: 10 },
+              policy,
+            );
+            const dossiers = result?.dossiers || [];
+            if (dossiers.length === 0) {
+              summary = `No dossier found for "${hintName}"`;
+              details.push("Try listing all dossiers with: show me my dossiers");
+            } else if (dossiers.length === 1) {
+              const dossier = dossiers[0];
+              summary = `Dossier: ${dossier.reference || dossier.title}`;
+              details.push(`Title: ${dossier.title || "Untitled"}`);
+              details.push(`Status: ${dossier.status || "open"}`);
+              details.push(`Priority: ${dossier.priority || "medium"}`);
+              details.push(`Client ID: ${dossier.client_id || "N/A"}`);
+              if (dossier.phase) details.push(`Phase: ${dossier.phase}`);
+              sources.push({
+                sourceType: "system",
+                reference: "tool:listDossiers",
+                note: "Dossier lookup",
+              });
+              data = dossier;
+            } else {
+              summary = `Multiple dossiers match "${hintName}"`;
+              dossiers.forEach((d) =>
+                details.push(
+                  `${d.reference || "Dossier"} — ${d.title || "Untitled"} (ID: ${d.id})`,
+                ),
+              );
+              details.push("Please specify which dossier you mean.");
+            }
+            break;
+          }
+
+          summary = "Which dossier?";
+          details.push("Provide a dossier ID or reference.");
+          break;
+        }
+
+        case READ_INTENTS.EXPLAIN_DOSSIER_STATE:
+        case READ_INTENTS.SUMMARIZE_DOSSIER: {
+          const scope = String(context?.scope || "").toLowerCase();
+          const scopedId = scope === "dossier" ? context?.dossierId : null;
+          const hintId = entityHints.find((hint) => hint.type === "id")?.value;
+          const hintRef = entityHints.find((hint) => hint.type === "reference")?.value;
+          const hintName = entityHints.find((hint) => hint.type === "name")?.value;
+          const targetId = hintId || scopedId;
+
+          const fetchDossierByRef = async (reference) => {
+            const result = await this._callReadTool(
+              "getDossierByReference",
+              { reference },
+              policy,
+            );
+            return result?.dossier || null;
+          };
+
+          let dossier = null;
+          if (targetId) {
+            const result = await this._callReadTool(
+              "getDossier",
+              { dossierId: targetId },
+              policy,
+            );
+            dossier = result?.dossier || null;
+          } else if (hintRef) {
+            dossier = await fetchDossierByRef(hintRef);
+          } else if (hintName) {
+            const result = await this._callReadTool(
+              "listDossiers",
+              { query: hintName, limit: 5 },
+              policy,
+            );
+            const dossiers = result?.dossiers || [];
+            if (dossiers.length === 1) dossier = dossiers[0];
+            else if (dossiers.length > 1) {
+              summary = `Multiple dossiers match "${hintName}"`;
+              dossiers.forEach((d) =>
+                details.push(
+                  `${d.reference || "Dossier"} — ${d.title || "Untitled"} (ID: ${d.id})`,
+                ),
+              );
+              details.push("Please specify which dossier you mean.");
+              break;
+            }
+          }
+
+          if (!dossier) {
+            summary = "Which dossier?";
+            details.push("Provide a dossier ID or reference.");
+            break;
+          }
+
+          const tasksResult = await this._callReadTool(
+            "listTasks",
+            { dossierId: dossier.id, limit: 200 },
+            policy,
+          );
+          const tasks = tasksResult?.tasks || [];
+          const sessionsResult = await this._callReadTool(
+            "listSessions",
+            { dossierId: dossier.id, limit: 200 },
+            policy,
+          );
+          const sessions = sessionsResult?.sessions || [];
+          const missionsResult = await this._callReadTool(
+            "listMissions",
+            { dossierId: dossier.id, limit: 200 },
+            policy,
+          );
+          const missions = missionsResult?.missions || [];
+          const financialResult = await this._callReadTool(
+            "listFinancialEntries",
+            { dossierId: dossier.id, limit: 200 },
+            policy,
+          );
+          const financialEntries = financialResult?.financialEntries || [];
+          const lawsuitsResult = await this._callReadTool(
+            "listLawsuits",
+            { dossierId: dossier.id, limit: 200 },
+            policy,
+          );
+          const lawsuits = lawsuitsResult?.lawsuits || [];
+          const overdueTasks = tasks.filter(
+            (task) =>
+              task.due_date &&
+              !["done", "cancelled"].includes(task.status) &&
+              new Date(task.due_date) < now,
+          );
+          const blockedTasks = tasks.filter(
+            (task) => String(task.status || "").toLowerCase() === "blocked",
+          );
+          const deadlineOverdue =
+            dossier.next_deadline && new Date(dossier.next_deadline) < now;
+          const overdueReceivables = financialEntries.filter(
+            (entry) =>
+              String(entry.direction || "").toLowerCase() === "receivable" &&
+              isFinancialOverdue(entry),
+          );
+          const historyResult = await this._callReadTool(
+            "listHistoryEvents",
+            { entityType: "dossier", entityId: dossier.id, limit: 5 },
+            policy,
+          );
+          const historyEvents = historyResult?.historyEvents || [];
+
+          if (intent === READ_INTENTS.EXPLAIN_DOSSIER_STATE) {
+            title = "Read data — Dossier state";
+            summary = `${dossier.reference || "Dossier"} — ${dossier.title || "Untitled"}`;
+            details.push(`Status: ${dossier.status || "open"} (priority ${dossier.priority || "medium"})`);
+            details.push(
+              `Relationships: ${lawsuits.length} lawsuit(s), ${tasks.length} task(s), ${sessions.length} session(s), ${missions.length} mission(s), ${financialEntries.length} financial entry(ies)`,
+            );
+            details.push(
+              blockedTasks.length > 0 ||
+                overdueTasks.length > 0 ||
+                deadlineOverdue ||
+                overdueReceivables.length > 0
+                ? `Blocking: ${blockedTasks.length} blocked task(s), ${overdueTasks.length} overdue task(s), ${overdueReceivables.length} overdue receivable(s), ${deadlineOverdue ? "deadline overdue" : "deadline ok"}`
+                : "Blocking: none detected",
+            );
+            sources.push({
+              sourceType: "system",
+              reference: "tool:getDossier",
+              note: "Dossier state",
+            });
+            data = dossier;
+            break;
+          }
+
+          title = "Read data — Dossier summary";
+          summary = `${dossier.reference || "Dossier"} — ${dossier.title || "Untitled"}`;
+          const recentActivity = historyEvents.map((event) => {
+            const when = event.created_at ? formatDateTime(event.created_at) : "unknown";
+            return `${when} — ${event.action || "event"}`;
+          });
+          details.push(
+            `Summary: status ${dossier.status || "open"}, ${tasks.length} task(s), ${sessions.length} session(s), ${financialEntries.length} financial entry(ies)`,
+          );
+          details.push(
+            `Recent activity: ${recentActivity.length > 0 ? recentActivity.join(" | ") : "none"}`,
+          );
+          details.push(
+            `Key dates/risks: ${dossier.next_deadline ? `next deadline ${formatDate(dossier.next_deadline)}` : "no deadline"}${deadlineOverdue ? " (overdue)" : ""}${
+              overdueReceivables.length > 0
+                ? `, ${overdueReceivables.length} overdue receivable(s)`
+                : ""
+            }`,
+          );
+          sources.push({
+            sourceType: "system",
+            reference: "tool:getDossier",
+            note: "Dossier summary",
+          });
+          data = dossier;
+          break;
+        }
+
+        case READ_INTENTS.READ_LAWSUIT: {
+          const hintId = entityHints.find((hint) => hint.type === "id")?.value;
+          const hintRef = entityHints.find((hint) => hint.type === "reference")?.value;
+          const hintName = entityHints.find((hint) => hint.type === "name")?.value;
+          title = "Read data — Lawsuit";
+
+          const resolveFromList = async (query) => {
+            const result = await this._callReadTool(
+              "listLawsuits",
+              { query, limit: 10 },
+              policy,
+            );
+            return result?.lawsuits || [];
+          };
+
+          if (hintId) {
+            const result = await this._callReadTool(
+              "getLawsuit",
+              { lawsuitId: hintId },
+              policy,
+            );
+            const lawsuit = result?.lawsuit;
+            if (!lawsuit) {
+              summary = `No lawsuit found for ID ${hintId}`;
+              details.push("Try listing lawsuits to see available records.");
+              break;
+            }
+            summary = `Lawsuit: ${lawsuit.reference || lawsuit.lawsuit_number || hintId}`;
+            details.push(`Title: ${lawsuit.title || "Untitled"}`);
+            details.push(`Status: ${lawsuit.status || "in_progress"}`);
+            if (lawsuit.court) details.push(`Court: ${lawsuit.court}`);
+            const adversary =
+              lawsuit.adversary_party ||
+              lawsuit.adversary_name ||
+              lawsuit.adversary;
+            if (adversary) details.push(`Adversary: ${adversary}`);
+            details.push(`Next hearing: ${lawsuit.next_hearing ? formatDate(lawsuit.next_hearing) : "N/A"}`);
+            details.push(`Dossier ID: ${lawsuit.dossier_id || "N/A"}`);
+            sources.push({
+              sourceType: "system",
+              reference: "tool:getLawsuit",
+              note: "Lawsuit lookup",
+            });
+            data = lawsuit;
+            break;
+          }
+
+          if (hintRef || hintName) {
+            const query = hintRef || hintName;
+            const lawsuits = await resolveFromList(query);
+            if (lawsuits.length === 0) {
+              summary = `No lawsuit found for "${query}"`;
+              details.push("Try listing all lawsuits with: show me my lawsuits");
+            } else if (lawsuits.length === 1) {
+              const lawsuit = lawsuits[0];
+              summary = `Lawsuit: ${lawsuit.reference || lawsuit.lawsuit_number || "Lawsuit"}`;
+              details.push(`Title: ${lawsuit.title || "Untitled"}`);
+              details.push(`Status: ${lawsuit.status || "in_progress"}`);
+              if (lawsuit.court) details.push(`Court: ${lawsuit.court}`);
+              const adversary =
+                lawsuit.adversary_party ||
+                lawsuit.adversary_name ||
+                lawsuit.adversary;
+              if (adversary) details.push(`Adversary: ${adversary}`);
+              details.push(`Next hearing: ${lawsuit.next_hearing ? formatDate(lawsuit.next_hearing) : "N/A"}`);
+              details.push(`Dossier ID: ${lawsuit.dossier_id || "N/A"}`);
+              sources.push({
+                sourceType: "system",
+                reference: "tool:listLawsuits",
+                note: "Lawsuit lookup",
+              });
+              data = lawsuit;
+            } else {
+              summary = `Multiple lawsuits match "${query}"`;
+              lawsuits.forEach((l) => {
+                details.push(
+                  `${l.reference || l.lawsuit_number || "Lawsuit"} — ${l.title || "Untitled"} (ID: ${l.id})`,
+                );
+              });
+              details.push("Please specify which lawsuit you mean.");
+            }
+            break;
+          }
+
+          summary = "Which lawsuit?";
+          details.push("Provide a lawsuit ID or reference.");
+          break;
+        }
+
+        case READ_INTENTS.EXPLAIN_LAWSUIT_STATE:
+        case READ_INTENTS.SUMMARIZE_LAWSUIT: {
+          const scope = String(context?.scope || "").toLowerCase();
+          const scopedId = scope === "lawsuit" ? context?.lawsuitId : null;
+          const hintId = entityHints.find((hint) => hint.type === "id")?.value;
+          const hintRef = entityHints.find((hint) => hint.type === "reference")?.value;
+          const hintName = entityHints.find((hint) => hint.type === "name")?.value;
+          const targetId = hintId || scopedId;
+
+          let lawsuit = null;
+          if (targetId) {
+            const result = await this._callReadTool(
+              "getLawsuit",
+              { lawsuitId: targetId },
+              policy,
+            );
+            lawsuit = result?.lawsuit || null;
+          } else if (hintRef || hintName) {
+            const query = hintRef || hintName;
+            const result = await this._callReadTool(
+              "listLawsuits",
+              { query, limit: 5 },
+              policy,
+            );
+            const lawsuits = result?.lawsuits || [];
+            if (lawsuits.length === 1) lawsuit = lawsuits[0];
+            else if (lawsuits.length > 1) {
+              summary = `Multiple lawsuits match "${query}"`;
+              lawsuits.forEach((l) =>
+                details.push(
+                  `${l.reference || l.lawsuit_number || "Lawsuit"} — ${l.title || "Untitled"} (ID: ${l.id})`,
+                ),
+              );
+              details.push("Please specify which lawsuit you mean.");
+              break;
+            }
+          }
+
+          if (!lawsuit) {
+            summary = "Which lawsuit?";
+            details.push("Provide a lawsuit ID or reference.");
+            break;
+          }
+
+          const tasksResult = await this._callReadTool(
+            "listTasks",
+            { lawsuitId: lawsuit.id, limit: 200 },
+            policy,
+          );
+          const tasks = tasksResult?.tasks || [];
+          const sessionsResult = await this._callReadTool(
+            "listSessions",
+            { lawsuitId: lawsuit.id, limit: 200 },
+            policy,
+          );
+          const sessions = sessionsResult?.sessions || [];
+          const overdueTasks = tasks.filter(
+            (task) =>
+              task.due_date &&
+              !["done", "cancelled"].includes(task.status) &&
+              new Date(task.due_date) < now,
+          );
+          const hearingOverdue =
+            lawsuit.next_hearing && new Date(lawsuit.next_hearing) < now;
+          const historyResult = await this._callReadTool(
+            "listHistoryEvents",
+            { entityType: "lawsuit", entityId: lawsuit.id, limit: 5 },
+            policy,
+          );
+          const historyEvents = historyResult?.historyEvents || [];
+
+          if (intent === READ_INTENTS.EXPLAIN_LAWSUIT_STATE) {
+            title = "Read data — Lawsuit state";
+            summary = `${lawsuit.reference || lawsuit.lawsuit_number || "Lawsuit"} — ${lawsuit.title || "Untitled"}`;
+            details.push(`Status: ${lawsuit.status || "in_progress"}`);
+            if (lawsuit.court) details.push(`Court: ${lawsuit.court}`);
+            const adversary =
+              lawsuit.adversary_party ||
+              lawsuit.adversary_name ||
+              lawsuit.adversary;
+            if (adversary) details.push(`Adversary: ${adversary}`);
+            details.push(
+              `Relationships: ${tasks.length} task(s), ${sessions.length} session(s)`,
+            );
+            details.push(
+              hearingOverdue || overdueTasks.length > 0
+                ? `Blocking: ${overdueTasks.length} overdue task(s)${hearingOverdue ? ", next hearing overdue" : ""}`
+                : "Blocking: none detected",
+            );
+            sources.push({
+              sourceType: "system",
+              reference: "tool:getLawsuit",
+              note: "Lawsuit state",
+            });
+            data = lawsuit;
+            break;
+          }
+
+          title = "Read data — Lawsuit summary";
+          summary = `${lawsuit.reference || lawsuit.lawsuit_number || "Lawsuit"} — ${lawsuit.title || "Untitled"}`;
+          const recentActivity = historyEvents.map((event) => {
+            const when = event.created_at ? formatDateTime(event.created_at) : "unknown";
+            return `${when} — ${event.action || "event"}`;
+          });
+          details.push(
+            `Summary: status ${lawsuit.status || "in_progress"}, ${tasks.length} task(s), ${sessions.length} session(s)`,
+          );
+          if (lawsuit.court) details.push(`Court: ${lawsuit.court}`);
+          const adversary =
+            lawsuit.adversary_party ||
+            lawsuit.adversary_name ||
+            lawsuit.adversary;
+          if (adversary) details.push(`Adversary: ${adversary}`);
+          details.push(
+            `Recent activity: ${recentActivity.length > 0 ? recentActivity.join(" | ") : "none"}`,
+          );
+          details.push(
+            `Key dates/risks: ${lawsuit.next_hearing ? `next hearing ${formatDate(lawsuit.next_hearing)}` : "no hearing scheduled"}${hearingOverdue ? " (overdue)" : ""}`,
+          );
+          sources.push({
+            sourceType: "system",
+            reference: "tool:getLawsuit",
+            note: "Lawsuit summary",
+          });
+          data = lawsuit;
+          break;
+        }
+
+        case READ_INTENTS.READ_TASK: {
+          const hintId = entityHints.find((hint) => hint.type === "id")?.value;
+          const hintName = entityHints.find((hint) => hint.type === "name")?.value;
+          title = "Read data — Task";
+
+          if (hintId) {
+            const result = await this._callReadTool(
+              "getTask",
+              { taskId: hintId },
+              policy,
+            );
+            const task = result?.task;
+            if (!task) {
+              summary = `No task found for ID ${hintId}`;
+              details.push("Try listing tasks to see available records.");
+              break;
+            }
+            summary = `Task: ${task.title || hintId}`;
+            details.push(`Status: ${task.status || "todo"}`);
+            details.push(`Priority: ${task.priority || "medium"}`);
+            details.push(`Due date: ${task.due_date ? formatDate(task.due_date) : "N/A"}`);
+            details.push(`Dossier ID: ${task.dossier_id || "N/A"}`);
+            details.push(`Lawsuit ID: ${task.lawsuit_id || "N/A"}`);
+            sources.push({
+              sourceType: "system",
+              reference: "tool:getTask",
+              note: "Task lookup",
+            });
+            data = task;
+            break;
+          }
+
+          if (hintName) {
+            const result = await this._callReadTool(
+              "listTasks",
+              { query: hintName, limit: 10 },
+              policy,
+            );
+            const tasks = result?.tasks || [];
+            if (tasks.length === 0) {
+              summary = `No task found for "${hintName}"`;
+              details.push("Try listing all tasks with: show me my tasks");
+            } else if (tasks.length === 1) {
+              const task = tasks[0];
+              summary = `Task: ${task.title || "Task"}`;
+              details.push(`Status: ${task.status || "todo"}`);
+              details.push(`Priority: ${task.priority || "medium"}`);
+              details.push(`Due date: ${task.due_date ? formatDate(task.due_date) : "N/A"}`);
+              details.push(`Dossier ID: ${task.dossier_id || "N/A"}`);
+              details.push(`Lawsuit ID: ${task.lawsuit_id || "N/A"}`);
+              sources.push({
+                sourceType: "system",
+                reference: "tool:listTasks",
+                note: "Task lookup",
+              });
+              data = task;
+            } else {
+              summary = `Multiple tasks match "${hintName}"`;
+              tasks.forEach((t) =>
+                details.push(`${t.title || "Task"} (ID: ${t.id}) — ${t.status || "todo"}`),
+              );
+              details.push("Please specify which task you mean.");
+            }
+            break;
+          }
+
+          summary = "Which task?";
+          details.push("Provide a task ID or title.");
+          break;
+        }
+
+        case READ_INTENTS.EXPLAIN_TASK_STATE:
+        case READ_INTENTS.SUMMARIZE_TASK: {
+          const scope = String(context?.scope || "").toLowerCase();
+          const scopedId = scope === "task" ? context?.taskId : null;
+          const hintId = entityHints.find((hint) => hint.type === "id")?.value;
+          const hintName = entityHints.find((hint) => hint.type === "name")?.value;
+          const targetId = hintId || scopedId;
+
+          if (
+            intent === READ_INTENTS.SUMMARIZE_TASK &&
+            !targetId &&
+            !hintName
+          ) {
+            const listResult = await this._callReadTool(
+              "listTasks",
+              { limit: 200 },
+              policy,
+            );
+            const tasks = listResult?.tasks || [];
+            const pending = tasks.filter(
+              (task) =>
+                !["done", "cancelled"].includes(
+                  String(task.status || "").toLowerCase(),
+                ),
+            );
+            const overdue = pending.filter(
+              (task) =>
+                task.due_date && new Date(task.due_date) < now,
+            );
+            const byPriority = pending.reduce((acc, task) => {
+              const key = String(task.priority || "medium").toLowerCase();
+              acc[key] = (acc[key] || 0) + 1;
+              return acc;
+            }, {});
+
+            title = "Read data — Task workload summary";
+            summary =
+              pending.length > 0
+                ? `${pending.length} pending task(s)`
+                : "No pending tasks";
+            details.push(
+              `Overdue: ${overdue.length}`,
+            );
+            details.push(
+              `By priority: ${Object.entries(byPriority)
+                .map(([key, count]) => `${key} ${count}`)
+                .join(", ") || "N/A"}`,
+            );
+            details.push(
+              `Total tasks in scope: ${tasks.length}`,
+            );
+            sources.push({
+              sourceType: "system",
+              reference: "tool:listTasks",
+              note: "Pending workload summary",
+            });
+            data = tasks;
+            break;
+          }
+
+          let task = null;
+          if (targetId) {
+            const result = await this._callReadTool(
+              "getTask",
+              { taskId: targetId },
+              policy,
+            );
+            task = result?.task || null;
+          } else if (hintName) {
+            const result = await this._callReadTool(
+              "listTasks",
+              { query: hintName, limit: 5 },
+              policy,
+            );
+            const tasks = result?.tasks || [];
+            if (tasks.length === 1) task = tasks[0];
+            else if (tasks.length > 1) {
+              summary = `Multiple tasks match "${hintName}"`;
+              tasks.forEach((t) =>
+                details.push(`${t.title || "Task"} (ID: ${t.id}) — ${t.status || "todo"}`),
+              );
+              details.push("Please specify which task you mean.");
+              break;
+            }
+          }
+
+          if (!task) {
+            summary = "Which task?";
+            details.push("Provide a task ID or title.");
+            break;
+          }
+
+          const overdue =
+            task.due_date &&
+            !["done", "cancelled"].includes(task.status) &&
+            new Date(task.due_date) < now;
+          const blocked = String(task.status || "").toLowerCase() === "blocked";
+          const historyResult = await this._callReadTool(
+            "listHistoryEvents",
+            { entityType: "task", entityId: task.id, limit: 5 },
+            policy,
+          );
+          const historyEvents = historyResult?.historyEvents || [];
+
+          if (intent === READ_INTENTS.EXPLAIN_TASK_STATE) {
+            title = "Read data — Task state";
+            summary = `${task.title || "Task"} (ID: ${task.id})`;
+            details.push(`Status: ${task.status || "todo"} (priority ${task.priority || "medium"})`);
+            details.push(
+              `Relationships: dossier ${task.dossier_id || "N/A"}, lawsuit ${task.lawsuit_id || "N/A"}`,
+            );
+            details.push(
+              blocked || overdue
+                ? `Blocking: ${blocked ? "blocked" : ""}${blocked && overdue ? ", " : ""}${overdue ? "overdue" : ""}`
+                : "Blocking: none detected",
+            );
+            sources.push({
+              sourceType: "system",
+              reference: "tool:getTask",
+              note: "Task state",
+            });
+            data = task;
+            break;
+          }
+
+          title = "Read data — Task summary";
+          summary = `${task.title || "Task"} (ID: ${task.id})`;
+          const recentActivity = historyEvents.map((event) => {
+            const when = event.created_at ? formatDateTime(event.created_at) : "unknown";
+            return `${when} — ${event.action || "event"}`;
+          });
+          details.push(
+            `Summary: status ${task.status || "todo"}, due ${task.due_date ? formatDate(task.due_date) : "N/A"}`,
+          );
+          details.push(
+            `Recent activity: ${recentActivity.length > 0 ? recentActivity.join(" | ") : "none"}`,
+          );
+          details.push(`Key dates/risks: ${overdue ? "task overdue" : "no overdue risk"}`);
+          sources.push({
+            sourceType: "system",
+            reference: "tool:getTask",
+            note: "Task summary",
+          });
+          data = task;
+          break;
+        }
+
+        case READ_INTENTS.READ_PERSONAL_TASK: {
+          const hintId = entityHints.find((hint) => hint.type === "id")?.value;
+          const hintName = entityHints.find((hint) => hint.type === "name")?.value;
+          title = "Read data — Personal task";
+
+          if (hintId) {
+            const result = await this._callReadTool(
+              "getPersonalTask",
+              { personalTaskId: hintId },
+              policy,
+            );
+            const task = result?.personalTask;
+            if (!task) {
+              summary = `No personal task found for ID ${hintId}`;
+              details.push("Try listing personal tasks to see available records.");
+              break;
+            }
+            summary = `Personal task: ${task.title || hintId}`;
+            details.push(`Status: ${task.status || "todo"}`);
+            details.push(`Priority: ${task.priority || "medium"}`);
+            details.push(`Due date: ${task.due_date ? formatDate(task.due_date) : "N/A"}`);
+            sources.push({
+              sourceType: "system",
+              reference: "tool:getPersonalTask",
+              note: "Personal task lookup",
+            });
+            data = task;
+            break;
+          }
+
+          if (hintName) {
+            const result = await this._callReadTool(
+              "listPersonalTasks",
+              { query: hintName, limit: 10 },
+              policy,
+            );
+            const tasks = result?.personalTasks || [];
+            if (tasks.length === 0) {
+              summary = `No personal task found for "${hintName}"`;
+              details.push("Try listing all personal tasks with: show me my personal tasks");
+            } else if (tasks.length === 1) {
+              const task = tasks[0];
+              summary = `Personal task: ${task.title || "Personal task"}`;
+              details.push(`Status: ${task.status || "todo"}`);
+              details.push(`Priority: ${task.priority || "medium"}`);
+              details.push(`Due date: ${task.due_date ? formatDate(task.due_date) : "N/A"}`);
+              sources.push({
+                sourceType: "system",
+                reference: "tool:listPersonalTasks",
+                note: "Personal task lookup",
+              });
+              data = task;
+            } else {
+              summary = `Multiple personal tasks match "${hintName}"`;
+              tasks.forEach((t) =>
+                details.push(`${t.title || "Personal task"} (ID: ${t.id}) — ${t.status || "todo"}`),
+              );
+              details.push("Please specify which personal task you mean.");
+            }
+            break;
+          }
+
+          summary = "Which personal task?";
+          details.push("Provide a personal task ID or title.");
+          break;
+        }
+
+        case READ_INTENTS.EXPLAIN_PERSONAL_TASK_STATE:
+        case READ_INTENTS.SUMMARIZE_PERSONAL_TASK: {
+          const hintId = entityHints.find((hint) => hint.type === "id")?.value;
+          const hintName = entityHints.find((hint) => hint.type === "name")?.value;
+          const targetId =
+            hintId ||
+            (String(context?.scope || "").toLowerCase() === "personal_task"
+              ? context?.taskId
+              : null);
+
+          let task = null;
+          if (targetId) {
+            const result = await this._callReadTool(
+              "getPersonalTask",
+              { personalTaskId: targetId },
+              policy,
+            );
+            task = result?.personalTask || null;
+          } else if (hintName) {
+            const result = await this._callReadTool(
+              "listPersonalTasks",
+              { query: hintName, limit: 5 },
+              policy,
+            );
+            const tasks = result?.personalTasks || [];
+            if (tasks.length === 1) task = tasks[0];
+            else if (tasks.length > 1) {
+              summary = `Multiple personal tasks match "${hintName}"`;
+              tasks.forEach((t) =>
+                details.push(`${t.title || "Personal task"} (ID: ${t.id}) — ${t.status || "todo"}`),
+              );
+              details.push("Please specify which personal task you mean.");
+              break;
+            }
+          }
+
+          if (!task) {
+            summary = "Which personal task?";
+            details.push("Provide a personal task ID or title.");
+            break;
+          }
+
+          const overdue =
+            task.due_date &&
+            !["done", "cancelled"].includes(task.status) &&
+            new Date(task.due_date) < now;
+          const historyResult = await this._callReadTool(
+            "listHistoryEvents",
+            { entityType: "personal_task", entityId: task.id, limit: 5 },
+            policy,
+          );
+          const historyEvents = historyResult?.historyEvents || [];
+
+          if (intent === READ_INTENTS.EXPLAIN_PERSONAL_TASK_STATE) {
+            title = "Read data — Personal task state";
+            summary = `${task.title || "Personal task"} (ID: ${task.id})`;
+            details.push(`Status: ${task.status || "todo"} (priority ${task.priority || "medium"})`);
+            details.push(overdue ? "Blocking: overdue" : "Blocking: none detected");
+            sources.push({
+              sourceType: "system",
+              reference: "tool:getPersonalTask",
+              note: "Personal task state",
+            });
+            data = task;
+            break;
+          }
+
+          title = "Read data — Personal task summary";
+          summary = `${task.title || "Personal task"} (ID: ${task.id})`;
+          const recentActivity = historyEvents.map((event) => {
+            const when = event.created_at ? formatDateTime(event.created_at) : "unknown";
+            return `${when} — ${event.action || "event"}`;
+          });
+          details.push(
+            `Summary: status ${task.status || "todo"}, due ${task.due_date ? formatDate(task.due_date) : "N/A"}`,
+          );
+          details.push(
+            `Recent activity: ${recentActivity.length > 0 ? recentActivity.join(" | ") : "none"}`,
+          );
+          details.push(`Key dates/risks: ${overdue ? "task overdue" : "no overdue risk"}`);
+          sources.push({
+            sourceType: "system",
+            reference: "tool:getPersonalTask",
+            note: "Personal task summary",
+          });
+          data = task;
+          break;
+        }
+
+        case READ_INTENTS.READ_SESSION: {
+          const hintId = entityHints.find((hint) => hint.type === "id")?.value;
+          const hintName = entityHints.find((hint) => hint.type === "name")?.value;
+          title = "Read data — Session";
+
+          if (hintId) {
+            const result = await this._callReadTool(
+              "getSession",
+              { sessionId: hintId },
+              policy,
+            );
+            const session = result?.session;
+            if (!session) {
+              summary = `No session found for ID ${hintId}`;
+              details.push("Try listing sessions to see available records.");
+              break;
+            }
+            summary = `Session: ${session.title || session.session_type || hintId}`;
+            details.push(`Status: ${session.status || "scheduled"}`);
+            details.push(
+              `Scheduled: ${session.scheduled_at ? formatDateTime(session.scheduled_at) : "N/A"}`,
+            );
+            details.push(`Location: ${session.location || "N/A"}`);
+            details.push(`Dossier ID: ${session.dossier_id || "N/A"}`);
+            details.push(`Lawsuit ID: ${session.lawsuit_id || "N/A"}`);
+            sources.push({
+              sourceType: "system",
+              reference: "tool:getSession",
+              note: "Session lookup",
+            });
+            data = session;
+            break;
+          }
+
+          if (hintName) {
+            const result = await this._callReadTool(
+              "listSessions",
+              { query: hintName, limit: 10 },
+              policy,
+            );
+            const sessions = result?.sessions || [];
+            if (sessions.length === 0) {
+              summary = `No session found for "${hintName}"`;
+              details.push("Try listing all sessions with: show me my sessions");
+            } else if (sessions.length === 1) {
+              const session = sessions[0];
+              summary = `Session: ${session.title || session.session_type || "Session"}`;
+              details.push(`Status: ${session.status || "scheduled"}`);
+              details.push(
+                `Scheduled: ${session.scheduled_at ? formatDateTime(session.scheduled_at) : "N/A"}`,
+              );
+              details.push(`Location: ${session.location || "N/A"}`);
+              details.push(`Dossier ID: ${session.dossier_id || "N/A"}`);
+              details.push(`Lawsuit ID: ${session.lawsuit_id || "N/A"}`);
+              sources.push({
+                sourceType: "system",
+                reference: "tool:listSessions",
+                note: "Session lookup",
+              });
+              data = session;
+            } else {
+              summary = `Multiple sessions match "${hintName}"`;
+              sessions.forEach((s) =>
+                details.push(
+                  `${s.title || s.session_type || "Session"} (ID: ${s.id}) — ${s.status || "scheduled"}`,
+                ),
+              );
+              details.push("Please specify which session you mean.");
+            }
+            break;
+          }
+
+          summary = "Which session?";
+          details.push("Provide a session ID or title.");
+          break;
+        }
+
+        case READ_INTENTS.EXPLAIN_SESSION_STATE:
+        case READ_INTENTS.SUMMARIZE_SESSION: {
+          const hintId = getHintValue("id", "session") || getHintValue("id");
+          const hintName = getHintValue("name", "session") || getHintValue("name");
+          const scopedId = scope === "session" ? context?.sessionId : null;
+          const targetId = hintId || scopedId;
+
+          let session = null;
+          if (targetId) {
+            const result = await this._callReadTool(
+              "getSession",
+              { sessionId: targetId },
+              policy,
+            );
+            session = result?.session || null;
+          } else if (hintName) {
+            const result = await this._callReadTool(
+              "listSessions",
+              { query: hintName, limit: 10 },
+              policy,
+            );
+            const sessions = result?.sessions || [];
+            if (sessions.length === 1) {
+              session = sessions[0];
+            } else if (sessions.length > 1) {
+              title =
+                intent === READ_INTENTS.EXPLAIN_SESSION_STATE
+                  ? "Read data — Session state"
+                  : "Read data — Session summary";
+              summary = `Multiple sessions match "${hintName}"`;
+              sessions.forEach((s) =>
+                details.push(
+                  `${s.title || s.session_type || "Session"} (ID: ${s.id}) — ${s.status || "scheduled"}`,
+                ),
+              );
+              details.push("Please specify which session you mean.");
+              break;
+            }
+          }
+
+          if (!session) {
+            summary = "Which session?";
+            details.push("Provide a session ID or title.");
+            break;
+          }
+
+          const participants = Array.isArray(session.participants)
+            ? session.participants
+            : [];
+          const overdue = isSessionOverdue(session);
+          const historyResult = await this._callReadTool(
+            "listHistoryEvents",
+            { entityType: "session", entityId: session.id, limit: 5 },
+            policy,
+          );
+          const historyEvents = historyResult?.historyEvents || [];
+
+          if (intent === READ_INTENTS.EXPLAIN_SESSION_STATE) {
+            title = "Read data — Session state";
+            summary = `Session: ${session.title || session.session_type || "Session"}`;
+            details.push(`Status: ${session.status || "scheduled"}`);
+            details.push(
+              `Scheduled: ${session.scheduled_at ? formatDateTime(session.scheduled_at) : "N/A"}`,
+            );
+            details.push(`Location: ${session.location || "N/A"}`);
+            details.push(
+              `Participants: ${participants.length > 0 ? participants.length : "N/A"}`,
+            );
+            if (session.outcome)
+              details.push(`Outcome: ${session.outcome}`);
+            details.push(
+              `Relationships: dossier ${session.dossier_id || "N/A"}, case ${session.lawsuit_id || "N/A"}`,
+            );
+            details.push(
+              overdue ? "Blocking: session date passed" : "Blocking: none detected",
+            );
+            const normalizedStatus = String(session.status || "scheduled").toLowerCase();
+            let nextSteps = "No follow-up recorded yet.";
+            if (normalizedStatus === "scheduled") {
+              if (session.scheduled_at && new Date(session.scheduled_at) < now) {
+                nextSteps = "Scheduled date has passed; outcome not recorded.";
+              } else {
+                nextSteps = "Session is upcoming; outcome not recorded.";
+              }
+            } else if (["completed", "done"].includes(normalizedStatus)) {
+              nextSteps = session.outcome
+                ? "Outcome recorded; follow-up items may exist."
+                : "Outcome missing; follow-up items may exist.";
+            } else if (normalizedStatus === "cancelled") {
+              nextSteps = "Session cancelled; no outcome recorded.";
+            }
+            details.push("Explanation:");
+            details.push(`Next steps (read-only): ${nextSteps}`);
+            sources.push({
+              sourceType: "system",
+              reference: "tool:getSession",
+              note: "Session state",
+            });
+            data = session;
+            break;
+          }
+
+          title = "Read data — Session summary";
+          summary = `Session: ${session.title || session.session_type || "Session"}`;
+          const recentActivity = historyEvents.map((event) => {
+            const when = event.created_at ? formatDateTime(event.created_at) : "unknown";
+            return `${when} — ${event.action || "event"}`;
+          });
+          details.push(
+            `Summary: status ${session.status || "scheduled"}, scheduled ${session.scheduled_at ? formatDateTime(session.scheduled_at) : "N/A"}`,
+          );
+          details.push(
+            `Outcome: ${session.outcome || "not recorded"}`,
+          );
+          details.push(
+            `Recent activity: ${recentActivity.length > 0 ? recentActivity.join(" | ") : "none"}`,
+          );
+          details.push(
+            `Key dates/risks: ${session.scheduled_at ? formatDateTime(session.scheduled_at) : "no schedule"}${overdue ? " (overdue)" : ""}`,
+          );
+          sources.push({
+            sourceType: "system",
+            reference: "tool:getSession",
+            note: "Session summary",
+          });
+          data = session;
+          break;
+        }
+
+        case READ_INTENTS.READ_MISSION: {
+          const hintId = entityHints.find((hint) => hint.type === "id")?.value;
+          const hintRef = entityHints.find((hint) => hint.type === "reference")?.value;
+          const hintName = entityHints.find((hint) => hint.type === "name")?.value;
+          title = "Read data — Mission";
+
+          if (hintId) {
+            const result = await this._callReadTool(
+              "getMission",
+              { missionId: hintId },
+              policy,
+            );
+            const mission = result?.mission;
+            if (!mission) {
+              summary = `No mission found for ID ${hintId}`;
+              details.push("Try listing missions to see available records.");
+              break;
+            }
+            summary = `Mission: ${mission.reference || mission.title || hintId}`;
+            details.push(`Title: ${mission.title || "Untitled"}`);
+            details.push(`Status: ${mission.status || "planned"}`);
+            details.push(`Due date: ${mission.due_date ? formatDate(mission.due_date) : "N/A"}`);
+            details.push(`Dossier ID: ${mission.dossier_id || "N/A"}`);
+            details.push(`Lawsuit ID: ${mission.lawsuit_id || "N/A"}`);
+            sources.push({
+              sourceType: "system",
+              reference: "tool:getMission",
+              note: "Mission lookup",
+            });
+            data = mission;
+            break;
+          }
+
+          if (hintRef || hintName) {
+            const query = hintRef || hintName;
+            const result = await this._callReadTool(
+              "listMissions",
+              { query, limit: 10 },
+              policy,
+            );
+            const missions = result?.missions || [];
+            if (missions.length === 0) {
+              summary = `No mission found for "${query}"`;
+              details.push("Try listing all missions with: show me my missions");
+            } else if (missions.length === 1) {
+              const mission = missions[0];
+              summary = `Mission: ${mission.reference || mission.title || "Mission"}`;
+              details.push(`Title: ${mission.title || "Untitled"}`);
+              details.push(`Status: ${mission.status || "planned"}`);
+              details.push(`Due date: ${mission.due_date ? formatDate(mission.due_date) : "N/A"}`);
+              details.push(`Dossier ID: ${mission.dossier_id || "N/A"}`);
+              details.push(`Lawsuit ID: ${mission.lawsuit_id || "N/A"}`);
+              sources.push({
+                sourceType: "system",
+                reference: "tool:listMissions",
+                note: "Mission lookup",
+              });
+              data = mission;
+            } else {
+              summary = `Multiple missions match "${query}"`;
+              missions.forEach((m) =>
+                details.push(
+                  `${m.reference || "Mission"} — ${m.title || "Untitled"} (ID: ${m.id})`,
+                ),
+              );
+              details.push("Please specify which mission you mean.");
+            }
+            break;
+          }
+
+          summary = "Which mission?";
+          details.push("Provide a mission ID or reference.");
+          break;
+        }
+
+        case READ_INTENTS.EXPLAIN_MISSION_STATE:
+        case READ_INTENTS.SUMMARIZE_MISSION: {
+          const hintId = getHintValue("id", "mission") || getHintValue("id");
+          const hintRef = getHintValue("reference", "mission");
+          const hintName = getHintValue("name", "mission") || getHintValue("name");
+          const scopedId = scope === "mission" ? context?.missionId : null;
+          const targetId = hintId || scopedId;
+
+          let mission = null;
+          if (targetId) {
+            const result = await this._callReadTool(
+              "getMission",
+              { missionId: targetId },
+              policy,
+            );
+            mission = result?.mission || null;
+          } else if (hintRef || hintName) {
+            const query = hintRef || hintName;
+            const result = await this._callReadTool(
+              "listMissions",
+              { query, limit: 10 },
+              policy,
+            );
+            const missions = result?.missions || [];
+            if (missions.length === 1) {
+              mission = missions[0];
+            } else if (missions.length > 1) {
+              title =
+                intent === READ_INTENTS.EXPLAIN_MISSION_STATE
+                  ? "Read data — Mission state"
+                  : "Read data — Mission summary";
+              summary = `Multiple missions match "${query}"`;
+              missions.forEach((m) =>
+                details.push(
+                  `${m.reference || "Mission"} — ${m.title || "Untitled"} (ID: ${m.id})`,
+                ),
+              );
+              details.push("Please specify which mission you mean.");
+              break;
+            }
+          }
+
+          if (!mission) {
+            summary = "Which mission?";
+            details.push("Provide a mission ID or reference.");
+            break;
+          }
+
+          const overdue = isMissionOverdue(mission);
+          const historyResult = await this._callReadTool(
+            "listHistoryEvents",
+            { entityType: "mission", entityId: mission.id, limit: 5 },
+            policy,
+          );
+          const historyEvents = historyResult?.historyEvents || [];
+
+          if (intent === READ_INTENTS.EXPLAIN_MISSION_STATE) {
+            title = "Read data — Mission state";
+            summary = `Mission: ${mission.reference || mission.title || "Mission"}`;
+            details.push(`Status: ${mission.status || "planned"}`);
+            details.push(`Priority: ${mission.priority || "medium"}`);
+            details.push(`Due date: ${mission.due_date ? formatDate(mission.due_date) : "N/A"}`);
+            details.push(
+              `Relationships: dossier ${mission.dossier_id || "N/A"}, case ${mission.lawsuit_id || "N/A"}`,
+            );
+            details.push(
+              overdue ? "Blocking: mission overdue" : "Blocking: none detected",
+            );
+            details.push("Explanation:");
+            details.push(
+              mission.result
+                ? `Progress: result recorded (${mission.result})`
+                : "Progress: no result recorded",
+            );
+            sources.push({
+              sourceType: "system",
+              reference: "tool:getMission",
+              note: "Mission state",
+            });
+            data = mission;
+            break;
+          }
+
+          title = "Read data — Mission summary";
+          summary = `Mission: ${mission.reference || mission.title || "Mission"}`;
+          const recentActivity = historyEvents.map((event) => {
+            const when = event.created_at ? formatDateTime(event.created_at) : "unknown";
+            return `${when} — ${event.action || "event"}`;
+          });
+          details.push(
+            `Summary: status ${mission.status || "planned"}, due ${mission.due_date ? formatDate(mission.due_date) : "N/A"}`,
+          );
+          details.push(`Result: ${mission.result || "not recorded"}`);
+          details.push(
+            `Recent activity: ${recentActivity.length > 0 ? recentActivity.join(" | ") : "none"}`,
+          );
+          details.push(
+            `Key dates/risks: ${mission.due_date ? formatDate(mission.due_date) : "no due date"}${overdue ? " (overdue)" : ""}`,
+          );
+          sources.push({
+            sourceType: "system",
+            reference: "tool:getMission",
+            note: "Mission summary",
+          });
+          data = mission;
+          break;
+        }
+
+        case READ_INTENTS.READ_FINANCIAL_ENTRY: {
+          const hintId = entityHints.find((hint) => hint.type === "id")?.value;
+          const hintRef = entityHints.find((hint) => hint.type === "reference")?.value;
+          const hintName = entityHints.find((hint) => hint.type === "name")?.value;
+          title = "Read data — Financial entry";
+
+          if (hintId) {
+            const result = await this._callReadTool(
+              "getFinancialEntry",
+              { financialEntryId: hintId },
+              policy,
+            );
+            const entry = result?.financialEntry;
+            if (!entry) {
+              summary = `No financial entry found for ID ${hintId}`;
+              details.push("Try listing entries to see available records.");
+              break;
+            }
+            summary = `Entry: ${entry.reference || entry.title || hintId}`;
+            details.push(`Status: ${entry.status || "draft"}`);
+            details.push(
+              `Amount: ${entry.amount ? `${entry.amount} ${entry.currency || ""}`.trim() : "N/A"}`,
+            );
+            details.push(`Due date: ${entry.due_date ? formatDate(entry.due_date) : "N/A"}`);
+            details.push(`Client ID: ${entry.client_id || "N/A"}`);
+            details.push(`Dossier ID: ${entry.dossier_id || "N/A"}`);
+            sources.push({
+              sourceType: "system",
+              reference: "tool:getFinancialEntry",
+              note: "Financial entry lookup",
+            });
+            data = entry;
+            break;
+          }
+
+          if (hintRef || hintName) {
+            const query = hintRef || hintName;
+            const result = await this._callReadTool(
+              "listFinancialEntries",
+              { query, limit: 10 },
+              policy,
+            );
+            const entries = result?.financialEntries || [];
+            if (entries.length === 0) {
+              summary = `No financial entry found for "${query}"`;
+              details.push("Try listing all entries with: show me my accounting entries");
+            } else if (entries.length === 1) {
+              const entry = entries[0];
+              summary = `Entry: ${entry.reference || entry.title || "Financial entry"}`;
+              details.push(`Status: ${entry.status || "draft"}`);
+              details.push(
+                `Amount: ${entry.amount ? `${entry.amount} ${entry.currency || ""}`.trim() : "N/A"}`,
+              );
+              details.push(`Due date: ${entry.due_date ? formatDate(entry.due_date) : "N/A"}`);
+              details.push(`Client ID: ${entry.client_id || "N/A"}`);
+              details.push(`Dossier ID: ${entry.dossier_id || "N/A"}`);
+              sources.push({
+                sourceType: "system",
+                reference: "tool:listFinancialEntries",
+                note: "Financial entry lookup",
+              });
+              data = entry;
+            } else {
+              summary = `Multiple financial entries match "${query}"`;
+              entries.forEach((e) => {
+                const ref = e.reference || e.title || "Entry";
+                details.push(`${ref} (ID: ${e.id}) — ${e.status || "draft"}`);
+              });
+              details.push("Please specify which entry you mean.");
+            }
+            break;
+          }
+
+          summary = "Which financial entry?";
+          details.push("Provide an entry ID or reference.");
+          break;
+        }
+
+        case READ_INTENTS.EXPLAIN_FINANCIAL_ENTRY_STATE:
+        case READ_INTENTS.SUMMARIZE_FINANCIAL_ENTRY: {
+          const hintId =
+            getHintValue("id", "financial_entry") || getHintValue("id");
+          const hintRef = getHintValue("reference", "financial_entry");
+          const hintName =
+            getHintValue("name", "financial_entry") || getHintValue("name");
+          const hasEntryHint = Boolean(hintId || hintRef || hintName);
+
+          let entry = null;
+          if (hintId) {
+            const result = await this._callReadTool(
+              "getFinancialEntry",
+              { financialEntryId: hintId },
+              policy,
+            );
+            entry = result?.financialEntry || null;
+          } else if (hintRef || hintName) {
+            const query = hintRef || hintName;
+            const result = await this._callReadTool(
+              "listFinancialEntries",
+              { query, limit: 10 },
+              policy,
+            );
+            const entries = result?.financialEntries || [];
+            if (entries.length === 1) {
+              entry = entries[0];
+            } else if (entries.length > 1) {
+              title =
+                intent === READ_INTENTS.EXPLAIN_FINANCIAL_ENTRY_STATE
+                  ? "Read data — Financial status"
+                  : "Read data — Financial summary";
+              summary = `Multiple financial entries match "${query}"`;
+              entries.forEach((e) => {
+                const ref = e.reference || e.title || "Entry";
+                details.push(`${ref} (ID: ${e.id}) — ${e.status || "draft"}`);
+              });
+              details.push("Please specify which entry you mean.");
+              break;
+            }
+          }
+
+          if (!entry && hasEntryHint) {
+            summary = "Which financial entry?";
+            details.push("Provide an entry ID or reference.");
+            break;
+          }
+
+          if (!entry) {
+            // Aggregate financial status / balance summary
+            let clientId = scope === "client" ? context?.clientId : null;
+            let dossierId = scope === "dossier" ? context?.dossierId : null;
+            let lawsuitId = scope === "lawsuit" ? context?.lawsuitId : null;
+            let missionId = scope === "mission" ? context?.missionId : null;
+            let taskId = scope === "task" ? context?.taskId : null;
+            let personalTaskId =
+              scope === "personal_task" ? context?.personalTaskId : null;
+
+            if (
+              !clientId &&
+              !dossierId &&
+              !lawsuitId &&
+              !missionId &&
+              !taskId &&
+              !personalTaskId
+            ) {
+              const hintClientId = getHintValue("id", "client");
+              const hintClientName = getHintValue("name", "client");
+              if (hintClientId) {
+                clientId = hintClientId;
+              } else if (hintClientName) {
+                const resolution = await this._resolveEntity(
+                  { type: "client", nameHint: hintClientName },
+                  policy,
+                );
+                if (resolution.resolved) {
+                  clientId = resolution.entity.id;
+                } else if (resolution.reason === "ambiguous") {
+                  title = "Read data — Financial summary";
+                  summary = resolution.message;
+                  resolution.candidates?.forEach((c) =>
+                    details.push(`${c.name} (ID: ${c.id})`),
+                  );
+                  details.push("Please specify which client you mean.");
+                  break;
+                } else if (resolution.reason === "not_found") {
+                  title = "Read data — Financial summary";
+                  summary = resolution.message;
+                  details.push("Try listing clients to see available records.");
+                  break;
+                }
               }
             }
 
-            if (dossier) {
-              summary = `Dossier: ${dossier.reference}`;
-              details.push(`Title: ${dossier.title}`);
-              details.push(`Status: ${dossier.status || "open"}`);
-              details.push(`Priority: ${dossier.priority || "medium"}`);
-              details.push(`Client: ${dossier.client_name || "None"}`);
-              if (dossier.phase) details.push(`Phase: ${dossier.phase}`);
-              sources.push({
-                sourceType: "database",
-                reference: `dossier:${dossier.id}`,
-                note: "Dossier lookup",
-              });
-            } else if (!summary) {
-              summary = `No dossier found for "${hint.value}"`;
+            if (
+              !dossierId &&
+              (getHintValue("reference", "dossier") || getHintValue("name", "dossier"))
+            ) {
+              const resolution = await this._resolveEntity(
+                {
+                  type: "dossier",
+                  reference: getHintValue("reference", "dossier") || undefined,
+                  nameHint: getHintValue("name", "dossier") || undefined,
+                },
+                policy,
+              );
+              if (resolution.resolved) {
+                dossierId = resolution.entity.id;
+              } else if (resolution.reason === "ambiguous") {
+                title = "Read data — Financial summary";
+                summary = resolution.message;
+                resolution.candidates?.forEach((c) =>
+                  details.push(`${c.name} (ID: ${c.id})`),
+                );
+                details.push("Please specify which dossier you mean.");
+                break;
+              } else if (resolution.reason === "not_found") {
+                title = "Read data — Financial summary";
+                summary = resolution.message;
+                details.push("Try listing dossiers to see available records.");
+                break;
+              }
+            }
+
+            if (
+              !lawsuitId &&
+              (getHintValue("reference", "lawsuit") || getHintValue("name", "lawsuit"))
+            ) {
+              const resolution = await this._resolveEntity(
+                {
+                  type: "lawsuit",
+                  reference: getHintValue("reference", "lawsuit") || undefined,
+                  nameHint: getHintValue("name", "lawsuit") || undefined,
+                },
+                policy,
+              );
+              if (resolution.resolved) {
+                lawsuitId = resolution.entity.id;
+              } else if (resolution.reason === "ambiguous") {
+                title = "Read data — Financial summary";
+                summary = resolution.message;
+                resolution.candidates?.forEach((c) =>
+                  details.push(`${c.name} (ID: ${c.id})`),
+                );
+                details.push("Please specify which case you mean.");
+                break;
+              } else if (resolution.reason === "not_found") {
+                title = "Read data — Financial summary";
+                summary = resolution.message;
+                details.push("Try listing cases to see available records.");
+                break;
+              }
+            }
+
+            if (
+              !missionId &&
+              (getHintValue("reference", "mission") || getHintValue("name", "mission"))
+            ) {
+              const resolution = await this._resolveEntity(
+                {
+                  type: "mission",
+                  reference: getHintValue("reference", "mission") || undefined,
+                  nameHint: getHintValue("name", "mission") || undefined,
+                },
+                policy,
+              );
+              if (resolution.resolved) {
+                missionId = resolution.entity.id;
+              } else if (resolution.reason === "ambiguous") {
+                title = "Read data — Financial summary";
+                summary = resolution.message;
+                resolution.candidates?.forEach((c) =>
+                  details.push(`${c.name} (ID: ${c.id})`),
+                );
+                details.push("Please specify which mission you mean.");
+                break;
+              } else if (resolution.reason === "not_found") {
+                title = "Read data — Financial summary";
+                summary = resolution.message;
+                details.push("Try listing missions to see available records.");
+                break;
+              }
+            }
+
+            if (!taskId && getHintValue("id", "task")) {
+              taskId = getHintValue("id", "task");
+            }
+            if (!personalTaskId && getHintValue("id", "personal_task")) {
+              personalTaskId = getHintValue("id", "personal_task");
+            }
+
+            const scopeCount = [
+              clientId,
+              dossierId,
+              lawsuitId,
+              missionId,
+              taskId,
+              personalTaskId,
+            ].filter(Boolean).length;
+            if (scopeCount > 1) {
+              title = "Read data — Financial summary";
+              summary = "Multiple scopes detected for financial entries.";
               details.push(
-                "Try listing all dossiers with: show me my dossiers",
+                "Please specify a single client, dossier, case, mission, or task.",
+              );
+              break;
+            }
+
+            const result = await this._callReadTool(
+              "listFinancialEntries",
+              {
+                limit: 200,
+                paymentStatus: filters?.paymentStatus || null,
+                clientId,
+                dossierId,
+                lawsuitId,
+                missionId,
+                taskId,
+                personalTaskId,
+              },
+              policy,
+            );
+            const entries = result?.financialEntries || [];
+            const totals = {};
+            const unpaidTotals = {};
+            const overdueTotals = {};
+            let unpaidCount = 0;
+            let overdueCount = 0;
+
+            const addAmount = (map, currency, amount) => {
+              const key = currency || "N/A";
+              map[key] = (map[key] || 0) + amount;
+            };
+
+            entries.forEach((item) => {
+              const amount = Number(item.amount || 0);
+              const currency = item.currency || "N/A";
+              addAmount(totals, currency, amount);
+              if (item.paid_at) {
+                return;
+              }
+              unpaidCount += 1;
+              addAmount(unpaidTotals, currency, amount);
+              if (isFinancialOverdue(item)) {
+                overdueCount += 1;
+                addAmount(overdueTotals, currency, amount);
+              }
+            });
+
+            const formatTotals = (map) =>
+              Object.entries(map)
+                .map(([currency, amount]) => `${amount} ${currency}`)
+                .join(", ");
+
+            title =
+              intent === READ_INTENTS.EXPLAIN_FINANCIAL_ENTRY_STATE
+                ? "Read data — Financial status"
+                : "Read data — Financial summary";
+            summary =
+              entries.length > 0
+                ? `${entries.length} financial entry(ies) in scope`
+                : "No financial entries found";
+            details.push(
+              `Entries: ${entries.length} total, ${unpaidCount} unpaid, ${overdueCount} overdue`,
+            );
+            details.push(
+              `Totals: ${formatTotals(totals) || "N/A"}`,
+            );
+            details.push(
+              `Unpaid: ${formatTotals(unpaidTotals) || "N/A"}`,
+            );
+            if (overdueCount > 0) {
+              details.push(
+                `Overdue: ${formatTotals(overdueTotals) || "N/A"}`,
               );
             }
+            sources.push({
+              sourceType: "system",
+              reference: "tool:listFinancialEntries",
+              note: "Financial summary",
+            });
+            data = entries;
+            break;
           }
+
+          const paymentStatus = entry.paid_at
+            ? "paid"
+            : isFinancialOverdue(entry)
+              ? "overdue"
+              : "unpaid";
+          const historyResult = await this._callReadTool(
+            "listHistoryEvents",
+            { entityType: "financial_entry", entityId: entry.id, limit: 5 },
+            policy,
+          );
+          const historyEvents = historyResult?.historyEvents || [];
+
+          if (intent === READ_INTENTS.EXPLAIN_FINANCIAL_ENTRY_STATE) {
+            title = "Read data — Financial status";
+            summary = `${entry.reference || entry.title || "Financial entry"} (ID: ${entry.id})`;
+            details.push(`Status: ${entry.status || "draft"}`);
+            details.push(`Payment status: ${paymentStatus}`);
+            details.push(
+              `Amount: ${entry.amount ? `${entry.amount} ${entry.currency || ""}`.trim() : "N/A"}`,
+            );
+            details.push(`Due date: ${entry.due_date ? formatDate(entry.due_date) : "N/A"}`);
+            details.push(
+              `Relationships: client ${entry.client_id || "N/A"}, dossier ${entry.dossier_id || "N/A"}, case ${entry.lawsuit_id || "N/A"}`,
+            );
+            details.push(
+              paymentStatus === "overdue"
+                ? "Blocking: entry overdue"
+                : "Blocking: none detected",
+            );
+            details.push("Explanation:");
+            details.push(
+              entry.paid_at
+                ? `Paid on ${formatDate(entry.paid_at)}`
+                : "No payment recorded yet",
+            );
+            sources.push({
+              sourceType: "system",
+              reference: "tool:getFinancialEntry",
+              note: "Financial entry state",
+            });
+            data = entry;
+            break;
+          }
+
+          title = "Read data — Financial summary";
+          summary = `${entry.reference || entry.title || "Financial entry"} (ID: ${entry.id})`;
+          const recentActivity = historyEvents.map((event) => {
+            const when = event.created_at ? formatDateTime(event.created_at) : "unknown";
+            return `${when} — ${event.action || "event"}`;
+          });
+          details.push(
+            `Summary: status ${entry.status || "draft"}, payment ${paymentStatus}`,
+          );
+          details.push(
+            `Amount: ${entry.amount ? `${entry.amount} ${entry.currency || ""}`.trim() : "N/A"}`,
+          );
+          details.push(
+            `Recent activity: ${recentActivity.length > 0 ? recentActivity.join(" | ") : "none"}`,
+          );
+          details.push(
+            `Key dates/risks: ${entry.due_date ? formatDate(entry.due_date) : "no due date"}${
+              paymentStatus === "overdue" ? " (overdue)" : ""
+            }`,
+          );
+          sources.push({
+            sourceType: "system",
+            reference: "tool:getFinancialEntry",
+            note: "Financial entry summary",
+          });
+          data = entry;
+          break;
+        }
+
+        case READ_INTENTS.READ_NOTIFICATION: {
+          const hintId = entityHints.find((hint) => hint.type === "id")?.value;
+          const hintName = entityHints.find((hint) => hint.type === "name")?.value;
+          title = "Read data — Notification";
+
+          if (hintId) {
+            const result = await this._callReadTool(
+              "getNotification",
+              { notificationId: hintId },
+              policy,
+            );
+            const notification = result?.notification;
+            if (!notification) {
+              summary = `No notification found for ID ${hintId}`;
+              details.push("Try listing notifications to see available records.");
+              break;
+            }
+            summary = `Notification: ${notification.template_key || notification.type || hintId}`;
+            details.push(`Status: ${notification.status || "unread"}`);
+            details.push(`Severity: ${notification.severity || "info"}`);
+            details.push(`Entity: ${notification.entity_type || "N/A"} ${notification.entity_id || ""}`.trim());
+            sources.push({
+              sourceType: "system",
+              reference: "tool:getNotification",
+              note: "Notification lookup",
+            });
+            data = notification;
+            break;
+          }
+
+          if (hintName) {
+            const result = await this._callReadTool(
+              "listNotifications",
+              { query: hintName, limit: 10 },
+              policy,
+            );
+            const notifications = result?.notifications || [];
+            if (notifications.length === 0) {
+              summary = `No notification found for "${hintName}"`;
+              details.push("Try listing all notifications with: show me my notifications");
+            } else if (notifications.length === 1) {
+              const notification = notifications[0];
+              summary = `Notification: ${notification.template_key || notification.type || "Notification"}`;
+              details.push(`Status: ${notification.status || "unread"}`);
+              details.push(`Severity: ${notification.severity || "info"}`);
+              details.push(`Entity: ${notification.entity_type || "N/A"} ${notification.entity_id || ""}`.trim());
+              sources.push({
+                sourceType: "system",
+                reference: "tool:listNotifications",
+                note: "Notification lookup",
+              });
+              data = notification;
+            } else {
+              summary = `Multiple notifications match "${hintName}"`;
+              notifications.forEach((n) => {
+                const label = n.template_key || n.type || "Notification";
+                details.push(`${label} (ID: ${n.id}) — ${n.status || "unread"}`);
+              });
+              details.push("Please specify which notification you mean.");
+            }
+            break;
+          }
+
+          summary = "Which notification?";
+          details.push("Provide a notification ID.");
+          break;
+        }
+
+        case READ_INTENTS.EXPLAIN_NOTIFICATION_STATE:
+        case READ_INTENTS.SUMMARIZE_NOTIFICATION: {
+          const hintId =
+            getHintValue("id", "notification") || getHintValue("id");
+          const hintName =
+            getHintValue("name", "notification") || getHintValue("name");
+          const scopedId = scope === "notification" ? context?.notificationId : null;
+          const targetId = hintId || scopedId;
+
+          let notification = null;
+          if (targetId) {
+            const result = await this._callReadTool(
+              "getNotification",
+              { notificationId: targetId },
+              policy,
+            );
+            notification = result?.notification || null;
+          } else if (hintName) {
+            const result = await this._callReadTool(
+              "listNotifications",
+              { query: hintName, limit: 10 },
+              policy,
+            );
+            const notifications = result?.notifications || [];
+            if (notifications.length === 1) {
+              notification = notifications[0];
+            } else if (notifications.length > 1) {
+              title =
+                intent === READ_INTENTS.EXPLAIN_NOTIFICATION_STATE
+                  ? "Read data — Notification reason"
+                  : "Read data — Notification summary";
+              summary = `Multiple notifications match "${hintName}"`;
+              notifications.forEach((n) => {
+                const label = n.template_key || n.type || "Notification";
+                details.push(`${label} (ID: ${n.id}) — ${n.status || "unread"}`);
+              });
+              details.push("Please specify which notification you mean.");
+              break;
+            }
+          }
+
+          if (!notification) {
+            summary = "Which notification?";
+            details.push("Provide a notification ID.");
+            break;
+          }
+
+          const payload = parsePayload(notification.payload);
+          const reason =
+            payload.reason ||
+            payload.message ||
+            payload.body ||
+            payload.description ||
+            payload.title ||
+            payload.subject ||
+            notification.template_key ||
+            notification.type ||
+            "N/A";
+
+          if (intent === READ_INTENTS.EXPLAIN_NOTIFICATION_STATE) {
+            title = "Read data — Notification reason";
+            summary = `Notification: ${notification.template_key || notification.type || "Notification"}`;
+            details.push(`Status: ${notification.status || "unread"}`);
+            details.push(`Severity: ${notification.severity || "info"}`);
+            details.push(
+              `Entity: ${notification.entity_type || "N/A"} ${notification.entity_id || ""}`.trim(),
+            );
+            details.push("Explanation:");
+            details.push(`Reason: ${reason}`);
+            sources.push({
+              sourceType: "system",
+              reference: "tool:getNotification",
+              note: "Notification reason",
+            });
+            data = notification;
+            break;
+          }
+
+          title = "Read data — Notification summary";
+          summary = `Notification: ${notification.template_key || notification.type || "Notification"}`;
+          details.push(`Status: ${notification.status || "unread"}`);
+          details.push(`Severity: ${notification.severity || "info"}`);
+          details.push(`Reason: ${reason}`);
+          sources.push({
+            sourceType: "system",
+            reference: "tool:getNotification",
+            note: "Notification summary",
+          });
+          data = notification;
+          break;
+        }
+
+        case READ_INTENTS.READ_HISTORY_EVENT: {
+          const hintId = entityHints.find((hint) => hint.type === "id")?.value;
+          title = "Read data — History event";
+
+          if (hintId) {
+            const result = await this._callReadTool(
+              "getHistoryEvent",
+              { historyEventId: hintId },
+              policy,
+            );
+            const event = result?.historyEvent;
+            if (!event) {
+              summary = `No history event found for ID ${hintId}`;
+              details.push("Try listing history events to see available records.");
+              break;
+            }
+            summary = `History event: ${event.action || "event"}`;
+            details.push(`Entity: ${event.entity_type || "N/A"} ${event.entity_id || ""}`.trim());
+            details.push(`Description: ${event.description || "N/A"}`);
+            if (event.actor) details.push(`Actor: ${event.actor}`);
+            if (event.changed_fields) {
+              const fields = Object.keys(event.changed_fields || {});
+              if (fields.length > 0)
+                details.push(`Changed fields: ${fields.join(", ")}`);
+            }
+            details.push(`Created at: ${event.created_at ? formatDateTime(event.created_at) : "N/A"}`);
+            sources.push({
+              sourceType: "system",
+              reference: "tool:getHistoryEvent",
+              note: "History event lookup",
+            });
+            data = event;
+            break;
+          }
+
+          summary = "Which history event?";
+          details.push("Provide a history event ID.");
+          break;
+        }
+
+        case READ_INTENTS.EXPLAIN_HISTORY_STATE:
+        case READ_INTENTS.SUMMARIZE_HISTORY: {
+          const hintId =
+            getHintValue("id", "history_event") || getHintValue("id");
+          const hintName =
+            getHintValue("name", "history_event") || getHintValue("name");
+
+          let event = null;
+          if (hintId) {
+            const result = await this._callReadTool(
+              "getHistoryEvent",
+              { historyEventId: hintId },
+              policy,
+            );
+            event = result?.historyEvent || null;
+          } else if (hintName) {
+            const result = await this._callReadTool(
+              "listHistoryEvents",
+              { query: hintName, limit: 10 },
+              policy,
+            );
+            const events = result?.historyEvents || [];
+            if (events.length === 1) {
+              event = events[0];
+            } else if (events.length > 1) {
+              title =
+                intent === READ_INTENTS.EXPLAIN_HISTORY_STATE
+                  ? "Read data — History explanation"
+                  : "Read data — History summary";
+              summary = `Multiple history events match "${hintName}"`;
+              events.forEach((e) => {
+                const when = e.created_at ? formatDateTime(e.created_at) : "unknown";
+                details.push(`${when} — ${e.action || "event"} (ID: ${e.id})`);
+              });
+              details.push("Please specify which history event you mean.");
+              break;
+            }
+          }
+
+          if (event) {
+            const changedFields = event.changed_fields
+              ? Object.keys(event.changed_fields)
+              : [];
+            if (intent === READ_INTENTS.EXPLAIN_HISTORY_STATE) {
+              title = "Read data — History explanation";
+              summary = `History event: ${event.action || "event"}`;
+              details.push(
+                `Entity: ${event.entity_type || "N/A"} ${event.entity_id || ""}`.trim(),
+              );
+              details.push(`Created at: ${event.created_at ? formatDateTime(event.created_at) : "N/A"}`);
+              if (event.actor) details.push(`Actor: ${event.actor}`);
+              if (event.description) details.push(`Description: ${event.description}`);
+              if (changedFields.length > 0) {
+                details.push(`Changed fields: ${changedFields.join(", ")}`);
+              }
+              details.push("Explanation:");
+              details.push(
+                event.description
+                  ? `Reason: ${event.description}`
+                  : "Reason: no description recorded",
+              );
+              sources.push({
+                sourceType: "system",
+                reference: "tool:getHistoryEvent",
+                note: "History explanation",
+              });
+              data = event;
+              break;
+            }
+
+            title = "Read data — History summary";
+            summary = `History event: ${event.action || "event"}`;
+            details.push(
+              `Entity: ${event.entity_type || "N/A"} ${event.entity_id || ""}`.trim(),
+            );
+            details.push(`Description: ${event.description || "N/A"}`);
+            details.push(`Created at: ${event.created_at ? formatDateTime(event.created_at) : "N/A"}`);
+            sources.push({
+              sourceType: "system",
+              reference: "tool:getHistoryEvent",
+              note: "History summary",
+            });
+            data = event;
+            break;
+          }
+
+          if (intent === READ_INTENTS.SUMMARIZE_HISTORY) {
+            // Fallback to recent history summary
+            const result = await this._callReadTool(
+              "listHistoryEvents",
+              { limit: 10 },
+              policy,
+            );
+            const events = result?.historyEvents || [];
+            title = "Read data — History summary";
+            summary =
+              events.length > 0
+                ? `Recent history (${events.length} event(s))`
+                : "No history events found";
+            events.forEach((e) => {
+              const when = e.created_at ? formatDateTime(e.created_at) : "unknown";
+              details.push(
+                `${when} — ${e.action || "event"} (${e.entity_type || "entity"} ${e.entity_id || ""})`.trim(),
+              );
+            });
+            sources.push({
+              sourceType: "system",
+              reference: "tool:listHistoryEvents",
+              note: "History summary",
+            });
+            data = events;
+            break;
+          }
+
+          summary = "Which history event?";
+          details.push("Provide a history event ID.");
           break;
         }
 
@@ -1362,6 +4431,15 @@ class AgentEngine {
           details.push(
             "This type of data query is recognized but not yet supported.",
           );
+      }
+
+      if (
+        String(intent || "").startsWith("EXPLAIN_") &&
+        !details.some(
+          (detail) => String(detail).toLowerCase().startsWith("explanation"),
+        )
+      ) {
+        details.unshift("Explanation:");
       }
 
       this.ledger.record({
@@ -1379,6 +4457,7 @@ class AgentEngine {
           type: "explanation",
           entityId: `read:${intent.toLowerCase()}`,
           entityType: "query_result",
+          title,
           summary,
           details: details.length > 0 ? details : ["No data available."],
           timestamp: new Date().toISOString(),
@@ -1406,6 +4485,7 @@ class AgentEngine {
           type: "explanation",
           entityId: "read_error",
           entityType: "error",
+          title: "Read data — Error",
           summary: `Unable to retrieve data: ${err.message}`,
           details: [
             "An error occurred while accessing the data.",
@@ -1435,405 +4515,195 @@ class AgentEngine {
    * @returns {Promise<Object>} Formatted result
    * @private
    */
-  async _executeCommandTools(parsed, context, policy) {
-    const { commandKey, args, toolMapping } = parsed;
-    const db = require("../db/connection");
+  async _executeCommandTools(parsed, context, policy, message) {
+    const { commandKey, args } = parsed;
+    const argText = args.join(" ").trim();
 
-    // DOMAIN ACCESS CHECK - Map slash commands to required domains
-    const COMMAND_DOMAIN_MAP = {
-      clients: DATA_DOMAINS.CLIENTS,
-      client: DATA_DOMAINS.CLIENTS,
-      dossiers: DATA_DOMAINS.DOSSIERS,
-      dossier: DATA_DOMAINS.DOSSIERS,
-      tasks: DATA_DOMAINS.TASKS,
-      "tasks-overdue": DATA_DOMAINS.TASKS,
-      sessions: DATA_DOMAINS.SESSIONS,
-      "sessions-today": DATA_DOMAINS.SESSIONS,
-      "sessions-week": DATA_DOMAINS.SESSIONS,
+    const buildHintFromArg = (arg) => {
+      if (!arg) return [];
+      const trimmed = String(arg).trim();
+      if (!trimmed) return [];
+      if (/^\d+$/.test(trimmed)) {
+        return [{ type: "id", value: parseInt(trimmed, 10) }];
+      }
+      if (/^DOS-\d{4}-\d+$/i.test(trimmed)) {
+        return [
+          {
+            type: "reference",
+            value: trimmed.toUpperCase(),
+            entityType: "dossier",
+          },
+        ];
+      }
+      if (/^PRO-\d{4}-\d+$/i.test(trimmed)) {
+        return [
+          {
+            type: "reference",
+            value: trimmed.toUpperCase(),
+            entityType: "lawsuit",
+          },
+        ];
+      }
+      if (/^MIS-\d{4}-\d+$/i.test(trimmed)) {
+        return [
+          {
+            type: "reference",
+            value: trimmed.toUpperCase(),
+            entityType: "mission",
+          },
+        ];
+      }
+      return [{ type: "name", value: trimmed }];
     };
 
-    const requiredDomain = COMMAND_DOMAIN_MAP[commandKey];
-    if (requiredDomain) {
-      const domainCheck = this._checkDomainAccess(requiredDomain, context);
-      if (!domainCheck.permitted) {
-        this.ledger.record({
-          type: "slash_command_domain_blocked",
-          command: commandKey,
-          domain: requiredDomain,
-          timestamp: new Date().toISOString(),
-        });
-        // Return domain denied response formatted as explanation
-        return {
-          type: "explanation",
-          entityId: "domain_access_denied",
-          entityType: "security",
-          summary: domainCheck.message,
-          details: [
-            `The /${commandKey} command requires access to ${requiredDomain} data.`,
-            "",
-            "To use this command:",
-            "1. Open the Context panel (right sidebar)",
-            `2. Enable access to "${requiredDomain}"`,
-            "3. Try your command again",
-          ],
-          timestamp: new Date().toISOString(),
-          confidence: 1,
-          sources: [
-            {
-              sourceType: "system",
-              reference: "domain_firewall",
-              note: "Data access permission check",
-            },
-          ],
-          status: "blocked",
-          source: "domain-firewall",
-          requires_validation: false,
-        };
+    const readIntent = (() => {
+      switch (commandKey) {
+        case "clients":
+          return { intent: READ_INTENTS.LIST_CLIENTS, requiresLocalData: true };
+        case "client":
+          return {
+            intent: READ_INTENTS.READ_CLIENT,
+            requiresLocalData: true,
+            entityHints: buildHintFromArg(argText),
+          };
+        case "dossiers":
+          return { intent: READ_INTENTS.LIST_DOSSIERS, requiresLocalData: true };
+        case "dossier":
+          return {
+            intent: READ_INTENTS.READ_DOSSIER,
+            requiresLocalData: true,
+            entityHints: buildHintFromArg(argText),
+          };
+        case "lawsuits":
+          return { intent: READ_INTENTS.LIST_LAWSUITS, requiresLocalData: true };
+        case "lawsuit":
+          return {
+            intent: READ_INTENTS.READ_LAWSUIT,
+            requiresLocalData: true,
+            entityHints: buildHintFromArg(argText),
+          };
+        case "tasks":
+          return { intent: READ_INTENTS.LIST_TASKS, requiresLocalData: true };
+        case "tasks-overdue":
+          return {
+            intent: READ_INTENTS.LIST_OVERDUE_TASKS,
+            requiresLocalData: true,
+          };
+        case "personal-tasks":
+          return {
+            intent: READ_INTENTS.LIST_PERSONAL_TASKS,
+            requiresLocalData: true,
+          };
+        case "personal-task":
+          return {
+            intent: READ_INTENTS.READ_PERSONAL_TASK,
+            requiresLocalData: true,
+            entityHints: buildHintFromArg(argText),
+          };
+        case "sessions": {
+          const normalized = argText.toLowerCase();
+          if (["today", "this-week", "upcoming"].includes(normalized)) {
+            return {
+              intent: READ_INTENTS.LIST_UPCOMING_SESSIONS,
+              requiresLocalData: true,
+              filters: { timeframe: normalized },
+            };
+          }
+          return { intent: READ_INTENTS.LIST_SESSIONS, requiresLocalData: true };
+        }
+        case "sessions-today":
+          return {
+            intent: READ_INTENTS.LIST_UPCOMING_SESSIONS,
+            requiresLocalData: true,
+            filters: { timeframe: "today" },
+          };
+        case "sessions-week":
+          return {
+            intent: READ_INTENTS.LIST_UPCOMING_SESSIONS,
+            requiresLocalData: true,
+            filters: { timeframe: "this-week" },
+          };
+        case "missions":
+          return { intent: READ_INTENTS.LIST_MISSIONS, requiresLocalData: true };
+        case "mission":
+          return {
+            intent: READ_INTENTS.READ_MISSION,
+            requiresLocalData: true,
+            entityHints: buildHintFromArg(argText),
+          };
+        case "accounting": {
+          const normalized = argText.toLowerCase();
+          const paymentStatus = ["unpaid", "paid", "overdue"].includes(normalized)
+            ? normalized
+            : null;
+          return {
+            intent: READ_INTENTS.LIST_FINANCIAL_ENTRIES,
+            requiresLocalData: true,
+            filters: { paymentStatus },
+          };
+        }
+        case "accounting-unpaid":
+          return {
+            intent: READ_INTENTS.LIST_FINANCIAL_ENTRIES,
+            requiresLocalData: true,
+            filters: { paymentStatus: "unpaid" },
+          };
+        case "accounting-paid":
+          return {
+            intent: READ_INTENTS.LIST_FINANCIAL_ENTRIES,
+            requiresLocalData: true,
+            filters: { paymentStatus: "paid" },
+          };
+        case "accounting-overdue":
+          return {
+            intent: READ_INTENTS.LIST_FINANCIAL_ENTRIES,
+            requiresLocalData: true,
+            filters: { paymentStatus: "overdue" },
+          };
+        case "notifications": {
+          const normalized = argText.toLowerCase();
+          const status = ["unread", "read"].includes(normalized)
+            ? normalized
+            : null;
+          return {
+            intent: READ_INTENTS.LIST_NOTIFICATIONS,
+            requiresLocalData: true,
+            filters: { status },
+          };
+        }
+        case "notifications-unread":
+          return {
+            intent: READ_INTENTS.LIST_NOTIFICATIONS,
+            requiresLocalData: true,
+            filters: { status: "unread" },
+          };
+        case "notifications-read":
+          return {
+            intent: READ_INTENTS.LIST_NOTIFICATIONS,
+            requiresLocalData: true,
+            filters: { status: "read" },
+          };
+        case "history":
+          return {
+            intent: READ_INTENTS.LIST_HISTORY_EVENTS,
+            requiresLocalData: true,
+            filters: { entityType: argText || null },
+          };
+        default:
+          return null;
       }
+    })();
+
+    if (!readIntent) {
+      throw new Error(`Command ${commandKey} not implemented`);
     }
 
-    let data = null;
-    let summary = "";
-    const details = [];
-    const sources = [];
-
-    switch (commandKey) {
-      case "clients": {
-        const clients = db
-          .prepare(
-            `SELECT id, name, email, phone, status FROM clients WHERE deleted_at IS NULL ORDER BY name LIMIT 50`,
-          )
-          .all();
-        data = clients;
-        summary = `Found ${clients.length} client(s)`;
-        clients.forEach((c) => {
-          details.push(
-            `• ${c.name} (ID: ${c.id}) - ${c.status || "active"}${c.email ? ` - ${c.email}` : ""}`,
-          );
-        });
-        sources.push({
-          sourceType: "database",
-          reference: "clients",
-          note: "Client list query",
-        });
-        break;
-      }
-
-      case "client": {
-        const arg = args.join(" ");
-        const isId = /^\d+$/.test(arg);
-        let client;
-        if (isId) {
-          client = db
-            .prepare(
-              `SELECT * FROM clients WHERE id = ? AND deleted_at IS NULL`,
-            )
-            .get(parseInt(arg, 10));
-        } else {
-          const clients = db
-            .prepare(
-              `SELECT * FROM clients WHERE name LIKE ? COLLATE NOCASE AND deleted_at IS NULL LIMIT 10`,
-            )
-            .all(`%${arg}%`);
-          if (clients.length === 1) {
-            client = clients[0];
-          } else if (clients.length > 1) {
-            summary = `Multiple clients match "${arg}"`;
-            clients.forEach((c) => {
-              details.push(
-                `• ${c.name} (ID: ${c.id}) - ${c.status || "active"}`,
-              );
-            });
-            details.push("", "Use /client <id> to select a specific client.");
-            break;
-          }
-        }
-        if (client) {
-          summary = `Client: ${client.name}`;
-          details.push(`ID: ${client.id}`);
-          details.push(`Status: ${client.status || "active"}`);
-          if (client.email) details.push(`Email: ${client.email}`);
-          if (client.phone) details.push(`Phone: ${client.phone}`);
-          if (client.company) details.push(`Company: ${client.company}`);
-          if (client.profession)
-            details.push(`Profession: ${client.profession}`);
-          sources.push({
-            sourceType: "database",
-            reference: `client:${client.id}`,
-            note: "Client lookup",
-          });
-        } else {
-          summary = `No client found for "${arg}"`;
-          details.push("Try /clients to see all available clients.");
-        }
-        break;
-      }
-
-      case "dossiers": {
-        const dossiers = db
-          .prepare(
-            `SELECT d.id, d.reference, d.title, d.status, d.priority, c.name as client_name
-           FROM dossiers d
-           LEFT JOIN clients c ON c.id = d.client_id
-           WHERE d.deleted_at IS NULL
-           ORDER BY d.updated_at DESC
-           LIMIT 50`,
-          )
-          .all();
-        data = dossiers;
-        summary = `Found ${dossiers.length} dossier(s)`;
-        dossiers.forEach((d) => {
-          details.push(
-            `• ${d.reference}: ${d.title} (${d.status}) - ${d.client_name || "No client"}`,
-          );
-        });
-        sources.push({
-          sourceType: "database",
-          reference: "dossiers",
-          note: "Dossier list query",
-        });
-        break;
-      }
-
-      case "dossier": {
-        const arg = args.join(" ");
-        const isRef = /^DOS-\d{4}-\d+$/i.test(arg);
-        const isId = /^\d+$/.test(arg);
-        let dossier;
-        if (isRef) {
-          dossier = db
-            .prepare(
-              `SELECT d.*, c.name as client_name FROM dossiers d
-             LEFT JOIN clients c ON c.id = d.client_id
-             WHERE d.reference = ? COLLATE NOCASE AND d.deleted_at IS NULL`,
-            )
-            .get(arg.toUpperCase());
-        } else if (isId) {
-          dossier = db
-            .prepare(
-              `SELECT d.*, c.name as client_name FROM dossiers d
-             LEFT JOIN clients c ON c.id = d.client_id
-             WHERE d.id = ? AND d.deleted_at IS NULL`,
-            )
-            .get(parseInt(arg, 10));
-        } else {
-          const dossiers = db
-            .prepare(
-              `SELECT d.*, c.name as client_name FROM dossiers d
-             LEFT JOIN clients c ON c.id = d.client_id
-             WHERE d.title LIKE ? COLLATE NOCASE AND d.deleted_at IS NULL LIMIT 10`,
-            )
-            .all(`%${arg}%`);
-          if (dossiers.length === 1) {
-            dossier = dossiers[0];
-          } else if (dossiers.length > 1) {
-            summary = `Multiple dossiers match "${arg}"`;
-            dossiers.forEach((d) => {
-              details.push(`• ${d.reference}: ${d.title}`);
-            });
-            details.push(
-              "",
-              "Use /dossier <reference> to select a specific dossier.",
-            );
-            break;
-          }
-        }
-        if (dossier) {
-          summary = `Dossier: ${dossier.reference}`;
-          details.push(`Title: ${dossier.title}`);
-          details.push(`Status: ${dossier.status || "open"}`);
-          details.push(`Priority: ${dossier.priority || "medium"}`);
-          details.push(`Client: ${dossier.client_name || "None"}`);
-          if (dossier.phase) details.push(`Phase: ${dossier.phase}`);
-          if (dossier.assigned_lawyer)
-            details.push(`Assigned: ${dossier.assigned_lawyer}`);
-          if (dossier.next_deadline)
-            details.push(`Next deadline: ${dossier.next_deadline}`);
-          sources.push({
-            sourceType: "database",
-            reference: `dossier:${dossier.id}`,
-            note: "Dossier lookup",
-          });
-        } else {
-          summary = `No dossier found for "${arg}"`;
-          details.push("Try /dossiers to see all available dossiers.");
-        }
-        break;
-      }
-
-      case "tasks": {
-        const tasks = db
-          .prepare(
-            `SELECT t.id, t.title, t.status, t.priority, t.due_date, d.reference as dossier_ref
-           FROM tasks t
-           LEFT JOIN dossiers d ON d.id = t.dossier_id
-           WHERE t.deleted_at IS NULL AND t.status NOT IN ('done', 'cancelled')
-           ORDER BY t.priority DESC, t.due_date ASC
-           LIMIT 30`,
-          )
-          .all();
-        data = tasks;
-        summary = `Found ${tasks.length} active task(s)`;
-        tasks.forEach((t) => {
-          const due = t.due_date ? ` (due: ${t.due_date})` : "";
-          details.push(
-            `• [${t.priority}] ${t.title}${due} - ${t.dossier_ref || "No dossier"}`,
-          );
-        });
-        sources.push({
-          sourceType: "database",
-          reference: "tasks",
-          note: "Task list query",
-        });
-        break;
-      }
-
-      case "tasks-overdue": {
-        const now = new Date().toISOString();
-        const tasks = db
-          .prepare(
-            `SELECT t.id, t.title, t.status, t.priority, t.due_date, d.reference as dossier_ref,
-                  julianday(?) - julianday(t.due_date) as days_overdue
-           FROM tasks t
-           LEFT JOIN dossiers d ON d.id = t.dossier_id
-           WHERE t.deleted_at IS NULL
-             AND t.status NOT IN ('done', 'cancelled')
-             AND t.due_date IS NOT NULL
-             AND t.due_date < ?
-           ORDER BY t.due_date ASC`,
-          )
-          .all(now, now);
-        data = tasks;
-        summary =
-          tasks.length > 0
-            ? `⚠ ${tasks.length} overdue task(s)`
-            : "✓ No overdue tasks";
-        tasks.forEach((t) => {
-          details.push(
-            `• [${t.priority}] ${t.title} - ${Math.round(t.days_overdue)} days overdue (${t.dossier_ref || "No dossier"})`,
-          );
-        });
-        sources.push({
-          sourceType: "analysis",
-          reference: "overdue_tasks",
-          note: "Overdue task detection",
-        });
-        break;
-      }
-
-      case "sessions": {
-        const sessions = db
-          .prepare(
-            `SELECT s.id, s.session_type, s.status, s.scheduled_at, s.location
-           FROM sessions s
-           WHERE s.deleted_at IS NULL
-           ORDER BY s.scheduled_at DESC
-           LIMIT 30`,
-          )
-          .all();
-        data = sessions;
-        summary = `Found ${sessions.length} session(s)`;
-        sessions.forEach((s) => {
-          const when = s.scheduled_at
-            ? new Date(s.scheduled_at).toLocaleString()
-            : "unscheduled";
-          details.push(
-            `• ${s.session_type} (${s.status}) - ${when}${s.location ? ` at ${s.location}` : ""}`,
-          );
-        });
-        sources.push({
-          sourceType: "database",
-          reference: "sessions",
-          note: "Session list query",
-        });
-        break;
-      }
-
-      case "sessions-today": {
-        const today = new Date().toISOString().split("T")[0];
-        const sessions = db
-          .prepare(
-            `SELECT s.id, s.session_type, s.status, s.scheduled_at, s.location
-           FROM sessions s
-           WHERE s.deleted_at IS NULL
-             AND date(s.scheduled_at) = date(?)
-           ORDER BY s.scheduled_at ASC`,
-          )
-          .all(today);
-        data = sessions;
-        summary =
-          sessions.length > 0
-            ? `${sessions.length} session(s) scheduled for today`
-            : "No sessions scheduled for today";
-        sessions.forEach((s) => {
-          const time = s.scheduled_at
-            ? new Date(s.scheduled_at).toLocaleTimeString()
-            : "";
-          details.push(
-            `• ${time} - ${s.session_type} (${s.status})${s.location ? ` at ${s.location}` : ""}`,
-          );
-        });
-        sources.push({
-          sourceType: "database",
-          reference: "sessions_today",
-          note: "Today's sessions",
-        });
-        break;
-      }
-
-      case "sessions-week": {
-        const today = new Date();
-        const weekEnd = new Date(today);
-        weekEnd.setDate(today.getDate() + 7);
-        const sessions = db
-          .prepare(
-            `SELECT s.id, s.session_type, s.status, s.scheduled_at, s.location
-           FROM sessions s
-           WHERE s.deleted_at IS NULL
-             AND date(s.scheduled_at) >= date(?)
-             AND date(s.scheduled_at) <= date(?)
-           ORDER BY s.scheduled_at ASC`,
-          )
-          .all(today.toISOString(), weekEnd.toISOString());
-        data = sessions;
-        summary =
-          sessions.length > 0
-            ? `${sessions.length} session(s) scheduled this week`
-            : "No sessions scheduled for this week";
-        sessions.forEach((s) => {
-          const when = s.scheduled_at
-            ? new Date(s.scheduled_at).toLocaleString()
-            : "";
-          details.push(
-            `• ${when} - ${s.session_type} (${s.status})${s.location ? ` at ${s.location}` : ""}`,
-          );
-        });
-        sources.push({
-          sourceType: "database",
-          reference: "sessions_week",
-          note: "This week's sessions",
-        });
-        break;
-      }
-
-      default:
-        summary = `Command ${commandKey} not implemented`;
-        details.push("This command is recognized but not yet implemented.");
-    }
-
-    return {
-      type: "explanation",
-      entityId: `command:${commandKey}`,
-      entityType: "command_result",
-      summary,
-      details: details.length > 0 ? details : ["No results found."],
-      timestamp: new Date().toISOString(),
-      confidence: 1,
-      sources,
-      status: "complete",
-      source: "command-executor",
-      requires_validation: false,
-    };
+    return this._executeReadIntent(
+      readIntent,
+      message || parsed.command,
+      context,
+      policy,
+    );
   }
 
   /**
@@ -1846,13 +4716,47 @@ class AgentEngine {
    * @private
    */
   async _resolveEntity(hint, policy) {
-    const { type, nameHint, reference, targetEntity } = hint;
+    const { type, nameHint, reference } = hint;
+
+    const resolveFromList = async ({
+      toolName,
+      listKey,
+      query,
+      label,
+      nameField,
+    }) => {
+      const result = await this._callReadTool(
+        toolName,
+        { query, limit: 10 },
+        policy,
+      );
+      const items = result?.[listKey] || [];
+      if (items.length === 0) {
+        return {
+          resolved: false,
+          reason: "not_found",
+          message: `No ${label} found matching "${query}"`,
+        };
+      }
+      if (items.length === 1) {
+        return { resolved: true, entity: items[0], type };
+      }
+      return {
+        resolved: false,
+        reason: "ambiguous",
+        message: `Multiple ${label}s match "${query}". Please specify which one.`,
+        candidates: items.map((item) => ({
+          id: item.id,
+          name: item[nameField] || item.reference || item.title || item.name,
+        })),
+      };
+    };
 
     // Resolution by dossier reference (exact match)
     if (type === "dossier" && reference) {
       try {
         const result = await this._callReadTool(
-          "getDossier",
+          "getDossierByReference",
           { reference },
           policy,
         );
@@ -1864,6 +4768,20 @@ class AgentEngine {
           reason: "not_found",
           message: `No dossier found with reference ${reference}`,
         };
+      } catch (err) {
+        return { resolved: false, reason: "error", message: err.message };
+      }
+    }
+
+    if (type === "dossier" && nameHint) {
+      try {
+        return await resolveFromList({
+          toolName: "listDossiers",
+          listKey: "dossiers",
+          query: nameHint,
+          label: "dossier",
+          nameField: "title",
+        });
       } catch (err) {
         return { resolved: false, reason: "error", message: err.message };
       }
@@ -1899,6 +4817,118 @@ class AgentEngine {
       }
     }
 
+    if (type === "lawsuit" && (reference || nameHint)) {
+      try {
+        return await resolveFromList({
+          toolName: "listLawsuits",
+          listKey: "lawsuits",
+          query: reference || nameHint,
+          label: "lawsuit",
+          nameField: "title",
+        });
+      } catch (err) {
+        return { resolved: false, reason: "error", message: err.message };
+      }
+    }
+
+    if (type === "mission" && (reference || nameHint)) {
+      try {
+        return await resolveFromList({
+          toolName: "listMissions",
+          listKey: "missions",
+          query: reference || nameHint,
+          label: "mission",
+          nameField: "title",
+        });
+      } catch (err) {
+        return { resolved: false, reason: "error", message: err.message };
+      }
+    }
+
+    if (type === "task" && nameHint) {
+      try {
+        return await resolveFromList({
+          toolName: "listTasks",
+          listKey: "tasks",
+          query: nameHint,
+          label: "task",
+          nameField: "title",
+        });
+      } catch (err) {
+        return { resolved: false, reason: "error", message: err.message };
+      }
+    }
+
+    if (type === "personal_task" && nameHint) {
+      try {
+        return await resolveFromList({
+          toolName: "listPersonalTasks",
+          listKey: "personalTasks",
+          query: nameHint,
+          label: "personal task",
+          nameField: "title",
+        });
+      } catch (err) {
+        return { resolved: false, reason: "error", message: err.message };
+      }
+    }
+
+    if (type === "session" && nameHint) {
+      try {
+        return await resolveFromList({
+          toolName: "listSessions",
+          listKey: "sessions",
+          query: nameHint,
+          label: "session",
+          nameField: "title",
+        });
+      } catch (err) {
+        return { resolved: false, reason: "error", message: err.message };
+      }
+    }
+
+    if (type === "financial_entry" && (reference || nameHint)) {
+      try {
+        return await resolveFromList({
+          toolName: "listFinancialEntries",
+          listKey: "financialEntries",
+          query: reference || nameHint,
+          label: "financial entry",
+          nameField: "title",
+        });
+      } catch (err) {
+        return { resolved: false, reason: "error", message: err.message };
+      }
+    }
+
+    if (type === "notification" && nameHint) {
+      try {
+        return await resolveFromList({
+          toolName: "listNotifications",
+          listKey: "notifications",
+          query: nameHint,
+          label: "notification",
+          nameField: "template_key",
+        });
+      } catch (err) {
+        return { resolved: false, reason: "error", message: err.message };
+      }
+    }
+
+    if (type === "history_event" && nameHint) {
+      try {
+        return await resolveFromList({
+          toolName: "listHistoryEvents",
+          listKey: "historyEvents",
+          query: nameHint,
+          label: "history event",
+          nameField: "action",
+        });
+      } catch (err) {
+        return { resolved: false, reason: "error", message: err.message };
+      }
+    }
+
     return {
       resolved: false,
       reason: "unsupported",
@@ -1919,8 +4949,9 @@ class AgentEngine {
     // Check if tool exists and is permitted
     const tool = this.toolRegistry.get(toolName);
     if (!tool) {
-      // Fallback to direct DB queries for entity resolution (built-in)
-      return this._builtinEntityLookup(toolName, params);
+      const error = new Error(`Tool ${toolName} not found in registry`);
+      error.status = 404;
+      throw error;
     }
 
     // Verify tool category is 'read' and policy allows it
@@ -1955,70 +4986,11 @@ class AgentEngine {
    * @private
    */
   async _builtinEntityLookup(lookupType, params) {
-    // Lazy require to avoid circular dependencies
-    const db = require("../db/connection");
-
-    if (lookupType === "searchClientsByName") {
-      const { nameHint } = params;
-      if (!nameHint || typeof nameHint !== "string") {
-        return { clients: [] };
-      }
-      // Sanitize input - only allow alphanumeric and spaces
-      const sanitized = nameHint.replace(/[^a-zA-Z0-9\s]/g, "");
-      if (!sanitized) {
-        return { clients: [] };
-      }
-      const pattern = `%${sanitized}%`;
-      const clients = db
-        .prepare(
-          `SELECT id, name, email, phone, status
-         FROM clients
-         WHERE deleted_at IS NULL
-           AND (name LIKE ? COLLATE NOCASE)
-         LIMIT 10`,
-        )
-        .all(pattern);
-      return { clients };
-    }
-
-    if (lookupType === "getDossierByReference") {
-      const { reference } = params;
-      if (!reference || typeof reference !== "string") {
-        return { dossier: null };
-      }
-      // Validate reference format (DOS-YYYY-NNNNNN)
-      if (!/^DOS-\d{4}-\d+$/i.test(reference)) {
-        return { dossier: null };
-      }
-      const dossier = db
-        .prepare(
-          `SELECT d.*, c.name as client_name
-         FROM dossiers d
-         LEFT JOIN clients c ON c.id = d.client_id
-         WHERE d.deleted_at IS NULL AND d.reference = ?`,
-        )
-        .get(reference.toUpperCase());
-      return { dossier: dossier || null };
-    }
-
-    if (lookupType === "listDossiersForClient") {
-      const { clientId } = params;
-      if (!clientId || typeof clientId !== "number" || clientId <= 0) {
-        return { dossiers: [] };
-      }
-      const dossiers = db
-        .prepare(
-          `SELECT id, reference, title, status, priority, phase, next_deadline
-         FROM dossiers
-         WHERE deleted_at IS NULL AND client_id = ?
-         ORDER BY updated_at DESC
-         LIMIT 20`,
-        )
-        .all(clientId);
-      return { dossiers };
-    }
-
-    return null;
+    const error = new Error(
+      `Direct entity lookup is disabled. Use READ tools instead (attempted: ${lookupType}).`,
+    );
+    error.status = 400;
+    throw error;
   }
 
   /**
@@ -2395,6 +5367,12 @@ class AgentEngine {
       dossier: "LIST_DOSSIERS",
       task: modifier?.value === "overdue" ? "LIST_OVERDUE_TASKS" : "LIST_TASKS",
       session: "LIST_SESSIONS",
+      lawsuit: "LIST_LAWSUITS",
+      mission: "LIST_MISSIONS",
+      personal_task: "LIST_PERSONAL_TASKS",
+      financial_entry: "LIST_FINANCIAL_ENTRIES",
+      notification: "LIST_NOTIFICATIONS",
+      history_event: "LIST_HISTORY_EVENTS",
     };
 
     const intent = intentMap[lastEntityType];
@@ -2515,6 +5493,12 @@ class AgentEngine {
       dossier: "LIST_DOSSIERS",
       task: "LIST_TASKS",
       session: "LIST_SESSIONS",
+      lawsuit: "LIST_LAWSUITS",
+      mission: "LIST_MISSIONS",
+      personal_task: "LIST_PERSONAL_TASKS",
+      financial_entry: "LIST_FINANCIAL_ENTRIES",
+      notification: "LIST_NOTIFICATIONS",
+      history_event: "LIST_HISTORY_EVENTS",
     };
 
     const intent = intentMap[lastEntityType];
@@ -2845,8 +5829,15 @@ class AgentEngine {
     if (intent) {
       if (intent.includes("CLIENT")) entityType = "client";
       else if (intent.includes("DOSSIER")) entityType = "dossier";
+      else if (intent.includes("LAWSUIT")) entityType = "lawsuit";
       else if (intent.includes("TASK")) entityType = "task";
+      else if (intent.includes("PERSONAL_TASK")) entityType = "personal_task";
       else if (intent.includes("SESSION")) entityType = "session";
+      else if (intent.includes("MISSION")) entityType = "mission";
+      else if (intent.includes("FINANCIAL_ENTRY"))
+        entityType = "financial_entry";
+      else if (intent.includes("NOTIFICATION")) entityType = "notification";
+      else if (intent.includes("HISTORY")) entityType = "history_event";
     }
 
     // If not found in intent, try output.entityId (e.g., "read:list_clients", "command:clients")
@@ -2854,8 +5845,14 @@ class AgentEngine {
       const entityIdLower = output.entityId.toLowerCase();
       if (entityIdLower.includes("client")) entityType = "client";
       else if (entityIdLower.includes("dossier")) entityType = "dossier";
+      else if (entityIdLower.includes("lawsuit")) entityType = "lawsuit";
+      else if (entityIdLower.includes("personal_task")) entityType = "personal_task";
       else if (entityIdLower.includes("task")) entityType = "task";
       else if (entityIdLower.includes("session")) entityType = "session";
+      else if (entityIdLower.includes("mission")) entityType = "mission";
+      else if (entityIdLower.includes("financial")) entityType = "financial_entry";
+      else if (entityIdLower.includes("notification")) entityType = "notification";
+      else if (entityIdLower.includes("history")) entityType = "history_event";
     }
 
     // If still not found, try the query itself
@@ -2863,14 +5860,39 @@ class AgentEngine {
       const queryLower = query.toLowerCase();
       if (/\bclient/i.test(queryLower)) entityType = "client";
       else if (/\bdossier/i.test(queryLower)) entityType = "dossier";
+      else if (/\blawsuit|case/i.test(queryLower)) entityType = "lawsuit";
+      else if (/\bpersonal\s+task/i.test(queryLower)) entityType = "personal_task";
       else if (/\btask/i.test(queryLower)) entityType = "task";
-      else if (/\bsession/i.test(queryLower)) entityType = "session";
+      else if (/\bsession|hearing/i.test(queryLower)) entityType = "session";
+      else if (/\bmission/i.test(queryLower)) entityType = "mission";
+      else if (/\baccounting|financial|invoice|payment/i.test(queryLower))
+        entityType = "financial_entry";
+      else if (/\bnotification|alert/i.test(queryLower))
+        entityType = "notification";
+      else if (/\bhistory|audit/i.test(queryLower))
+        entityType = "history_event";
     }
 
     // Determine action type
     let actionType = ACTION_TYPES.LIST;
-    if (intent && intent.startsWith("GET_")) actionType = ACTION_TYPES.GET;
+    if (intent && intent.startsWith("READ_")) actionType = ACTION_TYPES.GET;
+    if (
+      intent &&
+      (intent.startsWith("EXPLAIN_") || intent.startsWith("SUMMARIZE_"))
+    )
+      actionType = ACTION_TYPES.EXPLAIN;
+    if (intent && intent.startsWith("LIST_")) actionType = ACTION_TYPES.LIST;
     if (intent === "COMMAND") actionType = ACTION_TYPES.LIST;
+    if (intent === "READ_DATA" && output.entityId) {
+      const derived = output.entityId.replace(/^read:/i, "").toUpperCase();
+      if (derived.startsWith("LIST_")) actionType = ACTION_TYPES.LIST;
+      else if (derived.startsWith("READ_")) actionType = ACTION_TYPES.GET;
+      else if (
+        derived.startsWith("EXPLAIN_") ||
+        derived.startsWith("SUMMARIZE_")
+      )
+        actionType = ACTION_TYPES.EXPLAIN;
+    }
 
     // Extract result count from output details
     let count = 0;

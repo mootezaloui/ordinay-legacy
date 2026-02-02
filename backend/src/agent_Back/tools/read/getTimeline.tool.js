@@ -8,7 +8,9 @@
  * Read-only, no side effects, safe for all agent versions.
  */
 
-const db = require('../../../db/connection');
+const tasksService = require('../../../services/tasks.service');
+const sessionsService = require('../../../services/sessions.service');
+const missionsService = require('../../../services/missions.service');
 const { TOOL_CATEGORIES } = require('../tool.registry');
 
 const inputSchema = {
@@ -57,37 +59,56 @@ async function handler({ entityType, entityId, limit = 100 }) {
   const timeline = [];
 
   // Get tasks
-  const taskQuery = entityType === 'dossier'
-    ? 'SELECT id, title, status, priority, due_date, created_at, "task" as type FROM tasks WHERE dossier_id = ? AND deleted_at IS NULL'
-    : 'SELECT id, title, status, priority, due_date, created_at, "task" as type FROM tasks WHERE lawsuit_id = ? AND deleted_at IS NULL';
-
-  const tasks = db.prepare(taskQuery).all(entityId);
-  timeline.push(...tasks.map(t => ({
-    ...t,
-    date: t.due_date || t.created_at,
-  })));
+  const tasks = tasksService.list().filter(task =>
+    entityType === 'dossier' ? task.dossier_id === entityId : task.lawsuit_id === entityId
+  );
+  timeline.push(
+    ...tasks.map(task => ({
+      id: task.id,
+      title: task.title,
+      status: task.status,
+      priority: task.priority,
+      due_date: task.due_date,
+      created_at: task.created_at,
+      type: 'task',
+      date: task.due_date || task.created_at,
+    }))
+  );
 
   // Get sessions
-  const sessionQuery = entityType === 'dossier'
-    ? 'SELECT id, title, session_type, status, scheduled_at, created_at, "session" as type FROM sessions WHERE dossier_id = ? AND deleted_at IS NULL'
-    : 'SELECT id, title, session_type, status, scheduled_at, created_at, "session" as type FROM sessions WHERE lawsuit_id = ? AND deleted_at IS NULL';
-
-  const sessions = db.prepare(sessionQuery).all(entityId);
-  timeline.push(...sessions.map(s => ({
-    ...s,
-    date: s.scheduled_at,
-  })));
+  const sessions = sessionsService.list().filter(session =>
+    entityType === 'dossier' ? session.dossier_id === entityId : session.lawsuit_id === entityId
+  );
+  timeline.push(
+    ...sessions.map(session => ({
+      id: session.id,
+      title: session.title,
+      session_type: session.session_type,
+      status: session.status,
+      scheduled_at: session.scheduled_at,
+      created_at: session.created_at,
+      type: 'session',
+      date: session.scheduled_at || session.created_at,
+    }))
+  );
 
   // Get missions
-  const missionQuery = entityType === 'dossier'
-    ? 'SELECT id, title, mission_type, status, priority, due_date, created_at, "mission" as type FROM missions WHERE dossier_id = ? AND deleted_at IS NULL'
-    : 'SELECT id, title, mission_type, status, priority, due_date, created_at, "mission" as type FROM missions WHERE lawsuit_id = ? AND deleted_at IS NULL';
-
-  const missions = db.prepare(missionQuery).all(entityId);
-  timeline.push(...missions.map(m => ({
-    ...m,
-    date: m.due_date || m.created_at,
-  })));
+  const missions = missionsService.list().filter(mission =>
+    entityType === 'dossier' ? mission.dossier_id === entityId : mission.lawsuit_id === entityId
+  );
+  timeline.push(
+    ...missions.map(mission => ({
+      id: mission.id,
+      title: mission.title,
+      mission_type: mission.mission_type,
+      status: mission.status,
+      priority: mission.priority,
+      due_date: mission.due_date,
+      created_at: mission.created_at,
+      type: 'mission',
+      date: mission.due_date || mission.created_at,
+    }))
+  );
 
   // Sort by date descending
   timeline.sort((a, b) => {

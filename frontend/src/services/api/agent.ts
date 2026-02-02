@@ -35,6 +35,9 @@ export interface DataAccessPermissions {
   personalTasks: boolean;
   missions: boolean;
   sessions: boolean;
+  financialEntries: boolean;
+  notifications: boolean;
+  history: boolean;
   documents: boolean;
 }
 
@@ -479,6 +482,5 @@ export function streamAgentMessage(
 
   return abortController;
 }
-
 
 

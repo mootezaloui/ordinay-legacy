@@ -7,7 +7,7 @@
  * Read-only, no side effects, safe for all agent versions.
  */
 
-const db = require('../../../db/connection');
+const tasksService = require('../../../services/tasks.service');
 const { TOOL_CATEGORIES } = require('../tool.registry');
 
 const inputSchema = {
@@ -32,6 +32,10 @@ const inputSchema = {
       type: ['string', 'null'],
       enum: ['urgent', 'high', 'medium', 'low', null],
       description: 'Filter by priority',
+    },
+    query: {
+      type: ['string', 'null'],
+      description: 'Optional text search on task title',
     },
     limit: {
       type: 'integer',
@@ -61,50 +65,52 @@ const outputSchema = {
   additionalProperties: false,
 };
 
-async function handler({ dossierId = null, lawsuitId = null, status = null, priority = null, limit = 50 }) {
-  let query = `
-    SELECT
-      t.id, t.dossier_id, t.lawsuit_id, t.title, t.description,
-      t.assigned_to, t.status, t.priority, t.due_date,
-      t.estimated_time, t.completed_at, t.created_at, t.updated_at,
-      d.reference as dossier_reference, d.title as dossier_title,
-      c.reference as lawsuit_reference, c.title as lawsuit_title
-    FROM tasks t
-    LEFT JOIN dossiers d ON d.id = t.dossier_id
-    LEFT JOIN lawsuits c ON c.id = t.lawsuit_id
-    WHERE t.deleted_at IS NULL
-  `;
-
-  const params = [];
+async function handler({
+  dossierId = null,
+  lawsuitId = null,
+  status = null,
+  priority = null,
+  query = null,
+  limit = 50,
+}) {
+  let tasks = tasksService.list();
 
   if (dossierId !== null) {
-    query += ' AND t.dossier_id = ?';
-    params.push(dossierId);
+    tasks = tasks.filter(task => task.dossier_id === dossierId);
   }
 
   if (lawsuitId !== null) {
-    query += ' AND t.lawsuit_id = ?';
-    params.push(lawsuitId);
+    tasks = tasks.filter(task => task.lawsuit_id === lawsuitId);
   }
 
   if (status !== null) {
-    query += ' AND t.status = ?';
-    params.push(status);
+    tasks = tasks.filter(task => task.status === status);
   }
 
   if (priority !== null) {
-    query += ' AND t.priority = ?';
-    params.push(priority);
+    tasks = tasks.filter(task => task.priority === priority);
   }
 
-  query += ' ORDER BY t.priority DESC, t.due_date ASC LIMIT ?';
-  params.push(limit);
+  if (query) {
+    const q = String(query).toLowerCase();
+    tasks = tasks.filter(task => String(task.title || '').toLowerCase().includes(q));
+  }
 
-  const tasks = db.prepare(query).all(...params);
+  tasks = tasks.sort((a, b) => {
+    const priorityOrder = { urgent: 4, high: 3, medium: 2, low: 1 };
+    const priorityA = priorityOrder[String(a.priority || '').toLowerCase()] || 0;
+    const priorityB = priorityOrder[String(b.priority || '').toLowerCase()] || 0;
+    if (priorityA !== priorityB) return priorityB - priorityA;
+    const dueA = a.due_date ? new Date(a.due_date).getTime() : Number.MAX_SAFE_INTEGER;
+    const dueB = b.due_date ? new Date(b.due_date).getTime() : Number.MAX_SAFE_INTEGER;
+    return dueA - dueB;
+  });
+
+  const limited = tasks.slice(0, limit);
 
   return {
-    tasks,
-    count: tasks.length,
+    tasks: limited,
+    count: limited.length,
   };
 }
 

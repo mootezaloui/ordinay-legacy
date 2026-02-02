@@ -1,49 +1,49 @@
 'use strict';
 
 /**
- * READ TOOL: getDossier
+ * READ TOOL: getHistoryEvent
  *
- * Retrieve a single dossier by ID with related client information.
+ * Retrieve a single history/audit event by ID.
  * Read-only, no side effects, safe for all agent versions.
  */
 
-const dossiersService = require('../../../services/dossiers.service');
+const historyService = require('../../../services/history.service');
 const { TOOL_CATEGORIES } = require('../tool.registry');
 
 const inputSchema = {
   type: 'object',
   properties: {
-    dossierId: {
+    historyEventId: {
       type: 'integer',
       minimum: 1,
-      description: 'The unique ID of the dossier',
+      description: 'The unique ID of the history event',
     },
   },
-  required: ['dossierId'],
+  required: ['historyEventId'],
   additionalProperties: false,
 };
 
 const outputSchema = {
   type: 'object',
   properties: {
-    dossier: {
+    historyEvent: {
       type: ['object', 'null'],
-      description: 'Dossier record with client info or null if not found',
+      description: 'History event record or null if not found',
     },
   },
-  required: ['dossier'],
+  required: ['historyEvent'],
   additionalProperties: false,
 };
 
-async function handler({ dossierId }) {
-  const dossier = dossiersService.get(dossierId);
-  return { dossier: dossier || null };
+async function handler({ historyEventId }) {
+  const historyEvent = historyService.get(historyEventId);
+  return { historyEvent: historyEvent || null };
 }
 
 module.exports = {
-  name: 'getDossier',
+  name: 'getHistoryEvent',
   category: TOOL_CATEGORIES.READ,
-  description: 'Retrieve a single dossier by ID with client information',
+  description: 'Retrieve a single history event by ID',
   inputSchema,
   outputSchema,
   reversibility: true,

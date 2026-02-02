@@ -11,10 +11,28 @@ const { ToolRegistry } = require('./tool.registry');
 
 // READ tools
 const getClientTool = require('./read/getClient.tool');
+const listClientsTool = require('./read/listClients.tool');
+const searchClientsByNameTool = require('./read/searchClientsByName.tool');
 const getDossierTool = require('./read/getDossier.tool');
+const getDossierByReferenceTool = require('./read/getDossierByReference.tool');
+const listDossiersTool = require('./read/listDossiers.tool');
+const listDossiersForClientTool = require('./read/listDossiersForClient.tool');
 const getLawsuitTool = require('./read/getLawsuit.tool');
+const listLawsuitsTool = require('./read/listLawsuits.tool');
 const getSessionTool = require('./read/getSession.tool');
+const listSessionsTool = require('./read/listSessions.tool');
 const listTasksTool = require('./read/listTasks.tool');
+const getTaskTool = require('./read/getTask.tool');
+const listPersonalTasksTool = require('./read/listPersonalTasks.tool');
+const getPersonalTaskTool = require('./read/getPersonalTask.tool');
+const listMissionsTool = require('./read/listMissions.tool');
+const getMissionTool = require('./read/getMission.tool');
+const listFinancialEntriesTool = require('./read/listFinancialEntries.tool');
+const getFinancialEntryTool = require('./read/getFinancialEntry.tool');
+const listNotificationsTool = require('./read/listNotifications.tool');
+const getNotificationTool = require('./read/getNotification.tool');
+const listHistoryEventsTool = require('./read/listHistoryEvents.tool');
+const getHistoryEventTool = require('./read/getHistoryEvent.tool');
 const getTimelineTool = require('./read/getTimeline.tool');
 
 // ANALYSIS tools
@@ -42,10 +60,28 @@ function initializeToolRegistry() {
 
   // Register READ tools
   registry.register(getClientTool);
+  registry.register(listClientsTool);
+  registry.register(searchClientsByNameTool);
   registry.register(getDossierTool);
+  registry.register(getDossierByReferenceTool);
+  registry.register(listDossiersTool);
+  registry.register(listDossiersForClientTool);
   registry.register(getLawsuitTool);
+  registry.register(listLawsuitsTool);
   registry.register(getSessionTool);
+  registry.register(listSessionsTool);
   registry.register(listTasksTool);
+  registry.register(getTaskTool);
+  registry.register(listPersonalTasksTool);
+  registry.register(getPersonalTaskTool);
+  registry.register(listMissionsTool);
+  registry.register(getMissionTool);
+  registry.register(listFinancialEntriesTool);
+  registry.register(getFinancialEntryTool);
+  registry.register(listNotificationsTool);
+  registry.register(getNotificationTool);
+  registry.register(listHistoryEventsTool);
+  registry.register(getHistoryEventTool);
   registry.register(getTimelineTool);
 
   // Register ANALYSIS tools

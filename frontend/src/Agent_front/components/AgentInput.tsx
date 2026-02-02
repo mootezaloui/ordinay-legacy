@@ -14,6 +14,7 @@ import {
   filterCommands,
   SlashCommand,
 } from "../../services/api/agent";
+import { apiClient } from "../../services/api/client";
 
 export interface ContextIndicator {
   type: "client" | "dossier" | "lawsuit" | "session" | "task" | "global";
@@ -30,12 +31,24 @@ interface AttachedFile {
   documentId?: number;
 }
 
-interface MockDocument {
+interface SystemDocument {
   id: number;
-  name: string;
-  type: string;
-  size: string;
-  date: string;
+  title: string;
+  file_path: string;
+  mime_type: string;
+  size_bytes: number;
+  created_at: string;
+  client_id?: number;
+  client_name?: string;
+  dossier_id?: number;
+  dossier_reference?: string;
+  lawsuit_id?: number;
+  mission_id?: number;
+  task_id?: number;
+  session_id?: number;
+  personal_task_id?: number;
+  financial_entry_id?: number;
+  officer_id?: number;
 }
 
 interface AgentInputProps {
@@ -72,57 +85,51 @@ export function AgentInput({
   const [showDocumentPicker, setShowDocumentPicker] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
   const [documentSearch, setDocumentSearch] = useState("");
+  const [systemDocuments, setSystemDocuments] = useState<SystemDocument[]>([]);
+  const [documentsLoading, setDocumentsLoading] = useState(false);
   const attachMenuRef = useRef<HTMLDivElement>(null);
   const documentPickerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const attachmentIdRef = useRef(0);
 
-  const mockDocuments: MockDocument[] = [
-    {
-      id: 1,
-      name: "Contract_2024.pdf",
-      type: "PDF",
-      size: "2.4 MB",
-      date: "2024-01-10",
-    },
-    {
-      id: 2,
-      name: "Client_Agreement.docx",
-      type: "DOCX",
-      size: "1.8 MB",
-      date: "2024-01-09",
-    },
-    {
-      id: 3,
-      name: "Financial_Report.xlsx",
-      type: "XLSX",
-      size: "3.2 MB",
-      date: "2024-01-08",
-    },
-    {
-      id: 4,
-      name: "Legal_Brief.pdf",
-      type: "PDF",
-      size: "1.5 MB",
-      date: "2024-01-07",
-    },
-    {
-      id: 5,
-      name: "Meeting_Notes.txt",
-      type: "TXT",
-      size: "45 KB",
-      date: "2024-01-06",
-    },
-  ];
-
   const getNextAttachmentId = useCallback(() => {
     attachmentIdRef.current += 1;
     return `attachment-${attachmentIdRef.current}`;
   }, []);
 
-  const filteredDocuments = mockDocuments.filter((doc) =>
-    doc.name.toLowerCase().includes(documentSearch.toLowerCase()),
+  // Fetch system documents when document picker opens
+  useEffect(() => {
+    if (showDocumentPicker && systemDocuments.length === 0) {
+      setDocumentsLoading(true);
+      apiClient
+        .get<SystemDocument[]>("/documents")
+        .then((docs) => {
+          // Sort by created_at descending and limit to recent documents
+          const sortedDocs = docs
+            .sort(
+              (a, b) =>
+                new Date(b.created_at).getTime() -
+                new Date(a.created_at).getTime(),
+            )
+            .slice(0, 100);
+          setSystemDocuments(sortedDocs);
+        })
+        .catch((err) => {
+          console.error("Failed to fetch documents:", err);
+          setSystemDocuments([]);
+        })
+        .finally(() => setDocumentsLoading(false));
+    }
+  }, [showDocumentPicker, systemDocuments.length]);
+
+  const filteredDocuments = systemDocuments.filter(
+    (doc) =>
+      doc.title.toLowerCase().includes(documentSearch.toLowerCase()) ||
+      doc.client_name?.toLowerCase().includes(documentSearch.toLowerCase()) ||
+      doc.dossier_reference
+        ?.toLowerCase()
+        .includes(documentSearch.toLowerCase()),
   );
 
   useEffect(() => {
@@ -159,6 +166,8 @@ export function AgentInput({
       setManualDropdownOpen(false);
       return;
     }
+    // Close attachment menu when opening commands
+    setShowAttachMenu(false);
     setManualDropdownOpen(commands.length > 0);
     setSelectedIndex(0);
     inputRef.current?.focus();
@@ -232,10 +241,10 @@ export function AgentInput({
     setShowAttachMenu(false);
   };
 
-  const handleDocumentSelect = (doc: MockDocument) => {
+  const handleDocumentSelect = (doc: SystemDocument) => {
     const newFile: AttachedFile = {
       id: getNextAttachmentId(),
-      name: doc.name,
+      name: doc.title,
       type: "document",
       documentId: doc.id,
     };
@@ -440,27 +449,68 @@ export function AgentInput({
                   </div>
                 </div>
                 <div className="max-h-80 overflow-y-auto p-2">
-                  {filteredDocuments.map((doc) => (
-                    <button
-                      key={doc.id}
-                      type="button"
-                      onClick={() => handleDocumentSelect(doc)}
-                      className="w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 dark:hover:from-blue-900/20 dark:hover:to-purple-900/20 transition-all group"
-                    >
-                      <div className="w-10 h-10 flex items-center justify-center bg-slate-100 dark:bg-slate-700 rounded-lg group-hover:bg-blue-100 dark:group-hover:bg-blue-900/30 transition-colors">
-                        <FileText className="w-5 h-5 text-slate-600 dark:text-slate-400 group-hover:text-blue-600 dark:group-hover:text-blue-400" />
+                  {documentsLoading && (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="text-sm text-slate-500 dark:text-slate-400">
+                        Loading documents...
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium text-sm text-slate-900 dark:text-white truncate">
-                          {doc.name}
-                        </div>
-                        <div className="text-xs text-slate-500 dark:text-slate-400">
-                          {doc.type} · {doc.size} · {doc.date}
-                        </div>
+                    </div>
+                  )}
+                  {!documentsLoading && filteredDocuments.length === 0 && (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="text-sm text-slate-500 dark:text-slate-400">
+                        No documents found
                       </div>
-                      <Check className="w-5 h-5 text-green-600 opacity-0 group-hover:opacity-100 transition-opacity" />
-                    </button>
-                  ))}
+                    </div>
+                  )}
+                  {!documentsLoading &&
+                    filteredDocuments.map((doc) => {
+                      const fileSize =
+                        doc.size_bytes < 1024
+                          ? `${doc.size_bytes} B`
+                          : doc.size_bytes < 1024 * 1024
+                            ? `${(doc.size_bytes / 1024).toFixed(1)} KB`
+                            : `${(doc.size_bytes / (1024 * 1024)).toFixed(1)} MB`;
+
+                      const fileExt =
+                        doc.title.split(".").pop()?.toUpperCase() || "FILE";
+                      const createdDate = new Date(doc.created_at);
+                      const formattedDate = createdDate.toLocaleDateString();
+
+                      // Build metadata string
+                      const metadata = [
+                        fileExt,
+                        fileSize,
+                        formattedDate,
+                        doc.client_name && `Client: ${doc.client_name}`,
+                        doc.dossier_reference &&
+                          `Dossier: ${doc.dossier_reference}`,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ");
+
+                      return (
+                        <button
+                          key={doc.id}
+                          type="button"
+                          onClick={() => handleDocumentSelect(doc)}
+                          className="w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 dark:hover:from-blue-900/20 dark:hover:to-purple-900/20 transition-all group"
+                        >
+                          <div className="w-10 h-10 flex items-center justify-center bg-slate-100 dark:bg-slate-700 rounded-lg group-hover:bg-blue-100 dark:group-hover:bg-blue-900/30 transition-colors flex-shrink-0">
+                            <FileText className="w-5 h-5 text-slate-600 dark:text-slate-400 group-hover:text-blue-600 dark:group-hover:text-blue-400" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-sm text-slate-900 dark:text-white truncate">
+                              {doc.title}
+                            </div>
+                            <div className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                              {metadata}
+                            </div>
+                          </div>
+                          <Check className="w-5 h-5 text-green-600 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+                        </button>
+                      );
+                    })}
                 </div>
               </div>
             )}
@@ -536,7 +586,17 @@ export function AgentInput({
               <div className="flex items-center gap-1 pt-2">
                 <button
                   type="button"
-                  onClick={() => setShowAttachMenu(!showAttachMenu)}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    // Close command menu when opening attachment menu
+                    if (!showAttachMenu) {
+                      setManualDropdownOpen(false);
+                    }
+                    setShowAttachMenu(!showAttachMenu);
+                    // Refocus textarea to prevent blur from closing the menu
+                    setTimeout(() => inputRef.current?.focus(), 0);
+                  }}
                   title="Add attachment"
                   className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all ${
                     showAttachMenu

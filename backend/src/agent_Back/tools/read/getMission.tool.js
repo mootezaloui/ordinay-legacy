@@ -1,49 +1,49 @@
 'use strict';
 
 /**
- * READ TOOL: getDossier
+ * READ TOOL: getMission
  *
- * Retrieve a single dossier by ID with related client information.
+ * Retrieve a single mission by ID.
  * Read-only, no side effects, safe for all agent versions.
  */
 
-const dossiersService = require('../../../services/dossiers.service');
+const missionsService = require('../../../services/missions.service');
 const { TOOL_CATEGORIES } = require('../tool.registry');
 
 const inputSchema = {
   type: 'object',
   properties: {
-    dossierId: {
+    missionId: {
       type: 'integer',
       minimum: 1,
-      description: 'The unique ID of the dossier',
+      description: 'The unique ID of the mission',
     },
   },
-  required: ['dossierId'],
+  required: ['missionId'],
   additionalProperties: false,
 };
 
 const outputSchema = {
   type: 'object',
   properties: {
-    dossier: {
+    mission: {
       type: ['object', 'null'],
-      description: 'Dossier record with client info or null if not found',
+      description: 'Mission record or null if not found',
     },
   },
-  required: ['dossier'],
+  required: ['mission'],
   additionalProperties: false,
 };
 
-async function handler({ dossierId }) {
-  const dossier = dossiersService.get(dossierId);
-  return { dossier: dossier || null };
+async function handler({ missionId }) {
+  const mission = missionsService.get(missionId);
+  return { mission: mission || null };
 }
 
 module.exports = {
-  name: 'getDossier',
+  name: 'getMission',
   category: TOOL_CATEGORIES.READ,
-  description: 'Retrieve a single dossier by ID with client information',
+  description: 'Retrieve a single mission by ID',
   inputSchema,
   outputSchema,
   reversibility: true,
