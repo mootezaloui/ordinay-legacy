@@ -33,16 +33,6 @@ export default function UserDropdown({ isOpen, onToggle, onClose }) {
         navigate(path);
     };
 
-    const handleExit = () => {
-        onClose();
-        // Desktop-first: close the app if possible, otherwise route back to dashboard
-        if (typeof window !== "undefined" && typeof window.close === "function") {
-            window.close();
-        } else {
-            navigate("/dashboard");
-        }
-    };
-
     useEffect(() => {
         document.addEventListener("click", handleClickOutside);
         return () => document.removeEventListener("click", handleClickOutside);
@@ -76,13 +66,7 @@ export default function UserDropdown({ isOpen, onToggle, onClose }) {
             action: toggleTheme,
             color: "text-amber-600 dark:text-amber-400"
         },
-        {
-            icon: "fas fa-sign-out-alt",
-            label: t("header.userMenu.exitApp"),
-            action: handleExit,
-            color: "text-red-600 dark:text-red-400",
-            divider: true
-        }
+
     ];
 
     const avatarButton = (

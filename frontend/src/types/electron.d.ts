@@ -9,6 +9,13 @@ export interface BackendConfig {
   port: number;
   baseUrl: string;
   apiUrl: string;
+  /** When true the renderer should use apiRequest() IPC instead of HTTP fetch */
+  useIPC?: boolean;
+}
+
+export interface ApiResponse<T = unknown> {
+  status: number;
+  data: T;
 }
 
 export interface AppPaths {
@@ -34,6 +41,16 @@ export interface UpdateStatus {
 }
 
 export interface ElectronAPI {
+  /**
+   * Send an API request to the backend via IPC.
+   * Replaces direct HTTP fetch to localhost.
+   */
+  apiRequest: (
+    method: string,
+    url: string,
+    body?: unknown,
+  ) => Promise<ApiResponse>;
+
   /**
    * Get backend configuration (port, URLs)
    */

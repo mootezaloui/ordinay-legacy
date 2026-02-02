@@ -9,8 +9,20 @@ const { contextBridge, ipcRenderer } = require('electron');
  */
 contextBridge.exposeInMainWorld('electronAPI', {
   /**
+   * Send an API request to the backend via IPC (replaces direct HTTP fetch).
+   * The main process proxies this through a named pipe to the Express backend.
+   *
+   * @param {string} method  HTTP method (GET, POST, PUT, PATCH, DELETE)
+   * @param {string} url     API path with optional query string, e.g. "/clients?status=active"
+   * @param {*}      [body]  Request body (will be JSON-stringified by main process)
+   * @returns {Promise<{status: number, data: *}>}
+   */
+  apiRequest: (method, url, body) =>
+    ipcRenderer.invoke('api-request', { method, url, body }),
+
+  /**
    * Get backend configuration (port, URLs)
-   * @returns {Promise<{port: number, baseUrl: string, apiUrl: string}>}
+   * @returns {Promise<{port: number, baseUrl: string, apiUrl: string, useIPC: boolean}>}
    */
   getBackendConfig: () => ipcRenderer.invoke('get-backend-config'),
   

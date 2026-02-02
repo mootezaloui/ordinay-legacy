@@ -1175,8 +1175,8 @@ export default function DetailView({ entityType }) {
         </div>
 
         {/* Tabs */}
-        <div className="hidden md:block border-b border-slate-200 dark:border-slate-700 overflow-x-auto">
-          <div className="flex gap-2 min-w-max">
+        <div className="hidden md:block border-b border-slate-200 dark:border-slate-700 overflow-x-hidden">
+          <div className="flex flex-wrap gap-2">
             {config.tabs.map((tab) => {
               // Determine tutorial attribute based on entity type and tab id
               const getTutorialAttribute = () => {
@@ -1197,7 +1197,7 @@ export default function DetailView({ entityType }) {
                     setActiveTab(tab.id);
                     setSearchParams({ tab: tab.id }, { replace: true });
                   }}
-                  className={`px-4 py-3 font-medium transition-colors duration-200 border-b-2 flex items-center gap-2 whitespace-nowrap ${activeTab === tab.id
+                  className={`px-4 py-3 font-medium transition-colors duration-200 border-b-2 flex items-center gap-2 min-w-0 whitespace-normal ${activeTab === tab.id
                     ? "border-blue-600 text-blue-600 dark:text-blue-400"
                     : "border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
                     }`}

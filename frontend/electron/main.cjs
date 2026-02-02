@@ -5,6 +5,7 @@ const { app, BrowserWindow, ipcMain, shell, Menu, nativeImage } = require("elect
 const path = require("path");
 const { spawn } = require("child_process");
 const net = require("net");
+const http = require("http");
 const fs = require("fs");
 const dns = require("dns").promises;
 const https = require("https");
@@ -76,7 +77,8 @@ const ALLOW_DEV_UPDATES = process.env.ORDINAY_DEV_UPDATES === "1";
 
 // Backend configuration
 let backendProcess = null;
-let backendPort = null;
+let backendPort = null; // kept for legacy/dev fallback; null when using named pipe
+let backendPipePath = null; // named pipe (Windows) or Unix socket path
 let mainWindow = null;
 let resetting = false;
 let updateDownloadUrl = null;
@@ -97,7 +99,7 @@ let lastUpdateAction = null;
 // ============================================================
 
 /**
- * Find an available port dynamically
+ * Find an available port dynamically (used only in dev/fallback mode)
  * @returns {Promise<number>} Available port number
  */
 function findAvailablePort() {
@@ -111,6 +113,85 @@ function findAvailablePort() {
         resolve(port);
       });
     });
+  });
+}
+
+/**
+ * Generate a named-pipe path (Windows) or Unix socket path.
+ * Named pipes do not open a TCP port and therefore do NOT trigger
+ * Windows Firewall "allow access" prompts.
+ * @returns {string}
+ */
+function generatePipePath() {
+  if (process.platform === "win32") {
+    return `\\\\.\\pipe\\ordinay-backend-${process.pid}`;
+  }
+  // Unix socket in the userData directory (avoids /tmp permission issues)
+  return path.join(USER_DATA_PATH, `ordinay-backend-${process.pid}.sock`);
+}
+
+/**
+ * Proxy an API request from the renderer through the backend via named pipe.
+ * This replaces direct HTTP fetch() from the renderer, eliminating the need
+ * for the renderer to connect to localhost (and avoiding firewall prompts).
+ *
+ * @param {string} method   HTTP method (GET, POST, PUT, PATCH, DELETE)
+ * @param {string} urlPath  API path including query string, e.g. "/clients?status=active"
+ * @param {*}      [body]   Request body (will be JSON-stringified)
+ * @returns {Promise<{status: number, data: *}>}
+ */
+function proxyApiRequest(method, urlPath, body) {
+  return new Promise((resolve, reject) => {
+    const requestPath = `/api${urlPath}`;
+    const bodyStr =
+      body !== undefined && body !== null ? JSON.stringify(body) : null;
+
+    const options = {
+      method,
+      path: requestPath,
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+    };
+
+    // Route to named pipe or TCP depending on how the backend was started
+    if (backendPipePath) {
+      options.socketPath = backendPipePath;
+    } else if (backendPort) {
+      options.hostname = "127.0.0.1";
+      options.port = backendPort;
+    } else {
+      return reject(new Error("Backend not started"));
+    }
+
+    if (bodyStr) {
+      options.headers["Content-Length"] = Buffer.byteLength(bodyStr);
+    }
+
+    const req = http.request(options, (res) => {
+      const chunks = [];
+      res.on("data", (chunk) => chunks.push(chunk));
+      res.on("end", () => {
+        const raw = Buffer.concat(chunks).toString();
+        let data = null;
+        if (raw.length > 0) {
+          try {
+            data = JSON.parse(raw);
+          } catch {
+            data = raw;
+          }
+        }
+        resolve({ status: res.statusCode, data });
+      });
+    });
+
+    req.on("error", (err) => reject(err));
+
+    if (bodyStr) {
+      req.write(bodyStr);
+    }
+    req.end();
   });
 }
 
@@ -176,17 +257,24 @@ function getNodePath() {
 // ============================================================
 
 /**
- * Start the backend server as a child process
- * @returns {Promise<number>} The port the backend is running on
+ * Start the backend server as a child process.
+ * In production (and by default in dev), the backend listens on a named pipe
+ * instead of a TCP port so that no inbound network port is opened and Windows
+ * Firewall prompts are avoided entirely.
+ *
+ * @returns {Promise<void>}
  */
 async function startBackend() {
-  // Find an available port
-  backendPort = await findAvailablePort();
+  // Clean up any leftover Unix socket file from a previous crash (not needed on Windows named pipes)
+  backendPipePath = generatePipePath();
+  if (process.platform !== "win32" && fs.existsSync(backendPipePath)) {
+    fs.unlinkSync(backendPipePath);
+  }
 
   const backendPath = getBackendPath();
   const serverScript = path.join(backendPath, "src", "server.js");
 
-  console.log(`[Electron] Starting backend on port ${backendPort}`);
+  console.log(`[Electron] Starting backend on pipe ${backendPipePath}`);
   console.log(`[Electron] Backend path: ${backendPath}`);
   console.log(`[Electron] Server script: ${serverScript}`);
 
@@ -198,7 +286,7 @@ async function startBackend() {
   // Environment variables for the backend
   const env = {
     ...process.env,
-    PORT: backendPort.toString(),
+    ORDINAY_PIPE: backendPipePath,
     DB_FILE: DB_PATH,
     NODE_ENV: isDev ? "development" : "production",
   };
@@ -238,27 +326,30 @@ async function startBackend() {
     backendProcess = null;
   });
 
-  // Wait for backend to be ready (simple polling)
-  await waitForBackend(backendPort);
+  // Wait for backend to be ready
+  await waitForBackend();
 
-  console.log(`[Electron] Backend started successfully on port ${backendPort}`);
-  return backendPort;
+  console.log(`[Electron] Backend started successfully on pipe ${backendPipePath}`);
+  // No port is returned — communication goes through the named pipe
 }
 
 /**
- * Wait for the backend to be ready
- * @param {number} port - Port to check
+ * Wait for the backend to be ready by probing the named pipe (or TCP port fallback).
  * @param {number} maxAttempts - Maximum number of attempts
  * @returns {Promise<void>}
  */
-function waitForBackend(port, maxAttempts = 30) {
+function waitForBackend(maxAttempts = 30) {
   return new Promise((resolve, reject) => {
     let attempts = 0;
+
+    const connectionOpts = backendPipePath
+      ? { path: backendPipePath }
+      : { port: backendPort };
 
     const check = () => {
       attempts++;
 
-      const client = net.createConnection({ port }, () => {
+      const client = net.createConnection(connectionOpts, () => {
         client.end();
         resolve();
       });
@@ -305,6 +396,13 @@ function stopBackend() {
     }
 
     backendProcess = null;
+  }
+
+  // Clean up Unix socket file (not needed on Windows named pipes)
+  if (backendPipePath && process.platform !== "win32") {
+    try {
+      if (fs.existsSync(backendPipePath)) fs.unlinkSync(backendPipePath);
+    } catch { /* best effort */ }
   }
 }
 
@@ -712,19 +810,14 @@ function resolveWindowIcon() {
 
 /**
  * Register Content Security Policy handler once per app lifecycle.
+ *
+ * With the IPC migration the renderer no longer makes HTTP requests to the
+ * local backend, so we no longer need to whitelist localhost ports in
+ * connect-src for production.  Dev mode still needs localhost for Vite HMR.
  */
 function registerContentSecurityPolicyHandler() {
   const { session } = require("electron");
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
-    const connectSrcExtras = [
-      "https://ordinay.app",
-      "https://*.ordinay.app",
-      "http://localhost:5174",
-      "http://localhost:3000",
-      "http://127.0.0.1:3000",
-      "http://192.168.1.175:5174",
-      "http://169.254.9.207:5174",
-    ];
     const cspDirectives = isDev
       ? [
           "default-src 'self'",
@@ -732,7 +825,7 @@ function registerContentSecurityPolicyHandler() {
           "style-src 'self' 'unsafe-inline'", // unsafe-inline needed for styled-components/CSS-in-JS
           "img-src 'self' data: blob:",
           "font-src 'self' data:",
-          "connect-src 'self' http://localhost:* ws://localhost:* http://192.168.1.175:* ws://192.168.1.175:* http://169.254.9.207:* ws://169.254.9.207:*", // Allow backend + Vite HMR + LAN dev
+          "connect-src 'self' http://localhost:* ws://localhost:* http://192.168.1.175:* ws://192.168.1.175:* http://169.254.9.207:* ws://169.254.9.207:*", // Vite HMR + LAN dev
           "object-src 'none'",
           "base-uri 'self'",
           "form-action 'self'",
@@ -744,7 +837,7 @@ function registerContentSecurityPolicyHandler() {
           "style-src 'self' 'unsafe-inline'", // unsafe-inline still needed for CSS-in-JS in production
           "img-src 'self' data: blob:",
           "font-src 'self' data:",
-          `connect-src 'self' http://localhost:${backendPort} ${connectSrcExtras.join(" ")}`, // Backend + activation/referral
+          "connect-src 'self' https://ordinay.app https://*.ordinay.app", // Outbound only (activation/referral)
           "object-src 'none'",
           "base-uri 'self'",
           "form-action 'self'",
@@ -768,13 +861,33 @@ function registerContentSecurityPolicyHandler() {
  * Set up IPC handlers for renderer communication
  */
 function setupIPC() {
-  // Handler to get backend configuration
+  // Handler to get backend configuration.
+  // With the IPC migration the renderer no longer needs a URL; it uses
+  // window.electronAPI.apiRequest() instead.  We still return the shape
+  // for backwards-compatibility of any code that reads the config.
   ipcMain.handle("get-backend-config", () => {
     return {
-      port: backendPort,
-      baseUrl: `http://localhost:${backendPort}`,
-      apiUrl: `http://localhost:${backendPort}/api`,
+      port: backendPort ?? 0,
+      baseUrl: backendPipePath ? `pipe://${backendPipePath}` : `http://localhost:${backendPort}`,
+      apiUrl: backendPipePath ? "ipc" : `http://localhost:${backendPort}/api`,
+      useIPC: true, // signals to renderer that IPC transport is available
     };
+  });
+
+  // ---------------------------------------------------------------
+  // Generic API request proxy (replaces all renderer HTTP fetch calls)
+  // The renderer sends { method, url, body } and this handler routes
+  // the request to the backend via named pipe / TCP, then returns the
+  // response to the renderer.
+  // ---------------------------------------------------------------
+  ipcMain.handle("api-request", async (_event, { method, url, body }) => {
+    try {
+      const result = await proxyApiRequest(method, url, body);
+      return result;
+    } catch (error) {
+      console.error(`[IPC api-request] ${method} ${url} failed:`, error?.message || error);
+      return { status: 500, data: { message: error?.message || "Internal proxy error" } };
+    }
   });
 
   // Handler to get app paths
@@ -921,6 +1034,13 @@ app.whenReady().then(async () => {
       setTimeout(() => {
         checkForUpdates().catch(() => null);
       }, 1500);
+    }
+
+    // Guardrail: confirm no TCP port is being used
+    if (backendPipePath && !backendPort) {
+      console.log("[Electron] Backend transport: named pipe (no TCP port opened)");
+    } else if (backendPort) {
+      console.warn("[Electron] Backend transport: TCP port", backendPort, "(firewall prompt may appear)");
     }
 
     // Register custom protocol for activation deep link

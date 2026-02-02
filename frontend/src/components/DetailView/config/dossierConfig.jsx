@@ -182,8 +182,8 @@ export const createDossierConfig = (t, helpers = {}) => {
       }
     },
 
-    getTitle: (data) => data.lawsuitNumber,
-    getSubtitle: (data) => data.title,
+    getTitle: (data) => data.title,
+    getSubtitle: (data) => data.lawsuitNumber,
 
     // ✅ NEW: Quick Actions Configuration
     quickActions: [

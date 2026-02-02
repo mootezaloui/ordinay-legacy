@@ -47,8 +47,11 @@ export async function initializeApiConfig(): Promise<string> {
       // Get backend config from Electron main process
       const config = await window.electronAPI!.getBackendConfig();
       cachedBackendConfig = config;
-      cachedApiBase = config.apiUrl;
-      console.log('[API Config] Initialized from Electron:', cachedApiBase);
+      // When IPC transport is available the renderer does not need an HTTP
+      // base URL — all requests go through window.electronAPI.apiRequest().
+      // We still cache a value so getApiBase() works for any edge cases.
+      cachedApiBase = config.useIPC ? 'ipc://backend/api' : config.apiUrl;
+      console.log('[API Config] Initialized from Electron:', cachedApiBase, config.useIPC ? '(IPC transport)' : '(HTTP transport)');
     } catch (error) {
       console.error('[API Config] Failed to get Electron config:', error);
       cachedApiBase = getEnvApiBase();

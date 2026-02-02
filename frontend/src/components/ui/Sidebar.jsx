@@ -15,15 +15,6 @@ export default function Sidebar() {
     return window.matchMedia("(max-width: 767px)").matches;
   });
   const { t } = useTranslation("layout");
-  const handleExit = () => {
-    if (typeof window !== "undefined" && typeof window.close === "function") {
-      window.close();
-    } else {
-      // Fallback for browser preview: return to dashboard instead of a fake logout
-      window.location.href = "/dashboard";
-    }
-  };
-
   // Brief pop animation when route changes so the active item feels responsive
   useEffect(() => {
     setActiveFlash(true);
@@ -162,8 +153,8 @@ export default function Sidebar() {
                           }`}>
                           <i
                             className={`${item.icon} text-base transition-all duration-200 ${isActive
-                                ? "text-primary-foreground"
-                                : "text-muted-foreground group-hover:text-foreground"
+                              ? "text-primary-foreground"
+                              : "text-muted-foreground group-hover:text-foreground"
                               }`}
                           ></i>
                         </span>
@@ -172,8 +163,8 @@ export default function Sidebar() {
                         {!isCompact && (
                           <span
                             className={`text-[13px] font-medium transition-all duration-200 ${isActive
-                                ? "text-primary-foreground"
-                                : "text-foreground"
+                              ? "text-primary-foreground"
+                              : "text-foreground"
                               } ${isActive && activeFlash ? "animate-pop" : ""}`}
                           >
                             {item.label}
@@ -227,27 +218,6 @@ export default function Sidebar() {
             )}
           </button>
 
-          {/* Exit button */}
-          <button
-            onClick={handleExit}
-            className={`w-full group flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 hover:bg-red-50 dark:hover:bg-red-950/50 text-foreground hover:text-red-600 dark:hover:text-red-400 ${isCompact ? "justify-center" : "justify-start"
-              }`}
-          >
-            <span className="relative flex items-center justify-center w-5">
-              <i className="fas fa-sign-out-alt text-base text-red-500 dark:text-red-400 transition-all duration-200"></i>
-            </span>
-            {!isCompact && (
-              <span className="text-[13px] font-medium text-red-600 dark:text-red-400">{t("sidebar.exitApp")}</span>
-            )}
-
-            {/* Tooltip for collapsed */}
-            {isCompact && (
-              <span className="absolute left-full ml-4 px-3 py-1.5 bg-foreground text-background text-xs font-medium rounded-lg opacity-0 invisible pointer-events-none group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-50 shadow-xl">
-                {t("sidebar.exitApp")}
-                <span className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-foreground"></span>
-              </span>
-            )}
-          </button>
         </div>
 
         {/* Version footer */}
