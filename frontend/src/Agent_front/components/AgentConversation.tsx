@@ -3,11 +3,15 @@ import { ChevronDown, ChevronRight } from "lucide-react";
 import { AgentMessage as AgentMessageType } from "../types/agentMessage";
 import { UserCommand } from "./UserCommand";
 import { AgentArtifact } from "./AgentArtifact";
+import type { FollowUpSuggestion } from "../../services/api/agent";
 
 interface AgentConversationProps {
   messages: AgentMessageType[];
   conversationEndRef: React.RefObject<HTMLDivElement | null>;
   getRelativeTime: (timestamp: Date) => string;
+  onFollowUpClick?: (followUp: FollowUpSuggestion) => void;
+  /** Called when user clicks an example query (e.g., from error suggestions) */
+  onExampleClick?: (example: string) => void;
 }
 
 /**
@@ -21,6 +25,8 @@ export function AgentConversation({
   messages,
   conversationEndRef,
   getRelativeTime,
+  onFollowUpClick,
+  onExampleClick,
 }: AgentConversationProps) {
   // Group messages into interaction pairs: [user, agent?]
   const interactionPairs = useMemo(() => {
@@ -74,6 +80,8 @@ export function AgentConversation({
         <PreviousInteractions
           pairs={previousPairs}
           getRelativeTime={getRelativeTime}
+          onFollowUpClick={onFollowUpClick}
+          onExampleClick={onExampleClick}
         />
       )}
 
@@ -91,7 +99,7 @@ export function AgentConversation({
           {/* Agent artifact */}
           {currentPair.agent && (
             <div className="mt-2">
-              <AgentArtifact message={currentPair.agent} />
+              <AgentArtifact message={currentPair.agent} onFollowUpClick={onFollowUpClick} onExampleClick={onExampleClick} />
             </div>
           )}
         </div>
@@ -109,11 +117,15 @@ export function AgentConversation({
 interface PreviousInteractionsProps {
   pairs: { user: AgentMessageType; agent?: AgentMessageType }[];
   getRelativeTime: (timestamp: Date) => string;
+  onFollowUpClick?: (followUp: FollowUpSuggestion) => void;
+  onExampleClick?: (example: string) => void;
 }
 
 function PreviousInteractions({
   pairs,
   getRelativeTime,
+  onFollowUpClick,
+  onExampleClick,
 }: PreviousInteractionsProps) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
@@ -175,7 +187,7 @@ function PreviousInteractions({
                   )}
                   {pair.agent && (
                     <div className="mt-2">
-                      <AgentArtifact message={pair.agent} />
+                      <AgentArtifact message={pair.agent} onFollowUpClick={onFollowUpClick} onExampleClick={onExampleClick} />
                     </div>
                   )}
                 </div>

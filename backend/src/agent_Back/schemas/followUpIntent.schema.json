@@ -1,0 +1,58 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "FollowUpIntent",
+  "description": "Structured follow-up intent with guaranteed scope binding",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["type", "intent", "entityType", "entityId", "origin", "scope"],
+  "properties": {
+    "type": {
+      "const": "FOLLOW_UP_INTENT"
+    },
+    "intent": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Target READ intent to execute deterministically"
+    },
+    "entityType": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Origin entity type (lowercase)"
+    },
+    "entityId": {
+      "type": ["string", "number"],
+      "description": "Origin entity identifier"
+    },
+    "origin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["entity", "entityId"],
+      "properties": {
+        "entity": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Origin entity type (uppercase)"
+        },
+        "entityId": {
+          "type": ["string", "number"],
+          "description": "Origin entity identifier"
+        }
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Scoped entity references required to execute the follow-up",
+      "properties": {
+        "clientId": { "type": "integer", "minimum": 1 },
+        "dossierId": { "type": "integer", "minimum": 1 },
+        "lawsuitId": { "type": "integer", "minimum": 1 },
+        "sessionId": { "type": "integer", "minimum": 1 },
+        "taskId": { "type": "integer", "minimum": 1 },
+        "missionId": { "type": "integer", "minimum": 1 },
+        "personalTaskId": { "type": "integer", "minimum": 1 },
+        "financialEntryId": { "type": "integer", "minimum": 1 }
+      }
+    }
+  }
+}

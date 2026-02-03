@@ -47,15 +47,115 @@ export interface AgentRequest {
   context?: ContextRefs & { scope?: ContextScope };
   agentVersion?: AgentVersion;
   reasoner?: string;
+  followUpIntent?: FollowUpIntent;
 }
 
-// Explanation output
+// ─── Post-Read Interpretation Types (MANDATORY) ───
+
+// Interpretation statement — what a state means
+export interface InterpretationStatement {
+  level: 'critical' | 'warning' | 'info' | 'neutral';
+  statement: string;
+  implication: string;
+}
+
+// Interpretation block — why the entity matters now
+export interface InterpretationBlock {
+  statements: InterpretationStatement[];
+  summary: string;
+}
+
+// Navigation context — entity role awareness
+export interface NavigationContext {
+  role: 'parent' | 'child' | 'unknown';
+  roleDescription: string;
+  contextStatement: string;
+  parentPath?: {
+    type: string;
+    id: string | number;
+    reference?: string;
+    name?: string;
+  } | null;
+  childrenAvailable?: Array<{
+    type: string;
+    count: number;
+  }>;
+}
+
+// Follow-up suggestion with reason (MANDATORY)
+export interface FollowUpSuggestion {
+  label: string;
+  reason: string;
+  intent: string;
+  entityType: string;
+  entityId: string | number;
+  origin: {
+    entity: string;
+    entityId: string | number;
+  };
+  scope: {
+    clientId?: number;
+    dossierId?: number;
+    lawsuitId?: number;
+    sessionId?: number;
+    taskId?: number;
+    missionId?: number;
+    personalTaskId?: number;
+    financialEntryId?: number;
+  };
+}
+
+// Facts block — what was read
+export interface FactsBlock {
+  summary: string;
+  details: string[];
+}
+
+// Explanation output — NEW mandatory structure
 export interface ExplanationOutput {
   type: 'explanation';
-  title: string;
-  summary: string;
+  entityId: string;
+  entityType: string;
+
+  // Section 1: FACTS — what was read
+  facts: FactsBlock;
+
+  // Section 2: INTERPRETATION — why it matters now (MANDATORY)
+  interpretation: InterpretationBlock;
+
+  // Section 3: NAVIGATION — entity role context (MANDATORY)
+  navigation: NavigationContext;
+
+  // Section 4: FOLLOW-UPS — guided next steps (MANDATORY, min 2)
+  followUps: FollowUpSuggestion[];
+
+  // Legacy fields for backwards compatibility during transition
+  title?: string;
+  summary?: string;
   details?: string[];
   relatedEntities?: Array<{ type: string; id: number; name: string }>;
+}
+
+// Structured follow-up intent (CFI)
+export interface FollowUpIntent {
+  type: 'FOLLOW_UP_INTENT';
+  intent: string;
+  entityType: string;
+  entityId: string | number;
+  origin: {
+    entity: string;
+    entityId: string | number;
+  };
+  scope: {
+    clientId?: number;
+    dossierId?: number;
+    lawsuitId?: number;
+    sessionId?: number;
+    taskId?: number;
+    missionId?: number;
+    personalTaskId?: number;
+    financialEntryId?: number;
+  };
 }
 
 // Risk item in risk analysis
@@ -155,11 +255,12 @@ export async function sendAgentMessage(
     contextScope?: ContextScope;
     contextRefs?: ContextRefs;
     agentVersion?: AgentVersion;
+    followUpIntent?: FollowUpIntent;
   } = {}
 ): Promise<ProcessedAgentResponse> {
-  const { contextScope = 'GLOBAL', contextRefs = {}, agentVersion = 'v1' } = options;
+  const { contextScope = 'GLOBAL', contextRefs = {}, agentVersion = 'v1', followUpIntent } = options;
 
-  const request: AgentRequest = {
+  const request: AgentRequest & { followUpIntent?: FollowUpIntent } = {
     message,
     context: {
       ...contextRefs,
@@ -168,6 +269,9 @@ export async function sendAgentMessage(
     agentVersion,
     reasoner: 'rule',
   };
+  if (followUpIntent) {
+    request.followUpIntent = followUpIntent;
+  }
 
   try {
     const response = await apiClient.post<AgentResponse>('/agent/run', request);
@@ -197,7 +301,8 @@ export async function sendAgentMessage(
       processed.displayText = (output as ChatOutput).message;
     } else if (output.type === 'explanation') {
       processed.explanation = output as ExplanationOutput;
-      processed.displayText = (output as ExplanationOutput).summary;
+      const explanation = output as ExplanationOutput;
+      processed.displayText = explanation.facts?.summary || explanation.summary || 'Entity loaded';
     } else if (output.type === 'operational_risk_analysis') {
       processed.risks = output as RiskAnalysisOutput;
       processed.displayText = (output as RiskAnalysisOutput).summary;
@@ -321,17 +426,52 @@ export function filterCommands(input: string, commands: SlashCommand[]): SlashCo
 }
 
 // ============================================================================
+// Commentary Layer Types (Agent V1 Intelligence Layer)
+// ============================================================================
+
+/**
+ * Commentary output — conversational message ABOUT the structured artifact.
+ *
+ * Commentary is generated AFTER artifacts and:
+ * - Acknowledges what was found
+ * - Explains relevance if urgent signals exist
+ * - Asks clarification if ambiguity exists
+ * - Suggests read-only next steps
+ *
+ * Commentary NEVER:
+ * - Repeats facts verbatim
+ * - Proposes write actions
+ * - Invents urgency
+ */
+export interface CommentaryOutput {
+  message: string;
+  source: 'llm' | 'fallback' | 'skipped' | 'failed';
+}
+
+// ============================================================================
 // Streaming API
 // ============================================================================
 
 /** SSE event types from the streaming endpoint */
-export type StreamEventType = 'start' | 'chunk' | 'result' | 'done' | 'error' | 'cancelled';
+export type StreamEventType = 'start' | 'status' | 'chunk' | 'result' | 'commentary' | 'done' | 'error' | 'cancelled';
+
+/**
+ * Status event data - describes what the agent is currently doing.
+ * Emitted during processing to provide real-time feedback.
+ */
+export interface StatusEventData {
+  action: string;      // e.g., "Reading tasks…", "Analyzing dossier status…"
+  progress?: number;   // Optional progress percentage (0-100)
+  phase?: string;      // Optional phase identifier
+}
 
 /** Callback for stream events */
 export interface StreamCallbacks {
   onStart?: (data: { intent: string; agentVersion: string }) => void;
+  onStatus?: (data: StatusEventData) => void;
   onChunk?: (content: string) => void;
   onResult?: (data: { output: AgentOutput; intent: string }) => void;
+  onCommentary?: (data: CommentaryOutput) => void;
   onDone?: (data: { timestamp: string; fullContent?: string }) => void;
   onError?: (error: string) => void;
   onCancelled?: () => void;
@@ -353,13 +493,14 @@ export function streamAgentMessage(
     contextRefs?: ContextRefs;
     agentVersion?: AgentVersion;
     dataAccess?: DataAccessPermissions;
+    followUpIntent?: FollowUpIntent;
   } = {},
   callbacks: StreamCallbacks
 ): AbortController {
-  const { contextScope = 'GLOBAL', contextRefs = {}, agentVersion = 'v1', dataAccess } = options;
+  const { contextScope = 'GLOBAL', contextRefs = {}, agentVersion = 'v1', dataAccess, followUpIntent } = options;
   const abortController = new AbortController();
 
-  const request = {
+  const request: AgentRequest & { dataAccess?: DataAccessPermissions; followUpIntent?: FollowUpIntent } = {
     message,
     context: {
       ...contextRefs,
@@ -368,6 +509,9 @@ export function streamAgentMessage(
     },
     agentVersion,
   };
+  if (followUpIntent) {
+    request.followUpIntent = followUpIntent;
+  }
 
   // Start streaming in background
   (async () => {
@@ -449,11 +593,17 @@ export function streamAgentMessage(
                 case 'start':
                   callbacks.onStart?.(data);
                   break;
+                case 'status':
+                  callbacks.onStatus?.(data);
+                  break;
                 case 'chunk':
                   callbacks.onChunk?.(data.content);
                   break;
                 case 'result':
                   callbacks.onResult?.(data);
+                  break;
+                case 'commentary':
+                  callbacks.onCommentary?.(data);
                   break;
                 case 'done':
                   callbacks.onDone?.(data);
@@ -482,5 +632,3 @@ export function streamAgentMessage(
 
   return abortController;
 }
-
-

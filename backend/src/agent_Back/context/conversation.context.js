@@ -16,6 +16,10 @@
  *    - lastEntityIds: Array of entity IDs from last query result (for filtering)
  *    - lastActionType: Type of action ('list', 'get', 'filter', 'explain')
  *    - lastResultSummary: { count, emptyResult, filters }
+ *    - activeEntityType: Promoted entity type used for deterministic follow-ups
+ *    - activeEntityId: Promoted entity ID used for deterministic follow-ups
+ *    - activeEntitySource: Origin of active entity ('user' | 'follow-up' | 'selection')
+ *    - pendingSelection: { entityType, count } when multiple results require user choice
  *    - lastQuery: Original user query (for clarification reference)
  *    - source: How the context was created ('slash_command', 'read_intent', 'nlp')
  *    - updatedAt: ISO timestamp
@@ -138,12 +142,29 @@ class ConversationContextStore {
    * @param {number[]} [actionResult.entityIds] - Entity IDs from result
    * @param {string} actionResult.actionType - Action type ('list', 'get', etc.)
    * @param {Object} actionResult.resultSummary - Result summary
+   * @param {Object} [actionResult.activeEntity] - Promoted active entity metadata
+   * @param {string} [actionResult.activeEntity.type] - Active entity type
+   * @param {number|string} [actionResult.activeEntity.id] - Active entity id
+   * @param {string} [actionResult.activeEntity.source] - Active entity source
+   * @param {Object|null} [actionResult.pendingSelection] - Pending selection info
    * @param {string} actionResult.query - Original user query
    * @param {string} actionResult.source - Context source
    * @returns {Object} Updated context
    */
   update(requestContext, actionResult) {
     const conversationId = this._getConversationId(requestContext);
+    const previous = this._contexts.get(conversationId);
+
+    const nextActiveEntityType =
+      actionResult.activeEntity?.type ?? previous?.activeEntityType ?? null;
+    const nextActiveEntityId =
+      actionResult.activeEntity?.id ?? previous?.activeEntityId ?? null;
+    const nextActiveEntitySource =
+      actionResult.activeEntity?.source ?? previous?.activeEntitySource ?? null;
+    const nextPendingSelection =
+      actionResult.pendingSelection !== undefined
+        ? actionResult.pendingSelection
+        : previous?.pendingSelection ?? null;
 
     const context = Object.freeze({
       conversationId,
@@ -156,6 +177,10 @@ class ConversationContextStore {
         emptyResult: actionResult.resultSummary?.emptyResult ?? false,
         filters: actionResult.resultSummary?.filters ? { ...actionResult.resultSummary.filters } : {},
       }),
+      activeEntityType: nextActiveEntityType,
+      activeEntityId: nextActiveEntityId,
+      activeEntitySource: nextActiveEntitySource,
+      pendingSelection: nextPendingSelection,
       lastQuery: actionResult.query || '',
       source: actionResult.source || CONTEXT_SOURCES.NLP,
       updatedAt: new Date().toISOString(),

@@ -17,13 +17,55 @@ export const mockConversation: AgentMessage[] = [
       type: "explanation",
       explanation: {
         type: "explanation",
-        title: "Urgent dossiers this week",
-        summary:
-          "3 dossiers need immediate attention based on upcoming hearings and deadlines.",
-        details: [
-          "Dupont vs. Northwind Logistics — hearing in 2 days, 3 documents pending (D-2024-001).",
-          "Martin Estate Settlement — deadline tomorrow, final review needed (D-2024-015).",
-          "Tech Corp Contract Dispute — client meeting Friday, prep incomplete (D-2024-008).",
+        entityId: "D-2024-001",
+        entityType: "dossier",
+        facts: {
+          summary: "3 dossiers need immediate attention based on upcoming hearings and deadlines.",
+          details: [
+            "Dupont vs. Northwind Logistics — hearing in 2 days, 3 documents pending (D-2024-001).",
+            "Martin Estate Settlement — deadline tomorrow, final review needed (D-2024-015).",
+            "Tech Corp Contract Dispute — client meeting Friday, prep incomplete (D-2024-008).",
+          ],
+        },
+        interpretation: {
+          statements: [
+            {
+              level: "critical",
+              statement: "Dupont hearing in 2 days with pending documents.",
+              implication: "Immediate action required to prepare documentation.",
+            },
+            {
+              level: "critical",
+              statement: "Martin Estate deadline is tomorrow.",
+              implication: "Final review must be completed today.",
+            },
+          ],
+          summary: "2 critical issues require immediate attention.",
+        },
+        navigation: {
+          role: "parent",
+          roleDescription: "These are active dossiers with urgent deadlines.",
+          contextStatement: "Review each dossier to address the specific issues.",
+        },
+        followUps: [
+          {
+            label: "View Dupont dossier",
+            reason: "Hearing in 2 days requires preparation.",
+            intent: "READ_DOSSIER",
+            entityType: "dossier",
+            entityId: 1,
+            origin: { entity: "DOSSIER", entityId: 1 },
+            scope: { dossierId: 1 },
+          },
+          {
+            label: "View Martin Estate",
+            reason: "Deadline tomorrow needs final review.",
+            intent: "READ_DOSSIER",
+            entityType: "dossier",
+            entityId: 15,
+            origin: { entity: "DOSSIER", entityId: 15 },
+            scope: { dossierId: 15 },
+          },
         ],
       },
     },

@@ -6,9 +6,103 @@ const classifyIntent = require('./intent.classifier');
 const { getAvailableCommands, isSlashCommand, detectReadIntent, detectFollowUp } = require('./intent.classifier');
 const { INTENTS } = require('./intents');
 const { streamChatWithCallbacks } = require('./llm.client');
+const { generateAgentCommentary } = require('./commentary.generator');
 
 const router = express.Router();
 const agentEngine = new AgentEngine();
+
+// ============================================================================
+// Status Message Helpers — Deterministic action descriptions
+// ============================================================================
+
+/**
+ * Maps intent to status action text.
+ * These are deterministic, no LLM involvement.
+ *
+ * @param {string} intent - The detected intent
+ * @param {string} phase - The processing phase (classifying, fetching, analyzing, etc.)
+ * @returns {string} Human-readable status action
+ */
+function getStatusAction(intent, phase = 'processing') {
+  const n = (intent || '').toUpperCase();
+
+  // Phase-based status messages
+  if (phase === 'classifying') {
+    return 'Analyzing your request…';
+  }
+
+  if (phase === 'fetching') {
+    if (n.includes('CLIENT')) return 'Retrieving client data…';
+    if (n.includes('DOSSIER')) return 'Loading dossier records…';
+    if (n.includes('LAWSUIT')) return 'Fetching lawsuit details…';
+    if (n.includes('TASK')) return 'Reading task information…';
+    if (n.includes('SESSION')) return 'Loading session data…';
+    if (n.includes('FINANCIAL')) return 'Retrieving financial records…';
+    return 'Fetching data…';
+  }
+
+  if (phase === 'analyzing') {
+    if (n.includes('EXPLAIN')) return 'Analyzing current state…';
+    if (n.includes('SUMMARIZE')) return 'Compiling summary…';
+    if (n.includes('RISK')) return 'Evaluating operational risks…';
+    if (n.includes('DRAFT')) return 'Preparing draft content…';
+    if (n.includes('PROPOSE') || n.includes('ACTION')) return 'Identifying possible actions…';
+    return 'Processing request…';
+  }
+
+  if (phase === 'interpreting') {
+    return 'Building interpretation…';
+  }
+
+  if (phase === 'commentary') {
+    return 'Preparing response…';
+  }
+
+  // Default
+  return 'Processing…';
+}
+
+/**
+ * Generate and send commentary for an artifact.
+ * This is called AFTER the artifact is sent, BEFORE 'done'.
+ * Commentary failures NEVER block the artifact.
+ *
+ * @param {Function} sendEvent - SSE event sender
+ * @param {Object} result - Agent result containing output
+ * @param {Object} context - Request context
+ * @param {boolean} aborted - Whether connection was aborted
+ */
+async function sendCommentaryIfNeeded(sendEvent, result, context, aborted) {
+  if (aborted) return;
+
+  // Skip commentary for chat outputs (already conversational)
+  const artifactType = result?.output?.type;
+  if (!artifactType || artifactType === 'chat') return;
+
+  try {
+    console.log('[SSE] Generating commentary for artifact type:', artifactType);
+    const commentaryResult = await generateAgentCommentary(
+      artifactType,
+      result.output,
+      context
+    );
+
+    if (commentaryResult.commentary && !aborted) {
+      console.log('[SSE] Sending commentary, source:', commentaryResult.source);
+      sendEvent('commentary', {
+        message: commentaryResult.commentary,
+        source: commentaryResult.source,
+      });
+    } else if (commentaryResult.source === 'skipped') {
+      console.log('[SSE] Commentary skipped:', commentaryResult.reason || 'no reason');
+    } else {
+      console.log('[SSE] No commentary generated, source:', commentaryResult.source);
+    }
+  } catch (err) {
+    // Commentary errors NEVER block the response
+    console.warn('[SSE] Commentary generation failed (non-blocking):', err.message);
+  }
+}
 
 /**
  * GET /agent/commands - Get available slash commands for UI autocomplete
@@ -22,9 +116,9 @@ router.get('/agent/commands', (req, res) => {
 });
 
 router.post('/agent/run', async (req, res, next) => {
-  const { message, context, agentVersion, reasoner } = req.body || {};
+  const { message, context, agentVersion, reasoner, followUpIntent } = req.body || {};
   try {
-    const result = await agentEngine.run({ message, context, agentVersion, reasoner });
+    const result = await agentEngine.run({ message, context, agentVersion, reasoner, followUpIntent });
     res.json({
       status: 'ok',
       data: result,
@@ -44,10 +138,10 @@ router.post('/agent/run', async (req, res, next) => {
  * - event: error    - Error occurred
  */
 router.post('/agent/stream', async (req, res) => {
-  const { message, context, agentVersion = 'v1' } = req.body || {};
+  const { message, context, agentVersion = 'v1', followUpIntent } = req.body || {};
 
   // Validate message
-  if (!message || typeof message !== 'string' || !message.trim()) {
+  if ((!message || typeof message !== 'string' || !message.trim()) && !followUpIntent) {
     res.status(400).json({ error: 'Message is required' });
     return;
   }
@@ -87,11 +181,38 @@ router.post('/agent/stream', async (req, res) => {
   });
 
   try {
+    // Handle structured follow-up intents first (bypass NLP/LLM entirely)
+    if (followUpIntent) {
+      sendEvent('start', { intent: followUpIntent.intent, agentVersion, isFollowUpIntent: true });
+      // Status: fetching data
+      sendEvent('status', { action: getStatusAction(followUpIntent.intent, 'fetching'), phase: 'fetching' });
+      const result = await agentEngine.run({
+        message,
+        context,
+        agentVersion,
+        reasoner: 'rule',
+        followUpIntent,
+      });
+      // Status: interpreting (brief)
+      sendEvent('status', { action: getStatusAction(followUpIntent.intent, 'interpreting'), phase: 'interpreting' });
+      sendEvent('result', { output: result.output, intent: result.intent, isFollowUpIntent: true });
+      // Generate conversational commentary AFTER artifact (non-blocking)
+      sendEvent('status', { action: getStatusAction(followUpIntent.intent, 'commentary'), phase: 'commentary' });
+      await sendCommentaryIfNeeded(sendEvent, result, context, aborted);
+      sendEvent('done', { timestamp: new Date().toISOString() });
+      res.end();
+      return;
+    }
+
     // Handle slash commands first - bypass LLM entirely
     if (isSlashCommand(message)) {
       sendEvent('start', { intent: 'COMMAND', agentVersion, isCommand: true });
+      // Status: executing command
+      sendEvent('status', { action: 'Executing command…', phase: 'executing' });
       const result = await agentEngine.run({ message, context, agentVersion, reasoner: 'rule' });
       sendEvent('result', { output: result.output, intent: 'COMMAND', isCommand: true });
+      // Generate conversational commentary AFTER artifact (non-blocking)
+      await sendCommentaryIfNeeded(sendEvent, result, context, aborted);
       sendEvent('done', { timestamp: new Date().toISOString() });
       res.end();
       return;
@@ -104,9 +225,15 @@ router.post('/agent/stream', async (req, res) => {
     if (followUpDetection && followUpDetection.isFollowUp) {
       console.log('[SSE] Follow-up detected:', followUpDetection.type, 'confidence:', followUpDetection.confidence);
       sendEvent('start', { intent: 'FOLLOW_UP', agentVersion, isFollowUp: true, followUpType: followUpDetection.type });
+      // Status: processing follow-up
+      sendEvent('status', { action: 'Processing follow-up…', phase: 'fetching' });
       // Route through agentEngine.run() which has the follow-up resolution logic
       const result = await agentEngine.run({ message, context, agentVersion, reasoner: 'rule' });
+      sendEvent('status', { action: getStatusAction(result.intent, 'interpreting'), phase: 'interpreting' });
       sendEvent('result', { output: result.output, intent: result.intent, isFollowUp: true });
+      // Generate conversational commentary AFTER artifact (non-blocking)
+      sendEvent('status', { action: getStatusAction(result.intent, 'commentary'), phase: 'commentary' });
+      await sendCommentaryIfNeeded(sendEvent, result, context, aborted);
       sendEvent('done', { timestamp: new Date().toISOString() });
       res.end();
       return;
@@ -117,12 +244,22 @@ router.post('/agent/stream', async (req, res) => {
     const readIntent = detectReadIntent(message, context || {});
     if (readIntent && readIntent.requiresLocalData) {
       sendEvent('start', { intent: readIntent.intent, agentVersion, isReadIntent: true });
+      // Status: fetching data
+      sendEvent('status', { action: getStatusAction(readIntent.intent, 'fetching'), phase: 'fetching' });
       const result = await agentEngine.run({ message, context, agentVersion, reasoner: 'rule' });
+      // Status: interpreting
+      sendEvent('status', { action: getStatusAction(readIntent.intent, 'interpreting'), phase: 'interpreting' });
       sendEvent('result', { output: result.output, intent: result.intent, isReadIntent: true });
+      // Generate conversational commentary AFTER artifact (non-blocking)
+      sendEvent('status', { action: getStatusAction(readIntent.intent, 'commentary'), phase: 'commentary' });
+      await sendCommentaryIfNeeded(sendEvent, result, context, aborted);
       sendEvent('done', { timestamp: new Date().toISOString() });
       res.end();
       return;
     }
+
+    // Status: classifying (before LLM intent classification)
+    sendEvent('status', { action: getStatusAction(null, 'classifying'), phase: 'classifying' });
 
     // Classify intent for non-command, non-data messages
     const intent = await classifyIntent(message, context || {});
@@ -132,9 +269,14 @@ router.post('/agent/stream', async (req, res) => {
 
     // Only stream for GENERAL_CHAT intent
     if (intent !== INTENTS.GENERAL_CHAT) {
+      // Status: processing non-chat intent
+      sendEvent('status', { action: getStatusAction(intent, 'analyzing'), phase: 'analyzing' });
       // For non-chat intents, fall back to regular processing
       const result = await agentEngine.run({ message, context, agentVersion, reasoner: 'rule' });
       sendEvent('result', { output: result.output, intent: result.intent });
+      // Generate conversational commentary AFTER artifact (non-blocking)
+      sendEvent('status', { action: getStatusAction(intent, 'commentary'), phase: 'commentary' });
+      await sendCommentaryIfNeeded(sendEvent, result, context, aborted);
       sendEvent('done', { timestamp: new Date().toISOString() });
       res.end();
       return;
@@ -148,8 +290,14 @@ router.post('/agent/stream', async (req, res) => {
     if (looksLikeDataRequest) {
       console.log('[SSE] Safety guard triggered: message contains entity keywords but reached LLM path');
       sendEvent('start', { intent: 'SAFETY_GUARD', agentVersion, isSafetyGuard: true });
+      // Status: safety guard triggered, fetching
+      sendEvent('status', { action: 'Retrieving data…', phase: 'fetching' });
       const result = await agentEngine.run({ message, context, agentVersion, reasoner: 'rule' });
+      sendEvent('status', { action: 'Building interpretation…', phase: 'interpreting' });
       sendEvent('result', { output: result.output, intent: result.intent, isSafetyGuard: true });
+      // Generate conversational commentary AFTER artifact (non-blocking)
+      sendEvent('status', { action: 'Preparing response…', phase: 'commentary' });
+      await sendCommentaryIfNeeded(sendEvent, result, context, aborted);
       sendEvent('done', { timestamp: new Date().toISOString() });
       res.end();
       return;

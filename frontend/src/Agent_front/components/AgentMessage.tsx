@@ -350,6 +350,7 @@ function RetryButton({ message }: { message: AgentMessageType }) {
     startAgentStream?.(userMsg.content, {
       retryOf: message.id,
       sourceUserId: userMsg.id,
+      followUpIntent: userMsg.followUpIntent,
     });
   };
 

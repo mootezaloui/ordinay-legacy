@@ -2,6 +2,7 @@
 
 const BaseReasoner = require("./base.reasoner");
 const { generateChatResponse } = require("../llm.client");
+const { interpret: postReadInterpret } = require("../interpreters/post-read.interpreter");
 
 class RuleReasoner extends BaseReasoner {
   constructor() {
@@ -40,17 +41,61 @@ class RuleReasoner extends BaseReasoner {
       "unspecified",
     );
 
+    const factsSummary = `State overview for ${entityType} ${entityId}.`;
+    const factsDetails = [
+      `Status: ${status}.`,
+      `Owner: ${owner}.`,
+      `Last updated: ${lastUpdated}.`,
+      `Request recorded for audit: ${message}`,
+    ];
+
+    const scopeKeyMap = {
+      client: "clientId",
+      dossier: "dossierId",
+      lawsuit: "lawsuitId",
+      session: "sessionId",
+      task: "taskId",
+      mission: "missionId",
+      personal_task: "personalTaskId",
+      financial_entry: "financialEntryId",
+    };
+
+    const normalizedType = String(entityType || "").toLowerCase();
+    const numericId =
+      typeof entityId === "number"
+        ? entityId
+        : typeof entityId === "string" && /^\d+$/.test(entityId)
+          ? parseInt(entityId, 10)
+          : null;
+
+    const interpretationContext = {
+      ...context,
+      scope: normalizedType || context.scope,
+      ...(scopeKeyMap[normalizedType] && numericId
+        ? { [scopeKeyMap[normalizedType]]: numericId }
+        : {}),
+      _readOutcome: "success",
+    };
+
+    const interpretationResult = postReadInterpret(
+      normalizedType || "entity",
+      { id: numericId || entityId },
+      interpretationContext,
+    );
+
     return {
       type: "explanation",
       entityId,
       entityType,
-      summary: `State overview for ${entityType} ${entityId}.`,
-      details: [
-        `Status: ${status}.`,
-        `Owner: ${owner}.`,
-        `Last updated: ${lastUpdated}.`,
-        `Request recorded for audit: ${message}`,
-      ],
+
+      facts: {
+        summary: factsSummary,
+        details: factsDetails,
+      },
+      interpretation: interpretationResult.interpretation,
+      navigation: interpretationResult.navigation,
+      followUps: interpretationResult.followUps,
+
       timestamp,
       confidence: 1,
       sources: this._buildSources(entityId, context),
@@ -61,43 +106,44 @@ class RuleReasoner extends BaseReasoner {
   }
 
   /**
-   * Build explanation from enriched context (fetched local data)
+   * Build explanation from enriched context (fetched local data).
+   *
+   * This method implements the MANDATORY post-read interpretation layer.
+   * Every entity read produces:
+   *   1. Facts — what was read
+   *   2. Interpretation — why it matters now (MANDATORY)
+   *   3. Navigation — entity role context (MANDATORY)
+   *   4. Follow-ups — guided next steps (MANDATORY, min 2)
+   *
    * @private
    */
   _buildEnrichedExplanation(message, context, timestamp) {
-    const details = [];
     const sources = [];
+
+    // ─── Step 1: Extract entity identity and build facts ───
+
     let entityId = "unknown";
     let entityType = "entity";
-    let summary = "";
+    let entityData = null;
+    let factsSummary = "";
+    const factsDetails = [];
 
-    // Handle dossier-based explanations
+    // Dossier entity
     if (context.dossierData) {
       const d = context.dossierData;
       entityId = d.reference || String(d.id);
       entityType = "dossier";
-      summary = `Status overview for dossier ${d.reference || d.id}: "${d.title}"`;
+      entityData = d;
+      factsSummary = `Dossier ${d.reference || d.id}: "${d.title}"`;
 
-      details.push(`Status: ${d.status || "unknown"}`);
-      details.push(`Phase: ${d.phase || "not specified"}`);
-      details.push(`Priority: ${d.priority || "medium"}`);
-      details.push(`Assigned to: ${d.assigned_lawyer || "unassigned"}`);
-
-      if (d.next_deadline) {
-        details.push(`Next deadline: ${d.next_deadline}`);
-      }
-      if (d.client_name) {
-        details.push(`Client: ${d.client_name}`);
-      }
-      if (d.adversary_party) {
-        details.push(`Adversary: ${d.adversary_party}`);
-      }
-      if (d.court_reference) {
-        details.push(`Court reference: ${d.court_reference}`);
-      }
-      if (d.updated_at) {
-        details.push(`Last updated: ${d.updated_at}`);
-      }
+      factsDetails.push(`Status: ${d.status || "unknown"}`);
+      factsDetails.push(`Phase: ${d.phase || "not specified"}`);
+      factsDetails.push(`Priority: ${d.priority || "medium"}`);
+      factsDetails.push(`Assigned to: ${d.assigned_lawyer || "unassigned"}`);
+      if (d.next_deadline) factsDetails.push(`Next deadline: ${d.next_deadline}`);
+      if (d.client_name) factsDetails.push(`Client: ${d.client_name}`);
+      if (d.adversary_party) factsDetails.push(`Adversary: ${d.adversary_party}`);
+      if (d.court_reference) factsDetails.push(`Court reference: ${d.court_reference}`);
 
       sources.push({
         sourceType: "database",
@@ -106,19 +152,20 @@ class RuleReasoner extends BaseReasoner {
       });
     }
 
-    // Handle client-based explanations
+    // Client entity (only if no dossier — dossier takes precedence)
     if (context.clientData && !context.dossierData) {
       const c = context.clientData;
       entityId = String(c.id);
       entityType = "client";
-      summary = `Client profile: ${c.name}`;
+      entityData = c;
+      factsSummary = `Client: ${c.name}`;
 
-      details.push(`Name: ${c.name}`);
-      details.push(`Status: ${c.status || "active"}`);
-      if (c.email) details.push(`Email: ${c.email}`);
-      if (c.phone) details.push(`Phone: ${c.phone}`);
-      if (c.company) details.push(`Company: ${c.company}`);
-      if (c.profession) details.push(`Profession: ${c.profession}`);
+      factsDetails.push(`Name: ${c.name}`);
+      factsDetails.push(`Status: ${c.status || "active"}`);
+      if (c.email) factsDetails.push(`Email: ${c.email}`);
+      if (c.phone) factsDetails.push(`Phone: ${c.phone}`);
+      if (c.company) factsDetails.push(`Company: ${c.company}`);
+      if (c.profession) factsDetails.push(`Profession: ${c.profession}`);
 
       sources.push({
         sourceType: "database",
@@ -127,27 +174,30 @@ class RuleReasoner extends BaseReasoner {
       });
     }
 
-    // Add overdue tasks information if available
-    if (context.overdueTasks && context.overdueTasks.length > 0) {
-      details.push("");
-      details.push(`⚠ Overdue tasks: ${context.overdueTasks.length}`);
-      context.overdueTasks.slice(0, 5).forEach((task) => {
-        details.push(
-          `  - ${task.title} (${task.priority}, ${Math.round(task.days_overdue)} days overdue)`,
-        );
-      });
-      if (context.overdueTasks.length > 5) {
-        details.push(`  ... and ${context.overdueTasks.length - 5} more`);
-      }
-      if (context.overdueAnalysis) {
-        const analysis = context.overdueAnalysis;
-        if (analysis.averageDaysOverdue) {
-          details.push(
-            `  Average days overdue: ${analysis.averageDaysOverdue}`,
-          );
-        }
-      }
+    // Task entity
+    if (context.taskData) {
+      const t = context.taskData;
+      entityId = String(t.id);
+      entityType = "task";
+      entityData = t;
+      factsSummary = `Task: ${t.title}`;
 
+      factsDetails.push(`Title: ${t.title}`);
+      factsDetails.push(`Status: ${t.status || "pending"}`);
+      factsDetails.push(`Priority: ${t.priority || "medium"}`);
+      if (t.due_date) factsDetails.push(`Due date: ${t.due_date}`);
+      if (t.assigned_to) factsDetails.push(`Assigned to: ${t.assigned_to}`);
+
+      sources.push({
+        sourceType: "database",
+        reference: `task:${t.id}`,
+        note: "Fetched from local tasks table",
+      });
+    }
+
+    // Add contextual data to facts
+    if (context.overdueTasks && context.overdueTasks.length > 0) {
+      factsDetails.push(`Overdue tasks: ${context.overdueTasks.length}`);
       sources.push({
         sourceType: "analysis",
         reference: "overdue_task_detection",
@@ -155,49 +205,20 @@ class RuleReasoner extends BaseReasoner {
       });
     }
 
-    // Add regular tasks summary if available
-    if (context.tasks && context.tasks.length > 0 && !context.overdueTasks) {
-      details.push("");
-      details.push(`Tasks: ${context.tasks.length} total`);
-      const byStatus = {};
-      context.tasks.forEach((t) => {
-        byStatus[t.status] = (byStatus[t.status] || 0) + 1;
-      });
-      Object.entries(byStatus).forEach(([status, count]) => {
-        details.push(`  - ${status}: ${count}`);
-      });
+    if (context.tasks && context.tasks.length > 0) {
+      factsDetails.push(`Total tasks: ${context.tasks.length}`);
     }
 
-    // Add dossiers list if available (for client context)
     if (context.dossiers && context.dossiers.length > 0) {
-      details.push("");
-      details.push(`Associated dossiers: ${context.dossiers.length}`);
-      context.dossiers.slice(0, 5).forEach((d) => {
-        details.push(`  - ${d.reference}: ${d.title} (${d.status})`);
-      });
-      if (context.dossiers.length > 5) {
-        details.push(`  ... and ${context.dossiers.length - 5} more`);
-      }
+      factsDetails.push(`Associated dossiers: ${context.dossiers.length}`);
     }
 
-    // Handle resolution failures (entity not found)
-    if (context._dataResolution && context._dataResolution.failed > 0) {
-      details.push("");
-      details.push("Note: Some requested data could not be found:");
-      context._dataResolution.failedDetails.forEach((failure) => {
-        details.push(`  - ${failure.message}`);
-      });
-    }
+    // Handle not-found case
+    if (factsDetails.length === 0) {
+      factsSummary = "No data found for the requested query";
+      factsDetails.push("The requested information could not be located.");
+      factsDetails.push("Verify the entity name or reference and try again.");
 
-    // Fallback if no data was found
-    if (details.length === 0) {
-      summary = "No data found for the requested query";
-      details.push(
-        "The requested information could not be located in the system.",
-      );
-      details.push("Please verify the entity name or reference and try again.");
-
-      // Add a default source for the fallback case
       if (sources.length === 0) {
         sources.push({
           sourceType: "system",
@@ -207,12 +228,38 @@ class RuleReasoner extends BaseReasoner {
       }
     }
 
+    // ─── Step 2: MANDATORY Post-Read Interpretation ───
+
+    // This is NOT optional. The interpreter MUST run.
+    const interpretationResult = postReadInterpret(
+      entityType,
+      entityData || {},
+      context
+    );
+
+    // ─── Step 3: Assemble final response with mandatory structure ───
+
     return {
       type: "explanation",
       entityId,
       entityType,
-      summary: summary || `Information for ${entityType} ${entityId}`,
-      details,
+
+      // Section 1: FACTS — what was read
+      facts: {
+        summary: factsSummary,
+        details: factsDetails,
+      },
+
+      // Section 2: INTERPRETATION — why it matters now (MANDATORY)
+      interpretation: interpretationResult.interpretation,
+
+      // Section 3: NAVIGATION — entity role context (MANDATORY)
+      navigation: interpretationResult.navigation,
+
+      // Section 4: FOLLOW-UPS — guided next steps (MANDATORY, min 2)
+      followUps: interpretationResult.followUps,
+
+      // Metadata
       timestamp,
       confidence: context._dataResolution?.failed === 0 ? 1 : 0.8,
       sources,
@@ -232,12 +279,39 @@ class RuleReasoner extends BaseReasoner {
       (item, index) => `Agenda item ${index + 1}: ${item}`,
     );
 
+    const numericId =
+      typeof sessionId === "number"
+        ? sessionId
+        : typeof sessionId === "string" && /^\d+$/.test(sessionId)
+          ? parseInt(sessionId, 10)
+          : null;
+
+    const interpretationContext = {
+      ...context,
+      scope: "session",
+      ...(numericId ? { sessionId: numericId } : {}),
+      _readOutcome: "success",
+    };
+
+    const interpretationResult = postReadInterpret(
+      "session",
+      { id: numericId || sessionId },
+      interpretationContext,
+    );
+
     return {
       type: "explanation",
       entityId: sessionId,
       entityType: "session",
-      summary: `Session ${sessionId} summary for ${audience}.`,
-      details: detailLines,
+
+      facts: {
+        summary: `Session ${sessionId} summary for ${audience}.`,
+        details: detailLines.length > 0 ? detailLines : ["No agenda provided."],
+      },
+      interpretation: interpretationResult.interpretation,
+      navigation: interpretationResult.navigation,
+      followUps: interpretationResult.followUps,
+
       timestamp,
       confidence: 1,
       sources: this._buildSources(sessionId, {

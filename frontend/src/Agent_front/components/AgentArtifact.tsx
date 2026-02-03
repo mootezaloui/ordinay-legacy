@@ -1,12 +1,16 @@
 import { useRef, useState, useEffect } from "react";
 import { Copy, Check, RotateCw } from "lucide-react";
 import { AgentMessage } from "../types/agentMessage";
+import type { FollowUpSuggestion } from "../../services/api/agent";
 import { useAgentSessions } from "../hooks/useAgentSessions";
 import { useAgentState } from "../hooks/useAgentState";
 import { AgentWorkflow } from "./AgentWorkflow";
 
 interface AgentArtifactProps {
   message: AgentMessage;
+  onFollowUpClick?: (followUp: FollowUpSuggestion) => void;
+  /** Called when user clicks an example query (e.g., from error suggestions) */
+  onExampleClick?: (example: string) => void;
 }
 
 /**
@@ -17,12 +21,12 @@ interface AgentArtifactProps {
  *
  * This component just adds the shared footer (copy, retry).
  */
-export function AgentArtifact({ message }: AgentArtifactProps) {
+export function AgentArtifact({ message, onFollowUpClick, onExampleClick }: AgentArtifactProps) {
   const isStreaming = message.status === "sending";
 
   return (
     <div className="agent-artifact-wrapper">
-      <AgentWorkflow message={message} />
+      <AgentWorkflow message={message} onFollowUpClick={onFollowUpClick} onExampleClick={onExampleClick} />
       {/* Footer actions — only visible on completed, non-streaming responses */}
       {!isStreaming && message.status !== undefined && (
         <ArtifactFooter message={message} />

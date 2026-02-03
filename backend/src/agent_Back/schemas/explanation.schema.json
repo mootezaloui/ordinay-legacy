@@ -1,14 +1,17 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "AgentExplanation",
+  "description": "Structured entity explanation with mandatory interpretation layer",
   "type": "object",
   "additionalProperties": false,
   "required": [
     "type",
     "entityId",
     "entityType",
-    "summary",
-    "details",
+    "facts",
+    "interpretation",
+    "navigation",
+    "followUps",
     "timestamp",
     "sources",
     "source",
@@ -27,18 +30,174 @@
       "type": "string",
       "minLength": 1
     },
-    "summary": {
-      "type": "string",
-      "minLength": 1
-    },
-    "details": {
-      "type": "array",
-      "minItems": 1,
-      "items": {
-        "type": "string",
-        "minLength": 1
+
+    "facts": {
+      "description": "What was read — structured data points",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["summary", "details"],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 1,
+          "description": "One-line summary of the entity"
+        },
+        "details": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          },
+          "description": "Key factual data points"
+        }
       }
     },
+
+    "interpretation": {
+      "description": "Why it matters now — state analysis (MANDATORY)",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["statements", "summary"],
+      "properties": {
+        "statements": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["level", "statement", "implication"],
+            "properties": {
+              "level": {
+                "type": "string",
+                "enum": ["critical", "warning", "info", "neutral"]
+              },
+              "statement": {
+                "type": "string",
+                "minLength": 1,
+                "description": "What the state is"
+              },
+              "implication": {
+                "type": "string",
+                "minLength": 1,
+                "description": "What this means for the user"
+              }
+            }
+          }
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1,
+          "description": "One-line interpretation summary"
+        }
+      }
+    },
+
+    "navigation": {
+      "description": "Entity role context — parent/child awareness (MANDATORY)",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role", "roleDescription", "contextStatement"],
+      "properties": {
+        "role": {
+          "type": "string",
+          "enum": ["parent", "child", "unknown"],
+          "description": "Whether this entity owns others or belongs to another"
+        },
+        "roleDescription": {
+          "type": "string",
+          "minLength": 1,
+          "description": "What this entity type represents"
+        },
+        "contextStatement": {
+          "type": "string",
+          "minLength": 1,
+          "description": "How to think about this entity in the workflow"
+        },
+        "parentPath": {
+          "type": ["object", "null"],
+          "description": "Reference to parent entity if this is a child",
+          "properties": {
+            "type": { "type": "string" },
+            "id": { "type": ["string", "number"] },
+            "reference": { "type": "string" },
+            "name": { "type": "string" }
+          }
+        },
+        "childrenAvailable": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string" },
+              "count": { "type": "number" }
+            }
+          },
+          "description": "Available child entity types with counts"
+        }
+      }
+    },
+
+    "followUps": {
+      "description": "Guided next steps — read-only only (MANDATORY, min 2)",
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["label", "reason", "intent", "entityType", "entityId", "origin", "scope"],
+        "properties": {
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Button label"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Why this follow-up is suggested"
+          },
+          "intent": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Structured READ intent to execute"
+          },
+          "entityType": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Origin entity type (lowercase)"
+          },
+          "entityId": {
+            "type": ["string", "number"],
+            "description": "Origin entity identifier"
+          },
+          "origin": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["entity", "entityId"],
+            "properties": {
+              "entity": { "type": "string" },
+              "entityId": { "type": ["string", "number"] }
+            }
+          },
+          "scope": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "clientId": { "type": "integer", "minimum": 1 },
+              "dossierId": { "type": "integer", "minimum": 1 },
+              "lawsuitId": { "type": "integer", "minimum": 1 },
+              "sessionId": { "type": "integer", "minimum": 1 },
+              "taskId": { "type": "integer", "minimum": 1 },
+              "missionId": { "type": "integer", "minimum": 1 },
+              "personalTaskId": { "type": "integer", "minimum": 1 },
+              "financialEntryId": { "type": "integer", "minimum": 1 }
+            }
+          }
+        }
+      }
+    },
+
     "timestamp": {
       "type": "string",
       "format": "date-time"
@@ -62,19 +221,11 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": [
-          "sourceType",
-          "reference"
-        ],
+        "required": ["sourceType", "reference"],
         "properties": {
           "sourceType": {
             "type": "string",
-            "enum": [
-              "context",
-              "user",
-              "system",
-              "ledger"
-            ]
+            "enum": ["context", "user", "system", "ledger", "database", "analysis"]
           },
           "reference": {
             "type": "string",
@@ -88,10 +239,7 @@
     },
     "status": {
       "type": "string",
-      "enum": [
-        "draft",
-        "validated"
-      ]
+      "enum": ["draft", "validated"]
     }
   }
 }

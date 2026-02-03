@@ -1,3 +1,4 @@
+import { useCallback } from "react";
 import { AgentTopBar } from "./components/AgentTopBar";
 import { AgentInput } from "./components/AgentInput";
 import { AgentConversation } from "./components/AgentConversation";
@@ -6,6 +7,7 @@ import { AgentResultPreview } from "./components/AgentResultPreview";
 import { AgentHistorySidebar } from "./sidebar/AgentHistorySidebar";
 import { useAgentState } from "./hooks/useAgentState";
 import { useAgentSessions } from "./hooks/useAgentSessions";
+import type { FollowUpSuggestion } from "../services/api/agent";
 
 export function AgentLayout() {
   const {
@@ -28,6 +30,7 @@ export function AgentLayout() {
     cancelStream,
     dataAccess,
     setDataAccess,
+    startFollowUpIntent,
   } = useAgentState();
 
   const {
@@ -53,6 +56,14 @@ export function AgentLayout() {
       setActiveSessionId(sessionId);
     }
   };
+
+  // Follow-up click handler — executes a structured, scoped follow-up intent
+  const handleFollowUpClick = useCallback(
+    (followUp: FollowUpSuggestion) => {
+      startFollowUpIntent?.(followUp);
+    },
+    [startFollowUpIntent]
+  );
 
   /* Shared props — avoids duplicating between desktop & mobile renders */
   const sidebarProps = {
@@ -124,6 +135,8 @@ export function AgentLayout() {
                 messages={conversation}
                 conversationEndRef={conversationEndRef}
                 getRelativeTime={getRelativeTime}
+                onFollowUpClick={handleFollowUpClick}
+                onExampleClick={handleExampleClick}
               />
             )}
           </div>

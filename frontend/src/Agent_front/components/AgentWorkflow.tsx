@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { Check, Loader2, ChevronDown } from "lucide-react";
 import { AgentMessage } from "../types/agentMessage";
+import type { FollowUpSuggestion } from "../../services/api/agent";
 
 // Artifact renderers
 import { ExplanationArtifact } from "./artifacts/ExplanationArtifact";
@@ -9,7 +10,13 @@ import { DraftArtifact } from "./artifacts/DraftArtifact";
 import { ActionArtifact } from "./artifacts/ActionArtifact";
 import { ChatArtifact } from "./artifacts/ChatArtifact";
 import { ErrorArtifact } from "./artifacts/ErrorArtifact";
+import { FollowUpSuggestions } from "./artifacts/FollowUpSuggestions";
+import { CommentaryBubble } from "./artifacts/CommentaryBubble";
 import { MarkdownOutput } from "../../components/MarkdownOutput";
+
+// Staged message renderers
+import { AckMessage } from "./messages/AckMessage";
+import { StatusMessage } from "./messages/StatusMessage";
 
 /**
  * Workflow phases — derived from the message state,
@@ -41,6 +48,9 @@ const REVEAL_DURATION = 400;
 
 interface AgentWorkflowProps {
   message: AgentMessage;
+  onFollowUpClick?: (followUp: FollowUpSuggestion) => void;
+  /** Called when user clicks an example query (e.g., from error suggestions) */
+  onExampleClick?: (example: string) => void;
 }
 
 /**
@@ -56,7 +66,7 @@ interface AgentWorkflowProps {
  * The result: the agent feels like it's doing work FOR you,
  * not just returning a database query.
  */
-export function AgentWorkflow({ message }: AgentWorkflowProps) {
+export function AgentWorkflow({ message, onFollowUpClick, onExampleClick }: AgentWorkflowProps) {
   const isStreaming = message.status === "sending";
   const isError = message.status === "error";
   const isComplete = message.status === "success";
@@ -152,6 +162,22 @@ export function AgentWorkflow({ message }: AgentWorkflowProps) {
     return rawPhase === "revealing" ? "working" : rawPhase;
   }, [rawPhase, isComplete, isError, minWorkingMet, revealTriggered]);
 
+  // ── Render based on message stage (if set) ──
+  // The `stage` field from backend SSE takes precedence over computed phases.
+  // This provides immediate feedback before the phase logic kicks in.
+
+  // Stage: ack — immediate acknowledgement, shown before any processing
+  if (message.stage === "ack") {
+    return <AckMessage content={message.content} />;
+  }
+
+  // Stage: status — deterministic status updates during processing
+  if (message.stage === "status" && message.statusAction) {
+    return <StatusMessage action={message.statusAction} />;
+  }
+
+  // For other stages (artifact, commentary, or undefined), continue with phase-based rendering
+
   // ── Render based on display phase ──
 
   // Phase: classifying
@@ -192,6 +218,8 @@ export function AgentWorkflow({ message }: AgentWorkflowProps) {
 
   // Phase: revealing (artifact expanding into view)
   if (displayPhase === "revealing") {
+    const followUps = message.data?.explanation?.followUps;
+
     return (
       <div className="space-y-3">
         {/* Collapsed work summary */}
@@ -199,16 +227,44 @@ export function AgentWorkflow({ message }: AgentWorkflowProps) {
 
         {/* Artifact reveal */}
         <div className="artifact-reveal">
-          <ArtifactBody message={message} />
+          <ArtifactBody message={message} onFollowUpClick={onFollowUpClick} onExampleClick={onExampleClick} />
         </div>
+
+        {/* Conversational commentary — appears AFTER artifact, BEFORE follow-ups */}
+        {message.commentary && (
+          <CommentaryBubble commentary={message.commentary} />
+        )}
+
+        {/* Follow-up suggestions — shown OUTSIDE the artifact card */}
+        {followUps && followUps.length > 0 && onFollowUpClick && (
+          <FollowUpSuggestions
+            followUps={followUps}
+            onFollowUpClick={onFollowUpClick}
+          />
+        )}
       </div>
     );
   }
 
   // Phase: complete
+  const followUps = message.data?.explanation?.followUps;
+
   return (
     <div>
-      <ArtifactBody message={message} />
+      <ArtifactBody message={message} onFollowUpClick={onFollowUpClick} onExampleClick={onExampleClick} />
+
+      {/* Conversational commentary — appears AFTER artifact, BEFORE follow-ups */}
+      {message.commentary && (
+        <CommentaryBubble commentary={message.commentary} />
+      )}
+
+      {/* Follow-up suggestions — shown OUTSIDE the artifact card */}
+      {followUps && followUps.length > 0 && onFollowUpClick && (
+        <FollowUpSuggestions
+          followUps={followUps}
+          onFollowUpClick={onFollowUpClick}
+        />
+      )}
     </div>
   );
 }
@@ -350,17 +406,31 @@ function WorkSummary({ intent }: { intent?: string }) {
 // Artifact Body — renders the correct artifact based on data type
 // ────────────────────────────────────────────────────────────────
 
-function ArtifactBody({ message }: { message: AgentMessage }) {
+function ArtifactBody({
+  message,
+  onFollowUpClick,
+  onExampleClick,
+}: {
+  message: AgentMessage;
+  onFollowUpClick?: (followUp: FollowUpSuggestion) => void;
+  onExampleClick?: (example: string) => void;
+}) {
   const isError = message.status === "error";
   const hasContent = !!(message.content && message.content.length > 0);
   const dataType = message.data?.type;
 
   if (isError) {
-    return <ErrorArtifact content={message.content} />;
+    return <ErrorArtifact content={message.content} onExampleClick={onExampleClick} />;
   }
 
   if (dataType === "explanation" && message.data?.explanation) {
-    return <ExplanationArtifact data={message.data.explanation} intent={message.intent} />;
+    return (
+      <ExplanationArtifact
+        data={message.data.explanation}
+        intent={message.intent}
+        onFollowUpClick={onFollowUpClick}
+      />
+    );
   }
   if (dataType === "risks" && message.data?.risks) {
     return <RiskArtifact data={message.data.risks} />;
@@ -455,6 +525,7 @@ function getWorkSteps(intent?: string): string[] {
     return [
       "Request classified",
       "Querying database",
+      "Evaluating context",
       "Formatting results",
     ];
   }
@@ -464,6 +535,7 @@ function getWorkSteps(intent?: string): string[] {
       "Request classified",
       "Loading entity data",
       "Fetching related records",
+      "Evaluating context",
       "Building explanation",
     ];
   }

@@ -29,6 +29,7 @@ const agentV2Policy = require("./policies/agent.v2.policy");
 const agentV3Policy = require("./policies/agent.v3.policy");
 
 const RuleReasoner = require("./reasoners/rule.reasoner");
+const { interpret: postReadInterpret } = require("./interpreters/post-read.interpreter");
 const AgentLedgerService = require("./ledger/agent.ledger.service");
 const { initializeToolRegistry } = require("./tools");
 const {
@@ -44,6 +45,7 @@ const riskSchema = require("./schemas/risk.schema.json");
 const actionsSchema = require("./schemas/actions.schema.json");
 const agentRequestSchema = require("./schemas/agentRequest.schema.json");
 const agentResponseSchema = require("./schemas/agentResponse.schema.json");
+const followUpIntentSchema = require("./schemas/followUpIntent.schema.json");
 
 const {
   createAgentRequest,
@@ -94,6 +96,7 @@ class AgentEngine {
       action_plan: this.ajv.compile(actionsSchema),
       agent_request: this.ajv.compile(agentRequestSchema),
       agent_response: this.ajv.compile(agentResponseSchema),
+      follow_up_intent: this.ajv.compile(followUpIntentSchema),
     };
   }
 
@@ -459,8 +462,16 @@ class AgentEngine {
     context = {},
     agentVersion = "v1",
     reasoner: preferredReasoner,
+    followUpIntent,
   } = {}) {
-    if (typeof message !== "string" || !message.trim()) {
+    const hasFollowUpIntent = Boolean(followUpIntent);
+    const normalizedMessage =
+      typeof message === "string" && message.trim()
+        ? message
+        : hasFollowUpIntent
+          ? "[follow-up]"
+          : "";
+    if (!normalizedMessage) {
       const error = new Error("message is required");
       error.status = 400;
       throw error;
@@ -469,13 +480,35 @@ class AgentEngine {
     const policy = this._resolvePolicy(agentVersion);
     this._assertExecutionIntent(context, policy);
 
+    // ========== FOLLOW-UP INTENT (STRUCTURED) ==========
+    if (hasFollowUpIntent) {
+      const result = await this._executeFollowUpIntent(
+        followUpIntent,
+        normalizedMessage,
+        context,
+        policy,
+      );
+      this._updateConversationContext(
+        context,
+        normalizedMessage,
+        result,
+        CONTEXT_SOURCES.FOLLOW_UP,
+      );
+      return result;
+    }
+    // ========== END FOLLOW-UP INTENT ==========
+
     // STEP: Check for slash commands BEFORE intent classification
-    if (isSlashCommand(message)) {
-      const result = await this._executeSlashCommand(message, context, policy);
+    if (isSlashCommand(normalizedMessage)) {
+      const result = await this._executeSlashCommand(
+        normalizedMessage,
+        context,
+        policy,
+      );
       // Update conversation context after slash command
       this._updateConversationContext(
         context,
-        message,
+        normalizedMessage,
         result,
         CONTEXT_SOURCES.SLASH_COMMAND,
       );
@@ -484,11 +517,11 @@ class AgentEngine {
 
     // ========== FOLLOW-UP INTENT GATE ==========
     // Detect follow-up messages BEFORE regular intent classification
-    const followUpDetection = detectFollowUp(message, context);
+    const followUpDetection = detectFollowUp(normalizedMessage, context);
     if (followUpDetection && followUpDetection.isFollowUp) {
       const followUpResult = await this._handleFollowUp(
         followUpDetection,
-        message,
+        normalizedMessage,
         context,
         policy,
       );
@@ -501,7 +534,7 @@ class AgentEngine {
 
     // ========== READ INTENT GATE ==========
     // Rule-based detection BEFORE LLM - ensures data questions always access local data
-    const readIntent = detectReadIntent(message, context);
+    const readIntent = detectReadIntent(normalizedMessage, context);
     if (
       readIntent &&
       readIntent.requiresLocalData &&
@@ -516,14 +549,14 @@ class AgentEngine {
 
       const readResult = await this._executeReadIntent(
         readIntent,
-        message,
+        normalizedMessage,
         context,
         policy,
       );
       // Update conversation context after read intent execution
       this._updateConversationContext(
         context,
-        message,
+        normalizedMessage,
         readResult,
         CONTEXT_SOURCES.READ_INTENT,
       );
@@ -531,11 +564,11 @@ class AgentEngine {
     }
     // ========== END READ INTENT GATE ==========
 
-    const intent = await classifyIntent(message, context);
+    const intent = await classifyIntent(normalizedMessage, context);
     this._ensureIntentAllowed(intent, policy);
 
     // STEP: Detect data requirements and fetch local data if needed
-    const dataReqs = detectDataRequirements(message, context);
+    const dataReqs = detectDataRequirements(normalizedMessage, context);
     let enrichedContext = context;
 
     if (
@@ -643,7 +676,7 @@ class AgentEngine {
 
     const reasoner = this._resolveReasoner(policy, preferredReasoner);
     const response = await this._executeIntent(intent, reasoner, {
-      message,
+      message: normalizedMessage,
       context: enrichedContext,
     });
 
@@ -4433,15 +4466,6 @@ class AgentEngine {
           );
       }
 
-      if (
-        String(intent || "").startsWith("EXPLAIN_") &&
-        !details.some(
-          (detail) => String(detail).toLowerCase().startsWith("explanation"),
-        )
-      ) {
-        details.unshift("Explanation:");
-      }
-
       this.ledger.record({
         type: "read_intent_executed",
         intent,
@@ -4449,25 +4473,46 @@ class AgentEngine {
         timestamp: new Date().toISOString(),
       });
 
+      const entityType = this._resolveReadEntityType(intent);
+      const readOutcome = this._inferReadOutcome({ data, summary, details });
+      const readMeta = this._buildReadMeta(entityType, data);
+      const contextPromotion = this._deriveContextPromotion(
+        readMeta,
+        readOutcome,
+        context,
+      );
+      const interpretationContext = this._buildReadInterpretationContext(
+        context,
+        {
+          entityType,
+          entityData: data,
+          readOutcome,
+          readMeta,
+          promotion: contextPromotion,
+        },
+      );
+      const explanationOutput = this._buildReadExplanation({
+        intent,
+        entityType,
+        entityData: data,
+        summary,
+        details,
+        context: interpretationContext,
+        sources,
+        readOutcome,
+      });
+      this._validateContract("explanation", explanationOutput, {
+        intent: "READ_DATA",
+      });
+
       return {
         intent: "READ_DATA",
         agentVersion: policy.version,
         reasoner: "read-gate",
-        output: {
-          type: "explanation",
-          entityId: `read:${intent.toLowerCase()}`,
-          entityType: "query_result",
-          title,
-          summary,
-          details: details.length > 0 ? details : ["No data available."],
-          timestamp: new Date().toISOString(),
-          confidence: 1,
-          sources,
-          status: "complete",
-          source: "read-intent-gate",
-          requires_validation: false,
-        },
+        output: explanationOutput,
         isReadIntent: true,
+        readMeta,
+        contextPromotion,
       };
     } catch (err) {
       this.ledger.record({
@@ -4477,30 +4522,695 @@ class AgentEngine {
         timestamp: new Date().toISOString(),
       });
 
+      const entityType = this._resolveReadEntityType(intent);
+      const readOutcome = "error";
+      const readMeta = this._buildReadMeta(entityType, null);
+      const contextPromotion = this._deriveContextPromotion(
+        readMeta,
+        readOutcome,
+        context,
+      );
+      const interpretationContext = this._buildReadInterpretationContext(
+        context,
+        {
+          entityType,
+          entityData: null,
+          readOutcome,
+          readMeta,
+          promotion: contextPromotion,
+        },
+      );
+      const explanationOutput = this._buildReadExplanation({
+        intent,
+        entityType,
+        entityData: null,
+        summary: `Unable to retrieve data: ${err.message}`,
+        details: [
+          "An error occurred while accessing the data.",
+          "Please try again or rephrase your request.",
+        ],
+        context: interpretationContext,
+        sources: [{ sourceType: "system", reference: "read-intent-gate" }],
+        readOutcome,
+      });
+
       return {
         intent: "READ_DATA",
         agentVersion: policy.version,
         reasoner: "read-gate",
-        output: {
-          type: "explanation",
-          entityId: "read_error",
-          entityType: "error",
-          title: "Read data — Error",
-          summary: `Unable to retrieve data: ${err.message}`,
-          details: [
-            "An error occurred while accessing the data.",
-            "Please try again or rephrase your request.",
-          ],
-          timestamp: new Date().toISOString(),
-          confidence: 1,
-          sources: [{ sourceType: "system", reference: "read-intent-gate" }],
-          status: "error",
-          source: "read-intent-gate",
-          requires_validation: false,
-        },
+        output: explanationOutput,
         isReadIntent: true,
+        readMeta,
+        contextPromotion,
       };
     }
+  }
+
+  _resolveReadEntityType(intent) {
+    const map = {
+      [READ_INTENTS.LIST_CLIENTS]: "client",
+      [READ_INTENTS.READ_CLIENT]: "client",
+      [READ_INTENTS.EXPLAIN_CLIENT_STATE]: "client",
+      [READ_INTENTS.SUMMARIZE_CLIENT]: "client",
+      [READ_INTENTS.LIST_DOSSIERS]: "dossier",
+      [READ_INTENTS.READ_DOSSIER]: "dossier",
+      [READ_INTENTS.EXPLAIN_DOSSIER_STATE]: "dossier",
+      [READ_INTENTS.SUMMARIZE_DOSSIER]: "dossier",
+      [READ_INTENTS.LIST_LAWSUITS]: "lawsuit",
+      [READ_INTENTS.READ_LAWSUIT]: "lawsuit",
+      [READ_INTENTS.EXPLAIN_LAWSUIT_STATE]: "lawsuit",
+      [READ_INTENTS.SUMMARIZE_LAWSUIT]: "lawsuit",
+      [READ_INTENTS.LIST_TASKS]: "task",
+      [READ_INTENTS.LIST_OVERDUE_TASKS]: "task",
+      [READ_INTENTS.READ_TASK]: "task",
+      [READ_INTENTS.EXPLAIN_TASK_STATE]: "task",
+      [READ_INTENTS.SUMMARIZE_TASK]: "task",
+      [READ_INTENTS.LIST_PERSONAL_TASKS]: "personal_task",
+      [READ_INTENTS.READ_PERSONAL_TASK]: "personal_task",
+      [READ_INTENTS.EXPLAIN_PERSONAL_TASK_STATE]: "personal_task",
+      [READ_INTENTS.SUMMARIZE_PERSONAL_TASK]: "personal_task",
+      [READ_INTENTS.LIST_SESSIONS]: "session",
+      [READ_INTENTS.LIST_UPCOMING_SESSIONS]: "session",
+      [READ_INTENTS.READ_SESSION]: "session",
+      [READ_INTENTS.EXPLAIN_SESSION_STATE]: "session",
+      [READ_INTENTS.SUMMARIZE_SESSION]: "session",
+      [READ_INTENTS.LIST_MISSIONS]: "mission",
+      [READ_INTENTS.READ_MISSION]: "mission",
+      [READ_INTENTS.EXPLAIN_MISSION_STATE]: "mission",
+      [READ_INTENTS.SUMMARIZE_MISSION]: "mission",
+      [READ_INTENTS.LIST_FINANCIAL_ENTRIES]: "financial_entry",
+      [READ_INTENTS.READ_FINANCIAL_ENTRY]: "financial_entry",
+      [READ_INTENTS.EXPLAIN_FINANCIAL_ENTRY_STATE]: "financial_entry",
+      [READ_INTENTS.SUMMARIZE_FINANCIAL_ENTRY]: "financial_entry",
+      [READ_INTENTS.LIST_NOTIFICATIONS]: "notification",
+      [READ_INTENTS.READ_NOTIFICATION]: "notification",
+      [READ_INTENTS.EXPLAIN_NOTIFICATION_STATE]: "notification",
+      [READ_INTENTS.SUMMARIZE_NOTIFICATION]: "notification",
+      [READ_INTENTS.LIST_HISTORY_EVENTS]: "history_event",
+      [READ_INTENTS.READ_HISTORY_EVENT]: "history_event",
+      [READ_INTENTS.EXPLAIN_HISTORY_STATE]: "history_event",
+      [READ_INTENTS.SUMMARIZE_HISTORY]: "history_event",
+    };
+    return map[intent] || "query_result";
+  }
+
+  _resolveReadEntityId(entityType, entityData) {
+    if (!entityData) return `read:${entityType}`;
+    if (Array.isArray(entityData)) return `list:${entityType}`;
+
+    switch (entityType) {
+      case "dossier":
+        return String(entityData.reference || entityData.id || "dossier");
+      case "lawsuit":
+        return String(
+          entityData.reference ||
+            entityData.lawsuit_number ||
+            entityData.id ||
+            "lawsuit",
+        );
+      case "client":
+        return String(entityData.id || entityData.name || "client");
+      case "task":
+      case "personal_task":
+        return String(entityData.id || entityData.title || "task");
+      case "session":
+        return String(
+          entityData.id ||
+            entityData.title ||
+            entityData.session_type ||
+            "session",
+        );
+      case "mission":
+        return String(entityData.reference || entityData.id || "mission");
+      case "financial_entry":
+        return String(entityData.id || entityData.reference || "financial_entry");
+      case "notification":
+      case "history_event":
+        return String(entityData.id || entityType);
+      default:
+        return String(entityData.id || entityType);
+    }
+  }
+
+  _inferReadOutcome({ data, summary, details }) {
+    if (Array.isArray(data)) {
+      return data.length === 0 ? "empty" : "success";
+    }
+    if (data && typeof data === "object") {
+      return "success";
+    }
+
+    const combined = `${summary || ""} ${(details || []).join(" ")}`.toLowerCase();
+    if (combined.includes("multiple")) return "ambiguous";
+    if (combined.includes("which") || combined.includes("provide")) return "incomplete";
+    if (combined.includes("no ") || combined.includes("not found")) return "not_found";
+    if (combined.includes("error") || combined.includes("unable")) return "error";
+    return "unknown";
+  }
+
+  _buildReadMeta(entityType, entityData) {
+    const meta = {
+      entityType,
+      count: 0,
+      entityIds: [],
+      singleId: null,
+    };
+
+    if (Array.isArray(entityData)) {
+      meta.count = entityData.length;
+      meta.entityIds = entityData
+        .map((item) => item?.id)
+        .filter((id) => id !== null && id !== undefined);
+      if (meta.count === 1) {
+        meta.singleId = entityData[0]?.id ?? meta.entityIds[0] ?? null;
+      }
+      return meta;
+    }
+
+    if (entityData && typeof entityData === "object") {
+      meta.count = 1;
+      meta.singleId = entityData.id ?? null;
+      if (meta.singleId !== null && meta.singleId !== undefined) {
+        meta.entityIds = [meta.singleId];
+      }
+    }
+
+    return meta;
+  }
+
+  _deriveContextPromotion(readMeta, readOutcome, context) {
+    const source =
+      (context && context._activeEntitySource) ||
+      (context && context._followUpExecution ? "follow-up" : "user");
+
+    if (!readMeta || !readMeta.entityType) {
+      return { activeEntity: null };
+    }
+
+    if (!["success", "empty"].includes(readOutcome)) {
+      return { activeEntity: null };
+    }
+
+    if (readMeta.count === 1 && readMeta.singleId) {
+      return {
+        activeEntity: {
+          type: readMeta.entityType,
+          id: readMeta.singleId,
+          source,
+        },
+        pendingSelection: null,
+      };
+    }
+
+    if (readMeta.count > 1) {
+      return {
+        activeEntity: null,
+        pendingSelection: {
+          entityType: readMeta.entityType,
+          count: readMeta.count,
+        },
+      };
+    }
+
+    return { activeEntity: null };
+  }
+
+  _buildReadInterpretationContext(
+    baseContext,
+    { entityType, entityData, readOutcome, readMeta, promotion },
+  ) {
+    const context = { ...(baseContext || {}), _readOutcome: readOutcome };
+
+    if (entityData && !Array.isArray(entityData)) {
+      if (entityType === "client") context.clientData = entityData;
+      if (entityType === "dossier") context.dossierData = entityData;
+      if (entityType === "lawsuit") context.lawsuitData = entityData;
+      if (entityType === "task") context.taskData = entityData;
+      if (entityType === "session") context.sessionData = entityData;
+      if (entityType === "mission") context.missionData = entityData;
+      if (entityType === "financial_entry") context.financialEntryData = entityData;
+    }
+
+    if (Array.isArray(entityData)) {
+      if (entityType === "task") {
+        context.tasks = entityData;
+        context.overdueTasks = entityData.filter(
+          (task) =>
+            task.due_date &&
+            !["done", "completed", "cancelled"].includes(
+              String(task.status || "").toLowerCase(),
+            ) &&
+            new Date(task.due_date) < new Date(),
+        );
+      }
+      if (entityType === "dossier") {
+        context.dossiers = entityData;
+      }
+    }
+
+    if (readMeta && typeof readMeta.count === "number") {
+      context._resultCount = readMeta.count;
+    }
+
+    if (promotion && promotion.activeEntity) {
+      context.activeEntityType = promotion.activeEntity.type;
+      context.activeEntityId = promotion.activeEntity.id;
+      context.activeEntitySource = promotion.activeEntity.source;
+      context.pendingSelection = null;
+    } else if (promotion && promotion.pendingSelection) {
+      context.pendingSelection = promotion.pendingSelection;
+    }
+
+    return context;
+  }
+
+  _buildReadExplanation({
+    intent,
+    entityType,
+    entityData,
+    summary,
+    details,
+    context,
+    sources,
+    readOutcome,
+  }) {
+    const factsSummary =
+      typeof summary === "string" && summary.trim()
+        ? summary.trim()
+        : `No ${entityType} data available.`;
+    const rawDetails = Array.isArray(details) ? details : [];
+    const factsDetails = rawDetails
+      .map((detail) => String(detail || "").trim())
+      .filter(
+        (detail) =>
+          detail &&
+          !detail.toLowerCase().startsWith("explanation:") &&
+          !detail.toLowerCase().startsWith("next steps"),
+      );
+
+    if (factsDetails.length === 0) {
+      factsDetails.push(factsSummary);
+    }
+
+    const explanation = postReadInterpret(entityType, entityData || {}, context);
+    const confidenceMap = {
+      success: 1,
+      empty: 0.7,
+      not_found: 0.5,
+      ambiguous: 0.4,
+      incomplete: 0.4,
+      error: 0.1,
+      unknown: 0.6,
+    };
+
+    return {
+      type: "explanation",
+      entityId: this._resolveReadEntityId(entityType, entityData),
+      entityType,
+      facts: {
+        summary: factsSummary,
+        details: factsDetails,
+      },
+      interpretation: explanation.interpretation,
+      navigation: explanation.navigation,
+      followUps: explanation.followUps,
+      timestamp: new Date().toISOString(),
+      confidence: confidenceMap[readOutcome] ?? 0.6,
+      sources: Array.isArray(sources) ? sources : [],
+      status: "draft",
+      source: "rule-based",
+      requires_validation: true,
+    };
+  }
+
+  async _executeFollowUpIntent(followUpIntent, message, context, policy) {
+    this._validateFollowUpIntent(followUpIntent, policy, context);
+
+    const normalizedIntent = String(followUpIntent.intent || "").toUpperCase();
+    const originType = this._normalizeFollowUpEntityType(
+      followUpIntent.origin?.entity || followUpIntent.entityType,
+    );
+    const originId =
+      followUpIntent.origin?.entityId ?? followUpIntent.entityId ?? null;
+    const scope = followUpIntent.scope || {};
+
+    this.ledger.record({
+      type: "follow_up_intent_received",
+      intent: normalizedIntent,
+      originType,
+      originId,
+      scope,
+      timestamp: new Date().toISOString(),
+    });
+
+    const scopedContext = {
+      ...(context || {}),
+      ...scope,
+      scope: this._resolveScopeTypeForFollowUp(scope, originType, normalizedIntent),
+      _followUpExecution: true,
+      _activeEntitySource: "follow-up",
+    };
+
+    const readIntent = {
+      intent: normalizedIntent,
+      requiresLocalData: true,
+      allowedTools: [],
+    };
+
+    if (normalizedIntent === READ_INTENTS.LIST_HISTORY_EVENTS) {
+      readIntent.filters = {
+        entityType: originType,
+        entityId: originId,
+      };
+    }
+
+    if (this._intentRequiresEntityHint(normalizedIntent)) {
+      const targetType = this._resolveReadEntityType(normalizedIntent);
+      const targetId = this._getScopeIdForType(scope, targetType);
+      if (!targetId) {
+        const error = new Error(
+          `Follow-up intent requires ${targetType} scope.`,
+        );
+        error.status = 400;
+        throw error;
+      }
+      readIntent.entityHints = [
+        { type: "id", value: targetId, entityType: targetType },
+      ];
+    }
+
+    const result = await this._executeReadIntent(
+      readIntent,
+      message,
+      scopedContext,
+      policy,
+    );
+
+    return {
+      ...result,
+      isFollowUpIntent: true,
+      followUpIntent: {
+        intent: normalizedIntent,
+        originType,
+        originId,
+      },
+    };
+  }
+
+  _validateFollowUpIntent(followUpIntent, policy, requestContext) {
+    this._validateContract("follow_up_intent", followUpIntent, {
+      intent: "FOLLOW_UP_INTENT",
+    });
+
+    if (!policy.allowedToolCategories.includes("read")) {
+      const error = new Error("Follow-up intents require read access.");
+      error.status = 403;
+      throw error;
+    }
+
+    const normalizedIntent = String(followUpIntent.intent || "").toUpperCase();
+    const allowedIntents = Object.values(READ_INTENTS);
+    if (!allowedIntents.includes(normalizedIntent)) {
+      const error = new Error(
+        `Unsupported follow-up intent: ${followUpIntent.intent}`,
+      );
+      error.status = 400;
+      throw error;
+    }
+
+    const activeContext = requestContext
+      ? this.contextStore.get(requestContext)
+      : null;
+    const activeType = this._normalizeFollowUpEntityType(
+      activeContext?.activeEntityType,
+    );
+    const activeId = activeContext?.activeEntityId ?? null;
+
+    if (!activeType || activeId === null || activeId === undefined) {
+      const error = new Error(
+        "I need context first. Try asking about a specific entity, like \"show me client Müller\" or \"what's the status of dossier 2024-001\".",
+      );
+      error.status = 409;
+      error.code = "NO_ENTITY_CONTEXT";
+      throw error;
+    }
+
+    const originType = this._normalizeFollowUpEntityType(
+      followUpIntent.origin?.entity || followUpIntent.entityType,
+    );
+    const originId =
+      followUpIntent.origin?.entityId ?? followUpIntent.entityId ?? null;
+
+    const entityType = this._normalizeFollowUpEntityType(
+      followUpIntent.entityType,
+    );
+    if (entityType && originType && entityType !== originType) {
+      const error = new Error(
+        `Follow-up origin mismatch: ${entityType} vs ${originType}`,
+      );
+      error.status = 400;
+      throw error;
+    }
+
+    if (
+      followUpIntent.entityId !== undefined &&
+      originId !== null &&
+      String(followUpIntent.entityId) !== String(originId)
+    ) {
+      const error = new Error(
+        "Follow-up origin ID mismatch between entityId and origin.entityId.",
+      );
+      error.status = 400;
+      throw error;
+    }
+
+    if (originType && activeType && originType !== activeType) {
+      const error = new Error(
+        `Follow-up origin does not match active context (${activeType}).`,
+      );
+      error.status = 409;
+      throw error;
+    }
+
+    if (
+      originId !== null &&
+      activeId !== null &&
+      String(originId) !== String(activeId)
+    ) {
+      const error = new Error(
+        "Follow-up origin ID does not match active context.",
+      );
+      error.status = 409;
+      throw error;
+    }
+
+    const targetType = this._resolveReadEntityType(normalizedIntent);
+    const isList = normalizedIntent.startsWith("LIST_");
+    const isRead =
+      normalizedIntent.startsWith("READ_") ||
+      normalizedIntent.startsWith("EXPLAIN_") ||
+      normalizedIntent.startsWith("SUMMARIZE_");
+
+    const relations = {
+      client: { children: ["dossier", "financial_entry"], parents: [] },
+      dossier: {
+        children: ["task", "session", "lawsuit", "financial_entry"],
+        parents: ["client"],
+      },
+      lawsuit: { children: ["session", "task"], parents: ["dossier"] },
+      task: { children: [], parents: ["dossier", "lawsuit"] },
+      personal_task: { children: [], parents: [] },
+      session: { children: [], parents: ["dossier", "lawsuit"] },
+      mission: { children: [], parents: ["dossier"] },
+      financial_entry: { children: [], parents: ["client", "dossier"] },
+    };
+
+    if (activeContext?.pendingSelection?.entityType) {
+      const pendingType = this._normalizeFollowUpEntityType(
+        activeContext.pendingSelection.entityType,
+      );
+      if (pendingType && targetType === pendingType) {
+        const error = new Error(
+          `Multiple ${pendingType.replace(/_/g, " ")} records found. Select one to continue.`,
+        );
+        error.status = 409;
+        throw error;
+      }
+    }
+
+    const originTypeForValidation = activeType || originType;
+    const originIdForValidation = activeId ?? originId;
+
+    if (normalizedIntent === READ_INTENTS.LIST_HISTORY_EVENTS) {
+      this._assertScopeForFollowUp(
+        followUpIntent.scope,
+        originTypeForValidation,
+        originIdForValidation,
+      );
+      return;
+    }
+
+    if (isList) {
+      if (targetType === originTypeForValidation) {
+        const error = new Error(
+          `Follow-up cannot list the same entity class (${targetType}).`,
+        );
+        error.status = 400;
+        throw error;
+      }
+
+      const allowedChildren = relations[originTypeForValidation]?.children || [];
+      if (!allowedChildren.includes(targetType)) {
+        const error = new Error(
+          `Follow-up intent ${normalizedIntent} is not valid for ${originTypeForValidation}.`,
+        );
+        error.status = 400;
+        throw error;
+      }
+
+      this._assertScopeForFollowUp(
+        followUpIntent.scope,
+        originTypeForValidation,
+        originIdForValidation,
+      );
+      return;
+    }
+
+    if (isRead) {
+      const allowedParents = relations[originTypeForValidation]?.parents || [];
+      const isSelf = targetType === originTypeForValidation;
+      if (!isSelf && !allowedParents.includes(targetType)) {
+        const error = new Error(
+          `Follow-up intent ${normalizedIntent} is not valid for ${originTypeForValidation}.`,
+        );
+        error.status = 400;
+        throw error;
+      }
+
+      const requiredScopeType = isSelf ? originTypeForValidation : targetType;
+      this._assertScopeForFollowUp(
+        followUpIntent.scope,
+        requiredScopeType,
+        isSelf ? originIdForValidation : null,
+      );
+      return;
+    }
+
+    const error = new Error(
+      `Unsupported follow-up intent type: ${normalizedIntent}`,
+    );
+    error.status = 400;
+    throw error;
+  }
+
+  _assertScopeForFollowUp(scope, requiredType, expectedId = null) {
+    if (!scope || typeof scope !== "object") {
+      const error = new Error("Follow-up intent is missing scope.");
+      error.status = 400;
+      throw error;
+    }
+
+    const requiredKey = this._scopeKeyForType(requiredType);
+    if (requiredKey && !scope[requiredKey]) {
+      const error = new Error(
+        `Follow-up intent requires ${requiredKey} scope.`,
+      );
+      error.status = 400;
+      throw error;
+    }
+
+    if (
+      requiredKey &&
+      expectedId !== null &&
+      scope[requiredKey] &&
+      String(scope[requiredKey]) !== String(expectedId)
+    ) {
+      const error = new Error(
+        `Follow-up scope mismatch for ${requiredKey}.`,
+      );
+      error.status = 400;
+      throw error;
+    }
+  }
+
+  _normalizeFollowUpEntityType(value) {
+    if (!value) return null;
+    const normalized = String(value).toLowerCase();
+    const map = {
+      client: "client",
+      dossier: "dossier",
+      lawsuit: "lawsuit",
+      case: "lawsuit",
+      task: "task",
+      personal_task: "personal_task",
+      personaltask: "personal_task",
+      session: "session",
+      mission: "mission",
+      financial_entry: "financial_entry",
+      financialentry: "financial_entry",
+    };
+    const upperMap = {
+      CLIENT: "client",
+      DOSSIER: "dossier",
+      LAWSUIT: "lawsuit",
+      TASK: "task",
+      PERSONAL_TASK: "personal_task",
+      SESSION: "session",
+      MISSION: "mission",
+      FINANCIAL_ENTRY: "financial_entry",
+    };
+
+    if (upperMap[value]) return upperMap[value];
+    return map[normalized] || normalized;
+  }
+
+  _scopeKeyForType(entityType) {
+    const map = {
+      client: "clientId",
+      dossier: "dossierId",
+      lawsuit: "lawsuitId",
+      task: "taskId",
+      personal_task: "personalTaskId",
+      session: "sessionId",
+      mission: "missionId",
+      financial_entry: "financialEntryId",
+    };
+    return map[entityType] || null;
+  }
+
+  _getScopeIdForType(scope, entityType) {
+    const key = this._scopeKeyForType(entityType);
+    if (!key) return null;
+    return scope?.[key] || null;
+  }
+
+  _resolveScopeTypeForFollowUp(scope, originType, intent) {
+    if (!scope || typeof scope !== "object") return originType || "global";
+
+    const scopeMap = {
+      clientId: "client",
+      dossierId: "dossier",
+      lawsuitId: "lawsuit",
+      sessionId: "session",
+      taskId: "task",
+      missionId: "mission",
+      personalTaskId: "personal_task",
+      financialEntryId: "financial_entry",
+    };
+
+    for (const [key, value] of Object.entries(scopeMap)) {
+      if (scope[key]) return value;
+    }
+
+    return originType || "global";
+  }
+
+  _intentRequiresEntityHint(intent) {
+    return (
+      intent.startsWith("READ_") ||
+      intent.startsWith("EXPLAIN_") ||
+      intent.startsWith("SUMMARIZE_")
+    );
   }
 
   /**
@@ -5855,6 +6565,10 @@ class AgentEngine {
       else if (entityIdLower.includes("history")) entityType = "history_event";
     }
 
+    if (!entityType && output.entityType) {
+      entityType = output.entityType;
+    }
+
     // If still not found, try the query itself
     if (!entityType && query) {
       const queryLower = query.toLowerCase();
@@ -5894,36 +6608,65 @@ class AgentEngine {
         actionType = ACTION_TYPES.EXPLAIN;
     }
 
-    // Extract result count from output details
+    const readMeta = result.readMeta || null;
+    const contextPromotion = result.contextPromotion || null;
+
+    // Extract result count from output details (fallback when readMeta missing)
     let count = 0;
     let emptyResult = false;
-    if (output.details && Array.isArray(output.details)) {
-      // Count bullet points as results
+    if (readMeta && typeof readMeta.count === "number") {
+      count = readMeta.count;
+    } else if (output.facts && Array.isArray(output.facts.details)) {
+      count = output.facts.details.length;
+    } else if (output.details && Array.isArray(output.details)) {
       count = output.details.filter((d) => d.startsWith("•")).length;
     }
-    if (output.summary) {
+    const summaryText = output.facts?.summary || output.summary;
+    if (summaryText) {
       // Try to extract count from summary
-      const countMatch = output.summary.match(
+      const countMatch = summaryText.match(
         /(\d+)\s+(client|dossier|task|session|item)/i,
       );
       if (countMatch) count = parseInt(countMatch[1], 10);
-      if (/no\s+(client|dossier|task|session|result)/i.test(output.summary)) {
+      if (/no\s+(client|dossier|task|session|result)/i.test(summaryText)) {
         count = 0;
         emptyResult = true;
       }
+    }
+
+    if (
+      count === 0 &&
+      output.entityId &&
+      !String(output.entityId).toLowerCase().startsWith("list:") &&
+      summaryText &&
+      !/no\s+|not\s+found|multiple|which|provide/i.test(summaryText)
+    ) {
+      count = 1;
+    }
+
+    const entityIdsFromMeta = Array.isArray(readMeta?.entityIds)
+      ? readMeta.entityIds
+      : [];
+    if (readMeta?.entityType) {
+      entityType = readMeta.entityType;
     }
 
     // Update context store
     this.contextStore.update(requestContext, {
       intent,
       entityType,
-      entityIds: [], // Could be populated from output data if needed
+      entityIds: entityIdsFromMeta,
       actionType,
       resultSummary: {
         count,
         emptyResult,
         filters: {},
       },
+      activeEntity: contextPromotion?.activeEntity || null,
+      pendingSelection:
+        contextPromotion && "pendingSelection" in contextPromotion
+          ? contextPromotion.pendingSelection
+          : undefined,
       query,
       source,
     });
@@ -5934,6 +6677,9 @@ class AgentEngine {
       entityType,
       actionType,
       resultCount: count,
+      activeEntityType: contextPromotion?.activeEntity?.type || null,
+      activeEntityId: contextPromotion?.activeEntity?.id || null,
+      pendingSelection: contextPromotion?.pendingSelection || null,
       source,
       timestamp: new Date().toISOString(),
     });
