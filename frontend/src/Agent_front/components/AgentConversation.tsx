@@ -2,12 +2,19 @@ import { useMemo } from "react";
 import { AgentMessage as AgentMessageType } from "../types/agentMessage";
 import { UserCommand } from "./UserCommand";
 import { AgentArtifact } from "./AgentArtifact";
+import { StatusMessage } from "./messages/StatusMessage";
 import type { FollowUpSuggestion } from "../../services/api/agent";
+
+type TransientStatus = {
+  action: string;
+  phase?: string;
+};
 
 interface AgentConversationProps {
   messages: AgentMessageType[];
   conversationEndRef: React.RefObject<HTMLDivElement | null>;
   getRelativeTime: (timestamp: Date) => string;
+  transientStatus?: TransientStatus | null;
   onFollowUpClick?: (followUp: FollowUpSuggestion) => void;
   /** Called when user clicks an example query (e.g., from error suggestions) */
   onExampleClick?: (example: string) => void;
@@ -24,26 +31,28 @@ export function AgentConversation({
   messages,
   conversationEndRef,
   getRelativeTime,
+  transientStatus,
   onFollowUpClick,
   onExampleClick,
 }: AgentConversationProps) {
   // Group messages into interaction pairs: [user, agent?]
   const interactionPairs = useMemo(() => {
-    const pairs: { user: AgentMessageType; agent?: AgentMessageType }[] = [];
+    const pairs: { user: AgentMessageType; agents: AgentMessageType[] }[] = [];
     let pendingUser: AgentMessageType | null = null;
+    let pendingAgents: AgentMessageType[] = [];
 
     for (const msg of messages) {
       if (msg.role === "user") {
         // If there was a previous user with no agent response, push it alone
         if (pendingUser) {
-          pairs.push({ user: pendingUser });
+          pairs.push({ user: pendingUser, agents: pendingAgents });
         }
         pendingUser = msg;
+        pendingAgents = [];
       } else {
         // Agent message
         if (pendingUser) {
-          pairs.push({ user: pendingUser, agent: msg });
-          pendingUser = null;
+          pendingAgents.push(msg);
         } else {
           // Orphan agent message (retry without matching user) —
           // create a synthetic pair with a blank user
@@ -54,7 +63,7 @@ export function AgentConversation({
               content: "",
               timestamp: msg.timestamp,
             },
-            agent: msg,
+            agents: [msg],
           });
         }
       }
@@ -62,7 +71,7 @@ export function AgentConversation({
 
     // Trailing user message with no response yet
     if (pendingUser) {
-      pairs.push({ user: pendingUser });
+      pairs.push({ user: pendingUser, agents: pendingAgents });
     }
 
     return pairs;
@@ -79,13 +88,16 @@ export function AgentConversation({
             />
           )}
 
-          {pair.agent && (
-            <div className="mt-3">
-              <AgentArtifact
-                message={pair.agent}
-                onFollowUpClick={onFollowUpClick}
-                onExampleClick={onExampleClick}
-              />
+          {pair.agents.length > 0 && (
+            <div className="mt-3 space-y-3">
+              {pair.agents.map((agent) => (
+                <AgentArtifact
+                  key={agent.id}
+                  message={agent}
+                  onFollowUpClick={onFollowUpClick}
+                  onExampleClick={onExampleClick}
+                />
+              ))}
             </div>
           )}
 
@@ -96,6 +108,12 @@ export function AgentConversation({
           )}
         </div>
       ))}
+
+      {transientStatus && (
+        <div className="space-y-2">
+          <StatusMessage action={transientStatus.action} phase={transientStatus.phase} />
+        </div>
+      )}
 
       <div ref={conversationEndRef} className="h-6" />
     </div>

@@ -12,9 +12,9 @@ interface ActionArtifactProps {
  */
 export function ActionArtifact({ data }: ActionArtifactProps) {
   return (
-    <div className="artifact-enter agent-artifact-card is-action">
+    <div className="artifact-build agent-artifact-card is-action">
       {/* Header */}
-      <div className="agent-artifact-header flex items-center justify-between px-5 py-3">
+      <div className="artifact-build-header agent-artifact-header flex items-center justify-between px-5 py-3">
         <div className="flex items-center gap-2">
           <ListTodo className="w-4 h-4 text-green-600" />
           <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
@@ -27,11 +27,12 @@ export function ActionArtifact({ data }: ActionArtifactProps) {
       </div>
 
       {/* Action cards */}
-      <div className="px-5 py-4 space-y-3">
+      <div className="artifact-build-section artifact-build-section-1 px-5 py-4 space-y-3">
         {data.map((action: ActionProposal, idx: number) => (
           <div
             key={action.proposalId || idx}
-            className="p-4 rounded-xl border border-slate-200/70 dark:border-slate-700/60 bg-white/70 dark:bg-slate-900/40"
+            className={`artifact-build-statement p-4 rounded-xl border border-slate-200/70 dark:border-slate-700/60 bg-white/70 dark:bg-slate-900/40`}
+            style={{ animationDelay: `${0.25 + idx * 0.12}s` }}
           >
             <div className="flex items-start justify-between gap-3">
               <div className="flex-1 min-w-0">

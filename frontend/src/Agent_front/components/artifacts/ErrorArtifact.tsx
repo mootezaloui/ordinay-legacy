@@ -23,9 +23,22 @@ const CONTEXT_EXAMPLES = [
 function isContextError(content: string): boolean {
   const lower = content.toLowerCase();
   return (
+    lower.includes("no_entity_context") ||
     lower.includes("need context first") ||
     lower.includes("no active entity context") ||
     lower.includes("read an entity before")
+  );
+}
+
+function isErrorCode(content: string): boolean {
+  const trimmed = content.trim();
+  if (!trimmed) return false;
+  const upper = trimmed.toUpperCase();
+  return (
+    upper === "NO_ENTITY_CONTEXT" ||
+    upper === "PENDING_SELECTION" ||
+    upper === "INVALID_COMMAND" ||
+    upper === "COMMAND_ERROR"
   );
 }
 
@@ -37,10 +50,13 @@ function isContextError(content: string): boolean {
  */
 export function ErrorArtifact({ content, onExampleClick }: ErrorArtifactProps) {
   const isContext = isContextError(content);
+  const normalized = content.trim().toUpperCase();
+  const isPendingSelection = normalized === "PENDING_SELECTION";
+  const hideContent = isErrorCode(content);
 
   return (
-    <div className="artifact-enter agent-artifact-card is-error">
-      <div className="agent-artifact-header flex items-center gap-2 px-5 py-3 border-b border-amber-200/70 dark:border-amber-800/60">
+    <div className="artifact-build agent-artifact-card is-error">
+      <div className="artifact-build-header agent-artifact-header flex items-center gap-2 px-5 py-3 border-b border-amber-200/70 dark:border-amber-800/60">
         {isContext ? (
           <Search className="w-4 h-4 text-amber-600 dark:text-amber-400" />
         ) : (
@@ -51,31 +67,34 @@ export function ErrorArtifact({ content, onExampleClick }: ErrorArtifactProps) {
             ? "text-amber-700 dark:text-amber-400"
             : "text-red-600 dark:text-red-400"
         }`}>
-          {isContext ? "Context Needed" : "Error"}
+          {isContext ? "Context Needed" : isPendingSelection ? "Selection Needed" : "Error"}
         </span>
       </div>
-      <div className="px-5 py-3 space-y-3">
-        <div className={`text-sm leading-relaxed ${
-          isContext
-            ? "text-amber-800 dark:text-amber-200"
-            : "text-red-700 dark:text-red-300"
-        }`}>
-          <MarkdownOutput content={content} />
-        </div>
+      <div className="artifact-build-section artifact-build-section-1 px-5 py-3 space-y-3">
+        {!hideContent && (
+          <div className={`artifact-build-section artifact-build-section-2 text-sm leading-relaxed ${
+            isContext
+              ? "text-amber-800 dark:text-amber-200"
+              : "text-red-700 dark:text-red-300"
+          }`}>
+            <MarkdownOutput content={content} />
+          </div>
+        )}
 
         {/* Show example queries for context errors */}
         {isContext && onExampleClick && (
-          <div className="pt-2 space-y-2">
+          <div className="artifact-build-section artifact-build-section-2 pt-2 space-y-2">
             <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">
               Try one of these:
             </p>
             <div className="flex flex-wrap gap-2">
-              {CONTEXT_EXAMPLES.map((example) => (
+              {CONTEXT_EXAMPLES.map((example, idx) => (
                 <button
                   key={example}
                   type="button"
                   onClick={() => onExampleClick(example)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/40 hover:bg-amber-200 dark:hover:bg-amber-800/50 rounded-full transition-colors"
+                  className="artifact-build-statement inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/40 hover:bg-amber-200 dark:hover:bg-amber-800/50 rounded-full transition-colors"
+                  style={{ animationDelay: `${0.35 + idx * 0.1}s` }}
                 >
                   {example}
                   <ArrowRight className="w-3 h-3" />

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { AgentMessage, AgentMessageData, AgentMessageStage } from "../types/agentMessage";
+import { AgentMessage, AgentMessageData } from "../types/agentMessage";
 import { useAgentSessions } from "./useAgentSessions";
 import {
   streamAgentMessage,
@@ -11,7 +11,6 @@ import {
   CommentaryOutput,
   StatusEventData,
 } from "../../services/api/agent";
-import { getContextualAckPhrase } from "../utils/ackPhrases";
 
 // Default data access - all domains enabled
 const DEFAULT_DATA_ACCESS: DataAccessPermissions = {
@@ -34,6 +33,12 @@ const HISTORY_SIDEBAR_BREAKPOINT = 1024; // lg
 const CONTEXT_SIDEBAR_BREAKPOINT = 1536; // 2xl
 const HISTORY_SIDEBAR_STORAGE_KEY = "organia_agent_history_sidebar";
 const CONTEXT_SIDEBAR_STORAGE_KEY = "organia_agent_context_sidebar";
+
+type TransientStatus = {
+  sessionId: string;
+  action: string;
+  phase?: string;
+};
 
 function getInitialSidebarVisibility() {
   if (typeof window === "undefined") {
@@ -118,6 +123,7 @@ export function useAgentState() {
     initialVisibility.showContext
   );
   const [isLoading, setIsLoading] = useState(false);
+  const [transientStatus, setTransientStatus] = useState<TransientStatus | null>(null);
   const [agentVersion, setAgentVersion] = useState<AgentVersion>("v1");
   const [contextScope, setContextScope] = useState<ContextScope>("GLOBAL");
   // CRITICAL: Load data access permissions from localStorage on init
@@ -147,6 +153,12 @@ export function useAgentState() {
     () => activeSession?.messages ?? [],
     [activeSession?.messages]
   );
+
+  const activeTransientStatus = useMemo(() => {
+    if (!transientStatus || transientStatus.sessionId !== activeSessionId) return null;
+    const { sessionId, ...rest } = transientStatus;
+    return rest;
+  }, [transientStatus, activeSessionId]);
 
   // Scroll to bottom utility
   const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
@@ -178,6 +190,7 @@ export function useAgentState() {
       streamAbortRef.current?.abort();
       streamAbortRef.current = null;
       streamSessionRef.current = null;
+      setTransientStatus(null);
     }
   }, [activeSessionId]);
 
@@ -216,6 +229,7 @@ export function useAgentState() {
       streamAbortRef.current = null;
       streamSessionRef.current = null;
       setIsLoading(false);
+      setTransientStatus(null);
     }
   }, []);
 
@@ -308,6 +322,21 @@ export function useAgentState() {
     []
   );
 
+  const setSessionStatus = useCallback(
+    (sessionId: string, status: Omit<TransientStatus, "sessionId">) => {
+      setTransientStatus({ sessionId, ...status });
+    },
+    []
+  );
+
+  const clearSessionStatus = useCallback((sessionId: string) => {
+    setTransientStatus((prev) => {
+      if (!prev) return prev;
+      if (prev.sessionId !== sessionId) return prev;
+      return null;
+    });
+  }, []);
+
   // Collapse sidebars when the viewport gets too small.
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -358,10 +387,10 @@ export function useAgentState() {
     const trimmed = input.trim();
     if (!trimmed || isLoading) return;
 
-    // Bootstrap session if none exists
+    // Use existing session if we have an activeSessionId, otherwise create new
     let sessionId = activeSessionId;
     let currentMessages = conversation;
-    if (!activeSession) {
+    if (!activeSessionId || !activeSession) {
       const newSession = createSession();
       sessionId = newSession.id;
       currentMessages = [];
@@ -374,25 +403,29 @@ export function useAgentState() {
       timestamp: new Date(),
     };
 
-    // ========== STAGE 1: IMMEDIATE ACKNOWLEDGEMENT ==========
-    // Show ACK message INSTANTLY, before any API call
+    // ========== STAGE 1: IMMEDIATE ACKNOWLEDGEMENT (EPHEMERAL) ==========
+    // Show ACK status instantly, but do not persist it in the conversation.
     const agentMessageId = `a-${Date.now()}`;
-    const ackPhrase = getContextualAckPhrase(trimmed);
-    const ackMessage: AgentMessage = {
-      id: agentMessageId,
-      role: "agent",
-      content: ackPhrase,
-      timestamp: new Date(),
-      status: "sending",
-      stage: "ack", // Mark as acknowledgement stage
-    };
-
+    const intentMessageId = `i-${Date.now()}`;
     // Capture current messages for updates
     const baseMessages = [...currentMessages, userMessage];
-    updateSessionMessages(sessionId, [...baseMessages, ackMessage]);
+    let workingMessages = [...baseMessages];
+    updateSessionMessages(sessionId, workingMessages);
     setInput("");
     updateSessionDraft(sessionId, "");
     setIsLoading(true);
+
+    const appendMessage = (message: AgentMessage) => {
+      workingMessages = [...workingMessages, message];
+      updateSessionMessages(sessionId, workingMessages);
+    };
+
+    const updateMessage = (message: AgentMessage) => {
+      workingMessages = workingMessages.map((msg) =>
+        msg.id === message.id ? message : msg
+      );
+      updateSessionMessages(sessionId, workingMessages);
+    };
 
     // Reset user scroll tracking and scroll to bottom immediately when sending a message
     isUserScrolledUpRef.current = false;
@@ -407,8 +440,33 @@ export function useAgentState() {
     let intent = "GENERAL_CHAT";
     let agentData: AgentMessageData | undefined;
     let commentary: CommentaryOutput | undefined;
-    let currentStage: AgentMessageStage = "ack";
-    let currentStatusAction = ackPhrase;
+    let hasAgentMessage = false;
+    let hasIntentMessage = false;
+    // Track streaming intent framing content
+    let streamedIntentContent = "";
+    // Track streaming commentary content
+    let streamedCommentaryContent = "";
+
+    const upsertIntentMessage = (content: string, intentOverride?: string) => {
+      const trimmedContent = content.trim();
+      if (!trimmedContent) return;
+      const intentMessage: AgentMessage = {
+        id: intentMessageId,
+        role: "agent",
+        content: trimmedContent,
+        timestamp: new Date(),
+        stage: "intent",
+        intent: intentOverride || intent,
+        messageType: "AGENT_INTENT_MESSAGE",
+      };
+      const exists = workingMessages.some((msg) => msg.id === intentMessageId);
+      if (exists) {
+        updateMessage(intentMessage);
+      } else {
+        appendMessage(intentMessage);
+      }
+      hasIntentMessage = true;
+    };
 
     // Start streaming
     const abortController = streamAgentMessage(
@@ -417,38 +475,26 @@ export function useAgentState() {
       {
         onStart: (data) => {
           intent = data.intent;
-          // Transition to status stage when intent is known
           if (streamSessionRef.current !== sessionId) return;
-          currentStage = "status";
-          const statusMessage: AgentMessage = {
-            id: agentMessageId,
-            role: "agent",
-            content: currentStatusAction,
-            timestamp: new Date(),
-            status: "sending",
-            stage: "status",
-            statusAction: currentStatusAction,
-            intent,
-          };
-          updateSessionMessages(sessionId, [...baseMessages, statusMessage]);
+        },
+        onIntentFraming: (data) => {
+          if (streamSessionRef.current !== sessionId) return;
+          if (!data.message || data.message.trim().length === 0) return;
+          // Complete intent framing message - use this as final
+          streamedIntentContent = data.message;
+          upsertIntentMessage(data.message);
+        },
+        onIntentFramingChunk: (chunk) => {
+          // Streaming intent framing - accumulate and update in real-time
+          if (streamSessionRef.current !== sessionId) return;
+          streamedIntentContent += chunk;
+          upsertIntentMessage(streamedIntentContent);
         },
         onStatus: (data: StatusEventData) => {
           // ========== STAGE 2: STATUS UPDATES ==========
           // Update status action text as processing progresses
           if (streamSessionRef.current !== sessionId) return;
-          currentStage = "status";
-          currentStatusAction = data.action;
-          const statusMessage: AgentMessage = {
-            id: agentMessageId,
-            role: "agent",
-            content: data.action,
-            timestamp: new Date(),
-            status: "sending",
-            stage: "status",
-            statusAction: data.action,
-            intent,
-          };
-          updateSessionMessages(sessionId, [...baseMessages, statusMessage]);
+          setSessionStatus(sessionId, { action: data.action, phase: data.phase });
         },
         onChunk: (content) => {
           // Ignore if session changed
@@ -464,7 +510,13 @@ export function useAgentState() {
             stage: "commentary", // Streaming text is commentary
             intent,
           };
-          updateSessionMessages(sessionId, [...baseMessages, updatedMessage]);
+          if (hasAgentMessage) {
+            updateMessage(updatedMessage);
+          } else {
+            appendMessage(updatedMessage);
+            hasAgentMessage = true;
+          }
+          clearSessionStatus(sessionId);
         },
         onResult: (data) => {
           // ========== STAGE 3: ARTIFACT ==========
@@ -473,20 +525,22 @@ export function useAgentState() {
 
           const output = data.output;
           intent = data.intent;
-          currentStage = "artifact";
 
           if (output.type === "explanation") {
             agentData = { type: "explanation", explanation: output };
-            streamedContent = (output as { facts?: { summary?: string }; summary?: string }).facts?.summary || (output as { summary?: string }).summary || "Entity loaded";
+            streamedContent = "";
+          } else if (output.type === "clarification") {
+            agentData = { type: "clarification", clarification: output };
+            streamedContent = "";
           } else if (output.type === "operational_risk_analysis") {
             agentData = { type: "risks", risks: output };
-            streamedContent = output.overallAssessment || "Risk analysis complete";
+            streamedContent = "";
           } else if (["INVITATION", "CLIENT_EMAIL", "HEARING_SUMMARY", "INTERNAL_NOTE"].includes(output.type)) {
             agentData = { type: "draft", draft: output as import("../../services/api/agent").DraftOutput };
-            streamedContent = `Draft ${output.type.toLowerCase().replace("_", " ")} generated`;
+            streamedContent = "";
           } else if (output.type === "action_plan") {
             agentData = { type: "actions", actionProposals: output.actions };
-            streamedContent = `${output.actions?.length || 0} action(s) proposed`;
+            streamedContent = "";
           }
 
           const resultMessage: AgentMessage = {
@@ -499,13 +553,21 @@ export function useAgentState() {
             intent,
             data: agentData,
           };
-          updateSessionMessages(sessionId, [...baseMessages, resultMessage]);
+          if (hasAgentMessage) {
+            updateMessage(resultMessage);
+          } else {
+            appendMessage(resultMessage);
+            hasAgentMessage = true;
+          }
+          clearSessionStatus(sessionId);
         },
         onCommentary: (data) => {
           // ========== STAGE 4: COMMENTARY ==========
-          // Receive conversational commentary about the artifact
+          // Receive complete conversational commentary about the artifact
           if (streamSessionRef.current !== sessionId) return;
           commentary = data;
+          // Reset streaming content since we have complete commentary
+          streamedCommentaryContent = data.message || "";
 
           // Update message with commentary (artifact already rendered)
           const messageWithCommentary: AgentMessage = {
@@ -519,7 +581,43 @@ export function useAgentState() {
             data: agentData,
             commentary,
           };
-          updateSessionMessages(sessionId, [...baseMessages, messageWithCommentary]);
+          if (hasAgentMessage) {
+            updateMessage(messageWithCommentary);
+          } else {
+            appendMessage(messageWithCommentary);
+            hasAgentMessage = true;
+          }
+        },
+        onCommentaryChunk: (chunk) => {
+          // Streaming commentary - accumulate and update in real-time
+          if (streamSessionRef.current !== sessionId) return;
+          streamedCommentaryContent += chunk;
+
+          // Create temporary commentary object for display
+          const streamingCommentary: CommentaryOutput = {
+            message: streamedCommentaryContent,
+            source: "llm",
+            signals: [],
+          };
+
+          // Update message with streaming commentary
+          const messageWithStreamingCommentary: AgentMessage = {
+            id: agentMessageId,
+            role: "agent",
+            content: streamedContent,
+            timestamp: new Date(),
+            status: "sending",
+            stage: "artifact",
+            intent,
+            data: agentData,
+            commentary: streamingCommentary,
+          };
+          if (hasAgentMessage) {
+            updateMessage(messageWithStreamingCommentary);
+          } else {
+            appendMessage(messageWithStreamingCommentary);
+            hasAgentMessage = true;
+          }
         },
         onDone: () => {
           if (streamSessionRef.current !== sessionId) return;
@@ -527,7 +625,7 @@ export function useAgentState() {
           const finalMessage: AgentMessage = {
             id: agentMessageId,
             role: "agent",
-            content: streamedContent || "Response complete",
+            content: streamedContent,
             timestamp: new Date(),
             status: "success",
             stage: agentData ? "artifact" : "commentary",
@@ -535,10 +633,16 @@ export function useAgentState() {
             data: agentData,
             commentary,
           };
-          updateSessionMessages(sessionId, [...baseMessages, finalMessage]);
+          if (hasAgentMessage) {
+            updateMessage(finalMessage);
+          } else {
+            appendMessage(finalMessage);
+            hasAgentMessage = true;
+          }
           setIsLoading(false);
           streamAbortRef.current = null;
           streamSessionRef.current = null;
+          clearSessionStatus(sessionId);
         },
         onError: (error) => {
           if (streamSessionRef.current !== sessionId) return;
@@ -546,34 +650,41 @@ export function useAgentState() {
           const errorMessage: AgentMessage = {
             id: agentMessageId,
             role: "agent",
-            content: `Error: ${error}`,
+            content: error,
             timestamp: new Date(),
             status: "error",
             data: { type: "error", error },
           };
-          updateSessionMessages(sessionId, [...baseMessages, errorMessage]);
+          if (hasAgentMessage) {
+            updateMessage(errorMessage);
+          } else {
+            appendMessage(errorMessage);
+            hasAgentMessage = true;
+          }
           setIsLoading(false);
           streamAbortRef.current = null;
           streamSessionRef.current = null;
+          clearSessionStatus(sessionId);
         },
         onCancelled: () => {
           setIsLoading(false);
           streamAbortRef.current = null;
           streamSessionRef.current = null;
+          clearSessionStatus(sessionId);
         },
       }
     );
 
     streamAbortRef.current = abortController;
-  }, [input, activeSessionId, activeSession, conversation, updateSessionMessages, updateSessionDraft, createSession, isLoading, contextScope, agentVersion, dataAccess, setInput]);
+  }, [input, activeSessionId, activeSession, conversation, updateSessionMessages, updateSessionDraft, createSession, isLoading, contextScope, agentVersion, dataAccess, setInput, scrollToBottom, setSessionStatus, clearSessionStatus]);
 
   const startFollowUpIntent = useCallback((followUp: FollowUpSuggestion) => {
     if (!followUp || isLoading) return;
 
-    // Bootstrap session if none exists
+    // Use existing session if we have an activeSessionId, otherwise create new
     let sessionId = activeSessionId;
     let currentMessages = conversation;
-    if (!activeSession) {
+    if (!activeSessionId || !activeSession) {
       const newSession = createSession();
       sessionId = newSession.id;
       currentMessages = [];
@@ -587,21 +698,25 @@ export function useAgentState() {
       followUpIntent: buildFollowUpIntent(followUp),
     };
 
-    // ========== STAGE 1: IMMEDIATE ACKNOWLEDGEMENT ==========
+    // ========== STAGE 1: IMMEDIATE ACKNOWLEDGEMENT (EPHEMERAL) ==========
     const agentMessageId = `a-${Date.now()}`;
-    const ackPhrase = getContextualAckPhrase(followUp.label);
-    const ackMessage: AgentMessage = {
-      id: agentMessageId,
-      role: "agent",
-      content: ackPhrase,
-      timestamp: new Date(),
-      status: "sending",
-      stage: "ack",
+    const intentMessageId = `i-${Date.now()}`;
+    const baseMessages = [...currentMessages, userMessage];
+    let workingMessages = [...baseMessages];
+    updateSessionMessages(sessionId, workingMessages);
+    setIsLoading(true);
+
+    const appendMessage = (message: AgentMessage) => {
+      workingMessages = [...workingMessages, message];
+      updateSessionMessages(sessionId, workingMessages);
     };
 
-    const baseMessages = [...currentMessages, userMessage];
-    updateSessionMessages(sessionId, [...baseMessages, ackMessage]);
-    setIsLoading(true);
+    const updateMessage = (message: AgentMessage) => {
+      workingMessages = workingMessages.map((msg) =>
+        msg.id === message.id ? message : msg
+      );
+      updateSessionMessages(sessionId, workingMessages);
+    };
 
     // Reset user scroll tracking and scroll to bottom
     isUserScrolledUpRef.current = false;
@@ -613,42 +728,55 @@ export function useAgentState() {
     let intent = followUp.intent || "READ_DATA";
     let agentData: AgentMessageData | undefined;
     let commentary: CommentaryOutput | undefined;
-    let currentStatusAction = ackPhrase;
+    let hasAgentMessage = false;
+    let hasIntentMessage = false;
+    let streamedIntentContent = "";
+    let streamedCommentaryContent = "";
+
+    const upsertIntentMessage = (content: string, intentOverride?: string) => {
+      const trimmedContent = content.trim();
+      if (!trimmedContent) return;
+      const intentMessage: AgentMessage = {
+        id: intentMessageId,
+        role: "agent",
+        content: trimmedContent,
+        timestamp: new Date(),
+        stage: "intent",
+        intent: intentOverride || intent,
+        messageType: "AGENT_INTENT_MESSAGE",
+      };
+      const exists = workingMessages.some((msg) => msg.id === intentMessageId);
+      if (exists) {
+        updateMessage(intentMessage);
+      } else {
+        appendMessage(intentMessage);
+      }
+      hasIntentMessage = true;
+    };
 
     const abortController = streamAgentMessage(
       followUp.label,
       { contextScope, agentVersion, dataAccess, followUpIntent: userMessage.followUpIntent },
-      {
-        onStart: (data) => {
-          intent = data.intent;
-          if (streamSessionRef.current !== sessionId) return;
-          const statusMessage: AgentMessage = {
-            id: agentMessageId,
-            role: "agent",
-            content: currentStatusAction,
-            timestamp: new Date(),
-            status: "sending",
-            stage: "status",
-            statusAction: currentStatusAction,
-            intent,
-          };
-          updateSessionMessages(sessionId, [...baseMessages, statusMessage]);
-        },
+        {
+          onStart: (data) => {
+            intent = data.intent;
+            if (streamSessionRef.current !== sessionId) return;
+          },
+          onIntentFraming: (data) => {
+            if (streamSessionRef.current !== sessionId) return;
+            if (!data.message || data.message.trim().length === 0) return;
+            streamedIntentContent = data.message;
+            upsertIntentMessage(data.message);
+          },
+          onIntentFramingChunk: (chunk) => {
+            if (streamSessionRef.current !== sessionId) return;
+            streamedIntentContent += chunk;
+            upsertIntentMessage(streamedIntentContent);
+          },
         onStatus: (data: StatusEventData) => {
           // ========== STAGE 2: STATUS UPDATES ==========
           if (streamSessionRef.current !== sessionId) return;
-          currentStatusAction = data.action;
-          const statusMessage: AgentMessage = {
-            id: agentMessageId,
-            role: "agent",
-            content: data.action,
-            timestamp: new Date(),
-            status: "sending",
-            stage: "status",
-            statusAction: data.action,
-            intent,
-          };
-          updateSessionMessages(sessionId, [...baseMessages, statusMessage]);
+          setSessionStatus(sessionId, { action: data.action, phase: data.phase });
         },
         onChunk: (content) => {
           if (streamSessionRef.current !== sessionId) return;
@@ -663,7 +791,13 @@ export function useAgentState() {
             stage: "commentary",
             intent,
           };
-          updateSessionMessages(sessionId, [...baseMessages, updatedMessage]);
+          if (hasAgentMessage) {
+            updateMessage(updatedMessage);
+          } else {
+            appendMessage(updatedMessage);
+            hasAgentMessage = true;
+          }
+          clearSessionStatus(sessionId);
         },
         onResult: (data) => {
           // ========== STAGE 3: ARTIFACT ==========
@@ -674,14 +808,13 @@ export function useAgentState() {
 
           if (output.type === "explanation") {
             agentData = { type: "explanation", explanation: output };
-            streamedContent =
-              (output as { facts?: { summary?: string }; summary?: string })
-                .facts?.summary ||
-              (output as { summary?: string }).summary ||
-              "Entity loaded";
+            streamedContent = "";
+          } else if (output.type === "clarification") {
+            agentData = { type: "clarification", clarification: output };
+            streamedContent = "";
           } else if (output.type === "operational_risk_analysis") {
             agentData = { type: "risks", risks: output };
-            streamedContent = output.overallAssessment || "Risk analysis complete";
+            streamedContent = "";
           } else if (
             ["INVITATION", "CLIENT_EMAIL", "HEARING_SUMMARY", "INTERNAL_NOTE"].includes(
               output.type
@@ -691,10 +824,10 @@ export function useAgentState() {
               type: "draft",
               draft: output as import("../../services/api/agent").DraftOutput,
             };
-            streamedContent = `Draft ${output.type.toLowerCase().replace("_", " ")} generated`;
+            streamedContent = "";
           } else if (output.type === "action_plan") {
             agentData = { type: "actions", actionProposals: output.actions };
-            streamedContent = `${output.actions?.length || 0} action(s) proposed`;
+            streamedContent = "";
           }
 
           const resultMessage: AgentMessage = {
@@ -707,12 +840,19 @@ export function useAgentState() {
             intent,
             data: agentData,
           };
-          updateSessionMessages(sessionId, [...baseMessages, resultMessage]);
+          if (hasAgentMessage) {
+            updateMessage(resultMessage);
+          } else {
+            appendMessage(resultMessage);
+            hasAgentMessage = true;
+          }
+          clearSessionStatus(sessionId);
         },
         onCommentary: (data) => {
           // ========== STAGE 4: COMMENTARY ==========
           if (streamSessionRef.current !== sessionId) return;
           commentary = data;
+          streamedCommentaryContent = data.message || "";
 
           // Update message with commentary (artifact already rendered)
           const messageWithCommentary: AgentMessage = {
@@ -726,7 +866,40 @@ export function useAgentState() {
             data: agentData,
             commentary,
           };
-          updateSessionMessages(sessionId, [...baseMessages, messageWithCommentary]);
+          if (hasAgentMessage) {
+            updateMessage(messageWithCommentary);
+          } else {
+            appendMessage(messageWithCommentary);
+            hasAgentMessage = true;
+          }
+        },
+        onCommentaryChunk: (chunk) => {
+          if (streamSessionRef.current !== sessionId) return;
+          streamedCommentaryContent += chunk;
+
+          const streamingCommentary: CommentaryOutput = {
+            message: streamedCommentaryContent,
+            source: "llm",
+            signals: [],
+          };
+
+          const messageWithStreamingCommentary: AgentMessage = {
+            id: agentMessageId,
+            role: "agent",
+            content: streamedContent,
+            timestamp: new Date(),
+            status: "sending",
+            stage: "artifact",
+            intent,
+            data: agentData,
+            commentary: streamingCommentary,
+          };
+          if (hasAgentMessage) {
+            updateMessage(messageWithStreamingCommentary);
+          } else {
+            appendMessage(messageWithStreamingCommentary);
+            hasAgentMessage = true;
+          }
         },
         onDone: () => {
           if (streamSessionRef.current !== sessionId) return;
@@ -734,7 +907,7 @@ export function useAgentState() {
           const finalMessage: AgentMessage = {
             id: agentMessageId,
             role: "agent",
-            content: streamedContent || "Response complete",
+            content: streamedContent,
             timestamp: new Date(),
             status: "success",
             stage: agentData ? "artifact" : "commentary",
@@ -742,10 +915,16 @@ export function useAgentState() {
             data: agentData,
             commentary,
           };
-          updateSessionMessages(sessionId, [...baseMessages, finalMessage]);
+          if (hasAgentMessage) {
+            updateMessage(finalMessage);
+          } else {
+            appendMessage(finalMessage);
+            hasAgentMessage = true;
+          }
           setIsLoading(false);
           streamAbortRef.current = null;
           streamSessionRef.current = null;
+          clearSessionStatus(sessionId);
         },
         onError: (error) => {
           if (streamSessionRef.current !== sessionId) return;
@@ -753,26 +932,33 @@ export function useAgentState() {
           const errorMessage: AgentMessage = {
             id: agentMessageId,
             role: "agent",
-            content: `Error: ${error}`,
+            content: error,
             timestamp: new Date(),
             status: "error",
             data: { type: "error", error },
           };
-          updateSessionMessages(sessionId, [...baseMessages, errorMessage]);
+          if (hasAgentMessage) {
+            updateMessage(errorMessage);
+          } else {
+            appendMessage(errorMessage);
+            hasAgentMessage = true;
+          }
           setIsLoading(false);
           streamAbortRef.current = null;
           streamSessionRef.current = null;
+          clearSessionStatus(sessionId);
         },
         onCancelled: () => {
           setIsLoading(false);
           streamAbortRef.current = null;
           streamSessionRef.current = null;
+          clearSessionStatus(sessionId);
         },
       }
     );
 
     streamAbortRef.current = abortController;
-  }, [activeSessionId, activeSession, buildFollowUpIntent, conversation, createSession, dataAccess, agentVersion, contextScope, isLoading, scrollToBottom, updateSessionMessages]);
+  }, [activeSessionId, activeSession, buildFollowUpIntent, conversation, createSession, dataAccess, agentVersion, contextScope, isLoading, scrollToBottom, updateSessionMessages, setSessionStatus, clearSessionStatus]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -788,67 +974,81 @@ export function useAgentState() {
   ) => {
     if (!userContent || !activeSessionId || isLoading) return;
 
-    // ========== STAGE 1: IMMEDIATE ACKNOWLEDGEMENT ==========
+    // ========== STAGE 1: IMMEDIATE ACKNOWLEDGEMENT (EPHEMERAL) ==========
     const agentMessageId = `a-${Date.now()}`;
-    const ackPhrase = getContextualAckPhrase(userContent);
-    const ackMessage: AgentMessage = {
-      id: agentMessageId,
-      role: "agent",
-      content: ackPhrase,
-      timestamp: new Date(),
-      status: "sending",
-      stage: "ack",
-      retryOf: opts?.retryOf,
-    };
-
+    const intentMessageId = `i-${Date.now()}`;
     const baseMessages = [...(activeSession?.messages || [])];
-    updateSessionMessages(activeSessionId, [...baseMessages, ackMessage]);
+    let workingMessages = [...baseMessages];
+    updateSessionMessages(activeSessionId, workingMessages);
     setIsLoading(true);
     streamSessionRef.current = activeSessionId;
 
-    let streamedContent = "";
-    let intent = "GENERAL_CHAT";
-    let agentData: AgentMessageData | undefined;
-    let commentary: CommentaryOutput | undefined;
-    let currentStatusAction = ackPhrase;
+    const appendMessage = (message: AgentMessage) => {
+      workingMessages = [...workingMessages, message];
+      updateSessionMessages(activeSessionId, workingMessages);
+    };
 
-    const abortController = streamAgentMessage(
+    const updateMessage = (message: AgentMessage) => {
+      workingMessages = workingMessages.map((msg) =>
+        msg.id === message.id ? message : msg
+      );
+      updateSessionMessages(activeSessionId, workingMessages);
+    };
+
+      let streamedContent = "";
+      let intent = "GENERAL_CHAT";
+      let agentData: AgentMessageData | undefined;
+      let commentary: CommentaryOutput | undefined;
+      let hasAgentMessage = false;
+      let hasIntentMessage = false;
+      let streamedIntentContent = "";
+      let streamedCommentaryContent = "";
+
+      const upsertIntentMessage = (content: string, intentOverride?: string) => {
+        const trimmedContent = content.trim();
+        if (!trimmedContent) return;
+        const intentMessage: AgentMessage = {
+          id: intentMessageId,
+          role: "agent",
+          content: trimmedContent,
+          timestamp: new Date(),
+          stage: "intent",
+          intent: intentOverride || intent,
+          messageType: "AGENT_INTENT_MESSAGE",
+          retryOf: opts?.retryOf,
+        };
+        const exists = workingMessages.some((msg) => msg.id === intentMessageId);
+        if (exists) {
+          updateMessage(intentMessage);
+        } else {
+          appendMessage(intentMessage);
+        }
+        hasIntentMessage = true;
+      };
+
+      const abortController = streamAgentMessage(
       userContent,
       { contextScope, agentVersion, dataAccess, followUpIntent: opts?.followUpIntent },
-      {
-        onStart: (data) => {
-          intent = data.intent;
-          // Transition to status stage when intent is known
+        {
+          onStart: (data) => {
+            intent = data.intent;
+            if (streamSessionRef.current !== activeSessionId) return;
+          },
+        onIntentFraming: (data) => {
           if (streamSessionRef.current !== activeSessionId) return;
-          const statusMessage: AgentMessage = {
-            id: agentMessageId,
-            role: "agent",
-            content: currentStatusAction,
-            timestamp: new Date(),
-            status: "sending",
-            stage: "status",
-            statusAction: currentStatusAction,
-            intent,
-            retryOf: opts?.retryOf,
-          };
-          updateSessionMessages(activeSessionId, [...baseMessages, statusMessage]);
+          if (!data.message || data.message.trim().length === 0) return;
+          streamedIntentContent = data.message;
+          upsertIntentMessage(data.message);
+        },
+        onIntentFramingChunk: (chunk) => {
+          if (streamSessionRef.current !== activeSessionId) return;
+          streamedIntentContent += chunk;
+          upsertIntentMessage(streamedIntentContent);
         },
         onStatus: (data: StatusEventData) => {
           // ========== STAGE 2: STATUS UPDATES ==========
           if (streamSessionRef.current !== activeSessionId) return;
-          currentStatusAction = data.action;
-          const statusMessage: AgentMessage = {
-            id: agentMessageId,
-            role: "agent",
-            content: data.action,
-            timestamp: new Date(),
-            status: "sending",
-            stage: "status",
-            statusAction: data.action,
-            intent,
-            retryOf: opts?.retryOf,
-          };
-          updateSessionMessages(activeSessionId, [...baseMessages, statusMessage]);
+          setSessionStatus(activeSessionId, { action: data.action, phase: data.phase });
         },
         onChunk: (content) => {
           if (streamSessionRef.current !== activeSessionId) return;
@@ -863,7 +1063,13 @@ export function useAgentState() {
             intent,
             retryOf: opts?.retryOf,
           };
-          updateSessionMessages(activeSessionId, [...baseMessages, updatedMessage]);
+          if (hasAgentMessage) {
+            updateMessage(updatedMessage);
+          } else {
+            appendMessage(updatedMessage);
+            hasAgentMessage = true;
+          }
+          clearSessionStatus(activeSessionId);
         },
         onResult: (data) => {
           // ========== STAGE 3: ARTIFACT ==========
@@ -873,16 +1079,19 @@ export function useAgentState() {
 
           if (output.type === "explanation") {
             agentData = { type: "explanation", explanation: output };
-            streamedContent = (output as { facts?: { summary?: string }; summary?: string }).facts?.summary || (output as { summary?: string }).summary || "Entity loaded";
+            streamedContent = "";
+          } else if (output.type === "clarification") {
+            agentData = { type: "clarification", clarification: output };
+            streamedContent = "";
           } else if (output.type === "operational_risk_analysis") {
             agentData = { type: "risks", risks: output };
-            streamedContent = output.overallAssessment || "Risk analysis complete";
+            streamedContent = "";
           } else if (["INVITATION", "CLIENT_EMAIL", "HEARING_SUMMARY", "INTERNAL_NOTE"].includes(output.type)) {
             agentData = { type: "draft", draft: output as import("../../services/api/agent").DraftOutput };
-            streamedContent = `Draft ${output.type.toLowerCase().replace("_", " ")} generated`;
+            streamedContent = "";
           } else if (output.type === "action_plan") {
             agentData = { type: "actions", actionProposals: output.actions };
-            streamedContent = `${output.actions?.length || 0} action(s) proposed`;
+            streamedContent = "";
           }
 
           const resultMessage: AgentMessage = {
@@ -896,12 +1105,19 @@ export function useAgentState() {
             data: agentData,
             retryOf: opts?.retryOf,
           };
-          updateSessionMessages(activeSessionId, [...baseMessages, resultMessage]);
+          if (hasAgentMessage) {
+            updateMessage(resultMessage);
+          } else {
+            appendMessage(resultMessage);
+            hasAgentMessage = true;
+          }
+          clearSessionStatus(activeSessionId);
         },
         onCommentary: (data) => {
           // ========== STAGE 4: COMMENTARY ==========
           if (streamSessionRef.current !== activeSessionId) return;
           commentary = data;
+          streamedCommentaryContent = data.message || "";
 
           // Update message with commentary (artifact already rendered)
           const messageWithCommentary: AgentMessage = {
@@ -916,7 +1132,41 @@ export function useAgentState() {
             commentary,
             retryOf: opts?.retryOf,
           };
-          updateSessionMessages(activeSessionId, [...baseMessages, messageWithCommentary]);
+          if (hasAgentMessage) {
+            updateMessage(messageWithCommentary);
+          } else {
+            appendMessage(messageWithCommentary);
+            hasAgentMessage = true;
+          }
+        },
+        onCommentaryChunk: (chunk) => {
+          if (streamSessionRef.current !== activeSessionId) return;
+          streamedCommentaryContent += chunk;
+
+          const streamingCommentary: CommentaryOutput = {
+            message: streamedCommentaryContent,
+            source: "llm",
+            signals: [],
+          };
+
+          const messageWithStreamingCommentary: AgentMessage = {
+            id: agentMessageId,
+            role: "agent",
+            content: streamedContent,
+            timestamp: new Date(),
+            status: "sending",
+            stage: "artifact",
+            intent,
+            data: agentData,
+            commentary: streamingCommentary,
+            retryOf: opts?.retryOf,
+          };
+          if (hasAgentMessage) {
+            updateMessage(messageWithStreamingCommentary);
+          } else {
+            appendMessage(messageWithStreamingCommentary);
+            hasAgentMessage = true;
+          }
         },
         onDone: () => {
           if (streamSessionRef.current !== activeSessionId) return;
@@ -924,7 +1174,7 @@ export function useAgentState() {
           const finalMessage: AgentMessage = {
             id: agentMessageId,
             role: "agent",
-            content: streamedContent || "Response complete",
+            content: streamedContent,
             timestamp: new Date(),
             status: "success",
             stage: agentData ? "artifact" : "commentary",
@@ -933,10 +1183,16 @@ export function useAgentState() {
             commentary,
             retryOf: opts?.retryOf,
           };
-          updateSessionMessages(activeSessionId, [...baseMessages, finalMessage]);
+          if (hasAgentMessage) {
+            updateMessage(finalMessage);
+          } else {
+            appendMessage(finalMessage);
+            hasAgentMessage = true;
+          }
           setIsLoading(false);
           streamAbortRef.current = null;
           streamSessionRef.current = null;
+          clearSessionStatus(activeSessionId);
         },
         onError: (error) => {
           if (streamSessionRef.current !== activeSessionId) return;
@@ -944,27 +1200,34 @@ export function useAgentState() {
           const errorMessage: AgentMessage = {
             id: agentMessageId,
             role: "agent",
-            content: `Error: ${error}`,
+            content: error,
             timestamp: new Date(),
             status: "error",
             data: { type: "error", error },
             retryOf: opts?.retryOf,
           };
-          updateSessionMessages(activeSessionId, [...baseMessages, errorMessage]);
+          if (hasAgentMessage) {
+            updateMessage(errorMessage);
+          } else {
+            appendMessage(errorMessage);
+            hasAgentMessage = true;
+          }
           setIsLoading(false);
           streamAbortRef.current = null;
           streamSessionRef.current = null;
+          clearSessionStatus(activeSessionId);
         },
         onCancelled: () => {
           setIsLoading(false);
           streamAbortRef.current = null;
           streamSessionRef.current = null;
+          clearSessionStatus(activeSessionId);
         },
       }
     );
 
     streamAbortRef.current = abortController;
-  }, [activeSessionId, activeSession, updateSessionMessages, isLoading, contextScope, agentVersion, dataAccess]);
+  }, [activeSessionId, activeSession, updateSessionMessages, isLoading, contextScope, agentVersion, dataAccess, setSessionStatus, clearSessionStatus]);
 
 
   const handleExampleClick = useCallback((example: string) => {
@@ -981,6 +1244,7 @@ export function useAgentState() {
     showContextSidebar,
     setShowContextSidebar,
     isLoading,
+    transientStatus: activeTransientStatus,
     agentVersion,
     setAgentVersion,
     contextScope,

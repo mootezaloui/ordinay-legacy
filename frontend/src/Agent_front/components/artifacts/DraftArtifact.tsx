@@ -31,9 +31,9 @@ export function DraftArtifact({ data }: DraftArtifactProps) {
   };
 
   return (
-    <div className="artifact-enter agent-artifact-card is-draft">
+    <div className="artifact-build agent-artifact-card is-draft">
       {/* Header */}
-      <div className="agent-artifact-header flex items-center justify-between px-5 py-3">
+      <div className="artifact-build-header agent-artifact-header flex items-center justify-between px-5 py-3">
         <div className="flex items-center gap-2">
           <FileText className="w-4 h-4 text-blue-500" />
           <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
@@ -46,14 +46,14 @@ export function DraftArtifact({ data }: DraftArtifactProps) {
       </div>
 
       {/* Document paper area */}
-      <div className="px-5 py-4">
+      <div className="artifact-build-section artifact-build-section-1 px-5 py-4">
         <div
           ref={paperRef}
           className="p-5 rounded-xl border border-slate-200/80 dark:border-slate-700/70 bg-white/80 dark:bg-slate-900/50"
         >
           {/* Subject */}
           {data.sections?.subject && (
-            <div className="mb-4">
+            <div className="artifact-build-section artifact-build-section-2 mb-4">
               <span className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wide">
                 Subject
               </span>
@@ -65,28 +65,28 @@ export function DraftArtifact({ data }: DraftArtifactProps) {
 
           {/* Greeting */}
           {data.sections?.greeting && (
-            <p className="text-sm text-slate-700 dark:text-slate-300 mb-3">
+            <p className="artifact-build-section artifact-build-section-2 text-sm text-slate-700 dark:text-slate-300 mb-3">
               {data.sections.greeting}
             </p>
           )}
 
           {/* Body */}
           {data.sections?.body && (
-            <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed">
+            <p className="artifact-build-section artifact-build-section-3 text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed">
               {data.sections.body}
             </p>
           )}
 
           {/* Closing */}
           {data.sections?.closing && (
-            <p className="text-sm text-slate-700 dark:text-slate-300 mt-4">
+            <p className="artifact-build-section artifact-build-section-3 text-sm text-slate-700 dark:text-slate-300 mt-4">
               {data.sections.closing}
             </p>
           )}
 
           {/* Signature */}
           {data.sections?.signature && (
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 italic">
+            <p className="artifact-build-section artifact-build-section-3 text-sm text-slate-500 dark:text-slate-400 mt-2 italic">
               {data.sections.signature}
             </p>
           )}
@@ -94,7 +94,7 @@ export function DraftArtifact({ data }: DraftArtifactProps) {
       </div>
 
       {/* Actions bar */}
-      <div className="px-5 py-3 bg-slate-50/70 dark:bg-slate-900/50 border-t border-slate-200/70 dark:border-slate-700/60 flex items-center justify-between">
+      <div className="artifact-build-section artifact-build-section-3 px-5 py-3 bg-slate-50/70 dark:bg-slate-900/50 border-t border-slate-200/70 dark:border-slate-700/60 flex items-center justify-between">
         <div className="flex items-center gap-1.5">
           <CircleDot className="w-3 h-3 text-slate-400" />
           <span className="text-xs text-slate-400 dark:text-slate-500">

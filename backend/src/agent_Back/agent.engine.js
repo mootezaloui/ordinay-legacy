@@ -607,19 +607,17 @@ class AgentEngine {
           timestamp: new Date().toISOString(),
         });
 
+        const candidateDetails = Array.isArray(clarification.candidates)
+          ? clarification.candidates.map((c) => `${c.name} (ID: ${c.id})`)
+          : [];
+
         // Return as explanation type (passes schema validation)
         const clarificationOutput = {
           type: "explanation",
           entityId: "pending_clarification",
           entityType: "query",
           summary: clarification.message,
-          details: [
-            "Multiple matches were found for your query.",
-            "Please specify which one you mean:",
-            ...clarification.candidates.map(
-              (c) => `  - ${c.name} (ID: ${c.id})`,
-            ),
-          ],
+          details: candidateDetails,
           timestamp: new Date().toISOString(),
           confidence: 0,
           sources: [
@@ -1033,10 +1031,7 @@ class AgentEngine {
           entityId: "command_error",
           entityType: "command",
           summary: `Command failed: ${err.message}`,
-          details: [
-            "The command could not be executed.",
-            "Please try again or use /help for available commands.",
-          ],
+          details: ["The command could not be executed."],
           timestamp: new Date().toISOString(),
           confidence: 1,
           sources: [{ sourceType: "system", reference: "command-parser" }],
@@ -1259,11 +1254,6 @@ class AgentEngine {
       if (resolution.reason === "ambiguous") {
         resolution.candidates?.forEach((c) =>
           errorDetails.push(`${c.name} (ID: ${c.id})`),
-        );
-        errorDetails.push(`Please specify which ${label} you mean.`);
-      } else if (resolution.reason === "not_found") {
-        errorDetails.push(
-          `Try listing ${ENTITY_PLURALS[label] || `${label}s`} to see available records.`,
         );
       }
       return {
@@ -5438,10 +5428,35 @@ class AgentEngine {
     sources,
     readOutcome,
   }) {
-    const factsSummary =
+    const stripGuidance = (text) => {
+      if (!text) return text;
+      return String(text)
+        .replace(/\s*Please specify[^.]*\.?/gi, "")
+        .replace(/\s*Try listing[^.]*\.?/gi, "")
+        .replace(/\s*Please try again[^.]*\.?/gi, "")
+        .replace(/\s*Select one[^.]*\.?/gi, "")
+        .replace(/\s*Try asking[^.]*\.?/gi, "")
+        .replace(/\s*Try your request again[^.]*\.?/gi, "")
+        .trim();
+    };
+
+    const isGuidanceDetail = (detail) => {
+      const trimmed = String(detail || "").trim().toLowerCase();
+      return (
+        trimmed.startsWith("please specify") ||
+        trimmed.startsWith("try listing") ||
+        trimmed.startsWith("please try again") ||
+        trimmed.startsWith("select one") ||
+        trimmed.startsWith("try asking") ||
+        trimmed.startsWith("try your request again")
+      );
+    };
+
+    const cleanedSummary =
       typeof summary === "string" && summary.trim()
-        ? summary.trim()
-        : `No ${entityType} data available.`;
+        ? stripGuidance(summary)
+        : "";
+    const factsSummary = cleanedSummary || `No ${entityType} data available.`;
     const rawDetails = Array.isArray(details) ? details : [];
     const factsDetails = rawDetails
       .map((detail) => String(detail || "").trim())
@@ -5449,7 +5464,8 @@ class AgentEngine {
         (detail) =>
           detail &&
           !detail.toLowerCase().startsWith("explanation:") &&
-          !detail.toLowerCase().startsWith("next steps"),
+          !detail.toLowerCase().startsWith("next steps") &&
+          !isGuidanceDetail(detail),
       );
 
     if (factsDetails.length === 0) {
@@ -5619,9 +5635,7 @@ class AgentEngine {
       (!activeType || activeId === null || activeId === undefined) &&
       !allowWithoutActiveContext
     ) {
-      const error = new Error(
-        "I need context first. Try asking about a specific entity, like \"show me client Müller\" or \"what's the status of dossier 2024-001\".",
-      );
+      const error = new Error("NO_ENTITY_CONTEXT");
       error.status = 409;
       error.code = "NO_ENTITY_CONTEXT";
       throw error;
@@ -5692,10 +5706,9 @@ class AgentEngine {
 
     if (pendingType && targetType === pendingType) {
       if (!isList && !scopeTargetId) {
-        const error = new Error(
-          `Multiple ${pendingType.replace(/_/g, " ")} records found. Select one to continue.`,
-        );
+        const error = new Error("PENDING_SELECTION");
         error.status = 409;
+        error.code = "PENDING_SELECTION";
         throw error;
       }
     }
@@ -6123,7 +6136,7 @@ class AgentEngine {
       return {
         resolved: false,
         reason: "ambiguous",
-        message: `Multiple ${label}s match "${query}". Please specify which one.`,
+        message: `Multiple ${label}s match "${query}".`,
         candidates: items.map((item) => ({
           id: item.id,
           name: item[nameField] || item.reference || item.title || item.name,
@@ -6188,7 +6201,7 @@ class AgentEngine {
         return {
           resolved: false,
           reason: "ambiguous",
-          message: `Multiple clients match "${nameHint}". Please specify which one.`,
+          message: `Multiple clients match "${nameHint}".`,
           candidates: result.clients.map((c) => ({ id: c.id, name: c.name })),
         };
       } catch (err) {
@@ -6727,8 +6740,10 @@ class AgentEngine {
 
     if (!lastIntent || !isListAction) {
       return this._generateClarification(
-        `I can apply filters to list results. Your last action was not a list query.`,
-        `Would you like me to list your ${lastEntityType || "data"}?`,
+        {
+          type: "FILTER_WITHOUT_LIST",
+          entityType: lastEntityType || null,
+        },
         context,
         policy,
       );
@@ -6757,8 +6772,10 @@ class AgentEngine {
     const intent = intentMap[lastEntityType];
     if (!intent) {
       return this._generateClarification(
-        `I'm not sure what to filter.`,
-        `You were looking at ${lastEntityType || "data"}. What would you like to see?`,
+        {
+          type: "UNKNOWN_FILTER_TARGET",
+          entityType: lastEntityType || null,
+        },
         context,
         policy,
       );
@@ -6815,24 +6832,28 @@ class AgentEngine {
     const { count, emptyResult } = lastResultSummary || {};
 
     // Empty result → suggest next steps
-    if (emptyResult || count === 0) {
-      const suggestions = this._getSuggestionsForEmptyResult(lastEntityType);
+      if (emptyResult || count === 0) {
+        return this._generateClarification(
+          {
+            type: "EMPTY_RESULT",
+            entityType: lastEntityType || null,
+            resultCount: 0,
+          },
+          context,
+          policy,
+        );
+      }
+
+      // Has results → suggest actions based on entity type
       return this._generateClarification(
-        `Your last query for ${lastEntityType || "data"} returned no results.`,
-        suggestions,
+        {
+          type: "RESULTS_AVAILABLE",
+          entityType: lastEntityType || null,
+          resultCount: count,
+        },
         context,
         policy,
       );
-    }
-
-    // Has results → suggest actions based on entity type
-    const suggestions = this._getSuggestionsForResults(lastEntityType, count);
-    return this._generateClarification(
-      `You were viewing ${count} ${lastEntityType || "item"}(s).`,
-      suggestions,
-      context,
-      policy,
-    );
   }
 
   /**
@@ -6850,21 +6871,15 @@ class AgentEngine {
       convContext;
 
     // Validate we have something to repeat
-    if (!lastIntent || !lastEntityType) {
-      return this._generateClarification(
-        "I need to know what you want me to repeat.",
-        [
-          "You can ask me to:",
-          '  • "Show my clients"',
-          '  • "List my tasks"',
-          '  • "Show my dossiers"',
-          "",
-          "Then you can ask me to repeat the results.",
-        ],
-        context,
-        policy,
-      );
-    }
+      if (!lastIntent || !lastEntityType) {
+        return this._generateClarification(
+          {
+            type: "REPEAT_WITHOUT_CONTEXT",
+          },
+          context,
+          policy,
+        );
+      }
 
     // Map entity type to READ intent for re-query
     const intentMap = {
@@ -6881,14 +6896,16 @@ class AgentEngine {
     };
 
     const intent = intentMap[lastEntityType];
-    if (!intent) {
-      return this._generateClarification(
-        `I can't repeat that action.`,
-        `You were looking at ${lastEntityType || "data"}. What would you like to see?`,
-        context,
-        policy,
-      );
-    }
+      if (!intent) {
+        return this._generateClarification(
+          {
+            type: "REPEAT_UNSUPPORTED",
+            entityType: lastEntityType || null,
+          },
+          context,
+          policy,
+        );
+      }
 
     // Log follow-up resolution
     this.ledger.record({
@@ -6939,8 +6956,12 @@ class AgentEngine {
     const { lastEntityType, lastQuery, lastResultSummary } = convContext;
 
     return this._generateClarification(
-      `You asked: "${lastQuery}"`,
-      `This showed ${lastResultSummary?.count || 0} ${lastEntityType || "result"}(s). What would you like me to explain?`,
+      {
+        type: "CLARIFICATION_REQUEST",
+        entityType: lastEntityType || null,
+        resultCount: lastResultSummary?.count || 0,
+        lastQuery,
+      },
       context,
       policy,
     );
@@ -6957,40 +6978,21 @@ class AgentEngine {
    */
   _generateNoContextClarification(followUpDetection, context, policy) {
     const { type } = followUpDetection;
-
-    let summary, details;
+    let reasonType = "MISSING_CONTEXT";
 
     if (type === FOLLOW_UP_TYPES.FILTER_MODIFICATION) {
-      summary = "I need to know what you want to filter.";
-      details = [
-        "You can ask me to:",
-        '  • "Show my clients"',
-        '  • "List my tasks"',
-        '  • "Show overdue tasks"',
-        '  • "List my dossiers"',
-        "",
-        "Then you can filter the results.",
-      ];
+      reasonType = "FILTER_WITHOUT_CONTEXT";
     } else if (type === FOLLOW_UP_TYPES.NEXT_ACTION) {
-      summary = "What would you like to do?";
-      details = [
-        "I can help you with:",
-        "  • Viewing your clients, dossiers, tasks, or sessions",
-        "  • Finding overdue tasks",
-        "  • Checking upcoming sessions",
-        "",
-        "What would you like to see?",
-      ];
-    } else {
-      summary = "I need more context to help you.";
-      details = [
-        "Please tell me what you would like to do.",
-        "",
-        "Examples:",
-        '  • "Show my clients"',
-        '  • "List overdue tasks"',
-        '  • "Show today\'s sessions"',
-      ];
+      reasonType = "NEXT_ACTION_WITHOUT_CONTEXT";
+    } else if (
+      type === FOLLOW_UP_TYPES.REPEAT_ACTION ||
+      type === FOLLOW_UP_TYPES.SUBSET_REQUEST
+    ) {
+      reasonType = "REPEAT_WITHOUT_CONTEXT";
+    } else if (type === FOLLOW_UP_TYPES.CONFIRMATION) {
+      reasonType = "NO_PENDING_ACTION";
+    } else if (type === FOLLOW_UP_TYPES.NEGATION) {
+      reasonType = "CONTEXT_CLEARED";
     }
 
     this.ledger.record({
@@ -6999,32 +7001,13 @@ class AgentEngine {
       timestamp: new Date().toISOString(),
     });
 
-    return {
-      intent: "FOLLOW_UP_CLARIFICATION",
-      agentVersion: policy.version,
-      reasoner: "follow-up-gate",
-      output: {
-        type: "explanation",
-        entityId: "follow_up_clarification",
-        entityType: "clarification",
-        summary,
-        details,
-        timestamp: new Date().toISOString(),
-        confidence: 1,
-        sources: [
-          {
-            sourceType: "context",
-            reference: "conversation_context",
-            note: "No prior context available",
-          },
-        ],
-        status: "awaiting_input",
-        source: "follow-up-handler",
-        requires_validation: false,
+    return this._generateClarification(
+      {
+        type: reasonType,
       },
-      isFollowUp: true,
-      needsUserInput: true,
-    };
+      context,
+      policy,
+    );
   }
 
   /**
@@ -7037,28 +7020,24 @@ class AgentEngine {
    * @returns {Object} Clarification response
    * @private
    */
-  _generateClarification(summary, suggestion, context, policy) {
-    const details = Array.isArray(suggestion) ? suggestion : [suggestion];
+  _generateClarification(reason, context, policy, options = []) {
+    const signal = {
+      type: "CLARIFICATION_REQUIRED",
+      reason: reason?.type || "UNKNOWN",
+      entityType: reason?.entityType,
+      resultCount: reason?.resultCount,
+    };
 
     return {
       intent: "FOLLOW_UP_CLARIFICATION",
       agentVersion: policy.version,
       reasoner: "follow-up-gate",
       output: {
-        type: "explanation",
-        entityId: "follow_up_clarification",
-        entityType: "clarification",
-        summary,
-        details,
+        type: "clarification",
+        reason,
+        signals: [signal],
+        options,
         timestamp: new Date().toISOString(),
-        confidence: 1,
-        sources: [
-          {
-            sourceType: "context",
-            reference: "conversation_context",
-            note: "Based on prior conversation context",
-          },
-        ],
         status: "awaiting_input",
         source: "follow-up-handler",
         requires_validation: false,
@@ -7083,8 +7062,11 @@ class AgentEngine {
 
     if (type === FOLLOW_UP_TYPES.CONFIRMATION) {
       return this._generateClarification(
-        "There is no pending action to confirm.",
-        `You were viewing ${lastResultSummary?.count || 0} ${lastEntityType || "item"}(s). What would you like to do next?`,
+        {
+          type: "NO_PENDING_ACTION",
+          entityType: lastEntityType || null,
+          resultCount: lastResultSummary?.count || 0,
+        },
         context,
         policy,
       );
@@ -7093,97 +7075,11 @@ class AgentEngine {
     // Negation
     this.contextStore.clear(context);
     return this._generateClarification(
-      "Understood. Previous context cleared.",
-      "What would you like to do?",
+      {
+        type: "CONTEXT_CLEARED",
+      },
       context,
       policy,
-    );
-  }
-
-  /**
-   * Get suggestions for empty result scenarios
-   *
-   * @param {string} entityType - Entity type
-   * @returns {string[]} List of suggestions
-   * @private
-   */
-  _getSuggestionsForEmptyResult(entityType) {
-    const suggestions = {
-      client: [
-        "No clients found.",
-        "You can:",
-        "  • Add a new client from the Clients screen",
-        '  • Check if there are inactive clients: "show inactive clients"',
-      ],
-      dossier: [
-        "No dossiers found.",
-        "You can:",
-        "  • Create a new dossier from the Dossiers screen",
-        '  • Check closed dossiers: "show closed dossiers"',
-      ],
-      task: [
-        "No tasks found.",
-        "You can:",
-        "  • Create a new task from the Tasks screen",
-        '  • Check completed tasks: "show completed tasks"',
-      ],
-      session: [
-        "No sessions found.",
-        "You can:",
-        "  • Schedule a new session from the Sessions screen",
-        '  • Check past sessions: "show past sessions"',
-      ],
-    };
-
-    return (
-      suggestions[entityType] || ["No results found. Try a different query."]
-    );
-  }
-
-  /**
-   * Get suggestions for results scenarios
-   *
-   * @param {string} entityType - Entity type
-   * @param {number} count - Number of results
-   * @returns {string[]} List of suggestions
-   * @private
-   */
-  _getSuggestionsForResults(entityType, count) {
-    const suggestions = {
-      client: [
-        `You have ${count} client(s).`,
-        "You can:",
-        '  • Filter by status: "show inactive clients"',
-        '  • Get details: "/client [name]"',
-        '  • View their dossiers: "show dossiers for [client]"',
-      ],
-      dossier: [
-        `You have ${count} dossier(s).`,
-        "You can:",
-        '  • Filter by status: "show open dossiers"',
-        '  • Filter by priority: "show urgent dossiers"',
-        '  • Get details: "/dossier [reference]"',
-      ],
-      task: [
-        `You have ${count} task(s).`,
-        "You can:",
-        '  • Show overdue: "show overdue tasks"',
-        '  • Show by priority: "show urgent tasks"',
-        '  • Filter by status: "show pending tasks"',
-      ],
-      session: [
-        `You have ${count} session(s).`,
-        "You can:",
-        '  • Show today: "show today\'s sessions"',
-        '  • Show this week: "show this week\'s sessions"',
-        '  • Show upcoming: "show upcoming sessions"',
-      ],
-    };
-
-    return (
-      suggestions[entityType] || [
-        `${count} result(s) found. What would you like to do with them?`,
-      ]
     );
   }
 

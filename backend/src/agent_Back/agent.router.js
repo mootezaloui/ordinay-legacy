@@ -3,10 +3,10 @@
 const express = require('express');
 const AgentEngine = require('./agent.engine');
 const classifyIntent = require('./intent.classifier');
-const { getAvailableCommands, isSlashCommand, detectReadIntent, detectFollowUp } = require('./intent.classifier');
+const { getAvailableCommands, isSlashCommand, parseSlashCommand, detectReadIntent, detectFollowUp } = require('./intent.classifier');
 const { INTENTS } = require('./intents');
-const { streamChatWithCallbacks } = require('./llm.client');
-const { generateAgentCommentary } = require('./commentary.generator');
+const { streamChatWithCallbacks, generateIntentFramingMessage, streamIntentFramingMessage } = require('./llm.client');
+const { generateAgentCommentary, streamCommentary } = require('./commentary.generator');
 
 const router = express.Router();
 const agentEngine = new AgentEngine();
@@ -62,8 +62,253 @@ function getStatusAction(intent, phase = 'processing') {
   return 'Processing…';
 }
 
+// ============================================================================
+// Intent Framing Helpers — LLM-generated, deterministic inputs only
+// ============================================================================
+
+const INTENT_FRAMING_MESSAGE_TYPE = 'AGENT_INTENT_MESSAGE';
+
+const ENTITY_LABELS = Object.freeze({
+  client: 'client',
+  dossier: 'dossier',
+  lawsuit: 'lawsuit',
+  session: 'session',
+  task: 'task',
+  personal_task: 'personal task',
+  mission: 'mission',
+  financial_entry: 'financial entry',
+  notification: 'notification',
+  history_event: 'history entry',
+});
+
+function hasNonEmptyFilters(filters) {
+  if (!filters || typeof filters !== 'object') return false;
+  return Object.values(filters).some(
+    (value) =>
+      value !== null &&
+      value !== undefined &&
+      value !== '' &&
+      value !== false,
+  );
+}
+
+function formatEntityLabel(entityType) {
+  if (!entityType) return null;
+  const normalized = String(entityType).toLowerCase();
+  return ENTITY_LABELS[normalized] || normalized.replace(/_/g, ' ');
+}
+
+function deriveIntentType(intent, contextSnapshot) {
+  const source = (intent || contextSnapshot?.lastIntent || '').toUpperCase();
+  if (!source) return null;
+
+  if (source.includes('LIST')) return 'list';
+  if (source.includes('SUMMARIZE')) return 'summarize';
+  if (source.includes('READ') || source.includes('EXPLAIN')) return 'read';
+
+  if (
+    source.includes('ANALYZE') ||
+    source.includes('RISK') ||
+    source.includes('PROPOSE') ||
+    source.includes('DRAFT')
+  ) {
+    return 'summarize';
+  }
+
+  // Handle follow-up and command intents - derive from context if available
+  if (source === 'FOLLOW_UP' || source === 'COMMAND' || source === 'SAFETY_GUARD') {
+    const lastIntent = (contextSnapshot?.lastIntent || '').toUpperCase();
+    if (lastIntent.includes('LIST')) return 'list';
+    if (lastIntent.includes('SUMMARIZE')) return 'summarize';
+    if (lastIntent.includes('READ') || lastIntent.includes('EXPLAIN')) return 'read';
+    // Default to 'read' for follow-ups (reviewing specific data)
+    return 'read';
+  }
+
+  // Fallback: any data retrieval intent gets 'read' type
+  // This ensures intent framing is generated for most non-chat intents
+  if (source !== 'GENERAL_CHAT') {
+    return 'read';
+  }
+
+  return null;
+}
+
+function deriveEntityLabel(intent, followUpIntent, contextSnapshot, commandInfo) {
+  if (followUpIntent?.entityType) {
+    return formatEntityLabel(followUpIntent.entityType);
+  }
+
+  if (commandInfo?.entityLabel) {
+    return commandInfo.entityLabel;
+  }
+
+  const normalized = (intent || '').toUpperCase();
+  if (normalized.includes('DRAFT_INVITATION')) return 'invitation draft';
+  if (normalized.includes('DRAFT_CLIENT_EMAIL')) return 'client email';
+  if (normalized.includes('ANALYZE_OPERATIONAL_RISKS')) return 'operational risks';
+  if (normalized.includes('PROPOSE_ACTIONS')) return 'next steps';
+  if (normalized.includes('CLIENT')) return 'client';
+  if (normalized.includes('DOSSIER')) return 'dossier';
+  if (normalized.includes('LAWSUIT')) return 'lawsuit';
+  if (normalized.includes('SESSION')) return 'session';
+  if (normalized.includes('PERSONAL_TASK')) return 'personal task';
+  if (normalized.includes('TASK')) return 'task';
+  if (normalized.includes('MISSION')) return 'mission';
+  if (normalized.includes('FINANCIAL')) return 'financial entry';
+  if (normalized.includes('NOTIFICATION')) return 'notification';
+  if (normalized.includes('HISTORY')) return 'history entry';
+
+  if (contextSnapshot?.activeEntityType) {
+    return formatEntityLabel(contextSnapshot.activeEntityType);
+  }
+  if (contextSnapshot?.lastEntityType) {
+    return formatEntityLabel(contextSnapshot.lastEntityType);
+  }
+
+  return null;
+}
+
+function deriveScope(intent, readIntent, followUpIntent, contextSnapshot) {
+  const source = (intent || contextSnapshot?.lastIntent || '').toUpperCase();
+  const hasFilters =
+    hasNonEmptyFilters(readIntent?.filters) ||
+    hasNonEmptyFilters(followUpIntent?.filters) ||
+    hasNonEmptyFilters(contextSnapshot?.lastResultSummary?.filters);
+
+  if (hasFilters) return 'filtered';
+  if (source.includes('LIST')) return 'multiple';
+  if (source.includes('SUMMARIZE') && readIntent?.aggregateSummary) return 'multiple';
+  if (followUpIntent?.entityId) return 'single';
+  if (source.includes('READ') || source.includes('EXPLAIN') || source.includes('SUMMARIZE')) return 'single';
+  if (source.includes('DRAFT') || source.includes('ANALYZE') || source.includes('PROPOSE')) return 'single';
+  return 'multiple';
+}
+
+function buildIntentFramingPayload({ intent, readIntent, followUpIntent, contextSnapshot, commandInfo }) {
+  if (!intent || intent === INTENTS.GENERAL_CHAT) return null;
+
+  const intentType = deriveIntentType(intent, contextSnapshot);
+  const entity = deriveEntityLabel(intent, followUpIntent, contextSnapshot, commandInfo);
+  const scope = deriveScope(intent, readIntent, followUpIntent, contextSnapshot);
+
+  if (!intentType || !entity || !scope) return null;
+  return { intentType, entity, scope };
+}
+
+function normalizeCategoryLabel(category) {
+  if (!category) return null;
+  const normalized = String(category).toLowerCase();
+  if (normalized === 'accounting') return 'financial entry';
+  if (normalized === 'personal_tasks') return 'personal task';
+  if (normalized === 'history') return 'history entry';
+  if (ENTITY_LABELS[normalized]) return ENTITY_LABELS[normalized];
+  if (normalized.endsWith('s')) return normalized.slice(0, -1);
+  return normalized.replace(/_/g, ' ');
+}
+
+function buildIntentFramingFromCommand(parsedCommand) {
+  if (!parsedCommand || !parsedCommand.valid || !parsedCommand.toolMapping) return null;
+  if (parsedCommand.commandKey === 'help') return null;
+
+  const requiresArg = !!parsedCommand.toolMapping.params?.requiresArg;
+  const entityLabel = normalizeCategoryLabel(parsedCommand.toolMapping.category);
+  if (!entityLabel) return null;
+
+  return {
+    intentType: requiresArg ? 'read' : 'list',
+    entity: entityLabel,
+    scope: requiresArg ? 'single' : 'multiple',
+  };
+}
+
+async function sendIntentFramingIfNeeded(sendEvent, payload, signal, aborted) {
+  if (aborted) return;
+
+  const signalPayload = payload
+    ? {
+        type: 'INTENT_FRAMING',
+        action: payload.intentType,
+        entity: payload.entity,
+        scope: payload.scope,
+      }
+    : null;
+
+  // Use streaming for real-time responsiveness
+  return new Promise((resolve) => {
+    let hasContent = false;
+    let fullMessage = '';
+
+    streamIntentFramingMessage(payload || {}, {
+      onChunk: (chunk) => {
+        if (aborted) return;
+        if (!hasContent) {
+          // First chunk - send start event
+          hasContent = true;
+        }
+        fullMessage += chunk;
+        sendEvent('intent_framing_chunk', { chunk });
+      },
+      onDone: (message) => {
+        if (aborted) {
+          resolve();
+          return;
+        }
+
+        // If streaming produced nothing, use fallback template
+        if (!fullMessage && payload) {
+          const entity = payload.entity || 'information';
+          const scope = payload.scope || 'single';
+          if (payload.intentType === 'list') {
+            fullMessage = scope === 'filtered'
+              ? `I'll look up the matching ${entity}s for you.`
+              : `I'll retrieve the ${entity} list for you.`;
+          } else if (payload.intentType === 'summarize') {
+            fullMessage = `I'll summarize the ${entity} ${scope === 'multiple' ? 'records' : 'details'} for you.`;
+          } else {
+            fullMessage = `I'll review the ${entity} ${scope === 'multiple' ? 'records' : 'details'} for you.`;
+          }
+        }
+
+        // Send complete message (for clients that don't support streaming)
+        if (fullMessage) {
+          sendEvent('intent_framing', {
+            message: fullMessage,
+            messageType: INTENT_FRAMING_MESSAGE_TYPE,
+            signal: signalPayload,
+          });
+        }
+        resolve();
+      },
+      onError: () => {
+        // On error, send fallback template
+        if (!aborted && payload) {
+          const entity = payload.entity || 'information';
+          const scope = payload.scope || 'single';
+          let fallback;
+          if (payload.intentType === 'list') {
+            fallback = scope === 'filtered'
+              ? `I'll look up the matching ${entity}s for you.`
+              : `I'll retrieve the ${entity} list for you.`;
+          } else if (payload.intentType === 'summarize') {
+            fallback = `I'll summarize the ${entity} ${scope === 'multiple' ? 'records' : 'details'} for you.`;
+          } else {
+            fallback = `I'll review the ${entity} ${scope === 'multiple' ? 'records' : 'details'} for you.`;
+          }
+          sendEvent('intent_framing', {
+            message: fallback,
+            messageType: INTENT_FRAMING_MESSAGE_TYPE,
+            signal: signalPayload,
+          });
+        }
+        resolve();
+      },
+    }, signal);
+  });
+}
+
 /**
- * Generate and send commentary for an artifact.
+ * Generate and send commentary for an artifact with streaming.
  * This is called AFTER the artifact is sent, BEFORE 'done'.
  * Commentary failures NEVER block the artifact.
  *
@@ -71,46 +316,67 @@ function getStatusAction(intent, phase = 'processing') {
  * @param {Object} result - Agent result containing output
  * @param {Object} context - Request context
  * @param {boolean} aborted - Whether connection was aborted
+ * @param {AbortSignal} signal - Abort signal for cancellation
  */
-async function sendCommentaryIfNeeded(sendEvent, result, context, aborted) {
+async function sendCommentaryIfNeeded(sendEvent, result, context, aborted, signal) {
   if (aborted) return;
 
   // Skip commentary for chat outputs (already conversational)
   const artifactType = result?.output?.type;
   if (!artifactType || artifactType === 'chat') return;
 
-  try {
-    console.log('[SSE] Generating commentary for artifact type:', artifactType);
-    const resultCount = typeof result?.readMeta?.count === 'number' ? result.readMeta.count : undefined;
-    const commentaryContext = {
-      ...(context || {}),
-      _resultCount: resultCount,
-      _readOutcome: resultCount === 0 ? 'empty' : undefined,
-      _activeEntityType: result?.contextPromotion?.activeEntity?.type || null,
-      _activeEntityId: result?.contextPromotion?.activeEntity?.id || null,
-      _pendingSelection: result?.contextPromotion?.pendingSelection || null,
-    };
-    const commentaryResult = await generateAgentCommentary(
+  const resultCount = typeof result?.readMeta?.count === 'number' ? result.readMeta.count : undefined;
+  const commentaryContext = {
+    ...(context || {}),
+    _resultCount: resultCount,
+    _readOutcome: resultCount === 0 ? 'empty' : undefined,
+    _activeEntityType: result?.contextPromotion?.activeEntity?.type || null,
+    _activeEntityId: result?.contextPromotion?.activeEntity?.id || null,
+    _pendingSelection: result?.contextPromotion?.pendingSelection || null,
+  };
+
+  return new Promise((resolve) => {
+    let hasContent = false;
+
+    streamCommentary(
       artifactType,
       result.output,
-      commentaryContext
-    );
+      commentaryContext,
+      {
+        onChunk: (chunk) => {
+          if (aborted) return;
+          hasContent = true;
+          sendEvent('commentary_chunk', { chunk });
+        },
+        onDone: (commentaryResult) => {
+          if (aborted) {
+            resolve();
+            return;
+          }
 
-    if (commentaryResult.commentary && !aborted) {
-      console.log('[SSE] Sending commentary, source:', commentaryResult.source);
-      sendEvent('commentary', {
-        message: commentaryResult.commentary,
-        source: commentaryResult.source,
-      });
-    } else if (commentaryResult.source === 'skipped') {
-      console.log('[SSE] Commentary skipped:', commentaryResult.reason || 'no reason');
-    } else {
-      console.log('[SSE] No commentary generated, source:', commentaryResult.source);
-    }
-  } catch (err) {
-    // Commentary errors NEVER block the response
-    console.warn('[SSE] Commentary generation failed (non-blocking):', err.message);
-  }
+          // Send final commentary message (for clients that don't support streaming)
+          const hasSignals =
+            Array.isArray(commentaryResult?.signals) && commentaryResult.signals.length > 0;
+          if (commentaryResult?.commentary || hasSignals) {
+            console.log('[SSE] Sending commentary, source:', commentaryResult.source);
+            sendEvent('commentary', {
+              message: commentaryResult.commentary || "",
+              source: commentaryResult.source,
+              signals: commentaryResult.signals || [],
+            });
+          } else {
+            console.log('[SSE] No commentary generated, source:', commentaryResult?.source);
+          }
+          resolve();
+        },
+        onError: (err) => {
+          console.warn('[SSE] Commentary streaming failed (non-blocking):', err);
+          resolve();
+        },
+      },
+      signal
+    );
+  });
 }
 
 /**
@@ -193,6 +459,18 @@ router.post('/agent/stream', async (req, res) => {
     // Handle structured follow-up intents first (bypass NLP/LLM entirely)
     if (followUpIntent) {
       sendEvent('start', { intent: followUpIntent.intent, agentVersion, isFollowUpIntent: true });
+      const framingPayload = buildIntentFramingPayload({
+        intent: followUpIntent.intent,
+        followUpIntent,
+      });
+      if (framingPayload) {
+        await sendIntentFramingIfNeeded(
+          sendEvent,
+          framingPayload,
+          abortController.signal,
+          aborted,
+        );
+      }
       // Status: fetching data
       sendEvent('status', { action: getStatusAction(followUpIntent.intent, 'fetching'), phase: 'fetching' });
       const result = await agentEngine.run({
@@ -207,7 +485,7 @@ router.post('/agent/stream', async (req, res) => {
       sendEvent('result', { output: result.output, intent: result.intent, isFollowUpIntent: true });
       // Generate conversational commentary AFTER artifact (non-blocking)
       sendEvent('status', { action: getStatusAction(followUpIntent.intent, 'commentary'), phase: 'commentary' });
-      await sendCommentaryIfNeeded(sendEvent, result, context, aborted);
+      await sendCommentaryIfNeeded(sendEvent, result, context, aborted, abortController.signal);
       sendEvent('done', { timestamp: new Date().toISOString() });
       res.end();
       return;
@@ -216,12 +494,22 @@ router.post('/agent/stream', async (req, res) => {
     // Handle slash commands first - bypass LLM entirely
     if (isSlashCommand(message)) {
       sendEvent('start', { intent: 'COMMAND', agentVersion, isCommand: true });
+      const parsedCommand = parseSlashCommand(message);
+      const framingPayload = buildIntentFramingFromCommand(parsedCommand);
+      if (framingPayload) {
+        await sendIntentFramingIfNeeded(
+          sendEvent,
+          framingPayload,
+          abortController.signal,
+          aborted,
+        );
+      }
       // Status: executing command
       sendEvent('status', { action: 'Executing command…', phase: 'executing' });
       const result = await agentEngine.run({ message, context, agentVersion, reasoner: 'rule' });
       sendEvent('result', { output: result.output, intent: 'COMMAND', isCommand: true });
       // Generate conversational commentary AFTER artifact (non-blocking)
-      await sendCommentaryIfNeeded(sendEvent, result, context, aborted);
+      await sendCommentaryIfNeeded(sendEvent, result, context, aborted, abortController.signal);
       sendEvent('done', { timestamp: new Date().toISOString() });
       res.end();
       return;
@@ -233,7 +521,20 @@ router.post('/agent/stream', async (req, res) => {
     const followUpDetection = detectFollowUp(message, context || {});
     if (followUpDetection && followUpDetection.isFollowUp) {
       console.log('[SSE] Follow-up detected:', followUpDetection.type, 'confidence:', followUpDetection.confidence);
+      const contextSnapshot = agentEngine.contextStore.get(context || {});
       sendEvent('start', { intent: 'FOLLOW_UP', agentVersion, isFollowUp: true, followUpType: followUpDetection.type });
+      // Use 'FOLLOW_UP' as intent fallback when lastIntent is not available
+      const framingPayload = buildIntentFramingPayload({
+        intent: contextSnapshot?.lastIntent || 'FOLLOW_UP',
+        contextSnapshot,
+      });
+      // Always send intent framing for follow-ups to maintain conversational flow
+      await sendIntentFramingIfNeeded(
+        sendEvent,
+        framingPayload,
+        abortController.signal,
+        aborted,
+      );
       // Status: processing follow-up
       sendEvent('status', { action: 'Processing follow-up…', phase: 'fetching' });
       // Route through agentEngine.run() which has the follow-up resolution logic
@@ -242,7 +543,7 @@ router.post('/agent/stream', async (req, res) => {
       sendEvent('result', { output: result.output, intent: result.intent, isFollowUp: true });
       // Generate conversational commentary AFTER artifact (non-blocking)
       sendEvent('status', { action: getStatusAction(result.intent, 'commentary'), phase: 'commentary' });
-      await sendCommentaryIfNeeded(sendEvent, result, context, aborted);
+      await sendCommentaryIfNeeded(sendEvent, result, context, aborted, abortController.signal);
       sendEvent('done', { timestamp: new Date().toISOString() });
       res.end();
       return;
@@ -253,6 +554,18 @@ router.post('/agent/stream', async (req, res) => {
     const readIntent = detectReadIntent(message, context || {});
     if (readIntent && readIntent.requiresLocalData) {
       sendEvent('start', { intent: readIntent.intent, agentVersion, isReadIntent: true });
+      const framingPayload = buildIntentFramingPayload({
+        intent: readIntent.intent,
+        readIntent,
+      });
+      if (framingPayload) {
+        await sendIntentFramingIfNeeded(
+          sendEvent,
+          framingPayload,
+          abortController.signal,
+          aborted,
+        );
+      }
       // Status: fetching data
       sendEvent('status', { action: getStatusAction(readIntent.intent, 'fetching'), phase: 'fetching' });
       const result = await agentEngine.run({ message, context, agentVersion, reasoner: 'rule' });
@@ -261,7 +574,7 @@ router.post('/agent/stream', async (req, res) => {
       sendEvent('result', { output: result.output, intent: result.intent, isReadIntent: true });
       // Generate conversational commentary AFTER artifact (non-blocking)
       sendEvent('status', { action: getStatusAction(readIntent.intent, 'commentary'), phase: 'commentary' });
-      await sendCommentaryIfNeeded(sendEvent, result, context, aborted);
+      await sendCommentaryIfNeeded(sendEvent, result, context, aborted, abortController.signal);
       sendEvent('done', { timestamp: new Date().toISOString() });
       res.end();
       return;
@@ -278,6 +591,15 @@ router.post('/agent/stream', async (req, res) => {
 
     // Only stream for GENERAL_CHAT intent
     if (intent !== INTENTS.GENERAL_CHAT) {
+      const framingPayload = buildIntentFramingPayload({ intent });
+      if (framingPayload) {
+        await sendIntentFramingIfNeeded(
+          sendEvent,
+          framingPayload,
+          abortController.signal,
+          aborted,
+        );
+      }
       // Status: processing non-chat intent
       sendEvent('status', { action: getStatusAction(intent, 'analyzing'), phase: 'analyzing' });
       // For non-chat intents, fall back to regular processing
@@ -285,7 +607,7 @@ router.post('/agent/stream', async (req, res) => {
       sendEvent('result', { output: result.output, intent: result.intent });
       // Generate conversational commentary AFTER artifact (non-blocking)
       sendEvent('status', { action: getStatusAction(intent, 'commentary'), phase: 'commentary' });
-      await sendCommentaryIfNeeded(sendEvent, result, context, aborted);
+      await sendCommentaryIfNeeded(sendEvent, result, context, aborted, abortController.signal);
       sendEvent('done', { timestamp: new Date().toISOString() });
       res.end();
       return;
@@ -299,6 +621,19 @@ router.post('/agent/stream', async (req, res) => {
     if (looksLikeDataRequest) {
       console.log('[SSE] Safety guard triggered: message contains entity keywords but reached LLM path');
       sendEvent('start', { intent: 'SAFETY_GUARD', agentVersion, isSafetyGuard: true });
+      const safetyReadIntent = detectReadIntent(message, context || {});
+      const framingPayload = buildIntentFramingPayload({
+        intent: safetyReadIntent?.intent,
+        readIntent: safetyReadIntent,
+      });
+      if (framingPayload) {
+        await sendIntentFramingIfNeeded(
+          sendEvent,
+          framingPayload,
+          abortController.signal,
+          aborted,
+        );
+      }
       // Status: safety guard triggered, fetching
       sendEvent('status', { action: 'Retrieving data…', phase: 'fetching' });
       const result = await agentEngine.run({ message, context, agentVersion, reasoner: 'rule' });
@@ -306,7 +641,7 @@ router.post('/agent/stream', async (req, res) => {
       sendEvent('result', { output: result.output, intent: result.intent, isSafetyGuard: true });
       // Generate conversational commentary AFTER artifact (non-blocking)
       sendEvent('status', { action: 'Preparing response…', phase: 'commentary' });
-      await sendCommentaryIfNeeded(sendEvent, result, context, aborted);
+      await sendCommentaryIfNeeded(sendEvent, result, context, aborted, abortController.signal);
       sendEvent('done', { timestamp: new Date().toISOString() });
       res.end();
       return;

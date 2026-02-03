@@ -65,7 +65,7 @@ export function InterpretationBlock({ interpretation }: InterpretationBlockProps
         </span>
       </div>
 
-      {/* Interpretation statements */}
+      {/* Interpretation statements - appear with staggered animation */}
       <div className="space-y-2">
         {interpretation.statements.map((stmt, idx) => {
           const config = levelConfig[stmt.level] || levelConfig.neutral;
@@ -74,7 +74,7 @@ export function InterpretationBlock({ interpretation }: InterpretationBlockProps
           return (
             <div
               key={idx}
-              className={`flex gap-3 p-3 rounded-r border-l-2 ${config.borderColor} ${config.bgColor}`}
+              className={`artifact-build-statement flex gap-3 p-3 rounded-r border-l-2 ${config.borderColor} ${config.bgColor}`}
             >
               <IconComponent
                 className={`w-4 h-4 flex-shrink-0 mt-0.5 ${config.iconColor}`}

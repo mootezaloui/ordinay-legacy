@@ -5,6 +5,7 @@ import type {
   ActionProposal,
   FollowUpIntent,
   CommentaryOutput,
+  ClarificationOutput,
 } from "../../services/api/agent";
 
 export type AgentMessageRole = "user" | "agent";
@@ -17,12 +18,15 @@ export type AgentMessageStatus = "sending" | "success" | "error";
  * The agent emits messages in sequence:
  *   1. ack        - Immediate acknowledgement (no LLM, instant)
  *   2. status     - Processing status updates (no LLM, deterministic)
- *   3. artifact   - Structured result (facts, interpretation, follow-ups)
- *   4. commentary - Conversational message about the artifact (LLM, streamed)
+ *   3. intent     - Intent framing message (LLM, before execution)
+ *   4. artifact   - Structured result (facts, interpretation, follow-ups)
+ *   5. commentary - Conversational message about the artifact (LLM, streamed)
  *
  * Each stage has distinct rendering and timing requirements.
  */
-export type AgentMessageStage = "ack" | "status" | "artifact" | "commentary";
+export type AgentMessageStage = "ack" | "status" | "intent" | "artifact" | "commentary";
+
+export type AgentMessageType = "AGENT_INTENT_MESSAGE";
 
 export interface AgentMessage {
   id: string;
@@ -37,6 +41,10 @@ export interface AgentMessage {
    * If not set, defaults to 'artifact' for backwards compatibility.
    */
   stage?: AgentMessageStage;
+  /**
+   * Optional semantic message type (first-class agent interactions).
+   */
+  messageType?: AgentMessageType;
   /**
    * For status messages, the current action being performed.
    * e.g., "Reading tasks…", "Analyzing dossier status…"
@@ -62,10 +70,11 @@ export interface AgentMessage {
 }
 
 export interface AgentMessageData {
-  type: "explanation" | "risks" | "draft" | "actions" | "error";
+  type: "explanation" | "risks" | "draft" | "actions" | "clarification" | "error";
   explanation?: ExplanationOutput;
   risks?: RiskAnalysisOutput;
   draft?: DraftOutput;
   actionProposals?: ActionProposal[];
+  clarification?: ClarificationOutput;
   error?: string;
 }

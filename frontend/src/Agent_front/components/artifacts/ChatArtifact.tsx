@@ -10,8 +10,8 @@ interface ChatArtifactProps {
  */
 export function ChatArtifact({ content }: ChatArtifactProps) {
   return (
-    <div className="artifact-enter agent-message-row">
-      <div className="agent-bubble agent-chat-text text-[15px] leading-relaxed text-slate-800 dark:text-slate-200">
+    <div className="artifact-build agent-message-row">
+      <div className="artifact-build-section artifact-build-section-1 agent-bubble agent-chat-text text-[15px] leading-relaxed text-slate-800 dark:text-slate-200">
         <MarkdownOutput content={content} />
       </div>
     </div>

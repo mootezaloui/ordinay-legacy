@@ -1,16 +1,13 @@
 import type { AgentMessage } from "../types/agentMessage";
 import type { CommentaryOutput, FollowUpSuggestion } from "../../services/api/agent";
 
+// Only filter out truly empty/error responses, not valid commentary
+// The backend already sanitizes commentary - we only need minimal filtering here
 const REDUNDANT_PHRASES = [
-  "no urgent concerns",
-  "stable state",
-  "no records found",
-  "no record found",
-  "no results found",
   "no data available",
+  "error occurred",
+  "something went wrong",
 ];
-const CLARIFICATION_PATTERN =
-  /\bwhich\s+\w+|\bprovide\s+(an|a)\s+id|more\s+information\s+required|please\s+specify|provide\s+more\s+information/i;
 
 function splitSentences(text: string): string[] {
   return (text.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [])
@@ -35,24 +32,16 @@ function tokenize(text: string): string[] {
 function isRedundant(commentary: string, reference: string | undefined): boolean {
   if (!commentary || !reference) return false;
   const refTokens = new Set(tokenize(reference));
-  if (refTokens.size < 4) return false;
+  // Require more reference tokens before considering redundancy
+  if (refTokens.size < 8) return false;
   const commentTokens = tokenize(commentary);
   if (commentTokens.length === 0) return false;
   let overlap = 0;
   for (const token of commentTokens) {
     if (refTokens.has(token)) overlap += 1;
   }
-  return overlap / refTokens.size >= 0.6;
-}
-
-function buildEmptyGuidance(entityType?: string): string {
-  const label = entityType ? entityType.replace(/_/g, " ") : "records";
-  return `No ${label} records are available in this scope yet. This may mean none exist, the scope is too narrow, or entries have not been added; check the parent context or broaden the scope if you expected results.`;
-}
-
-function buildMultipleGuidance(entityType?: string): string {
-  const label = entityType ? entityType.replace(/_/g, " ") : "records";
-  return `Multiple ${label} records match this request. Select one to continue or narrow the scope to refine the list.`;
+  // Raised threshold from 0.6 to 0.85 - only filter near-exact duplicates
+  return overlap / refTokens.size >= 0.85;
 }
 
 export function getResultCountFromMessage(message: AgentMessage): number | null {
@@ -95,33 +84,6 @@ export function decideCommentary(message: AgentMessage): CommentaryOutput | null
       return null;
     }
     return { ...commentary, message: capSentences(commentary.message, 3) };
-  }
-
-  const resultCount = getResultCountFromMessage(message);
-  const hasUrgent =
-    explanation?.interpretation?.statements?.some(
-      (stmt) => stmt.level === "critical" || stmt.level === "warning"
-    ) || false;
-  const needsClarification =
-    explanation?.interpretation?.statements?.some((stmt) =>
-      /multiple matches|more information|required|specify/i.test(stmt.statement)
-    ) || false;
-  const clarificationText = `${explanation?.facts?.summary || ""} ${(explanation?.facts?.details || []).join(" ")}`.toLowerCase();
-
-  if (CLARIFICATION_PATTERN.test(clarificationText)) {
-    return null;
-  }
-
-  if (resultCount === 0) {
-    return { ...commentary, message: buildEmptyGuidance(explanation?.entityType) };
-  }
-
-  if (typeof resultCount === "number" && resultCount > 1) {
-    return { ...commentary, message: buildMultipleGuidance(explanation?.entityType) };
-  }
-
-  if (!hasUrgent && !needsClarification) {
-    return null;
   }
 
   const normalized = commentary.message.toLowerCase();

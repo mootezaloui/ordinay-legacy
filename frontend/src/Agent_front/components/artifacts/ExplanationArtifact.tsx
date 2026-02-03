@@ -58,9 +58,9 @@ export function ExplanationArtifact({
   }
 
   return (
-    <div className="artifact-enter agent-artifact-card">
-      {/* Header */}
-      <div className="agent-artifact-header flex items-center justify-between px-5 py-3">
+    <div className="artifact-build agent-artifact-card">
+      {/* Header - appears first after card shell */}
+      <div className="artifact-build-header agent-artifact-header flex items-center justify-between px-5 py-3">
         <div className="flex items-center gap-2">
           <FileText className="w-4 h-4 text-slate-500" />
           <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
@@ -77,8 +77,8 @@ export function ExplanationArtifact({
       {/* Body */}
       <div className="px-5 py-4">
         {/* ─── Section 1: FACTS ─── */}
-        <div>
-          <p className="text-sm font-medium text-slate-900 dark:text-white leading-relaxed">
+        <div className="artifact-build-section artifact-build-section-1">
+          <p className="artifact-build-summary text-sm font-medium text-slate-900 dark:text-white leading-relaxed">
             {data.facts.summary}
           </p>
 
@@ -91,7 +91,7 @@ export function ExplanationArtifact({
                 {data.facts.details.map((detail: string, idx: number) => (
                   <li
                     key={idx}
-                    className="text-sm text-slate-600 dark:text-slate-300 pl-4 relative before:content-[''] before:absolute before:left-0 before:top-[0.55em] before:w-1.5 before:h-1.5 before:rounded-full before:bg-slate-300 dark:before:bg-slate-600"
+                    className="artifact-build-item text-sm text-slate-600 dark:text-slate-300 pl-4 relative before:content-[''] before:absolute before:left-0 before:top-[0.55em] before:w-1.5 before:h-1.5 before:rounded-full before:bg-slate-300 dark:before:bg-slate-600"
                   >
                     {detail}
                   </li>
@@ -102,14 +102,18 @@ export function ExplanationArtifact({
         </div>
 
         {/* ─── Section 2: INTERPRETATION (MANDATORY) ─── */}
-        <InterpretationBlock interpretation={data.interpretation} />
+        <div className="artifact-build-section artifact-build-section-2">
+          <InterpretationBlock interpretation={data.interpretation} />
+        </div>
 
         {/* ─── Section 3: NAVIGATION (MANDATORY) ─── */}
-        <NavigationContext
-          navigation={data.navigation}
-          parentFollowUp={parentFollowUp}
-          onNavigate={onFollowUpClick}
-        />
+        <div className="artifact-build-section artifact-build-section-3">
+          <NavigationContext
+            navigation={data.navigation}
+            parentFollowUp={parentFollowUp}
+            onNavigate={onFollowUpClick}
+          />
+        </div>
       </div>
     </div>
   );

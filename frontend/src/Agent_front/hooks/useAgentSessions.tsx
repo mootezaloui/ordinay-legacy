@@ -27,7 +27,7 @@ function generateId(prefix: string): string {
 
 function createEmptySession(
   orderIndex: number,
-  folderId: string | null = null
+  folderId: string | null = null,
 ): AgentSession {
   const now = new Date();
   return {
@@ -73,7 +73,7 @@ function serializeSessions(sessions: AgentSession[]): string {
         ...m,
         timestamp: m.timestamp.toISOString(),
       })),
-    }))
+    })),
   );
 }
 
@@ -115,7 +115,7 @@ function serializeFolders(folders: AgentFolder[]): string {
       ...f,
       createdAt: f.createdAt.toISOString(),
       updatedAt: f.updatedAt.toISOString(),
-    }))
+    })),
   );
 }
 
@@ -153,7 +153,8 @@ function loadSessionsFromStorage(): AgentSession[] {
   } catch (e) {
     console.error("Failed to load agent sessions from storage:", e);
   }
-  return [createEmptySession(0, null)];
+  // Return empty array - session will be created when user sends first message
+  return [];
 }
 
 function loadFoldersFromStorage(): AgentFolder[] {
@@ -161,7 +162,7 @@ function loadFoldersFromStorage(): AgentFolder[] {
     const data = localStorage.getItem(FOLDERS_STORAGE_KEY);
     if (data) {
       return deserializeFolders(data).sort(
-        (a, b) => a.orderIndex - b.orderIndex
+        (a, b) => a.orderIndex - b.orderIndex,
       );
     }
   } catch (e) {
@@ -214,12 +215,12 @@ interface AgentSessionsContextValue {
   // Move & Reorder actions
   moveSessionToFolder: (
     sessionId: string,
-    targetFolderId: string | null
+    targetFolderId: string | null,
   ) => void;
   reorderSessionsInFolder: (
     folderId: string | null,
     fromIndex: number,
-    toIndex: number
+    toIndex: number,
   ) => void;
   reorderFolders: (fromIndex: number, toIndex: number) => void;
 
@@ -238,7 +239,9 @@ const AgentSessionsContext = createContext<
 // ============================================================================
 
 export function AgentSessionsProvider({ children }: { children: ReactNode }) {
-  const [sessions, setSessions] = useState<AgentSession[]>(loadSessionsFromStorage);
+  const [sessions, setSessions] = useState<AgentSession[]>(
+    loadSessionsFromStorage,
+  );
   const [folders, setFolders] = useState<AgentFolder[]>(loadFoldersFromStorage);
   const [activeSessionId, setActiveSessionId] = useState<string>(() => "");
 
@@ -269,14 +272,14 @@ export function AgentSessionsProvider({ children }: { children: ReactNode }) {
       const sessionsInTarget = sessions.filter((s) => s.folderId === folderId);
       const maxOrder = sessionsInTarget.reduce(
         (max, s) => Math.max(max, s.orderIndex),
-        -1
+        -1,
       );
       const newSession = createEmptySession(maxOrder + 1, folderId);
       setSessions((prev) => [newSession, ...prev]);
       setActiveSessionId(newSession.id);
       return newSession;
     },
-    [sessions]
+    [sessions],
   );
 
   const deleteSession = useCallback(
@@ -287,13 +290,13 @@ export function AgentSessionsProvider({ children }: { children: ReactNode }) {
 
         if (id === activeSessionId) {
           if (filtered.length === 0) {
-            const newSession = createEmptySession(0, null);
-            setActiveSessionId(newSession.id);
-            return [newSession];
+            // Don't create a new session - let it be created when user sends first message
+            setActiveSessionId("");
+            return [];
           }
           // Pick nearest sibling in same folder, or any session
           const siblings = filtered.filter(
-            (s) => s.folderId === session?.folderId
+            (s) => s.folderId === session?.folderId,
           );
           const target = siblings[0] || filtered[0];
           setActiveSessionId(target.id);
@@ -311,14 +314,14 @@ export function AgentSessionsProvider({ children }: { children: ReactNode }) {
         });
       });
     },
-    [activeSessionId]
+    [activeSessionId],
   );
 
   const renameSession = useCallback((id: string, title: string) => {
     setSessions((prev) =>
       prev.map((s) =>
-        s.id === id ? { ...s, title, updatedAt: new Date() } : s
-      )
+        s.id === id ? { ...s, title, updatedAt: new Date() } : s,
+      ),
     );
   }, []);
 
@@ -345,10 +348,10 @@ export function AgentSessionsProvider({ children }: { children: ReactNode }) {
             updatedAt: new Date(),
             title,
           };
-        })
+        }),
       );
     },
-    []
+    [],
   );
 
   const updateSessionDraft = useCallback((id: string, draft: string) => {
@@ -362,7 +365,7 @@ export function AgentSessionsProvider({ children }: { children: ReactNode }) {
   const createFolder = useCallback(() => {
     const maxOrder = folders.reduce(
       (max, f) => Math.max(max, f.orderIndex),
-      -1
+      -1,
     );
     const newFolder = createEmptyFolder(maxOrder + 1);
     setFolders((prev) => [...prev, newFolder]);
@@ -377,7 +380,7 @@ export function AgentSessionsProvider({ children }: { children: ReactNode }) {
           const rootSessions = prev.filter((s) => s.folderId === null);
           const maxRootOrder = rootSessions.reduce(
             (max, s) => Math.max(max, s.orderIndex),
-            -1
+            -1,
           );
           let nextOrder = maxRootOrder + 1;
 
@@ -397,9 +400,9 @@ export function AgentSessionsProvider({ children }: { children: ReactNode }) {
           // If we deleted the active session
           if (toDelete.some((s) => s.id === activeSessionId)) {
             if (remaining.length === 0) {
-              const newSession = createEmptySession(0, null);
-              setActiveSessionId(newSession.id);
-              return [newSession];
+              // Don't create a new session - let it be created when user sends first message
+              setActiveSessionId("");
+              return [];
             }
             setActiveSessionId(remaining[0].id);
           }
@@ -414,20 +417,20 @@ export function AgentSessionsProvider({ children }: { children: ReactNode }) {
         return filtered.map((f, i) => ({ ...f, orderIndex: i }));
       });
     },
-    [activeSessionId]
+    [activeSessionId],
   );
 
   const renameFolder = useCallback((id: string, title: string) => {
     setFolders((prev) =>
       prev.map((f) =>
-        f.id === id ? { ...f, title, updatedAt: new Date() } : f
-      )
+        f.id === id ? { ...f, title, updatedAt: new Date() } : f,
+      ),
     );
   }, []);
 
   const toggleFolderExpanded = useCallback((id: string) => {
     setFolders((prev) =>
-      prev.map((f) => (f.id === id ? { ...f, isExpanded: !f.isExpanded } : f))
+      prev.map((f) => (f.id === id ? { ...f, isExpanded: !f.isExpanded } : f)),
     );
   }, []);
 
@@ -445,11 +448,11 @@ export function AgentSessionsProvider({ children }: { children: ReactNode }) {
 
         // Calculate new order in target
         const targetSessions = prev.filter(
-          (s) => s.folderId === targetFolderId
+          (s) => s.folderId === targetFolderId,
         );
         const maxTargetOrder = targetSessions.reduce(
           (max, s) => Math.max(max, s.orderIndex),
-          -1
+          -1,
         );
 
         // Update the moved session
@@ -477,7 +480,7 @@ export function AgentSessionsProvider({ children }: { children: ReactNode }) {
         });
       });
     },
-    []
+    [],
   );
 
   const reorderSessionsInFolder = useCallback(
@@ -507,7 +510,7 @@ export function AgentSessionsProvider({ children }: { children: ReactNode }) {
         });
       });
     },
-    []
+    [],
   );
 
   const reorderFolders = useCallback((fromIndex: number, toIndex: number) => {
@@ -534,10 +537,10 @@ export function AgentSessionsProvider({ children }: { children: ReactNode }) {
         .sort(
           (a, b) =>
             b.updatedAt.getTime() - a.updatedAt.getTime() ||
-            b.createdAt.getTime() - a.createdAt.getTime()
+            b.createdAt.getTime() - a.createdAt.getTime(),
         );
     },
-    [sessions]
+    [sessions],
   );
 
   const getRootSessions = useCallback(() => {
@@ -600,7 +603,7 @@ export function useAgentSessions() {
   const context = useContext(AgentSessionsContext);
   if (context === undefined) {
     throw new Error(
-      "useAgentSessions must be used within an AgentSessionsProvider"
+      "useAgentSessions must be used within an AgentSessionsProvider",
     );
   }
   return context;

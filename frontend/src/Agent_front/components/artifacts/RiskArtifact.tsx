@@ -59,9 +59,9 @@ export function RiskArtifact({ data }: RiskArtifactProps) {
     .filter((g) => g.risks.length > 0);
 
   return (
-    <div className="artifact-enter agent-artifact-card is-risk">
+    <div className="artifact-build agent-artifact-card is-risk">
       {/* Header */}
-      <div className="agent-artifact-header flex items-center justify-between px-5 py-3">
+      <div className="artifact-build-header agent-artifact-header flex items-center justify-between px-5 py-3">
         <div className="flex items-center gap-2">
           <Shield className="w-4 h-4 text-orange-500" />
           <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
@@ -80,17 +80,17 @@ export function RiskArtifact({ data }: RiskArtifactProps) {
 
       {/* Summary sentence if provided */}
       {data.summary && (
-        <div className="px-5 py-3 border-b border-slate-100 dark:border-slate-700/50">
+        <div className="artifact-build-section artifact-build-section-1 px-5 py-3 border-b border-slate-100 dark:border-slate-700/50">
           <p className="text-sm text-slate-700 dark:text-slate-300">{data.summary}</p>
         </div>
       )}
 
       {/* Risks grouped by severity */}
       <div className="px-5 py-4 space-y-4">
-        {grouped.map((group) => {
+        {grouped.map((group, groupIdx) => {
           const style = getSeverityStyle(group.severity);
           return (
-            <div key={group.severity}>
+            <div key={group.severity} className={`artifact-build-section artifact-build-section-${groupIdx + 2}`}>
               <div className="flex items-center gap-2 mb-2">
                 <span className={`w-2 h-2 rounded-full ${style.dot}`} />
                 <span className={`text-xs font-semibold uppercase tracking-wide ${style.text}`}>
@@ -104,7 +104,7 @@ export function RiskArtifact({ data }: RiskArtifactProps) {
                   return (
                     <div
                       key={idx}
-                      className={`p-3 rounded border ${style.border} ${style.bg}`}
+                      className={`artifact-build-statement p-3 rounded border ${style.border} ${style.bg}`}
                     >
                       <div className="flex items-start gap-2">
                         <IconComponent className={`w-3.5 h-3.5 mt-0.5 ${style.text} flex-shrink-0`} />
@@ -134,7 +134,7 @@ export function RiskArtifact({ data }: RiskArtifactProps) {
       </div>
 
       {/* Footer */}
-      <div className="px-5 py-2 bg-slate-50/70 dark:bg-slate-900/50 border-t border-slate-200/70 dark:border-slate-700/60 flex items-center gap-3">
+      <div className="artifact-build-section artifact-build-section-4 px-5 py-2 bg-slate-50/70 dark:bg-slate-900/50 border-t border-slate-200/70 dark:border-slate-700/60 flex items-center gap-3">
         <CircleDot className="w-3 h-3 text-slate-400" />
         <span className="text-xs text-slate-400 dark:text-slate-500">
           Rule-based analysis · Requires validation

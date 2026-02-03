@@ -117,6 +117,67 @@ export interface FollowUpSuggestion {
   };
 }
 
+// Semantic signals emitted by deterministic logic (no user-facing text)
+export type SemanticSignal =
+  | {
+      type: 'INTENT_FRAMING';
+      action: 'read' | 'list' | 'summarize';
+      entity: string;
+      scope: 'single' | 'multiple' | 'filtered';
+    }
+  | {
+      type: 'EMPTY_RESULT';
+      entityType?: string;
+      resultCount?: number;
+    }
+  | {
+      type: 'MULTIPLE_RESULTS';
+      entityType?: string;
+      resultCount?: number;
+    }
+  | {
+      type: 'AMBIGUOUS_SCOPE';
+      entityType?: string;
+      resultCount?: number;
+    }
+  | {
+      type: 'MISSING_INFORMATION';
+      entityType?: string;
+      reason?: string;
+    }
+  | {
+      type: 'CLARIFICATION_REQUIRED';
+      reason: string;
+      entityType?: string;
+      resultCount?: number;
+    };
+
+export interface ClarificationOption {
+  action:
+    | 'LIST'
+    | 'FILTER'
+    | 'REPEAT'
+    | 'SELECT_ONE'
+    | 'NARROW_SCOPE'
+    | 'PROVIDE_IDENTIFIER'
+    | 'OPEN_CONTEXT';
+  entityType?: string;
+  intent?: string;
+  scope?: FollowUpSuggestion['scope'];
+  filters?: FollowUpSuggestion['filters'];
+}
+
+export interface ClarificationOutput {
+  type: 'clarification';
+  reason: {
+    type: string;
+    entityType?: string;
+    resultCount?: number;
+  };
+  signals?: SemanticSignal[];
+  options?: ClarificationOption[];
+}
+
 // Facts block — what was read
 export interface FactsBlock {
   summary: string;
@@ -238,6 +299,7 @@ export type AgentOutput =
   | ExplanationOutput
   | RiskAnalysisOutput
   | DraftOutput
+  | ClarificationOutput
   | { type: 'action_plan'; actions: ActionProposal[] };
 
 // Agent response from backend
@@ -263,6 +325,7 @@ export interface ProcessedAgentResponse {
   explanation?: ExplanationOutput;
   risks?: RiskAnalysisOutput;
   draft?: DraftOutput;
+  clarification?: ClarificationOutput;
   actionProposals?: ActionProposal[];
   // Error info
   error?: string;
@@ -306,7 +369,7 @@ export async function sendAgentMessage(
         intent: 'UNKNOWN',
         agentVersion,
         error: response.error || 'Unknown error',
-        displayText: `Error: ${response.error || 'Unknown error'}`,
+        displayText: response.error || 'Unknown error',
       };
     }
 
@@ -325,18 +388,20 @@ export async function sendAgentMessage(
       processed.displayText = (output as ChatOutput).message;
     } else if (output.type === 'explanation') {
       processed.explanation = output as ExplanationOutput;
-      const explanation = output as ExplanationOutput;
-      processed.displayText = explanation.facts?.summary || explanation.summary || 'Entity loaded';
+      processed.displayText = '';
     } else if (output.type === 'operational_risk_analysis') {
       processed.risks = output as RiskAnalysisOutput;
-      processed.displayText = (output as RiskAnalysisOutput).summary;
+      processed.displayText = '';
     } else if (['INVITATION', 'CLIENT_EMAIL', 'HEARING_SUMMARY', 'INTERNAL_NOTE'].includes(output.type)) {
       processed.draft = output as DraftOutput;
-      processed.displayText = `Draft ${output.type.toLowerCase().replace('_', ' ')} generated`;
+      processed.displayText = '';
+    } else if (output.type === 'clarification') {
+      processed.clarification = output as ClarificationOutput;
+      processed.displayText = '';
     } else if (output.type === 'action_plan') {
       const actionPlan = output as { type: 'action_plan'; actions: ActionProposal[] };
       processed.actionProposals = actionPlan.actions;
-      processed.displayText = `${actionPlan.actions.length} action(s) proposed`;
+      processed.displayText = '';
     }
 
     return processed;
@@ -347,7 +412,7 @@ export async function sendAgentMessage(
       intent: 'UNKNOWN',
       agentVersion,
       error: errorMessage,
-      displayText: `Error: ${errorMessage}`,
+      displayText: errorMessage,
     };
   }
 }
@@ -470,6 +535,7 @@ export function filterCommands(input: string, commands: SlashCommand[]): SlashCo
 export interface CommentaryOutput {
   message: string;
   source: 'llm' | 'fallback' | 'skipped' | 'failed';
+  signals?: SemanticSignal[];
 }
 
 // ============================================================================
@@ -477,7 +543,18 @@ export interface CommentaryOutput {
 // ============================================================================
 
 /** SSE event types from the streaming endpoint */
-export type StreamEventType = 'start' | 'status' | 'chunk' | 'result' | 'commentary' | 'done' | 'error' | 'cancelled';
+export type StreamEventType =
+  | 'start'
+  | 'status'
+  | 'intent_framing'
+  | 'intent_framing_chunk'
+  | 'chunk'
+  | 'result'
+  | 'commentary'
+  | 'commentary_chunk'
+  | 'done'
+  | 'error'
+  | 'cancelled';
 
 /**
  * Status event data - describes what the agent is currently doing.
@@ -493,9 +570,14 @@ export interface StatusEventData {
 export interface StreamCallbacks {
   onStart?: (data: { intent: string; agentVersion: string }) => void;
   onStatus?: (data: StatusEventData) => void;
+  onIntentFraming?: (data: { message: string; messageType?: string; signal?: SemanticSignal | null }) => void;
+  /** Streaming chunk for intent framing message (for real-time display) */
+  onIntentFramingChunk?: (chunk: string) => void;
   onChunk?: (content: string) => void;
   onResult?: (data: { output: AgentOutput; intent: string }) => void;
   onCommentary?: (data: CommentaryOutput) => void;
+  /** Streaming chunk for commentary message (for real-time display) */
+  onCommentaryChunk?: (chunk: string) => void;
   onDone?: (data: { timestamp: string; fullContent?: string }) => void;
   onError?: (error: string) => void;
   onCancelled?: () => void;
@@ -620,6 +702,12 @@ export function streamAgentMessage(
                 case 'status':
                   callbacks.onStatus?.(data);
                   break;
+                case 'intent_framing':
+                  callbacks.onIntentFraming?.(data);
+                  break;
+                case 'intent_framing_chunk':
+                  callbacks.onIntentFramingChunk?.(data.chunk);
+                  break;
                 case 'chunk':
                   callbacks.onChunk?.(data.content);
                   break;
@@ -628,6 +716,9 @@ export function streamAgentMessage(
                   break;
                 case 'commentary':
                   callbacks.onCommentary?.(data);
+                  break;
+                case 'commentary_chunk':
+                  callbacks.onCommentaryChunk?.(data.chunk);
                   break;
                 case 'done':
                   callbacks.onDone?.(data);

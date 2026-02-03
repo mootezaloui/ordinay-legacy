@@ -4,7 +4,11 @@ const { INTENT_LIST } = require("./intents");
 
 const LLM_BASE_URL = process.env.LLM_BASE_URL || "http://127.0.0.1:11434";
 const LLM_MODEL = process.env.LLM_MODEL || "qwen2.5:7b-instruct";
-const LLM_TIMEOUT = parseInt(process.env.LLM_TIMEOUT || "30000", 10);
+const LLM_TIMEOUT = parseInt(process.env.LLM_TIMEOUT || "45000", 10);
+const INTENT_FRAMING_TIMEOUT = parseInt(
+  process.env.LLM_INTENT_FRAMING_TIMEOUT || "8000",
+  10,
+);
 
 const INTENT_CLASSIFICATION_PROMPT = `You are an intent classifier for a legal practice management system called Organia.
 Your task is to classify user messages into exactly ONE of these intents:
@@ -91,6 +95,29 @@ const CHAT_SYSTEM_PROMPT = `You are Organia Assistant, a helpful AI for a legal 
 You help lawyers and legal professionals with their daily work.
 Be concise, professional, and helpful. Keep responses brief unless asked for detail.`;
 
+const INTENT_FRAMING_PROMPT = `You are Organia Assistant.
+Write a short intent-framing message that:
+- Acknowledges the request
+- Briefly says what you will do next
+- Uses non-technical, friendly language
+
+Rules:
+- 1-2 short sentences
+- Do NOT mention IDs, counts, tools, or internal intent names
+- Do NOT promise actions beyond read-only access
+- If scope is "filtered", mention "matching" or "filtered"
+- If scope is "multiple", mention "all" or "the list"
+- If scope is "single", mention "this" or "the specific"
+- If the entity implies drafting or recommendations (e.g., contains "draft", "email", "invitation", "next steps", "risks"),
+  phrase as preparing or reviewing, not summarizing
+
+Inputs:
+intentType: {{intentType}}
+entity: {{entity}}
+scope: {{scope}}
+
+Return only the message.`;
+
 async function generateChatResponse(message) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), LLM_TIMEOUT);
@@ -122,6 +149,156 @@ async function generateChatResponse(message) {
   } catch (err) {
     clearTimeout(timeoutId);
     return null;
+  }
+}
+
+function buildIntentFramingPrompt(intentType, entity, scope) {
+  return INTENT_FRAMING_PROMPT
+    .replace("{{intentType}}", intentType)
+    .replace("{{entity}}", entity)
+    .replace("{{scope}}", scope);
+}
+
+async function requestIntentFraming(prompt, signal) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), INTENT_FRAMING_TIMEOUT);
+
+  if (signal) {
+    if (signal.aborted) {
+      controller.abort();
+    } else {
+      signal.addEventListener("abort", () => controller.abort(), { once: true });
+    }
+  }
+
+  try {
+    const response = await fetch(`${LLM_BASE_URL}/api/generate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: LLM_MODEL,
+        prompt,
+        stream: false,
+        options: {
+          temperature: 0.4,
+          num_predict: 80,
+        },
+      }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const data = await response.json();
+    const message = (data.response || "").trim();
+    return message.length > 0 ? message : null;
+  } catch (err) {
+    clearTimeout(timeoutId);
+    return null;
+  }
+}
+
+async function generateIntentFramingMessage({ intentType, entity, scope }, signal) {
+  if (!intentType || !entity || !scope) return null;
+
+  const basePrompt = buildIntentFramingPrompt(intentType, entity, scope);
+  const first = await requestIntentFraming(basePrompt, signal);
+  if (first) return first;
+
+  const retryPrompt = `${basePrompt}\n\nReturn exactly one short sentence.`;
+  return await requestIntentFraming(retryPrompt, signal);
+}
+
+/**
+ * Stream intent framing message with callbacks
+ * Provides real-time streaming for immediate responsiveness
+ *
+ * @param {Object} payload - { intentType, entity, scope }
+ * @param {Object} callbacks - { onChunk, onDone, onError }
+ * @param {AbortSignal} signal - Optional abort signal
+ */
+async function streamIntentFramingMessage({ intentType, entity, scope }, callbacks, signal) {
+  if (!intentType || !entity || !scope) {
+    callbacks.onDone?.('');
+    return;
+  }
+
+  const prompt = buildIntentFramingPrompt(intentType, entity, scope);
+  const abortController = new AbortController();
+  const timeoutId = setTimeout(() => abortController.abort(), INTENT_FRAMING_TIMEOUT);
+
+  if (signal) {
+    if (signal.aborted) {
+      abortController.abort();
+    } else {
+      signal.addEventListener('abort', () => abortController.abort(), { once: true });
+    }
+  }
+
+  let fullContent = '';
+
+  try {
+    const response = await fetch(`${LLM_BASE_URL}/api/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: LLM_MODEL,
+        prompt,
+        stream: true,
+        options: {
+          temperature: 0.4,
+          num_predict: 80,
+        },
+      }),
+      signal: abortController.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      callbacks.onError?.(`LLM request failed: ${response.status}`);
+      return;
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      const chunk = decoder.decode(value, { stream: true });
+      const lines = chunk.split('\n').filter((line) => line.trim());
+
+      for (const line of lines) {
+        try {
+          const data = JSON.parse(line);
+          if (data.response) {
+            fullContent += data.response;
+            callbacks.onChunk?.(data.response);
+          }
+          if (data.done) {
+            callbacks.onDone?.(fullContent);
+            return;
+          }
+        } catch {
+          // Skip malformed JSON
+        }
+      }
+    }
+
+    callbacks.onDone?.(fullContent);
+  } catch (err) {
+    clearTimeout(timeoutId);
+    if (err.name === 'AbortError') {
+      callbacks.onDone?.(fullContent);
+    } else {
+      callbacks.onError?.(err.message);
+    }
   }
 }
 
@@ -340,4 +517,6 @@ module.exports = {
   LLM_BASE_URL,
   LLM_MODEL,
   CHAT_SYSTEM_PROMPT,
+  generateIntentFramingMessage,
+  streamIntentFramingMessage,
 };

@@ -788,6 +788,149 @@
   animation: artifact-reveal 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+/* ── Progressive Artifact Build System ──
+   Makes artifacts feel "generated" rather than appearing all at once.
+   The card shell appears first, then content builds from top to bottom.
+*/
+
+/* Card shell materializes first - border/bg appear before content */
+@keyframes artifact-shell-materialize {
+  0% {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+    box-shadow: 0 0 0 0 rgba(148, 163, 184, 0);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(2px) scale(0.995);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+  }
+}
+
+/* Section content fades in and slides up slightly */
+@keyframes artifact-section-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Individual list items appear with subtle pop */
+@keyframes artifact-item-enter {
+  0% {
+    opacity: 0;
+    transform: translateX(-4px);
+  }
+  60% {
+    opacity: 1;
+    transform: translateX(1px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Text content appears with typewriter-like reveal */
+@keyframes artifact-text-reveal {
+  from {
+    opacity: 0;
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    opacity: 1;
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+/* Progressive build container - applies to the artifact card */
+.artifact-build {
+  animation: artifact-shell-materialize 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* Header appears first after shell */
+.artifact-build-header {
+  opacity: 0;
+  animation: artifact-section-enter 0.25s ease-out forwards;
+  animation-delay: 0.15s;
+}
+
+/* Sections appear in sequence */
+.artifact-build-section {
+  opacity: 0;
+  animation: artifact-section-enter 0.3s ease-out forwards;
+}
+
+.artifact-build-section-1 { animation-delay: 0.2s; }
+.artifact-build-section-2 { animation-delay: 0.35s; }
+.artifact-build-section-3 { animation-delay: 0.5s; }
+.artifact-build-section-4 { animation-delay: 0.65s; }
+
+/* List items appear in rapid succession */
+.artifact-build-item {
+  opacity: 0;
+  animation: artifact-item-enter 0.2s ease-out forwards;
+}
+
+/* Staggered delays for list items (up to 10 items) */
+.artifact-build-item:nth-child(1) { animation-delay: 0.05s; }
+.artifact-build-item:nth-child(2) { animation-delay: 0.1s; }
+.artifact-build-item:nth-child(3) { animation-delay: 0.15s; }
+.artifact-build-item:nth-child(4) { animation-delay: 0.2s; }
+.artifact-build-item:nth-child(5) { animation-delay: 0.25s; }
+.artifact-build-item:nth-child(6) { animation-delay: 0.3s; }
+.artifact-build-item:nth-child(7) { animation-delay: 0.35s; }
+.artifact-build-item:nth-child(8) { animation-delay: 0.4s; }
+.artifact-build-item:nth-child(9) { animation-delay: 0.45s; }
+.artifact-build-item:nth-child(10) { animation-delay: 0.5s; }
+
+/* Summary text with smooth reveal */
+.artifact-build-summary {
+  opacity: 0;
+  animation: artifact-text-reveal 0.4s ease-out forwards;
+  animation-delay: 0.25s;
+}
+
+/* For completed/historic artifacts - quick appearance, no elaborate animation */
+.artifact-static {
+  animation: none;
+  opacity: 1;
+}
+
+/* Interpretation statement pill entry */
+@keyframes statement-pill-enter {
+  0% {
+    opacity: 0;
+    transform: scale(0.9) translateX(-8px);
+  }
+  70% {
+    transform: scale(1.02) translateX(0);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateX(0);
+  }
+}
+
+.artifact-build-statement {
+  opacity: 0;
+  animation: statement-pill-enter 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.artifact-build-statement:nth-child(1) { animation-delay: 0.1s; }
+.artifact-build-statement:nth-child(2) { animation-delay: 0.2s; }
+.artifact-build-statement:nth-child(3) { animation-delay: 0.3s; }
+.artifact-build-statement:nth-child(4) { animation-delay: 0.4s; }
+.artifact-build-statement:nth-child(5) { animation-delay: 0.5s; }
+
 @keyframes artifact-focus {
   0% {
     box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.15);

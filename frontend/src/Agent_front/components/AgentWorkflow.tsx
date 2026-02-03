@@ -10,6 +10,7 @@ import { DraftArtifact } from "./artifacts/DraftArtifact";
 import { ActionArtifact } from "./artifacts/ActionArtifact";
 import { ChatArtifact } from "./artifacts/ChatArtifact";
 import { ErrorArtifact } from "./artifacts/ErrorArtifact";
+import { ClarificationArtifact } from "./artifacts/ClarificationArtifact";
 import { FollowUpSuggestions } from "./artifacts/FollowUpSuggestions";
 import { CommentaryBubble } from "./artifacts/CommentaryBubble";
 import { MarkdownOutput } from "../../components/MarkdownOutput";
@@ -18,6 +19,7 @@ import { decideCommentary, filterFollowUps, getResultCountFromMessage } from "..
 // Staged message renderers
 import { AckMessage } from "./messages/AckMessage";
 import { StatusMessage } from "./messages/StatusMessage";
+import { IntentFramingMessage } from "./messages/IntentFramingMessage";
 
 /**
  * Workflow phases — derived from the message state,
@@ -150,6 +152,12 @@ export function AgentWorkflow({ message, onFollowUpClick, onExampleClick }: Agen
     // Classifying — show immediately
     if (rawPhase === "classifying") return "classifying";
 
+    // If we never entered a working phase (status is handled elsewhere),
+    // reveal immediately when the result arrives.
+    if (rawPhase === "revealing" && workingStartRef.current === null) {
+      return "revealing";
+    }
+
     // Working — show working
     if (rawPhase === "working") return "working";
 
@@ -175,6 +183,11 @@ export function AgentWorkflow({ message, onFollowUpClick, onExampleClick }: Agen
   // Stage: status — deterministic status updates during processing
   if (message.stage === "status" && message.statusAction) {
     return <StatusMessage action={message.statusAction} />;
+  }
+
+  // Stage: intent framing — short LLM message before execution
+  if (message.stage === "intent") {
+    return <IntentFramingMessage content={message.content} />;
   }
 
   // For other stages (artifact, commentary, or undefined), continue with phase-based rendering
@@ -400,6 +413,9 @@ function ArtifactBody({
   }
   if (dataType === "actions" && message.data?.actionProposals) {
     return <ActionArtifact data={message.data.actionProposals} />;
+  }
+  if (dataType === "clarification" && message.data?.clarification) {
+    return <ClarificationArtifact data={message.data.clarification} />;
   }
   if (hasContent) {
     return <ChatArtifact content={message.content} />;

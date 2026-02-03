@@ -16,7 +16,8 @@
 
 const LLM_BASE_URL = process.env.LLM_BASE_URL || "http://127.0.0.1:11434";
 const LLM_MODEL = process.env.LLM_MODEL || "qwen2.5:7b-instruct";
-const LLM_TIMEOUT = parseInt(process.env.LLM_COMMENTARY_TIMEOUT || "15000", 10);
+const LLM_TIMEOUT = parseInt(process.env.LLM_COMMENTARY_TIMEOUT || "30000", 10);
+const ALWAYS_GENERATE_COMMENTARY = process.env.LLM_COMMENTARY_ALWAYS !== "false";
 
 // ─── Commentary Prompt Template ────────────────────────────────────────────
 
@@ -62,7 +63,7 @@ TONE: Professional, helpful, conversational. Not robotic.`;
  * @param {Object} artifactSummary - High-level summary of the artifact
  * @returns {string} - Context string for the LLM prompt
  */
-function buildPromptContext(artifactSummary) {
+function buildPromptContext(artifactSummary, semanticSignals = []) {
   const lines = [];
 
   // Entity identity
@@ -107,6 +108,10 @@ function buildPromptContext(artifactSummary) {
     lines.push(`Available explorations: ${artifactSummary.followUpLabels.join(", ")}`);
   }
 
+  if (Array.isArray(semanticSignals) && semanticSignals.length > 0) {
+    lines.push(`Semantic signals: ${JSON.stringify(semanticSignals)}`);
+  }
+
   return lines.join("\n");
 }
 
@@ -135,6 +140,19 @@ function extractArtifactSummary(artifactType, artifact, context) {
     overdueCount: null,
     resultCount: null,
   };
+
+  if (artifactType === "clarification" && artifact?.reason) {
+    summary.entityType = artifact.reason.entityType || summary.entityType;
+    if (typeof artifact.reason.resultCount === "number") {
+      summary.resultCount = artifact.reason.resultCount;
+    }
+    if (artifact.reason.type === "AMBIGUOUS_SELECTION") {
+      summary.isAmbiguous = true;
+    }
+    if (artifact.reason.type === "MISSING_INFORMATION") {
+      summary.isIncomplete = true;
+    }
+  }
 
   summary.factsSummary =
     artifact.facts?.summary || artifact.summary || summary.factsSummary;
@@ -222,6 +240,44 @@ function extractArtifactSummary(artifactType, artifact, context) {
   return summary;
 }
 
+function deriveSemanticSignals(summary) {
+  const signals = [];
+
+  if (typeof summary.resultCount === "number" && summary.resultCount === 0) {
+    signals.push({
+      type: "EMPTY_RESULT",
+      entityType: summary.entityType,
+      resultCount: summary.resultCount,
+    });
+  }
+
+  if (typeof summary.resultCount === "number" && summary.resultCount > 1) {
+    signals.push({
+      type: "MULTIPLE_RESULTS",
+      entityType: summary.entityType,
+      resultCount: summary.resultCount,
+    });
+  }
+
+  if (summary.isAmbiguous) {
+    signals.push({
+      type: "AMBIGUOUS_SCOPE",
+      entityType: summary.entityType,
+      resultCount: summary.resultCount,
+    });
+  }
+
+  if (summary.isIncomplete) {
+    signals.push({
+      type: "MISSING_INFORMATION",
+      entityType: summary.entityType,
+      reason: "incomplete_request",
+    });
+  }
+
+  return signals;
+}
+
 function splitSentences(text) {
   return (text.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [])
     .map((s) => s.trim())
@@ -255,97 +311,42 @@ function isRedundant(commentary, reference) {
   return overlap / refTokens.size >= 0.6;
 }
 
-function buildEmptyResultCommentary(summary) {
-  const label = summary.entityType ? summary.entityType.replace(/_/g, " ") : "records";
-  return `No ${label} records are available in this scope yet. This may mean none exist, the scope is too narrow, or entries have not been added; check the parent context or broaden the scope if you expected results.`;
+function applyCommentaryPolicy(summary) {
+  // Always generate commentary to provide conversational interaction
+  // The LLM will keep it short if there's nothing important to add
+  // This is the key to making the agent feel "alive" rather than silent
+  return { action: "allow", reason: "always_engage" };
 }
 
-function buildMultipleResultCommentary(summary) {
-  const label = summary.entityType ? summary.entityType.replace(/_/g, " ") : "records";
-  return `Multiple ${label} records match this request. Select one to continue or narrow the scope to refine the list.`;
-}
-
-function requiresClarification(summary) {
-  const combined = `${summary.factsSummary || ""} ${(summary.factsDetails || []).join(" ")}`.toLowerCase();
-  return (
-    /\bwhich\s+\w+/.test(combined) ||
-    /provide\s+(an|a)\s+id/.test(combined) ||
-    /more\s+information\s+required/.test(combined) ||
-    /please\s+specify/.test(combined) ||
-    /provide\s+more\s+information/.test(combined)
-  );
-}
-
-function hasAbsenceGuidance(summary, artifact) {
-  const factText = `${summary.factsSummary || ""} ${(summary.factsDetails || []).join(" ")}`.toLowerCase();
-  const interpretationText = Array.isArray(artifact?.interpretation?.statements)
-    ? artifact.interpretation.statements
-        .map((stmt) => `${stmt.statement} ${stmt.implication}`)
-        .join(" ")
-        .toLowerCase()
-    : "";
-  const guidancePatterns = [
-    /this\s+may\s+mean/,
-    /check\s+(the\s+)?filters?/,
-    /broaden\s+(the\s+)?scope/,
-    /confirm\s+(the\s+)?parent/,
-    /verify\s+the\s+identifier/,
-    /specify\s+which/,
-  ];
-
-  return guidancePatterns.some(
-    (pattern) => pattern.test(factText) || pattern.test(interpretationText),
-  );
-}
-
-function applyCommentaryPolicy(summary, artifact) {
-  if (requiresClarification(summary)) {
-    return { action: "skip", reason: "clarification_required" };
-  }
-  if (summary.resultCount === 0) {
-    if (hasAbsenceGuidance(summary, artifact)) {
-      return { action: "skip", reason: "absence_guidance_present" };
-    }
-    return { action: "force", message: buildEmptyResultCommentary(summary), reason: "empty_result" };
-  }
-  if (typeof summary.resultCount === "number" && summary.resultCount > 1) {
-    return { action: "force", message: buildMultipleResultCommentary(summary), reason: "multiple_results" };
-  }
-
-  const hasUrgentSignals = summary.signals.length > 0;
-  const needsClarification = summary.isAmbiguous || summary.isIncomplete;
-
-  if (!hasUrgentSignals && !needsClarification) {
-    return { action: "skip", reason: "no_guidance_needed" };
-  }
-
-  return { action: "allow" };
-}
-
-function sanitizeCommentary(text, summary, artifact) {
+function sanitizeCommentary(text, summary, artifact, options = {}) {
   if (!text) return null;
+  const allowIdentifiers = Boolean(options.allowIdentifiers);
   let cleaned = String(text).replace(/\s+/g, " ").trim();
   if (!cleaned) return null;
 
+  // Only filter out truly useless responses
   const lower = cleaned.toLowerCase();
   const bannedPhrases = [
-    "no urgent concerns",
-    "stable state",
-    "no records found",
-    "no record found",
-    "no results found",
     "no data available",
+    "error occurred",
+    "something went wrong",
   ];
   if (bannedPhrases.some((phrase) => lower.includes(phrase))) {
     return null;
   }
 
-  if (isRedundant(cleaned, artifact?.facts?.summary) || isRedundant(cleaned, artifact?.interpretation?.summary)) {
-    return null;
+  // Remove specific identifiers to keep commentary clean
+  if (!allowIdentifiers) {
+    const identifierPattern =
+      /\b[A-Z]{2,5}-\d{3,6}-\d{2,6}\b|\bID[:\s]*\d+\b|\b#\d{2,}\b|\bDOS-\d{4}-\d+\b/i;
+    if (identifierPattern.test(cleaned)) {
+      // Instead of rejecting, strip the identifiers
+      cleaned = cleaned.replace(identifierPattern, "").replace(/\s+/g, " ").trim();
+    }
   }
 
   cleaned = capSentences(cleaned, 3);
-  return cleaned;
+  return cleaned || null;
 }
 
 /**
@@ -366,14 +367,18 @@ async function generateCommentary(artifactType, artifact, context = {}, options 
 
   // Extract summary — this is what the LLM sees
   const artifactSummary = extractArtifactSummary(artifactType, artifact, context);
-  const promptContext = buildPromptContext(artifactSummary);
+  const semanticSignals = Array.isArray(options.semanticSignals) ? options.semanticSignals : [];
+  const forceResponse = Boolean(options.forceResponse);
+  const minLength = typeof options.minLength === "number" ? options.minLength : 10;
+  const promptContext = buildPromptContext(artifactSummary, semanticSignals);
 
   // Build the full prompt
   const userPrompt = `Based on the following retrieved data, provide a brief conversational comment:
 
 ${promptContext}
 
-Remember: Be concise, acknowledge findings, and suggest read-only next steps only.`;
+Remember: Be concise, acknowledge findings, and suggest read-only next steps only.
+Do not mention specific record IDs, references, or list specific items.${forceResponse ? "\nYou must respond with 1-2 short sentences." : ""}`;
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), LLM_TIMEOUT);
@@ -388,7 +393,7 @@ Remember: Be concise, acknowledge findings, and suggest read-only next steps onl
         stream: false,
         options: {
           temperature: 0.6,
-          num_predict: 200, // Keep it concise
+          num_predict: 150, // Keep it concise
         },
       }),
       signal: controller.signal,
@@ -405,7 +410,7 @@ Remember: Be concise, acknowledge findings, and suggest read-only next steps onl
     const commentary = (data.response || "").trim();
 
     // Validate commentary isn't empty or too short
-    if (!commentary || commentary.length < 10) {
+    if (!commentary || commentary.length < minLength) {
       return { success: true, commentary: null, skipped: true, reason: "empty_response" };
     }
 
@@ -431,6 +436,125 @@ Remember: Be concise, acknowledge findings, and suggest read-only next steps onl
 }
 
 /**
+ * Stream commentary generation with callbacks for real-time output.
+ * Provides immediate responsiveness as the LLM generates text.
+ *
+ * @param {string} artifactType - Type of artifact
+ * @param {Object} artifact - The structured artifact output
+ * @param {Object} context - Original request context
+ * @param {Object} callbacks - { onChunk, onDone, onError }
+ * @param {AbortSignal} signal - Optional abort signal
+ */
+async function streamCommentary(artifactType, artifact, context, callbacks, signal) {
+  // Skip commentary for chat-type artifacts
+  if (artifactType === "chat") {
+    callbacks.onDone?.({ commentary: null, source: "skipped", reason: "chat_artifact" });
+    return;
+  }
+
+  const artifactSummary = extractArtifactSummary(artifactType, artifact, context);
+  const semanticSignals = deriveSemanticSignals(artifactSummary);
+  const promptContext = buildPromptContext(artifactSummary, semanticSignals);
+
+  const userPrompt = `Based on the following retrieved data, provide a brief conversational comment:
+
+${promptContext}
+
+Remember: Be concise, acknowledge findings, and suggest read-only next steps only.
+Do not mention specific record IDs, references, or list specific items.
+You must respond with 1-2 short sentences.`;
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), LLM_TIMEOUT);
+
+  if (signal) {
+    if (signal.aborted) {
+      controller.abort();
+    } else {
+      signal.addEventListener("abort", () => controller.abort(), { once: true });
+    }
+  }
+
+  let fullContent = "";
+
+  try {
+    const response = await fetch(`${LLM_BASE_URL}/api/generate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: LLM_MODEL,
+        prompt: `${COMMENTARY_SYSTEM_PROMPT}\n\nUser: ${userPrompt}\n\nAssistant:`,
+        stream: true,
+        options: {
+          temperature: 0.6,
+          num_predict: 150,
+        },
+      }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      callbacks.onError?.(`LLM request failed: ${response.status}`);
+      return;
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      const chunk = decoder.decode(value, { stream: true });
+      const lines = chunk.split("\n").filter((line) => line.trim());
+
+      for (const line of lines) {
+        try {
+          const data = JSON.parse(line);
+          if (data.response) {
+            fullContent += data.response;
+            callbacks.onChunk?.(data.response);
+          }
+          if (data.done) {
+            // Sanitize final content
+            const sanitized = sanitizeCommentary(fullContent, artifactSummary, artifact, {
+              allowIdentifiers: false,
+            });
+            callbacks.onDone?.({
+              commentary: sanitized,
+              source: sanitized ? "llm" : "skipped",
+              signals: semanticSignals,
+            });
+            return;
+          }
+        } catch {
+          // Skip malformed JSON
+        }
+      }
+    }
+
+    // Stream ended without done signal
+    const sanitized = sanitizeCommentary(fullContent, artifactSummary, artifact, {
+      allowIdentifiers: false,
+    });
+    callbacks.onDone?.({
+      commentary: sanitized,
+      source: sanitized ? "llm" : "skipped",
+      signals: semanticSignals,
+    });
+  } catch (err) {
+    clearTimeout(timeoutId);
+    if (err.name === "AbortError") {
+      callbacks.onDone?.({ commentary: null, source: "skipped", reason: "timeout" });
+    } else {
+      callbacks.onError?.(err.message);
+    }
+  }
+}
+
+/**
  * Determines if commentary should be generated for this artifact type.
  * Some artifact types don't need commentary (e.g., already conversational).
  *
@@ -446,7 +570,7 @@ function shouldGenerateCommentary(artifactType, artifact) {
   if (!artifact || artifact.type === "error") return false;
 
   // Generate for read-type artifacts
-  const readTypes = ["explanation", "risk_analysis", "action_plan"];
+  const readTypes = ["explanation", "risk_analysis", "action_plan", "clarification"];
   if (readTypes.includes(artifactType)) return true;
 
   // Generate for draft artifacts (to explain what was drafted)
@@ -463,44 +587,6 @@ function shouldGenerateCommentary(artifactType, artifact) {
  * @param {Object} artifactSummary - Extracted summary from artifact
  * @returns {string|null} - Fallback commentary or null
  */
-function buildFallbackCommentary(artifactSummary) {
-  const parts = [];
-
-  // Acknowledge the entity
-  if (artifactSummary.entityType && artifactSummary.entityReference) {
-    parts.push(
-      `I found the ${artifactSummary.entityType} you requested (${artifactSummary.entityReference}).`
-    );
-  }
-
-  // Mention urgent signals
-  if (artifactSummary.signals.length > 0) {
-    const criticals = artifactSummary.signals.filter((s) => s.startsWith("CRITICAL:"));
-    if (criticals.length > 0) {
-      parts.push(`Note: There are ${criticals.length} critical issue(s) to review.`);
-    }
-  }
-
-  // Mention counts
-  if (artifactSummary.overdueCount > 0) {
-    parts.push(`${artifactSummary.overdueCount} item(s) are overdue.`);
-  }
-
-  // Suggest exploration
-  if (artifactSummary.followUpLabels.length > 0) {
-    parts.push(
-      `You can explore: ${artifactSummary.followUpLabels.slice(0, 2).join(" or ")}.`
-    );
-  }
-
-  // Handle ambiguity
-  if (artifactSummary.isAmbiguous) {
-    parts.push(`Multiple matches were found. Which one would you like to focus on?`);
-  }
-
-  return parts.length > 0 ? parts.join(" ") : null;
-}
-
 /**
  * Main entry point for commentary generation.
  * Ensures commentary NEVER blocks the artifact.
@@ -517,46 +603,61 @@ async function generateAgentCommentary(artifactType, artifact, context = {}) {
   }
 
   const artifactSummary = extractArtifactSummary(artifactType, artifact, context);
-  const policy = applyCommentaryPolicy(artifactSummary, artifact);
-
-  if (policy.action === "force") {
-    return {
-      commentary: capSentences(policy.message, 3),
-      source: "fallback",
-      reason: policy.reason,
-    };
-  }
+  const semanticSignals = deriveSemanticSignals(artifactSummary);
+  const policy = applyCommentaryPolicy(artifactSummary);
+  const needsClarification =
+    artifactSummary.isAmbiguous ||
+    artifactSummary.isIncomplete ||
+    artifactSummary.resultCount === 0 ||
+    (typeof artifactSummary.resultCount === "number" && artifactSummary.resultCount > 1);
+  const forceNarration = ALWAYS_GENERATE_COMMENTARY;
+  const forceResponse = forceNarration || needsClarification;
 
   if (policy.action === "skip") {
-    return { commentary: null, source: "skipped", reason: policy.reason };
+    return { commentary: null, source: "skipped", reason: policy.reason, signals: semanticSignals };
   }
 
   // Try LLM-based commentary
-  const result = await generateCommentary(artifactType, artifact, context);
+  let result = await generateCommentary(artifactType, artifact, context, {
+    semanticSignals,
+    forceResponse,
+    minLength: forceResponse ? 4 : 10,
+  });
 
-  if (result.success && result.commentary) {
-    const sanitized = sanitizeCommentary(result.commentary, artifactSummary, artifact);
-    if (sanitized) {
-      return { commentary: sanitized, source: "llm" };
-    }
-    return { commentary: null, source: "skipped", reason: "redundant" };
+  if (needsClarification && result.success && !result.commentary && result.skipped) {
+    result = await generateCommentary(artifactType, artifact, context, {
+      semanticSignals,
+      forceResponse: true,
+      minLength: 4,
+    });
   }
 
-  // If LLM failed or skipped, try fallback
-  if (!result.skipped) {
-    const fallback = buildFallbackCommentary(artifactSummary);
-
-    if (fallback) {
-      const sanitized = sanitizeCommentary(fallback, artifactSummary, artifact);
-      if (sanitized) {
-        return { commentary: sanitized, source: "fallback" };
+  if (result.success && result.commentary) {
+    let sanitized = sanitizeCommentary(result.commentary, artifactSummary, artifact, {
+      allowRedundant: forceResponse,
+      allowIdentifiers: false,
+    });
+    if (!sanitized) {
+      const retry = await generateCommentary(artifactType, artifact, context, {
+        semanticSignals,
+        forceResponse: true,
+        minLength: 4,
+      });
+      if (retry.success && retry.commentary) {
+        sanitized = sanitizeCommentary(retry.commentary, artifactSummary, artifact, {
+          allowRedundant: needsClarification,
+          allowIdentifiers: false,
+        });
       }
-      return { commentary: null, source: "skipped", reason: "redundant" };
     }
+    if (sanitized) {
+      return { commentary: sanitized, source: "llm", signals: semanticSignals };
+    }
+    return { commentary: null, source: "skipped", reason: "redundant", signals: semanticSignals };
   }
 
   // No commentary generated
-  return { commentary: null, source: result.skipped ? "skipped" : "failed" };
+  return { commentary: null, source: result.skipped ? "skipped" : "failed", signals: semanticSignals };
 }
 
 // ─── Exports ───────────────────────────────────────────────────────────────
@@ -564,9 +665,9 @@ async function generateAgentCommentary(artifactType, artifact, context = {}) {
 module.exports = {
   generateAgentCommentary,
   generateCommentary,
+  streamCommentary,
   extractArtifactSummary,
   buildPromptContext,
   shouldGenerateCommentary,
-  buildFallbackCommentary,
   COMMENTARY_SYSTEM_PROMPT,
 };

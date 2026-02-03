@@ -27,6 +27,7 @@ export function AgentLayout() {
     saveScrollPosition,
     getRelativeTime,
     isLoading,
+    transientStatus,
     cancelStream,
     dataAccess,
     setDataAccess,
@@ -135,6 +136,7 @@ export function AgentLayout() {
                 messages={conversation}
                 conversationEndRef={conversationEndRef}
                 getRelativeTime={getRelativeTime}
+                transientStatus={transientStatus}
                 onFollowUpClick={handleFollowUpClick}
                 onExampleClick={handleExampleClick}
               />
