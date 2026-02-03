@@ -303,13 +303,13 @@ export function AgentHistorySidebar({
   // ============================================================================
 
   return (
-    <div className="w-full sm:w-72 max-w-full h-full flex-shrink-0 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col">
+    <div className="w-full sm:w-72 max-w-full h-full flex-shrink-0 border-r border-slate-200/70 dark:border-slate-800/80 bg-white/85 dark:bg-slate-950/70 backdrop-blur flex flex-col agent-ui-text">
       {/* Header with actions */}
-      <div className="p-4 border-b border-slate-200 dark:border-slate-800 space-y-2">
+      <div className="p-4 border-b border-slate-200/70 dark:border-slate-800/80 space-y-2">
         <button
           type="button"
           onClick={() => onNewChat(null)}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 text-white text-sm font-medium rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg hover:shadow-xl"
+          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 text-sm font-semibold rounded-xl hover:bg-slate-800 dark:hover:bg-white transition-all shadow-sm"
         >
           <Plus className="w-4 h-4" />
           New Conversation
@@ -320,7 +320,7 @@ export function AgentHistorySidebar({
             setIsCreatingFolder(true);
             setPendingFolderName("");
           }}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2 text-slate-600 dark:text-slate-300 text-sm font-medium rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+          className="w-full flex items-center justify-center gap-2 px-4 py-2 text-slate-600 dark:text-slate-300 text-sm font-medium rounded-xl border border-slate-200/80 dark:border-slate-700/70 bg-white/80 dark:bg-slate-900/60 hover:bg-white dark:hover:bg-slate-900 transition-colors"
           disabled={isCreatingFolder}
         >
           <FolderPlus className="w-4 h-4" />
@@ -329,15 +329,15 @@ export function AgentHistorySidebar({
       </div>
 
       {/* Scrollable content */}
-      <div className="flex-1 overflow-y-auto p-3">
+      <div className="flex-1 overflow-y-auto p-3 space-y-3">
         {/* Pending folder input */}
         {isCreatingFolder && (
           <div className="space-y-1 mb-4">
-            <div className="flex items-center px-2 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm gap-2">
-              <FolderPlus className="w-5 h-5 text-amber-500 flex-shrink-0" />
+            <div className="flex items-center px-3 py-2 rounded-2xl bg-white/80 dark:bg-slate-900/60 border border-slate-200/70 dark:border-slate-700/60 shadow-sm gap-2">
+              <FolderPlus className="w-4.5 h-4.5 text-slate-500 flex-shrink-0" />
               <input
                 ref={pendingInputRef}
-                className="flex-1 h-8 px-2 rounded bg-transparent text-sm outline-none border-none focus:ring-2 focus:ring-blue-400 dark:focus:ring-blue-600 placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                className="flex-1 h-8 px-2 rounded bg-transparent text-sm outline-none border-none focus:ring-2 focus:ring-slate-400/20 placeholder:text-slate-400 dark:placeholder:text-slate-500"
                 placeholder="Folder name"
                 value={pendingFolderName}
                 onChange={(e) => setPendingFolderName(e.target.value)}
@@ -360,7 +360,7 @@ export function AgentHistorySidebar({
               />
               <button
                 type="button"
-                className="flex items-center justify-center w-7 h-7 rounded-full hover:bg-green-100 dark:hover:bg-green-900 transition-colors ml-1"
+                className="flex items-center justify-center w-7 h-7 rounded-full hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-colors ml-1"
                 title="Create folder"
                 onClick={() => {
                   const name = pendingFolderName.trim();
@@ -373,11 +373,11 @@ export function AgentHistorySidebar({
                 }}
                 tabIndex={-1}
               >
-                <Check className="w-4 h-4 text-green-600" />
+                <Check className="w-4 h-4 text-emerald-600" />
               </button>
               <button
                 type="button"
-                className="flex items-center justify-center w-7 h-7 rounded-full hover:bg-red-100 dark:hover:bg-red-900 transition-colors"
+                className="flex items-center justify-center w-7 h-7 rounded-full hover:bg-rose-100 dark:hover:bg-rose-900/30 transition-colors"
                 title="Cancel"
                 onClick={() => {
                   setIsCreatingFolder(false);
@@ -457,7 +457,7 @@ export function AgentHistorySidebar({
           <div
             className={`space-y-1 ${
               dropTargetFolderId === "root"
-                ? "ring-2 ring-blue-400 ring-inset rounded-lg p-2 bg-blue-50 dark:bg-blue-900/20"
+                ? "ring-2 ring-slate-300/70 dark:ring-slate-600/70 ring-inset rounded-2xl p-2 bg-white/80 dark:bg-slate-900/50"
                 : ""
             }`}
             onDragOver={handleRootDragOver}
@@ -465,7 +465,7 @@ export function AgentHistorySidebar({
             onDrop={handleRootDrop}
           >
             {sortedFolders.length > 0 && (
-              <div className="text-xs text-slate-400 dark:text-slate-500 px-2 py-1 font-medium">
+              <div className="text-[11px] text-slate-400 dark:text-slate-500 px-2 py-1 font-semibold uppercase tracking-[0.18em]">
                 Ungrouped
               </div>
             )}
@@ -509,10 +509,10 @@ export function AgentHistorySidebar({
           dragState.sourceFolderId !== null &&
           rootSessions.length === 0 && (
             <div
-              className={`border-2 border-dashed rounded-lg p-4 text-center text-sm transition-colors ${
+              className={`border border-dashed rounded-2xl p-4 text-center text-sm transition-colors ${
                 dropTargetFolderId === "root"
-                  ? "border-blue-400 bg-blue-50 dark:bg-blue-900/20 text-blue-600"
-                  : "border-slate-300 dark:border-slate-600 text-slate-400"
+                  ? "border-slate-300/80 bg-white/80 dark:bg-slate-900/60 text-slate-600"
+                  : "border-slate-300/70 dark:border-slate-600/70 text-slate-400"
               }`}
               onDragOver={handleRootDragOver}
               onDragLeave={handleRootDragLeave}

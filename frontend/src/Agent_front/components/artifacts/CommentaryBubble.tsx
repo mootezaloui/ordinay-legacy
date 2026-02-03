@@ -32,24 +32,18 @@ export function CommentaryBubble({ commentary }: CommentaryBubbleProps) {
   }
 
   return (
-    <div className="commentary-bubble mt-3 flex items-start gap-2.5 animate-in fade-in slide-in-from-bottom-2 duration-300">
+    <div className="commentary-bubble mt-3 agent-message-row animate-in fade-in slide-in-from-bottom-2 duration-300">
       {/* Agent avatar indicator */}
-      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center">
-        <MessageSquare className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+      <div className="flex-shrink-0 w-7 h-7 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center border border-slate-200/70 dark:border-slate-700/60">
+        <MessageSquare className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
       </div>
 
       {/* Commentary content */}
-      <div className="flex-1 min-w-0">
-        <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
+      <div className="agent-bubble agent-bubble-soft agent-chat-text text-[15px] leading-relaxed text-slate-700 dark:text-slate-200">
+        <p>
           {commentary.message}
         </p>
 
-        {/* Source indicator (only in development) */}
-        {process.env.NODE_ENV === "development" && commentary.source !== "llm" && (
-          <span className="mt-1 inline-block text-[10px] text-slate-400 dark:text-slate-500">
-            [{commentary.source}]
-          </span>
-        )}
       </div>
     </div>
   );

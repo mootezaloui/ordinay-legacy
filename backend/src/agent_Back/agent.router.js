@@ -81,10 +81,19 @@ async function sendCommentaryIfNeeded(sendEvent, result, context, aborted) {
 
   try {
     console.log('[SSE] Generating commentary for artifact type:', artifactType);
+    const resultCount = typeof result?.readMeta?.count === 'number' ? result.readMeta.count : undefined;
+    const commentaryContext = {
+      ...(context || {}),
+      _resultCount: resultCount,
+      _readOutcome: resultCount === 0 ? 'empty' : undefined,
+      _activeEntityType: result?.contextPromotion?.activeEntity?.type || null,
+      _activeEntityId: result?.contextPromotion?.activeEntity?.id || null,
+      _pendingSelection: result?.contextPromotion?.pendingSelection || null,
+    };
     const commentaryResult = await generateAgentCommentary(
       artifactType,
       result.output,
-      context
+      commentaryContext
     );
 
     if (commentaryResult.commentary && !aborted) {

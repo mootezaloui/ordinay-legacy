@@ -62,7 +62,7 @@ export function AgentLayout() {
     (followUp: FollowUpSuggestion) => {
       startFollowUpIntent?.(followUp);
     },
-    [startFollowUpIntent]
+    [startFollowUpIntent],
   );
 
   /* Shared props — avoids duplicating between desktop & mobile renders */
@@ -115,7 +115,7 @@ export function AgentLayout() {
       )}
 
       {/* ── Center column: agent workspace ── */}
-      <div className="flex-1 flex flex-col min-w-0 h-full">
+      <div className="flex-1 flex flex-col min-w-0 h-full agent-ui-text">
         <AgentTopBar
           showHistorySidebar={showHistorySidebar}
           showContextSidebar={showContextSidebar}
@@ -125,9 +125,9 @@ export function AgentLayout() {
 
         <div
           ref={scrollContainerRef}
-          className="flex-1 overflow-y-auto min-h-0 scroll-smooth"
+          className="flex-1 overflow-y-auto min-h-0 scroll-smooth agent-thread"
         >
-          <div className="mx-auto w-full max-w-4xl px-4 py-4 sm:px-6">
+          <div className="mx-auto w-full max-w-[52rem] px-4 py-6 sm:px-8">
             {conversation.length === 0 ? (
               <AgentQuickActions onExampleClick={handleExampleClick} />
             ) : (

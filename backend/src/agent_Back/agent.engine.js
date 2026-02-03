@@ -1065,7 +1065,12 @@ class AgentEngine {
    * @private
   */
   async _executeReadIntent(readIntent, message, context, policy) {
-    const { intent, entityHints = [], filters = {} } = readIntent;
+    const {
+      intent,
+      entityHints = [],
+      filters = {},
+      aggregateSummary = false,
+    } = readIntent;
     const now = new Date();
     const scope = String(context?.scope || "").toLowerCase();
 
@@ -1117,6 +1122,486 @@ class AgentEngine {
         String(session.status || "").toLowerCase(),
       ) &&
       new Date(session.scheduled_at) < now;
+
+    const aggregateFilters =
+      filters && typeof filters === "object" ? filters : {};
+    const shouldAggregateSummary =
+      aggregateSummary && String(intent || "").startsWith("SUMMARIZE_");
+
+    const ENTITY_LABELS = {
+      client: "client",
+      dossier: "dossier",
+      lawsuit: "lawsuit",
+      task: "task",
+      personal_task: "personal task",
+      session: "session",
+      mission: "mission",
+      financial_entry: "financial entry",
+      notification: "notification",
+      history_event: "history event",
+    };
+    const ENTITY_PLURALS = {
+      client: "clients",
+      dossier: "dossiers",
+      lawsuit: "lawsuits",
+      task: "tasks",
+      personal_task: "personal tasks",
+      session: "sessions",
+      mission: "missions",
+      financial_entry: "financial entries",
+      notification: "notifications",
+      history_event: "history events",
+    };
+
+    const TASK_STATUSES = new Set([
+      "todo",
+      "in_progress",
+      "blocked",
+      "done",
+      "cancelled",
+    ]);
+    const ACTIVE_CASE_STATUSES = new Set(["open", "in_progress", "on_hold"]);
+
+    const normalizeValue = (value) =>
+      value === null || value === undefined
+        ? null
+        : String(value).toLowerCase();
+
+    const formatCountMap = (map) =>
+      Object.entries(map)
+        .map(([key, count]) => `${key} ${count}`)
+        .join(", ");
+
+    const countBy = (items, getKey) => {
+      return (items || []).reduce((acc, item) => {
+        const key = normalizeValue(getKey(item));
+        if (!key) return acc;
+        acc[key] = (acc[key] || 0) + 1;
+        return acc;
+      }, {});
+    };
+
+    const applyAggregateFilters = (items, entityType) => {
+      if (!Array.isArray(items)) return [];
+      let filtered = [...items];
+      const status = normalizeValue(aggregateFilters.status);
+      const priority = normalizeValue(aggregateFilters.priority);
+      const activity = normalizeValue(aggregateFilters.activity);
+      const overdue = Boolean(aggregateFilters.overdue);
+
+      const isActiveTaskFilter =
+        activity === "active" ||
+        ["active", "open", "pending"].includes(status || "");
+
+      if (entityType === "task" || entityType === "personal_task") {
+        if (isActiveTaskFilter) {
+          filtered = filtered.filter(
+            (item) =>
+              !["done", "completed", "cancelled"].includes(
+                String(item.status || "").toLowerCase(),
+              ),
+          );
+        } else if (status && TASK_STATUSES.has(status)) {
+          filtered = filtered.filter(
+            (item) => normalizeValue(item.status) === status,
+          );
+        } else if (status && !TASK_STATUSES.has(status)) {
+          filtered = filtered.filter(
+            (item) => normalizeValue(item.status) === status,
+          );
+        }
+      } else if (status) {
+        if (
+          status === "active" &&
+          (entityType === "dossier" || entityType === "lawsuit")
+        ) {
+          filtered = filtered.filter((item) =>
+            ACTIVE_CASE_STATUSES.has(normalizeValue(item.status)),
+          );
+        } else {
+          filtered = filtered.filter(
+            (item) => normalizeValue(item.status) === status,
+          );
+        }
+      }
+
+      if (priority) {
+        filtered = filtered.filter(
+          (item) => normalizeValue(item.priority) === priority,
+        );
+      }
+
+      if (overdue) {
+        if (entityType === "task" || entityType === "personal_task") {
+          filtered = filtered.filter(
+            (item) =>
+              item.due_date &&
+              !["done", "completed", "cancelled"].includes(
+                String(item.status || "").toLowerCase(),
+              ) &&
+              new Date(item.due_date) < now,
+          );
+        } else if (entityType === "mission") {
+          filtered = filtered.filter((item) => isMissionOverdue(item));
+        } else if (entityType === "session") {
+          filtered = filtered.filter((item) => isSessionOverdue(item));
+        } else if (entityType === "financial_entry") {
+          filtered = filtered.filter((item) => isFinancialOverdue(item));
+        }
+      }
+
+      return filtered;
+    };
+
+    const buildResolutionError = (label, resolution, titleLabel) => {
+      const errorTitle = titleLabel || `Read data — ${label} summary`;
+      const errorDetails = [];
+      if (resolution.reason === "ambiguous") {
+        resolution.candidates?.forEach((c) =>
+          errorDetails.push(`${c.name} (ID: ${c.id})`),
+        );
+        errorDetails.push(`Please specify which ${label} you mean.`);
+      } else if (resolution.reason === "not_found") {
+        errorDetails.push(
+          `Try listing ${ENTITY_PLURALS[label] || `${label}s`} to see available records.`,
+        );
+      }
+      return {
+        title: errorTitle,
+        summary: resolution.message,
+        details: errorDetails,
+      };
+    };
+
+    const resolveScopedEntityId = async (type, titleLabel) => {
+      let resolvedId = null;
+      const scopeMap = {
+        client: context?.clientId,
+        dossier: context?.dossierId,
+        lawsuit: context?.lawsuitId,
+        mission: context?.missionId,
+        task: context?.taskId,
+        personal_task: context?.personalTaskId,
+      };
+
+      if (scope === type && scopeMap[type]) {
+        resolvedId = scopeMap[type];
+      }
+
+      if (!resolvedId) {
+        const hintId = getHintValue("id", type);
+        if (hintId) resolvedId = hintId;
+      }
+
+      if (!resolvedId) {
+        const hintRef = getHintValue("reference", type);
+        const hintName = getHintValue("name", type);
+        if (hintRef || hintName) {
+          const resolution = await this._resolveEntity(
+            {
+              type,
+              reference: hintRef || undefined,
+              nameHint: hintName || undefined,
+            },
+            policy,
+          );
+          if (resolution.resolved) {
+            resolvedId = resolution.entity.id;
+          } else {
+            return { error: buildResolutionError(type, resolution, titleLabel) };
+          }
+        }
+      }
+
+      return { id: resolvedId };
+    };
+
+    const buildAggregateSummary = async (entityType) => {
+      const listConfig = {
+        client: { tool: "listClients", key: "clients" },
+        dossier: { tool: "listDossiers", key: "dossiers" },
+        lawsuit: { tool: "listLawsuits", key: "lawsuits" },
+        task: { tool: "listTasks", key: "tasks" },
+        personal_task: { tool: "listPersonalTasks", key: "personalTasks" },
+        session: { tool: "listSessions", key: "sessions" },
+        mission: { tool: "listMissions", key: "missions" },
+        notification: { tool: "listNotifications", key: "notifications" },
+        history_event: { tool: "listHistoryEvents", key: "historyEvents" },
+      };
+
+      const config = listConfig[entityType];
+      if (!config) return null;
+
+      const params = { limit: 200 };
+
+      if (entityType === "client") {
+        if (aggregateFilters.status) params.status = aggregateFilters.status;
+      }
+
+      if (entityType === "dossier") {
+        const scopeResolution = await resolveScopedEntityId(
+          "client",
+          "Read data — Dossier summary",
+        );
+        if (scopeResolution?.error) return { error: scopeResolution.error };
+        if (scopeResolution.id) params.clientId = scopeResolution.id;
+        if (aggregateFilters.status && aggregateFilters.status !== "active") {
+          params.status = aggregateFilters.status;
+        }
+      }
+
+      if (entityType === "lawsuit") {
+        const scopeResolution = await resolveScopedEntityId(
+          "dossier",
+          "Read data — Lawsuit summary",
+        );
+        if (scopeResolution?.error) return { error: scopeResolution.error };
+        if (scopeResolution.id) params.dossierId = scopeResolution.id;
+        if (aggregateFilters.status && aggregateFilters.status !== "active") {
+          params.status = aggregateFilters.status;
+        }
+      }
+
+      if (entityType === "task") {
+        const dossierResolution = await resolveScopedEntityId(
+          "dossier",
+          "Read data — Task summary",
+        );
+        if (dossierResolution?.error) return { error: dossierResolution.error };
+        const lawsuitResolution = await resolveScopedEntityId(
+          "lawsuit",
+          "Read data — Task summary",
+        );
+        if (lawsuitResolution?.error) return { error: lawsuitResolution.error };
+        if (dossierResolution.id) params.dossierId = dossierResolution.id;
+        if (lawsuitResolution.id) params.lawsuitId = lawsuitResolution.id;
+
+        if (
+          !params.dossierId &&
+          !params.lawsuitId &&
+          (getHintValue("id", "client") || getHintValue("name", "client"))
+        ) {
+          return {
+            error: {
+              title: "Read data — Task summary",
+              summary: "Tasks are linked to dossiers or cases.",
+              details: ["Specify a dossier or case to summarize tasks."],
+            },
+          };
+        }
+
+        const status = normalizeValue(aggregateFilters.status);
+        if (status && TASK_STATUSES.has(status)) params.status = status;
+        if (aggregateFilters.priority) params.priority = aggregateFilters.priority;
+      }
+
+      if (entityType === "personal_task") {
+        const status = normalizeValue(aggregateFilters.status);
+        if (status && TASK_STATUSES.has(status)) params.status = status;
+        if (aggregateFilters.priority) params.priority = aggregateFilters.priority;
+      }
+
+      if (entityType === "session") {
+        const dossierResolution = await resolveScopedEntityId(
+          "dossier",
+          "Read data — Session summary",
+        );
+        if (dossierResolution?.error) return { error: dossierResolution.error };
+        const lawsuitResolution = await resolveScopedEntityId(
+          "lawsuit",
+          "Read data — Session summary",
+        );
+        if (lawsuitResolution?.error) return { error: lawsuitResolution.error };
+        if (dossierResolution.id) params.dossierId = dossierResolution.id;
+        if (lawsuitResolution.id) params.lawsuitId = lawsuitResolution.id;
+
+        if (
+          !params.dossierId &&
+          !params.lawsuitId &&
+          (getHintValue("id", "client") || getHintValue("name", "client"))
+        ) {
+          return {
+            error: {
+              title: "Read data — Session summary",
+              summary: "Sessions are linked to dossiers or cases.",
+              details: ["Specify a dossier or case to summarize sessions."],
+            },
+          };
+        }
+
+        if (aggregateFilters.status) params.status = aggregateFilters.status;
+        if (aggregateFilters.timeframe) params.timeframe = aggregateFilters.timeframe;
+      }
+
+      if (entityType === "mission") {
+        const dossierResolution = await resolveScopedEntityId(
+          "dossier",
+          "Read data — Mission summary",
+        );
+        if (dossierResolution?.error) return { error: dossierResolution.error };
+        const lawsuitResolution = await resolveScopedEntityId(
+          "lawsuit",
+          "Read data — Mission summary",
+        );
+        if (lawsuitResolution?.error) return { error: lawsuitResolution.error };
+        if (dossierResolution.id) params.dossierId = dossierResolution.id;
+        if (lawsuitResolution.id) params.lawsuitId = lawsuitResolution.id;
+
+        if (
+          !params.dossierId &&
+          !params.lawsuitId &&
+          (getHintValue("id", "client") || getHintValue("name", "client"))
+        ) {
+          return {
+            error: {
+              title: "Read data — Mission summary",
+              summary: "Missions are linked to dossiers or cases.",
+              details: ["Specify a dossier or case to summarize missions."],
+            },
+          };
+        }
+
+        if (aggregateFilters.status) params.status = aggregateFilters.status;
+        if (aggregateFilters.priority) params.priority = aggregateFilters.priority;
+      }
+
+      if (entityType === "notification") {
+        const scopeMap = {
+          client: context?.clientId,
+          dossier: context?.dossierId,
+          lawsuit: context?.lawsuitId,
+          session: context?.sessionId,
+          task: context?.taskId,
+          mission: context?.missionId,
+          personal_task: context?.personalTaskId,
+          financial_entry: context?.financialEntryId,
+        };
+        if (scope && scopeMap[scope]) {
+          params.entityType = scope;
+          params.entityId = scopeMap[scope];
+        }
+        if (aggregateFilters.status) params.status = aggregateFilters.status;
+      }
+
+      if (entityType === "history_event") {
+        const scopeMap = {
+          client: context?.clientId,
+          dossier: context?.dossierId,
+          lawsuit: context?.lawsuitId,
+          session: context?.sessionId,
+          task: context?.taskId,
+          mission: context?.missionId,
+          personal_task: context?.personalTaskId,
+          financial_entry: context?.financialEntryId,
+        };
+        if (scope && scopeMap[scope]) {
+          params.entityType = scope;
+          params.entityId = scopeMap[scope];
+        }
+      }
+
+      const result = await this._callReadTool(config.tool, params, policy);
+      let items = result?.[config.key] || [];
+      items = applyAggregateFilters(items, entityType);
+
+      const statusCounts = countBy(items, (item) => item.status);
+      const priorityCounts = countBy(items, (item) => item.priority);
+      const overdueCount = (() => {
+        if (entityType === "task" || entityType === "personal_task") {
+          return items.filter(
+            (item) =>
+              item.due_date &&
+              !["done", "completed", "cancelled"].includes(
+                String(item.status || "").toLowerCase(),
+              ) &&
+              new Date(item.due_date) < now,
+          ).length;
+        }
+        if (entityType === "mission") {
+          return items.filter((item) => isMissionOverdue(item)).length;
+        }
+        if (entityType === "session") {
+          return items.filter((item) => isSessionOverdue(item)).length;
+        }
+        if (entityType === "financial_entry") {
+          return items.filter((item) => isFinancialOverdue(item)).length;
+        }
+        return 0;
+      })();
+
+      const label = ENTITY_LABELS[entityType] || entityType;
+      const labelText = String(label).replace(/_/g, " ");
+      const titleLabel =
+        labelText.charAt(0).toUpperCase() + labelText.slice(1);
+      const plural = ENTITY_PLURALS[entityType] || `${labelText}s`;
+      const summaryText =
+        items.length > 0
+          ? `${items.length} ${plural} in scope`
+          : `No ${plural} found`;
+      const summaryDetails = [];
+
+      if (Object.keys(statusCounts).length > 0) {
+        summaryDetails.push(
+          `Status: ${formatCountMap(statusCounts)}`,
+        );
+      }
+
+      if (Object.keys(priorityCounts).length > 0) {
+        summaryDetails.push(
+          `Priority: ${formatCountMap(priorityCounts)}`,
+        );
+      }
+
+      if (overdueCount > 0) {
+        summaryDetails.push(`Overdue: ${overdueCount}`);
+      }
+
+      const sampleLabels = items
+        .slice(0, 3)
+        .map((item) =>
+          item.reference ||
+          item.title ||
+          item.name ||
+          item.subject ||
+          item.id,
+        )
+        .filter(Boolean);
+      if (sampleLabels.length > 0) {
+        summaryDetails.push(`Examples: ${sampleLabels.join(" | ")}`);
+      }
+
+      return {
+        title: `Read data — ${titleLabel} summary`,
+        summary: summaryText,
+        details: summaryDetails,
+        data: items,
+        source: {
+          sourceType: "system",
+          reference: `tool:${config.tool}`,
+          note: `${labelText} summary`,
+        },
+      };
+    };
+
+    const applyAggregateResult = (aggregateResult) => {
+      if (!aggregateResult) return false;
+      if (aggregateResult.error) {
+        title = aggregateResult.error.title;
+        summary = aggregateResult.error.summary;
+        (aggregateResult.error.details || []).forEach((detail) =>
+          details.push(detail),
+        );
+        return true;
+      }
+      title = aggregateResult.title;
+      summary = aggregateResult.summary;
+      (aggregateResult.details || []).forEach((detail) => details.push(detail));
+      data = aggregateResult.data || null;
+      if (aggregateResult.source) {
+        sources.push(aggregateResult.source);
+      }
+      return true;
+    };
 
     let title = "Read data";
 
@@ -1223,7 +1708,11 @@ class AgentEngine {
         case READ_INTENTS.LIST_CLIENTS: {
           const { clients } = await this._callReadTool(
             "listClients",
-            { limit: 50 },
+            {
+              limit: 50,
+              status: filters?.status || null,
+              query: filters?.query || null,
+            },
             policy,
           );
           data = clients;
@@ -1281,6 +1770,8 @@ class AgentEngine {
             {
               limit: 50,
               clientId,
+              status: filters?.status || null,
+              query: filters?.query || null,
             },
             policy,
           );
@@ -1353,6 +1844,8 @@ class AgentEngine {
             {
               limit: 50,
               dossierId,
+              status: filters?.status || null,
+              query: filters?.query || null,
             },
             policy,
           );
@@ -1459,20 +1952,47 @@ class AgentEngine {
             break;
           }
 
+          const statusFilter = normalizeValue(filters?.status);
+          const statusParam =
+            statusFilter && TASK_STATUSES.has(statusFilter) ? statusFilter : null;
           const { tasks } = await this._callReadTool(
             "listTasks",
             {
               limit: 50,
               dossierId,
               lawsuitId,
+              status: statusParam,
+              priority: filters?.priority || null,
+              query: filters?.query || null,
             },
             policy,
           );
-          data = tasks;
+          let filteredTasks = tasks;
+          if (filters?.activity === "active" && !statusParam) {
+            filteredTasks = filteredTasks.filter(
+              (task) =>
+                !["done", "completed", "cancelled"].includes(
+                  String(task.status || "").toLowerCase(),
+                ),
+            );
+          }
+          if (filters?.overdue) {
+            filteredTasks = filteredTasks.filter(
+              (task) =>
+                task.due_date &&
+                !["done", "completed", "cancelled"].includes(
+                  String(task.status || "").toLowerCase(),
+                ) &&
+                new Date(task.due_date) < now,
+            );
+          }
+          data = filteredTasks;
           title = "Read data — Tasks";
           summary =
-            tasks.length > 0 ? `Found ${tasks.length} task(s)` : "No tasks found";
-          tasks.forEach((t) => {
+            filteredTasks.length > 0
+              ? `Found ${filteredTasks.length} task(s)`
+              : "No tasks found";
+          filteredTasks.forEach((t) => {
             const due = t.due_date ? ` due ${formatDate(t.due_date)}` : "";
             details.push(
               `${t.title} (ID: ${t.id}) — ${t.status || "todo"}${due}`,
@@ -1604,18 +2124,45 @@ class AgentEngine {
         }
 
         case READ_INTENTS.LIST_PERSONAL_TASKS: {
+          const statusFilter = normalizeValue(filters?.status);
+          const statusParam =
+            statusFilter && TASK_STATUSES.has(statusFilter) ? statusFilter : null;
           const { personalTasks } = await this._callReadTool(
             "listPersonalTasks",
-            { limit: 50 },
+            {
+              limit: 50,
+              status: statusParam,
+              priority: filters?.priority || null,
+              query: filters?.query || null,
+            },
             policy,
           );
-          data = personalTasks;
+          let filteredTasks = personalTasks;
+          if (filters?.activity === "active" && !statusParam) {
+            filteredTasks = filteredTasks.filter(
+              (task) =>
+                !["done", "completed", "cancelled"].includes(
+                  String(task.status || "").toLowerCase(),
+                ),
+            );
+          }
+          if (filters?.overdue) {
+            filteredTasks = filteredTasks.filter(
+              (task) =>
+                task.due_date &&
+                !["done", "completed", "cancelled"].includes(
+                  String(task.status || "").toLowerCase(),
+                ) &&
+                new Date(task.due_date) < now,
+            );
+          }
+          data = filteredTasks;
           title = "Read data — Personal tasks";
           summary =
-            personalTasks.length > 0
-              ? `Found ${personalTasks.length} personal task(s)`
+            filteredTasks.length > 0
+              ? `Found ${filteredTasks.length} personal task(s)`
               : "No personal tasks found";
-          personalTasks.forEach((t) => {
+          filteredTasks.forEach((t) => {
             const due = t.due_date ? ` due ${formatDate(t.due_date)}` : "";
             details.push(
               `${t.title || "Personal task"} (ID: ${t.id}) — ${t.status || "todo"}${due}`,
@@ -1631,7 +2178,9 @@ class AgentEngine {
 
         case READ_INTENTS.LIST_SESSIONS:
         case READ_INTENTS.LIST_UPCOMING_SESSIONS: {
-          const timeframe = filters?.timeframe || null;
+          const timeframe =
+            filters?.timeframe ||
+            (intent === READ_INTENTS.LIST_UPCOMING_SESSIONS ? "upcoming" : null);
           let dossierId = scope === "dossier" ? context?.dossierId : null;
           let lawsuitId = scope === "lawsuit" ? context?.lawsuitId : null;
 
@@ -1721,6 +2270,8 @@ class AgentEngine {
               dossierId,
               lawsuitId,
               timeframe,
+              status: filters?.status || null,
+              query: filters?.query || null,
             },
             policy,
           );
@@ -1837,6 +2388,9 @@ class AgentEngine {
               limit: 50,
               dossierId,
               lawsuitId,
+              status: filters?.status || null,
+              priority: filters?.priority || null,
+              query: filters?.query || null,
             },
             policy,
           );
@@ -2018,11 +2572,17 @@ class AgentEngine {
             break;
           }
 
+          const paymentStatus =
+            filters?.paymentStatus || (filters?.overdue ? "overdue" : null);
           const { financialEntries } = await this._callReadTool(
             "listFinancialEntries",
             {
               limit: 50,
-              paymentStatus: filters?.paymentStatus || null,
+              paymentStatus,
+              status: filters?.status || null,
+              direction: filters?.direction || null,
+              scope: filters?.scope || null,
+              query: filters?.query || null,
               clientId,
               dossierId,
               lawsuitId,
@@ -2132,8 +2692,10 @@ class AgentEngine {
             {
               limit: 50,
               status: filters?.status || null,
+              severity: filters?.severity || null,
               entityType,
               entityId,
+              query: filters?.query || null,
             },
             policy,
           );
@@ -2234,6 +2796,7 @@ class AgentEngine {
               limit: 50,
               entityType,
               entityId,
+              query: filters?.query || null,
             },
             policy,
           );
@@ -2337,6 +2900,11 @@ class AgentEngine {
           const hintId = entityHints.find((hint) => hint.type === "id")?.value;
           const hintName = entityHints.find((hint) => hint.type === "name")?.value;
           const targetId = hintId || scopedId;
+
+          if (intent === READ_INTENTS.SUMMARIZE_CLIENT && shouldAggregateSummary) {
+            const aggregateResult = await buildAggregateSummary("client");
+            if (applyAggregateResult(aggregateResult)) break;
+          }
 
           if (targetId) {
             const result = await this._callReadTool(
@@ -2573,6 +3141,11 @@ class AgentEngine {
           const hintRef = entityHints.find((hint) => hint.type === "reference")?.value;
           const hintName = entityHints.find((hint) => hint.type === "name")?.value;
           const targetId = hintId || scopedId;
+
+          if (intent === READ_INTENTS.SUMMARIZE_DOSSIER && shouldAggregateSummary) {
+            const aggregateResult = await buildAggregateSummary("dossier");
+            if (applyAggregateResult(aggregateResult)) break;
+          }
 
           const fetchDossierByRef = async (reference) => {
             const result = await this._callReadTool(
@@ -2822,6 +3395,11 @@ class AgentEngine {
           const hintName = entityHints.find((hint) => hint.type === "name")?.value;
           const targetId = hintId || scopedId;
 
+          if (intent === READ_INTENTS.SUMMARIZE_LAWSUIT && shouldAggregateSummary) {
+            const aggregateResult = await buildAggregateSummary("lawsuit");
+            if (applyAggregateResult(aggregateResult)) break;
+          }
+
           let lawsuit = null;
           if (targetId) {
             const result = await this._callReadTool(
@@ -3020,8 +3598,14 @@ class AgentEngine {
           const hintName = entityHints.find((hint) => hint.type === "name")?.value;
           const targetId = hintId || scopedId;
 
+          if (intent === READ_INTENTS.SUMMARIZE_TASK && shouldAggregateSummary) {
+            const aggregateResult = await buildAggregateSummary("task");
+            if (applyAggregateResult(aggregateResult)) break;
+          }
+
           if (
             intent === READ_INTENTS.SUMMARIZE_TASK &&
+            shouldAggregateSummary &&
             !targetId &&
             !hintName
           ) {
@@ -3236,6 +3820,14 @@ class AgentEngine {
               ? context?.taskId
               : null);
 
+          if (
+            intent === READ_INTENTS.SUMMARIZE_PERSONAL_TASK &&
+            shouldAggregateSummary
+          ) {
+            const aggregateResult = await buildAggregateSummary("personal_task");
+            if (applyAggregateResult(aggregateResult)) break;
+          }
+
           let task = null;
           if (targetId) {
             const result = await this._callReadTool(
@@ -3398,6 +3990,11 @@ class AgentEngine {
           const hintName = getHintValue("name", "session") || getHintValue("name");
           const scopedId = scope === "session" ? context?.sessionId : null;
           const targetId = hintId || scopedId;
+
+          if (intent === READ_INTENTS.SUMMARIZE_SESSION && shouldAggregateSummary) {
+            const aggregateResult = await buildAggregateSummary("session");
+            if (applyAggregateResult(aggregateResult)) break;
+          }
 
           let session = null;
           if (targetId) {
@@ -3604,6 +4201,11 @@ class AgentEngine {
           const scopedId = scope === "mission" ? context?.missionId : null;
           const targetId = hintId || scopedId;
 
+          if (intent === READ_INTENTS.SUMMARIZE_MISSION && shouldAggregateSummary) {
+            const aggregateResult = await buildAggregateSummary("mission");
+            if (applyAggregateResult(aggregateResult)) break;
+          }
+
           let mission = null;
           if (targetId) {
             const result = await this._callReadTool(
@@ -3790,6 +4392,9 @@ class AgentEngine {
           const hintName =
             getHintValue("name", "financial_entry") || getHintValue("name");
           const hasEntryHint = Boolean(hintId || hintRef || hintName);
+          const allowAggregateFinancialSummary =
+            intent === READ_INTENTS.SUMMARIZE_FINANCIAL_ENTRY &&
+            shouldAggregateSummary;
 
           let entry = null;
           if (hintId) {
@@ -3825,6 +4430,12 @@ class AgentEngine {
           }
 
           if (!entry && hasEntryHint) {
+            summary = "Which financial entry?";
+            details.push("Provide an entry ID or reference.");
+            break;
+          }
+
+          if (!entry && intent === READ_INTENTS.SUMMARIZE_FINANCIAL_ENTRY && !allowAggregateFinancialSummary) {
             summary = "Which financial entry?";
             details.push("Provide an entry ID or reference.");
             break;
@@ -3995,6 +4606,7 @@ class AgentEngine {
               {
                 limit: 200,
                 paymentStatus: filters?.paymentStatus || null,
+                status: filters?.status || null,
                 clientId,
                 dossierId,
                 lawsuitId,
@@ -4217,6 +4829,11 @@ class AgentEngine {
           const scopedId = scope === "notification" ? context?.notificationId : null;
           const targetId = hintId || scopedId;
 
+          if (intent === READ_INTENTS.SUMMARIZE_NOTIFICATION && shouldAggregateSummary) {
+            const aggregateResult = await buildAggregateSummary("notification");
+            if (applyAggregateResult(aggregateResult)) break;
+          }
+
           let notification = null;
           if (targetId) {
             const result = await this._callReadTool(
@@ -4346,6 +4963,11 @@ class AgentEngine {
             getHintValue("id", "history_event") || getHintValue("id");
           const hintName =
             getHintValue("name", "history_event") || getHintValue("name");
+
+          if (intent === READ_INTENTS.SUMMARIZE_HISTORY && shouldAggregateSummary) {
+            const aggregateResult = await buildAggregateSummary("history_event");
+            if (applyAggregateResult(aggregateResult)) break;
+          }
 
           let event = null;
           if (hintId) {
@@ -4489,6 +5111,8 @@ class AgentEngine {
           readOutcome,
           readMeta,
           promotion: contextPromotion,
+          aggregateSummary: shouldAggregateSummary,
+          aggregateFilters: shouldAggregateSummary ? aggregateFilters : null,
         },
       );
       const explanationOutput = this._buildReadExplanation({
@@ -4538,6 +5162,8 @@ class AgentEngine {
           readOutcome,
           readMeta,
           promotion: contextPromotion,
+          aggregateSummary: shouldAggregateSummary,
+          aggregateFilters: shouldAggregateSummary ? aggregateFilters : null,
         },
       );
       const explanationOutput = this._buildReadExplanation({
@@ -4737,7 +5363,15 @@ class AgentEngine {
 
   _buildReadInterpretationContext(
     baseContext,
-    { entityType, entityData, readOutcome, readMeta, promotion },
+    {
+      entityType,
+      entityData,
+      readOutcome,
+      readMeta,
+      promotion,
+      aggregateSummary,
+      aggregateFilters,
+    },
   ) {
     const context = { ...(baseContext || {}), _readOutcome: readOutcome };
 
@@ -4770,6 +5404,16 @@ class AgentEngine {
 
     if (readMeta && typeof readMeta.count === "number") {
       context._resultCount = readMeta.count;
+    }
+
+    if (typeof aggregateSummary === "boolean") {
+      context._aggregateSummary = aggregateSummary;
+      if (!aggregateSummary) {
+        context._aggregateFilters = null;
+      }
+    }
+    if (aggregateFilters && typeof aggregateFilters === "object") {
+      context._aggregateFilters = aggregateFilters;
     }
 
     if (promotion && promotion.activeEntity) {
@@ -4809,7 +5453,11 @@ class AgentEngine {
       );
 
     if (factsDetails.length === 0) {
-      factsDetails.push(factsSummary);
+      if (/no\s+.+(found|available)/i.test(factsSummary)) {
+        factsDetails.push("Scope returned zero records.");
+      } else {
+        factsDetails.push(factsSummary);
+      }
     }
 
     const explanation = postReadInterpret(entityType, entityData || {}, context);
@@ -4877,8 +5525,13 @@ class AgentEngine {
       allowedTools: [],
     };
 
+    if (followUpIntent.filters && typeof followUpIntent.filters === "object") {
+      readIntent.filters = { ...followUpIntent.filters };
+    }
+
     if (normalizedIntent === READ_INTENTS.LIST_HISTORY_EVENTS) {
       readIntent.filters = {
+        ...(readIntent.filters || {}),
         entityType: originType,
         entityId: originId,
       };
@@ -4946,7 +5599,26 @@ class AgentEngine {
     );
     const activeId = activeContext?.activeEntityId ?? null;
 
-    if (!activeType || activeId === null || activeId === undefined) {
+    const targetType = this._resolveReadEntityType(normalizedIntent);
+    const isList = normalizedIntent.startsWith("LIST_");
+    const isRead =
+      normalizedIntent.startsWith("READ_") ||
+      normalizedIntent.startsWith("EXPLAIN_") ||
+      normalizedIntent.startsWith("SUMMARIZE_");
+    const pendingType = this._normalizeFollowUpEntityType(
+      activeContext?.pendingSelection?.entityType,
+    );
+    const scopeTargetId = this._getScopeIdForType(
+      followUpIntent.scope,
+      targetType,
+    );
+    const allowWithoutActiveContext =
+      pendingType && pendingType === targetType && (isList || scopeTargetId);
+
+    if (
+      (!activeType || activeId === null || activeId === undefined) &&
+      !allowWithoutActiveContext
+    ) {
       const error = new Error(
         "I need context first. Try asking about a specific entity, like \"show me client Müller\" or \"what's the status of dossier 2024-001\".",
       );
@@ -5004,13 +5676,6 @@ class AgentEngine {
       throw error;
     }
 
-    const targetType = this._resolveReadEntityType(normalizedIntent);
-    const isList = normalizedIntent.startsWith("LIST_");
-    const isRead =
-      normalizedIntent.startsWith("READ_") ||
-      normalizedIntent.startsWith("EXPLAIN_") ||
-      normalizedIntent.startsWith("SUMMARIZE_");
-
     const relations = {
       client: { children: ["dossier", "financial_entry"], parents: [] },
       dossier: {
@@ -5025,11 +5690,8 @@ class AgentEngine {
       financial_entry: { children: [], parents: ["client", "dossier"] },
     };
 
-    if (activeContext?.pendingSelection?.entityType) {
-      const pendingType = this._normalizeFollowUpEntityType(
-        activeContext.pendingSelection.entityType,
-      );
-      if (pendingType && targetType === pendingType) {
+    if (pendingType && targetType === pendingType) {
+      if (!isList && !scopeTargetId) {
         const error = new Error(
           `Multiple ${pendingType.replace(/_/g, " ")} records found. Select one to continue.`,
         );
@@ -5051,7 +5713,14 @@ class AgentEngine {
     }
 
     if (isList) {
-      if (targetType === originTypeForValidation) {
+      const isSameEntity = targetType === originTypeForValidation;
+      const allowSameEntityList =
+        isSameEntity && (followUpIntent.filters || pendingType === targetType);
+      if (allowSameEntityList) {
+        return;
+      }
+
+      if (isSameEntity) {
         const error = new Error(
           `Follow-up cannot list the same entity class (${targetType}).`,
         );

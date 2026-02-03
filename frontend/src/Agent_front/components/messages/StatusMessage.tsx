@@ -22,21 +22,23 @@ interface StatusMessageProps {
  */
 export function StatusMessage({ action, phase }: StatusMessageProps) {
   return (
-    <div className="status-message flex items-center gap-2.5 px-1 py-3 animate-in fade-in duration-150">
-      {/* Spinner — work in progress */}
-      <Loader2 className="w-4 h-4 text-indigo-500 dark:text-indigo-400 animate-spin flex-shrink-0" />
+    <div className="status-message agent-message-row animate-in fade-in duration-150">
+      <div className="agent-status-line">
+        {/* Spinner — work in progress */}
+        <Loader2 className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400 animate-spin flex-shrink-0" />
 
-      {/* Status action text */}
-      <span className="text-sm text-slate-600 dark:text-slate-300">
-        {action}
-      </span>
-
-      {/* Phase indicator (development only) */}
-      {process.env.NODE_ENV === "development" && phase && (
-        <span className="text-[10px] text-slate-400 dark:text-slate-500 ml-2">
-          [{phase}]
+        {/* Status action text */}
+        <span className="text-xs text-slate-600 dark:text-slate-300">
+          {action}
         </span>
-      )}
+
+        {/* Phase indicator (development only) */}
+        {process.env.NODE_ENV === "development" && phase && (
+          <span className="text-[10px] text-slate-400 dark:text-slate-500 ml-2">
+            [{phase}]
+          </span>
+        )}
+      </div>
     </div>
   );
 }

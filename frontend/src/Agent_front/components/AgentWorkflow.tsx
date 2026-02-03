@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { Check, Loader2, ChevronDown } from "lucide-react";
+import { Check, Loader2 } from "lucide-react";
 import { AgentMessage } from "../types/agentMessage";
 import type { FollowUpSuggestion } from "../../services/api/agent";
 
@@ -13,6 +13,7 @@ import { ErrorArtifact } from "./artifacts/ErrorArtifact";
 import { FollowUpSuggestions } from "./artifacts/FollowUpSuggestions";
 import { CommentaryBubble } from "./artifacts/CommentaryBubble";
 import { MarkdownOutput } from "../../components/MarkdownOutput";
+import { decideCommentary, filterFollowUps, getResultCountFromMessage } from "../utils/responsePolicy";
 
 // Staged message renderers
 import { AckMessage } from "./messages/AckMessage";
@@ -183,10 +184,10 @@ export function AgentWorkflow({ message, onFollowUpClick, onExampleClick }: Agen
   // Phase: classifying
   if (displayPhase === "classifying") {
     return (
-      <div className="workflow-phase-enter px-1 py-3">
-        <div className="flex items-center gap-2.5">
+      <div className="workflow-phase-enter agent-message-row">
+        <div className="agent-status-line">
           <Loader2 className="w-3.5 h-3.5 text-slate-400 animate-spin" />
-          <span className="text-sm text-slate-400 dark:text-slate-500">
+          <span className="text-xs text-slate-500 dark:text-slate-400">
             Analyzing request...
           </span>
         </div>
@@ -197,8 +198,8 @@ export function AgentWorkflow({ message, onFollowUpClick, onExampleClick }: Agen
   // Phase: streaming text (chat)
   if (displayPhase === "streaming") {
     return (
-      <div className="px-1 py-2">
-        <div className="text-sm leading-relaxed text-slate-700 dark:text-slate-300 max-w-prose">
+      <div className="agent-message-row">
+        <div className="agent-bubble agent-chat-text text-[15px] leading-relaxed text-slate-800 dark:text-slate-200">
           <MarkdownOutput content={message.content} />
           <span className="inline-block w-1.5 h-4 ml-0.5 bg-slate-400 dark:bg-slate-500 animate-pulse rounded-sm align-text-bottom" />
         </div>
@@ -219,26 +220,26 @@ export function AgentWorkflow({ message, onFollowUpClick, onExampleClick }: Agen
   // Phase: revealing (artifact expanding into view)
   if (displayPhase === "revealing") {
     const followUps = message.data?.explanation?.followUps;
+    const resultCount = getResultCountFromMessage(message);
+    const safeCommentary = decideCommentary(message);
+    const filteredFollowUps = filterFollowUps(followUps, resultCount);
 
     return (
-      <div className="space-y-3">
-        {/* Collapsed work summary */}
-        <WorkSummary intent={message.intent} />
-
+      <div className="space-y-4">
         {/* Artifact reveal */}
-        <div className="artifact-reveal">
+        <div className="artifact-reveal agent-artifact-focus">
           <ArtifactBody message={message} onFollowUpClick={onFollowUpClick} onExampleClick={onExampleClick} />
         </div>
 
         {/* Conversational commentary — appears AFTER artifact, BEFORE follow-ups */}
-        {message.commentary && (
-          <CommentaryBubble commentary={message.commentary} />
+        {safeCommentary && (
+          <CommentaryBubble commentary={safeCommentary} />
         )}
 
         {/* Follow-up suggestions — shown OUTSIDE the artifact card */}
-        {followUps && followUps.length > 0 && onFollowUpClick && (
+        {filteredFollowUps.length > 0 && onFollowUpClick && (
           <FollowUpSuggestions
-            followUps={followUps}
+            followUps={filteredFollowUps}
             onFollowUpClick={onFollowUpClick}
           />
         )}
@@ -248,20 +249,23 @@ export function AgentWorkflow({ message, onFollowUpClick, onExampleClick }: Agen
 
   // Phase: complete
   const followUps = message.data?.explanation?.followUps;
+  const resultCount = getResultCountFromMessage(message);
+  const safeCommentary = decideCommentary(message);
+  const filteredFollowUps = filterFollowUps(followUps, resultCount);
 
   return (
-    <div>
+    <div className="space-y-4">
       <ArtifactBody message={message} onFollowUpClick={onFollowUpClick} onExampleClick={onExampleClick} />
 
       {/* Conversational commentary — appears AFTER artifact, BEFORE follow-ups */}
-      {message.commentary && (
-        <CommentaryBubble commentary={message.commentary} />
+      {safeCommentary && (
+        <CommentaryBubble commentary={safeCommentary} />
       )}
 
       {/* Follow-up suggestions — shown OUTSIDE the artifact card */}
-      {followUps && followUps.length > 0 && onFollowUpClick && (
+      {filteredFollowUps.length > 0 && onFollowUpClick && (
         <FollowUpSuggestions
-          followUps={followUps}
+          followUps={filteredFollowUps}
           onFollowUpClick={onFollowUpClick}
         />
       )}
@@ -315,88 +319,44 @@ function WorkingPhase({
   const acknowledgment = getAcknowledgment(intent);
 
   return (
-    <div className="workflow-phase-enter px-1 py-3 space-y-3">
-      {/* Acknowledgment line */}
-      <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
-        {acknowledgment}
-      </p>
+    <div className="workflow-phase-enter agent-message-row">
+      <div className="agent-progress-card space-y-3">
+        {/* Acknowledgment line */}
+        <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
+          {acknowledgment}
+        </p>
 
-      {/* Work steps */}
-      <div className="space-y-1 pl-1">
-        {steps.map((step, idx) => {
-          if (idx >= visibleSteps) return null;
+        {/* Work steps */}
+        <div className="space-y-1 pl-0.5">
+          {steps.map((step, idx) => {
+            if (idx >= visibleSteps) return null;
 
-          const isLast = idx === visibleSteps - 1;
-          const isDone = !isLast || resultArrived;
+            const isLast = idx === visibleSteps - 1;
+            const isDone = !isLast || resultArrived;
 
-          return (
-            <div
-              key={idx}
-              className="workflow-step-enter flex items-center gap-2 text-xs"
-            >
-              {isDone ? (
-                <Check className="w-3 h-3 text-green-500 flex-shrink-0" />
-              ) : (
-                <Loader2 className="w-3 h-3 text-slate-400 dark:text-slate-500 animate-spin flex-shrink-0" />
-              )}
-              <span
-                className={
-                  isDone
-                    ? "text-slate-400 dark:text-slate-500"
-                    : "text-slate-600 dark:text-slate-300"
-                }
+            return (
+              <div
+                key={idx}
+                className="workflow-step-enter flex items-center gap-2 text-xs"
               >
-                {step}
-              </span>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-// ────────────────────────────────────────────────────────────────
-// Work Summary — collapsed line shown above revealed artifact
-// ────────────────────────────────────────────────────────────────
-
-function WorkSummary({ intent }: { intent?: string }) {
-  const [collapsed, setCollapsed] = useState(true);
-  const steps = getWorkSteps(intent);
-  const acknowledgment = getAcknowledgment(intent);
-
-  if (collapsed) {
-    return (
-      <button
-        type="button"
-        onClick={() => setCollapsed(false)}
-        className="flex items-center gap-2 text-xs text-slate-400 dark:text-slate-500 hover:text-slate-500 dark:hover:text-slate-400 transition-colors px-1"
-      >
-        <ChevronDown className="w-3 h-3" />
-        <span>{acknowledgment}</span>
-        <span className="text-slate-300 dark:text-slate-600">
-          — {steps.length} steps completed
-        </span>
-      </button>
-    );
-  }
-
-  return (
-    <div className="px-1 py-2 space-y-2">
-      <button
-        type="button"
-        onClick={() => setCollapsed(true)}
-        className="text-xs text-slate-400 dark:text-slate-500 hover:text-slate-500 transition-colors"
-      >
-        <span>{acknowledgment}</span>
-      </button>
-      <div className="space-y-0.5 pl-1">
-        {steps.map((step, idx) => (
-          <div key={idx} className="flex items-center gap-2 text-xs text-slate-400 dark:text-slate-500">
-            <Check className="w-3 h-3 text-green-500 flex-shrink-0" />
-            <span>{step}</span>
-          </div>
-        ))}
+                {isDone ? (
+                  <Check className="w-3 h-3 text-emerald-500 flex-shrink-0" />
+                ) : (
+                  <Loader2 className="w-3 h-3 text-slate-400 dark:text-slate-500 animate-spin flex-shrink-0" />
+                )}
+                <span
+                  className={
+                    isDone
+                      ? "text-slate-400 dark:text-slate-500"
+                      : "text-slate-600 dark:text-slate-300"
+                  }
+                >
+                  {step}
+                </span>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

@@ -303,6 +303,7 @@ export function useAgentState() {
         entityId: followUp.entityId,
       },
       scope: followUp.scope || {},
+      filters: followUp.filters,
     }),
     []
   );

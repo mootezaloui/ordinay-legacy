@@ -12,9 +12,9 @@ interface ActionArtifactProps {
  */
 export function ActionArtifact({ data }: ActionArtifactProps) {
   return (
-    <div className="artifact-enter rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 overflow-hidden">
+    <div className="artifact-enter agent-artifact-card is-action">
       {/* Header */}
-      <div className="flex items-center justify-between px-5 py-3 bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700">
+      <div className="agent-artifact-header flex items-center justify-between px-5 py-3">
         <div className="flex items-center gap-2">
           <ListTodo className="w-4 h-4 text-green-600" />
           <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
@@ -31,7 +31,7 @@ export function ActionArtifact({ data }: ActionArtifactProps) {
         {data.map((action: ActionProposal, idx: number) => (
           <div
             key={action.proposalId || idx}
-            className="p-4 rounded border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/30"
+            className="p-4 rounded-xl border border-slate-200/70 dark:border-slate-700/60 bg-white/70 dark:bg-slate-900/40"
           >
             <div className="flex items-start justify-between gap-3">
               <div className="flex-1 min-w-0">
@@ -47,7 +47,7 @@ export function ActionArtifact({ data }: ActionArtifactProps) {
                 {/* Metadata row */}
                 <div className="flex items-center gap-3 mt-2">
                   {/* Status badge */}
-                  <span className="text-xs px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 font-medium">
+                  <span className="text-xs px-1.5 py-0.5 rounded-full bg-slate-100/80 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-medium">
                     {action.status}
                   </span>
 

@@ -14,7 +14,7 @@ export function AgentTopBar({
   onToggleContext,
 }: AgentTopBarProps) {
   return (
-    <div className="h-14 flex-shrink-0 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 sm:px-4 flex items-center justify-between gap-3">
+    <div className="h-14 flex-shrink-0 border-b border-slate-200/70 dark:border-slate-800/80 bg-white/90 dark:bg-slate-950/70 backdrop-blur px-3 sm:px-4 flex items-center justify-between gap-3">
       <div className="flex items-center gap-2 min-w-0">
         {!showHistorySidebar && (
           <button
@@ -33,8 +33,8 @@ export function AgentTopBar({
           </button>
         )}
         <div className="flex items-center gap-2 min-w-0">
-          <div className="p-1.5 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex-shrink-0">
-            <Sparkles className="w-3.5 h-3.5 text-white" />
+          <div className="p-1.5 bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 rounded-lg flex-shrink-0">
+            <Sparkles className="w-3.5 h-3.5" />
           </div>
           <span className="text-sm font-semibold text-slate-900 dark:text-white truncate">
             <span className="hidden sm:inline">Organia Intelligence</span>

@@ -53,6 +53,23 @@
         "personalTaskId": { "type": "integer", "minimum": 1 },
         "financialEntryId": { "type": "integer", "minimum": 1 }
       }
+    },
+    "filters": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Optional list filters for aggregate follow-ups",
+      "properties": {
+        "status": { "type": ["string", "null"] },
+        "priority": { "type": ["string", "null"] },
+        "timeframe": { "type": ["string", "null"] },
+        "paymentStatus": { "type": ["string", "null"] },
+        "query": { "type": ["string", "null"] },
+        "overdue": { "type": ["boolean", "null"] },
+        "activity": { "type": ["string", "null"] },
+        "direction": { "type": ["string", "null"] },
+        "scope": { "type": ["string", "null"] },
+        "severity": { "type": ["string", "null"] }
+      }
     }
   }
 }

@@ -128,10 +128,21 @@ function extractArtifactSummary(artifactType, artifact, context) {
     followUpLabels: [],
     isAmbiguous: false,
     isIncomplete: false,
+    factsSummary: "",
+    factsDetails: [],
     totalCount: null,
     urgentCount: null,
     overdueCount: null,
+    resultCount: null,
   };
+
+  summary.factsSummary =
+    artifact.facts?.summary || artifact.summary || summary.factsSummary;
+  summary.factsDetails = Array.isArray(artifact.facts?.details)
+    ? artifact.facts.details
+    : Array.isArray(artifact.details)
+      ? artifact.details
+      : [];
 
   // Extract interpretation summary
   if (artifact.interpretation?.summary) {
@@ -176,6 +187,30 @@ function extractArtifactSummary(artifactType, artifact, context) {
     summary.overdueCount = overdue.length;
   }
 
+  if (typeof context?._resultCount === "number") {
+    summary.resultCount = context._resultCount;
+  }
+
+  if (summary.resultCount === null) {
+    const summaryText = artifact.facts?.summary || artifact.summary || "";
+    if (/no\s+\w+/i.test(summaryText)) {
+      summary.resultCount = 0;
+    } else {
+      const countMatch = summaryText.match(/(\d+)\s+\w+/);
+      if (countMatch) summary.resultCount = parseInt(countMatch[1], 10);
+    }
+  }
+
+  if (summary.resultCount === null && Array.isArray(artifact.interpretation?.statements)) {
+    const statementWithCount = artifact.interpretation.statements.find(
+      (stmt) => typeof stmt.statement === "string" && /\d+/.test(stmt.statement),
+    );
+    if (statementWithCount) {
+      const match = statementWithCount.statement.match(/(\d+)/);
+      if (match) summary.resultCount = parseInt(match[1], 10);
+    }
+  }
+
   // Check for ambiguity (from context)
   if (context?._readOutcome === "ambiguous") {
     summary.isAmbiguous = true;
@@ -185,6 +220,132 @@ function extractArtifactSummary(artifactType, artifact, context) {
   }
 
   return summary;
+}
+
+function splitSentences(text) {
+  return (text.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [])
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+function capSentences(text, maxSentences) {
+  const sentences = splitSentences(text);
+  if (sentences.length <= maxSentences) return text.trim();
+  return sentences.slice(0, maxSentences).join(" ").trim();
+}
+
+function tokenize(text) {
+  return String(text || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter((word) => word.length > 3);
+}
+
+function isRedundant(commentary, reference) {
+  if (!commentary || !reference) return false;
+  const refTokens = new Set(tokenize(reference));
+  if (refTokens.size < 4) return false;
+  const commentTokens = tokenize(commentary);
+  if (commentTokens.length === 0) return false;
+  let overlap = 0;
+  for (const token of commentTokens) {
+    if (refTokens.has(token)) overlap += 1;
+  }
+  return overlap / refTokens.size >= 0.6;
+}
+
+function buildEmptyResultCommentary(summary) {
+  const label = summary.entityType ? summary.entityType.replace(/_/g, " ") : "records";
+  return `No ${label} records are available in this scope yet. This may mean none exist, the scope is too narrow, or entries have not been added; check the parent context or broaden the scope if you expected results.`;
+}
+
+function buildMultipleResultCommentary(summary) {
+  const label = summary.entityType ? summary.entityType.replace(/_/g, " ") : "records";
+  return `Multiple ${label} records match this request. Select one to continue or narrow the scope to refine the list.`;
+}
+
+function requiresClarification(summary) {
+  const combined = `${summary.factsSummary || ""} ${(summary.factsDetails || []).join(" ")}`.toLowerCase();
+  return (
+    /\bwhich\s+\w+/.test(combined) ||
+    /provide\s+(an|a)\s+id/.test(combined) ||
+    /more\s+information\s+required/.test(combined) ||
+    /please\s+specify/.test(combined) ||
+    /provide\s+more\s+information/.test(combined)
+  );
+}
+
+function hasAbsenceGuidance(summary, artifact) {
+  const factText = `${summary.factsSummary || ""} ${(summary.factsDetails || []).join(" ")}`.toLowerCase();
+  const interpretationText = Array.isArray(artifact?.interpretation?.statements)
+    ? artifact.interpretation.statements
+        .map((stmt) => `${stmt.statement} ${stmt.implication}`)
+        .join(" ")
+        .toLowerCase()
+    : "";
+  const guidancePatterns = [
+    /this\s+may\s+mean/,
+    /check\s+(the\s+)?filters?/,
+    /broaden\s+(the\s+)?scope/,
+    /confirm\s+(the\s+)?parent/,
+    /verify\s+the\s+identifier/,
+    /specify\s+which/,
+  ];
+
+  return guidancePatterns.some(
+    (pattern) => pattern.test(factText) || pattern.test(interpretationText),
+  );
+}
+
+function applyCommentaryPolicy(summary, artifact) {
+  if (requiresClarification(summary)) {
+    return { action: "skip", reason: "clarification_required" };
+  }
+  if (summary.resultCount === 0) {
+    if (hasAbsenceGuidance(summary, artifact)) {
+      return { action: "skip", reason: "absence_guidance_present" };
+    }
+    return { action: "force", message: buildEmptyResultCommentary(summary), reason: "empty_result" };
+  }
+  if (typeof summary.resultCount === "number" && summary.resultCount > 1) {
+    return { action: "force", message: buildMultipleResultCommentary(summary), reason: "multiple_results" };
+  }
+
+  const hasUrgentSignals = summary.signals.length > 0;
+  const needsClarification = summary.isAmbiguous || summary.isIncomplete;
+
+  if (!hasUrgentSignals && !needsClarification) {
+    return { action: "skip", reason: "no_guidance_needed" };
+  }
+
+  return { action: "allow" };
+}
+
+function sanitizeCommentary(text, summary, artifact) {
+  if (!text) return null;
+  let cleaned = String(text).replace(/\s+/g, " ").trim();
+  if (!cleaned) return null;
+
+  const lower = cleaned.toLowerCase();
+  const bannedPhrases = [
+    "no urgent concerns",
+    "stable state",
+    "no records found",
+    "no record found",
+    "no results found",
+    "no data available",
+  ];
+  if (bannedPhrases.some((phrase) => lower.includes(phrase))) {
+    return null;
+  }
+
+  if (isRedundant(cleaned, artifact?.facts?.summary) || isRedundant(cleaned, artifact?.interpretation?.summary)) {
+    return null;
+  }
+
+  cleaned = capSentences(cleaned, 3);
+  return cleaned;
 }
 
 /**
@@ -355,20 +516,42 @@ async function generateAgentCommentary(artifactType, artifact, context = {}) {
     return { commentary: null, source: "skipped" };
   }
 
+  const artifactSummary = extractArtifactSummary(artifactType, artifact, context);
+  const policy = applyCommentaryPolicy(artifactSummary, artifact);
+
+  if (policy.action === "force") {
+    return {
+      commentary: capSentences(policy.message, 3),
+      source: "fallback",
+      reason: policy.reason,
+    };
+  }
+
+  if (policy.action === "skip") {
+    return { commentary: null, source: "skipped", reason: policy.reason };
+  }
+
   // Try LLM-based commentary
   const result = await generateCommentary(artifactType, artifact, context);
 
   if (result.success && result.commentary) {
-    return { commentary: result.commentary, source: "llm" };
+    const sanitized = sanitizeCommentary(result.commentary, artifactSummary, artifact);
+    if (sanitized) {
+      return { commentary: sanitized, source: "llm" };
+    }
+    return { commentary: null, source: "skipped", reason: "redundant" };
   }
 
   // If LLM failed or skipped, try fallback
   if (!result.skipped) {
-    const artifactSummary = extractArtifactSummary(artifactType, artifact, context);
     const fallback = buildFallbackCommentary(artifactSummary);
 
     if (fallback) {
-      return { commentary: fallback, source: "fallback" };
+      const sanitized = sanitizeCommentary(fallback, artifactSummary, artifact);
+      if (sanitized) {
+        return { commentary: sanitized, source: "fallback" };
+      }
+      return { commentary: null, source: "skipped", reason: "redundant" };
     }
   }
 

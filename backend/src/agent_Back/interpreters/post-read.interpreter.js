@@ -127,12 +127,46 @@ const SUMMARY_INTENT_BY_ENTITY = Object.freeze({
   financial_entry: READ_INTENTS.SUMMARIZE_FINANCIAL_ENTRY,
 });
 
+const LIST_INTENT_BY_ENTITY = Object.freeze({
+  client: READ_INTENTS.LIST_CLIENTS,
+  dossier: READ_INTENTS.LIST_DOSSIERS,
+  lawsuit: READ_INTENTS.LIST_LAWSUITS,
+  task: READ_INTENTS.LIST_TASKS,
+  personal_task: READ_INTENTS.LIST_PERSONAL_TASKS,
+  session: READ_INTENTS.LIST_SESSIONS,
+  mission: READ_INTENTS.LIST_MISSIONS,
+  financial_entry: READ_INTENTS.LIST_FINANCIAL_ENTRIES,
+  notification: READ_INTENTS.LIST_NOTIFICATIONS,
+  history_event: READ_INTENTS.LIST_HISTORY_EVENTS,
+});
+
+const ENTITY_PLURAL_LABELS = Object.freeze({
+  client: "clients",
+  dossier: "dossiers",
+  lawsuit: "lawsuits",
+  task: "tasks",
+  personal_task: "personal tasks",
+  session: "sessions",
+  mission: "missions",
+  financial_entry: "financial entries",
+  notification: "notifications",
+  history_event: "history events",
+});
+
 const CHILD_LIST_INTENTS = Object.freeze({
   dossiers: READ_INTENTS.LIST_DOSSIERS,
   tasks: READ_INTENTS.LIST_TASKS,
   sessions: READ_INTENTS.LIST_SESSIONS,
   lawsuits: READ_INTENTS.LIST_LAWSUITS,
   financial_entries: READ_INTENTS.LIST_FINANCIAL_ENTRIES,
+});
+
+const CHILD_TYPE_TO_ENTITY = Object.freeze({
+  dossiers: "dossier",
+  tasks: "task",
+  sessions: "session",
+  lawsuits: "lawsuit",
+  financial_entries: "financial_entry",
 });
 
 // ─── State Interpretation Rules ────────────────────────────────
@@ -228,8 +262,8 @@ function interpretEntityState(entityType, entityData, context) {
   if (interpretations.length === 0) {
     interpretations.push({
       level: "neutral",
-      statement: `${entityType} is in a stable state with no immediate concerns.`,
-      implication: "No urgent action required. Review periodically.",
+      statement: `No immediate issues detected for this ${entityType}.`,
+      implication: "No urgent action required. Review periodically to confirm.",
     });
   }
 
@@ -244,7 +278,8 @@ function interpretCollectionState(entityType, entities, context) {
     interpretations.push({
       level: "neutral",
       statement: `No ${entityType} records found.`,
-      implication: "Adjust filters or verify the search criteria.",
+      implication:
+        "This may mean none exist yet, they fall outside the current scope, or they have not been recorded. Check filters or confirm the parent record.",
     });
     return interpretations;
   }
@@ -981,7 +1016,77 @@ function buildScopeForType(entityType, entityId) {
   return { [key]: normalizedId };
 }
 
-function buildFollowUp({ label, reason, intent, scopeType, scopeId, origin }) {
+function resolveResultCount(entityData, context) {
+  if (context && typeof context._resultCount === "number") {
+    return context._resultCount;
+  }
+  if (Array.isArray(entityData)) return entityData.length;
+  if (entityData) return 1;
+  return 0;
+}
+
+function resolveListItemLabel(entityType, item) {
+  if (!item || typeof item !== "object") return null;
+  const fallback =
+    item.reference || item.title || item.name || item.subject || item.id;
+
+  switch (entityType) {
+    case "client":
+      return item.name || item.reference || fallback;
+    case "dossier":
+      return item.reference || item.title || fallback;
+    case "lawsuit":
+      return item.reference || item.lawsuit_number || item.title || fallback;
+    case "task":
+    case "personal_task":
+      return item.title || item.name || fallback;
+    case "session":
+      return item.title || item.session_type || item.reference || fallback;
+    case "mission":
+      return item.reference || item.title || fallback;
+    case "financial_entry":
+      return item.reference || item.title || fallback;
+    case "notification":
+      return item.title || item.subject || fallback;
+    case "history_event":
+      return item.action || item.title || fallback;
+    default:
+      return fallback;
+  }
+}
+
+function buildSelectionFollowUps(entityType, entityData) {
+  if (!Array.isArray(entityData)) return [];
+  const readIntent = READ_INTENT_BY_ENTITY[entityType];
+  if (!readIntent) return [];
+
+  const candidates = entityData.filter(
+    (item) => item && item.id !== null && item.id !== undefined,
+  );
+
+  return candidates.slice(0, 2).flatMap((item, idx) => {
+    const scope = buildScopeForType(entityType, item.id);
+    if (Object.keys(scope).length === 0) return [];
+    const labelText = resolveListItemLabel(entityType, item) || `${entityType.replace(/_/g, " ")} ${item.id}`;
+    const origin = { type: entityType, id: item.id };
+    return [
+      {
+        category: "selection",
+        priority: idx,
+        ...buildFollowUp({
+          label: `Open ${labelText}`,
+          reason: "Select a specific record to continue.",
+          intent: readIntent,
+          scopeType: entityType,
+          scopeId: item.id,
+          origin,
+        }),
+      },
+    ];
+  });
+}
+
+function buildFollowUp({ label, reason, intent, scopeType, scopeId, origin, filters }) {
   return {
     label,
     reason,
@@ -993,6 +1098,128 @@ function buildFollowUp({ label, reason, intent, scopeType, scopeId, origin }) {
       entityId: origin.id,
     },
     scope: buildScopeForType(scopeType, scopeId),
+    filters: filters && typeof filters === "object" ? filters : undefined,
+  };
+}
+
+function formatTimeframeLabel(timeframe) {
+  if (!timeframe) return null;
+  if (timeframe === "this-week") return "this week";
+  return String(timeframe).replace(/_/g, " ");
+}
+
+function buildAggregateLabel(entityType, filters) {
+  const labelBase =
+    ENTITY_PLURAL_LABELS[entityType] || `${entityType.replace(/_/g, " ")}s`;
+  if (!filters || typeof filters !== "object") return labelBase;
+
+  const parts = [];
+  if (filters.status) parts.push(String(filters.status).replace(/_/g, " "));
+  if (!filters.status && filters.activity === "active") parts.push("active");
+  if (filters.paymentStatus)
+    parts.push(String(filters.paymentStatus).replace(/_/g, " "));
+  if (filters.priority)
+    parts.push(`${String(filters.priority).replace(/_/g, " ")} priority`);
+  if (filters.overdue) parts.push("overdue");
+  if (filters.timeframe) parts.push(formatTimeframeLabel(filters.timeframe));
+
+  if (parts.length === 0) return labelBase;
+  return `${parts.join(" ")} ${labelBase}`;
+}
+
+function resolveAggregateScope(entityType, context) {
+  const scopeType = String(context?.scope || "").toLowerCase();
+  const allowedScopes = {
+    dossier: ["client"],
+    lawsuit: ["dossier"],
+    task: ["dossier", "lawsuit"],
+    personal_task: [],
+    session: ["dossier", "lawsuit"],
+    mission: ["dossier", "lawsuit"],
+    financial_entry: [
+      "client",
+      "dossier",
+      "lawsuit",
+      "mission",
+      "task",
+      "personal_task",
+    ],
+    notification: [
+      "client",
+      "dossier",
+      "lawsuit",
+      "session",
+      "task",
+      "mission",
+      "personal_task",
+      "financial_entry",
+    ],
+    history_event: [
+      "client",
+      "dossier",
+      "lawsuit",
+      "session",
+      "task",
+      "mission",
+      "personal_task",
+      "financial_entry",
+    ],
+  };
+
+  if (!allowedScopes[entityType]?.includes(scopeType)) {
+    return { scopeType: null, scopeId: null };
+  }
+
+  const key = SCOPE_KEYS[scopeType];
+  const scopeId = key ? context?.[key] : null;
+  return { scopeType, scopeId };
+}
+
+function buildPriorityBreakdownFollowUp(
+  entityType,
+  entityData,
+  origin,
+  scopeType,
+  scopeId,
+  filters,
+) {
+  const prioritySupported = new Set([
+    "task",
+    "personal_task",
+    "mission",
+    "dossier",
+  ]);
+  if (!prioritySupported.has(entityType)) return null;
+  if (!Array.isArray(entityData)) return null;
+  if (filters?.priority) return null;
+
+  const priorities = new Set(
+    entityData
+      .map((item) => String(item.priority || "").toLowerCase())
+      .filter(Boolean),
+  );
+  const priorityOrder = ["urgent", "high", "medium", "low"];
+  const selected = priorityOrder.find((p) => priorities.has(p));
+  if (!selected) return null;
+
+  const listIntent = LIST_INTENT_BY_ENTITY[entityType];
+  if (!listIntent) return null;
+
+  const labelBase =
+    ENTITY_PLURAL_LABELS[entityType] || `${entityType.replace(/_/g, " ")}s`;
+
+  return {
+    category: "summary",
+    priority: 2,
+    ...buildFollowUp({
+      label: `List ${selected} priority ${labelBase}`,
+      reason: "Focus on the highest priority items in this summary.",
+      intent: listIntent,
+      scopeType,
+      scopeId,
+      origin,
+      filters: { ...(filters || {}), priority: selected },
+    }),
   };
 }
 
@@ -1002,42 +1229,21 @@ function buildFollowUp({ label, reason, intent, scopeType, scopeId, origin }) {
  */
 function generateFollowUps(entityType, entityData, context, interpretation, navigation) {
   const followUps = [];
+  const resultCount = resolveResultCount(entityData, context);
+  const isEmpty = resultCount === 0;
+  const isMultiple = resultCount > 1;
   const origin = resolveOriginEntity(entityType, entityData, context);
   const originType = origin.type;
   const originId = origin.id;
+  const isAggregateSummary = Boolean(context?._aggregateSummary);
+  const aggregateFilters =
+    context?._aggregateFilters && typeof context._aggregateFilters === "object"
+      ? context._aggregateFilters
+      : {};
 
-  // Parent navigation (if child entity)
-  if (navigation.parentPath) {
-    const parentType = navigation.parentPath.type;
-    const parentIntent = READ_INTENT_BY_ENTITY[parentType];
-    if (parentIntent) {
-      followUps.push({
-        category: "navigation",
-        priority: 1,
-        ...buildFollowUp({
-          label: `View ${parentType}`,
-          reason: "Understanding parent context clarifies this entity's role.",
-          intent: parentIntent,
-          scopeType: parentType,
-          scopeId: navigation.parentPath.id,
-          origin,
-        }),
-      });
-    }
-  }
-
-  // Child exploration (if parent entity with children)
-  const roleInfo = ENTITY_ROLES[entityType];
-  const childCandidates =
-    navigation.childrenAvailable.length > 0
-      ? navigation.childrenAvailable
-      : (roleInfo?.typicalChildren || []).map((childType) => ({
-          type: childType,
-          count: null,
-        }));
-
-  childCandidates.forEach((child, idx) => {
-    if (followUps.length < 5) {
+  const addChildExploration = (candidates, scopeType, scopeId, originForFollowUp) => {
+    candidates.forEach((child, idx) => {
+      if (followUps.length >= 5) return;
       const childIntent = CHILD_LIST_INTENTS[child.type];
       if (!childIntent) return;
       followUps.push({
@@ -1050,13 +1256,211 @@ function generateFollowUps(entityType, entityData, context, interpretation, navi
               ? `${child.count} ${child.type.replace(/_/g, " ")} available for review.`
               : `Explore related ${child.type.replace(/_/g, " ")} for more context.`,
           intent: childIntent,
-          scopeType: originType,
-          scopeId: originId,
+          scopeType,
+          scopeId,
+          origin: originForFollowUp,
+        }),
+      });
+    });
+  };
+
+  // Parent navigation (if child entity)
+  let parentFollowUp = null;
+  if (navigation.parentPath) {
+    const parentType = navigation.parentPath.type;
+    const parentIntent = READ_INTENT_BY_ENTITY[parentType];
+    if (parentIntent) {
+      parentFollowUp = {
+        category: "navigation",
+        priority: 1,
+        ...buildFollowUp({
+          label: `View ${parentType}`,
+          reason: "Understanding parent context clarifies this entity's role.",
+          intent: parentIntent,
+          scopeType: parentType,
+          scopeId: navigation.parentPath.id,
           origin,
+        }),
+      };
+    }
+  }
+
+  if (isAggregateSummary) {
+    const listIntent = LIST_INTENT_BY_ENTITY[entityType];
+    const { scopeType, scopeId } = resolveAggregateScope(entityType, context);
+    const listFilters = isEmpty ? {} : aggregateFilters;
+    const listLabel = buildAggregateLabel(entityType, listFilters);
+    if (listIntent) {
+      followUps.push({
+        category: "summary",
+        priority: 1,
+        ...buildFollowUp({
+          label: `List ${listLabel}`,
+          reason: "Review the collection that matches this summary.",
+          intent: listIntent,
+          scopeType,
+          scopeId,
+          origin,
+          filters: listFilters || {},
         }),
       });
     }
-  });
+
+    const priorityFollowUp = buildPriorityBreakdownFollowUp(
+      entityType,
+      entityData,
+      origin,
+      scopeType,
+      scopeId,
+      aggregateFilters,
+    );
+    if (priorityFollowUp) {
+      followUps.push(priorityFollowUp);
+    }
+
+    if (!isEmpty) {
+      followUps.push(...buildSelectionFollowUps(entityType, entityData));
+      if (followUps.length < 2 && listIntent && Object.keys(listFilters).length > 0) {
+        const fallbackLabel = buildAggregateLabel(entityType, {});
+        followUps.push({
+          category: "summary",
+          priority: 3,
+          ...buildFollowUp({
+            label: `List ${fallbackLabel}`,
+            reason: "Broaden the scope if you need the full collection.",
+            intent: listIntent,
+            scopeType,
+            scopeId,
+            origin,
+          }),
+        });
+      }
+      if (followUps.length < 2 && parentFollowUp) {
+        followUps.push(parentFollowUp);
+      }
+      followUps.sort((a, b) => a.priority - b.priority);
+      return followUps.slice(0, 5).map((f) => ({
+        label: f.label,
+        reason: f.reason,
+        intent: f.intent,
+        entityType: f.entityType,
+        entityId: f.entityId,
+        origin: f.origin,
+        scope: f.scope,
+        filters: f.filters,
+      }));
+    }
+  }
+
+  // ── Result-count specific follow-up selection ──
+  if (isMultiple) {
+    followUps.push(...buildSelectionFollowUps(entityType, entityData));
+    if (followUps.length < 2 && parentFollowUp) {
+      followUps.push(parentFollowUp);
+    }
+
+    if (followUps.length < 2) {
+      const originRole = ENTITY_ROLES[originType];
+      const originChildren =
+        (originRole?.typicalChildren || []).map((childType) => ({
+          type: childType,
+          count: null,
+        }));
+      addChildExploration(originChildren, originType, originId, origin);
+    }
+
+    followUps.sort((a, b) => a.priority - b.priority);
+    return followUps.slice(0, 5).map((f) => ({
+      label: f.label,
+      reason: f.reason,
+      intent: f.intent,
+      entityType: f.entityType,
+      entityId: f.entityId,
+      origin: f.origin,
+      scope: f.scope,
+      filters: f.filters,
+    }));
+  }
+
+  if (isEmpty) {
+    if (parentFollowUp) {
+      followUps.push({
+        ...parentFollowUp,
+        reason: "Creation is usually recorded under the parent entity.",
+      });
+    }
+
+    const siblingParentType = navigation.parentPath?.type || originType;
+    const siblingParentId = navigation.parentPath?.id || originId;
+    const siblingCandidates = (ENTITY_ROLES[siblingParentType]?.typicalChildren || [])
+      .filter((childType) => CHILD_TYPE_TO_ENTITY[childType] !== entityType)
+      .map((childType) => ({ type: childType, count: null }));
+
+    addChildExploration(siblingCandidates, siblingParentType, siblingParentId, origin);
+
+    if (followUps.length < 2) {
+      const explainIntent = EXPLAIN_INTENT_BY_ENTITY[originType];
+      if (explainIntent) {
+        followUps.push({
+          category: "guidance",
+          priority: 6,
+          ...buildFollowUp({
+            label: `How ${entityType.replace(/_/g, " ")} records are created`,
+            reason: "Clarifies the usual creation path and required context.",
+            intent: explainIntent,
+            scopeType: originType,
+            scopeId: originId,
+            origin,
+          }),
+        });
+      }
+    }
+
+    if (followUps.length < 2) {
+      const readIntent = READ_INTENT_BY_ENTITY[originType];
+      if (readIntent) {
+        followUps.push({
+          category: "guidance",
+          priority: 7,
+          ...buildFollowUp({
+            label: `Review ${originType.replace(/_/g, " ")} context`,
+            reason: "Verify the scope and parent context before retrying.",
+            intent: readIntent,
+            scopeType: originType,
+            scopeId: originId,
+            origin,
+          }),
+        });
+      }
+    }
+
+    followUps.sort((a, b) => a.priority - b.priority);
+    return followUps.slice(0, 5).map((f) => ({
+      label: f.label,
+      reason: f.reason,
+      intent: f.intent,
+      entityType: f.entityType,
+      entityId: f.entityId,
+      origin: f.origin,
+      scope: f.scope,
+      filters: f.filters,
+    }));
+  }
+
+  // Child exploration (if parent entity with children)
+  if (parentFollowUp) {
+    followUps.push(parentFollowUp);
+  }
+  const roleInfo = ENTITY_ROLES[entityType];
+  const childCandidates =
+    navigation.childrenAvailable.length > 0
+      ? navigation.childrenAvailable
+      : (roleInfo?.typicalChildren || []).map((childType) => ({
+          type: childType,
+          count: null,
+        }));
+
+  addChildExploration(childCandidates, originType, originId, origin);
 
   // State-driven follow-ups
   const hasUrgentInterpretation = interpretation.some(
@@ -1139,28 +1543,13 @@ function generateFollowUps(entityType, entityData, context, interpretation, navi
   // Sort by priority and take top 5
   followUps.sort((a, b) => a.priority - b.priority);
 
-  // Ensure at least 2 follow-ups always exist
+  // Ensure at least 2 follow-ups always exist (single-result only)
   while (followUps.length < 2) {
-    if (!followUps.some((f) => f.label === "Show recent activity")) {
+    const explainIntent = EXPLAIN_INTENT_BY_ENTITY[originType];
+    if (explainIntent && !followUps.some((f) => f.intent === explainIntent)) {
       followUps.push({
         category: "general",
         priority: 10,
-        ...buildFollowUp({
-          label: "Show recent activity",
-          reason: "Review recent changes and updates.",
-          intent: READ_INTENTS.LIST_HISTORY_EVENTS,
-          scopeType: originType,
-          scopeId: originId,
-          origin,
-        }),
-      });
-      continue;
-    }
-    const explainIntent = EXPLAIN_INTENT_BY_ENTITY[originType];
-    if (explainIntent) {
-      followUps.push({
-        category: "general",
-        priority: 11,
         ...buildFollowUp({
           label: "Explain status",
           reason: "Clarify the current state and implications.",
@@ -1176,7 +1565,7 @@ function generateFollowUps(entityType, entityData, context, interpretation, navi
     if (readIntent && !followUps.some((f) => f.intent === readIntent)) {
       followUps.push({
         category: "general",
-        priority: 12,
+        priority: 11,
         ...buildFollowUp({
           label: "Review details",
           reason: "Return to the primary record view.",
@@ -1199,6 +1588,7 @@ function generateFollowUps(entityType, entityData, context, interpretation, navi
     entityId: f.entityId,
     origin: f.origin,
     scope: f.scope,
+    filters: f.filters,
   }));
 }
 
@@ -1235,7 +1625,7 @@ function interpret(entityType, entityData, context) {
     // Interpretation block — what the state means
     interpretation: {
       statements: interpretation,
-      summary: buildInterpretationSummary(interpretation),
+      summary: buildInterpretationSummary(interpretation, context),
     },
 
     // Navigation context — entity role awareness
@@ -1255,7 +1645,14 @@ function interpret(entityType, entityData, context) {
 /**
  * Builds a one-line summary of interpretation.
  */
-function buildInterpretationSummary(interpretation) {
+function buildInterpretationSummary(interpretation, context) {
+  const resultCount =
+    typeof context?._resultCount === "number" ? context._resultCount : null;
+  const readOutcome = context?._readOutcome;
+
+  if (resultCount === 0 || readOutcome === "empty" || readOutcome === "not_found") {
+    return "Empty result.";
+  }
   const critical = interpretation.filter((i) => i.level === "critical");
   const warning = interpretation.filter((i) => i.level === "warning");
 
@@ -1265,7 +1662,7 @@ function buildInterpretationSummary(interpretation) {
   if (warning.length > 0) {
     return `${warning.length} item(s) need review.`;
   }
-  return "No urgent concerns. Entity is in stable state.";
+  return "No critical issues detected in the current records.";
 }
 
 // ─── Exports ───────────────────────────────────────────────────

@@ -669,6 +669,100 @@ function extractEntityHints(message) {
   return hints;
 }
 
+const AGGREGATE_QUANTIFIER_PATTERN =
+  /\b(all|every|each|any|active|inactive|open|closed|pending|overdue|upcoming|current|recent|archived|unpaid|paid|workload|backlog|balance|balances)\b/i;
+
+const AGGREGATE_PLURAL_PATTERNS = Object.freeze({
+  client: /\bclients\b/i,
+  dossier: /\bdossiers\b/i,
+  lawsuit: /\blawsuits\b/i,
+  task: /\btasks\b/i,
+  personal_task: /\bpersonal\s+tasks\b/i,
+  session: /\bsessions\b/i,
+  mission: /\bmissions\b/i,
+  financial_entry: /\b(entries|financials|invoices|payments)\b/i,
+  notification: /\bnotifications\b/i,
+  history_event: /\b(history\s+events|history|audit\s*trail|activity\s*log)\b/i,
+});
+
+const SCOPE_ID_KEYS = Object.freeze({
+  client: "clientId",
+  dossier: "dossierId",
+  lawsuit: "lawsuitId",
+  task: "taskId",
+  personal_task: "personalTaskId",
+  session: "sessionId",
+  mission: "missionId",
+  financial_entry: "financialEntryId",
+  notification: "notificationId",
+  history_event: "historyEventId",
+});
+
+function hasExplicitEntityTarget(entityType, entityHints, context) {
+  if (!entityType) return false;
+  const scope = String(context?.scope || "").toLowerCase();
+  const scopedKey = SCOPE_ID_KEYS[entityType];
+  const scopedEntity =
+    scopedKey && scope === entityType && context?.[scopedKey] != null;
+
+  if (scopedEntity) return true;
+
+  return entityHints.some((hint) => {
+    if (hint.type === "id" || hint.type === "reference") {
+      return !hint.entityType || hint.entityType === entityType;
+    }
+    if (hint.type === "name" && hint.entityType) {
+      return hint.entityType === entityType;
+    }
+    return false;
+  });
+}
+
+function detectAggregateSummaryRequest(normalized, entityType, entityHints, context) {
+  if (!entityType) return false;
+  const pluralSignal = AGGREGATE_PLURAL_PATTERNS[entityType]?.test(normalized);
+  const quantifierSignal = AGGREGATE_QUANTIFIER_PATTERN.test(normalized);
+  if (!pluralSignal && !quantifierSignal) return false;
+  if (hasExplicitEntityTarget(entityType, entityHints, context)) return false;
+  return true;
+}
+
+function buildAggregateFilters(normalized, entityType, temporal) {
+  const filters = {};
+
+  if (temporal?.today) filters.timeframe = "today";
+  if (temporal?.thisWeek) filters.timeframe = "this-week";
+  if (temporal?.upcoming) filters.timeframe = "upcoming";
+
+  if (/\b(unpaid|paid|overdue)\b/i.test(normalized)) {
+    const paymentStatus = normalized.match(/\b(unpaid|paid|overdue)\b/i)?.[1];
+    if (paymentStatus) filters.paymentStatus = paymentStatus.toLowerCase();
+  }
+
+  if (/\b(urgent|high|medium|low)\b/i.test(normalized)) {
+    const priority = normalized.match(/\b(urgent|high|medium|low)\b/i)?.[1];
+    if (priority) filters.priority = priority.toLowerCase();
+  }
+
+  if (/\b(overdue)\b/i.test(normalized)) {
+    filters.overdue = true;
+  }
+
+  if (/\b(active|open|pending|closed|inactive|archived|blocked|done|completed|cancelled)\b/i.test(normalized)) {
+    const status = normalized.match(
+      /\b(active|open|pending|closed|inactive|archived|blocked|done|completed|cancelled)\b/i,
+    )?.[1];
+    if (status) {
+      filters.status = status.toLowerCase();
+      if (["active", "open", "pending"].includes(filters.status) && (entityType === "task" || entityType === "personal_task")) {
+        filters.activity = "active";
+      }
+    }
+  }
+
+  return filters;
+}
+
 /**
  * Detect READ intent from user message using rule-based patterns
  * This runs BEFORE LLM classification to ensure data questions access local data
@@ -775,6 +869,13 @@ function detectReadIntent(message, context = {}) {
   const isShortEntityRequest = entityType && wordCount <= 5;
 
   const extractedHints = extractEntityHints(message);
+  const aggregateSummary = detectAggregateSummaryRequest(
+    normalized,
+    entityType,
+    extractedHints,
+    context,
+  );
+  const aggregateFilters = buildAggregateFilters(normalized, entityType, temporal);
 
   // SUMMARIZE intents
   if (hasSummarizePattern) {
@@ -782,64 +883,88 @@ function detectReadIntent(message, context = {}) {
       return {
         intent: READ_INTENTS.SUMMARIZE_CLIENT,
         requiresLocalData: true,
-        allowedTools: ["getClient", "searchClientsByName", "listDossiersForClient"],
+        allowedTools: aggregateSummary
+          ? ["listClients"]
+          : ["getClient", "searchClientsByName", "listDossiersForClient"],
         entityHints: extractedHints,
+        aggregateSummary,
+        filters: aggregateFilters,
       };
     if (entityType === "dossier")
       return {
         intent: READ_INTENTS.SUMMARIZE_DOSSIER,
         requiresLocalData: true,
-        allowedTools: ["getDossier", "getDossierByReference", "listTasks", "listSessions", "listMissions"],
+        allowedTools: aggregateSummary
+          ? ["listDossiers"]
+          : ["getDossier", "getDossierByReference", "listTasks", "listSessions", "listMissions"],
         entityHints: extractedHints,
+        aggregateSummary,
+        filters: aggregateFilters,
       };
     if (entityType === "lawsuit")
       return {
         intent: READ_INTENTS.SUMMARIZE_LAWSUIT,
         requiresLocalData: true,
-        allowedTools: ["getLawsuit", "listTasks", "listSessions"],
+        allowedTools: aggregateSummary
+          ? ["listLawsuits"]
+          : ["getLawsuit", "listTasks", "listSessions"],
         entityHints: extractedHints,
+        aggregateSummary,
+        filters: aggregateFilters,
       };
     if (entityType === "session")
       return {
         intent: READ_INTENTS.SUMMARIZE_SESSION,
         requiresLocalData: true,
-        allowedTools: ["getSession"],
+        allowedTools: aggregateSummary ? ["listSessions"] : ["getSession"],
         entityHints: extractedHints,
+        aggregateSummary,
+        filters: aggregateFilters,
       };
     if (entityType === "task")
       return {
         intent: READ_INTENTS.SUMMARIZE_TASK,
         requiresLocalData: true,
-        allowedTools: ["getTask", "listTasks"],
+        allowedTools: aggregateSummary ? ["listTasks"] : ["getTask", "listTasks"],
         entityHints: extractedHints,
+        aggregateSummary,
+        filters: aggregateFilters,
       };
     if (entityType === "personal_task")
       return {
         intent: READ_INTENTS.SUMMARIZE_PERSONAL_TASK,
         requiresLocalData: true,
-        allowedTools: ["getPersonalTask", "listPersonalTasks"],
+        allowedTools: aggregateSummary ? ["listPersonalTasks"] : ["getPersonalTask", "listPersonalTasks"],
         entityHints: extractedHints,
+        aggregateSummary,
+        filters: aggregateFilters,
       };
     if (entityType === "mission")
       return {
         intent: READ_INTENTS.SUMMARIZE_MISSION,
         requiresLocalData: true,
-        allowedTools: ["getMission", "listMissions"],
+        allowedTools: aggregateSummary ? ["listMissions"] : ["getMission", "listMissions"],
         entityHints: extractedHints,
+        aggregateSummary,
+        filters: aggregateFilters,
       };
     if (entityType === "financial_entry")
       return {
         intent: READ_INTENTS.SUMMARIZE_FINANCIAL_ENTRY,
         requiresLocalData: true,
-        allowedTools: ["getFinancialEntry", "listFinancialEntries"],
+        allowedTools: aggregateSummary ? ["listFinancialEntries"] : ["getFinancialEntry", "listFinancialEntries"],
         entityHints: extractedHints,
+        aggregateSummary,
+        filters: aggregateFilters,
       };
     if (entityType === "notification")
       return {
         intent: READ_INTENTS.SUMMARIZE_NOTIFICATION,
         requiresLocalData: true,
-        allowedTools: ["getNotification", "listNotifications"],
+        allowedTools: aggregateSummary ? ["listNotifications"] : ["getNotification", "listNotifications"],
         entityHints: extractedHints,
+        aggregateSummary,
+        filters: aggregateFilters,
       };
     if (entityType === "history_event")
       return {
@@ -847,6 +972,8 @@ function detectReadIntent(message, context = {}) {
         requiresLocalData: true,
         allowedTools: ["listHistoryEvents"],
         entityHints: extractedHints,
+        aggregateSummary: true,
+        filters: aggregateFilters,
       };
   }
 

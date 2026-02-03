@@ -1,4 +1,4 @@
-import { FileText, CheckCircle2 } from "lucide-react";
+import { FileText } from "lucide-react";
 import type { ExplanationOutput, FollowUpSuggestion } from "../../../services/api/agent";
 import { InterpretationBlock } from "./InterpretationBlock";
 import { NavigationContext } from "./NavigationContext";
@@ -36,6 +36,11 @@ export function ExplanationArtifact({
           .replace(/^\w/, (c) => c.toUpperCase())
       : "Entity";
 
+  const entityIdLabel =
+    data.entityId && !data.entityId.startsWith("list:")
+      ? data.entityId
+      : null;
+
   // Check if we have the new mandatory structure
   const hasNewStructure = data.facts && data.interpretation && data.navigation;
 
@@ -53,22 +58,20 @@ export function ExplanationArtifact({
   }
 
   return (
-    <div className="artifact-enter rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 overflow-hidden">
+    <div className="artifact-enter agent-artifact-card">
       {/* Header */}
-      <div className="flex items-center justify-between px-5 py-3 bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700">
+      <div className="agent-artifact-header flex items-center justify-between px-5 py-3">
         <div className="flex items-center gap-2">
           <FileText className="w-4 h-4 text-slate-500" />
           <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
             {entityLabel}
           </span>
-          <span className="text-xs text-slate-400 dark:text-slate-500">
-            {data.entityId}
-          </span>
+          {entityIdLabel && (
+            <span className="text-xs text-slate-400 dark:text-slate-500">
+              {entityIdLabel}
+            </span>
+          )}
         </div>
-        <span className="text-xs text-slate-400 dark:text-slate-500 flex items-center gap-1">
-          <CheckCircle2 className="w-3 h-3" />
-          Review required
-        </span>
       </div>
 
       {/* Body */}
@@ -123,8 +126,8 @@ function LegacyExplanationArtifact({
   entityLabel: string;
 }) {
   return (
-    <div className="artifact-enter rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 overflow-hidden">
-      <div className="flex items-center justify-between px-5 py-3 bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700">
+    <div className="artifact-enter agent-artifact-card">
+      <div className="agent-artifact-header flex items-center justify-between px-5 py-3">
         <div className="flex items-center gap-2">
           <FileText className="w-4 h-4 text-slate-500" />
           <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">

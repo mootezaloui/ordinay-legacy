@@ -91,9 +91,7 @@ export function AgentFolderItem({
   return (
     <>
       <div
-        className={`group transition-all ${
-          isDragging ? "opacity-50" : ""
-        }`}
+        className={`group transition-all ${isDragging ? "opacity-50" : ""}`}
       >
         {/* Folder header - this is the draggable part and drop target for moving sessions into folder */}
         <div
@@ -103,14 +101,16 @@ export function AgentFolderItem({
           onDragOver={onDragOver}
           onDragLeave={onDragLeave}
           onDrop={onDrop}
-          className={`flex items-center gap-1 p-2 rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 ${
-            isDropTarget ? "ring-2 ring-blue-400 ring-inset bg-blue-50 dark:bg-blue-900/20" : ""
+          className={`flex items-center gap-2 px-3 py-2.5 rounded-xl cursor-pointer border border-transparent hover:border-slate-200/70 dark:hover:border-slate-700/60 hover:bg-white/80 dark:hover:bg-slate-900/60 transition-all ${
+            isDropTarget
+              ? "border-slate-300/80 dark:border-slate-600/80 bg-white dark:bg-slate-900/70 ring-1 ring-slate-200/70 dark:ring-slate-700/60"
+              : ""
           }`}
           onClick={!isEditing ? onToggleExpand : undefined}
         >
           {/* Drag handle */}
           <div
-            className="opacity-0 group-hover:opacity-100 cursor-grab active:cursor-grabbing p-0.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition-opacity"
+            className="opacity-0 group-hover:opacity-100 cursor-grab active:cursor-grabbing p-0.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition-opacity"
             onClick={(e) => e.stopPropagation()}
             onMouseDown={(e) => e.stopPropagation()}
           >
@@ -124,7 +124,7 @@ export function AgentFolderItem({
               e.stopPropagation();
               onToggleExpand();
             }}
-            className="p-0.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded"
+            className="p-0.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full"
           >
             {isExpanded ? (
               <ChevronDown className="w-3.5 h-3.5 text-slate-500" />
@@ -135,9 +135,9 @@ export function AgentFolderItem({
 
           {/* Folder icon */}
           {isExpanded ? (
-            <FolderOpen className="w-4 h-4 text-amber-500 flex-shrink-0" />
+            <FolderOpen className="w-4 h-4 text-slate-500 flex-shrink-0" />
           ) : (
-            <Folder className="w-4 h-4 text-amber-500 flex-shrink-0" />
+            <Folder className="w-4 h-4 text-slate-500 flex-shrink-0" />
           )}
 
           {/* Title */}
@@ -151,23 +151,23 @@ export function AgentFolderItem({
                 onKeyDown={handleKeyDown}
                 onBlur={handleSaveEdit}
                 aria-label="Folder name"
-                className="flex-1 min-w-0 text-sm font-medium bg-white dark:bg-slate-800 border border-blue-300 dark:border-blue-600 rounded px-1.5 py-0.5 outline-none focus:ring-2 focus:ring-blue-500"
+                className="flex-1 min-w-0 text-sm font-medium bg-white/90 dark:bg-slate-900/70 border border-slate-300/70 dark:border-slate-600/70 rounded-lg px-2 py-1 outline-none focus:ring-2 focus:ring-slate-400/20"
               />
               <button
                 type="button"
                 onClick={handleSaveEdit}
                 title="Save"
-                className="p-0.5 hover:bg-green-100 dark:hover:bg-green-900/30 rounded"
+                className="p-0.5 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded-full"
               >
-                <Check className="w-3.5 h-3.5 text-green-600" />
+                <Check className="w-3.5 h-3.5 text-emerald-600" />
               </button>
               <button
                 type="button"
                 onClick={handleCancelEdit}
                 title="Cancel"
-                className="p-0.5 hover:bg-red-100 dark:hover:bg-red-900/30 rounded"
+                className="p-0.5 hover:bg-rose-100 dark:hover:bg-rose-900/30 rounded-full"
               >
-                <X className="w-3.5 h-3.5 text-red-600" />
+                <X className="w-3.5 h-3.5 text-rose-600" />
               </button>
             </div>
           ) : (
@@ -175,7 +175,7 @@ export function AgentFolderItem({
               <span className="flex-1 text-sm font-medium text-slate-700 dark:text-slate-200 truncate">
                 {folder.title}
               </span>
-              <span className="text-xs text-slate-400 mr-1">
+              <span className="text-[11px] text-slate-400 mr-1">
                 {conversationCount}
               </span>
             </>
@@ -189,12 +189,12 @@ export function AgentFolderItem({
                   type="button"
                   onClick={(e) => e.stopPropagation()}
                   title="Folder options"
-                  className="opacity-0 group-hover:opacity-100 p-1 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition-all"
+                  className="opacity-0 group-hover:opacity-100 p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-all"
                 >
                   <MoreVertical className="w-3.5 h-3.5 text-slate-400" />
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-44 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-lg z-50">
+              <DropdownMenuContent align="end" className="w-44 bg-white/95 dark:bg-slate-900/95 border border-slate-200/70 dark:border-slate-700/70 shadow-xl rounded-2xl z-50">
                 <DropdownMenuItem onClick={handleStartEdit}>
                   <Edit2 className="w-3.5 h-3.5 mr-2" />
                   Rename
@@ -213,7 +213,7 @@ export function AgentFolderItem({
 
         {/* Children (conversations) */}
         {isExpanded && children && (
-          <div className="ml-6 mt-1 space-y-1">
+          <div className="ml-4 mt-2 space-y-2 border-l border-slate-200/70 dark:border-slate-700/60 pl-3">
             {children}
           </div>
         )}
@@ -237,7 +237,7 @@ export function AgentFolderItem({
             <button
               type="button"
               onClick={() => setShowDeleteDialog(false)}
-              className="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors"
+              className="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 bg-white/80 dark:bg-slate-900/60 hover:bg-white dark:hover:bg-slate-800 rounded-full border border-slate-200/70 dark:border-slate-700/60 transition-colors"
             >
               Cancel
             </button>
@@ -248,7 +248,7 @@ export function AgentFolderItem({
                   setShowDeleteDialog(false);
                   onDelete(true);
                 }}
-                className="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 bg-amber-100 dark:bg-amber-900/30 hover:bg-amber-200 dark:hover:bg-amber-900/50 rounded-lg transition-colors"
+                className="px-4 py-2 text-sm font-medium text-amber-700 dark:text-amber-300 bg-amber-100/80 dark:bg-amber-900/30 hover:bg-amber-200 dark:hover:bg-amber-900/50 rounded-full transition-colors"
               >
                 Move to Root & Delete
               </button>
@@ -259,7 +259,7 @@ export function AgentFolderItem({
                 setShowDeleteDialog(false);
                 onDelete(false);
               }}
-              className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
+              className="px-4 py-2 text-sm font-medium text-white bg-rose-600 hover:bg-rose-700 rounded-full transition-colors"
             >
               {conversationCount > 0 ? "Delete All" : "Delete"}
             </button>

@@ -31,9 +31,9 @@ export function DraftArtifact({ data }: DraftArtifactProps) {
   };
 
   return (
-    <div className="artifact-enter rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 overflow-hidden">
+    <div className="artifact-enter agent-artifact-card is-draft">
       {/* Header */}
-      <div className="flex items-center justify-between px-5 py-3 bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700">
+      <div className="agent-artifact-header flex items-center justify-between px-5 py-3">
         <div className="flex items-center gap-2">
           <FileText className="w-4 h-4 text-blue-500" />
           <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
@@ -49,7 +49,7 @@ export function DraftArtifact({ data }: DraftArtifactProps) {
       <div className="px-5 py-4">
         <div
           ref={paperRef}
-          className="p-5 rounded border-2 border-dashed border-slate-200 dark:border-slate-600 bg-slate-50/50 dark:bg-slate-900/30"
+          className="p-5 rounded-xl border border-slate-200/80 dark:border-slate-700/70 bg-white/80 dark:bg-slate-900/50"
         >
           {/* Subject */}
           {data.sections?.subject && (
@@ -94,7 +94,7 @@ export function DraftArtifact({ data }: DraftArtifactProps) {
       </div>
 
       {/* Actions bar */}
-      <div className="px-5 py-3 bg-slate-50 dark:bg-slate-800/80 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between">
+      <div className="px-5 py-3 bg-slate-50/70 dark:bg-slate-900/50 border-t border-slate-200/70 dark:border-slate-700/60 flex items-center justify-between">
         <div className="flex items-center gap-1.5">
           <CircleDot className="w-3 h-3 text-slate-400" />
           <span className="text-xs text-slate-400 dark:text-slate-500">
@@ -105,7 +105,7 @@ export function DraftArtifact({ data }: DraftArtifactProps) {
           <button
             type="button"
             onClick={handleCopy}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full border border-slate-200/80 dark:border-slate-700/60 bg-white/80 dark:bg-slate-900/60 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
           >
             {copied ? (
               <>
@@ -121,7 +121,7 @@ export function DraftArtifact({ data }: DraftArtifactProps) {
           </button>
           <button
             type="button"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full border border-slate-200/80 dark:border-slate-700/60 bg-white/80 dark:bg-slate-900/60 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
           >
             <Edit2 className="w-3.5 h-3.5" />
             Edit

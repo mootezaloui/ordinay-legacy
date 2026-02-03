@@ -35,21 +35,21 @@ export function AgentQuickActions({ onExampleClick }: AgentQuickActionsProps) {
   ];
 
   return (
-    <div className="pt-10 sm:pt-16">
+    <div className="pt-12 sm:pt-16">
       <div className="mb-6 px-1">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+        <h2 className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400 dark:text-slate-500">
           Agent
         </h2>
-        <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
+        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
           Query your dossiers, clients, tasks, and documents. Use{" "}
-          <kbd className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 rounded text-slate-500 dark:text-slate-400 font-mono text-[10px]">
+          <kbd className="px-2 py-0.5 bg-white/80 dark:bg-slate-800 rounded-full text-slate-500 dark:text-slate-400 font-mono text-[10px] border border-slate-200/60 dark:border-slate-700/60">
             /
           </kbd>{" "}
           for commands.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {examples.map((example, idx) => {
           const IconComponent = example.icon;
           return (
@@ -57,13 +57,13 @@ export function AgentQuickActions({ onExampleClick }: AgentQuickActionsProps) {
               type="button"
               key={idx}
               onClick={() => onExampleClick(example.prompt)}
-              className="group flex items-center gap-3 p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg hover:border-slate-300 dark:hover:border-slate-600 transition-colors text-left"
+              className="group flex items-center gap-3 p-4 bg-white/85 dark:bg-slate-900/60 border border-slate-200/70 dark:border-slate-700/60 rounded-2xl hover:border-slate-300/80 dark:hover:border-slate-600 transition-colors text-left shadow-sm"
             >
-              <div className="p-1.5 bg-slate-50 dark:bg-slate-700 rounded flex-shrink-0">
+              <div className="p-2 bg-slate-50 dark:bg-slate-800 rounded-xl flex-shrink-0 border border-slate-200/70 dark:border-slate-700/60">
                 <IconComponent className="w-4 h-4 text-slate-500 dark:text-slate-400" />
               </div>
               <div className="flex-1 min-w-0">
-                <div className="text-xs font-medium text-slate-400 dark:text-slate-500">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
                   {example.category}
                 </div>
                 <div className="text-sm text-slate-700 dark:text-slate-300">

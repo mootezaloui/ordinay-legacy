@@ -20,16 +20,18 @@ interface AckMessageProps {
  */
 export function AckMessage({ content }: AckMessageProps) {
   return (
-    <div className="ack-message flex items-center gap-2 px-1 py-2 animate-in fade-in duration-150">
-      {/* Subtle sparkle icon — acknowledging receipt */}
-      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-        <Sparkles className="w-3 h-3 text-slate-400 dark:text-slate-500" />
-      </div>
+    <div className="ack-message agent-message-row animate-in fade-in duration-150">
+      <div className="agent-status-line">
+        {/* Subtle sparkle icon — acknowledging receipt */}
+        <div className="flex-shrink-0 w-5 h-5 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+          <Sparkles className="w-3 h-3 text-slate-400 dark:text-slate-500" />
+        </div>
 
-      {/* Acknowledgement text */}
-      <span className="text-sm text-slate-500 dark:text-slate-400">
-        {content}
-      </span>
+        {/* Acknowledgement text */}
+        <span className="text-xs text-slate-500 dark:text-slate-400">
+          {content}
+        </span>
+      </div>
     </div>
   );
 }

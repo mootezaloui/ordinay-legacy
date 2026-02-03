@@ -39,8 +39,8 @@ export function ErrorArtifact({ content, onExampleClick }: ErrorArtifactProps) {
   const isContext = isContextError(content);
 
   return (
-    <div className="artifact-enter rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/20 overflow-hidden">
-      <div className="flex items-center gap-2 px-5 py-3 border-b border-amber-200 dark:border-amber-800">
+    <div className="artifact-enter agent-artifact-card is-error">
+      <div className="agent-artifact-header flex items-center gap-2 px-5 py-3 border-b border-amber-200/70 dark:border-amber-800/60">
         {isContext ? (
           <Search className="w-4 h-4 text-amber-600 dark:text-amber-400" />
         ) : (

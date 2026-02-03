@@ -103,6 +103,18 @@ export interface FollowUpSuggestion {
     personalTaskId?: number;
     financialEntryId?: number;
   };
+  filters?: {
+    status?: string | null;
+    priority?: string | null;
+    timeframe?: string | null;
+    paymentStatus?: string | null;
+    query?: string | null;
+    overdue?: boolean | null;
+    activity?: string | null;
+    direction?: string | null;
+    scope?: string | null;
+    severity?: string | null;
+  };
 }
 
 // Facts block — what was read
@@ -155,6 +167,18 @@ export interface FollowUpIntent {
     missionId?: number;
     personalTaskId?: number;
     financialEntryId?: number;
+  };
+  filters?: {
+    status?: string | null;
+    priority?: string | null;
+    timeframe?: string | null;
+    paymentStatus?: string | null;
+    query?: string | null;
+    overdue?: boolean | null;
+    activity?: string | null;
+    direction?: string | null;
+    scope?: string | null;
+    severity?: string | null;
   };
 }
 

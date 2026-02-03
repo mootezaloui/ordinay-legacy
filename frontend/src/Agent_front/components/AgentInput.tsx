@@ -314,11 +314,11 @@ export function AgentInput({
   };
 
   return (
-    <div className="flex-shrink-0 border-t border-slate-200 dark:border-slate-800 bg-gradient-to-b from-white to-slate-50 dark:from-slate-900 dark:to-slate-950">
-      <div className="max-w-4xl mx-auto px-4 py-3 sm:px-6 sm:py-4">
+    <div className="flex-shrink-0 border-t border-slate-200/70 dark:border-slate-800/80 bg-white/90 dark:bg-slate-950/80 backdrop-blur">
+      <div className="max-w-[52rem] mx-auto px-4 py-3 sm:px-8 sm:py-4">
         {context && (
           <div className="mb-3 flex items-center gap-2">
-            <span className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 border border-blue-200 dark:border-blue-800 rounded-xl text-sm font-medium text-slate-700 dark:text-slate-300 shadow-sm">
+            <span className="inline-flex items-center gap-2 px-4 py-2 bg-white/80 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-700/70 rounded-full text-sm font-medium text-slate-700 dark:text-slate-300 shadow-sm">
               <span className="text-lg">{getContextIcon(context.type)}</span>
               <span className="capitalize font-semibold">{context.type}:</span>
               <span className="text-slate-900 dark:text-slate-100">
@@ -329,11 +329,11 @@ export function AgentInput({
         )}
 
         <div>
-          <div className="relative bg-white dark:bg-slate-800 rounded-2xl shadow-xl border-2 border-slate-200 dark:border-slate-700 focus-within:border-blue-500 focus-within:ring-4 focus-within:ring-blue-500/10 transition-all">
+          <div className="relative bg-white/90 dark:bg-slate-900/70 rounded-2xl shadow-[0_18px_45px_-35px_rgba(15,23,42,0.45)] border border-slate-200/80 dark:border-slate-700/70 focus-within:border-slate-400 focus-within:ring-2 focus-within:ring-slate-400/20 transition-all">
             {showDropdown && (
-              <div className="absolute bottom-full left-0 right-0 mb-3 bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl max-h-80 overflow-y-auto z-50">
+              <div className="absolute bottom-full left-0 right-0 mb-3 bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-700/70 rounded-2xl shadow-xl max-h-80 overflow-y-auto z-50">
                 <div className="p-2">
-                  <div className="text-xs font-bold text-slate-500 dark:text-slate-400 px-3 py-2 uppercase tracking-wider bg-slate-50 dark:bg-slate-900 rounded-lg mb-1">
+                  <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 px-3 py-2 uppercase tracking-[0.2em] bg-slate-50/80 dark:bg-slate-900/70 rounded-xl mb-1">
                     Available Commands
                   </div>
                   {filteredCommands.map((cmd, idx) => (
@@ -344,17 +344,17 @@ export function AgentInput({
                         e.preventDefault();
                         selectCommand(cmd);
                       }}
-                      className={`w-full text-left px-4 py-3 rounded-lg transition-all ${
+                      className={`w-full text-left px-4 py-3 rounded-xl transition-all ${
                         idx === selectedIndex
-                          ? "bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/30 dark:to-purple-900/30 text-blue-700 dark:text-blue-300 shadow-sm"
-                          : "hover:bg-slate-50 dark:hover:bg-slate-700/50 text-slate-700 dark:text-slate-300"
+                          ? "bg-slate-900/5 dark:bg-white/10 text-slate-800 dark:text-slate-100 shadow-sm"
+                          : "hover:bg-slate-50 dark:hover:bg-slate-800/50 text-slate-700 dark:text-slate-300"
                       }`}
                     >
                       <div className="flex items-center justify-between mb-1">
                         <code className="text-sm font-mono font-bold">
                           {cmd.command}
                         </code>
-                        <span className="text-xs px-2 py-1 bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded-full font-medium capitalize">
+                        <span className="text-[11px] px-2 py-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-full font-medium capitalize">
                           {cmd.category}
                         </span>
                       </div>
@@ -370,18 +370,18 @@ export function AgentInput({
             {showAttachMenu && (
               <div
                 ref={attachMenuRef}
-                className="absolute bottom-full left-0 mb-3 bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl z-50 min-w-[280px] overflow-hidden"
+                className="absolute bottom-full left-0 mb-3 bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-700/70 rounded-2xl shadow-xl z-50 min-w-[280px] overflow-hidden"
               >
                 <div className="p-2">
-                  <div className="text-xs font-bold text-slate-500 dark:text-slate-400 px-3 py-2 uppercase tracking-wider bg-slate-50 dark:bg-slate-900 rounded-lg mb-1">
+                  <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 px-3 py-2 uppercase tracking-[0.2em] bg-slate-50/80 dark:bg-slate-900/70 rounded-xl mb-1">
                     Add Attachment
                   </div>
                   <button
                     type="button"
                     onClick={() => setShowDocumentPicker(true)}
-                    className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 dark:hover:from-blue-900/20 dark:hover:to-purple-900/20 transition-all group"
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-all group"
                   >
-                    <div className="w-10 h-10 flex items-center justify-center bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg group-hover:scale-110 transition-transform">
+                    <div className="w-10 h-10 flex items-center justify-center bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl group-hover:scale-105 transition-transform">
                       <Folder className="w-5 h-5" />
                     </div>
                     <div className="flex-1">
@@ -394,9 +394,9 @@ export function AgentInput({
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-gradient-to-r hover:from-green-50 hover:to-emerald-50 dark:hover:from-green-900/20 dark:hover:to-emerald-900/20 transition-all group"
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-all group"
                   >
-                    <div className="w-10 h-10 flex items-center justify-center bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-lg group-hover:scale-110 transition-transform">
+                    <div className="w-10 h-10 flex items-center justify-center bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl group-hover:scale-105 transition-transform">
                       <Upload className="w-5 h-5" />
                     </div>
                     <div className="flex-1">
@@ -409,9 +409,9 @@ export function AgentInput({
                   <button
                     type="button"
                     onClick={() => imageInputRef.current?.click()}
-                    className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-gradient-to-r hover:from-purple-50 hover:to-pink-50 dark:hover:from-purple-900/20 dark:hover:to-pink-900/20 transition-all group"
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-all group"
                   >
-                    <div className="w-10 h-10 flex items-center justify-center bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-lg group-hover:scale-110 transition-transform">
+                    <div className="w-10 h-10 flex items-center justify-center bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl group-hover:scale-105 transition-transform">
                       <Image className="w-5 h-5" />
                     </div>
                     <div className="flex-1">
@@ -428,11 +428,11 @@ export function AgentInput({
             {showDocumentPicker && (
               <div
                 ref={documentPickerRef}
-                className="absolute bottom-full left-0 mb-3 bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl z-50 w-full max-w-md overflow-hidden"
+                className="absolute bottom-full left-0 mb-3 bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-700/70 rounded-2xl shadow-xl z-50 w-full max-w-md overflow-hidden"
               >
-                <div className="p-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
+                <div className="p-4 border-b border-slate-200/70 dark:border-slate-700/60 bg-slate-50/80 dark:bg-slate-900/70">
                   <div className="flex items-center gap-2 mb-3">
-                    <Folder className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                    <Folder className="w-5 h-5 text-slate-600 dark:text-slate-400" />
                     <h3 className="font-bold text-slate-900 dark:text-white">
                       Select Document
                     </h3>
@@ -444,7 +444,7 @@ export function AgentInput({
                       value={documentSearch}
                       onChange={(e) => setDocumentSearch(e.target.value)}
                       placeholder="Search documents..."
-                      className="w-full pl-10 pr-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                      className="w-full pl-10 pr-4 py-2 bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/70 rounded-xl text-sm focus:outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-400/20"
                     />
                   </div>
                 </div>
@@ -494,10 +494,10 @@ export function AgentInput({
                           key={doc.id}
                           type="button"
                           onClick={() => handleDocumentSelect(doc)}
-                          className="w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 dark:hover:from-blue-900/20 dark:hover:to-purple-900/20 transition-all group"
+                          className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-all group"
                         >
-                          <div className="w-10 h-10 flex items-center justify-center bg-slate-100 dark:bg-slate-700 rounded-lg group-hover:bg-blue-100 dark:group-hover:bg-blue-900/30 transition-colors flex-shrink-0">
-                            <FileText className="w-5 h-5 text-slate-600 dark:text-slate-400 group-hover:text-blue-600 dark:group-hover:text-blue-400" />
+                          <div className="w-10 h-10 flex items-center justify-center bg-slate-100 dark:bg-slate-800 rounded-xl group-hover:bg-slate-200 dark:group-hover:bg-slate-700 transition-colors flex-shrink-0 border border-slate-200/70 dark:border-slate-700/60">
+                            <FileText className="w-5 h-5 text-slate-600 dark:text-slate-400" />
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="font-medium text-sm text-slate-900 dark:text-white truncate">
@@ -507,7 +507,7 @@ export function AgentInput({
                               {metadata}
                             </div>
                           </div>
-                          <Check className="w-5 h-5 text-green-600 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+                          <Check className="w-5 h-5 text-emerald-600 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
                         </button>
                       );
                     })}
@@ -533,7 +533,7 @@ export function AgentInput({
             />
 
             {attachedFiles.length > 0 && (
-              <div className="px-4 pt-4 pb-2 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
+              <div className="px-4 pt-4 pb-2 border-b border-slate-200/70 dark:border-slate-700/60 bg-slate-50/70 dark:bg-slate-900/50">
                 <div className="flex flex-wrap gap-2">
                   {attachedFiles.map((file) => (
                     <div key={file.id} className="relative group">
@@ -542,7 +542,7 @@ export function AgentInput({
                           <img
                             src={file.preview}
                             alt={file.name}
-                            className="w-20 h-20 object-cover rounded-lg border-2 border-slate-200 dark:border-slate-700"
+                            className="w-20 h-20 object-cover rounded-xl border border-slate-200/80 dark:border-slate-700/70"
                           />
                           <button
                             type="button"
@@ -553,8 +553,8 @@ export function AgentInput({
                           </button>
                         </div>
                       ) : (
-                        <div className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 rounded-lg hover:border-blue-500 transition-colors">
-                          <div className="text-blue-600 dark:text-blue-400">
+                        <div className="flex items-center gap-2 px-3 py-2 bg-white/90 dark:bg-slate-900/70 border border-slate-200/80 dark:border-slate-700/70 rounded-xl hover:border-slate-300 transition-colors">
+                          <div className="text-slate-600 dark:text-slate-400">
                             {getFileIcon(file.type)}
                           </div>
                           <div className="flex-1 min-w-0">
@@ -600,8 +600,8 @@ export function AgentInput({
                   title="Add attachment"
                   className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all ${
                     showAttachMenu
-                      ? "bg-gradient-to-br from-blue-500 to-purple-600 text-white shadow-lg scale-110"
-                      : "bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 text-slate-600 dark:text-slate-300 hover:scale-110 hover:shadow-md"
+                      ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 shadow-md"
+                      : "bg-slate-100/80 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
                   }`}
                 >
                   <Paperclip className="w-4 h-4" />
@@ -616,8 +616,8 @@ export function AgentInput({
                   title="Show commands"
                   className={`w-9 h-9 flex items-center justify-center rounded-xl text-lg font-mono font-bold transition-all ${
                     showDropdown
-                      ? "bg-gradient-to-br from-blue-500 to-purple-600 text-white shadow-lg scale-110"
-                      : "bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 text-slate-600 dark:text-slate-300 hover:scale-110 hover:shadow-md"
+                      ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 shadow-md"
+                      : "bg-slate-100/80 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
                   }`}
                 >
                   /
@@ -645,7 +645,7 @@ export function AgentInput({
                 }}
                 rows={3}
                 placeholder="Ask Organia anything about your lawsuits, clients, tasks, or request reports and analysis..."
-                className="flex-1 resize-none bg-transparent px-2 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none"
+                className="flex-1 resize-none bg-transparent px-2 py-2 text-[15px] leading-relaxed text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none"
               />
 
               <div className="flex items-center gap-1 pt-2">
@@ -665,7 +665,7 @@ export function AgentInput({
                     type="button"
                     onClick={onStopGeneration}
                     title="Stop generation"
-                    className="px-4 py-2 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white text-sm font-bold rounded-xl transition-all shadow-lg hover:shadow-xl flex items-center gap-2"
+                    className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-sm font-semibold rounded-xl transition-all shadow-sm flex items-center gap-2"
                   >
                     <div className="w-3 h-3 bg-white rounded-sm" />
                     Stop
@@ -678,7 +678,7 @@ export function AgentInput({
                       onSubmit(event);
                     }}
                     disabled={!input.trim()}
-                    className="px-5 py-2 bg-gradient-to-r from-blue-600 via-purple-600 to-blue-700 text-white text-sm font-bold rounded-xl hover:from-blue-700 hover:via-purple-700 hover:to-blue-800 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl hover:scale-105 flex items-center gap-2"
+                    className="px-5 py-2 bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 text-sm font-semibold rounded-xl hover:bg-slate-800 dark:hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-sm flex items-center gap-2"
                   >
                     <svg
                       className="w-4 h-4"
@@ -703,7 +703,7 @@ export function AgentInput({
 
         <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs text-slate-500 dark:text-slate-400">
           <span className="flex items-center gap-1.5">
-            <kbd className="px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded-md text-slate-600 dark:text-slate-400 font-mono font-semibold shadow-sm">
+            <kbd className="px-2 py-1 bg-white/80 dark:bg-slate-800 rounded-full text-slate-600 dark:text-slate-400 font-mono font-semibold shadow-sm border border-slate-200/70 dark:border-slate-700/60">
               Enter
             </kbd>
             to send
@@ -712,7 +712,7 @@ export function AgentInput({
             •
           </span>
           <span className="flex items-center gap-1.5">
-            <kbd className="px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded-md text-slate-600 dark:text-slate-400 font-mono font-semibold shadow-sm">
+            <kbd className="px-2 py-1 bg-white/80 dark:bg-slate-800 rounded-full text-slate-600 dark:text-slate-400 font-mono font-semibold shadow-sm border border-slate-200/70 dark:border-slate-700/60">
               Shift+Enter
             </kbd>
             for new line
@@ -721,7 +721,7 @@ export function AgentInput({
             •
           </span>
           <span className="flex items-center gap-1.5">
-            <kbd className="px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded-md text-slate-600 dark:text-slate-400 font-mono font-semibold shadow-sm">
+            <kbd className="px-2 py-1 bg-white/80 dark:bg-slate-800 rounded-full text-slate-600 dark:text-slate-400 font-mono font-semibold shadow-sm border border-slate-200/70 dark:border-slate-700/60">
               /
             </kbd>
             for commands
