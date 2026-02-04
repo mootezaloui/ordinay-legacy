@@ -1612,6 +1612,60 @@
   },
   "startup": {
     "splashMessage": "نبحث عن التوازن الطبيعي..."
+  },
+  "agent": {
+    "followUps": {
+      "verbs": {
+        "list": "اعرض",
+        "show": "اعرض",
+        "summarize": "لخص",
+        "explain": "اشرح",
+        "open": "افتح",
+        "review": "راجع",
+        "view": "اعرض"
+      },
+      "patterns": {
+        "target": "{{verb}} {{target}}",
+        "scoped": "{{verb}} {{target}} لـ {{parent}}",
+        "withCount": "{{target}} ({{count}})",
+        "qualified": "{{qualifiers}} {{target}}",
+        "reviewContext": "راجع سياق {{target}}",
+        "reviewDetails": "راجع تفاصيل {{target}}",
+        "explainStatus": "اشرح حالة {{target}}",
+        "howCreated": "كيف يتم إنشاء سجلات {{target}}"
+      },
+      "entities": {
+        "client": { "singular": "عميل", "plural": "عملاء" },
+        "dossier": { "singular": "ملف", "plural": "ملفات" },
+        "lawsuit": { "singular": "قضية", "plural": "قضايا" },
+        "task": { "singular": "مهمة", "plural": "مهام" },
+        "personal_task": { "singular": "مهمة شخصية", "plural": "مهام شخصية" },
+        "session": { "singular": "جلسة", "plural": "جلسات" },
+        "mission": { "singular": "مهمة", "plural": "مهام" },
+        "financial_entry": { "singular": "قيد مالي", "plural": "قيود مالية" },
+        "notification": { "singular": "إشعار", "plural": "إشعارات" },
+        "history_event": { "singular": "حدث تاريخي", "plural": "أحداث تاريخية" },
+        "generic": { "singular": "سجل", "plural": "سجلات" }
+      },
+      "qualifiers": {
+        "active": "نشطة",
+        "overdue": "متأخرة",
+        "priority": "أولوية {{priority}}"
+      },
+      "values": {
+        "urgent": "عاجل",
+        "high": "عالية",
+        "medium": "متوسطة",
+        "low": "منخفضة",
+        "blocked": "متوقف",
+        "pending": "قيد الانتظار",
+        "active": "نشط",
+        "inactive": "غير نشط",
+        "overdue": "متأخر",
+        "paid": "مدفوع",
+        "unpaid": "غير مدفوع"
+      }
+    }
   }
 }
 

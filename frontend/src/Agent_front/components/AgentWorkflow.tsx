@@ -52,7 +52,6 @@ const REVEAL_DURATION = 400;
 interface AgentWorkflowProps {
   message: AgentMessage;
   onFollowUpClick?: (followUp: FollowUpSuggestion) => void;
-  /** Called when user clicks an example query (e.g., from error suggestions) */
   onExampleClick?: (example: string) => void;
 }
 
@@ -248,14 +247,6 @@ export function AgentWorkflow({ message, onFollowUpClick, onExampleClick }: Agen
         {safeCommentary && (
           <CommentaryBubble commentary={safeCommentary} />
         )}
-
-        {/* Follow-up suggestions — shown OUTSIDE the artifact card */}
-        {filteredFollowUps.length > 0 && onFollowUpClick && (
-          <FollowUpSuggestions
-            followUps={filteredFollowUps}
-            onFollowUpClick={onFollowUpClick}
-          />
-        )}
       </div>
     );
   }
@@ -265,6 +256,8 @@ export function AgentWorkflow({ message, onFollowUpClick, onExampleClick }: Agen
   const resultCount = getResultCountFromMessage(message);
   const safeCommentary = decideCommentary(message);
   const filteredFollowUps = filterFollowUps(followUps, resultCount);
+
+  const allowFollowUps = isComplete && filteredFollowUps.length > 0 && onFollowUpClick;
 
   return (
     <div className="space-y-4">
@@ -276,7 +269,7 @@ export function AgentWorkflow({ message, onFollowUpClick, onExampleClick }: Agen
       )}
 
       {/* Follow-up suggestions — shown OUTSIDE the artifact card */}
-      {filteredFollowUps.length > 0 && onFollowUpClick && (
+      {allowFollowUps && (
         <FollowUpSuggestions
           followUps={filteredFollowUps}
           onFollowUpClick={onFollowUpClick}

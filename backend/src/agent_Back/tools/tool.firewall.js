@@ -36,6 +36,8 @@ const TOOL_DOMAIN_MAP = Object.freeze({
   getDossierByReference: 'dossiers',
   listDossiers: 'dossiers',
   listDossiersForClient: 'dossiers',
+  getClientDossierSummary: 'dossiers',
+  getDossierWorkSummary: 'dossiers',
   getLawsuit: 'lawsuits',
   listLawsuits: 'lawsuits',
   getSession: 'sessions',

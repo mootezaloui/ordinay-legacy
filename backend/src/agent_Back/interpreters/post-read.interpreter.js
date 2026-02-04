@@ -523,6 +523,61 @@ function interpretDossierState(dossier, context) {
     });
   }
 
+  const taskSummary = context?.childSummary?.tasks;
+  if (taskSummary) {
+    const total = Number(taskSummary.total || 0);
+    const active = Number(taskSummary.active || 0);
+    const overdue = Number(taskSummary.overdue || 0);
+
+    if (total > 0) {
+      if (overdue > 0) {
+        interpretations.push({
+          level: overdue > 3 ? "critical" : "warning",
+          statement: `${overdue} overdue task(s) exist in this dossier.`,
+          implication: "Pending work is accumulating. Review task priorities.",
+        });
+      }
+
+      if (active > 0) {
+        interpretations.push({
+          level: "info",
+          statement: `${active} active task(s) for this dossier.`,
+          implication: "Active work requires tracking and ownership.",
+        });
+      } else {
+        interpretations.push({
+          level: "neutral",
+          statement: "No active tasks are open for this dossier.",
+          implication: "Workload appears paused or completed.",
+        });
+      }
+    } else {
+      interpretations.push({
+        level: "info",
+        statement: "No tasks exist for this dossier.",
+        implication: "Define the first tasks to begin progress.",
+      });
+    }
+  }
+
+  const sessionSummary = context?.childSummary?.sessions;
+  if (sessionSummary) {
+    const totalSessions = Number(sessionSummary.total || 0);
+    if (totalSessions > 0) {
+      interpretations.push({
+        level: "info",
+        statement: `${totalSessions} session(s) recorded for this dossier.`,
+        implication: "Review session timeline for upcoming preparation.",
+      });
+    } else {
+      interpretations.push({
+        level: "info",
+        statement: "No sessions are recorded for this dossier.",
+        implication: "Confirm whether sessions should be scheduled.",
+      });
+    }
+  }
+
   // Overdue tasks
   if (context.overdueTasks && context.overdueTasks.length > 0) {
     const count = context.overdueTasks.length;
@@ -558,6 +613,7 @@ function interpretClientState(client, context) {
   }
 
   // Dossier overview
+  const dossierSummary = context?.childSummary?.dossiers;
   if (Array.isArray(context.dossiers)) {
     if (context.dossiers.length > 0) {
       const activeDossiers = context.dossiers.filter(
@@ -595,11 +651,66 @@ function interpretClientState(client, context) {
         implication: "New client or prospect. Consider intake process.",
       });
     }
+  } else if (dossierSummary) {
+    const total = Number(dossierSummary.total || 0);
+    const active = Number(dossierSummary.active || 0);
+    const blocked = Number(dossierSummary.blocked || 0);
+    const priorities = dossierSummary.priorities || {};
+
+    if (total > 0) {
+      if (blocked > 0) {
+        interpretations.push({
+          level: "critical",
+          statement: `${blocked} dossier(s) are BLOCKED for this client.`,
+          implication: "Active cases are stalled. Review blocking issues.",
+        });
+      }
+
+      if (active > 0) {
+        interpretations.push({
+          level: "info",
+          statement: `${active} active dossier(s) for this client.`,
+          implication: "Ongoing case work exists. Review for priority and deadlines.",
+        });
+      } else {
+        interpretations.push({
+          level: "neutral",
+          statement: "All dossiers for this client are closed or archived.",
+          implication: "No active work. Client relationship is historical.",
+        });
+      }
+
+      const priorityParts = [
+        ["urgent", "urgent"],
+        ["high", "high"],
+        ["medium", "medium"],
+        ["low", "low"],
+      ]
+        .map(([key, label]) => {
+          const value = Number(priorities[key] || 0);
+          return value > 0 ? `${value} ${label}` : null;
+        })
+        .filter(Boolean);
+
+      if (priorityParts.length > 0) {
+        interpretations.push({
+          level: "info",
+          statement: `Dossier priority mix: ${priorityParts.join(", ")}.`,
+          implication: "Confirm urgent and high priority matters are resourced.",
+        });
+      }
+    } else {
+      interpretations.push({
+        level: "info",
+        statement: "No dossiers exist for this client.",
+        implication: "New client or prospect. Consider intake process.",
+      });
+    }
   } else {
     interpretations.push({
       level: "info",
-      statement: "Dossier list not loaded for this client.",
-      implication: "Review dossiers to assess active work.",
+      statement: "No related records found for this client.",
+      implication: "No active workload is recorded yet.",
     });
   }
 
@@ -908,19 +1019,32 @@ function buildNavigationContext(entityType, entityData, context) {
 
       switch (childType) {
         case "dossiers":
-          available = !!(context.dossiers && context.dossiers.length > 0);
-          count = context.dossiers?.length || 0;
+          if (Array.isArray(context.dossiers)) {
+            available = context.dossiers.length > 0;
+            count = context.dossiers.length;
+          } else if (context?.childSummary?.dossiers) {
+            count = Number(context.childSummary.dossiers.total || 0);
+            available = count > 0;
+          }
           break;
         case "tasks":
-          available = !!(context.tasks && context.tasks.length > 0);
-          count = context.tasks?.length || 0;
+          if (Array.isArray(context.tasks)) {
+            available = context.tasks.length > 0;
+            count = context.tasks.length;
+          } else if (context?.childSummary?.tasks) {
+            count = Number(context.childSummary.tasks.total || 0);
+            available = count > 0;
+          }
           break;
         case "sessions":
-          available = !!(
-            context.timeline &&
-            context.timeline.filter((e) => e.type === "session").length > 0
-          );
-          count = context.timeline?.filter((e) => e.type === "session").length || 0;
+          if (context.timeline) {
+            available =
+              context.timeline.filter((e) => e.type === "session").length > 0;
+            count = context.timeline.filter((e) => e.type === "session").length;
+          } else if (context?.childSummary?.sessions) {
+            count = Number(context.childSummary.sessions.total || 0);
+            available = count > 0;
+          }
           break;
         case "financial_entries":
           available = !!(context.financialEntries && context.financialEntries.length > 0);
@@ -998,9 +1122,9 @@ function resolveOriginEntity(entityType, entityData, context) {
 function formatChildLabel(childType, count = null) {
   const label = childType.replace(/_/g, " ");
   if (typeof count === "number") {
-    return `List ${label} (${count})`;
+    return `${label} (${count})`;
   }
-  return `List ${label}`;
+  return label;
 }
 
 function buildScopeForType(entityType, entityId) {
@@ -1055,6 +1179,99 @@ function resolveListItemLabel(entityType, item) {
   }
 }
 
+function formatEntityTypeLabel(entityType) {
+  return String(entityType || "").replace(/_/g, " ").trim();
+}
+
+function resolveEntityDataForType(entityType, entityData, context) {
+  if (entityData && !Array.isArray(entityData) && entityType) {
+    return entityData;
+  }
+
+  const byType = {
+    client: context?.clientData,
+    dossier: context?.dossierData,
+    lawsuit: context?.lawsuitData,
+    task: context?.taskData,
+    personal_task: context?.personalTaskData,
+    session: context?.sessionData,
+    mission: context?.missionData,
+    financial_entry: context?.financialEntryData,
+  };
+
+  return byType[entityType] || null;
+}
+
+function resolveEntityLabel(entityType, entityId, entityData, context, navigation) {
+  if (!entityType) return null;
+
+  if (
+    navigation?.parentPath &&
+    navigation.parentPath.type === entityType &&
+    navigation.parentPath.id !== undefined &&
+    String(navigation.parentPath.id) === String(entityId)
+  ) {
+    return (
+      navigation.parentPath.reference ||
+      navigation.parentPath.name ||
+      String(entityId)
+    );
+  }
+
+  const candidate = resolveEntityDataForType(entityType, entityData, context);
+  if (candidate) {
+    if (
+      entityId === null ||
+      entityId === undefined ||
+      candidate.id === undefined ||
+      String(candidate.id) === String(entityId)
+    ) {
+      return resolveListItemLabel(entityType, candidate) || String(entityId);
+    }
+  }
+
+  return entityId !== null && entityId !== undefined
+    ? String(entityId)
+    : null;
+}
+
+function buildEntityContext(
+  entityType,
+  entityId,
+  entityData,
+  context,
+  navigation,
+  labelOverride,
+) {
+  if (!entityType || entityId === null || entityId === undefined) return null;
+  const fallbackLabel =
+    entityId !== null && entityId !== undefined
+      ? `${formatEntityTypeLabel(entityType)} ${entityId}`
+      : formatEntityTypeLabel(entityType);
+  const resolvedLabel =
+    labelOverride ||
+    resolveEntityLabel(entityType, entityId, entityData, context, navigation) ||
+    fallbackLabel;
+  return {
+    type: entityType,
+    id: entityId,
+    label: resolvedLabel,
+  };
+}
+
+function buildTargetLabel(verb, targetLabel, fallbackType) {
+  const resolvedTarget = targetLabel || formatEntityTypeLabel(fallbackType);
+  if (!resolvedTarget) return String(verb || "").trim();
+  return `${verb} ${resolvedTarget}`;
+}
+
+function buildScopedLabel(verb, targetLabel, parentLabel, fallbackType) {
+  const resolvedTarget = targetLabel || formatEntityTypeLabel(fallbackType);
+  if (!resolvedTarget) return String(verb || "").trim();
+  if (parentLabel) return `${verb} ${resolvedTarget} for ${parentLabel}`;
+  return `${verb} ${resolvedTarget}`;
+}
+
 function buildSelectionFollowUps(entityType, entityData) {
   if (!Array.isArray(entityData)) return [];
   const readIntent = READ_INTENT_BY_ENTITY[entityType];
@@ -1064,30 +1281,49 @@ function buildSelectionFollowUps(entityType, entityData) {
     (item) => item && item.id !== null && item.id !== undefined,
   );
 
-  return candidates.slice(0, 2).flatMap((item, idx) => {
+  return candidates.slice(0, 5).flatMap((item, idx) => {
     const scope = buildScopeForType(entityType, item.id);
     if (Object.keys(scope).length === 0) return [];
     const labelText = resolveListItemLabel(entityType, item) || `${entityType.replace(/_/g, " ")} ${item.id}`;
     const origin = { type: entityType, id: item.id };
+    const target = {
+      type: entityType,
+      id: item.id,
+      label: labelText,
+    };
     return [
       {
         category: "selection",
         priority: idx,
         ...buildFollowUp({
-          label: `Open ${labelText}`,
+          label: buildTargetLabel("Open", labelText, entityType),
           reason: "Select a specific record to continue.",
+          labelKey: "open",
           intent: readIntent,
           scopeType: entityType,
           scopeId: item.id,
           origin,
+          target,
         }),
       },
     ];
   });
 }
 
-function buildFollowUp({ label, reason, intent, scopeType, scopeId, origin, filters }) {
-  return {
+function buildFollowUp({
+  label,
+  reason,
+  intent,
+  scopeType,
+  scopeId,
+  origin,
+  filters,
+  labelKey,
+  labelParams,
+  target,
+  parent,
+}) {
+  const followUp = {
     label,
     reason,
     intent,
@@ -1098,8 +1334,35 @@ function buildFollowUp({ label, reason, intent, scopeType, scopeId, origin, filt
       entityId: origin.id,
     },
     scope: buildScopeForType(scopeType, scopeId),
-    filters: filters && typeof filters === "object" ? filters : undefined,
   };
+  if (labelKey) followUp.labelKey = labelKey;
+  if (labelParams && typeof labelParams === "object") {
+    followUp.labelParams = labelParams;
+  }
+  if (target) followUp.target = target;
+  if (parent) followUp.parent = parent;
+  if (filters && typeof filters === "object") {
+    followUp.filters = filters;
+  }
+  return followUp;
+}
+
+function serializeFollowUp(followUp) {
+  const output = {
+    label: followUp.label,
+    reason: followUp.reason,
+    intent: followUp.intent,
+    entityType: followUp.entityType,
+    entityId: followUp.entityId,
+    origin: followUp.origin,
+    scope: followUp.scope,
+  };
+  if (followUp.labelKey) output.labelKey = followUp.labelKey;
+  if (followUp.labelParams) output.labelParams = followUp.labelParams;
+  if (followUp.target) output.target = followUp.target;
+  if (followUp.parent) output.parent = followUp.parent;
+  if (followUp.filters) output.filters = followUp.filters;
+  return output;
 }
 
 function formatTimeframeLabel(timeframe) {
@@ -1182,6 +1445,7 @@ function buildPriorityBreakdownFollowUp(
   scopeType,
   scopeId,
   filters,
+  parentContext,
 ) {
   const prioritySupported = new Set([
     "task",
@@ -1207,17 +1471,22 @@ function buildPriorityBreakdownFollowUp(
 
   const labelBase =
     ENTITY_PLURAL_LABELS[entityType] || `${entityType.replace(/_/g, " ")}s`;
+  const target = { type: entityType };
+  const qualifierLabel = `${selected} priority ${labelBase}`;
 
   return {
     category: "summary",
     priority: 2,
     ...buildFollowUp({
-      label: `List ${selected} priority ${labelBase}`,
+      label: buildScopedLabel("List", qualifierLabel, parentContext?.label, entityType),
       reason: "Focus on the highest priority items in this summary.",
+      labelKey: "list",
       intent: listIntent,
       scopeType,
       scopeId,
       origin,
+      target,
+      parent: parentContext,
       filters: { ...(filters || {}), priority: selected },
     }),
   };
@@ -1235,6 +1504,22 @@ function generateFollowUps(entityType, entityData, context, interpretation, navi
   const origin = resolveOriginEntity(entityType, entityData, context);
   const originType = origin.type;
   const originId = origin.id;
+  const originEntityData =
+    originType === entityType && entityData && !Array.isArray(entityData)
+      ? entityData
+      : null;
+  const originContext = buildEntityContext(
+    originType,
+    originId,
+    originEntityData,
+    context,
+    navigation,
+  );
+  const originLabel = originContext?.label || null;
+  const resolveEntityDataForScope = (type) =>
+    type === entityType && entityData && !Array.isArray(entityData)
+      ? entityData
+      : null;
   const isAggregateSummary = Boolean(context?._aggregateSummary);
   const aggregateFilters =
     context?._aggregateFilters && typeof context._aggregateFilters === "object"
@@ -1246,19 +1531,40 @@ function generateFollowUps(entityType, entityData, context, interpretation, navi
       if (followUps.length >= 5) return;
       const childIntent = CHILD_LIST_INTENTS[child.type];
       if (!childIntent) return;
+      const childEntityType = CHILD_TYPE_TO_ENTITY[child.type] || child.type;
+      const parentContext = buildEntityContext(
+        scopeType,
+        scopeId,
+        resolveEntityDataForScope(scopeType),
+        context,
+        navigation,
+      );
+      const target = {
+        type: childEntityType,
+        count: typeof child.count === "number" ? child.count : undefined,
+      };
+      const targetLabel = formatChildLabel(child.type, child.count);
       followUps.push({
         category: "exploration",
         priority: 2 + idx,
         ...buildFollowUp({
-          label: formatChildLabel(child.type, child.count),
+          label: buildScopedLabel(
+            "List",
+            targetLabel,
+            parentContext?.label,
+            childEntityType,
+          ),
           reason:
             typeof child.count === "number"
               ? `${child.count} ${child.type.replace(/_/g, " ")} available for review.`
               : `Explore related ${child.type.replace(/_/g, " ")} for more context.`,
+          labelKey: "list",
           intent: childIntent,
           scopeType,
           scopeId,
           origin: originForFollowUp,
+          target,
+          parent: parentContext,
         }),
       });
     });
@@ -1270,16 +1576,26 @@ function generateFollowUps(entityType, entityData, context, interpretation, navi
     const parentType = navigation.parentPath.type;
     const parentIntent = READ_INTENT_BY_ENTITY[parentType];
     if (parentIntent) {
+      const parentContext = buildEntityContext(
+        parentType,
+        navigation.parentPath.id,
+        null,
+        context,
+        navigation,
+        navigation.parentPath.reference || navigation.parentPath.name,
+      );
       parentFollowUp = {
         category: "navigation",
         priority: 1,
         ...buildFollowUp({
-          label: `View ${parentType}`,
+          label: buildTargetLabel("View", parentContext?.label, parentType),
           reason: "Understanding parent context clarifies this entity's role.",
+          labelKey: "view",
           intent: parentIntent,
           scopeType: parentType,
           scopeId: navigation.parentPath.id,
           origin,
+          target: parentContext,
         }),
       };
     }
@@ -1290,17 +1606,31 @@ function generateFollowUps(entityType, entityData, context, interpretation, navi
     const { scopeType, scopeId } = resolveAggregateScope(entityType, context);
     const listFilters = isEmpty ? {} : aggregateFilters;
     const listLabel = buildAggregateLabel(entityType, listFilters);
+    const parentContext =
+      scopeType && scopeId !== null && scopeId !== undefined
+        ? buildEntityContext(
+            scopeType,
+            scopeId,
+            resolveEntityDataForScope(scopeType),
+            context,
+            navigation,
+          )
+        : null;
+    const listTarget = { type: entityType };
     if (listIntent) {
       followUps.push({
         category: "summary",
         priority: 1,
         ...buildFollowUp({
-          label: `List ${listLabel}`,
+          label: buildScopedLabel("List", listLabel, parentContext?.label, entityType),
           reason: "Review the collection that matches this summary.",
+          labelKey: "list",
           intent: listIntent,
           scopeType,
           scopeId,
           origin,
+          target: listTarget,
+          parent: parentContext,
           filters: listFilters || {},
         }),
       });
@@ -1313,6 +1643,7 @@ function generateFollowUps(entityType, entityData, context, interpretation, navi
       scopeType,
       scopeId,
       aggregateFilters,
+      parentContext,
     );
     if (priorityFollowUp) {
       followUps.push(priorityFollowUp);
@@ -1326,12 +1657,20 @@ function generateFollowUps(entityType, entityData, context, interpretation, navi
           category: "summary",
           priority: 3,
           ...buildFollowUp({
-            label: `List ${fallbackLabel}`,
+            label: buildScopedLabel(
+              "List",
+              fallbackLabel,
+              parentContext?.label,
+              entityType,
+            ),
             reason: "Broaden the scope if you need the full collection.",
+            labelKey: "list",
             intent: listIntent,
             scopeType,
             scopeId,
             origin,
+            target: listTarget,
+            parent: parentContext,
           }),
         });
       }
@@ -1339,16 +1678,7 @@ function generateFollowUps(entityType, entityData, context, interpretation, navi
         followUps.push(parentFollowUp);
       }
       followUps.sort((a, b) => a.priority - b.priority);
-      return followUps.slice(0, 5).map((f) => ({
-        label: f.label,
-        reason: f.reason,
-        intent: f.intent,
-        entityType: f.entityType,
-        entityId: f.entityId,
-        origin: f.origin,
-        scope: f.scope,
-        filters: f.filters,
-      }));
+      return followUps.slice(0, 5).map(serializeFollowUp);
     }
   }
 
@@ -1370,16 +1700,7 @@ function generateFollowUps(entityType, entityData, context, interpretation, navi
     }
 
     followUps.sort((a, b) => a.priority - b.priority);
-    return followUps.slice(0, 5).map((f) => ({
-      label: f.label,
-      reason: f.reason,
-      intent: f.intent,
-      entityType: f.entityType,
-      entityId: f.entityId,
-      origin: f.origin,
-      scope: f.scope,
-      filters: f.filters,
-    }));
+    return followUps.slice(0, 5).map(serializeFollowUp);
   }
 
   if (isEmpty) {
@@ -1401,16 +1722,19 @@ function generateFollowUps(entityType, entityData, context, interpretation, navi
     if (followUps.length < 2) {
       const explainIntent = EXPLAIN_INTENT_BY_ENTITY[originType];
       if (explainIntent) {
+        const creationTarget = { type: entityType };
         followUps.push({
           category: "guidance",
           priority: 6,
           ...buildFollowUp({
-            label: `How ${entityType.replace(/_/g, " ")} records are created`,
+            label: `How ${formatEntityTypeLabel(entityType)} records are created`,
             reason: "Clarifies the usual creation path and required context.",
+            labelKey: "how_created",
             intent: explainIntent,
             scopeType: originType,
             scopeId: originId,
             origin,
+            target: creationTarget,
           }),
         });
       }
@@ -1423,28 +1747,21 @@ function generateFollowUps(entityType, entityData, context, interpretation, navi
           category: "guidance",
           priority: 7,
           ...buildFollowUp({
-            label: `Review ${originType.replace(/_/g, " ")} context`,
+            label: `Review ${originLabel || formatEntityTypeLabel(originType)} context`,
             reason: "Verify the scope and parent context before retrying.",
+            labelKey: "review_context",
             intent: readIntent,
             scopeType: originType,
             scopeId: originId,
             origin,
+            target: originContext,
           }),
         });
       }
     }
 
     followUps.sort((a, b) => a.priority - b.priority);
-    return followUps.slice(0, 5).map((f) => ({
-      label: f.label,
-      reason: f.reason,
-      intent: f.intent,
-      entityType: f.entityType,
-      entityId: f.entityId,
-      origin: f.origin,
-      scope: f.scope,
-      filters: f.filters,
-    }));
+    return followUps.slice(0, 5).map(serializeFollowUp);
   }
 
   // Child exploration (if parent entity with children)
@@ -1471,16 +1788,27 @@ function generateFollowUps(entityType, entityData, context, interpretation, navi
     // Add relevant follow-ups based on urgency
     if (entityType === "dossier" || entityType === "lawsuit") {
       if (context.overdueTasks && context.overdueTasks.length > 0) {
+        const parentContext = originContext;
+        const target = { type: "task" };
         followUps.push({
           category: "urgency",
           priority: 0,
           ...buildFollowUp({
-            label: "Show overdue tasks",
+            label: buildScopedLabel(
+              "Show",
+              "overdue tasks",
+              parentContext?.label,
+              "task",
+            ),
             reason: "Overdue work requires immediate attention.",
+            labelKey: "show",
             intent: READ_INTENTS.LIST_OVERDUE_TASKS,
             scopeType: entityType,
             scopeId: originId,
             origin,
+            target,
+            parent: parentContext,
+            filters: { overdue: true },
           }),
         });
       }
@@ -1491,16 +1819,26 @@ function generateFollowUps(entityType, entityData, context, interpretation, navi
   switch (entityType) {
     case "client":
       if (!followUps.some((f) => f.label.includes("dossiers"))) {
+        const parentContext = originContext;
+        const target = { type: "dossier" };
         followUps.push({
           category: "exploration",
           priority: 3,
           ...buildFollowUp({
-            label: "List all dossiers",
+            label: buildScopedLabel(
+              "List",
+              "dossiers",
+              parentContext?.label,
+              "dossier",
+            ),
             reason: "Dossiers show the full scope of client engagement.",
+            labelKey: "list",
             intent: READ_INTENTS.LIST_DOSSIERS,
             scopeType: "client",
             scopeId: originId,
             origin,
+            target,
+            parent: parentContext,
           }),
         });
       }
@@ -1511,12 +1849,18 @@ function generateFollowUps(entityType, entityData, context, interpretation, navi
         category: "summary",
         priority: 3,
         ...buildFollowUp({
-          label: "Summarize dossier",
+          label: buildTargetLabel(
+            "Summarize",
+            originLabel,
+            "dossier",
+          ),
           reason: "Get a comprehensive overview of the case.",
+          labelKey: "summarize",
           intent: SUMMARY_INTENT_BY_ENTITY.dossier,
           scopeType: "dossier",
           scopeId: originId,
           origin,
+          target: originContext,
         }),
       });
       break;
@@ -1525,18 +1869,30 @@ function generateFollowUps(entityType, entityData, context, interpretation, navi
       break;
 
     case "lawsuit":
+      {
+        const parentContext = originContext;
+        const target = { type: "session" };
       followUps.push({
         category: "exploration",
         priority: 2,
         ...buildFollowUp({
-          label: "List sessions",
+          label: buildScopedLabel(
+            "List",
+            "sessions",
+            parentContext?.label,
+            "session",
+          ),
           reason: "Court sessions drive lawsuit timeline.",
+          labelKey: "list",
           intent: READ_INTENTS.LIST_SESSIONS,
           scopeType: "lawsuit",
           scopeId: originId,
           origin,
+          target,
+          parent: parentContext,
         }),
       });
+      }
       break;
   }
 
@@ -1551,12 +1907,16 @@ function generateFollowUps(entityType, entityData, context, interpretation, navi
         category: "general",
         priority: 10,
         ...buildFollowUp({
-          label: "Explain status",
+          label: originLabel
+            ? `Explain status for ${originLabel}`
+            : "Explain status",
           reason: "Clarify the current state and implications.",
+          labelKey: "explain_status",
           intent: explainIntent,
           scopeType: originType,
           scopeId: originId,
           origin,
+          target: originContext,
         }),
       });
       continue;
@@ -1567,12 +1927,16 @@ function generateFollowUps(entityType, entityData, context, interpretation, navi
         category: "general",
         priority: 11,
         ...buildFollowUp({
-          label: "Review details",
+          label: originLabel
+            ? `Review ${originLabel} details`
+            : "Review details",
           reason: "Return to the primary record view.",
+          labelKey: "review_details",
           intent: readIntent,
           scopeType: originType,
           scopeId: originId,
           origin,
+          target: originContext,
         }),
       });
       continue;
@@ -1580,16 +1944,7 @@ function generateFollowUps(entityType, entityData, context, interpretation, navi
     break;
   }
 
-  return followUps.slice(0, 5).map((f) => ({
-    label: f.label,
-    reason: f.reason,
-    intent: f.intent,
-    entityType: f.entityType,
-    entityId: f.entityId,
-    origin: f.origin,
-    scope: f.scope,
-    filters: f.filters,
-  }));
+  return followUps.slice(0, 5).map(serializeFollowUp);
 }
 
 // ─── Main Interpreter Function ─────────────────────────────────

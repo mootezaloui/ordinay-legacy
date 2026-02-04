@@ -228,6 +228,8 @@ function initialize() {
   const documentColumns = [
     { name: "copy_type", definition: "TEXT" },
     { name: "officer_id", definition: "INTEGER" },
+    { name: "document_text", definition: "TEXT" },
+    { name: "unreadable_text", definition: "INTEGER NOT NULL DEFAULT 0" },
   ];
 
   [

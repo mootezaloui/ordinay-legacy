@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { AgentMessage, AgentMessageData } from "../types/agentMessage";
 import { useAgentSessions } from "./useAgentSessions";
 import {
@@ -8,9 +9,11 @@ import {
   DataAccessPermissions,
   FollowUpSuggestion,
   FollowUpIntent,
+  ExplanationOutput,
   CommentaryOutput,
   StatusEventData,
 } from "../../services/api/agent";
+import { buildFollowUpLabel } from "../utils/followUpLabels";
 
 // Default data access - all domains enabled
 const DEFAULT_DATA_ACCESS: DataAccessPermissions = {
@@ -103,6 +106,7 @@ function saveDataAccessToStorage(dataAccess: DataAccessPermissions): void {
 }
 
 export function useAgentState() {
+  const { t } = useTranslation("common");
   const {
     activeSessionId,
     activeSession,
@@ -414,6 +418,8 @@ export function useAgentState() {
     setInput("");
     updateSessionDraft(sessionId, "");
     setIsLoading(true);
+    // Show immediate loading indicator while waiting for backend
+    setSessionStatus(sessionId, { action: "Analyzing your request…", phase: "init" });
 
     const appendMessage = (message: AgentMessage) => {
       workingMessages = [...workingMessages, message];
@@ -439,6 +445,7 @@ export function useAgentState() {
     let streamedContent = "";
     let intent = "GENERAL_CHAT";
     let agentData: AgentMessageData | undefined;
+    let deferredFollowUps: FollowUpSuggestion[] | null = null;
     let commentary: CommentaryOutput | undefined;
     let hasAgentMessage = false;
     let hasIntentMessage = false;
@@ -527,7 +534,16 @@ export function useAgentState() {
           intent = data.intent;
 
           if (output.type === "explanation") {
-            agentData = { type: "explanation", explanation: output };
+            const explanation = output as ExplanationOutput;
+            if (Array.isArray(explanation.followUps) && explanation.followUps.length > 0) {
+              deferredFollowUps = explanation.followUps;
+              agentData = {
+                type: "explanation",
+                explanation: { ...explanation, followUps: [] },
+              };
+            } else {
+              agentData = { type: "explanation", explanation };
+            }
             streamedContent = "";
           } else if (output.type === "clarification") {
             agentData = { type: "clarification", clarification: output };
@@ -622,6 +638,13 @@ export function useAgentState() {
         onDone: () => {
           if (streamSessionRef.current !== sessionId) return;
 
+          if (deferredFollowUps && agentData?.type === "explanation" && agentData.explanation) {
+            agentData = {
+              ...agentData,
+              explanation: { ...agentData.explanation, followUps: deferredFollowUps },
+            };
+          }
+
           const finalMessage: AgentMessage = {
             id: agentMessageId,
             role: "agent",
@@ -680,6 +703,7 @@ export function useAgentState() {
 
   const startFollowUpIntent = useCallback((followUp: FollowUpSuggestion) => {
     if (!followUp || isLoading) return;
+    const followUpLabel = buildFollowUpLabel(followUp, t);
 
     // Use existing session if we have an activeSessionId, otherwise create new
     let sessionId = activeSessionId;
@@ -693,7 +717,7 @@ export function useAgentState() {
     const userMessage: AgentMessage = {
       id: `u-${Date.now()}`,
       role: "user",
-      content: followUp.label,
+      content: followUpLabel,
       timestamp: new Date(),
       followUpIntent: buildFollowUpIntent(followUp),
     };
@@ -705,6 +729,8 @@ export function useAgentState() {
     let workingMessages = [...baseMessages];
     updateSessionMessages(sessionId, workingMessages);
     setIsLoading(true);
+    // Show immediate loading indicator while waiting for backend
+    setSessionStatus(sessionId, { action: "Processing follow-up…", phase: "init" });
 
     const appendMessage = (message: AgentMessage) => {
       workingMessages = [...workingMessages, message];
@@ -727,6 +753,7 @@ export function useAgentState() {
     let streamedContent = "";
     let intent = followUp.intent || "READ_DATA";
     let agentData: AgentMessageData | undefined;
+    let deferredFollowUps: FollowUpSuggestion[] | null = null;
     let commentary: CommentaryOutput | undefined;
     let hasAgentMessage = false;
     let hasIntentMessage = false;
@@ -755,7 +782,7 @@ export function useAgentState() {
     };
 
     const abortController = streamAgentMessage(
-      followUp.label,
+      followUpLabel,
       { contextScope, agentVersion, dataAccess, followUpIntent: userMessage.followUpIntent },
         {
           onStart: (data) => {
@@ -807,7 +834,16 @@ export function useAgentState() {
           intent = data.intent;
 
           if (output.type === "explanation") {
-            agentData = { type: "explanation", explanation: output };
+            const explanation = output as ExplanationOutput;
+            if (Array.isArray(explanation.followUps) && explanation.followUps.length > 0) {
+              deferredFollowUps = explanation.followUps;
+              agentData = {
+                type: "explanation",
+                explanation: { ...explanation, followUps: [] },
+              };
+            } else {
+              agentData = { type: "explanation", explanation };
+            }
             streamedContent = "";
           } else if (output.type === "clarification") {
             agentData = { type: "clarification", clarification: output };
@@ -904,6 +940,13 @@ export function useAgentState() {
         onDone: () => {
           if (streamSessionRef.current !== sessionId) return;
 
+          if (deferredFollowUps && agentData?.type === "explanation" && agentData.explanation) {
+            agentData = {
+              ...agentData,
+              explanation: { ...agentData.explanation, followUps: deferredFollowUps },
+            };
+          }
+
           const finalMessage: AgentMessage = {
             id: agentMessageId,
             role: "agent",
@@ -958,7 +1001,7 @@ export function useAgentState() {
     );
 
     streamAbortRef.current = abortController;
-  }, [activeSessionId, activeSession, buildFollowUpIntent, conversation, createSession, dataAccess, agentVersion, contextScope, isLoading, scrollToBottom, updateSessionMessages, setSessionStatus, clearSessionStatus]);
+  }, [activeSessionId, activeSession, buildFollowUpIntent, conversation, createSession, dataAccess, agentVersion, contextScope, isLoading, scrollToBottom, updateSessionMessages, setSessionStatus, clearSessionStatus, t]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -981,6 +1024,8 @@ export function useAgentState() {
     let workingMessages = [...baseMessages];
     updateSessionMessages(activeSessionId, workingMessages);
     setIsLoading(true);
+    // Show immediate loading indicator while waiting for backend
+    setSessionStatus(activeSessionId, { action: "Analyzing your request…", phase: "init" });
     streamSessionRef.current = activeSessionId;
 
     const appendMessage = (message: AgentMessage) => {
@@ -998,6 +1043,7 @@ export function useAgentState() {
       let streamedContent = "";
       let intent = "GENERAL_CHAT";
       let agentData: AgentMessageData | undefined;
+      let deferredFollowUps: FollowUpSuggestion[] | null = null;
       let commentary: CommentaryOutput | undefined;
       let hasAgentMessage = false;
       let hasIntentMessage = false;
@@ -1078,7 +1124,16 @@ export function useAgentState() {
           intent = data.intent;
 
           if (output.type === "explanation") {
-            agentData = { type: "explanation", explanation: output };
+            const explanation = output as ExplanationOutput;
+            if (Array.isArray(explanation.followUps) && explanation.followUps.length > 0) {
+              deferredFollowUps = explanation.followUps;
+              agentData = {
+                type: "explanation",
+                explanation: { ...explanation, followUps: [] },
+              };
+            } else {
+              agentData = { type: "explanation", explanation };
+            }
             streamedContent = "";
           } else if (output.type === "clarification") {
             agentData = { type: "clarification", clarification: output };
@@ -1171,6 +1226,13 @@ export function useAgentState() {
         onDone: () => {
           if (streamSessionRef.current !== activeSessionId) return;
 
+          if (deferredFollowUps && agentData?.type === "explanation" && agentData.explanation) {
+            agentData = {
+              ...agentData,
+              explanation: { ...agentData.explanation, followUps: deferredFollowUps },
+            };
+          }
+
           const finalMessage: AgentMessage = {
             id: agentMessageId,
             role: "agent",
@@ -1229,7 +1291,7 @@ export function useAgentState() {
     streamAbortRef.current = abortController;
   }, [activeSessionId, activeSession, updateSessionMessages, isLoading, contextScope, agentVersion, dataAccess, setSessionStatus, clearSessionStatus]);
 
-
+  // Handler for clicking example suggestions (populates input)
   const handleExampleClick = useCallback((example: string) => {
     setInput(example);
     inputRef.current?.focus();

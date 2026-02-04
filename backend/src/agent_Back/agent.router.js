@@ -234,17 +234,19 @@ async function sendIntentFramingIfNeeded(sendEvent, payload, signal, aborted) {
       }
     : null;
 
-  // Use streaming for real-time responsiveness
+  // Use streaming for real-time responsiveness - LLM generates the message
   return new Promise((resolve) => {
     let hasContent = false;
     let fullMessage = '';
+
+    console.log('[Intent Framing] Starting LLM generation with payload:', JSON.stringify(payload));
 
     streamIntentFramingMessage(payload || {}, {
       onChunk: (chunk) => {
         if (aborted) return;
         if (!hasContent) {
-          // First chunk - send start event
           hasContent = true;
+          console.log('[Intent Framing] First chunk received, streaming started');
         }
         fullMessage += chunk;
         sendEvent('intent_framing_chunk', { chunk });
@@ -255,52 +257,23 @@ async function sendIntentFramingIfNeeded(sendEvent, payload, signal, aborted) {
           return;
         }
 
-        // If streaming produced nothing, use fallback template
-        if (!fullMessage && payload) {
-          const entity = payload.entity || 'information';
-          const scope = payload.scope || 'single';
-          if (payload.intentType === 'list') {
-            fullMessage = scope === 'filtered'
-              ? `I'll look up the matching ${entity}s for you.`
-              : `I'll retrieve the ${entity} list for you.`;
-          } else if (payload.intentType === 'summarize') {
-            fullMessage = `I'll summarize the ${entity} ${scope === 'multiple' ? 'records' : 'details'} for you.`;
-          } else {
-            fullMessage = `I'll review the ${entity} ${scope === 'multiple' ? 'records' : 'details'} for you.`;
-          }
-        }
+        console.log('[Intent Framing] LLM generation complete, message length:', fullMessage.length);
 
-        // Send complete message (for clients that don't support streaming)
+        // Only send if LLM produced content - no hardcoded fallbacks
         if (fullMessage) {
           sendEvent('intent_framing', {
             message: fullMessage,
             messageType: INTENT_FRAMING_MESSAGE_TYPE,
             signal: signalPayload,
           });
+        } else {
+          console.log('[Intent Framing] LLM produced no content, skipping intent framing');
         }
         resolve();
       },
-      onError: () => {
-        // On error, send fallback template
-        if (!aborted && payload) {
-          const entity = payload.entity || 'information';
-          const scope = payload.scope || 'single';
-          let fallback;
-          if (payload.intentType === 'list') {
-            fallback = scope === 'filtered'
-              ? `I'll look up the matching ${entity}s for you.`
-              : `I'll retrieve the ${entity} list for you.`;
-          } else if (payload.intentType === 'summarize') {
-            fallback = `I'll summarize the ${entity} ${scope === 'multiple' ? 'records' : 'details'} for you.`;
-          } else {
-            fallback = `I'll review the ${entity} ${scope === 'multiple' ? 'records' : 'details'} for you.`;
-          }
-          sendEvent('intent_framing', {
-            message: fallback,
-            messageType: INTENT_FRAMING_MESSAGE_TYPE,
-            signal: signalPayload,
-          });
-        }
+      onError: (error) => {
+        // Log error but don't send hardcoded fallback - let the artifact speak for itself
+        console.warn('[Intent Framing] LLM error, skipping intent framing:', error);
         resolve();
       },
     }, signal);
@@ -326,14 +299,21 @@ async function sendCommentaryIfNeeded(sendEvent, result, context, aborted, signa
   if (!artifactType || artifactType === 'chat') return;
 
   const resultCount = typeof result?.readMeta?.count === 'number' ? result.readMeta.count : undefined;
+
+  // CRITICAL: Include intent for commentary mode derivation
+  // The commentary generator uses intent to determine REPORTING vs INTERPRETIVE vs GUIDANCE mode
   const commentaryContext = {
     ...(context || {}),
+    intent: result?.intent, // PRIMARY USER INTENT - determines commentary mode
+    lastIntent: result?.intent || context?.lastIntent,
     _resultCount: resultCount,
     _readOutcome: resultCount === 0 ? 'empty' : undefined,
     _activeEntityType: result?.contextPromotion?.activeEntity?.type || null,
     _activeEntityId: result?.contextPromotion?.activeEntity?.id || null,
     _pendingSelection: result?.contextPromotion?.pendingSelection || null,
   };
+
+  console.log('[Commentary] Intent for mode derivation:', result?.intent);
 
   return new Promise((resolve) => {
     let hasContent = false;
@@ -358,14 +338,15 @@ async function sendCommentaryIfNeeded(sendEvent, result, context, aborted, signa
           const hasSignals =
             Array.isArray(commentaryResult?.signals) && commentaryResult.signals.length > 0;
           if (commentaryResult?.commentary || hasSignals) {
-            console.log('[SSE] Sending commentary, source:', commentaryResult.source);
+            console.log('[SSE] Sending commentary, source:', commentaryResult.source, 'mode:', commentaryResult.mode);
             sendEvent('commentary', {
               message: commentaryResult.commentary || "",
               source: commentaryResult.source,
               signals: commentaryResult.signals || [],
+              mode: commentaryResult.mode, // Include mode for debugging/analytics
             });
           } else {
-            console.log('[SSE] No commentary generated, source:', commentaryResult?.source);
+            console.log('[SSE] No commentary generated, source:', commentaryResult?.source, 'reason:', commentaryResult?.reason, 'mode:', commentaryResult?.mode);
           }
           resolve();
         },

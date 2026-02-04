@@ -85,6 +85,8 @@ export interface NavigationContext {
 // Follow-up suggestion with reason (MANDATORY)
 export interface FollowUpSuggestion {
   label: string;
+  labelKey?: string;
+  labelParams?: Record<string, unknown>;
   reason: string;
   intent: string;
   entityType: string;
@@ -92,6 +94,17 @@ export interface FollowUpSuggestion {
   origin: {
     entity: string;
     entityId: string | number;
+  };
+  target?: {
+    type: string;
+    id?: string | number;
+    label?: string;
+    count?: number;
+  };
+  parent?: {
+    type: string;
+    id: string | number;
+    label?: string;
   };
   scope: {
     clientId?: number;
@@ -184,6 +197,16 @@ export interface FactsBlock {
   details: string[];
 }
 
+export interface RelatedSummaryItem {
+  label: string;
+  value: number;
+}
+
+export interface RelatedSummarySection {
+  title: string;
+  items: RelatedSummaryItem[];
+}
+
 // Explanation output — NEW mandatory structure
 export interface ExplanationOutput {
   type: 'explanation';
@@ -192,6 +215,9 @@ export interface ExplanationOutput {
 
   // Section 1: FACTS — what was read
   facts: FactsBlock;
+
+  // Related summary — lightweight child counts (optional)
+  relatedSummary?: RelatedSummarySection[];
 
   // Section 2: INTERPRETATION — why it matters now (MANDATORY)
   interpretation: InterpretationBlock;

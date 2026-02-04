@@ -303,6 +303,8 @@ CREATE TABLE IF NOT EXISTS documents (
     mime_type TEXT,
     size_bytes INTEGER,
     notes TEXT,
+    document_text TEXT,
+    unreadable_text INTEGER NOT NULL DEFAULT 0,
     copy_type TEXT,
     uploaded_by TEXT,
     client_id INTEGER,

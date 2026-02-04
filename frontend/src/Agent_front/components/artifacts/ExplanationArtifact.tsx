@@ -47,8 +47,17 @@ export function ExplanationArtifact({
   const parentFollowUp =
     data.navigation?.parentPath && data.followUps
       ? data.followUps.find(
-          (followUp) =>
-            followUp.label === `View ${data.navigation.parentPath?.type}`,
+          (followUp) => {
+            const parentType = data.navigation.parentPath?.type;
+            const parentId = data.navigation.parentPath?.id;
+            const targetMatch =
+              followUp.target?.type === parentType &&
+              (parentId === undefined ||
+                String(followUp.target?.id ?? "") === String(parentId));
+            if (targetMatch && followUp.labelKey === "view") return true;
+            if (targetMatch && followUp.intent?.startsWith("READ_")) return true;
+            return followUp.label === `View ${parentType}`;
+          },
         )
       : undefined;
 
@@ -100,6 +109,42 @@ export function ExplanationArtifact({
             </div>
           )}
         </div>
+
+        {/* ─── Related Summary (Child Counts) ─── */}
+        {data.relatedSummary && data.relatedSummary.length > 0 && (
+          <div className="artifact-build-section artifact-build-section-related mt-4 pt-4 border-t border-slate-100 dark:border-slate-700/50">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-2 block">
+              Related Summary
+            </span>
+            <div className="space-y-3">
+              {data.relatedSummary.map((section, idx) => (
+                <div
+                  key={`${section.title}-${idx}`}
+                  className="rounded-lg border border-slate-100 dark:border-slate-700/60 bg-slate-50 dark:bg-slate-900/40 p-3"
+                >
+                  <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                    {section.title}
+                  </div>
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    {section.items.map((item, itemIdx) => (
+                      <div
+                        key={`${section.title}-${item.label}-${itemIdx}`}
+                        className="flex items-center justify-between rounded-md bg-white/60 dark:bg-slate-900/60 px-2 py-1.5 text-xs text-slate-600 dark:text-slate-300"
+                      >
+                        <span className="text-slate-500 dark:text-slate-400">
+                          {item.label}
+                        </span>
+                        <span className="text-sm font-semibold text-slate-900 dark:text-white">
+                          {item.value}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* ─── Section 2: INTERPRETATION (MANDATORY) ─── */}
         <div className="artifact-build-section artifact-build-section-2">

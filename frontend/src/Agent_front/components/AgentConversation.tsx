@@ -16,7 +16,6 @@ interface AgentConversationProps {
   getRelativeTime: (timestamp: Date) => string;
   transientStatus?: TransientStatus | null;
   onFollowUpClick?: (followUp: FollowUpSuggestion) => void;
-  /** Called when user clicks an example query (e.g., from error suggestions) */
   onExampleClick?: (example: string) => void;
 }
 

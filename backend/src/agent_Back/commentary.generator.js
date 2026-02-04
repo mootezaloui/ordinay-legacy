@@ -12,6 +12,11 @@
  *
  * The commentary is where the "intelligence" lives — it explains, contextualizes,
  * and suggests, but NEVER performs actions or mutates state.
+ *
+ * COMMENTARY MODES (MANDATORY):
+ *   - REPORTING: Neutral, factual. For summaries, lists, displays.
+ *   - INTERPRETIVE: Analytical, cautious. For risk analysis, assessments.
+ *   - GUIDANCE: Calm, suggestive. For "what next" questions.
  */
 
 const LLM_BASE_URL = process.env.LLM_BASE_URL || "http://127.0.0.1:11434";
@@ -19,51 +24,242 @@ const LLM_MODEL = process.env.LLM_MODEL || "qwen2.5:7b-instruct";
 const LLM_TIMEOUT = parseInt(process.env.LLM_COMMENTARY_TIMEOUT || "30000", 10);
 const ALWAYS_GENERATE_COMMENTARY = process.env.LLM_COMMENTARY_ALWAYS !== "false";
 
-// ─── Commentary Prompt Template ────────────────────────────────────────────
+// ─── Commentary Modes (MANDATORY) ──────────────────────────────────────────
 
 /**
- * PROMPT TEMPLATE FOR COMMENTARY GENERATION
- *
- * The prompt receives ONLY:
- *   - entity type
- *   - entity ID/reference
- *   - high-level signals (counts, status, flags)
- *   - interpretation summary (NOT raw DB rows)
- *   - follow-up options already computed
- *
- * The prompt does NOT receive:
- *   - full tables
- *   - raw database records
- *   - sensitive content (emails, phone numbers, etc.)
- *   - unnecessary fields
+ * Commentary modes determine tone and content constraints.
+ * Mode MUST be derived from PRIMARY USER INTENT, not artifact signals.
  */
-const COMMENTARY_SYSTEM_PROMPT = `You are Organia Assistant, a helpful AI for a legal practice management system.
-You have just retrieved structured information for the user. Your task is to provide a brief, conversational message that:
+const COMMENTARY_MODES = Object.freeze({
+  REPORTING: "REPORTING",       // For: summarize, list, show, display, read
+  INTERPRETIVE: "INTERPRETIVE", // For: analyze, assess, explain risks, evaluate
+  GUIDANCE: "GUIDANCE",         // For: what next, help me with, suggest, recommend
+});
 
-1. ACKNOWLEDGES what was found (1 sentence)
-2. EXPLAINS relevance if there are urgent signals (1 sentence, only if needed)
-3. ASKS for clarification if ambiguity exists (1 question, only if needed)
-4. SUGGESTS read-only next steps (1 brief sentence)
+/**
+ * Prohibited language by mode.
+ * These phrases MUST be filtered out of generated commentary.
+ */
+const MODE_PROHIBITED_PHRASES = Object.freeze({
+  [COMMENTARY_MODES.REPORTING]: [
+    // Evaluative language
+    "great to see",
+    "good news",
+    "good to see",
+    "glad to see",
+    "happy to see",
+    "pleased to",
+    "excellent",
+    "wonderful",
+    "fantastic",
+    "perfect",
+    // Safety/reassurance language
+    "no issues",
+    "no problems",
+    "no concerns",
+    "nothing to worry",
+    "everything looks fine",
+    "everything is fine",
+    "all is well",
+    "safe",
+    "secure",
+    "in good shape",
+    "in great shape",
+    "healthy",
+    // Judgment language
+    "fortunately",
+    "unfortunately",
+    "luckily",
+    "thankfully",
+    "it's good that",
+    "it's great that",
+    "it's nice that",
+  ],
+  [COMMENTARY_MODES.INTERPRETIVE]: [
+    // Emotional language (analysis should be clinical)
+    "great to see",
+    "good news",
+    "happy to",
+    "glad to",
+    "wonderful",
+    "fantastic",
+    "perfect",
+    "nothing to worry",
+    "everything is fine",
+  ],
+  [COMMENTARY_MODES.GUIDANCE]: [
+    // Authority language (guidance should be suggestive, not commanding)
+    "you must",
+    "you need to",
+    "you have to",
+    "you should definitely",
+    "it's essential that you",
+    "it's critical that you",
+    "i will",
+    "i'll handle",
+    "i'll take care",
+  ],
+});
 
-RULES:
-- Be concise (2-4 sentences max)
-- Do NOT repeat the facts verbatim
-- Do NOT restate the artifact structure
-- Do NOT invent urgency that wasn't signaled
-- Do NOT propose write actions (create, update, delete, send, assign)
-- ONLY suggest read-only explorations (view, list, summarize, review)
-- If the data already fully answers the request, you may be brief or silent
+/**
+ * Mode-specific system prompts.
+ * Each mode has distinct tone and content instructions.
+ */
+const MODE_PROMPTS = Object.freeze({
+  [COMMENTARY_MODES.REPORTING]: `You are Organia Assistant providing a FACTUAL REPORT.
 
-TONE: Professional, helpful, conversational. Not robotic.`;
+The user requested information to be DISPLAYED or SUMMARIZED.
+Your response must be in REPORTING MODE.
+
+TONE: Neutral, factual, descriptive. Like a news anchor.
+
+REQUIRED:
+- State what was found (counts, types, status)
+- Mention if results are filtered or complete
+- Suggest relevant follow-up queries if applicable
+
+PROHIBITED (CRITICAL - DO NOT USE):
+- Evaluative language: "great", "good", "excellent", "wonderful"
+- Reassuring language: "no issues", "safe", "nothing to worry about"
+- Emotional reactions: "glad to see", "happy to report", "pleased"
+- Safety judgments: "everything looks fine", "all is well"
+- Opinions about the data quality or state
+
+Remember: Absence of flagged issues ≠ absence of risk.
+You are REPORTING data, not EVALUATING it.`,
+
+  [COMMENTARY_MODES.INTERPRETIVE]: `You are Organia Assistant providing ANALYTICAL INTERPRETATION.
+
+The user requested ANALYSIS, ASSESSMENT, or EXPLANATION of risks/issues.
+Your response must be in INTERPRETIVE MODE.
+
+TONE: Analytical, professional, cautious. Like a consultant.
+
+REQUIRED:
+- Explain what the data suggests
+- Note patterns or potential concerns if present
+- Be specific about what was analyzed
+
+PROHIBITED:
+- Emotional language: "great", "wonderful", "happy"
+- False reassurance: "nothing to worry about", "all is fine"
+- Speculation beyond the data
+
+You MAY express professional observations about implications.
+You MUST remain analytical, not celebratory.`,
+
+  [COMMENTARY_MODES.GUIDANCE]: `You are Organia Assistant providing GUIDANCE.
+
+The user asked for SUGGESTIONS or NEXT STEPS.
+Your response must be in GUIDANCE MODE.
+
+TONE: Calm, suggestive, helpful. Like an advisor.
+
+REQUIRED:
+- Suggest concrete next actions
+- Frame suggestions as options, not commands
+- Focus on read-only explorations when possible
+
+PROHIBITED:
+- Commanding language: "you must", "you need to", "you have to"
+- Implying you will execute actions: "I will", "I'll handle"
+- Making promises about outcomes
+
+Use language like: "You might consider...", "One option is...", "It could help to..."`,
+});
+
+/**
+ * Maps intent to commentary mode.
+ * This is DETERMINISTIC and REQUIRED.
+ *
+ * @param {string} intent - The detected user intent
+ * @returns {string} - One of COMMENTARY_MODES
+ */
+function deriveCommentaryMode(intent) {
+  if (!intent) return COMMENTARY_MODES.REPORTING;
+
+  const normalized = String(intent).toUpperCase();
+
+  // REPORTING: summarize, list, show, display, read
+  if (
+    normalized.includes("LIST") ||
+    normalized.includes("SUMMARIZE") ||
+    normalized.includes("READ") ||
+    normalized.includes("SHOW") ||
+    normalized.includes("DISPLAY") ||
+    normalized === "GENERAL_CHAT"
+  ) {
+    return COMMENTARY_MODES.REPORTING;
+  }
+
+  // INTERPRETIVE: analyze, assess, explain state, risks
+  if (
+    normalized.includes("ANALYZE") ||
+    normalized.includes("RISK") ||
+    normalized.includes("ASSESS") ||
+    normalized.includes("EXPLAIN") ||
+    normalized.includes("EVALUATE")
+  ) {
+    return COMMENTARY_MODES.INTERPRETIVE;
+  }
+
+  // GUIDANCE: propose, suggest, next steps, what should I do
+  if (
+    normalized.includes("PROPOSE") ||
+    normalized.includes("SUGGEST") ||
+    normalized.includes("RECOMMEND") ||
+    normalized.includes("NEXT") ||
+    normalized.includes("HELP") ||
+    normalized.includes("DRAFT")
+  ) {
+    return COMMENTARY_MODES.GUIDANCE;
+  }
+
+  // Default to REPORTING (safest mode - no evaluation)
+  return COMMENTARY_MODES.REPORTING;
+}
+
+/**
+ * Checks if commentary violates mode constraints.
+ * Returns true if the commentary contains prohibited phrases.
+ *
+ * @param {string} commentary - The generated commentary
+ * @param {string} mode - The commentary mode
+ * @returns {boolean} - True if commentary violates constraints
+ */
+function violatesModeConstraints(commentary, mode) {
+  if (!commentary || !mode) return false;
+
+  const prohibited = MODE_PROHIBITED_PHRASES[mode] || [];
+  const lower = commentary.toLowerCase();
+
+  for (const phrase of prohibited) {
+    if (lower.includes(phrase.toLowerCase())) {
+      console.warn(`[Commentary] Mode violation detected: "${phrase}" in ${mode} mode`);
+      return true;
+    }
+  }
+
+  return false;
+}
+
+// ─── Legacy System Prompt (kept for reference, not used) ───────────────────
+
+const COMMENTARY_SYSTEM_PROMPT_LEGACY = `You are Organia Assistant, a helpful AI for a legal practice management system.
+You have just retrieved structured information for the user. Your task is to provide a brief, conversational message.
+RULES: Be concise. Do NOT repeat facts verbatim. Do NOT propose write actions.`;
 
 /**
  * Builds a prompt context from the artifact summary.
  * Extracts ONLY what the LLM needs to generate commentary.
+ * DOES NOT include interpretation signals that could trigger evaluative responses.
  *
  * @param {Object} artifactSummary - High-level summary of the artifact
+ * @param {Array} semanticSignals - Semantic signals (used sparingly)
+ * @param {string} mode - Commentary mode (REPORTING, INTERPRETIVE, GUIDANCE)
  * @returns {string} - Context string for the LLM prompt
  */
-function buildPromptContext(artifactSummary, semanticSignals = []) {
+function buildPromptContext(artifactSummary, semanticSignals = [], mode = COMMENTARY_MODES.REPORTING) {
   const lines = [];
 
   // Entity identity
@@ -74,17 +270,7 @@ function buildPromptContext(artifactSummary, semanticSignals = []) {
     lines.push(`Reference: ${artifactSummary.entityReference}`);
   }
 
-  // High-level signals
-  if (artifactSummary.signals && artifactSummary.signals.length > 0) {
-    lines.push(`Signals: ${artifactSummary.signals.join("; ")}`);
-  }
-
-  // Interpretation summary (not raw statements)
-  if (artifactSummary.interpretationSummary) {
-    lines.push(`Status: ${artifactSummary.interpretationSummary}`);
-  }
-
-  // Counts (if list)
+  // Counts (factual, always safe to include)
   if (typeof artifactSummary.totalCount === "number") {
     lines.push(`Total items: ${artifactSummary.totalCount}`);
   }
@@ -95,7 +281,18 @@ function buildPromptContext(artifactSummary, semanticSignals = []) {
     lines.push(`Overdue items: ${artifactSummary.overdueCount}`);
   }
 
-  // Ambiguity flag
+  // ONLY include interpretation signals in INTERPRETIVE mode
+  // In REPORTING mode, the agent should NOT react to "no issues" signals
+  if (mode === COMMENTARY_MODES.INTERPRETIVE) {
+    if (artifactSummary.signals && artifactSummary.signals.length > 0) {
+      lines.push(`Analysis signals: ${artifactSummary.signals.join("; ")}`);
+    }
+    if (artifactSummary.interpretationSummary) {
+      lines.push(`Interpretation: ${artifactSummary.interpretationSummary}`);
+    }
+  }
+
+  // Ambiguity flags (always relevant)
   if (artifactSummary.isAmbiguous) {
     lines.push(`Note: Multiple matches found, clarification may be needed`);
   }
@@ -108,7 +305,8 @@ function buildPromptContext(artifactSummary, semanticSignals = []) {
     lines.push(`Available explorations: ${artifactSummary.followUpLabels.join(", ")}`);
   }
 
-  if (Array.isArray(semanticSignals) && semanticSignals.length > 0) {
+  // Only include semantic signals in INTERPRETIVE mode
+  if (mode === COMMENTARY_MODES.INTERPRETIVE && Array.isArray(semanticSignals) && semanticSignals.length > 0) {
     lines.push(`Semantic signals: ${JSON.stringify(semanticSignals)}`);
   }
 
@@ -318,21 +516,44 @@ function applyCommentaryPolicy(summary) {
   return { action: "allow", reason: "always_engage" };
 }
 
+/**
+ * Sanitizes commentary text and enforces mode constraints.
+ * Returns null if commentary violates mode constraints.
+ * Silence is preferred over misleading tone.
+ *
+ * @param {string} text - Raw commentary text
+ * @param {Object} summary - Artifact summary
+ * @param {Object} artifact - Original artifact
+ * @param {Object} options - Sanitization options including mode
+ * @returns {string|null} - Sanitized commentary or null if suppressed
+ */
 function sanitizeCommentary(text, summary, artifact, options = {}) {
   if (!text) return null;
   const allowIdentifiers = Boolean(options.allowIdentifiers);
+  const mode = options.mode || COMMENTARY_MODES.REPORTING;
+
   let cleaned = String(text).replace(/\s+/g, " ").trim();
   if (!cleaned) return null;
 
-  // Only filter out truly useless responses
+  // Universal banned phrases (always filter)
   const lower = cleaned.toLowerCase();
-  const bannedPhrases = [
+  const universalBanned = [
     "no data available",
     "error occurred",
     "something went wrong",
   ];
-  if (bannedPhrases.some((phrase) => lower.includes(phrase))) {
+  if (universalBanned.some((phrase) => lower.includes(phrase))) {
     return null;
+  }
+
+  // MODE-SPECIFIC FILTERING (CRITICAL)
+  // If commentary violates mode constraints, suppress entirely
+  const prohibitedPhrases = MODE_PROHIBITED_PHRASES[mode] || [];
+  for (const phrase of prohibitedPhrases) {
+    if (lower.includes(phrase.toLowerCase())) {
+      console.warn(`[Commentary] Suppressed - mode violation: "${phrase}" in ${mode} mode`);
+      return null; // Silence is preferred over misleading tone
+    }
   }
 
   // Remove specific identifiers to keep commentary clean
@@ -340,7 +561,6 @@ function sanitizeCommentary(text, summary, artifact, options = {}) {
     const identifierPattern =
       /\b[A-Z]{2,5}-\d{3,6}-\d{2,6}\b|\bID[:\s]*\d+\b|\b#\d{2,}\b|\bDOS-\d{4}-\d+\b/i;
     if (identifierPattern.test(cleaned)) {
-      // Instead of rejecting, strip the identifiers
       cleaned = cleaned.replace(identifierPattern, "").replace(/\s+/g, " ").trim();
     }
   }
@@ -353,11 +573,13 @@ function sanitizeCommentary(text, summary, artifact, options = {}) {
  * Generates conversational commentary about a structured artifact.
  * Uses Ollama LLM but NEVER blocks the artifact if it fails.
  *
+ * CRITICAL: Commentary is now MODE-CONDITIONED based on PRIMARY USER INTENT.
+ *
  * @param {string} artifactType - Type of artifact (explanation, risk_analysis, etc.)
  * @param {Object} artifact - The structured artifact output
- * @param {Object} context - Original request context
+ * @param {Object} context - Original request context (MUST include intent)
  * @param {Object} options - Generation options
- * @returns {Promise<Object>} - Commentary result { success, commentary, error }
+ * @returns {Promise<Object>} - Commentary result { success, commentary, error, mode }
  */
 async function generateCommentary(artifactType, artifact, context = {}, options = {}) {
   // Skip commentary for chat-type artifacts (already conversational)
@@ -365,20 +587,35 @@ async function generateCommentary(artifactType, artifact, context = {}, options 
     return { success: true, commentary: null, skipped: true, reason: "chat_artifact" };
   }
 
+  // DERIVE COMMENTARY MODE FROM PRIMARY USER INTENT (CRITICAL)
+  const intent = context?.intent || context?.lastIntent || options?.intent || "";
+  const mode = deriveCommentaryMode(intent);
+  console.log(`[Commentary] Mode: ${mode} (derived from intent: ${intent})`);
+
+  // Get mode-specific system prompt
+  const systemPrompt = MODE_PROMPTS[mode] || MODE_PROMPTS[COMMENTARY_MODES.REPORTING];
+
   // Extract summary — this is what the LLM sees
   const artifactSummary = extractArtifactSummary(artifactType, artifact, context);
   const semanticSignals = Array.isArray(options.semanticSignals) ? options.semanticSignals : [];
   const forceResponse = Boolean(options.forceResponse);
   const minLength = typeof options.minLength === "number" ? options.minLength : 10;
-  const promptContext = buildPromptContext(artifactSummary, semanticSignals);
 
-  // Build the full prompt
-  const userPrompt = `Based on the following retrieved data, provide a brief conversational comment:
+  // Build prompt context with mode awareness
+  const promptContext = buildPromptContext(artifactSummary, semanticSignals, mode);
+
+  // Build the full prompt with mode-specific instructions
+  const userPrompt = `Based on the following retrieved data, provide a brief comment in ${mode} mode:
 
 ${promptContext}
 
-Remember: Be concise, acknowledge findings, and suggest read-only next steps only.
-Do not mention specific record IDs, references, or list specific items.${forceResponse ? "\nYou must respond with 1-2 short sentences." : ""}`;
+Remember: You are in ${mode} mode.
+- Be concise (1-2 sentences)
+- Do NOT mention specific record IDs or references
+${mode === COMMENTARY_MODES.REPORTING ? "- Do NOT evaluate, reassure, or use emotional language" : ""}
+${mode === COMMENTARY_MODES.INTERPRETIVE ? "- Provide analytical observations only" : ""}
+${mode === COMMENTARY_MODES.GUIDANCE ? "- Suggest options, do not command" : ""}
+${forceResponse ? "\nYou must respond with 1-2 short sentences." : ""}`;
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), LLM_TIMEOUT);
@@ -389,11 +626,11 @@ Do not mention specific record IDs, references, or list specific items.${forceRe
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         model: LLM_MODEL,
-        prompt: `${COMMENTARY_SYSTEM_PROMPT}\n\nUser: ${userPrompt}\n\nAssistant:`,
+        prompt: `${systemPrompt}\n\nUser: ${userPrompt}\n\nAssistant:`,
         stream: false,
         options: {
-          temperature: 0.6,
-          num_predict: 150, // Keep it concise
+          temperature: 0.5, // Lower temperature for more consistent mode adherence
+          num_predict: 150,
         },
       }),
       signal: controller.signal,
@@ -403,7 +640,7 @@ Do not mention specific record IDs, references, or list specific items.${forceRe
 
     if (!response.ok) {
       console.warn("[Commentary] LLM request failed:", response.status);
-      return { success: false, commentary: null, error: `LLM_HTTP_${response.status}` };
+      return { success: false, commentary: null, error: `LLM_HTTP_${response.status}`, mode };
     }
 
     const data = await response.json();
@@ -411,27 +648,34 @@ Do not mention specific record IDs, references, or list specific items.${forceRe
 
     // Validate commentary isn't empty or too short
     if (!commentary || commentary.length < minLength) {
-      return { success: true, commentary: null, skipped: true, reason: "empty_response" };
+      return { success: true, commentary: null, skipped: true, reason: "empty_response", mode };
     }
 
     // Basic safety check — reject if commentary contains action verbs
     const actionVerbs = /\b(create|update|delete|send|assign|execute|modify|change|add|remove|schedule|book|submit|file)\b/i;
     if (actionVerbs.test(commentary)) {
       console.warn("[Commentary] Rejected — contains action verbs:", commentary.slice(0, 100));
-      return { success: false, commentary: null, error: "ACTION_VERB_DETECTED" };
+      return { success: false, commentary: null, error: "ACTION_VERB_DETECTED", mode };
     }
 
-    return { success: true, commentary };
+    // MODE CONSTRAINT CHECK (CRITICAL)
+    // If commentary violates mode, suppress it entirely
+    if (violatesModeConstraints(commentary, mode)) {
+      console.warn(`[Commentary] Rejected — violates ${mode} mode constraints`);
+      return { success: true, commentary: null, skipped: true, reason: "mode_violation", mode };
+    }
+
+    return { success: true, commentary, mode };
   } catch (err) {
     clearTimeout(timeoutId);
 
     if (err.name === "AbortError") {
       console.warn("[Commentary] LLM timeout");
-      return { success: false, commentary: null, error: "TIMEOUT" };
+      return { success: false, commentary: null, error: "TIMEOUT", mode };
     }
 
     console.warn("[Commentary] LLM error:", err.message);
-    return { success: false, commentary: null, error: err.message };
+    return { success: false, commentary: null, error: err.message, mode };
   }
 }
 
@@ -439,9 +683,11 @@ Do not mention specific record IDs, references, or list specific items.${forceRe
  * Stream commentary generation with callbacks for real-time output.
  * Provides immediate responsiveness as the LLM generates text.
  *
+ * CRITICAL: Commentary is now MODE-CONDITIONED based on PRIMARY USER INTENT.
+ *
  * @param {string} artifactType - Type of artifact
  * @param {Object} artifact - The structured artifact output
- * @param {Object} context - Original request context
+ * @param {Object} context - Original request context (MUST include intent)
  * @param {Object} callbacks - { onChunk, onDone, onError }
  * @param {AbortSignal} signal - Optional abort signal
  */
@@ -452,16 +698,31 @@ async function streamCommentary(artifactType, artifact, context, callbacks, sign
     return;
   }
 
+  // DERIVE COMMENTARY MODE FROM PRIMARY USER INTENT (CRITICAL)
+  const intent = context?.intent || context?.lastIntent || "";
+  const mode = deriveCommentaryMode(intent);
+  console.log(`[Commentary Stream] Mode: ${mode} (derived from intent: ${intent})`);
+
+  // Get mode-specific system prompt
+  const systemPrompt = MODE_PROMPTS[mode] || MODE_PROMPTS[COMMENTARY_MODES.REPORTING];
+
   const artifactSummary = extractArtifactSummary(artifactType, artifact, context);
   const semanticSignals = deriveSemanticSignals(artifactSummary);
-  const promptContext = buildPromptContext(artifactSummary, semanticSignals);
 
-  const userPrompt = `Based on the following retrieved data, provide a brief conversational comment:
+  // Build prompt context with mode awareness
+  const promptContext = buildPromptContext(artifactSummary, semanticSignals, mode);
+
+  // Build the full prompt with mode-specific instructions
+  const userPrompt = `Based on the following retrieved data, provide a brief comment in ${mode} mode:
 
 ${promptContext}
 
-Remember: Be concise, acknowledge findings, and suggest read-only next steps only.
-Do not mention specific record IDs, references, or list specific items.
+Remember: You are in ${mode} mode.
+- Be concise (1-2 sentences)
+- Do NOT mention specific record IDs or references
+${mode === COMMENTARY_MODES.REPORTING ? "- Do NOT evaluate, reassure, or use emotional language" : ""}
+${mode === COMMENTARY_MODES.INTERPRETIVE ? "- Provide analytical observations only" : ""}
+${mode === COMMENTARY_MODES.GUIDANCE ? "- Suggest options, do not command" : ""}
 You must respond with 1-2 short sentences.`;
 
   const controller = new AbortController();
@@ -483,10 +744,10 @@ You must respond with 1-2 short sentences.`;
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         model: LLM_MODEL,
-        prompt: `${COMMENTARY_SYSTEM_PROMPT}\n\nUser: ${userPrompt}\n\nAssistant:`,
+        prompt: `${systemPrompt}\n\nUser: ${userPrompt}\n\nAssistant:`,
         stream: true,
         options: {
-          temperature: 0.6,
+          temperature: 0.5, // Lower temperature for more consistent mode adherence
           num_predict: 150,
         },
       }),
@@ -518,14 +779,17 @@ You must respond with 1-2 short sentences.`;
             callbacks.onChunk?.(data.response);
           }
           if (data.done) {
-            // Sanitize final content
+            // Sanitize final content WITH MODE CONSTRAINT CHECKING
             const sanitized = sanitizeCommentary(fullContent, artifactSummary, artifact, {
               allowIdentifiers: false,
+              mode, // Pass mode for constraint checking
             });
             callbacks.onDone?.({
               commentary: sanitized,
               source: sanitized ? "llm" : "skipped",
               signals: semanticSignals,
+              mode,
+              reason: sanitized ? undefined : "mode_violation",
             });
             return;
           }
@@ -538,16 +802,19 @@ You must respond with 1-2 short sentences.`;
     // Stream ended without done signal
     const sanitized = sanitizeCommentary(fullContent, artifactSummary, artifact, {
       allowIdentifiers: false,
+      mode, // Pass mode for constraint checking
     });
     callbacks.onDone?.({
       commentary: sanitized,
       source: sanitized ? "llm" : "skipped",
       signals: semanticSignals,
+      mode,
+      reason: sanitized ? undefined : "mode_violation",
     });
   } catch (err) {
     clearTimeout(timeoutId);
     if (err.name === "AbortError") {
-      callbacks.onDone?.({ commentary: null, source: "skipped", reason: "timeout" });
+      callbacks.onDone?.({ commentary: null, source: "skipped", reason: "timeout", mode });
     } else {
       callbacks.onError?.(err.message);
     }
@@ -591,16 +858,22 @@ function shouldGenerateCommentary(artifactType, artifact) {
  * Main entry point for commentary generation.
  * Ensures commentary NEVER blocks the artifact.
  *
+ * CRITICAL: Commentary is now MODE-CONDITIONED based on PRIMARY USER INTENT.
+ *
  * @param {string} artifactType - Type of artifact
  * @param {Object} artifact - The structured artifact
- * @param {Object} context - Request context
- * @returns {Promise<Object>} - { commentary: string|null, source: 'llm'|'fallback'|'skipped' }
+ * @param {Object} context - Request context (MUST include intent)
+ * @returns {Promise<Object>} - { commentary: string|null, source: 'llm'|'fallback'|'skipped', mode }
  */
 async function generateAgentCommentary(artifactType, artifact, context = {}) {
   // Check if we should generate commentary at all
   if (!shouldGenerateCommentary(artifactType, artifact)) {
     return { commentary: null, source: "skipped" };
   }
+
+  // DERIVE COMMENTARY MODE FROM PRIMARY USER INTENT (CRITICAL)
+  const intent = context?.intent || context?.lastIntent || "";
+  const mode = deriveCommentaryMode(intent);
 
   const artifactSummary = extractArtifactSummary(artifactType, artifact, context);
   const semanticSignals = deriveSemanticSignals(artifactSummary);
@@ -614,14 +887,15 @@ async function generateAgentCommentary(artifactType, artifact, context = {}) {
   const forceResponse = forceNarration || needsClarification;
 
   if (policy.action === "skip") {
-    return { commentary: null, source: "skipped", reason: policy.reason, signals: semanticSignals };
+    return { commentary: null, source: "skipped", reason: policy.reason, signals: semanticSignals, mode };
   }
 
-  // Try LLM-based commentary
+  // Try LLM-based commentary (with mode)
   let result = await generateCommentary(artifactType, artifact, context, {
     semanticSignals,
     forceResponse,
     minLength: forceResponse ? 4 : 10,
+    intent, // Pass intent for mode derivation
   });
 
   if (needsClarification && result.success && !result.commentary && result.skipped) {
@@ -629,45 +903,56 @@ async function generateAgentCommentary(artifactType, artifact, context = {}) {
       semanticSignals,
       forceResponse: true,
       minLength: 4,
+      intent,
     });
   }
 
   if (result.success && result.commentary) {
+    // Sanitize with mode constraint checking
     let sanitized = sanitizeCommentary(result.commentary, artifactSummary, artifact, {
       allowRedundant: forceResponse,
       allowIdentifiers: false,
+      mode, // Pass mode for constraint checking
     });
     if (!sanitized) {
       const retry = await generateCommentary(artifactType, artifact, context, {
         semanticSignals,
         forceResponse: true,
         minLength: 4,
+        intent,
       });
       if (retry.success && retry.commentary) {
         sanitized = sanitizeCommentary(retry.commentary, artifactSummary, artifact, {
           allowRedundant: needsClarification,
           allowIdentifiers: false,
+          mode,
         });
       }
     }
     if (sanitized) {
-      return { commentary: sanitized, source: "llm", signals: semanticSignals };
+      return { commentary: sanitized, source: "llm", signals: semanticSignals, mode };
     }
-    return { commentary: null, source: "skipped", reason: "redundant", signals: semanticSignals };
+    return { commentary: null, source: "skipped", reason: "mode_violation", signals: semanticSignals, mode };
   }
 
   // No commentary generated
-  return { commentary: null, source: result.skipped ? "skipped" : "failed", signals: semanticSignals };
+  return { commentary: null, source: result.skipped ? "skipped" : "failed", signals: semanticSignals, mode };
 }
 
 // ─── Exports ───────────────────────────────────────────────────────────────
 
 module.exports = {
+  // Core functions
   generateAgentCommentary,
   generateCommentary,
   streamCommentary,
   extractArtifactSummary,
   buildPromptContext,
   shouldGenerateCommentary,
-  COMMENTARY_SYSTEM_PROMPT,
+  // Mode system (CRITICAL for correct commentary generation)
+  COMMENTARY_MODES,
+  deriveCommentaryMode,
+  violatesModeConstraints,
+  MODE_PROHIBITED_PHRASES,
+  MODE_PROMPTS,
 };

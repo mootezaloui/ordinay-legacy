@@ -109,14 +109,19 @@ export function filterFollowUps(
   if (resultCount === null) return followUps;
 
   return followUps.filter((followUp) => {
-    const label = followUp.label.toLowerCase();
+    const normalizedIntent = String(followUp.intent || "").toUpperCase();
+    const labelKey = String(followUp.labelKey || "").toLowerCase();
+    const isSummarize =
+      labelKey === "summarize" || normalizedIntent.includes("SUMMARIZE");
+    const isExplainStatus =
+      labelKey === "explain_status" ||
+      (normalizedIntent.includes("EXPLAIN") && normalizedIntent.includes("STATE"));
     if (resultCount === 0) {
-      if (label.includes("recent activity")) return false;
-      if (label.includes("summarize")) return false;
+      if (isSummarize) return false;
     }
     if (resultCount > 1) {
-      if (label.includes("summarize")) return false;
-      if (label.includes("explain status")) return false;
+      if (isSummarize) return false;
+      if (isExplainStatus) return false;
     }
     return true;
   });

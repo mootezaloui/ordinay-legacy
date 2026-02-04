@@ -1542,6 +1542,60 @@
   },
   "status": {
     "loading": "Loading..."
+  },
+  "agent": {
+    "followUps": {
+      "verbs": {
+        "list": "List",
+        "show": "Show",
+        "summarize": "Summarize",
+        "explain": "Explain",
+        "open": "Open",
+        "review": "Review",
+        "view": "View"
+      },
+      "patterns": {
+        "target": "{{verb}} {{target}}",
+        "scoped": "{{verb}} {{target}} for {{parent}}",
+        "withCount": "{{target}} ({{count}})",
+        "qualified": "{{qualifiers}} {{target}}",
+        "reviewContext": "Review {{target}} context",
+        "reviewDetails": "Review {{target}} details",
+        "explainStatus": "Explain status for {{target}}",
+        "howCreated": "How {{target}} records are created"
+      },
+      "entities": {
+        "client": { "singular": "client", "plural": "clients" },
+        "dossier": { "singular": "dossier", "plural": "dossiers" },
+        "lawsuit": { "singular": "lawsuit", "plural": "lawsuits" },
+        "task": { "singular": "task", "plural": "tasks" },
+        "personal_task": { "singular": "personal task", "plural": "personal tasks" },
+        "session": { "singular": "session", "plural": "sessions" },
+        "mission": { "singular": "mission", "plural": "missions" },
+        "financial_entry": { "singular": "financial entry", "plural": "financial entries" },
+        "notification": { "singular": "notification", "plural": "notifications" },
+        "history_event": { "singular": "history event", "plural": "history events" },
+        "generic": { "singular": "record", "plural": "records" }
+      },
+      "qualifiers": {
+        "active": "active",
+        "overdue": "overdue",
+        "priority": "{{priority}} priority"
+      },
+      "values": {
+        "urgent": "urgent",
+        "high": "high",
+        "medium": "medium",
+        "low": "low",
+        "blocked": "blocked",
+        "pending": "pending",
+        "active": "active",
+        "inactive": "inactive",
+        "overdue": "overdue",
+        "paid": "paid",
+        "unpaid": "unpaid"
+      }
+    }
   }
 }
 

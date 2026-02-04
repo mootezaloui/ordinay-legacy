@@ -17,6 +17,8 @@ const getDossierTool = require('./read/getDossier.tool');
 const getDossierByReferenceTool = require('./read/getDossierByReference.tool');
 const listDossiersTool = require('./read/listDossiers.tool');
 const listDossiersForClientTool = require('./read/listDossiersForClient.tool');
+const getClientDossierSummaryTool = require('./read/getClientDossierSummary.tool');
+const getDossierWorkSummaryTool = require('./read/getDossierWorkSummary.tool');
 const getLawsuitTool = require('./read/getLawsuit.tool');
 const listLawsuitsTool = require('./read/listLawsuits.tool');
 const getSessionTool = require('./read/getSession.tool');
@@ -66,6 +68,8 @@ function initializeToolRegistry() {
   registry.register(getDossierByReferenceTool);
   registry.register(listDossiersTool);
   registry.register(listDossiersForClientTool);
+  registry.register(getClientDossierSummaryTool);
+  registry.register(getDossierWorkSummaryTool);
   registry.register(getLawsuitTool);
   registry.register(listLawsuitsTool);
   registry.register(getSessionTool);

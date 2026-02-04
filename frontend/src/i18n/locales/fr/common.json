@@ -1545,6 +1545,60 @@
   },
   "status": {
     "loading": "Chargement..."
+  },
+  "agent": {
+    "followUps": {
+      "verbs": {
+        "list": "Lister",
+        "show": "Afficher",
+        "summarize": "Résumer",
+        "explain": "Expliquer",
+        "open": "Ouvrir",
+        "review": "Consulter",
+        "view": "Voir"
+      },
+      "patterns": {
+        "target": "{{verb}} {{target}}",
+        "scoped": "{{verb}} {{target}} pour {{parent}}",
+        "withCount": "{{target}} ({{count}})",
+        "qualified": "{{qualifiers}} {{target}}",
+        "reviewContext": "Consulter le contexte de {{target}}",
+        "reviewDetails": "Consulter les détails de {{target}}",
+        "explainStatus": "Expliquer le statut de {{target}}",
+        "howCreated": "Comment les enregistrements de {{target}} sont créés"
+      },
+      "entities": {
+        "client": { "singular": "client", "plural": "clients" },
+        "dossier": { "singular": "dossier", "plural": "dossiers" },
+        "lawsuit": { "singular": "procès", "plural": "procès" },
+        "task": { "singular": "tâche", "plural": "tâches" },
+        "personal_task": { "singular": "tâche personnelle", "plural": "tâches personnelles" },
+        "session": { "singular": "session", "plural": "sessions" },
+        "mission": { "singular": "mission", "plural": "missions" },
+        "financial_entry": { "singular": "écriture comptable", "plural": "écritures comptables" },
+        "notification": { "singular": "notification", "plural": "notifications" },
+        "history_event": { "singular": "événement d'historique", "plural": "événements d'historique" },
+        "generic": { "singular": "enregistrement", "plural": "enregistrements" }
+      },
+      "qualifiers": {
+        "active": "actifs",
+        "overdue": "en retard",
+        "priority": "priorité {{priority}}"
+      },
+      "values": {
+        "urgent": "urgent",
+        "high": "haute",
+        "medium": "moyenne",
+        "low": "faible",
+        "blocked": "bloqué",
+        "pending": "en attente",
+        "active": "actif",
+        "inactive": "inactif",
+        "overdue": "en retard",
+        "paid": "payé",
+        "unpaid": "impayé"
+      }
+    }
   }
 }
 

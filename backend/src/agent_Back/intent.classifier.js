@@ -782,7 +782,7 @@ function detectReadIntent(message, context = {}) {
   // IMPORTANT: Must cover both verb-first AND noun-first patterns
   const listPatterns = [
     // Verb-first patterns: "list clients", "show my tasks"
-    /\b(list|show|give|get|display|see|fetch|retrieve)\b.*\b(all|my)?\s*/i,
+    /\b(list|show|open|view|read|give|get|display|see|fetch|retrieve)\b.*\b(all|my)?\s*/i,
     // Noun-first patterns: "clients list", "tasks please", "dossiers show"
     /\b(client|clients|dossier|dossiers|task|tasks|session|sessions)\s+(list|show|please|now)\b/i,
     // Standalone entity requests: "clients", "my clients", "all clients"
@@ -868,7 +868,26 @@ function detectReadIntent(message, context = {}) {
   const wordCount = normalized.split(/\s+/).length;
   const isShortEntityRequest = entityType && wordCount <= 5;
 
-  const extractedHints = extractEntityHints(message);
+  let extractedHints = extractEntityHints(message);
+  const hasPrimaryHint = extractedHints.some((hint) =>
+    ["name", "reference", "id"].includes(hint.type),
+  );
+  if (!hasPrimaryHint) {
+    const aboutMatch = message.match(
+      /(?:what\s+do\s+you\s+know\s+about|tell\s+me\s+about|about|regarding|concerning)\s+(.+)/i,
+    );
+    if (aboutMatch) {
+      const cleaned = String(aboutMatch[1] || "")
+        .replace(/[?!.]+$/g, "")
+        .trim();
+      if (
+        cleaned &&
+        !/^(all|list|overview|summary|clients?|dossiers?|tasks?|sessions?)$/i.test(cleaned)
+      ) {
+        extractedHints = [...extractedHints, { type: "name", value: cleaned }];
+      }
+    }
+  }
   const aggregateSummary = detectAggregateSummaryRequest(
     normalized,
     entityType,
