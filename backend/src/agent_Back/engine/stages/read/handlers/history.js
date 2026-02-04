@@ -101,7 +101,7 @@ async function handleListHistoryEvents(state) {
             title = "Read data — History";
             summary = resolution.message;
             resolution.candidates?.forEach((c) =>
-              details.push(`${c.name} (ID: ${c.id})`),
+              details.push(`${c.name || "Record"}`),
             );
             details.push("Please specify which record you mean.");
             break;
@@ -202,12 +202,12 @@ async function handleReadHistoryEvent(state) {
       );
       const event = result?.historyEvent;
       if (!event) {
-        summary = `No history event found for ID ${hintId}`;
+        summary = "No history event found for that identifier.";
         details.push("Try listing history events to see available records.");
         break;
       }
       summary = `History event: ${event.action || "event"}`;
-      details.push(`Entity: ${event.entity_type || "N/A"} ${event.entity_id || ""}`.trim());
+      details.push(`Entity: ${event.entity_type || "N/A"}`);
       details.push(`Description: ${event.description || "N/A"}`);
       if (event.actor) details.push(`Actor: ${event.actor}`);
       if (event.changed_fields) {
@@ -226,7 +226,7 @@ async function handleReadHistoryEvent(state) {
     }
 
     summary = "Which history event?";
-    details.push("Provide a history event ID.");
+    details.push("Provide a history event action or description.");
     break;
   } while (false);
 
@@ -310,7 +310,7 @@ async function handleExplainHistory(state) {
         summary = `Multiple history events match "${hintName}"`;
         events.forEach((e) => {
           const when = e.created_at ? formatDateTime(e.created_at) : "unknown";
-          details.push(`${when} — ${e.action || "event"} (ID: ${e.id})`);
+          details.push(`${when} — ${e.action || "event"}`);
         });
         details.push("Please specify which history event you mean.");
         break;
@@ -393,7 +393,7 @@ async function handleExplainHistory(state) {
     }
 
     summary = "Which history event?";
-    details.push("Provide a history event ID.");
+    details.push("Provide a history event action or description.");
     break;
   } while (false);
 

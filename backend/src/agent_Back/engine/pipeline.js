@@ -11,6 +11,10 @@ const { CONTEXT_SOURCES } = require("../context/conversation.context");
 const { INTENTS } = require("../intents");
 const { createAgentRequest, extractAgentContext } = require("../contracts/agentRequest.contract");
 const { createAgentResponse, RESPONSE_STATUS } = require("../contracts/agentResponse.contract");
+const {
+  resolveEntityDisplayLabel,
+  formatEntityTypeLabel,
+} = require("../utils/entityDisplay");
 
 async function processUIRequest(uiRequest) {
   // STEP 1: Validate and create AgentRequest
@@ -302,8 +306,13 @@ async function processUIRequest(uiRequest) {
         timestamp: new Date().toISOString(),
       });
 
+      const clarificationType = clarification?.hint?.type || "record";
       const candidateDetails = Array.isArray(clarification.candidates)
-        ? clarification.candidates.map((c) => `${c.name} (ID: ${c.id})`)
+        ? clarification.candidates.map((c) =>
+            resolveEntityDisplayLabel(clarificationType, c, {
+              fallback: formatEntityTypeLabel(clarificationType),
+            }),
+          )
         : [];
 
       // Return as explanation type (passes schema validation)

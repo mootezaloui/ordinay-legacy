@@ -1,6 +1,7 @@
 "use strict";
 
 const { READ_INTENTS } = require("../../../../intent.classifier");
+const { resolveEntityDisplayLabel } = require("../../../../utils/entityDisplay");
 
 async function handleListSessions(state) {
   const {
@@ -71,7 +72,7 @@ async function handleListSessions(state) {
           title = "Read data — Sessions";
           summary = resolution.message;
           resolution.candidates?.forEach((c) =>
-            details.push(`${c.name} (ID: ${c.id})`),
+            details.push(`${c.name || "Dossier"}`),
           );
           details.push("Please specify which dossier you mean.");
           break;
@@ -105,7 +106,7 @@ async function handleListSessions(state) {
           title = "Read data — Sessions";
           summary = resolution.message;
           resolution.candidates?.forEach((c) =>
-            details.push(`${c.name} (ID: ${c.id})`),
+            details.push(`${c.name || "Case"}`),
           );
           details.push("Please specify which case you mean.");
           break;
@@ -214,6 +215,36 @@ async function handleReadSession(state) {
     const hintName = entityHints.find((hint) => hint.type === "name")?.value;
     title = "Read data — Session";
 
+    const appendParentLabels = async (session) => {
+      if (session.dossier_id) {
+        const dossierResult = await safeReadSummaryTool("getDossier", {
+          dossierId: session.dossier_id,
+        });
+        const dossierLabel = dossierResult?.dossier
+          ? resolveEntityDisplayLabel("dossier", dossierResult.dossier, {
+              fallback: "Dossier",
+            })
+          : "Dossier";
+        details.push(`Dossier: ${dossierLabel}`);
+      } else {
+        details.push("Dossier: N/A");
+      }
+
+      if (session.lawsuit_id) {
+        const lawsuitResult = await safeReadSummaryTool("getLawsuit", {
+          lawsuitId: session.lawsuit_id,
+        });
+        const lawsuitLabel = lawsuitResult?.lawsuit
+          ? resolveEntityDisplayLabel("lawsuit", lawsuitResult.lawsuit, {
+              fallback: "Lawsuit",
+            })
+          : "Lawsuit";
+        details.push(`Lawsuit: ${lawsuitLabel}`);
+      } else {
+        details.push("Lawsuit: N/A");
+      }
+    };
+
     if (hintId) {
       const result = await this._callReadTool(
         "getSession",
@@ -222,18 +253,17 @@ async function handleReadSession(state) {
       );
       const session = result?.session;
       if (!session) {
-        summary = `No session found for ID ${hintId}`;
+        summary = "No session found for that identifier.";
         details.push("Try listing sessions to see available records.");
         break;
       }
-      summary = `Session: ${session.title || session.session_type || hintId}`;
+      summary = `Session: ${resolveEntityDisplayLabel("session", session, { fallback: "Session" })}`;
       details.push(`Status: ${session.status || "scheduled"}`);
       details.push(
         `Scheduled: ${session.scheduled_at ? formatDateTime(session.scheduled_at) : "N/A"}`,
       );
       details.push(`Location: ${session.location || "N/A"}`);
-      details.push(`Dossier ID: ${session.dossier_id || "N/A"}`);
-      details.push(`Lawsuit ID: ${session.lawsuit_id || "N/A"}`);
+      await appendParentLabels(session);
       sources.push({
         sourceType: "system",
         reference: "tool:getSession",
@@ -256,14 +286,13 @@ async function handleReadSession(state) {
         details.push("Try listing all sessions with: show me my sessions");
       } else if (sessions.length === 1) {
         const session = sessions[0];
-        summary = `Session: ${session.title || session.session_type || "Session"}`;
+        summary = `Session: ${resolveEntityDisplayLabel("session", session, { fallback: "Session" })}`;
         details.push(`Status: ${session.status || "scheduled"}`);
         details.push(
           `Scheduled: ${session.scheduled_at ? formatDateTime(session.scheduled_at) : "N/A"}`,
         );
         details.push(`Location: ${session.location || "N/A"}`);
-        details.push(`Dossier ID: ${session.dossier_id || "N/A"}`);
-        details.push(`Lawsuit ID: ${session.lawsuit_id || "N/A"}`);
+        await appendParentLabels(session);
         sources.push({
           sourceType: "system",
           reference: "tool:listSessions",
@@ -275,7 +304,7 @@ async function handleReadSession(state) {
         summary = `Multiple sessions match "${hintName}"`;
         sessions.forEach((s) =>
           details.push(
-            `${s.title || s.session_type || "Session"} (ID: ${s.id}) — ${s.status || "scheduled"}`,
+            `${s.title || s.session_type || "Session"} — ${s.status || "scheduled"}`,
           ),
         );
         details.push("Please specify which session you mean.");
@@ -284,7 +313,7 @@ async function handleReadSession(state) {
     }
 
     summary = "Which session?";
-    details.push("Provide a session ID or title.");
+    details.push("Provide a session title.");
     break;
   } while (false);
 
@@ -368,7 +397,7 @@ async function handleExplainSession(state) {
         summary = `Multiple sessions match "${hintName}"`;
         sessions.forEach((s) =>
           details.push(
-            `${s.title || s.session_type || "Session"} (ID: ${s.id}) — ${s.status || "scheduled"}`,
+            `${s.title || s.session_type || "Session"} — ${s.status || "scheduled"}`,
           ),
         );
         details.push("Please specify which session you mean.");
@@ -378,7 +407,7 @@ async function handleExplainSession(state) {
 
     if (!session) {
       summary = "Which session?";
-      details.push("Provide a session ID or title.");
+      details.push("Provide a session title.");
       break;
     }
 
@@ -395,7 +424,7 @@ async function handleExplainSession(state) {
 
     if (intent === READ_INTENTS.EXPLAIN_SESSION_STATE) {
       title = "Read data — Session state";
-      summary = `Session: ${session.title || session.session_type || "Session"}`;
+      summary = `Session: ${resolveEntityDisplayLabel("session", session, { fallback: "Session" })}`;
       details.push(`Status: ${session.status || "scheduled"}`);
       details.push(
         `Scheduled: ${session.scheduled_at ? formatDateTime(session.scheduled_at) : "N/A"}`,
@@ -407,7 +436,7 @@ async function handleExplainSession(state) {
       if (session.outcome)
         details.push(`Outcome: ${session.outcome}`);
       details.push(
-        `Relationships: dossier ${session.dossier_id || "N/A"}, case ${session.lawsuit_id || "N/A"}`,
+        `Relationships: ${session.dossier_id ? "linked dossier" : "dossier N/A"}, ${session.lawsuit_id ? "linked case" : "case N/A"}`,
       );
       details.push(
         overdue ? "Blocking: session date passed" : "Blocking: none detected",

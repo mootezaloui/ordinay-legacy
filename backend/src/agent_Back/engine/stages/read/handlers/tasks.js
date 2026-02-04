@@ -1,6 +1,7 @@
 "use strict";
 
 const { READ_INTENTS } = require("../../../../intent.classifier");
+const { resolveEntityDisplayLabel } = require("../../../../utils/entityDisplay");
 
 async function handleListTasks(state) {
   const {
@@ -68,7 +69,7 @@ async function handleListTasks(state) {
           title = "Read data — Tasks";
           summary = resolution.message;
           resolution.candidates?.forEach((c) =>
-            details.push(`${c.name} (ID: ${c.id})`),
+            details.push(`${c.name || "Dossier"}`),
           );
           details.push("Please specify which dossier you mean.");
           break;
@@ -102,7 +103,7 @@ async function handleListTasks(state) {
           title = "Read data — Tasks";
           summary = resolution.message;
           resolution.candidates?.forEach((c) =>
-            details.push(`${c.name} (ID: ${c.id})`),
+            details.push(`${c.name || "Case"}`),
           );
           details.push("Please specify which case you mean.");
           break;
@@ -169,7 +170,7 @@ async function handleListTasks(state) {
     filteredTasks.forEach((t) => {
       const due = t.due_date ? ` due ${formatDate(t.due_date)}` : "";
       details.push(
-        `${t.title} (ID: ${t.id}) — ${t.status || "todo"}${due}`,
+        `${t.title || "Task"} — ${t.status || "todo"}${due}`,
       );
     });
     sources.push({
@@ -249,7 +250,7 @@ async function handleListOverdueTasks(state) {
           title = "Read data — Overdue tasks";
           summary = resolution.message;
           resolution.candidates?.forEach((c) =>
-            details.push(`${c.name} (ID: ${c.id})`),
+            details.push(`${c.name || "Dossier"}`),
           );
           details.push("Please specify which dossier you mean.");
           break;
@@ -283,7 +284,7 @@ async function handleListOverdueTasks(state) {
           title = "Read data — Overdue tasks";
           summary = resolution.message;
           resolution.candidates?.forEach((c) =>
-            details.push(`${c.name} (ID: ${c.id})`),
+            details.push(`${c.name || "Case"}`),
           );
           details.push("Please specify which case you mean.");
           break;
@@ -330,7 +331,7 @@ async function handleListOverdueTasks(state) {
         : "No overdue tasks";
     overdue.forEach((t) => {
       details.push(
-        `${t.title} (ID: ${t.id}) — ${t.status || "todo"} due ${formatDate(t.due_date)}`,
+        `${t.title || "Task"} — ${t.status || "todo"} due ${formatDate(t.due_date)}`,
       );
     });
     sources.push({
@@ -390,6 +391,36 @@ async function handleReadTask(state) {
     const hintName = entityHints.find((hint) => hint.type === "name")?.value;
     title = "Read data — Task";
 
+    const appendParentLabels = async (task) => {
+      if (task.dossier_id) {
+        const dossierResult = await safeReadSummaryTool("getDossier", {
+          dossierId: task.dossier_id,
+        });
+        const dossierLabel = dossierResult?.dossier
+          ? resolveEntityDisplayLabel("dossier", dossierResult.dossier, {
+              fallback: "Dossier",
+            })
+          : "Dossier";
+        details.push(`Dossier: ${dossierLabel}`);
+      } else {
+        details.push("Dossier: N/A");
+      }
+
+      if (task.lawsuit_id) {
+        const lawsuitResult = await safeReadSummaryTool("getLawsuit", {
+          lawsuitId: task.lawsuit_id,
+        });
+        const lawsuitLabel = lawsuitResult?.lawsuit
+          ? resolveEntityDisplayLabel("lawsuit", lawsuitResult.lawsuit, {
+              fallback: "Lawsuit",
+            })
+          : "Lawsuit";
+        details.push(`Lawsuit: ${lawsuitLabel}`);
+      } else {
+        details.push("Lawsuit: N/A");
+      }
+    };
+
     if (hintId) {
       const result = await this._callReadTool(
         "getTask",
@@ -398,16 +429,15 @@ async function handleReadTask(state) {
       );
       const task = result?.task;
       if (!task) {
-        summary = `No task found for ID ${hintId}`;
+        summary = "No task found for that identifier.";
         details.push("Try listing tasks to see available records.");
         break;
       }
-      summary = `Task: ${task.title || hintId}`;
+      summary = `Task: ${resolveEntityDisplayLabel("task", task, { fallback: "Task" })}`;
       details.push(`Status: ${task.status || "todo"}`);
       details.push(`Priority: ${task.priority || "medium"}`);
       details.push(`Due date: ${task.due_date ? formatDate(task.due_date) : "N/A"}`);
-      details.push(`Dossier ID: ${task.dossier_id || "N/A"}`);
-      details.push(`Lawsuit ID: ${task.lawsuit_id || "N/A"}`);
+      await appendParentLabels(task);
       sources.push({
         sourceType: "system",
         reference: "tool:getTask",
@@ -430,12 +460,11 @@ async function handleReadTask(state) {
         details.push("Try listing all tasks with: show me my tasks");
       } else if (tasks.length === 1) {
         const task = tasks[0];
-        summary = `Task: ${task.title || "Task"}`;
+        summary = `Task: ${resolveEntityDisplayLabel("task", task, { fallback: "Task" })}`;
         details.push(`Status: ${task.status || "todo"}`);
         details.push(`Priority: ${task.priority || "medium"}`);
         details.push(`Due date: ${task.due_date ? formatDate(task.due_date) : "N/A"}`);
-        details.push(`Dossier ID: ${task.dossier_id || "N/A"}`);
-        details.push(`Lawsuit ID: ${task.lawsuit_id || "N/A"}`);
+        await appendParentLabels(task);
         sources.push({
           sourceType: "system",
           reference: "tool:listTasks",
@@ -446,7 +475,7 @@ async function handleReadTask(state) {
       } else {
         summary = `Multiple tasks match "${hintName}"`;
         tasks.forEach((t) =>
-          details.push(`${t.title || "Task"} (ID: ${t.id}) — ${t.status || "todo"}`),
+          details.push(`${t.title || "Task"} — ${t.status || "todo"}`),
         );
         details.push("Please specify which task you mean.");
       }
@@ -454,7 +483,7 @@ async function handleReadTask(state) {
     }
 
     summary = "Which task?";
-    details.push("Provide a task ID or title.");
+    details.push("Provide a task title.");
     break;
   } while (false);
 
@@ -586,7 +615,7 @@ async function handleExplainTask(state) {
       else if (tasks.length > 1) {
         summary = `Multiple tasks match "${hintName}"`;
         tasks.forEach((t) =>
-          details.push(`${t.title || "Task"} (ID: ${t.id}) — ${t.status || "todo"}`),
+          details.push(`${t.title || "Task"} — ${t.status || "todo"}`),
         );
         details.push("Please specify which task you mean.");
         break;
@@ -595,7 +624,7 @@ async function handleExplainTask(state) {
 
     if (!task) {
       summary = "Which task?";
-      details.push("Provide a task ID or title.");
+      details.push("Provide a task title.");
       break;
     }
 
@@ -613,10 +642,10 @@ async function handleExplainTask(state) {
 
     if (intent === READ_INTENTS.EXPLAIN_TASK_STATE) {
       title = "Read data — Task state";
-      summary = `${task.title || "Task"} (ID: ${task.id})`;
+      summary = resolveEntityDisplayLabel("task", task, { fallback: "Task" });
       details.push(`Status: ${task.status || "todo"} (priority ${task.priority || "medium"})`);
       details.push(
-        `Relationships: dossier ${task.dossier_id || "N/A"}, lawsuit ${task.lawsuit_id || "N/A"}`,
+        `Relationships: ${task.dossier_id ? "linked dossier" : "dossier N/A"}, ${task.lawsuit_id ? "linked lawsuit" : "lawsuit N/A"}`,
       );
       details.push(
         blocked || overdue
@@ -634,7 +663,7 @@ async function handleExplainTask(state) {
     }
 
     title = "Read data — Task summary";
-    summary = `${task.title || "Task"} (ID: ${task.id})`;
+    summary = resolveEntityDisplayLabel("task", task, { fallback: "Task" });
     const recentActivity = historyEvents.map((event) => {
       const when = event.created_at ? formatDateTime(event.created_at) : "unknown";
       return `${when} — ${event.action || "event"}`;

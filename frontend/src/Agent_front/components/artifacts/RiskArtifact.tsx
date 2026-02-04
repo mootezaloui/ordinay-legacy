@@ -5,30 +5,34 @@ interface RiskArtifactProps {
   data: RiskAnalysisOutput;
 }
 
-const SEVERITY_STYLES: Record<string, { bg: string; text: string; border: string; dot: string }> = {
+const SEVERITY_STYLES: Record<string, { bg: string; text: string; border: string; dot: string; badge: string }> = {
   CRITICAL: {
     bg: "bg-red-50 dark:bg-red-950/30",
     text: "text-red-700 dark:text-red-300",
     border: "border-red-200 dark:border-red-800",
     dot: "bg-red-500",
+    badge: "agent-status-badge-urgent",
   },
   HIGH: {
     bg: "bg-orange-50 dark:bg-orange-950/30",
     text: "text-orange-700 dark:text-orange-300",
     border: "border-orange-200 dark:border-orange-800",
     dot: "bg-orange-500",
+    badge: "agent-status-badge-in-progress",
   },
   MEDIUM: {
     bg: "bg-amber-50 dark:bg-amber-950/30",
     text: "text-amber-700 dark:text-amber-300",
     border: "border-amber-200 dark:border-amber-800",
     dot: "bg-amber-500",
+    badge: "agent-status-badge-in-progress",
   },
   LOW: {
     bg: "bg-slate-50 dark:bg-slate-800/50",
     text: "text-slate-600 dark:text-slate-400",
     border: "border-slate-200 dark:border-slate-700",
     dot: "bg-slate-400",
+    badge: "agent-status-badge-pending",
   },
 };
 
@@ -61,66 +65,78 @@ export function RiskArtifact({ data }: RiskArtifactProps) {
   return (
     <div className="artifact-build agent-artifact-card is-risk">
       {/* Header */}
-      <div className="artifact-build-header agent-artifact-header flex items-center justify-between px-5 py-3">
-        <div className="flex items-center gap-2">
-          <Shield className="w-4 h-4 text-orange-500" />
-          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-            Risk Analysis
-          </span>
-        </div>
+      <div className="artifact-build-header agent-artifact-header agent-artifact-header-risk flex items-center justify-between px-5 py-4">
         <div className="flex items-center gap-3">
-          <span className={`text-xs font-semibold px-2 py-0.5 rounded border ${overallStyle.bg} ${overallStyle.text} ${overallStyle.border}`}>
-            {data.overallRiskLevel}
-          </span>
-          <span className="text-xs text-slate-400 dark:text-slate-500">
-            {data.risks?.length || 0} risk{(data.risks?.length || 0) !== 1 ? "s" : ""}
-          </span>
+          <div className="agent-icon-container agent-icon-container-amber">
+            <Shield className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+              Risk Analysis
+            </h4>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              {data.risks?.length || 0} risk{(data.risks?.length || 0) !== 1 ? "s" : ""} identified
+            </p>
+          </div>
         </div>
+        <span className={`agent-status-badge ${overallStyle.badge}`}>
+          <span className={`w-2 h-2 rounded-full ${overallStyle.dot}`} />
+          {data.overallRiskLevel}
+        </span>
       </div>
 
       {/* Summary sentence if provided */}
       {data.summary && (
-        <div className="artifact-build-section artifact-build-section-1 px-5 py-3 border-b border-slate-100 dark:border-slate-700/50">
-          <p className="text-sm text-slate-700 dark:text-slate-300">{data.summary}</p>
+        <div className="artifact-build-section artifact-build-section-1 px-5 py-4 border-b border-slate-100 dark:border-slate-700/50">
+          <p className="text-[15px] text-slate-700 dark:text-slate-200 leading-relaxed">{data.summary}</p>
         </div>
       )}
 
       {/* Risks grouped by severity */}
-      <div className="px-5 py-4 space-y-4">
+      <div className="px-5 py-5 space-y-5">
         {grouped.map((group, groupIdx) => {
           const style = getSeverityStyle(group.severity);
           return (
             <div key={group.severity} className={`artifact-build-section artifact-build-section-${groupIdx + 2}`}>
-              <div className="flex items-center gap-2 mb-2">
-                <span className={`w-2 h-2 rounded-full ${style.dot}`} />
-                <span className={`text-xs font-semibold uppercase tracking-wide ${style.text}`}>
+              <div className="flex items-center gap-2 mb-3">
+                <span className={`w-2.5 h-2.5 rounded-full ${style.dot}`} />
+                <span className={`text-xs font-semibold uppercase tracking-wider ${style.text}`}>
                   {group.severity}
                 </span>
-                <span className="text-xs text-slate-400">({group.risks.length})</span>
+                <span className="text-xs text-slate-400 dark:text-slate-500 font-medium">
+                  ({group.risks.length})
+                </span>
               </div>
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {group.risks.map((risk: RiskItem, idx: number) => {
                   const IconComponent = CATEGORY_ICONS[risk.category] || AlertTriangle;
                   return (
                     <div
                       key={idx}
-                      className={`artifact-build-statement p-3 rounded border ${style.border} ${style.bg}`}
+                      className={`artifact-build-statement p-4 rounded-xl border ${style.border} ${style.bg}`}
                     >
-                      <div className="flex items-start gap-2">
-                        <IconComponent className={`w-3.5 h-3.5 mt-0.5 ${style.text} flex-shrink-0`} />
+                      <div className="flex items-start gap-3">
+                        <div className={`w-8 h-8 rounded-lg ${style.bg} border ${style.border} flex items-center justify-center flex-shrink-0`}>
+                          <IconComponent className={`w-4 h-4 ${style.text}`} />
+                        </div>
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-0.5">
-                            <span className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className={`text-xs font-semibold uppercase tracking-wide ${style.text}`}>
                               {risk.category.replace(/_/g, " ")}
                             </span>
                           </div>
-                          <p className="text-sm text-slate-800 dark:text-slate-200">
+                          <p className="text-sm text-slate-800 dark:text-slate-100 leading-relaxed">
                             {risk.description}
                           </p>
                           {risk.recommendation && (
-                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 pl-3 border-l-2 border-slate-200 dark:border-slate-600">
-                              {risk.recommendation}
-                            </p>
+                            <div className="mt-3 p-3 rounded-lg bg-white/60 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/40">
+                              <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">
+                                Recommendation
+                              </p>
+                              <p className="text-sm text-slate-600 dark:text-slate-300">
+                                {risk.recommendation}
+                              </p>
+                            </div>
                           )}
                         </div>
                       </div>
@@ -134,11 +150,13 @@ export function RiskArtifact({ data }: RiskArtifactProps) {
       </div>
 
       {/* Footer */}
-      <div className="artifact-build-section artifact-build-section-4 px-5 py-2 bg-slate-50/70 dark:bg-slate-900/50 border-t border-slate-200/70 dark:border-slate-700/60 flex items-center gap-3">
-        <CircleDot className="w-3 h-3 text-slate-400" />
-        <span className="text-xs text-slate-400 dark:text-slate-500">
-          Rule-based analysis · Requires validation
-        </span>
+      <div className="agent-artifact-footer">
+        <div className="flex items-center gap-2">
+          <CircleDot className="w-3.5 h-3.5 text-slate-400" />
+          <span className="text-xs text-slate-500 dark:text-slate-400">
+            Rule-based analysis · Requires validation
+          </span>
+        </div>
       </div>
     </div>
   );

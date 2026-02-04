@@ -1,7 +1,266 @@
-import { FileText } from "lucide-react";
+import { FileText, Clock, Activity, CheckCircle2, Calendar, Hash, FileBox, Briefcase, AlertCircle } from "lucide-react";
 import type { ExplanationOutput, FollowUpSuggestion } from "../../../services/api/agent";
 import { InterpretationBlock } from "./InterpretationBlock";
 import { NavigationContext } from "./NavigationContext";
+
+// ─────────────────────────────────────────────────────────────────
+// Smart Fact Parser — Intelligently parses and categorizes facts
+// ─────────────────────────────────────────────────────────────────
+
+type FactType = "status" | "count" | "activity" | "date" | "summary" | "text";
+
+interface ParsedFact {
+  type: FactType;
+  label: string;
+  value: string | number;
+  items?: { label: string; value: string | number; status?: "success" | "warning" | "neutral" }[];
+  activities?: { timestamp: string; type: string }[];
+  status?: "success" | "warning" | "error" | "neutral";
+}
+
+/**
+ * Parses a detail string into a structured fact object.
+ */
+function parseFact(detail: string): ParsedFact {
+  const trimmed = detail.trim();
+
+  // Pattern: "Recent activity: timestamp — type | timestamp — type | ..."
+  if (/^(?:recent\s+)?activity:/i.test(trimmed)) {
+    const content = trimmed.replace(/^(?:recent\s+)?activity:\s*/i, "");
+    const activities = content.split(" | ").map((item) => {
+      const match = item.trim().match(/^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2})\s*—\s*(.+)$/);
+      if (match) return { timestamp: match[1], type: match[2] };
+      const altMatch = item.trim().match(/^(.+?)\s*—\s*(.+)$/);
+      if (altMatch) return { timestamp: altMatch[1], type: altMatch[2] };
+      return { timestamp: "", type: item.trim() };
+    }).filter(a => a.type);
+
+    return { type: "activity", label: "Recent Activity", value: activities.length, activities };
+  }
+
+  // Pattern: "Summary: status X, N item(s), N item(s), ..."
+  if (/^summary:/i.test(trimmed)) {
+    const content = trimmed.replace(/^summary:\s*/i, "");
+    const parts = content.split(/,\s*/);
+    const items: ParsedFact["items"] = [];
+
+    for (const part of parts) {
+      // "status open" or "status: open"
+      const statusMatch = part.match(/^status[:\s]+(\w+)/i);
+      if (statusMatch) {
+        const statusVal = statusMatch[1].toLowerCase();
+        items.push({
+          label: "Status",
+          value: statusVal.charAt(0).toUpperCase() + statusVal.slice(1),
+          status: statusVal === "open" || statusVal === "active" ? "success" :
+                  statusVal === "closed" || statusVal === "blocked" ? "warning" : "neutral"
+        });
+        continue;
+      }
+
+      // "N task(s)" or "N session(s)" etc.
+      const countMatch = part.match(/^(\d+)\s+(\w+?)(?:\(.*?\))?$/i);
+      if (countMatch) {
+        const count = parseInt(countMatch[1], 10);
+        const label = countMatch[2].replace(/_/g, " ");
+        items.push({
+          label: label.charAt(0).toUpperCase() + label.slice(1) + "s",
+          value: count,
+          status: count === 0 ? "neutral" : "success"
+        });
+        continue;
+      }
+
+      // Generic "label: value" or just text
+      const kvMatch = part.match(/^([^:]+):\s*(.+)$/);
+      if (kvMatch) {
+        items.push({ label: kvMatch[1].trim(), value: kvMatch[2].trim(), status: "neutral" });
+      } else if (part.trim()) {
+        items.push({ label: part.trim(), value: "", status: "neutral" });
+      }
+    }
+
+    return { type: "summary", label: "Overview", value: items.length, items };
+  }
+
+  // Pattern: "Label: N items" or "Label: value"
+  const labelValueMatch = trimmed.match(/^([^:]+):\s*(.+)$/);
+  if (labelValueMatch) {
+    const label = labelValueMatch[1].trim();
+    const value = labelValueMatch[2].trim();
+
+    // Check if value is a number
+    const numMatch = value.match(/^(\d+)\s*(.*)$/);
+    if (numMatch) {
+      return {
+        type: "count",
+        label,
+        value: parseInt(numMatch[1], 10),
+        status: parseInt(numMatch[1], 10) === 0 ? "neutral" : "success"
+      };
+    }
+
+    // Check if it's a date
+    if (/^\d{4}-\d{2}-\d{2}/.test(value)) {
+      return { type: "date", label, value };
+    }
+
+    // Check if it's a status-like value
+    const statusWords = ["open", "closed", "active", "inactive", "pending", "completed", "blocked", "on_hold"];
+    if (statusWords.includes(value.toLowerCase())) {
+      return {
+        type: "status",
+        label,
+        value: value.charAt(0).toUpperCase() + value.slice(1).toLowerCase(),
+        status: ["open", "active", "completed"].includes(value.toLowerCase()) ? "success" :
+                ["blocked", "closed"].includes(value.toLowerCase()) ? "warning" : "neutral"
+      };
+    }
+
+    return { type: "text", label, value };
+  }
+
+  // Default: plain text
+  return { type: "text", label: "", value: trimmed };
+}
+
+/**
+ * Renders a parsed fact with appropriate visualization.
+ */
+function FactRenderer({ fact }: { fact: ParsedFact }) {
+  // Activity timeline
+  if (fact.type === "activity" && fact.activities && fact.activities.length > 0) {
+    return (
+      <div className="agent-fact-card agent-fact-activity">
+        <div className="agent-fact-header">
+          <Activity className="w-4 h-4 text-indigo-500" />
+          <span className="agent-fact-label">{fact.label}</span>
+        </div>
+        <div className="agent-activity-list">
+          {fact.activities.slice(0, 4).map((item, idx) => (
+            <div key={idx} className="agent-activity-row">
+              <div className="agent-activity-dot-small" />
+              <span className="agent-activity-type-small">{item.type}</span>
+              {item.timestamp && (
+                <span className="agent-activity-time-small">
+                  <Clock className="w-3 h-3" />
+                  {item.timestamp}
+                </span>
+              )}
+            </div>
+          ))}
+          {fact.activities.length > 4 && (
+            <div className="agent-activity-overflow">
+              +{fact.activities.length - 4} more
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Summary with multiple items (status, counts, etc.)
+  if (fact.type === "summary" && fact.items && fact.items.length > 0) {
+    return (
+      <div className="agent-fact-card agent-fact-summary">
+        <div className="agent-fact-header">
+          <Briefcase className="w-4 h-4 text-slate-500" />
+          <span className="agent-fact-label">{fact.label}</span>
+        </div>
+        <div className="agent-summary-grid">
+          {fact.items.map((item, idx) => (
+            <div key={idx} className="agent-summary-item">
+              <span className="agent-summary-item-label">{item.label}</span>
+              <span className={`agent-summary-item-value ${
+                item.status === "success" ? "is-success" :
+                item.status === "warning" ? "is-warning" : ""
+              }`}>
+                {typeof item.value === "number" ? (
+                  <span className="agent-summary-count">{item.value}</span>
+                ) : item.value ? (
+                  <>
+                    {item.status === "success" && <CheckCircle2 className="w-3.5 h-3.5" />}
+                    {item.status === "warning" && <AlertCircle className="w-3.5 h-3.5" />}
+                    {item.value}
+                  </>
+                ) : "—"}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Count fact
+  if (fact.type === "count") {
+    return (
+      <div className="agent-fact-card agent-fact-count">
+        <div className="agent-fact-header">
+          <Hash className="w-4 h-4 text-slate-400" />
+          <span className="agent-fact-label">{fact.label}</span>
+        </div>
+        <div className={`agent-count-value ${fact.status === "success" ? "is-success" : fact.status === "warning" ? "is-warning" : ""}`}>
+          {fact.value}
+        </div>
+      </div>
+    );
+  }
+
+  // Status fact
+  if (fact.type === "status") {
+    return (
+      <div className="agent-fact-card agent-fact-status">
+        <div className="agent-fact-header">
+          {fact.status === "success" ? (
+            <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+          ) : fact.status === "warning" ? (
+            <AlertCircle className="w-4 h-4 text-amber-500" />
+          ) : (
+            <FileBox className="w-4 h-4 text-slate-400" />
+          )}
+          <span className="agent-fact-label">{fact.label}</span>
+        </div>
+        <div className={`agent-status-value ${
+          fact.status === "success" ? "is-success" :
+          fact.status === "warning" ? "is-warning" : ""
+        }`}>
+          {fact.value}
+        </div>
+      </div>
+    );
+  }
+
+  // Date fact
+  if (fact.type === "date") {
+    return (
+      <div className="agent-fact-card agent-fact-date">
+        <div className="agent-fact-header">
+          <Calendar className="w-4 h-4 text-blue-500" />
+          <span className="agent-fact-label">{fact.label}</span>
+        </div>
+        <div className="agent-date-value">{fact.value}</div>
+      </div>
+    );
+  }
+
+  // Default text fact
+  return (
+    <div className="agent-fact-card agent-fact-text">
+      {fact.label ? (
+        <>
+          <div className="agent-fact-header">
+            <FileBox className="w-4 h-4 text-slate-400" />
+            <span className="agent-fact-label">{fact.label}</span>
+          </div>
+          <div className="agent-text-value">{fact.value}</div>
+        </>
+      ) : (
+        <p className="text-sm text-slate-700 dark:text-slate-200">{fact.value}</p>
+      )}
+    </div>
+  );
+}
 
 interface ExplanationArtifactProps {
   data: ExplanationOutput;
@@ -67,74 +326,74 @@ export function ExplanationArtifact({
   }
 
   return (
-    <div className="artifact-build agent-artifact-card">
+    <div className="artifact-build agent-artifact-card is-explanation">
       {/* Header - appears first after card shell */}
-      <div className="artifact-build-header agent-artifact-header flex items-center justify-between px-5 py-3">
-        <div className="flex items-center gap-2">
-          <FileText className="w-4 h-4 text-slate-500" />
-          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-            {entityLabel}
-          </span>
-          {entityIdLabel && (
-            <span className="text-xs text-slate-400 dark:text-slate-500">
-              {entityIdLabel}
-            </span>
-          )}
+      <div className="artifact-build-header agent-artifact-header agent-artifact-header-explanation flex items-center justify-between px-5 py-4">
+        <div className="flex items-center gap-3">
+          <div className="agent-icon-container agent-icon-container-indigo">
+            <FileText className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+              {entityLabel}
+            </h4>
+            {entityIdLabel && (
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                {entityIdLabel}
+              </p>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Body */}
-      <div className="px-5 py-4">
+      <div className="px-5 py-5">
         {/* ─── Section 1: FACTS ─── */}
         <div className="artifact-build-section artifact-build-section-1">
-          <p className="artifact-build-summary text-sm font-medium text-slate-900 dark:text-white leading-relaxed">
+          <p className="artifact-build-summary text-[15px] font-medium text-slate-800 dark:text-slate-100 leading-relaxed">
             {data.facts.summary}
           </p>
 
           {data.facts.details && data.facts.details.length > 0 && (
-            <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-700/50">
-              <span className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-2 block">
-                Facts
+            <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-700/50">
+              <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-3 block">
+                Key Facts
               </span>
-              <ul className="space-y-1">
-                {data.facts.details.map((detail: string, idx: number) => (
-                  <li
-                    key={idx}
-                    className="artifact-build-item text-sm text-slate-600 dark:text-slate-300 pl-4 relative before:content-[''] before:absolute before:left-0 before:top-[0.55em] before:w-1.5 before:h-1.5 before:rounded-full before:bg-slate-300 dark:before:bg-slate-600"
-                  >
-                    {detail}
-                  </li>
-                ))}
-              </ul>
+              <div className="agent-facts-container">
+                {data.facts.details.map((detail: string, idx: number) => {
+                  const parsedFact = parseFact(detail);
+                  return <FactRenderer key={idx} fact={parsedFact} />;
+                })}
+              </div>
             </div>
           )}
         </div>
 
         {/* ─── Related Summary (Child Counts) ─── */}
         {data.relatedSummary && data.relatedSummary.length > 0 && (
-          <div className="artifact-build-section artifact-build-section-related mt-4 pt-4 border-t border-slate-100 dark:border-slate-700/50">
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-2 block">
+          <div className="artifact-build-section artifact-build-section-related mt-5 pt-5 border-t border-slate-100 dark:border-slate-700/50">
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-3 block">
               Related Summary
             </span>
             <div className="space-y-3">
               {data.relatedSummary.map((section, idx) => (
                 <div
                   key={`${section.title}-${idx}`}
-                  className="rounded-lg border border-slate-100 dark:border-slate-700/60 bg-slate-50 dark:bg-slate-900/40 p-3"
+                  className="rounded-xl border border-slate-200/80 dark:border-slate-700/60 bg-gradient-to-br from-slate-50 to-slate-100/50 dark:from-slate-800/40 dark:to-slate-900/40 p-4"
                 >
-                  <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                  <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-3">
                     {section.title}
                   </div>
-                  <div className="mt-2 grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-2 gap-3">
                     {section.items.map((item, itemIdx) => (
                       <div
                         key={`${section.title}-${item.label}-${itemIdx}`}
-                        className="flex items-center justify-between rounded-md bg-white/60 dark:bg-slate-900/60 px-2 py-1.5 text-xs text-slate-600 dark:text-slate-300"
+                        className="agent-fact-card flex items-center justify-between"
                       >
-                        <span className="text-slate-500 dark:text-slate-400">
+                        <span className="text-xs text-slate-500 dark:text-slate-400">
                           {item.label}
                         </span>
-                        <span className="text-sm font-semibold text-slate-900 dark:text-white">
+                        <span className="text-base font-bold text-slate-800 dark:text-white">
                           {item.value}
                         </span>
                       </div>
@@ -147,12 +406,12 @@ export function ExplanationArtifact({
         )}
 
         {/* ─── Section 2: INTERPRETATION (MANDATORY) ─── */}
-        <div className="artifact-build-section artifact-build-section-2">
+        <div className="artifact-build-section artifact-build-section-2 mt-5">
           <InterpretationBlock interpretation={data.interpretation} />
         </div>
 
         {/* ─── Section 3: NAVIGATION (MANDATORY) ─── */}
-        <div className="artifact-build-section artifact-build-section-3">
+        <div className="artifact-build-section artifact-build-section-3 mt-5">
           <NavigationContext
             navigation={data.navigation}
             parentFollowUp={parentFollowUp}
@@ -175,27 +434,33 @@ function LegacyExplanationArtifact({
   entityLabel: string;
 }) {
   return (
-    <div className="artifact-enter agent-artifact-card">
-      <div className="agent-artifact-header flex items-center justify-between px-5 py-3">
-        <div className="flex items-center gap-2">
-          <FileText className="w-4 h-4 text-slate-500" />
-          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+    <div className="artifact-enter agent-artifact-card is-explanation">
+      <div className="agent-artifact-header agent-artifact-header-explanation flex items-center justify-between px-5 py-4">
+        <div className="flex items-center gap-3">
+          <div className="agent-icon-container agent-icon-container-indigo">
+            <FileText className="w-5 h-5 text-white" />
+          </div>
+          <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-100">
             {data.title || entityLabel}
-          </span>
+          </h4>
         </div>
       </div>
-      <div className="px-5 py-4">
-        <p className="text-sm font-medium text-slate-900 dark:text-white">
+      <div className="px-5 py-5">
+        <p className="text-[15px] font-medium text-slate-800 dark:text-slate-100 leading-relaxed">
           {data.summary || "No summary available"}
         </p>
         {data.details && data.details.length > 0 && (
-          <ul className="mt-3 space-y-1">
-            {data.details.map((detail, idx) => (
-              <li key={idx} className="text-sm text-slate-600 dark:text-slate-300">
-                {detail}
-              </li>
-            ))}
-          </ul>
+          <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-700/50">
+            <div className="agent-facts-grid">
+              {data.details.map((detail, idx) => (
+                <div key={idx} className="agent-fact-card">
+                  <p className="text-sm text-slate-700 dark:text-slate-200">
+                    {detail}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
         )}
       </div>
     </div>

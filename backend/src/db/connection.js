@@ -230,6 +230,15 @@ function initialize() {
     { name: "officer_id", definition: "INTEGER" },
     { name: "document_text", definition: "TEXT" },
     { name: "unreadable_text", definition: "INTEGER NOT NULL DEFAULT 0" },
+    {
+      name: "text_length",
+      definition: "INTEGER",
+      onAdd: (database) => {
+        database.exec(
+          "UPDATE documents SET text_length = LENGTH(document_text) WHERE text_length IS NULL AND document_text IS NOT NULL;"
+        );
+      },
+    },
   ];
 
   [

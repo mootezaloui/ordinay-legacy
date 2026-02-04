@@ -4,6 +4,9 @@ const { INTENTS } = require('../intents');
 
 const agentV1Policy = {
   version: 'v1',
+  documentHandling: {
+    mode: 'text', // deterministic text extraction for readable documents
+  },
   allowedIntents: [
     INTENTS.GENERAL_CHAT,
     INTENTS.EXPLAIN_ENTITY_STATE,

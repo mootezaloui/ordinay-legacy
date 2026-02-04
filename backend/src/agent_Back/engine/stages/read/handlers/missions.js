@@ -1,6 +1,7 @@
 "use strict";
 
 const { READ_INTENTS } = require("../../../../intent.classifier");
+const { resolveEntityDisplayLabel } = require("../../../../utils/entityDisplay");
 
 async function handleListMissions(state) {
   const {
@@ -68,7 +69,7 @@ async function handleListMissions(state) {
           title = "Read data — Missions";
           summary = resolution.message;
           resolution.candidates?.forEach((c) =>
-            details.push(`${c.name} (ID: ${c.id})`),
+            details.push(`${c.name || "Dossier"}`),
           );
           details.push("Please specify which dossier you mean.");
           break;
@@ -102,7 +103,7 @@ async function handleListMissions(state) {
           title = "Read data — Missions";
           summary = resolution.message;
           resolution.candidates?.forEach((c) =>
-            details.push(`${c.name} (ID: ${c.id})`),
+            details.push(`${c.name || "Case"}`),
           );
           details.push("Please specify which case you mean.");
           break;
@@ -208,6 +209,36 @@ async function handleReadMission(state) {
     const hintName = entityHints.find((hint) => hint.type === "name")?.value;
     title = "Read data — Mission";
 
+    const appendParentLabels = async (mission) => {
+      if (mission.dossier_id) {
+        const dossierResult = await safeReadSummaryTool("getDossier", {
+          dossierId: mission.dossier_id,
+        });
+        const dossierLabel = dossierResult?.dossier
+          ? resolveEntityDisplayLabel("dossier", dossierResult.dossier, {
+              fallback: "Dossier",
+            })
+          : "Dossier";
+        details.push(`Dossier: ${dossierLabel}`);
+      } else {
+        details.push("Dossier: N/A");
+      }
+
+      if (mission.lawsuit_id) {
+        const lawsuitResult = await safeReadSummaryTool("getLawsuit", {
+          lawsuitId: mission.lawsuit_id,
+        });
+        const lawsuitLabel = lawsuitResult?.lawsuit
+          ? resolveEntityDisplayLabel("lawsuit", lawsuitResult.lawsuit, {
+              fallback: "Lawsuit",
+            })
+          : "Lawsuit";
+        details.push(`Lawsuit: ${lawsuitLabel}`);
+      } else {
+        details.push("Lawsuit: N/A");
+      }
+    };
+
     if (hintId) {
       const result = await this._callReadTool(
         "getMission",
@@ -216,16 +247,15 @@ async function handleReadMission(state) {
       );
       const mission = result?.mission;
       if (!mission) {
-        summary = `No mission found for ID ${hintId}`;
+        summary = "No mission found for that identifier.";
         details.push("Try listing missions to see available records.");
         break;
       }
-      summary = `Mission: ${mission.reference || mission.title || hintId}`;
+      summary = `Mission: ${resolveEntityDisplayLabel("mission", mission, { fallback: "Mission" })}`;
       details.push(`Title: ${mission.title || "Untitled"}`);
       details.push(`Status: ${mission.status || "planned"}`);
       details.push(`Due date: ${mission.due_date ? formatDate(mission.due_date) : "N/A"}`);
-      details.push(`Dossier ID: ${mission.dossier_id || "N/A"}`);
-      details.push(`Lawsuit ID: ${mission.lawsuit_id || "N/A"}`);
+      await appendParentLabels(mission);
       sources.push({
         sourceType: "system",
         reference: "tool:getMission",
@@ -249,12 +279,11 @@ async function handleReadMission(state) {
         details.push("Try listing all missions with: show me my missions");
       } else if (missions.length === 1) {
         const mission = missions[0];
-        summary = `Mission: ${mission.reference || mission.title || "Mission"}`;
+        summary = `Mission: ${resolveEntityDisplayLabel("mission", mission, { fallback: "Mission" })}`;
         details.push(`Title: ${mission.title || "Untitled"}`);
         details.push(`Status: ${mission.status || "planned"}`);
         details.push(`Due date: ${mission.due_date ? formatDate(mission.due_date) : "N/A"}`);
-        details.push(`Dossier ID: ${mission.dossier_id || "N/A"}`);
-        details.push(`Lawsuit ID: ${mission.lawsuit_id || "N/A"}`);
+        await appendParentLabels(mission);
         sources.push({
           sourceType: "system",
           reference: "tool:listMissions",
@@ -266,7 +295,7 @@ async function handleReadMission(state) {
         summary = `Multiple missions match "${query}"`;
         missions.forEach((m) =>
           details.push(
-            `${m.reference || "Mission"} — ${m.title || "Untitled"} (ID: ${m.id})`,
+            `${m.reference || "Mission"} — ${m.title || "Untitled"}`,
           ),
         );
         details.push("Please specify which mission you mean.");
@@ -275,7 +304,7 @@ async function handleReadMission(state) {
     }
 
     summary = "Which mission?";
-    details.push("Provide a mission ID or reference.");
+    details.push("Provide a mission reference or name.");
     break;
   } while (false);
 
@@ -361,7 +390,7 @@ async function handleExplainMission(state) {
         summary = `Multiple missions match "${query}"`;
         missions.forEach((m) =>
           details.push(
-            `${m.reference || "Mission"} — ${m.title || "Untitled"} (ID: ${m.id})`,
+            `${m.reference || "Mission"} — ${m.title || "Untitled"}`,
           ),
         );
         details.push("Please specify which mission you mean.");
@@ -371,7 +400,7 @@ async function handleExplainMission(state) {
 
     if (!mission) {
       summary = "Which mission?";
-      details.push("Provide a mission ID or reference.");
+      details.push("Provide a mission reference or name.");
       break;
     }
 
@@ -385,12 +414,12 @@ async function handleExplainMission(state) {
 
     if (intent === READ_INTENTS.EXPLAIN_MISSION_STATE) {
       title = "Read data — Mission state";
-      summary = `Mission: ${mission.reference || mission.title || "Mission"}`;
+      summary = `Mission: ${resolveEntityDisplayLabel("mission", mission, { fallback: "Mission" })}`;
       details.push(`Status: ${mission.status || "planned"}`);
       details.push(`Priority: ${mission.priority || "medium"}`);
       details.push(`Due date: ${mission.due_date ? formatDate(mission.due_date) : "N/A"}`);
       details.push(
-        `Relationships: dossier ${mission.dossier_id || "N/A"}, case ${mission.lawsuit_id || "N/A"}`,
+        `Relationships: ${mission.dossier_id ? "linked dossier" : "dossier N/A"}, ${mission.lawsuit_id ? "linked case" : "case N/A"}`,
       );
       details.push(
         overdue ? "Blocking: mission overdue" : "Blocking: none detected",
@@ -412,7 +441,7 @@ async function handleExplainMission(state) {
     }
 
     title = "Read data — Mission summary";
-    summary = `Mission: ${mission.reference || mission.title || "Mission"}`;
+    summary = `Mission: ${resolveEntityDisplayLabel("mission", mission, { fallback: "Mission" })}`;
     const recentActivity = historyEvents.map((event) => {
       const when = event.created_at ? formatDateTime(event.created_at) : "unknown";
       return `${when} — ${event.action || "event"}`;

@@ -61,7 +61,7 @@ async function handleListClients(state) {
         : "No clients found";
     clients.forEach((c) => {
       details.push(
-        `${c.name} (ID: ${c.id}) — ${c.status || "active"}${c.email ? ` • ${c.email}` : ""}`,
+        `${c.name || "Client"} — ${c.status || "active"}${c.email ? ` • ${c.email}` : ""}`,
       );
     });
     sources.push({
@@ -129,12 +129,11 @@ async function handleReadClient(state) {
       );
       const client = result?.client;
       if (!client) {
-        summary = `No client found for ID ${hintId}`;
+        summary = "No client found for that identifier.";
         details.push("Try listing clients to see available records.");
         break;
       }
       summary = `Client: ${client.name}`;
-      details.push(`ID: ${client.id}`);
       details.push(`Status: ${client.status || "active"}`);
       details.push(`Email: ${client.email || "N/A"}`);
       details.push(`Phone: ${client.phone || "N/A"}`);
@@ -162,7 +161,6 @@ async function handleReadClient(state) {
       } else if (clients.length === 1) {
         const client = clients[0];
         summary = `Client: ${client.name}`;
-        details.push(`ID: ${client.id}`);
         details.push(`Status: ${client.status || "active"}`);
         details.push(`Email: ${client.email || "N/A"}`);
         details.push(`Phone: ${client.phone || "N/A"}`);
@@ -178,7 +176,7 @@ async function handleReadClient(state) {
         summary = `Multiple clients match "${hintName}"`;
         clients.forEach((c) => {
           details.push(
-            `${c.name} (ID: ${c.id}) — ${c.status || "active"}`,
+            `${c.name || "Client"} — ${c.status || "active"}`,
           );
         });
         details.push("Please specify which client you mean.");
@@ -187,7 +185,7 @@ async function handleReadClient(state) {
     }
 
     summary = "Which client?";
-    details.push("Provide a client ID or name.");
+    details.push("Provide a client name.");
     break;
   } while (false);
 
@@ -256,7 +254,7 @@ async function handleExplainClient(state) {
       const client = result?.client;
       if (!client) {
         title = "Read data — Client";
-        summary = `No client found for ID ${targetId}`;
+        summary = "No client found for that identifier.";
         details.push("Try listing clients to see available records.");
         break;
       }
@@ -353,7 +351,7 @@ async function handleExplainClient(state) {
             : "Read data — Client summary";
         summary = `Client: ${client.name}`;
         details.push(`Status: ${client.status || "active"}`);
-        details.push("Provide a client ID for relationships and blockers.");
+        details.push("Provide the client name to load relationships and blockers.");
         sources.push({
           sourceType: "system",
           reference: "tool:searchClientsByName",
@@ -365,14 +363,14 @@ async function handleExplainClient(state) {
       }
       summary = `Multiple clients match "${hintName}"`;
       clients.forEach((c) =>
-        details.push(`${c.name} (ID: ${c.id}) — ${c.status || "active"}`),
+        details.push(`${c.name || "Client"} — ${c.status || "active"}`),
       );
       details.push("Please specify which client you mean.");
       break;
     }
 
     summary = "Which client?";
-    details.push("Provide a client ID or name.");
+    details.push("Provide a client name.");
     break;
   } while (false);
 

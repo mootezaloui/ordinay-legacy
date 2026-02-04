@@ -18,6 +18,10 @@
 "use strict";
 
 const { READ_INTENTS } = require("../intents");
+const {
+  resolveEntityDisplayLabel,
+  formatEntityTypeLabel,
+} = require("../utils/entityDisplay");
 
 // ─── Entity Role Definitions ───────────────────────────────────
 
@@ -215,16 +219,17 @@ function interpretEntityState(entityType, entityData, context) {
       {
         level: "info",
         statement: "More information is required to locate the record.",
-        implication: "Provide an ID, reference, or exact name.",
+        implication: "Provide a reference or exact name.",
       },
     ];
   }
   if (readOutcome === "not_found") {
+    const entityLabel = ENTITY_LABELS[entityType] || entityType;
     return [
       {
         level: "info",
-        statement: `No ${entityType} record matched this request.`,
-        implication: "Verify the identifier or broaden the search.",
+        statement: `The specified ${entityLabel.toLowerCase()} could not be located.`,
+        implication: "The reference may be incorrect, or the record may not exist in the system. Try a different identifier or check the parent entity.",
       },
     ];
   }
@@ -275,11 +280,13 @@ function interpretCollectionState(entityType, entities, context) {
   const count = entities.length;
 
   if (count === 0) {
+    // Frame absence as "no activity yet" rather than "not found" (error-like)
+    const entityLabel = ENTITY_PLURAL_LABELS[entityType] || `${entityType} records`;
     interpretations.push({
       level: "neutral",
-      statement: `No ${entityType} records found.`,
+      statement: `No ${entityLabel} in the current scope.`,
       implication:
-        "This may mean none exist yet, they fall outside the current scope, or they have not been recorded. Check filters or confirm the parent record.",
+        "This indicates no activity has been recorded yet, or the scope may need adjustment. Consider whether this is expected or if records should be created.",
     });
     return interpretations;
   }
@@ -1149,40 +1156,6 @@ function resolveResultCount(entityData, context) {
   return 0;
 }
 
-function resolveListItemLabel(entityType, item) {
-  if (!item || typeof item !== "object") return null;
-  const fallback =
-    item.reference || item.title || item.name || item.subject || item.id;
-
-  switch (entityType) {
-    case "client":
-      return item.name || item.reference || fallback;
-    case "dossier":
-      return item.reference || item.title || fallback;
-    case "lawsuit":
-      return item.reference || item.lawsuit_number || item.title || fallback;
-    case "task":
-    case "personal_task":
-      return item.title || item.name || fallback;
-    case "session":
-      return item.title || item.session_type || item.reference || fallback;
-    case "mission":
-      return item.reference || item.title || fallback;
-    case "financial_entry":
-      return item.reference || item.title || fallback;
-    case "notification":
-      return item.title || item.subject || fallback;
-    case "history_event":
-      return item.action || item.title || fallback;
-    default:
-      return fallback;
-  }
-}
-
-function formatEntityTypeLabel(entityType) {
-  return String(entityType || "").replace(/_/g, " ").trim();
-}
-
 function resolveEntityDataForType(entityType, entityData, context) {
   if (entityData && !Array.isArray(entityData) && entityType) {
     return entityData;
@@ -1205,34 +1178,35 @@ function resolveEntityDataForType(entityType, entityData, context) {
 function resolveEntityLabel(entityType, entityId, entityData, context, navigation) {
   if (!entityType) return null;
 
+  const candidates = [];
+  if (entityData && typeof entityData === "object") {
+    candidates.push(entityData);
+  }
   if (
     navigation?.parentPath &&
-    navigation.parentPath.type === entityType &&
-    navigation.parentPath.id !== undefined &&
-    String(navigation.parentPath.id) === String(entityId)
+    navigation.parentPath.type === entityType
   ) {
-    return (
-      navigation.parentPath.reference ||
-      navigation.parentPath.name ||
-      String(entityId)
-    );
+    candidates.push(navigation.parentPath);
+  }
+  const contextData = resolveEntityDataForType(entityType, entityData, context);
+  if (contextData && contextData !== entityData) {
+    candidates.push(contextData);
   }
 
-  const candidate = resolveEntityDataForType(entityType, entityData, context);
-  if (candidate) {
+  for (const candidate of candidates) {
+    if (!candidate || typeof candidate !== "object") continue;
     if (
       entityId === null ||
       entityId === undefined ||
       candidate.id === undefined ||
       String(candidate.id) === String(entityId)
     ) {
-      return resolveListItemLabel(entityType, candidate) || String(entityId);
+      const label = resolveEntityDisplayLabel(entityType, candidate);
+      if (label) return label;
     }
   }
 
-  return entityId !== null && entityId !== undefined
-    ? String(entityId)
-    : null;
+  return null;
 }
 
 function buildEntityContext(
@@ -1241,15 +1215,10 @@ function buildEntityContext(
   entityData,
   context,
   navigation,
-  labelOverride,
 ) {
   if (!entityType || entityId === null || entityId === undefined) return null;
-  const fallbackLabel =
-    entityId !== null && entityId !== undefined
-      ? `${formatEntityTypeLabel(entityType)} ${entityId}`
-      : formatEntityTypeLabel(entityType);
+  const fallbackLabel = formatEntityTypeLabel(entityType);
   const resolvedLabel =
-    labelOverride ||
     resolveEntityLabel(entityType, entityId, entityData, context, navigation) ||
     fallbackLabel;
   return {
@@ -1284,7 +1253,10 @@ function buildSelectionFollowUps(entityType, entityData) {
   return candidates.slice(0, 5).flatMap((item, idx) => {
     const scope = buildScopeForType(entityType, item.id);
     if (Object.keys(scope).length === 0) return [];
-    const labelText = resolveListItemLabel(entityType, item) || `${entityType.replace(/_/g, " ")} ${item.id}`;
+    const labelText =
+      resolveEntityDisplayLabel(entityType, item, {
+        fallback: formatEntityTypeLabel(entityType),
+      }) || formatEntityTypeLabel(entityType);
     const origin = { type: entityType, id: item.id };
     const target = {
       type: entityType,
@@ -1582,7 +1554,6 @@ function generateFollowUps(entityType, entityData, context, interpretation, navi
         null,
         context,
         navigation,
-        navigation.parentPath.reference || navigation.parentPath.name,
       );
       parentFollowUp = {
         category: "navigation",
@@ -1999,15 +1970,19 @@ function interpret(entityType, entityData, context) {
 
 /**
  * Builds a one-line summary of interpretation.
+ *
+ * SEMANTIC CONTRACT:
+ * - The summary should reflect what the data MEANS, not just its presence/absence
+ * - Empty results are meaningful ("no pending tasks" ≠ "error")
+ * - Always use the interpretation statements when available
+ * - Never return generic "Empty result." - that's a fact, not an interpretation
  */
 function buildInterpretationSummary(interpretation, context) {
   const resultCount =
     typeof context?._resultCount === "number" ? context._resultCount : null;
   const readOutcome = context?._readOutcome;
 
-  if (resultCount === 0 || readOutcome === "empty" || readOutcome === "not_found") {
-    return "Empty result.";
-  }
+  // Check for critical/warning issues first (these always take priority)
   const critical = interpretation.filter((i) => i.level === "critical");
   const warning = interpretation.filter((i) => i.level === "warning");
 
@@ -2017,6 +1992,26 @@ function buildInterpretationSummary(interpretation, context) {
   if (warning.length > 0) {
     return `${warning.length} item(s) need review.`;
   }
+
+  // For empty/not_found results, use the interpretation statements
+  // The interpretation array already contains meaningful context from interpretEntityState()
+  if (resultCount === 0 || readOutcome === "empty" || readOutcome === "not_found") {
+    // Look for a meaningful interpretation statement (neutral or info level)
+    const meaningful = interpretation.find(
+      (i) => i.level === "neutral" || i.level === "info"
+    );
+    if (meaningful && meaningful.statement) {
+      return meaningful.statement;
+    }
+    // Fallback: provide contextual message based on entity type if available
+    const entityType = context?.activeEntityType || context?.scope;
+    if (entityType) {
+      return `No ${entityType} activity in the current scope.`;
+    }
+    return "No matching records in the current scope.";
+  }
+
+  // Default for successful results with no issues
   return "No critical issues detected in the current records.";
 }
 

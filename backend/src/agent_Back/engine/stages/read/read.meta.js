@@ -1,6 +1,10 @@
 "use strict";
 
 const { interpret: postReadInterpret } = require("../../../interpreters/post-read.interpreter");
+const {
+  resolveEntityDisplayLabel,
+  formatEntityTypeLabel,
+} = require("../../../utils/entityDisplay");
 const { READ_INTENTS } = require("../../../intent.classifier");
 
 function _resolveReadEntityType(intent) {
@@ -53,47 +57,24 @@ function _resolveReadEntityType(intent) {
 }
 
 function _resolveReadEntityId(entityType, entityData) {
-  if (!entityType) return null;
+  if (!entityType) return "Record";
+
+  const fallback = formatEntityTypeLabel(entityType) || "Record";
 
   if (Array.isArray(entityData)) {
-    if (entityData.length === 1 && entityData[0]?.id) {
-      return String(entityData[0].id);
+    if (entityData.length === 1 && entityData[0]) {
+      return resolveEntityDisplayLabel(entityType, entityData[0], {
+        fallback,
+      });
     }
     return `list:${entityType}`;
   }
 
   if (entityData && typeof entityData === "object") {
-    if (entityData.id !== null && entityData.id !== undefined) {
-      return String(entityData.id);
-    }
-    if (entityData.reference) return String(entityData.reference);
-    if (entityData.title) return String(entityData.title);
+    return resolveEntityDisplayLabel(entityType, entityData, { fallback });
   }
 
-  switch (entityType) {
-    case "client":
-      return "read:client";
-    case "dossier":
-      return "read:dossier";
-    case "lawsuit":
-      return "read:lawsuit";
-    case "task":
-      return "read:task";
-    case "session":
-      return "read:session";
-    case "mission":
-      return "read:mission";
-    case "financial_entry":
-      return "read:financial_entry";
-    case "personal_task":
-      return "read:personal_task";
-    case "notification":
-      return "read:notification";
-    case "history_event":
-      return "read:history_event";
-    default:
-      return String(entityData.id || entityType);
-  }
+  return fallback;
 }
 
 function _inferReadOutcome({ data, summary, details }) {

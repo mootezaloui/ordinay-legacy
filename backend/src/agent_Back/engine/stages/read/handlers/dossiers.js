@@ -1,6 +1,7 @@
 "use strict";
 
 const { READ_INTENTS } = require("../../../../intent.classifier");
+const { resolveEntityDisplayLabel } = require("../../../../utils/entityDisplay");
 
 async function handleListDossiers(state) {
   const {
@@ -62,7 +63,7 @@ async function handleListDossiers(state) {
           title = "Read data — Dossiers";
           summary = resolution.message;
           resolution.candidates?.forEach((c) =>
-            details.push(`${c.name} (ID: ${c.id})`),
+            details.push(`${c.name || "Client"}`),
           );
           details.push("Please specify which client you mean.");
           break;
@@ -161,15 +162,27 @@ async function handleReadDossier(state) {
       );
       const dossier = result?.dossier;
       if (!dossier) {
-        summary = `No dossier found for ID ${hintId}`;
+        summary = "No dossier found for that identifier.";
         details.push("Try listing dossiers to see available records.");
         break;
       }
-      summary = `Dossier: ${dossier.reference || dossier.title || hintId}`;
+      summary = `Dossier: ${resolveEntityDisplayLabel("dossier", dossier, { fallback: "Dossier" })}`;
       details.push(`Title: ${dossier.title || "Untitled"}`);
       details.push(`Status: ${dossier.status || "open"}`);
       details.push(`Priority: ${dossier.priority || "medium"}`);
-      details.push(`Client ID: ${dossier.client_id || "N/A"}`);
+      if (dossier.client_id) {
+        const clientResult = await safeReadSummaryTool("getClient", {
+          clientId: dossier.client_id,
+        });
+        const clientLabel = clientResult?.client
+          ? resolveEntityDisplayLabel("client", clientResult.client, {
+              fallback: "Client",
+            })
+          : "Client";
+        details.push(`Client: ${clientLabel}`);
+      } else {
+        details.push("Client: N/A");
+      }
       if (dossier.phase) details.push(`Phase: ${dossier.phase}`);
       sources.push({
         sourceType: "system",
@@ -197,7 +210,19 @@ async function handleReadDossier(state) {
       details.push(`Title: ${dossier.title || "Untitled"}`);
       details.push(`Status: ${dossier.status || "open"}`);
       details.push(`Priority: ${dossier.priority || "medium"}`);
-      details.push(`Client ID: ${dossier.client_id || "N/A"}`);
+      if (dossier.client_id) {
+        const clientResult = await safeReadSummaryTool("getClient", {
+          clientId: dossier.client_id,
+        });
+        const clientLabel = clientResult?.client
+          ? resolveEntityDisplayLabel("client", clientResult.client, {
+              fallback: "Client",
+            })
+          : "Client";
+        details.push(`Client: ${clientLabel}`);
+      } else {
+        details.push("Client: N/A");
+      }
       if (dossier.phase) details.push(`Phase: ${dossier.phase}`);
       sources.push({
         sourceType: "system",
@@ -225,7 +250,19 @@ async function handleReadDossier(state) {
         details.push(`Title: ${dossier.title || "Untitled"}`);
         details.push(`Status: ${dossier.status || "open"}`);
         details.push(`Priority: ${dossier.priority || "medium"}`);
-        details.push(`Client ID: ${dossier.client_id || "N/A"}`);
+        if (dossier.client_id) {
+          const clientResult = await safeReadSummaryTool("getClient", {
+            clientId: dossier.client_id,
+          });
+          const clientLabel = clientResult?.client
+            ? resolveEntityDisplayLabel("client", clientResult.client, {
+                fallback: "Client",
+              })
+            : "Client";
+          details.push(`Client: ${clientLabel}`);
+        } else {
+          details.push("Client: N/A");
+        }
         if (dossier.phase) details.push(`Phase: ${dossier.phase}`);
         sources.push({
           sourceType: "system",
@@ -238,7 +275,7 @@ async function handleReadDossier(state) {
         summary = `Multiple dossiers match "${hintName}"`;
         dossiers.forEach((d) =>
           details.push(
-            `${d.reference || "Dossier"} — ${d.title || "Untitled"} (ID: ${d.id})`,
+            `${d.reference || "Dossier"} — ${d.title || "Untitled"}`,
           ),
         );
         details.push("Please specify which dossier you mean.");
@@ -247,7 +284,7 @@ async function handleReadDossier(state) {
     }
 
     summary = "Which dossier?";
-    details.push("Provide a dossier ID or reference.");
+    details.push("Provide a dossier reference or name.");
     break;
   } while (false);
 
@@ -339,7 +376,7 @@ async function handleExplainDossier(state) {
         summary = `Multiple dossiers match "${hintName}"`;
         dossiers.forEach((d) =>
           details.push(
-            `${d.reference || "Dossier"} — ${d.title || "Untitled"} (ID: ${d.id})`,
+            `${d.reference || "Dossier"} — ${d.title || "Untitled"}`,
           ),
         );
         details.push("Please specify which dossier you mean.");
@@ -349,7 +386,7 @@ async function handleExplainDossier(state) {
 
     if (!dossier) {
       summary = "Which dossier?";
-      details.push("Provide a dossier ID or reference.");
+      details.push("Provide a dossier reference or name.");
       break;
     }
 

@@ -1,5 +1,10 @@
 "use strict";
 
+const {
+  resolveEntityDisplayLabel,
+  formatEntityTypeLabel,
+} = require("../../../utils/entityDisplay");
+
 function buildSummaryHelpers({
   engine,
   policy,
@@ -106,9 +111,12 @@ function buildSummaryHelpers({
     const errorTitle = titleLabel || `Read data — ${label} summary`;
     const errorDetails = [];
     if (resolution.reason === "ambiguous") {
-      resolution.candidates?.forEach((c) =>
-        errorDetails.push(`${c.name} (ID: ${c.id})`),
-      );
+      resolution.candidates?.forEach((c) => {
+        const display = resolveEntityDisplayLabel(label, c, {
+          fallback: formatEntityTypeLabel(label),
+        });
+        errorDetails.push(display);
+      });
     }
     return {
       title: errorTitle,

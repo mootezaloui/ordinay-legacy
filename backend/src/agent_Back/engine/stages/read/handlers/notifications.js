@@ -98,7 +98,7 @@ async function handleListNotifications(state) {
             title = "Read data — Notifications";
             summary = resolution.message;
             resolution.candidates?.forEach((c) =>
-              details.push(`${c.name} (ID: ${c.id})`),
+              details.push(`${c.name || "Record"}`),
             );
             details.push("Please specify which record you mean.");
             break;
@@ -133,7 +133,7 @@ async function handleListNotifications(state) {
         : "No notifications found";
     notifications.forEach((n) => {
       const type = n.template_key || n.type || "Notification";
-      details.push(`${type} (ID: ${n.id}) — ${n.status || "unread"}`);
+      details.push(`${type} — ${n.status || "unread"}`);
     });
     sources.push({
       sourceType: "system",
@@ -200,14 +200,14 @@ async function handleReadNotification(state) {
       );
       const notification = result?.notification;
       if (!notification) {
-        summary = `No notification found for ID ${hintId}`;
+        summary = "No notification found for that identifier.";
         details.push("Try listing notifications to see available records.");
         break;
       }
-      summary = `Notification: ${notification.template_key || notification.type || hintId}`;
+      summary = `Notification: ${notification.template_key || notification.type || "Notification"}`;
       details.push(`Status: ${notification.status || "unread"}`);
       details.push(`Severity: ${notification.severity || "info"}`);
-      details.push(`Entity: ${notification.entity_type || "N/A"} ${notification.entity_id || ""}`.trim());
+      details.push(`Entity: ${notification.entity_type || "N/A"}`);
       sources.push({
         sourceType: "system",
         reference: "tool:getNotification",
@@ -232,7 +232,7 @@ async function handleReadNotification(state) {
         summary = `Notification: ${notification.template_key || notification.type || "Notification"}`;
         details.push(`Status: ${notification.status || "unread"}`);
         details.push(`Severity: ${notification.severity || "info"}`);
-        details.push(`Entity: ${notification.entity_type || "N/A"} ${notification.entity_id || ""}`.trim());
+        details.push(`Entity: ${notification.entity_type || "N/A"}`);
         sources.push({
           sourceType: "system",
           reference: "tool:listNotifications",
@@ -243,7 +243,7 @@ async function handleReadNotification(state) {
         summary = `Multiple notifications match "${hintName}"`;
         notifications.forEach((n) => {
           const label = n.template_key || n.type || "Notification";
-          details.push(`${label} (ID: ${n.id}) — ${n.status || "unread"}`);
+          details.push(`${label} — ${n.status || "unread"}`);
         });
         details.push("Please specify which notification you mean.");
       }
@@ -251,7 +251,7 @@ async function handleReadNotification(state) {
     }
 
     summary = "Which notification?";
-    details.push("Provide a notification ID.");
+    details.push("Provide a notification title or type.");
     break;
   } while (false);
 
@@ -337,7 +337,7 @@ async function handleExplainNotification(state) {
         summary = `Multiple notifications match "${hintName}"`;
         notifications.forEach((n) => {
           const label = n.template_key || n.type || "Notification";
-          details.push(`${label} (ID: ${n.id}) — ${n.status || "unread"}`);
+          details.push(`${label} — ${n.status || "unread"}`);
         });
         details.push("Please specify which notification you mean.");
         break;
@@ -346,7 +346,7 @@ async function handleExplainNotification(state) {
 
     if (!notification) {
       summary = "Which notification?";
-      details.push("Provide a notification ID.");
+      details.push("Provide a notification title or type.");
       break;
     }
 

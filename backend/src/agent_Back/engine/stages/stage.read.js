@@ -9,6 +9,10 @@ const {
   INTENT_DOMAIN_MAP,
   READ_INTENT_BY_ENTITY,
 } = require("./read/read.constants");
+const {
+  resolveEntityDisplayLabel,
+  formatEntityTypeLabel,
+} = require("../../utils/entityDisplay");
 const { buildReadHelpers } = require("./read/read.helpers");
 const { buildFilterHelpers } = require("./read/read.filters");
 const { buildSummaryHelpers } = require("./read/read.summary");
@@ -197,15 +201,18 @@ async function _executeReadIntent(
 
     const formatCandidateDetail = (entityType, item) => {
       if (!item) return null;
+      const label = resolveEntityDisplayLabel(entityType, item, {
+        fallback: formatEntityTypeLabel(entityType),
+      });
       if (entityType === "client") {
-        return `${item.name || "Client"} (ID: ${item.id}) — ${item.status || "active"}${item.email ? ` • ${item.email}` : ""}`;
+        return `${label} — ${item.status || "active"}${item.email ? ` • ${item.email}` : ""}`;
       }
       if (entityType === "dossier") {
-        return `${item.reference || "Dossier"} — ${item.title || "Untitled"} (ID: ${item.id})`;
+        return `${label}`;
       }
       if (entityType === "task") {
         const due = item.due_date ? ` due ${helpers.formatDate(item.due_date)}` : "";
-        return `${item.title || "Task"} (ID: ${item.id}) — ${item.status || "todo"}${due}`;
+        return `${label} — ${item.status || "todo"}${due}`;
       }
       if (entityType === "session") {
         const when = item.scheduled_at
@@ -213,9 +220,9 @@ async function _executeReadIntent(
           : item.session_date
             ? helpers.formatDate(item.session_date)
             : "date N/A";
-        return `${item.title || item.session_type || "Session"} (ID: ${item.id}) — ${when}`;
+        return `${label} — ${when}`;
       }
-      return `${item.name || item.title || item.reference || "Record"} (ID: ${item.id})`;
+      return label;
     };
 
     const listIntent = String(intent || "").startsWith("LIST_");
@@ -239,7 +246,7 @@ async function _executeReadIntent(
           state.title = `Read data — ${ENTITY_LABELS[entityTypeForIntent] || entityTypeForIntent}`;
           state.summary = `Which ${ENTITY_LABELS[entityTypeForIntent] || entityTypeForIntent}?`;
           state.details.push(
-            `Provide a ${ENTITY_LABELS[entityTypeForIntent] || entityTypeForIntent} name, reference, or ID.`,
+            `Provide a ${ENTITY_LABELS[entityTypeForIntent] || entityTypeForIntent} name or reference.`,
           );
           guardHandled = true;
         } else {
@@ -276,7 +283,7 @@ async function _executeReadIntent(
               : null;
             state.title = `Read data — ${label}`;
             state.summary = resolution.overflow
-              ? `Multiple ${label}s match \"${queryText}\". Please narrow by ID, reference, or exact name.`
+              ? `Multiple ${label}s match \"${queryText}\". Please narrow by reference or exact name.`
               : `Multiple ${label}s match \"${queryText}\".`;
             candidates.forEach((candidate) => {
               const detail = formatCandidateDetail(entityTypeForIntent, candidate);
@@ -292,7 +299,7 @@ async function _executeReadIntent(
             guardHandled = true;
           } else if (resolution.kind === "none") {
             state.title = `Read data — ${label}`;
-            state.summary = `No ${label} found matching \"${queryText}\". Can you confirm spelling or provide an ID/reference?`;
+            state.summary = `No ${label} found matching \"${queryText}\". Can you confirm spelling or provide a reference?`;
             state.details.push(
               `Provide a more specific ${label} identifier to continue.`,
             );

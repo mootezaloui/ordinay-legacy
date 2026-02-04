@@ -301,6 +301,14 @@ async function _fetchRequiredData(dataReqs, context, policy) {
       failed: [],
     },
   };
+  const documentMode = policy?.documentHandling?.mode
+    ? String(policy.documentHandling.mode).toLowerCase()
+    : policy?.version === "v1"
+      ? "text"
+      : "metadata";
+  const shouldAttachDocuments =
+    documentMode === "text" || documentMode === "analyzed";
+  const documentPreviewLength = shouldAttachDocuments ? 0 : 0;
 
   // Step 1: Resolve entity hints (e.g., "Emma" → client ID)
   for (const hint of dataReqs.entityHints) {
@@ -342,14 +350,16 @@ async function _fetchRequiredData(dataReqs, context, policy) {
       );
       if (clientResult?.client) {
         result.entities.client = clientResult.client;
-        const docResult = this._loadDocumentMetadata(
-          "client",
-          result.entities.client.id,
-          context,
-          { previewLength: 200 },
-        );
-        if (docResult.permitted) {
-          result.entities.client.documents = docResult.documents;
+        if (shouldAttachDocuments) {
+          const docResult = this._loadDocumentMetadata(
+            "client",
+            result.entities.client.id,
+            context,
+            { previewLength: documentPreviewLength },
+          );
+          if (docResult.permitted) {
+            result.entities.client.documents = docResult.documents;
+          }
         }
       }
     } catch (err) {
@@ -370,14 +380,16 @@ async function _fetchRequiredData(dataReqs, context, policy) {
       );
       if (dossierResult?.dossier) {
         result.entities.dossier = dossierResult.dossier;
-        const docResult = this._loadDocumentMetadata(
-          "dossier",
-          result.entities.dossier.id,
-          context,
-          { previewLength: 200 },
-        );
-        if (docResult.permitted) {
-          result.entities.dossier.documents = docResult.documents;
+        if (shouldAttachDocuments) {
+          const docResult = this._loadDocumentMetadata(
+            "dossier",
+            result.entities.dossier.id,
+            context,
+            { previewLength: documentPreviewLength },
+          );
+          if (docResult.permitted) {
+            result.entities.dossier.documents = docResult.documents;
+          }
         }
       }
     } catch (err) {

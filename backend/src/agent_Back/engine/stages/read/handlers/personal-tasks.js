@@ -1,6 +1,7 @@
 "use strict";
 
 const { READ_INTENTS } = require("../../../../intent.classifier");
+const { resolveEntityDisplayLabel } = require("../../../../utils/entityDisplay");
 
 async function handleListPersonalTasks(state) {
   const {
@@ -85,7 +86,7 @@ async function handleListPersonalTasks(state) {
     filteredTasks.forEach((t) => {
       const due = t.due_date ? ` due ${formatDate(t.due_date)}` : "";
       details.push(
-        `${t.title || "Personal task"} (ID: ${t.id}) — ${t.status || "todo"}${due}`,
+        `${t.title || "Personal task"} — ${t.status || "todo"}${due}`,
       );
     });
     sources.push({
@@ -153,11 +154,11 @@ async function handleReadPersonalTask(state) {
       );
       const task = result?.personalTask;
       if (!task) {
-        summary = `No personal task found for ID ${hintId}`;
+        summary = "No personal task found for that identifier.";
         details.push("Try listing personal tasks to see available records.");
         break;
       }
-      summary = `Personal task: ${task.title || hintId}`;
+      summary = `Personal task: ${resolveEntityDisplayLabel("personal_task", task, { fallback: "Personal task" })}`;
       details.push(`Status: ${task.status || "todo"}`);
       details.push(`Priority: ${task.priority || "medium"}`);
       details.push(`Due date: ${task.due_date ? formatDate(task.due_date) : "N/A"}`);
@@ -197,7 +198,7 @@ async function handleReadPersonalTask(state) {
       } else {
         summary = `Multiple personal tasks match "${hintName}"`;
         tasks.forEach((t) =>
-          details.push(`${t.title || "Personal task"} (ID: ${t.id}) — ${t.status || "todo"}`),
+          details.push(`${t.title || "Personal task"} — ${t.status || "todo"}`),
         );
         details.push("Please specify which personal task you mean.");
       }
@@ -205,7 +206,7 @@ async function handleReadPersonalTask(state) {
     }
 
     summary = "Which personal task?";
-    details.push("Provide a personal task ID or title.");
+    details.push("Provide a personal task title.");
     break;
   } while (false);
 
@@ -289,7 +290,7 @@ async function handleExplainPersonalTask(state) {
       else if (tasks.length > 1) {
         summary = `Multiple personal tasks match "${hintName}"`;
         tasks.forEach((t) =>
-          details.push(`${t.title || "Personal task"} (ID: ${t.id}) — ${t.status || "todo"}`),
+          details.push(`${t.title || "Personal task"} — ${t.status || "todo"}`),
         );
         details.push("Please specify which personal task you mean.");
         break;
@@ -298,7 +299,7 @@ async function handleExplainPersonalTask(state) {
 
     if (!task) {
       summary = "Which personal task?";
-      details.push("Provide a personal task ID or title.");
+      details.push("Provide a personal task title.");
       break;
     }
 
@@ -315,7 +316,7 @@ async function handleExplainPersonalTask(state) {
 
     if (intent === READ_INTENTS.EXPLAIN_PERSONAL_TASK_STATE) {
       title = "Read data — Personal task state";
-      summary = `${task.title || "Personal task"} (ID: ${task.id})`;
+      summary = resolveEntityDisplayLabel("personal_task", task, { fallback: "Personal task" });
       details.push(`Status: ${task.status || "todo"} (priority ${task.priority || "medium"})`);
       details.push(overdue ? "Blocking: overdue" : "Blocking: none detected");
       sources.push({
@@ -329,7 +330,7 @@ async function handleExplainPersonalTask(state) {
     }
 
     title = "Read data — Personal task summary";
-    summary = `${task.title || "Personal task"} (ID: ${task.id})`;
+    summary = resolveEntityDisplayLabel("personal_task", task, { fallback: "Personal task" });
     const recentActivity = historyEvents.map((event) => {
       const when = event.created_at ? formatDateTime(event.created_at) : "unknown";
       return `${when} — ${event.action || "event"}`;

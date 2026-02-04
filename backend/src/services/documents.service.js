@@ -317,48 +317,60 @@ function extractDocxText(buffer) {
 
 function extractDocumentText(filePath, mimeType) {
   if (!filePath) {
-    return { document_text: null, unreadable_text: 1 };
+    return { document_text: null, unreadable_text: 1, text_length: null };
   }
 
   if (!fs.existsSync(filePath)) {
-    return { document_text: null, unreadable_text: 1 };
+    return { document_text: null, unreadable_text: 1, text_length: null };
   }
 
   let buffer = null;
   try {
     buffer = fs.readFileSync(filePath);
   } catch (error) {
-    return { document_text: null, unreadable_text: 1 };
+    return { document_text: null, unreadable_text: 1, text_length: null };
   }
 
   const docType = detectDocumentType(filePath, mimeType);
 
   if (docType === 'txt') {
     const text = buffer.toString('utf8');
-    return { document_text: text, unreadable_text: 0 };
+    return {
+      document_text: text,
+      unreadable_text: 0,
+      text_length: text.length,
+    };
   }
 
   if (docType === 'pdf') {
     const text = extractPdfText(buffer);
     if (text && text.trim().length) {
-      return { document_text: text, unreadable_text: 0 };
+      return {
+        document_text: text,
+        unreadable_text: 0,
+        text_length: text.length,
+      };
     }
-    return { document_text: null, unreadable_text: 1 };
+    return { document_text: null, unreadable_text: 1, text_length: null };
   }
 
   if (docType === 'docx') {
     const text = extractDocxText(buffer);
     if (text && text.trim().length) {
-      return { document_text: text, unreadable_text: 0 };
+      return {
+        document_text: text,
+        unreadable_text: 0,
+        text_length: text.length,
+      };
     }
-    return { document_text: null, unreadable_text: 1 };
+    return { document_text: null, unreadable_text: 1, text_length: null };
   }
 
   if (docType === 'image') {
-    return { document_text: null, unreadable_text: 1 };
+    return { document_text: null, unreadable_text: 1, text_length: null };
   }
 
-  return { document_text: null, unreadable_text: 1 };
+  return { document_text: null, unreadable_text: 1, text_length: null };
 }
 
 function resolveLinkedEntity(document) {
@@ -440,8 +452,8 @@ function listMetadataByEntity(entityType, entityId, options = {}) {
         updated_at,
         unreadable_text,
         ${previewSelect},
-        CASE WHEN document_text IS NOT NULL AND LENGTH(document_text) > 0 THEN 1 ELSE 0 END as has_text,
-        LENGTH(document_text) as text_length,
+        CASE WHEN COALESCE(text_length, LENGTH(document_text)) > 0 THEN 1 ELSE 0 END as has_text,
+        COALESCE(text_length, LENGTH(document_text)) as text_length,
         client_id,
         dossier_id,
         lawsuit_id,
@@ -506,7 +518,7 @@ function listTextsByIds(documentIds = []) {
         id,
         document_text,
         unreadable_text,
-        LENGTH(document_text) as text_length,
+        COALESCE(text_length, LENGTH(document_text)) as text_length,
         client_id,
         dossier_id,
         lawsuit_id,
@@ -599,6 +611,7 @@ function create(payload) {
     notes: null,
     document_text: null,
     unreadable_text: 0,
+    text_length: null,
     copy_type: null,
     client_id: null,
     dossier_id: null,
@@ -618,10 +631,11 @@ function create(payload) {
   const extraction = extractDocumentText(insertData.file_path, insertData.mime_type);
   insertData.document_text = extraction.document_text;
   insertData.unreadable_text = extraction.unreadable_text;
+  insertData.text_length = extraction.text_length;
 
   const stmt = db.prepare(
-    `INSERT INTO ${table} (title, file_path, mime_type, size_bytes, notes, document_text, unreadable_text, copy_type, client_id, dossier_id, lawsuit_id, mission_id, task_id, session_id, personal_task_id, financial_entry_id, officer_id)
-     VALUES (@title, @file_path, @mime_type, @size_bytes, @notes, @document_text, @unreadable_text, @copy_type, @client_id, @dossier_id, @lawsuit_id, @mission_id, @task_id, @session_id, @personal_task_id, @financial_entry_id, @officer_id)`
+    `INSERT INTO ${table} (title, file_path, mime_type, size_bytes, notes, document_text, unreadable_text, text_length, copy_type, client_id, dossier_id, lawsuit_id, mission_id, task_id, session_id, personal_task_id, financial_entry_id, officer_id)
+     VALUES (@title, @file_path, @mime_type, @size_bytes, @notes, @document_text, @unreadable_text, @text_length, @copy_type, @client_id, @dossier_id, @lawsuit_id, @mission_id, @task_id, @session_id, @personal_task_id, @financial_entry_id, @officer_id)`
   );
   const result = stmt.run(insertData);
   return get(result.lastInsertRowid);
@@ -676,6 +690,7 @@ function update(id, payload) {
       ? {
           document_text: extraction.document_text,
           unreadable_text: extraction.unreadable_text,
+          text_length: extraction.text_length,
         }
       : {}),
   });
@@ -688,6 +703,7 @@ function update(id, payload) {
       ? {
           document_text: extraction.document_text,
           unreadable_text: extraction.unreadable_text,
+          text_length: extraction.text_length,
         }
       : {}),
     id,

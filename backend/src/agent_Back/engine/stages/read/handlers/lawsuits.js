@@ -1,6 +1,7 @@
 "use strict";
 
 const { READ_INTENTS } = require("../../../../intent.classifier");
+const { resolveEntityDisplayLabel } = require("../../../../utils/entityDisplay");
 
 async function handleListLawsuits(state) {
   const {
@@ -67,7 +68,7 @@ async function handleListLawsuits(state) {
           title = "Read data — Lawsuits";
           summary = resolution.message;
           resolution.candidates?.forEach((c) =>
-            details.push(`${c.name} (ID: ${c.id})`),
+            details.push(`${c.name || "Dossier"}`),
           );
           details.push("Please specify which dossier you mean.");
           break;
@@ -168,6 +169,22 @@ async function handleReadLawsuit(state) {
     const hintName = entityHints.find((hint) => hint.type === "name")?.value;
     title = "Read data — Lawsuit";
 
+    const appendParentLabel = async (lawsuit) => {
+      if (lawsuit.dossier_id) {
+        const dossierResult = await safeReadSummaryTool("getDossier", {
+          dossierId: lawsuit.dossier_id,
+        });
+        const dossierLabel = dossierResult?.dossier
+          ? resolveEntityDisplayLabel("dossier", dossierResult.dossier, {
+              fallback: "Dossier",
+            })
+          : "Dossier";
+        details.push(`Dossier: ${dossierLabel}`);
+      } else {
+        details.push("Dossier: N/A");
+      }
+    };
+
     const resolveFromList = async (query) => {
       const result = await this._callReadTool(
         "listLawsuits",
@@ -185,11 +202,11 @@ async function handleReadLawsuit(state) {
       );
       const lawsuit = result?.lawsuit;
       if (!lawsuit) {
-        summary = `No lawsuit found for ID ${hintId}`;
+        summary = "No lawsuit found for that identifier.";
         details.push("Try listing lawsuits to see available records.");
         break;
       }
-      summary = `Lawsuit: ${lawsuit.reference || lawsuit.lawsuit_number || hintId}`;
+      summary = `Lawsuit: ${resolveEntityDisplayLabel("lawsuit", lawsuit, { fallback: "Lawsuit" })}`;
       details.push(`Title: ${lawsuit.title || "Untitled"}`);
       details.push(`Status: ${lawsuit.status || "in_progress"}`);
       if (lawsuit.court) details.push(`Court: ${lawsuit.court}`);
@@ -199,7 +216,7 @@ async function handleReadLawsuit(state) {
         lawsuit.adversary;
       if (adversary) details.push(`Adversary: ${adversary}`);
       details.push(`Next hearing: ${lawsuit.next_hearing ? formatDate(lawsuit.next_hearing) : "N/A"}`);
-      details.push(`Dossier ID: ${lawsuit.dossier_id || "N/A"}`);
+      await appendParentLabel(lawsuit);
       sources.push({
         sourceType: "system",
         reference: "tool:getLawsuit",
@@ -218,7 +235,7 @@ async function handleReadLawsuit(state) {
         details.push("Try listing all lawsuits with: show me my lawsuits");
       } else if (lawsuits.length === 1) {
         const lawsuit = lawsuits[0];
-        summary = `Lawsuit: ${lawsuit.reference || lawsuit.lawsuit_number || "Lawsuit"}`;
+        summary = `Lawsuit: ${resolveEntityDisplayLabel("lawsuit", lawsuit, { fallback: "Lawsuit" })}`;
         details.push(`Title: ${lawsuit.title || "Untitled"}`);
         details.push(`Status: ${lawsuit.status || "in_progress"}`);
         if (lawsuit.court) details.push(`Court: ${lawsuit.court}`);
@@ -228,7 +245,7 @@ async function handleReadLawsuit(state) {
           lawsuit.adversary;
         if (adversary) details.push(`Adversary: ${adversary}`);
         details.push(`Next hearing: ${lawsuit.next_hearing ? formatDate(lawsuit.next_hearing) : "N/A"}`);
-        details.push(`Dossier ID: ${lawsuit.dossier_id || "N/A"}`);
+        await appendParentLabel(lawsuit);
         sources.push({
           sourceType: "system",
           reference: "tool:listLawsuits",
@@ -240,7 +257,7 @@ async function handleReadLawsuit(state) {
         summary = `Multiple lawsuits match "${query}"`;
         lawsuits.forEach((l) => {
           details.push(
-            `${l.reference || l.lawsuit_number || "Lawsuit"} — ${l.title || "Untitled"} (ID: ${l.id})`,
+            `${l.reference || l.lawsuit_number || "Lawsuit"} — ${l.title || "Untitled"}`,
           );
         });
         details.push("Please specify which lawsuit you mean.");
@@ -249,7 +266,7 @@ async function handleReadLawsuit(state) {
     }
 
     summary = "Which lawsuit?";
-    details.push("Provide a lawsuit ID or reference.");
+    details.push("Provide a lawsuit reference or name.");
     break;
   } while (false);
 
@@ -331,7 +348,7 @@ async function handleExplainLawsuit(state) {
         summary = `Multiple lawsuits match "${query}"`;
         lawsuits.forEach((l) =>
           details.push(
-            `${l.reference || l.lawsuit_number || "Lawsuit"} — ${l.title || "Untitled"} (ID: ${l.id})`,
+            `${l.reference || l.lawsuit_number || "Lawsuit"} — ${l.title || "Untitled"}`,
           ),
         );
         details.push("Please specify which lawsuit you mean.");
@@ -341,7 +358,7 @@ async function handleExplainLawsuit(state) {
 
     if (!lawsuit) {
       summary = "Which lawsuit?";
-      details.push("Provide a lawsuit ID or reference.");
+      details.push("Provide a lawsuit reference or name.");
       break;
     }
 

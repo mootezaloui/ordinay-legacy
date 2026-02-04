@@ -1,6 +1,7 @@
 "use strict";
 
 const { READ_INTENTS } = require("../../../../intent.classifier");
+const { resolveEntityDisplayLabel } = require("../../../../utils/entityDisplay");
 
 async function handleListFinancialEntries(state) {
   const {
@@ -75,7 +76,7 @@ async function handleListFinancialEntries(state) {
           title = "Read data — Financial entries";
           summary = resolution.message;
           resolution.candidates?.forEach((c) =>
-            details.push(`${c.name} (ID: ${c.id})`),
+            details.push(`${c.name || "Client"}`),
           );
           details.push("Please specify which client you mean.");
           break;
@@ -106,7 +107,7 @@ async function handleListFinancialEntries(state) {
         title = "Read data — Financial entries";
         summary = resolution.message;
         resolution.candidates?.forEach((c) =>
-          details.push(`${c.name} (ID: ${c.id})`),
+          details.push(`${c.name || "Dossier"}`),
         );
         details.push("Please specify which dossier you mean.");
         break;
@@ -136,7 +137,7 @@ async function handleListFinancialEntries(state) {
         title = "Read data — Financial entries";
         summary = resolution.message;
         resolution.candidates?.forEach((c) =>
-          details.push(`${c.name} (ID: ${c.id})`),
+          details.push(`${c.name || "Case"}`),
         );
         details.push("Please specify which case you mean.");
         break;
@@ -166,7 +167,7 @@ async function handleListFinancialEntries(state) {
         title = "Read data — Financial entries";
         summary = resolution.message;
         resolution.candidates?.forEach((c) =>
-          details.push(`${c.name} (ID: ${c.id})`),
+          details.push(`${c.name || "Mission"}`),
         );
         details.push("Please specify which mission you mean.");
         break;
@@ -296,6 +297,36 @@ async function handleReadFinancialEntry(state) {
     const hintName = entityHints.find((hint) => hint.type === "name")?.value;
     title = "Read data — Financial entry";
 
+    const appendParentLabels = async (entry) => {
+      if (entry.client_id) {
+        const clientResult = await safeReadSummaryTool("getClient", {
+          clientId: entry.client_id,
+        });
+        const clientLabel = clientResult?.client
+          ? resolveEntityDisplayLabel("client", clientResult.client, {
+              fallback: "Client",
+            })
+          : "Client";
+        details.push(`Client: ${clientLabel}`);
+      } else {
+        details.push("Client: N/A");
+      }
+
+      if (entry.dossier_id) {
+        const dossierResult = await safeReadSummaryTool("getDossier", {
+          dossierId: entry.dossier_id,
+        });
+        const dossierLabel = dossierResult?.dossier
+          ? resolveEntityDisplayLabel("dossier", dossierResult.dossier, {
+              fallback: "Dossier",
+            })
+          : "Dossier";
+        details.push(`Dossier: ${dossierLabel}`);
+      } else {
+        details.push("Dossier: N/A");
+      }
+    };
+
     if (hintId) {
       const result = await this._callReadTool(
         "getFinancialEntry",
@@ -304,18 +335,17 @@ async function handleReadFinancialEntry(state) {
       );
       const entry = result?.financialEntry;
       if (!entry) {
-        summary = `No financial entry found for ID ${hintId}`;
+        summary = "No financial entry found for that identifier.";
         details.push("Try listing entries to see available records.");
         break;
       }
-      summary = `Entry: ${entry.reference || entry.title || hintId}`;
+      summary = `Entry: ${resolveEntityDisplayLabel("financial_entry", entry, { fallback: "Financial entry" })}`;
       details.push(`Status: ${entry.status || "draft"}`);
       details.push(
         `Amount: ${entry.amount ? `${entry.amount} ${entry.currency || ""}`.trim() : "N/A"}`,
       );
       details.push(`Due date: ${entry.due_date ? formatDate(entry.due_date) : "N/A"}`);
-      details.push(`Client ID: ${entry.client_id || "N/A"}`);
-      details.push(`Dossier ID: ${entry.dossier_id || "N/A"}`);
+      await appendParentLabels(entry);
       sources.push({
         sourceType: "system",
         reference: "tool:getFinancialEntry",
@@ -339,14 +369,13 @@ async function handleReadFinancialEntry(state) {
         details.push("Try listing all entries with: show me my accounting entries");
       } else if (entries.length === 1) {
         const entry = entries[0];
-        summary = `Entry: ${entry.reference || entry.title || "Financial entry"}`;
+        summary = `Entry: ${resolveEntityDisplayLabel("financial_entry", entry, { fallback: "Financial entry" })}`;
         details.push(`Status: ${entry.status || "draft"}`);
         details.push(
           `Amount: ${entry.amount ? `${entry.amount} ${entry.currency || ""}`.trim() : "N/A"}`,
         );
         details.push(`Due date: ${entry.due_date ? formatDate(entry.due_date) : "N/A"}`);
-        details.push(`Client ID: ${entry.client_id || "N/A"}`);
-        details.push(`Dossier ID: ${entry.dossier_id || "N/A"}`);
+        await appendParentLabels(entry);
         sources.push({
           sourceType: "system",
           reference: "tool:listFinancialEntries",
@@ -358,7 +387,7 @@ async function handleReadFinancialEntry(state) {
         summary = `Multiple financial entries match "${query}"`;
         entries.forEach((e) => {
           const ref = e.reference || e.title || "Entry";
-          details.push(`${ref} (ID: ${e.id}) — ${e.status || "draft"}`);
+          details.push(`${ref} — ${e.status || "draft"}`);
         });
         details.push("Please specify which entry you mean.");
       }
@@ -366,7 +395,7 @@ async function handleReadFinancialEntry(state) {
     }
 
     summary = "Which financial entry?";
-    details.push("Provide an entry ID or reference.");
+    details.push("Provide an entry reference or name.");
     break;
   } while (false);
 
@@ -451,7 +480,7 @@ async function handleExplainFinancialEntry(state) {
         summary = `Multiple financial entries match "${query}"`;
         entries.forEach((e) => {
           const ref = e.reference || e.title || "Entry";
-          details.push(`${ref} (ID: ${e.id}) — ${e.status || "draft"}`);
+          details.push(`${ref} — ${e.status || "draft"}`);
         });
         details.push("Please specify which entry you mean.");
         break;
@@ -460,13 +489,13 @@ async function handleExplainFinancialEntry(state) {
 
     if (!entry && hasEntryHint) {
       summary = "Which financial entry?";
-      details.push("Provide an entry ID or reference.");
+      details.push("Provide an entry reference or name.");
       break;
     }
 
     if (!entry && intent === READ_INTENTS.SUMMARIZE_FINANCIAL_ENTRY && !allowAggregateFinancialSummary) {
       summary = "Which financial entry?";
-      details.push("Provide an entry ID or reference.");
+      details.push("Provide an entry reference or name.");
       break;
     }
 
@@ -503,7 +532,7 @@ async function handleExplainFinancialEntry(state) {
             title = "Read data — Financial summary";
             summary = resolution.message;
             resolution.candidates?.forEach((c) =>
-              details.push(`${c.name} (ID: ${c.id})`),
+              details.push(`${c.name || "Client"}`),
             );
             details.push("Please specify which client you mean.");
             break;
@@ -534,7 +563,7 @@ async function handleExplainFinancialEntry(state) {
           title = "Read data — Financial summary";
           summary = resolution.message;
           resolution.candidates?.forEach((c) =>
-            details.push(`${c.name} (ID: ${c.id})`),
+            details.push(`${c.name || "Dossier"}`),
           );
           details.push("Please specify which dossier you mean.");
           break;
@@ -564,7 +593,7 @@ async function handleExplainFinancialEntry(state) {
           title = "Read data — Financial summary";
           summary = resolution.message;
           resolution.candidates?.forEach((c) =>
-            details.push(`${c.name} (ID: ${c.id})`),
+            details.push(`${c.name || "Case"}`),
           );
           details.push("Please specify which case you mean.");
           break;
@@ -594,7 +623,7 @@ async function handleExplainFinancialEntry(state) {
           title = "Read data — Financial summary";
           summary = resolution.message;
           resolution.candidates?.forEach((c) =>
-            details.push(`${c.name} (ID: ${c.id})`),
+            details.push(`${c.name || "Mission"}`),
           );
           details.push("Please specify which mission you mean.");
           break;
@@ -722,7 +751,9 @@ async function handleExplainFinancialEntry(state) {
 
     if (intent === READ_INTENTS.EXPLAIN_FINANCIAL_ENTRY_STATE) {
       title = "Read data — Financial status";
-      summary = `${entry.reference || entry.title || "Financial entry"} (ID: ${entry.id})`;
+      summary = resolveEntityDisplayLabel("financial_entry", entry, {
+        fallback: "Financial entry",
+      });
       details.push(`Status: ${entry.status || "draft"}`);
       details.push(`Payment status: ${paymentStatus}`);
       details.push(
@@ -730,7 +761,7 @@ async function handleExplainFinancialEntry(state) {
       );
       details.push(`Due date: ${entry.due_date ? formatDate(entry.due_date) : "N/A"}`);
       details.push(
-        `Relationships: client ${entry.client_id || "N/A"}, dossier ${entry.dossier_id || "N/A"}, case ${entry.lawsuit_id || "N/A"}`,
+        `Relationships: ${entry.client_id ? "linked client" : "client N/A"}, ${entry.dossier_id ? "linked dossier" : "dossier N/A"}, ${entry.lawsuit_id ? "linked case" : "case N/A"}`,
       );
       details.push(
         paymentStatus === "overdue"
@@ -754,7 +785,9 @@ async function handleExplainFinancialEntry(state) {
     }
 
     title = "Read data — Financial summary";
-    summary = `${entry.reference || entry.title || "Financial entry"} (ID: ${entry.id})`;
+    summary = resolveEntityDisplayLabel("financial_entry", entry, {
+      fallback: "Financial entry",
+    });
     const recentActivity = historyEvents.map((event) => {
       const when = event.created_at ? formatDateTime(event.created_at) : "unknown";
       return `${when} — ${event.action || "event"}`;

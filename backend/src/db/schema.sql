@@ -305,6 +305,7 @@ CREATE TABLE IF NOT EXISTS documents (
     notes TEXT,
     document_text TEXT,
     unreadable_text INTEGER NOT NULL DEFAULT 0,
+    text_length INTEGER,
     copy_type TEXT,
     uploaded_by TEXT,
     client_id INTEGER,

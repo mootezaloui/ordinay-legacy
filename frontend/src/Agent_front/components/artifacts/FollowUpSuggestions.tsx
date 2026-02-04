@@ -1,4 +1,4 @@
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Sparkles } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { FollowUpSuggestion } from "../../../services/api/agent";
 import { buildFollowUpLabel } from "../../utils/followUpLabels";
@@ -26,19 +26,31 @@ export function FollowUpSuggestions({
   const { t } = useTranslation("common");
 
   return (
-    <div className="mt-5 pt-4 border-t border-slate-200/70 dark:border-slate-700/50">
+    <div className="agent-followups-section mt-5 pt-5 border-t border-slate-200/70 dark:border-slate-700/50">
+      {/* Section header */}
+      <div className="flex items-center gap-2 mb-4">
+        <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-violet-100 to-indigo-100 dark:from-violet-900/30 dark:to-indigo-900/30 flex items-center justify-center">
+          <Sparkles className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
+        </div>
+        <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+          Suggested Next Steps
+        </span>
+      </div>
+
       {/* Follow-up buttons */}
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2.5">
         {followUps.map((followUp, idx) => (
           <button
             key={idx}
             type="button"
             onClick={() => onFollowUpClick(followUp)}
             title={followUp.reason}
-            className="group inline-flex items-center gap-2 text-sm px-3.5 py-2 border border-slate-200/80 dark:border-slate-700/70 rounded-full bg-white/90 dark:bg-slate-900/70 text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-900 hover:border-slate-300/80 dark:hover:border-slate-600 transition-all shadow-sm"
+            className="agent-followup-btn group"
           >
-            <span>{buildFollowUpLabel(followUp, t)}</span>
-            <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300 group-hover:translate-x-0.5 transition-all" />
+            <span className="agent-followup-btn-text">
+              {buildFollowUpLabel(followUp, t)}
+            </span>
+            <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-500 dark:group-hover:text-indigo-400 group-hover:translate-x-0.5 transition-all" />
           </button>
         ))}
       </div>

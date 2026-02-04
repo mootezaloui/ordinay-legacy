@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { Check, Loader2 } from "lucide-react";
+import { Check, Loader2, Brain, Database, Search, Shield, FileOutput, X, ChevronDown, ChevronUp } from "lucide-react";
 import { AgentMessage } from "../types/agentMessage";
 import type { FollowUpSuggestion } from "../../services/api/agent";
 
@@ -280,89 +280,345 @@ export function AgentWorkflow({ message, onFollowUpClick, onExampleClick }: Agen
 }
 
 // ────────────────────────────────────────────────────────────────
-// Working Phase — the heart of the "agent doing work" experience
+// Working Phase — 5-Stage Processing Pipeline Visualization
 // ────────────────────────────────────────────────────────────────
+
+interface PipelineStage {
+  id: string;
+  label: string;
+  description: string;
+  icon: typeof Brain;
+  color: string;
+}
+
+const PIPELINE_STAGES: PipelineStage[] = [
+  {
+    id: "intent",
+    label: "Intent Recognition",
+    description: "Analyzing natural language input",
+    icon: Brain,
+    color: "indigo",
+  },
+  {
+    id: "query",
+    label: "Query Generation",
+    description: "Converting to data queries",
+    icon: Search,
+    color: "violet",
+  },
+  {
+    id: "retrieval",
+    label: "Data Retrieval",
+    description: "Fetching from knowledge base",
+    icon: Database,
+    color: "blue",
+  },
+  {
+    id: "analysis",
+    label: "Analysis",
+    description: "AI pattern recognition",
+    icon: Shield,
+    color: "amber",
+  },
+  {
+    id: "generation",
+    label: "Artifact Generation",
+    description: "Formatting results",
+    icon: FileOutput,
+    color: "emerald",
+  },
+];
 
 function WorkingPhase({
   intent,
   resultArrived,
+  onCancel,
 }: {
   intent?: string;
   resultArrived: boolean;
+  onCancel?: () => void;
 }) {
-  const steps = getWorkSteps(intent);
+  // Track which stage we're on (0-4)
+  const [activeStage, setActiveStage] = useState(0);
+  // Track stage progress percentages
+  const [stageProgress, setStageProgress] = useState<number[]>([0, 0, 0, 0, 0]);
+  // Expanded details panel
+  const [showDetails, setShowDetails] = useState(false);
 
-  // Progress through steps over time to create sense of movement
-  const [visibleSteps, setVisibleSteps] = useState(1);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const progressRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Progress through stages
   useEffect(() => {
-    // Reveal one step every 350ms
+    // Advance stage every 600ms
     intervalRef.current = setInterval(() => {
-      setVisibleSteps((prev) => {
-        const next = prev + 1;
-        // If result arrived and we've shown all steps, stop
-        if (next >= steps.length) {
+      setActiveStage((prev) => {
+        if (prev >= PIPELINE_STAGES.length - 1) {
           if (intervalRef.current) clearInterval(intervalRef.current);
+          return prev;
         }
-        return Math.min(next, steps.length);
+        return prev + 1;
       });
-    }, 350);
+    }, 600);
 
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [steps.length]);
+  }, []);
 
-  // When result arrives, fast-forward to all steps complete
+  // Animate progress bars
+  useEffect(() => {
+    progressRef.current = setInterval(() => {
+      setStageProgress((prev) => {
+        const next = [...prev];
+        for (let i = 0; i <= activeStage; i++) {
+          if (i < activeStage) {
+            next[i] = 100; // Completed stages
+          } else if (i === activeStage) {
+            // Active stage progresses
+            next[i] = Math.min(next[i] + 8, resultArrived ? 100 : 85);
+          }
+        }
+        return next;
+      });
+    }, 100);
+
+    return () => {
+      if (progressRef.current) clearInterval(progressRef.current);
+    };
+  }, [activeStage, resultArrived]);
+
+  // Fast-forward when result arrives
   useEffect(() => {
     if (resultArrived) {
-      const timer = setTimeout(() => setVisibleSteps(steps.length), 150);
-      return () => clearTimeout(timer);
+      setActiveStage(PIPELINE_STAGES.length - 1);
+      setStageProgress([100, 100, 100, 100, 100]);
     }
-  }, [resultArrived, steps.length]);
+  }, [resultArrived]);
 
   const acknowledgment = getAcknowledgment(intent);
+  const totalProgress = Math.round(stageProgress.reduce((a, b) => a + b, 0) / 5);
 
   return (
     <div className="workflow-phase-enter agent-message-row">
-      <div className="agent-progress-card space-y-3">
-        {/* Acknowledgment line */}
-        <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
-          {acknowledgment}
-        </p>
+      <div className="agent-pipeline-card">
+        {/* Header with overall progress */}
+        <div className="agent-pipeline-header">
+          <div className="flex items-center gap-3">
+            <div className="agent-pipeline-loader">
+              <svg className="w-10 h-10" viewBox="0 0 40 40">
+                <circle
+                  className="text-slate-200 dark:text-slate-700"
+                  strokeWidth="3"
+                  stroke="currentColor"
+                  fill="transparent"
+                  r="16"
+                  cx="20"
+                  cy="20"
+                />
+                <circle
+                  className="text-indigo-500 dark:text-indigo-400 agent-pipeline-progress-ring"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  stroke="currentColor"
+                  fill="transparent"
+                  r="16"
+                  cx="20"
+                  cy="20"
+                  style={{
+                    strokeDasharray: `${totalProgress} 100`,
+                    transform: "rotate(-90deg)",
+                    transformOrigin: "center",
+                  }}
+                />
+              </svg>
+              <span className="agent-pipeline-percent">{totalProgress}%</span>
+            </div>
+            <div className="flex-1">
+              <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                {acknowledgment}
+              </h4>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Stage {activeStage + 1} of {PIPELINE_STAGES.length}: {PIPELINE_STAGES[activeStage].label}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowDetails(!showDetails)}
+              className="agent-pipeline-toggle"
+            >
+              {showDetails ? (
+                <ChevronUp className="w-4 h-4" />
+              ) : (
+                <ChevronDown className="w-4 h-4" />
+              )}
+              <span className="text-xs">{showDetails ? "Hide" : "Details"}</span>
+            </button>
+            {onCancel && (
+              <button
+                type="button"
+                onClick={onCancel}
+                className="agent-pipeline-cancel"
+                title="Cancel processing"
+                aria-label="Cancel processing"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        </div>
 
-        {/* Work steps */}
-        <div className="space-y-1 pl-0.5">
-          {steps.map((step, idx) => {
-            if (idx >= visibleSteps) return null;
-
-            const isLast = idx === visibleSteps - 1;
-            const isDone = !isLast || resultArrived;
+        {/* Pipeline visualization */}
+        <div className="agent-pipeline-stages">
+          {PIPELINE_STAGES.map((stage, idx) => {
+            const StageIcon = stage.icon;
+            const isComplete = idx < activeStage || (idx === activeStage && resultArrived);
+            const isActive = idx === activeStage && !resultArrived;
+            const isPending = idx > activeStage;
+            const progress = stageProgress[idx];
 
             return (
               <div
-                key={idx}
-                className="workflow-step-enter flex items-center gap-2 text-xs"
+                key={stage.id}
+                className={`agent-pipeline-stage ${
+                  isComplete ? "is-complete" : isActive ? "is-active" : "is-pending"
+                }`}
               >
-                {isDone ? (
-                  <Check className="w-3 h-3 text-emerald-500 flex-shrink-0" />
-                ) : (
-                  <Loader2 className="w-3 h-3 text-slate-400 dark:text-slate-500 animate-spin flex-shrink-0" />
+                {/* Connector line */}
+                {idx > 0 && (
+                  <div className="agent-pipeline-connector">
+                    <div
+                      className="agent-pipeline-connector-fill"
+                      style={{ width: isComplete || isActive ? "100%" : "0%" }}
+                    />
+                  </div>
                 )}
-                <span
-                  className={
-                    isDone
-                      ? "text-slate-400 dark:text-slate-500"
-                      : "text-slate-600 dark:text-slate-300"
-                  }
-                >
-                  {step}
+
+                {/* Stage node */}
+                <div className={`agent-pipeline-node agent-pipeline-node-${stage.color}`}>
+                  {isComplete ? (
+                    <Check className="w-4 h-4 text-white" />
+                  ) : isActive ? (
+                    <StageIcon className="w-4 h-4 text-white animate-pulse" />
+                  ) : (
+                    <StageIcon className="w-4 h-4 text-slate-400 dark:text-slate-500" />
+                  )}
+                </div>
+
+                {/* Stage label */}
+                <span className={`agent-pipeline-label ${
+                  isComplete
+                    ? "text-slate-600 dark:text-slate-300"
+                    : isActive
+                      ? "text-slate-800 dark:text-slate-100 font-medium"
+                      : "text-slate-400 dark:text-slate-500"
+                }`}>
+                  {stage.label}
                 </span>
+
+                {/* Progress indicator for active stage */}
+                {isActive && (
+                  <div className="agent-pipeline-stage-progress">
+                    <div
+                      className="agent-pipeline-stage-progress-fill"
+                      style={{ width: `${progress}%` }}
+                    />
+                  </div>
+                )}
               </div>
             );
           })}
         </div>
+
+        {/* Expanded details panel */}
+        {showDetails && (
+          <div className="agent-pipeline-details">
+            <div className="agent-pipeline-details-grid">
+              {PIPELINE_STAGES.map((stage, idx) => {
+                const isComplete = idx < activeStage || (idx === activeStage && resultArrived);
+                const isActive = idx === activeStage && !resultArrived;
+                const StageIcon = stage.icon;
+
+                return (
+                  <div
+                    key={stage.id}
+                    className={`agent-pipeline-detail-card ${
+                      isComplete ? "is-complete" : isActive ? "is-active" : "is-pending"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <StageIcon className={`w-4 h-4 ${
+                        isComplete
+                          ? "text-emerald-500"
+                          : isActive
+                            ? "text-indigo-500 animate-pulse"
+                            : "text-slate-400"
+                      }`} />
+                      <span className="text-xs font-semibold uppercase tracking-wide">
+                        {stage.label}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      {stage.description}
+                    </p>
+                    <div className="mt-2 h-1 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-300 ${
+                          isComplete
+                            ? "bg-emerald-500"
+                            : isActive
+                              ? "bg-indigo-500"
+                              : "bg-slate-300 dark:bg-slate-600"
+                        }`}
+                        style={{ width: `${stageProgress[idx]}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Data flow visualization */}
+            <div className="agent-pipeline-dataflow">
+              <div className="agent-pipeline-dataflow-item">
+                <span className="text-xs text-slate-400">Input</span>
+                <div className="agent-pipeline-dataflow-box">
+                  Natural Language Query
+                </div>
+              </div>
+              <div className="agent-pipeline-dataflow-arrow">→</div>
+              <div className="agent-pipeline-dataflow-item">
+                <span className="text-xs text-slate-400">Processing</span>
+                <div className="agent-pipeline-dataflow-box is-active">
+                  {PIPELINE_STAGES[activeStage].label}
+                </div>
+              </div>
+              <div className="agent-pipeline-dataflow-arrow">→</div>
+              <div className="agent-pipeline-dataflow-item">
+                <span className="text-xs text-slate-400">Output</span>
+                <div className="agent-pipeline-dataflow-box">
+                  Structured Artifact
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Activity indicator */}
+        {!resultArrived && (
+          <div className="agent-pipeline-activity">
+            <div className="agent-activity-dots">
+              <div className="agent-activity-dot" />
+              <div className="agent-activity-dot" />
+              <div className="agent-activity-dot" />
+            </div>
+            <p className="text-sm text-indigo-700 dark:text-indigo-300">
+              {PIPELINE_STAGES[activeStage].description}...
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

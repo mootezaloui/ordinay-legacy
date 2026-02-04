@@ -1,4 +1,4 @@
-import { MessageSquare } from "lucide-react";
+import { Lightbulb } from "lucide-react";
 import type { CommentaryOutput } from "../../../services/api/agent";
 
 interface CommentaryBubbleProps {
@@ -32,18 +32,21 @@ export function CommentaryBubble({ commentary }: CommentaryBubbleProps) {
   }
 
   return (
-    <div className="commentary-bubble mt-3 agent-message-row animate-in fade-in slide-in-from-bottom-2 duration-300">
-      {/* Agent avatar indicator */}
-      <div className="flex-shrink-0 w-7 h-7 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center border border-slate-200/70 dark:border-slate-700/60">
-        <MessageSquare className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
-      </div>
+    <div className="agent-insight-callout mt-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+      {/* Insight card */}
+      <div className="agent-insight-card">
+        {/* Icon */}
+        <div className="agent-insight-icon">
+          <Lightbulb className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+        </div>
 
-      {/* Commentary content */}
-      <div className="agent-bubble agent-bubble-soft agent-chat-text text-[15px] leading-relaxed text-slate-700 dark:text-slate-200">
-        <p>
-          {commentary.message}
-        </p>
-
+        {/* Content */}
+        <div className="agent-insight-content">
+          <span className="agent-insight-label">Agent Insight</span>
+          <p className="agent-insight-text">
+            {commentary.message}
+          </p>
+        </div>
       </div>
     </div>
   );
