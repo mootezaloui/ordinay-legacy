@@ -4,6 +4,7 @@ const controller = require('../controllers/documents.controller');
 const router = express.Router();
 
 router.get('/', controller.list);
+router.post('/upload', controller.upload);
 router.post('/', controller.create);
 router.get('/:id', controller.get);
 router.put('/:id', controller.update);

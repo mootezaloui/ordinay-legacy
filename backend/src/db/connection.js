@@ -225,14 +225,42 @@ function initialize() {
   ];
   const dossierColumns = [{ name: "adversary_name", definition: "TEXT" }];
   const sessionColumns = [{ name: "session_date", definition: "DATE" }];
-  const documentColumns = [
-    { name: "copy_type", definition: "TEXT" },
-    { name: "officer_id", definition: "INTEGER" },
-    { name: "document_text", definition: "TEXT" },
-    { name: "unreadable_text", definition: "INTEGER NOT NULL DEFAULT 0" },
-    {
-      name: "text_length",
-      definition: "INTEGER",
+    const documentColumns = [
+      { name: "copy_type", definition: "TEXT" },
+      { name: "officer_id", definition: "INTEGER" },
+      { name: "original_filename", definition: "TEXT" },
+      { name: "document_text", definition: "TEXT" },
+      { name: "unreadable_text", definition: "INTEGER NOT NULL DEFAULT 0" },
+      {
+        name: "text_status",
+        definition: "TEXT NOT NULL DEFAULT 'processing'",
+        onAdd: (database) => {
+          database.exec(
+            "UPDATE documents SET text_status = CASE WHEN COALESCE(LENGTH(document_text), 0) > 0 AND unreadable_text = 0 THEN 'readable' WHEN unreadable_text = 1 THEN 'unreadable' ELSE 'processing' END WHERE text_status IS NULL;"
+          );
+        },
+      },
+      {
+        name: "text_source",
+        definition: "TEXT",
+        onAdd: (database) => {
+          database.exec(
+            "UPDATE documents SET text_source = CASE WHEN COALESCE(LENGTH(document_text), 0) > 0 AND unreadable_text = 0 THEN 'native' ELSE NULL END WHERE text_source IS NULL;"
+          );
+        },
+      },
+      {
+        name: "text_failure_reason",
+        definition: "TEXT",
+        onAdd: (database) => {
+          database.exec(
+            "UPDATE documents SET text_failure_reason = CASE WHEN unreadable_text = 1 THEN 'legacy_unreadable' ELSE NULL END WHERE text_failure_reason IS NULL;"
+          );
+        },
+      },
+      {
+        name: "text_length",
+        definition: "INTEGER",
       onAdd: (database) => {
         database.exec(
           "UPDATE documents SET text_length = LENGTH(document_text) WHERE text_length IS NULL AND document_text IS NOT NULL;"

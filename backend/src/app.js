@@ -8,7 +8,7 @@ const errorMiddleware = require('./middlewares/error.middleware');
 const app = express();
 
 app.use(cors({ origin: '*', methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept'] }));
-app.use(express.json());
+app.use(express.json({ limit: process.env.API_JSON_LIMIT || '50mb' }));
 
 app.use(apiPrefix, routes);
 

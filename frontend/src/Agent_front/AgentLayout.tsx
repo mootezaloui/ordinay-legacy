@@ -9,7 +9,13 @@ import { useAgentState } from "./hooks/useAgentState";
 import { useAgentSessions } from "./hooks/useAgentSessions";
 import type { FollowUpSuggestion } from "../services/api/agent";
 
-export function AgentLayout() {
+interface AgentLayoutProps {
+  isGlobalSidebarCollapsed?: boolean;
+}
+
+export function AgentLayout({
+  isGlobalSidebarCollapsed = false,
+}: AgentLayoutProps = {}) {
   const {
     input,
     setInput,
@@ -92,41 +98,53 @@ export function AgentLayout() {
   };
 
   return (
-    <div className="flex h-full min-h-0 w-full overflow-hidden">
-      {/* ── Left column: conversation history (desktop — static) ── */}
-      {showHistorySidebar && (
-        <aside className="hidden lg:flex flex-shrink-0 h-full">
-          <AgentHistorySidebar {...sidebarProps} />
-        </aside>
-      )}
+    <div className="relative w-full h-full flex gap-0 bg-slate-50 dark:bg-slate-900">
+      {/* ══════════════════════════════════════════════════════════════════
+          LEFT SIDEBAR - Conversation History
+          Desktop: Static column | Mobile: Overlay drawer
+      ══════════════════════════════════════════════════════════════════ */}
 
-      {/* ── Left column: conversation history (mobile — overlay drawer) ── */}
+      {/* Desktop - Static */}
       {showHistorySidebar && (
-        <div className="fixed inset-0 z-40 lg:hidden">
-          <button
-            type="button"
-            className="absolute inset-0 bg-slate-900/40"
-            onClick={() => setShowHistorySidebar(false)}
-            aria-label="Close conversation list"
-          />
-          <aside className="absolute inset-y-0 left-0 w-80 max-w-[85vw] shadow-xl">
-            <AgentHistorySidebar {...sidebarProps} />
-          </aside>
+        <div className="hidden lg:block w-72 flex-shrink-0 h-full">
+          <AgentHistorySidebar {...sidebarProps} />
         </div>
       )}
 
-      {/* ── Center column: agent workspace ── */}
-      <div className="flex-1 flex flex-col min-w-0 h-full agent-ui-text">
-        <AgentTopBar
-          showHistorySidebar={showHistorySidebar}
-          showContextSidebar={showContextSidebar}
-          onToggleHistory={() => setShowHistorySidebar(!showHistorySidebar)}
-          onToggleContext={() => setShowContextSidebar(!showContextSidebar)}
-        />
+      {/* Mobile - Overlay */}
+      {showHistorySidebar && (
+        <div className="absolute inset-0 z-40 lg:hidden">
+          <div
+            className="absolute inset-0 bg-slate-900/40"
+            onClick={() => setShowHistorySidebar(false)}
+          />
+          <div className="absolute inset-y-0 left-0 w-80 max-w-[85vw]">
+            <AgentHistorySidebar {...sidebarProps} />
+          </div>
+        </div>
+      )}
 
+      {/* ══════════════════════════════════════════════════════════════════
+          CENTER COLUMN - Main Chat Area
+          Fixed height, scrollable conversation, sticky input
+      ══════════════════════════════════════════════════════════════════ */}
+
+      <div className="flex-1 min-w-0 flex flex-col h-full agent-ui-text">
+        {/* Top Bar - Fixed */}
+        <div className="flex-shrink-0">
+          <AgentTopBar
+            showHistorySidebar={showHistorySidebar}
+            showContextSidebar={showContextSidebar}
+            onToggleHistory={() => setShowHistorySidebar(!showHistorySidebar)}
+            onToggleContext={() => setShowContextSidebar(!showContextSidebar)}
+          />
+        </div>
+
+        {/* Conversation - Scrollable */}
         <div
           ref={scrollContainerRef}
-          className="flex-1 overflow-y-auto min-h-0 scroll-smooth agent-thread"
+          className="flex-1 overflow-y-auto scroll-smooth agent-thread"
+          style={{ minHeight: 0 }}
         >
           <div className="mx-auto w-full max-w-[52rem] px-4 py-6 sm:px-8">
             {conversation.length === 0 ? (
@@ -144,6 +162,7 @@ export function AgentLayout() {
           </div>
         </div>
 
+        {/* Input - Fixed */}
         <div className="flex-shrink-0">
           <AgentInput
             input={input}
@@ -158,25 +177,28 @@ export function AgentLayout() {
         </div>
       </div>
 
-      {/* ── Right column: context panel (desktop — static) ── */}
+      {/* ══════════════════════════════════════════════════════════════════
+          RIGHT SIDEBAR - Context Panel
+          Desktop: Static column | Mobile: Overlay drawer
+      ══════════════════════════════════════════════════════════════════ */}
+
+      {/* Desktop - Static */}
       {showContextSidebar && (
-        <aside className="hidden 2xl:flex flex-shrink-0 h-full">
+        <div className="hidden 2xl:block w-80 flex-shrink-0 h-full">
           <AgentResultPreview {...contextProps} />
-        </aside>
+        </div>
       )}
 
-      {/* ── Right column: context panel (mobile — overlay drawer) ── */}
+      {/* Mobile - Overlay */}
       {showContextSidebar && (
-        <div className="fixed inset-0 z-40 2xl:hidden">
-          <button
-            type="button"
+        <div className="absolute inset-0 z-40 2xl:hidden">
+          <div
             className="absolute inset-0 bg-slate-900/40"
             onClick={() => setShowContextSidebar(false)}
-            aria-label="Close context panel"
           />
-          <aside className="absolute inset-y-0 right-0 w-80 max-w-[85vw] shadow-xl">
+          <div className="absolute inset-y-0 right-0 w-80 max-w-[85vw]">
             <AgentResultPreview {...contextProps} />
-          </aside>
+          </div>
         </div>
       )}
     </div>

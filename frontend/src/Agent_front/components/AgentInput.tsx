@@ -314,7 +314,7 @@ export function AgentInput({
   };
 
   return (
-    <div className="flex-shrink-0 border-t border-slate-200/70 dark:border-slate-800/80 bg-white/90 dark:bg-slate-950/80 backdrop-blur">
+    <div className="w-full border-t border-slate-200/70 dark:border-slate-800/80 bg-white/90 dark:bg-slate-950/80 backdrop-blur">
       <div className="max-w-[52rem] mx-auto px-4 py-3 sm:px-8 sm:py-4">
         {context && (
           <div className="mb-3 flex items-center gap-2">

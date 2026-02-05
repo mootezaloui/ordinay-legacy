@@ -36,6 +36,8 @@ const getNotificationTool = require('./read/getNotification.tool');
 const listHistoryEventsTool = require('./read/listHistoryEvents.tool');
 const getHistoryEventTool = require('./read/getHistoryEvent.tool');
 const getTimelineTool = require('./read/getTimeline.tool');
+const webSearchTool = require('./read/webSearch.tool');
+const legalResearchTool = require('./read/legalResearch.tool');
 
 // ANALYSIS tools
 const computeDossierStatusTool = require('./analysis/computeDossierStatus.tool');
@@ -47,6 +49,9 @@ const scanOperationalRisksTool = require('./analysis/scanOperationalRisks.tool')
 const draftInvitationTool = require('./draft/draftInvitation.tool');
 const draftClientEmailTool = require('./draft/draftClientEmail.tool');
 const draftHearingSummaryTool = require('./draft/draftHearingSummary.tool');
+
+// RESEARCH tools
+const compileDossierResearchTool = require('./research/compileDossierResearch.tool');
 
 // EXECUTE tools (stubs)
 const createTaskTool = require('./execute/createTask.tool');
@@ -87,6 +92,8 @@ function initializeToolRegistry() {
   registry.register(listHistoryEventsTool);
   registry.register(getHistoryEventTool);
   registry.register(getTimelineTool);
+  registry.register(webSearchTool);
+  registry.register(legalResearchTool);
 
   // Register ANALYSIS tools
   registry.register(computeDossierStatusTool);
@@ -98,6 +105,9 @@ function initializeToolRegistry() {
   registry.register(draftInvitationTool);
   registry.register(draftClientEmailTool);
   registry.register(draftHearingSummaryTool);
+
+  // Register RESEARCH tools
+  registry.register(compileDossierResearchTool);
 
   // Register EXECUTE tools (stubs)
   registry.register(createTaskTool);

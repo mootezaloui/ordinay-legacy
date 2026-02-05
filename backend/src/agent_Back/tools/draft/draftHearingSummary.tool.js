@@ -111,18 +111,20 @@ async function handler({ sessionId, language = "fr" }) {
 
   if (language === "fr") {
     // HEADER: Title and general information
-    header = `COMPTE-RENDU DE ${session.session_type.toUpperCase()}
-
-Référence dossier : ${reference}
-Procès : ${lawsuitTitle}
-Client : ${session.client_name || "N/A"}
-Date : ${dateStr}
-Heure : ${timeStr}
-Lieu : ${session.location || "N/A"}${
-      session.court_room ? "\nSalle : " + session.court_room : ""
-    }${session.judge ? "\nJuge : " + session.judge : ""}${
-      session.participants ? "\nParticipants : " + session.participants : ""
-    }`;
+    const headerLines = [
+      `COMPTE-RENDU DE ${session.session_type.toUpperCase()}`,
+      "",
+      reference ? `Référence dossier : ${reference}` : null,
+      lawsuitTitle ? `Procès : ${lawsuitTitle}` : null,
+      session.client_name ? `Client : ${session.client_name}` : null,
+      `Date : ${dateStr}`,
+      `Heure : ${timeStr}`,
+      session.location ? `Lieu : ${session.location}` : null,
+      session.court_room ? `Salle : ${session.court_room}` : null,
+      session.judge ? `Juge : ${session.judge}` : null,
+      session.participants ? `Participants : ${session.participants}` : null,
+    ].filter(Boolean);
+    header = headerLines.join("\n");
 
     // BODY: Outcome and notes
     body = `=== RÉSULTAT ===
@@ -139,18 +141,20 @@ Document généré automatiquement - Nécessite validation
 Généré le : ${new Date().toISOString()}`;
   } else {
     // HEADER: Title and general information
-    header = `${session.session_type.toUpperCase()} SUMMARY
-
-Lawsuit reference: ${reference}
-Lawsuit: ${lawsuitTitle}
-Client: ${session.client_name || "N/A"}
-Date: ${dateStr}
-Time: ${timeStr}
-Location: ${session.location || "N/A"}${
-      session.court_room ? "\nCourt room: " + session.court_room : ""
-    }${session.judge ? "\nJudge: " + session.judge : ""}${
-      session.participants ? "\nParticipants: " + session.participants : ""
-    }`;
+    const headerLines = [
+      `${session.session_type.toUpperCase()} SUMMARY`,
+      "",
+      reference ? `Lawsuit reference: ${reference}` : null,
+      lawsuitTitle ? `Lawsuit: ${lawsuitTitle}` : null,
+      session.client_name ? `Client: ${session.client_name}` : null,
+      `Date: ${dateStr}`,
+      `Time: ${timeStr}`,
+      session.location ? `Location: ${session.location}` : null,
+      session.court_room ? `Court room: ${session.court_room}` : null,
+      session.judge ? `Judge: ${session.judge}` : null,
+      session.participants ? `Participants: ${session.participants}` : null,
+    ].filter(Boolean);
+    header = headerLines.join("\n");
 
     // BODY: Outcome and notes
     body = `=== OUTCOME ===

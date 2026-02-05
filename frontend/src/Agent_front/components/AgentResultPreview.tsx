@@ -327,8 +327,8 @@ export function AgentResultPreview({
   };
 
   return (
-    <div className="w-full sm:w-80 max-w-full h-full flex-shrink-0 border-l border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col overflow-hidden">
-      <div className="p-4 border-b border-slate-200 dark:border-slate-800">
+    <div className="h-full w-full flex flex-col border-l border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden">
+      <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex-shrink-0">
         <button
           type="button"
           onClick={handleToggleAll}
@@ -363,7 +363,7 @@ export function AgentResultPreview({
         </button>
       </div>
 
-      <div className="p-4 border-b border-slate-200 dark:border-slate-800">
+      <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex-shrink-0">
         <div className="flex items-center gap-2 mb-3">
           <Database className="w-4 h-4 text-slate-600 dark:text-slate-400" />
           <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wide">

@@ -1,43 +1,164 @@
 $baseUrl = "http://localhost:3000/api/financial"
+$clientsUrl = "http://localhost:3000/api/clients"
+$dossiersUrl = "http://localhost:3000/api/dossiers"
+$lawsuitsUrl = "http://localhost:3000/api/lawsuits"
+$missionsUrl = "http://localhost:3000/api/missions"
+
+# Fetch clients from the API
+try {
+  $clientsResponse = Invoke-WebRequest -Uri $clientsUrl -Method Get -ErrorAction Stop
+  $clients = $clientsResponse.Content | ConvertFrom-Json
+  Write-Host "Fetched $($clients.Count) clients from the database." -ForegroundColor Green
+} catch {
+  Write-Host "Failed to fetch clients from API: $($_.Exception.Message)" -ForegroundColor Red
+  exit 1
+}
+
+# Fetch dossiers from the API
+try {
+  $dossiersResponse = Invoke-WebRequest -Uri $dossiersUrl -Method Get -ErrorAction Stop
+  $dossiers = $dossiersResponse.Content | ConvertFrom-Json
+  Write-Host "Fetched $($dossiers.Count) dossiers from the database." -ForegroundColor Green
+} catch {
+  Write-Host "Failed to fetch dossiers from API: $($_.Exception.Message)" -ForegroundColor Red
+  exit 1
+}
+
+# Fetch lawsuits from the API
+try {
+  $lawsuitsResponse = Invoke-WebRequest -Uri $lawsuitsUrl -Method Get -ErrorAction Stop
+  $lawsuits = $lawsuitsResponse.Content | ConvertFrom-Json
+  Write-Host "Fetched $($lawsuits.Count) lawsuits from the database." -ForegroundColor Green
+} catch {
+  Write-Host "Failed to fetch lawsuits from API: $($_.Exception.Message)" -ForegroundColor Red
+  exit 1
+}
+
+# Fetch missions from the API
+try {
+  $missionsResponse = Invoke-WebRequest -Uri $missionsUrl -Method Get -ErrorAction Stop
+  $missions = $missionsResponse.Content | ConvertFrom-Json
+  Write-Host "Fetched $($missions.Count) missions from the database." -ForegroundColor Green
+} catch {
+  Write-Host "Failed to fetch missions from API: $($_.Exception.Message)" -ForegroundColor Red
+  exit 1
+}
+
 $now = Get-Date
 
 Write-Host "==========================================" -ForegroundColor Cyan
-Write-Host "Adding 26 Financial Entries..." -ForegroundColor Cyan
+Write-Host "Adding Financial Entries..." -ForegroundColor Cyan
 Write-Host "==========================================" -ForegroundColor Cyan
 Write-Host ""
 
 $successCount = 0
 $failureCount = 0
 
-# 10 client income entries
-$entries = @(
-  @{ scope="client"; entry_type="income"; status="pending"; amount=8500; currency="TND"; occurred_at=$now.AddHours(-24).ToUniversalTime().ToString("o"); due_date=$now.ToUniversalTime().ToString("o"); paid_at=$null; client_id=1; dossier_id=1; case_id=$null; mission_id=$null; title="Initial retainer - DOS-2026-001"; notes="Initial retainer fee" },
-  @{ scope="client"; entry_type="income"; status="pending"; amount=6200; currency="TND"; occurred_at=$now.AddHours(-48).ToUniversalTime().ToString("o"); due_date=$now.AddHours(24).ToUniversalTime().ToString("o"); paid_at=$null; client_id=2; dossier_id=2; case_id=$null; mission_id=$null; title="Monthly services - TechnoSoft"; notes="Monthly legal services" },
-  @{ scope="client"; entry_type="income"; status="confirmed"; amount=5500; currency="TND"; occurred_at=$now.AddDays(-5).ToUniversalTime().ToString("o"); due_date=$now.AddDays(-5).ToUniversalTime().ToString("o"); paid_at=$now.AddDays(-2).ToUniversalTime().ToString("o"); client_id=3; dossier_id=3; case_id=$null; mission_id=$null; title="Consultation fees - Fatima Mansour"; notes="Consultation fees" },
-  @{ scope="client"; entry_type="income"; status="confirmed"; amount=7200; currency="TND"; occurred_at=$now.AddDays(-8).ToUniversalTime().ToString("o"); due_date=$now.AddDays(-8).ToUniversalTime().ToString("o"); paid_at=$now.AddDays(-4).ToUniversalTime().ToString("o"); client_id=4; dossier_id=4; case_id=$null; mission_id=$null; title="Commercial dispute - Mediterranean Trading"; notes="Commercial dispute" },
-  @{ scope="client"; entry_type="income"; status="pending"; amount=4800; currency="TND"; occurred_at=$now.AddHours(-12).ToUniversalTime().ToString("o"); due_date=$now.AddHours(48).ToUniversalTime().ToString("o"); paid_at=$null; client_id=5; dossier_id=5; case_id=$null; mission_id=$null; title="Hourly billing - Boundary case"; notes="Hourly billing" },
-  @{ scope="client"; entry_type="income"; status="confirmed"; amount=3900; currency="TND"; occurred_at=$now.AddDays(-3).ToUniversalTime().ToString("o"); due_date=$now.AddDays(-3).ToUniversalTime().ToString("o"); paid_at=$now.AddDays(-1).ToUniversalTime().ToString("o"); client_id=6; dossier_id=6; case_id=$null; mission_id=$null; title="Employment law - Leila Gharbi"; notes="Employment consultation" },
-  @{ scope="client"; entry_type="income"; status="pending"; amount=9200; currency="TND"; occurred_at=$now.AddHours(-30).ToUniversalTime().ToString("o"); due_date=$now.AddHours(72).ToUniversalTime().ToString("o"); paid_at=$null; client_id=7; dossier_id=7; case_id=$null; mission_id=$null; title="Environmental case - Green Energy"; notes="Environmental compliance" },
-  @{ scope="client"; entry_type="income"; status="confirmed"; amount=4500; currency="TND"; occurred_at=$now.AddDays(-7).ToUniversalTime().ToString("o"); due_date=$now.AddDays(-7).ToUniversalTime().ToString("o"); paid_at=$now.AddDays(-5).ToUniversalTime().ToString("o"); client_id=8; dossier_id=8; case_id=$null; mission_id=$null; title="Criminal defense - Youssef Amri"; notes="Criminal defense" },
-  @{ scope="client"; entry_type="income"; status="pending"; amount=3800; currency="TND"; occurred_at=$now.AddHours(-20).ToUniversalTime().ToString("o"); due_date=$now.AddHours(48).ToUniversalTime().ToString("o"); paid_at=$null; client_id=9; dossier_id=9; case_id=$null; mission_id=$null; title="Construction dispute - Atlas Construction"; notes="Construction dispute" },
-  @{ scope="client"; entry_type="income"; status="confirmed"; amount=2900; currency="TND"; occurred_at=$now.AddDays(-12).ToUniversalTime().ToString("o"); due_date=$now.AddDays(-12).ToUniversalTime().ToString("o"); paid_at=$now.AddDays(-10).ToUniversalTime().ToString("o"); client_id=10; dossier_id=10; case_id=$null; mission_id=$null; title="Commercial licensing - Sami Bouazizi"; notes="Commercial licensing" },
-  @{ scope="internal"; entry_type="expense"; status="confirmed"; amount=2500; currency="TND"; occurred_at=$now.AddDays(-2).ToUniversalTime().ToString("o"); due_date=$now.AddDays(-2).ToUniversalTime().ToString("o"); paid_at=$now.AddDays(-1).ToUniversalTime().ToString("o"); client_id=$null; dossier_id=1; case_id=$null; mission_id=1; title="Forensic investigation - MISS-2026-001"; notes="Forensic investigation" },
-  @{ scope="internal"; entry_type="expense"; status="pending"; amount=3200; currency="TND"; occurred_at=$now.AddHours(-6).ToUniversalTime().ToString("o"); due_date=$now.AddHours(72).ToUniversalTime().ToString("o"); paid_at=$null; client_id=$null; dossier_id=2; case_id=$null; mission_id=3; title="Software analysis - MISS-2026-003"; notes="Software code analysis" },
-  @{ scope="internal"; entry_type="expense"; status="pending"; amount=1800; currency="TND"; occurred_at=$now.AddHours(-18).ToUniversalTime().ToString("o"); due_date=$now.AddHours(48).ToUniversalTime().ToString("o"); paid_at=$null; client_id=$null; dossier_id=8; case_id=$null; mission_id=15; title="Evidence analysis - MISS-2026-015"; notes="Evidence analysis" },
-  @{ scope="internal"; entry_type="expense"; status="confirmed"; amount=2100; currency="TND"; occurred_at=$now.AddDays(-4).ToUniversalTime().ToString("o"); due_date=$now.AddDays(-4).ToUniversalTime().ToString("o"); paid_at=$now.AddDays(-2).ToUniversalTime().ToString("o"); client_id=$null; dossier_id=9; case_id=$null; mission_id=17; title="Construction audit - MISS-2026-017"; notes="Construction audit" },
-  @{ scope="internal"; entry_type="expense"; status="pending"; amount=800; currency="TND"; occurred_at=$now.AddHours(-4).ToUniversalTime().ToString("o"); due_date=$now.AddHours(24).ToUniversalTime().ToString("o"); paid_at=$null; client_id=$null; dossier_id=$null; case_id=1; mission_id=$null; title="Court filing fees - PRO-2026-001-A"; notes="Court filing fees" },
-  @{ scope="internal"; entry_type="expense"; status="confirmed"; amount=550; currency="TND"; occurred_at=$now.AddDays(-6).ToUniversalTime().ToString("o"); due_date=$now.AddDays(-6).ToUniversalTime().ToString("o"); paid_at=$now.AddDays(-5).ToUniversalTime().ToString("o"); client_id=$null; dossier_id=$null; case_id=9; mission_id=$null; title="Cadastral fees - PRO-2026-009-A"; notes="Cadastral fees" },
-  @{ scope="internal"; entry_type="expense"; status="pending"; amount=1200; currency="TND"; occurred_at=$now.AddHours(-36).ToUniversalTime().ToString("o"); due_date=$now.AddHours(96).ToUniversalTime().ToString("o"); paid_at=$null; client_id=$null; dossier_id=$null; case_id=11; mission_id=$null; title="Appeal fees - PRO-2026-011-A"; notes="Court appeal fees" },
-  @{ scope="internal"; entry_type="expense"; status="confirmed"; amount=450; currency="TND"; occurred_at=$now.AddDays(-10).ToUniversalTime().ToString("o"); due_date=$now.AddDays(-10).ToUniversalTime().ToString("o"); paid_at=$now.AddDays(-8).ToUniversalTime().ToString("o"); client_id=$null; dossier_id=$null; case_id=14; mission_id=$null; title="Labor court fees - PRO-2026-014-A"; notes="Labor court fees" },
-  @{ scope="internal"; entry_type="expense"; status="pending"; amount=950; currency="TND"; occurred_at=$now.AddHours(-8).ToUniversalTime().ToString("o"); due_date=$now.AddHours(60).ToUniversalTime().ToString("o"); paid_at=$null; client_id=$null; dossier_id=7; case_id=$null; mission_id=13; title="Travel expenses - MISS-2026-013"; notes="Travel expenses" },
-  @{ scope="internal"; entry_type="expense"; status="confirmed"; amount=1350; currency="TND"; occurred_at=$now.AddDays(-3).ToUniversalTime().ToString("o"); due_date=$now.AddDays(-3).ToUniversalTime().ToString("o"); paid_at=$now.AddDays(-2).ToUniversalTime().ToString("o"); client_id=$null; dossier_id=9; case_id=$null; mission_id=17; title="Accommodation - MISS-2026-017"; notes="Accommodation costs" },
-  @{ scope="internal"; entry_type="expense"; status="pending"; amount=680; currency="TND"; occurred_at=$now.AddHours(-12).ToUniversalTime().ToString("o"); due_date=$now.AddHours(84).ToUniversalTime().ToString("o"); paid_at=$null; client_id=$null; dossier_id=5; case_id=$null; mission_id=9; title="Travel - MISS-2026-009"; notes="Travel reimbursement" },
-  @{ scope="internal"; entry_type="expense"; status="pending"; amount=420; currency="TND"; occurred_at=$now.AddHours(-2).ToUniversalTime().ToString("o"); due_date=$now.AddHours(36).ToUniversalTime().ToString("o"); paid_at=$null; client_id=$null; dossier_id=4; case_id=$null; mission_id=$null; title="Document translation - DOS-2026-004"; notes="Document translation" },
-  @{ scope="internal"; entry_type="expense"; status="confirmed"; amount=340; currency="TND"; occurred_at=$now.AddDays(-5).ToUniversalTime().ToString("o"); due_date=$now.AddDays(-5).ToUniversalTime().ToString("o"); paid_at=$now.AddDays(-4).ToUniversalTime().ToString("o"); client_id=$null; dossier_id=2; case_id=$null; mission_id=$null; title="Report translation - DOS-2026-002"; notes="Report translation" },
-  @{ scope="internal"; entry_type="expense"; status="pending"; amount=280; currency="TND"; occurred_at=$now.AddHours(-14).ToUniversalTime().ToString("o"); due_date=$now.AddHours(72).ToUniversalTime().ToString("o"); paid_at=$null; client_id=$null; dossier_id=7; case_id=$null; mission_id=$null; title="Regulation translation - DOS-2026-007"; notes="Regulation translation" },
-  @{ scope="internal"; entry_type="expense"; status="confirmed"; amount=150; currency="TND"; occurred_at=$now.AddDays(-1).ToUniversalTime().ToString("o"); due_date=$now.AddDays(-1).ToUniversalTime().ToString("o"); paid_at=$now.ToUniversalTime().ToString("o"); client_id=$null; dossier_id=$null; case_id=$null; mission_id=$null; title="Database subscription"; notes="Legal database" },
-  @{ scope="internal"; entry_type="expense"; status="confirmed"; amount=200; currency="TND"; occurred_at=$now.AddDays(-30).ToUniversalTime().ToString("o"); due_date=$now.AddDays(-30).ToUniversalTime().ToString("o"); paid_at=$now.AddDays(-29).ToUniversalTime().ToString("o"); client_id=$null; dossier_id=$null; case_id=$null; mission_id=$null; title="Case law tool subscription"; notes="Case law subscription" }
+# Arabic financial entry titles
+$arabicIncomeTitles = @(
+  "الدفعة الأولى",
+  "الخدمات الشهرية",
+  "استشارات قانونية",
+  "رسوم التقاضي",
+  "أتعاب المحاماة",
+  "رسوم الترخيص",
+  "استشارات تجارية",
+  "دعوى مدنية",
+  "قضية جنائية",
+  "خدمات إدارية"
 )
+
+$arabicExpenseTitles = @(
+  "تحقيق جنائي",
+  "تحليل برمجيات",
+  "تحليل أدلة",
+  "تدقيق بناء",
+  "رسوم المحكمة",
+  "رسوم كاداستر",
+  "رسوم الاستئناف",
+  "رسوم محكمة العمل",
+  "مصاريف السفر",
+  "إقامة",
+  "ترجمة وثائق",
+  "اشتراك قاعدة بيانات",
+  "اشتراك أدوات قانونية"
+)
+
+# Generate financial entries dynamically
+$entries = @()
+$titleIndex = 0
+
+# Client income entries
+foreach ($client in $clients | Select-Object -First 10) {
+  $entries += @{
+    scope = "client"
+    entry_type = "income"
+    status = "confirmed"
+    amount = Get-Random -Minimum 1000 -Maximum 10000
+    currency = "TND"
+    occurred_at = $now.AddDays(-(Get-Random -Minimum 0 -Maximum 30)).ToUniversalTime().ToString("o")
+    due_date = $now.AddDays((Get-Random -Minimum 0 -Maximum 30)).ToUniversalTime().ToString("o")
+    paid_at = $now.AddDays(-(Get-Random -Minimum 0 -Maximum 10)).ToUniversalTime().ToString("o")
+    client_id = $client.id
+    title = $arabicIncomeTitles[$titleIndex % $arabicIncomeTitles.Length]
+    description = "دخل من العميل $($client.name)"
+  }
+  $titleIndex++
+}
+
+# Internal expense entries
+foreach ($mission in $missions | Select-Object -First 10) {
+  $entries += @{
+    scope = "internal"
+    entry_type = "expense"
+    status = "confirmed"
+    amount = Get-Random -Minimum 500 -Maximum 5000
+    currency = "TND"
+    occurred_at = $now.AddDays(-(Get-Random -Minimum 0 -Maximum 30)).ToUniversalTime().ToString("o")
+    due_date = $now.AddDays((Get-Random -Minimum 0 -Maximum 30)).ToUniversalTime().ToString("o")
+    paid_at = $now.AddDays(-(Get-Random -Minimum 0 -Maximum 10)).ToUniversalTime().ToString("o")
+    mission_id = $mission.id
+    title = $arabicExpenseTitles[$titleIndex % $arabicExpenseTitles.Length]
+    description = "مصروفات للمهمة $($mission.title)"
+  }
+  $titleIndex++
+}
+
+# Dossier-related expenses
+foreach ($dossier in $dossiers | Select-Object -First 5) {
+  $entries += @{
+    scope = "internal"
+    entry_type = "expense"
+    status = "pending"
+    amount = Get-Random -Minimum 200 -Maximum 2000
+    currency = "TND"
+    occurred_at = $now.AddDays(-(Get-Random -Minimum 0 -Maximum 10)).ToUniversalTime().ToString("o")
+    due_date = $now.AddDays((Get-Random -Minimum 0 -Maximum 20)).ToUniversalTime().ToString("o")
+    paid_at = $null
+    dossier_id = $dossier.id
+    title = $arabicExpenseTitles[$titleIndex % $arabicExpenseTitles.Length]
+    description = "مصروفات للملف $($dossier.title)"
+  }
+  $titleIndex++
+}
+
+# Lawsuit-related expenses
+foreach ($lawsuit in $lawsuits | Select-Object -First 5) {
+  $entries += @{
+    scope = "internal"
+    entry_type = "expense"
+    status = "pending"
+    amount = Get-Random -Minimum 300 -Maximum 3000
+    currency = "TND"
+    occurred_at = $now.AddDays(-(Get-Random -Minimum 0 -Maximum 10)).ToUniversalTime().ToString("o")
+    due_date = $now.AddDays((Get-Random -Minimum 0 -Maximum 20)).ToUniversalTime().ToString("o")
+    paid_at = $null
+    lawsuit_id = $lawsuit.id
+    title = $arabicExpenseTitles[$titleIndex % $arabicExpenseTitles.Length]
+    description = "مصروفات للقضية $($lawsuit.title)"
+  }
+  $titleIndex++
+}
 
 foreach ($entry in $entries) {
   try {

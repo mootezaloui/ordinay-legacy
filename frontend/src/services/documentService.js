@@ -5,9 +5,9 @@
  * Entity-agnostic, storage-abstracted, desktop-first design.
  *
  * ARCHITECTURE:
- * - File blobs: IndexedDB (via LocalStorageProvider)
+ * - File storage: backend local filesystem (Electron)
  * - Metadata: SQLite backend (via API)
- * - Bridge: file_path (stored in both layers)
+ * - Bridge: file_path (absolute filesystem path)
  */
 
 import {
@@ -21,6 +21,7 @@ import {
 import { LocalStorageProvider } from "./storage/LocalStorageProvider.js";
 import { apiClient } from "./api/client";
 import { getAppLicenseState } from "./licenseService";
+import { isElectron } from "../lib/apiConfig";
 
 const isLicenseLocked = () =>
   ["ACTIVATING", "ERROR"].includes(getAppLicenseState());
@@ -31,8 +32,31 @@ const isLicenseLocked = () =>
  */
 class DocumentService {
   constructor() {
-    // Default to local storage provider (file blobs only)
+    // Fallback provider for non-Electron contexts
     this.storageProvider = new LocalStorageProvider();
+  }
+
+  async fileToBase64(file) {
+    const buffer = await file.arrayBuffer();
+    let binary = "";
+    const bytes = new Uint8Array(buffer);
+    const chunkSize = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      const chunk = bytes.subarray(i, i + chunkSize);
+      binary += String.fromCharCode(...chunk);
+    }
+    return btoa(binary);
+  }
+
+  async uploadFileToBackend(file) {
+    const base64 = await this.fileToBase64(file);
+    const payload = {
+      filename: file.name,
+      mime_type: file.type || null,
+      size_bytes: file.size,
+      data_base64: base64,
+    };
+    return apiClient.post("/documents/upload", payload);
   }
 
   /**
@@ -56,6 +80,7 @@ class DocumentService {
     entityId,
     category,
     copy_type,
+    original_filename,
   }) {
     const payload = {
       title,
@@ -64,6 +89,7 @@ class DocumentService {
       size_bytes,
       notes: category || null,
       copy_type: copy_type || null,
+      ...(original_filename ? { original_filename } : {}),
     };
 
     // Map entityType to backend foreign key field, always use 'lawsuit' for legal proceedings
@@ -141,24 +167,40 @@ class DocumentService {
         return { success: false, error: validation.error };
       }
 
-      // 1. Store file blob in IndexedDB
       const extension = file.name.split(".").pop();
       // Map 'proces' to 'lawsuit' for storage and backend if needed
       let mappedEntityType = entityType === "proces" ? "lawsuit" : entityType;
-      const storageResult = await this.storageProvider.storeFile(file, {
-        directory: mappedEntityType,
-      });
 
-      if (!storageResult.success) {
-        return { success: false, error: storageResult.error };
+      let filePath = null;
+      let mimeType = file.type || getMimeType(extension);
+      let sizeBytes = file.size;
+
+      if (isElectron() && window.electronAPI?.apiRequest) {
+        const uploadResult = await this.uploadFileToBackend(file);
+        filePath = uploadResult.file_path;
+        mimeType = uploadResult.mime_type || mimeType;
+        sizeBytes = uploadResult.size_bytes || sizeBytes;
+      } else {
+        const storageResult = await this.storageProvider.storeFile(file, {
+          directory: mappedEntityType,
+        });
+        if (!storageResult.success) {
+          return { success: false, error: storageResult.error };
+        }
+        filePath = storageResult.path.replace("proces/", "case/");
       }
 
-      // 2. Store metadata in backend SQLite
+      if (!filePath) {
+        return { success: false, error: "File upload failed" };
+      }
+
+      // Store metadata in backend SQLite
       const backendDoc = await this.createBackendMetadata({
         title: file.name,
-        file_path: storageResult.path.replace("proces/", "case/"),
-        mime_type: file.type || getMimeType(extension),
-        size_bytes: file.size,
+        original_filename: file.name,
+        file_path: filePath,
+        mime_type: mimeType,
+        size_bytes: sizeBytes,
         entityType: mappedEntityType,
         entityId,
         category,
@@ -254,21 +296,25 @@ class DocumentService {
    */
   transformBackendDocument(backendDoc) {
     const extension = backendDoc.title.split(".").pop() || "";
-    return {
-      id: backendDoc.id.toString(),
-      name: backendDoc.title,
-      type: extension.toLowerCase(),
-      category: getCategoryFromType(extension),
-      sizeBytes: backendDoc.size_bytes || 0,
-      size: formatFileSize(backendDoc.size_bytes || 0),
-      uploadDate: backendDoc.uploaded_at || backendDoc.created_at,
-      modifiedDate: backendDoc.updated_at,
-      storagePath: backendDoc.file_path,
-      mimeType: backendDoc.mime_type,
-      // Note: backend doesn't store these, but UI may expect them
-      metadata: {
-        isDeleted: !!backendDoc.deleted_at,
-        deletedDate: backendDoc.deleted_at,
+      return {
+        id: backendDoc.id.toString(),
+        name: backendDoc.title,
+        type: extension.toLowerCase(),
+        category: getCategoryFromType(extension),
+        sizeBytes: backendDoc.size_bytes || 0,
+        size: formatFileSize(backendDoc.size_bytes || 0),
+        uploadDate: backendDoc.uploaded_at || backendDoc.created_at,
+        modifiedDate: backendDoc.updated_at,
+        storagePath: backendDoc.file_path,
+        mimeType: backendDoc.mime_type,
+        textStatus: backendDoc.text_status || backendDoc.status || null,
+        textSource: backendDoc.text_source || backendDoc.source || null,
+        textFailureReason:
+          backendDoc.text_failure_reason || backendDoc.failure_reason || null,
+        // Note: backend doesn't store these, but UI may expect them
+        metadata: {
+          isDeleted: !!backendDoc.deleted_at,
+          deletedDate: backendDoc.deleted_at,
       },
     };
   }
@@ -356,23 +402,25 @@ class DocumentService {
       // 1. Soft-delete metadata in backend (always happens)
       await apiClient.delete(`/documents/${documentId}`);
 
-      // 2. Optionally delete file blob from IndexedDB
+      // 2. Optionally delete file from filesystem/IndexedDB
       if (deleteFile && document.storagePath) {
         try {
-          console.log(
-            `DocumentService: Deleting file from IndexedDB: ${document.storagePath}`,
-          );
-          await this.storageProvider.deleteFile(document.storagePath);
-          console.log(
-            `DocumentService: File deleted successfully: ${document.storagePath}`,
-          );
+          if (isElectron() && window.electronAPI?.deleteFile) {
+            const result = await window.electronAPI.deleteFile(
+              document.storagePath,
+            );
+            if (!result?.ok) {
+              throw new Error(result?.error || "Delete failed");
+            }
+          } else {
+            await this.storageProvider.deleteFile(document.storagePath);
+          }
         } catch (storageError) {
           console.error(
             "DocumentService: Storage deletion failed",
             storageError,
           );
-          // Don't fail the whole operation if file blob deletion fails
-          // Metadata is already soft-deleted in backend
+          // Don't fail the whole operation if file deletion fails
         }
       }
 
@@ -396,13 +444,20 @@ class DocumentService {
       }
 
       // Check if file exists
-      const exists = await this.storageProvider.fileExists(
-        document.storagePath,
-      );
+      const exists = await this.documentFileExists(documentId);
       if (!exists) {
         throw new Error("File not found in storage");
       }
 
+      if (isElectron() && window.electronAPI?.openFile) {
+        const result = await window.electronAPI.openFile(
+          document.storagePath,
+        );
+        if (!result?.ok) {
+          throw new Error(result?.error || "Open failed");
+        }
+        return true;
+      }
       await this.storageProvider.openFile(document.storagePath);
       return true;
     } catch (error) {
@@ -423,6 +478,15 @@ class DocumentService {
         throw new Error("Document not found");
       }
 
+      if (isElectron() && window.electronAPI?.revealFile) {
+        const result = await window.electronAPI.revealFile(
+          document.storagePath,
+        );
+        if (!result?.ok) {
+          throw new Error(result?.error || "Reveal failed");
+        }
+        return true;
+      }
       await this.storageProvider.revealFile(document.storagePath);
       return true;
     } catch (error) {
@@ -446,6 +510,16 @@ class DocumentService {
         throw new Error("Document not found");
       }
 
+      if (isElectron() && window.electronAPI?.downloadFile) {
+        const result = await window.electronAPI.downloadFile(
+          document.storagePath,
+          document.name,
+        );
+        if (!result?.ok) {
+          throw new Error(result?.error || "Download failed");
+        }
+        return true;
+      }
       await this.storageProvider.downloadFile(document.storagePath);
       return true;
     } catch (error) {
@@ -481,6 +555,12 @@ class DocumentService {
       const document = await this.getDocumentById(documentId);
       if (!document) return false;
 
+      if (isElectron() && window.electronAPI?.fileExists) {
+        const result = await window.electronAPI.fileExists(
+          document.storagePath,
+        );
+        return !!result?.exists;
+      }
       return await this.storageProvider.fileExists(document.storagePath);
     } catch (error) {
       console.error("DocumentService: File check failed", error);
@@ -502,22 +582,35 @@ class DocumentService {
       const document = await this.getDocumentById(documentId);
       if (!document) return false;
 
-      // Delete old file if it exists
-      await this.storageProvider.deleteFile(document.storagePath);
-
-      // Store new file
+      let filePath = null;
+      let mimeType = newFile.type || document.mimeType;
+      let sizeBytes = newFile.size;
       const extension = newFile.name.split(".").pop();
-      const storageResult = await this.storageProvider.storeFile(newFile, {
-        directory: "documents",
-      });
 
-      if (!storageResult.success) return false;
+      if (isElectron() && window.electronAPI?.apiRequest) {
+        const uploadResult = await this.uploadFileToBackend(newFile);
+        filePath = uploadResult.file_path;
+        mimeType = uploadResult.mime_type || mimeType;
+        sizeBytes = uploadResult.size_bytes || sizeBytes;
+        if (document.storagePath && window.electronAPI?.deleteFile) {
+          await window.electronAPI.deleteFile(document.storagePath);
+        }
+      } else {
+        await this.storageProvider.deleteFile(document.storagePath);
+        const storageResult = await this.storageProvider.storeFile(newFile, {
+          directory: "documents",
+        });
+        if (!storageResult.success) return false;
+        filePath = storageResult.path;
+      }
 
       // Update document metadata in backend
       await apiClient.put(`/documents/${documentId}`, {
-        file_path: storageResult.path,
-        mime_type: newFile.type || getMimeType(extension),
-        size_bytes: newFile.size,
+        title: newFile.name,
+        file_path: filePath,
+        mime_type: mimeType || getMimeType(extension),
+        size_bytes: sizeBytes,
+        original_filename: newFile.name,
       });
 
       return true;

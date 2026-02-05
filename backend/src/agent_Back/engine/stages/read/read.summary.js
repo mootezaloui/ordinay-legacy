@@ -26,7 +26,11 @@ function buildSummaryHelpers({
 }) {
   const buildSummarySection = (title, items) => {
     const cleanedItems = (items || []).filter(
-      (item) => item && typeof item.value === "number",
+      (item) =>
+        item &&
+        typeof item.value === "number" &&
+        Number.isFinite(item.value) &&
+        item.value > 0,
     );
     if (cleanedItems.length === 0) return null;
     return { title, items: cleanedItems };

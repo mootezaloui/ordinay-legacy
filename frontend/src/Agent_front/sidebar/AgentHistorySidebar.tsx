@@ -303,9 +303,9 @@ export function AgentHistorySidebar({
   // ============================================================================
 
   return (
-    <div className="w-full sm:w-72 max-w-full h-full flex-shrink-0 border-r border-slate-200/70 dark:border-slate-800/80 bg-white/85 dark:bg-slate-950/70 backdrop-blur flex flex-col agent-ui-text">
+    <div className="h-full w-full flex flex-col border-r border-slate-200/70 dark:border-slate-800/80 bg-white dark:bg-slate-950 agent-ui-text">
       {/* Header with actions */}
-      <div className="p-4 border-b border-slate-200/70 dark:border-slate-800/80 space-y-2">
+      <div className="p-4 border-b border-slate-200/70 dark:border-slate-800/80 space-y-2 flex-shrink-0">
         <button
           type="button"
           onClick={() => onNewChat(null)}

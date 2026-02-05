@@ -408,9 +408,31 @@
         "formats": "PDF, DOC, XLS, PPT, الصور، الأرشيفات (10 ميجابايت كحد أقصى لكل ملف)",
         "uploading": "جاري التحميل..."
       },
-      "status": {
-        "missing": "ملف مفقود"
-      },
+        "status": {
+          "missing": "ملف مفقود",
+          "missingFile": "ملف مفقود",
+          "processing": "جارٍ تشغيل OCR",
+          "ocr": "تمت قراءة المستند عبر OCR",
+          "unreadable": "المستند غير قابل للقراءة ({{reason}})"
+        },
+        "failureReasons": {
+          "unknown": "سبب غير معروف",
+          "missing_file_path": "مسار الملف مفقود",
+          "file_not_found": "الملف غير موجود",
+          "file_stat_failed": "تعذر قراءة بيانات الملف",
+          "not_a_file": "المسار ليس ملفًا",
+          "file_too_large": "الملف كبير جدًا",
+          "unsupported_type": "نوع الملف غير مدعوم",
+          "no_pdf_text": "ملف PDF بلا نص قابل للقراءة",
+          "no_docx_text": "ملف DOCX بلا نص قابل للقراءة",
+          "empty_text": "الملف بلا نص قابل للقراءة",
+          "ocr_timeout": "انتهت مهلة OCR",
+          "ocr_empty": "لم ينتج OCR نصًا قابلًا للقراءة",
+          "ocr_failed": "فشل OCR{{detail}}",
+          "ocr_spawn_failed": "تعذر تشغيل OCR{{detail}}",
+          "ingestion_error": "خطأ في الإدخال{{detail}}",
+          "legacy_unreadable": "تمت سابقًا الإشارة إلى أن المستند غير قابل للقراءة"
+        },
       "actions": {
         "relink": "إعادة الربط",
         "download": "تحميل",

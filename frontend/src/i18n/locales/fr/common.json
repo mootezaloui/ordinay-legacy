@@ -340,9 +340,31 @@
         "formats": "PDF, DOC, XLS, PPT, Images, Archives (Max 10MB par fichier)",
         "uploading": "Téléchargement en cours..."
       },
-      "status": {
-        "missing": "Fichier manquant"
-      },
+        "status": {
+          "missing": "Fichier manquant",
+          "missingFile": "Fichier manquant",
+          "processing": "OCR en cours",
+          "ocr": "Document lu via OCR",
+          "unreadable": "Document illisible ({{reason}})"
+        },
+        "failureReasons": {
+          "unknown": "raison inconnue",
+          "missing_file_path": "chemin de fichier manquant",
+          "file_not_found": "fichier introuvable",
+          "file_stat_failed": "métadonnées de fichier indisponibles",
+          "not_a_file": "le chemin n'est pas un fichier",
+          "file_too_large": "fichier trop volumineux",
+          "unsupported_type": "type de fichier non pris en charge",
+          "no_pdf_text": "PDF sans texte lisible",
+          "no_docx_text": "DOCX sans texte lisible",
+          "empty_text": "fichier sans texte lisible",
+          "ocr_timeout": "délai OCR dépassé",
+          "ocr_empty": "OCR n'a pas produit de texte lisible",
+          "ocr_failed": "Échec de l'OCR{{detail}}",
+          "ocr_spawn_failed": "Démarrage de l'OCR impossible{{detail}}",
+          "ingestion_error": "Erreur d'ingestion{{detail}}",
+          "legacy_unreadable": "document marqué illisible précédemment"
+        },
       "actions": {
         "relink": "Relier",
         "download": "Télécharger",

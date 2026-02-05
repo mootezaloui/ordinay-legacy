@@ -37,6 +37,28 @@ const CONTEXT_SIDEBAR_BREAKPOINT = 1536; // 2xl
 const HISTORY_SIDEBAR_STORAGE_KEY = "organia_agent_history_sidebar";
 const CONTEXT_SIDEBAR_STORAGE_KEY = "organia_agent_context_sidebar";
 
+const streamRegistry: {
+  abortController: AbortController | null;
+  sessionId: string | null;
+  isStreaming: boolean;
+} = {
+  abortController: null,
+  sessionId: null,
+  isStreaming: false,
+};
+
+type StreamListener = (state: { isStreaming: boolean; sessionId: string | null }) => void;
+
+const streamListeners = new Set<StreamListener>();
+
+const notifyStreamListeners = () => {
+  const snapshot = {
+    isStreaming: streamRegistry.isStreaming,
+    sessionId: streamRegistry.sessionId,
+  };
+  streamListeners.forEach((listener) => listener(snapshot));
+};
+
 type TransientStatus = {
   sessionId: string;
   action: string;
@@ -126,7 +148,7 @@ export function useAgentState() {
   const [showContextSidebar, setShowContextSidebar] = useState(
     initialVisibility.showContext
   );
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(streamRegistry.isStreaming);
   const [transientStatus, setTransientStatus] = useState<TransientStatus | null>(null);
   const [agentVersion, setAgentVersion] = useState<AgentVersion>("v1");
   const [contextScope, setContextScope] = useState<ContextScope>("GLOBAL");
@@ -140,6 +162,7 @@ export function useAgentState() {
   const streamSessionRef = useRef<string | null>(null);
   const lastMessageContentRef = useRef<string>("");
   const isUserScrolledUpRef = useRef(false);
+  const isMountedRef = useRef(true);
 
   const pendingSessionKey = "__pending__";
   const inputKey = activeSessionId || pendingSessionKey;
@@ -163,6 +186,18 @@ export function useAgentState() {
     const { sessionId, ...rest } = transientStatus;
     return rest;
   }, [transientStatus, activeSessionId]);
+
+  const safeSetIsLoading = useCallback((value: boolean) => {
+    if (isMountedRef.current) {
+      setIsLoading(value);
+    }
+  }, []);
+
+  const safeSetTransientStatus = useCallback((value: TransientStatus | null) => {
+    if (isMountedRef.current) {
+      setTransientStatus(value);
+    }
+  }, []);
 
   // Scroll to bottom utility
   const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
@@ -188,22 +223,35 @@ export function useAgentState() {
     isUserScrolledUpRef.current = distanceFromBottom > 100;
   }, []);
 
-  // Abort any active stream when session changes
+  // Sync with any in-flight stream and avoid aborting on unmount/navigation
   useEffect(() => {
-    if (streamSessionRef.current && streamSessionRef.current !== activeSessionId) {
-      streamAbortRef.current?.abort();
-      streamAbortRef.current = null;
-      streamSessionRef.current = null;
-      setTransientStatus(null);
-    }
-  }, [activeSessionId]);
+    isMountedRef.current = true;
 
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      streamAbortRef.current?.abort();
+    const handleStreamUpdate = (state: { isStreaming: boolean; sessionId: string | null }) => {
+      if (!isMountedRef.current) return;
+      if (state.isStreaming && streamRegistry.abortController) {
+        streamAbortRef.current = streamRegistry.abortController;
+        streamSessionRef.current = state.sessionId;
+        safeSetIsLoading(true);
+      } else {
+        streamAbortRef.current = null;
+        streamSessionRef.current = null;
+        safeSetIsLoading(false);
+        safeSetTransientStatus(null);
+      }
     };
-  }, []);
+
+    streamListeners.add(handleStreamUpdate);
+    handleStreamUpdate({
+      isStreaming: streamRegistry.isStreaming,
+      sessionId: streamRegistry.sessionId,
+    });
+
+    return () => {
+      isMountedRef.current = false;
+      streamListeners.delete(handleStreamUpdate);
+    };
+  }, [safeSetIsLoading, safeSetTransientStatus]);
 
   // CRITICAL: Persist data access permissions to localStorage on change
   useEffect(() => {
@@ -226,16 +274,34 @@ export function useAgentState() {
     }
   }, [showHistorySidebar, showContextSidebar]);
 
+  const registerStream = useCallback((sessionId: string, controller: AbortController) => {
+    streamRegistry.abortController = controller;
+    streamRegistry.sessionId = sessionId;
+    streamRegistry.isStreaming = true;
+    streamAbortRef.current = controller;
+    streamSessionRef.current = sessionId;
+    notifyStreamListeners();
+  }, []);
+
+  const clearStreamRegistry = useCallback(() => {
+    streamRegistry.abortController = null;
+    streamRegistry.sessionId = null;
+    streamRegistry.isStreaming = false;
+    streamAbortRef.current = null;
+    streamSessionRef.current = null;
+    notifyStreamListeners();
+  }, []);
+
   // Cancel current stream (can be called from UI)
   const cancelStream = useCallback(() => {
-    if (streamAbortRef.current) {
-      streamAbortRef.current.abort();
-      streamAbortRef.current = null;
-      streamSessionRef.current = null;
-      setIsLoading(false);
-      setTransientStatus(null);
+    const controller = streamAbortRef.current || streamRegistry.abortController;
+    if (controller) {
+      controller.abort();
     }
-  }, []);
+    clearStreamRegistry();
+    safeSetIsLoading(false);
+    safeSetTransientStatus(null);
+  }, [clearStreamRegistry, safeSetIsLoading, safeSetTransientStatus]);
 
   // Save scroll position before switching sessions
   const saveScrollPosition = useCallback(() => {
@@ -328,12 +394,14 @@ export function useAgentState() {
 
   const setSessionStatus = useCallback(
     (sessionId: string, status: Omit<TransientStatus, "sessionId">) => {
+      if (!isMountedRef.current) return;
       setTransientStatus({ sessionId, ...status });
     },
-    []
+    [],
   );
 
   const clearSessionStatus = useCallback((sessionId: string) => {
+    if (!isMountedRef.current) return;
     setTransientStatus((prev) => {
       if (!prev) return prev;
       if (prev.sessionId !== sessionId) return prev;
@@ -389,7 +457,7 @@ export function useAgentState() {
   const handleSubmit = useCallback((e: React.SyntheticEvent) => {
     e.preventDefault();
     const trimmed = input.trim();
-    if (!trimmed || isLoading) return;
+    if (!trimmed || isLoading || streamRegistry.isStreaming) return;
 
     // Use existing session if we have an activeSessionId, otherwise create new
     let sessionId = activeSessionId;
@@ -417,7 +485,7 @@ export function useAgentState() {
     updateSessionMessages(sessionId, workingMessages);
     setInput("");
     updateSessionDraft(sessionId, "");
-    setIsLoading(true);
+    safeSetIsLoading(true);
     // Show immediate loading indicator while waiting for backend
     setSessionStatus(sessionId, { action: "Analyzing your request…", phase: "init" });
 
@@ -662,9 +730,8 @@ export function useAgentState() {
             appendMessage(finalMessage);
             hasAgentMessage = true;
           }
-          setIsLoading(false);
-          streamAbortRef.current = null;
-          streamSessionRef.current = null;
+          safeSetIsLoading(false);
+          clearStreamRegistry();
           clearSessionStatus(sessionId);
         },
         onError: (error) => {
@@ -684,25 +751,42 @@ export function useAgentState() {
             appendMessage(errorMessage);
             hasAgentMessage = true;
           }
-          setIsLoading(false);
-          streamAbortRef.current = null;
-          streamSessionRef.current = null;
+          safeSetIsLoading(false);
+          clearStreamRegistry();
           clearSessionStatus(sessionId);
         },
         onCancelled: () => {
-          setIsLoading(false);
-          streamAbortRef.current = null;
-          streamSessionRef.current = null;
+          safeSetIsLoading(false);
+          clearStreamRegistry();
           clearSessionStatus(sessionId);
         },
       }
     );
 
-    streamAbortRef.current = abortController;
-  }, [input, activeSessionId, activeSession, conversation, updateSessionMessages, updateSessionDraft, createSession, isLoading, contextScope, agentVersion, dataAccess, setInput, scrollToBottom, setSessionStatus, clearSessionStatus]);
+    registerStream(sessionId, abortController);
+  }, [
+    input,
+    activeSessionId,
+    activeSession,
+    conversation,
+    updateSessionMessages,
+    updateSessionDraft,
+    createSession,
+    isLoading,
+    contextScope,
+    agentVersion,
+    dataAccess,
+    setInput,
+    scrollToBottom,
+    setSessionStatus,
+    clearSessionStatus,
+    safeSetIsLoading,
+    registerStream,
+    clearStreamRegistry,
+  ]);
 
   const startFollowUpIntent = useCallback((followUp: FollowUpSuggestion) => {
-    if (!followUp || isLoading) return;
+    if (!followUp || isLoading || streamRegistry.isStreaming) return;
     const followUpLabel = buildFollowUpLabel(followUp, t);
 
     // Use existing session if we have an activeSessionId, otherwise create new
@@ -728,7 +812,7 @@ export function useAgentState() {
     const baseMessages = [...currentMessages, userMessage];
     let workingMessages = [...baseMessages];
     updateSessionMessages(sessionId, workingMessages);
-    setIsLoading(true);
+    safeSetIsLoading(true);
     // Show immediate loading indicator while waiting for backend
     setSessionStatus(sessionId, { action: "Processing follow-up…", phase: "init" });
 
@@ -964,9 +1048,8 @@ export function useAgentState() {
             appendMessage(finalMessage);
             hasAgentMessage = true;
           }
-          setIsLoading(false);
-          streamAbortRef.current = null;
-          streamSessionRef.current = null;
+          safeSetIsLoading(false);
+          clearStreamRegistry();
           clearSessionStatus(sessionId);
         },
         onError: (error) => {
@@ -986,22 +1069,38 @@ export function useAgentState() {
             appendMessage(errorMessage);
             hasAgentMessage = true;
           }
-          setIsLoading(false);
-          streamAbortRef.current = null;
-          streamSessionRef.current = null;
+          safeSetIsLoading(false);
+          clearStreamRegistry();
           clearSessionStatus(sessionId);
         },
         onCancelled: () => {
-          setIsLoading(false);
-          streamAbortRef.current = null;
-          streamSessionRef.current = null;
+          safeSetIsLoading(false);
+          clearStreamRegistry();
           clearSessionStatus(sessionId);
         },
       }
     );
 
-    streamAbortRef.current = abortController;
-  }, [activeSessionId, activeSession, buildFollowUpIntent, conversation, createSession, dataAccess, agentVersion, contextScope, isLoading, scrollToBottom, updateSessionMessages, setSessionStatus, clearSessionStatus, t]);
+    registerStream(sessionId, abortController);
+  }, [
+    activeSessionId,
+    activeSession,
+    buildFollowUpIntent,
+    conversation,
+    createSession,
+    dataAccess,
+    agentVersion,
+    contextScope,
+    isLoading,
+    scrollToBottom,
+    updateSessionMessages,
+    setSessionStatus,
+    clearSessionStatus,
+    t,
+    safeSetIsLoading,
+    registerStream,
+    clearStreamRegistry,
+  ]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -1015,7 +1114,7 @@ export function useAgentState() {
     userContent: string,
     opts?: { retryOf?: string; sourceUserId?: string; followUpIntent?: FollowUpIntent }
   ) => {
-    if (!userContent || !activeSessionId || isLoading) return;
+    if (!userContent || !activeSessionId || isLoading || streamRegistry.isStreaming) return;
 
     // ========== STAGE 1: IMMEDIATE ACKNOWLEDGEMENT (EPHEMERAL) ==========
     const agentMessageId = `a-${Date.now()}`;
@@ -1023,7 +1122,7 @@ export function useAgentState() {
     const baseMessages = [...(activeSession?.messages || [])];
     let workingMessages = [...baseMessages];
     updateSessionMessages(activeSessionId, workingMessages);
-    setIsLoading(true);
+    safeSetIsLoading(true);
     // Show immediate loading indicator while waiting for backend
     setSessionStatus(activeSessionId, { action: "Analyzing your request…", phase: "init" });
     streamSessionRef.current = activeSessionId;
@@ -1251,9 +1350,8 @@ export function useAgentState() {
             appendMessage(finalMessage);
             hasAgentMessage = true;
           }
-          setIsLoading(false);
-          streamAbortRef.current = null;
-          streamSessionRef.current = null;
+          safeSetIsLoading(false);
+          clearStreamRegistry();
           clearSessionStatus(activeSessionId);
         },
         onError: (error) => {
@@ -1274,22 +1372,33 @@ export function useAgentState() {
             appendMessage(errorMessage);
             hasAgentMessage = true;
           }
-          setIsLoading(false);
-          streamAbortRef.current = null;
-          streamSessionRef.current = null;
+          safeSetIsLoading(false);
+          clearStreamRegistry();
           clearSessionStatus(activeSessionId);
         },
         onCancelled: () => {
-          setIsLoading(false);
-          streamAbortRef.current = null;
-          streamSessionRef.current = null;
+          safeSetIsLoading(false);
+          clearStreamRegistry();
           clearSessionStatus(activeSessionId);
         },
       }
     );
 
-    streamAbortRef.current = abortController;
-  }, [activeSessionId, activeSession, updateSessionMessages, isLoading, contextScope, agentVersion, dataAccess, setSessionStatus, clearSessionStatus]);
+    registerStream(activeSessionId, abortController);
+  }, [
+    activeSessionId,
+    activeSession,
+    updateSessionMessages,
+    isLoading,
+    contextScope,
+    agentVersion,
+    dataAccess,
+    setSessionStatus,
+    clearSessionStatus,
+    safeSetIsLoading,
+    registerStream,
+    clearStreamRegistry,
+  ]);
 
   // Handler for clicking example suggestions (populates input)
   const handleExampleClick = useCallback((example: string) => {

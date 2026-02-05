@@ -1,10 +1,46 @@
 $baseUrl = "http://localhost:3000/api/sessions"
+$dossiersUrl = "http://localhost:3000/api/dossiers"
+$lawsuitsUrl = "http://localhost:3000/api/lawsuits"
 
-# Dossiers (from previous script)
-$dossiers = @(1..35 | ForEach-Object { @{ id = $_ } })
+# Fetch dossiers from the API
+try {
+  $dossiersResponse = Invoke-WebRequest -Uri $dossiersUrl -Method Get -ErrorAction Stop
+  $dossiers = $dossiersResponse.Content | ConvertFrom-Json
+  Write-Host "Fetched $($dossiers.Count) dossiers from the database." -ForegroundColor Green
+} catch {
+  Write-Host "Failed to fetch dossiers from API: $($_.Exception.Message)" -ForegroundColor Red
+  exit 1
+}
 
-# Cases (from previous script, assuming IDs are sequential and start after dossiers)
-$cases = @(1..($dossiers.Count * 2 + ($dossiers.Count / 3)) | ForEach-Object { @{ id = $_ } })
+# Fetch lawsuits from the API
+try {
+  $lawsuitsResponse = Invoke-WebRequest -Uri $lawsuitsUrl -Method Get -ErrorAction Stop
+  $lawsuits = $lawsuitsResponse.Content | ConvertFrom-Json
+  Write-Host "Fetched $($lawsuits.Count) lawsuits from the database." -ForegroundColor Green
+} catch {
+  Write-Host "Failed to fetch lawsuits from API: $($_.Exception.Message)" -ForegroundColor Red
+  exit 1
+}
+
+# Arabic hearing titles
+$arabicHearingTitles = @(
+  "جلسة استماع أولية",
+  "جلسة استماع ثانية",
+  "جلسة استماع نهائية",
+  "جلسة استئناف",
+  "جلسة تحقيق",
+  "جلسة حكم",
+  "جلسة تسوية",
+  "جلسة إعادة نظر",
+  "جلسة طعن",
+  "جلسة تنفيذ"
+)
+
+# Arabic judges, locations, participants
+$arabicJudges = @("القاضي أحمد", "القاضية فاطمة", "القاضي محمد", "القاضية لينا", "القاضي عمر")
+$arabicLocations = @("قاعة المحكمة أ", "قاعة المحكمة ب", "قاعة المحكمة ج", "قاعة المحكمة د", "قاعة المحكمة هـ")
+$arabicCourtRooms = @("أ1", "ب2", "ج3", "د4", "هـ5")
+$arabicParticipants = @("المحامي علي", "المحامية نور", "المحامي كريم", "المحامية هدى", "المحامي يوسف")
 
 # Helper to get a random date/time between today and 14 days from now
 function Get-RandomDateTime {
@@ -14,15 +50,12 @@ function Get-RandomDateTime {
 }
 
 $sessions = @()
+$hearingTitleIndex = 0
 
-# At least one hearing per dossier
-foreach ($dossier in $dossiers) {
-  $sessions += @{ title = "Hearing for Dossier $($dossier.id)"; session_type = "hearing"; status = "scheduled"; scheduled_at = Get-RandomDateTime; duration = "01:00"; location = "Courtroom A"; court_room = "A1"; judge = "Judge Smith"; outcome = $null; description = "Initial hearing for dossier $($dossier.id)"; notes = "Auto-generated"; participants = @("Lawyer 1", "Client $($dossier.id)"); dossier_id = $dossier.id }
-}
-
-# At least one hearing per case
-foreach ($case in $cases) {
-  $sessions += @{ title = "Hearing for Case $($case.id)"; session_type = "hearing"; status = "scheduled"; scheduled_at = Get-RandomDateTime; duration = "01:00"; location = "Courtroom B"; court_room = "B2"; judge = "Judge Doe"; outcome = $null; description = "Initial hearing for case $($case.id)"; notes = "Auto-generated"; participants = @("Lawyer 2", "Client for Case $($case.id)"); case_id = $case.id }
+# At least one hearing per lawsuit (hearings are typically for cases/lawsuits)
+foreach ($lawsuit in $lawsuits) {
+  $sessions += @{ title = $arabicHearingTitles[$hearingTitleIndex % $arabicHearingTitles.Length]; session_type = "hearing"; status = "scheduled"; scheduled_at = Get-RandomDateTime; duration = "01:00"; location = $arabicLocations[$hearingTitleIndex % $arabicLocations.Length]; court_room = $arabicCourtRooms[$hearingTitleIndex % $arabicCourtRooms.Length]; judge = $arabicJudges[$hearingTitleIndex % $arabicJudges.Length]; outcome = $null; description = "جلسة استماع أولية للقضية $($lawsuit.title)"; participants = @($arabicParticipants[$hearingTitleIndex % $arabicParticipants.Length], "العميل للقضية $($lawsuit.title)"); lawsuit_id = $lawsuit.id }
+  $hearingTitleIndex++
 }
 
 $successCount = 0

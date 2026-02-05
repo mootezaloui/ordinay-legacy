@@ -15,15 +15,37 @@ async function _executeFollowUpIntent(
   policy,
   engineContext,
 ) {
-  this._validateFollowUpIntent(followUpIntent, policy, context);
-
   const normalizedIntent = String(followUpIntent.intent || "").toUpperCase();
+  const activeContext = context ? this.contextStore.get(context) : null;
+  const activeType = this._normalizeFollowUpEntityType(
+    activeContext?.activeEntityType,
+  );
+  const activeId = activeContext?.activeEntityId ?? null;
   const originType = this._normalizeFollowUpEntityType(
-    followUpIntent.origin?.entity || followUpIntent.entityType,
+    followUpIntent.origin?.entity || followUpIntent.entityType || activeType,
   );
   const originId =
-    followUpIntent.origin?.entityId ?? followUpIntent.entityId ?? null;
-  const scope = followUpIntent.scope || {};
+    followUpIntent.origin?.entityId ?? followUpIntent.entityId ?? activeId ?? null;
+  const scope = { ...(followUpIntent.scope || {}) };
+  const targetType = this._resolveReadEntityType(normalizedIntent);
+
+  if (this._intentRequiresEntityHint(normalizedIntent)) {
+    const scopeKey = this._scopeKeyForType(targetType);
+    if (scopeKey && !scope[scopeKey]) {
+      if (originType === targetType && originId !== null && originId !== undefined) {
+        scope[scopeKey] = originId;
+      } else if (activeType === targetType && activeId !== null && activeId !== undefined) {
+        scope[scopeKey] = activeId;
+      }
+    }
+  }
+
+  const resolvedFollowUpIntent = {
+    ...followUpIntent,
+    scope,
+  };
+
+  this._validateFollowUpIntent(resolvedFollowUpIntent, policy, context);
 
   this.ledger.record({
     type: "follow_up_intent_received",
@@ -48,8 +70,11 @@ async function _executeFollowUpIntent(
     allowedTools: [],
   };
 
-  if (followUpIntent.filters && typeof followUpIntent.filters === "object") {
-    readIntent.filters = { ...followUpIntent.filters };
+  if (
+    resolvedFollowUpIntent.filters &&
+    typeof resolvedFollowUpIntent.filters === "object"
+  ) {
+    readIntent.filters = { ...resolvedFollowUpIntent.filters };
   }
 
   if (normalizedIntent === READ_INTENTS.LIST_HISTORY_EVENTS) {
@@ -61,7 +86,6 @@ async function _executeFollowUpIntent(
   }
 
   if (this._intentRequiresEntityHint(normalizedIntent)) {
-    const targetType = this._resolveReadEntityType(normalizedIntent);
     const targetId = this._getScopeIdForType(scope, targetType);
     if (!targetId) {
       const error = new Error(
@@ -123,6 +147,13 @@ function _validateFollowUpIntent(followUpIntent, policy, requestContext) {
     activeContext?.activeEntityType,
   );
   const activeId = activeContext?.activeEntityId ?? null;
+  const explicitType = this._normalizeFollowUpEntityType(
+    followUpIntent.entityType || followUpIntent.origin?.entity,
+  );
+  const explicitId =
+    followUpIntent.entityId ?? followUpIntent.origin?.entityId ?? null;
+  const hasExplicitEntity =
+    !!explicitType && explicitId !== null && explicitId !== undefined;
 
   const targetType = this._resolveReadEntityType(normalizedIntent);
   const isList = normalizedIntent.startsWith("LIST_");
@@ -138,7 +169,8 @@ function _validateFollowUpIntent(followUpIntent, policy, requestContext) {
     targetType,
   );
   const allowWithoutActiveContext =
-    pendingType && pendingType === targetType && (isList || scopeTargetId);
+    hasExplicitEntity ||
+    (pendingType && pendingType === targetType && (isList || scopeTargetId));
 
   if (
     (!activeType || activeId === null || activeId === undefined) &&
@@ -179,7 +211,7 @@ function _validateFollowUpIntent(followUpIntent, policy, requestContext) {
     throw error;
   }
 
-  if (originType && activeType && originType !== activeType) {
+  if (!hasExplicitEntity && originType && activeType && originType !== activeType) {
     const error = new Error(
       `Follow-up origin does not match active context (${activeType}).`,
     );
@@ -192,11 +224,13 @@ function _validateFollowUpIntent(followUpIntent, policy, requestContext) {
     activeId !== null &&
     String(originId) !== String(activeId)
   ) {
-    const error = new Error(
-      "Follow-up origin ID does not match active context.",
-    );
-    error.status = 409;
-    throw error;
+    if (!hasExplicitEntity) {
+      const error = new Error(
+        "Follow-up origin ID does not match active context.",
+      );
+      error.status = 409;
+      throw error;
+    }
   }
 
   const relations = {
@@ -222,8 +256,9 @@ function _validateFollowUpIntent(followUpIntent, policy, requestContext) {
     }
   }
 
-  const originTypeForValidation = activeType || originType;
-  const originIdForValidation = activeId ?? originId;
+  const originTypeForValidation = explicitType || activeType || originType;
+  const originIdForValidation =
+    explicitId !== null && explicitId !== undefined ? explicitId : (activeId ?? originId);
 
   if (normalizedIntent === READ_INTENTS.LIST_HISTORY_EVENTS) {
     this._assertScopeForFollowUp(

@@ -205,16 +205,16 @@ function proxyApiRequest(method, urlPath, body) {
 /**
  * Ensure required directories exist
  */
-function ensureDirectories() {
+  function ensureDirectories() {
   // Ensure userData directory exists
   if (!fs.existsSync(USER_DATA_PATH)) {
     fs.mkdirSync(USER_DATA_PATH, { recursive: true });
   }
 
   // Ensure documents directory exists for future use
-  if (!fs.existsSync(DOCUMENTS_PATH)) {
-    fs.mkdirSync(DOCUMENTS_PATH, { recursive: true });
-  }
+    if (!fs.existsSync(DOCUMENTS_PATH)) {
+      fs.mkdirSync(DOCUMENTS_PATH, { recursive: true });
+    }
   console.log("[Electron] Persistent paths:");
   console.log(`  userData: ${USER_DATA_PATH}`);
   console.log(`  database: ${DB_PATH}`);
@@ -225,16 +225,23 @@ function ensureDirectories() {
  * Get the path to the backend directory
  * @returns {string} Path to backend
  */
-function getBackendPath() {
-  if (isDev) {
-    // In development, backend is a sibling folder
-    return path.join(__dirname, "..", "..", "backend");
-  } else {
-    // In production, backend is packaged with the app
-    // It should be in resources/backend (outside asar)
-    return path.join(process.resourcesPath, "backend");
+  function getBackendPath() {
+    if (isDev) {
+      // In development, backend is a sibling folder
+      return path.join(__dirname, "..", "..", "backend");
+    } else {
+      // In production, backend is packaged with the app
+      // It should be in resources/backend (outside asar)
+      return path.join(process.resourcesPath, "backend");
+    }
   }
-}
+
+  function isPathWithinDocuments(filePath) {
+    if (!filePath) return false;
+    const resolvedRoot = path.resolve(DOCUMENTS_PATH);
+    const resolvedPath = path.resolve(filePath);
+    return resolvedPath.startsWith(resolvedRoot + path.sep);
+  }
 
 /**
  * Get the path to Node.js executable
@@ -297,13 +304,15 @@ async function startBackend() {
   }
 
   // Environment variables for the backend
-  const env = {
-    ...process.env,
-    ORDINAY_PIPE: backendPipePath,
-    PORT: backendPort.toString(),
-    DB_FILE: DB_PATH,
-    NODE_ENV: isDev ? "development" : "production",
-  };
+    const env = {
+      ...process.env,
+      ORDINAY_PIPE: backendPipePath,
+      PORT: backendPort.toString(),
+      DB_FILE: DB_PATH,
+      ORDINAY_USER_DATA: USER_DATA_PATH,
+      ORDINAY_DOCUMENTS_PATH: DOCUMENTS_PATH,
+      NODE_ENV: isDev ? "development" : "production",
+    };
 
   // Spawn the backend process
   const nodePath = getNodePath();
@@ -1003,6 +1012,75 @@ function setupIPC() {
     } catch (error) {
       console.error("[Electron] Reset app data failed:", error);
       return { ok: false, error: error?.message || "Reset failed" };
+    }
+  });
+
+  ipcMain.handle("file-exists", (_event, filePath) => {
+    if (!isPathWithinDocuments(filePath)) {
+      return { exists: false, error: "outside_documents_dir" };
+    }
+    try {
+      return { exists: fs.existsSync(filePath) };
+    } catch (error) {
+      return { exists: false, error: error?.message || "fs_error" };
+    }
+  });
+
+  ipcMain.handle("file-open", async (_event, filePath) => {
+    if (!isPathWithinDocuments(filePath)) {
+      return { ok: false, error: "outside_documents_dir" };
+    }
+    try {
+      const result = await shell.openPath(filePath);
+      if (result) {
+        return { ok: false, error: result };
+      }
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, error: error?.message || "open_failed" };
+    }
+  });
+
+  ipcMain.handle("file-reveal", (_event, filePath) => {
+    if (!isPathWithinDocuments(filePath)) {
+      return { ok: false, error: "outside_documents_dir" };
+    }
+    try {
+      shell.showItemInFolder(filePath);
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, error: error?.message || "reveal_failed" };
+    }
+  });
+
+  ipcMain.handle("file-download", (_event, payload) => {
+    const filePath = payload?.filePath;
+    const fileName = payload?.fileName;
+    if (!isPathWithinDocuments(filePath)) {
+      return { ok: false, error: "outside_documents_dir" };
+    }
+    try {
+      const downloadsPath = app.getPath("downloads");
+      const safeName = fileName || path.basename(filePath);
+      const target = path.join(downloadsPath, safeName);
+      fs.copyFileSync(filePath, target);
+      return { ok: true, path: target };
+    } catch (error) {
+      return { ok: false, error: error?.message || "download_failed" };
+    }
+  });
+
+  ipcMain.handle("file-delete", (_event, filePath) => {
+    if (!isPathWithinDocuments(filePath)) {
+      return { ok: false, error: "outside_documents_dir" };
+    }
+    try {
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, error: error?.message || "delete_failed" };
     }
   });
 

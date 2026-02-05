@@ -6,6 +6,7 @@ const {
   CHAT_SYSTEM_PROMPT,
   INTENT_FRAMING_PROMPT,
   DOCUMENT_RELEVANCE_PROMPT,
+  DOCUMENT_SUMMARY_PROMPT,
 } = require("./llm.prompts");
 const { parseJsonResponse } = require("./llm.validation");
 
@@ -14,6 +15,10 @@ const LLM_MODEL = process.env.LLM_MODEL || "qwen2.5:7b-instruct";
 const LLM_TIMEOUT = parseInt(process.env.LLM_TIMEOUT || "45000", 10);
 const INTENT_FRAMING_TIMEOUT = parseInt(
   process.env.LLM_INTENT_FRAMING_TIMEOUT || "30000",
+  10,
+);
+const DOCUMENT_SUMMARY_MAX_CHARS = parseInt(
+  process.env.DOCUMENT_SUMMARY_MAX_CHARS || "12000",
   10,
 );
 
@@ -142,6 +147,62 @@ JSON:`;
           item.document_id > 0,
       ),
     };
+  } catch (err) {
+    clearTimeout(timeoutId);
+    return null;
+  }
+}
+
+async function summarizeDocumentText({ title, text, question }) {
+  if (!text || typeof text !== "string") return null;
+
+  const trimmedText = text.trim();
+  if (!trimmedText) return null;
+
+  const truncated =
+    trimmedText.length > DOCUMENT_SUMMARY_MAX_CHARS
+      ? trimmedText.slice(0, DOCUMENT_SUMMARY_MAX_CHARS)
+      : trimmedText;
+
+  const prompt = DOCUMENT_SUMMARY_PROMPT
+    .replace("{{title}}", title || "Document")
+    .replace("{{question}}", question ? String(question).trim() : "None")
+    .replace(
+      "{{text}}",
+      truncated +
+        (trimmedText.length > truncated.length
+          ? "\n\n[Document text truncated]"
+          : ""),
+    );
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), LLM_TIMEOUT);
+
+  try {
+    const response = await fetch(`${LLM_BASE_URL}/api/generate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: LLM_MODEL,
+        prompt,
+        stream: false,
+        options: {
+          temperature: 0.2,
+          num_predict: 400,
+        },
+      }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const data = await response.json();
+    const summary = (data.response || "").trim();
+    return summary.length > 0 ? summary : null;
   } catch (err) {
     clearTimeout(timeoutId);
     return null;
@@ -564,4 +625,5 @@ module.exports = {
   generateIntentFramingMessage,
   streamIntentFramingMessage,
   selectRelevantDocuments,
+  summarizeDocumentText,
 };

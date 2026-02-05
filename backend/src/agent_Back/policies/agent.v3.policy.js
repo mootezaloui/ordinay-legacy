@@ -12,7 +12,7 @@ const agentV3Policy = {
     INTENTS.DRAFT_CLIENT_EMAIL,
     INTENTS.PROPOSE_ACTIONS,
   ],
-  allowedToolCategories: ['read', 'analysis', 'draft', 'execute'],
+  allowedToolCategories: ['read', 'analysis', 'draft', 'execute', 'research'],
   allowExecution: true,
   allowExternalSearch: true,
   allowEnrichment: true,

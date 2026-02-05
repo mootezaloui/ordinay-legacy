@@ -12,6 +12,7 @@ const ENTITY_LABELS = {
   session: "session",
   mission: "mission",
   financial_entry: "financial entry",
+  document: "document",
   notification: "notification",
   history_event: "history event",
 };
@@ -25,6 +26,7 @@ const ENTITY_PLURALS = {
   session: "sessions",
   mission: "missions",
   financial_entry: "financial entries",
+  document: "documents",
   notification: "notifications",
   history_event: "history events",
 };
@@ -82,6 +84,7 @@ const INTENT_DOMAIN_MAP = {
   [READ_INTENTS.READ_HISTORY_EVENT]: DATA_DOMAINS.HISTORY,
   [READ_INTENTS.EXPLAIN_HISTORY_STATE]: DATA_DOMAINS.HISTORY,
   [READ_INTENTS.SUMMARIZE_HISTORY]: DATA_DOMAINS.HISTORY,
+  [READ_INTENTS.SUMMARIZE_DOCUMENT]: DATA_DOMAINS.DOCUMENTS,
 };
 
 const READ_INTENT_BY_ENTITY = {

@@ -54,14 +54,14 @@
     },
 
     "interpretation": {
-      "description": "Why it matters now — state analysis (MANDATORY)",
+      "description": "Why it matters now — state analysis (optional when no meaningful signals)",
       "type": "object",
       "additionalProperties": false,
       "required": ["statements", "summary"],
       "properties": {
         "statements": {
           "type": "array",
-          "minItems": 1,
+          "minItems": 0,
           "items": {
             "type": "object",
             "additionalProperties": false,
@@ -86,7 +86,7 @@
         },
         "summary": {
           "type": "string",
-          "minLength": 1,
+          "minLength": 0,
           "description": "One-line interpretation summary"
         }
       }

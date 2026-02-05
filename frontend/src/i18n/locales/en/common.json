@@ -339,9 +339,31 @@
         "formats": "PDF, DOC, XLS, PPT, Images, Archives (Max 10MB per file)",
         "uploading": "Uploading..."
       },
-      "status": {
-        "missing": "Missing file"
-      },
+        "status": {
+          "missing": "Missing file",
+          "missingFile": "Missing file",
+          "processing": "OCR in progress",
+          "ocr": "Document read via OCR",
+          "unreadable": "Document unreadable ({{reason}})"
+        },
+        "failureReasons": {
+          "unknown": "unknown reason",
+          "missing_file_path": "missing file path",
+          "file_not_found": "file not found",
+          "file_stat_failed": "file metadata unavailable",
+          "not_a_file": "path is not a file",
+          "file_too_large": "file too large",
+          "unsupported_type": "unsupported file type",
+          "no_pdf_text": "PDF contains no readable text",
+          "no_docx_text": "DOCX contains no readable text",
+          "empty_text": "file contains no readable text",
+          "ocr_timeout": "OCR timed out",
+          "ocr_empty": "OCR produced no readable text",
+          "ocr_failed": "OCR failed{{detail}}",
+          "ocr_spawn_failed": "OCR failed to start{{detail}}",
+          "ingestion_error": "Ingestion error{{detail}}",
+          "legacy_unreadable": "document was previously marked unreadable"
+        },
       "actions": {
         "relink": "Relink",
         "download": "Download",

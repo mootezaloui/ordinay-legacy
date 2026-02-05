@@ -1,43 +1,56 @@
-$baseUrl = "http://localhost:3000/api/cases"
+$baseUrl = "http://localhost:3000/api/lawsuits"
+$dossiersUrl = "http://localhost:3000/api/dossiers"
+$lawsuitsUrl = "http://localhost:3000/api/lawsuits"
 
-# List of dossiers (id, title, client_id) as returned by the API
-$dossiers = @(
-  @{ id = 1; title = "Contract Review for Alice Dupont"; client_id = 1 },
-  @{ id = 2; title = "Litigation - Alice Dupont"; client_id = 1 },
-  @{ id = 3; title = "Contract Review for Bernard Martin"; client_id = 2 },
-  @{ id = 4; title = "Litigation - Bernard Martin"; client_id = 2 },
-  @{ id = 5; title = "Contract Review for Claire Dubois"; client_id = 3 },
-  @{ id = 6; title = "Litigation - Claire Dubois"; client_id = 3 },
-  @{ id = 7; title = "Real Estate Transaction for Claire Dubois"; client_id = 3 },
-  @{ id = 8; title = "Contract Review for David Lefevre"; client_id = 4 },
-  @{ id = 9; title = "Litigation - David Lefevre"; client_id = 4 },
-  @{ id = 10; title = "Contract Review for Emma Moreau"; client_id = 5 },
-  @{ id = 11; title = "Litigation - Emma Moreau"; client_id = 5 },
-  @{ id = 12; title = "Contract Review for François Petit"; client_id = 6 },
-  @{ id = 13; title = "Litigation - François Petit"; client_id = 6 },
-  @{ id = 14; title = "Real Estate Transaction for François Petit"; client_id = 6 },
-  @{ id = 15; title = "Contract Review for Gabrielle Laurent"; client_id = 7 },
-  @{ id = 16; title = "Litigation - Gabrielle Laurent"; client_id = 7 },
-  @{ id = 17; title = "Contract Review for Hugo Girard"; client_id = 8 },
-  @{ id = 18; title = "Litigation - Hugo Girard"; client_id = 8 },
-  @{ id = 19; title = "Contract Review for Isabelle Renault"; client_id = 9 },
-  @{ id = 20; title = "Litigation - Isabelle Renault"; client_id = 9 },
-  @{ id = 21; title = "Real Estate Transaction for Isabelle Renault"; client_id = 9 },
-  @{ id = 22; title = "Contract Review for Julien Faure"; client_id = 10 },
-  @{ id = 23; title = "Litigation - Julien Faure"; client_id = 10 },
-  @{ id = 24; title = "Contract Review for Karine Blanchard"; client_id = 11 },
-  @{ id = 25; title = "Litigation - Karine Blanchard"; client_id = 11 },
-  @{ id = 26; title = "Contract Review for Louis Chevalier"; client_id = 12 },
-  @{ id = 27; title = "Litigation - Louis Chevalier"; client_id = 12 },
-  @{ id = 28; title = "Real Estate Transaction for Louis Chevalier"; client_id = 12 },
-  @{ id = 29; title = "Contract Review for Marie Lambert"; client_id = 13 },
-  @{ id = 30; title = "Litigation - Marie Lambert"; client_id = 13 },
-  @{ id = 31; title = "Contract Review for Nicolas Marchand"; client_id = 14 },
-  @{ id = 32; title = "Litigation - Nicolas Marchand"; client_id = 14 },
-  @{ id = 33; title = "Contract Review for Océane Perrin"; client_id = 15 },
-  @{ id = 34; title = "Litigation - Océane Perrin"; client_id = 15 },
-  @{ id = 35; title = "Real Estate Transaction for Océane Perrin"; client_id = 15 }
+# Fetch dossiers from the API
+try {
+  $dossiersResponse = Invoke-WebRequest -Uri $dossiersUrl -Method Get -ErrorAction Stop
+  $dossiers = $dossiersResponse.Content | ConvertFrom-Json
+  Write-Host "Fetched $($dossiers.Count) dossiers from the database." -ForegroundColor Green
+} catch {
+  Write-Host "Failed to fetch dossiers from API: $($_.Exception.Message)" -ForegroundColor Red
+  exit 1
+}
+
+# Arabic case titles
+$arabicCaseTitles = @(
+  "دعوى مدنية تعويضية",
+  "قضية جنائية سرقة",
+  "نزاع تجاري عقدي",
+  "دعوى عائلية حضانة",
+  "قضية إدارية فساد",
+  "نزاع عمالي إضراب",
+  "دعوى مصرفية قرض",
+  "قضية بيئية تلوث",
+  "نزاع استثماري أسهم",
+  "دعوى عائلية نفقة",
+  "قضية مرورية حادث",
+  "نزاع تجاري احتكار",
+  "دعوى جنائية رشوة",
+  "قضية عمالية تمييز",
+  "نزاع إيجاري تأخير",
+  "دعوى إفلاس فردي",
+  "قضية إرث نزاع",
+  "نزاع تشهير إعلامي",
+  "دعوى ملكية فكرية",
+  "قضية تأمين حوادث",
+  "نزاع مصرفي احتيال",
+  "دعوى بيئية تلوث",
+  "قضية استثمارية خسارة",
+  "نزاع عائلي زواج",
+  "دعوى مرورية مخالفة",
+  "قضية تجارية احتكار",
+  "نزاع جنائي اعتداء",
+  "دعوى عمالية فصل",
+  "قضية إيجارية زيادة",
+  "نزاع إفلاس شركة"
 )
+
+# Arabic adversaries, parties, lawyers, courts
+$arabicAdversaries = @("الخصم أحمد", "الخصم فاطمة", "الخصم محمد", "الخصم لينا", "الخصم عمر")
+$arabicParties = @("الطرف الأول", "الطرف الثاني", "الطرف الثالث", "الطرف الرابع", "الطرف الخامس")
+$arabicLawyers = @("المحامي علي", "المحامية نور", "المحامي كريم", "المحامية هدى", "المحامي يوسف")
+$arabicCourts = @("محكمة القاهرة", "محكمة الجيزة", "محكمة الإسكندرية", "محكمة أسيوط", "محكمة المنصورة")
 
 # Example values for required and optional fields
 $statuses = @("open","in_progress","on_hold","closed")
@@ -46,14 +59,17 @@ $phases = @("Opening","Investigation","Negotiation","Pleading","Judgment","Execu
 
 # Generate 1-3 cases per dossier, filling all fields
 $cases = @()
+$caseTitleIndex = 0
 
 foreach ($dossier in $dossiers) {
   $cases += @(
-    @{ title = "Case 1 for $($dossier.title)"; dossier_id = $dossier.id; description = "First case for $($dossier.title)"; adversary = "Adversary A"; adversary_party = "Party A"; adversary_lawyer = "Lawyer A"; court = "Court A"; filing_date = "2026-01-13"; next_hearing = "2026-02-01"; reference_number = "REF-$(Get-Random -Minimum 1000 -Maximum 9999)"; status = "open"; priority = "medium"; opened_at = "2026-01-13T09:00:00Z"; closed_at = $null },
-    @{ title = "Case 2 for $($dossier.title)"; dossier_id = $dossier.id; description = "Second case for $($dossier.title)"; adversary = "Adversary B"; adversary_party = "Party B"; adversary_lawyer = "Lawyer B"; court = "Court B"; filing_date = "2026-01-14"; next_hearing = "2026-02-10"; reference_number = "REF-$(Get-Random -Minimum 1000 -Maximum 9999)"; status = "in_progress"; priority = "high"; opened_at = "2026-01-14T09:00:00Z"; closed_at = $null }
+    @{ title = $arabicCaseTitles[$caseTitleIndex % $arabicCaseTitles.Length]; dossier_id = $dossier.id; description = "قضية أولى لـ $($dossier.title)"; adversary = $arabicAdversaries[$caseTitleIndex % $arabicAdversaries.Length]; adversary_party = $arabicParties[$caseTitleIndex % $arabicParties.Length]; adversary_lawyer = $arabicLawyers[$caseTitleIndex % $arabicLawyers.Length]; court = $arabicCourts[$caseTitleIndex % $arabicCourts.Length]; filing_date = "2026-01-13"; next_hearing = "2026-02-01"; reference_number = "REF-$(Get-Random -Minimum 1000 -Maximum 9999)"; status = "open"; priority = "medium"; opened_at = "2026-01-13T09:00:00Z"; closed_at = $null },
+    @{ title = $arabicCaseTitles[($caseTitleIndex + 1) % $arabicCaseTitles.Length]; dossier_id = $dossier.id; description = "قضية ثانية لـ $($dossier.title)"; adversary = $arabicAdversaries[($caseTitleIndex + 1) % $arabicAdversaries.Length]; adversary_party = $arabicParties[($caseTitleIndex + 1) % $arabicParties.Length]; adversary_lawyer = $arabicLawyers[($caseTitleIndex + 1) % $arabicLawyers.Length]; court = $arabicCourts[($caseTitleIndex + 1) % $arabicCourts.Length]; filing_date = "2026-01-14"; next_hearing = "2026-02-10"; reference_number = "REF-$(Get-Random -Minimum 1000 -Maximum 9999)"; status = "in_progress"; priority = "high"; opened_at = "2026-01-14T09:00:00Z"; closed_at = $null }
   )
+  $caseTitleIndex += 2
   if ($dossier.id % 3 -eq 0) {
-    $cases += @{ title = "Case 3 for $($dossier.title)"; dossier_id = $dossier.id; description = "Third case for $($dossier.title)"; adversary = "Adversary C"; adversary_party = "Party C"; adversary_lawyer = "Lawyer C"; court = "Court C"; filing_date = "2026-01-15"; next_hearing = "2026-02-20"; reference_number = "REF-$(Get-Random -Minimum 1000 -Maximum 9999)"; status = "on_hold"; priority = "low"; opened_at = "2026-01-15T09:00:00Z"; closed_at = $null }
+    $cases += @{ title = $arabicCaseTitles[$caseTitleIndex % $arabicCaseTitles.Length]; dossier_id = $dossier.id; description = "قضية ثالثة لـ $($dossier.title)"; adversary = $arabicAdversaries[$caseTitleIndex % $arabicAdversaries.Length]; adversary_party = $arabicParties[$caseTitleIndex % $arabicParties.Length]; adversary_lawyer = $arabicLawyers[$caseTitleIndex % $arabicLawyers.Length]; court = $arabicCourts[$caseTitleIndex % $arabicCourts.Length]; filing_date = "2026-01-15"; next_hearing = "2026-02-20"; reference_number = "REF-$(Get-Random -Minimum 1000 -Maximum 9999)"; status = "on_hold"; priority = "low"; opened_at = "2026-01-15T09:00:00Z"; closed_at = $null }
+    $caseTitleIndex++
   }
 }
 

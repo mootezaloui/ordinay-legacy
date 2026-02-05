@@ -11,6 +11,7 @@ const missionHandlers = require("./missions");
 const financialHandlers = require("./financial");
 const notificationHandlers = require("./notifications");
 const historyHandlers = require("./history");
+const documentHandlers = require("./documents");
 
 async function dispatchReadIntent(state) {
   const intent = state.intent;
@@ -129,6 +130,9 @@ async function dispatchReadIntent(state) {
     case READ_INTENTS.EXPLAIN_HISTORY_STATE:
     case READ_INTENTS.SUMMARIZE_HISTORY:
       result = await historyHandlers.handleExplainHistory.call(state.engine, state);
+      break;
+    case READ_INTENTS.SUMMARIZE_DOCUMENT:
+      result = await documentHandlers.handleSummarizeDocument.call(state.engine, state);
       break;
     default:
       result = null;

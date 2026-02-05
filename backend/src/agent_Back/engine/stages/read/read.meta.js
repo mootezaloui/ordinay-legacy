@@ -6,6 +6,7 @@ const {
   formatEntityTypeLabel,
 } = require("../../../utils/entityDisplay");
 const { READ_INTENTS } = require("../../../intent.classifier");
+const { ENTITY_PLURALS } = require("./read.constants");
 
 function _resolveReadEntityType(intent) {
   const map = {
@@ -51,6 +52,7 @@ function _resolveReadEntityType(intent) {
     [READ_INTENTS.READ_HISTORY_EVENT]: "history_event",
     [READ_INTENTS.EXPLAIN_HISTORY_STATE]: "history_event",
     [READ_INTENTS.SUMMARIZE_HISTORY]: "history_event",
+    [READ_INTENTS.SUMMARIZE_DOCUMENT]: "document",
   };
 
   return map[intent] || "unknown";
@@ -261,29 +263,214 @@ function _buildReadExplanation({
     );
   };
 
+  const normalizeLabel = (value) =>
+    String(value || "")
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+  const isPlaceholderFragment = (fragment) => {
+    if (!fragment) return true;
+    const trimmed = String(fragment).trim();
+    if (!trimmed) return true;
+    const lower = trimmed.toLowerCase();
+    if (/\bn\/a\b/.test(lower) || lower === "na" || lower === "n/a") return true;
+    if (lower.startsWith("none") || lower.startsWith("no ")) return true;
+    if (lower.includes("no data")) return true;
+    if (lower.includes("no overdue risk")) return true;
+    if (lower.includes("not available")) return true;
+    if (lower.includes("none attached")) return true;
+    if (lower.includes("none detected")) return true;
+    return false;
+  };
+
+  const cleanDetailValue = (value) => {
+    if (!value) return "";
+    const raw = String(value).trim();
+    if (!raw) return "";
+    const delimiter = raw.includes(" | ") ? " | " : ", ";
+    const fragments = raw.split(/\s*(?:\||,|;)\s*/);
+    const kept = fragments.filter((fragment) => !isPlaceholderFragment(fragment));
+    return kept.length > 0 ? kept.join(delimiter) : "";
+  };
+
+  const cleanDetailLine = (detail) => {
+    const trimmed = String(detail || "").trim();
+    if (!trimmed) return null;
+    const lowered = trimmed.toLowerCase();
+    if (lowered.startsWith("explanation:") || lowered.startsWith("next steps"))
+      return null;
+    if (isGuidanceDetail(trimmed)) return null;
+
+    const colonMatch = trimmed.match(/^([^:]+):\s*(.+)$/);
+    if (colonMatch) {
+      const label = colonMatch[1].trim();
+      const cleanedValue = cleanDetailValue(colonMatch[2]);
+      if (!cleanedValue) return null;
+      return `${label}: ${cleanedValue}`;
+    }
+
+    const dashMatch = trimmed.match(/^(.+?)\s+—\s+(.+)$/);
+    if (dashMatch) {
+      const label = dashMatch[1].trim();
+      const cleanedValue = cleanDetailValue(dashMatch[2]);
+      if (!cleanedValue) return label || null;
+      return `${label} — ${cleanedValue}`;
+    }
+
+    if (isPlaceholderFragment(trimmed)) return null;
+    return trimmed;
+  };
+
+  const detailPriorityMap = {
+    client: [
+      "summary",
+      "relationships",
+      "workload",
+      "key risks",
+      "blocking",
+      "status",
+      "email",
+      "phone",
+      "company",
+      "documents",
+      "recent activity",
+    ],
+    dossier: [
+      "summary",
+      "status",
+      "priority",
+      "phase",
+      "deadline",
+      "next hearing",
+      "client",
+      "adversary",
+      "court",
+      "relationships",
+      "documents",
+      "recent activity",
+    ],
+    lawsuit: [
+      "summary",
+      "status",
+      "next hearing",
+      "phase",
+      "court",
+      "dossier",
+      "relationships",
+      "documents",
+      "recent activity",
+    ],
+    task: [
+      "summary",
+      "status",
+      "priority",
+      "due date",
+      "blocking",
+      "relationships",
+      "documents",
+      "recent activity",
+    ],
+    personal_task: [
+      "summary",
+      "status",
+      "priority",
+      "due date",
+      "blocking",
+      "documents",
+      "recent activity",
+    ],
+    session: [
+      "summary",
+      "status",
+      "scheduled",
+      "location",
+      "participants",
+      "relationships",
+      "documents",
+      "recent activity",
+    ],
+    mission: [
+      "summary",
+      "status",
+      "priority",
+      "due date",
+      "relationships",
+      "documents",
+      "recent activity",
+    ],
+    financial_entry: [
+      "summary",
+      "amount",
+      "direction",
+      "due date",
+      "paid",
+      "relationships",
+      "documents",
+      "recent activity",
+    ],
+    notification: ["summary", "status", "severity", "entity", "reason"],
+    history_event: ["summary", "entity", "description", "created at"],
+    document: ["summary", "document", "source", "text length", "linked to", "status"],
+  };
+
+  const orderFactsByPriority = (facts, type) => {
+    const priorities =
+      detailPriorityMap[type] ||
+      ["summary", "status", "priority", "due date", "relationships", "documents"];
+    const priorityLookup = new Map(
+      priorities.map((label, index) => [label, index]),
+    );
+    const withIndex = facts.map((fact, index) => {
+      const labelMatch = fact.match(/^([^:]+):/);
+      const dashMatch = fact.match(/^(.+?)\s+—\s+/);
+      const label = normalizeLabel(
+        labelMatch ? labelMatch[1] : dashMatch ? dashMatch[1] : "",
+      );
+      let weight = 50;
+      for (const [key, rank] of priorityLookup.entries()) {
+        if (label === key || label.startsWith(key) || label.includes(key)) {
+          weight = rank;
+          break;
+        }
+      }
+      return { fact, index, weight };
+    });
+    return withIndex
+      .sort((a, b) => (a.weight - b.weight) || (a.index - b.index))
+      .map((entry) => entry.fact);
+  };
+
   const cleanedSummary =
     typeof summary === "string" && summary.trim()
       ? stripGuidance(summary)
       : "";
-  const factsSummary = cleanedSummary || `No ${entityType} data available.`;
-  const rawDetails = Array.isArray(details) ? details : [];
-  const factsDetails = rawDetails
-    .map((detail) => String(detail || "").trim())
-    .filter(
-      (detail) =>
-        detail &&
-        !detail.toLowerCase().startsWith("explanation:") &&
-        !detail.toLowerCase().startsWith("next steps") &&
-        !isGuidanceDetail(detail),
-    );
 
-  if (factsDetails.length === 0) {
-    if (/no\s+.+(found|available)/i.test(factsSummary)) {
-      factsDetails.push("Scope returned zero records.");
-    } else {
-      factsDetails.push(factsSummary);
+  const deriveSummaryFromData = () => {
+    if (cleanedSummary) return cleanedSummary;
+    const label = formatEntityTypeLabel(entityType) || entityType || "Record";
+    if (Array.isArray(entityData)) {
+      const plural = ENTITY_PLURALS?.[entityType] || `${label}s`;
+      return entityData.length > 0
+        ? `Found ${entityData.length} ${plural}`
+        : `No ${plural} found`;
     }
-  }
+    if (entityData && typeof entityData === "object") {
+      const display = resolveEntityDisplayLabel(entityType, entityData, {
+        fallback: label,
+      });
+      return display ? `${label}: ${display}` : label;
+    }
+    return "";
+  };
+
+  const factsSummary = deriveSummaryFromData();
+  const rawDetails = Array.isArray(details) ? details : [];
+  const cleanedDetails = rawDetails
+    .map((detail) => cleanDetailLine(detail))
+    .filter(Boolean);
+  const factsDetails = orderFactsByPriority(cleanedDetails, entityType);
 
   const explanation = postReadInterpret(entityType, entityData || {}, context);
   const confidenceMap = {

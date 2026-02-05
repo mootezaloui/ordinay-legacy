@@ -1,4 +1,5 @@
 const service = require('../services/documents.service');
+const storage = require('../services/documentStorage');
 const { parseId } = require('./_utils');
 
 async function list(req, res, next) {
@@ -42,6 +43,32 @@ async function create(req, res, next) {
   }
 }
 
+async function upload(req, res, next) {
+  try {
+    const { filename, mime_type, data_base64 } = req.body || {};
+    if (!filename) {
+      return res.status(400).json({ message: 'filename is required' });
+    }
+    if (!data_base64) {
+      return res.status(400).json({ message: 'data_base64 is required' });
+    }
+    const result = storage.saveUploadedDocument({
+      originalName: filename,
+      mimeType: mime_type,
+      dataBase64: data_base64,
+    });
+    res.status(201).json(result);
+  } catch (error) {
+    if (error.code === 'file_too_large') {
+      return res.status(413).json({ message: 'File too large' });
+    }
+    if (error.code === 'missing_file_data') {
+      return res.status(400).json({ message: 'Missing file data' });
+    }
+    next(error);
+  }
+}
+
 async function update(req, res, next) {
   try {
     const id = parseId(req.params.id);
@@ -68,6 +95,7 @@ module.exports = {
   list,
   get,
   create,
+  upload,
   update,
   remove,
 };

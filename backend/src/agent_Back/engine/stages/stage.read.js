@@ -219,8 +219,8 @@ async function _executeReadIntent(
           ? helpers.formatDateTime(item.scheduled_at)
           : item.session_date
             ? helpers.formatDate(item.session_date)
-            : "date N/A";
-        return `${label} — ${when}`;
+            : null;
+        return when ? `${label} — ${when}` : label;
       }
       return label;
     };

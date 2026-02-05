@@ -21,6 +21,7 @@ function _updateConversationContext(requestContext, query, result, source) {
     else if (intent.includes("MISSION")) entityType = "mission";
     else if (intent.includes("FINANCIAL_ENTRY"))
       entityType = "financial_entry";
+    else if (intent.includes("DOCUMENT")) entityType = "document";
     else if (intent.includes("NOTIFICATION")) entityType = "notification";
     else if (intent.includes("HISTORY")) entityType = "history_event";
   }
@@ -36,6 +37,7 @@ function _updateConversationContext(requestContext, query, result, source) {
     else if (entityIdLower.includes("session")) entityType = "session";
     else if (entityIdLower.includes("mission")) entityType = "mission";
     else if (entityIdLower.includes("financial")) entityType = "financial_entry";
+    else if (entityIdLower.includes("document")) entityType = "document";
     else if (entityIdLower.includes("notification")) entityType = "notification";
     else if (entityIdLower.includes("history")) entityType = "history_event";
   }
@@ -56,6 +58,8 @@ function _updateConversationContext(requestContext, query, result, source) {
     else if (/\bmission/i.test(queryLower)) entityType = "mission";
     else if (/\baccounting|financial|invoice|payment/i.test(queryLower))
       entityType = "financial_entry";
+    else if (/\bdocument|file|attachment|pdf|docx/i.test(queryLower))
+      entityType = "document";
     else if (/\bnotification|alert/i.test(queryLower))
       entityType = "notification";
     else if (/\bhistory|audit/i.test(queryLower))
@@ -126,6 +130,22 @@ function _updateConversationContext(requestContext, query, result, source) {
     entityType = readMeta.entityType;
   }
 
+  const inferredActiveEntity = (() => {
+    if (contextPromotion?.activeEntity) return contextPromotion.activeEntity;
+    if (readMeta?.count === 1) {
+      const singleId =
+        readMeta.singleId ?? (entityIdsFromMeta.length === 1 ? entityIdsFromMeta[0] : null);
+      if (singleId !== null && singleId !== undefined) {
+        return {
+          type: readMeta.entityType || entityType,
+          id: singleId,
+          source,
+        };
+      }
+    }
+    return null;
+  })();
+
   // Update context store
   this.contextStore.update(requestContext, {
     intent,
@@ -137,7 +157,7 @@ function _updateConversationContext(requestContext, query, result, source) {
       emptyResult,
       filters: {},
     },
-    activeEntity: contextPromotion?.activeEntity || null,
+    activeEntity: inferredActiveEntity,
     pendingSelection:
       contextPromotion && "pendingSelection" in contextPromotion
         ? contextPromotion.pendingSelection

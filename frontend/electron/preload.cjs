@@ -83,6 +83,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
   resetAppData: () => ipcRenderer.invoke('reset-app-data'),
 
   /**
+   * File system helpers for local document storage
+   */
+  fileExists: (filePath) => ipcRenderer.invoke('file-exists', filePath),
+  openFile: (filePath) => ipcRenderer.invoke('file-open', filePath),
+  revealFile: (filePath) => ipcRenderer.invoke('file-reveal', filePath),
+  downloadFile: (filePath, fileName) =>
+    ipcRenderer.invoke('file-download', { filePath, fileName }),
+  deleteFile: (filePath) => ipcRenderer.invoke('file-delete', filePath),
+
+  /**
    * Listen for activation deep links
    * @param {(url: string) => void} handler
    */

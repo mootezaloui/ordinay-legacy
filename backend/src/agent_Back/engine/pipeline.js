@@ -376,15 +376,32 @@ async function processUIRequest(uiRequest) {
     });
   }
 
-  const reasoner = this._resolveReasoner(policy, preferredReasoner);
-  const response = await this._executeIntent(intent, reasoner, {
+  // ═══ PLANNING PHASE ═══
+  const plan = this._buildPlan(intent, {
     message: normalizedMessage,
     context: enrichedContext,
-  });
+    dataReqs,
+  }, policy, engineContext);
+
+  // ═══ EXECUTION PHASE ═══
+  engineContext._enrichedContext = enrichedContext;
+  const executionResult = await this._executePlan(plan, policy, engineContext);
+
+  if (executionResult.hasFailed && !executionResult.lastOutput) {
+    const error = new Error(`Plan execution failed: ${executionResult.stepResults.filter(s => s.error).map(s => s.error).join('; ')}`);
+    error.status = 500;
+    throw error;
+  }
+
+  const response = executionResult.lastOutput;
+
+  // ═══ EXPLANATION PHASE ═══
+  engineContext.executionExplanation = this._buildExecutionExplanation(plan);
 
   this._validateAgainstSchema(intent, response);
 
   const schemaKey = this._schemaKeyForIntent(intent);
+  const reasoner = this._resolveReasoner(policy, preferredReasoner);
   const ledgerEntry = this.ledger.record({
     intent,
     agentVersion: policy.version,
@@ -411,6 +428,13 @@ async function processUIRequest(uiRequest) {
       permitted: policy.allowExecution,
       invoked: false,
     },
+    plan: {
+      planId: plan.planId,
+      executionMode: plan.executionMode,
+      status: plan.status,
+      stepCount: plan.steps.length,
+      summary: plan.executionSummary,
+    },
   });
 
   return {
@@ -419,6 +443,12 @@ async function processUIRequest(uiRequest) {
     reasoner: reasoner.name,
     output: response,
     ledgerEntryId: ledgerEntry.id,
+    plan: {
+      planId: plan.planId,
+      executionMode: plan.executionMode,
+      status: plan.status,
+      summary: plan.executionSummary,
+    },
   };
 }
 

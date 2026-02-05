@@ -29,6 +29,8 @@ const { TOOL_CATEGORIES } = require('./tool.registry');
  */
 const TOOL_DOMAIN_MAP = Object.freeze({
   // READ tools
+  webSearch: 'web', // External web search (public information only)
+  legalResearch: 'legal', // Legal research (jurisprudence, statutes, procedures)
   getClient: 'clients',
   listClients: 'clients',
   searchClientsByName: 'clients',
@@ -67,6 +69,9 @@ const TOOL_DOMAIN_MAP = Object.freeze({
   draftClientEmail: 'clients',
   draftHearingSummary: 'sessions',
 
+  // RESEARCH tools
+  compileDossierResearch: 'dossiers',
+
   // EXECUTE tools
   createTask: 'tasks',
   scheduleReminder: 'tasks',
@@ -90,6 +95,8 @@ const DATA_DOMAINS = Object.freeze({
   FINANCIAL_ENTRIES: 'financialEntries',
   NOTIFICATIONS: 'notifications',
   HISTORY: 'history',
+  WEB: 'web', // External web search (public information only)
+  LEGAL: 'legal', // Legal research (jurisprudence, statutes, procedures)
 });
 
 class ToolFirewall {
@@ -180,6 +187,21 @@ class ToolFirewall {
       passed: true,
       message: `Category '${tool.category}' is allowed by policy`,
     });
+
+    // GATE 3.5: External tools are blocked in all versions (placeholder for MCP)
+    if (tool.category === TOOL_CATEGORIES.EXTERNAL) {
+      const result = this._buildRejection({
+        toolName,
+        reason: 'EXTERNAL_TOOLS_DISABLED',
+        message: `External tools are not yet available. Tool '${toolName}' is in the external category.`,
+        policy,
+        context,
+        checks,
+        tool,
+      });
+      this._logDecision(result);
+      return result;
+    }
 
     // GATE 4: Execute tools require explicit execution permission
     if (tool.category === TOOL_CATEGORIES.EXECUTE && !policy.allowExecution) {

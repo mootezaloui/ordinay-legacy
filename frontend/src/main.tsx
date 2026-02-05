@@ -20,6 +20,7 @@ import AlertBanner from "./components/notifications/AlertBanner";
 import { SettingsProvider } from "./contexts/SettingsContext";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { initializeApiConfig } from "./lib/apiConfig";
+import { AgentSessionsProvider } from "./Agent_front/hooks/useAgentSessions";
 import "./index.css";
 import App from "./App";
 
@@ -62,9 +63,11 @@ async function bootstrap() {
                                     <NotificationDataBridge />
                                     <AlertBanner />
                                     <SidebarProvider>
-                                      <HashRouter>
-                                        <App />
-                                      </HashRouter>
+                                      <AgentSessionsProvider>
+                                        <HashRouter>
+                                          <App />
+                                        </HashRouter>
+                                      </AgentSessionsProvider>
                                     </SidebarProvider>
                                   </DataProvider>
                                 </ConfirmProvider>

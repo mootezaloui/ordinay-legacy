@@ -62,20 +62,42 @@ function createDocumentAppender({
   };
 
   const describeUnreadableReason = (doc) => {
+    const reason = doc?.text_failure_reason || doc?.failure_reason || null;
+    if (doc?.text_status === "processing") {
+      return "OCR in progress";
+    }
+    if (reason) {
+      if (reason.startsWith("ocr_failed:")) {
+        return `OCR failed (${reason.replace("ocr_failed:", "").trim()})`;
+      }
+      if (reason.startsWith("ocr_spawn_failed:")) {
+        return `OCR failed to start (${reason.replace("ocr_spawn_failed:", "").trim()})`;
+      }
+      if (reason.startsWith("ingestion_error:")) {
+        return `Ingestion error (${reason.replace("ingestion_error:", "").trim()})`;
+      }
+      const friendly = {
+        missing_file_path: "missing file path",
+        file_not_found: "file not found",
+        file_stat_failed: "file metadata unavailable",
+        not_a_file: "path is not a file",
+        file_too_large: "file too large to process",
+        unsupported_type: "unsupported file type",
+        no_pdf_text: "PDF contains no embedded text",
+        no_docx_text: "DOCX contains no readable text",
+        empty_text: "file contains no readable text",
+        ocr_timeout: "OCR timed out",
+        ocr_empty: "OCR produced no readable text",
+        legacy_unreadable: "document was previously marked unreadable",
+      };
+      if (friendly[reason]) return friendly[reason];
+    }
     const kind = detectDocumentKind(doc);
-    if (kind === "image") {
-      return "image file (not readable in this version)";
-    }
-    if (kind === "pdf") {
-      return "PDF with no embedded text (not readable in this version)";
-    }
-    if (kind === "docx") {
-      return "DOCX with no extractable text (not readable in this version)";
-    }
-    if (kind === "text") {
-      return "text file with no readable content (not readable in this version)";
-    }
-    return "content not readable in this version";
+    if (kind === "image") return "image could not be read";
+    if (kind === "pdf") return "PDF contains no readable text";
+    if (kind === "docx") return "DOCX contains no readable text";
+    if (kind === "text") return "text file contains no readable content";
+    return "document unreadable";
   };
 
   const appendDocumentDetails = async (entityType, entity) => {
@@ -93,7 +115,6 @@ function createDocumentAppender({
     const documents = docResult.documents || [];
     entity.documents = documents;
     if (documents.length === 0) {
-      details.push("Documents: none attached.");
       sources.push({
         sourceType: "system",
         reference: "documents.metadata",
@@ -102,16 +123,24 @@ function createDocumentAppender({
       return;
     }
     const readableDocs = documents.filter(
-      (doc) => doc.has_text && !doc.unreadable_text,
+      (doc) => doc.text_status === "readable" || (doc.has_text && !doc.unreadable_text),
     );
     const unreadableDocs = documents.filter(
-      (doc) => !doc.has_text || doc.unreadable_text,
+      (doc) => doc.text_status === "unreadable" || doc.unreadable_text,
+    );
+    const processingDocs = documents.filter(
+      (doc) =>
+        doc.text_status === "processing" &&
+        !readableDocs.includes(doc) &&
+        !unreadableDocs.includes(doc),
     );
 
     details.push(
       `Documents: ${formatCount(documents.length)} attached; ${formatCount(
         readableDocs.length,
-      )} readable, ${formatCount(unreadableDocs.length)} not readable.`,
+      )} readable, ${formatCount(unreadableDocs.length)} unreadable, ${formatCount(
+        processingDocs.length,
+      )} processing.`,
     );
 
     if (readableDocs.length > 0) {
@@ -121,7 +150,8 @@ function createDocumentAppender({
           typeof doc.text_length === "number" ? doc.text_length : null;
         const lengthLabel =
           length !== null ? `text loaded (${formatCount(length)} characters)` : "text loaded";
-        details.push(`${formatDocumentLabel(doc)} - ${lengthLabel}`);
+        const sourceLabel = doc.text_source === "ocr" ? " (OCR)" : "";
+        details.push(`${formatDocumentLabel(doc)} - ${lengthLabel}${sourceLabel}`);
       });
     }
 
@@ -131,6 +161,13 @@ function createDocumentAppender({
         details.push(
           `${formatDocumentLabel(doc)} - ${describeUnreadableReason(doc)}`,
         );
+      });
+    }
+
+    if (processingDocs.length > 0) {
+      details.push(`Processing documents (${processingDocs.length}):`);
+      processingDocs.forEach((doc) => {
+        details.push(`${formatDocumentLabel(doc)} - OCR in progress`);
       });
     }
 

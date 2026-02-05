@@ -71,6 +71,69 @@ export default function DocumentsTab({ data, config, onDocumentsChange, reloadKe
     return iconMap[type?.toLowerCase()] || 'fas fa-file text-slate-600 dark:text-slate-400';
   };
 
+  const formatFailureReason = (reason) => {
+    if (!reason) {
+      return t("detail.documents.failureReasons.unknown", {
+        defaultValue: "unknown reason",
+      });
+    }
+    if (reason.startsWith("ocr_failed:")) {
+      const detail = reason.replace("ocr_failed:", "").trim();
+      const detailSuffix = detail ? ` (${detail})` : "";
+      return t("detail.documents.failureReasons.ocr_failed", {
+        detail: detailSuffix,
+        defaultValue: `OCR failed${detailSuffix}`,
+      });
+    }
+    if (reason.startsWith("ocr_spawn_failed:")) {
+      const detail = reason.replace("ocr_spawn_failed:", "").trim();
+      const detailSuffix = detail ? ` (${detail})` : "";
+      return t("detail.documents.failureReasons.ocr_spawn_failed", {
+        detail: detailSuffix,
+        defaultValue: `OCR failed to start${detailSuffix}`,
+      });
+    }
+    if (reason.startsWith("ingestion_error:")) {
+      const detail = reason.replace("ingestion_error:", "").trim();
+      const detailSuffix = detail ? ` (${detail})` : "";
+      return t("detail.documents.failureReasons.ingestion_error", {
+        detail: detailSuffix,
+        defaultValue: `Ingestion error${detailSuffix}`,
+      });
+    }
+    return t(`detail.documents.failureReasons.${reason}`, {
+      defaultValue: reason.replace(/_/g, " "),
+    });
+  };
+
+  const renderTextStatusBadge = (doc) => {
+    if (doc.textStatus === "processing") {
+      return (
+        <span className="inline-block px-2 py-0.5 bg-amber-100 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 text-xs rounded">
+          {t("detail.documents.status.processing", { defaultValue: "OCR in progress" })}
+        </span>
+      );
+    }
+    if (doc.textStatus === "readable" && doc.textSource === "ocr") {
+      return (
+        <span className="inline-block px-2 py-0.5 bg-emerald-100 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 text-xs rounded">
+          {t("detail.documents.status.ocr", { defaultValue: "Document read via OCR" })}
+        </span>
+      );
+    }
+    if (doc.textStatus === "unreadable") {
+      return (
+        <span className="inline-block px-2 py-0.5 bg-rose-100 dark:bg-rose-900/20 text-rose-700 dark:text-rose-300 text-xs rounded">
+          {t("detail.documents.status.unreadable", {
+            reason: formatFailureReason(doc.textFailureReason),
+            defaultValue: `Document unreadable (${formatFailureReason(doc.textFailureReason)})`,
+          })}
+        </span>
+      );
+    }
+    return null;
+  };
+
   const handleFileSelect = async (files) => {
     setUploading(true);
 
@@ -330,6 +393,7 @@ export default function DocumentsTab({ data, config, onDocumentsChange, reloadKe
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {documents.map((doc) => {
             const isMissing = missingFiles.has(doc.id);
+            const statusBadge = renderTextStatusBadge(doc);
             return (
               <div
                 key={doc.id}
@@ -385,10 +449,15 @@ export default function DocumentsTab({ data, config, onDocumentsChange, reloadKe
                         {formatDate(doc.uploadDate)}
                       </span>
                     </div>
-                    {doc.category && (
-                      <span className="inline-block mt-2 px-2 py-0.5 bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 text-xs rounded">
-                        {doc.category}
-                      </span>
+                    {(doc.category || statusBadge) && (
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {doc.category && (
+                          <span className="inline-block px-2 py-0.5 bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 text-xs rounded">
+                            {doc.category}
+                          </span>
+                        )}
+                        {statusBadge}
+                      </div>
                     )}
                   </div>
 

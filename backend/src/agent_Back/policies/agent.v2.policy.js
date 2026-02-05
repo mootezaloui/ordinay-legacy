@@ -10,7 +10,7 @@ const agentV2Policy = {
     INTENTS.DRAFT_INVITATION,
     INTENTS.DRAFT_CLIENT_EMAIL,
   ],
-  allowedToolCategories: ['read', 'analysis', 'draft'],
+  allowedToolCategories: ['read', 'analysis', 'draft', 'research'],
   allowExecution: false,
   allowExternalSearch: false,
   allowEnrichment: true, // read-only enrichment flag

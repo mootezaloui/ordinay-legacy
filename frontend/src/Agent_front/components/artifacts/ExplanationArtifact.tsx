@@ -275,8 +275,8 @@ interface ExplanationArtifactProps {
  *
  * Structure:
  *   1. FACTS — what was read
- *   2. INTERPRETATION — why it matters now (MANDATORY)
- *   3. NAVIGATION — entity role context (MANDATORY)
+ *   2. INTERPRETATION — why it matters now (conditional on meaningful signals)
+ *   3. NAVIGATION — entity role context (mandatory)
  *   4. FOLLOW-UPS — guided next steps (shown separately by parent)
  */
 export function ExplanationArtifact({
@@ -302,6 +302,10 @@ export function ExplanationArtifact({
 
   // Check if we have the new mandatory structure
   const hasNewStructure = data.facts && data.interpretation && data.navigation;
+  const hasInterpretation =
+    data.interpretation &&
+    Array.isArray(data.interpretation.statements) &&
+    data.interpretation.statements.length > 0;
 
   const parentFollowUp =
     data.navigation?.parentPath && data.followUps
@@ -405,10 +409,12 @@ export function ExplanationArtifact({
           </div>
         )}
 
-        {/* ─── Section 2: INTERPRETATION (MANDATORY) ─── */}
-        <div className="artifact-build-section artifact-build-section-2 mt-5">
-          <InterpretationBlock interpretation={data.interpretation} />
-        </div>
+        {/* ─── Section 2: INTERPRETATION (Conditional) ─── */}
+        {hasInterpretation && (
+          <div className="artifact-build-section artifact-build-section-2 mt-5">
+            <InterpretationBlock interpretation={data.interpretation} />
+          </div>
+        )}
 
         {/* ─── Section 3: NAVIGATION (MANDATORY) ─── */}
         <div className="artifact-build-section artifact-build-section-3 mt-5">
@@ -446,9 +452,11 @@ function LegacyExplanationArtifact({
         </div>
       </div>
       <div className="px-5 py-5">
-        <p className="text-[15px] font-medium text-slate-800 dark:text-slate-100 leading-relaxed">
-          {data.summary || "No summary available"}
-        </p>
+        {data.summary && (
+          <p className="text-[15px] font-medium text-slate-800 dark:text-slate-100 leading-relaxed">
+            {data.summary}
+          </p>
+        )}
         {data.details && data.details.length > 0 && (
           <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-700/50">
             <div className="agent-facts-grid">

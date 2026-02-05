@@ -19,6 +19,8 @@ const TOOL_CATEGORIES = Object.freeze({
   ANALYSIS: 'analysis',
   DRAFT: 'draft',
   EXECUTE: 'execute',
+  RESEARCH: 'research',
+  EXTERNAL: 'external',
 });
 
 class ToolRegistry {
@@ -97,6 +99,57 @@ class ToolRegistry {
   }
 
   /**
+   * Validate tool input against its inputSchema
+   * @param {string} name - Tool name
+   * @param {Object} params - Input parameters
+   * @param {Object} ajv - Ajv instance (from engine)
+   * @returns {{ valid: boolean, errors: Array|null }}
+   */
+  validateInput(name, params, ajv) {
+    const tool = this._tools.get(name);
+    if (!tool || !tool.inputSchema) {
+      return { valid: true, errors: null };
+    }
+    const validate = ajv.compile(tool.inputSchema);
+    const valid = validate(params);
+    return { valid, errors: valid ? null : validate.errors };
+  }
+
+  /**
+   * Validate tool output against its outputSchema
+   * @param {string} name - Tool name
+   * @param {Object} output - Output data
+   * @param {Object} ajv - Ajv instance (from engine)
+   * @returns {{ valid: boolean, errors: Array|null }}
+   */
+  validateOutput(name, output, ajv) {
+    const tool = this._tools.get(name);
+    if (!tool || !tool.outputSchema) {
+      return { valid: true, errors: null };
+    }
+    const validate = ajv.compile(tool.outputSchema);
+    const valid = validate(output);
+    return { valid, errors: valid ? null : validate.errors };
+  }
+
+  /**
+   * List tools with planner metadata for plan construction
+   * @param {Object} filters - Optional filters (category, agentVersion)
+   * @returns {Object[]} Array of tool summaries with planner hints
+   */
+  listForPlanner(filters = {}) {
+    const tools = this.list(filters);
+    return tools.map(tool => ({
+      name: tool.name,
+      category: tool.category,
+      description: tool.description,
+      inputSchema: tool.inputSchema,
+      sideEffects: tool.sideEffects,
+      plannerHint: tool.plannerHint || null,
+    }));
+  }
+
+  /**
    * Validate tool definition structure
    * @private
    */
@@ -166,6 +219,14 @@ class ToolRegistry {
 
     if (def.category === TOOL_CATEGORIES.EXECUTE && def.sideEffects === false) {
       throw new Error('EXECUTE tools must have side effects');
+    }
+
+    if (def.category === TOOL_CATEGORIES.RESEARCH && def.sideEffects === true) {
+      throw new Error('RESEARCH tools must not have side effects');
+    }
+
+    if (def.category === TOOL_CATEGORIES.EXTERNAL && def.sideEffects === false) {
+      throw new Error('EXTERNAL tools must have side effects');
     }
   }
 

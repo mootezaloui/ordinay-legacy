@@ -682,13 +682,13 @@ async function handleExplainFinancialEntry(state) {
       let overdueCount = 0;
 
       const addAmount = (map, currency, amount) => {
-        const key = currency || "N/A";
+      const key = currency || "";
         map[key] = (map[key] || 0) + amount;
       };
 
       entries.forEach((item) => {
         const amount = Number(item.amount || 0);
-        const currency = item.currency || "N/A";
+        const currency = item.currency || "";
         addAmount(totals, currency, amount);
         if (item.paid_at) {
           return;
@@ -703,7 +703,8 @@ async function handleExplainFinancialEntry(state) {
 
       const formatTotals = (map) =>
         Object.entries(map)
-          .map(([currency, amount]) => `${amount} ${currency}`)
+          .map(([currency, amount]) => `${amount} ${currency}`.trim())
+          .filter(Boolean)
           .join(", ");
 
       title =
@@ -717,16 +718,13 @@ async function handleExplainFinancialEntry(state) {
       details.push(
         `Entries: ${entries.length} total, ${unpaidCount} unpaid, ${overdueCount} overdue`,
       );
-      details.push(
-        `Totals: ${formatTotals(totals) || "N/A"}`,
-      );
-      details.push(
-        `Unpaid: ${formatTotals(unpaidTotals) || "N/A"}`,
-      );
+      const totalsLabel = formatTotals(totals);
+      if (totalsLabel) details.push(`Totals: ${totalsLabel}`);
+      const unpaidLabel = formatTotals(unpaidTotals);
+      if (unpaidLabel) details.push(`Unpaid: ${unpaidLabel}`);
       if (overdueCount > 0) {
-        details.push(
-          `Overdue: ${formatTotals(overdueTotals) || "N/A"}`,
-        );
+        const overdueLabel = formatTotals(overdueTotals);
+        if (overdueLabel) details.push(`Overdue: ${overdueLabel}`);
       }
       sources.push({
         sourceType: "system",

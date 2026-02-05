@@ -33,6 +33,9 @@ const intentStage = require("./engine/stages/stage.intent");
 const readStage = require("./engine/stages/stage.read");
 const followUpStage = require("./engine/stages/stage.followup");
 const state = require("./engine/state");
+const planner = require("./engine/planner");
+const executor = require("./engine/executor");
+const toolRuntime = require("./engine/toolRuntime");
 
 class AgentEngine {
   constructor(options = {}) {
@@ -92,6 +95,9 @@ Object.assign(
   readStage,
   followUpStage,
   state,
+  planner,
+  executor,
+  toolRuntime,
 );
 
 module.exports = AgentEngine;

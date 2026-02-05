@@ -53,6 +53,15 @@ export interface ElectronAPI {
     body?: unknown,
   ) => Promise<ApiResponse>;
 
+  fileExists: (filePath: string) => Promise<{ exists: boolean; error?: string }>;
+  openFile: (filePath: string) => Promise<{ ok: boolean; error?: string }>;
+  revealFile: (filePath: string) => Promise<{ ok: boolean; error?: string }>;
+  downloadFile: (
+    filePath: string,
+    fileName?: string,
+  ) => Promise<{ ok: boolean; path?: string; error?: string }>;
+  deleteFile: (filePath: string) => Promise<{ ok: boolean; error?: string }>;
+
   /**
    * Get backend configuration (port, URLs)
    */

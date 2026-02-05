@@ -9,7 +9,8 @@
       "Bash(npx tsc --noEmit)",
       "Bash(node -c:*)",
       "Bash(ls \"c:\\\\Users\\\\moote\\\\OneDrive\\\\Dokumente\\\\GitHub\\\\Project_Lawyers\\\\lawyer-app\\\\backend\\\\src\\\\agent\\\\tools\\\\read\"\" && echo \"---\" && ls \"c:UsersmooteOneDriveDokumenteGitHubProject_Lawyerslawyer-appbackendsrcagenttoolsanalysis\"\")",
-      "Bash(ls \"c:\\\\Users\\\\moote\\\\OneDrive\\\\Dokumente\\\\GitHub\\\\Project_Lawyers\\\\lawyer-app\\\\backend\\\\src\\\\agent\\\\tools\\\\draft\"\" && echo \"---\" && ls \"c:UsersmooteOneDriveDokumenteGitHubProject_Lawyerslawyer-appbackendsrcagenttoolsexecute\"\")"
+      "Bash(ls \"c:\\\\Users\\\\moote\\\\OneDrive\\\\Dokumente\\\\GitHub\\\\Project_Lawyers\\\\lawyer-app\\\\backend\\\\src\\\\agent\\\\tools\\\\draft\"\" && echo \"---\" && ls \"c:UsersmooteOneDriveDokumenteGitHubProject_Lawyerslawyer-appbackendsrcagenttoolsexecute\"\")",
+      "Bash(tree:*)"
     ]
   }
 }

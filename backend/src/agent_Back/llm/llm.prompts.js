@@ -56,9 +56,26 @@ Return format:
 {"selected":[{"document_id":123,"reason":"Short reason tied to the current question"}]}
 `;
 
+const DOCUMENT_SUMMARY_PROMPT = `You are Organia Assistant.
+Summarize the document content for a legal professional.
+Rules:
+- Use only the provided document text.
+- If a question is provided, answer it directly in the first sentence.
+- Keep the summary concise: 2-4 sentences maximum.
+- If the document text is insufficient, say so explicitly.
+
+Inputs:
+Title: {{title}}
+Question: {{question}}
+Document text:
+{{text}}
+
+Summary:`;
+
 module.exports = {
   INTENT_CLASSIFICATION_PROMPT,
   CHAT_SYSTEM_PROMPT,
   INTENT_FRAMING_PROMPT,
   DOCUMENT_RELEVANCE_PROMPT,
+  DOCUMENT_SUMMARY_PROMPT,
 };

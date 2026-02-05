@@ -820,6 +820,10 @@ function detectReadIntent(message, context = {}) {
       type: "financial_entry",
       pattern: /\b(accounting|financial|invoice|payment|expense|billing|entry|entries)\b/i,
     },
+    {
+      type: "document",
+      pattern: /\b(document|documents|file|files|attachment|attachments|pdf|docx|resume|cv|letter|report)\b/i,
+    },
     { type: "notification", pattern: /\b(notification|notifications|alert|alerts)\b/i },
     { type: "history_event", pattern: /\b(history|audit\s*trail|activity\s*log|audit)\b/i },
   ];
@@ -887,6 +891,25 @@ function detectReadIntent(message, context = {}) {
         extractedHints = [...extractedHints, { type: "name", value: cleaned }];
       }
     }
+  }
+
+  const documentContentQuery =
+    /\b(what\s+does|what\s+is|what'?s\s+in|talk\s+about|content|summariz|summary|describe|read)\b/i.test(
+      normalized,
+    );
+  const documentMentioned =
+    entityType === "document" ||
+    /\b(document|documents|file|files|attachment|attachments|pdf|docx|resume|cv|letter|report)\b/i.test(
+      normalized,
+    );
+
+  if (documentMentioned && documentContentQuery) {
+    return {
+      intent: READ_INTENTS.SUMMARIZE_DOCUMENT,
+      requiresLocalData: true,
+      allowedTools: [],
+      entityHints: extractedHints,
+    };
   }
   const aggregateSummary = detectAggregateSummaryRequest(
     normalized,
@@ -1525,7 +1548,7 @@ function detectFollowUp(message, context = {}) {
 
   // Entity keywords that indicate a NEW query, not a follow-up
   const entityKeywords =
-    /\b(client|clients|dossier|dossiers|task|tasks|personal\s+task|personal\s+tasks|session|sessions|meeting|meetings|hearing|hearings|appointment|appointments|lawsuit|lawsuits|case|cases|matter|matters|mission|missions|accounting|financial|invoice|payment|expense|billing|notification|notifications|alert|alerts|history|audit)\b/i;
+    /\b(client|clients|dossier|dossiers|task|tasks|personal\s+task|personal\s+tasks|session|sessions|meeting|meetings|hearing|hearings|appointment|appointments|lawsuit|lawsuits|case|cases|matter|matters|mission|missions|accounting|financial|invoice|payment|expense|billing|document|documents|file|files|attachment|attachments|notification|notifications|alert|alerts|history|audit)\b/i;
 
   // Pattern 3: Pronoun references (refer to prior context)
   const pronounPatterns = [
@@ -1767,6 +1790,7 @@ function detectEntityType(message) {
       /\b(session|sessions|meeting|meetings|hearing|hearings|appointment|appointments)\b/i,
     mission: /\b(mission|missions|huissier)\b/i,
     financial_entry: /\b(accounting|financial|invoice|payment|expense|billing|entry|entries)\b/i,
+    document: /\b(document|documents|file|files|attachment|attachments|pdf|docx|resume|cv|letter|report)\b/i,
     notification: /\b(notification|notifications|alert|alerts)\b/i,
     history_event: /\b(history|audit\s*trail|activity\s*log|audit)\b/i,
   };

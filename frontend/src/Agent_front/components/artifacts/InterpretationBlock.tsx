@@ -37,14 +37,18 @@ const levelConfig = {
 };
 
 /**
- * Renders the MANDATORY interpretation section.
+ * Renders the interpretation section when meaningful signals exist.
  *
- * This is NOT optional. Every entity read MUST have interpretation.
- * The interpretation explains WHY the current state matters.
+ * Interpretation is suppressed if there is nothing meaningful to say.
  */
 export function InterpretationBlock({ interpretation }: InterpretationBlockProps) {
+  if (!interpretation || !Array.isArray(interpretation.statements) || interpretation.statements.length === 0) {
+    return null;
+  }
+
   const hasCritical = interpretation.statements.some((s) => s.level === "critical");
   const hasWarning = interpretation.statements.some((s) => s.level === "warning");
+  const summaryText = String(interpretation.summary || "").trim();
 
   // Summary styling based on urgency
   const summaryStyle = hasCritical
@@ -60,9 +64,11 @@ export function InterpretationBlock({ interpretation }: InterpretationBlockProps
         <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
           Interpretation
         </span>
-        <span className={`text-xs ${summaryStyle}`}>
-          {interpretation.summary}
-        </span>
+        {summaryText && (
+          <span className={`text-xs ${summaryStyle}`}>
+            {summaryText}
+          </span>
+        )}
       </div>
 
       {/* Interpretation statements - appear with staggered animation */}
