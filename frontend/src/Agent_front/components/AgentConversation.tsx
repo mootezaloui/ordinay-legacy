@@ -79,8 +79,12 @@ export function AgentConversation({
   return (
     <div className="space-y-10">
       {interactionPairs.map((pair, idx) => (
-        <div key={`${pair.user.id}-${idx}`} className="workspace-current-enter space-y-3">
-          {pair.user.content && (
+        <div
+          key={`${pair.user.id}-${idx}`}
+          className="workspace-current-enter space-y-3"
+        >
+          {(pair.user.content ||
+            (pair.user.attachments && pair.user.attachments.length > 0)) && (
             <UserCommand
               message={pair.user}
               getRelativeTime={getRelativeTime}
@@ -110,7 +114,10 @@ export function AgentConversation({
 
       {transientStatus && (
         <div className="space-y-2">
-          <StatusMessage action={transientStatus.action} phase={transientStatus.phase} />
+          <StatusMessage
+            action={transientStatus.action}
+            phase={transientStatus.phase}
+          />
         </div>
       )}
 

@@ -1083,6 +1083,17 @@
   border: 1px solid rgba(148, 163, 184, 0.45);
 }
 
+/* Attachment cards inside user bubbles — inherit text color for both themes */
+.user-bubble .user-attachment-card {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+.dark .user-bubble .user-attachment-card {
+  background: rgba(15, 23, 42, 0.08);
+  border-color: rgba(15, 23, 42, 0.18);
+}
+
 .agent-bubble-soft {
   background: rgba(241, 245, 249, 0.9);
   border: 1px solid rgba(226, 232, 240, 0.8);

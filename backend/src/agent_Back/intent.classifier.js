@@ -897,6 +897,10 @@ function detectReadIntent(message, context = {}) {
     /\b(what\s+does|what\s+is|what'?s\s+in|talk\s+about|content|summariz|summary|describe|read)\b/i.test(
       normalized,
     );
+  const hasAttachedDocuments =
+    Boolean(context?._hasDocumentContext) ||
+    Boolean(context?.hasDocuments) ||
+    Number(context?.documentCount || 0) > 0;
   const documentMentioned =
     entityType === "document" ||
     /\b(document|documents|file|files|attachment|attachments|pdf|docx|resume|cv|letter|report)\b/i.test(
@@ -904,6 +908,14 @@ function detectReadIntent(message, context = {}) {
     );
 
   if (documentMentioned && documentContentQuery) {
+    return {
+      intent: READ_INTENTS.SUMMARIZE_DOCUMENT,
+      requiresLocalData: true,
+      allowedTools: [],
+      entityHints: extractedHints,
+    };
+  }
+  if (!entityType && hasAttachedDocuments && documentContentQuery) {
     return {
       intent: READ_INTENTS.SUMMARIZE_DOCUMENT,
       requiresLocalData: true,

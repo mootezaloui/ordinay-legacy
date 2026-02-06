@@ -28,11 +28,23 @@ export type AgentMessageStage = "ack" | "status" | "intent" | "artifact" | "comm
 
 export type AgentMessageType = "AGENT_INTENT_MESSAGE";
 
+/** Attachment stored on a user message for visual rendering in chat. */
+export interface MessageAttachment {
+  id: string;
+  name: string;
+  type: 'file' | 'document' | 'image';
+  size?: number;
+  /** Data-URL preview for images */
+  preview?: string;
+}
+
 export interface AgentMessage {
   id: string;
   role: AgentMessageRole;
   content: string;
   timestamp: Date;
+  /** Attachments sent with a user message (for visual rendering). */
+  attachments?: MessageAttachment[];
   // Agent response metadata
   status?: AgentMessageStatus;
   intent?: string;

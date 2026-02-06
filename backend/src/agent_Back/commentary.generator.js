@@ -569,6 +569,38 @@ function sanitizeCommentary(text, summary, artifact, options = {}) {
   return cleaned || null;
 }
 
+function shouldSkipDocumentCommentary(artifact, context = {}) {
+  const entityType = String(
+    artifact?.entityType || context?._activeEntityType || "",
+  ).toLowerCase();
+  if (entityType !== "document") return false;
+
+  const readOutcome = String(context?._readOutcome || "").toLowerCase();
+  if (
+    ["error", "processing", "incomplete", "ambiguous", "not_found"].includes(
+      readOutcome,
+    )
+  ) {
+    return true;
+  }
+
+  const summaryText = String(artifact?.facts?.summary || artifact?.summary || "").toLowerCase();
+  const detailText = Array.isArray(artifact?.facts?.details)
+    ? artifact.facts.details.join(" ").toLowerCase()
+    : Array.isArray(artifact?.details)
+      ? artifact.details.join(" ").toLowerCase()
+      : "";
+  const combined = `${summaryText} ${detailText}`;
+  return (
+    combined.includes("unsupported file type") ||
+    combined.includes("still being processed") ||
+    combined.includes("ocr cannot read pdf") ||
+    combined.includes("ocr is unavailable") ||
+    combined.includes("not readable") ||
+    combined.includes("unreadable")
+  );
+}
+
 /**
  * Generates conversational commentary about a structured artifact.
  * Uses Ollama LLM but NEVER blocks the artifact if it fails.
@@ -585,6 +617,14 @@ async function generateCommentary(artifactType, artifact, context = {}, options 
   // Skip commentary for chat-type artifacts (already conversational)
   if (artifactType === "chat") {
     return { success: true, commentary: null, skipped: true, reason: "chat_artifact" };
+  }
+  if (shouldSkipDocumentCommentary(artifact, context)) {
+    return {
+      success: true,
+      commentary: null,
+      skipped: true,
+      reason: "document_non_success",
+    };
   }
 
   // DERIVE COMMENTARY MODE FROM PRIMARY USER INTENT (CRITICAL)
@@ -695,6 +735,14 @@ async function streamCommentary(artifactType, artifact, context, callbacks, sign
   // Skip commentary for chat-type artifacts
   if (artifactType === "chat") {
     callbacks.onDone?.({ commentary: null, source: "skipped", reason: "chat_artifact" });
+    return;
+  }
+  if (shouldSkipDocumentCommentary(artifact, context)) {
+    callbacks.onDone?.({
+      commentary: null,
+      source: "skipped",
+      reason: "document_non_success",
+    });
     return;
   }
 

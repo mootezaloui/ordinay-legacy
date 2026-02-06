@@ -626,13 +626,22 @@ export function streamAgentMessage(
     agentVersion?: AgentVersion;
     dataAccess?: DataAccessPermissions;
     followUpIntent?: FollowUpIntent;
+    /** Agent conversation session ID — used to load session-bound documents */
+    sessionId?: string;
+    /** Document IDs explicitly attached to this message */
+    documentIds?: number[];
   } = {},
   callbacks: StreamCallbacks
 ): AbortController {
-  const { contextScope = 'GLOBAL', contextRefs = {}, agentVersion = 'v1', dataAccess, followUpIntent } = options;
+  const { contextScope = 'GLOBAL', contextRefs = {}, agentVersion = 'v1', dataAccess, followUpIntent, sessionId, documentIds } = options;
   const abortController = new AbortController();
 
-  const request: AgentRequest & { dataAccess?: DataAccessPermissions; followUpIntent?: FollowUpIntent } = {
+  const request: AgentRequest & {
+    dataAccess?: DataAccessPermissions;
+    followUpIntent?: FollowUpIntent;
+    sessionId?: string;
+    documentIds?: number[];
+  } = {
     message,
     context: {
       ...contextRefs,
@@ -643,6 +652,12 @@ export function streamAgentMessage(
   };
   if (followUpIntent) {
     request.followUpIntent = followUpIntent;
+  }
+  if (sessionId) {
+    request.sessionId = sessionId;
+  }
+  if (documentIds && documentIds.length > 0) {
+    request.documentIds = documentIds;
   }
 
   // Start streaming in background

@@ -323,6 +323,7 @@ async function _executeReadIntent(
       data: state.data,
       summary: state.summary,
       details: state.details,
+      entityType,
     });
     const readMeta = this._buildReadMeta(entityType, state.data);
     const contextPromotion = this._deriveContextPromotion(
@@ -339,6 +340,8 @@ async function _executeReadIntent(
         entityType,
         entityData: state.data,
         readOutcome,
+        readSummary: state.summary,
+        readDetails: state.details,
         readMeta,
         promotion: contextPromotion,
         aggregateSummary: shouldAggregateSummary,
@@ -367,6 +370,7 @@ async function _executeReadIntent(
       output: explanationOutput,
       isReadIntent: true,
       readMeta,
+      readOutcome,
       contextPromotion,
     };
   } catch (err) {
@@ -394,6 +398,11 @@ async function _executeReadIntent(
         entityType,
         entityData: null,
         readOutcome,
+        readSummary: `Unable to retrieve data: ${err.message}`,
+        readDetails: [
+          "An error occurred while accessing the data.",
+          "Please try again or rephrase your request.",
+        ],
         readMeta,
         promotion: contextPromotion,
         aggregateSummary: shouldAggregateSummary,
@@ -422,6 +431,7 @@ async function _executeReadIntent(
       output: explanationOutput,
       isReadIntent: true,
       readMeta,
+      readOutcome,
       contextPromotion,
     };
   }

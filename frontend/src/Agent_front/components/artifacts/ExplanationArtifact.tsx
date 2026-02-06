@@ -89,20 +89,23 @@ function parseFact(detail: string): ParsedFact {
     const label = labelValueMatch[1].trim();
     const value = labelValueMatch[2].trim();
 
-    // Check if value is a number
-    const numMatch = value.match(/^(\d+)\s*(.*)$/);
-    if (numMatch) {
-      return {
-        type: "count",
-        label,
-        value: parseInt(numMatch[1], 10),
-        status: parseInt(numMatch[1], 10) === 0 ? "neutral" : "success"
-      };
-    }
-
     // Check if it's a date
     if (/^\d{4}-\d{2}-\d{2}/.test(value)) {
       return { type: "date", label, value };
+    }
+
+    // Check if value starts with a number (supports thousands separators)
+    const numMatch = value.match(/^(\d{1,3}(?:,\d{3})*|\d+)(?:\s|$)/);
+    if (numMatch) {
+      const parsed = parseInt(numMatch[1].replace(/,/g, ""), 10);
+      if (!Number.isNaN(parsed)) {
+        return {
+          type: "count",
+          label,
+          value: parsed,
+          status: parsed === 0 ? "neutral" : "success"
+        };
+      }
     }
 
     // Check if it's a status-like value

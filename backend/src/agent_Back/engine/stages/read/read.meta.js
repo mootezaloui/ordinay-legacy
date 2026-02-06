@@ -79,8 +79,20 @@ function _resolveReadEntityId(entityType, entityData) {
   return fallback;
 }
 
-function _inferReadOutcome({ data, summary, details }) {
+function _inferReadOutcome({ data, summary, details, entityType }) {
   const combined = `${summary || ""} ${(details || []).join(" ")}`.toLowerCase();
+  if (entityType === "document") {
+    if (combined.includes("ocr in progress") || combined.includes("still being processed")) {
+      return "processing";
+    }
+    if (
+      combined.includes("ocr") ||
+      combined.includes("not readable") ||
+      combined.includes("unreadable")
+    ) {
+      return "error";
+    }
+  }
   if (combined.includes("multiple")) return "ambiguous";
   if (combined.includes("which") || combined.includes("provide")) return "incomplete";
   if (combined.includes("no ") || combined.includes("not found")) return "not_found";
@@ -167,6 +179,8 @@ function _buildReadInterpretationContext(
     entityType,
     entityData,
     readOutcome,
+    readSummary,
+    readDetails,
     readMeta,
     promotion,
     aggregateSummary,
@@ -174,6 +188,8 @@ function _buildReadInterpretationContext(
   },
 ) {
   const context = { ...(baseContext || {}), _readOutcome: readOutcome };
+  context._readSummary = String(readSummary || "");
+  context._readDetails = Array.isArray(readDetails) ? readDetails : [];
 
   if (entityData && !Array.isArray(entityData)) {
     if (entityType === "client") context.clientData = entityData;

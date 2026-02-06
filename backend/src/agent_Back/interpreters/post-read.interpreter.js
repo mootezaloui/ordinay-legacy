@@ -207,6 +207,68 @@ const coerceDate = (value) => {
 function interpretEntityState(entityType, entityData, context) {
   const readOutcome = context?._readOutcome;
   if (readOutcome === "error") {
+    if (entityType === "document") {
+      const readSummary = String(context?._readSummary || "").toLowerCase();
+      const readDetails = Array.isArray(context?._readDetails)
+        ? context._readDetails.join(" ").toLowerCase()
+        : "";
+      const combined = `${readSummary} ${readDetails}`;
+
+      if (combined.includes("unsupported file type")) {
+        return [
+          {
+            level: "warning",
+            statement: "This file type is not supported for document reading.",
+            implication:
+              "Upload a supported file format such as PDF, DOCX, TXT, or an image.",
+          },
+        ];
+      }
+      if (
+        combined.includes("pdf-to-image converter") ||
+        combined.includes("pdf reading is not supported")
+      ) {
+        return [
+          {
+            level: "warning",
+            statement: "Document text could not be extracted in the current OCR setup.",
+            implication:
+              "Enable PDF-to-image OCR conversion, or upload a text-based file and retry.",
+          },
+        ];
+      }
+      if (combined.includes("tesseract")) {
+        return [
+          {
+            level: "warning",
+            statement: "OCR is unavailable on this machine.",
+            implication:
+              "Install and configure Tesseract OCR, then retry the document summary.",
+          },
+        ];
+      }
+      if (
+        combined.includes("contains no readable text") ||
+        combined.includes("ocr produced no readable text")
+      ) {
+        return [
+          {
+            level: "info",
+            statement: "No readable text was found in this document.",
+            implication:
+              "Try a clearer scan, a higher-resolution file, or a text-based source document.",
+          },
+        ];
+      }
+      return [
+        {
+          level: "warning",
+          statement: "Document text could not be extracted in the current OCR setup.",
+          implication:
+            "Use a text-based document (DOCX/TXT) or enable PDF-to-image OCR conversion, then retry.",
+        },
+      ];
+    }
     return [
       {
         level: "critical",
@@ -230,6 +292,21 @@ function interpretEntityState(entityType, entityData, context) {
         level: "info",
         statement: "More information is required to locate the record.",
         implication: "Provide a reference or exact name.",
+      },
+    ];
+  }
+  if (readOutcome === "processing") {
+    return [
+      {
+        level: "info",
+        statement:
+          entityType === "document"
+            ? "Document text extraction is still in progress."
+            : "Requested data is still being processed.",
+        implication:
+          entityType === "document"
+            ? "Please wait a moment, then retry the document summary."
+            : "Please wait and retry shortly.",
       },
     ];
   }
@@ -1499,6 +1576,7 @@ function generateFollowUps(entityType, entityData, context, interpretation, navi
   const resultCount = resolveResultCount(entityData, context);
   const isEmpty = resultCount === 0;
   const isMultiple = resultCount > 1;
+  const readOutcome = context?._readOutcome;
   const origin = resolveOriginEntity(entityType, entityData, context);
   const originType = origin.type;
   const originId = origin.id;
@@ -1570,6 +1648,70 @@ function generateFollowUps(entityType, entityData, context, interpretation, navi
 
   const ensureMinimumFollowUps = () => {
     while (followUps.length < 2) {
+      if (originType === "document") {
+        const target =
+          originContext || {
+            type: "document",
+            id: originId,
+            label: originLabel || "document",
+          };
+        if (
+          !followUps.some(
+            (f) =>
+              f.intent === READ_INTENTS.SUMMARIZE_DOCUMENT &&
+              f.labelKey === "review_details",
+          )
+        ) {
+          followUps.push({
+            category: "general",
+            priority: 10,
+            ...buildFollowUp({
+              label: originLabel
+                ? `Review ${originLabel} details`
+                : "Review document details",
+              reason:
+                readOutcome === "processing"
+                  ? "Check whether text extraction has completed."
+                  : "Review the attached document status and details.",
+              labelKey: "review_details",
+              intent: READ_INTENTS.SUMMARIZE_DOCUMENT,
+              scopeType: originType,
+              scopeId: originId,
+              origin,
+              target,
+            }),
+          });
+          continue;
+        }
+        if (
+          !followUps.some(
+            (f) =>
+              f.intent === READ_INTENTS.SUMMARIZE_DOCUMENT &&
+              f.labelKey === "summarize",
+          )
+        ) {
+          followUps.push({
+            category: "general",
+            priority: 11,
+            ...buildFollowUp({
+              label: "Retry document summary",
+              reason:
+                readOutcome === "processing"
+                  ? "Text extraction may complete shortly."
+                  : "Retry after OCR setup or with a text-based document.",
+              labelKey: "summarize",
+              intent: READ_INTENTS.SUMMARIZE_DOCUMENT,
+              scopeType: originType,
+              scopeId: originId,
+              origin,
+              target,
+            }),
+          });
+          continue;
+        }
+        break;
+      }
+
       const explainIntent = EXPLAIN_INTENT_BY_ENTITY[originType];
       if (explainIntent && !followUps.some((f) => f.intent === explainIntent)) {
         followUps.push({

@@ -1,4 +1,5 @@
 const { spawn } = require("child_process");
+const fs = require("fs");
 
 const DEFAULT_LANG = process.env.DOCUMENT_OCR_LANG || "eng";
 const DEFAULT_TIMEOUT_MS = Number.parseInt(
@@ -12,6 +13,27 @@ const DEFAULT_OEM = process.env.DOCUMENT_OCR_OEM
   ? Number.parseInt(process.env.DOCUMENT_OCR_OEM, 10)
   : null;
 const DEFAULT_DPI = process.env.DOCUMENT_OCR_DPI || "300";
+
+function resolveTesseractCommand(options = {}) {
+  const explicit = options.tesseractPath || process.env.TESSERACT_PATH || null;
+  if (explicit && String(explicit).trim()) {
+    return String(explicit).trim();
+  }
+
+  if (process.platform === "win32") {
+    const winCandidates = [
+      "C:\\Program Files\\Tesseract-OCR\\tesseract.exe",
+      "C:\\Program Files (x86)\\Tesseract-OCR\\tesseract.exe",
+    ];
+    for (const candidate of winCandidates) {
+      try {
+        if (fs.existsSync(candidate)) return candidate;
+      } catch {}
+    }
+  }
+
+  return "tesseract";
+}
 
 function buildTesseractArgs(filePath, options) {
   const args = [filePath, "stdout"];
@@ -36,8 +58,7 @@ function runOcr(filePath, options = {}) {
     return Promise.resolve({ text: "", error: "missing_file_path" });
   }
 
-  const tesseractCmd =
-    options.tesseractPath || process.env.TESSERACT_PATH || "tesseract";
+  const tesseractCmd = resolveTesseractCommand(options);
   const args = buildTesseractArgs(filePath, options);
   const timeoutMs = Number.isFinite(options.timeoutMs)
     ? options.timeoutMs
@@ -72,6 +93,10 @@ function runOcr(filePath, options = {}) {
       if (settled) return;
       settled = true;
       clearTimeout(timeoutId);
+      if (error && error.code === "ENOENT") {
+        resolve({ text: "", error: "ocr_engine_missing" });
+        return;
+      }
       resolve({ text: "", error: `ocr_spawn_failed:${error.message}` });
     });
 
@@ -81,6 +106,10 @@ function runOcr(filePath, options = {}) {
       clearTimeout(timeoutId);
       if (code !== 0) {
         const detail = stderr.trim() || `exit_${code}`;
+        if (/pdf reading is not supported/i.test(detail)) {
+          resolve({ text: "", error: "ocr_pdf_input_unsupported" });
+          return;
+        }
         resolve({ text: "", error: `ocr_failed:${detail}` });
         return;
       }

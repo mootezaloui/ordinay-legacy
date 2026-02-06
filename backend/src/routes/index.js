@@ -18,6 +18,7 @@ const operatorsRouter = require("./operators.routes");
 const profileRouter = require("./profile.routes");
 const dashboardRouter = require("./dashboard.routes");
 const importsRouter = require("./imports.routes");
+const agentDocumentsRouter = require("./agentDocuments.routes");
 const { FEATURE_AI_AGENT } = require("../config/features");
 
 let agentRouter = null;
@@ -45,6 +46,7 @@ router.use("/operators", operatorsRouter);
 router.use("/profile", profileRouter);
 router.use("/dashboard", dashboardRouter);
 router.use("/imports", importsRouter);
+router.use("/agent/sessions/:sessionId/documents", agentDocumentsRouter);
 if (agentRouter) {
   router.use("/", agentRouter);
 }

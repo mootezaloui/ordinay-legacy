@@ -67,11 +67,29 @@ function createDocumentAppender({
       return "OCR in progress";
     }
     if (reason) {
+      const lowerReason = String(reason).toLowerCase();
+      if (
+        reason === "ocr_pdf_input_unsupported" ||
+        lowerReason.includes("pdf reading is not supported")
+      ) {
+        return "OCR cannot read PDF directly (PDF-to-image converter missing)";
+      }
+      if (reason === "ocr_engine_missing") {
+        return "OCR failed to start (Tesseract is not installed or not in PATH)";
+      }
       if (reason.startsWith("ocr_failed:")) {
-        return `OCR failed (${reason.replace("ocr_failed:", "").trim()})`;
+        const detail = reason.replace("ocr_failed:", "").trim();
+        if (/pdf reading is not supported/i.test(detail)) {
+          return "OCR cannot read PDF directly (PDF-to-image converter missing)";
+        }
+        return `OCR failed (${detail})`;
       }
       if (reason.startsWith("ocr_spawn_failed:")) {
-        return `OCR failed to start (${reason.replace("ocr_spawn_failed:", "").trim()})`;
+        const detail = reason.replace("ocr_spawn_failed:", "").trim();
+        if (detail.toUpperCase().includes("ENOENT")) {
+          return "OCR failed to start (Tesseract is not installed or not in PATH)";
+        }
+        return `OCR failed to start (${detail})`;
       }
       if (reason.startsWith("ingestion_error:")) {
         return `Ingestion error (${reason.replace("ingestion_error:", "").trim()})`;
@@ -86,6 +104,9 @@ function createDocumentAppender({
         no_pdf_text: "PDF contains no embedded text",
         no_docx_text: "DOCX contains no readable text",
         empty_text: "file contains no readable text",
+        ocr_pdf_input_unsupported:
+          "OCR cannot read PDF directly (PDF-to-image converter missing)",
+        ocr_engine_missing: "OCR engine missing (install Tesseract or set TESSERACT_PATH)",
         ocr_timeout: "OCR timed out",
         ocr_empty: "OCR produced no readable text",
         legacy_unreadable: "document was previously marked unreadable",

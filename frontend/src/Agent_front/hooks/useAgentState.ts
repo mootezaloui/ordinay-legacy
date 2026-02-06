@@ -13,6 +13,8 @@ import {
   CommentaryOutput,
   StatusEventData,
 } from "../../services/api/agent";
+import { uploadAttachments } from "../../services/api/agentDocuments";
+import type { AttachedFile } from "../components/AgentInput";
 import { buildFollowUpLabel } from "../utils/followUpLabels";
 
 // Default data access - all domains enabled
@@ -454,10 +456,11 @@ export function useAgentState() {
     return () => clearTimeout(timeout);
   }, [input, activeSessionId, updateSessionDraft]);
 
-  const handleSubmit = useCallback((e: React.SyntheticEvent) => {
+  const handleSubmit = useCallback((e: React.SyntheticEvent, attachments?: AttachedFile[]) => {
     e.preventDefault();
     const trimmed = input.trim();
-    if (!trimmed || isLoading || streamRegistry.isStreaming) return;
+    // Allow send if there's text OR attachments
+    if ((!trimmed && (!attachments || attachments.length === 0)) || isLoading || streamRegistry.isStreaming) return;
 
     // Use existing session if we have an activeSessionId, otherwise create new
     let sessionId = activeSessionId;
@@ -468,11 +471,17 @@ export function useAgentState() {
       currentMessages = [];
     }
 
+    // Build attachment metadata for visual rendering in chat
+    const messageAttachments = attachments && attachments.length > 0
+      ? attachments.map(a => ({ id: a.id, name: a.name, type: a.type, size: a.size, preview: a.preview }))
+      : undefined;
+
     const userMessage: AgentMessage = {
       id: `u-${Date.now()}`,
       role: "user",
       content: trimmed,
       timestamp: new Date(),
+      attachments: messageAttachments,
     };
 
     // ========== STAGE 1: IMMEDIATE ACKNOWLEDGEMENT (EPHEMERAL) ==========
@@ -486,20 +495,39 @@ export function useAgentState() {
     setInput("");
     updateSessionDraft(sessionId, "");
     safeSetIsLoading(true);
-    // Show immediate loading indicator while waiting for backend
-    setSessionStatus(sessionId, { action: "Analyzing your request…", phase: "init" });
 
-    const appendMessage = (message: AgentMessage) => {
-      workingMessages = [...workingMessages, message];
-      updateSessionMessages(sessionId, workingMessages);
+    // ========== ATTACHMENT UPLOAD + STREAM ORCHESTRATION ==========
+    // Upload attachments (if any), then start the agent stream.
+    // Document IDs are passed to the stream so the backend can load their text.
+    let pendingDocumentIds: number[] = [];
+
+    const launchStream = async () => {
+      if (attachments && attachments.length > 0) {
+        setSessionStatus(sessionId, { action: "Uploading documents…", phase: "uploading" });
+        try {
+          const uploadedDocs = await uploadAttachments(
+            sessionId,
+            attachments.map(a => ({
+              type: a.type,
+              file: a.file,
+              documentId: a.documentId,
+              name: a.name,
+            })),
+            userMessage.id,
+          );
+          pendingDocumentIds = uploadedDocs.map(d => d.document_id);
+          console.log('[Agent] Uploaded', pendingDocumentIds.length, 'documents for session', sessionId);
+        } catch (err) {
+          console.error('[Agent] Attachment upload failed:', err);
+          // Continue without documents — agent will handle gracefully
+        }
+      }
+      setSessionStatus(sessionId, { action: "Analyzing your request…", phase: "init" });
+      beginStreaming();
     };
 
-    const updateMessage = (message: AgentMessage) => {
-      workingMessages = workingMessages.map((msg) =>
-        msg.id === message.id ? message : msg
-      );
-      updateSessionMessages(sessionId, workingMessages);
-    };
+    // Define beginStreaming below (uses pendingDocumentIds from closure)
+    const beginStreaming = () => {
 
     // Reset user scroll tracking and scroll to bottom immediately when sending a message
     isUserScrolledUpRef.current = false;
@@ -521,6 +549,18 @@ export function useAgentState() {
     let streamedIntentContent = "";
     // Track streaming commentary content
     let streamedCommentaryContent = "";
+
+    const appendMessage = (message: AgentMessage) => {
+      workingMessages = [...workingMessages, message];
+      updateSessionMessages(sessionId, workingMessages);
+    };
+
+    const updateMessage = (message: AgentMessage) => {
+      workingMessages = workingMessages.map((msg) =>
+        msg.id === message.id ? message : msg
+      );
+      updateSessionMessages(sessionId, workingMessages);
+    };
 
     const upsertIntentMessage = (content: string, intentOverride?: string) => {
       const trimmedContent = content.trim();
@@ -544,10 +584,10 @@ export function useAgentState() {
     };
 
     // Start streaming
-    const abortController = streamAgentMessage(
-      trimmed,
-      { contextScope, agentVersion, dataAccess },
-      {
+      const abortController = streamAgentMessage(
+        trimmed,
+        { contextScope, agentVersion, dataAccess, sessionId, documentIds: pendingDocumentIds },
+        {
         onStart: (data) => {
           intent = data.intent;
           if (streamSessionRef.current !== sessionId) return;
@@ -761,9 +801,13 @@ export function useAgentState() {
           clearSessionStatus(sessionId);
         },
       }
-    );
+      );
 
-    registerStream(sessionId, abortController);
+      registerStream(sessionId, abortController);
+    }; // end beginStreaming
+
+    // Launch the async upload + stream pipeline
+    launchStream();
   }, [
     input,
     activeSessionId,

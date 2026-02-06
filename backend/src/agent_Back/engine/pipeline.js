@@ -9,8 +9,14 @@ const {
 } = require("../intent.classifier");
 const { CONTEXT_SOURCES } = require("../context/conversation.context");
 const { INTENTS } = require("../intents");
-const { createAgentRequest, extractAgentContext } = require("../contracts/agentRequest.contract");
-const { createAgentResponse, RESPONSE_STATUS } = require("../contracts/agentResponse.contract");
+const {
+  createAgentRequest,
+  extractAgentContext,
+} = require("../contracts/agentRequest.contract");
+const {
+  createAgentResponse,
+  RESPONSE_STATUS,
+} = require("../contracts/agentResponse.contract");
 const {
   resolveEntityDisplayLabel,
   formatEntityTypeLabel,
@@ -120,13 +126,14 @@ async function processUIRequest(uiRequest) {
  * @private
  */
 
-  async function run({
-    message,
-    context = {},
-    agentVersion = "v1",
-    reasoner: preferredReasoner,
-    followUpIntent,
-  } = {}) {
+async function run({
+  message,
+  context = {},
+  agentVersion = "v1",
+  reasoner: preferredReasoner,
+  followUpIntent,
+  documentContext,
+} = {}) {
   const hasFollowUpIntent = Boolean(followUpIntent);
   const normalizedMessage =
     typeof message === "string" && message.trim()
@@ -152,6 +159,7 @@ async function processUIRequest(uiRequest) {
     userId: context?.userId || context?.user?.id || null,
     activeEntity: context?.activeEntity || null,
     dataAccess: context?.dataAccess || null,
+    documentContext: documentContext || null,
     request: {
       message: normalizedMessage,
       agentVersion: policy.version,
@@ -244,13 +252,13 @@ async function processUIRequest(uiRequest) {
       timestamp: new Date().toISOString(),
     });
 
-      const readResult = await this._executeReadIntent(
-        readIntent,
-        normalizedMessage,
-        context,
-        policy,
-        engineContext,
-      );
+    const readResult = await this._executeReadIntent(
+      readIntent,
+      normalizedMessage,
+      context,
+      policy,
+      engineContext,
+    );
     // Update conversation context after read intent execution
     this._updateConversationContext(
       context,
@@ -262,18 +270,73 @@ async function processUIRequest(uiRequest) {
   }
   // ========== END READ INTENT GATE ==========
 
+  // ========== DOCUMENT-ONLY GATE ==========
+  // When documents are present but the user has not provided an explicit
+  // instruction, skip intent classification entirely and return a neutral
+  // acknowledgment.  This prevents the classifier / planner from inferring
+  // analytical intents that may be disallowed by the current agent version.
+  const hasDocumentContext =
+    engineContext.documentContext &&
+    engineContext.documentContext.documents &&
+    engineContext.documentContext.documents.length > 0;
+
+  if (hasDocumentContext) {
+    const stripped = normalizedMessage.replace(/\[follow-up\]/g, "").trim();
+    const isFileOnlyMessage =
+      !stripped ||
+      /^(uploaded?|attached?|sent|added|here|file|document|image|photo|pdf|see attached)[\s.!]*$/i.test(
+        stripped,
+      );
+
+    if (isFileOnlyMessage) {
+      engineContext.intent = INTENTS.GENERAL_CHAT;
+
+      const docs = engineContext.documentContext.documents;
+      const docCount = docs.length;
+      const fileDescriptions = docs
+        .map((d) => {
+          const name = d.title || d.original_filename || "unnamed file";
+          const type = d.mime_type || "unknown type";
+          return `"${name}" (${type})`;
+        })
+        .join(", ");
+      const pronoun = docCount === 1 ? "it" : "them";
+      const fileLabel = docCount === 1 ? "your file" : `your ${docCount} files`;
+
+      const ackOutput = {
+        type: "chat",
+        message: `I've received ${fileLabel}: ${fileDescriptions}. What would you like me to do with ${pronoun}? For example, I can summarize the content or answer questions about ${pronoun}.`,
+        timestamp: new Date().toISOString(),
+        source: "rule-based",
+      };
+
+      this.ledger.record({
+        type: "document_only_gate_triggered",
+        documentCount: docCount,
+        originalMessage: normalizedMessage,
+        timestamp: new Date().toISOString(),
+      });
+
+      return {
+        intent: INTENTS.GENERAL_CHAT,
+        agentVersion: policy.version,
+        reasoner: "rule",
+        output: ackOutput,
+      };
+    }
+  }
+  // ========== END DOCUMENT-ONLY GATE ==========
+
   const intent = await classifyIntent(normalizedMessage, context);
   engineContext.intent = intent;
+  engineContext._hasExplicitUserIntent = true;
   this._ensureIntentAllowed(intent, policy);
 
   // STEP: Detect data requirements and fetch local data if needed
   const dataReqs = detectDataRequirements(normalizedMessage, context);
   let enrichedContext = context;
 
-  if (
-    dataReqs.requiresData &&
-    policy.allowedToolCategories.includes("read")
-  ) {
+  if (dataReqs.requiresData && policy.allowedToolCategories.includes("read")) {
     // Log data requirement detection
     this.ledger.record({
       type: "data_requirements_detected",
@@ -377,18 +440,28 @@ async function processUIRequest(uiRequest) {
   }
 
   // ═══ PLANNING PHASE ═══
-  const plan = this._buildPlan(intent, {
-    message: normalizedMessage,
-    context: enrichedContext,
-    dataReqs,
-  }, policy, engineContext);
+  const plan = this._buildPlan(
+    intent,
+    {
+      message: normalizedMessage,
+      context: enrichedContext,
+      dataReqs,
+    },
+    policy,
+    engineContext,
+  );
 
   // ═══ EXECUTION PHASE ═══
   engineContext._enrichedContext = enrichedContext;
   const executionResult = await this._executePlan(plan, policy, engineContext);
 
   if (executionResult.hasFailed && !executionResult.lastOutput) {
-    const error = new Error(`Plan execution failed: ${executionResult.stepResults.filter(s => s.error).map(s => s.error).join('; ')}`);
+    const error = new Error(
+      `Plan execution failed: ${executionResult.stepResults
+        .filter((s) => s.error)
+        .map((s) => s.error)
+        .join("; ")}`,
+    );
     error.status = 500;
     throw error;
   }
@@ -452,7 +525,6 @@ async function processUIRequest(uiRequest) {
   };
 }
 
-
 function _resolvePolicy(agentVersion) {
   const normalized = String(agentVersion || "").toLowerCase();
   const key = normalized.startsWith("v") ? normalized : `v${normalized}`;
@@ -464,7 +536,6 @@ function _resolvePolicy(agentVersion) {
   }
   return policy;
 }
-
 
 function _resolveReasoner(policy, preferredReasoner) {
   const allowedReasoners = ["rule"];
@@ -482,7 +553,6 @@ function _resolveReasoner(policy, preferredReasoner) {
   return this.reasoners.rule;
 }
 
-
 function _assertExecutionIntent(context, policy) {
   const requestedTools = (context && context.requestedTools) || [];
   const executionRequested = Boolean(context && context.execute === true);
@@ -499,7 +569,6 @@ function _assertExecutionIntent(context, policy) {
   }
 }
 
-
 function _ensureIntentAllowed(intent, policy) {
   if (!policy.allowedIntents.includes(intent)) {
     const error = new Error(
@@ -509,7 +578,6 @@ function _ensureIntentAllowed(intent, policy) {
     throw error;
   }
 }
-
 
 async function _executeIntent(intent, reasoner, payload) {
   const { message, context } = payload;

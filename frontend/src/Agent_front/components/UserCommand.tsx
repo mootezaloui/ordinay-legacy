@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect } from "react";
-import { Edit2 } from "lucide-react";
+import { Edit2, FileText, Image, Paperclip } from "lucide-react";
 import { useAgentSessions } from "../hooks/useAgentSessions";
 import { useAgentState } from "../hooks/useAgentState";
-import { AgentMessage } from "../types/agentMessage";
+import { AgentMessage, MessageAttachment } from "../types/agentMessage";
 
 interface UserCommandProps {
   message: AgentMessage;
@@ -46,7 +46,7 @@ export function UserCommand({ message, getRelativeTime }: UserCommandProps) {
       return;
     }
     const updatedMessages = activeSession.messages.map((m) =>
-      m.id === message.id ? { ...m, content: editContent, edited: true } : m
+      m.id === message.id ? { ...m, content: editContent, edited: true } : m,
     );
     updateSessionMessages(activeSessionId, updatedMessages);
     setIsEditing(false);
@@ -88,7 +88,11 @@ export function UserCommand({ message, getRelativeTime }: UserCommandProps) {
     <div className="user-message-row">
       <div className="group max-w-full">
         <div className="user-bubble agent-chat-text text-[15px] leading-relaxed">
-          {message.content}
+          {/* Attachment previews */}
+          {message.attachments && message.attachments.length > 0 && (
+            <MessageAttachments attachments={message.attachments} />
+          )}
+          {message.content && <span>{message.content}</span>}
         </div>
         <div className="mt-2 flex items-center justify-end gap-2 text-[11px] text-slate-400 dark:text-slate-500">
           {message.edited && <span>(edited)</span>}
@@ -109,5 +113,95 @@ export function UserCommand({ message, getRelativeTime }: UserCommandProps) {
         </div>
       </div>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Attachment rendering helpers
+// ---------------------------------------------------------------------------
+
+function getAttachmentIcon(type: string) {
+  switch (type) {
+    case "image":
+      return <Image className="w-4 h-4" />;
+    case "document":
+      return <FileText className="w-4 h-4" />;
+    default:
+      return <Paperclip className="w-4 h-4" />;
+  }
+}
+
+function formatFileSize(bytes?: number) {
+  if (!bytes) return "";
+  if (bytes < 1024) return bytes + " B";
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+  return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+}
+
+/**
+ * Renders message attachments inline: images as thumbnails, files as cards.
+ * Mirrors the visual style from AgentInput's attachment preview.
+ */
+function MessageAttachments({
+  attachments,
+}: {
+  attachments: MessageAttachment[];
+}) {
+  const [expandedImage, setExpandedImage] = useState<string | null>(null);
+
+  return (
+    <>
+      <div className="flex flex-wrap gap-2 mb-2">
+        {attachments.map((att) => (
+          <div key={att.id}>
+            {att.type === "image" && att.preview ? (
+              <button
+                type="button"
+                className="block rounded-xl overflow-hidden border border-transparent hover:opacity-80 transition-opacity focus:outline-none"
+                onClick={() => setExpandedImage(att.preview!)}
+                aria-label={`View ${att.name}`}
+              >
+                <img
+                  src={att.preview}
+                  alt={att.name}
+                  className="max-w-[240px] max-h-[180px] object-cover rounded-xl"
+                />
+              </button>
+            ) : (
+              <div className="flex items-center gap-2 px-3 py-2 bg-current/10 border border-current/20 rounded-xl user-attachment-card">
+                <div className="opacity-70">{getAttachmentIcon(att.type)}</div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-medium truncate max-w-[180px]">
+                    {att.name}
+                  </div>
+                  {att.size != null && att.size > 0 && (
+                    <div className="text-[11px] opacity-60">
+                      {formatFileSize(att.size)}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Lightbox for expanded image */}
+      {expandedImage && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+          onClick={() => setExpandedImage(null)}
+          onKeyDown={(e) => e.key === "Escape" && setExpandedImage(null)}
+          role="dialog"
+          aria-label="Image preview"
+        >
+          <img
+            src={expandedImage}
+            alt="Expanded preview"
+            className="max-w-[90vw] max-h-[85vh] object-contain rounded-2xl shadow-2xl"
+          />
+        </div>
+      )}
+    </>
   );
 }

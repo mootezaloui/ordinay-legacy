@@ -57,6 +57,29 @@ function _deriveExecutionMode(intent, policy) {
  * @private
  */
 function _buildPlan(intent, payload, policy, engineContext) {
+  // Safety net: never plan analytical intents for document-only contexts.
+  // If the classifier inferred an advanced intent from document content alone
+  // (no explicit user instruction), downgrade to GENERAL_CHAT to prevent
+  // version-restricted errors from surfacing to the user.
+  const hasDocOnly =
+    engineContext.documentContext &&
+    engineContext.documentContext.documents &&
+    engineContext.documentContext.documents.length > 0 &&
+    !engineContext._hasExplicitUserIntent;
+  if (
+    hasDocOnly &&
+    intent !== INTENTS.GENERAL_CHAT
+  ) {
+    this.ledger.record({
+      type: "planner_downgrade_document_only",
+      originalIntent: intent,
+      downgradedTo: INTENTS.GENERAL_CHAT,
+      timestamp: new Date().toISOString(),
+    });
+    intent = INTENTS.GENERAL_CHAT;
+    engineContext.intent = INTENTS.GENERAL_CHAT;
+  }
+
   const executionMode = this._deriveExecutionMode(intent, policy);
 
   // Determine tool and description based on intent

@@ -22,13 +22,15 @@ export interface ContextIndicator {
   id?: number;
 }
 
-interface AttachedFile {
+export interface AttachedFile {
   id: string;
   name: string;
   type: "file" | "document" | "image";
   size?: number;
   preview?: string;
   documentId?: number;
+  /** Raw File object for new uploads (not set for existing system documents) */
+  file?: File;
 }
 
 interface SystemDocument {
@@ -55,7 +57,7 @@ interface AgentInputProps {
   input: string;
   setInput: (value: string) => void;
   inputRef: React.RefObject<HTMLTextAreaElement | null>;
-  onSubmit: (e: React.SyntheticEvent) => void;
+  onSubmit: (e: React.SyntheticEvent, attachments?: AttachedFile[]) => void;
   onKeyDown: (e: React.KeyboardEvent) => void;
   isStreaming?: boolean;
   onStopGeneration?: () => void;
@@ -199,9 +201,28 @@ export function AgentInput({
           return;
         }
       }
+      // Intercept Enter key to include attachments in submit
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        const currentAttachments = [...attachedFiles];
+        setAttachedFiles([]);
+        onSubmit(
+          e,
+          currentAttachments.length > 0 ? currentAttachments : undefined,
+        );
+        return;
+      }
       onKeyDown(e);
     },
-    [showDropdown, filteredCommands, selectedIndex, selectCommand, onKeyDown],
+    [
+      showDropdown,
+      filteredCommands,
+      selectedIndex,
+      selectCommand,
+      onKeyDown,
+      attachedFiles,
+      onSubmit,
+    ],
   );
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -214,10 +235,13 @@ export function AgentInput({
         name: file.name,
         type: "file",
         size: file.size,
+        file,
       };
       setAttachedFiles((prev) => [...prev, newFile]);
     });
     setShowAttachMenu(false);
+    // Reset input so same file can be re-selected
+    if (e.target) e.target.value = "";
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -233,12 +257,15 @@ export function AgentInput({
           type: "image",
           size: file.size,
           preview: event.target?.result as string,
+          file,
         };
         setAttachedFiles((prev) => [...prev, newFile]);
       };
       reader.readAsDataURL(file);
     });
     setShowAttachMenu(false);
+    // Reset input so same file can be re-selected
+    if (e.target) e.target.value = "";
   };
 
   const handleDocumentSelect = (doc: SystemDocument) => {
@@ -675,9 +702,17 @@ export function AgentInput({
                     type="button"
                     onClick={(event: React.MouseEvent<HTMLButtonElement>) => {
                       event.preventDefault();
-                      onSubmit(event);
+                      const currentAttachments = [...attachedFiles];
+                      // Clear attachments immediately to prevent them sticking
+                      setAttachedFiles([]);
+                      onSubmit(
+                        event,
+                        currentAttachments.length > 0
+                          ? currentAttachments
+                          : undefined,
+                      );
                     }}
-                    disabled={!input.trim()}
+                    disabled={!input.trim() && attachedFiles.length === 0}
                     className="px-5 py-2 bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 text-sm font-semibold rounded-xl hover:bg-slate-800 dark:hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-sm flex items-center gap-2"
                   >
                     <svg

@@ -9,8 +9,13 @@ import {
   Check,
   Edit2,
   RotateCw,
+  Image,
+  Paperclip,
 } from "lucide-react";
-import { AgentMessage as AgentMessageType } from "../types/agentMessage";
+import {
+  AgentMessage as AgentMessageType,
+  MessageAttachment,
+} from "../types/agentMessage";
 import type {
   ActionProposal,
   DraftOutput,
@@ -82,7 +87,7 @@ export function AgentMessage({ message, getRelativeTime }: AgentMessageProps) {
       return;
     }
     const updatedMessages = activeSession.messages.map((m) =>
-      m.id === message.id ? { ...m, content: editContent, edited: true } : m
+      m.id === message.id ? { ...m, content: editContent, edited: true } : m,
     );
     updateSessionMessages(activeSessionId, updatedMessages);
     setIsEditing(false);
@@ -116,7 +121,7 @@ export function AgentMessage({ message, getRelativeTime }: AgentMessageProps) {
         }
         copyTimeoutRef.current = window.setTimeout(
           () => setCopied(false),
-          1500
+          1500,
         );
       } finally {
         document.body.removeChild(textarea);
@@ -132,8 +137,8 @@ export function AgentMessage({ message, getRelativeTime }: AgentMessageProps) {
             isUser
               ? "bg-gradient-to-br from-blue-600 to-purple-600 user-message-bubble text-white shadow-lg"
               : isError
-              ? "bg-red-50 dark:bg-red-900/20 text-slate-900 dark:text-slate-100 border border-red-200 dark:border-red-800 shadow-sm"
-              : "bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-slate-700 shadow-sm"
+                ? "bg-red-50 dark:bg-red-900/20 text-slate-900 dark:text-slate-100 border border-red-200 dark:border-red-800 shadow-sm"
+                : "bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-slate-700 shadow-sm"
           } rounded-2xl px-6 py-4`}
         >
           {/* Streaming: show content with cursor, or spinner if no content yet */}
@@ -171,6 +176,15 @@ export function AgentMessage({ message, getRelativeTime }: AgentMessageProps) {
             {/* Normal completed message content (and editable UI for user messages) */}
             {!isStreaming && !isError && (
               <div className="text-sm leading-relaxed mb-2">
+                {/* Inline attachment previews for user messages */}
+                {isUser &&
+                  message.attachments &&
+                  message.attachments.length > 0 && (
+                    <InlineAttachments
+                      attachments={message.attachments}
+                      isUserBubble={isUser}
+                    />
+                  )}
                 {isUser && isEditing ? (
                   <div>
                     <textarea
@@ -558,6 +572,86 @@ function ActionsSection({ data }: { data: ActionProposal[] }) {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Inline attachment rendering (used in AgentMessage for user bubbles)
+// ---------------------------------------------------------------------------
+
+function getAttachmentIcon(type: string) {
+  switch (type) {
+    case "image":
+      return <Image className="w-4 h-4" />;
+    case "document":
+      return <FileText className="w-4 h-4" />;
+    default:
+      return <Paperclip className="w-4 h-4" />;
+  }
+}
+
+function formatSize(bytes?: number) {
+  if (!bytes) return "";
+  if (bytes < 1024) return bytes + " B";
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+  return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+}
+
+function InlineAttachments({
+  attachments,
+  isUserBubble,
+}: {
+  attachments: MessageAttachment[];
+  isUserBubble: boolean;
+}) {
+  return (
+    <div className="flex flex-wrap gap-2 mb-2">
+      {attachments.map((att) => (
+        <div key={att.id}>
+          {att.type === "image" && att.preview ? (
+            <img
+              src={att.preview}
+              alt={att.name}
+              className="max-w-[200px] max-h-[140px] object-cover rounded-xl"
+            />
+          ) : (
+            <div
+              className={`flex items-center gap-2 px-3 py-2 rounded-xl border ${
+                isUserBubble
+                  ? "user-attachment-card"
+                  : "bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700"
+              }`}
+            >
+              <div
+                className={
+                  isUserBubble
+                    ? "opacity-70"
+                    : "text-slate-500 dark:text-slate-400"
+                }
+              >
+                {getAttachmentIcon(att.type)}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div
+                  className={`text-xs font-medium truncate max-w-[160px] ${
+                    isUserBubble ? "" : "text-slate-900 dark:text-white"
+                  }`}
+                >
+                  {att.name}
+                </div>
+                {att.size != null && att.size > 0 && (
+                  <div
+                    className={`text-[11px] ${isUserBubble ? "opacity-60" : "text-slate-500 dark:text-slate-400"}`}
+                  >
+                    {formatSize(att.size)}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
     </div>
   );
 }
