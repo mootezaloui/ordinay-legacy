@@ -320,11 +320,6 @@ function buildPromptContext(artifactSummary, semanticSignals = [], mode = COMMEN
     lines.push(`Note: Request may be incomplete, more details could help`);
   }
 
-  // Available follow-ups (just labels)
-  if (artifactSummary.followUpLabels && artifactSummary.followUpLabels.length > 0) {
-    lines.push(`Available explorations: ${artifactSummary.followUpLabels.join(", ")}`);
-  }
-
   // Only include semantic signals in INTERPRETIVE mode
   if (mode === COMMENTARY_MODES.INTERPRETIVE && Array.isArray(semanticSignals) && semanticSignals.length > 0) {
     lines.push(`Semantic signals: ${JSON.stringify(semanticSignals)}`);

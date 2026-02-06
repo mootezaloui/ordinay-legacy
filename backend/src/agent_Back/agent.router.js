@@ -399,6 +399,24 @@ async function sendCommentaryIfNeeded(
       null,
     _activeEntityId: result?.contextPromotion?.activeEntity?.id || null,
     _pendingSelection: result?.contextPromotion?.pendingSelection || null,
+    _grounding: {
+      source: "read_intent",
+      entityType: result?.output?.entityType || null,
+      entityRetrieved: typeof resultCount === "number" ? resultCount > 0 : false,
+      resultCount: typeof resultCount === "number" ? resultCount : null,
+      readOutcome:
+        result?.readOutcome || (resultCount === 0 ? "empty" : "unknown"),
+      workMode: {
+        dossier:
+          result?.output?.entityType === "dossier" &&
+          typeof resultCount === "number" &&
+          resultCount > 0,
+      },
+    },
+    _dossierWorkMode:
+      result?.output?.entityType === "dossier" &&
+      typeof resultCount === "number" &&
+      resultCount > 0,
   };
 
   console.log("[Commentary] Intent for mode derivation:", result?.intent);

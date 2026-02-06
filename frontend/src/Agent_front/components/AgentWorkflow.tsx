@@ -636,6 +636,255 @@ function WorkingPhase({
  *
  * Returns null if the explanation is not a list.
  */
+const STATUS_CANONICAL: Record<string, string> = {
+  "active": "active",
+  "inactive": "inactive",
+  "in active": "inactive",
+  "open": "open",
+  "closed": "closed",
+  "in progress": "in progress",
+  "in_progress": "in progress",
+  "pending": "pending",
+  "scheduled": "scheduled",
+  "todo": "todo",
+  "done": "done",
+  "completed": "completed",
+  "cancelled": "cancelled",
+  "canceled": "cancelled",
+  "draft": "draft",
+  "planned": "planned",
+  "overdue": "overdue",
+  "blocked": "blocked",
+  "unread": "unread",
+  "paid": "paid",
+  "resolved": "resolved",
+};
+
+function normalizeToken(value?: string): string {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function looksLikeDate(value: string): boolean {
+  const text = String(value || "").trim();
+  if (!text) return false;
+  return (
+    /\b\d{4}-\d{2}-\d{2}\b/.test(text) ||
+    /\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b/.test(text) ||
+    /\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\b/i.test(text)
+  );
+}
+
+function looksLikePhone(value: string): boolean {
+  const text = String(value || "").trim();
+  if (!text) return false;
+  if (/@/.test(text)) return false;
+  const digits = text.replace(/\D/g, "");
+  return digits.length >= 7 && digits.length <= 15;
+}
+
+function looksLikeReference(value: string): boolean {
+  const text = String(value || "").trim();
+  if (!text) return false;
+  if (/\s/.test(text) && !/\d/.test(text)) return false;
+  return /[0-9]/.test(text) || /[_/-]/.test(text) || /^[A-Z]{2,}[A-Z0-9_-]*$/.test(text);
+}
+
+function sanitizePublicIdentifier(value?: string): string {
+  const normalized = String(value || "").trim();
+  if (!normalized) return "";
+  if (/^id\s*[:#-]?\s*\d+$/i.test(normalized)) return "";
+  if (/^\d+$/.test(normalized)) return "";
+  return normalized;
+}
+
+function extractStatusWithRemainder(segment: string): { status?: string; remainder: string } {
+  const trimmed = String(segment || "").trim();
+  if (!trimmed) return { remainder: "" };
+  const normalized = normalizeToken(trimmed);
+  const orderedStatuses = Object.keys(STATUS_CANONICAL).sort((a, b) => b.length - a.length);
+  for (const key of orderedStatuses) {
+    const canonical = STATUS_CANONICAL[key];
+    if (normalized === key) {
+      return { status: canonical, remainder: "" };
+    }
+    if (normalized.startsWith(`${key} `)) {
+      const prefixMatch = trimmed.match(new RegExp(`^${key.replace(/\s+/g, "\\s+")}\\s+`, "i"));
+      const remainder = prefixMatch ? trimmed.slice(prefixMatch[0].length).trim() : "";
+      return { status: canonical, remainder };
+    }
+  }
+  return { remainder: trimmed };
+}
+
+function extractPriority(value: string): CollectionItem["priority"] | undefined {
+  const normalized = normalizeToken(value);
+  if (!normalized) return undefined;
+  if (normalized === "critical") return "critical";
+  if (normalized === "high") return "high";
+  if (normalized === "low") return "low";
+  if (normalized === "medium" || normalized === "normal") return "normal";
+  if (normalized.startsWith("priority ")) {
+    return mapPriority(normalized.replace(/^priority\s+/, ""));
+  }
+  return undefined;
+}
+
+function extractDateInfo(value: string): { date: string; dateLabel?: string } | null {
+  const trimmed = String(value || "").trim();
+  if (!trimmed) return null;
+  const due = trimmed.match(/^due\s+(.+)$/i);
+  if (due) return { date: due[1].trim(), dateLabel: "Due" };
+  const scheduled = trimmed.match(/^scheduled(?:\s+at)?\s+(.+)$/i);
+  if (scheduled) return { date: scheduled[1].trim(), dateLabel: "Scheduled" };
+  if (looksLikeDate(trimmed)) return { date: trimmed };
+  return null;
+}
+
+function parseListDetailToItem(detail: string, entityType: string, index: number): CollectionItem | null {
+  const raw = String(detail || "").trim();
+  if (!raw) return null;
+
+  const dashMatch = raw.match(/^(.+?)\s+—\s+(.+)$/);
+  if (!dashMatch) {
+    const kvMatch = raw.match(/^([^:]+):\s*(.+)$/);
+    return {
+      id: `${index}`,
+      title: kvMatch ? kvMatch[2].trim() : raw,
+      subtitle: kvMatch ? kvMatch[1].trim() : undefined,
+      entityType,
+      entityId: "",
+      statusSeverity: "neutral",
+    };
+  }
+
+  const left = dashMatch[1].trim();
+  let right = dashMatch[2].trim();
+  let parenMeta: string[] = [];
+
+  const parenMatch = right.match(/^(.*)\(([^()]*)\)\s*$/);
+  if (parenMatch) {
+    right = parenMatch[1].trim();
+    parenMeta = parenMatch[2]
+      .split(/\s*,\s*/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
+
+  const rightParts = right
+    ? right.split(/\s*•\s*/).map((s) => s.trim()).filter(Boolean)
+    : [];
+  const metadataParts = [...rightParts, ...parenMeta];
+
+  let status: string | undefined;
+  let priority: CollectionItem["priority"] | undefined;
+  let date: string | undefined;
+  let dateLabel: string | undefined;
+  let titleFromRight: string | undefined;
+  const metrics: { label: string; value: string | number }[] = [];
+
+  const registerDetailMetric = (value: string) => {
+    if (!value) return;
+    if (!metrics.some((m) => String(m.value).toLowerCase() === value.toLowerCase())) {
+      metrics.push({ label: "Detail", value });
+    }
+  };
+
+  const consumePart = (value: string) => {
+    let part = String(value || "").trim();
+    if (!part) return;
+
+    const keyValueMetric = part.match(/^([^:]+):\s*(.+)$/);
+    if (keyValueMetric) {
+      metrics.push({ label: keyValueMetric[1].trim(), value: keyValueMetric[2].trim() });
+      return;
+    }
+
+    if (part.includes("@")) {
+      metrics.push({ label: "Email", value: part });
+      return;
+    }
+    if (looksLikePhone(part)) {
+      metrics.push({ label: "Phone", value: part });
+      return;
+    }
+
+    if (!status) {
+      const extracted = extractStatusWithRemainder(part);
+      if (extracted.status) {
+        status = extracted.status;
+        part = extracted.remainder;
+      }
+    }
+
+    if (!priority) {
+      const extractedPriority = extractPriority(part);
+      if (extractedPriority) {
+        priority = extractedPriority;
+        return;
+      }
+    }
+
+    if (!date) {
+      const dueTail = part.match(/^(.*)\bdue\s+(.+)$/i);
+      if (dueTail) {
+        const beforeDue = dueTail[1].trim();
+        if (beforeDue) registerDetailMetric(beforeDue);
+        date = dueTail[2].trim();
+        dateLabel = "Due";
+        return;
+      }
+      const extractedDate = extractDateInfo(part);
+      if (extractedDate) {
+        date = extractedDate.date;
+        dateLabel = extractedDate.dateLabel;
+        return;
+      }
+    }
+
+    if (!titleFromRight && !status && !priority && !date) {
+      titleFromRight = part;
+      return;
+    }
+
+    registerDetailMetric(part);
+  };
+
+  for (const part of metadataParts) {
+    consumePart(part);
+  }
+
+  const leftIdentifier = sanitizePublicIdentifier(left);
+  const title = titleFromRight || left;
+
+  let subtitle: string | undefined;
+  if (titleFromRight && leftIdentifier && leftIdentifier !== title && looksLikeReference(left)) {
+    subtitle = leftIdentifier;
+  } else {
+    const emailMetric = metrics.find((m) => m.label === "Email");
+    if (emailMetric) subtitle = String(emailMetric.value);
+  }
+
+  const entityId = looksLikeReference(leftIdentifier) ? leftIdentifier : "";
+
+  return {
+    id: `${index}`,
+    title,
+    subtitle,
+    status,
+    statusSeverity: mapStatusSeverity(status),
+    priority,
+    date,
+    dateLabel,
+    metrics: metrics.length > 0 ? metrics : undefined,
+    entityType,
+    entityId,
+  };
+}
+
 function tryConvertToCollection(explanation: ExplanationOutput): CollectionOutput | null {
   if (!explanation.entityId?.startsWith("list:")) return null;
 
@@ -648,38 +897,8 @@ function tryConvertToCollection(explanation: ExplanationOutput): CollectionOutpu
   for (let i = 0; i < details.length; i++) {
     const detail = details[i].trim();
     if (!detail) continue;
-
-    // Parse pattern: "ID — Title (status, priority)"
-    const match = detail.match(/^([^\s—]+)\s*—\s*(.+?)\s*\(([^)]+)\)\s*$/);
-    if (match) {
-      const id = match[1];
-      const title = match[2].trim();
-      const meta = match[3].split(/,\s*/);
-      const status = meta[0] || undefined;
-      const priority = meta[1] as CollectionItem["priority"] || undefined;
-
-      items.push({
-        id: `${i}`,
-        title,
-        subtitle: id,
-        status,
-        statusSeverity: mapStatusSeverity(status),
-        priority: mapPriority(priority),
-        entityType,
-        entityId: id,
-      });
-    } else {
-      // Fallback: try "Label: Value" or plain text
-      const kvMatch = detail.match(/^([^:]+):\s*(.+)$/);
-      items.push({
-        id: `${i}`,
-        title: kvMatch ? kvMatch[2].trim() : detail,
-        subtitle: kvMatch ? kvMatch[1].trim() : undefined,
-        entityType,
-        entityId: `${i}`,
-        statusSeverity: "neutral",
-      });
-    }
+    const parsed = parseListDetailToItem(detail, entityType, i);
+    if (parsed) items.push(parsed);
   }
 
   if (items.length < 2) return null;
@@ -692,13 +911,20 @@ function tryConvertToCollection(explanation: ExplanationOutput): CollectionOutpu
     }
   }
 
+  const canGroupByStatus = items.every(
+    (item) => typeof item.status === "string" && item.status.trim().length > 0,
+  );
+  const canGroupByPriority = items.every(
+    (item) => typeof item.priority === "string" && item.priority.trim().length > 0,
+  );
+
   return {
     type: "collection",
     entityType,
     totalCount: items.length,
     items,
     summary: explanation.facts?.summary || `${items.length} ${entityType}(s) found.`,
-    groupBy: "status",
+    groupBy: canGroupByStatus ? "status" : canGroupByPriority ? "priority" : undefined,
     insights: insights.length > 0 ? insights : undefined,
     followUps: explanation.followUps,
   };

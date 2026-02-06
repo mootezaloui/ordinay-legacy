@@ -73,26 +73,55 @@ interface ItemGroup {
   label: string;
   items: CollectionItem[];
   defaultExpanded: boolean;
+  showHeader: boolean;
+}
+
+type GroupField = "status" | "priority" | "entityType";
+
+function normalizeGroupBy(groupBy?: string): GroupField | undefined {
+  if (!groupBy) return undefined;
+  if (groupBy === "status" || groupBy === "priority" || groupBy === "entityType") {
+    return groupBy;
+  }
+  return undefined;
+}
+
+function normalizeGroupValue(value?: string): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (trimmed.toLowerCase() === "unknown") return null;
+  return trimmed;
+}
+
+function resolveGroupValue(item: CollectionItem, groupBy: GroupField): string | null {
+  if (groupBy === "status") {
+    return normalizeGroupValue(item.status);
+  }
+  if (groupBy === "priority") {
+    return normalizeGroupValue(item.priority);
+  }
+  return normalizeGroupValue(item.entityType);
+}
+
+function isGroupingResolvable(items: CollectionItem[], groupBy?: string): boolean {
+  const normalized = normalizeGroupBy(groupBy);
+  if (!normalized) return false;
+  if (items.length === 0) return false;
+  return items.every((item) => resolveGroupValue(item, normalized) !== null);
 }
 
 function groupItems(items: CollectionItem[], groupBy?: string): ItemGroup[] {
-  if (!groupBy || items.length <= INLINE_MAX) {
-    return [{ key: "all", label: "All", items, defaultExpanded: true }];
+  if (!isGroupingResolvable(items, groupBy) || items.length <= INLINE_MAX) {
+    return [{ key: "all", label: "All", items, defaultExpanded: true, showHeader: false }];
   }
 
+  const normalizedGroupBy = normalizeGroupBy(groupBy)!;
   const groups = new Map<string, CollectionItem[]>();
 
   for (const item of items) {
-    let key: string;
-    if (groupBy === "status") {
-      key = item.status || "Unknown";
-    } else if (groupBy === "priority") {
-      key = item.priority || "normal";
-    } else if (groupBy === "entityType") {
-      key = item.entityType || "Unknown";
-    } else {
-      key = "All";
-    }
+    const key = resolveGroupValue(item, normalizedGroupBy);
+    if (!key) continue;
 
     if (!groups.has(key)) {
       groups.set(key, []);
@@ -124,6 +153,7 @@ function groupItems(items: CollectionItem[], groupBy?: string): ItemGroup[] {
       label: key.charAt(0).toUpperCase() + key.slice(1),
       items: groupItems,
       defaultExpanded: !isLowPriority && idx < 3,
+      showHeader: true,
     };
   });
 }
@@ -139,12 +169,15 @@ interface StatCard {
 }
 
 function computeStats(items: CollectionItem[], groupBy?: string): StatCard[] {
+  const normalizedGroupBy = normalizeGroupBy(groupBy);
+  if (!normalizedGroupBy || !isGroupingResolvable(items, normalizedGroupBy)) {
+    return [];
+  }
   const counts = new Map<string, { count: number; severity: string }>();
 
   for (const item of items) {
-    const key = groupBy === "priority"
-      ? (item.priority || "normal")
-      : (item.status || "Unknown");
+    const key = resolveGroupValue(item, normalizedGroupBy);
+    if (!key) continue;
 
     const existing = counts.get(key);
     if (existing) {
@@ -214,6 +247,15 @@ function CollectionRow({
 
 /** Inspector panel for selected item */
 function InspectorPanel({ item }: { item: CollectionItem }) {
+  const hasStructuredDetails = Boolean(
+    item.subtitle ||
+    item.status ||
+    item.priority ||
+    item.date ||
+    (item.metrics && item.metrics.length > 0) ||
+    (item.tags && item.tags.length > 0),
+  );
+
   return (
     <div className="agent-collection-inspector">
       <div className="agent-collection-inspector-header">
@@ -255,14 +297,6 @@ function InspectorPanel({ item }: { item: CollectionItem }) {
           </div>
         )}
 
-        {/* Entity type */}
-        <div className="agent-collection-inspector-field">
-          <span className="agent-collection-inspector-label">Type</span>
-          <span className="text-sm text-slate-700 dark:text-slate-200 capitalize">
-            {item.entityType.replace(/_/g, " ")}
-          </span>
-        </div>
-
         {/* Metrics */}
         {item.metrics && item.metrics.length > 0 && (
           <div className="agent-collection-inspector-metrics">
@@ -285,13 +319,16 @@ function InspectorPanel({ item }: { item: CollectionItem }) {
             ))}
           </div>
         )}
+
+        {!hasStructuredDetails && (
+          <div className="agent-collection-inspector-field">
+            <span className="text-sm text-slate-500 dark:text-slate-400">
+              No additional structured details are available for this item.
+            </span>
+          </div>
+        )}
       </div>
 
-      <div className="agent-collection-inspector-footer">
-        <span className="text-xs text-slate-400 dark:text-slate-500">
-          ID: {item.entityId}
-        </span>
-      </div>
     </div>
   );
 }
@@ -310,22 +347,24 @@ function GroupSection({
 
   return (
     <div className="agent-collection-group">
-      <button
-        type="button"
-        onClick={() => setExpanded(!expanded)}
-        className="agent-collection-group-header"
-      >
-        {expanded ? (
-          <ChevronDown className="w-4 h-4 text-slate-400" />
-        ) : (
-          <ChevronRight className="w-4 h-4 text-slate-400" />
-        )}
-        <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-          {group.label}
-        </span>
-        <span className="agent-collection-group-count">{group.items.length}</span>
-      </button>
-      {expanded && (
+      {group.showHeader && (
+        <button
+          type="button"
+          onClick={() => setExpanded(!expanded)}
+          className="agent-collection-group-header"
+        >
+          {expanded ? (
+            <ChevronDown className="w-4 h-4 text-slate-400" />
+          ) : (
+            <ChevronRight className="w-4 h-4 text-slate-400" />
+          )}
+          <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            {group.label}
+          </span>
+          <span className="agent-collection-group-count">{group.items.length}</span>
+        </button>
+      )}
+      {(!group.showHeader || expanded) && (
         <div className="agent-collection-group-items">
           {group.items.map((item) => (
             <CollectionRow
@@ -470,22 +509,30 @@ function DashboardLayout({
 }: {
   data: CollectionOutput;
 }) {
+  const normalizedGroupBy = normalizeGroupBy(data.groupBy);
+  const groupingEnabled = isGroupingResolvable(data.items, normalizedGroupBy);
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const [selectedItem, setSelectedItem] = useState<CollectionItem | null>(null);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
-  const stats = useMemo(() => computeStats(data.items, data.groupBy), [data.items, data.groupBy]);
+  const stats = useMemo(
+    () => computeStats(data.items, groupingEnabled ? normalizedGroupBy : undefined),
+    [data.items, groupingEnabled, normalizedGroupBy],
+  );
 
   const filteredItems = useMemo(() => {
-    if (!activeFilter) return data.items;
+    if (!activeFilter || !groupingEnabled || !normalizedGroupBy) return data.items;
     return data.items.filter((item) => {
-      const field = data.groupBy === "priority" ? item.priority : item.status;
+      const field = resolveGroupValue(item, normalizedGroupBy);
       return field?.toLowerCase() === activeFilter.toLowerCase();
     });
-  }, [data.items, activeFilter, data.groupBy]);
+  }, [data.items, activeFilter, groupingEnabled, normalizedGroupBy]);
 
   const visibleItems = filteredItems.slice(0, visibleCount);
-  const groups = useMemo(() => groupItems(filteredItems, data.groupBy), [filteredItems, data.groupBy]);
+  const groups = useMemo(
+    () => groupItems(filteredItems, groupingEnabled ? normalizedGroupBy : undefined),
+    [filteredItems, groupingEnabled, normalizedGroupBy],
+  );
 
   // Build tabs
   const attentionItems = data.items.filter((item) =>
@@ -524,28 +571,28 @@ function DashboardLayout({
           ),
         }]
       : []),
-    {
-      id: "grouped",
-      label: data.groupBy
-        ? `By ${data.groupBy.charAt(0).toUpperCase() + data.groupBy.slice(1)}`
-        : "All",
-      badge: filteredItems.length,
-      content: (
-        <div className={`agent-collection-grouped ${selectedItem ? "has-inspector" : ""}`}>
-          <div className="agent-collection-list-panel">
-            {groups.map((group) => (
-              <GroupSection
-                key={group.key}
-                group={group}
-                selectedItem={selectedItem}
-                onSelectItem={setSelectedItem}
-              />
-            ))}
-          </div>
-          {selectedItem && <InspectorPanel item={selectedItem} />}
-        </div>
-      ),
-    },
+    ...(groupingEnabled && normalizedGroupBy
+      ? [{
+          id: "grouped",
+          label: `By ${normalizedGroupBy.charAt(0).toUpperCase() + normalizedGroupBy.slice(1)}`,
+          badge: filteredItems.length,
+          content: (
+            <div className={`agent-collection-grouped ${selectedItem ? "has-inspector" : ""}`}>
+              <div className="agent-collection-list-panel">
+                {groups.map((group) => (
+                  <GroupSection
+                    key={group.key}
+                    group={group}
+                    selectedItem={selectedItem}
+                    onSelectItem={setSelectedItem}
+                  />
+                ))}
+              </div>
+              {selectedItem && <InspectorPanel item={selectedItem} />}
+            </div>
+          ),
+        }]
+      : []),
     {
       id: "all",
       label: "All Items",
@@ -580,24 +627,26 @@ function DashboardLayout({
   return (
     <div className="agent-collection-dashboard">
       {/* Stat cards */}
-      <div className="agent-collection-stats">
-        {stats.map((stat) => (
-          <button
-            key={stat.label}
-            type="button"
-            onClick={() => setActiveFilter(activeFilter === stat.label ? null : stat.label)}
-            className={`agent-collection-stat-card ${getSeverityClass(stat.severity)} ${
-              activeFilter === stat.label ? "is-active" : ""
-            }`}
-          >
-            <span className="agent-collection-stat-count">{stat.count}</span>
-            <span className="agent-collection-stat-label">{stat.label}</span>
-          </button>
-        ))}
-      </div>
+      {stats.length > 0 && (
+        <div className="agent-collection-stats">
+          {stats.map((stat) => (
+            <button
+              key={stat.label}
+              type="button"
+              onClick={() => setActiveFilter(activeFilter === stat.label ? null : stat.label)}
+              className={`agent-collection-stat-card ${getSeverityClass(stat.severity)} ${
+                activeFilter === stat.label ? "is-active" : ""
+              }`}
+            >
+              <span className="agent-collection-stat-count">{stat.count}</span>
+              <span className="agent-collection-stat-label">{stat.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Active filter indicator */}
-      {activeFilter && (
+      {activeFilter && groupingEnabled && (
         <div className="agent-collection-active-filter">
           <span className="text-xs text-slate-500 dark:text-slate-400">
             Filtered by: <strong>{activeFilter}</strong>
@@ -615,7 +664,7 @@ function DashboardLayout({
       {/* Tabbed content */}
       <TabbedCard
         tabs={tabs}
-        defaultTab={attentionItems.length > 0 ? "attention" : "grouped"}
+        defaultTab={attentionItems.length > 0 ? "attention" : groupingEnabled ? "grouped" : "all"}
       />
 
       {/* Total count indicator */}
@@ -640,6 +689,8 @@ interface CollectionArtifactProps {
 }
 
 export function CollectionArtifact({ data, onFollowUpClick }: CollectionArtifactProps) {
+  const normalizedGroupBy = normalizeGroupBy(data.groupBy);
+  const groupingEnabled = isGroupingResolvable(data.items, normalizedGroupBy);
   const entityLabel = data.entityType
     ? data.entityType
         .replace(/_/g, " ")
@@ -665,7 +716,7 @@ export function CollectionArtifact({ data, onFollowUpClick }: CollectionArtifact
             </h4>
             {data.sortBy && (
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Sorted by {data.sortBy}{data.groupBy ? ` • Grouped by ${data.groupBy}` : ""}
+                Sorted by {data.sortBy}{groupingEnabled && normalizedGroupBy ? ` • Grouped by ${normalizedGroupBy}` : ""}
               </p>
             )}
           </div>
@@ -706,7 +757,7 @@ export function CollectionArtifact({ data, onFollowUpClick }: CollectionArtifact
           {useGrouped && (
             <GroupedLayout
               items={data.items}
-              groupBy={data.groupBy}
+              groupBy={groupingEnabled ? normalizedGroupBy : undefined}
             />
           )}
           {useDashboard && (

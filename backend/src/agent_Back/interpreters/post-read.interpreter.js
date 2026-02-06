@@ -28,7 +28,8 @@ const {
 const ENTITY_ROLES = {
   client: {
     role: "parent",
-    description: "Root entity that owns dossiers, tasks, accounting, and history",
+    description:
+      "Root entity that owns dossiers, tasks, accounting, and history",
     typicalChildren: ["dossiers", "financial_entries"],
     navigationContext:
       "Clients are the starting point. They contain dossiers, tasks, and accounting history.",
@@ -52,7 +53,8 @@ const ENTITY_ROLES = {
     role: "child",
     description: "Work item that belongs to a dossier",
     typicalParent: "dossier",
-    navigationContext: "Tasks are actionable items. They indicate pending work.",
+    navigationContext:
+      "Tasks are actionable items. They indicate pending work.",
   },
   session: {
     role: "child",
@@ -64,7 +66,8 @@ const ENTITY_ROLES = {
     role: "child",
     description: "Delegated work item",
     typicalParent: "dossier",
-    navigationContext: "Missions are delegated tasks with external dependencies.",
+    navigationContext:
+      "Missions are delegated tasks with external dependencies.",
   },
   financial_entry: {
     role: "child",
@@ -76,7 +79,8 @@ const ENTITY_ROLES = {
     role: "child",
     description: "Uploaded file attached to a record",
     typicalParent: "dossier",
-    navigationContext: "Documents capture evidence or supporting material for a record.",
+    navigationContext:
+      "Documents capture evidence or supporting material for a record.",
   },
   web_search: {
     role: "unknown",
@@ -223,120 +227,143 @@ const coerceDate = (value) => {
  * Returns structured interpretation with urgency and implications.
  */
 function interpretEntityState(entityType, entityData, context) {
-  const readOutcome = context?._readOutcome;
-  if (readOutcome === "error") {
-    if (entityType === "document") {
-      const readSummary = String(context?._readSummary || "").toLowerCase();
-      const readDetails = Array.isArray(context?._readDetails)
-        ? context._readDetails.join(" ").toLowerCase()
-        : "";
-      const combined = `${readSummary} ${readDetails}`;
+  const readOutcome = String(context?._readOutcome || "").toLowerCase();
+  const groundedEntityRetrieved = Boolean(
+    context?._grounding?.entityRetrieved ||
+    (Array.isArray(entityData)
+      ? entityData.length > 0
+      : entityData && typeof entityData === "object"),
+  );
+  const dossierWorkModeActive = Boolean(
+    context?._grounding?.workMode?.dossier || context?._dossierWorkMode,
+  );
+  const effectiveReadOutcome =
+    groundedEntityRetrieved &&
+    (readOutcome === "not_found" || readOutcome === "incomplete")
+      ? "success"
+      : readOutcome;
 
-      if (combined.includes("unsupported file type")) {
+  // Work-mode continuity: once dossier work mode is active with grounded data,
+  // generic retrieval fallbacks are disabled to prevent contradictions.
+  if (!dossierWorkModeActive || !groundedEntityRetrieved) {
+    if (effectiveReadOutcome === "error") {
+      if (entityType === "document") {
+        const readSummary = String(context?._readSummary || "").toLowerCase();
+        const readDetails = Array.isArray(context?._readDetails)
+          ? context._readDetails.join(" ").toLowerCase()
+          : "";
+        const combined = `${readSummary} ${readDetails}`;
+
+        if (combined.includes("unsupported file type")) {
+          return [
+            {
+              level: "warning",
+              statement:
+                "This file type is not supported for document reading.",
+              implication:
+                "Upload a supported file format such as PDF, DOCX, TXT, or an image.",
+            },
+          ];
+        }
+        if (
+          combined.includes("pdf-to-image converter") ||
+          combined.includes("pdf reading is not supported")
+        ) {
+          return [
+            {
+              level: "warning",
+              statement:
+                "Document text could not be extracted in the current OCR setup.",
+              implication:
+                "Enable PDF-to-image OCR conversion, or upload a text-based file and retry.",
+            },
+          ];
+        }
+        if (combined.includes("tesseract")) {
+          return [
+            {
+              level: "warning",
+              statement: "OCR is unavailable on this machine.",
+              implication:
+                "Install and configure Tesseract OCR, then retry the document summary.",
+            },
+          ];
+        }
+        if (
+          combined.includes("contains no readable text") ||
+          combined.includes("ocr produced no readable text")
+        ) {
+          return [
+            {
+              level: "info",
+              statement: "No readable text was found in this document.",
+              implication:
+                "Try a clearer scan, a higher-resolution file, or a text-based source document.",
+            },
+          ];
+        }
         return [
           {
             level: "warning",
-            statement: "This file type is not supported for document reading.",
+            statement:
+              "Document text could not be extracted in the current OCR setup.",
             implication:
-              "Upload a supported file format such as PDF, DOCX, TXT, or an image.",
-          },
-        ];
-      }
-      if (
-        combined.includes("pdf-to-image converter") ||
-        combined.includes("pdf reading is not supported")
-      ) {
-        return [
-          {
-            level: "warning",
-            statement: "Document text could not be extracted in the current OCR setup.",
-            implication:
-              "Enable PDF-to-image OCR conversion, or upload a text-based file and retry.",
-          },
-        ];
-      }
-      if (combined.includes("tesseract")) {
-        return [
-          {
-            level: "warning",
-            statement: "OCR is unavailable on this machine.",
-            implication:
-              "Install and configure Tesseract OCR, then retry the document summary.",
-          },
-        ];
-      }
-      if (
-        combined.includes("contains no readable text") ||
-        combined.includes("ocr produced no readable text")
-      ) {
-        return [
-          {
-            level: "info",
-            statement: "No readable text was found in this document.",
-            implication:
-              "Try a clearer scan, a higher-resolution file, or a text-based source document.",
+              "Use a text-based document (DOCX/TXT) or enable PDF-to-image OCR conversion, then retry.",
           },
         ];
       }
       return [
         {
-          level: "warning",
-          statement: "Document text could not be extracted in the current OCR setup.",
-          implication:
-            "Use a text-based document (DOCX/TXT) or enable PDF-to-image OCR conversion, then retry.",
+          level: "critical",
+          statement: "Unable to retrieve the requested data.",
+          implication: "Retry the query or verify data access permissions.",
         },
       ];
     }
-    return [
-      {
-        level: "critical",
-        statement: "Unable to retrieve the requested data.",
-        implication: "Retry the query or verify data access permissions.",
-      },
-    ];
-  }
-  if (readOutcome === "ambiguous") {
-    return [
-      {
-        level: "info",
-        statement: "Multiple matches found for this request.",
-        implication: "Specify the exact record to continue.",
-      },
-    ];
-  }
-  if (readOutcome === "incomplete") {
-    return [
-      {
-        level: "info",
-        statement: "More information is required to locate the record.",
-        implication: "Provide a reference or exact name.",
-      },
-    ];
-  }
-  if (readOutcome === "processing") {
-    return [
-      {
-        level: "info",
-        statement:
-          entityType === "document"
-            ? "Document text extraction is still in progress."
-            : "Requested data is still being processed.",
-        implication:
-          entityType === "document"
-            ? "Please wait a moment, then retry the document summary."
-            : "Please wait and retry shortly.",
-      },
-    ];
-  }
-  if (readOutcome === "not_found") {
-    const entityLabel = ENTITY_LABELS[entityType] || entityType;
-    return [
-      {
-        level: "info",
-        statement: `The specified ${entityLabel.toLowerCase()} could not be located.`,
-        implication: "The reference may be incorrect, or the record may not exist in the system. Try a different identifier or check the parent entity.",
-      },
-    ];
+    if (effectiveReadOutcome === "ambiguous") {
+      return [
+        {
+          level: "info",
+          statement: "Multiple matches found for this request.",
+          implication: "Specify the exact record to continue.",
+        },
+      ];
+    }
+    if (effectiveReadOutcome === "incomplete") {
+      return [
+        {
+          level: "info",
+          statement: "More information is required to locate the record.",
+          implication: "Provide a reference or exact name.",
+        },
+      ];
+    }
+    if (effectiveReadOutcome === "processing") {
+      return [
+        {
+          level: "info",
+          statement:
+            entityType === "document"
+              ? "Document text extraction is still in progress."
+              : "Requested data is still being processed.",
+          implication:
+            entityType === "document"
+              ? "Please wait a moment, then retry the document summary."
+              : "Please wait and retry shortly.",
+        },
+      ];
+    }
+    if (effectiveReadOutcome === "not_found") {
+      const entityLabel = ENTITY_LABELS[entityType] || entityType;
+      return [
+        {
+          level: "info",
+          statement: `The specified ${entityLabel.toLowerCase()} could not be located.`,
+          implication:
+            "The reference may be incorrect, or the record may not exist in the system. Try a different identifier or check the parent entity.",
+        },
+      ];
+    }
   }
 
   if (Array.isArray(entityData)) {
@@ -365,7 +392,9 @@ function interpretEntityState(entityType, entityData, context) {
       interpretations.push(...interpretSessionState(entityData, context));
       break;
     default:
-      interpretations.push(...interpretGenericState(entityType, entityData, context));
+      interpretations.push(
+        ...interpretGenericState(entityType, entityData, context),
+      );
   }
 
   // Always add at least one interpretation
@@ -378,7 +407,8 @@ function interpretCollectionState(entityType, entities, context) {
 
   if (count === 0) {
     // Frame absence as "no activity yet" rather than "not found" (error-like)
-    const entityLabel = ENTITY_PLURAL_LABELS[entityType] || `${entityType} records`;
+    const entityLabel =
+      ENTITY_PLURAL_LABELS[entityType] || `${entityType} records`;
     interpretations.push({
       level: "neutral",
       signal: "empty_collection",
@@ -423,20 +453,28 @@ function interpretCollectionState(entityType, entities, context) {
         if (!byDossier[did]) byDossier[did] = [];
         byDossier[did].push(task);
       }
-      const clusters = Object.entries(byDossier).filter(([, tasks]) => tasks.length >= 2);
+      const clusters = Object.entries(byDossier).filter(
+        ([, tasks]) => tasks.length >= 2,
+      );
 
       if (clusters.length > 0) {
         const [clusteredDossierId, clusteredTasks] = clusters[0];
         const totalDelayDays = clusteredTasks.reduce((sum, task) => {
           const due = coerceDate(task.due_date);
-          return sum + (due ? Math.ceil((now - due) / (1000 * 60 * 60 * 24)) : 0);
+          return (
+            sum + (due ? Math.ceil((now - due) / (1000 * 60 * 60 * 24)) : 0)
+          );
         }, 0);
         interpretations.push({
           level: "critical",
           signal: "overdue_cluster",
           statement: `${clusteredTasks.length} overdue tasks are concentrated in the same dossier.`,
           implication: `This suggests the dossier itself may be stalled. Combined delay is ${totalDelayDays} days. Downstream work may also be blocked.`,
-          dataPoints: { clusteredTasks: clusteredTasks.length, dossierId: clusteredDossierId, totalDelayDays },
+          dataPoints: {
+            clusteredTasks: clusteredTasks.length,
+            dossierId: clusteredDossierId,
+            totalDelayDays,
+          },
         });
       }
 
@@ -444,8 +482,12 @@ function interpretCollectionState(entityType, entities, context) {
         level: overdue.length > 3 ? "critical" : "warning",
         signal: "overdue_tasks",
         statement: `${overdue.length} task(s) are overdue in this list.`,
-        implication: "Late tasks require immediate review and reprioritization.",
-        dataPoints: { overdueTasks: overdue.length, activeTasks: active.length },
+        implication:
+          "Late tasks require immediate review and reprioritization.",
+        dataPoints: {
+          overdueTasks: overdue.length,
+          activeTasks: active.length,
+        },
       });
     }
     if (blocked.length > 0) {
@@ -471,8 +513,12 @@ function interpretCollectionState(entityType, entities, context) {
         level: unassigned.length > 2 ? "warning" : "info",
         signal: "unassigned_work",
         statement: `${unassigned.length} task(s) have no assigned owner.`,
-        implication: "These tasks will not appear in anyone's daily priorities until assigned.",
-        dataPoints: { unassignedTasks: unassigned.length, activeTasks: active.length },
+        implication:
+          "These tasks will not appear in anyone's daily priorities until assigned.",
+        dataPoints: {
+          unassignedTasks: unassigned.length,
+          activeTasks: active.length,
+        },
       });
     }
   }
@@ -485,7 +531,8 @@ function interpretCollectionState(entityType, entities, context) {
       (dossier) => normalizeStatus(dossier.status) === "on_hold",
     );
     const active = entities.filter(
-      (dossier) => !["closed", "archived"].includes(normalizeStatus(dossier.status)),
+      (dossier) =>
+        !["closed", "archived"].includes(normalizeStatus(dossier.status)),
     );
 
     if (blocked.length > 0) {
@@ -526,7 +573,8 @@ function interpretCollectionState(entityType, entities, context) {
         level: "info",
         signal: "inactive_clients",
         statement: `${inactive.length} client(s) are inactive.`,
-        implication: "Active engagement is limited; prioritize current clients.",
+        implication:
+          "Active engagement is limited; prioritize current clients.",
         dataPoints: { inactiveClients: inactive.length },
       });
     }
@@ -620,29 +668,68 @@ function interpretDossierState(dossier, context) {
   const totalTasks = taskSummary ? Number(taskSummary.total || 0) : 0;
   const activeTasks = taskSummary ? Number(taskSummary.active || 0) : 0;
   const overdueTasks = taskSummary ? Number(taskSummary.overdue || 0) : 0;
+  const normalizedStatus = normalizeStatus(dossier.status);
+  const normalizedPriority = normalizePriority(dossier.priority);
+  const phaseLabel = dossier.phase ? String(dossier.phase) : "not specified";
+  const urgencyLevel = (() => {
+    if (normalizedStatus === "blocked" || overdueTasks > 0) return "critical";
+    if (dossier.next_deadline) {
+      const deadline = new Date(dossier.next_deadline);
+      if (!Number.isNaN(deadline.getTime())) {
+        const daysUntil = Math.ceil(
+          (deadline.getTime() - Date.now()) / (1000 * 60 * 60 * 24),
+        );
+        if (daysUntil <= 3) return "critical";
+        if (daysUntil <= 7) return "high";
+      }
+    }
+    if (normalizedPriority === "urgent" || normalizedPriority === "high")
+      return "high";
+    return "normal";
+  })();
+
+  interpretations.push({
+    level: "info",
+    signal: "dossier_work_mode",
+    statement: "Dossier Work Mode is active for this dossier.",
+    implication:
+      urgencyLevel === "critical" || overdueTasks > 0
+        ? `Treat this as ongoing work in phase "${phaseLabel}" with ${urgencyLevel} urgency. I can help draft immediate next-step recommendations grounded in blockers and overdue work, without modifying data.`
+        : activeTasks > 0
+          ? `Treat this as ongoing work in phase "${phaseLabel}" with ${urgencyLevel} urgency. I can help map near-term next steps around the current active workload, without modifying data.`
+          : `Treat this as ongoing work in phase "${phaseLabel}" with ${urgencyLevel} urgency. I can help draft a practical action plan to move this dossier forward, without modifying data.`,
+    dataPoints: {
+      phase: phaseLabel,
+      urgency: urgencyLevel,
+      activeTasks,
+      overdueTasks,
+    },
+  });
 
   // Status-based interpretation
-  if (dossier.status === "blocked") {
+  if (normalizedStatus === "blocked") {
     const blockedData = { status: "blocked" };
     if (activeTasks > 0) blockedData.dependentTasks = activeTasks;
     interpretations.push({
       level: "critical",
       signal: "status_blocked",
       statement: "This dossier is BLOCKED.",
-      implication: activeTasks > 0
-        ? `Work cannot proceed. ${activeTasks} dependent task(s) are waiting on this dossier.`
-        : "Work cannot proceed. Identify and resolve the blocking issue immediately.",
+      implication:
+        activeTasks > 0
+          ? `Work cannot proceed. ${activeTasks} dependent task(s) are waiting on this dossier.`
+          : "Work cannot proceed. Identify and resolve the blocking issue immediately.",
       dataPoints: blockedData,
     });
-  } else if (dossier.status === "on_hold") {
+  } else if (normalizedStatus === "on_hold") {
     interpretations.push({
       level: "warning",
       signal: "status_on_hold",
       statement: "This dossier is ON HOLD.",
-      implication: "Active work is paused. Verify if hold conditions still apply.",
+      implication:
+        "Active work is paused. Verify if hold conditions still apply.",
       dataPoints: { status: "on_hold" },
     });
-  } else if (dossier.status === "closed") {
+  } else if (normalizedStatus === "closed") {
     interpretations.push({
       level: "neutral",
       signal: "status_closed",
@@ -653,32 +740,54 @@ function interpretDossierState(dossier, context) {
   }
 
   // Stagnation detection — dossier not updated for extended period
-  if (dossier.updated_at && dossier.status !== "closed" && dossier.status !== "archived") {
+  if (
+    dossier.updated_at &&
+    normalizedStatus !== "closed" &&
+    normalizedStatus !== "archived"
+  ) {
     const updatedAt = new Date(dossier.updated_at);
     const now = new Date();
-    const daysSinceUpdate = Math.floor((now - updatedAt) / (1000 * 60 * 60 * 24));
-    if (daysSinceUpdate > 7 && (dossier.status === "blocked" || dossier.status === "on_hold")) {
-      const stagnationImplication = activeTasks > 0
-        ? `This dossier has not been updated in ${daysSinceUpdate} days while ${activeTasks} task(s) remain active.`
-        : `This dossier has not been updated in ${daysSinceUpdate} days. Review whether it requires attention or can be closed.`;
+    const daysSinceUpdate = Math.floor(
+      (now - updatedAt) / (1000 * 60 * 60 * 24),
+    );
+    if (
+      daysSinceUpdate > 7 &&
+      (normalizedStatus === "blocked" || normalizedStatus === "on_hold")
+    ) {
+      const stagnationImplication =
+        activeTasks > 0
+          ? `This dossier has not been updated in ${daysSinceUpdate} days while ${activeTasks} task(s) remain active.`
+          : `This dossier has not been updated in ${daysSinceUpdate} days. Review whether it requires attention or can be closed.`;
       interpretations.push({
         level: daysSinceUpdate > 14 ? "critical" : "warning",
         signal: "stagnation",
-        statement: `This dossier has been in '${dossier.status}' status for ${daysSinceUpdate} days without updates.`,
+        statement: `This dossier has been in '${normalizedStatus}' status for ${daysSinceUpdate} days without updates.`,
         implication: stagnationImplication,
-        dataPoints: { daysSinceUpdate, status: dossier.status, activeTasks },
+        dataPoints: { daysSinceUpdate, status: normalizedStatus, activeTasks },
+      });
+    } else if (daysSinceUpdate > 14 && (activeTasks > 0 || overdueTasks > 0)) {
+      interpretations.push({
+        level: daysSinceUpdate > 21 ? "critical" : "warning",
+        signal: "stagnation",
+        statement: `No dossier update for ${daysSinceUpdate} days while work is still active.`,
+        implication: `Progress appears stalled. Re-sequence tasks and confirm accountability before delays spread.`,
+        dataPoints: { daysSinceUpdate, activeTasks, overdueTasks },
       });
     }
   }
 
   // Priority + status mismatch
-  if (dossier.priority === "high" && dossier.status === "pending") {
+  if (
+    (normalizedPriority === "high" || normalizedPriority === "urgent") &&
+    (normalizedStatus === "pending" || normalizedStatus === "todo")
+  ) {
     interpretations.push({
       level: "warning",
       signal: "priority_mismatch",
       statement: "High priority dossier has not started.",
-      implication: "This case is marked urgent but work hasn't begun. Review assignment.",
-      dataPoints: { priority: "high", status: "pending" },
+      implication:
+        "This case is marked urgent but work hasn't begun. Review assignment.",
+      dataPoints: { priority: normalizedPriority, status: normalizedStatus },
     });
   }
 
@@ -687,7 +796,8 @@ function interpretDossierState(dossier, context) {
     const deadline = new Date(dossier.next_deadline);
     const now = new Date();
     const daysUntil = Math.ceil((deadline - now) / (1000 * 60 * 60 * 24));
-    const taskContext = activeTasks > 0 ? ` ${activeTasks} task(s) are still open.` : "";
+    const taskContext =
+      activeTasks > 0 ? ` ${activeTasks} task(s) are still open.` : "";
 
     if (daysUntil < 0) {
       interpretations.push({
@@ -719,7 +829,8 @@ function interpretDossierState(dossier, context) {
       level: "info",
       signal: "no_deadline",
       statement: "No deadline is set for this dossier.",
-      implication: "Consider setting a milestone to maintain tracking discipline.",
+      implication:
+        "Consider setting a milestone to maintain tracking discipline.",
     });
   }
 
@@ -729,6 +840,14 @@ function interpretDossierState(dossier, context) {
       signal: "phase_info",
       statement: `Dossier phase: ${dossier.phase}.`,
       implication: "Phase indicates the current procedural stage.",
+    });
+  } else {
+    interpretations.push({
+      level: "warning",
+      signal: "missing_phase",
+      statement: "Dossier phase is not defined.",
+      implication:
+        "Set a phase to align tone, urgency, and next-step planning.",
     });
   }
 
@@ -771,8 +890,9 @@ function interpretDossierState(dossier, context) {
   }
 
   const sessionSummary = context?.childSummary?.sessions;
+  let totalSessions = 0;
   if (sessionSummary) {
-    const totalSessions = Number(sessionSummary.total || 0);
+    totalSessions = Number(sessionSummary.total || 0);
     if (totalSessions > 0) {
       interpretations.push({
         level: "info",
@@ -803,17 +923,20 @@ function interpretDossierState(dossier, context) {
     });
   }
 
-  // Unassigned
-  if (!dossier.assigned_lawyer) {
-    const hasDeadline = Boolean(dossier.next_deadline);
+  const structureGaps = [];
+  if (!dossier.next_deadline) structureGaps.push("deadline");
+  if (!dossier.phase) structureGaps.push("phase");
+  if (taskSummary && totalTasks === 0) structureGaps.push("task_plan");
+  if (sessionSummary && totalSessions === 0) structureGaps.push("session_plan");
+
+  if (structureGaps.length >= 2) {
     interpretations.push({
       level: "warning",
-      signal: "ownership_gap",
-      statement: "No lawyer is assigned to this dossier.",
-      implication: hasDeadline
-        ? "Deadlines and tasks have no accountable owner. Court filings or obligations may be missed."
-        : "Ownership unclear. Assign responsibility to ensure follow-through.",
-      dataPoints: { assignedLawyer: null, hasDeadline },
+      signal: "missing_structure",
+      statement: `Missing structure detected: ${structureGaps.join(", ")}.`,
+      implication:
+        "Add milestones and executable work items to keep the dossier moving.",
+      dataPoints: { structureGaps: structureGaps.length },
     });
   }
 
@@ -839,10 +962,10 @@ function interpretClientState(client, context) {
   if (Array.isArray(context.dossiers)) {
     if (context.dossiers.length > 0) {
       const activeDossiers = context.dossiers.filter(
-        (d) => d.status !== "closed" && d.status !== "archived"
+        (d) => d.status !== "closed" && d.status !== "archived",
       );
       const blockedDossiers = context.dossiers.filter(
-        (d) => d.status === "blocked"
+        (d) => d.status === "blocked",
       );
 
       if (blockedDossiers.length > 0) {
@@ -851,23 +974,30 @@ function interpretClientState(client, context) {
           signal: "blocked_dossiers",
           statement: `${blockedDossiers.length} dossier(s) are BLOCKED for this client.`,
           implication: "Active cases are stalled. Review blocking issues.",
-          dataPoints: { blockedDossiers: blockedDossiers.length, totalDossiers: context.dossiers.length },
+          dataPoints: {
+            blockedDossiers: blockedDossiers.length,
+            totalDossiers: context.dossiers.length,
+          },
         });
       }
 
       if (activeDossiers.length > 0) {
         const highPriority = activeDossiers.filter(
-          (d) => d.priority === "urgent" || d.priority === "high"
+          (d) => d.priority === "urgent" || d.priority === "high",
         );
-        const activeImplication = highPriority.length > 0
-          ? `Ongoing case work exists. ${highPriority.length} dossier(s) are high priority or urgent.`
-          : "Ongoing case work exists. Review for priority and deadlines.";
+        const activeImplication =
+          highPriority.length > 0
+            ? `Ongoing case work exists. ${highPriority.length} dossier(s) are high priority or urgent.`
+            : "Ongoing case work exists. Review for priority and deadlines.";
         interpretations.push({
           level: "info",
           signal: "active_dossiers",
           statement: `${activeDossiers.length} active dossier(s) for this client.`,
           implication: activeImplication,
-          dataPoints: { activeDossiers: activeDossiers.length, highPriority: highPriority.length },
+          dataPoints: {
+            activeDossiers: activeDossiers.length,
+            highPriority: highPriority.length,
+          },
         });
       } else {
         interpretations.push({
@@ -885,7 +1015,7 @@ function interpretClientState(client, context) {
         implication: "New client or prospect. Consider intake process.",
       });
     }
-    } else if (dossierSummary) {
+  } else if (dossierSummary) {
     const total = Number(dossierSummary.total || 0);
     const active = Number(dossierSummary.active || 0);
     const blocked = Number(dossierSummary.blocked || 0);
@@ -906,15 +1036,19 @@ function interpretClientState(client, context) {
         const urgentCount = Number(priorities.urgent || 0);
         const highCount = Number(priorities.high || 0);
         const highPriorityTotal = urgentCount + highCount;
-        const activeImplication = highPriorityTotal > 0
-          ? `Ongoing case work exists. ${highPriorityTotal} dossier(s) are high priority or urgent.`
-          : "Ongoing case work exists. Review for priority and deadlines.";
+        const activeImplication =
+          highPriorityTotal > 0
+            ? `Ongoing case work exists. ${highPriorityTotal} dossier(s) are high priority or urgent.`
+            : "Ongoing case work exists. Review for priority and deadlines.";
         interpretations.push({
           level: "info",
           signal: "active_dossiers",
           statement: `${active} active dossier(s) for this client.`,
           implication: activeImplication,
-          dataPoints: { activeDossiers: active, highPriority: highPriorityTotal },
+          dataPoints: {
+            activeDossiers: active,
+            highPriority: highPriorityTotal,
+          },
         });
       } else {
         interpretations.push({
@@ -942,7 +1076,8 @@ function interpretClientState(client, context) {
           level: "info",
           signal: "priority_mix",
           statement: `Dossier priority mix: ${priorityParts.join(", ")}.`,
-          implication: "Confirm urgent and high priority matters are resourced.",
+          implication:
+            "Confirm urgent and high priority matters are resourced.",
         });
       }
     } else {
@@ -952,8 +1087,8 @@ function interpretClientState(client, context) {
         statement: "No dossiers exist for this client.",
         implication: "New client or prospect. Consider intake process.",
       });
-      }
     }
+  }
 
   // Client-wide overdue tasks
   if (context.overdueTasks && context.overdueTasks.length > 0) {
@@ -990,9 +1125,10 @@ function interpretTaskState(task, context) {
       level: daysOverdue > 7 ? "critical" : "warning",
       signal: "overdue",
       statement: `This task is ${daysOverdue} day(s) OVERDUE.`,
-      implication: daysOverdue > 7
-        ? "Significant delay. Escalate or reassess priority."
-        : "Task is late. Complete soon or update deadline.",
+      implication:
+        daysOverdue > 7
+          ? "Significant delay. Escalate or reassess priority."
+          : "Task is late. Complete soon or update deadline.",
       dataPoints: { daysOverdue },
     });
   }
@@ -1003,15 +1139,20 @@ function interpretTaskState(task, context) {
       level: "warning",
       signal: "status_blocked",
       statement: "This task is BLOCKED.",
-      implication: "Cannot proceed without resolving dependency. Identify blocker.",
+      implication:
+        "Cannot proceed without resolving dependency. Identify blocker.",
       dataPoints: { status: "blocked" },
     });
-  } else if (status === "pending" && normalizePriority(task.priority) === "urgent") {
+  } else if (
+    status === "pending" &&
+    normalizePriority(task.priority) === "urgent"
+  ) {
     interpretations.push({
       level: "critical",
       signal: "priority_mismatch",
       statement: "URGENT task has not started.",
-      implication: "High priority work is waiting. Begin immediately or reassign.",
+      implication:
+        "High priority work is waiting. Begin immediately or reassign.",
       dataPoints: { priority: "urgent", status: "pending" },
     });
   } else if (status === "in_progress") {
@@ -1030,7 +1171,8 @@ function interpretTaskState(task, context) {
       level: "warning",
       signal: "ownership_gap",
       statement: "This task has no assigned owner.",
-      implication: "It will not appear in anyone's daily priorities until assigned.",
+      implication:
+        "It will not appear in anyone's daily priorities until assigned.",
       dataPoints: { assignedTo: null },
     });
   }
@@ -1046,7 +1188,8 @@ function interpretTaskState(task, context) {
       level: "neutral",
       signal: "parent_context",
       statement: `This task belongs to dossier/case "${parentRef}".`,
-      implication: "Task progress affects the parent case. Consider case-level impact.",
+      implication:
+        "Task progress affects the parent case. Consider case-level impact.",
     });
   }
 
@@ -1079,25 +1222,29 @@ function interpretLawsuitState(lawsuit, context) {
   if (context.timeline && context.timeline.length > 0) {
     const now = new Date();
     const upcomingSessions = context.timeline.filter(
-      (e) => e.type === "session" && new Date(e.date) > now
+      (e) => e.type === "session" && new Date(e.date) > now,
     );
     if (upcomingSessions.length === 0) {
       interpretations.push({
         level: "info",
         signal: "no_upcoming_sessions",
         statement: "No upcoming court sessions scheduled.",
-        implication: "Verify if scheduling is needed or case is between hearings.",
+        implication:
+          "Verify if scheduling is needed or case is between hearings.",
       });
     } else {
       const nextSession = upcomingSessions[0];
-      const daysUntil = Math.ceil((new Date(nextSession.date) - now) / (1000 * 60 * 60 * 24));
+      const daysUntil = Math.ceil(
+        (new Date(nextSession.date) - now) / (1000 * 60 * 60 * 24),
+      );
       interpretations.push({
         level: daysUntil <= 7 ? "warning" : "info",
         signal: "hearing_proximity",
         statement: `Next court session in ${daysUntil} day(s).`,
-        implication: daysUntil <= 7
-          ? "Hearing approaching. Ensure preparation is complete."
-          : "Session scheduled. Track preparation timeline.",
+        implication:
+          daysUntil <= 7
+            ? "Hearing approaching. Ensure preparation is complete."
+            : "Session scheduled. Track preparation timeline.",
         dataPoints: { daysUntil, upcomingSessions: upcomingSessions.length },
       });
     }
@@ -1126,7 +1273,7 @@ function interpretSessionState(session, context) {
       // Check for incomplete follow-up
       if (context.tasks && context.tasks.length > 0) {
         const incompleteTasks = context.tasks.filter(
-          (t) => t.status !== "completed" && t.status !== "done"
+          (t) => t.status !== "completed" && t.status !== "done",
         );
         if (incompleteTasks.length > 0) {
           interpretations.push({
@@ -1141,14 +1288,16 @@ function interpretSessionState(session, context) {
     } else {
       const daysUntil = Math.ceil((sessionDate - now) / (1000 * 60 * 60 * 24));
       interpretations.push({
-        level: daysUntil <= 3 ? "critical" : daysUntil <= 7 ? "warning" : "info",
+        level:
+          daysUntil <= 3 ? "critical" : daysUntil <= 7 ? "warning" : "info",
         signal: "hearing_proximity",
         statement: `Session scheduled in ${daysUntil} day(s).`,
-        implication: daysUntil <= 3
-          ? "Imminent. Final preparation required."
-          : daysUntil <= 7
-            ? "Approaching. Verify preparation status."
-            : "Upcoming. Plan preparation timeline.",
+        implication:
+          daysUntil <= 3
+            ? "Imminent. Final preparation required."
+            : daysUntil <= 7
+              ? "Approaching. Verify preparation status."
+              : "Upcoming. Plan preparation timeline.",
         dataPoints: { daysUntil },
       });
     }
@@ -1341,7 +1490,9 @@ function buildNavigationContext(entityType, entityData, context) {
           }
           break;
         case "financial_entries":
-          available = !!(context.financialEntries && context.financialEntries.length > 0);
+          available = !!(
+            context.financialEntries && context.financialEntries.length > 0
+          );
           count = context.financialEntries?.length || 0;
           break;
         default:
@@ -1382,6 +1533,36 @@ function resolveEntityReference(entityType, entityData) {
 }
 
 function resolveOriginEntity(entityType, entityData, context) {
+  const groundedEntityRetrieved = Boolean(
+    context?._grounding?.entityRetrieved ||
+    (Array.isArray(entityData)
+      ? entityData.length > 0
+      : entityData && typeof entityData === "object"),
+  );
+  if (
+    groundedEntityRetrieved &&
+    entityData &&
+    !Array.isArray(entityData) &&
+    entityData.id
+  ) {
+    return { type: entityType, id: entityData.id };
+  }
+  if (
+    groundedEntityRetrieved &&
+    Array.isArray(entityData) &&
+    entityData.length === 1
+  ) {
+    const candidate = entityData[0];
+    const candidateId =
+      candidate?.id ??
+      candidate?.[`${entityType}_id`] ??
+      candidate?.[`${entityType}Id`] ??
+      null;
+    if (candidateId !== null && candidateId !== undefined) {
+      return { type: entityType, id: candidateId };
+    }
+  }
+
   if (context?.activeEntityType && context?.activeEntityId) {
     return { type: context.activeEntityType, id: context.activeEntityId };
   }
@@ -1418,9 +1599,12 @@ function resolveOriginEntity(entityType, entityData, context) {
     return { type: scopeType, id: scopeIdMap[scopeType] };
   }
 
-  if (context?.clientData?.id) return { type: "client", id: context.clientData.id };
-  if (context?.dossierData?.id) return { type: "dossier", id: context.dossierData.id };
-  if (context?.lawsuitData?.id) return { type: "lawsuit", id: context.lawsuitData.id };
+  if (context?.clientData?.id)
+    return { type: "client", id: context.clientData.id };
+  if (context?.dossierData?.id)
+    return { type: "dossier", id: context.dossierData.id };
+  if (context?.lawsuitData?.id)
+    return { type: "lawsuit", id: context.lawsuitData.id };
 
   const fallbackId = resolveEntityReference(entityType, entityData);
   return { type: entityType, id: fallbackId || "unknown" };
@@ -1475,17 +1659,20 @@ function resolveEntityDataForType(entityType, entityData, context) {
   return byType[entityType] || null;
 }
 
-function resolveEntityLabel(entityType, entityId, entityData, context, navigation) {
+function resolveEntityLabel(
+  entityType,
+  entityId,
+  entityData,
+  context,
+  navigation,
+) {
   if (!entityType) return null;
 
   const candidates = [];
   if (entityData && typeof entityData === "object") {
     candidates.push(entityData);
   }
-  if (
-    navigation?.parentPath &&
-    navigation.parentPath.type === entityType
-  ) {
+  if (navigation?.parentPath && navigation.parentPath.type === entityType) {
     candidates.push(navigation.parentPath);
   }
   const contextData = resolveEntityDataForType(entityType, entityData, context);
@@ -1541,36 +1728,99 @@ function buildScopedLabel(verb, targetLabel, parentLabel, fallbackType) {
   return `${verb} ${resolvedTarget}`;
 }
 
-function buildSelectionFollowUps(entityType, entityData) {
+function buildSelectionFollowUps(entityType, entityData, options = {}) {
   if (!Array.isArray(entityData)) return [];
   const readIntent = READ_INTENT_BY_ENTITY[entityType];
   if (!readIntent) return [];
+  const context = options.context || {};
+  const activeEntityType = String(context?.activeEntityType || "").toLowerCase();
+  const activeEntityId = context?.activeEntityId;
+  const dossierWorkModeActive = Boolean(
+    context?._grounding?.workMode?.dossier ||
+      context?._dossierWorkMode ||
+      (activeEntityType === "dossier" &&
+        activeEntityId !== null &&
+        activeEntityId !== undefined),
+  );
 
   const candidates = entityData.filter(
     (item) => item && item.id !== null && item.id !== undefined,
   );
 
   return candidates.slice(0, 5).flatMap((item, idx) => {
+    const isActiveCandidate =
+      activeEntityType === entityType &&
+      activeEntityId !== null &&
+      activeEntityId !== undefined &&
+      String(activeEntityId) === String(item.id);
+    if (isActiveCandidate) {
+      if (dossierWorkModeActive && entityType === "dossier") {
+        const taskSummary = context?.childSummary?.tasks || {};
+        const activeTaskCount = Number(taskSummary.active || 0);
+        const origin = { type: entityType, id: item.id };
+        return [
+          {
+            category: "planning",
+            priority: idx,
+            ...buildFollowUp(
+              activeTaskCount > 0
+                ? {
+                    label: `Review active tasks (${activeTaskCount})`,
+                    reason:
+                      "Continue dossier work using the currently active task workload.",
+                    labelKey: "review_active_tasks",
+                    intent: READ_INTENTS.LIST_TASKS,
+                    scopeType: "dossier",
+                    scopeId: item.id,
+                    origin,
+                    target: { type: "task" },
+                    filters: { activity: "active" },
+                  }
+                : {
+                    label: "Draft action plan for this dossier",
+                    reason:
+                      "Continue work mode with a concrete read-only action plan.",
+                    labelKey: "draft_action_plan",
+                    intent: SUMMARY_INTENT_BY_ENTITY.dossier,
+                    scopeType: "dossier",
+                    scopeId: item.id,
+                    origin,
+                    target: { type: "dossier", id: item.id },
+                  },
+            ),
+          },
+        ];
+      }
+      return [];
+    }
+
     const scope = buildScopeForType(entityType, item.id);
     if (Object.keys(scope).length === 0) return [];
-    const labelText =
+    const rawLabelText =
       resolveEntityDisplayLabel(entityType, item, {
         fallback: formatEntityTypeLabel(entityType),
       }) || formatEntityTypeLabel(entityType);
+    const displayLabel =
+      entityType === "dossier" || entityType === "lawsuit"
+        ? String(rawLabelText).replace(
+            /^[A-Z]{2,10}-\d{2,8}(?:-\d{1,8})?\s*-\s*/i,
+            "",
+          ) || rawLabelText
+        : rawLabelText;
     const origin = { type: entityType, id: item.id };
     const target = {
       type: entityType,
       id: item.id,
-      label: labelText,
+      label: rawLabelText,
     };
     return [
       {
         category: "selection",
         priority: idx,
         ...buildFollowUp({
-          label: buildTargetLabel("Open", labelText, entityType),
-          reason: "Select a specific record to continue.",
-          labelKey: "open",
+          label: `Review ${formatEntityTypeLabel(entityType)} context: ${displayLabel}`,
+          reason: "Select the most relevant record to continue work.",
+          labelKey: "review_context",
           intent: readIntent,
           scopeType: entityType,
           scopeId: item.id,
@@ -1602,7 +1852,8 @@ function buildFollowUp({
     entityType: origin.type,
     entityId: origin.id,
     origin: {
-      entity: ENTITY_LABELS[origin.type] || String(origin.type || "").toUpperCase(),
+      entity:
+        ENTITY_LABELS[origin.type] || String(origin.type || "").toUpperCase(),
       entityId: origin.id,
     },
     scope: buildScopeForType(scopeType, scopeId),
@@ -1751,7 +2002,12 @@ function buildPriorityBreakdownFollowUp(
     category: "summary",
     priority: 2,
     ...buildFollowUp({
-      label: buildScopedLabel("List", qualifierLabel, parentContext?.label, entityType),
+      label: buildScopedLabel(
+        "List",
+        qualifierLabel,
+        parentContext?.label,
+        entityType,
+      ),
       reason: "Focus on the highest priority items in this summary.",
       labelKey: "list",
       intent: listIntent,
@@ -1769,7 +2025,13 @@ function buildPriorityBreakdownFollowUp(
  * Generates mandatory follow-up suggestions based on entity type and state.
  * These are NOT optional. Every read MUST have follow-ups.
  */
-function generateFollowUps(entityType, entityData, context, interpretation, navigation) {
+function generateFollowUps(
+  entityType,
+  entityData,
+  context,
+  interpretation,
+  navigation,
+) {
   const followUps = [];
   const resultCount = resolveResultCount(entityData, context);
   const isEmpty = resultCount === 0;
@@ -1799,9 +2061,18 @@ function generateFollowUps(entityType, entityData, context, interpretation, navi
     context?._aggregateFilters && typeof context._aggregateFilters === "object"
       ? context._aggregateFilters
       : {};
+  const dossierWorkModeActive = Boolean(
+    (context?._grounding?.workMode?.dossier || context?._dossierWorkMode) &&
+    originType === "dossier" &&
+    originId !== null &&
+    originId !== undefined &&
+    !isEmpty,
+  );
 
   if (entityType === "web_search" || entityType === "deep_search") {
-    const query = String(context?._searchQuery || aggregateFilters.query || "").trim();
+    const query = String(
+      context?._searchQuery || aggregateFilters.query || "",
+    ).trim();
     const sameIntent =
       entityType === "web_search"
         ? READ_INTENTS.WEB_SEARCH
@@ -1810,7 +2081,8 @@ function generateFollowUps(entityType, entityData, context, interpretation, navi
       entityType === "web_search"
         ? READ_INTENTS.DEEP_SEARCH
         : READ_INTENTS.WEB_SEARCH;
-    const sameLabel = entityType === "web_search" ? "Repeat web search" : "Repeat deep search";
+    const sameLabel =
+      entityType === "web_search" ? "Repeat web search" : "Repeat deep search";
     const complementLabel =
       entityType === "web_search"
         ? "Run deep search on this topic"
@@ -1849,14 +2121,24 @@ function generateFollowUps(entityType, entityData, context, interpretation, navi
           scopeType: null,
           scopeId: null,
           origin,
-          target: { type: complementaryIntent === READ_INTENTS.WEB_SEARCH ? "web_search" : "deep_search" },
+          target: {
+            type:
+              complementaryIntent === READ_INTENTS.WEB_SEARCH
+                ? "web_search"
+                : "deep_search",
+          },
           filters: baseFilters,
         }),
       }),
     ];
   }
 
-  const addChildExploration = (candidates, scopeType, scopeId, originForFollowUp) => {
+  const addChildExploration = (
+    candidates,
+    scopeType,
+    scopeId,
+    originForFollowUp,
+  ) => {
     candidates.forEach((child, idx) => {
       if (followUps.length >= 5) return;
       const childIntent = CHILD_LIST_INTENTS[child.type];
@@ -1902,13 +2184,83 @@ function generateFollowUps(entityType, entityData, context, interpretation, navi
 
   const ensureMinimumFollowUps = () => {
     while (followUps.length < 2) {
+      if (dossierWorkModeActive) {
+        const dossierTaskSummary = context?.childSummary?.tasks || {};
+        const activeTaskCount = Number(dossierTaskSummary.active || 0);
+        const overdueTaskCount = Number(dossierTaskSummary.overdue || 0);
+        const hasCriticalSignal =
+          interpretation.some((i) => i.level === "critical") ||
+          overdueTaskCount > 0;
+        if (
+          !followUps.some(
+            (f) =>
+              f.category === "planning" &&
+              f.intent === EXPLAIN_INTENT_BY_ENTITY.dossier,
+          )
+        ) {
+          followUps.push({
+            category: "planning",
+            priority: 9,
+            ...buildFollowUp({
+              label: hasCriticalSignal
+                ? "Review immediate dossier priorities"
+                : "Review dossier next-step context",
+              reason: hasCriticalSignal
+                ? `Current dossier pressure is elevated${overdueTaskCount > 0 ? ` with ${overdueTaskCount} overdue task(s)` : ""}. Focus the next-step plan on immediate risks.`
+                : activeTaskCount > 0
+                  ? `Use the ${activeTaskCount} active task(s) to shape the next-step plan for this dossier.`
+                  : "Define a focused next-step plan before opening additional work.",
+              intent: EXPLAIN_INTENT_BY_ENTITY.dossier,
+              scopeType: "dossier",
+              scopeId: originId,
+              origin,
+              target: originContext,
+            }),
+          });
+          continue;
+        }
+        if (
+          !followUps.some(
+            (f) =>
+              f.intent === READ_INTENTS.LIST_TASKS &&
+              f.filters &&
+              f.filters.activity === "active",
+          )
+        ) {
+          followUps.push({
+            category: "planning",
+            priority: 10,
+            ...buildFollowUp({
+              label:
+                overdueTaskCount > 0
+                  ? "Inspect active and overdue workload"
+                  : "Inspect active workload",
+              reason:
+                overdueTaskCount > 0
+                  ? `${overdueTaskCount} overdue task(s) need sequencing within the active workload.`
+                  : activeTaskCount > 0
+                    ? `Review ${activeTaskCount} active task(s) to confirm current progress pacing.`
+                    : "Review active workload to confirm current progress pacing.",
+              intent: READ_INTENTS.LIST_TASKS,
+              scopeType: "dossier",
+              scopeId: originId,
+              origin,
+              target: { type: "task" },
+              parent: originContext,
+              filters: { activity: "active" },
+            }),
+          });
+          continue;
+        }
+        break;
+      }
+
       if (originType === "document") {
-        const target =
-          originContext || {
-            type: "document",
-            id: originId,
-            label: originLabel || "document",
-          };
+        const target = originContext || {
+          type: "document",
+          id: originId,
+          label: originLabel || "document",
+        };
         if (
           !followUps.some(
             (f) =>
@@ -2067,7 +2419,7 @@ function generateFollowUps(entityType, entityData, context, interpretation, navi
         category: "navigation",
         priority: 1,
         ...buildFollowUp({
-          label: buildTargetLabel("View", parentContext?.label, parentType),
+          label: buildTargetLabel("Review", parentContext?.label, parentType),
           reason: "Understanding parent context clarifies this entity's role.",
           labelKey: "view",
           intent: parentIntent,
@@ -2101,7 +2453,12 @@ function generateFollowUps(entityType, entityData, context, interpretation, navi
         category: "summary",
         priority: 1,
         ...buildFollowUp({
-          label: buildScopedLabel("List", listLabel, parentContext?.label, entityType),
+          label: buildScopedLabel(
+            "List",
+            listLabel,
+            parentContext?.label,
+            entityType,
+          ),
           reason: "Review the collection that matches this summary.",
           labelKey: "list",
           intent: listIntent,
@@ -2129,8 +2486,14 @@ function generateFollowUps(entityType, entityData, context, interpretation, navi
     }
 
     if (!isEmpty) {
-      followUps.push(...buildSelectionFollowUps(entityType, entityData));
-      if (followUps.length < 2 && listIntent && Object.keys(listFilters).length > 0) {
+      followUps.push(
+        ...buildSelectionFollowUps(entityType, entityData, { context }),
+      );
+      if (
+        followUps.length < 2 &&
+        listIntent &&
+        Object.keys(listFilters).length > 0
+      ) {
         const fallbackLabel = buildAggregateLabel(entityType, {});
         followUps.push({
           category: "summary",
@@ -2162,18 +2525,21 @@ function generateFollowUps(entityType, entityData, context, interpretation, navi
 
   // ── Result-count specific follow-up selection ──
   if (isMultiple) {
-    followUps.push(...buildSelectionFollowUps(entityType, entityData));
+    followUps.push(
+      ...buildSelectionFollowUps(entityType, entityData, { context }),
+    );
     if (followUps.length < 2 && parentFollowUp) {
       followUps.push(parentFollowUp);
     }
 
     if (followUps.length < 2) {
       const originRole = ENTITY_ROLES[originType];
-      const originChildren =
-        (originRole?.typicalChildren || []).map((childType) => ({
+      const originChildren = (originRole?.typicalChildren || []).map(
+        (childType) => ({
           type: childType,
           count: null,
-        }));
+        }),
+      );
       addChildExploration(originChildren, originType, originId, origin);
     }
 
@@ -2190,11 +2556,18 @@ function generateFollowUps(entityType, entityData, context, interpretation, navi
 
     const siblingParentType = navigation.parentPath?.type || originType;
     const siblingParentId = navigation.parentPath?.id || originId;
-    const siblingCandidates = (ENTITY_ROLES[siblingParentType]?.typicalChildren || [])
+    const siblingCandidates = (
+      ENTITY_ROLES[siblingParentType]?.typicalChildren || []
+    )
       .filter((childType) => CHILD_TYPE_TO_ENTITY[childType] !== entityType)
       .map((childType) => ({ type: childType, count: null }));
 
-    addChildExploration(siblingCandidates, siblingParentType, siblingParentId, origin);
+    addChildExploration(
+      siblingCandidates,
+      siblingParentType,
+      siblingParentId,
+      origin,
+    );
 
     if (followUps.length < 2) {
       const explainIntent = EXPLAIN_INTENT_BY_ENTITY[originType];
@@ -2257,7 +2630,7 @@ function generateFollowUps(entityType, entityData, context, interpretation, navi
 
   // State-driven follow-ups
   const hasUrgentInterpretation = interpretation.some(
-    (i) => i.level === "critical" || i.level === "warning"
+    (i) => i.level === "critical" || i.level === "warning",
   );
 
   if (hasUrgentInterpretation) {
@@ -2293,24 +2666,31 @@ function generateFollowUps(entityType, entityData, context, interpretation, navi
 
     // Accountability follow-up for ownership gaps
     const hasOwnershipGap = interpretation.some(
-      (i) => i.signal === "ownership_gap"
+      (i) => i.signal === "ownership_gap",
     );
-    if (hasOwnershipGap && (entityType === "dossier" || entityType === "task")) {
-      const ownershipSignal = interpretation.find((i) => i.signal === "ownership_gap");
+    if (
+      hasOwnershipGap &&
+      (entityType === "dossier" || entityType === "task")
+    ) {
+      const ownershipSignal = interpretation.find(
+        (i) => i.signal === "ownership_gap",
+      );
       followUps.push({
         category: "accountability",
         priority: 1,
         ...buildFollowUp({
-          label: entityType === "dossier"
-            ? "Review dossier assignment"
-            : "Review task assignment",
+          label:
+            entityType === "dossier"
+              ? "Review dossier assignment"
+              : "Review task assignment",
           reason: ownershipSignal
             ? ownershipSignal.implication
             : "No accountable owner assigned.",
           labelKey: "review_assignment",
-          intent: entityType === "dossier"
-            ? READ_INTENTS.READ_DOSSIER
-            : READ_INTENTS.READ_TASK,
+          intent:
+            entityType === "dossier"
+              ? READ_INTENTS.READ_DOSSIER
+              : READ_INTENTS.READ_TASK,
           scopeType: entityType,
           scopeId: originId,
           origin,
@@ -2330,14 +2710,9 @@ function generateFollowUps(entityType, entityData, context, interpretation, navi
           category: "exploration",
           priority: 3,
           ...buildFollowUp({
-            label: buildScopedLabel(
-              "List",
-              "dossiers",
-              parentContext?.label,
-              "dossier",
-            ),
+            label: "Review client dossiers",
             reason: "Dossiers show the full scope of client engagement.",
-            labelKey: "list",
+            labelKey: "review_client_dossiers",
             intent: READ_INTENTS.LIST_DOSSIERS,
             scopeType: "client",
             scopeId: originId,
@@ -2350,15 +2725,126 @@ function generateFollowUps(entityType, entityData, context, interpretation, navi
       break;
 
     case "dossier":
+      {
+        const dossierPhase = entityData?.phase
+          ? String(entityData.phase)
+          : "current";
+        const dossierTaskSummary = context?.childSummary?.tasks || {};
+        const activeTaskCount = Number(dossierTaskSummary.active || 0);
+        const overdueTaskCount = Number(dossierTaskSummary.overdue || 0);
+        const isCritical = interpretation.some((i) => i.level === "critical");
+        const isWarning = interpretation.some((i) => i.level === "warning");
+        const urgencyLabel =
+          isCritical || overdueTaskCount > 0
+            ? "urgent"
+            : isWarning
+              ? "high-priority"
+              : "standard";
+        const planningLabel =
+          urgencyLabel === "urgent"
+            ? "Review immediate dossier priorities"
+            : activeTaskCount > 0
+              ? "Map near-term dossier steps"
+              : "Draft dossier work plan";
+        const planningReason =
+          urgencyLabel === "urgent"
+            ? `Start an ${urgencyLabel} work-session plan for phase "${dossierPhase}" with priority on blockers, deadlines, and overdue work.`
+            : activeTaskCount > 0
+              ? `Build the next-step plan for phase "${dossierPhase}" around ${activeTaskCount} active task(s).`
+              : `Set a practical next-step plan for phase "${dossierPhase}" before adding more work.`;
+        followUps.push({
+          category: "planning",
+          priority: 0.5,
+          ...buildFollowUp({
+            label: planningLabel,
+            reason: planningReason,
+            intent: EXPLAIN_INTENT_BY_ENTITY.dossier,
+            scopeType: "dossier",
+            scopeId: originId,
+            origin,
+            target: originContext,
+          }),
+        });
+        if (activeTaskCount > 0 || overdueTaskCount > 0) {
+          followUps.push({
+            category: "planning",
+            priority: 1.5,
+            ...buildFollowUp({
+              label:
+                overdueTaskCount > 0
+                  ? "Inspect active and overdue workload"
+                  : "Inspect active workload",
+              reason:
+                overdueTaskCount > 0
+                  ? `${overdueTaskCount} overdue task(s) need to be sequenced within active work.`
+                  : `Review ${activeTaskCount} active task(s) to confirm delivery pace and dependencies.`,
+              intent: READ_INTENTS.LIST_TASKS,
+              scopeType: "dossier",
+              scopeId: originId,
+              origin,
+              target: { type: "task" },
+              parent: originContext,
+              filters: { activity: "active" },
+            }),
+          });
+        }
+        if (
+          entityData?.client_id &&
+          !followUps.some(
+            (f) =>
+              f.intent === READ_INTENTS.READ_CLIENT &&
+              f.scope?.clientId === Number(entityData.client_id),
+          )
+        ) {
+          followUps.push({
+            category: "planning",
+            priority: 2.5,
+            ...buildFollowUp({
+              label: "Review client context",
+              reason:
+                "Keep dossier decisions aligned with the parent client profile.",
+              labelKey: "review_client_context",
+              intent: READ_INTENTS.READ_CLIENT,
+              scopeType: "client",
+              scopeId: entityData.client_id,
+              origin,
+              target: { type: "client", id: entityData.client_id },
+            }),
+          });
+        }
+        const sessionCount = Number(context?.childSummary?.sessions?.total || 0);
+        if (
+          sessionCount > 0 &&
+          !followUps.some(
+            (f) =>
+              f.intent === READ_INTENTS.LIST_SESSIONS &&
+              f.scope?.dossierId === Number(originId),
+          )
+        ) {
+          followUps.push({
+            category: "planning",
+            priority: 3.5,
+            ...buildFollowUp({
+              label: "Prepare for upcoming hearing",
+              reason:
+                "Review upcoming sessions to prepare near-term legal actions.",
+              labelKey: "prepare_upcoming_hearing",
+              intent: READ_INTENTS.LIST_SESSIONS,
+              scopeType: "dossier",
+              scopeId: originId,
+              origin,
+              target: { type: "session" },
+              parent: originContext,
+              filters: { timeframe: "upcoming" },
+            }),
+          });
+        }
+      }
       followUps.push({
         category: "summary",
-        priority: 3,
+        priority: 4,
         ...buildFollowUp({
-          label: buildTargetLabel(
-            "Summarize",
-            originLabel,
-            "dossier",
-          ),
+          label: buildTargetLabel("Summarize", originLabel, "dossier"),
           reason: "Get a comprehensive overview of the case.",
           labelKey: "summarize",
           intent: SUMMARY_INTENT_BY_ENTITY.dossier,
@@ -2377,26 +2863,26 @@ function generateFollowUps(entityType, entityData, context, interpretation, navi
       {
         const parentContext = originContext;
         const target = { type: "session" };
-      followUps.push({
-        category: "exploration",
-        priority: 2,
-        ...buildFollowUp({
-          label: buildScopedLabel(
-            "List",
-            "sessions",
-            parentContext?.label,
-            "session",
-          ),
-          reason: "Court sessions drive lawsuit timeline.",
-          labelKey: "list",
-          intent: READ_INTENTS.LIST_SESSIONS,
-          scopeType: "lawsuit",
-          scopeId: originId,
-          origin,
-          target,
-          parent: parentContext,
-        }),
-      });
+        followUps.push({
+          category: "exploration",
+          priority: 2,
+          ...buildFollowUp({
+            label: buildScopedLabel(
+              "List",
+              "sessions",
+              parentContext?.label,
+              "session",
+            ),
+            reason: "Court sessions drive lawsuit timeline.",
+            labelKey: "list",
+            intent: READ_INTENTS.LIST_SESSIONS,
+            scopeType: "lawsuit",
+            scopeId: originId,
+            origin,
+            target,
+            parent: parentContext,
+          }),
+        });
       }
       break;
   }
@@ -2430,7 +2916,7 @@ function interpret(entityType, entityData, context) {
     entityData,
     context,
     interpretation,
-    navigation
+    navigation,
   );
 
   return {
@@ -2484,10 +2970,14 @@ function buildInterpretationSummary(interpretation, context) {
 
   // For empty/not_found results, use the interpretation statements
   // The interpretation array already contains meaningful context from interpretEntityState()
-  if (resultCount === 0 || readOutcome === "empty" || readOutcome === "not_found") {
+  if (
+    resultCount === 0 ||
+    readOutcome === "empty" ||
+    readOutcome === "not_found"
+  ) {
     // Look for a meaningful interpretation statement (neutral or info level)
     const meaningful = interpretation.find(
-      (i) => i.level === "neutral" || i.level === "info"
+      (i) => i.level === "neutral" || i.level === "info",
     );
     if (meaningful && meaningful.statement) {
       return meaningful.statement;
@@ -2502,7 +2992,7 @@ function buildInterpretationSummary(interpretation, context) {
 
   // Default for successful results with no issues
   const meaningful = interpretation.find(
-    (i) => i.level === "neutral" || i.level === "info"
+    (i) => i.level === "neutral" || i.level === "info",
   );
   return meaningful?.statement || "";
 }

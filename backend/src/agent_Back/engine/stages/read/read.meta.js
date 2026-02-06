@@ -82,7 +82,14 @@ function _resolveReadEntityId(entityType, entityData) {
 }
 
 function _inferReadOutcome({ data, summary, details, entityType }) {
-  const combined = `${summary || ""} ${(details || []).join(" ")}`.toLowerCase();
+  const summaryText = String(summary || "");
+  const detailsText = Array.isArray(details) ? details.join(" ") : "";
+  const combined = `${summaryText} ${detailsText}`.toLowerCase();
+  const hasObjectData = Boolean(
+    data && !Array.isArray(data) && typeof data === "object",
+  );
+  const hasArrayData = Array.isArray(data);
+
   if (entityType === "document") {
     if (combined.includes("ocr in progress") || combined.includes("still being processed")) {
       return "processing";
@@ -95,16 +102,26 @@ function _inferReadOutcome({ data, summary, details, entityType }) {
       return "error";
     }
   }
+
+  // Grounding rule: structured retrieved data takes precedence over text heuristics.
+  // Prevents false "not found" outcomes when details include phrases such as "No data changes..."
+  if (hasObjectData) return "success";
+  if (hasArrayData) {
+    if (data.length === 0) return "empty";
+    const isAmbiguousSelection =
+      combined.includes("multiple") &&
+      (combined.includes("please specify") || combined.includes("which"));
+    return isAmbiguousSelection ? "ambiguous" : "success";
+  }
+
   if (combined.includes("multiple")) return "ambiguous";
   if (combined.includes("which") || combined.includes("provide")) return "incomplete";
-  if (combined.includes("no ") || combined.includes("not found")) return "not_found";
+
+  const explicitNotFoundPattern =
+    /\bnot found\b|\bno [a-z\s]*found\b|\bcould not be located\b|\bno matching records?\b/i;
+  if (explicitNotFoundPattern.test(`${summaryText} ${detailsText}`)) return "not_found";
+
   if (combined.includes("error") || combined.includes("unable")) return "error";
-  if (Array.isArray(data)) {
-    return data.length === 0 ? "empty" : "success";
-  }
-  if (data && typeof data === "object") {
-    return "success";
-  }
   return "unknown";
 }
 
@@ -189,7 +206,14 @@ function _buildReadInterpretationContext(
     aggregateFilters,
   },
 ) {
-  const context = { ...(baseContext || {}), _readOutcome: readOutcome };
+  const groundedEntityRetrieved = Array.isArray(entityData)
+    ? entityData.length > 0
+    : Boolean(entityData && typeof entityData === "object");
+  const normalizedReadOutcome =
+    groundedEntityRetrieved && ["not_found", "incomplete"].includes(String(readOutcome || "").toLowerCase())
+      ? "success"
+      : readOutcome;
+  const context = { ...(baseContext || {}), _readOutcome: normalizedReadOutcome };
   context._readSummary = String(readSummary || "");
   context._readDetails = Array.isArray(readDetails) ? readDetails : [];
 
@@ -223,6 +247,20 @@ function _buildReadInterpretationContext(
   if (readMeta && typeof readMeta.count === "number") {
     context._resultCount = readMeta.count;
   }
+  context._grounding = {
+    source: "read_intent",
+    entityType,
+    entityRetrieved: groundedEntityRetrieved,
+    resultCount: readMeta && typeof readMeta.count === "number" ? readMeta.count : null,
+    readOutcome: normalizedReadOutcome,
+    workMode: {
+      dossier:
+        entityType === "dossier" &&
+        !Array.isArray(entityData) &&
+        groundedEntityRetrieved,
+    },
+  };
+  context._dossierWorkMode = Boolean(context._grounding.workMode.dossier);
 
   if (typeof aggregateSummary === "boolean") {
     context._aggregateSummary = aggregateSummary;
@@ -319,6 +357,7 @@ function _buildReadExplanation({
     const lowered = trimmed.toLowerCase();
     if (lowered.startsWith("explanation:") || lowered.startsWith("next steps"))
       return null;
+    if (lowered.startsWith("support options:")) return null;
     if (isGuidanceDetail(trimmed)) return null;
 
     const colonMatch = trimmed.match(/^([^:]+):\s*(.+)$/);

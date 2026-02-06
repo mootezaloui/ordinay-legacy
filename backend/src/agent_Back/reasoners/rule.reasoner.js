@@ -2,7 +2,9 @@
 
 const BaseReasoner = require("./base.reasoner");
 const { generateChatResponse } = require("../llm.client");
-const { interpret: postReadInterpret } = require("../interpreters/post-read.interpreter");
+const {
+  interpret: postReadInterpret,
+} = require("../interpreters/post-read.interpreter");
 
 class RuleReasoner extends BaseReasoner {
   constructor() {
@@ -44,7 +46,9 @@ class RuleReasoner extends BaseReasoner {
     const factsSummary = `State overview for ${entityType} ${entityId}.`;
     const factsDetails = [
       `Status: ${status}.`,
-      `Owner: ${owner}.`,
+      ...(String(entityType || "").toLowerCase() === "dossier"
+        ? []
+        : [`Owner: ${owner}.`]),
       `Last updated: ${lastUpdated}.`,
       `Request recorded for audit: ${message}`,
     ];
@@ -139,11 +143,13 @@ class RuleReasoner extends BaseReasoner {
       factsDetails.push(`Status: ${d.status || "unknown"}`);
       factsDetails.push(`Phase: ${d.phase || "not specified"}`);
       factsDetails.push(`Priority: ${d.priority || "medium"}`);
-      factsDetails.push(`Assigned to: ${d.assigned_lawyer || "unassigned"}`);
-      if (d.next_deadline) factsDetails.push(`Next deadline: ${d.next_deadline}`);
+      if (d.next_deadline)
+        factsDetails.push(`Next deadline: ${d.next_deadline}`);
       if (d.client_name) factsDetails.push(`Client: ${d.client_name}`);
-      if (d.adversary_party) factsDetails.push(`Adversary: ${d.adversary_party}`);
-      if (d.court_reference) factsDetails.push(`Court reference: ${d.court_reference}`);
+      if (d.adversary_party)
+        factsDetails.push(`Adversary: ${d.adversary_party}`);
+      if (d.court_reference)
+        factsDetails.push(`Court reference: ${d.court_reference}`);
 
       sources.push({
         sourceType: "database",
@@ -234,7 +240,7 @@ class RuleReasoner extends BaseReasoner {
     const interpretationResult = postReadInterpret(
       entityType,
       entityData || {},
-      context
+      context,
     );
 
     // ─── Step 3: Assemble final response with mandatory structure ───

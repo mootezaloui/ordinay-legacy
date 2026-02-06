@@ -250,9 +250,7 @@ async function _callReadTool(toolName, params, policy) {
   }
 
   if (!policy.allowedToolCategories.includes("read")) {
-    const error = new Error(
-      "READ tools not permitted for this agent version",
-    );
+    const error = new Error("READ tools not permitted for this agent version");
     error.status = 403;
     throw error;
   }
@@ -498,8 +496,6 @@ function _buildEnrichedContext(context, fetchedData, dataReqs) {
       enriched.entityId || String(fetchedData.entities.dossier.id);
     enriched.entityType = enriched.entityType || "dossier";
     enriched.status = enriched.status || fetchedData.entities.dossier.status;
-    enriched.owner =
-      enriched.owner || fetchedData.entities.dossier.assigned_lawyer;
     enriched.lastUpdated =
       enriched.lastUpdated || fetchedData.entities.dossier.updated_at;
   }
@@ -519,7 +515,10 @@ function _buildEnrichedContext(context, fetchedData, dataReqs) {
     enriched.timeline = fetchedData.lists.timeline;
   }
 
-  if (Array.isArray(context.documentTextIds) && context.documentTextIds.length > 0) {
+  if (
+    Array.isArray(context.documentTextIds) &&
+    context.documentTextIds.length > 0
+  ) {
     const docResult = this._loadDocumentTexts(context.documentTextIds, context);
     if (docResult.permitted) {
       enriched.documentTexts = docResult.documents;

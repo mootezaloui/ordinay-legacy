@@ -164,6 +164,7 @@ export function buildFollowUpLabel(
   t: TFunction,
 ): string {
   if (!followUp) return "";
+  if (followUp.category === "planning" && followUp.label) return followUp.label;
 
   const labelKey = followUp.labelKey || deriveLabelKey(followUp.intent);
 
