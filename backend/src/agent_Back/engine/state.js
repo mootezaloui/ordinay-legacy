@@ -22,6 +22,8 @@ function _updateConversationContext(requestContext, query, result, source) {
     else if (intent.includes("FINANCIAL_ENTRY"))
       entityType = "financial_entry";
     else if (intent.includes("DOCUMENT")) entityType = "document";
+    else if (intent.includes("WEB_SEARCH")) entityType = "web_search";
+    else if (intent.includes("DEEP_SEARCH")) entityType = "deep_search";
     else if (intent.includes("NOTIFICATION")) entityType = "notification";
     else if (intent.includes("HISTORY")) entityType = "history_event";
   }
@@ -38,6 +40,8 @@ function _updateConversationContext(requestContext, query, result, source) {
     else if (entityIdLower.includes("mission")) entityType = "mission";
     else if (entityIdLower.includes("financial")) entityType = "financial_entry";
     else if (entityIdLower.includes("document")) entityType = "document";
+    else if (entityIdLower.includes("web_search")) entityType = "web_search";
+    else if (entityIdLower.includes("deep_search")) entityType = "deep_search";
     else if (entityIdLower.includes("notification")) entityType = "notification";
     else if (entityIdLower.includes("history")) entityType = "history_event";
   }
@@ -60,6 +64,10 @@ function _updateConversationContext(requestContext, query, result, source) {
       entityType = "financial_entry";
     else if (/\bdocument|file|attachment|pdf|docx/i.test(queryLower))
       entityType = "document";
+    else if (/\b(search\s+the\s+web|web\s+search|search\s+online|internet\s+search)\b/i.test(queryLower))
+      entityType = "web_search";
+    else if (/\b(deep\s+search|deep\s+research|legal\s+research)\b/i.test(queryLower))
+      entityType = "deep_search";
     else if (/\bnotification|alert/i.test(queryLower))
       entityType = "notification";
     else if (/\bhistory|audit/i.test(queryLower))

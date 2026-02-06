@@ -45,6 +45,8 @@ function getStatusAction(intent, phase = "processing") {
   }
 
   if (phase === "fetching") {
+    if (n.includes("WEB_SEARCH")) return "Searching the web…";
+    if (n.includes("DEEP_SEARCH")) return "Running deep search…";
     if (n.includes("CLIENT")) return "Retrieving client data…";
     if (n.includes("DOSSIER")) return "Loading dossier records…";
     if (n.includes("LAWSUIT")) return "Fetching lawsuit details…";
@@ -55,6 +57,8 @@ function getStatusAction(intent, phase = "processing") {
   }
 
   if (phase === "analyzing") {
+    if (n.includes("WEB_SEARCH")) return "Compiling web sources…";
+    if (n.includes("DEEP_SEARCH")) return "Compiling deep-search findings…";
     if (n.includes("EXPLAIN")) return "Analyzing current state…";
     if (n.includes("SUMMARIZE")) return "Compiling summary…";
     if (n.includes("RISK")) return "Evaluating operational risks…";
@@ -170,6 +174,8 @@ function deriveEntityLabel(
   if (normalized.includes("ANALYZE_OPERATIONAL_RISKS"))
     return "operational risks";
   if (normalized.includes("PROPOSE_ACTIONS")) return "next steps";
+  if (normalized.includes("WEB_SEARCH")) return "web sources";
+  if (normalized.includes("DEEP_SEARCH")) return "legal sources";
   if (normalized.includes("CLIENT")) return "client";
   if (normalized.includes("DOSSIER")) return "dossier";
   if (normalized.includes("LAWSUIT")) return "lawsuit";

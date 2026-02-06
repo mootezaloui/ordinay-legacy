@@ -231,6 +231,22 @@ const SLASH_COMMANDS = Object.freeze({
     params: { optionalArg: true, argType: "entityType" },
     category: "history",
   },
+  "web-search": {
+    command: "/web-search",
+    description: "Run an explicit web search",
+    usage: "/web-search <query>",
+    tools: ["webSearch"],
+    params: { requiresArg: true, argType: "query" },
+    category: "web_search",
+  },
+  "deep-search": {
+    command: "/deep-search",
+    description: "Run an explicit deep legal search",
+    usage: "/deep-search <query>",
+    tools: ["legalResearch"],
+    params: { requiresArg: true, argType: "query" },
+    category: "deep_search",
+  },
 
   // Help command
   help: {
@@ -777,6 +793,44 @@ function buildAggregateFilters(normalized, entityType, temporal) {
  */
 function detectReadIntent(message, context = {}) {
   const normalized = message.toLowerCase();
+  const explicitWebSearchPattern =
+    /\b(search\s+the\s+web|web\s+search|search\s+online|internet\s+search|look\s+up\s+on\s+the\s+web|look\s+it\s+up\s+on\s+the\s+web)\b/i;
+  const explicitDeepSearchPattern =
+    /\b(deep\s+search|deep\s+research|legal\s+research|jurisprudence\s+research|research\s+jurisprudence|in[\s-]?depth\s+legal\s+research)\b/i;
+  const explicitWebSearchQuery = extractExplicitSearchQuery(
+    message,
+    /\b(?:search\s+the\s+web|web\s+search|search\s+online|internet\s+search|look\s+up\s+on\s+the\s+web|look\s+it\s+up\s+on\s+the\s+web)(?:\s+(?:for|about|on))?\s+(.+)/i,
+  );
+  const explicitDeepSearchQuery = extractExplicitSearchQuery(
+    message,
+    /\b(?:do\s+a\s+deep\s+search|deep\s+search|deep\s+research|legal\s+research|jurisprudence\s+research|research\s+jurisprudence|in[\s-]?depth\s+legal\s+research)(?:\s+(?:for|about|on))?\s+(.+)/i,
+  );
+  if (explicitDeepSearchPattern.test(normalized) || explicitDeepSearchQuery) {
+    const query = explicitDeepSearchQuery || "";
+    return {
+      intent: READ_INTENTS.DEEP_SEARCH,
+      requiresLocalData: true,
+      allowedTools: ["legalResearch"],
+      filters: {
+        query,
+        researchType: inferDeepResearchTypeFromQuery(query),
+      },
+      entityHints: [],
+    };
+  }
+  if (explicitWebSearchPattern.test(normalized) || explicitWebSearchQuery) {
+    const query = explicitWebSearchQuery || "";
+    return {
+      intent: READ_INTENTS.WEB_SEARCH,
+      requiresLocalData: true,
+      allowedTools: ["webSearch"],
+      filters: {
+        query,
+        category: inferWebSearchCategoryFromQuery(query),
+      },
+      entityHints: [],
+    };
+  }
 
   // Pattern groups for intent detection
   // IMPORTANT: Must cover both verb-first AND noun-first patterns
@@ -1284,6 +1338,13 @@ function detectReadIntent(message, context = {}) {
         allowedTools: ["listHistoryEvents"],
         entityHints: extractedHints,
       };
+    if (entityType === "document")
+      return {
+        intent: READ_INTENTS.SUMMARIZE_DOCUMENT,
+        requiresLocalData: true,
+        allowedTools: [],
+        entityHints: extractedHints,
+      };
   }
 
   // GET single entity intents (when specific entity is mentioned)
@@ -1359,9 +1420,58 @@ function detectReadIntent(message, context = {}) {
         allowedTools: ["getHistoryEvent", "listHistoryEvents"],
         entityHints: nameHints,
       };
+    if (entityType === "document")
+      return {
+        intent: READ_INTENTS.SUMMARIZE_DOCUMENT,
+        requiresLocalData: true,
+        allowedTools: [],
+        entityHints: nameHints,
+      };
   }
 
   return null;
+}
+
+function extractExplicitSearchQuery(message, pattern) {
+  if (typeof message !== "string") return "";
+  const match = message.match(pattern);
+  if (!match || !match[1]) return "";
+  return String(match[1]).replace(/[?!.]+$/g, "").trim();
+}
+
+function inferDeepResearchTypeFromQuery(query) {
+  const normalized = String(query || "").toLowerCase();
+  if (
+    /\b(jurisprudence|case\s+law|precedent|ruling|decision|judgment)\b/i.test(
+      normalized,
+    )
+  ) {
+    return "jurisprudence";
+  }
+  if (/\b(statute|law|code|regulation|act|article|section)\b/i.test(normalized)) {
+    return "statute";
+  }
+  if (/\b(procedure|procedural|filing|deadline|appeal|jurisdiction)\b/i.test(normalized)) {
+    return "procedure";
+  }
+  return "comprehensive";
+}
+
+function inferWebSearchCategoryFromQuery(query) {
+  const normalized = String(query || "").toLowerCase();
+  if (/\b(deadline|due\s+date|filing\s+date|cutoff)\b/i.test(normalized)) {
+    return "deadline";
+  }
+  if (/\b(procedure|process|step|how\s+to|filing)\b/i.test(normalized)) {
+    return "procedure";
+  }
+  if (/\b(define|definition|meaning|what\s+is)\b/i.test(normalized)) {
+    return "definition";
+  }
+  if (/\b(legal|law|jurisprudence|court|statute|regulation)\b/i.test(normalized)) {
+    return "legal";
+  }
+  return "general";
 }
 
 async function classifyIntent(message, context = {}) {

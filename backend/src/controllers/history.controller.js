@@ -14,6 +14,19 @@ async function list(req, res, next) {
   }
 }
 
+async function count(req, res, next) {
+  try {
+    const { entity_type, entity_id } = req.query;
+    const filters = {};
+    if (entity_type) filters.entity_type = entity_type;
+    if (entity_id !== undefined) filters.entity_id = parseId(entity_id);
+    const total = service.count(filters);
+    res.json({ count: total });
+  } catch (error) {
+    next(error);
+  }
+}
+
 async function create(req, res, next) {
   try {
     const event = service.create(req.body);
@@ -51,6 +64,7 @@ async function deleteByEntity(req, res, next) {
 
 module.exports = {
   list,
+  count,
   create,
   remove,
   deleteByEntity,

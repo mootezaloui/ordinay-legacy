@@ -1,4 +1,4 @@
-import { FileText, Clock, Activity, CheckCircle2, Calendar, Hash, FileBox, Briefcase, AlertCircle } from "lucide-react";
+import { FileText, Clock, Activity, CheckCircle2, Calendar, Hash, FileBox, Briefcase, AlertCircle, CircleDot, ArrowUpRight, Tag } from "lucide-react";
 import type { ExplanationOutput, FollowUpSuggestion } from "../../../services/api/agent";
 import { InterpretationBlock } from "./InterpretationBlock";
 import { NavigationContext } from "./NavigationContext";
@@ -16,6 +16,20 @@ interface ParsedFact {
   items?: { label: string; value: string | number; status?: "success" | "warning" | "neutral" }[];
   activities?: { timestamp: string; type: string }[];
   status?: "success" | "warning" | "error" | "neutral";
+}
+
+/** Hero fact labels that get promoted to header badges */
+const HERO_LABELS = new Set(["status", "priority", "phase"]);
+
+/** Status value → badge class mapping */
+function statusBadgeClass(value: string): string {
+  const v = String(value).toLowerCase().replace(/[_\s]+/g, "_");
+  if (["open", "active", "completed", "done"].includes(v)) return "agent-entity-badge-success";
+  if (["in_progress", "in progress", "investigation"].includes(v)) return "agent-entity-badge-progress";
+  if (["blocked", "on_hold", "on hold", "urgent", "overdue"].includes(v)) return "agent-entity-badge-urgent";
+  if (["high", "critical"].includes(v)) return "agent-entity-badge-high";
+  if (["closed", "archived", "cancelled"].includes(v)) return "agent-entity-badge-muted";
+  return "agent-entity-badge-neutral";
 }
 
 /**
@@ -128,9 +142,9 @@ function parseFact(detail: string): ParsedFact {
 }
 
 /**
- * Renders a parsed fact with appropriate visualization.
+ * Renders an expanded fact card — used only for activity and summary types.
  */
-function FactRenderer({ fact }: { fact: ParsedFact }) {
+function ExpandedFactRenderer({ fact }: { fact: ParsedFact }) {
   // Activity timeline
   if (fact.type === "activity" && fact.activities && fact.activities.length > 0) {
     return (
@@ -195,74 +209,7 @@ function FactRenderer({ fact }: { fact: ParsedFact }) {
     );
   }
 
-  // Count fact
-  if (fact.type === "count") {
-    return (
-      <div className="agent-fact-card agent-fact-count">
-        <div className="agent-fact-header">
-          <Hash className="w-4 h-4 text-slate-400" />
-          <span className="agent-fact-label">{fact.label}</span>
-        </div>
-        <div className={`agent-count-value ${fact.status === "success" ? "is-success" : fact.status === "warning" ? "is-warning" : ""}`}>
-          {fact.value}
-        </div>
-      </div>
-    );
-  }
-
-  // Status fact
-  if (fact.type === "status") {
-    return (
-      <div className="agent-fact-card agent-fact-status">
-        <div className="agent-fact-header">
-          {fact.status === "success" ? (
-            <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-          ) : fact.status === "warning" ? (
-            <AlertCircle className="w-4 h-4 text-amber-500" />
-          ) : (
-            <FileBox className="w-4 h-4 text-slate-400" />
-          )}
-          <span className="agent-fact-label">{fact.label}</span>
-        </div>
-        <div className={`agent-status-value ${
-          fact.status === "success" ? "is-success" :
-          fact.status === "warning" ? "is-warning" : ""
-        }`}>
-          {fact.value}
-        </div>
-      </div>
-    );
-  }
-
-  // Date fact
-  if (fact.type === "date") {
-    return (
-      <div className="agent-fact-card agent-fact-date">
-        <div className="agent-fact-header">
-          <Calendar className="w-4 h-4 text-blue-500" />
-          <span className="agent-fact-label">{fact.label}</span>
-        </div>
-        <div className="agent-date-value">{fact.value}</div>
-      </div>
-    );
-  }
-
-  // Default text fact
-  return (
-    <div className="agent-fact-card agent-fact-text">
-      {fact.label ? (
-        <>
-          <div className="agent-fact-header">
-            <FileBox className="w-4 h-4 text-slate-400" />
-            <span className="agent-fact-label">{fact.label}</span>
-          </div>
-          <div className="agent-text-value">{fact.value}</div>
-        </>
-      ) : (
-        <p className="text-sm text-slate-700 dark:text-slate-200">{fact.value}</p>
-      )}
-    </div>
-  );
+  return null;
 }
 
 interface ExplanationArtifactProps {
@@ -289,7 +236,9 @@ export function ExplanationArtifact({
 }: ExplanationArtifactProps) {
   // Derive entity label from intent or data
   const entityLabel = data.entityType
-    ? data.entityType.charAt(0).toUpperCase() + data.entityType.slice(1)
+    ? data.entityType
+        .replace(/_/g, " ")
+        .replace(/\b\w/g, (c) => c.toUpperCase())
     : intent
       ? intent
           .replace(/^EXPLAIN_|^SUMMARIZE_|_STATE$/g, "")
@@ -332,20 +281,35 @@ export function ExplanationArtifact({
     return <LegacyExplanationArtifact data={data} entityLabel={entityLabel} />;
   }
 
+  // Parse all facts and separate hero facts (status/priority/phase) from detail facts
+  const allParsed: ParsedFact[] = (data.facts.details || []).map(parseFact);
+  const heroFacts = allParsed.filter(f => f.label && HERO_LABELS.has(f.label.toLowerCase()));
+  const detailFacts = allParsed.filter(f => !f.label || !HERO_LABELS.has(f.label.toLowerCase()));
+  const gridFacts = detailFacts.filter(f => f.type !== "activity" && f.type !== "summary");
+  const expandedFacts = detailFacts.filter(f => f.type === "activity" || f.type === "summary");
+
   return (
     <div className="artifact-build agent-artifact-card is-explanation">
-      {/* Header - appears first after card shell */}
-      <div className="artifact-build-header agent-artifact-header agent-artifact-header-explanation flex items-center justify-between px-5 py-4">
+      {/* ─── Header with inline badges ─── */}
+      <div className="artifact-build-header agent-artifact-header agent-artifact-header-explanation px-5 py-4">
         <div className="flex items-center gap-3">
           <div className="agent-icon-container agent-icon-container-indigo">
             <FileText className="w-5 h-5 text-white" />
           </div>
-          <div>
-            <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-100">
-              {entityLabel}
-            </h4>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                {entityLabel}
+              </h4>
+              {/* Hero badges inline in header */}
+              {heroFacts.map((hf, idx) => (
+                <span key={idx} className={`agent-entity-badge ${statusBadgeClass(String(hf.value))}`}>
+                  {String(hf.value).replace(/_/g, " ")}
+                </span>
+              ))}
+            </div>
             {entityIdLabel && (
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 font-mono">
                 {entityIdLabel}
               </p>
             )}
@@ -361,17 +325,34 @@ export function ExplanationArtifact({
             {data.facts.summary}
           </p>
 
-          {data.facts.details && data.facts.details.length > 0 && (
-            <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-700/50">
-              <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-3 block">
-                Key Facts
-              </span>
-              <div className="agent-facts-container">
-                {data.facts.details.map((detail: string, idx: number) => {
-                  const parsedFact = parseFact(detail);
-                  return <FactRenderer key={idx} fact={parsedFact} />;
-                })}
-              </div>
+          {/* Compact property grid for simple facts */}
+          {gridFacts.length > 0 && (
+            <div className="agent-entity-props mt-4">
+              {gridFacts.map((fact, idx) => (
+                <div key={idx} className="agent-entity-prop">
+                  <span className="agent-entity-prop-label">
+                    {fact.type === "date" && <Calendar className="w-3 h-3" />}
+                    {fact.type === "count" && <Hash className="w-3 h-3" />}
+                    {fact.type === "text" && fact.label && <Tag className="w-3 h-3" />}
+                    {fact.type === "status" && <CircleDot className="w-3 h-3" />}
+                    {fact.label || "—"}
+                  </span>
+                  <span className={`agent-entity-prop-value ${
+                    fact.type === "status" ? statusBadgeClass(String(fact.value)) : ""
+                  } ${fact.type === "count" ? "font-semibold tabular-nums" : ""}`}>
+                    {fact.type === "date" ? String(fact.value).split(" ")[0] : String(fact.value).replace(/_/g, " ")}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Expanded facts (activity, summary) — full width */}
+          {expandedFacts.length > 0 && (
+            <div className="agent-facts-container mt-4">
+              {expandedFacts.map((fact, idx) => (
+                <ExpandedFactRenderer key={idx} fact={fact} />
+              ))}
             </div>
           )}
         </div>
@@ -382,27 +363,23 @@ export function ExplanationArtifact({
             <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-3 block">
               Related Summary
             </span>
-            <div className="space-y-3">
+            <div className="agent-entity-related-grid">
               {data.relatedSummary.map((section, idx) => (
                 <div
                   key={`${section.title}-${idx}`}
-                  className="rounded-xl border border-slate-200/80 dark:border-slate-700/60 bg-gradient-to-br from-slate-50 to-slate-100/50 dark:from-slate-800/40 dark:to-slate-900/40 p-4"
+                  className="agent-entity-related-section"
                 >
                   <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-3">
                     {section.title}
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-2 gap-2">
                     {section.items.map((item, itemIdx) => (
                       <div
                         key={`${section.title}-${item.label}-${itemIdx}`}
-                        className="agent-fact-card flex items-center justify-between"
+                        className="agent-entity-stat-cell"
                       >
-                        <span className="text-xs text-slate-500 dark:text-slate-400">
-                          {item.label}
-                        </span>
-                        <span className="text-base font-bold text-slate-800 dark:text-white">
-                          {item.value}
-                        </span>
+                        <span className="agent-entity-stat-label">{item.label}</span>
+                        <span className="agent-entity-stat-value">{item.value}</span>
                       </div>
                     ))}
                   </div>

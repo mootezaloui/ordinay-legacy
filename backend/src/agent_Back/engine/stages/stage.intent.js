@@ -350,6 +350,22 @@ async function _executeCommandTools(
           requiresLocalData: true,
           filters: { entityType: argText || null },
         };
+      case "web-search":
+        return {
+          intent: READ_INTENTS.WEB_SEARCH,
+          requiresLocalData: true,
+          filters: {
+            query: argText,
+          },
+        };
+      case "deep-search":
+        return {
+          intent: READ_INTENTS.DEEP_SEARCH,
+          requiresLocalData: true,
+          filters: {
+            query: argText,
+          },
+        };
       default:
         return null;
     }

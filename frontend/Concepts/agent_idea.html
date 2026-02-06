@@ -1,0 +1,1062 @@
+<!doctype html>
+<html lang="en" class="h-full">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Office AI Assistant</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/_sdk/element_sdk.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+  <style>
+    body {
+      box-sizing: border-box;
+      font-family: 'DM Sans', sans-serif;
+    }
+    
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 0.4; transform: scale(0.8); }
+      50% { opacity: 1; transform: scale(1); }
+    }
+    
+    @keyframes slide-up {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    @keyframes shimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+    
+    @keyframes expand-width {
+      from { width: 0%; }
+      to { width: 100%; }
+    }
+    
+    @keyframes typewriter {
+      from { width: 0; }
+      to { width: 100%; }
+    }
+    
+    .animate-slide-up {
+      animation: slide-up 0.4s ease-out forwards;
+    }
+    
+    .animate-pulse-dot {
+      animation: pulse-dot 1.4s ease-in-out infinite;
+    }
+    
+    .skeleton-shimmer {
+      background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+    }
+    
+    .progress-bar {
+      animation: expand-width 2s ease-out forwards;
+    }
+    
+    .typing-effect {
+      overflow: hidden;
+      white-space: nowrap;
+      animation: typewriter 2s steps(40) forwards;
+    }
+    
+    .artifact-card {
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    .artifact-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 40px -12px rgba(0, 0, 0, 0.15);
+    }
+    
+    .chat-bubble {
+      position: relative;
+    }
+    
+    .chat-bubble::before {
+      content: '';
+      position: absolute;
+      left: -8px;
+      top: 16px;
+      width: 16px;
+      height: 16px;
+      background: inherit;
+      transform: rotate(45deg);
+      border-radius: 3px;
+    }
+    
+    .scenario-btn {
+      transition: all 0.2s ease;
+    }
+    
+    .scenario-btn:hover {
+      transform: scale(1.02);
+    }
+    
+    .scenario-btn.active {
+      transform: scale(0.98);
+    }
+    
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+    
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 3px;
+    }
+    
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+  </style>
+  <style>@view-transition { navigation: auto; }</style>
+  <script src="/_sdk/data_sdk.js" type="text/javascript"></script>
+ </head>
+ <body class="h-full bg-slate-100 overflow-auto">
+  <div class="app-wrapper h-full w-full flex flex-col"><!-- Header -->
+   <header class="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between shrink-0">
+    <div class="flex items-center gap-3">
+     <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+      <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+      </svg>
+     </div>
+     <div>
+      <h1 id="assistant-title" class="text-lg font-semibold text-slate-800">Atlas</h1>
+      <p class="text-xs text-slate-500">Office Management Assistant</p>
+     </div>
+    </div>
+    <div class="flex items-center gap-2"><span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 text-xs font-medium"> <span class="w-2 h-2 rounded-full bg-emerald-500"></span> Online </span>
+    </div>
+   </header><!-- Main Content -->
+   <div class="flex-1 flex overflow-hidden"><!-- Scenario Selector Sidebar -->
+    <aside class="w-72 bg-white border-r border-slate-200 p-4 shrink-0 overflow-auto">
+     <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">Demo Scenarios</h2>
+     <div class="space-y-2"><button onclick="showScenario('search')" class="scenario-btn w-full text-left p-3 rounded-xl border-2 border-indigo-200 bg-indigo-50 hover:bg-indigo-100 transition-colors" id="btn-search">
+       <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-lg bg-indigo-500 flex items-center justify-center">
+         <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+         </svg>
+        </div>
+        <div>
+         <p class="font-medium text-slate-800 text-sm">Search Results</p>
+         <p class="text-xs text-slate-500">Finding cases &amp; documents</p>
+        </div>
+       </div></button> <button onclick="showScenario('summary')" class="scenario-btn w-full text-left p-3 rounded-xl border-2 border-transparent hover:border-slate-200 hover:bg-slate-50 transition-colors" id="btn-summary">
+       <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-lg bg-amber-500 flex items-center justify-center">
+         <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+         </svg>
+        </div>
+        <div>
+         <p class="font-medium text-slate-800 text-sm">Case Summary</p>
+         <p class="text-xs text-slate-500">Reading &amp; summarizing</p>
+        </div>
+       </div></button> <button onclick="showScenario('edit')" class="scenario-btn w-full text-left p-3 rounded-xl border-2 border-transparent hover:border-slate-200 hover:bg-slate-50 transition-colors" id="btn-edit">
+       <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-lg bg-emerald-500 flex items-center justify-center">
+         <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+         </svg>
+        </div>
+        <div>
+         <p class="font-medium text-slate-800 text-sm">Edit Suggestion</p>
+         <p class="text-xs text-slate-500">Proposing changes</p>
+        </div>
+       </div></button> <button onclick="showScenario('loading')" class="scenario-btn w-full text-left p-3 rounded-xl border-2 border-transparent hover:border-slate-200 hover:bg-slate-50 transition-colors" id="btn-loading">
+       <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-lg bg-slate-500 flex items-center justify-center">
+         <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+         </svg>
+        </div>
+        <div>
+         <p class="font-medium text-slate-800 text-sm">Processing State</p>
+         <p class="text-xs text-slate-500">Loading &amp; thinking</p>
+        </div>
+       </div></button> <button onclick="showScenario('comparison')" class="scenario-btn w-full text-left p-3 rounded-xl border-2 border-transparent hover:border-slate-200 hover:bg-slate-50 transition-colors" id="btn-comparison">
+       <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-lg bg-rose-500 flex items-center justify-center">
+         <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
+         </svg>
+        </div>
+        <div>
+         <p class="font-medium text-slate-800 text-sm">Data Comparison</p>
+         <p class="text-xs text-slate-500">Side-by-side analysis</p>
+        </div>
+       </div></button> <button onclick="showScenario('action')" class="scenario-btn w-full text-left p-3 rounded-xl border-2 border-transparent hover:border-slate-200 hover:bg-slate-50 transition-colors" id="btn-action">
+       <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-lg bg-cyan-500 flex items-center justify-center">
+         <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+         </svg>
+        </div>
+        <div>
+         <p class="font-medium text-slate-800 text-sm">Action Workflow</p>
+         <p class="text-xs text-slate-500">Multi-step tasks</p>
+        </div>
+       </div></button>
+     </div>
+     <div class="mt-6 p-4 rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200">
+      <p class="text-xs text-slate-500 leading-relaxed"><span class="font-semibold text-slate-700">💡 Design Tip:</span> Click each scenario to see different artifact patterns for AI responses in office management contexts.</p>
+     </div>
+    </aside><!-- Chat Area -->
+    <main class="flex-1 flex flex-col overflow-hidden bg-slate-50"><!-- Messages Container -->
+     <div id="chat-container" class="flex-1 overflow-auto p-6 space-y-6"><!-- Content injected by JavaScript -->
+     </div><!-- Input Area -->
+     <div class="p-4 bg-white border-t border-slate-200 shrink-0">
+      <div class="max-w-4xl mx-auto">
+       <div class="relative"><input type="text" id="chat-input" placeholder="Ask Atlas anything about your cases..." class="w-full px-5 py-4 pr-14 rounded-2xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-indigo-300 focus:ring-4 focus:ring-indigo-100 outline-none transition-all text-sm"> <button class="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-xl bg-indigo-500 hover:bg-indigo-600 flex items-center justify-center transition-colors">
+         <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+         </svg></button>
+       </div>
+       <p class="text-xs text-slate-400 mt-2 text-center">Atlas can search, summarize, edit, and analyze your office data</p>
+      </div>
+     </div>
+    </main>
+   </div>
+  </div>
+  <script>
+    const defaultConfig = {
+      assistant_name: 'Atlas',
+      welcome_message: 'How can I help you today?',
+      primary_color: '#6366f1',
+      surface_color: '#ffffff',
+      text_color: '#1e293b',
+      accent_color: '#8b5cf6',
+      muted_color: '#64748b'
+    };
+
+    let config = { ...defaultConfig };
+    let currentScenario = 'search';
+
+    const scenarios = {
+      search: {
+        userMessage: "Find all cases related to Thompson Industries from last quarter",
+        artifacts: `
+          <div class="space-y-4 animate-slide-up">
+            <!-- Status indicator -->
+            <div class="flex items-center gap-2 text-sm text-slate-600">
+              <svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+              </svg>
+              <span>Found <strong>4 cases</strong> matching your search</span>
+            </div>
+            
+            <!-- Results cards -->
+            <div class="space-y-3">
+              <div class="artifact-card bg-white rounded-xl border border-slate-200 p-4 cursor-pointer hover:border-indigo-300">
+                <div class="flex items-start justify-between">
+                  <div class="flex items-start gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center shrink-0">
+                      <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+                      </svg>
+                    </div>
+                    <div>
+                      <h4 class="font-semibold text-slate-800">Thompson Industries v. Meridian Corp</h4>
+                      <p class="text-sm text-slate-500 mt-0.5">Case #2024-1847 • Contract Dispute</p>
+                      <div class="flex items-center gap-3 mt-2">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-md bg-amber-100 text-amber-700 text-xs font-medium">In Progress</span>
+                        <span class="text-xs text-slate-400">Last updated 2 days ago</span>
+                      </div>
+                    </div>
+                  </div>
+                  <button class="text-slate-400 hover:text-indigo-600 transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              
+              <div class="artifact-card bg-white rounded-xl border border-slate-200 p-4 cursor-pointer hover:border-indigo-300">
+                <div class="flex items-start justify-between">
+                  <div class="flex items-start gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center shrink-0">
+                      <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+                      </svg>
+                    </div>
+                    <div>
+                      <h4 class="font-semibold text-slate-800">Thompson Industries - Q3 Compliance Review</h4>
+                      <p class="text-sm text-slate-500 mt-0.5">Case #2024-1652 • Regulatory</p>
+                      <div class="flex items-center gap-3 mt-2">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-700 text-xs font-medium">Completed</span>
+                        <span class="text-xs text-slate-400">Closed Oct 15, 2024</span>
+                      </div>
+                    </div>
+                  </div>
+                  <button class="text-slate-400 hover:text-indigo-600 transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              
+              <div class="artifact-card bg-white rounded-xl border border-slate-200 p-4 cursor-pointer hover:border-indigo-300">
+                <div class="flex items-start justify-between">
+                  <div class="flex items-start gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-rose-100 flex items-center justify-center shrink-0">
+                      <svg class="w-5 h-5 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+                      </svg>
+                    </div>
+                    <div>
+                      <h4 class="font-semibold text-slate-800">Thompson Industries - Employment Matter</h4>
+                      <p class="text-sm text-slate-500 mt-0.5">Case #2024-1789 • HR/Employment</p>
+                      <div class="flex items-center gap-3 mt-2">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-md bg-rose-100 text-rose-700 text-xs font-medium">Urgent</span>
+                        <span class="text-xs text-slate-400">Deadline in 3 days</span>
+                      </div>
+                    </div>
+                  </div>
+                  <button class="text-slate-400 hover:text-indigo-600 transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Quick actions -->
+            <div class="flex items-center gap-2 pt-2">
+              <button class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 text-sm font-medium hover:bg-indigo-100 transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/>
+                </svg>
+                Filter results
+              </button>
+              <button class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 text-slate-700 text-sm font-medium hover:bg-slate-200 transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+                </svg>
+                Export list
+              </button>
+            </div>
+          </div>
+        `,
+        response: "I found 4 cases related to Thompson Industries from Q3 2024. The most recent is a contract dispute that's still in progress. Would you like me to summarize any of these cases?"
+      },
+      
+      summary: {
+        userMessage: "Summarize case #2024-1847",
+        artifacts: `
+          <div class="space-y-4 animate-slide-up">
+            <!-- Summary card -->
+            <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+              <!-- Header -->
+              <div class="px-5 py-4 bg-gradient-to-r from-amber-50 to-orange-50 border-b border-slate-100">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-amber-500 flex items-center justify-center">
+                      <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                      </svg>
+                    </div>
+                    <div>
+                      <h4 class="font-semibold text-slate-800">Case Summary</h4>
+                      <p class="text-xs text-slate-500">#2024-1847 • Generated just now</p>
+                    </div>
+                  </div>
+                  <span class="inline-flex items-center px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 text-xs font-medium">
+                    <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                      <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/>
+                    </svg>
+                    In Progress
+                  </span>
+                </div>
+              </div>
+              
+              <!-- Content -->
+              <div class="p-5 space-y-4">
+                <!-- Key facts -->
+                <div>
+                  <h5 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Key Facts</h5>
+                  <div class="grid grid-cols-2 gap-3">
+                    <div class="p-3 rounded-lg bg-slate-50">
+                      <p class="text-xs text-slate-500">Parties</p>
+                      <p class="text-sm font-medium text-slate-800 mt-0.5">Thompson Industries vs. Meridian Corp</p>
+                    </div>
+                    <div class="p-3 rounded-lg bg-slate-50">
+                      <p class="text-xs text-slate-500">Type</p>
+                      <p class="text-sm font-medium text-slate-800 mt-0.5">Contract Dispute</p>
+                    </div>
+                    <div class="p-3 rounded-lg bg-slate-50">
+                      <p class="text-xs text-slate-500">Amount in Dispute</p>
+                      <p class="text-sm font-medium text-slate-800 mt-0.5">$2.4M</p>
+                    </div>
+                    <div class="p-3 rounded-lg bg-slate-50">
+                      <p class="text-xs text-slate-500">Next Deadline</p>
+                      <p class="text-sm font-medium text-slate-800 mt-0.5">Nov 28, 2024</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- Synopsis -->
+                <div>
+                  <h5 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Synopsis</h5>
+                  <p class="text-sm text-slate-600 leading-relaxed">
+                    Thompson Industries alleges that Meridian Corp breached a supply agreement by failing to deliver 50,000 units of electronic components as specified in the Q3 contract. The dispute centers on interpretation of force majeure clauses and delivery timeline modifications.
+                  </p>
+                </div>
+                
+                <!-- Timeline -->
+                <div>
+                  <h5 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Recent Activity</h5>
+                  <div class="space-y-2">
+                    <div class="flex items-start gap-3">
+                      <div class="w-2 h-2 rounded-full bg-indigo-500 mt-1.5 shrink-0"></div>
+                      <div>
+                        <p class="text-sm text-slate-700">Discovery documents received from opposing counsel</p>
+                        <p class="text-xs text-slate-400">2 days ago</p>
+                      </div>
+                    </div>
+                    <div class="flex items-start gap-3">
+                      <div class="w-2 h-2 rounded-full bg-slate-300 mt-1.5 shrink-0"></div>
+                      <div>
+                        <p class="text-sm text-slate-700">Motion for summary judgment filed</p>
+                        <p class="text-xs text-slate-400">1 week ago</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Footer actions -->
+              <div class="px-5 py-3 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <button class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-700 text-sm font-medium hover:bg-slate-50 transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                    </svg>
+                    Open case
+                  </button>
+                  <button class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-700 text-sm font-medium hover:bg-slate-50 transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/>
+                    </svg>
+                    Share
+                  </button>
+                </div>
+                <button class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-slate-500 text-sm hover:text-slate-700 transition-colors">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                  </svg>
+                  Regenerate
+                </button>
+              </div>
+            </div>
+          </div>
+        `,
+        response: "Here's a summary of the Thompson Industries case. The key issue is the disputed force majeure interpretation. Want me to pull up the specific contract clauses or generate a timeline of events?"
+      },
+      
+      edit: {
+        userMessage: "Update the deadline for case #2024-1847 to December 15th and add a note about the settlement discussion",
+        artifacts: `
+          <div class="space-y-4 animate-slide-up">
+            <!-- Edit preview card -->
+            <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+              <div class="px-5 py-4 bg-gradient-to-r from-emerald-50 to-teal-50 border-b border-slate-100">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-emerald-500 flex items-center justify-center">
+                      <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                      </svg>
+                    </div>
+                    <div>
+                      <h4 class="font-semibold text-slate-800">Proposed Changes</h4>
+                      <p class="text-xs text-slate-500">2 modifications to Case #2024-1847</p>
+                    </div>
+                  </div>
+                  <span class="inline-flex items-center px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 text-xs font-medium">
+                    Pending Review
+                  </span>
+                </div>
+              </div>
+              
+              <div class="p-5 space-y-4">
+                <!-- Change 1 -->
+                <div class="rounded-lg border border-slate-200 overflow-hidden">
+                  <div class="px-4 py-2 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                    <span class="text-xs font-medium text-slate-600">Change 1: Deadline Update</span>
+                    <span class="text-xs text-slate-400">Field: next_deadline</span>
+                  </div>
+                  <div class="p-4 space-y-2">
+                    <div class="flex items-center gap-3">
+                      <span class="text-xs font-medium text-slate-400 w-16">Before:</span>
+                      <div class="flex-1 px-3 py-2 rounded-lg bg-rose-50 border border-rose-200">
+                        <span class="text-sm text-rose-700 line-through">November 28, 2024</span>
+                      </div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                      <span class="text-xs font-medium text-slate-400 w-16">After:</span>
+                      <div class="flex-1 px-3 py-2 rounded-lg bg-emerald-50 border border-emerald-200">
+                        <span class="text-sm text-emerald-700 font-medium">December 15, 2024</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- Change 2 -->
+                <div class="rounded-lg border border-slate-200 overflow-hidden">
+                  <div class="px-4 py-2 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                    <span class="text-xs font-medium text-slate-600">Change 2: New Note</span>
+                    <span class="text-xs text-slate-400">Field: case_notes</span>
+                  </div>
+                  <div class="p-4">
+                    <div class="flex items-start gap-3">
+                      <span class="text-xs font-medium text-emerald-500 w-16 pt-1">+ Add:</span>
+                      <div class="flex-1 px-3 py-2 rounded-lg bg-emerald-50 border border-emerald-200">
+                        <p class="text-sm text-emerald-700">Settlement discussion initiated on Nov 20, 2024. Opposing counsel has expressed interest in mediation. Follow-up scheduled for Dec 1st.</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Action buttons -->
+              <div class="px-5 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
+                <button class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-slate-500 text-sm hover:text-slate-700 transition-colors">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
+                  </svg>
+                  Edit changes
+                </button>
+                <div class="flex items-center gap-2">
+                  <button class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-white border border-slate-200 text-slate-700 text-sm font-medium hover:bg-slate-50 transition-colors">
+                    Cancel
+                  </button>
+                  <button class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-500 text-white text-sm font-medium hover:bg-emerald-600 transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                    </svg>
+                    Apply Changes
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        `,
+        response: "I've prepared these changes for Case #2024-1847. Please review the deadline update and the new note about settlement discussions. Click 'Apply Changes' to confirm, or let me know if you'd like to modify anything."
+      },
+      
+      loading: {
+        userMessage: "Analyze all documents in the Thompson case for key dates and obligations",
+        artifacts: `
+          <div class="space-y-4 animate-slide-up">
+            <!-- Processing card -->
+            <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+              <div class="px-5 py-4 bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-100">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-lg bg-slate-500 flex items-center justify-center">
+                    <svg class="w-5 h-5 text-white animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <h4 class="font-semibold text-slate-800">Analyzing Documents</h4>
+                    <p class="text-xs text-slate-500">Processing 24 files • This may take a moment</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="p-5 space-y-4">
+                <!-- Progress steps -->
+                <div class="space-y-3">
+                  <div class="flex items-center gap-3">
+                    <div class="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+                      <svg class="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                      </svg>
+                    </div>
+                    <div class="flex-1">
+                      <div class="flex items-center justify-between">
+                        <span class="text-sm text-slate-700">Document retrieval</span>
+                        <span class="text-xs text-emerald-600">Complete</span>
+                      </div>
+                      <div class="w-full h-1.5 rounded-full bg-emerald-100 mt-1.5">
+                        <div class="h-full rounded-full bg-emerald-500" style="width: 100%"></div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div class="flex items-center gap-3">
+                    <div class="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+                      <svg class="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                      </svg>
+                    </div>
+                    <div class="flex-1">
+                      <div class="flex items-center justify-between">
+                        <span class="text-sm text-slate-700">Text extraction</span>
+                        <span class="text-xs text-emerald-600">Complete</span>
+                      </div>
+                      <div class="w-full h-1.5 rounded-full bg-emerald-100 mt-1.5">
+                        <div class="h-full rounded-full bg-emerald-500" style="width: 100%"></div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div class="flex items-center gap-3">
+                    <div class="w-6 h-6 rounded-full bg-indigo-100 flex items-center justify-center shrink-0">
+                      <div class="w-2.5 h-2.5 rounded-full bg-indigo-500 animate-pulse"></div>
+                    </div>
+                    <div class="flex-1">
+                      <div class="flex items-center justify-between">
+                        <span class="text-sm text-slate-700 font-medium">Extracting key dates</span>
+                        <span class="text-xs text-indigo-600">In progress...</span>
+                      </div>
+                      <div class="w-full h-1.5 rounded-full bg-slate-100 mt-1.5 overflow-hidden">
+                        <div class="h-full rounded-full bg-indigo-500 progress-bar"></div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div class="flex items-center gap-3">
+                    <div class="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
+                      <div class="w-2.5 h-2.5 rounded-full bg-slate-300"></div>
+                    </div>
+                    <div class="flex-1">
+                      <div class="flex items-center justify-between">
+                        <span class="text-sm text-slate-400">Identifying obligations</span>
+                        <span class="text-xs text-slate-400">Pending</span>
+                      </div>
+                      <div class="w-full h-1.5 rounded-full bg-slate-100 mt-1.5"></div>
+                    </div>
+                  </div>
+                  
+                  <div class="flex items-center gap-3">
+                    <div class="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
+                      <div class="w-2.5 h-2.5 rounded-full bg-slate-300"></div>
+                    </div>
+                    <div class="flex-1">
+                      <div class="flex items-center justify-between">
+                        <span class="text-sm text-slate-400">Generating report</span>
+                        <span class="text-xs text-slate-400">Pending</span>
+                      </div>
+                      <div class="w-full h-1.5 rounded-full bg-slate-100 mt-1.5"></div>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- Current activity -->
+                <div class="mt-4 p-3 rounded-lg bg-indigo-50 border border-indigo-100">
+                  <div class="flex items-start gap-2">
+                    <div class="flex gap-1 mt-1">
+                      <div class="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse-dot" style="animation-delay: 0s"></div>
+                      <div class="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse-dot" style="animation-delay: 0.2s"></div>
+                      <div class="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse-dot" style="animation-delay: 0.4s"></div>
+                    </div>
+                    <p class="text-sm text-indigo-700">Currently analyzing: <span class="font-medium">Supply_Agreement_2024.pdf</span></p>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="px-5 py-3 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
+                <span class="text-xs text-slate-500">Estimated time remaining: ~30 seconds</span>
+                <button class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-rose-600 text-sm hover:bg-rose-50 transition-colors">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                  </svg>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        `,
+        response: "I'm analyzing all 24 documents in the Thompson case. I'll extract all dates, deadlines, and contractual obligations. This comprehensive analysis should take about a minute."
+      },
+      
+      comparison: {
+        userMessage: "Compare billable hours between Q2 and Q3 for the Thompson account",
+        artifacts: `
+          <div class="space-y-4 animate-slide-up">
+            <!-- Comparison card -->
+            <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+              <div class="px-5 py-4 bg-gradient-to-r from-rose-50 to-pink-50 border-b border-slate-100">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-rose-500 flex items-center justify-center">
+                      <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"/>
+                      </svg>
+                    </div>
+                    <div>
+                      <h4 class="font-semibold text-slate-800">Hours Comparison</h4>
+                      <p class="text-xs text-slate-500">Thompson Industries • Q2 vs Q3 2024</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="p-5">
+                <!-- Summary stats -->
+                <div class="grid grid-cols-3 gap-4 mb-6">
+                  <div class="text-center p-4 rounded-xl bg-slate-50">
+                    <p class="text-xs text-slate-500 mb-1">Q2 Total</p>
+                    <p class="text-2xl font-bold text-slate-800">127.5</p>
+                    <p class="text-xs text-slate-400">hours</p>
+                  </div>
+                  <div class="text-center p-4 rounded-xl bg-slate-50">
+                    <p class="text-xs text-slate-500 mb-1">Q3 Total</p>
+                    <p class="text-2xl font-bold text-slate-800">186.0</p>
+                    <p class="text-xs text-slate-400">hours</p>
+                  </div>
+                  <div class="text-center p-4 rounded-xl bg-emerald-50">
+                    <p class="text-xs text-emerald-600 mb-1">Change</p>
+                    <p class="text-2xl font-bold text-emerald-600">+45.9%</p>
+                    <p class="text-xs text-emerald-500">increase</p>
+                  </div>
+                </div>
+                
+                <!-- Visual comparison bars -->
+                <div class="space-y-4">
+                  <div>
+                    <div class="flex items-center justify-between text-sm mb-2">
+                      <span class="text-slate-600">Partner Hours</span>
+                      <div class="flex items-center gap-4">
+                        <span class="text-slate-400">Q2: 32h</span>
+                        <span class="text-slate-700 font-medium">Q3: 48h</span>
+                      </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <div class="flex-1 h-3 rounded-full bg-slate-100 overflow-hidden">
+                        <div class="h-full rounded-full bg-slate-300" style="width: 25%"></div>
+                      </div>
+                      <div class="flex-1 h-3 rounded-full bg-slate-100 overflow-hidden">
+                        <div class="h-full rounded-full bg-indigo-500" style="width: 38%"></div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <div class="flex items-center justify-between text-sm mb-2">
+                      <span class="text-slate-600">Associate Hours</span>
+                      <div class="flex items-center gap-4">
+                        <span class="text-slate-400">Q2: 68h</span>
+                        <span class="text-slate-700 font-medium">Q3: 98h</span>
+                      </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <div class="flex-1 h-3 rounded-full bg-slate-100 overflow-hidden">
+                        <div class="h-full rounded-full bg-slate-300" style="width: 53%"></div>
+                      </div>
+                      <div class="flex-1 h-3 rounded-full bg-slate-100 overflow-hidden">
+                        <div class="h-full rounded-full bg-indigo-500" style="width: 77%"></div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <div class="flex items-center justify-between text-sm mb-2">
+                      <span class="text-slate-600">Paralegal Hours</span>
+                      <div class="flex items-center gap-4">
+                        <span class="text-slate-400">Q2: 27.5h</span>
+                        <span class="text-slate-700 font-medium">Q3: 40h</span>
+                      </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <div class="flex-1 h-3 rounded-full bg-slate-100 overflow-hidden">
+                        <div class="h-full rounded-full bg-slate-300" style="width: 22%"></div>
+                      </div>
+                      <div class="flex-1 h-3 rounded-full bg-slate-100 overflow-hidden">
+                        <div class="h-full rounded-full bg-indigo-500" style="width: 32%"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- Legend -->
+                <div class="flex items-center justify-center gap-6 mt-4 pt-4 border-t border-slate-100">
+                  <div class="flex items-center gap-2">
+                    <div class="w-3 h-3 rounded-full bg-slate-300"></div>
+                    <span class="text-xs text-slate-500">Q2 2024</span>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <div class="w-3 h-3 rounded-full bg-indigo-500"></div>
+                    <span class="text-xs text-slate-500">Q3 2024</span>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Insight -->
+              <div class="px-5 py-4 bg-amber-50 border-t border-amber-100">
+                <div class="flex items-start gap-3">
+                  <div class="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center shrink-0">
+                    <svg class="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <p class="text-sm font-medium text-amber-800">Insight</p>
+                    <p class="text-sm text-amber-700 mt-0.5">The 46% increase in hours correlates with the contract dispute that began in August. Consider reviewing the matter budget with the client.</p>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Actions -->
+              <div class="px-5 py-3 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-2">
+                <button class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-700 text-sm font-medium hover:bg-slate-50 transition-colors">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+                  </svg>
+                  Export report
+                </button>
+                <button class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-700 text-sm font-medium hover:bg-slate-50 transition-colors">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                  </svg>
+                  Add to Q4 report
+                </button>
+              </div>
+            </div>
+          </div>
+        `,
+        response: "Here's the billable hours comparison for Thompson Industries. Q3 shows a significant 46% increase, primarily driven by associate hours on the contract dispute. Would you like me to break this down by matter or compare it to the original budget?"
+      },
+      
+      action: {
+        userMessage: "Create a new matter for the Thompson compliance audit and assign it to Sarah Chen",
+        artifacts: `
+          <div class="space-y-4 animate-slide-up">
+            <!-- Workflow card -->
+            <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+              <div class="px-5 py-4 bg-gradient-to-r from-cyan-50 to-blue-50 border-b border-slate-100">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-cyan-500 flex items-center justify-center">
+                      <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                      </svg>
+                    </div>
+                    <div>
+                      <h4 class="font-semibold text-slate-800">Create New Matter</h4>
+                      <p class="text-xs text-slate-500">Multi-step workflow • 3 actions</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="p-5 space-y-4">
+                <!-- Step 1 - Complete -->
+                <div class="flex items-start gap-4">
+                  <div class="flex flex-col items-center">
+                    <div class="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center">
+                      <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                      </svg>
+                    </div>
+                    <div class="w-0.5 h-8 bg-emerald-200"></div>
+                  </div>
+                  <div class="flex-1 pb-4">
+                    <div class="flex items-center justify-between">
+                      <h5 class="font-medium text-slate-800">Create matter record</h5>
+                      <span class="text-xs text-emerald-600 font-medium">Done</span>
+                    </div>
+                    <div class="mt-2 p-3 rounded-lg bg-slate-50 border border-slate-200">
+                      <div class="grid grid-cols-2 gap-2 text-sm">
+                        <div>
+                          <span class="text-slate-500">Matter ID:</span>
+                          <span class="text-slate-800 font-medium ml-1">#2024-1901</span>
+                        </div>
+                        <div>
+                          <span class="text-slate-500">Type:</span>
+                          <span class="text-slate-800 font-medium ml-1">Compliance Audit</span>
+                        </div>
+                        <div>
+                          <span class="text-slate-500">Client:</span>
+                          <span class="text-slate-800 font-medium ml-1">Thompson Industries</span>
+                        </div>
+                        <div>
+                          <span class="text-slate-500">Status:</span>
+                          <span class="text-slate-800 font-medium ml-1">Active</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- Step 2 - Complete -->
+                <div class="flex items-start gap-4">
+                  <div class="flex flex-col items-center">
+                    <div class="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center">
+                      <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                      </svg>
+                    </div>
+                    <div class="w-0.5 h-8 bg-emerald-200"></div>
+                  </div>
+                  <div class="flex-1 pb-4">
+                    <div class="flex items-center justify-between">
+                      <h5 class="font-medium text-slate-800">Assign responsible attorney</h5>
+                      <span class="text-xs text-emerald-600 font-medium">Done</span>
+                    </div>
+                    <div class="mt-2 p-3 rounded-lg bg-slate-50 border border-slate-200">
+                      <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-violet-400 to-purple-500 flex items-center justify-center text-white font-medium text-sm">SC</div>
+                        <div>
+                          <p class="font-medium text-slate-800">Sarah Chen</p>
+                          <p class="text-sm text-slate-500">Senior Associate • Compliance</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- Step 3 - Pending -->
+                <div class="flex items-start gap-4">
+                  <div class="flex flex-col items-center">
+                    <div class="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center">
+                      <svg class="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                      </svg>
+                    </div>
+                  </div>
+                  <div class="flex-1">
+                    <div class="flex items-center justify-between">
+                      <h5 class="font-medium text-slate-800">Send notification email</h5>
+                      <span class="text-xs text-amber-600 font-medium">Awaiting confirmation</span>
+                    </div>
+                    <div class="mt-2 p-3 rounded-lg bg-amber-50 border border-amber-200">
+                      <p class="text-sm text-amber-800">Ready to send assignment notification to Sarah Chen with matter details and client information.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Actions -->
+              <div class="px-5 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
+                <div class="flex items-center gap-2 text-sm text-slate-500">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                  </svg>
+                  <span>2 of 3 steps complete</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <button class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-white border border-slate-200 text-slate-700 text-sm font-medium hover:bg-slate-50 transition-colors">
+                    Skip notification
+                  </button>
+                  <button class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-cyan-500 text-white text-sm font-medium hover:bg-cyan-600 transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                    </svg>
+                    Send & Complete
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        `,
+        response: "I've created the new compliance audit matter and assigned Sarah Chen. The matter record (#2024-1901) is active and linked to Thompson Industries. Would you like me to send the notification email to Sarah, or would you prefer to customize the message first?"
+      }
+    };
+
+    function showScenario(scenarioKey) {
+      currentScenario = scenarioKey;
+      const scenario = scenarios[scenarioKey];
+      
+      // Update button states
+      document.querySelectorAll('.scenario-btn').forEach(btn => {
+        btn.classList.remove('border-indigo-200', 'bg-indigo-50');
+        btn.classList.add('border-transparent');
+      });
+      const activeBtn = document.getElementById('btn-' + scenarioKey);
+      activeBtn.classList.remove('border-transparent');
+      activeBtn.classList.add('border-indigo-200', 'bg-indigo-50');
+      
+      const chatContainer = document.getElementById('chat-container');
+      const assistantName = config.assistant_name || defaultConfig.assistant_name;
+      
+      chatContainer.innerHTML = `
+        <!-- User message -->
+        <div class="flex justify-end animate-slide-up">
+          <div class="max-w-2xl">
+            <div class="px-4 py-3 rounded-2xl rounded-tr-md bg-indigo-500 text-white">
+              <p class="text-sm">${scenario.userMessage}</p>
+            </div>
+            <p class="text-xs text-slate-400 mt-1 text-right">Just now</p>
+          </div>
+        </div>
+        
+        <!-- Assistant response -->
+        <div class="flex gap-3 animate-slide-up" style="animation-delay: 0.2s">
+          <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shrink-0">
+            <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+            </svg>
+          </div>
+          <div class="flex-1 max-w-3xl">
+            <p class="text-xs font-medium text-slate-500 mb-2">${assistantName}</p>
+            
+            <!-- Response text -->
+            <div class="chat-bubble px-4 py-3 rounded-2xl rounded-tl-md bg-white border border-slate-200 mb-4">
+              <p class="text-sm text-slate-700">${scenario.response}</p>
+            </div>
+            
+            <!-- Artifact -->
+            ${scenario.artifacts}
+          </div>
+        </div>
+      `;
+    }
+
+    async function onConfigChange(newConfig) {
+      config = { ...config, ...newConfig };
+      
+      // Update assistant name
+      const titleEl = document.getElementById('assistant-title');
+      if (titleEl) {
+        titleEl.textContent = config.assistant_name || defaultConfig.assistant_name;
+      }
+      
+      // Update chat input placeholder
+      const inputEl = document.getElementById('chat-input');
+      if (inputEl) {
+        inputEl.placeholder = `Ask ${config.assistant_name || defaultConfig.assistant_name} anything about your cases...`;
+      }
+      
+      // Re-render current scenario to update assistant name in chat
+      showScenario(currentScenario);
+    }
+
+    function mapToCapabilities(cfg) {
+      return {
+        recolorables: [],
+        borderables: [],
+        fontEditable: undefined,
+        fontSizeable: undefined
+      };
+    }
+
+    function mapToEditPanelValues(cfg) {
+      return new Map([
+        ['assistant_name', cfg.assistant_name || defaultConfig.assistant_name],
+        ['welcome_message', cfg.welcome_message || defaultConfig.welcome_message]
+      ]);
+    }
+
+    // Initialize
+    if (window.elementSdk) {
+      window.elementSdk.init({
+        defaultConfig,
+        onConfigChange,
+        mapToCapabilities,
+        mapToEditPanelValues
+      });
+    }
+    
+    // Show initial scenario
+    showScenario('search');
+  </script>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9c9b400113ffe163',t:'MTc3MDM4NzIyNS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>

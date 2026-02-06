@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { Check, Loader2, Brain, Database, Search, Shield, FileOutput, X, ChevronDown, ChevronUp } from "lucide-react";
 import { AgentMessage } from "../types/agentMessage";
-import type { FollowUpSuggestion } from "../../services/api/agent";
+import type { FollowUpSuggestion, ExplanationOutput, CollectionOutput, CollectionItem } from "../../services/api/agent";
 
 // Artifact renderers
 import { ExplanationArtifact } from "./artifacts/ExplanationArtifact";
@@ -11,6 +11,7 @@ import { ActionArtifact } from "./artifacts/ActionArtifact";
 import { ChatArtifact } from "./artifacts/ChatArtifact";
 import { ErrorArtifact } from "./artifacts/ErrorArtifact";
 import { ClarificationArtifact } from "./artifacts/ClarificationArtifact";
+import { CollectionArtifact } from "./artifacts/CollectionArtifact";
 import { FollowUpSuggestions } from "./artifacts/FollowUpSuggestions";
 import { CommentaryBubble } from "./artifacts/CommentaryBubble";
 import { MarkdownOutput } from "../../components/MarkdownOutput";
@@ -625,6 +626,104 @@ function WorkingPhase({
 }
 
 // ────────────────────────────────────────────────────────────────
+// List-to-Collection Adapter
+// ────────────────────────────────────────────────────────────────
+
+/**
+ * Detects list-shaped ExplanationOutput (entityId starts with "list:",
+ * multiple facts.details entries) and converts to CollectionOutput
+ * so the CollectionArtifact renders instead of a linear dump.
+ *
+ * Returns null if the explanation is not a list.
+ */
+function tryConvertToCollection(explanation: ExplanationOutput): CollectionOutput | null {
+  if (!explanation.entityId?.startsWith("list:")) return null;
+
+  const details = explanation.facts?.details;
+  if (!details || details.length < 2) return null;
+
+  const entityType = explanation.entityType || "item";
+  const items: CollectionItem[] = [];
+
+  for (let i = 0; i < details.length; i++) {
+    const detail = details[i].trim();
+    if (!detail) continue;
+
+    // Parse pattern: "ID — Title (status, priority)"
+    const match = detail.match(/^([^\s—]+)\s*—\s*(.+?)\s*\(([^)]+)\)\s*$/);
+    if (match) {
+      const id = match[1];
+      const title = match[2].trim();
+      const meta = match[3].split(/,\s*/);
+      const status = meta[0] || undefined;
+      const priority = meta[1] as CollectionItem["priority"] || undefined;
+
+      items.push({
+        id: `${i}`,
+        title,
+        subtitle: id,
+        status,
+        statusSeverity: mapStatusSeverity(status),
+        priority: mapPriority(priority),
+        entityType,
+        entityId: id,
+      });
+    } else {
+      // Fallback: try "Label: Value" or plain text
+      const kvMatch = detail.match(/^([^:]+):\s*(.+)$/);
+      items.push({
+        id: `${i}`,
+        title: kvMatch ? kvMatch[2].trim() : detail,
+        subtitle: kvMatch ? kvMatch[1].trim() : undefined,
+        entityType,
+        entityId: `${i}`,
+        statusSeverity: "neutral",
+      });
+    }
+  }
+
+  if (items.length < 2) return null;
+
+  // Extract insights from interpretation statements
+  const insights: string[] = [];
+  if (explanation.interpretation?.statements) {
+    for (const stmt of explanation.interpretation.statements) {
+      insights.push(stmt.statement);
+    }
+  }
+
+  return {
+    type: "collection",
+    entityType,
+    totalCount: items.length,
+    items,
+    summary: explanation.facts?.summary || `${items.length} ${entityType}(s) found.`,
+    groupBy: "status",
+    insights: insights.length > 0 ? insights : undefined,
+    followUps: explanation.followUps,
+  };
+}
+
+function mapStatusSeverity(status?: string): CollectionItem["statusSeverity"] {
+  if (!status) return "neutral";
+  const s = status.toLowerCase().replace(/_/g, " ");
+  if (["overdue", "blocked", "failed", "rejected"].includes(s)) return "error";
+  if (["on hold", "on_hold", "pending", "urgent"].includes(s)) return "warning";
+  if (["active", "open", "in progress", "in_progress"].includes(s)) return "success";
+  if (["completed", "closed", "done", "resolved"].includes(s)) return "success";
+  return "neutral";
+}
+
+function mapPriority(priority?: string): CollectionItem["priority"] {
+  if (!priority) return undefined;
+  const p = priority.toLowerCase().trim();
+  if (p === "critical") return "critical";
+  if (p === "high") return "high";
+  if (p === "low") return "low";
+  return "normal";
+}
+
+// ────────────────────────────────────────────────────────────────
 // Artifact Body — renders the correct artifact based on data type
 // ────────────────────────────────────────────────────────────────
 
@@ -646,6 +745,16 @@ function ArtifactBody({
   }
 
   if (dataType === "explanation" && message.data?.explanation) {
+    // Detect list-shaped explanations and route to CollectionArtifact
+    const collectionData = tryConvertToCollection(message.data.explanation);
+    if (collectionData) {
+      return (
+        <CollectionArtifact
+          data={collectionData}
+          onFollowUpClick={onFollowUpClick}
+        />
+      );
+    }
     return (
       <ExplanationArtifact
         data={message.data.explanation}
@@ -662,6 +771,14 @@ function ArtifactBody({
   }
   if (dataType === "actions" && message.data?.actionProposals) {
     return <ActionArtifact data={message.data.actionProposals} />;
+  }
+  if (dataType === "collection" && message.data?.collection) {
+    return (
+      <CollectionArtifact
+        data={message.data.collection}
+        onFollowUpClick={onFollowUpClick}
+      />
+    );
   }
   if (dataType === "clarification" && message.data?.clarification) {
     return <ClarificationArtifact data={message.data.clarification} />;
@@ -685,6 +802,9 @@ function getAcknowledgment(intent?: string): string {
   if (!intent) return "Processing request...";
 
   const n = intent.toUpperCase();
+
+  if (n.includes("WEB_SEARCH")) return "Searching public web sources...";
+  if (n.includes("DEEP_SEARCH")) return "Running deep legal research...";
 
   // Read intents
   if (n.includes("READ_CLIENT") || n.includes("LIST_CLIENT"))
@@ -745,6 +865,25 @@ function getWorkSteps(intent?: string): string[] {
   if (!intent) return ["Classifying request"];
 
   const n = intent.toUpperCase();
+
+  if (n.includes("WEB_SEARCH")) {
+    return [
+      "Request classified",
+      "Running explicit web search",
+      "Collecting cited sources",
+      "Formatting search results",
+    ];
+  }
+
+  if (n.includes("DEEP_SEARCH")) {
+    return [
+      "Request classified",
+      "Running explicit deep search",
+      "Collecting legal citations",
+      "Highlighting uncertainties",
+      "Formatting research output",
+    ];
+  }
 
   if (n.includes("READ") || n.includes("LIST")) {
     return [

@@ -8,6 +8,11 @@ const {
 } = require("../../intent.classifier");
 const { ACTION_TYPES, CONTEXT_SOURCES } = require("../../context/conversation.context");
 
+const SEARCH_FOLLOW_UP_INTENTS = new Set([
+  READ_INTENTS.WEB_SEARCH,
+  READ_INTENTS.DEEP_SEARCH,
+]);
+
 async function _executeFollowUpIntent(
   followUpIntent,
   message,
@@ -160,7 +165,8 @@ function _validateFollowUpIntent(followUpIntent, policy, requestContext) {
   const isRead =
     normalizedIntent.startsWith("READ_") ||
     normalizedIntent.startsWith("EXPLAIN_") ||
-    normalizedIntent.startsWith("SUMMARIZE_");
+    normalizedIntent.startsWith("SUMMARIZE_") ||
+    SEARCH_FOLLOW_UP_INTENTS.has(normalizedIntent);
   const pendingType = this._normalizeFollowUpEntityType(
     activeContext?.pendingSelection?.entityType,
   );
@@ -245,6 +251,8 @@ function _validateFollowUpIntent(followUpIntent, policy, requestContext) {
     session: { children: [], parents: ["dossier", "lawsuit"] },
     mission: { children: [], parents: ["dossier"] },
     financial_entry: { children: [], parents: ["client", "dossier"] },
+    web_search: { children: [], parents: [] },
+    deep_search: { children: [], parents: [] },
   };
 
   if (pendingType && targetType === pendingType) {
@@ -376,6 +384,10 @@ function _normalizeFollowUpEntityType(value) {
     mission: "mission",
     financial_entry: "financial_entry",
     financialentry: "financial_entry",
+    web_search: "web_search",
+    websearch: "web_search",
+    deep_search: "deep_search",
+    deepsearch: "deep_search",
   };
   const upperMap = {
     CLIENT: "client",
@@ -386,6 +398,8 @@ function _normalizeFollowUpEntityType(value) {
     SESSION: "session",
     MISSION: "mission",
     FINANCIAL_ENTRY: "financial_entry",
+    WEB_SEARCH: "web_search",
+    DEEP_SEARCH: "deep_search",
   };
 
   if (upperMap[value]) return upperMap[value];
@@ -630,6 +644,8 @@ async function _handleFilterModification(
     financial_entry: "LIST_FINANCIAL_ENTRIES",
     notification: "LIST_NOTIFICATIONS",
     history_event: "LIST_HISTORY_EVENTS",
+    web_search: "WEB_SEARCH",
+    deep_search: "DEEP_SEARCH",
   };
 
   const intent = intentMap[lastEntityType];
@@ -771,6 +787,8 @@ async function _handleRepeatAction(
     financial_entry: "LIST_FINANCIAL_ENTRIES",
     notification: "LIST_NOTIFICATIONS",
     history_event: "LIST_HISTORY_EVENTS",
+    web_search: "WEB_SEARCH",
+    deep_search: "DEEP_SEARCH",
   };
 
   const intent = intentMap[lastEntityType];

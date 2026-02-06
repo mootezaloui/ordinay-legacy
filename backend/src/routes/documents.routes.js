@@ -3,6 +3,7 @@ const controller = require('../controllers/documents.controller');
 
 const router = express.Router();
 
+router.get('/count', controller.count);
 router.get('/', controller.list);
 router.post('/upload', controller.upload);
 router.post('/', controller.create);

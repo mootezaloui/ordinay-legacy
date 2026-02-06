@@ -39,6 +39,15 @@ async function list(req, res, next) {
   }
 }
 
+async function count(req, res, next) {
+  try {
+    const total = service.count();
+    res.json({ count: total });
+  } catch (error) {
+    next(error);
+  }
+}
+
 async function get(req, res, next) {
   try {
     const id = parseId(req.params.id);
@@ -101,6 +110,7 @@ async function clearAll(req, res, next) {
 
 module.exports = {
   list,
+  count,
   get,
   create,
   update,

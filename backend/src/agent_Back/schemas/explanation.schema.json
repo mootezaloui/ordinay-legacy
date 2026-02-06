@@ -80,6 +80,15 @@
                 "type": "string",
                 "minLength": 1,
                 "description": "What this means for the user"
+              },
+              "signal": {
+                "type": "string",
+                "description": "Semantic signal identifier (e.g. stagnation, ownership_gap)"
+              },
+              "dataPoints": {
+                "type": "object",
+                "additionalProperties": true,
+                "description": "Grounding data points for the interpretation claim"
               }
             }
           }
@@ -165,6 +174,11 @@
             "type": "string",
             "minLength": 1,
             "description": "Why this follow-up is suggested"
+          },
+          "category": {
+            "type": "string",
+            "enum": ["urgency", "accountability", "planning", "exploration", "summary", "selection", "search", "navigation", "guidance"],
+            "description": "Work-intent category for priority sorting"
           },
           "intent": {
             "type": "string",

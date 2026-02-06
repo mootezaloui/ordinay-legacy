@@ -10,6 +10,7 @@ import {
   FollowUpSuggestion,
   FollowUpIntent,
   ExplanationOutput,
+  CollectionOutput,
   CommentaryOutput,
   StatusEventData,
 } from "../../services/api/agent";
@@ -662,6 +663,9 @@ export function useAgentState() {
           } else if (["INVITATION", "CLIENT_EMAIL", "HEARING_SUMMARY", "INTERNAL_NOTE"].includes(output.type)) {
             agentData = { type: "draft", draft: output as import("../../services/api/agent").DraftOutput };
             streamedContent = "";
+          } else if (output.type === "collection") {
+            agentData = { type: "collection", collection: output as CollectionOutput };
+            streamedContent = "";
           } else if (output.type === "action_plan") {
             agentData = { type: "actions", actionProposals: output.actions };
             streamedContent = "";
@@ -989,6 +993,9 @@ export function useAgentState() {
               draft: output as import("../../services/api/agent").DraftOutput,
             };
             streamedContent = "";
+          } else if (output.type === "collection") {
+            agentData = { type: "collection", collection: output as CollectionOutput };
+            streamedContent = "";
           } else if (output.type === "action_plan") {
             agentData = { type: "actions", actionProposals: output.actions };
             streamedContent = "";
@@ -1286,6 +1293,9 @@ export function useAgentState() {
             streamedContent = "";
           } else if (["INVITATION", "CLIENT_EMAIL", "HEARING_SUMMARY", "INTERNAL_NOTE"].includes(output.type)) {
             agentData = { type: "draft", draft: output as import("../../services/api/agent").DraftOutput };
+            streamedContent = "";
+          } else if (output.type === "collection") {
+            agentData = { type: "collection", collection: output as CollectionOutput };
             streamedContent = "";
           } else if (output.type === "action_plan") {
             agentData = { type: "actions", actionProposals: output.actions };

@@ -78,6 +78,18 @@ const ENTITY_ROLES = {
     typicalParent: "dossier",
     navigationContext: "Documents capture evidence or supporting material for a record.",
   },
+  web_search: {
+    role: "unknown",
+    description: "Explicit web search results",
+    navigationContext:
+      "Web Search returns public web sources only when explicitly requested.",
+  },
+  deep_search: {
+    role: "unknown",
+    description: "Explicit deep legal research results",
+    navigationContext:
+      "Deep Search runs legal research with citations only when explicitly requested.",
+  },
 };
 
 const ENTITY_LABELS = Object.freeze({
@@ -90,6 +102,8 @@ const ENTITY_LABELS = Object.freeze({
   mission: "MISSION",
   financial_entry: "FINANCIAL_ENTRY",
   document: "DOCUMENT",
+  web_search: "WEB_SEARCH",
+  deep_search: "DEEP_SEARCH",
   notification: "NOTIFICATION",
   history_event: "HISTORY_EVENT",
 });
@@ -115,6 +129,8 @@ const READ_INTENT_BY_ENTITY = Object.freeze({
   mission: READ_INTENTS.READ_MISSION,
   financial_entry: READ_INTENTS.READ_FINANCIAL_ENTRY,
   document: READ_INTENTS.SUMMARIZE_DOCUMENT,
+  web_search: READ_INTENTS.WEB_SEARCH,
+  deep_search: READ_INTENTS.DEEP_SEARCH,
 });
 
 const EXPLAIN_INTENT_BY_ENTITY = Object.freeze({
@@ -163,6 +179,8 @@ const ENTITY_PLURAL_LABELS = Object.freeze({
   mission: "missions",
   financial_entry: "financial entries",
   document: "documents",
+  web_search: "web search results",
+  deep_search: "deep search results",
   notification: "notifications",
   history_event: "history events",
 });
@@ -363,6 +381,7 @@ function interpretCollectionState(entityType, entities, context) {
     const entityLabel = ENTITY_PLURAL_LABELS[entityType] || `${entityType} records`;
     interpretations.push({
       level: "neutral",
+      signal: "empty_collection",
       statement: `No ${entityLabel} in the current scope.`,
       implication:
         "This indicates no activity has been recorded yet, or the scope may need adjustment. Consider whether this is expected or if records should be created.",
@@ -372,8 +391,10 @@ function interpretCollectionState(entityType, entities, context) {
 
   interpretations.push({
     level: "info",
+    signal: "collection_loaded",
     statement: `${count} ${entityType} record(s) loaded.`,
     implication: "Review the list for priority and status changes.",
+    dataPoints: { count },
   });
 
   const now = new Date();
@@ -392,26 +413,66 @@ function interpretCollectionState(entityType, entities, context) {
     const urgent = active.filter(
       (task) => normalizePriority(task.priority) === "urgent",
     );
+    const unassigned = active.filter((task) => !task.assigned_to);
 
     if (overdue.length > 0) {
+      // Detect overdue clustering by parent dossier
+      const byDossier = {};
+      for (const task of overdue) {
+        const did = task.dossier_id || "unknown";
+        if (!byDossier[did]) byDossier[did] = [];
+        byDossier[did].push(task);
+      }
+      const clusters = Object.entries(byDossier).filter(([, tasks]) => tasks.length >= 2);
+
+      if (clusters.length > 0) {
+        const [clusteredDossierId, clusteredTasks] = clusters[0];
+        const totalDelayDays = clusteredTasks.reduce((sum, task) => {
+          const due = coerceDate(task.due_date);
+          return sum + (due ? Math.ceil((now - due) / (1000 * 60 * 60 * 24)) : 0);
+        }, 0);
+        interpretations.push({
+          level: "critical",
+          signal: "overdue_cluster",
+          statement: `${clusteredTasks.length} overdue tasks are concentrated in the same dossier.`,
+          implication: `This suggests the dossier itself may be stalled. Combined delay is ${totalDelayDays} days. Downstream work may also be blocked.`,
+          dataPoints: { clusteredTasks: clusteredTasks.length, dossierId: clusteredDossierId, totalDelayDays },
+        });
+      }
+
       interpretations.push({
         level: overdue.length > 3 ? "critical" : "warning",
+        signal: "overdue_tasks",
         statement: `${overdue.length} task(s) are overdue in this list.`,
         implication: "Late tasks require immediate review and reprioritization.",
+        dataPoints: { overdueTasks: overdue.length, activeTasks: active.length },
       });
     }
     if (blocked.length > 0) {
       interpretations.push({
         level: "warning",
+        signal: "blocked_tasks",
         statement: `${blocked.length} task(s) are blocked.`,
         implication: "Resolve dependencies to unblock progress.",
+        dataPoints: { blockedTasks: blocked.length },
       });
     }
     if (urgent.length > 0) {
       interpretations.push({
         level: "warning",
+        signal: "urgent_tasks",
         statement: `${urgent.length} task(s) are marked urgent.`,
         implication: "Confirm urgent items have active owners and deadlines.",
+        dataPoints: { urgentTasks: urgent.length },
+      });
+    }
+    if (unassigned.length > 0) {
+      interpretations.push({
+        level: unassigned.length > 2 ? "warning" : "info",
+        signal: "unassigned_work",
+        statement: `${unassigned.length} task(s) have no assigned owner.`,
+        implication: "These tasks will not appear in anyone's daily priorities until assigned.",
+        dataPoints: { unassignedTasks: unassigned.length, activeTasks: active.length },
       });
     }
   }
@@ -430,22 +491,28 @@ function interpretCollectionState(entityType, entities, context) {
     if (blocked.length > 0) {
       interpretations.push({
         level: "critical",
+        signal: "blocked_dossiers",
         statement: `${blocked.length} dossier(s) are blocked.`,
         implication: "Investigate blockers before progress can resume.",
+        dataPoints: { blockedDossiers: blocked.length },
       });
     }
     if (onHold.length > 0) {
       interpretations.push({
         level: "warning",
+        signal: "on_hold_dossiers",
         statement: `${onHold.length} dossier(s) are on hold.`,
         implication: "Confirm whether hold conditions still apply.",
+        dataPoints: { onHoldDossiers: onHold.length },
       });
     }
     if (active.length > 0) {
       interpretations.push({
         level: "info",
+        signal: "active_dossiers",
         statement: `${active.length} dossier(s) are active.`,
         implication: "Monitor deadlines and task coverage across active cases.",
+        dataPoints: { activeDossiers: active.length },
       });
     }
   }
@@ -457,8 +524,10 @@ function interpretCollectionState(entityType, entities, context) {
     if (inactive.length > 0) {
       interpretations.push({
         level: "info",
+        signal: "inactive_clients",
         statement: `${inactive.length} client(s) are inactive.`,
         implication: "Active engagement is limited; prioritize current clients.",
+        dataPoints: { inactiveClients: inactive.length },
       });
     }
   }
@@ -482,14 +551,18 @@ function interpretCollectionState(entityType, entities, context) {
     if (imminent.length > 0) {
       interpretations.push({
         level: "warning",
+        signal: "imminent_sessions",
         statement: `${imminent.length} session(s) occur within 3 days.`,
         implication: "Finalize preparation and confirm attendance.",
+        dataPoints: { imminentSessions: imminent.length },
       });
     } else if (upcoming.length > 0) {
       interpretations.push({
         level: "info",
+        signal: "upcoming_sessions",
         statement: `${upcoming.length} upcoming session(s) scheduled.`,
         implication: "Track preparation timelines and required filings.",
+        dataPoints: { upcomingSessions: upcoming.length },
       });
     }
   }
@@ -502,8 +575,10 @@ function interpretCollectionState(entityType, entities, context) {
     if (overdue.length > 0) {
       interpretations.push({
         level: overdue.length > 3 ? "critical" : "warning",
+        signal: "overdue_financial",
         statement: `${overdue.length} financial entry(ies) are overdue.`,
         implication: "Outstanding receivables require follow-up.",
+        dataPoints: { overdueEntries: overdue.length },
       });
     }
   }
@@ -519,15 +594,19 @@ function interpretCollectionState(entityType, entities, context) {
     if (pendingJudgment.length > 0) {
       interpretations.push({
         level: "warning",
+        signal: "pending_judgment",
         statement: `${pendingJudgment.length} lawsuit(s) await judgment.`,
         implication: "Prepare for outcomes and client communication.",
+        dataPoints: { pendingJudgment: pendingJudgment.length },
       });
     }
     if (active.length > 0) {
       interpretations.push({
         level: "info",
+        signal: "active_lawsuits",
         statement: `${active.length} lawsuit(s) are active.`,
         implication: "Monitor hearing schedules and filing deadlines.",
+        dataPoints: { activeLawsuits: active.length },
       });
     }
   }
@@ -537,34 +616,69 @@ function interpretCollectionState(entityType, entities, context) {
 
 function interpretDossierState(dossier, context) {
   const interpretations = [];
+  const taskSummary = context?.childSummary?.tasks;
+  const totalTasks = taskSummary ? Number(taskSummary.total || 0) : 0;
+  const activeTasks = taskSummary ? Number(taskSummary.active || 0) : 0;
+  const overdueTasks = taskSummary ? Number(taskSummary.overdue || 0) : 0;
 
   // Status-based interpretation
   if (dossier.status === "blocked") {
+    const blockedData = { status: "blocked" };
+    if (activeTasks > 0) blockedData.dependentTasks = activeTasks;
     interpretations.push({
       level: "critical",
+      signal: "status_blocked",
       statement: "This dossier is BLOCKED.",
-      implication: "Work cannot proceed. Identify and resolve the blocking issue immediately.",
+      implication: activeTasks > 0
+        ? `Work cannot proceed. ${activeTasks} dependent task(s) are waiting on this dossier.`
+        : "Work cannot proceed. Identify and resolve the blocking issue immediately.",
+      dataPoints: blockedData,
     });
   } else if (dossier.status === "on_hold") {
     interpretations.push({
       level: "warning",
+      signal: "status_on_hold",
       statement: "This dossier is ON HOLD.",
       implication: "Active work is paused. Verify if hold conditions still apply.",
+      dataPoints: { status: "on_hold" },
     });
   } else if (dossier.status === "closed") {
     interpretations.push({
       level: "neutral",
+      signal: "status_closed",
       statement: "This dossier is CLOSED.",
       implication: "No active work expected. Historical reference only.",
+      dataPoints: { status: "closed" },
     });
+  }
+
+  // Stagnation detection — dossier not updated for extended period
+  if (dossier.updated_at && dossier.status !== "closed" && dossier.status !== "archived") {
+    const updatedAt = new Date(dossier.updated_at);
+    const now = new Date();
+    const daysSinceUpdate = Math.floor((now - updatedAt) / (1000 * 60 * 60 * 24));
+    if (daysSinceUpdate > 7 && (dossier.status === "blocked" || dossier.status === "on_hold")) {
+      const stagnationImplication = activeTasks > 0
+        ? `This dossier has not been updated in ${daysSinceUpdate} days while ${activeTasks} task(s) remain active.`
+        : `This dossier has not been updated in ${daysSinceUpdate} days. Review whether it requires attention or can be closed.`;
+      interpretations.push({
+        level: daysSinceUpdate > 14 ? "critical" : "warning",
+        signal: "stagnation",
+        statement: `This dossier has been in '${dossier.status}' status for ${daysSinceUpdate} days without updates.`,
+        implication: stagnationImplication,
+        dataPoints: { daysSinceUpdate, status: dossier.status, activeTasks },
+      });
+    }
   }
 
   // Priority + status mismatch
   if (dossier.priority === "high" && dossier.status === "pending") {
     interpretations.push({
       level: "warning",
+      signal: "priority_mismatch",
       statement: "High priority dossier has not started.",
       implication: "This case is marked urgent but work hasn't begun. Review assignment.",
+      dataPoints: { priority: "high", status: "pending" },
     });
   }
 
@@ -573,29 +687,37 @@ function interpretDossierState(dossier, context) {
     const deadline = new Date(dossier.next_deadline);
     const now = new Date();
     const daysUntil = Math.ceil((deadline - now) / (1000 * 60 * 60 * 24));
+    const taskContext = activeTasks > 0 ? ` ${activeTasks} task(s) are still open.` : "";
 
     if (daysUntil < 0) {
       interpretations.push({
         level: "critical",
+        signal: "deadline_pressure",
         statement: `Deadline passed ${Math.abs(daysUntil)} days ago.`,
-        implication: "Immediate review required. Assess consequences and next steps.",
+        implication: `Immediate review required. Assess consequences and next steps.${taskContext}`,
+        dataPoints: { daysOverdue: Math.abs(daysUntil), activeTasks },
       });
     } else if (daysUntil <= 3) {
       interpretations.push({
         level: "critical",
+        signal: "deadline_pressure",
         statement: `Deadline in ${daysUntil} day(s).`,
-        implication: "Urgent preparation needed. Verify all prerequisites are met.",
+        implication: `Urgent preparation needed.${taskContext}`,
+        dataPoints: { daysUntil, activeTasks },
       });
     } else if (daysUntil <= 7) {
       interpretations.push({
         level: "warning",
+        signal: "deadline_pressure",
         statement: `Deadline approaching in ${daysUntil} days.`,
-        implication: "Plan final preparations. Review outstanding tasks.",
+        implication: `Plan final preparations.${taskContext}`,
+        dataPoints: { daysUntil, activeTasks },
       });
     }
   } else {
     interpretations.push({
       level: "info",
+      signal: "no_deadline",
       statement: "No deadline is set for this dossier.",
       implication: "Consider setting a milestone to maintain tracking discipline.",
     });
@@ -604,35 +726,36 @@ function interpretDossierState(dossier, context) {
   if (dossier.phase) {
     interpretations.push({
       level: "info",
+      signal: "phase_info",
       statement: `Dossier phase: ${dossier.phase}.`,
       implication: "Phase indicates the current procedural stage.",
     });
   }
 
-  const taskSummary = context?.childSummary?.tasks;
   if (taskSummary) {
-    const total = Number(taskSummary.total || 0);
-    const active = Number(taskSummary.active || 0);
-    const overdue = Number(taskSummary.overdue || 0);
-
-    if (total > 0) {
-      if (overdue > 0) {
+    if (totalTasks > 0) {
+      if (overdueTasks > 0) {
         interpretations.push({
-          level: overdue > 3 ? "critical" : "warning",
-          statement: `${overdue} overdue task(s) exist in this dossier.`,
+          level: overdueTasks > 3 ? "critical" : "warning",
+          signal: "overdue_tasks",
+          statement: `${overdueTasks} overdue task(s) exist in this dossier.`,
           implication: "Pending work is accumulating. Review task priorities.",
+          dataPoints: { overdueTasks, totalTasks, activeTasks },
         });
       }
 
-      if (active > 0) {
+      if (activeTasks > 0) {
         interpretations.push({
           level: "info",
-          statement: `${active} active task(s) for this dossier.`,
+          signal: "active_tasks",
+          statement: `${activeTasks} active task(s) for this dossier.`,
           implication: "Active work requires tracking and ownership.",
+          dataPoints: { activeTasks, totalTasks },
         });
       } else {
         interpretations.push({
           level: "neutral",
+          signal: "no_active_tasks",
           statement: "No active tasks are open for this dossier.",
           implication: "Workload appears paused or completed.",
         });
@@ -640,6 +763,7 @@ function interpretDossierState(dossier, context) {
     } else {
       interpretations.push({
         level: "info",
+        signal: "no_tasks",
         statement: "No tasks exist for this dossier.",
         implication: "Define the first tasks to begin progress.",
       });
@@ -652,12 +776,15 @@ function interpretDossierState(dossier, context) {
     if (totalSessions > 0) {
       interpretations.push({
         level: "info",
+        signal: "sessions_recorded",
         statement: `${totalSessions} session(s) recorded for this dossier.`,
         implication: "Review session timeline for upcoming preparation.",
+        dataPoints: { totalSessions },
       });
     } else {
       interpretations.push({
         level: "info",
+        signal: "no_sessions",
         statement: "No sessions are recorded for this dossier.",
         implication: "Confirm whether sessions should be scheduled.",
       });
@@ -669,17 +796,24 @@ function interpretDossierState(dossier, context) {
     const count = context.overdueTasks.length;
     interpretations.push({
       level: count > 3 ? "critical" : "warning",
+      signal: "overdue_tasks",
       statement: `${count} overdue task(s) exist in this dossier.`,
       implication: "Pending work is accumulating. Review task priorities.",
+      dataPoints: { overdueTasks: count },
     });
   }
 
   // Unassigned
   if (!dossier.assigned_lawyer) {
+    const hasDeadline = Boolean(dossier.next_deadline);
     interpretations.push({
       level: "warning",
+      signal: "ownership_gap",
       statement: "No lawyer is assigned to this dossier.",
-      implication: "Ownership unclear. Assign responsibility to ensure follow-through.",
+      implication: hasDeadline
+        ? "Deadlines and tasks have no accountable owner. Court filings or obligations may be missed."
+        : "Ownership unclear. Assign responsibility to ensure follow-through.",
+      dataPoints: { assignedLawyer: null, hasDeadline },
     });
   }
 
@@ -693,8 +827,10 @@ function interpretClientState(client, context) {
   if (client.status === "inactive") {
     interpretations.push({
       level: "info",
+      signal: "status_inactive",
       statement: "This client is marked INACTIVE.",
       implication: "No active engagement expected. Historical records only.",
+      dataPoints: { status: "inactive" },
     });
   }
 
@@ -712,20 +848,31 @@ function interpretClientState(client, context) {
       if (blockedDossiers.length > 0) {
         interpretations.push({
           level: "critical",
+          signal: "blocked_dossiers",
           statement: `${blockedDossiers.length} dossier(s) are BLOCKED for this client.`,
           implication: "Active cases are stalled. Review blocking issues.",
+          dataPoints: { blockedDossiers: blockedDossiers.length, totalDossiers: context.dossiers.length },
         });
       }
 
       if (activeDossiers.length > 0) {
+        const highPriority = activeDossiers.filter(
+          (d) => d.priority === "urgent" || d.priority === "high"
+        );
+        const activeImplication = highPriority.length > 0
+          ? `Ongoing case work exists. ${highPriority.length} dossier(s) are high priority or urgent.`
+          : "Ongoing case work exists. Review for priority and deadlines.";
         interpretations.push({
           level: "info",
+          signal: "active_dossiers",
           statement: `${activeDossiers.length} active dossier(s) for this client.`,
-          implication: "Ongoing case work exists. Review for priority and deadlines.",
+          implication: activeImplication,
+          dataPoints: { activeDossiers: activeDossiers.length, highPriority: highPriority.length },
         });
       } else {
         interpretations.push({
           level: "neutral",
+          signal: "no_active_dossiers",
           statement: "All dossiers for this client are closed or archived.",
           implication: "No active work. Client relationship is historical.",
         });
@@ -733,6 +880,7 @@ function interpretClientState(client, context) {
     } else {
       interpretations.push({
         level: "info",
+        signal: "no_dossiers",
         statement: "No dossiers exist for this client.",
         implication: "New client or prospect. Consider intake process.",
       });
@@ -747,20 +895,31 @@ function interpretClientState(client, context) {
       if (blocked > 0) {
         interpretations.push({
           level: "critical",
+          signal: "blocked_dossiers",
           statement: `${blocked} dossier(s) are BLOCKED for this client.`,
           implication: "Active cases are stalled. Review blocking issues.",
+          dataPoints: { blockedDossiers: blocked, totalDossiers: total },
         });
       }
 
       if (active > 0) {
+        const urgentCount = Number(priorities.urgent || 0);
+        const highCount = Number(priorities.high || 0);
+        const highPriorityTotal = urgentCount + highCount;
+        const activeImplication = highPriorityTotal > 0
+          ? `Ongoing case work exists. ${highPriorityTotal} dossier(s) are high priority or urgent.`
+          : "Ongoing case work exists. Review for priority and deadlines.";
         interpretations.push({
           level: "info",
+          signal: "active_dossiers",
           statement: `${active} active dossier(s) for this client.`,
-          implication: "Ongoing case work exists. Review for priority and deadlines.",
+          implication: activeImplication,
+          dataPoints: { activeDossiers: active, highPriority: highPriorityTotal },
         });
       } else {
         interpretations.push({
           level: "neutral",
+          signal: "no_active_dossiers",
           statement: "All dossiers for this client are closed or archived.",
           implication: "No active work. Client relationship is historical.",
         });
@@ -781,6 +940,7 @@ function interpretClientState(client, context) {
       if (priorityParts.length > 0) {
         interpretations.push({
           level: "info",
+          signal: "priority_mix",
           statement: `Dossier priority mix: ${priorityParts.join(", ")}.`,
           implication: "Confirm urgent and high priority matters are resourced.",
         });
@@ -788,6 +948,7 @@ function interpretClientState(client, context) {
     } else {
       interpretations.push({
         level: "info",
+        signal: "no_dossiers",
         statement: "No dossiers exist for this client.",
         implication: "New client or prospect. Consider intake process.",
       });
@@ -796,10 +957,13 @@ function interpretClientState(client, context) {
 
   // Client-wide overdue tasks
   if (context.overdueTasks && context.overdueTasks.length > 0) {
+    const overdueCount = context.overdueTasks.length;
     interpretations.push({
       level: "warning",
-      statement: `${context.overdueTasks.length} overdue task(s) across this client's dossiers.`,
+      signal: "overdue_tasks",
+      statement: `${overdueCount} overdue task(s) across this client's dossiers.`,
       implication: "Work is falling behind. Review resource allocation.",
+      dataPoints: { overdueTasks: overdueCount },
     });
   }
 
@@ -824,10 +988,12 @@ function interpretTaskState(task, context) {
   if (daysOverdue > 0) {
     interpretations.push({
       level: daysOverdue > 7 ? "critical" : "warning",
+      signal: "overdue",
       statement: `This task is ${daysOverdue} day(s) OVERDUE.`,
       implication: daysOverdue > 7
         ? "Significant delay. Escalate or reassess priority."
         : "Task is late. Complete soon or update deadline.",
+      dataPoints: { daysOverdue },
     });
   }
 
@@ -835,20 +1001,37 @@ function interpretTaskState(task, context) {
   if (status === "blocked") {
     interpretations.push({
       level: "warning",
+      signal: "status_blocked",
       statement: "This task is BLOCKED.",
       implication: "Cannot proceed without resolving dependency. Identify blocker.",
+      dataPoints: { status: "blocked" },
     });
   } else if (status === "pending" && normalizePriority(task.priority) === "urgent") {
     interpretations.push({
       level: "critical",
+      signal: "priority_mismatch",
       statement: "URGENT task has not started.",
       implication: "High priority work is waiting. Begin immediately or reassign.",
+      dataPoints: { priority: "urgent", status: "pending" },
     });
   } else if (status === "in_progress") {
     interpretations.push({
       level: "info",
+      signal: "in_progress",
       statement: "Task is actively in progress.",
       implication: "Work is ongoing. Monitor for completion.",
+      dataPoints: { status: "in_progress" },
+    });
+  }
+
+  // Unassigned task
+  if (!task.assigned_to && !COMPLETED_STATUSES.has(status)) {
+    interpretations.push({
+      level: "warning",
+      signal: "ownership_gap",
+      statement: "This task has no assigned owner.",
+      implication: "It will not appear in anyone's daily priorities until assigned.",
+      dataPoints: { assignedTo: null },
     });
   }
 
@@ -861,6 +1044,7 @@ function interpretTaskState(task, context) {
   if (parentRef) {
     interpretations.push({
       level: "neutral",
+      signal: "parent_context",
       statement: `This task belongs to dossier/case "${parentRef}".`,
       implication: "Task progress affects the parent case. Consider case-level impact.",
     });
@@ -876,14 +1060,18 @@ function interpretLawsuitState(lawsuit, context) {
   if (lawsuit.status === "pending_judgment") {
     interpretations.push({
       level: "warning",
+      signal: "pending_judgment",
       statement: "Lawsuit is awaiting judgment.",
       implication: "Outcome pending. Prepare for both scenarios.",
+      dataPoints: { status: "pending_judgment" },
     });
   } else if (lawsuit.status === "active") {
     interpretations.push({
       level: "info",
+      signal: "status_active",
       statement: "Lawsuit is ACTIVE.",
       implication: "Legal proceedings ongoing. Monitor court calendar.",
+      dataPoints: { status: "active" },
     });
   }
 
@@ -896,6 +1084,7 @@ function interpretLawsuitState(lawsuit, context) {
     if (upcomingSessions.length === 0) {
       interpretations.push({
         level: "info",
+        signal: "no_upcoming_sessions",
         statement: "No upcoming court sessions scheduled.",
         implication: "Verify if scheduling is needed or case is between hearings.",
       });
@@ -904,10 +1093,12 @@ function interpretLawsuitState(lawsuit, context) {
       const daysUntil = Math.ceil((new Date(nextSession.date) - now) / (1000 * 60 * 60 * 24));
       interpretations.push({
         level: daysUntil <= 7 ? "warning" : "info",
+        signal: "hearing_proximity",
         statement: `Next court session in ${daysUntil} day(s).`,
         implication: daysUntil <= 7
           ? "Hearing approaching. Ensure preparation is complete."
           : "Session scheduled. Track preparation timeline.",
+        dataPoints: { daysUntil, upcomingSessions: upcomingSessions.length },
       });
     }
   }
@@ -927,6 +1118,7 @@ function interpretSessionState(session, context) {
     if (sessionDate < now) {
       interpretations.push({
         level: "info",
+        signal: "session_passed",
         statement: "This session has PASSED.",
         implication: "Review outcomes and follow-up tasks.",
       });
@@ -939,8 +1131,10 @@ function interpretSessionState(session, context) {
         if (incompleteTasks.length > 0) {
           interpretations.push({
             level: "warning",
+            signal: "incomplete_followup",
             statement: `${incompleteTasks.length} related task(s) remain incomplete.`,
             implication: "Post-session work pending. Complete follow-up items.",
+            dataPoints: { incompleteTasks: incompleteTasks.length },
           });
         }
       }
@@ -948,12 +1142,14 @@ function interpretSessionState(session, context) {
       const daysUntil = Math.ceil((sessionDate - now) / (1000 * 60 * 60 * 24));
       interpretations.push({
         level: daysUntil <= 3 ? "critical" : daysUntil <= 7 ? "warning" : "info",
+        signal: "hearing_proximity",
         statement: `Session scheduled in ${daysUntil} day(s).`,
         implication: daysUntil <= 3
           ? "Imminent. Final preparation required."
           : daysUntil <= 7
             ? "Approaching. Verify preparation status."
             : "Upcoming. Plan preparation timeline.",
+        dataPoints: { daysUntil },
       });
     }
   }
@@ -966,6 +1162,7 @@ function interpretSessionState(session, context) {
   if (parentRef) {
     interpretations.push({
       level: "neutral",
+      signal: "parent_context",
       statement: `This session is linked to dossier/case "${parentRef}".`,
       implication: "Session outcomes affect the parent matter.",
     });
@@ -1437,6 +1634,7 @@ function serializeFollowUp(followUp) {
   if (followUp.target) output.target = followUp.target;
   if (followUp.parent) output.parent = followUp.parent;
   if (followUp.filters) output.filters = followUp.filters;
+  if (followUp.category) output.category = followUp.category;
   return output;
 }
 
@@ -1601,6 +1799,62 @@ function generateFollowUps(entityType, entityData, context, interpretation, navi
     context?._aggregateFilters && typeof context._aggregateFilters === "object"
       ? context._aggregateFilters
       : {};
+
+  if (entityType === "web_search" || entityType === "deep_search") {
+    const query = String(context?._searchQuery || aggregateFilters.query || "").trim();
+    const sameIntent =
+      entityType === "web_search"
+        ? READ_INTENTS.WEB_SEARCH
+        : READ_INTENTS.DEEP_SEARCH;
+    const complementaryIntent =
+      entityType === "web_search"
+        ? READ_INTENTS.DEEP_SEARCH
+        : READ_INTENTS.WEB_SEARCH;
+    const sameLabel = entityType === "web_search" ? "Repeat web search" : "Repeat deep search";
+    const complementLabel =
+      entityType === "web_search"
+        ? "Run deep search on this topic"
+        : "Run web search on this topic";
+    const baseFilters = query ? { query } : undefined;
+    const targetType = entityType;
+    const target = {
+      type: targetType,
+      label: originLabel || formatEntityTypeLabel(targetType),
+    };
+
+    return [
+      serializeFollowUp({
+        category: "search",
+        priority: 1,
+        ...buildFollowUp({
+          label: sameLabel,
+          reason: "Rerun the same explicit search request.",
+          labelKey: "repeat_search",
+          intent: sameIntent,
+          scopeType: null,
+          scopeId: null,
+          origin,
+          target,
+          filters: baseFilters,
+        }),
+      }),
+      serializeFollowUp({
+        category: "search",
+        priority: 2,
+        ...buildFollowUp({
+          label: complementLabel,
+          reason: "Switch search depth while keeping explicit user control.",
+          labelKey: "switch_search_mode",
+          intent: complementaryIntent,
+          scopeType: null,
+          scopeId: null,
+          origin,
+          target: { type: complementaryIntent === READ_INTENTS.WEB_SEARCH ? "web_search" : "deep_search" },
+          filters: baseFilters,
+        }),
+      }),
+    ];
+  }
 
   const addChildExploration = (candidates, scopeType, scopeId, originForFollowUp) => {
     candidates.forEach((child, idx) => {
@@ -2010,6 +2264,7 @@ function generateFollowUps(entityType, entityData, context, interpretation, navi
     // Add relevant follow-ups based on urgency
     if (entityType === "dossier" || entityType === "lawsuit") {
       if (context.overdueTasks && context.overdueTasks.length > 0) {
+        const overdueCount = context.overdueTasks.length;
         const parentContext = originContext;
         const target = { type: "task" };
         followUps.push({
@@ -2022,7 +2277,7 @@ function generateFollowUps(entityType, entityData, context, interpretation, navi
               parentContext?.label,
               "task",
             ),
-            reason: "Overdue work requires immediate attention.",
+            reason: `${overdueCount} overdue task(s) need review to prevent further delay.`,
             labelKey: "show",
             intent: READ_INTENTS.LIST_OVERDUE_TASKS,
             scopeType: entityType,
@@ -2034,6 +2289,34 @@ function generateFollowUps(entityType, entityData, context, interpretation, navi
           }),
         });
       }
+    }
+
+    // Accountability follow-up for ownership gaps
+    const hasOwnershipGap = interpretation.some(
+      (i) => i.signal === "ownership_gap"
+    );
+    if (hasOwnershipGap && (entityType === "dossier" || entityType === "task")) {
+      const ownershipSignal = interpretation.find((i) => i.signal === "ownership_gap");
+      followUps.push({
+        category: "accountability",
+        priority: 1,
+        ...buildFollowUp({
+          label: entityType === "dossier"
+            ? "Review dossier assignment"
+            : "Review task assignment",
+          reason: ownershipSignal
+            ? ownershipSignal.implication
+            : "No accountable owner assigned.",
+          labelKey: "review_assignment",
+          intent: entityType === "dossier"
+            ? READ_INTENTS.READ_DOSSIER
+            : READ_INTENTS.READ_TASK,
+          scopeType: entityType,
+          scopeId: originId,
+          origin,
+          target: originContext,
+        }),
+      });
     }
   }
 
@@ -2186,14 +2469,17 @@ function buildInterpretationSummary(interpretation, context) {
   const readOutcome = context?._readOutcome;
 
   // Check for critical/warning issues first (these always take priority)
+  // Use the actual statement text to preserve grounded entity counts.
+  // Counting statements would produce misleading numbers (e.g. "1 item needs review"
+  // when the single statement says "3 dossier(s) are on hold").
   const critical = interpretation.filter((i) => i.level === "critical");
   const warning = interpretation.filter((i) => i.level === "warning");
 
   if (critical.length > 0) {
-    return `${critical.length} critical issue(s) require immediate attention.`;
+    return critical.map((i) => i.statement).join(" ");
   }
   if (warning.length > 0) {
-    return `${warning.length} item(s) need review.`;
+    return warning.map((i) => i.statement).join(" ");
   }
 
   // For empty/not_found results, use the interpretation statements

@@ -135,6 +135,13 @@ function list() {
   return db.prepare(`SELECT * FROM ${table} WHERE deleted_at IS NULL`).all();
 }
 
+function count() {
+  const row = db
+    .prepare(`SELECT COUNT(*) as count FROM ${table} WHERE deleted_at IS NULL`)
+    .get();
+  return row?.count || 0;
+}
+
 function get(id) {
   return db
     .prepare(`SELECT * FROM ${table} WHERE id = @id AND deleted_at IS NULL`)
@@ -324,6 +331,7 @@ function clearAll(entity_type, entity_id, user_id = 1) {
 
 module.exports = {
   list,
+  count,
   get,
   create,
   update,

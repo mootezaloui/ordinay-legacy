@@ -28,18 +28,15 @@ export function NavigationContext({
   return (
     <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-700/50">
       {/* Section header */}
-      <div className="flex items-center gap-2 mb-3">
+      <div className="flex items-center gap-2 mb-2.5">
         <Network className="w-3.5 h-3.5 text-slate-400" />
-        <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-          Context
-        </span>
-        <span className="text-xs text-slate-400 dark:text-slate-500 ml-auto">
-          {navigation.role === "parent" ? "Parent entity" : navigation.role === "child" ? "Child entity" : "Entity"}
+        <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+          Hierarchy
         </span>
       </div>
 
       {/* Role description */}
-      <p className="text-sm text-slate-600 dark:text-slate-400 mb-3">
+      <p className="text-[13px] text-slate-500 dark:text-slate-400 mb-3 leading-relaxed">
         {navigation.contextStatement}
       </p>
 
@@ -49,20 +46,22 @@ export function NavigationContext({
           <button
             type="button"
             onClick={() => onNavigate(parentFollowUp)}
-            className="group inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 border border-slate-200 dark:border-slate-700 rounded bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+            className="agent-nav-chip agent-nav-chip-interactive group"
           >
-            <ArrowUp className="w-3 h-3 text-slate-400" />
-            <span>
-              {navigation.parentPath.type}: {navigation.parentPath.reference || navigation.parentPath.name || navigation.parentPath.id}
+            <ArrowUp className="w-3 h-3 text-indigo-400 group-hover:text-indigo-500" />
+            <span className="agent-nav-chip-type">{navigation.parentPath.type}</span>
+            <span className="agent-nav-chip-ref">
+              {navigation.parentPath.reference || navigation.parentPath.name || navigation.parentPath.id}
             </span>
           </button>
         )}
 
         {isChild && navigation.parentPath && (!parentFollowUp || !onNavigate) && (
-          <span className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 border border-slate-200 dark:border-slate-700 rounded bg-white dark:bg-slate-800/50 text-slate-500 dark:text-slate-400">
+          <span className="agent-nav-chip">
             <ArrowUp className="w-3 h-3 text-slate-400" />
-            <span>
-              {navigation.parentPath.type}: {navigation.parentPath.reference || navigation.parentPath.name || navigation.parentPath.id}
+            <span className="agent-nav-chip-type">{navigation.parentPath.type}</span>
+            <span className="agent-nav-chip-ref">
+              {navigation.parentPath.reference || navigation.parentPath.name || navigation.parentPath.id}
             </span>
           </span>
         )}
@@ -70,13 +69,10 @@ export function NavigationContext({
         {/* Children available — show if this is a parent entity */}
         {isParent && navigation.childrenAvailable && navigation.childrenAvailable.length > 0 && (
           navigation.childrenAvailable.map((child, idx) => (
-            <span
-              key={idx}
-              className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 border border-slate-200 dark:border-slate-700 rounded bg-white dark:bg-slate-800/50 text-slate-500 dark:text-slate-400"
-            >
+            <span key={idx} className="agent-nav-chip">
               <ArrowDown className="w-3 h-3 text-slate-400" />
-              <span>{child.type}</span>
-              <span className="text-slate-400 dark:text-slate-500">({child.count})</span>
+              <span className="agent-nav-chip-type">{child.type}</span>
+              <span className="agent-nav-chip-count">{child.count}</span>
             </span>
           ))
         )}

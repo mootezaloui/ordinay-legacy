@@ -10,6 +10,8 @@ const { ENTITY_PLURALS } = require("./read.constants");
 
 function _resolveReadEntityType(intent) {
   const map = {
+    [READ_INTENTS.WEB_SEARCH]: "web_search",
+    [READ_INTENTS.DEEP_SEARCH]: "deep_search",
     [READ_INTENTS.LIST_CLIENTS]: "client",
     [READ_INTENTS.READ_CLIENT]: "client",
     [READ_INTENTS.EXPLAIN_CLIENT_STATE]: "client",

@@ -39,6 +39,23 @@ const normalizeEntityType = (rawType) => {
 };
 
 function list(filters = {}) {
+  const { whereClause, params } = buildWhereClause(filters);
+  return db
+    .prepare(
+      `SELECT * FROM ${table} ${whereClause} ORDER BY created_at DESC, id DESC`
+    )
+    .all(params);
+}
+
+function count(filters = {}) {
+  const { whereClause, params } = buildWhereClause(filters);
+  const row = db
+    .prepare(`SELECT COUNT(*) as count FROM ${table} ${whereClause}`)
+    .get(params);
+  return row?.count || 0;
+}
+
+function buildWhereClause(filters = {}) {
   const where = ["deleted_at IS NULL"];
   const params = {};
 
@@ -46,17 +63,15 @@ function list(filters = {}) {
     where.push("entity_type = @entity_type");
     params.entity_type = filters.entity_type;
   }
-  if (filters.entity_id) {
+  if (filters.entity_id !== undefined && filters.entity_id !== null) {
     where.push("entity_id = @entity_id");
     params.entity_id = filters.entity_id;
   }
 
-  const whereClause = where.length ? `WHERE ${where.join(" AND ")}` : "";
-  return db
-    .prepare(
-      `SELECT * FROM ${table} ${whereClause} ORDER BY created_at DESC, id DESC`
-    )
-    .all(params);
+  return {
+    whereClause: where.length ? `WHERE ${where.join(" AND ")}` : "",
+    params,
+  };
 }
 
 function get(id) {
@@ -156,6 +171,7 @@ list = function (filters = {}) {
 
 module.exports = {
   list,
+  count,
   get,
   create,
   deleteByEntity,

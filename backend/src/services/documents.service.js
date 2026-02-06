@@ -329,6 +329,20 @@ function list(filters = {}) {
   let sql = `SELECT * FROM ${table} WHERE deleted_at IS NULL`;
   const params = {};
 
+  sql = appendEntityFilters(sql, params, filters);
+
+  return db.prepare(sql).all(params).map(decorateDocument);
+}
+
+function count(filters = {}) {
+  let sql = `SELECT COUNT(*) as count FROM ${table} WHERE deleted_at IS NULL`;
+  const params = {};
+  sql = appendEntityFilters(sql, params, filters);
+  const row = db.prepare(sql).get(params);
+  return row?.count || 0;
+}
+
+function appendEntityFilters(sql, params, filters = {}) {
   // Entity filtering for scoped queries
   if (filters.client_id !== undefined) {
     sql += ` AND client_id = @client_id`;
@@ -366,8 +380,7 @@ function list(filters = {}) {
     sql += ` AND officer_id = @officer_id`;
     params.officer_id = filters.officer_id;
   }
-
-  return db.prepare(sql).all(params).map(decorateDocument);
+  return sql;
 }
 
 function get(id) {
@@ -486,6 +499,7 @@ module.exports = {
   listMetadataByEntity,
   listTextsByIds,
   list,
+  count,
   get,
   create,
   update,

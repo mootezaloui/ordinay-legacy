@@ -348,6 +348,14 @@ async function _executeReadIntent(
         aggregateFilters: shouldAggregateSummary ? aggregateFilters : null,
       },
     );
+    if (
+      (intent === READ_INTENTS.WEB_SEARCH ||
+        intent === READ_INTENTS.DEEP_SEARCH) &&
+      typeof filters?.query === "string" &&
+      filters.query.trim()
+    ) {
+      interpretationContext._searchQuery = filters.query.trim();
+    }
     const explanationOutput = this._buildReadExplanation({
       intent,
       entityType,

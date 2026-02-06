@@ -10,6 +10,8 @@ const DEFAULT_LABELS = Object.freeze({
   mission: "Mission",
   financial_entry: "Financial entry",
   document: "Document",
+  web_search: "Web Search",
+  deep_search: "Deep Search",
   notification: "Notification",
   history_event: "History event",
 });

@@ -60,12 +60,19 @@ export function InterpretationBlock({ interpretation }: InterpretationBlockProps
   return (
     <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-700/50">
       {/* Section header */}
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+      <div className="flex items-center gap-2 mb-3">
+        {hasCritical ? (
+          <AlertTriangle className="w-3.5 h-3.5 text-red-500" />
+        ) : hasWarning ? (
+          <AlertCircle className="w-3.5 h-3.5 text-amber-500" />
+        ) : (
+          <Info className="w-3.5 h-3.5 text-slate-400" />
+        )}
+        <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
           Interpretation
         </span>
         {summaryText && (
-          <span className={`text-xs ${summaryStyle}`}>
+          <span className={`text-xs ml-auto ${summaryStyle}`}>
             {summaryText}
           </span>
         )}
@@ -80,18 +87,20 @@ export function InterpretationBlock({ interpretation }: InterpretationBlockProps
           return (
             <div
               key={idx}
-              className={`artifact-build-statement flex gap-3 p-3 rounded-r border-l-2 ${config.borderColor} ${config.bgColor}`}
+              className={`artifact-build-statement flex gap-2.5 px-3 py-2.5 rounded-lg border-l-[3px] ${config.borderColor} ${config.bgColor}`}
             >
               <IconComponent
-                className={`w-4 h-4 flex-shrink-0 mt-0.5 ${config.iconColor}`}
+                className={`w-3.5 h-3.5 flex-shrink-0 mt-0.5 ${config.iconColor}`}
               />
-              <div className="min-w-0 flex-1 space-y-1">
-                <p className={`text-sm font-medium ${config.labelColor}`}>
+              <div className="min-w-0 flex-1">
+                <p className={`text-[13px] font-medium leading-snug ${config.labelColor}`}>
                   {stmt.statement}
                 </p>
-                <p className="text-xs text-slate-600 dark:text-slate-400">
-                  {stmt.implication}
-                </p>
+                {stmt.implication && (
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
+                    {stmt.implication}
+                  </p>
+                )}
               </div>
             </div>
           );

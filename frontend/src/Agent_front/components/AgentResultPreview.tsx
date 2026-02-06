@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Database,
   Zap,
@@ -14,7 +14,9 @@ import {
   Search,
 } from "lucide-react";
 import { useData } from "../../contexts/DataContext";
+import { useNotifications } from "../../contexts/NotificationContext";
 import { DataAccessPermissions } from "../../services/api/agent";
+import { apiClient } from "../../services/api/client";
 
 interface DataContext {
   clients?: Array<{ id: number; name?: string; reference?: string }>;
@@ -300,7 +302,15 @@ export function AgentResultPreview({
   setDataAccess,
 }: AgentResultPreviewProps) {
   const data = useData() as DataContext;
+  const { notifications = [] } = useNotifications();
   const capabilities = useDynamicCapabilities();
+  const [auxCounts, setAuxCounts] = useState<{
+    history: number | null;
+    documents: number | null;
+  }>({
+    history: null,
+    documents: null,
+  });
 
   const {
     dossiers = [],
@@ -312,6 +322,50 @@ export function AgentResultPreview({
     sessions = [],
     financialEntries = [],
   } = data || {};
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchAuxCounts = async () => {
+      try {
+        const [historyRes, documentsRes] = await Promise.all([
+          apiClient.get<{ count: number }>("/history/count"),
+          apiClient.get<{ count: number }>("/documents/count"),
+        ]);
+
+        if (!isMounted) return;
+
+        setAuxCounts({
+          history: Number.isFinite(historyRes?.count) ? historyRes.count : 0,
+          documents: Number.isFinite(documentsRes?.count)
+            ? documentsRes.count
+            : 0,
+        });
+      } catch (error) {
+        console.error("[AgentResultPreview] Failed to load aux counts:", error);
+        if (!isMounted) return;
+        setAuxCounts((prev) => ({
+          history: prev.history ?? 0,
+          documents: prev.documents ?? 0,
+        }));
+      }
+    };
+
+    fetchAuxCounts();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [
+    clients.length,
+    dossiers.length,
+    lawsuits.length,
+    tasks.length,
+    personalTasks.length,
+    missions.length,
+    sessions.length,
+    financialEntries.length,
+  ]);
 
   const handleToggleSource = (id: keyof DataAccessPermissions) => {
     setDataAccess((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -382,6 +436,9 @@ export function AgentResultPreview({
             else if (source.id === "missions") value = missions.length;
             else if (source.id === "sessions") value = sessions.length;
             else if (source.id === "financialEntries") value = financialEntries.length;
+            else if (source.id === "notifications") value = notifications.length;
+            else if (source.id === "history") value = auxCounts.history ?? "--";
+            else if (source.id === "documents") value = auxCounts.documents ?? "--";
             const enabled = dataAccess[source.id as keyof DataAccessPermissions];
             return (
               <button

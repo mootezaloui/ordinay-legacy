@@ -13,6 +13,8 @@ const ENTITY_LABELS = {
   mission: "mission",
   financial_entry: "financial entry",
   document: "document",
+  web_search: "web search",
+  deep_search: "deep search",
   notification: "notification",
   history_event: "history event",
 };
@@ -27,6 +29,8 @@ const ENTITY_PLURALS = {
   mission: "missions",
   financial_entry: "financial entries",
   document: "documents",
+  web_search: "web search results",
+  deep_search: "deep search results",
   notification: "notifications",
   history_event: "history events",
 };
@@ -42,6 +46,8 @@ const TASK_STATUSES = new Set([
 const ACTIVE_CASE_STATUSES = new Set(["open", "in_progress", "on_hold"]);
 
 const INTENT_DOMAIN_MAP = {
+  [READ_INTENTS.WEB_SEARCH]: DATA_DOMAINS.WEB,
+  [READ_INTENTS.DEEP_SEARCH]: DATA_DOMAINS.LEGAL,
   [READ_INTENTS.LIST_CLIENTS]: DATA_DOMAINS.CLIENTS,
   [READ_INTENTS.READ_CLIENT]: DATA_DOMAINS.CLIENTS,
   [READ_INTENTS.EXPLAIN_CLIENT_STATE]: DATA_DOMAINS.CLIENTS,

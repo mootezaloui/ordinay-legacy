@@ -57,6 +57,8 @@ export interface InterpretationStatement {
   level: 'critical' | 'warning' | 'info' | 'neutral';
   statement: string;
   implication: string;
+  signal?: string;
+  dataPoints?: Record<string, unknown>;
 }
 
 // Interpretation block — why the entity matters now
@@ -88,6 +90,7 @@ export interface FollowUpSuggestion {
   labelKey?: string;
   labelParams?: Record<string, unknown>;
   reason: string;
+  category?: 'urgency' | 'accountability' | 'planning' | 'exploration' | 'summary' | 'selection' | 'search' | 'navigation' | 'guidance';
   intent: string;
   entityType: string;
   entityId: string | number;
@@ -320,12 +323,43 @@ export interface ChatOutput {
   source: 'llm' | 'fallback';
 }
 
+// Collection item — single entity in a collection result
+export interface CollectionItem {
+  id: string;
+  title: string;
+  subtitle?: string;
+  status?: string;
+  statusSeverity?: 'success' | 'warning' | 'error' | 'neutral';
+  priority?: 'critical' | 'high' | 'normal' | 'low';
+  date?: string;
+  dateLabel?: string;
+  metrics?: { label: string; value: string | number }[];
+  tags?: string[];
+  entityType: string;
+  entityId: string;
+}
+
+// Collection output — structured multi-entity result
+export interface CollectionOutput {
+  type: 'collection';
+  entityType: string;
+  totalCount: number;
+  items: CollectionItem[];
+  summary: string;
+  groupBy?: string;
+  sortBy?: string;
+  filters?: { field: string; value: string; label: string }[];
+  insights?: string[];
+  followUps?: FollowUpSuggestion[];
+}
+
 export type AgentOutput =
   | ChatOutput
   | ExplanationOutput
   | RiskAnalysisOutput
   | DraftOutput
   | ClarificationOutput
+  | CollectionOutput
   | { type: 'action_plan'; actions: ActionProposal[] };
 
 // Agent response from backend
@@ -352,6 +386,7 @@ export interface ProcessedAgentResponse {
   risks?: RiskAnalysisOutput;
   draft?: DraftOutput;
   clarification?: ClarificationOutput;
+  collection?: CollectionOutput;
   actionProposals?: ActionProposal[];
   // Error info
   error?: string;
@@ -423,6 +458,9 @@ export async function sendAgentMessage(
       processed.displayText = '';
     } else if (output.type === 'clarification') {
       processed.clarification = output as ClarificationOutput;
+      processed.displayText = '';
+    } else if (output.type === 'collection') {
+      processed.collection = output as CollectionOutput;
       processed.displayText = '';
     } else if (output.type === 'action_plan') {
       const actionPlan = output as { type: 'action_plan'; actions: ActionProposal[] };

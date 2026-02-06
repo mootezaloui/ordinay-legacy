@@ -281,14 +281,34 @@ function buildPromptContext(artifactSummary, semanticSignals = [], mode = COMMEN
     lines.push(`Overdue items: ${artifactSummary.overdueCount}`);
   }
 
-  // ONLY include interpretation signals in INTERPRETIVE mode
-  // In REPORTING mode, the agent should NOT react to "no issues" signals
-  if (mode === COMMENTARY_MODES.INTERPRETIVE) {
+  // Situation signals — work-context implications from interpretation layer
+  // Include in INTERPRETIVE and GUIDANCE modes (these modes analyze and suggest)
+  if (mode === COMMENTARY_MODES.INTERPRETIVE || mode === COMMENTARY_MODES.GUIDANCE) {
     if (artifactSummary.signals && artifactSummary.signals.length > 0) {
-      lines.push(`Analysis signals: ${artifactSummary.signals.join("; ")}`);
+      lines.push(`Situation signals:`);
+      for (const signal of artifactSummary.signals) {
+        lines.push(`  - ${signal}`);
+      }
+    }
+    if (artifactSummary.implications && artifactSummary.implications.length > 0) {
+      lines.push(`Work implications:`);
+      for (const impl of artifactSummary.implications) {
+        lines.push(`  - ${impl}`);
+      }
     }
     if (artifactSummary.interpretationSummary) {
       lines.push(`Interpretation: ${artifactSummary.interpretationSummary}`);
+    }
+  }
+  // In REPORTING mode, include only critical/warning signals (not implications)
+  if (mode === COMMENTARY_MODES.REPORTING) {
+    if (artifactSummary.signals && artifactSummary.signals.length > 0) {
+      const criticalSignals = artifactSummary.signals.filter(
+        (s) => s.startsWith("CRITICAL:") || s.startsWith("Warning:")
+      );
+      if (criticalSignals.length > 0) {
+        lines.push(`Noted signals: ${criticalSignals.join("; ")}`);
+      }
     }
   }
 
@@ -327,6 +347,8 @@ function extractArtifactSummary(artifactType, artifact, context) {
     entityType: artifact.entityType || context?.scope || "entity",
     entityReference: artifact.entityId || "unknown",
     signals: [],
+    implications: [],
+    dataPointNumbers: [],
     interpretationSummary: null,
     followUpLabels: [],
     isAmbiguous: false,
@@ -365,13 +387,26 @@ function extractArtifactSummary(artifactType, artifact, context) {
     summary.interpretationSummary = artifact.interpretation.summary;
   }
 
-  // Extract signals from interpretation statements
+  // Extract signals, implications, and dataPoints from interpretation statements
   if (artifact.interpretation?.statements) {
     for (const stmt of artifact.interpretation.statements) {
       if (stmt.level === "critical") {
         summary.signals.push(`CRITICAL: ${stmt.statement}`);
       } else if (stmt.level === "warning") {
         summary.signals.push(`Warning: ${stmt.statement}`);
+      }
+      // Extract implications for work-context commentary
+      if (stmt.implication && (stmt.level === "critical" || stmt.level === "warning")) {
+        const signalTag = stmt.signal ? `[${stmt.signal}] ` : "";
+        summary.implications.push(`${signalTag}${stmt.implication}`);
+      }
+      // Collect numeric values from dataPoints for grounding validation
+      if (stmt.dataPoints && typeof stmt.dataPoints === "object") {
+        for (const val of Object.values(stmt.dataPoints)) {
+          if (typeof val === "number") {
+            summary.dataPointNumbers.push(val);
+          }
+        }
       }
     }
   }
@@ -476,6 +511,98 @@ function deriveSemanticSignals(summary) {
   return signals;
 }
 
+// ─── Numeric Grounding Validation ─────────────────────────────────────────
+// Commentary must not introduce numeric claims that contradict or are absent
+// from the structured facts. If the LLM hallucinates counts, reject.
+
+const WORD_TO_NUMBER = Object.freeze({
+  zero: 0, one: 1, two: 2, three: 3, four: 4, five: 5,
+  six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
+  eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15,
+  sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19, twenty: 20,
+  thirty: 30, forty: 40, fifty: 50, hundred: 100,
+});
+
+/**
+ * Extracts all numeric values (digit and written-out) from text.
+ * @param {string} text
+ * @returns {number[]}
+ */
+function extractNumbers(text) {
+  if (!text) return [];
+  const nums = new Set();
+  const digitMatches = text.match(/\b\d+\b/g) || [];
+  digitMatches.forEach((m) => nums.add(Number(m)));
+  const lower = text.toLowerCase();
+  for (const [word, value] of Object.entries(WORD_TO_NUMBER)) {
+    const pattern = new RegExp(`\\b${word}\\b`, "gi");
+    if (pattern.test(lower)) nums.add(value);
+  }
+  return Array.from(nums);
+}
+
+/**
+ * Checks if commentary contains numeric claims not present in the artifact data.
+ * Returns true if all numeric claims are grounded, false if any are ungrounded.
+ *
+ * @param {string} commentary - The generated commentary text
+ * @param {Object} summary - The artifact summary with known counts
+ * @returns {boolean} - True if commentary is numerically grounded
+ */
+function isNumericallyGrounded(commentary, summary) {
+  const commentaryNumbers = extractNumbers(commentary);
+  if (commentaryNumbers.length === 0) return true;
+
+  // Build the set of valid numbers from structured artifact data
+  const validNumbers = new Set();
+  if (typeof summary.totalCount === "number") validNumbers.add(summary.totalCount);
+  if (typeof summary.urgentCount === "number") validNumbers.add(summary.urgentCount);
+  if (typeof summary.overdueCount === "number") validNumbers.add(summary.overdueCount);
+  if (typeof summary.resultCount === "number") validNumbers.add(summary.resultCount);
+
+  // Extract numbers from interpretation signals (these contain grounded entity counts)
+  if (Array.isArray(summary.signals)) {
+    for (const signal of summary.signals) {
+      extractNumbers(signal).forEach((n) => validNumbers.add(n));
+    }
+  }
+
+  // Extract numbers from implications and dataPoints (work-context numbers)
+  if (Array.isArray(summary.implications)) {
+    for (const impl of summary.implications) {
+      extractNumbers(impl).forEach((n) => validNumbers.add(n));
+    }
+  }
+  if (Array.isArray(summary.dataPointNumbers)) {
+    for (const n of summary.dataPointNumbers) {
+      validNumbers.add(n);
+    }
+  }
+
+  // Extract numbers from the facts summary
+  if (summary.factsSummary) {
+    extractNumbers(summary.factsSummary).forEach((n) => validNumbers.add(n));
+  }
+
+  // Extract numbers from facts details
+  if (Array.isArray(summary.factsDetails)) {
+    for (const detail of summary.factsDetails) {
+      extractNumbers(detail).forEach((n) => validNumbers.add(n));
+    }
+  }
+
+  // Check each commentary number against valid numbers
+  for (const num of commentaryNumbers) {
+    if (!validNumbers.has(num)) {
+      console.warn(
+        `[Commentary] Grounding violation: number ${num} not found in artifact data`,
+      );
+      return false;
+    }
+  }
+  return true;
+}
+
 function splitSentences(text) {
   return (text.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [])
     .map((s) => s.trim())
@@ -554,6 +681,14 @@ function sanitizeCommentary(text, summary, artifact, options = {}) {
       console.warn(`[Commentary] Suppressed - mode violation: "${phrase}" in ${mode} mode`);
       return null; // Silence is preferred over misleading tone
     }
+  }
+
+  // NUMERIC GROUNDING CHECK (CRITICAL)
+  // If commentary introduces numbers not present in the artifact data, suppress.
+  // Silence is preferred over confident but incorrect summaries.
+  if (summary && !isNumericallyGrounded(cleaned, summary)) {
+    console.warn("[Commentary] Suppressed - numeric grounding violation");
+    return null;
   }
 
   // Remove specific identifiers to keep commentary clean
@@ -652,9 +787,10 @@ ${promptContext}
 Remember: You are in ${mode} mode.
 - Be concise (1-2 sentences)
 - Do NOT mention specific record IDs or references
-${mode === COMMENTARY_MODES.REPORTING ? "- Do NOT evaluate, reassure, or use emotional language" : ""}
-${mode === COMMENTARY_MODES.INTERPRETIVE ? "- Provide analytical observations only" : ""}
-${mode === COMMENTARY_MODES.GUIDANCE ? "- Suggest options, do not command" : ""}
+- Do NOT restate field values the user can already see. Instead, explain what the situation means for their work.
+${mode === COMMENTARY_MODES.REPORTING ? "- Do NOT evaluate, reassure, or use emotional language\n- If situation signals are present, mention them factually" : ""}
+${mode === COMMENTARY_MODES.INTERPRETIVE ? "- Reference the work implications to explain what the data means for the user's work\n- Connect signals to consequences, do not just echo field names" : ""}
+${mode === COMMENTARY_MODES.GUIDANCE ? "- Reference the work implications when suggesting next actions\n- Suggest options, do not command" : ""}
 ${forceResponse ? "\nYou must respond with 1-2 short sentences." : ""}`;
 
   const controller = new AbortController();
@@ -768,9 +904,10 @@ ${promptContext}
 Remember: You are in ${mode} mode.
 - Be concise (1-2 sentences)
 - Do NOT mention specific record IDs or references
-${mode === COMMENTARY_MODES.REPORTING ? "- Do NOT evaluate, reassure, or use emotional language" : ""}
-${mode === COMMENTARY_MODES.INTERPRETIVE ? "- Provide analytical observations only" : ""}
-${mode === COMMENTARY_MODES.GUIDANCE ? "- Suggest options, do not command" : ""}
+- Do NOT restate field values the user can already see. Instead, explain what the situation means for their work.
+${mode === COMMENTARY_MODES.REPORTING ? "- Do NOT evaluate, reassure, or use emotional language\n- If situation signals are present, mention them factually" : ""}
+${mode === COMMENTARY_MODES.INTERPRETIVE ? "- Reference the work implications to explain what the data means for the user's work\n- Connect signals to consequences, do not just echo field names" : ""}
+${mode === COMMENTARY_MODES.GUIDANCE ? "- Reference the work implications when suggesting next actions\n- Suggest options, do not command" : ""}
 You must respond with 1-2 short sentences.`;
 
   const controller = new AbortController();
@@ -1003,4 +1140,7 @@ module.exports = {
   violatesModeConstraints,
   MODE_PROHIBITED_PHRASES,
   MODE_PROMPTS,
+  // Grounding validation
+  isNumericallyGrounded,
+  extractNumbers,
 };

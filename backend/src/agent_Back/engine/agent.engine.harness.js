@@ -103,6 +103,49 @@ async function runHarness() {
     return { dossiers: trimmed, count: trimmed.length };
   });
 
+  registerReadTool(registry, 'webSearch', async ({ query, category = 'general' } = {}) => {
+    return {
+      query,
+      category,
+      resultCount: 2,
+      results: [
+        {
+          title: `Result A for ${query}`,
+          snippet: 'Web result snippet A',
+          url: 'https://example.com/a',
+          source: 'example',
+        },
+        {
+          title: `Result B for ${query}`,
+          snippet: 'Web result snippet B',
+          url: 'https://example.com/b',
+          source: 'example',
+        },
+      ],
+      citations: [
+        { index: 1, source: 'example', url: 'https://example.com/a', accessedAt: new Date().toISOString() },
+        { index: 2, source: 'example', url: 'https://example.com/b', accessedAt: new Date().toISOString() },
+      ],
+      searchMeta: { provider: 'harness', searchTime: 1, timestamp: new Date().toISOString() },
+    };
+  });
+
+  registerReadTool(registry, 'legalResearch', async ({ query, researchType = 'comprehensive' } = {}) => {
+    return {
+      query,
+      researchType,
+      jurisdiction: 'DE',
+      resultCount: 2,
+      primarySources: [{ id: '1', title: `Primary source for ${query}` }],
+      citations: [
+        { index: 1, source: 'BGH', title: `Citation A for ${query}`, url: 'https://example.com/legal-a' },
+        { index: 2, source: 'BAG', title: `Citation B for ${query}`, url: 'https://example.com/legal-b' },
+      ],
+      uncertainties: [],
+      researchMeta: { sourcesSearched: ['bgh'], searchTime: 1, timestamp: new Date().toISOString() },
+    };
+  });
+
   const engine = new AgentEngine({ toolRegistry: registry });
 
   const baseContext = {
@@ -163,6 +206,32 @@ async function runHarness() {
   });
   assert(chat.output.type === 'chat', 'Chat intent returns chat output');
   assert(chat.output.source === 'fallback', 'Chat falls back when LLM unavailable');
+
+  log('Scenario 5: Explicit web search', 'blue');
+  const webSearch = await engine.run({
+    message: 'Search the web for labor law updates',
+    context: baseContext,
+    agentVersion: 'v1',
+  });
+  assert(webSearch.intent === 'READ_DATA', 'Web search routes through read intent');
+  assert(webSearch.output.entityType === 'web_search', 'Web search is explicitly attributed');
+  assert(
+    String(webSearch.output.facts?.summary || '').includes('Web Search executed'),
+    'Web search summary states explicit web search execution',
+  );
+
+  log('Scenario 6: Explicit deep search', 'blue');
+  const deepSearch = await engine.run({
+    message: 'Do a deep search on wrongful termination jurisprudence',
+    context: baseContext,
+    agentVersion: 'v1',
+  });
+  assert(deepSearch.intent === 'READ_DATA', 'Deep search routes through read intent');
+  assert(deepSearch.output.entityType === 'deep_search', 'Deep search is explicitly attributed');
+  assert(
+    String(deepSearch.output.facts?.summary || '').includes('Deep Search executed'),
+    'Deep search summary states explicit deep search execution',
+  );
 
   log('\nAll harness scenarios passed.\n', 'green');
 }

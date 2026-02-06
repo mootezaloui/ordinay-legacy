@@ -4,20 +4,19 @@ const { parseId } = require('./_utils');
 
 async function list(req, res, next) {
   try {
-    // Extract entity filters from query parameters
-    const filters = {};
-    if (req.query.client_id) filters.client_id = parseInt(req.query.client_id, 10);
-    if (req.query.dossier_id) filters.dossier_id = parseInt(req.query.dossier_id, 10);
-    if (req.query.lawsuit_id) filters.lawsuit_id = parseInt(req.query.lawsuit_id, 10);
-    if (req.query.mission_id) filters.mission_id = parseInt(req.query.mission_id, 10);
-    if (req.query.task_id) filters.task_id = parseInt(req.query.task_id, 10);
-    if (req.query.session_id) filters.session_id = parseInt(req.query.session_id, 10);
-    if (req.query.personal_task_id) filters.personal_task_id = parseInt(req.query.personal_task_id, 10);
-    if (req.query.financial_entry_id) filters.financial_entry_id = parseInt(req.query.financial_entry_id, 10);
-    if (req.query.officer_id) filters.officer_id = parseInt(req.query.officer_id, 10);
-
+    const filters = parseEntityFilters(req.query);
     const documents = service.list(filters);
     res.json(documents);
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function count(req, res, next) {
+  try {
+    const filters = parseEntityFilters(req.query);
+    const total = service.count(filters);
+    res.json({ count: total });
   } catch (error) {
     next(error);
   }
@@ -91,8 +90,25 @@ async function remove(req, res, next) {
   }
 }
 
+function parseEntityFilters(query = {}) {
+  const filters = {};
+  if (query.client_id) filters.client_id = parseInt(query.client_id, 10);
+  if (query.dossier_id) filters.dossier_id = parseInt(query.dossier_id, 10);
+  if (query.lawsuit_id) filters.lawsuit_id = parseInt(query.lawsuit_id, 10);
+  if (query.mission_id) filters.mission_id = parseInt(query.mission_id, 10);
+  if (query.task_id) filters.task_id = parseInt(query.task_id, 10);
+  if (query.session_id) filters.session_id = parseInt(query.session_id, 10);
+  if (query.personal_task_id)
+    filters.personal_task_id = parseInt(query.personal_task_id, 10);
+  if (query.financial_entry_id)
+    filters.financial_entry_id = parseInt(query.financial_entry_id, 10);
+  if (query.officer_id) filters.officer_id = parseInt(query.officer_id, 10);
+  return filters;
+}
+
 module.exports = {
   list,
+  count,
   get,
   create,
   upload,
