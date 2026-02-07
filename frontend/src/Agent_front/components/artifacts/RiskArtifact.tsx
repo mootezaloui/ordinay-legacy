@@ -128,16 +128,6 @@ export function RiskArtifact({ data }: RiskArtifactProps) {
                           <p className="text-sm text-slate-800 dark:text-slate-100 leading-relaxed">
                             {risk.description}
                           </p>
-                          {risk.recommendation && (
-                            <div className="mt-3 p-3 rounded-lg bg-white/60 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/40">
-                              <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">
-                                Recommendation
-                              </p>
-                              <p className="text-sm text-slate-600 dark:text-slate-300">
-                                {risk.recommendation}
-                              </p>
-                            </div>
-                          )}
                         </div>
                       </div>
                     </div>

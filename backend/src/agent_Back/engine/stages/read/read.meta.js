@@ -214,6 +214,33 @@ function _buildReadInterpretationContext(
       ? "success"
       : readOutcome;
   const context = { ...(baseContext || {}), _readOutcome: normalizedReadOutcome };
+  const workSnapshot =
+    baseContext && baseContext.workSnapshot && typeof baseContext.workSnapshot === "object"
+      ? baseContext.workSnapshot
+      : null;
+  const snapshotEntityType = String(workSnapshot?.entityType || "").toLowerCase();
+  const snapshotEntityId =
+    workSnapshot?.entityId ??
+    workSnapshot?.scope?.dossierId ??
+    workSnapshot?.parent?.id ??
+    null;
+  const readEntityId =
+    readMeta?.singleId ??
+    (!Array.isArray(entityData) && entityData && typeof entityData === "object"
+      ? entityData.id
+      : null);
+  const snapshotAppliesToRead =
+    snapshotEntityType === "dossier" &&
+    entityType === "dossier" &&
+    snapshotEntityId !== null &&
+    snapshotEntityId !== undefined &&
+    (readEntityId === null ||
+      readEntityId === undefined ||
+      String(snapshotEntityId) === String(readEntityId));
+
+  if (workSnapshot) {
+    context.workSnapshot = workSnapshot;
+  }
   context._readSummary = String(readSummary || "");
   context._readDetails = Array.isArray(readDetails) ? readDetails : [];
 
@@ -255,12 +282,20 @@ function _buildReadInterpretationContext(
     readOutcome: normalizedReadOutcome,
     workMode: {
       dossier:
-        entityType === "dossier" &&
-        !Array.isArray(entityData) &&
-        groundedEntityRetrieved,
+        (
+          entityType === "dossier" &&
+          !Array.isArray(entityData) &&
+          groundedEntityRetrieved
+        ) || snapshotAppliesToRead,
     },
   };
   context._dossierWorkMode = Boolean(context._grounding.workMode.dossier);
+  context._workSnapshotActive = Boolean(snapshotAppliesToRead);
+  if (snapshotAppliesToRead) {
+    context._workSnapshotTimestamp = workSnapshot?.snapshotAt || null;
+    context._workSnapshotStale = Boolean(workSnapshot?.meta?.stale);
+    context._workSnapshotRefreshReason = workSnapshot?.meta?.refreshReason || null;
+  }
 
   if (typeof aggregateSummary === "boolean") {
     context._aggregateSummary = aggregateSummary;
@@ -315,7 +350,8 @@ function _buildReadExplanation({
       trimmed.startsWith("please try again") ||
       trimmed.startsWith("select one") ||
       trimmed.startsWith("try asking") ||
-      trimmed.startsWith("try your request again")
+      trimmed.startsWith("try your request again") ||
+      trimmed.startsWith("assistant recommendation")
     );
   };
 

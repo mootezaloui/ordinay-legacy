@@ -642,7 +642,13 @@ export function useAgentState() {
           const output = data.output;
           intent = data.intent;
 
-          if (output.type === "explanation") {
+          // TURN COMPLETION INVARIANT: Handle chat outputs defensively
+          // The backend should send chat via chunks, but if it arrives as result, handle it
+          if (output.type === "chat") {
+            streamedContent = (output as import("../../services/api/agent").ChatOutput).message || "";
+            // No artifact data for chat - it's purely conversational
+            agentData = undefined;
+          } else if (output.type === "explanation") {
             const explanation = output as ExplanationOutput;
             if (Array.isArray(explanation.followUps) && explanation.followUps.length > 0) {
               deferredFollowUps = explanation.followUps;
@@ -965,7 +971,11 @@ export function useAgentState() {
           const output = data.output;
           intent = data.intent;
 
-          if (output.type === "explanation") {
+          // TURN COMPLETION INVARIANT: Handle chat outputs defensively
+          if (output.type === "chat") {
+            streamedContent = (output as import("../../services/api/agent").ChatOutput).message || "";
+            agentData = undefined;
+          } else if (output.type === "explanation") {
             const explanation = output as ExplanationOutput;
             if (Array.isArray(explanation.followUps) && explanation.followUps.length > 0) {
               deferredFollowUps = explanation.followUps;
@@ -1273,7 +1283,11 @@ export function useAgentState() {
           const output = data.output;
           intent = data.intent;
 
-          if (output.type === "explanation") {
+          // TURN COMPLETION INVARIANT: Handle chat outputs defensively
+          if (output.type === "chat") {
+            streamedContent = (output as import("../../services/api/agent").ChatOutput).message || "";
+            agentData = undefined;
+          } else if (output.type === "explanation") {
             const explanation = output as ExplanationOutput;
             if (Array.isArray(explanation.followUps) && explanation.followUps.length > 0) {
               deferredFollowUps = explanation.followUps;

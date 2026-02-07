@@ -52,7 +52,13 @@ function _validateContract(contractType, output, context = {}) {
 }
 
 
-function _validateAgainstSchema(intent, output) {
+function _validateAgainstSchema(intent, output, posture) {
+  // ASSISTANT Mode: Skip schema validation (free-form output allowed)
+  if (posture && posture.mode === 'ASSISTANT') {
+    console.log('[Schema Validation] Skipped for ASSISTANT posture');
+    return;
+  }
+
   const schemaKey = this._schemaKeyForIntent(intent);
 
   // Use contract validation boundary

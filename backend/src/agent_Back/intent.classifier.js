@@ -793,6 +793,25 @@ function buildAggregateFilters(normalized, entityType, temporal) {
  */
 function detectReadIntent(message, context = {}) {
   const normalized = message.toLowerCase();
+
+  // DOMAIN LANGUAGE DECOUPLING: Filter out generic domain language usage
+  // These patterns indicate the user is using domain terms generically (examples, templates)
+  // NOT requesting access to system data
+  const genericDomainUsagePatterns = [
+    /\b(a|an)\s+(sample|example|template|draft|generic|simple|professional|formal|informal)\s+(email|letter|message|document|invitation|cover\s+letter)\b/i,
+    /\b(sample|example|template|generic)\s+(of|for)\s+(a|an)\b/i,
+    /\b(email|letter|message|document|invitation)\s+(template|example|sample|format)\b/i,
+    /\bhow\s+to\s+(write|draft|compose|structure)\s+(a|an)\b/i,
+    /\bstructured\s+(email|letter|message|document|invitation|cover\s+letter)\b/i,
+  ];
+
+  const isGenericDomainUsage = genericDomainUsagePatterns.some(pattern => pattern.test(normalized));
+
+  if (isGenericDomainUsage) {
+    console.log("[Domain Language Decoupling] Generic domain usage detected, not requiring system data:", message.slice(0, 60));
+    return null;
+  }
+
   const explicitWebSearchPattern =
     /\b(search\s+the\s+web|web\s+search|search\s+online|internet\s+search|look\s+up\s+on\s+the\s+web|look\s+it\s+up\s+on\s+the\s+web)\b/i;
   const explicitDeepSearchPattern =

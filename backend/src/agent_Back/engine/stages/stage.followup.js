@@ -691,6 +691,7 @@ async function _handleFilterModification(
     message,
     result,
     CONTEXT_SOURCES.FOLLOW_UP,
+    engineContext.posture,
   );
 
   return result;
@@ -834,6 +835,7 @@ async function _handleRepeatAction(
     message,
     result,
     CONTEXT_SOURCES.FOLLOW_UP,
+    engineContext.posture,
   );
 
   return result;

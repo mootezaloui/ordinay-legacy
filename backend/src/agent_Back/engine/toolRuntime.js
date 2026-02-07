@@ -190,6 +190,30 @@ async function executeToolV2(toolName, params, policy, context = {}) {
     timestamp: completedAt,
   });
 
+  if (
+    this.contextStore &&
+    typeof this.contextStore.markWorkSnapshotsStaleByDossierId === "function" &&
+    (tool.sideEffects === true || String(tool.category || "").toLowerCase() === "execute")
+  ) {
+    const mutationDossierId =
+      params?.dossierId ??
+      params?.scope?.dossierId ??
+      (String(params?.entityType || "").toLowerCase() === "dossier"
+        ? params?.entityId
+        : null) ??
+      null;
+    this.contextStore.markWorkSnapshotsStaleByDossierId(
+      mutationDossierId,
+      `mutation:${toolName}`,
+    );
+    this.ledger.record({
+      type: "work_snapshot_marked_stale",
+      reason: `mutation:${toolName}`,
+      dossierId: mutationDossierId ?? null,
+      timestamp: completedAt,
+    });
+  }
+
   return { result, trace };
 }
 

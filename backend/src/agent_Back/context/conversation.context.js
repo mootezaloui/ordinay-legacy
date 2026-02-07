@@ -80,6 +80,23 @@ const CONTEXT_SOURCES = Object.freeze({
   FOLLOW_UP: 'follow_up',
 });
 
+function cloneWorkSnapshot(snapshot) {
+  if (!snapshot || typeof snapshot !== 'object') return null;
+  try {
+    return JSON.parse(JSON.stringify(snapshot));
+  } catch (err) {
+    return null;
+  }
+}
+
+function freezeDeep(value) {
+  if (!value || typeof value !== 'object' || Object.isFrozen(value)) {
+    return value;
+  }
+  Object.values(value).forEach((item) => freezeDeep(item));
+  return Object.freeze(value);
+}
+
 class ConversationContextStore {
   constructor(options = {}) {
     this._contexts = new Map();
@@ -132,6 +149,69 @@ class ConversationContextStore {
     return { ...context };
   }
 
+  _resolveNextWorkSnapshot(previousSnapshot, workSnapshotEvent) {
+    const previous = cloneWorkSnapshot(previousSnapshot);
+    if (!workSnapshotEvent || typeof workSnapshotEvent !== 'object') {
+      return previous ? freezeDeep(previous) : null;
+    }
+
+    const action = String(workSnapshotEvent.action || '').toLowerCase();
+    const now = new Date().toISOString();
+
+    if (action === 'clear') {
+      return null;
+    }
+
+    if (action === 'stale') {
+      if (!previous) return null;
+      const staleSnapshot = {
+        ...previous,
+        meta: {
+          ...(previous.meta || {}),
+          stale: true,
+          staleReason: workSnapshotEvent.reason || 'mutation',
+          staleAt: now,
+        },
+      };
+      return freezeDeep(staleSnapshot);
+    }
+
+    if ((action === 'set' || action === 'refresh' || action === 'upsert') &&
+      workSnapshotEvent.snapshot &&
+      typeof workSnapshotEvent.snapshot === 'object') {
+      const next = cloneWorkSnapshot(workSnapshotEvent.snapshot);
+      if (!next) return previous ? freezeDeep(previous) : null;
+      const inferredEntityId =
+        next.entityId ??
+        next.parent?.id ??
+        next.scope?.dossierId ??
+        null;
+      const inferredEntityType = next.entityType || 'dossier';
+      const normalized = {
+        ...next,
+        entityType: inferredEntityType,
+        entityId: inferredEntityId,
+        snapshotAt: next.snapshotAt || now,
+        scope:
+          next.scope && typeof next.scope === 'object'
+            ? next.scope
+            : {
+                scopeType: inferredEntityType,
+                dossierId: inferredEntityId,
+              },
+        meta: {
+          ...(next.meta || {}),
+          stale: false,
+          refreshReason: workSnapshotEvent.reason || next.meta?.refreshReason || null,
+          refreshedAt: now,
+        },
+      };
+      return freezeDeep(normalized);
+    }
+
+    return previous ? freezeDeep(previous) : null;
+  }
+
   /**
    * Update conversation context after a successful agent action
    *
@@ -151,9 +231,18 @@ class ConversationContextStore {
    * @param {string} actionResult.source - Context source
    * @returns {Object} Updated context
    */
-  update(requestContext, actionResult) {
+  update(requestContext, actionResult, posture) {
     const conversationId = this._getConversationId(requestContext);
     const previous = this._contexts.get(conversationId);
+
+    // CRITICAL: Reset context on posture change (prevents context pollution)
+    if (previous && previous.lastPosture && posture && previous.lastPosture !== posture.mode) {
+      console.log(
+        `[Context] Posture changed: ${previous.lastPosture} → ${posture.mode}, resetting context`,
+      );
+      this._contexts.delete(conversationId);
+      // Continue with empty context
+    }
 
     const nextActiveEntityType =
       actionResult.activeEntity?.type ?? previous?.activeEntityType ?? null;
@@ -165,6 +254,10 @@ class ConversationContextStore {
       actionResult.pendingSelection !== undefined
         ? actionResult.pendingSelection
         : previous?.pendingSelection ?? null;
+    const nextWorkSnapshot = this._resolveNextWorkSnapshot(
+      previous?.workSnapshot || null,
+      actionResult.workSnapshotEvent,
+    );
 
     const context = Object.freeze({
       conversationId,
@@ -181,13 +274,54 @@ class ConversationContextStore {
       activeEntityId: nextActiveEntityId,
       activeEntitySource: nextActiveEntitySource,
       pendingSelection: nextPendingSelection,
+      workSnapshot: nextWorkSnapshot,
       lastQuery: actionResult.query || '',
       source: actionResult.source || CONTEXT_SOURCES.NLP,
+      lastPosture: posture ? posture.mode : (previous?.lastPosture || null),
       updatedAt: new Date().toISOString(),
     });
 
     this._contexts.set(conversationId, context);
     return context;
+  }
+
+  markWorkSnapshotStale(requestContext, reason = 'mutation') {
+    const conversationId = this._getConversationId(requestContext);
+    const previous = this._contexts.get(conversationId);
+    if (!previous || !previous.workSnapshot) return null;
+
+    const nextWorkSnapshot = this._resolveNextWorkSnapshot(previous.workSnapshot, {
+      action: 'stale',
+      reason,
+    });
+
+    const updated = Object.freeze({
+      ...previous,
+      workSnapshot: nextWorkSnapshot,
+      updatedAt: new Date().toISOString(),
+    });
+    this._contexts.set(conversationId, updated);
+    return updated;
+  }
+
+  markWorkSnapshotsStaleByDossierId(dossierId, reason = 'mutation') {
+    const normalizedId = Number(dossierId);
+    for (const [conversationId, context] of this._contexts.entries()) {
+      const snapshot = context?.workSnapshot;
+      if (!snapshot || snapshot.entityType !== 'dossier') continue;
+      const snapshotId = Number(snapshot.entityId ?? snapshot.scope?.dossierId ?? 0);
+      if (normalizedId && snapshotId !== normalizedId) continue;
+      const nextWorkSnapshot = this._resolveNextWorkSnapshot(snapshot, {
+        action: 'stale',
+        reason,
+      });
+      const updated = Object.freeze({
+        ...context,
+        workSnapshot: nextWorkSnapshot,
+        updatedAt: new Date().toISOString(),
+      });
+      this._contexts.set(conversationId, updated);
+    }
   }
 
   /**

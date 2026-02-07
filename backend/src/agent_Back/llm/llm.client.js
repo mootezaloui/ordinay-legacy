@@ -7,6 +7,7 @@ const {
   INTENT_FRAMING_PROMPT,
   DOCUMENT_RELEVANCE_PROMPT,
   DOCUMENT_SUMMARY_PROMPT,
+  UNGOVERNED_MODE_DECISION_PROMPT,
 } = require("./llm.prompts");
 const { parseJsonResponse } = require("./llm.validation");
 
@@ -613,6 +614,73 @@ async function streamChatWithCallbacks(message, callbacks, signal) {
   }
 }
 
+async function decideUngoverned(message) {
+  // INTENT ADAPTIVE RULE: Detect generation/writing requests that should NOT execute intents
+  // These requests ask for the agent's assistance (writing, examples, templates),
+  // not for system data retrieval. Route them directly to ungoverned mode.
+  const normalized = (message || "").toLowerCase();
+
+  // Generation request patterns - these indicate user wants writing/creative help
+  const generationPatterns = [
+    /\b(give me|show me|provide|create|write|draft|generate|compose)\s+(a|an|some)?\s*(example|sample|template|draft|model|demo)/i,
+    /\b(help me (write|draft|create|compose))/i,
+    /\bexample\s+(of|for)\s+(a|an)/i,
+    /\bhow (do i|to|would i)\s+(write|draft|create|compose)/i,
+    /\bstructured\s+(email|letter|message|document|cover\s+letter|invitation)/i,
+    /\bsample\s+(email|letter|message|document)/i,
+  ];
+
+  const isGenerationRequest = generationPatterns.some(pattern => pattern.test(normalized));
+
+  if (isGenerationRequest) {
+    console.log("[Intent Adaptive] Generation request detected, routing to ungoverned mode:", message.slice(0, 60));
+    return { requiresOrganiaData: false, reason: "generation_request" };
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+  try {
+    const response = await fetch(`${LLM_BASE_URL}/api/generate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: LLM_MODEL,
+        prompt: UNGOVERNED_MODE_DECISION_PROMPT + message,
+        stream: false,
+        options: {
+          temperature: 0,
+          num_predict: 10,
+        },
+      }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      return { requiresOrganiaData: true };
+    }
+
+    const data = await response.json();
+    const rawResponse = (data.response || "").trim().toUpperCase();
+    const requiresData = rawResponse === "YES";
+
+    console.log(
+      "[Ungoverned Decision]",
+      requiresData ? "GOVERNED" : "UNGOVERNED",
+      "- Message:",
+      message.slice(0, 50),
+    );
+
+    return { requiresOrganiaData: requiresData };
+  } catch (err) {
+    clearTimeout(timeoutId);
+    console.warn("[Ungoverned Decision] LLM error, defaulting to governed:", err.message);
+    return { requiresOrganiaData: true };
+  }
+}
+
 module.exports = {
   classifyIntentWithLLM,
   generateChatResponse,
@@ -626,4 +694,5 @@ module.exports = {
   streamIntentFramingMessage,
   selectRelevantDocuments,
   summarizeDocumentText,
+  decideUngoverned,
 };

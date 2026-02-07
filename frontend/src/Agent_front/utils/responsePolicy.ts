@@ -83,7 +83,7 @@ export function decideCommentary(message: AgentMessage): CommentaryOutput | null
     if (REDUNDANT_PHRASES.some((phrase) => normalized.includes(phrase))) {
       return null;
     }
-    return { ...commentary, message: capSentences(commentary.message, 3) };
+    return { ...commentary, message: capSentences(commentary.message, 4) };
   }
 
   const normalized = commentary.message.toLowerCase();
@@ -98,7 +98,13 @@ export function decideCommentary(message: AgentMessage): CommentaryOutput | null
     return null;
   }
 
-  return { ...commentary, message: capSentences(commentary.message, 3) };
+  // Assistive delta — reject messages that just narrate artifact content
+  const restatementPattern = /\b(has|shows?|contains?|found|retrieved|there (?:are|is))\s+\d+\s+(task|session|hearing|dossier|mission)/i;
+  if (restatementPattern.test(commentary.message)) {
+    return null;
+  }
+
+  return { ...commentary, message: capSentences(commentary.message, 4) };
 }
 
 export function filterFollowUps(
@@ -106,9 +112,23 @@ export function filterFollowUps(
   resultCount: number | null
 ): FollowUpSuggestion[] {
   if (!followUps || followUps.length === 0) return [];
-  if (resultCount === null) return followUps;
 
-  return followUps.filter((followUp) => {
+  // Schema safety: drop any follow-ups with invalid categories (frontend guard)
+  const VALID_CATEGORIES = new Set([
+    "urgency", "accountability", "planning", "exploration", "summary",
+    "selection", "search", "navigation", "guidance",
+  ]);
+  const schemaValidFollowUps = followUps.filter((f) => {
+    if (!f.category || !VALID_CATEGORIES.has(f.category)) {
+      console.warn(`[ResponsePolicy] Dropped follow-up with invalid category: "${f.category}"`);
+      return false;
+    }
+    return true;
+  });
+
+  if (resultCount === null) return schemaValidFollowUps;
+
+  return schemaValidFollowUps.filter((followUp) => {
     const normalizedIntent = String(followUp.intent || "").toUpperCase();
     const labelKey = String(followUp.labelKey || "").toLowerCase();
     const isSummarize =

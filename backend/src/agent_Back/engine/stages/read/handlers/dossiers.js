@@ -5,44 +5,6 @@ const {
   resolveEntityDisplayLabel,
 } = require("../../../../utils/entityDisplay");
 
-function buildDossierAssistiveRecommendation({
-  urgency,
-  activeTasks,
-  overdueTasks,
-  totalTasks,
-  totalSessions,
-  blockedTasks = 0,
-  deadlineOverdue = false,
-}) {
-  const normalizedUrgency = String(urgency || "").toLowerCase();
-  if (
-    normalizedUrgency === "critical" ||
-    blockedTasks > 0 ||
-    overdueTasks > 0 ||
-    deadlineOverdue
-  ) {
-    const pressureSignals = [];
-    if (blockedTasks > 0) pressureSignals.push(`${blockedTasks} blocked task(s)`);
-    if (overdueTasks > 0) pressureSignals.push(`${overdueTasks} overdue task(s)`);
-    if (deadlineOverdue) pressureSignals.push("an overdue deadline");
-    const pressure =
-      pressureSignals.length > 0
-        ? pressureSignals.join(", ")
-        : "active risk indicators";
-    return `Assistant recommendation: This dossier is under active pressure (${pressure}). I can help draft immediate next steps if you want.`;
-  }
-
-  if (activeTasks > 0) {
-    return `Assistant recommendation: This dossier has ${activeTasks} active task(s). I can help plan the next steps around the current workload if useful.`;
-  }
-
-  if (totalTasks > 0 || totalSessions > 0) {
-    return "Assistant recommendation: Activity is ongoing without urgent blockers. I can draft a concise working summary to align next actions if helpful.";
-  }
-
-  return "Assistant recommendation: This dossier has no active workload yet. I can help draft a practical action plan when you want to start.";
-}
-
 const CLOSED_WORK_STATUSES = [
   "done",
   "completed",
@@ -295,6 +257,389 @@ function applyResolvedDeadlineToDossier(dossier, resolvedDeadline) {
   };
 }
 
+function isWorkSnapshotRefreshRequest(message) {
+  const normalized = String(message || "").toLowerCase();
+  if (!normalized) return false;
+  if (/\b(refresh|reload)\b/i.test(normalized)) return true;
+  return /\bupdate\b\s+(?:the\s+)?(?:snapshot|work\s+snapshot|dossier\s+snapshot|dossier|work\s+mode)\b/i.test(
+    normalized,
+  );
+}
+
+function isClosedWorkStatus(status) {
+  return CLOSED_WORK_STATUSES.includes(String(status || "").toLowerCase());
+}
+
+function isHearingSession(session) {
+  const labelText = String(
+    session?.title || session?.session_type || "",
+  ).toLowerCase();
+  return labelText.includes("hearing") || labelText.includes("\u062c\u0644\u0633\u0629");
+}
+
+function toSnapshotDeadline(resolvedDeadline) {
+  if (!resolvedDeadline || resolvedDeadline.status === "none") {
+    return {
+      status: "none",
+      timestamp: null,
+      dateValue: null,
+      sourceType: null,
+      sourceLabel: null,
+      hasChildDeadlines: false,
+    };
+  }
+  return {
+    status: resolvedDeadline.status || "none",
+    timestamp:
+      typeof resolvedDeadline.timestamp === "number"
+        ? resolvedDeadline.timestamp
+        : parseDeadlineTimestamp(resolvedDeadline.dateValue),
+    dateValue: resolvedDeadline.dateValue || null,
+    sourceType: resolvedDeadline.sourceType || null,
+    sourceLabel: resolvedDeadline.sourceLabel || null,
+    hasChildDeadlines: Boolean(resolvedDeadline.hasChildDeadlines),
+  };
+}
+
+function buildResolvedDeadlineFromSnapshot(snapshot) {
+  const deadline = snapshot?.aggregates?.deadline || {};
+  if (!deadline || deadline.status === "none") {
+    return {
+      status: "none",
+      timestamp: null,
+      dateValue: null,
+      sourceType: null,
+      sourceLabel: null,
+      hasChildDeadlines: false,
+    };
+  }
+  return {
+    status: deadline.status || "none",
+    timestamp:
+      typeof deadline.timestamp === "number"
+        ? deadline.timestamp
+        : parseDeadlineTimestamp(deadline.dateValue),
+    dateValue: deadline.dateValue || null,
+    sourceType: deadline.sourceType || null,
+    sourceLabel: deadline.sourceLabel || null,
+    hasChildDeadlines: Boolean(deadline.hasChildDeadlines),
+  };
+}
+
+function buildDossierViewFromSnapshot(snapshot) {
+  if (!snapshot || typeof snapshot !== "object") return null;
+  if (!snapshot.parent || typeof snapshot.parent !== "object") return null;
+  return { ...snapshot.parent };
+}
+
+function buildWorkContextFromSnapshot(snapshot) {
+  const taskSummary = snapshot?.aggregates?.tasks || {};
+  const sessionSummary = snapshot?.aggregates?.sessions || {};
+  const hearingSummary = snapshot?.aggregates?.hearings || {};
+  const financialSummary = snapshot?.aggregates?.financial || {};
+  const lawsuitSummary = snapshot?.aggregates?.lawsuits || {};
+  const missionSummary = snapshot?.aggregates?.missions || {};
+  const workloadSummary = snapshot?.aggregates?.workload || {};
+  return {
+    urgency: String(workloadSummary.urgency || "normal").toLowerCase(),
+    totalTasks: Number(taskSummary.total || 0),
+    activeTasks: Number(taskSummary.active || 0),
+    overdueTasks: Number(taskSummary.overdue || 0),
+    blockedTasks: Number(taskSummary.blocked || 0),
+    totalSessions: Number(sessionSummary.total || 0),
+    upcomingSessions: Number(sessionSummary.upcoming || 0),
+    upcomingHearings: Number(hearingSummary.upcoming || 0),
+    totalFinancialEntries: Number(financialSummary.total || 0),
+    overdueReceivables: Number(financialSummary.overdueReceivables || 0),
+    totalLawsuits: Number(lawsuitSummary.total || 0),
+    totalMissions: Number(missionSummary.total || 0),
+  };
+}
+
+function applySnapshotWorkSummary(snapshot, applyDossierWorkSummary) {
+  if (!snapshot || typeof applyDossierWorkSummary !== "function") return;
+  const workContext = buildWorkContextFromSnapshot(snapshot);
+  applyDossierWorkSummary({
+    dossierId: Number(snapshot.entityId || snapshot.parent?.id || 0) || null,
+    tasks: {
+      total: workContext.totalTasks,
+      active: workContext.activeTasks,
+      overdue: workContext.overdueTasks,
+    },
+    sessions: {
+      total: workContext.totalSessions,
+    },
+  });
+}
+
+function isDossierSnapshotComplete(snapshot) {
+  if (!snapshot || typeof snapshot !== "object") return false;
+  if (!snapshot.parent || typeof snapshot.parent !== "object") return false;
+  if (!snapshot.aggregates || typeof snapshot.aggregates !== "object")
+    return false;
+  if (!snapshot.aggregates.tasks || !snapshot.aggregates.sessions) return false;
+  if (!snapshot.aggregates.deadline || !snapshot.aggregates.workload)
+    return false;
+  return true;
+}
+
+function normalizeSnapshotIdentity(snapshot) {
+  if (!snapshot || typeof snapshot !== "object") return null;
+  const dossierId =
+    snapshot.entityId ?? snapshot.scope?.dossierId ?? snapshot.parent?.id ?? null;
+  const reference = snapshot.parent?.reference
+    ? String(snapshot.parent.reference).trim()
+    : "";
+  const title = snapshot.parent?.title ? String(snapshot.parent.title).trim() : "";
+  return {
+    dossierId: dossierId !== null && dossierId !== undefined ? Number(dossierId) : null,
+    referenceLower: reference ? reference.toLowerCase() : "",
+    titleLower: title ? title.toLowerCase() : "",
+  };
+}
+
+function requestTargetsDifferentSnapshot(snapshot, request) {
+  const identity = normalizeSnapshotIdentity(snapshot);
+  if (!identity || !identity.dossierId) return false;
+
+  if (request?.targetId && Number(request.targetId) !== identity.dossierId) {
+    return true;
+  }
+
+  if (request?.hintRef) {
+    const hintRefLower = String(request.hintRef).toLowerCase().trim();
+    if (!identity.referenceLower || hintRefLower !== identity.referenceLower) {
+      return true;
+    }
+  }
+
+  if (request?.hintName) {
+    const hintNameLower = String(request.hintName).toLowerCase().trim();
+    const matchesTitle =
+      identity.titleLower && hintNameLower === identity.titleLower;
+    const matchesReference =
+      identity.referenceLower && hintNameLower === identity.referenceLower;
+    if (!matchesTitle && !matchesReference) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+async function buildDossierWorkSnapshot({
+  dossier,
+  now,
+  policy,
+  callReadTool,
+  safeReadSummaryTool,
+  isFinancialOverdue,
+  refreshReason = "entry",
+}) {
+  const tasksResult = await callReadTool(
+    "listTasks",
+    { dossierId: dossier.id, limit: 200 },
+    policy,
+  );
+  const tasks = tasksResult?.tasks || [];
+
+  const sessionsResult = await callReadTool(
+    "listSessions",
+    { dossierId: dossier.id, limit: 200 },
+    policy,
+  );
+  const sessions = sessionsResult?.sessions || [];
+
+  const missionsResult = await callReadTool(
+    "listMissions",
+    { dossierId: dossier.id, limit: 200 },
+    policy,
+  );
+  const missions = missionsResult?.missions || [];
+
+  const financialResult = await callReadTool(
+    "listFinancialEntries",
+    { dossierId: dossier.id, limit: 200 },
+    policy,
+  );
+  const financialEntries = financialResult?.financialEntries || [];
+
+  const lawsuitsResult = await callReadTool(
+    "listLawsuits",
+    { dossierId: dossier.id, limit: 200 },
+    policy,
+  );
+  const lawsuits = lawsuitsResult?.lawsuits || [];
+
+  const historyResult = await callReadTool(
+    "listHistoryEvents",
+    { entityType: "dossier", entityId: dossier.id, limit: 5 },
+    policy,
+  );
+  const historyEvents = historyResult?.historyEvents || [];
+
+  const resolvedDeadline = await resolveDossierDeadlineFromChildren({
+    dossier,
+    now,
+    policy,
+    callReadTool,
+    baseTasks: tasks,
+    baseSessions: sessions,
+    baseLawsuits: lawsuits,
+  });
+  const dossierView = applyResolvedDeadlineToDossier(dossier, resolvedDeadline);
+
+  const activeTasks = tasks.filter((task) => !isClosedWorkStatus(task.status));
+  const overdueTasks = tasks.filter(
+    (task) =>
+      task.due_date &&
+      !["done", "completed", "cancelled", "closed"].includes(
+        String(task.status || "").toLowerCase(),
+      ) &&
+      new Date(task.due_date) < now,
+  );
+  const blockedTasks = tasks.filter(
+    (task) => String(task.status || "").toLowerCase() === "blocked",
+  );
+  const upcomingSessions = sessions.filter((session) => {
+    if (isClosedWorkStatus(session.status)) return false;
+    const sessionDate = session.scheduled_at || session.session_date;
+    if (!sessionDate) return false;
+    const date = new Date(sessionDate);
+    if (Number.isNaN(date.getTime())) return false;
+    return date >= now;
+  });
+  const upcomingHearingSessions = upcomingSessions.filter((session) =>
+    isHearingSession(session),
+  );
+  const upcomingLawsuitHearings = lawsuits.filter((lawsuit) => {
+    if (isClosedWorkStatus(lawsuit.status)) return false;
+    if (!lawsuit.next_hearing) return false;
+    const hearingDate = new Date(lawsuit.next_hearing);
+    if (Number.isNaN(hearingDate.getTime())) return false;
+    return hearingDate >= now;
+  });
+  const overdueReceivables = financialEntries.filter(
+    (entry) =>
+      String(entry.direction || "").toLowerCase() === "receivable" &&
+      isFinancialOverdue(entry),
+  );
+  const normalizedPriority = String(dossierView.priority || "").toLowerCase();
+  const deadlineOverdue = resolvedDeadline.status === "overdue";
+  let urgency = "normal";
+  if (
+    blockedTasks.length > 0 ||
+    overdueTasks.length > 0 ||
+    deadlineOverdue
+  ) {
+    urgency = "critical";
+  } else if (
+    normalizedPriority === "urgent" ||
+    normalizedPriority === "high" ||
+    (dossierView.next_deadline &&
+      Math.ceil((new Date(dossierView.next_deadline) - now) / (1000 * 60 * 60 * 24)) <=
+        7)
+  ) {
+    urgency = "high";
+  }
+
+  let clientLabel = "N/A";
+  if (dossierView.client_id) {
+    const clientResult = await safeReadSummaryTool("getClient", {
+      clientId: dossierView.client_id,
+    });
+    clientLabel = clientResult?.client
+      ? resolveEntityDisplayLabel("client", clientResult.client, {
+          fallback: "Client",
+        })
+      : "Client";
+  }
+
+  const workSummaryResult = await safeReadSummaryTool("getDossierWorkSummary", {
+    dossierId: dossierView.id,
+  });
+  const taskTotalsFromTool = Number(workSummaryResult?.tasks?.total || tasks.length);
+  const taskActiveFromTool = Number(workSummaryResult?.tasks?.active || activeTasks.length);
+  const taskOverdueFromTool = Number(
+    workSummaryResult?.tasks?.overdue || overdueTasks.length,
+  );
+  const sessionTotalsFromTool = Number(
+    workSummaryResult?.sessions?.total || sessions.length,
+  );
+
+  return {
+    snapshotType: "dossier_work_snapshot",
+    entityType: "dossier",
+    entityId: Number(dossierView.id),
+    snapshotAt: new Date().toISOString(),
+    scope: {
+      scopeType: "dossier",
+      dossierId: Number(dossierView.id),
+      childEntities: [
+        "tasks",
+        "sessions",
+        "hearings",
+        "lawsuits",
+        "missions",
+        "financial_entries",
+        "history_events",
+      ],
+      fixed: true,
+    },
+    parent: {
+      ...dossierView,
+      clientLabel,
+    },
+    aggregates: {
+      tasks: {
+        total: taskTotalsFromTool,
+        active: taskActiveFromTool,
+        overdue: taskOverdueFromTool,
+        blocked: blockedTasks.length,
+      },
+      sessions: {
+        total: sessionTotalsFromTool,
+        upcoming: upcomingSessions.length,
+      },
+      hearings: {
+        upcoming:
+          upcomingHearingSessions.length + upcomingLawsuitHearings.length,
+      },
+      lawsuits: {
+        total: lawsuits.length,
+      },
+      missions: {
+        total: missions.length,
+      },
+      financial: {
+        total: financialEntries.length,
+        overdueReceivables: overdueReceivables.length,
+      },
+      deadline: toSnapshotDeadline(resolvedDeadline),
+      workload: {
+        urgency,
+        pressure:
+          urgency === "critical" ||
+          blockedTasks.length > 0 ||
+          overdueTasks.length > 0 ||
+          deadlineOverdue,
+      },
+    },
+    history: {
+      recent: historyEvents
+        .slice(0, 5)
+        .map((event) => ({
+          created_at: event.created_at || null,
+          action: event.action || "event",
+        })),
+    },
+    meta: {
+      refreshReason,
+      stale: false,
+    },
+  };
+}
+
 async function handleListDossiers(state) {
   const {
     intent,
@@ -401,314 +746,209 @@ async function handleListDossiers(state) {
 
 async function handleReadDossier(state) {
   const {
-    intent,
     message,
     context,
     policy,
     scope,
     entityHints,
-    filters,
-    aggregateFilters,
-    shouldAggregateSummary,
     now,
     details,
     sources,
-    ENTITY_LABELS,
-    ENTITY_PLURALS,
-    TASK_STATUSES,
-    ACTIVE_CASE_STATUSES,
     formatDate,
-    formatDateTime,
-    parsePayload,
-    getHintValue,
-    resolveEntityQuery,
-    getEntityQuery,
-    resolveScopedEntityId,
-    buildAggregateSummary,
-    applyAggregateResult,
-    applyAggregateFilters,
-    normalizeValue,
-    countBy,
-    formatCountMap,
     isFinancialOverdue,
-    isMissionOverdue,
-    isSessionOverdue,
     appendDocumentDetails,
     safeReadSummaryTool,
-    applyClientDossierSummary,
     applyDossierWorkSummary,
+    workSnapshot,
+    snapshotRefreshRequested,
+    setWorkSnapshotEvent,
   } = state;
   let { data, title, summary } = state;
-  const classifyDossierUrgency = (dossier, workSummary) => {
-    const taskStats = workSummary?.tasks || {};
-    const overdueTasks = Number(taskStats.overdue || 0);
-    const normalizedPriority = String(dossier?.priority || "").toLowerCase();
-    const normalizedStatus = String(dossier?.status || "").toLowerCase();
-
-    if (normalizedStatus === "blocked" || overdueTasks > 0) return "critical";
-
-    if (dossier?.next_deadline) {
-      const deadline = new Date(dossier.next_deadline);
-      if (!Number.isNaN(deadline.getTime())) {
-        const daysUntil = Math.ceil(
-          (deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
-        );
-        if (daysUntil <= 3) return "critical";
-        if (daysUntil <= 7) return "high";
-      }
-    }
-
-    if (normalizedPriority === "urgent" || normalizedPriority === "high")
-      return "high";
-    return "normal";
-  };
-
-  const enrichDossierWorkContext = async (dossier) => {
-    const workResult = await safeReadSummaryTool("getDossierWorkSummary", {
-      dossierId: dossier.id,
-    });
-    const workSummary = workResult || {
-      dossierId: dossier.id,
-      tasks: { total: 0, active: 0, overdue: 0 },
-      sessions: { total: 0 },
-    };
-    applyDossierWorkSummary(workSummary);
-
-    const urgency = classifyDossierUrgency(dossier, workSummary);
-    return {
-      workSummary,
-      urgency,
-      totalTasks: Number(workSummary.tasks?.total || 0),
-      activeTasks: Number(workSummary.tasks?.active || 0),
-      overdueTasks: Number(workSummary.tasks?.overdue || 0),
-      totalSessions: Number(workSummary.sessions?.total || 0),
-    };
-  };
   const callReadTool = this._callReadTool.bind(this);
 
   do {
+    const activeSnapshot =
+      workSnapshot &&
+      String(workSnapshot.entityType || "").toLowerCase() === "dossier"
+        ? workSnapshot
+        : null;
+    const refreshRequested = Boolean(
+      snapshotRefreshRequested || isWorkSnapshotRefreshRequest(message),
+    );
     const hintId = entityHints.find((hint) => hint.type === "id")?.value;
     const hintRef = entityHints.find(
       (hint) => hint.type === "reference",
     )?.value;
     const hintName = entityHints.find((hint) => hint.type === "name")?.value;
+    const scopedId = scope === "dossier" ? context?.dossierId : null;
+    const targetId = hintId || scopedId || null;
     title = "Read data — Dossier";
 
-    if (hintId) {
-      const result = await this._callReadTool(
-        "getDossier",
-        { dossierId: hintId },
-        policy,
-      );
-      const dossier = result?.dossier;
-      if (!dossier) {
-        summary = "No dossier found for that identifier.";
-        details.push("Try listing dossiers to see available records.");
-        break;
-      }
-      const resolvedDeadline = await resolveDossierDeadlineFromChildren({
-        dossier,
-        now,
-        policy,
-        callReadTool,
-      });
-      const dossierView = applyResolvedDeadlineToDossier(
-        dossier,
-        resolvedDeadline,
-      );
-      const workContext = await enrichDossierWorkContext(dossierView);
-      summary = `Dossier Work Mode: ${resolveEntityDisplayLabel("dossier", dossierView, { fallback: "Dossier" })}`;
-      details.push(`Title: ${dossierView.title || "Untitled"}`);
-      details.push(`Status: ${dossierView.status || "open"}`);
-      details.push(`Priority: ${dossierView.priority || "medium"}`);
-      if (dossierView.client_id) {
-        const clientResult = await safeReadSummaryTool("getClient", {
-          clientId: dossierView.client_id,
-        });
-        const clientLabel = clientResult?.client
-          ? resolveEntityDisplayLabel("client", clientResult.client, {
-              fallback: "Client",
-            })
-          : "Client";
-        details.push(`Client: ${clientLabel}`);
-      } else {
-        details.push("Client: N/A");
-      }
-      details.push(`Phase: ${dossierView.phase || "not set"}`);
-      details.push(formatResolvedNextDeadlineLine(resolvedDeadline, formatDate));
-      details.push(`Urgency: ${workContext.urgency}`);
+    if (
+      activeSnapshot &&
+      requestTargetsDifferentSnapshot(activeSnapshot, {
+        targetId,
+        hintRef,
+        hintName,
+      })
+    ) {
+      summary = "Scope change requires confirmation.";
       details.push(
-        `Workload: ${workContext.totalTasks} task(s), ${workContext.activeTasks} active, ${workContext.overdueTasks} overdue, ${workContext.totalSessions} session(s)`,
+        `Active Work Snapshot: ${resolveEntityDisplayLabel("dossier", activeSnapshot.parent || {}, { fallback: "Dossier" })}`,
       );
       details.push(
-        "Execution policy: Read-only support mode. No data changes are performed without explicit confirmation.",
+        "Scope stability is enforced in Dossier Work Mode. Confirm before switching to another dossier snapshot.",
       );
-      details.push(
-        buildDossierAssistiveRecommendation({
-          urgency: workContext.urgency,
-          activeTasks: workContext.activeTasks,
-          overdueTasks: workContext.overdueTasks,
-          totalTasks: workContext.totalTasks,
-          totalSessions: workContext.totalSessions,
-        }),
-      );
-      sources.push({
-        sourceType: "system",
-        reference: "tool:getDossier",
-        note: "Dossier lookup",
-      });
-      data = dossierView;
-      await appendDocumentDetails("dossier", dossierView);
+      applySnapshotWorkSummary(activeSnapshot, applyDossierWorkSummary);
+      data = buildDossierViewFromSnapshot(activeSnapshot);
       break;
     }
 
-    if (hintRef) {
-      const result = await this._callReadTool(
-        "getDossierByReference",
-        { reference: hintRef },
-        policy,
-      );
-      const dossier = result?.dossier;
-      if (!dossier) {
-        summary = `No dossier found for reference "${hintRef}"`;
-        details.push("Try listing all dossiers with: show me my dossiers");
-        break;
-      }
-      const resolvedDeadline = await resolveDossierDeadlineFromChildren({
-        dossier,
-        now,
-        policy,
-        callReadTool,
-      });
-      const dossierView = applyResolvedDeadlineToDossier(
-        dossier,
-        resolvedDeadline,
-      );
-      const workContext = await enrichDossierWorkContext(dossierView);
-      summary = `Dossier Work Mode: ${dossierView.reference || hintRef}`;
-      details.push(`Title: ${dossierView.title || "Untitled"}`);
-      details.push(`Status: ${dossierView.status || "open"}`);
-      details.push(`Priority: ${dossierView.priority || "medium"}`);
-      if (dossierView.client_id) {
-        const clientResult = await safeReadSummaryTool("getClient", {
-          clientId: dossierView.client_id,
-        });
-        const clientLabel = clientResult?.client
-          ? resolveEntityDisplayLabel("client", clientResult.client, {
-              fallback: "Client",
-            })
-          : "Client";
-        details.push(`Client: ${clientLabel}`);
-      } else {
-        details.push("Client: N/A");
-      }
-      details.push(`Phase: ${dossierView.phase || "not set"}`);
-      details.push(formatResolvedNextDeadlineLine(resolvedDeadline, formatDate));
-      details.push(`Urgency: ${workContext.urgency}`);
-      details.push(
-        `Workload: ${workContext.totalTasks} task(s), ${workContext.activeTasks} active, ${workContext.overdueTasks} overdue, ${workContext.totalSessions} session(s)`,
-      );
-      details.push(
-        "Execution policy: Read-only support mode. No data changes are performed without explicit confirmation.",
-      );
-      details.push(
-        buildDossierAssistiveRecommendation({
-          urgency: workContext.urgency,
-          activeTasks: workContext.activeTasks,
-          overdueTasks: workContext.overdueTasks,
-          totalTasks: workContext.totalTasks,
-          totalSessions: workContext.totalSessions,
-        }),
-      );
-      sources.push({
-        sourceType: "system",
-        reference: "tool:getDossierByReference",
-        note: "Dossier lookup",
-      });
-      data = dossierView;
-      await appendDocumentDetails("dossier", dossierView);
-      break;
-    }
+    let snapshot = activeSnapshot;
+    let refreshReason = null;
 
-    if (hintName) {
-      const result = await this._callReadTool(
-        "listDossiers",
-        { query: hintName, limit: 10 },
-        policy,
-      );
-      const dossiers = result?.dossiers || [];
-      if (dossiers.length === 0) {
-        summary = `No dossier found for "${hintName}"`;
-        details.push("Try listing all dossiers with: show me my dossiers");
-      } else if (dossiers.length === 1) {
-        const dossier = dossiers[0];
-        const resolvedDeadline = await resolveDossierDeadlineFromChildren({
-          dossier,
-          now,
+    if (!snapshot || refreshRequested || snapshot?.meta?.stale) {
+      let dossier = null;
+      let lookupSource = "tool:getDossier";
+
+      if (hintId || scopedId || snapshot?.entityId) {
+        const dossierId = hintId || scopedId || snapshot?.entityId;
+        const result = await this._callReadTool("getDossier", { dossierId }, policy);
+        dossier = result?.dossier || null;
+      } else if (hintRef) {
+        const result = await this._callReadTool(
+          "getDossierByReference",
+          { reference: hintRef },
           policy,
-          callReadTool,
-        });
-        const dossierView = applyResolvedDeadlineToDossier(
-          dossier,
-          resolvedDeadline,
         );
-        const workContext = await enrichDossierWorkContext(dossierView);
-        summary = `Dossier Work Mode: ${dossierView.reference || dossierView.title}`;
-        details.push(`Title: ${dossierView.title || "Untitled"}`);
-        details.push(`Status: ${dossierView.status || "open"}`);
-        details.push(`Priority: ${dossierView.priority || "medium"}`);
-        if (dossierView.client_id) {
-          const clientResult = await safeReadSummaryTool("getClient", {
-            clientId: dossierView.client_id,
-          });
-          const clientLabel = clientResult?.client
-            ? resolveEntityDisplayLabel("client", clientResult.client, {
-                fallback: "Client",
-              })
-            : "Client";
-          details.push(`Client: ${clientLabel}`);
-        } else {
-          details.push("Client: N/A");
+        dossier = result?.dossier || null;
+        lookupSource = "tool:getDossierByReference";
+      } else if (hintName) {
+        const result = await this._callReadTool(
+          "listDossiers",
+          { query: hintName, limit: 10 },
+          policy,
+        );
+        const dossiers = result?.dossiers || [];
+        if (dossiers.length === 0) {
+          summary = `No dossier found for "${hintName}"`;
+          details.push("Try listing all dossiers with: show me my dossiers");
+          break;
         }
-        details.push(`Phase: ${dossierView.phase || "not set"}`);
-        details.push(formatResolvedNextDeadlineLine(resolvedDeadline, formatDate));
-        details.push(`Urgency: ${workContext.urgency}`);
-        details.push(
-          `Workload: ${workContext.totalTasks} task(s), ${workContext.activeTasks} active, ${workContext.overdueTasks} overdue, ${workContext.totalSessions} session(s)`,
-        );
-        details.push(
-          "Execution policy: Read-only support mode. No data changes are performed without explicit confirmation.",
-        );
-        details.push(
-          buildDossierAssistiveRecommendation({
-            urgency: workContext.urgency,
-            activeTasks: workContext.activeTasks,
-            overdueTasks: workContext.overdueTasks,
-            totalTasks: workContext.totalTasks,
-            totalSessions: workContext.totalSessions,
-          }),
-        );
-        sources.push({
-          sourceType: "system",
-          reference: "tool:listDossiers",
-          note: "Dossier lookup",
-        });
-        data = dossierView;
-        await appendDocumentDetails("dossier", dossierView);
+        if (dossiers.length > 1) {
+          summary = `Multiple dossiers match "${hintName}"`;
+          dossiers.forEach((d) =>
+            details.push(`${d.reference || "Dossier"} — ${d.title || "Untitled"}`),
+          );
+          details.push("Please specify which dossier you mean.");
+          break;
+        }
+        dossier = dossiers[0];
+        lookupSource = "tool:listDossiers";
       } else {
-        summary = `Multiple dossiers match "${hintName}"`;
-        dossiers.forEach((d) =>
-          details.push(
-            `${d.reference || "Dossier"} — ${d.title || "Untitled"}`,
-          ),
-        );
-        details.push("Please specify which dossier you mean.");
+        summary = "Which dossier?";
+        details.push("Provide a dossier reference or name.");
+        break;
       }
+
+      if (!dossier) {
+        if (activeSnapshot) {
+          summary = "I could not refresh the dossier snapshot right now.";
+          details.push(
+            "I will keep the previous dossier snapshot facts stable until refresh succeeds.",
+          );
+          details.push(
+            "Please verify record availability and say \"refresh dossier\" again.",
+          );
+          applySnapshotWorkSummary(activeSnapshot, applyDossierWorkSummary);
+          data = buildDossierViewFromSnapshot(activeSnapshot);
+        } else {
+          summary = "No dossier found for the provided identifier.";
+          details.push("Try listing dossiers to see available records.");
+        }
+        break;
+      }
+
+      refreshReason = !activeSnapshot
+        ? "entry"
+        : refreshRequested
+          ? "user_requested"
+          : "mutation";
+
+      snapshot = await buildDossierWorkSnapshot({
+        dossier,
+        now,
+        policy,
+        callReadTool,
+        safeReadSummaryTool,
+        isFinancialOverdue,
+        refreshReason,
+      });
+
+      if (typeof setWorkSnapshotEvent === "function") {
+        setWorkSnapshotEvent({
+          action: activeSnapshot ? "refresh" : "set",
+          reason: refreshReason,
+          snapshot,
+        });
+      }
+
+      sources.push({
+        sourceType: "system",
+        reference: lookupSource,
+        note: activeSnapshot ? "Dossier snapshot refreshed" : "Dossier snapshot created",
+      });
+    } else {
+      sources.push({
+        sourceType: "context",
+        reference: "work_snapshot:dossier",
+        note: "Dossier snapshot reused",
+      });
+    }
+
+    if (!isDossierSnapshotComplete(snapshot)) {
+      summary = "Dossier Work Snapshot is incomplete.";
+      details.push(
+        "I will keep prior snapshot facts stable. Say \"refresh dossier\" to reload complete dossier context.",
+      );
+      applySnapshotWorkSummary(snapshot, applyDossierWorkSummary);
+      data = buildDossierViewFromSnapshot(snapshot);
       break;
     }
 
-    summary = "Which dossier?";
-    details.push("Provide a dossier reference or name.");
+    const dossierView = buildDossierViewFromSnapshot(snapshot);
+    const resolvedDeadline = buildResolvedDeadlineFromSnapshot(snapshot);
+    const workContext = buildWorkContextFromSnapshot(snapshot);
+    const deadlineOverdue = resolvedDeadline.status === "overdue";
+
+    applySnapshotWorkSummary(snapshot, applyDossierWorkSummary);
+
+    summary = `Dossier Work Mode: ${resolveEntityDisplayLabel("dossier", dossierView, { fallback: "Dossier" })}`;
+    if (refreshReason === "user_requested" || refreshReason === "mutation") {
+      details.push("I've refreshed the dossier snapshot to reflect recent changes.");
+    }
+    details.push(`Snapshot timestamp: ${snapshot.snapshotAt}`);
+    details.push(
+      `Snapshot scope: dossier #${snapshot.entityId} (tasks, sessions, hearings, deadline, workload fixed)`,
+    );
+    details.push(`Title: ${dossierView?.title || "Untitled"}`);
+    details.push(`Status: ${dossierView?.status || "open"}`);
+    details.push(`Priority: ${dossierView?.priority || "medium"}`);
+    details.push(`Client: ${dossierView?.clientLabel || "N/A"}`);
+    details.push(`Phase: ${dossierView?.phase || "not set"}`);
+    details.push(formatResolvedNextDeadlineLine(resolvedDeadline, formatDate));
+    details.push(`Urgency: ${workContext.urgency}`);
+    details.push(
+      `Workload: ${workContext.totalTasks} task(s), ${workContext.activeTasks} active, ${workContext.overdueTasks} overdue, ${workContext.totalSessions} session(s)`,
+    );
+    details.push(
+      `Upcoming: ${workContext.upcomingSessions} upcoming session(s), ${workContext.upcomingHearings} upcoming hearing(s)`,
+    );
+    details.push(
+      "Execution policy: Read-only support mode. No data changes are performed without explicit confirmation.",
+    );
+    data = dossierView;
+    await appendDocumentDetails("dossier", dossierView);
     break;
   } while (false);
 
@@ -723,42 +963,34 @@ async function handleExplainDossier(state) {
     policy,
     scope,
     entityHints,
-    filters,
-    aggregateFilters,
     shouldAggregateSummary,
     now,
     details,
     sources,
-    ENTITY_LABELS,
-    ENTITY_PLURALS,
-    TASK_STATUSES,
-    ACTIVE_CASE_STATUSES,
     formatDate,
     formatDateTime,
-    parsePayload,
-    getHintValue,
-    resolveEntityQuery,
-    getEntityQuery,
-    resolveScopedEntityId,
     buildAggregateSummary,
     applyAggregateResult,
-    applyAggregateFilters,
-    normalizeValue,
-    countBy,
-    formatCountMap,
     isFinancialOverdue,
-    isMissionOverdue,
-    isSessionOverdue,
     appendDocumentDetails,
     safeReadSummaryTool,
-    applyClientDossierSummary,
     applyDossierWorkSummary,
+    workSnapshot,
+    snapshotRefreshRequested,
+    setWorkSnapshotEvent,
   } = state;
   let { data, title, summary } = state;
   const callReadTool = this._callReadTool.bind(this);
 
   do {
-    const scope = String(context?.scope || "").toLowerCase();
+    const activeSnapshot =
+      workSnapshot &&
+      String(workSnapshot.entityType || "").toLowerCase() === "dossier"
+        ? workSnapshot
+        : null;
+    const refreshRequested = Boolean(
+      snapshotRefreshRequested || isWorkSnapshotRefreshRequest(message),
+    );
     const scopedId = scope === "dossier" ? context?.dossierId : null;
     const hintId = entityHints.find((hint) => hint.type === "id")?.value;
     const hintRef = entityHints.find(
@@ -768,185 +1000,196 @@ async function handleExplainDossier(state) {
     const targetId = hintId || scopedId;
 
     if (intent === READ_INTENTS.SUMMARIZE_DOSSIER && shouldAggregateSummary) {
+      if (activeSnapshot) {
+        summary = "A broader scope was requested while Work Snapshot is active.";
+        details.push(
+          "Current dossier snapshot scope is fixed. Confirm before switching to aggregate dossier scope.",
+        );
+        applySnapshotWorkSummary(activeSnapshot, applyDossierWorkSummary);
+        data = buildDossierViewFromSnapshot(activeSnapshot);
+        break;
+      }
       const aggregateResult = await buildAggregateSummary("dossier");
       if (applyAggregateResult(aggregateResult)) break;
     }
 
-    const fetchDossierByRef = async (reference) => {
-      const result = await this._callReadTool(
-        "getDossierByReference",
-        { reference },
-        policy,
+    if (
+      activeSnapshot &&
+      requestTargetsDifferentSnapshot(activeSnapshot, {
+        targetId,
+        hintRef,
+        hintName,
+      })
+    ) {
+      summary = "Scope change requires confirmation.";
+      details.push(
+        `Active Work Snapshot: ${resolveEntityDisplayLabel("dossier", activeSnapshot.parent || {}, { fallback: "Dossier" })}`,
       );
-      return result?.dossier || null;
-    };
-
-    let dossier = null;
-    if (targetId) {
-      const result = await this._callReadTool(
-        "getDossier",
-        { dossierId: targetId },
-        policy,
+      details.push(
+        "Scope stability is enforced in Dossier Work Mode. Confirm before switching to another dossier snapshot.",
       );
-      dossier = result?.dossier || null;
-    } else if (hintRef) {
-      dossier = await fetchDossierByRef(hintRef);
-    } else if (hintName) {
-      const result = await this._callReadTool(
-        "listDossiers",
-        { query: hintName, limit: 5 },
-        policy,
-      );
-      const dossiers = result?.dossiers || [];
-      if (dossiers.length === 1) dossier = dossiers[0];
-      else if (dossiers.length > 1) {
-        summary = `Multiple dossiers match "${hintName}"`;
-        dossiers.forEach((d) =>
-          details.push(
-            `${d.reference || "Dossier"} — ${d.title || "Untitled"}`,
-          ),
-        );
-        details.push("Please specify which dossier you mean.");
-        break;
-      }
-    }
-
-    if (!dossier) {
-      summary = "Which dossier?";
-      details.push("Provide a dossier reference or name.");
+      applySnapshotWorkSummary(activeSnapshot, applyDossierWorkSummary);
+      data = buildDossierViewFromSnapshot(activeSnapshot);
       break;
     }
 
-    const tasksResult = await this._callReadTool(
-      "listTasks",
-      { dossierId: dossier.id, limit: 200 },
-      policy,
-    );
-    const tasks = tasksResult?.tasks || [];
-    const sessionsResult = await this._callReadTool(
-      "listSessions",
-      { dossierId: dossier.id, limit: 200 },
-      policy,
-    );
-    const sessions = sessionsResult?.sessions || [];
-    const missionsResult = await this._callReadTool(
-      "listMissions",
-      { dossierId: dossier.id, limit: 200 },
-      policy,
-    );
-    const missions = missionsResult?.missions || [];
-    const financialResult = await this._callReadTool(
-      "listFinancialEntries",
-      { dossierId: dossier.id, limit: 200 },
-      policy,
-    );
-    const financialEntries = financialResult?.financialEntries || [];
-    const lawsuitsResult = await this._callReadTool(
-      "listLawsuits",
-      { dossierId: dossier.id, limit: 200 },
-      policy,
-    );
-    const lawsuits = lawsuitsResult?.lawsuits || [];
-    const resolvedDeadline = await resolveDossierDeadlineFromChildren({
-      dossier,
-      now,
-      policy,
-      callReadTool,
-      baseTasks: tasks,
-      baseSessions: sessions,
-      baseLawsuits: lawsuits,
-    });
-    const dossierView = applyResolvedDeadlineToDossier(dossier, resolvedDeadline);
-    const overdueTasks = tasks.filter(
-      (task) =>
-        task.due_date &&
-        !["done", "cancelled"].includes(task.status) &&
-        new Date(task.due_date) < now,
-    );
-    const activeTasks = tasks.filter((task) => {
-      const status = String(task.status || "").toLowerCase();
-      return !["done", "completed", "cancelled", "closed"].includes(status);
-    });
-    const blockedTasks = tasks.filter(
-      (task) => String(task.status || "").toLowerCase() === "blocked",
-    );
-    const deadlineOverdue = resolvedDeadline.status === "overdue";
-    const effectiveDeadline = dossierView.next_deadline;
-    const overdueReceivables = financialEntries.filter(
-      (entry) =>
-        String(entry.direction || "").toLowerCase() === "receivable" &&
-        isFinancialOverdue(entry),
-    );
-    const historyResult = await this._callReadTool(
-      "listHistoryEvents",
-      { entityType: "dossier", entityId: dossier.id, limit: 5 },
-      policy,
-    );
-    const historyEvents = historyResult?.historyEvents || [];
-    applyDossierWorkSummary({
-      dossierId: dossier.id,
-      tasks: {
-        total: tasks.length,
-        active: activeTasks.length,
-        overdue: overdueTasks.length,
-      },
-      sessions: {
-        total: sessions.length,
-      },
-    });
-    const normalizedPriority = String(dossier.priority || "").toLowerCase();
-    let urgency = "normal";
-    if (blockedTasks.length > 0 || overdueTasks.length > 0 || deadlineOverdue) {
-      urgency = "critical";
-    } else if (
-      normalizedPriority === "urgent" ||
-      normalizedPriority === "high" ||
-      (effectiveDeadline &&
-        Math.ceil(
-          (new Date(effectiveDeadline) - now) / (1000 * 60 * 60 * 24),
-        ) <= 7)
-    ) {
-      urgency = "high";
+    let snapshot = activeSnapshot;
+    let refreshReason = null;
+
+    if (!snapshot || refreshRequested || snapshot?.meta?.stale) {
+      let dossier = null;
+      let lookupSource = "tool:getDossier";
+
+      if (hintId || scopedId || snapshot?.entityId) {
+        const dossierId = hintId || scopedId || snapshot?.entityId;
+        const result = await this._callReadTool("getDossier", { dossierId }, policy);
+        dossier = result?.dossier || null;
+      } else if (hintRef) {
+        const result = await this._callReadTool(
+          "getDossierByReference",
+          { reference: hintRef },
+          policy,
+        );
+        dossier = result?.dossier || null;
+        lookupSource = "tool:getDossierByReference";
+      } else if (hintName) {
+        const result = await this._callReadTool(
+          "listDossiers",
+          { query: hintName, limit: 5 },
+          policy,
+        );
+        const dossiers = result?.dossiers || [];
+        if (dossiers.length === 0) {
+          summary = `No dossier found for "${hintName}"`;
+          details.push("Try listing all dossiers with: show me my dossiers");
+          break;
+        }
+        if (dossiers.length > 1) {
+          summary = `Multiple dossiers match "${hintName}"`;
+          dossiers.forEach((d) =>
+            details.push(`${d.reference || "Dossier"} — ${d.title || "Untitled"}`),
+          );
+          details.push("Please specify which dossier you mean.");
+          break;
+        }
+        dossier = dossiers[0];
+        lookupSource = "tool:listDossiers";
+      } else {
+        summary = "Which dossier?";
+        details.push("Provide a dossier reference or name.");
+        break;
+      }
+
+      if (!dossier) {
+        if (activeSnapshot) {
+          summary = "I could not refresh the dossier snapshot right now.";
+          details.push(
+            "I will keep the previous dossier snapshot facts stable until refresh succeeds.",
+          );
+          details.push(
+            "Please verify record availability and say \"refresh dossier\" again.",
+          );
+          applySnapshotWorkSummary(activeSnapshot, applyDossierWorkSummary);
+          data = buildDossierViewFromSnapshot(activeSnapshot);
+        } else {
+          summary = "Which dossier?";
+          details.push("Provide a dossier reference or name.");
+        }
+        break;
+      }
+
+      refreshReason = !activeSnapshot
+        ? "entry"
+        : refreshRequested
+          ? "user_requested"
+          : "mutation";
+
+      snapshot = await buildDossierWorkSnapshot({
+        dossier,
+        now,
+        policy,
+        callReadTool,
+        safeReadSummaryTool,
+        isFinancialOverdue,
+        refreshReason,
+      });
+
+      if (typeof setWorkSnapshotEvent === "function") {
+        setWorkSnapshotEvent({
+          action: activeSnapshot ? "refresh" : "set",
+          reason: refreshReason,
+          snapshot,
+        });
+      }
+
+      sources.push({
+        sourceType: "system",
+        reference: lookupSource,
+        note: activeSnapshot ? "Dossier snapshot refreshed" : "Dossier snapshot created",
+      });
+    } else {
+      sources.push({
+        sourceType: "context",
+        reference: "work_snapshot:dossier",
+        note: "Dossier snapshot reused",
+      });
     }
+
+    if (!isDossierSnapshotComplete(snapshot)) {
+      summary = "Dossier Work Snapshot is incomplete.";
+      details.push(
+        "I will keep prior snapshot facts stable. Say \"refresh dossier\" to reload complete dossier context.",
+      );
+      applySnapshotWorkSummary(snapshot, applyDossierWorkSummary);
+      data = buildDossierViewFromSnapshot(snapshot);
+      break;
+    }
+
+    const dossierView = buildDossierViewFromSnapshot(snapshot);
+    const resolvedDeadline = buildResolvedDeadlineFromSnapshot(snapshot);
+    const workContext = buildWorkContextFromSnapshot(snapshot);
+    const deadlineOverdue = resolvedDeadline.status === "overdue";
+    const recentActivity = (snapshot?.history?.recent || []).map((event) => {
+      const when = event.created_at ? formatDateTime(event.created_at) : "unknown";
+      return `${when} — ${event.action || "event"}`;
+    });
+
+    applySnapshotWorkSummary(snapshot, applyDossierWorkSummary);
 
     if (intent === READ_INTENTS.EXPLAIN_DOSSIER_STATE) {
       title = "Read data — Dossier state";
-      summary = `Dossier Work Mode: ${dossier.reference || "Dossier"} — ${dossier.title || "Untitled"}`;
+      summary = `Dossier Work Mode: ${dossierView.reference || "Dossier"} — ${dossierView.title || "Untitled"}`;
+      if (refreshReason === "user_requested" || refreshReason === "mutation") {
+        details.push("I've refreshed the dossier snapshot to reflect recent changes.");
+      }
+      details.push(`Snapshot timestamp: ${snapshot.snapshotAt}`);
       details.push(
-        `Status: ${dossier.status || "open"} (priority ${dossier.priority || "medium"})`,
+        `Snapshot scope: dossier #${snapshot.entityId} (tasks, sessions, hearings, deadline, workload fixed)`,
       );
       details.push(
-        `Phase: ${dossier.phase || "not set"} • Assignment: ${dossier.assigned_lawyer || "unassigned"} • Urgency: ${urgency}`,
+        `Status: ${dossierView.status || "open"} (priority ${dossierView.priority || "medium"})`,
       );
       details.push(
-        `Relationships: ${lawsuits.length} lawsuit(s), ${tasks.length} task(s), ${sessions.length} session(s), ${missions.length} mission(s), ${financialEntries.length} financial entry(ies)`,
+        `Phase: ${dossierView.phase || "not set"} • Assignment: ${dossierView.assigned_lawyer || "unassigned"} • Urgency: ${workContext.urgency}`,
       );
       details.push(
-        blockedTasks.length > 0 ||
-          overdueTasks.length > 0 ||
+        `Relationships: ${workContext.totalLawsuits} lawsuit(s), ${workContext.totalTasks} task(s), ${workContext.totalSessions} session(s), ${workContext.totalMissions} mission(s), ${workContext.totalFinancialEntries} financial entry(ies)`,
+      );
+      details.push(
+        workContext.blockedTasks > 0 ||
+          workContext.overdueTasks > 0 ||
           deadlineOverdue ||
-          overdueReceivables.length > 0
-          ? `Blocking: ${blockedTasks.length} blocked task(s), ${overdueTasks.length} overdue task(s), ${overdueReceivables.length} overdue receivable(s), ${deadlineOverdue ? "deadline overdue" : "deadline ok"}`
+          workContext.overdueReceivables > 0
+          ? `Blocking: ${workContext.blockedTasks} blocked task(s), ${workContext.overdueTasks} overdue task(s), ${workContext.overdueReceivables} overdue receivable(s), ${deadlineOverdue ? "deadline overdue" : "deadline ok"}`
           : "Blocking: none detected",
       );
       details.push(
         "Execution policy: Read-only support mode. No data changes are performed without explicit confirmation.",
       );
-      details.push(
-        buildDossierAssistiveRecommendation({
-          urgency,
-          activeTasks: activeTasks.length,
-          overdueTasks: overdueTasks.length,
-          totalTasks: tasks.length,
-          totalSessions: sessions.length,
-          blockedTasks: blockedTasks.length,
-          deadlineOverdue,
-        }),
-      );
       sources.push({
-        sourceType: "system",
-        reference: "tool:getDossier",
-        note: "Dossier state",
+        sourceType: "context",
+        reference: "work_snapshot:dossier",
+        note: "Dossier state from stable snapshot",
       });
       data = dossierView;
       await appendDocumentDetails("dossier", dossierView);
@@ -954,47 +1197,37 @@ async function handleExplainDossier(state) {
     }
 
     title = "Read data — Dossier summary";
-    summary = `Dossier Work Mode: ${dossier.reference || "Dossier"} — ${dossier.title || "Untitled"}`;
-    const recentActivity = historyEvents.map((event) => {
-      const when = event.created_at
-        ? formatDateTime(event.created_at)
-        : "unknown";
-      return `${when} — ${event.action || "event"}`;
-    });
+    summary = `Dossier Work Mode: ${dossierView.reference || "Dossier"} — ${dossierView.title || "Untitled"}`;
+    if (refreshReason === "user_requested" || refreshReason === "mutation") {
+      details.push("I've refreshed the dossier snapshot to reflect recent changes.");
+    }
+    details.push(`Snapshot timestamp: ${snapshot.snapshotAt}`);
     details.push(
-      `Summary: status ${dossier.status || "open"}, ${tasks.length} task(s), ${sessions.length} session(s), ${financialEntries.length} financial entry(ies)`,
+      `Snapshot scope: dossier #${snapshot.entityId} (tasks, sessions, hearings, deadline, workload fixed)`,
     );
     details.push(
-      `Phase: ${dossier.phase || "not set"} • Assignment: ${dossier.assigned_lawyer || "unassigned"} • Urgency: ${urgency}`,
+      `Summary: status ${dossierView.status || "open"}, ${workContext.totalTasks} task(s), ${workContext.totalSessions} session(s), ${workContext.totalFinancialEntries} financial entry(ies)`,
+    );
+    details.push(
+      `Phase: ${dossierView.phase || "not set"} • Assignment: ${dossierView.assigned_lawyer || "unassigned"} • Urgency: ${workContext.urgency}`,
     );
     details.push(
       `Recent activity: ${recentActivity.length > 0 ? recentActivity.join(" | ") : "none"}`,
     );
     details.push(
       `Key dates/risks: ${formatResolvedDeadlineRiskFragment(resolvedDeadline, formatDate)}${
-        overdueReceivables.length > 0
-          ? `, ${overdueReceivables.length} overdue receivable(s)`
+        workContext.overdueReceivables > 0
+          ? `, ${workContext.overdueReceivables} overdue receivable(s)`
           : ""
       }`,
     );
     details.push(
       "Execution policy: Read-only support mode. No data changes are performed without explicit confirmation.",
     );
-    details.push(
-      buildDossierAssistiveRecommendation({
-        urgency,
-        activeTasks: activeTasks.length,
-        overdueTasks: overdueTasks.length,
-        totalTasks: tasks.length,
-        totalSessions: sessions.length,
-        blockedTasks: blockedTasks.length,
-        deadlineOverdue,
-      }),
-    );
     sources.push({
-      sourceType: "system",
-      reference: "tool:getDossier",
-      note: "Dossier summary",
+      sourceType: "context",
+      reference: "work_snapshot:dossier",
+      note: "Dossier summary from stable snapshot",
     });
     data = dossierView;
     await appendDocumentDetails("dossier", dossierView);

@@ -2,7 +2,7 @@
 
 const { ACTION_TYPES } = require("../context/conversation.context");
 
-function _updateConversationContext(requestContext, query, result, source) {
+function _updateConversationContext(requestContext, query, result, source, posture) {
   if (!result || !result.output) return;
 
   const { intent, output } = result;
@@ -97,6 +97,7 @@ function _updateConversationContext(requestContext, query, result, source) {
 
   const readMeta = result.readMeta || null;
   const contextPromotion = result.contextPromotion || null;
+  const workSnapshotEvent = result.workSnapshotEvent || null;
 
   // Extract result count from output details (fallback when readMeta missing)
   let count = 0;
@@ -172,7 +173,8 @@ function _updateConversationContext(requestContext, query, result, source) {
         : undefined,
     query,
     source,
-  });
+    workSnapshotEvent,
+  }, posture);
 
   this.ledger.record({
     type: "conversation_context_updated",
@@ -183,6 +185,8 @@ function _updateConversationContext(requestContext, query, result, source) {
     activeEntityType: contextPromotion?.activeEntity?.type || null,
     activeEntityId: contextPromotion?.activeEntity?.id || null,
     pendingSelection: contextPromotion?.pendingSelection || null,
+    workSnapshotAction: workSnapshotEvent?.action || null,
+    workSnapshotReason: workSnapshotEvent?.reason || null,
     source,
     timestamp: new Date().toISOString(),
   });

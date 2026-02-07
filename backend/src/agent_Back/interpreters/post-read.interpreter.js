@@ -237,11 +237,34 @@ function interpretEntityState(entityType, entityData, context) {
   const dossierWorkModeActive = Boolean(
     context?._grounding?.workMode?.dossier || context?._dossierWorkMode,
   );
+  const workSnapshotActive = Boolean(
+    context?._workSnapshotActive ||
+      (context?.workSnapshot &&
+        String(context.workSnapshot.entityType || "").toLowerCase() === "dossier"),
+  );
   const effectiveReadOutcome =
     groundedEntityRetrieved &&
     (readOutcome === "not_found" || readOutcome === "incomplete")
       ? "success"
       : readOutcome;
+
+  if (
+    dossierWorkModeActive &&
+    workSnapshotActive &&
+    !groundedEntityRetrieved &&
+    entityType === "dossier"
+  ) {
+    return [
+      {
+        level: "info",
+        signal: "work_snapshot_uncertain",
+        statement:
+          "Dossier Work Snapshot is active, but this turn is missing complete snapshot fields.",
+        implication:
+          "Prior snapshot facts remain authoritative. Say \"refresh dossier\" to reload current data.",
+      },
+    ];
+  }
 
   // Work-mode continuity: once dossier work mode is active with grounded data,
   // generic retrieval fallbacks are disabled to prevent contradictions.
@@ -664,6 +687,13 @@ function interpretCollectionState(entityType, entities, context) {
 
 function interpretDossierState(dossier, context) {
   const interpretations = [];
+  const snapshotTimestamp =
+    context?._workSnapshotTimestamp || context?.workSnapshot?.snapshotAt || null;
+  const snapshotClock = snapshotTimestamp ? new Date(snapshotTimestamp) : null;
+  const referenceNow =
+    snapshotClock && !Number.isNaN(snapshotClock.getTime())
+      ? snapshotClock
+      : new Date();
   const taskSummary = context?.childSummary?.tasks;
   const totalTasks = taskSummary ? Number(taskSummary.total || 0) : 0;
   const activeTasks = taskSummary ? Number(taskSummary.active || 0) : 0;
@@ -677,7 +707,7 @@ function interpretDossierState(dossier, context) {
       const deadline = new Date(dossier.next_deadline);
       if (!Number.isNaN(deadline.getTime())) {
         const daysUntil = Math.ceil(
-          (deadline.getTime() - Date.now()) / (1000 * 60 * 60 * 24),
+          (deadline.getTime() - referenceNow.getTime()) / (1000 * 60 * 60 * 24),
         );
         if (daysUntil <= 3) return "critical";
         if (daysUntil <= 7) return "high";
@@ -694,10 +724,10 @@ function interpretDossierState(dossier, context) {
     statement: "Dossier Work Mode is active for this dossier.",
     implication:
       urgencyLevel === "critical" || overdueTasks > 0
-        ? `Treat this as ongoing work in phase "${phaseLabel}" with ${urgencyLevel} urgency. I can help draft immediate next-step recommendations grounded in blockers and overdue work, without modifying data.`
+        ? `Ongoing work in phase "${phaseLabel}" with ${urgencyLevel} urgency. Active pressure from blockers or overdue work detected. No data changes without explicit confirmation.`
         : activeTasks > 0
-          ? `Treat this as ongoing work in phase "${phaseLabel}" with ${urgencyLevel} urgency. I can help map near-term next steps around the current active workload, without modifying data.`
-          : `Treat this as ongoing work in phase "${phaseLabel}" with ${urgencyLevel} urgency. I can help draft a practical action plan to move this dossier forward, without modifying data.`,
+          ? `Ongoing work in phase "${phaseLabel}" with ${urgencyLevel} urgency. ${activeTasks} active task(s) in current workload. No data changes without explicit confirmation.`
+          : `Ongoing work in phase "${phaseLabel}" with ${urgencyLevel} urgency. No active tasks yet. No data changes without explicit confirmation.`,
     dataPoints: {
       phase: phaseLabel,
       urgency: urgencyLevel,
@@ -746,9 +776,8 @@ function interpretDossierState(dossier, context) {
     normalizedStatus !== "archived"
   ) {
     const updatedAt = new Date(dossier.updated_at);
-    const now = new Date();
     const daysSinceUpdate = Math.floor(
-      (now - updatedAt) / (1000 * 60 * 60 * 24),
+      (referenceNow - updatedAt) / (1000 * 60 * 60 * 24),
     );
     if (
       daysSinceUpdate > 7 &&
@@ -794,8 +823,7 @@ function interpretDossierState(dossier, context) {
   // Deadline pressure
   if (dossier.next_deadline) {
     const deadline = new Date(dossier.next_deadline);
-    const now = new Date();
-    const daysUntil = Math.ceil((deadline - now) / (1000 * 60 * 60 * 24));
+    const daysUntil = Math.ceil((deadline - referenceNow) / (1000 * 60 * 60 * 24));
     const taskContext =
       activeTasks > 0 ? ` ${activeTasks} task(s) are still open.` : "";
 
@@ -2269,7 +2297,7 @@ function generateFollowUps(
           )
         ) {
           followUps.push({
-            category: "general",
+            category: "guidance",
             priority: 10,
             ...buildFollowUp({
               label: originLabel
@@ -2297,7 +2325,7 @@ function generateFollowUps(
           )
         ) {
           followUps.push({
-            category: "general",
+            category: "guidance",
             priority: 11,
             ...buildFollowUp({
               label: "Retry document summary",
@@ -2321,7 +2349,7 @@ function generateFollowUps(
       const explainIntent = EXPLAIN_INTENT_BY_ENTITY[originType];
       if (explainIntent && !followUps.some((f) => f.intent === explainIntent)) {
         followUps.push({
-          category: "general",
+          category: "guidance",
           priority: 10,
           ...buildFollowUp({
             label: originLabel
@@ -2341,7 +2369,7 @@ function generateFollowUps(
       const readIntent = READ_INTENT_BY_ENTITY[originType];
       if (readIntent && !followUps.some((f) => f.intent === readIntent)) {
         followUps.push({
-          category: "general",
+          category: "guidance",
           priority: 11,
           ...buildFollowUp({
             label: originLabel
@@ -2360,7 +2388,7 @@ function generateFollowUps(
       }
       if (!followUps.some((f) => f.intent === READ_INTENTS.LIST_CLIENTS)) {
         followUps.push({
-          category: "general",
+          category: "guidance",
           priority: 12,
           ...buildFollowUp({
             label: "List clients",
@@ -2377,7 +2405,7 @@ function generateFollowUps(
       }
       if (!followUps.some((f) => f.intent === READ_INTENTS.LIST_DOSSIERS)) {
         followUps.push({
-          category: "general",
+          category: "guidance",
           priority: 13,
           ...buildFollowUp({
             label: "List dossiers",
@@ -2399,7 +2427,22 @@ function generateFollowUps(
   const finalizeFollowUps = () => {
     ensureMinimumFollowUps();
     followUps.sort((a, b) => a.priority - b.priority);
-    return followUps.slice(0, 5).map(serializeFollowUp);
+
+    // Schema safety: filter out any follow-ups with invalid categories
+    // Allowed: urgency, accountability, planning, exploration, summary, selection, search, navigation, guidance
+    const VALID_CATEGORIES = new Set([
+      "urgency", "accountability", "planning", "exploration", "summary",
+      "selection", "search", "navigation", "guidance",
+    ]);
+    const validFollowUps = followUps.filter((f) => {
+      if (!VALID_CATEGORIES.has(f.category)) {
+        console.warn(`[PostReadInterpreter] Dropped follow-up with invalid category: "${f.category}" (label: "${f.label}")`);
+        return false;
+      }
+      return true;
+    });
+
+    return validFollowUps.slice(0, 5).map(serializeFollowUp);
   };
 
   // Parent navigation (if child entity)

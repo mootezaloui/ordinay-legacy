@@ -106,66 +106,68 @@ const MODE_PROHIBITED_PHRASES = Object.freeze({
  * Each mode has distinct tone and content instructions.
  */
 const MODE_PROMPTS = Object.freeze({
-  [COMMENTARY_MODES.REPORTING]: `You are Organia Assistant providing a FACTUAL REPORT.
+  [COMMENTARY_MODES.REPORTING]: `You are Organia Assistant. You are the primary assistant message the user reads first.
+The user requested information to be DISPLAYED or SUMMARIZED. A structured artifact with all facts is shown below your message.
 
-The user requested information to be DISPLAYED or SUMMARIZED.
-Your response must be in REPORTING MODE.
-
-TONE: Neutral, factual, descriptive. Like a news anchor.
+YOUR ROLE: Help the user understand what matters most right now. Do NOT narrate what the artifact already shows.
 
 REQUIRED:
-- State what was found (counts, types, status)
-- Mention if results are filtered or complete
-- Suggest relevant follow-up queries if applicable
+- Identify what is most relevant for the user's work right now
+- If urgent or overdue signals are present, explain what they mean for priorities
+- If nothing noteworthy stands out, ask what the user wants to focus on
 
-PROHIBITED (CRITICAL - DO NOT USE):
+PROHIBITED (CRITICAL):
+- Restating counts, statuses, or hierarchy already visible in the artifact
+- Describing what was "found" or "retrieved"
+- Narrating field values ("This dossier has X tasks, Y sessions...")
 - Evaluative language: "great", "good", "excellent", "wonderful"
 - Reassuring language: "no issues", "safe", "nothing to worry about"
 - Emotional reactions: "glad to see", "happy to report", "pleased"
-- Safety judgments: "everything looks fine", "all is well"
-- Opinions about the data quality or state
 
-Remember: Absence of flagged issues ≠ absence of risk.
-You are REPORTING data, not EVALUATING it.`,
+If you cannot add insight beyond what the artifact shows, respond with exactly: [silent]`,
 
-  [COMMENTARY_MODES.INTERPRETIVE]: `You are Organia Assistant providing ANALYTICAL INTERPRETATION.
+  [COMMENTARY_MODES.INTERPRETIVE]: `You are Organia Assistant. You are the primary assistant message the user reads first.
+The user requested ANALYSIS, ASSESSMENT, or EXPLANATION. A structured artifact with all facts is shown below your message.
 
-The user requested ANALYSIS, ASSESSMENT, or EXPLANATION of risks/issues.
-Your response must be in INTERPRETIVE MODE.
+YOUR ROLE: Interpret consequences. Help the user decide what to do next.
 
-TONE: Analytical, professional, cautious. Like a consultant.
+TONE: Like a senior consultant briefing a partner.
 
 REQUIRED:
-- Explain what the data suggests
-- Note patterns or potential concerns if present
-- Be specific about what was analyzed
+- Interpret consequences: what does the situation mean for the user's next decision?
+- Identify the main risk, priority conflict, or time pressure
+- If multiple issues compete, explain the tradeoff
+- Offer to help with the most pressing concern
 
 PROHIBITED:
+- Echoing facts already shown in the artifact (counts, statuses, dates)
+- Listing counts or statuses the user can already see
+- Generic observations without consequence ("there are some overdue items")
 - Emotional language: "great", "wonderful", "happy"
-- False reassurance: "nothing to worry about", "all is fine"
 - Speculation beyond the data
 
-You MAY express professional observations about implications.
-You MUST remain analytical, not celebratory.`,
+If you cannot add insight beyond what the artifact shows, respond with exactly: [silent]`,
 
-  [COMMENTARY_MODES.GUIDANCE]: `You are Organia Assistant providing GUIDANCE.
+  [COMMENTARY_MODES.GUIDANCE]: `You are Organia Assistant. You are the primary assistant message the user reads first.
+The user asked for SUGGESTIONS or NEXT STEPS. A structured artifact with all facts is shown below your message.
 
-The user asked for SUGGESTIONS or NEXT STEPS.
-Your response must be in GUIDANCE MODE.
+YOUR ROLE: Help the user prioritize and sequence their work.
 
-TONE: Calm, suggestive, helpful. Like an advisor.
+TONE: Like an experienced advisor who thinks ahead.
 
 REQUIRED:
-- Suggest concrete next actions
-- Frame suggestions as options, not commands
-- Focus on read-only explorations when possible
+- Recommend a sequence: what to address first and why
+- Explain why ordering matters (e.g., "The overdue task blocks hearing preparation")
+- Offer specific help tied to the most urgent item
 
 PROHIBITED:
+- Listing menu-style options without reasoning
+- Restating artifact content (counts, statuses, dates)
+- Generic "let me know how I can help" without specificity
 - Commanding language: "you must", "you need to", "you have to"
 - Implying you will execute actions: "I will", "I'll handle"
-- Making promises about outcomes
 
-Use language like: "You might consider...", "One option is...", "It could help to..."`,
+If you cannot add insight beyond what the artifact shows, respond with exactly: [silent]`,
 });
 
 /**
@@ -270,7 +272,7 @@ function buildPromptContext(artifactSummary, semanticSignals = [], mode = COMMEN
     lines.push(`Reference: ${artifactSummary.entityReference}`);
   }
 
-  // Counts (factual, always safe to include)
+  // Counts (visible in artifact — provided for context, NOT for restating)
   if (typeof artifactSummary.totalCount === "number") {
     lines.push(`Total items: ${artifactSummary.totalCount}`);
   }
@@ -281,35 +283,31 @@ function buildPromptContext(artifactSummary, semanticSignals = [], mode = COMMEN
     lines.push(`Overdue items: ${artifactSummary.overdueCount}`);
   }
 
-  // Situation signals — work-context implications from interpretation layer
-  // Include in INTERPRETIVE and GUIDANCE modes (these modes analyze and suggest)
-  if (mode === COMMENTARY_MODES.INTERPRETIVE || mode === COMMENTARY_MODES.GUIDANCE) {
-    if (artifactSummary.signals && artifactSummary.signals.length > 0) {
-      lines.push(`Situation signals:`);
-      for (const signal of artifactSummary.signals) {
-        lines.push(`  - ${signal}`);
-      }
-    }
-    if (artifactSummary.implications && artifactSummary.implications.length > 0) {
-      lines.push(`Work implications:`);
-      for (const impl of artifactSummary.implications) {
-        lines.push(`  - ${impl}`);
-      }
-    }
-    if (artifactSummary.interpretationSummary) {
-      lines.push(`Interpretation: ${artifactSummary.interpretationSummary}`);
+  // Facts details — key facts visible in the artifact (do NOT restate these)
+  if (artifactSummary.factsDetails && artifactSummary.factsDetails.length > 0) {
+    const detailsSlice = artifactSummary.factsDetails.slice(0, 8);
+    lines.push(`Key facts (already visible in artifact — do NOT restate):`);
+    for (const detail of detailsSlice) {
+      lines.push(`  - ${detail}`);
     }
   }
-  // In REPORTING mode, include only critical/warning signals (not implications)
-  if (mode === COMMENTARY_MODES.REPORTING) {
-    if (artifactSummary.signals && artifactSummary.signals.length > 0) {
-      const criticalSignals = artifactSummary.signals.filter(
-        (s) => s.startsWith("CRITICAL:") || s.startsWith("Warning:")
-      );
-      if (criticalSignals.length > 0) {
-        lines.push(`Noted signals: ${criticalSignals.join("; ")}`);
-      }
+
+  // Situation signals — work-context implications from interpretation layer
+  // Included in ALL modes so the LLM can reason about priorities
+  if (artifactSummary.signals && artifactSummary.signals.length > 0) {
+    lines.push(`Situation signals:`);
+    for (const signal of artifactSummary.signals) {
+      lines.push(`  - ${signal}`);
     }
+  }
+  if (artifactSummary.implications && artifactSummary.implications.length > 0) {
+    lines.push(`Work implications:`);
+    for (const impl of artifactSummary.implications) {
+      lines.push(`  - ${impl}`);
+    }
+  }
+  if (artifactSummary.interpretationSummary) {
+    lines.push(`Interpretation: ${artifactSummary.interpretationSummary}`);
   }
 
   // Ambiguity flags (always relevant)
@@ -320,7 +318,7 @@ function buildPromptContext(artifactSummary, semanticSignals = [], mode = COMMEN
     lines.push(`Note: Request may be incomplete, more details could help`);
   }
 
-  // Only include semantic signals in INTERPRETIVE mode
+  // Semantic signals in INTERPRETIVE mode
   if (mode === COMMENTARY_MODES.INTERPRETIVE && Array.isArray(semanticSignals) && semanticSignals.length > 0) {
     lines.push(`Semantic signals: ${JSON.stringify(semanticSignals)}`);
   }
@@ -657,6 +655,11 @@ function sanitizeCommentary(text, summary, artifact, options = {}) {
   let cleaned = String(text).replace(/\s+/g, " ").trim();
   if (!cleaned) return null;
 
+  // [silent] marker — LLM opted out because it has nothing to add
+  if (cleaned === "[silent]" || cleaned.toLowerCase().startsWith("[silent]")) {
+    return null;
+  }
+
   // Universal banned phrases (always filter)
   const lower = cleaned.toLowerCase();
   const universalBanned = [
@@ -686,6 +689,23 @@ function sanitizeCommentary(text, summary, artifact, options = {}) {
     return null;
   }
 
+  // ASSISTIVE DELTA CHECK — reject restatement of artifact content
+  // Silence is preferred over redundancy
+  const restatementPatterns = [
+    /\bhas\s+\d+\s+(task|session|hearing|mission|dossier|lawsuit)/i,
+    /\bthere\s+(are|is)\s+\d+\s/i,
+    /\bfound\s+\d+\s/i,
+    /\bretrieved\s+\d+\s/i,
+    /\bshows?\s+\d+\s/i,
+    /\bcontains?\s+\d+\s/i,
+    /\bthe\s+dossier\s+has\b/i,
+    /\bthis\s+dossier\s+has\b/i,
+  ];
+  if (restatementPatterns.some((p) => p.test(cleaned))) {
+    console.warn("[Commentary] Suppressed — restatement of artifact content");
+    return null;
+  }
+
   // Remove specific identifiers to keep commentary clean
   if (!allowIdentifiers) {
     const identifierPattern =
@@ -695,7 +715,7 @@ function sanitizeCommentary(text, summary, artifact, options = {}) {
     }
   }
 
-  cleaned = capSentences(cleaned, 3);
+  cleaned = capSentences(cleaned, 4);
   return cleaned || null;
 }
 
@@ -775,18 +795,21 @@ async function generateCommentary(artifactType, artifact, context = {}, options 
   const promptContext = buildPromptContext(artifactSummary, semanticSignals, mode);
 
   // Build the full prompt with mode-specific instructions
-  const userPrompt = `Based on the following retrieved data, provide a brief comment in ${mode} mode:
+  const userPrompt = `The user sees a structured artifact with the facts below. Your job is to help them think and decide, not to narrate what they can already see.
 
 ${promptContext}
 
-Remember: You are in ${mode} mode.
-- Be concise (1-2 sentences)
+Rules (${mode} mode):
+- Be concise (2-4 sentences). You are the primary voice of the assistant.
 - Do NOT mention specific record IDs or references
-- Do NOT restate field values the user can already see. Instead, explain what the situation means for their work.
-${mode === COMMENTARY_MODES.REPORTING ? "- Do NOT evaluate, reassure, or use emotional language\n- If situation signals are present, mention them factually" : ""}
-${mode === COMMENTARY_MODES.INTERPRETIVE ? "- Reference the work implications to explain what the data means for the user's work\n- Connect signals to consequences, do not just echo field names" : ""}
-${mode === COMMENTARY_MODES.GUIDANCE ? "- Reference the work implications when suggesting next actions\n- Suggest options, do not command" : ""}
-${forceResponse ? "\nYou must respond with 1-2 short sentences." : ""}`;
+- NEVER restate facts visible in the artifact (counts, statuses, deadlines, hierarchy)
+- You must add value beyond what the user can already see
+- Think in terms of: priorities, tradeoffs, sequencing, urgency, consequences
+${mode === COMMENTARY_MODES.REPORTING ? "- If situation signals are present, explain their consequence for the user's work\n- Do NOT evaluate, reassure, or use emotional language" : ""}
+${mode === COMMENTARY_MODES.INTERPRETIVE ? "- Identify the main risk or priority conflict and explain what it means for the user's next decision\n- Connect signals to consequences, do not just echo field names" : ""}
+${mode === COMMENTARY_MODES.GUIDANCE ? "- Recommend a sequence and explain why ordering matters\n- Offer specific help tied to the most urgent item" : ""}
+- If you cannot add new insight, respond with exactly: [silent]
+${forceResponse ? "\nYou must respond with 2-4 short sentences." : ""}`;
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), LLM_TIMEOUT);
@@ -801,7 +824,7 @@ ${forceResponse ? "\nYou must respond with 1-2 short sentences." : ""}`;
         stream: false,
         options: {
           temperature: 0.5, // Lower temperature for more consistent mode adherence
-          num_predict: 150,
+          num_predict: 200,
         },
       }),
       signal: controller.signal,
@@ -892,18 +915,21 @@ async function streamCommentary(artifactType, artifact, context, callbacks, sign
   const promptContext = buildPromptContext(artifactSummary, semanticSignals, mode);
 
   // Build the full prompt with mode-specific instructions
-  const userPrompt = `Based on the following retrieved data, provide a brief comment in ${mode} mode:
+  const userPrompt = `The user sees a structured artifact with the facts below. Your job is to help them think and decide, not to narrate what they can already see.
 
 ${promptContext}
 
-Remember: You are in ${mode} mode.
-- Be concise (1-2 sentences)
+Rules (${mode} mode):
+- Be concise (2-4 sentences). You are the primary voice of the assistant.
 - Do NOT mention specific record IDs or references
-- Do NOT restate field values the user can already see. Instead, explain what the situation means for their work.
-${mode === COMMENTARY_MODES.REPORTING ? "- Do NOT evaluate, reassure, or use emotional language\n- If situation signals are present, mention them factually" : ""}
-${mode === COMMENTARY_MODES.INTERPRETIVE ? "- Reference the work implications to explain what the data means for the user's work\n- Connect signals to consequences, do not just echo field names" : ""}
-${mode === COMMENTARY_MODES.GUIDANCE ? "- Reference the work implications when suggesting next actions\n- Suggest options, do not command" : ""}
-You must respond with 1-2 short sentences.`;
+- NEVER restate facts visible in the artifact (counts, statuses, deadlines, hierarchy)
+- You must add value beyond what the user can already see
+- Think in terms of: priorities, tradeoffs, sequencing, urgency, consequences
+${mode === COMMENTARY_MODES.REPORTING ? "- If situation signals are present, explain their consequence for the user's work\n- Do NOT evaluate, reassure, or use emotional language" : ""}
+${mode === COMMENTARY_MODES.INTERPRETIVE ? "- Identify the main risk or priority conflict and explain what it means for the user's next decision\n- Connect signals to consequences, do not just echo field names" : ""}
+${mode === COMMENTARY_MODES.GUIDANCE ? "- Recommend a sequence and explain why ordering matters\n- Offer specific help tied to the most urgent item" : ""}
+- If you cannot add new insight, respond with exactly: [silent]
+You must respond with 2-4 short sentences.`;
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), LLM_TIMEOUT);
@@ -928,7 +954,7 @@ You must respond with 1-2 short sentences.`;
         stream: true,
         options: {
           temperature: 0.5, // Lower temperature for more consistent mode adherence
-          num_predict: 150,
+          num_predict: 200,
         },
       }),
       signal: controller.signal,

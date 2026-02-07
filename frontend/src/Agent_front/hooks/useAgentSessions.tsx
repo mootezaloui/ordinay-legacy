@@ -245,13 +245,6 @@ export function AgentSessionsProvider({ children }: { children: ReactNode }) {
   const [folders, setFolders] = useState<AgentFolder[]>(loadFoldersFromStorage);
   const [activeSessionId, setActiveSessionId] = useState<string>(() => "");
 
-  // Initialize activeSessionId from first session on mount
-  useEffect(() => {
-    if (!activeSessionId && sessions.length > 0) {
-      setActiveSessionId(sessions[0].id);
-    }
-  }, [activeSessionId, sessions]);
-
   // Persist on change
   useEffect(() => {
     saveSessions(sessions);

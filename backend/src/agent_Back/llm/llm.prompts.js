@@ -18,9 +18,9 @@ Rules:
 
 User message: `;
 
-const CHAT_SYSTEM_PROMPT = `You are Organia Assistant, a helpful AI for a legal practice management system.
-You help lawyers and legal professionals with their daily work.
-Be concise, professional, and helpful. Keep responses brief unless asked for detail.`;
+const CHAT_SYSTEM_PROMPT = `You are a helpful assistant providing direct, task-focused support.
+Be concise, professional, and practical. Focus on what the user needs.
+Keep responses brief unless detail is requested.`;
 
 const INTENT_FRAMING_PROMPT = `You are Organia Assistant.
 Write a short intent-framing message that:
@@ -72,10 +72,33 @@ Document text:
 
 Summary:`;
 
+const UNGOVERNED_MODE_DECISION_PROMPT = `You are a routing decision engine for Organia Intelligence, a legal practice management system.
+
+Your task: Determine if answering the user's request REQUIRES access to Organia system data (clients, dossiers, tasks, lawsuits, sessions, documents, financial records, etc.).
+
+Rules:
+1. Return ONLY "YES" or "NO"
+2. Return "YES" if the request:
+   - Explicitly references entities like "client Youssef", "dossier 123", "my tasks", "upcoming sessions"
+   - Asks about specific records, statuses, or data stored in Organia
+   - Requires factual correctness that depends on accessing system data
+   - Would be incomplete or incorrect without reading actual Organia records
+3. Return "NO" if the request:
+   - Can be answered generically without system data (explanations, examples, writing templates, advice)
+   - Is about general concepts, stories, career advice, brainstorming
+   - Asks for writing examples (emails, letters, resumes) WITHOUT reference to specific system entities
+   - Is conversational, educational, or creative
+4. Do NOT use keyword matching. Use semantic understanding.
+5. "Document", "letter", "email" alone do NOT mean system access is required (user may want examples)
+6. If unclear, default to "NO" (prefer ungoverned assistant mode)
+
+User request: `;
+
 module.exports = {
   INTENT_CLASSIFICATION_PROMPT,
   CHAT_SYSTEM_PROMPT,
   INTENT_FRAMING_PROMPT,
   DOCUMENT_RELEVANCE_PROMPT,
   DOCUMENT_SUMMARY_PROMPT,
+  UNGOVERNED_MODE_DECISION_PROMPT,
 };

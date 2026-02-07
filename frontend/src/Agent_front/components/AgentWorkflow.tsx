@@ -239,12 +239,12 @@ export function AgentWorkflow({ message, onFollowUpClick, onExampleClick }: Agen
 
     return (
       <div className="space-y-4">
-        {/* Artifact reveal */}
+        {/* Artifact reveal — primary factual output */}
         <div className="artifact-reveal agent-artifact-focus">
           <ArtifactBody message={message} onFollowUpClick={onFollowUpClick} onExampleClick={onExampleClick} />
         </div>
 
-        {/* Conversational commentary — appears AFTER artifact, BEFORE follow-ups */}
+        {/* Assistive reasoning — appears AFTER the artifact it references */}
         {safeCommentary && (
           <CommentaryBubble commentary={safeCommentary} />
         )}
@@ -264,7 +264,7 @@ export function AgentWorkflow({ message, onFollowUpClick, onExampleClick }: Agen
     <div className="space-y-4">
       <ArtifactBody message={message} onFollowUpClick={onFollowUpClick} onExampleClick={onExampleClick} />
 
-      {/* Conversational commentary — appears AFTER artifact, BEFORE follow-ups */}
+      {/* Assistive reasoning — appears AFTER the artifact it references */}
       {safeCommentary && (
         <CommentaryBubble commentary={safeCommentary} />
       )}

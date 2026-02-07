@@ -277,7 +277,6 @@ export interface RiskItem {
   severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
   category: string;
   description: string;
-  recommendation?: string;
 }
 
 // Risk analysis output

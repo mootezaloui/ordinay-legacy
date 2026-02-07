@@ -28,6 +28,15 @@ const {
   _buildReadExplanation,
 } = require("./read/read.meta");
 
+function isWorkSnapshotRefreshRequest(message) {
+  const normalized = String(message || "").toLowerCase();
+  if (!normalized) return false;
+  if (/\b(refresh|reload)\b/i.test(normalized)) return true;
+  return /\bupdate\b\s+(?:the\s+)?(?:snapshot|work\s+snapshot|dossier\s+snapshot|dossier|work\s+mode)\b/i.test(
+    normalized,
+  );
+}
+
 async function _executeReadIntent(
   readIntent,
   message,
@@ -43,9 +52,22 @@ async function _executeReadIntent(
   } = readIntent;
   const now = new Date();
   const scope = String(context?.scope || "").toLowerCase();
+  const storedConversationContext =
+    context && this.contextStore?.get ? this.contextStore.get(context) : null;
+  const activeWorkSnapshot = storedConversationContext?.workSnapshot || null;
+  const normalizedFilters =
+    filters && typeof filters === "object" ? { ...filters } : {};
+  const snapshotRefreshRequested =
+    Boolean(normalizedFilters._snapshotRefresh) ||
+    isWorkSnapshotRefreshRequest(message);
+  if (Object.prototype.hasOwnProperty.call(normalizedFilters, "_snapshotRefresh")) {
+    delete normalizedFilters._snapshotRefresh;
+  }
 
   const aggregateFilters =
-    filters && typeof filters === "object" ? filters : {};
+    normalizedFilters && typeof normalizedFilters === "object"
+      ? normalizedFilters
+      : {};
   const shouldAggregateSummary =
     aggregateSummary && String(intent || "").startsWith("SUMMARIZE_");
 
@@ -159,8 +181,8 @@ async function _executeReadIntent(
     context,
     policy,
     scope,
-    entityHints,
-    filters,
+    entityHints: Array.isArray(entityHints) ? [...entityHints] : [],
+    filters: normalizedFilters,
     aggregateFilters,
     shouldAggregateSummary,
     now,
@@ -180,6 +202,9 @@ async function _executeReadIntent(
     ...summaryHelpers,
     appendDocumentDetails,
     safeReadSummaryTool,
+    workSnapshot: activeWorkSnapshot,
+    snapshotRefreshRequested,
+    workSnapshotEvent: null,
   };
 
   state.applyClientDossierSummary = (summaryData) =>
@@ -188,6 +213,26 @@ async function _executeReadIntent(
     summaryHelpers.applyDossierWorkSummary(state, summaryData);
   state.applyAggregateResult = (aggregateResult) =>
     summaryHelpers.applyAggregateResult(state, aggregateResult);
+  state.setWorkSnapshotEvent = (event) => {
+    state.workSnapshotEvent = event;
+  };
+
+  if (
+    snapshotRefreshRequested &&
+    state.workSnapshot &&
+    state.workSnapshot.entityType === "dossier" &&
+    state.intent === READ_INTENTS.LIST_DOSSIERS &&
+    (!Array.isArray(state.entityHints) || state.entityHints.length === 0)
+  ) {
+    state.intent = READ_INTENTS.READ_DOSSIER;
+    state.entityHints = [
+      {
+        type: "id",
+        value: state.workSnapshot.entityId,
+        entityType: "dossier",
+      },
+    ];
+  }
 
   try {
     const normalizedMessage = String(message || "").toLowerCase();
@@ -318,7 +363,7 @@ async function _executeReadIntent(
       await dispatchReadIntent(state);
     }
 
-    const entityType = this._resolveReadEntityType(intent);
+    const entityType = this._resolveReadEntityType(state.intent);
     const readOutcome = this._inferReadOutcome({
       data: state.data,
       summary: state.summary,
@@ -331,9 +376,18 @@ async function _executeReadIntent(
       readOutcome,
       context,
     );
-    const baseInterpretationContext = state.childSummary
-      ? { ...(context || {}), childSummary: state.childSummary }
-      : context;
+    const effectiveWorkSnapshot =
+      state.workSnapshotEvent?.snapshot || state.workSnapshot || null;
+    const baseInterpretationContext = {
+      ...(context || {}),
+      ...(state.childSummary ? { childSummary: state.childSummary } : {}),
+      ...(effectiveWorkSnapshot ? { workSnapshot: effectiveWorkSnapshot } : {}),
+    };
+    if (state.workSnapshotEvent?.action === "refresh") {
+      baseInterpretationContext._workSnapshotRefreshed = true;
+      baseInterpretationContext._workSnapshotRefreshReason =
+        state.workSnapshotEvent.reason || "refresh";
+    }
     const interpretationContext = this._buildReadInterpretationContext(
       baseInterpretationContext,
       {
@@ -349,15 +403,15 @@ async function _executeReadIntent(
       },
     );
     if (
-      (intent === READ_INTENTS.WEB_SEARCH ||
-        intent === READ_INTENTS.DEEP_SEARCH) &&
-      typeof filters?.query === "string" &&
-      filters.query.trim()
+      (state.intent === READ_INTENTS.WEB_SEARCH ||
+        state.intent === READ_INTENTS.DEEP_SEARCH) &&
+      typeof normalizedFilters?.query === "string" &&
+      normalizedFilters.query.trim()
     ) {
-      interpretationContext._searchQuery = filters.query.trim();
+      interpretationContext._searchQuery = normalizedFilters.query.trim();
     }
     const explanationOutput = this._buildReadExplanation({
-      intent,
+      intent: state.intent,
       entityType,
       entityData: state.data,
       summary: state.summary,
@@ -380,16 +434,17 @@ async function _executeReadIntent(
       readMeta,
       readOutcome,
       contextPromotion,
+      workSnapshotEvent: state.workSnapshotEvent,
     };
   } catch (err) {
     this.ledger.record({
       type: "read_intent_error",
-      intent,
+      intent: state.intent || intent,
       error: err.message,
       timestamp: new Date().toISOString(),
     });
 
-    const entityType = this._resolveReadEntityType(intent);
+    const entityType = this._resolveReadEntityType(state.intent || intent);
     const readOutcome = "error";
     const readMeta = this._buildReadMeta(entityType, null);
     const contextPromotion = this._deriveContextPromotion(
@@ -397,9 +452,13 @@ async function _executeReadIntent(
       readOutcome,
       context,
     );
-    const baseInterpretationContext = state.childSummary
-      ? { ...(context || {}), childSummary: state.childSummary }
-      : context;
+    const effectiveWorkSnapshot =
+      state.workSnapshotEvent?.snapshot || state.workSnapshot || null;
+    const baseInterpretationContext = {
+      ...(context || {}),
+      ...(state.childSummary ? { childSummary: state.childSummary } : {}),
+      ...(effectiveWorkSnapshot ? { workSnapshot: effectiveWorkSnapshot } : {}),
+    };
     const interpretationContext = this._buildReadInterpretationContext(
       baseInterpretationContext,
       {
@@ -418,7 +477,7 @@ async function _executeReadIntent(
       },
     );
     const explanationOutput = this._buildReadExplanation({
-      intent,
+      intent: state.intent || intent,
       entityType,
       entityData: null,
       summary: `Unable to retrieve data: ${err.message}`,
@@ -441,6 +500,7 @@ async function _executeReadIntent(
       readMeta,
       readOutcome,
       contextPromotion,
+      workSnapshotEvent: state.workSnapshotEvent,
     };
   }
 }

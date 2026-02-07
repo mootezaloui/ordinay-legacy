@@ -365,10 +365,6 @@ class RuleReasoner extends BaseReasoner {
       overallAssessment:
         "Operational risks identified; requires manual validation.",
       risks,
-      recommendations: [
-        "Assign accountable owner for each risk and capture acceptance or mitigation.",
-        "Schedule follow-up review to confirm mitigations are applied.",
-      ],
       timestamp,
       source: "rule-based",
       status: "draft",

@@ -6,6 +6,7 @@ const {
   detectReadIntent,
   detectFollowUp,
   isSlashCommand,
+  READ_INTENTS,
 } = require("../intent.classifier");
 const { CONTEXT_SOURCES } = require("../context/conversation.context");
 const { INTENTS } = require("../intents");
@@ -21,6 +22,49 @@ const {
   resolveEntityDisplayLabel,
   formatEntityTypeLabel,
 } = require("../utils/entityDisplay");
+const {
+  decideUngoverned,
+  generateChatResponse,
+} = require("../llm/llm.client");
+
+function isWorkSnapshotRefreshRequest(message) {
+  const normalized = String(message || "").toLowerCase();
+  if (!normalized) return false;
+  if (/\b(refresh|reload)\b/i.test(normalized)) return true;
+  return /\bupdate\b\s+(?:the\s+)?(?:snapshot|work\s+snapshot|dossier\s+snapshot|dossier|work\s+mode)\b/i.test(
+    normalized,
+  );
+}
+
+function buildWorkSnapshotRefreshReadIntent(message, context, contextStore) {
+  if (!isWorkSnapshotRefreshRequest(message)) return null;
+  const storedContext =
+    context && contextStore && typeof contextStore.get === "function"
+      ? contextStore.get(context)
+      : null;
+  const workSnapshot = storedContext?.workSnapshot || null;
+  if (
+    !workSnapshot ||
+    String(workSnapshot.entityType || "").toLowerCase() !== "dossier" ||
+    !workSnapshot.entityId
+  ) {
+    return null;
+  }
+
+  return {
+    intent: READ_INTENTS.READ_DOSSIER,
+    requiresLocalData: true,
+    allowedTools: ["getDossier", "getDossierByReference"],
+    entityHints: [
+      {
+        type: "id",
+        value: workSnapshot.entityId,
+        entityType: "dossier",
+      },
+    ],
+    filters: { _snapshotRefresh: true },
+  };
+}
 
 async function processUIRequest(uiRequest) {
   // STEP 1: Validate and create AgentRequest
@@ -133,6 +177,7 @@ async function run({
   reasoner: preferredReasoner,
   followUpIntent,
   documentContext,
+  posture,
 } = {}) {
   const hasFollowUpIntent = Boolean(followUpIntent);
   const normalizedMessage =
@@ -160,6 +205,7 @@ async function run({
     activeEntity: context?.activeEntity || null,
     dataAccess: context?.dataAccess || null,
     documentContext: documentContext || null,
+    posture: posture || null,
     request: {
       message: normalizedMessage,
       agentVersion: policy.version,
@@ -190,6 +236,7 @@ async function run({
       normalizedMessage,
       result,
       CONTEXT_SOURCES.FOLLOW_UP,
+      engineContext.posture,
     );
     return result;
   }
@@ -210,9 +257,55 @@ async function run({
       normalizedMessage,
       result,
       CONTEXT_SOURCES.SLASH_COMMAND,
+      engineContext.posture,
     );
     return result;
   }
+
+  // ========== UNGOVERNED MODE DECISION (FIRST-STAGE GATE) ==========
+  // CRITICAL: This MUST run BEFORE any intent detection, read gates, or follow-up detection
+  // Determine if request requires Organia system data or can be answered generically
+  const ungoverned = await decideUngoverned(normalizedMessage);
+  if (!ungoverned.requiresOrganiaData) {
+    engineContext.intent = INTENTS.GENERAL_CHAT;
+    this.ledger.record({
+      type: "ungoverned_mode_triggered",
+      message: normalizedMessage,
+      timestamp: new Date().toISOString(),
+    });
+
+    console.log("[Ungoverned Mode] Generating LLM response for:", normalizedMessage.slice(0, 50));
+
+    const chatResponse = await generateChatResponse(normalizedMessage);
+
+    if (!chatResponse) {
+      console.warn("[Ungoverned Mode] LLM response generation failed, using fallback");
+    } else {
+      console.log("[Ungoverned Mode] LLM response generated, length:", chatResponse.length);
+    }
+
+    const chatOutput = {
+      type: "chat",
+      message: chatResponse || "I'm here to help! I can assist with writing examples, explanations, advice, and answering general questions. What would you like to know?",
+      timestamp: new Date().toISOString(),
+      source: "ungoverned",
+    };
+
+    this.ledger.record({
+      type: "ungoverned_response_generated",
+      messageLength: chatOutput.message.length,
+      usedFallback: !chatResponse,
+      timestamp: new Date().toISOString(),
+    });
+
+    return {
+      intent: INTENTS.GENERAL_CHAT,
+      agentVersion: policy.version,
+      reasoner: "ungoverned",
+      output: chatOutput,
+    };
+  }
+  // ========== END UNGOVERNED MODE DECISION ==========
 
   // ========== FOLLOW-UP INTENT GATE ==========
   // Detect follow-up messages BEFORE regular intent classification
@@ -238,7 +331,14 @@ async function run({
 
   // ========== READ INTENT GATE ==========
   // Rule-based detection BEFORE LLM - ensures data questions always access local data
-  const readIntent = detectReadIntent(normalizedMessage, context);
+  let readIntent = detectReadIntent(normalizedMessage, context);
+  if (!readIntent) {
+    readIntent = buildWorkSnapshotRefreshReadIntent(
+      normalizedMessage,
+      context,
+      this.contextStore,
+    );
+  }
   if (
     readIntent &&
     readIntent.requiresLocalData &&
@@ -265,6 +365,7 @@ async function run({
       normalizedMessage,
       readResult,
       CONTEXT_SOURCES.READ_INTENT,
+      engineContext.posture,
     );
     return readResult;
   }
@@ -456,6 +557,67 @@ async function run({
   const executionResult = await this._executePlan(plan, policy, engineContext);
 
   if (executionResult.hasFailed && !executionResult.lastOutput) {
+    // ========== DOWNGRADE TO UNGOVERNED MODE ==========
+    // If governed mode fails, attempt to answer generically via ungoverned mode
+    console.log("[Downgrade] Governed mode failed, attempting ungoverned response");
+    this.ledger.record({
+      type: "governed_mode_failed_downgrading",
+      intent,
+      errors: executionResult.stepResults.filter((s) => s.error).map((s) => s.error),
+      timestamp: new Date().toISOString(),
+    });
+
+    try {
+      const chatResponse = await generateChatResponse(normalizedMessage);
+
+      if (chatResponse) {
+        console.log("[Downgrade] Successfully generated ungoverned response");
+        const downgradedOutput = {
+          type: "chat",
+          message: chatResponse,
+          timestamp: new Date().toISOString(),
+          source: "downgraded-ungoverned",
+        };
+
+        this.ledger.record({
+          type: "downgrade_successful",
+          originalIntent: intent,
+          timestamp: new Date().toISOString(),
+        });
+
+        return {
+          intent: INTENTS.GENERAL_CHAT,
+          agentVersion: policy.version,
+          reasoner: "downgraded-ungoverned",
+          output: downgradedOutput,
+        };
+      } else {
+        console.warn("[Downgrade] LLM response failed, using fallback");
+        const fallbackOutput = {
+          type: "chat",
+          message: "I understand you're asking about this topic. While I don't have access to specific system data at the moment, I'm happy to provide general guidance. Could you rephrase your question or provide more context?",
+          timestamp: new Date().toISOString(),
+          source: "downgraded-ungoverned-fallback",
+        };
+
+        this.ledger.record({
+          type: "downgrade_used_fallback",
+          originalIntent: intent,
+          timestamp: new Date().toISOString(),
+        });
+
+        return {
+          intent: INTENTS.GENERAL_CHAT,
+          agentVersion: policy.version,
+          reasoner: "downgraded-ungoverned",
+          output: fallbackOutput,
+        };
+      }
+    } catch (downgradeError) {
+      console.warn("[Downgrade] Failed to generate ungoverned response:", downgradeError);
+    }
+    // ========== END DOWNGRADE ==========
+
     const error = new Error(
       `Plan execution failed: ${executionResult.stepResults
         .filter((s) => s.error)
@@ -471,7 +633,7 @@ async function run({
   // ═══ EXPLANATION PHASE ═══
   engineContext.executionExplanation = this._buildExecutionExplanation(plan);
 
-  this._validateAgainstSchema(intent, response);
+  this._validateAgainstSchema(intent, response, engineContext.posture);
 
   const schemaKey = this._schemaKeyForIntent(intent);
   const reasoner = this._resolveReasoner(policy, preferredReasoner);
