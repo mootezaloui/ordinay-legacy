@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { collectIconActions } from "./cardUtils";
 import CardActionMenu from "./CardActionMenu";
 
@@ -14,7 +15,7 @@ const getEmphasisClass = (emphasis) => {
   }
 };
 
-export default function EntityCard({
+const EntityCard = memo(function EntityCard({
   cells = [],
   onClick,
   emphasis = "normal",
@@ -108,4 +109,6 @@ export default function EntityCard({
       )}
     </div>
   );
-}
+});
+
+export default EntityCard;

@@ -14,10 +14,11 @@
  * - 'archived': Cancelled/very old items (very reduced opacity, italic)
  */
 
+import { memo } from "react";
 import { buildCardCellsFromChildren, collectIconActions } from "./cardUtils";
 import CardActionMenu from "./CardActionMenu";
 
-export default function TableRow({
+const TableRow = memo(function TableRow({
   children,
   onClick,
   hoverable = true,
@@ -130,4 +131,6 @@ export default function TableRow({
       </tr>
     </>
   );
-}
+});
+
+export default TableRow;

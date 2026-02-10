@@ -3,6 +3,7 @@ import {
   useState,
   useEffect,
   useCallback,
+  useRef,
   createContext,
   useContext,
   ReactNode,
@@ -245,13 +246,28 @@ export function AgentSessionsProvider({ children }: { children: ReactNode }) {
   const [folders, setFolders] = useState<AgentFolder[]>(loadFoldersFromStorage);
   const [activeSessionId, setActiveSessionId] = useState<string>(() => "");
 
-  // Persist on change
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const foldersTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Persist on change (debounced to 1 save per second)
   useEffect(() => {
-    saveSessions(sessions);
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      saveSessions(sessions);
+    }, 1000);
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    };
   }, [sessions]);
 
   useEffect(() => {
-    saveFolders(folders);
+    if (foldersTimerRef.current) clearTimeout(foldersTimerRef.current);
+    foldersTimerRef.current = setTimeout(() => {
+      saveFolders(folders);
+    }, 1000);
+    return () => {
+      if (foldersTimerRef.current) clearTimeout(foldersTimerRef.current);
+    };
   }, [folders]);
 
   const activeSession = sessions.find((s) => s.id === activeSessionId);

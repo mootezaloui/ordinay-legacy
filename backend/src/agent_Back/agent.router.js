@@ -534,14 +534,21 @@ async function sendCommentaryIfNeeded(
 ) {
   if (aborted) return;
 
-  // Skip commentary for chat outputs (already conversational)
+  // COMMENTARY IS MANDATORY FOR ALL INTERACTIONS
+  // Only skip for chat (already conversational)
   const artifactType = result?.output?.type;
-  if (!artifactType || artifactType === "chat" || artifactType === "clarification") return;
+  if (!artifactType || artifactType === "chat") return;
 
   const resultCount =
     typeof result?.readMeta?.count === "number"
       ? result.readMeta.count
       : undefined;
+
+  // NEW: Get conversation history for LLM injection (length-based compaction support)
+  const llmContext =
+    typeof agentEngine.contextStore?.getContextForLLMInjection === "function"
+      ? agentEngine.contextStore.getContextForLLMInjection(context)
+      : {};
 
   // CRITICAL: Include intent for commentary mode derivation
   // The commentary generator uses intent to determine REPORTING vs INTERPRETIVE vs GUIDANCE mode
@@ -576,6 +583,12 @@ async function sendCommentaryIfNeeded(
       result?.output?.entityType === "dossier" &&
       typeof resultCount === "number" &&
       resultCount > 0,
+    // NEW: Inject conversation history for context-aware commentary
+    recentTurns: llmContext.recentTurns || [],
+    compactionSummary: llmContext.compactionSummary || null,
+    activeEntity: llmContext.activeEntity || null,
+    workMode: llmContext.workMode || null,
+    posture: llmContext.posture || null,
   };
 
   console.log("[Commentary] Intent for mode derivation:", result?.intent);
@@ -700,12 +713,10 @@ function getLifecycleStatusAction(contextLifecycle) {
 function shouldSendIntentFraming(result, requestContext, framingPayload) {
   if (!framingPayload) return false;
 
+  // INTENT FRAMING IS MANDATORY FOR ALL INTERACTIONS
+  // Only suppress for explicitly conversational types (chat is already conversational)
   const outputType = String(result?.output?.type || "").toLowerCase();
-  if (outputType === "chat" || outputType === "clarification") {
-    return false;
-  }
-
-  if (requestContext?._hasDocumentContext) {
+  if (outputType === "chat") {
     return false;
   }
 
@@ -754,6 +765,129 @@ router.post("/agent/run", async (req, res, next) => {
       status: "ok",
       data: contextLifecycle ? { ...result, contextLifecycle } : result,
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * POST /agent/edit - Edit the last user message
+ *
+ * Creates a new version and marks the old one as superseded
+ * Invalidates any downstream agent responses
+ * Frontend should re-call /agent/stream after edit
+ */
+router.post("/agent/edit", async (req, res, next) => {
+  const { message, sessionId, userId } = req.body || {};
+
+  // Validation
+  if (!message || typeof message !== 'string' || message.trim().length === 0) {
+    return res.status(400).json({
+      status: 'error',
+      error: 'MESSAGE_REQUIRED',
+      message: 'Message is required',
+    });
+  }
+
+  if (!sessionId) {
+    return res.status(400).json({
+      status: 'error',
+      error: 'SESSION_REQUIRED',
+      message: 'Session ID is required',
+    });
+  }
+
+  try {
+    // Use sessionId as conversationId (same pattern as /agent/stream and /agent/message)
+    const conversationId = sessionId || `conv:${userId || 'default'}:GLOBAL`;
+
+    // Get the last user turn from transcript store
+    let lastUserTurn = agentEngine.contextStore._transcriptStore.getLastUserTurn(conversationId);
+
+    // If no turn exists (e.g., after app restart), accept the edit anyway
+    // Frontend has persistent conversation state in localStorage, backend doesn't
+    // This is a temporary solution until transcript is persisted to database
+    if (!lastUserTurn) {
+      console.log('[Edit] No turn found in transcript (likely after restart), creating synthetic turn');
+
+      // Create a synthetic turn representing the original message
+      // We don't know the original message text, but we accept the edit request
+      // The frontend will handle showing the edited state correctly
+      lastUserTurn = agentEngine.contextStore._transcriptStore.addTurn(conversationId, userId || 'default', {
+        userMessage: message.trim(),  // Use the edited message as if it was the original
+        agentIntent: null,
+        agentOutput: null,
+      });
+
+      // Return success without creating an edit chain (no previousVersion)
+      // This allows editing to work after reload
+      return res.json({
+        status: 'ok',
+        editedTurn: {
+          turnId: lastUserTurn.turnId,
+          message: lastUserTurn.userMessage,
+          editedAt: null,  // Not an edit, just a sync
+          previousVersion: null,
+        },
+        originalTurn: null,
+      });
+    }
+
+    // Edit the turn (normal flow when turn exists)
+    const { editedTurn, originalTurn } = agentEngine.contextStore._transcriptStore.editLastUserTurn(
+      conversationId,
+      userId || 'default',
+      message.trim()
+    );
+
+    // TODO: Cancel any pending proposals associated with the original turn
+    // This would require tracking proposals by turnId
+
+    console.log('[Edit] Message edited:', {
+      originalTurnId: originalTurn.turnId,
+      editedTurnId: editedTurn.turnId,
+      sessionId,
+    });
+
+    return res.json({
+      status: 'ok',
+      editedTurn: {
+        turnId: editedTurn.turnId,
+        message: editedTurn.userMessage,
+        editedAt: editedTurn.editedAt,
+        previousVersion: editedTurn.previousVersion,
+      },
+      originalTurn: {
+        turnId: originalTurn.turnId,
+        message: originalTurn.userMessage,
+      },
+    });
+  } catch (err) {
+    console.error('[Edit] Error editing message:', err);
+    return res.status(500).json({
+      status: 'error',
+      error: 'EDIT_FAILED',
+      message: err.message || 'Failed to edit message',
+    });
+  }
+});
+
+/**
+ * POST /agent/confirm - Confirm and execute a proposal (V3 only)
+ *
+ * Validates posture, snapshot, permissions, then executes action
+ */
+router.post("/agent/confirm", async (req, res, next) => {
+  const { proposalId, sessionId } = req.body || {};
+
+  try {
+    const result = await agentEngine.confirmProposal({
+      proposalId,
+      sessionId,
+      userId: req.user?.id,
+    });
+
+    res.json({ status: "ok", data: result });
   } catch (err) {
     next(err);
   }
@@ -875,14 +1009,23 @@ router.post("/agent/stream", async (req, res) => {
   };
 
   try {
+    // Add user message to transcript immediately (before processing)
+    // This ensures the message is available for editing even while processing
+    if (effectiveMessage && requestContext && !followUpIntent) {
+      const conversationId = requestContext.conversationId || sessionId;
+      const userId = requestContext.userId || 'default';
+      if (conversationId && agentEngine.contextStore?._transcriptStore) {
+        agentEngine.contextStore._transcriptStore.updateOrAddTurn(conversationId, userId, {
+          userMessage: effectiveMessage,
+          agentIntent: null,  // Will be filled in during processing
+          agentOutput: null,   // Will be filled in during processing
+        });
+      }
+    }
+
     trackingSendEvent("start", {
       intent: "PENDING",
       agentVersion,
-    });
-
-    trackingSendEvent("status", {
-      action: getStatusAction(null, "classifying"),
-      phase: "classifying",
     });
 
     const unifiedResult = await agentEngine.run({
@@ -1195,12 +1338,6 @@ router.post("/agent/stream", async (req, res) => {
       res.end();
       return;
     }
-
-    // Status: classifying (before LLM intent classification)
-    trackingSendEvent("status", {
-      action: getStatusAction(null, "classifying"),
-      phase: "classifying",
-    });
 
     // Classify intent for non-command, non-data messages
     const intent = await classifyIntent(message, requestContext);

@@ -8,6 +8,7 @@ import { ExplanationArtifact } from "./artifacts/ExplanationArtifact";
 import { RiskArtifact } from "./artifacts/RiskArtifact";
 import { DraftArtifact } from "./artifacts/DraftArtifact";
 import { ActionArtifact } from "./artifacts/ActionArtifact";
+import { ProposalArtifact } from "./artifacts/ProposalArtifact";
 import { ChatArtifact } from "./artifacts/ChatArtifact";
 import { ErrorArtifact } from "./artifacts/ErrorArtifact";
 import { ClarificationArtifact } from "./artifacts/ClarificationArtifact";
@@ -45,7 +46,7 @@ type Phase =
 
 // How long the working phase must be visible (ms)
 // so the user always perceives the agent doing work.
-const MIN_WORKING_DURATION = 900;
+const MIN_WORKING_DURATION = 150;
 
 // How long the reveal animation takes before we consider it "complete"
 const REVEAL_DURATION = 400;
@@ -339,63 +340,34 @@ function WorkingPhase({
   resultArrived: boolean;
   onCancel?: () => void;
 }) {
-  // Track which stage we're on (0-4)
-  const [activeStage, setActiveStage] = useState(0);
-  // Track stage progress percentages
-  const [stageProgress, setStageProgress] = useState<number[]>([0, 0, 0, 0, 0]);
   // Expanded details panel
   const [showDetails, setShowDetails] = useState(false);
+  const [, forceUpdate] = useState({});
+  const mountTimeRef = useRef(Date.now());
 
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const progressRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  // Progress through stages
+  // Force one re-render per second for smooth visual feedback (instead of 10+/sec)
   useEffect(() => {
-    // Advance stage every 600ms
-    intervalRef.current = setInterval(() => {
-      setActiveStage((prev) => {
-        if (prev >= PIPELINE_STAGES.length - 1) {
-          if (intervalRef.current) clearInterval(intervalRef.current);
-          return prev;
-        }
-        return prev + 1;
-      });
-    }, 600);
-
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, []);
-
-  // Animate progress bars
-  useEffect(() => {
-    progressRef.current = setInterval(() => {
-      setStageProgress((prev) => {
-        const next = [...prev];
-        for (let i = 0; i <= activeStage; i++) {
-          if (i < activeStage) {
-            next[i] = 100; // Completed stages
-          } else if (i === activeStage) {
-            // Active stage progresses
-            next[i] = Math.min(next[i] + 8, resultArrived ? 100 : 85);
-          }
-        }
-        return next;
-      });
-    }, 100);
-
-    return () => {
-      if (progressRef.current) clearInterval(progressRef.current);
-    };
-  }, [activeStage, resultArrived]);
-
-  // Fast-forward when result arrives
-  useEffect(() => {
-    if (resultArrived) {
-      setActiveStage(PIPELINE_STAGES.length - 1);
-      setStageProgress([100, 100, 100, 100, 100]);
-    }
+    if (resultArrived) return;
+    const timer = setInterval(() => forceUpdate({}), 1000);
+    return () => clearInterval(timer);
   }, [resultArrived]);
+
+  // Calculate stage and progress based on elapsed time (no state updates in loops)
+  const elapsedMs = Date.now() - mountTimeRef.current;
+  const activeStage = resultArrived
+    ? PIPELINE_STAGES.length - 1
+    : Math.min(PIPELINE_STAGES.length - 1, Math.floor(elapsedMs / 600));
+
+  const stageProgress = resultArrived
+    ? [100, 100, 100, 100, 100]
+    : Array.from({ length: 5 }, (_, i) => {
+        if (i < activeStage) return 100;
+        if (i === activeStage) {
+          const stageElapsed = elapsedMs - i * 600;
+          return Math.min(Math.floor((stageElapsed / 600) * 85), 85);
+        }
+        return 0;
+      });
 
   const acknowledgment = getAcknowledgment(intent);
   const totalProgress = Math.round(stageProgress.reduce((a, b) => a + b, 0) / 5);
@@ -1008,6 +980,24 @@ function ArtifactBody({
   }
   if (dataType === "clarification" && message.data?.clarification) {
     return <ClarificationArtifact data={message.data.clarification} />;
+  }
+  if (dataType === "proposal" && message.data?.proposal) {
+    // V3 execution proposals
+    // TODO: Wire onConfirm and onCancel handlers from parent (useAgentState)
+    // For now, using placeholder handlers
+    return (
+      <ProposalArtifact
+        data={message.data.proposal}
+        onConfirm={async (proposalId) => {
+          console.log("TODO: Confirm proposal", proposalId);
+          // Will be wired in useAgentState to call confirmProposal API
+        }}
+        onCancel={(proposalId) => {
+          console.log("TODO: Cancel proposal", proposalId);
+          // Will be wired in useAgentState to remove from UI
+        }}
+      />
+    );
   }
   if (hasContent) {
     return <ChatArtifact content={message.content} />;

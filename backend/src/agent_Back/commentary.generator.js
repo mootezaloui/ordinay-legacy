@@ -794,8 +794,25 @@ async function generateCommentary(artifactType, artifact, context = {}, options 
   // Build prompt context with mode awareness
   const promptContext = buildPromptContext(artifactSummary, semanticSignals, mode);
 
+  // Build conversation history if available (NEW: length-based compaction support)
+  let conversationHistory = '';
+  if (context.recentTurns && Array.isArray(context.recentTurns) && context.recentTurns.length > 0) {
+    const turnSummaries = context.recentTurns.slice(-3).map((turn, idx) => {
+      const userMsg = turn.userMessage || '[no message]';
+      const intent = turn.agentIntent || '[no intent]';
+      return `Turn ${idx + 1}: User asked "${userMsg.slice(0, 60)}..." → Intent: ${intent}`;
+    }).join('\n');
+    conversationHistory = `\n\nRecent conversation:\n${turnSummaries}`;
+  }
+  if (context.compactionSummary) {
+    conversationHistory += `\n\nPrevious context: ${context.compactionSummary}`;
+  }
+  if (context.activeEntity) {
+    conversationHistory += `\n\nCurrent focus: ${context.activeEntity.type} #${context.activeEntity.id}`;
+  }
+
   // Build the full prompt with mode-specific instructions
-  const userPrompt = `The user sees a structured artifact with the facts below. Your job is to help them think and decide, not to narrate what they can already see.
+  const userPrompt = `The user sees a structured artifact with the facts below. Your job is to help them think and decide, not to narrate what they can already see.${conversationHistory}
 
 ${promptContext}
 
@@ -914,8 +931,25 @@ async function streamCommentary(artifactType, artifact, context, callbacks, sign
   // Build prompt context with mode awareness
   const promptContext = buildPromptContext(artifactSummary, semanticSignals, mode);
 
+  // Build conversation history if available (NEW: length-based compaction support)
+  let conversationHistory = '';
+  if (context.recentTurns && Array.isArray(context.recentTurns) && context.recentTurns.length > 0) {
+    const turnSummaries = context.recentTurns.slice(-3).map((turn, idx) => {
+      const userMsg = turn.userMessage || '[no message]';
+      const intent = turn.agentIntent || '[no intent]';
+      return `Turn ${idx + 1}: User asked "${userMsg.slice(0, 60)}..." → Intent: ${intent}`;
+    }).join('\n');
+    conversationHistory = `\n\nRecent conversation:\n${turnSummaries}`;
+  }
+  if (context.compactionSummary) {
+    conversationHistory += `\n\nPrevious context: ${context.compactionSummary}`;
+  }
+  if (context.activeEntity) {
+    conversationHistory += `\n\nCurrent focus: ${context.activeEntity.type} #${context.activeEntity.id}`;
+  }
+
   // Build the full prompt with mode-specific instructions
-  const userPrompt = `The user sees a structured artifact with the facts below. Your job is to help them think and decide, not to narrate what they can already see.
+  const userPrompt = `The user sees a structured artifact with the facts below. Your job is to help them think and decide, not to narrate what they can already see.${conversationHistory}
 
 ${promptContext}
 

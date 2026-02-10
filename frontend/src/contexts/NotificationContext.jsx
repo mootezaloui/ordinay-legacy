@@ -450,8 +450,8 @@ export function NotificationProvider({ children }) {
     }
   }, [setNotificationsSorted]);
 
-  // Get unread count
-  const unreadCount = notifications.filter(n => !n.read).length;
+  // Get unread count (memoized to prevent recalculation on every render)
+  const unreadCount = useMemo(() => notifications.filter(n => !n.read).length, [notifications]);
 
   // Filter notifications
   const getNotificationsByType = useCallback((type) => {

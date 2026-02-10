@@ -1186,6 +1186,10 @@
   --artifact-accent: rgba(244, 63, 94, 0.8);
 }
 
+.agent-artifact-card.is-proposal {
+  --artifact-accent: rgba(139, 92, 246, 0.8);
+}
+
 .agent-artifact-card.is-error {
   --artifact-accent: rgba(245, 158, 11, 0.9);
   --artifact-bg: rgba(255, 251, 235, 0.9);
@@ -1267,6 +1271,89 @@
 .dark .agent-artifact-header-collection {
   background: linear-gradient(135deg, rgba(109, 40, 217, 0.15) 0%, rgba(139, 92, 246, 0.08) 50%, transparent 100%);
   border-bottom: 1px solid rgba(139, 92, 246, 0.2);
+}
+
+.agent-artifact-header-proposal {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(124, 58, 237, 0.1) 50%, transparent 100%);
+  border-bottom: 1px solid rgba(139, 92, 246, 0.5);
+}
+
+.dark .agent-artifact-header-proposal {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.25) 0%, rgba(124, 58, 237, 0.15) 50%, transparent 100%);
+  border-bottom: 1px solid rgba(139, 92, 246, 0.2);
+}
+
+/* ── Field-Level Diff Rendering (Universal Operations) ── */
+
+.operation-details {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 0.375rem;
+}
+
+.operation-type {
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: var(--artifact-accent);
+}
+
+.field-diff {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0;
+  font-family: 'Courier New', monospace;
+  font-size: 0.875rem;
+}
+
+.field-name {
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
+  min-width: 8rem;
+}
+
+.diff-from {
+  padding: 0.25rem 0.5rem;
+  background: rgba(239, 68, 68, 0.2);
+  border-radius: 0.25rem;
+  text-decoration: line-through;
+}
+
+.diff-arrow {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.diff-to {
+  padding: 0.25rem 0.5rem;
+  background: rgba(34, 197, 94, 0.2);
+  border-radius: 0.25rem;
+  font-weight: 600;
+}
+
+.field-create {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0;
+  font-family: 'Courier New', monospace;
+  font-size: 0.875rem;
+}
+
+.field-create .field-value {
+  padding: 0.25rem 0.5rem;
+  background: rgba(34, 197, 94, 0.2);
+  border-radius: 0.25rem;
+  font-family: 'Courier New', monospace;
+}
+
+.attachment-preview {
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  background: rgba(0, 0, 0, 0.2);
+  border-left: 3px solid var(--artifact-accent);
+  font-style: italic;
+  white-space: pre-wrap;
 }
 
 /* ── Enhanced Icon Containers ── */
@@ -3860,7 +3947,8 @@
   height: 0.375rem;
   border-radius: 9999px;
   background: #6366f1;
-  animation: agent-activity-pulse 1.4s ease-in-out infinite;
+  animation: agent-activity-pulse 2.5s ease-in-out infinite;
+  will-change: opacity, transform;
 }
 
 .agent-activity-dot:nth-child(2) {

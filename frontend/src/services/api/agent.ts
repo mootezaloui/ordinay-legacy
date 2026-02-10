@@ -325,6 +325,49 @@ export interface ActionProposal {
   action: string;
   description: string;
   requiresConfirmation: boolean;
+  // V3 fields
+  version?: string;
+  posture?: string;
+  snapshot?: {
+    scope: string;
+    scopeId: number;
+    timestamp: string;
+    hash: string;
+  };
+  userMessageDraft?: string;
+  confirmation?: {
+    mode: string;
+    expiresAt: string;
+  };
+  sessionId?: string;
+  actionType?: 'CREATE_ENTITY' | 'UPDATE_ENTITY' | 'LINK_ENTITIES' | 'ATTACH_TO_ENTITY' | string;
+  toolCategory?: string;
+  // Universal operation params (V3)
+  params?: {
+    // CREATE_ENTITY
+    entityType?: string;
+    payload?: Record<string, any>;
+
+    // UPDATE_ENTITY
+    entityId?: number;
+    changes?: Record<string, { from: any; to: any }>;
+
+    // LINK_ENTITIES
+    relationType?: string;
+    from?: { type: string; id: number };
+    to?: { type: string; id: number };
+    mode?: 'add' | 'remove';
+
+    // ATTACH_TO_ENTITY
+    target?: { type: string; id: number };
+    attachmentType?: 'note' | 'doc_draft' | 'file_ref';
+
+    // Legacy params (backward compatibility)
+    [key: string]: any;
+  };
+  reversible?: boolean;
+  humanReadableSummary?: string;
+  affectedEntities?: Array<{ type: string; id: number; reference?: string }>;
 }
 
 // Chat output
@@ -365,6 +408,42 @@ export interface CollectionOutput {
   followUps?: FollowUpSuggestion[];
 }
 
+// Proposal output — V3 execution proposals
+export interface ProposalOutput {
+  type: 'proposal';
+  proposals: ActionProposal[];
+  sessionId: string;
+}
+
+// Execution result — V3 execution confirmation result
+export interface ExecutionResult {
+  type: 'execution_result';
+  proposalId: string;
+  status: 'success' | 'failed' | 'snapshot_mismatch';
+  executedActions?: Array<{
+    actionType: string;
+    result: Record<string, unknown>;
+    executedAt: string;
+  }>;
+  error?: {
+    code: string;
+    message: string;
+    safeMessage: string;
+    requiresReproposal: boolean;
+  };
+  audit?: {
+    userId?: number;
+    sessionId?: string;
+    executedAt?: string;
+    snapshotValidation?: {
+      expected: string;
+      actual: string;
+      matched: boolean;
+    };
+  };
+  idempotent?: boolean;
+}
+
 export type AgentOutput =
   | ChatOutput
   | ExplanationOutput
@@ -372,6 +451,7 @@ export type AgentOutput =
   | DraftOutput
   | ClarificationOutput
   | CollectionOutput
+  | ProposalOutput
   | { type: 'action_plan'; actions: ActionProposal[] };
 
 // Agent response from backend
@@ -400,6 +480,7 @@ export interface ProcessedAgentResponse {
   draft?: DraftOutput;
   clarification?: ClarificationOutput;
   collection?: CollectionOutput;
+  proposal?: ProposalOutput;
   actionProposals?: ActionProposal[];
   // Error info
   error?: string;
@@ -485,6 +566,9 @@ export async function sendAgentMessage(
     } else if (output.type === 'collection') {
       processed.collection = output as CollectionOutput;
       processed.displayText = '';
+    } else if (output.type === 'proposal') {
+      processed.proposal = output as ProposalOutput;
+      processed.displayText = '';
     } else if (output.type === 'action_plan') {
       const actionPlan = output as { type: 'action_plan'; actions: ActionProposal[] };
       processed.actionProposals = actionPlan.actions;
@@ -543,6 +627,48 @@ export const INTENT_EXAMPLES: Record<string, string[]> = {
     'Suggest next steps for this lawsuit',
   ],
 };
+
+/**
+ * Confirm and execute a proposal (V3 only)
+ *
+ * Sends confirmation to backend, which validates snapshot, posture, permissions
+ * and executes the action
+ *
+ * @param proposalId - Proposal ID to confirm
+ * @param sessionId - Session ID
+ * @returns ExecutionResult
+ */
+export async function confirmProposal(
+  proposalId: string,
+  sessionId: string
+): Promise<ExecutionResult> {
+  try {
+    const response = await apiClient.post<{ status: string; data: ExecutionResult }>(
+      '/agent/confirm',
+      { proposalId, sessionId }
+    );
+
+    if (response.status !== 'ok' || !response.data) {
+      throw new Error(response.error || 'Confirmation failed');
+    }
+
+    return response.data;
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    // Return a failed ExecutionResult
+    return {
+      type: 'execution_result',
+      proposalId,
+      status: 'failed',
+      error: {
+        code: 'CONFIRMATION_ERROR',
+        message: errorMessage,
+        safeMessage: 'Could not confirm the action. Please try again.',
+        requiresReproposal: false,
+      },
+    };
+  }
+}
 
 // ============================================================================
 // Slash Commands API

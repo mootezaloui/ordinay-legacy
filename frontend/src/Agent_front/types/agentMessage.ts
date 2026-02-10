@@ -7,6 +7,7 @@ import type {
   CommentaryOutput,
   ClarificationOutput,
   CollectionOutput,
+  ProposalOutput,
 } from "../../services/api/agent";
 
 export type AgentMessageRole = "user" | "agent";
@@ -83,12 +84,13 @@ export interface AgentMessage {
 }
 
 export interface AgentMessageData {
-  type: "explanation" | "risks" | "draft" | "actions" | "clarification" | "collection" | "error";
+  type: "explanation" | "risks" | "draft" | "actions" | "clarification" | "collection" | "proposal" | "error";
   explanation?: ExplanationOutput;
   risks?: RiskAnalysisOutput;
   draft?: DraftOutput;
   actionProposals?: ActionProposal[];
   clarification?: ClarificationOutput;
   collection?: CollectionOutput;
+  proposal?: ProposalOutput;
   error?: string;
 }

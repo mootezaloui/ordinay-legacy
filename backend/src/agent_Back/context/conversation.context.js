@@ -3,61 +3,37 @@
 /**
  * Conversation Context Store
  *
- * Engine-owned conversational context for follow-up intent handling.
- * This is NOT LLM memory. This is deterministic state tracking.
+ * ARCHITECTURE CHANGE (2026-02):
+ * - Separated Operational Context (no TTL, persistent) from Transcript (length-based compaction)
+ * - Lawyers work on matters for months/years - agent must NOT forget operational context due to time
+ * - Two distinct concepts:
+ *   1) Operational Work Context: activeEntity, workMode, posture, pendingSelection (NO TTL)
+ *   2) Transcript Context: message history, bounded by length, compacted for LLM injection
  *
- * DESIGN DECISIONS:
+ * OPERATIONAL CONTEXT (managed by OperationalContextStore):
+ * - activeEntity {type, id}: Currently focused entity
+ * - workMode {type, id}: Work mode (e.g., dossier focus)
+ * - posture: Interaction mode (WORK, ASSISTANT, INSPECTION)
+ * - pendingSelection: Unresolved multi-result state
+ * - lastSnapshot: {scope, timestamp, hash} for snapshot validation
+ * - NO TIME-BASED EXPIRATION - only cleared by explicit reset or user actions
  *
- * 1. CONTEXT OBJECT SCHEMA
- *    Fields stored per conversation:
- *    - conversationId: Unique identifier for the conversation session
- *    - lastIntent: The last detected intent (e.g., 'LIST_CLIENTS', 'COMMAND')
- *    - lastEntityType: Entity type from last query ('client', 'dossier', 'task', 'session')
- *    - lastEntityIds: Array of entity IDs from last query result (for filtering)
- *    - lastActionType: Type of action ('list', 'get', 'filter', 'explain')
- *    - lastResultSummary: { count, emptyResult, filters }
- *    - activeEntityType: Promoted entity type used for deterministic follow-ups
- *    - activeEntityId: Promoted entity ID used for deterministic follow-ups
- *    - activeEntitySource: Origin of active entity ('user' | 'follow-up' | 'selection')
- *    - pendingSelection: { entityType, count } when multiple results require user choice
- *    - lastQuery: Original user query (for clarification reference)
- *    - source: How the context was created ('slash_command', 'read_intent', 'nlp')
- *    - updatedAt: ISO timestamp
+ * TRANSCRIPT CONTEXT (managed by TranscriptStore):
+ * - Full conversation transcript for audit
+ * - Length-based compaction when exceeds budget
+ * - Compaction creates: narrativeSummary + structuredSummary + evidenceRefs
+ * - LLM injection: recent turns + compaction summary + operational context
  *
- *    WHY THESE FIELDS:
- *    - lastIntent + lastEntityType: Required to resolve "what about X?" follow-ups
- *    - lastEntityIds: Required to filter subsets ("show inactive ones")
- *    - lastResultSummary: Required to give grounded clarifications on empty results
- *    - lastQuery: Required to reference prior action in clarifications
- *    - source: Required to maintain consistency between slash/NLP paths
- *
- *    INTENTIONALLY EXCLUDED:
- *    - Full chat history: Too complex, not needed for v1 follow-ups
- *    - LLM response content: Not deterministic, not needed
- *    - User preferences: Separate concern, not conversation context
- *
- * 2. VALIDITY RULES
- *    - Time-based: 5 minutes expiration
- *    - WHY 5 MINUTES:
- *      - Long enough for multi-turn professional workflows
- *      - Short enough to prevent stale context confusion
- *      - Matches typical legal professional interaction patterns
- *      - Safe default that can be adjusted based on user feedback
- *
- * 3. RESET RULES (what invalidates context)
- *    - Slash commands: Reset context to new command's domain
- *    - Entity type switch: "list my tasks" after "list my clients" = reset
- *    - Time expiration: Context older than 5 minutes = invalid
- *    - Explicit new query with entity mentions: Starts fresh context
- *    - Screen navigation (scope change): Different contextScope = reset
- *
- *    WHY THESE RULES:
- *    - Deterministic and predictable
- *    - Prevents stale follow-ups
- *    - Matches user mental model of conversation boundaries
+ * LEGACY COMPATIBILITY:
+ * - This class now wraps both stores for backward compatibility
+ * - Old TTL-based fields (lastIntent, lastEntityIds, etc.) kept for transition
+ * - New code should use operational context directly
  */
 
-const CONTEXT_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const OperationalContextStore = require('./operational.context');
+const TranscriptStore = require('./transcript.store');
+
+const CONTEXT_TTL_MS = 5 * 60 * 1000; // DEPRECATED: Only for legacy fields
 
 /**
  * Valid action types for context tracking
@@ -102,6 +78,10 @@ class ConversationContextStore {
     this._contexts = new Map();
     this._lifecycleEvents = new Map();
     this._ttlMs = options.ttlMs || CONTEXT_TTL_MS;
+
+    // New architecture: Separate operational and transcript stores
+    this._operationalStore = new OperationalContextStore();
+    this._transcriptStore = new TranscriptStore();
   }
 
   /**
@@ -158,8 +138,33 @@ class ConversationContextStore {
    */
   get(requestContext) {
     const conversationId = this._getConversationId(requestContext);
-    const context = this._contexts.get(conversationId);
+    const userId = requestContext?.userId || 'default';
 
+    // NEW: Try operational store first (NO TTL CHECK)
+    const operational = this._operationalStore.get(userId, conversationId);
+    if (operational) {
+      // Convert operational context to legacy format for backward compatibility
+      return {
+        conversationId,
+        activeEntityType: operational.activeEntity?.type || null,
+        activeEntityId: operational.activeEntity?.id || null,
+        activeEntitySource: operational.activeEntity?.source || null,
+        workSnapshot: operational.lastSnapshot,
+        pendingSelection: operational.pendingSelection,
+        lastPosture: operational.posture,
+        lastIntent: operational.lastIntent,
+        lastEntityType: operational.lastEntityType,
+        lastEntityIds: operational.lastEntityIds || [],
+        lastActionType: operational.lastActionType || null,
+        lastResultSummary: operational.lastResultSummary || { count: 0, emptyResult: false, filters: {} },
+        lastQuery: operational.lastQuery || '',
+        source: operational.source || 'nlp',
+        updatedAt: operational.updatedAt,
+      };
+    }
+
+    // LEGACY: Fall back to old map-based storage (with TTL validation)
+    const context = this._contexts.get(conversationId);
     if (!context) return null;
     if (!this._isValid(context)) {
       this._contexts.delete(conversationId);
@@ -309,6 +314,46 @@ class ConversationContextStore {
       updatedAt: new Date().toISOString(),
     });
 
+    // NEW: Update operational store (NO TTL)
+    const userId = requestContext?.userId || 'default';
+    this._operationalStore.update(userId, conversationId, {
+      activeEntity: nextActiveEntityType && nextActiveEntityId
+        ? { type: nextActiveEntityType, id: nextActiveEntityId, source: nextActiveEntitySource }
+        : null,
+      workMode: null, // TODO: Extract from actionResult if available
+      posture: posture ? posture.mode : null,
+      pendingSelection: nextPendingSelection,
+      lastSnapshot: nextWorkSnapshot,
+      lastIntent: actionResult.intent,
+      lastEntityType: actionResult.entityType || null,
+      lastEntityIds: Array.isArray(actionResult.entityIds) ? [...actionResult.entityIds] : [],
+      lastActionType: actionResult.actionType || ACTION_TYPES.LIST,
+      lastResultSummary: {
+        count: actionResult.resultSummary?.count ?? 0,
+        emptyResult: actionResult.resultSummary?.emptyResult ?? false,
+        filters: actionResult.resultSummary?.filters ? { ...actionResult.resultSummary.filters } : {},
+      },
+      lastQuery: actionResult.query || '',
+      source: actionResult.source || CONTEXT_SOURCES.NLP,
+    });
+
+    // NEW: Update or add transcript turn
+    // Use updateOrAddTurn to update existing turn (added at start of /agent/stream)
+    // or create new one if doesn't exist (e.g., for non-streaming endpoints)
+    this._transcriptStore.updateOrAddTurn(conversationId, userId, {
+      userMessage: actionResult.query || '',
+      agentIntent: actionResult.intent,
+      agentOutput: actionResult.output || null,
+      artifactType: actionResult.output?.type || null,
+      artifactId: actionResult.output?.entityId || null,
+      entityRefs: Array.isArray(actionResult.entityIds)
+        ? actionResult.entityIds.map(id => ({ type: actionResult.entityType, id }))
+        : [],
+      documentRefs: [],
+      executionRefs: [],
+    });
+
+    // LEGACY: Keep map-based storage for backward compatibility
     this._contexts.set(conversationId, context);
     return context;
   }
@@ -359,8 +404,16 @@ class ConversationContextStore {
    */
   clear(requestContext) {
     const conversationId = this._getConversationId(requestContext);
+    const userId = requestContext?.userId || 'default';
     const hadContext = this._contexts.has(conversationId);
+
+    // NEW: Clear both stores
+    this._operationalStore.clear(userId, conversationId);
+    this._transcriptStore.clear(conversationId);
+
+    // LEGACY: Clear map-based storage
     this._contexts.delete(conversationId);
+
     if (hadContext) {
       this._recordLifecycleEvent(conversationId, {
         type: 'cleared',
@@ -442,6 +495,46 @@ class ConversationContextStore {
     if (!event) return null;
     this._lifecycleEvents.delete(conversationId);
     return { ...event };
+  }
+
+  /**
+   * Get context for LLM injection
+   * Returns: recent turns + compaction summary + operational context
+   * This is used to inject conversation history into LLM prompts
+   *
+   * @param {Object} requestContext - Request context
+   * @returns {Object} Context for LLM injection
+   */
+  getContextForLLMInjection(requestContext) {
+    const conversationId = this._getConversationId(requestContext);
+    const userId = requestContext?.userId || 'default';
+
+    // Get transcript context (recent turns + compaction)
+    const transcriptContext = this._transcriptStore.getContextForInjection(conversationId);
+
+    // Get operational context (persistent work state)
+    const operational = this._operationalStore.get(userId, conversationId);
+
+    return {
+      // Transcript data
+      recentTurns: transcriptContext.recentTurns,
+      compactionSummary: transcriptContext.compactionSummary,
+      structuredSummary: transcriptContext.structuredSummary,
+      evidenceRefs: transcriptContext.evidenceRefs,
+      hasCompaction: transcriptContext.hasCompaction,
+
+      // Operational context (persistent work state)
+      activeEntity: operational?.activeEntity || null,
+      workMode: operational?.workMode || null,
+      posture: operational?.posture || null,
+      pendingSelection: operational?.pendingSelection || null,
+      lastSnapshot: operational?.lastSnapshot || null,
+
+      // Legacy fields for backward compatibility
+      lastIntent: operational?.lastIntent || null,
+      lastEntityType: operational?.lastEntityType || null,
+      lastQuery: operational?.lastQuery || '',
+    };
   }
 }
 

@@ -26,13 +26,15 @@ import type {
 import { MarkdownOutput } from "../../components/MarkdownOutput";
 import { useAgentSessions } from "../hooks/useAgentSessions";
 import { useAgentState } from "../hooks/useAgentState";
+import { getApiBase, isElectron, getBackendConfig } from "../../lib/apiConfig";
 
 interface AgentMessageProps {
   message: AgentMessageType;
   getRelativeTime: (timestamp: Date) => string;
+  isLastUserMessage?: boolean;
 }
 
-export function AgentMessage({ message, getRelativeTime }: AgentMessageProps) {
+export function AgentMessage({ message, getRelativeTime, isLastUserMessage = false }: AgentMessageProps) {
   const isUser = message.role === "user";
   const isStreaming = message.status === "sending";
   const isError = message.status === "error";
@@ -61,8 +63,8 @@ export function AgentMessage({ message, getRelativeTime }: AgentMessageProps) {
   // Access session update functions and global streaming state
   const { updateSessionMessages, activeSession, activeSessionId } =
     useAgentSessions();
-  const { isLoading } = useAgentState();
-  const editingDisabled = isLoading; // disable edits while any response is streaming
+  const { isLoading, startAgentStream } = useAgentState();
+  const editingDisabled = isLoading || !isLastUserMessage; // disable edits while any response is streaming OR if not last user message
 
   useEffect(() => {
     setEditContent(message.content || "");
@@ -80,17 +82,71 @@ export function AgentMessage({ message, getRelativeTime }: AgentMessageProps) {
     setIsEditing(false);
   };
 
-  const saveEdit = () => {
+  const saveEdit = async () => {
     if (!activeSessionId || !activeSession) return;
-    if (editContent === originalContentRef.current) {
+    if (editContent.trim() === originalContentRef.current.trim()) {
       setIsEditing(false);
       return;
     }
-    const updatedMessages = activeSession.messages.map((m) =>
-      m.id === message.id ? { ...m, content: editContent, edited: true } : m,
-    );
-    updateSessionMessages(activeSessionId, updatedMessages);
-    setIsEditing(false);
+
+    try {
+      // Call backend /agent/edit endpoint
+      const backendConfig = getBackendConfig();
+      let result;
+
+      if (isElectron() && backendConfig?.useIPC) {
+        // Use IPC transport
+        const ipcResponse = await window.electronAPI!.apiRequest('POST', '/agent/edit', {
+          message: editContent.trim(),
+          sessionId: activeSessionId,
+          userId: 'default', // TODO: Get from auth context
+        });
+
+        // IPC response format: { status: 200, data: { status: 'ok', ... } }
+        if (ipcResponse.status !== 200 || ipcResponse.data?.status !== 'ok') {
+          console.error('[Edit] Failed to edit message:', ipcResponse);
+          // TODO: Show error to user
+          return;
+        }
+
+        result = ipcResponse.data;
+      } else {
+        // Use HTTP transport
+        const apiBase = getApiBase();
+        const response = await fetch(`${apiBase}/agent/edit`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: editContent.trim(),
+            sessionId: activeSessionId,
+            userId: 'default', // TODO: Get from auth context
+          }),
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          console.error('[Edit] Failed to edit message:', error);
+          // TODO: Show error to user
+          return;
+        }
+
+        result = await response.json();
+      }
+
+      console.log('[Edit] Message edited successfully:', result);
+
+      setIsEditing(false);
+
+      // Trigger new agent stream with edited message
+      // editedMessageId triggers automatic removal of ALL assistant messages after it
+      await startAgentStream(editContent.trim(), {
+        sessionId: activeSessionId,
+        editedMessageId: message.id
+      });
+    } catch (err) {
+      console.error('[Edit] Error editing message:', err);
+      // TODO: Show error to user
+    }
   };
 
   const handleCopy = async () => {
@@ -275,23 +331,25 @@ export function AgentMessage({ message, getRelativeTime }: AgentMessageProps) {
           </div>
 
           {isUser ? (
-            <button
-              type="button"
-              aria-label={
-                editingDisabled
-                  ? "Editing disabled while response is streaming"
-                  : "Edit message"
-              }
-              onClick={startEdit}
-              disabled={editingDisabled || isEditing}
-              className={`p-1 rounded text-slate-500 bg-slate-100 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-slate-300 ${
-                editingDisabled
-                  ? "opacity-40 cursor-not-allowed"
-                  : "opacity-0 group-hover:opacity-100 focus:opacity-100 pointer-events-none group-hover:pointer-events-auto focus:pointer-events-auto"
-              }`}
-            >
-              <Edit2 className="w-4 h-4" />
-            </button>
+            isLastUserMessage && (
+              <button
+                type="button"
+                aria-label={
+                  isLoading
+                    ? "Editing disabled while response is streaming"
+                    : "Edit message"
+                }
+                onClick={startEdit}
+                disabled={editingDisabled || isEditing}
+                className={`p-1 rounded text-slate-500 bg-slate-100 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-slate-300 ${
+                  isLoading
+                    ? "opacity-40 cursor-not-allowed"
+                    : "opacity-0 group-hover:opacity-100 focus:opacity-100 pointer-events-none group-hover:pointer-events-auto focus:pointer-events-auto"
+                }`}
+              >
+                <Edit2 className="w-4 h-4" />
+              </button>
+            )
           ) : (
             <div className="flex items-center gap-2">
               <button

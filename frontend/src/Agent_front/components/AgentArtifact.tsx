@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect, memo } from "react";
 import { Copy, Check, RotateCw } from "lucide-react";
 import { AgentMessage } from "../types/agentMessage";
 import type { FollowUpSuggestion } from "../../services/api/agent";
@@ -20,7 +20,7 @@ interface AgentArtifactProps {
  *
  * This component just adds the shared footer (copy, retry).
  */
-export function AgentArtifact({ message, onFollowUpClick, onExampleClick }: AgentArtifactProps) {
+export const AgentArtifact = memo(function AgentArtifact({ message, onFollowUpClick, onExampleClick }: AgentArtifactProps) {
   const isStreaming = message.status === "sending";
 
   return (
@@ -32,7 +32,7 @@ export function AgentArtifact({ message, onFollowUpClick, onExampleClick }: Agen
       )}
     </div>
   );
-}
+});
 
 /**
  * Shared footer for completed artifacts: copy + retry actions.

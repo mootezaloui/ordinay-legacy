@@ -53,8 +53,12 @@ const draftHearingSummaryTool = require('./draft/draftHearingSummary.tool');
 // RESEARCH tools
 const compileDossierResearchTool = require('./research/compileDossierResearch.tool');
 
-// EXECUTE tools (stubs)
+// EXECUTE tools
 const createTaskTool = require('./execute/createTask.tool');
+const updateTaskTool = require('./execute/updateTask.tool');
+const addNoteTool = require('./execute/addNote.tool');
+const createDocumentDraftTool = require('./execute/createDocumentDraft.tool');
+const updateDocumentMetadataTool = require('./execute/updateDocumentMetadata.tool');
 const scheduleReminderTool = require('./execute/scheduleReminder.tool');
 const prepareClientNotificationTool = require('./execute/prepareClientNotification.tool');
 
@@ -109,8 +113,12 @@ function initializeToolRegistry() {
   // Register RESEARCH tools
   registry.register(compileDossierResearchTool);
 
-  // Register EXECUTE tools (stubs)
+  // Register EXECUTE tools
   registry.register(createTaskTool);
+  registry.register(updateTaskTool);
+  registry.register(addNoteTool);
+  registry.register(createDocumentDraftTool);
+  registry.register(updateDocumentMetadataTool);
   registry.register(scheduleReminderTool);
   registry.register(prepareClientNotificationTool);
 

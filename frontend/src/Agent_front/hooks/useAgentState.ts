@@ -672,6 +672,9 @@ export function useAgentState() {
           } else if (output.type === "collection") {
             agentData = { type: "collection", collection: output as CollectionOutput };
             streamedContent = "";
+          } else if (output.type === "proposal") {
+            agentData = { type: "proposal", proposal: output };
+            streamedContent = "";
           } else if (output.type === "action_plan") {
             agentData = { type: "actions", actionProposals: output.actions };
             streamedContent = "";
@@ -1012,6 +1015,9 @@ export function useAgentState() {
           } else if (output.type === "collection") {
             agentData = { type: "collection", collection: output as CollectionOutput };
             streamedContent = "";
+          } else if (output.type === "proposal") {
+            agentData = { type: "proposal", proposal: output };
+            streamedContent = "";
           } else if (output.type === "action_plan") {
             agentData = { type: "actions", actionProposals: output.actions };
             streamedContent = "";
@@ -1179,15 +1185,45 @@ export function useAgentState() {
   // Start a stream for a given user message content (used for Retry/Regenerate actions)
   const startAgentStream = useCallback((
     userContent: string,
-    opts?: { retryOf?: string; sourceUserId?: string; followUpIntent?: FollowUpIntent }
+    opts?: {
+      retryOf?: string;
+      sourceUserId?: string;
+      followUpIntent?: FollowUpIntent;
+      sessionId?: string;
+      replaceMessageId?: string;  // ID of assistant message to replace (for edits)
+      editedMessageId?: string;   // ID of user message to update (for edits)
+    }
   ) => {
     if (!userContent || !activeSessionId || isLoading || streamRegistry.isStreaming) return;
 
-    // ========== STAGE 1: IMMEDIATE ACKNOWLEDGEMENT (EPHEMERAL) ==========
+    // ========== STAGE 1: ATOMIC MESSAGE UPDATE FOR EDITS ==========
     const agentMessageId = `a-${Date.now()}`;
     const intentMessageId = `i-${Date.now()}`;
     const baseMessages = [...(activeSession?.messages || [])];
-    let workingMessages = [...baseMessages];
+
+    // ATOMIC UPDATE: Remove ALL old assistant messages AND update user message (if edit)
+    let workingMessages = baseMessages;
+
+    // If this is an edit, remove ALL assistant/agent messages after the edited user message
+    if (opts?.editedMessageId) {
+      const editedMsgIndex = workingMessages.findIndex(m => m.id === opts.editedMessageId);
+      if (editedMsgIndex !== -1) {
+        // Remove all assistant/agent messages after the edited user message
+        workingMessages = workingMessages.filter((m, idx) => {
+          if (idx <= editedMsgIndex) return true;
+          // Remove all agent/assistant messages until we hit another user message
+          if (m.role === 'agent' || m.role === 'assistant') return false;
+          return true;
+        });
+      }
+      // Update user message content and mark as edited
+      workingMessages = workingMessages.map(m =>
+        m.id === opts.editedMessageId
+          ? { ...m, content: userContent.trim(), edited: true }
+          : m
+      );
+    }
+
     updateSessionMessages(activeSessionId, workingMessages);
     safeSetIsLoading(true);
     // Show immediate loading indicator while waiting for backend
@@ -1322,6 +1358,9 @@ export function useAgentState() {
             streamedContent = "";
           } else if (output.type === "collection") {
             agentData = { type: "collection", collection: output as CollectionOutput };
+            streamedContent = "";
+          } else if (output.type === "proposal") {
+            agentData = { type: "proposal", proposal: output };
             streamedContent = "";
           } else if (output.type === "action_plan") {
             agentData = { type: "actions", actionProposals: output.actions };

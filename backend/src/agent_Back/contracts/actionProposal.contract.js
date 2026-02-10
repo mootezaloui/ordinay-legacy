@@ -10,6 +10,15 @@
  * In v3: proposals must be explicitly confirmed before execution.
  *
  * NO action may execute without passing through this proposal stage.
+ *
+ * V3 UNIVERSAL ACTION FAMILIES:
+ * - CREATE_ENTITY: Create any entity type (params: { entityType, payload })
+ * - UPDATE_ENTITY: Update any entity with field-level diffs (params: { entityType, entityId, changes })
+ * - LINK_ENTITIES: Change parent-child relationships (params: { relationType, from, to, mode })
+ * - ATTACH_TO_ENTITY: Add notes/documents to any entity (params: { target, attachmentType, payload })
+ *
+ * V3 LEGACY ACTIONS (deprecated, backward compatible):
+ * - CREATE_TASK, UPDATE_TASK, ADD_NOTE, CREATE_DOCUMENT_DRAFT, UPDATE_DOCUMENT_METADATA
  */
 
 /**
@@ -87,6 +96,12 @@ function validateActionStatus(status) {
  * @param {string} proposal.status - Proposal status
  * @param {string} [proposal.blockedReason] - If BLOCKED, the reason
  * @param {Object} [proposal.suggestedAlternative] - If BLOCKED, suggested alternative action
+ * @param {string} [proposal.version] - V3: Agent version
+ * @param {string} [proposal.posture] - V3: Interaction posture (must be WORK for execution)
+ * @param {Object} [proposal.snapshot] - V3: Entity snapshot for validation { scope, scopeId, timestamp, hash }
+ * @param {string} [proposal.userMessageDraft] - V3: Draft message to user
+ * @param {Object} [proposal.confirmation] - V3: Confirmation config { mode, expiresAt }
+ * @param {string} [proposal.sessionId] - V3: Session identifier
  * @returns {Object} Validated action proposal
  * @throws {Error} If validation fails
  */
@@ -102,6 +117,12 @@ function createActionProposal({
   status,
   blockedReason = null,
   suggestedAlternative = null,
+  version = null,
+  posture = null,
+  snapshot = null,
+  userMessageDraft = null,
+  confirmation = null,
+  sessionId = null,
 }) {
   // Validate required fields
   if (!proposalId || typeof proposalId !== 'string') {
@@ -148,7 +169,19 @@ function createActionProposal({
     throw new Error('Execute tools MUST require confirmation');
   }
 
-  return Object.freeze({
+  // V3: Validate posture if provided
+  if (posture && !['WORK', 'ASSISTANT', 'INSPECTION'].includes(posture)) {
+    throw new Error('posture must be one of: WORK, ASSISTANT, INSPECTION');
+  }
+
+  // V3: Validate snapshot if provided
+  if (snapshot) {
+    if (!snapshot.scope || !snapshot.scopeId || !snapshot.timestamp || !snapshot.hash) {
+      throw new Error('snapshot must include: scope, scopeId, timestamp, hash');
+    }
+  }
+
+  const proposal = {
     proposalId,
     actionType,
     toolCategory,
@@ -161,7 +194,17 @@ function createActionProposal({
     blockedReason,
     suggestedAlternative: suggestedAlternative ? Object.freeze(suggestedAlternative) : null,
     proposedAt: new Date().toISOString(),
-  });
+  };
+
+  // V3: Add optional fields if provided
+  if (version) proposal.version = version;
+  if (posture) proposal.posture = posture;
+  if (snapshot) proposal.snapshot = Object.freeze(snapshot);
+  if (userMessageDraft) proposal.userMessageDraft = userMessageDraft;
+  if (confirmation) proposal.confirmation = Object.freeze(confirmation);
+  if (sessionId) proposal.sessionId = sessionId;
+
+  return Object.freeze(proposal);
 }
 
 /**

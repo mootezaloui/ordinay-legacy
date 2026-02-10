@@ -376,7 +376,7 @@ export function DataProvider({ children }) {
   const debouncedSaveToStorage = useCallback((key, value) => {
     if (saveTimersRef.current[key]) clearTimeout(saveTimersRef.current[key]);
     saveTimersRef.current[key] = setTimeout(() => {
-      debouncedSaveToStorage(key, value);
+      saveToStorage(key, value);
       delete saveTimersRef.current[key];
     }, 1000);
   }, []);
@@ -675,7 +675,7 @@ export function DataProvider({ children }) {
 
     setClients((prev) => {
       const next = [...prev, adaptedWithTimeline];
-      debouncedSaveToStorage("clients", next);
+      saveToStorage("clients", next);
       return next;
     });
 
@@ -741,7 +741,7 @@ export function DataProvider({ children }) {
           : client.timeline;
         return { ...adapted, timeline };
       });
-      debouncedSaveToStorage("clients", next);
+      saveToStorage("clients", next);
       return next;
     });
     logUpdateHistory("client", prev, updates, actorName);
@@ -770,7 +770,7 @@ export function DataProvider({ children }) {
 
     setClients((prev) => {
       const next = prev.filter((client) => client.id !== id);
-      debouncedSaveToStorage("clients", next);
+      saveToStorage("clients", next);
       return next;
     });
 
@@ -813,7 +813,7 @@ export function DataProvider({ children }) {
 
       setClients((prev) => {
         const next = prev.filter((client) => client.id !== id);
-        debouncedSaveToStorage("clients", next);
+        saveToStorage("clients", next);
         return next;
       });
 
@@ -867,7 +867,7 @@ export function DataProvider({ children }) {
 
     setDossiers((prev) => {
       const next = [...prev, adapted];
-      debouncedSaveToStorage("dossiers", next);
+      saveToStorage("dossiers", next);
       return next;
     });
 
@@ -966,7 +966,7 @@ export function DataProvider({ children }) {
       const next = prev.map((dossier) =>
         dossier.id === id ? adapted : dossier
       );
-      debouncedSaveToStorage("dossiers", next);
+      saveToStorage("dossiers", next);
       return next;
     });
     logUpdateHistory("dossier", prev, updates, actorName);
@@ -995,7 +995,7 @@ export function DataProvider({ children }) {
 
     setDossiers((prev) => {
       const next = prev.filter((dossier) => dossier.id !== id);
-      debouncedSaveToStorage("dossiers", next);
+      saveToStorage("dossiers", next);
       return next;
     });
 
@@ -1065,7 +1065,7 @@ export function DataProvider({ children }) {
 
       setDossiers((prev) => {
         const next = prev.filter((dossier) => dossier.id !== id);
-        debouncedSaveToStorage("dossiers", next);
+        saveToStorage("dossiers", next);
         return next;
       });
 
@@ -1131,7 +1131,7 @@ export function DataProvider({ children }) {
 
     setLawsuits((prev) => {
       const next = [...prev, adapted];
-      debouncedSaveToStorage("lawsuits", next);
+      saveToStorage("lawsuits", next);
       if (adapted.dossierId) {
         const title = adapted.title || "";
         const reference = adapted.lawsuitNumber || "";
@@ -1250,7 +1250,7 @@ export function DataProvider({ children }) {
       const next = prev.map((lawsuitItem) =>
         lawsuitItem.id === id ? adapted : lawsuitItem
       );
-      debouncedSaveToStorage("lawsuits", next);
+      saveToStorage("lawsuits", next);
       return next;
     });
     logUpdateHistory("lawsuit", prev, updates, actorName);
@@ -1296,7 +1296,7 @@ export function DataProvider({ children }) {
 
     setLawsuits((prev) => {
       const next = prev.filter((lawsuitItem) => lawsuitItem.id !== id);
-      debouncedSaveToStorage("lawsuits", next);
+      saveToStorage("lawsuits", next);
       return next;
     });
 
@@ -1347,7 +1347,7 @@ export function DataProvider({ children }) {
 
       setLawsuits((prev) => {
         const next = prev.filter((lawsuitItem) => lawsuitItem.id !== id);
-        debouncedSaveToStorage("lawsuits", next);
+        saveToStorage("lawsuits", next);
         return next;
       });
 
@@ -1448,7 +1448,7 @@ export function DataProvider({ children }) {
 
     setSessions((prev) => {
       const next = [...prev, adapted];
-      debouncedSaveToStorage("sessions", next);
+      saveToStorage("sessions", next);
       return next;
     });
 
@@ -1565,7 +1565,7 @@ export function DataProvider({ children }) {
       const next = prev.map((session) =>
         session.id === id ? adapted : session
       );
-      debouncedSaveToStorage("sessions", next);
+      saveToStorage("sessions", next);
       return next;
     });
     logUpdateHistory("session", prev, updates, actorName);
@@ -1633,7 +1633,7 @@ export function DataProvider({ children }) {
 
     setSessions((prev) => {
       const next = prev.filter((session) => session.id !== id);
-      debouncedSaveToStorage("sessions", next);
+      saveToStorage("sessions", next);
       return next;
     });
 
@@ -1704,7 +1704,7 @@ export function DataProvider({ children }) {
 
     setTasks((prev) => {
       const next = [...prev, adapted];
-      debouncedSaveToStorage("tasks", next);
+      saveToStorage("tasks", next);
       return next;
     });
 
@@ -1780,7 +1780,7 @@ export function DataProvider({ children }) {
       const next = prev.map((task) =>
         task.id === id ? adapted : task
       );
-      debouncedSaveToStorage("tasks", next);
+      saveToStorage("tasks", next);
       return next;
     });
     logUpdateHistory("task", prev, updates, actorName);
@@ -1848,7 +1848,7 @@ export function DataProvider({ children }) {
 
     setTasks((prev) => {
       const next = prev.filter((task) => task.id !== id);
-      debouncedSaveToStorage("tasks", next);
+      saveToStorage("tasks", next);
       return next;
     });
 
@@ -1972,7 +1972,7 @@ export function DataProvider({ children }) {
 
     setPersonalTasks((prev) => {
       const next = [...prev, adapted];
-      debouncedSaveToStorage("personalTasks", next);
+      saveToStorage("personalTasks", next);
       return next;
     });
 
@@ -2085,7 +2085,7 @@ export function DataProvider({ children }) {
       const next = prev.map((task) =>
         task.id === id ? adapted : task
       );
-      debouncedSaveToStorage("personalTasks", next);
+      saveToStorage("personalTasks", next);
       return next;
     });
     logUpdateHistory("personalTask", prev, updates, actorName);
@@ -2111,7 +2111,7 @@ export function DataProvider({ children }) {
 
     setPersonalTasks((prev) => {
       const next = prev.filter((task) => task.id !== id);
-      debouncedSaveToStorage("personalTasks", next);
+      saveToStorage("personalTasks", next);
       return next;
     });
 
@@ -2165,7 +2165,7 @@ export function DataProvider({ children }) {
 
     setOfficers((prev) => {
       const next = [...prev, adapted];
-      debouncedSaveToStorage("officers", next);
+      saveToStorage("officers", next);
       return next;
     });
 
@@ -2244,7 +2244,7 @@ export function DataProvider({ children }) {
       const next = prev.map((officer) =>
         officer.id === id ? adapted : officer
       );
-      debouncedSaveToStorage("officers", next);
+      saveToStorage("officers", next);
       return next;
     });
     logUpdateHistory("officer", prev, updates, actorName);
@@ -2270,7 +2270,7 @@ export function DataProvider({ children }) {
 
     setOfficers((prev) => {
       const next = prev.filter((officer) => officer.id !== id);
-      debouncedSaveToStorage("officers", next);
+      saveToStorage("officers", next);
       return next;
     });
 
@@ -2326,7 +2326,7 @@ export function DataProvider({ children }) {
       // Update frontend state
       setOfficers((prev) => {
         const next = prev.filter((officer) => officer.id !== id);
-        debouncedSaveToStorage("officers", next);
+        saveToStorage("officers", next);
         return next;
       });
 
@@ -2429,7 +2429,7 @@ export function DataProvider({ children }) {
 
     setMissions((prev) => {
       const next = [...prev, adapted];
-      debouncedSaveToStorage("missions", next);
+      saveToStorage("missions", next);
       return next;
     });
 
@@ -2441,7 +2441,7 @@ export function DataProvider({ children }) {
             ? { ...d, missions: [...(d.missions || []), adapted] }
             : d
         );
-        debouncedSaveToStorage("dossiers", next);
+        saveToStorage("dossiers", next);
         return next;
       });
     } else if (adapted.entityType === "lawsuit" && adapted.lawsuitId) {
@@ -2451,7 +2451,7 @@ export function DataProvider({ children }) {
             ? { ...c, missions: [...(c.missions || []), adapted] }
             : c
         );
-        debouncedSaveToStorage("lawsuits", next);
+        saveToStorage("lawsuits", next);
         return next;
       });
     }
@@ -2587,7 +2587,7 @@ export function DataProvider({ children }) {
       const next = prev.map((mission) =>
         mission.id === id ? adapted : mission
       );
-      debouncedSaveToStorage("missions", next);
+      saveToStorage("missions", next);
       return next;
     });
     logUpdateHistory("mission", prev, updates, actorName);
@@ -2674,7 +2674,7 @@ export function DataProvider({ children }) {
       const next = prevMissions.map((mission) =>
         mission.id === id ? adapted : mission
       );
-      debouncedSaveToStorage("missions", next);
+      saveToStorage("missions", next);
       return next;
     });
     logUpdateHistory("mission", prev, updates, actorName);
@@ -2750,7 +2750,7 @@ export function DataProvider({ children }) {
 
     setMissions((prev) => {
       const next = prev.filter((mission) => mission.id !== id);
-      debouncedSaveToStorage("missions", next);
+      saveToStorage("missions", next);
       return next;
     });
 
@@ -2846,7 +2846,7 @@ export function DataProvider({ children }) {
 
       setMissions((prev) => {
         const next = prev.filter((mission) => mission.id !== id);
-        debouncedSaveToStorage("missions", next);
+        saveToStorage("missions", next);
         return next;
       });
 
@@ -3108,7 +3108,7 @@ export function DataProvider({ children }) {
 
     setFinancialEntries((prev) => {
       const next = [...prev, adapted];
-      debouncedSaveToStorage("financialEntries", next);
+      saveToStorage("financialEntries", next);
       return next;
     });
 
@@ -3176,7 +3176,7 @@ export function DataProvider({ children }) {
       const next = prev.map((entry) =>
         entry.id === id ? adapted : entry
       );
-      debouncedSaveToStorage("financialEntries", next);
+      saveToStorage("financialEntries", next);
       return next;
     });
 
@@ -3222,7 +3222,7 @@ export function DataProvider({ children }) {
       const next = prevEntries.map((entry) =>
         entry.id === id ? adapted : entry
       );
-      debouncedSaveToStorage("financialEntries", next);
+      saveToStorage("financialEntries", next);
       return next;
     });
 
@@ -3269,7 +3269,7 @@ export function DataProvider({ children }) {
 
     setFinancialEntries((prev) => {
       const next = prev.filter((entry) => entry.id !== id);
-      debouncedSaveToStorage("financialEntries", next);
+      saveToStorage("financialEntries", next);
       return next;
     });
 

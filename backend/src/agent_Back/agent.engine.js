@@ -36,6 +36,7 @@ const state = require("./engine/state");
 const planner = require("./engine/planner");
 const executor = require("./engine/executor");
 const toolRuntime = require("./engine/toolRuntime");
+const confirmation = require("./engine/confirmation");
 
 class AgentEngine {
   constructor(options = {}) {
@@ -98,6 +99,7 @@ Object.assign(
   planner,
   executor,
   toolRuntime,
+  confirmation,
 );
 
 module.exports = AgentEngine;

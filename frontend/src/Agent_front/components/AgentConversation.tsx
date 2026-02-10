@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, memo } from "react";
 import { AgentMessage as AgentMessageType } from "../types/agentMessage";
 import { UserCommand } from "./UserCommand";
 import { AgentArtifact } from "./AgentArtifact";
@@ -26,7 +26,7 @@ interface AgentConversationProps {
  * The most recent pair is displayed prominently.
  * Previous pairs are collapsed into a compact log, expandable on click.
  */
-export function AgentConversation({
+export const AgentConversation = memo(function AgentConversation({
   messages,
   conversationEndRef,
   getRelativeTime,
@@ -78,39 +78,43 @@ export function AgentConversation({
 
   return (
     <div className="space-y-10">
-      {interactionPairs.map((pair, idx) => (
-        <div
-          key={`${pair.user.id}-${idx}`}
-          className="workspace-current-enter space-y-3"
-        >
-          {(pair.user.content ||
-            (pair.user.attachments && pair.user.attachments.length > 0)) && (
-            <UserCommand
-              message={pair.user}
-              getRelativeTime={getRelativeTime}
-            />
-          )}
+      {interactionPairs.map((pair, idx) => {
+        const isLastPair = idx === interactionPairs.length - 1;
+        return (
+          <div
+            key={`${pair.user.id}-${idx}`}
+            className="workspace-current-enter space-y-3"
+          >
+            {(pair.user.content ||
+              (pair.user.attachments && pair.user.attachments.length > 0)) && (
+              <UserCommand
+                message={pair.user}
+                getRelativeTime={getRelativeTime}
+                isLastUserMessage={isLastPair}
+              />
+            )}
 
-          {pair.agents.length > 0 && (
-            <div className="mt-3 space-y-3">
-              {pair.agents.map((agent) => (
-                <AgentArtifact
-                  key={agent.id}
-                  message={agent}
-                  onFollowUpClick={onFollowUpClick}
-                  onExampleClick={onExampleClick}
-                />
-              ))}
-            </div>
-          )}
+            {pair.agents.length > 0 && (
+              <div className="mt-3 space-y-3">
+                {pair.agents.map((agent) => (
+                  <AgentArtifact
+                    key={agent.id}
+                    message={agent}
+                    onFollowUpClick={onFollowUpClick}
+                    onExampleClick={onExampleClick}
+                  />
+                ))}
+              </div>
+            )}
 
-          {idx < interactionPairs.length - 1 && (
-            <div className="flex items-center justify-center pt-2">
-              <span className="agent-divider" aria-hidden="true" />
-            </div>
-          )}
-        </div>
-      ))}
+            {idx < interactionPairs.length - 1 && (
+              <div className="flex items-center justify-center pt-2">
+                <span className="agent-divider" aria-hidden="true" />
+              </div>
+            )}
+          </div>
+        );
+      })}
 
       {transientStatus && (
         <div className="space-y-2">
@@ -124,4 +128,4 @@ export function AgentConversation({
       <div ref={conversationEndRef} className="h-6" />
     </div>
   );
-}
+});

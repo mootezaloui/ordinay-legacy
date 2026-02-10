@@ -3,25 +3,27 @@ import { Edit2, FileText, Image, Paperclip } from "lucide-react";
 import { useAgentSessions } from "../hooks/useAgentSessions";
 import { useAgentState } from "../hooks/useAgentState";
 import { AgentMessage, MessageAttachment } from "../types/agentMessage";
+import { getApiBase, isElectron, getBackendConfig } from "../../lib/apiConfig";
 
 interface UserCommandProps {
   message: AgentMessage;
   getRelativeTime: (timestamp: Date) => string;
+  isLastUserMessage?: boolean;
 }
 
 /**
  * Renders a user message as a right-aligned chat bubble.
  * Clear, confident, and visually dominant in the flow.
  */
-export function UserCommand({ message, getRelativeTime }: UserCommandProps) {
+export function UserCommand({ message, getRelativeTime, isLastUserMessage = false }: UserCommandProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(message.content || "");
   const originalContentRef = useRef(message.content || "");
 
   const { updateSessionMessages, activeSession, activeSessionId } =
     useAgentSessions();
-  const { isLoading } = useAgentState();
-  const editingDisabled = isLoading;
+  const { isLoading, startAgentStream } = useAgentState();
+  const editingDisabled = isLoading || !isLastUserMessage;
 
   useEffect(() => {
     setEditContent(message.content || "");
@@ -39,17 +41,71 @@ export function UserCommand({ message, getRelativeTime }: UserCommandProps) {
     setIsEditing(false);
   };
 
-  const saveEdit = () => {
+  const saveEdit = async () => {
     if (!activeSessionId || !activeSession) return;
-    if (editContent === originalContentRef.current) {
+    if (editContent.trim() === originalContentRef.current.trim()) {
       setIsEditing(false);
       return;
     }
-    const updatedMessages = activeSession.messages.map((m) =>
-      m.id === message.id ? { ...m, content: editContent, edited: true } : m,
-    );
-    updateSessionMessages(activeSessionId, updatedMessages);
-    setIsEditing(false);
+
+    try {
+      // Call backend /agent/edit endpoint
+      const backendConfig = getBackendConfig();
+      let result;
+
+      if (isElectron() && backendConfig?.useIPC) {
+        // Use IPC transport
+        const ipcResponse = await window.electronAPI!.apiRequest('POST', '/agent/edit', {
+          message: editContent.trim(),
+          sessionId: activeSessionId,
+          userId: 'default', // TODO: Get from auth context
+        });
+
+        // IPC response format: { status: 200, data: { status: 'ok', ... } }
+        if (ipcResponse.status !== 200 || ipcResponse.data?.status !== 'ok') {
+          console.error('[Edit] Failed to edit message:', ipcResponse);
+          // TODO: Show error to user
+          return;
+        }
+
+        result = ipcResponse.data;
+      } else {
+        // Use HTTP transport
+        const apiBase = getApiBase();
+        const response = await fetch(`${apiBase}/agent/edit`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: editContent.trim(),
+            sessionId: activeSessionId,
+            userId: 'default', // TODO: Get from auth context
+          }),
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          console.error('[Edit] Failed to edit message:', error);
+          // TODO: Show error to user
+          return;
+        }
+
+        result = await response.json();
+      }
+
+      console.log('[Edit] Message edited successfully:', result);
+
+      setIsEditing(false);
+
+      // Trigger new agent stream with edited message
+      // editedMessageId triggers automatic removal of ALL assistant messages after it
+      await startAgentStream(editContent.trim(), {
+        sessionId: activeSessionId,
+        editedMessageId: message.id
+      });
+    } catch (err) {
+      console.error('[Edit] Error editing message:', err);
+      // TODO: Show error to user
+    }
   };
 
   if (isEditing) {
@@ -97,19 +153,21 @@ export function UserCommand({ message, getRelativeTime }: UserCommandProps) {
         <div className="mt-2 flex items-center justify-end gap-2 text-[11px] text-slate-400 dark:text-slate-500">
           {message.edited && <span>(edited)</span>}
           <span>{getRelativeTime(message.timestamp)}</span>
-          <button
-            type="button"
-            aria-label={editingDisabled ? "Editing disabled" : "Edit command"}
-            onClick={startEdit}
-            disabled={editingDisabled}
-            className={`p-1 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-white/70 dark:hover:bg-slate-800 transition-colors ${
-              editingDisabled
-                ? "opacity-30 cursor-not-allowed"
-                : "opacity-0 group-hover:opacity-100"
-            }`}
-          >
-            <Edit2 className="w-3 h-3" />
-          </button>
+          {isLastUserMessage && (
+            <button
+              type="button"
+              aria-label={isLoading ? "Editing disabled while loading" : "Edit command"}
+              onClick={startEdit}
+              disabled={editingDisabled}
+              className={`p-1 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-white/70 dark:hover:bg-slate-800 transition-colors ${
+                isLoading
+                  ? "opacity-30 cursor-not-allowed"
+                  : "opacity-0 group-hover:opacity-100"
+              }`}
+            >
+              <Edit2 className="w-3 h-3" />
+            </button>
+          )}
         </div>
       </div>
     </div>
